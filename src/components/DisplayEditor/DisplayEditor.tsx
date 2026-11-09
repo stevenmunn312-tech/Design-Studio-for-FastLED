@@ -1052,7 +1052,7 @@ export default function DisplayEditor() {
                 type="button"
                 onClick={() => { closeDisplayWorkspace(); focusNode(mountedPanel.id) }}
               >
-                {String(mountedPanel.data.label ?? 'Display Panel')}
+                {String(mountedPanel.data.label ?? 'TFT Display')}
               </button>
               <span aria-hidden="true">/</span>
             </>

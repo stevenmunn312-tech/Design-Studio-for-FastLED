@@ -27,7 +27,6 @@ export const PORT_DESCRIPTIONS: Record<string, string> = {
   palette: 'a reusable gradient of colours',
   patternset: 'a collection of saved pattern groups',
   display: 'everything a simple panel shows, in one wire — the source you plug in picks the layout',
-  music: 'a library of analysed music tracks',
   transitionset: 'a curated set of transition styles',
   image: 'an uploaded picture as raw pixel data',
   dmx: 'one live DMX universe of 512 channels',

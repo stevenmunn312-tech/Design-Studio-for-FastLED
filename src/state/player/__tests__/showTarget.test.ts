@@ -61,7 +61,7 @@ describe('resolveShowTarget', () => {
       node('a', 'MatrixOutput'),
     ]
     const edges = [
-      { source: 'lib', target: 'pg', sourceHandle: 'music', targetHandle: 'music' },
+      { source: 'coll', target: 'pg', sourceHandle: 'patternset', targetHandle: 'patternset' },
       // A pattern feeding the same output is somebody else's wire.
       frameEdge('sc', 'a'),
     ]

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useGraphStore, useBoardPartition } from '../../../state/graphStore'
 import { boardHasUsbCdc, boardByFqbn, useUploadStore } from '../../../state/upload/uploadStore'
-import { controllerSettings } from '../../../build/controllerSettings'
+import { controllerSettings, FRAME_RATE, masterBrightnessLevel, masterBrightnessPercent } from '../../../build/controllerSettings'
 import { ledDriverOptionsForBoard } from '../../../build/ledDriverSelection'
 import { LED_DRIVER_AUTO } from '../../../build/ledDrivers'
 import { propertyDescription } from '../../../state/nodeLibrary'
@@ -283,7 +283,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
           <span>
             Master brightness
             <span className={styles.settingValue}>
-              <b>{settings.brightness}</b>
+              <b>{masterBrightnessPercent(settings.brightness)}%</b>
               <button type="button" className={styles.pinButton} tabIndex={-1}
                 aria-label={brightnessPin ? 'Unpin master brightness from Control Deck' : 'Pin master brightness to Control Deck'}
                 title={brightnessPin ? 'Unpin from Control Deck' : 'Pin to Control Deck'}
@@ -292,9 +292,22 @@ export default function BoardNodeBody({ nodeId }: Props) {
               </button>
             </span>
           </span>
-          <EditableRange min={0} max={255} step={1} value={settings.brightness}
+          {/* A percentage, like every fixture's own dimmer; the node keeps FastLED's 0-255. */}
+          <EditableRange min={0} max={100} step={1} value={masterBrightnessPercent(settings.brightness)}
             ariaLabel="Master brightness"
-            onChange={(value) => updateNodeProperty(nodeId, 'brightness', value)} />
+            onChange={(value) => updateNodeProperty(nodeId, 'brightness', masterBrightnessLevel(value))} />
+        </label>
+
+        {/*
+          * The loop's pacing, which the Board help tells the user to set. The
+          * Graph Health repair can only lower it, so without this row nothing
+          * could raise it again.
+          */}
+        <label className={styles.settingField} title={propertyDescription('Board', 'frameRate')}>
+          <span>Frame rate <b>{settings.frameRate} fps</b></span>
+          <EditableRange min={FRAME_RATE.min} max={FRAME_RATE.max} step={1} value={settings.frameRate}
+            ariaLabel="Frame rate"
+            onChange={(value) => updateNodeProperty(nodeId, 'frameRate', value)} />
         </label>
 
         <label className={styles.settingField} title="Global FastLED clockless-chipset timing multiplier">

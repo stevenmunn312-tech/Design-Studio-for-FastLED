@@ -749,7 +749,15 @@ function buildMatrixOutputItems(node: StudioNode, ordinal: number, count: number
   })
 }
 
-function buildStereoVuMeterItems(node: StudioNode, pinUses: HardwarePinUse[]): HardwareManifestItem[] {
+/**
+ * The rails have no cap of their own. FastLED's limit is one global
+ * `setMaxPowerInVoltsAndMilliamps`, the Board's, and it covers every
+ * controller the sketch registers, so each rail is given its share of that
+ * cap by LED count, as an LED output is.
+ */
+function buildStereoVuMeterItems(
+  node: StudioNode, pinUses: HardwarePinUse[], capMaPerLed: number | null,
+): HardwareManifestItem[] {
   const props = node.data.properties as Record<string, unknown>
   const counts = stereoVuRailCounts(props)
   const chipset = String(props.chipset ?? 'WS2812B')
@@ -757,7 +765,6 @@ function buildStereoVuMeterItems(node: StudioNode, pinUses: HardwarePinUse[]): H
   // plus a clock line, so the fixture rows accept the clocked chipsets too.
   const clocked = SPI_CHIPSETS.has(chipset)
   const supported = BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS.has(chipset) || clocked
-  const pairCap = props.powerLimit === true ? Math.max(0, Number(props.milliamps ?? 0)) : null
   return (['left', 'right'] as const).map((side) => {
     const ledCount = counts[side]
     // Data first: the physical diagram draws an output's first pin as its
@@ -785,7 +792,7 @@ function buildStereoVuMeterItems(node: StudioNode, pinUses: HardwarePinUse[]): H
         clocked,
         colorOrder: String(props.colorOrder ?? 'GRB'),
         nominalVoltage: ONE_WIRE_NOMINAL_VOLTAGE,
-        desiredCurrentCapMa: pairCap == null ? null : Math.round(pairCap / 2),
+        desiredCurrentCapMa: capMaPerLed == null ? null : Math.round(capMaPerLed * ledCount),
         pairedFixtureId: node.id,
       },
       reasons: supported
@@ -847,10 +854,19 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
   const settings = controllerSettings(nodes)
   const hasBatteryPack = nodes.some((node) => node.data.nodeType === 'BatteryPack')
+  // Every LED the Board's one global cap is shared across: the LED outputs and
+  // both rails of each Stereo VU Meter.
+  const vuRailPixels = nodes
+    .filter((node) => node.data.nodeType === 'StereoVuMeter')
+    .reduce((sum, node) => {
+      const counts = stereoVuRailCounts(node.data.properties as Record<string, unknown>)
+      return sum + counts.left + counts.right
+    }, 0)
   const totalPixels = matrixOutputs.reduce((sum, node) => {
     const props = node.data.properties as Record<string, unknown>
     return sum + outputLedTotal(props)
-  }, 0)
+  }, 0) + vuRailPixels
+  const capMaPerLed = settings.powerLimit && totalPixels > 0 ? settings.milliamps / totalPixels : null
   /*
    * What the diagram draws, derived rather than listed.
    *
@@ -894,12 +910,12 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           matrixOutputs.findIndex((entry) => entry.id === node.id) + 1,
           matrixOutputs.length,
           pins,
-          settings.powerLimit && totalPixels > 0
-            ? Math.round(settings.milliamps * outputLedTotal(node.data.properties as Record<string, unknown>) / totalPixels)
-            : null,
+          capMaPerLed == null
+            ? null
+            : Math.round(capMaPerLed * outputLedTotal(node.data.properties as Record<string, unknown>)),
         )
       case 'StereoVuMeter':
-        return buildStereoVuMeterItems(node, pins)
+        return buildStereoVuMeterItems(node, pins, capMaPerLed)
       case 'MicInput':
         return buildPeripheralItem(
           node,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { audioOutputMode, audioOutputMissing, audioVolumeStage, boardHasInternalDac, powerAmplifierFeed } from '../audioOutput'
+import { audioOutputMode, audioVolumeStage, boardHasInternalDac, powerAmplifierFeed } from '../audioOutput'
 import type { StudioNode } from '../../graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -42,9 +42,9 @@ describe('audioOutputMode', () => {
   })
 
   it('still reports the internal DAC for an unfed power amp on a board without one', () => {
-    // The mode is what the part needs; whether the board can supply it is
-    // audioOutputMissing's question, and answering 'i2s' here would quietly
-    // generate a sketch the part cannot use.
+    // The mode is what the part needs; validation refuses the build, since
+    // no board's own DAC plays under the pinned audio library, and answering
+    // 'i2s' here would quietly generate a sketch the part cannot use.
     expect(audioOutputMode([power()], S3)).toBe('internalDac')
   })
 
@@ -67,37 +67,6 @@ describe('audioOutputMode', () => {
   })
 })
 
-describe('audioOutputMissing', () => {
-  it('says nothing before a board is chosen', () => {
-    expect(audioOutputMissing([sdCard()], '')).toBe(false)
-  })
-
-  it('says nothing without an SD card, since there is no show to play', () => {
-    expect(audioOutputMissing([], S3)).toBe(false)
-  })
-
-  it('flags an SD show on a DAC-less board with no amplifier', () => {
-    expect(audioOutputMissing([sdCard()], S3)).toBe(true)
-    expect(audioOutputMissing([sdCard()], CLASSIC)).toBe(false)
-  })
-
-  it('flags a power amplifier with no DAC on a board that cannot feed it', () => {
-    const nodes = [sdCard(), power('pam8403-3w-stereo-amplifier')]
-    expect(audioOutputMissing(nodes, S3)).toBe(true)
-    expect(audioOutputMissing(nodes, CLASSIC)).toBe(false)
-  })
-
-  it('accepts a DAC feeding a power amplifier on a board with no DAC', () => {
-    expect(audioOutputMissing([sdCard(), amp('pcm5102a-i2s-dac'), power()], S3)).toBe(false)
-  })
-
-  it('accepts an I2S amplifier on any board', () => {
-    const nodes = [sdCard(), amp('max98357a-i2s-amplifier')]
-    expect(audioOutputMissing(nodes, S3)).toBe(false)
-    expect(audioOutputMissing(nodes, CLASSIC)).toBe(false)
-  })
-})
-
 describe('powerAmplifierFeed', () => {
   it('is null with no power amplifier on the bench', () => {
     expect(powerAmplifierFeed([amp('pcm5102a-i2s-dac')])).toBeNull()
@@ -114,9 +83,11 @@ describe('powerAmplifierFeed', () => {
 
 describe('audioVolumeStage', () => {
   // One volume per build: the stage the board drives.
-  it('is the DAC when one feeds the power amplifier, else the power amplifier', () => {
+  // A power amplifier has no volume of its own: its only feed that the
+  // decoder drives is a DAC, and the internal-DAC feed is refused.
+  it('is the DAC when one feeds the power amplifier, and nothing without one', () => {
     expect(audioVolumeStage([power(), amp('pcm5102a-i2s-dac')])?.data.nodeType).toBe('Amplifier')
-    expect(audioVolumeStage([power()])?.data.nodeType).toBe('PowerAmplifier')
+    expect(audioVolumeStage([power()])).toBeUndefined()
     expect(audioVolumeStage([sdCard()])).toBeUndefined()
   })
 })

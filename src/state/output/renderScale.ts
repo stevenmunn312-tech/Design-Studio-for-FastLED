@@ -1,15 +1,29 @@
 import { outputForm } from './ledOutputForm'
 
-// Render scale: render the graph at half the panel's resolution and upscale
-// bilinearly into the physical LEDs. The counterpart of supersample, which
-// renders larger and averages down; the two are mutually exclusive and
-// supersample wins if a saved node somehow holds both.
+// Render resolution: one choice where there were two switches that greyed
+// each other out. Half renders the graph at half the panel's resolution and
+// upscales bilinearly into the physical LEDs; 2x smooth (supersampling)
+// renders at twice the size and averages each 2 x 2 block down to one LED.
+// One select makes the two exclusive by construction.
 //
 // The preview (`routeFrame`) and the sketch both take their source position
 // from `upscaleTap`, so they sample the same pixels with the same weights.
 
-export const RENDER_SCALE_OPTIONS = ['1', '1/2'] as const
-export type RenderScale = (typeof RENDER_SCALE_OPTIONS)[number]
+export const RENDER_RESOLUTIONS = ['Half', 'Full', '2x smooth'] as const
+export type RenderResolution = (typeof RENDER_RESOLUTIONS)[number]
+export const DEFAULT_RENDER_RESOLUTION: RenderResolution = 'Full'
+
+/** The stored choice, or Full for anything else. */
+export function renderResolution(props: Record<string, unknown> | undefined | null): RenderResolution {
+  const value = props?.renderResolution
+  return (RENDER_RESOLUTIONS as readonly unknown[]).includes(value) ? value as RenderResolution : DEFAULT_RENDER_RESOLUTION
+}
+
+/** The output asks to render at 2x and average down. Each reader still gates
+ *  it by form, since a chain has no 2 x 2 block to average. */
+export function wantsSupersample(props: Record<string, unknown> | undefined | null): boolean {
+  return renderResolution(props) === '2x smooth'
+}
 
 /** Half a panel side, rounded up so an odd panel keeps its last column. */
 export function halfDim(n: number): number {
@@ -20,7 +34,7 @@ export function halfDim(n: number): number {
  *  second axis to save on, and HUB75 does not resample its framebuffer. */
 export function renderScaleHalf(props: Record<string, unknown> | undefined | null): boolean {
   if (!props) return false
-  return outputForm(props) === 'matrix' && props.supersample !== true && props.renderScale === '1/2'
+  return outputForm(props) === 'matrix' && renderResolution(props) === 'Half'
 }
 
 /** Where output index `i` of `dst` reads its source of `src` samples: the two

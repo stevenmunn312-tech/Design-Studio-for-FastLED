@@ -4,6 +4,7 @@ import {
   buildHardwareValidationProfile,
   formatHardwareValidationReport,
   hardwareValidationIssueUrl,
+  suggestedValidationAction,
   type HardwareValidationSubmission,
 } from '../hardwareValidation'
 
@@ -282,10 +283,10 @@ describe('hardware validation profiles', () => {
   it('identifies SD-show and advanced music pipeline gaps and requests SD checks', () => {
     const output = node('matrix', 'MatrixOutput', { ...baselineMatrix.data.properties })
     const performance = node('performance', 'PerformanceGenerator', { useGroupInputs: true })
-    const sd = node('sd', 'SDCard', { sdCsPin: 10, i2sBclk: 26, i2sLrc: 25, i2sDout: 22 })
+    // SD Card is a portless bench part: the show reaches the output on Frame.
+    const sd = node('sd', 'SDCard', { sdCsPin: 10 })
     const edges = [
-      { id: 'a', source: performance.id, target: sd.id, sourceHandle: 'shows', targetHandle: 'shows' },
-      { id: 'b', source: sd.id, target: output.id, sourceHandle: 'sdcard', targetHandle: 'sdcard' },
+      { id: 'a', source: performance.id, target: output.id, sourceHandle: 'frame', targetHandle: 'frame' },
     ] as StudioEdge[]
     const profile = buildHardwareValidationProfile({
       nodes: [output, performance, sd],
@@ -296,6 +297,7 @@ describe('hardware validation profiles', () => {
       runtime: RECORDED_RUNTIME,
     })
 
+    expect(suggestedValidationAction([output, performance, sd], edges)).toBe('sd-show')
     expect(profile.features).toEqual(expect.arrayContaining([
       'Baked song envelopes', 'Group-input modulation', 'SD show provisioning/player',
     ]))

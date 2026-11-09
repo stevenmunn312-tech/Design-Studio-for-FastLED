@@ -93,7 +93,7 @@ import {
   leadingOutputRoutes,
 } from '../state/output/outputRouting'
 import { outputForm, isLinearForm, outputCanvasDims, outputLedTotal } from '../state/output/ledOutputForm'
-import { halfDim, renderScaleHalf } from '../state/output/renderScale'
+import { halfDim, renderScaleHalf, wantsSupersample } from '../state/output/renderScale'
 import { SHAPE_COUNT_MACRO, shapeCountDefineCpp, shapeMapFor, shapeTableCpp, shapeTableName } from './output/shapeMapCpp'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import {
@@ -412,7 +412,7 @@ export function generateCpp(
   const singleCanvas = outputNode ? outputCanvasDims(rawProps(outputNode)) : { width: 16, height: 16 }
   const width      = multipleOutputs ? (nativeMultiRender ? largestRenderPass.width : composition.w) : singleCanvas.width
   const height     = multipleOutputs ? (nativeMultiRender ? largestRenderPass.height : composition.h) : singleCanvas.height
-  const expressionScale = !multipleOutputs && !singleLinear && outputNode && rawProps(outputNode).supersample === true ? 2 : 1
+  const expressionScale = !multipleOutputs && !singleLinear && outputNode && wantsSupersample(rawProps(outputNode)) ? 2 : 1
   // Half-resolution render: the graph runs on a canvas half the panel's size
   // and the blit upscales it (src/state/output/renderScale.ts).
   const rs = !multipleOutputs && !!outputNode && renderScaleHalf(rawProps(outputNode))
@@ -446,7 +446,7 @@ export function generateCpp(
   // output). 2× only for now, matching the preview.
   // A single chain has no 2 x 2 block to average down, whatever a supersample
   // flag left over from an earlier form still says.
-  const supersample = !multipleOutputs && !singleLinear && (outputNode ? props(outputNode).supersample : false) === true ? 2 : 1
+  const supersample = !multipleOutputs && !singleLinear && !!outputNode && wantsSupersample(props(outputNode)) ? 2 : 1
   const ss = supersample > 1
   // Physical strip length + panel width for the XY map (differ from the render
   // NUM_LEDS/WIDTH only when supersampling).

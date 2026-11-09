@@ -51,7 +51,7 @@ function showSketch(role?: Role, show: Record<string, unknown> = {}, patternIds 
   const nodes = [
     board(role),
     node('pc', 'PatternCollection', { patternIds }),
-    node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1, ...show }),
+    node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1, ...show }),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
   ]
   return generateShowSketch(nodes, [edge('pc', 'patternset', 'pm', 'patternset'), edge('pm', 'frame', 'out', 'frame')], groups)
@@ -64,7 +64,7 @@ function pooledShow(role: Role) {
   const nodes = [
     board(role),
     node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
-    node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1 }),
+    node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1 }),
     node('tr', 'TransitionSet', { transitions: ['crossfade', 'wipe'] }),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
   ]
@@ -308,7 +308,7 @@ describe('board clock sync', () => {
     const nodes = [
       board('leader'),
       node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
-      node('pm', 'PatternSlideshow', { interval: 8, transitionSec: 1 }),
+      node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1 }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
       node('rtc', 'RTCInput', { timeSource: 'NTP', wifiHostname: 'led-clock' }),
       node('status', 'InfoDisplay', { partId: 'ssd1306-oled-128x64', sdaPin: 8, sclPin: 9 }),

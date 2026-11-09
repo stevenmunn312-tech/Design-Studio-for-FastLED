@@ -38,19 +38,33 @@ export function bootEntropySetupCpp(body: string): string[] {
 }
 
 /**
+ * setup() lines that fix each random generator `body` calls to `seed`, in
+ * place of the boot entropy: a node's nonzero Seed makes the device replay
+ * the same sequence after every power-up, as the preview does for the same
+ * inputs. Empty when it calls none.
+ */
+export function fixedSeedSetupCpp(body: string, seed: number): string[] {
+  return [
+    ...(FASTLED_RANDOM.test(body) ? [`  random16_set_seed(${seed}u);`] : []),
+    ...(ARDUINO_RANDOM.test(body) ? [`  randomSeed(${seed}u);`] : []),
+  ]
+}
+
+/**
  * A finished sketch with its boot entropy at the top of setup() and the
  * esp_random include above its first include. Unchanged when it calls no
- * random generator. The show generator seeds through `bootEntropySetupCpp`
- * itself, because its show seed replaces the entropy.
+ * random generator. A nonzero `seed` fixes the generators instead, and needs
+ * no include. The show generator seeds through `bootEntropySetupCpp` itself,
+ * because its show seed replaces the entropy.
  */
-export function withBootEntropy(source: string): string {
-  const setup = bootEntropySetupCpp(source)
+export function withBootEntropy(source: string, seed = 0): string {
+  const setup = seed ? fixedSeedSetupCpp(source, seed) : bootEntropySetupCpp(source)
   if (!setup.length) return source
   const lines = source.split('\n')
   const setupAt = lines.findIndex((line) => line === 'void setup() {')
   const includeAt = lines.findIndex((line) => line.startsWith('#include'))
   if (setupAt < 0) return source
   lines.splice(setupAt + 1, 0, ...setup)
-  lines.splice(includeAt < 0 ? 0 : includeAt, 0, ...ESP_RANDOM_INCLUDE_CPP)
+  if (!seed) lines.splice(includeAt < 0 ? 0 : includeAt, 0, ...ESP_RANDOM_INCLUDE_CPP)
   return lines.join('\n')
 }

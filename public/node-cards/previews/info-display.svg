@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1104 42" width="1104" height="42" role="img" aria-label="Evaluated output from the Info Display example graph">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1104 42" width="1104" height="42" role="img" aria-label="Evaluated output from the OLED Display example graph">
 <rect width="1104" height="42" rx="10" fill="#0d0f12"/>
 <defs><g id="lamp-9.00x9.00"><rect x="-3.60" y="-1.98" width="16.20" height="12.96" rx="6.48" fill-opacity="0.34"/><rect width="9.00" height="9.00" rx="1.98"/></g></defs>
 <use href="#lamp-9.00x9.00" x="16.50" y="16.50" fill="rgb(0,159,255)"/>

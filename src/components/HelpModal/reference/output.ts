@@ -12,7 +12,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
     ],
     steps: [
       'Open the Hardware tab and choose your exact board from the shelf.',
-      'Set the master brightness and frame rate. Turn on the power cap and give it your supply’s current if the LEDs could draw more than it can give.',
+      'Set the master brightness and frame rate. Size the power supply from the Required power supply figure, which allows for every LED at full white; turn on the power cap only to limit brightness or heat, never to make a smaller supply do.',
     ],
     propertyNote: 'The power cap dims the LEDs on the board itself; the live preview is not dimmed. PSRAM and serial options are usually best left on Auto.',
     outcome: 'Board changes pin checks, the Build Diagram and the upload, not the pixels.',
@@ -42,10 +42,10 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
     ],
     inputs: {
       frame: 'The picture to show.',
-      controls: 'A Controls bundle: blackout toggle and brightness from Player Controls or a touch screen.',
+      controls: 'A Controls bundle: blackout toggle and brightness from Player Controls or a touch screen. For one or two buttons, wire them straight to the output’s Toggle blackout and Brightness Up/Down inputs; for a whole panel, use Player Controls.',
     },
     outputs: {
-      display: 'This output’s name, on/blackout state and level, for a Segment Display, Info Display or Display Panel.',
+      display: 'This output’s name, on/blackout state and level, for a 7-Segment Display, OLED Display or TFT Display.',
     },
     propertyNote: 'Only the fields for the chosen form and layout are used. Correction, white point and dithering change the LEDs, not the preview. A HUB75 chain of two or more panels is assumed to start top-left and run down each column (zig-zag when Serpentine is on); that order comes from the driver library’s documentation and has not been checked on real multi-panel hardware, so confirm it against the first frame.',
     example: example({
@@ -67,7 +67,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'Stereo VU Meter drives two separate addressable strings as left and right level rails — the classic hi-fi meter — from one Audio wire. It is its own fixture, beside the main LED output rather than part of its frame.',
       'Twelve looks are built in, from the classic ladder and peak caps to comets, centre bursts and beat sparks. It can hold one, cycle on a timer or on beats, or shuffle. Gain, noise gate, response curve, attack, release and peak hold shape how the bars move.',
-      'Mono sources move both rails together; a stereo source such as Line In or the decoder moves them independently. A power cap shared by both rails keeps a loud track from browning out the supply.',
+      'Mono sources move both rails together; a stereo source such as Line In or the decoder moves them independently. The rails share the Board’s power cap with the LED outputs, and the Build Diagram sizes their supply for full white.',
       'Each rail has its own length, so a 40-LED left and a 32-LED right each fill at their own resolution. Clocked chipsets (APA102, HD108, WS2801) take a clock pin per rail beside its data pin. A board can carry several fixtures, each showing the same music on its own pair of rails.',
     ],
     steps: [
@@ -260,6 +260,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
   DFPlayerOutput: {
     overview: [
       'DFPlayer Mini plays numbered MP3 files from its own microSD card: 0001.mp3 upward in the /mp3 folder. Play, Next, Previous, Track and Volume control it, and Playing follows the module’s BUSY pin.',
+      'Play is a level, not a press: the file plays while Play is true and pauses when it falls. To play a short sound from a button, put a One Shot Trigger in front so Play stays true for the length of the sound.',
       'It is a simple way to add sound effects and announcements without an I2S amplifier: Speaker mode drives a small speaker directly, Line Out feeds a power amplifier.',
       'Power it from 5 V and put a 1 kΩ resistor between the controller’s TX and the module’s RX.',
     ],
@@ -280,25 +281,26 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       title: 'A doorbell that chimes and flashes',
       nodes: {
         bell: ['ButtonInput'],
+        ring: ['Trigger', { triggerOp: 'oneShot', holdTime: 3 }],
         chime: ['DFPlayerOutput', { uartRxPin: 16, uartTxPin: 17, busyPin: 27, track: 1, volume: 0.8, audioOutput: 'Speaker' }],
         flash: ['BeatFlash', { decay: 0.9, intensity: 1, palette: 'sunset' }],
         hall: ['Breathe', { palette: 'amethyst', bpm: 8 }],
       },
-      wires: ['bell.pressed > chime.play', 'bell.pressed > flash.beat', 'hall.frame > flash.frame'],
-      explanation: 'Pressing the Button plays file 0001 on the DFPlayer Mini and fires Beat Flash on the LEDs at the same moment, so the doorbell is seen as well as heard.',
+      wires: ['bell.pressed > ring.trigger', 'ring.out > chime.play', 'bell.pressed > flash.beat', 'hall.frame > flash.frame'],
+      explanation: 'A One Shot Trigger turns each press of the Button into three seconds of Play, so file 0001 plays through on the DFPlayer Mini after the button is let go; wired straight to Play, the chime would stop on release. The same press fires Beat Flash on the LEDs, so the doorbell is seen as well as heard.',
       preview: 'The {output} breathes softly in violet. Press the Button node to flash it gold. The browser is silent; on the board the chime plays.',
     }),
   },
 
   InfoDisplay: {
     overview: [
-      'Info Display is a small 128×64 OLED that reports on one source. Wire a Display output in and the source picks the screen: RTC Clock gives a clock, Music Player a now-playing screen, Pattern Slideshow a pattern browser, Power Monitor a meter, and an LED output its status.',
+      'OLED Display is a small 128×64 monochrome screen that reports on one source. Wire a Display output in and the source picks the screen: RTC Clock gives a clock, Music Player a now-playing screen, Pattern Slideshow a pattern browser, Power Monitor a meter, and an LED output its status.',
       'There is no layout to choose. With nothing wired it says it is unwired rather than sitting blank.',
       'Choose the exact SH1106 or SSD1306 module in Hardware. The SH1106 comes in SPI and I2C versions; the SSD1306 uses I2C.',
     ],
     steps: [
       'Add the OLED from Displays on the Hardware shelf and choose its exact module. Set its pins, and its address for I2C.',
-      'Wire the source’s Display output into Info Display.',
+      'Wire the source’s Display output into OLED Display.',
       'Choose the rotation to match how it is mounted.',
     ],
     inputs: {
@@ -315,20 +317,20 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       },
       wires: ['meter.display > screen.display'],
       output: STRIP(60),
-      explanation: 'Power Monitor measures the LED supply, and its Display output gives Info Display everything it needs on one wire: volts, amps and watts. The LED string runs a rainbow as the load being measured.',
-      preview: 'The {output} shows a rainbow, while the Info Display node shows the measured volts, amps and watts.',
+      explanation: 'Power Monitor measures the LED supply, and its Display output gives OLED Display everything it needs on one wire: volts, amps and watts. The LED string runs a rainbow as the load being measured.',
+      preview: 'The {output} shows a rainbow, while the OLED Display node shows the measured volts, amps and watts.',
     }),
   },
 
   TransportDisplay: {
     overview: [
-      'Display Panel is a colour TFT. Wire one Display output in and the source decides the content — a clock, a now-playing screen, show status, LED status or a power meter — while the Layout setting picks how it is drawn.',
+      'TFT Display is a colour screen. Wire one Display output in and the source decides the content — a clock, a now-playing screen, show status, LED status or a power meter — while the Layout setting picks how it is drawn.',
       'For your own screen, choose Create screen design on the panel and draw it with widgets. The design belongs to this panel; it keeps its Display wire for widgets to read, and its controls appear as outputs on the companion Touch Screen node.',
       'Show Status names the pattern a Pattern Slideshow is running and its place in the show, and, like Now Playing, pictures what the LEDs are showing, live and for a collection of any size.',
-      'Choose the 1.54-inch 240×240 ST7789 without touch, or the 2.4-inch 240×320 ST7789V with an XPT2046 touch digitiser. Diagnostics shows a self-test and the touch coordinates.',
+      'Choose the module on the Hardware shelf: the 1.54-inch 240×240 ST7789 without touch; the 2.4-inch 240×320 ST7789V or the 2.8-inch 320×240 ILI9341, each with an XPT2046 touch digitiser; or the XC4630 2.8-inch ILI9341 shield, on an 8-bit parallel bus with a resistive touch sheet. Diagnostics shows a self-test and the touch coordinates.',
     ],
     steps: [
-      'Add Display Panel from Displays on the Hardware shelf. Choose its exact module and wire it, including the touch header if it has one.',
+      'Add TFT Display from Displays on the Hardware shelf. Choose its exact module and wire it, including the touch header if it has one.',
       'Wire a source’s Display output into the panel and choose a layout, or press Create screen design.',
       'For touch, wire the Touch Screen node’s outputs to what they should control, and run Calibrate touch after uploading.',
     ],
@@ -348,7 +350,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
         amp: ['Amplifier'],
       },
       wires: ['patterns.patternset > player.patternset', 'player.display > panel.display'],
-      explanation: 'The Music Player’s Display output carries its whole report — title, artist, elapsed time, the pattern playing — and the Display Panel draws it as the Now Playing screen.',
+      explanation: 'The Music Player’s Display output carries its whole report — title, artist, elapsed time, the pattern playing — and the TFT Display draws it as the Now Playing screen.',
       preview: 'Once the collection holds patterns, the {output} plays them while the panel shows what is playing.',
       workflow: true,
     }),
@@ -357,7 +359,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
   MasterSpeed: {
     overview: [
       'Master Speed scales time for the whole graph: 1 is normal, 2 twice as fast, 0 frozen. Every animated node keeps its own speed, and they all stay in proportion.',
-      'It is a terminal like the LED output: nothing reads it. Wire a knob in for one speed control on the finished build. The Music Player ignores it, because the track’s position is its clock.',
+      'It is a terminal like the LED output: nothing reads it. Wire a knob in for one speed control on the finished build. A Pattern Slideshow honours it too. A music-player build (a Music Player or a Performance Generator show) refuses to upload with it, because the track’s position is its clock and scaling it would slide the LEDs off the music: remove Master Speed first.',
     ],
     example: example({
       featured: 'MasterSpeed',
@@ -376,13 +378,13 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
 
   SegmentDisplay: {
     overview: [
-      'Segment Display is a separate 7-segment readout: a TM1637 with four digits and a colon, or a MAX7219 with eight digits. Wire a Display output in and the source decides the digits.',
+      '7-Segment Display is a separate numeric readout: a TM1637 with four digits and a colon, or a MAX7219 with eight digits. Wire a Display output in and the source decides the digits.',
       'RTC Clock shows the time, Music Player the elapsed time, Pattern Slideshow the pattern number, an LED output its brightness in percent, and Power Monitor the amps (or amps and watts on eight digits). Unwired, it shows dashes.',
     ],
     steps: [
       'Add the module from Displays on the Hardware shelf and choose the TM1637 or the MAX7219.',
       'Wire its pins as shown. The TM1637 is not I2C and cannot share its two pins.',
-      'Wire the source’s Display output into Segment Display.',
+      'Wire the source’s Display output into 7-Segment Display.',
     ],
     inputs: {
       display: DISPLAY_IN,
@@ -398,15 +400,15 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       },
       wires: ['rtc.display > digits.display'],
       output: RING(24),
-      explanation: 'RTC Clock reads a DS3231, and its Display output gives the Segment Display the time over one wire, colon blinking each second. The LED ring glows with a slow sunset plasma beside it.',
-      preview: 'The {output} shows a warm sunset plasma; the Segment Display node shows the time, such as 10:04.',
+      explanation: 'RTC Clock reads a DS3231, and its Display output gives the 7-Segment Display the time over one wire, colon blinking each second. The LED ring glows with a slow sunset plasma beside it.',
+      preview: 'The {output} shows a warm sunset plasma; the 7-Segment Display node shows the time, such as 10:04.',
     }),
   },
 
   Amplifier: {
     overview: [
       'Amplifier names the I2S amplifier or DAC that the music player feeds, and owns its three I2S pins: BCLK, LRC and DIN. The MAX98357A drives a speaker directly; DACs such as the PCM5102A give line level for a separate power amplifier.',
-      'It carries no wires. Without an Amplifier on the bench the player uses its built-in pin defaults. Max Volume is the volume the player starts at.',
+      'It carries no wires. A Music Player or a music show needs one: without an audio stage on the bench the build is refused rather than guessed. Max volume (0–21) is the level at full player volume: the player starts there, and volume controls move below it.',
     ],
     steps: [
       'Add the amplifier from the Hardware tab and choose its exact board.',
@@ -422,7 +424,6 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
         sd: ['SDCard'],
         amp: ['Amplifier'],
       },
-      wires: ['music.music > performance.music'],
       explanation: 'The Amplifier sits on the bench beside the SD Card. The songs come off the card, and the player sends them to whichever amplifier this node names, on the pins it owns.',
       preview: 'The {output} is unchanged; the Amplifier affects how the board plays the songs.',
       workflow: true,
@@ -431,14 +432,14 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
 
   PowerAmplifier: {
     overview: [
-      'Power Amplifier is the analogue amplifier at the end of the audio chain, driving the speakers. A DAC such as the PCM5102A or UDA1334A gives it line level; it needs no GPIO of its own.',
-      'With no DAC on the bench, it takes line level from the classic ESP32’s built-in DAC on GPIO 25 and 26 instead, which no other board has. A 12 V amplifier is drawn on its own supply, never on the controller’s 5 V rail.',
+      'Power Amplifier is the analogue amplifier at the end of the audio chain, driving the speakers. It takes line level from a DAC such as the PCM5102A or UDA1334A, or from a DFPlayer Mini set to Line Out, and needs no GPIO of its own. Add the DAC too: the board cannot feed it on its own.',
+      'A 12 V amplifier is drawn on its own supply, never on the controller’s 5 V rail.',
     ],
     steps: [
       'Add the power amplifier from the Hardware tab.',
       'Wire its line input from the DAC, its supply, and the speakers, as the Build Diagram shows.',
     ],
-    outcome: 'Power Amplifier changes the wiring plan and the player’s audio output mode, not the LED preview.',
+    outcome: 'Power Amplifier changes the wiring plan, not the LED preview.',
     example: example({
       featured: 'PowerAmplifier',
       title: 'Put a power amplifier after the DAC',
@@ -449,7 +450,6 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
         dac: ['Amplifier', { model: 'pcm5102a-i2s-dac' }],
         amp: ['PowerAmplifier', { partId: 'dx-0809-stereo-amplifier' }],
       },
-      wires: ['music.music > performance.music'],
       explanation: 'The PCM5102A Amplifier turns the player’s I2S into line level, and the Power Amplifier takes that line level and drives the speakers. Neither carries wires on the canvas; the Build Diagram draws how they connect.',
       preview: 'The {output} is unchanged; the amplifiers affect the sound and the wiring plan.',
       workflow: true,
@@ -499,7 +499,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       title: 'A 12 V cove light that follows the matrix',
       nodes: {
         hue: ['HueCycle', { rate: 0.05 }],
-        cove: ['AnalogStripOutput', { rPin: 25, gPin: 26, bPin: 27 }],
+        cove: ['AnalogStripOutput', { rPin: 32, gPin: 33, bPin: 27 }],
         fill: ['SolidColor'],
       },
       wires: ['hue.color > cove.color', 'hue.color > fill.color'],

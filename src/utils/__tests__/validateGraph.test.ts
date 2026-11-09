@@ -320,6 +320,19 @@ describe('validateGraph', () => {
     }))
   })
 
+  // SD Card is portless and the LED output has no SD Card input, so a card on
+  // the bench must not turn the fix into wiring an input that does not exist.
+  it('asks for a Frame on an unwired LED output, card on the bench or not', () => {
+    const nodes = [node('sd', 'SDCard'), node('out', 'MatrixOutput', { width: 8, height: 8 })]
+    const issue = buildGraphDiagnostics(nodes, [], { selectedFqbn: 'esp32:esp32:esp32s3' })
+      .find((entry) => entry.id === 'out-input')
+    expect(issue).toMatchObject({
+      severity: 'error',
+      message: 'No Frame signal reaches the output.',
+      fix: 'Connect a pattern’s Frame output to the LED output.',
+    })
+  })
+
   it('targets Group Output while editing a group subgraph', () => {
     const nodes = [node('pattern', 'SolidColor'), node('group-out', 'GroupOutput')]
     const diagnostics = buildGraphDiagnostics(nodes, [edge('e1', 'pattern', 'group-out', 'frame')], { target: 'group' })
@@ -536,9 +549,10 @@ describe('validateGraph', () => {
       .toHaveLength(0)
   })
 
-  it('refuses a power amplifier on a board with no DAC to feed it', () => {
+  it('refuses a power amplifier with no DAC to feed it, on every board', () => {
     // The part is present and still cannot make a sound: it takes line level,
-    // and with no DAC on the bench only the classic ESP32 can produce any.
+    // and the board's own DAC is silent under the pinned audio library, the
+    // classic ESP32's included.
     const show = [
       node('pg', 'PerformanceGenerator'),
       node('sd', 'SDCard'),
@@ -548,9 +562,10 @@ describe('validateGraph', () => {
     const edges = [
       { id: 'e', source: 'pg', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' } as unknown as StudioEdge,
     ]
-    expect(validateGraph(show, edges, 'esp32:esp32:esp32s3').errors
-      .some((e) => e.includes('power amplifier has nothing to feed it'))).toBe(true)
-    expect(validateGraph(show, edges, 'esp32:esp32:esp32').errors).toHaveLength(0)
+    for (const fqbn of ['esp32:esp32:esp32s3', 'esp32:esp32:esp32', '']) {
+      expect(validateGraph(show, edges, fqbn).errors
+        .some((e) => e.includes('This power amplifier needs a DAC')), fqbn).toBe(true)
+    }
     // A DAC in the chain is the fix the message names, and it works on the S3.
     const chained = [...show, node('dac', 'Amplifier', { model: 'pcm5102a-i2s-dac' })]
     expect(validateGraph(chained, edges, 'esp32:esp32:esp32s3').errors).toHaveLength(0)
@@ -695,7 +710,7 @@ describe('validateGraph', () => {
   })
 
   it('blocks HUB75 supersampling', () => {
-    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75', supersample: true })])).toEqual([
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75', renderResolution: '2x smooth' })])).toEqual([
       expect.stringMatching(/doesn't support supersampling/),
     ])
   })
@@ -768,7 +783,6 @@ describe('validateGraph', () => {
       node('out', 'MatrixOutput'),
     ]
     const edges = [
-      { id: 'e1', source: 'lib', target: 'pg', sourceHandle: 'music', targetHandle: 'music' } as unknown as StudioEdge,
       { id: 'e2', source: 'pg', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' } as unknown as StudioEdge,
     ]
     const { errors } = validateGraph(nodes, edges)
@@ -783,12 +797,13 @@ describe('validateGraph', () => {
     // simply stopped after the generator.
     const nodes = [
       node('lib', 'MusicLibrary'),
+      node('coll', 'PatternCollection'),
       node('pg', 'PerformanceGenerator'),
       node('sd', 'SDCard'),
       node('out', 'MatrixOutput'),
     ]
     const edges = [
-      { id: 'e1', source: 'lib', target: 'pg', sourceHandle: 'music', targetHandle: 'music' } as unknown as StudioEdge,
+      { id: 'e1', source: 'coll', target: 'pg', sourceHandle: 'patternset', targetHandle: 'patternset' } as unknown as StudioEdge,
     ]
     const { errors } = validateGraph(nodes, edges)
     expect(errors.some((e) => e.includes('not sending its show anywhere'))).toBe(true)
@@ -946,23 +961,26 @@ describe('validateGraph', () => {
     return n
   }
 
-  it('warns when a Performance Generator has patterns but no music source', () => {
+  // The Music Library is portless: the generator reads the songs from the
+  // store, so there is no wire to be missing.
+  it('does not ask for a music wire on a Performance Generator', () => {
     const nodes = [collection('pc', ['g1']), node('pg', 'PerformanceGenerator'), node('out', 'MatrixOutput')]
     const edges = [edge('e1', 'pc', 'pg', 'patternset')]
     const { warnings } = validateGraph(nodes, edges)
-    expect(warnings.some(w => w.includes('no music source'))).toBe(true)
+    expect(warnings.some(w => w.includes('music source'))).toBe(false)
+    expect(buildGraphDiagnostics(nodes, edges).some((issue) => issue.id === 'pg-music')).toBe(false)
   })
 
   it('warns when the wired Pattern Collection is empty', () => {
     const nodes = [collection('pc', []), node('lib', 'MusicLibrary'), node('pg', 'PerformanceGenerator'), node('out', 'MatrixOutput')]
-    const edges = [edge('e1', 'pc', 'pg', 'patternset'), edge('e2', 'lib', 'pg', 'music')]
+    const edges = [edge('e1', 'pc', 'pg', 'patternset')]
     const { warnings } = validateGraph(nodes, edges)
     expect(warnings.some(w => w.includes('is empty'))).toBe(true)
   })
 
-  it('does not warn when music and a non-empty collection are both wired', () => {
+  it('does not warn when a non-empty collection is wired', () => {
     const nodes = [collection('pc', ['g1']), node('lib', 'MusicLibrary'), node('pg', 'PerformanceGenerator'), node('out', 'MatrixOutput')]
-    const edges = [edge('e1', 'pc', 'pg', 'patternset'), edge('e2', 'lib', 'pg', 'music')]
+    const edges = [edge('e1', 'pc', 'pg', 'patternset')]
     const { warnings } = validateGraph(nodes, edges)
     expect(warnings.some(w => w.includes('no music source') || w.includes('is empty'))).toBe(false)
   })
@@ -2483,7 +2501,6 @@ describe('a sketch holds at most 255 patterns', () => {
       node('out', 'MatrixOutput'),
     ]
     const edges = [
-      { id: 'e1', source: 'lib', target: 'pg', sourceHandle: 'music', targetHandle: 'music' },
       { id: 'e2', source: 'coll', target: 'pg', sourceHandle: 'patternset', targetHandle: 'patternset' },
       { id: 'e3', source: 'pg', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' },
     ] as unknown as StudioEdge[]

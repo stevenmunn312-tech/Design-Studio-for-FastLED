@@ -56,7 +56,7 @@ import { sequenceTableCpp } from './player/patternSequenceCpp'
 import { patternPacingCpp } from './player/patternPacingCpp'
 import { sketchFileBlock } from './sketchBundle'
 import {
-  SLIDESHOW_MIN_INTERVAL_SEC,
+  SLIDESHOW_MIN_HOLD_SEC,
   SLIDESHOW_SILENCE_FADE_IN_SEC,
   SLIDESHOW_SILENCE_FADE_OUT_SEC,
   SLIDESHOW_SILENCE_THRESHOLD,
@@ -153,8 +153,6 @@ interface ShowInfo {
   minTime: number
   maxTime: number
   transitionSec: number
-  /** Off makes every change a cut, whatever a wired Transition says. */
-  transitionsEnabled: boolean
   /** Wait for a fresh beat once the hold ends; a Sequence hold counts beats. */
   beatTransitions: boolean
   energyPacing: boolean
@@ -209,11 +207,10 @@ function showInfo(nodes: StudioNode[], edges: StudioEdge[], engineId?: string): 
     minTime: settings.minTime,
     maxTime: settings.maxTime,
     transitionSec: settings.transitionSec,
-    transitionsEnabled: props(master).transitionsEnabled !== false,
     beatTransitions: settings.beatTransitions,
     energyPacing: settings.energyPacing,
     dwellsAndBursts: settings.dwellsAndBursts,
-    transitionIds: sequencing || props(master).transitionsEnabled !== false ? transitionStyleIds(pooledStyles) : [0],
+    transitionIds: transitionStyleIds(pooledStyles),
     order: settings.order,
     weights: profiles.weights,
     energy: profiles.energyTags,
@@ -1057,7 +1054,7 @@ export function generateShowSketch(
   // A wired Transition can open a fade the property set to a cut.
   const transitions = sequenceActive
     ? info.steps.some((step) => step.transitionSec > 0)
-    : rotates && info.transitionsEnabled && (info.transitionSec > 0 || !!controls.timingInputs.transitionSec)
+    : rotates && (info.transitionSec > 0 || !!controls.timingInputs.transitionSec)
   // A pool of one is a constant style, with nothing to draw from.
   const pooled = transitions && info.transitionIds.length > 1
   // Beat and energy timing read the slideshow's own Audio wire, as the preview
@@ -1417,10 +1414,8 @@ export function generateShowSketch(
   // Mirrors evalPatternShow.
   // A fixed hold stays one constant; anything that can vary it goes through
   // the Music Player's pacing helper.
-  // Without Audio Reactive both ends of the hold are the Interval, wired or not.
-  const holdInputs = info.audioReactive
-    ? { minTime: controls.timingInputs.minTime, maxTime: controls.timingInputs.maxTime }
-    : { minTime: controls.timingInputs.interval, maxTime: controls.timingInputs.interval }
+  // The hold is Min to Max Time with or without Audio Reactive, wired or not.
+  const holdInputs = { minTime: controls.timingInputs.minTime, maxTime: controls.timingInputs.maxTime }
   const pacing = holdTiming && (info.minTime !== info.maxTime || pacingOptions.energyPacing || pacingOptions.dwellsAndBursts
     || !!holdInputs.minTime || !!holdInputs.maxTime)
     // Only a cursor step mid-transition restarts a hold.
@@ -1430,7 +1425,7 @@ export function generateShowSketch(
   const transMs = Math.round(info.transitionSec * 1000)
   const timingExpr = (port: 'minTime' | 'maxTime' | 'transitionSec', value: number) =>
     (port === 'transitionSec' ? controls.timingInputs.transitionSec : holdInputs[port]) ?? `${value.toFixed(4)}f`
-  // Read every pass, so a wired Interval, Min, Max or Transition moves the show live.
+  // Read every pass, so a wired Min, Max or Transition moves the show live.
   const transDur = controls.timingInputs.transitionSec ? 'transitionMs' : String(transMs)
   const holdDue = pacing ? 'paceHoldMs()' : String(dwellMs)
   const beatDue = beatGated ? ' && beatEdge' : ''
@@ -1512,7 +1507,7 @@ export function generateShowSketch(
     L.push('  lastBeat = beatNow;')
   }
   if (holdTiming && (pacing || controls.timingInputs.transitionSec)) {
-    L.push(`  const float minHold = max(${SLIDESHOW_MIN_INTERVAL_SEC.toFixed(1)}f, constrain(${timingExpr('minTime', info.minTime)}, 0.0f, 86400.0f));`)
+    L.push(`  const float minHold = max(${SLIDESHOW_MIN_HOLD_SEC.toFixed(1)}f, constrain(${timingExpr('minTime', info.minTime)}, 0.0f, 86400.0f));`)
     L.push(`  const float maxHold = max(minHold, constrain(${timingExpr('maxTime', info.maxTime)}, 0.0f, 86400.0f));`)
     if (transitions || pacingOptions.dwellsAndBursts) {
       L.push(`  const uint32_t transitionMs = (uint32_t)(constrain(${transitions ? timingExpr('transitionSec', info.transitionSec) : '0.0f'}, 0.0f, 86400.0f) * 1000.0f);`)

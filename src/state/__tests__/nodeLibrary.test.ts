@@ -35,7 +35,7 @@ describe('nodeLibrary', () => {
       label: 'Player Particles',
       category: 'show',
       outputs: [{ id: 'particleFx', dataType: 'playerparticles' }],
-      defaultProperties: { enabled: true, style: 0, intensity: 0.8, volleyBursts: 3, restSec: 4, energyGate: 0 },
+      defaultProperties: { enabled: true, style: 'rise', intensity: 0.8, volleyBursts: 3, restSec: 4, energyGate: 0 },
     })
     expect(particles?.inputs.map((input) => input.id)).toEqual([
       'enabled', 'color', 'intensity', 'randomStyle', 'randomColor',
@@ -266,7 +266,7 @@ describe('nodeLibrary', () => {
   it('bounds every number a beginner would otherwise type freely', () => {
     for (const [nodeType, key] of [
       ['Spiral', 'arms'], ['Kaleidoscope', 'segments'], ['Shape', 'size'],
-      ['ClockDisplay', 'durationSec'], ['Amplifier', 'maxVolume'], ['PowerAmplifier', 'maxVolume'],
+      ['ClockDisplay', 'durationSec'], ['Amplifier', 'maxVolume'],
       ['RTCInput', 'startYear'], ['Text', 'scroll'], ['Path', 'scale'], ['FrameFeedback', 'angle'],
     ]) {
       expect(propertyMeta(nodeType, key)?.control, `${nodeType}.${key}`).toBe('slider')
@@ -510,7 +510,8 @@ describe('nodeLibrary', () => {
   it('gives a power amplifier no GPIO properties', () => {
     const def = NODE_LIBRARY.find((n) => n.type === 'PowerAmplifier')!
     expect(Object.keys(def.defaultProperties ?? {}).filter((key) => isGpioPinProperty('PowerAmplifier', key))).toEqual([])
-    expect(isPropertyEnabled('PowerAmplifier', 'maxVolume', {})).toBe(true)
+    // Nor a volume: the decoder's is the DAC's, the stage the board drives.
+    expect(def.defaultProperties).not.toHaveProperty('maxVolume')
   })
 
   it('BassRings exposes bass, energy, normalized speed, and palette inputs', () => {
@@ -709,11 +710,12 @@ describe('nodeLibrary', () => {
     const generator = NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')
     const performanceActions = playerControlActionPortsFor('performance').map((port) => port.id)
     expect(generator?.inputs.map((p) => p.id))
-      .toEqual(['music', 'patternset', 'transitions', 'controls', ...performanceActions])
+      .toEqual(['patternset', 'transitions', 'controls', ...performanceActions])
     expect(generator?.actionInputs).toEqual(performanceActions)
     expect(generator?.defaultProperties).toMatchObject({
       useGroupInputs: true,
-      showInMainPreview: false,
+      // The show plays where the LEDs it names are drawn.
+      showInMainPreview: true,
     })
   })
 

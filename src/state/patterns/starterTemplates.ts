@@ -496,7 +496,6 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     // does not stop at the generator though: it ends where every graph ends, at
     // the hardware the result is going to.
     edgeSpecs: [
-      { source: 'lib', sourceHandle: 'music', target: 'perf', targetHandle: 'music' },
       { source: 'collection', sourceHandle: 'patternset', target: 'perf', targetHandle: 'patternset' },
       { source: 'perf', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
     ],

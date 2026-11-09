@@ -8,16 +8,13 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
   MusicLibrary: {
     overview: [
       'Music Library holds the songs for a music-synced show. Double-click it to open the library: drop in MP3 files and Studio analyses each one — beats, sections, energy and mood — in the browser.',
-      'Its Music output feeds a Performance Generator, which turns the analysis into a timed light show for each song. The songs and their shows are written to the SD card when you upload.',
+      'It carries no wires: the Performance Generator reads the library’s songs directly and turns each analysis into a timed light show. The songs and their shows are written to the SD card when you upload.',
     ],
     steps: [
       'Double-click the node and drop MP3 files into the library. Wait for each analysis to finish.',
-      'Wire Music into a Performance Generator, and the generator’s Show into the LED output.',
+      'Add a Performance Generator and wire its Show into the LED output.',
       'Add an SD Card part and an amplifier on the Hardware tab, then upload to write the card and flash the player.',
     ],
-    outputs: {
-      music: 'The analysed songs, for a Performance Generator.',
-    },
     outcome: 'Drop songs into the library and the Performance Generator builds a show for each one.',
     example: example({
       featured: 'MusicLibrary',
@@ -26,8 +23,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         songs: ['MusicLibrary'],
         shows: ['PerformanceGenerator', { paletteMode: 'mood' }],
       },
-      wires: ['songs.music > shows.music'],
-      explanation: 'Music Library analyses the songs you drop into it and passes them to Performance Generator, which plans a show for each: patterns on the sections, flashes on the beats, palettes from the mood. The generator’s Show goes to the LED output that will play it.',
+      explanation: 'Music Library analyses the songs you drop into it, and Performance Generator plans a show for each, with no wire between them: patterns on the sections, flashes on the beats, palettes from the mood. The generator’s Show goes to the LED output that will play it.',
       preview: 'The {output} plays the generated show once songs are analysed; press play in the Performance Generator body to watch it.',
       workflow: true,
     }),
@@ -112,7 +108,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       nodes: {
         sparks: ['ButtonInput'],
         gold: ['Color', { color: '#ffb020' }],
-        fx: ['PlayerParticles', { style: 4, intensity: 0.85 }],
+        fx: ['PlayerParticles', { style: 'swirl', intensity: 0.85 }],
         mic: ['MicInput'],
         patterns: ['PatternCollection'],
         player: ['PatternMaster'],
@@ -134,8 +130,6 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       'Two options vary that rhythm. Energy Pacing leans each hold toward Min Time while the music is intense and toward Max Time while it is calm, judged against the track’s own recent loud and quiet passages. Dwells & Bursts now and then keeps one pattern for twice Max Time, and now and then changes eight patterns in quick succession. With Beat Transitions on, every change still lands on a beat.',
       'Audio supplies the collected patterns and the default beat signal in preview. Connect a separate Beat Detect output to Beat when you want an explicit trigger; that wire takes priority. Player Particles can add beat-triggered bursts independently of whether Beat Transitions is enabled.',
       'Use the preview transport for local music. On hardware, the SD music player needs an SD Card and an audio output stage, and can play tracks without pre-analysed show files. Performance Generator is the separate workflow for an authored, track-timed show. The SD player uses decoder beats when Beat is unwired.',
-      'Set Music Source to Bluetooth to play from a phone instead of a card. The board then shows up as a speaker under Bluetooth Name: pair with it, play music in any app, and the board plays it through the amplifier and reacts to it as it does to a card. Previous, Next and Play / Pause on Player Controls go to the phone, and the track title and artist reach the display. Bluetooth music needs a classic ESP32 and an I2S amplifier or DAC; the ESP32-S3, C3, C6 and H2 have Bluetooth Low Energy only. It is experimental.',
-      'Set Music Source to Internet Radio to stream stations over Wi-Fi. List them on the node: paste a stream URL, or search the radio-browser.info directory and add from the results. Next and Previous change station, and the display shows the station as the album and what is on air as the title and artist. A station that does not start within 12 seconds, or keeps dropping, is skipped. With an SD card on the bench, a stations.m3u file on the card replaces the list at start-up, so stations can change without a new build. Phone Station Page serves a page for choosing a station from a phone on the same Wi-Fi; set an access code on the node to let the page add and remove stations too. Internet radio needs an ESP32 with Wi-Fi and an I2S amplifier or DAC. It is experimental.',
     ],
     steps: [
       'Add saved patterns to Pattern Collection, connect its Patterns output to Music Player’s Patterns input, then connect Frame to the LED output. Use at least two patterns to see automatic changes.',
@@ -143,12 +137,12 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       'Choose Pattern Order and set Min Time, Max Time, and the transition duration. Enable Beat Transitions to wait for a beat after each cooldown. For example, 4–12 seconds means a random cooldown in that range, then a wait for the next beat; 12 seconds is not a forced change deadline.',
       'Optionally connect a Transition Pool for transition styles, Player Particles for bursts, and Player Controls for transport or lighting controls. Use Expose input… to reveal individual control actions or timing and volume sockets. Previous and Next track change the song. In Random or Sequential, Previous and Next Pattern change the pattern on the LEDs straight away, with the usual transition; a press during a transition cuts to the new pattern. In Sequence they move between steps. A connected socket remains visible.',
     ],
-    propertyNote: 'Values below are factory defaults. Timing values are in seconds. Wired Min Time, Max Time, Transition, and Volume inputs override their matching fields. Beat Transitions starts off, so adding a player does not require a beat source.',
+    propertyNote: 'Values below are factory defaults. Timing values are in seconds. Wired Min Time, Max Time, Transition, and Volume inputs override their matching fields. Beat Transitions starts off, so adding a player does not require a beat source. Music Source can also play from a phone over Bluetooth or stream internet radio over Wi-Fi instead of the card; both are experimental, and their settings below say what each needs.',
     inputs: {
       audio: 'Audio for the collected patterns and, in preview, the default beat signal. Choose the source on an Audio node. Without Audio or a wired Beat signal, beat-driven changes cannot advance in preview; timed changes still work.',
-      controls: 'A Player Controls node or compatible Controls bundle supplies play/pause, previous/next track, volume, LED on/off, brightness, and pattern-selection commands. Without this wire, use the preview transport and the player’s own settings.',
+      controls: 'A Player Controls node or compatible Controls bundle supplies play/pause, previous/next track, volume, LED on/off, brightness, and pattern-selection commands. Without this wire, use the preview transport and the player’s own settings. For one or two buttons, wire them straight to the engine’s own action inputs (Expose input…); for a whole panel, a touch screen or a remote, gather them on Player Controls and wire its Controls here.',
       patternset: 'Connect Pattern Collection’s Patterns output. Collection order defines Sequential playback, and each row’s weight and energy tags change which pattern comes next. No selected patterns produces a black frame; one pattern keeps playing without automatic transitions.',
-      transitions: 'Connect a Transition Pool to choose the styles available in preview. An unwired or empty pool uses crossfade. The generic SD music player currently uses crossfade.',
+      transitions: 'Connect a Transition Pool to choose the styles the player picks from, in preview and on the board. An unwired or empty pool uses crossfade.',
       particleFx: 'Connect Player Particles to configure beat-triggered bursts, colour, style, and intensity. Bursts do not wait for the pattern cooldown and do not require Beat Transitions to be enabled. Unwired means no overlay.',
       beat: 'An optional boolean trigger that overrides the default audio beat. A false-to-true edge can start a pattern change only after the cooldown and with Beat Transitions enabled. A held true value cannot trigger repeatedly. For SD builds, use decoder-fed Beat Detect or a supported control signal; microphone-fed Beat Detect is not supported by the SD control graph.',
     },
@@ -181,7 +175,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         'controls.controls > target.controls',
         'particles.particleFx > target.particleFx',
       ],
-      explanation: 'Pattern Collection opens holding the built-in audio-reactive patterns; add your own beside them. Audio feeds the player and Beat Detect; Beat Detect supplies the explicit Beat trigger. Enable Beat Transitions on Music Player to wait for a fresh beat after the Min Time–Max Time cooldown. Transition Pool chooses the preview transition styles, Player Controls carries transport and lighting commands, and Player Particles configures independent beat bursts. The SD Card and the Amplifier go on the bench: the player needs both to play music on the board.',
+      explanation: 'Pattern Collection opens holding the built-in audio-reactive patterns; add your own beside them. Audio feeds the player and Beat Detect; Beat Detect supplies the explicit Beat trigger. Enable Beat Transitions on Music Player to wait for a fresh beat after the Min Time–Max Time cooldown. Transition Pool chooses the transition styles, Player Controls carries transport and lighting commands, and Player Particles configures independent beat bursts. The SD Card and the Amplifier go on the bench: the player needs both to play music on the board.',
       preview: 'The collection opens with the built-in audio-reactive patterns, so the {output} is lit at once. With Beat Transitions off, patterns change on the random timer. With it on, early beats are ignored and the next beat after the cooldown starts the change.',
       workflow: true,
     }),
@@ -190,7 +184,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
   SongInfo: {
     overview: [
       'Song Info opens a Music Player’s report into one wire per field: title, artist, album, genre, year, status, whether it is playing, elapsed, duration, remaining, progress, volume and bitrate.',
-      'You rarely need it for a display — a Display Panel reads the player’s Display wire directly. Use Song Info when one field must travel on its own cable: a title scrolling across the LEDs, a progress bar, a light that turns on only while music plays.',
+      'You rarely need it for a display — a TFT Display reads the player’s Display wire directly. Use Song Info when one field must travel on its own cable: a title scrolling across the LEDs, a progress bar, a light that turns on only while music plays.',
     ],
     inputs: {
       display: 'A Music Player’s or Performance Generator’s Display output.',
@@ -233,8 +227,8 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
 
   Sequencer: {
     overview: [
-      'Sequencer plays up to four frames in turn: each holds for Interval seconds, then crossfades into the next over Fade seconds. Unwired slots are skipped.',
-      'It is the simplest way to rotate between a few looks without a Pattern Collection. For many patterns, random order or music, use Pattern Slideshow or Music Player.',
+      'Crossfade Cycle plays up to four frames in turn: each holds for Interval seconds, then crossfades into the next over Fade seconds. Unwired slots are skipped.',
+      'It is the simplest way to rotate between a few looks without a Pattern Collection. For many patterns, random order, music, or a step-by-step Sequence, use Pattern Slideshow or Music Player.',
     ],
     inputs: {
       p0: 'The first frame.',
@@ -256,7 +250,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         rotation: ['Sequencer', { interval: 3, fade: 1 }],
       },
       wires: ['sea.frame > rotation.p0', 'hearth.frame > rotation.p1', 'aurora.frame > rotation.p2', 'stars.frame > rotation.p3'],
-      explanation: 'Sequencer holds each of four looks — sea, hearth, aurora and twinkling lights — for three seconds, crossfading over one second into the next, then loops.',
+      explanation: 'Crossfade Cycle holds each of four looks — sea, hearth, aurora and twinkling lights — for three seconds, crossfading over one second into the next, then loops.',
       preview: 'The {output} moves from ocean waves to fire to aurora clouds to twinkling lights, blending between each.',
     }),
   },
@@ -281,7 +275,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       title: 'The smallest show there is',
       nodes: {
         patterns: ['PatternCollection'],
-        slideshow: ['PatternSlideshow', { order: 'Sequential', interval: 8 }],
+        slideshow: ['PatternSlideshow', { order: 'Sequential', minTime: 8, maxTime: 8 }],
       },
       wires: ['patterns.patternset > slideshow.patternset'],
       explanation: 'Pattern Collection holds the patterns; Pattern Slideshow plays them eight seconds each, in order, blending between them. Swap the slideshow for a Music Player to make the same collection dance to music.',
@@ -318,16 +312,16 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
 
   PatternSlideshow: {
     overview: [
-      'Pattern Slideshow plays a Pattern Collection on a timer — the show without the music. Each pattern holds for Interval seconds, then blends into the next.',
+      'Pattern Slideshow plays a Pattern Collection on a timer — the show without the music. Each pattern holds for a random time between Min Time and Max Time, then blends into the next over Transition seconds; set Min and Max the same for a fixed hold, and Transition to 0 for a cut.',
       'Sequential walks the collection in order and skips a weight of 0. Random never repeats the pattern just shown, and a higher weight is chosen more often. Sequence loops the steps you edit with Add step and Edit sequence: a pattern or a tag, a hold, and a transition, and a step can ramp speed, brightness, energy or a named input. An empty sequence holds the current pattern. Previous and Next move between those steps. The slideshow does not read energy tags unless a step asks for a band. Display feeds a panel that shows which pattern is playing.',
       'Turn on Audio Reactive to let audio patterns in the collection listen to a wired Audio source; in silence they fade to black.',
       'Wire Player Particles into Particle FX to throw sparks over the patterns on each beat of the Audio source. The sparks need no Audio Reactive: wiring an enabled bundle is the ask.',
-      'Audio Reactive also swaps Interval for the Music Player’s timing. Each hold is a random time between Min Time and Max Time. Beat Transitions waits for a beat after each hold, and a Sequence hold counts beats; the beat comes from the Audio source, or from a Beat wire when one is connected. Energy Pacing shortens holds while the sound is intense. Dwells & Bursts now and then holds one pattern longer or changes several in quick succession. Beat Transitions and Energy Pacing stay greyed until the wire that feeds them is connected.',
+      'Audio Reactive also turns on the Music Player’s timing that listens. Beat Transitions waits for a beat after each hold, and a Sequence hold counts beats; the beat comes from the Audio source, or from a Beat wire when one is connected. Energy Pacing shortens holds while the sound is intense. Dwells & Bursts now and then holds one pattern longer or changes several in quick succession. Beat Transitions and Energy Pacing stay greyed until the wire that feeds them is connected.',
     ],
-    propertyNote: 'Values below are factory defaults. Timing values are in seconds. Wired Interval, Min Time, Max Time, and Transition inputs override their matching fields.',
+    propertyNote: 'Values below are factory defaults. Timing values are in seconds. Wired Min Time, Max Time, and Transition inputs override their matching fields.',
     inputs: {
       audio: 'Sound for audio patterns in the collection, Beat Transitions and Energy Pacing, when Audio Reactive is on, and the beat Player Particles bursts on.',
-      controls: 'A Controls bundle for stepping through the patterns.',
+      controls: 'A Controls bundle for stepping through the patterns. For one or two buttons, wire them straight to the engine’s own action inputs (Expose input…); for a whole panel, a touch screen or a remote, gather them on Player Controls and wire its Controls here.',
       patternset: 'The patterns to play, from a Pattern Collection.',
       transitions: 'A Transition Pool to choose blend styles from.',
       particleFx: 'Connect Player Particles for beat-triggered sparks over the patterns, with or without Audio Reactive. Unwired means no overlay.',
@@ -344,7 +338,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       nodes: {
         patterns: ['PatternCollection'],
         skip: ['ButtonInput'],
-        slideshow: ['PatternSlideshow', { order: 'Random', interval: 20, transitionSec: 1.5 }],
+        slideshow: ['PatternSlideshow', { order: 'Random', minTime: 20, maxTime: 20, transitionSec: 1.5 }],
       },
       wires: ['patterns.patternset > slideshow.patternset', 'skip.pressed > slideshow.patternNext'],
       explanation: 'Pattern Slideshow shows a random pattern from the collection every twenty seconds, blending over a second and a half. A Button on Next Pattern lets anyone skip ahead.',
@@ -360,16 +354,15 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       'Its Show output names the LED output the show plays on. The shows and songs are written to the SD card at upload, and the board plays them with no graph running — press play in the node body to watch a show first.',
     ],
     steps: [
-      'Wire a Music Library into Music, and optionally a Pattern Collection and a Transition Pool.',
+      'Add a Music Library and drop your songs into it; the generator reads them with no wire. Optionally wire a Pattern Collection and a Transition Pool.',
       'Wire Show to the LED output the show should play on.',
       'Press play in the node to watch a show. Edit timeline trims events on the strip. Edit lanes is the full editor. An edit locks that section, and Revert rebuilds the show from the song.',
       'Add an SD Card part and an amplifier on the Hardware tab, then upload.',
     ],
     inputs: {
-      music: 'The analysed songs, from a Music Library.',
       patternset: 'Your patterns to schedule, from a Pattern Collection. Unwired, the built-in patterns are used.',
       transitions: 'Transition styles to choose from, from a Transition Pool.',
-      controls: 'A Controls bundle for the SD player’s transport, volume and lights.',
+      controls: 'A Controls bundle for the SD player’s transport, volume and lights. For one or two buttons, wire them straight to the engine’s own action inputs (Expose input…); for a whole panel, a touch screen or a remote, gather them on Player Controls and wire its Controls here.',
     },
     outputs: {
       frame: 'Names the LED output the show plays on. The board plays the show from the card, not from this wire.',
@@ -383,9 +376,9 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         music: ['MusicLibrary'],
         patterns: ['PatternCollection'],
         transitions: ['TransitionSet'],
-        generator: ['PerformanceGenerator', { paletteMode: 'mood', patternHold: 8 }],
+        generator: ['PerformanceGenerator', { paletteMode: 'mood', minTime: 8 }],
       },
-      wires: ['music.music > generator.music', 'patterns.patternset > generator.patternset', 'transitions.transitions > generator.transitions'],
+      wires: ['patterns.patternset > generator.patternset', 'transitions.transitions > generator.transitions'],
       explanation: 'Performance Generator plans a show for every song in the Music Library, choosing among your collected patterns for each section, holding each for at least eight seconds, and moving between them with styles from the Transition Pool.',
       preview: 'Once songs are analysed and patterns collected, the generator’s player shows what the {output} will do for each track.',
       workflow: true,
@@ -410,7 +403,6 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         generator: ['PerformanceGenerator'],
         card: ['SDCard'],
       },
-      wires: ['music.music > generator.music'],
       explanation: 'The SD Card sits on the bench without wires. When you upload, the songs from the Music Library and the shows from the Performance Generator are written to it, and the player reads them from there.',
       preview: 'SD Card has no picture of its own; the {output} plays whatever the generator planned.',
       workflow: true,

@@ -567,7 +567,7 @@ interface RetargetOptions {
 function connectedMatrixOutputIds(edges: readonly StudioEdge[] | undefined): Set<string> {
   if (!edges) return new Set()
   return new Set(edges
-    .filter((edge) => edge.target && ['frame', 'sdcard'].includes(String(edge.targetHandle ?? '')))
+    .filter((edge) => edge.target && edge.targetHandle === 'frame')
     .map((edge) => String(edge.target)))
 }
 

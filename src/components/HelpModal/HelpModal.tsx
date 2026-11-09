@@ -523,7 +523,7 @@ function DisplaysTab() {
           A touch panel is two chips: the screen, and a digitiser sitting over the glass reading where your finger is. So it arrives as two nodes.
         </div>
         <div className={styles.text}>
-          Add a touch-capable panel from <strong>Displays</strong> in the Hardware shelf and you get the <strong>Display Panel</strong> and a <strong>Touch</strong> node together, already linked. You never wire them to each other or type which panel the Touch node reads — they are one part, and taking it off the shelf was the one decision. The panel keeps all the pins, including the digitiser&rsquo;s five lines, because that is where the Build Diagram and the pin checker look for them.
+          Add a touch-capable panel from <strong>Displays</strong> in the Hardware shelf and you get the <strong>TFT Display</strong> and a <strong>Touch</strong> node together, already linked. You never wire them to each other or type which panel the Touch node reads — they are one part, and taking it off the shelf was the one decision. The panel keeps all the pins, including the digitiser&rsquo;s five lines, because that is where the Build Diagram and the pin checker look for them.
         </div>
         <div className={styles.text}>
           The Touch node has a compact <strong>Controls</strong> output and, when the fixed presentation has controls, named outputs for the same jobs. A <strong>Fixed Transport</strong> screen gives you Previous, Play/Pause, Next and a volume strip; a <strong>Now Playing</strong> screen gives play/pause and volume. Wire a named action directly to the thing that owns it, or send the bundle through <strong>Player Controls</strong> when you want one cable or continuous volume.

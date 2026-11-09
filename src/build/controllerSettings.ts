@@ -8,6 +8,20 @@ export type SerialRoute = 'auto' | 'native' | 'uart'
 /** Frames per second the loop is paced to; the preview gates to the same. */
 export const FRAME_RATE = { min: 1, max: 120, default: 60 } as const
 
+/**
+ * The master level as the percentage the Board and the Control Deck show, so
+ * it reads like every fixture's own dimmer. The node still stores FastLED's
+ * native 0-255, which is what `setBrightness` takes.
+ */
+export function masterBrightnessPercent(level: number): number {
+  return Math.round(Math.max(0, Math.min(255, level)) * 100 / 255)
+}
+
+/** The stored 0-255 level for a percentage typed or dragged in the UI. */
+export function masterBrightnessLevel(percent: number): number {
+  return Math.round(Math.max(0, Math.min(100, percent)) * 255 / 100)
+}
+
 export interface ControllerSettings {
   brightness: number
   overclock: number

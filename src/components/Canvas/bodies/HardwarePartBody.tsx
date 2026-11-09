@@ -66,9 +66,8 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
     ...Object.keys(props).filter((key) => isGpioPinProperty(nodeType, key)),
     ...declaredFields.filter((field) => field.kind === 'pin').map((field) => field.key),
   ])].filter((key) => isPropertyEnabled(nodeType, key, props))
-  // A power amplifier fed by a DAC takes its volume from the DAC — the stage
-  // the board actually drives — so its own field would be a second answer
-  // nothing reads.
+  // A power amplifier has no volume of its own: the decoder's is applied at
+  // the DAC feeding it, the stage the board drives, and the panel says so.
   const volumeStageModel = useGraphStore((s) => nodeType === 'PowerAmplifier'
     ? i2sAudioStage(rootGraphNodes(s))?.data.properties.model
     : undefined)
@@ -77,7 +76,6 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
     : resolvePartIdentity('Amplifier', { model: volumeStageModel })?.option.label ?? 'I2S stage'
   const otherFields = declaredFields
     .filter((field) => field.kind !== 'pin')
-    .filter((field) => !(volumeStageLabel && field.key === 'maxVolume'))
     .filter((field) => !(nodeType === 'PowerConverter' && hasBatteryPack && field.key === 'sourceVoltage'))
     // A bare encoder's contacts float without the pull-up, so it is not a choice.
     .filter((field) => !(nodeType === 'EncoderInput' && field.key === 'pullup' && encoderIsBare(props)))
@@ -200,7 +198,7 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
       )}
 
       {volumeStageLabel && (
-        <p className={styles.bankEmpty}>Volume is set on the {volumeStageLabel}, the part the board drives.</p>
+        <p className={styles.bankEmpty}>Max volume is set on the {volumeStageLabel}, the part the board drives.</p>
       )}
       {nodeType === 'PowerConverter' && hasBatteryPack && (
         <p className={styles.bankEmpty}>Source: battery pack</p>

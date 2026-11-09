@@ -7,7 +7,7 @@ import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { sdSpiPinsForBoard } from '../build/pins/sdPinDefaults'
 import { micModuleFor, MIC_MODULES } from '../state/peripherals/micModules'
 import { isLinearForm, LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, type LedOutputForm } from '../state/output/ledOutputForm'
-import { renderScaleHalf } from '../state/output/renderScale'
+import { renderScaleHalf, wantsSupersample } from '../state/output/renderScale'
 import { engineFrameOutputs } from '../state/upload/buildMode'
 
 export type HardwareValidationAction =
@@ -265,9 +265,18 @@ export function detectValidationRuntime(userAgent = typeof navigator === 'undefi
   return { hostOs, browser, userAgent: userAgent || 'Unavailable' }
 }
 
+/** A Performance Generator show the SD player runs on this output: the
+ *  generator reaches it and the card is on the bench. SD Card is portless, so
+ *  nothing is wired between the card and the output. */
+function sdShowDrives(nodes: StudioNode[], edges: StudioEdge[], output: StudioNode | undefined): boolean {
+  if (!output || !nodes.some((node) => nodeType(node) === 'SDCard')) return false
+  return nodes.some((node) => nodeType(node) === 'PerformanceGenerator'
+    && engineFrameOutputs(node, nodes, edges).some((reached) => reached.id === output.id))
+}
+
 function defaultAction(nodes: StudioNode[], edges: StudioEdge[]): HardwareValidationAction {
   const output = nodes.find((node) => nodeType(node) === 'MatrixOutput')
-  if (output && edges.some((edge) => edge.target === output.id && edge.targetHandle === 'sdcard')) return 'sd-show'
+  if (sdShowDrives(nodes, edges, output)) return 'sd-show'
   // Either node driving the output runs a collection on the device, which is
   // what this action exercises.
   const engine = nodes.find((node) =>
@@ -299,7 +308,7 @@ function featureList(nodes: StudioNode[], edges: StudioEdge[], matrixProps: Reco
   if (!isLinearForm(form) && layout === 'panels') features.push('Tiled panel layout')
   if (!isLinearForm(form) && layout === 'custom') features.push('Custom XY map')
   if (matrixProps.usePsram === true) features.push(`PSRAM (${String(matrixProps.psramMode ?? 'default')})`)
-  if (!isLinearForm(form) && matrixProps.supersample === true) features.push('2× supersampling')
+  if (!isLinearForm(form) && wantsSupersample(matrixProps)) features.push('2× supersampling')
   if (renderScaleHalf(matrixProps)) features.push('Half-resolution render')
   const micNode = nodes.find((node) => nodeType(node) === 'MicInput')
   if (micNode) features.push(micFeatureLabel((micNode.data.properties as Record<string, unknown>).partId))
@@ -318,7 +327,7 @@ function featureList(nodes: StudioNode[], edges: StudioEdge[], matrixProps: Reco
     features.push('Baked song envelopes')
     if (props(performance).useGroupInputs === true) features.push('Group-input modulation')
   }
-  if (output && edges.some((edge) => edge.target === output.id && edge.targetHandle === 'sdcard')) features.push('SD show provisioning/player')
+  if (sdShowDrives(nodes, edges, output)) features.push('SD show provisioning/player')
   return features
 }
 
@@ -595,7 +604,7 @@ export function buildHardwareValidationProfile(options: {
       tileRotations: !isLinearForm(form) && layout === 'panels' ? String(p.tileRotations ?? '') : null,
       customMap: !isLinearForm(form) && layout === 'custom' ? customMapSummary(p.customXYMap) : null,
       psram: controllerSettingsValue.usePsram ? controllerSettingsValue.psramMode : null,
-      supersample: !isLinearForm(form) && p.supersample === true,
+      supersample: !isLinearForm(form) && wantsSupersample(p),
     },
     peripherals: {
       microphone: mic

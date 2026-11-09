@@ -17,8 +17,7 @@ import { formatSignalRange, outputSignalRange, signalRangeMismatch } from '../no
 import { paletteBankBlend, paletteBankEntries } from '../state/palettes/paletteBank'
 import type { SignalRangeMismatch } from '../nodes/shared/signalRange'
 import { playerControlFunction } from '../state/player/playerControlAssignments'
-import { audioOutputMissing, hasAudioOutputStage, i2sAudioStage, isClassicEsp32Fqbn, powerAmplifierFeed, powerAmplifierSource, powerAmplifierStage } from '../state/audio/audioOutput'
-import { boardHasDacOutput } from '../build/boards/boardDacOutput'
+import { hasAudioOutputStage, i2sAudioStage, isClassicEsp32Fqbn, powerAmplifierFeed, powerAmplifierSource, powerAmplifierStage } from '../state/audio/audioOutput'
 import { dfPlayerUartPort } from '../state/peripherals/dfPlayer'
 import { resolveShowTarget } from '../state/player/showTarget'
 import { stereoVuTotalLeds } from '../state/audio/stereoVuSizing'
@@ -27,7 +26,7 @@ import { fieldFormulaReadsPrev, isFieldFormulaValid, isNodeFormulaValid, isScala
 import { isValidRtcDateTime } from '../state/peripherals/rtc'
 import { buildXYTable, validateMatrixLayout, tileRotationAt } from '../state/output/xyLayout'
 import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes } from '../state/output/outputRouting'
-import { renderScaleHalf } from '../state/output/renderScale'
+import { renderScaleHalf, wantsSupersample } from '../state/output/renderScale'
 import { closestLedSpacingMm, positionsMmPerUnit, stringPositions, usesPositions } from '../state/output/stringPositions'
 import { asSdVideoClip } from '../state/evaluator/sdVideo'
 import { boardGpioInfo } from '../state/upload/uploadStore'
@@ -898,7 +897,7 @@ export function estimateFirmwareRam(
     if (outputs.length !== 1) return null
     const output = outputs[0]
     const p = output.data.properties as Record<string, unknown>
-    if (outputForm(p) === 'ring' || outputForm(p) === 'corkscrew' || p.supersample === true || renderScaleHalf(p) || usesPositions(p)) return null
+    if (outputForm(p) === 'ring' || outputForm(p) === 'corkscrew' || wantsSupersample(p) || renderScaleHalf(p) || usesPositions(p)) return null
     if (outputForm(p) === 'hub75') return null
     if (buildXYTable(w, h, p)) return null
     const feed = (incomingByTarget.get(output.id) ?? []).find((e) => e.targetHandle === 'frame')
@@ -1323,7 +1322,7 @@ export function findRetainedLedDataPinWarnings(
   const profile = selectedBoardProfile(nodes)
   if (!profile) return []
   const connected = new Set(edges
-    .filter((edge) => edge.target && ['frame', 'sdcard'].includes(String(edge.targetHandle ?? '')))
+    .filter((edge) => edge.target && edge.targetHandle === 'frame')
     .map((edge) => String(edge.target)))
   const ledPins = profile.peripheralPins?.fastLedData
   const boardLedPins = new Set([
@@ -1500,7 +1499,7 @@ export function findPatternCountErrors(nodes: StudioNode[], edges: StudioEdge[])
 }
 
 export function findShowRequirementErrors(
-  nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = '',
+  nodes: StudioNode[], edges: StudioEdge[],
 ): string[] {
   const generator = relevantPerformanceGenerator(nodes, edges)
   if (!generator) return []
@@ -1527,10 +1526,10 @@ export function findShowRequirementErrors(
   // emit code for the one that is actually there. Inferring it from what the
   // board *could* do meant a graph with no audio module at all still generated
   // a confident I2S sketch (or a DAC one) for hardware nobody had described.
+  // A power amplifier with nothing feeding it is powerAmplifierFeedIssues'
+  // error, which a show build raises on every board.
   if (!hasAudioOutputStage(nodes)) {
     errors.push('The music show has nothing to play the song through — add an Amplifier on the Hardware tab (a MAX98357A drives a speaker directly; a PCM5102A or UDA1334A DAC feeds a power amplifier or powered speakers)')
-  } else if (audioOutputMissing(nodes, selectedFqbn)) {
-    errors.push('The SD show\'s power amplifier has nothing to feed it on this board — with no DAC on the bench it needs internal-DAC playback, which Studio supports only on the classic ESP32. Add a PCM5102A or UDA1334A to feed it')
   }
 
   return errors
@@ -1630,10 +1629,10 @@ export function findHub75ConfigIssues(nodes: StudioNode[]): Hub75ConfigIssue[] {
       })
       return
     }
-    if (props.supersample === true) {
+    if (wantsSupersample(props)) {
       issues.push({
         nodeId: output.id, label,
-        message: `${label}: a HUB75 panel doesn't support supersampling yet — turn off Supersample, or ${HUB75_REPLACE_PANEL}.`,
+        message: `${label}: a HUB75 panel doesn't support supersampling yet — set Render resolution to Full, or ${HUB75_REPLACE_PANEL}.`,
       })
     }
   })
@@ -1716,8 +1715,8 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
     && !wiredNetworkIn(nodes) && !fqbnHasWifi(selectedFqbn)) {
     errors.push('Art-Net, sACN, DDP and NTP time sync require a Wi-Fi-capable ESP32-family board, ESP8266 or Arduino UNO R4 WiFi')
   }
-  // Show audio requirements live in findShowRequirementErrors. The separate
-  // powerAmplifierInputWarnings check also covers benches without a show.
+  // Show audio requirements live in findShowRequirementErrors. A power
+  // amplifier with nothing to feed it is powerAmplifierFeedIssues'.
   // ESP32-HUB75-MatrixPanel-DMA needs the ESP32/S2/S3 'LCD mode' DMA
   // peripheral; RISC-V ESP32 variants (C3/C6/H2) have no such hardware, per
   // the library's own supported-variants list — confirmed against its README
@@ -1835,7 +1834,7 @@ export function findDeployBlockingErrors(
     ...findPixelDataExtenderErrors(nodes),
     ...findDataLaneErrors(nodes, edges),
     ...findSdVideoErrors(nodes, edges, selectedFqbn, groups),
-    ...findShowRequirementErrors(nodes, edges, selectedFqbn),
+    ...findShowRequirementErrors(nodes, edges),
     ...findPatternCountErrors(nodes, edges),
     ...findAudioCapabilityErrors(nodes, edges),
     ...findStorageCapabilityErrors(nodes, edges),
@@ -1851,6 +1850,7 @@ export function findDeployBlockingErrors(
     ...findI2cBusErrors(nodes),
     ...findStepValueErrors(nodes),
     ...findAudioChainErrors(nodes),
+    ...findPowerAmplifierFeedErrors(nodes, edges),
     ...findHub75ConfigErrors(nodes),
     ...findScalarExpressionErrors(nodes),
     ...findFormulaErrors(nodes),
@@ -2398,6 +2398,37 @@ function stepValueValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
 }
 
 /**
+ * A power amplifier with nothing on the bench to feed it line level.
+ *
+ * The board's own DAC is no way out on any board. ESP32-audioI2S 3.0.12 under
+ * IDF 5 prints "internal DAC is not supported" and assigns no pins, so the
+ * player's `Audio audio(true)` is silent by construction (bench-confirmed on a
+ * classic ESP32 with a PAM8403). A build that plays music through it is
+ * therefore an error on every board; on a bench with nothing playing yet it
+ * is a warning, since the LED firmware still builds.
+ */
+function powerAmplifierFeedIssues(nodes: StudioNode[], edges: StudioEdge[]): GraphDiagnostic[] {
+  if (powerAmplifierFeed(nodes) !== 'internalDac') return []
+  const power = powerAmplifierStage(nodes)!
+  const label = resolvePartIdentity('PowerAmplifier', power.data.properties as Record<string, unknown>)?.option.label ?? nodeLabel(power)
+  const plays = resolveBuildMode(nodes, edges).mode === 'player' || relevantPerformanceGenerator(nodes, edges) !== null
+  return [{
+    id: `${power.id}-audio-out`, severity: plays ? 'error' : 'warning', category: 'board',
+    title: 'This power amplifier needs a DAC',
+    message: `${label} needs an analog line-level input, and no DAC or line-output player feeds it. The board's own DAC cannot: the audio library the player is built with does not drive it, so the speakers would stay silent.`,
+    fix: 'Add a PCM5102A or UDA1334A DAC on the Hardware tab to feed the power amplifier.',
+    action: 'open-audio-outputs',
+    nodeIds: [power.id], nodeLabel: label,
+  }]
+}
+
+export function findPowerAmplifierFeedErrors(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  return powerAmplifierFeedIssues(nodes, edges)
+    .filter((issue) => issue.severity === 'error')
+    .map(validationIssueMessage)
+}
+
+/**
  * An output chain that cannot be wired, whatever the graph plays.
  *
  * A power amplifier takes line level. A DAC's line out is that; a MAX98357A's
@@ -2406,21 +2437,6 @@ function stepValueValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
  * return. It is refused as a bench description rather than as a show problem,
  * because the parts are wrong before any sketch is built.
  */
-function powerAmplifierInputWarnings(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn: string): GraphDiagnostic[] {
-  if (!selectedFqbn || powerAmplifierFeed(nodes) !== 'internalDac' || boardHasDacOutput(selectedFqbn)) return []
-  // A generated show already reports this as a deploy-blocking audio error.
-  if (relevantPerformanceGenerator(nodes, edges) && audioOutputMissing(nodes, selectedFqbn)) return []
-  const power = powerAmplifierStage(nodes)!
-  const label = resolvePartIdentity('PowerAmplifier', power.data.properties as Record<string, unknown>)?.option.label ?? nodeLabel(power)
-  return [{
-    id: `${power.id}-audio-out`, severity: 'warning', category: 'board',
-    title: 'This power amplifier needs a DAC',
-    message: `${label} needs an analog line-level input. No DAC or line-output player feeds it, and the selected board has no known DAC output.`,
-    fix: 'Add a PCM5102A or UDA1334A DAC on the Hardware tab to feed the power amplifier, or choose a board with DAC output.',
-    action: 'open-audio-outputs',
-    nodeIds: [power.id], nodeLabel: label,
-  }]
-}
 
 function audioChainValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
   if (powerAmplifierFeed(nodes) !== 'speakerAmp') return []
@@ -3918,23 +3934,24 @@ export function buildGraphDiagnostics(
       nodeIds: [], action: target === 'matrix' ? 'open-led-outputs' : undefined,
     })
   } else {
-    const hasCard = nodes.some((node) => node.data.nodeType === 'SDCard')
+    // An SD Card is a portless bench part, so a card on the bench changes
+    // nothing here: an LED output only ever takes its pixels on Frame.
     for (const candidate of terminals) {
       const connected = target === 'group'
         ? ((candidate.data.inputs as { id: string }[] | undefined)?.length
           ? (candidate.data.inputs as { id: string }[]).some((port) => incoming.has(`${candidate.id}:${port.id}`))
           : incoming.has(`${candidate.id}:frame`))
-        : incoming.has(`${candidate.id}:frame`) || incoming.has(`${candidate.id}:sdcard`)
+        : incoming.has(`${candidate.id}:frame`)
       if (connected) continue
       diagnostics.push({
         id: `${candidate.id}-input`, severity: 'error', category: 'connection',
         title: `${terminalName} has no input`,
         message: target === 'group'
           ? 'Nothing is connected to the group output ports.'
-          : hasCard ? 'Neither a Frame nor an SD Card signal reaches the output.' : 'No Frame signal reaches the output.',
+          : 'No Frame signal reaches the output.',
         fix: target === 'group'
           ? 'Connect a signal to a matching Group Output port.'
-          : hasCard ? 'Connect a Frame output, or wire an SD Card node to the SD Card input.' : 'Connect a pattern’s Frame output to the LED output.',
+          : 'Connect a pattern’s Frame output to the LED output.',
         nodeIds: [candidate.id], nodeLabel: nodeLabel(candidate),
       })
     }
@@ -3990,7 +4007,7 @@ export function buildGraphDiagnostics(
   diagnostics.push(...i2cBusValidationIssues(nodes))
   diagnostics.push(...stepValueValidationIssues(nodes))
   diagnostics.push(...audioChainValidationIssues(nodes))
-  diagnostics.push(...powerAmplifierInputWarnings(nodes, edges, options.selectedFqbn ?? ''))
+  diagnostics.push(...powerAmplifierFeedIssues(nodes, edges))
 
   for (const meter of nodes.filter((node) => node.data.nodeType === 'StereoVuMeter')) {
     const props = meter.data.properties as Record<string, unknown>
@@ -4593,6 +4610,7 @@ export function buildGraphDiagnostics(
     // The board's own pins are not an answer here: an I2S amplifier, an I2S DAC
     // and an analog amp are three parts wired three ways, and the player emits
     // code for whichever one is on the bench.
+    // A power amplifier with nothing to feed it is powerAmplifierFeedIssues'.
     if (!hasAudioOutputStage(nodes)) {
       diagnostics.push({
         id: `${generator.id}-show-audio`, severity: 'error', category: 'show',
@@ -4600,16 +4618,6 @@ export function buildGraphDiagnostics(
         message: 'Nothing on the bench turns the decoded song into sound, so the player has no audio hardware to generate code for.',
         fix: 'Add an Amplifier on the Hardware tab. A MAX98357A drives a speaker straight off I2S; a PCM5102A or UDA1334A DAC feeds a power amplifier or powered speakers.',
         nodeIds: [generator.id], nodeLabel: nodeLabel(generator),
-      })
-    } else if (audioOutputMissing(nodes, options.selectedFqbn ?? '')) {
-      const amplifier = powerAmplifierStage(nodes) ?? generator
-      diagnostics.push({
-        id: `${amplifier.id}-audio-out`, severity: 'error', category: 'board',
-        title: 'Nothing feeds this power amplifier on this board',
-        message: 'A power amplifier takes line level. With no DAC on the bench that has to come from the internal DAC. Studio supports internal-DAC show playback only on the classic ESP32.',
-        fix: 'Add a PCM5102A or UDA1334A on the Hardware tab to feed it, or choose a classic ESP32.',
-        action: 'open-audio-outputs',
-        nodeIds: [amplifier.id], nodeLabel: nodeLabel(amplifier),
       })
     }
   }
@@ -4886,15 +4894,6 @@ export function buildGraphDiagnostics(
     const link = edges.find((edge) => edge.target === perfGen.id && edge.targetHandle === 'patternset')
     const collection = link && nodes.find((node) => node.id === link.source && node.data.nodeType === 'PatternCollection')
     const patternIds = collection ? ((collection.data.properties as { patternIds?: string[] }).patternIds ?? []) : []
-    if (!incoming.has(`${perfGen.id}:music`)) {
-      diagnostics.push({
-        id: `${perfGen.id}-music`, severity: 'warning', category: 'show',
-        title: 'Performance Generator has no music source',
-        message: 'It has patterns, but no analysed music to drive the show.',
-        fix: 'Connect a Music Library output to the Performance Generator music input.',
-        nodeIds: [perfGen.id], nodeLabel: nodeLabel(perfGen),
-      })
-    }
     if (collection && patternIds.length === 0) {
       diagnostics.push({
         id: `${collection.id}-empty`, severity: 'warning', category: 'show',
@@ -5009,7 +5008,8 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...webRemoteValidationIssues(nodes, selectedFqbn)
     .filter((issue) => issue.severity === 'warning').map(validationIssueMessage))
   warnings.push(...findBuzzerWarnings(nodes, selectedFqbn))
-  warnings.push(...powerAmplifierInputWarnings(nodes, edges, selectedFqbn).map(validationIssueMessage))
+  warnings.push(...powerAmplifierFeedIssues(nodes, edges)
+    .filter((issue) => issue.severity === 'warning').map(validationIssueMessage))
   warnings.push(...findScheduleIssues(nodes, edges).map((issue) => issue.message))
   warnings.push(...findPinRangeWarnings(nodes))
   warnings.push(...findBoardPinCompatibility(nodes, selectedFqbn).warnings)
@@ -5046,16 +5046,14 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
     if (issue.severity !== 'error') warnings.push(issue.title)
   }
 
-  // Music-sync generator: a wired Pattern Collection needs a direct music
-  // source on the generator, and an empty collection produces nothing.
+  // Music-sync generator: an empty collection produces nothing. The songs come
+  // from the Music Library's store, with no wire to check; packaging refuses a
+  // show with no analysed song (showPackagingIssues).
   const perfGen = relevantPerformanceGenerator(nodes, edges)
   if (perfGen && incoming.has(`${perfGen.id}:patternset`)) {
     const link = edges.find(e => e.target === perfGen.id && e.targetHandle === 'patternset')
     const coll = link && nodes.find(n => n.id === link.source && n.data.nodeType === 'PatternCollection')
     const ids = coll ? ((coll.data.properties as { patternIds?: string[] }).patternIds ?? []) : []
-    if (!incoming.has(`${perfGen.id}:music`)) {
-      warnings.push('Performance Generator has a Pattern Collection but no music source wired')
-    }
     if (coll && ids.length === 0) {
       warnings.push('Pattern Collection wired to Performance Generator is empty')
     }

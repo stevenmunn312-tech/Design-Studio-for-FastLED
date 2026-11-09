@@ -14,6 +14,8 @@ const power = node('power', 'PowerAmplifier', { partId: 'dx-0809-stereo-amplifie
 const diagnostics = (nodes: StudioNode[], fqbn = S3) => buildGraphDiagnostics(nodes, [], { selectedFqbn: fqbn })
 const warning = (nodes: StudioNode[], fqbn = S3) => diagnostics(nodes, fqbn).find((issue) => issue.id === 'power-audio-out')
 
+// The board's own DAC is no feed on any board: ESP32-audioI2S 3.0.12 under
+// IDF 5 does not drive it, so `Audio audio(true)` is silent by construction.
 describe('power amplifier input health', () => {
   it('warns without requiring an SD card, player, show or graph connection', () => {
     expect(warning([power])).toMatchObject({
@@ -21,6 +23,7 @@ describe('power amplifier input health', () => {
       action: 'open-audio-outputs', nodeIds: ['power'],
     })
     expect(warning([power])?.message).toContain('DX-0809')
+    expect(warning([power])?.fix).toBe('Add a PCM5102A or UDA1334A DAC on the Hardware tab to feed the power amplifier.')
     const result = validateGraph([power], [], S3)
     expect(result.warnings.some((message) => message.includes('needs an analog line-level input'))).toBe(true)
     expect(result.errors.some((message) => message.includes('needs an analog line-level input'))).toBe(false)
@@ -30,8 +33,10 @@ describe('power amplifier input health', () => {
     expect(warning([power, node('sd', 'SDCard'), node('player', 'MusicPlayer')])).toBeDefined()
   })
 
-  it.each(['esp32:esp32:esp32', 'esp32:esp32:esp32s2', 'arduino:renesas_uno:minima'])('accepts a hardware DAC on %s', (fqbn) => {
-    expect(warning([power], fqbn)).toBeUndefined()
+  // A board with a DAC of its own is no exception, nor is not having chosen
+  // one yet: the internal DAC never plays.
+  it.each(['esp32:esp32:esp32', 'esp32:esp32:esp32s2', 'arduino:renesas_uno:minima', ''])('still needs a DAC on %s', (fqbn) => {
+    expect(warning([power], fqbn)).toBeDefined()
   })
 
   it.each(['pcm5102a-i2s-dac', 'uda1334a-i2s-dac'])('clears after adding %s and returns when removed', (model) => {
@@ -46,8 +51,7 @@ describe('power amplifier input health', () => {
     expect(issues.find((issue) => issue.id === 'power-audio-out')).toBeUndefined()
   })
 
-  it('does not claim a missing DAC before choosing a board or without a power amplifier', () => {
-    expect(warning([power], '')).toBeUndefined()
+  it('says nothing without a power amplifier', () => {
     expect(warning([])).toBeUndefined()
   })
 
@@ -58,13 +62,23 @@ describe('power amplifier input health', () => {
     expect(issues.find((issue) => issue.id === 'power-audio-out')?.severity).toBe('warning')
   })
 
-  it('retains one blocking diagnostic for a generated show, without a duplicate warning', () => {
+  it.each([S3, 'esp32:esp32:esp32'])('blocks a generated show on %s, once', (fqbn) => {
     const nodes = [power, node('sd', 'SDCard'), node('show', 'PerformanceGenerator'), node('out', 'MatrixOutput')]
     const edges = [{ id: 'show-out', source: 'show', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' }]
-    const issues = buildGraphDiagnostics(nodes, edges, { selectedFqbn: S3 })
+    const issues = buildGraphDiagnostics(nodes, edges, { selectedFqbn: fqbn })
       .filter((issue) => issue.id === 'power-audio-out')
     expect(issues).toHaveLength(1)
     expect(issues[0].severity).toBe('error')
-    expect(validateGraph(nodes, edges, S3).warnings.some((message) => message.includes('needs an analog line-level input'))).toBe(false)
+    const result = validateGraph(nodes, edges, fqbn)
+    expect(result.errors.filter((message) => message.includes('needs an analog line-level input'))).toHaveLength(1)
+    expect(result.warnings.some((message) => message.includes('needs an analog line-level input'))).toBe(false)
+  })
+
+  it('blocks a Music Player that would play through it', () => {
+    const nodes = [power, node('sd', 'SDCard'), node('player', 'PatternMaster'), node('out', 'MatrixOutput')]
+    const edges = [{ id: 'player-out', source: 'player', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' }]
+    const issue = buildGraphDiagnostics(nodes, edges, { selectedFqbn: 'esp32:esp32:esp32' })
+      .find((entry) => entry.id === 'power-audio-out')
+    expect(issue?.severity).toBe('error')
   })
 })

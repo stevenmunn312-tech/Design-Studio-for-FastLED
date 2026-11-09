@@ -205,13 +205,11 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       routeMode: 'native',
       routeX: 0,
       routeY: 0,
-      // Render the graph at 2× the matrix resolution and average each 2×2 block
-      // down to one physical LED (FastLED-style downscale) — antialiases moving
-      // shapes on small panels at ~4× the render cost. Preview + normal sketch.
-      supersample: false,
-      // Render at half the panel resolution and upscale bilinearly into the
-      // LEDs ('1' = full resolution). Matrix panels only; excludes supersample.
-      renderScale: '1',
+      // 'Half' renders at half the panel resolution and upscales bilinearly
+      // into the LEDs; '2x smooth' renders at 2x and averages each 2x2 block
+      // down to one LED (supersampling, ~4x the render cost). Matrix panels
+      // only. See state/output/renderScale.ts.
+      renderResolution: 'Full',
       // FastLED.setCorrection colour-correction profile ('none' = uncorrected).
       correction: 'none',
       // FastLED.setTemperature white point ('none' = uncorrected).
@@ -288,9 +286,9 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       swapChannels: false,
       chipset: 'WS2812B',
       colorOrder: 'GRB',
+      // No power cap of its own: FastLED applies one global cap, the Board's,
+      // and that already covers both rails.
       brightness: 0.65,
-      powerLimit: true,
-      milliamps: 1800,
       visualizationPolicy: 'Shuffle',
       visualizationMode: 'Classic Ladder',
       cycleInterval: 20,
@@ -449,7 +447,8 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
     // and a panel wired to nothing says so rather than sitting blank.
     // See docs/design/simple-displays.md.
     type: 'InfoDisplay',
-    label: 'Info Display',
+    // Labelled after the part people buy; the type id stays, so saves load.
+    label: 'OLED Display',
     category: 'output',
     propertyInputs: { enabled: 'enabled' },
     defaultExposedInputs: ['enabled'],
@@ -481,7 +480,7 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
     // control bundle through the linked TouchInput node; the panel itself is
     // an output-category terminal with no outputs.
     type: 'TransportDisplay',
-    label: 'Display Panel',
+    label: 'TFT Display',
     category: 'output',
     propertyInputs: { enabled: 'enabled' },
     defaultExposedInputs: ['enabled'],
@@ -577,7 +576,7 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
     // from anywhere in the graph is a custom-UI capability, not this.
     // See docs/design/simple-displays.md.
     type: 'SegmentDisplay',
-    label: 'Segment Display',
+    label: '7-Segment Display',
     category: 'output',
     propertyInputs: { enabled: 'enabled' },
     defaultExposedInputs: ['enabled'],
@@ -643,10 +642,9 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
     outputs: [],
     defaultProperties: {
       partId: 'pam8403-3w-stereo-amplifier',
-      // The decoder's software volume, used only when this part is fed
-      // straight from the internal DAC. With a DAC in the chain the DAC is the
-      // stage the board drives, and its volume is the one applied.
-      maxVolume: 18,
+      // No volume of its own: the decoder's volume is applied at the DAC that
+      // feeds it, the stage the board drives. It once had one for the
+      // internal-DAC feed, which the pinned audio library cannot drive.
     },
   },
   {
@@ -688,7 +686,10 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
     ],
     propertyInputs: { r: 'r', g: 'g', b: 'b', brightness: 'brightness' },
     outputs: [],
-    defaultProperties: { r: 255, g: 96, b: 0, brightness: 1, rPin: 25, gPin: 26, bPin: 27, pwmHz: 5000, commonAnode: false },
+    // Not 25 and 26: those are the Amplifier's LRC and BCLK, so a music build
+    // that added the strip used to start with a pin conflict. The strip is a
+    // library node, not a bench part, so nothing reassigns its pins on add.
+    defaultProperties: { r: 255, g: 96, b: 0, brightness: 1, rPin: 32, gPin: 33, bPin: 27, pwmHz: 5000, commonAnode: false },
   },
 ]
 

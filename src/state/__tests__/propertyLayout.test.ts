@@ -43,13 +43,16 @@ describe('property labels', () => {
     expect(PROPERTY_LABELS.RainRipples.energy).toBe('reactivity')
   })
 
-  it('labels the player and slideshow timing in seconds', () => {
-    expect(propertyLabel('PatternMaster', 'minTime')).toBe('min hold (s)')
-    expect(propertyLabel('PatternMaster', 'maxTime')).toBe('max hold (s)')
-    expect(propertyLabel('PatternMaster', 'transitionSec')).toBe('fade (s)')
-    expect(propertyLabel('PatternSlideshow', 'minTime')).toBe('min hold (s)')
-    expect(propertyLabel('PatternSlideshow', 'maxTime')).toBe('max hold (s)')
-    expect(propertyLabel('PatternSlideshow', 'transitionSec')).toBe('fade (s)')
+  // One name per concept on all three show engines, labelled like the port
+  // it shares a socket with: "fade" was wrong once a pool picks iris or cube.
+  it('labels the show engines’ timing alike, in seconds, after their ports', () => {
+    for (const engine of ['PatternMaster', 'PatternSlideshow', 'PerformanceGenerator']) {
+      expect(propertyLabel(engine, 'minTime'), engine).toBe('Min Time (s)')
+      expect(propertyLabel(engine, 'transitionSec'), engine).toBe('Transition (s)')
+    }
+    expect(propertyLabel('PatternMaster', 'maxTime')).toBe('Max Time (s)')
+    expect(propertyLabel('PatternSlideshow', 'maxTime')).toBe('Max Time (s)')
+    expect(propertyLabel('PatternMaster', 'wifiHostname')).toBe('Hostname')
   })
 
   it('names each zone\'s rows after the field, since the group names the zone', () => {

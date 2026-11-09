@@ -55,13 +55,20 @@ describe('editableProperties', () => {
     expect(keys).not.toContain('style')
   })
 
-  it('keeps every Pattern Slideshow timing row, with Audio Reactive deciding which are live', () => {
-    const timing = ['interval', 'beatTransitions', 'minTime', 'maxTime', 'energyPacing', 'dwellsAndBursts']
+  // The hold and the transition always apply; Audio Reactive decides only
+  // the rows that listen. Interval and the Transitions switch are gone: equal
+  // Min and Max Time is a fixed hold, and Transition 0 is a cut.
+  it('keeps every Pattern Slideshow timing row, with Audio Reactive deciding which listen', () => {
+    const always = ['minTime', 'maxTime', 'transitionSec']
+    const listening = ['beatTransitions', 'energyPacing', 'dwellsAndBursts']
     for (const audioReactive of [false, true]) {
       const props = { ...libraryDefaults('PatternSlideshow'), audioReactive }
-      expect(editableProperties('PatternSlideshow', props).map(([key]) => key)).toEqual(expect.arrayContaining(timing))
-      expect(isPropertyEnabled('PatternSlideshow', 'interval', props)).toBe(!audioReactive)
-      for (const key of timing.slice(1)) expect(isPropertyEnabled('PatternSlideshow', key, props)).toBe(audioReactive)
+      const keys = editableProperties('PatternSlideshow', props).map(([key]) => key)
+      expect(keys).toEqual(expect.arrayContaining([...always, ...listening]))
+      expect(keys).not.toContain('interval')
+      expect(keys).not.toContain('transitionsEnabled')
+      for (const key of always) expect(isPropertyEnabled('PatternSlideshow', key, props), key).toBe(true)
+      for (const key of listening) expect(isPropertyEnabled('PatternSlideshow', key, props), key).toBe(audioReactive)
     }
   })
 

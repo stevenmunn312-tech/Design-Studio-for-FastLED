@@ -438,6 +438,12 @@ export function generatePlayerSketch(
     genericPlayer?: boolean; psramAllowed?: boolean; controls?: PlayerControlsConfig
     /** Automatic collection playback; timed Performance shows keep their own schedule. */
     patternOrder?: PatternSlideshowOrder
+    /**
+     * The Music Player's Seed. Nonzero fixes the sketch's random generators
+     * at boot, so pattern, hold, transition and particle picks replay after
+     * every power-up; 0 seeds them from the hardware RNG.
+     */
+    seed?: number
     patternProfiles?: { weights: number[]; energy: EnergyBand[][]; sections?: string[][] }
     sequence?: readonly PatternStep[]
     /** Accept the extra ramp float and sample it each frame. Default sketches omit it. */
@@ -1502,8 +1508,9 @@ ${genericPlayer ? '' : `  // A show file can name the playing pattern on both si
     if (!/\bplaybackReady\b/.test(cppCode(withoutReadyWrites))) narrowed = withoutReadyWrites
     const facts = { ESP32: true, ESP8266: false }
     const finished = finishCpp(specializeCpp(opts.telemetry ? withDeviceTelemetry(narrowed) : narrowed, facts))
-    // Random transitions and particle styles differ after each power-up.
-    const seeded = withBootEntropy(finished)
+    // Random transitions and particle styles differ after each power-up,
+    // unless the Music Player's Seed asks for a repeatable sequence.
+    const seeded = withBootEntropy(finished, opts.seed ?? 0)
     return withLedDriver(
       withLoopPacing(seeded === finished ? finished : specializeCpp(seeded, facts)),
       c.ledDriver,

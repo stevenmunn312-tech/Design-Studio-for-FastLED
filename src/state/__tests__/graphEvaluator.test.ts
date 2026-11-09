@@ -2997,11 +2997,12 @@ describe('evaluateGraph', () => {
 
   it('PlayerParticles builds a bounded typed FX bundle', () => {
     const particles = node('player_fx', 'PlayerParticles', 'show', {
-      enabled: true, style: 99, color: '#123456', intensity: 2,
+      enabled: true, style: 'vortex', color: '#123456', intensity: 2,
       randomColor: true, randomStyle: true, volleyBursts: 99, restSec: -1, energyGate: 0.4,
     })
     expect(evaluateGraphFull([particles], [], 0).outputs.get(particles.id)?.particleFx).toEqual({
       enabled: true,
+      // The stored name becomes the id the renderers' switches dispatch on.
       style: 16,
       color: { r: 18, g: 52, b: 86 },
       intensity: 1,
@@ -3018,7 +3019,7 @@ describe('evaluateGraph', () => {
     const collection = node('fx_collection', 'PatternCollection', 'show', { patternIds: ['fx_group'] })
     const beat = node('fx_beat', 'Compare', 'math', { a: 0, b: 0.5 })
     const particles = node('fx_bundle', 'PlayerParticles', 'show', {
-      enabled: true, style: 2, color: '#ff0000', intensity: 1,
+      enabled: true, style: 'explode', color: '#ff0000', intensity: 1,
     })
     const player = node('fx_player', 'PatternMaster', 'show', { minTime: 999, maxTime: 999, transitionSec: 1 })
     const output = node('fx_output', 'MatrixOutput', 'output', {})
@@ -3044,10 +3045,10 @@ describe('evaluateGraph', () => {
     const collection = node('sfx_collection', 'PatternCollection', 'show', { patternIds: ['sfx_group'] })
     const mic = node('sfx_mic', 'MicInput', 'input', {})
     const particles = node('sfx_bundle', 'PlayerParticles', 'show', {
-      enabled: true, style: 2, color: '#ff0000', intensity: 1,
+      enabled: true, style: 'explode', color: '#ff0000', intensity: 1,
     })
     // Audio Reactive stays off: wiring an enabled bundle is the ask.
-    const slideshow = node('sfx_show', 'PatternSlideshow', 'show', { interval: 999, transitionSec: 1 })
+    const slideshow = node('sfx_show', 'PatternSlideshow', 'show', { minTime: 999, maxTime: 999, transitionSec: 1 })
     const output = node('sfx_output', 'MatrixOutput', 'output', {})
     const black = node('sfx_black', 'SolidColor', 'pattern', { r: 0, g: 0, b: 0 })
     const groupOut = node('sfx_group_out', 'GroupOutput', 'output', {})

@@ -5048,43 +5048,43 @@
 <g id="lamp-8.19x8.19"><rect x="-3.28" y="-1.80" width="14.74" height="11.79" rx="5.89" fill-opacity="0.34"/><rect width="8.19" height="8.19" rx="1.80"/></g>
 <g id="lamp-8.25x8.25"><rect x="-3.30" y="-1.81" width="14.85" height="11.88" rx="5.94" fill-opacity="0.34"/><rect width="8.25" height="8.25" rx="1.81"/></g>
 </defs>
-<path d="M624,416 C669,416 679,660 724,660" fill="none" stroke="#8533ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M624,416 C669,416 679,660 724,660" fill="none" stroke="#8533ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M624,416 C669,416 679,660 724,660" fill="none" stroke="#8533ff" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="724" cy="660" r="3" fill="#8533ff"/>
-<path d="M284,958 C482,958 526,604 724,604" fill="none" stroke="#d6ff33" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M284,958 C482,958 526,604 724,604" fill="none" stroke="#d6ff33" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M284,958 C482,958 526,604 724,604" fill="none" stroke="#d6ff33" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="724" cy="604" r="3" fill="#d6ff33"/>
-<path d="M284,958 C329,958 339,1096 384,1096" fill="none" stroke="#d6ff33" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M284,958 C329,958 339,1096 384,1096" fill="none" stroke="#d6ff33" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M284,958 C329,958 339,1096 384,1096" fill="none" stroke="#d6ff33" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="384" cy="1096" r="3" fill="#d6ff33"/>
-<path d="M624,1096 C669,1096 679,744 724,744" fill="none" stroke="#85ff33" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M624,1096 C669,1096 679,744 724,744" fill="none" stroke="#85ff33" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M624,1096 C669,1096 679,744 724,744" fill="none" stroke="#85ff33" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="724" cy="744" r="3" fill="#85ff33"/>
-<path d="M624,656 C669,656 679,688 724,688" fill="none" stroke="#8533ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M624,656 C669,656 679,688 724,688" fill="none" stroke="#8533ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M624,656 C669,656 679,688 724,688" fill="none" stroke="#8533ff" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="724" cy="688" r="3" fill="#8533ff"/>
-<path d="M624,96 C669,96 679,632 724,632" fill="none" stroke="#8533ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M624,96 C669,96 679,632 724,632" fill="none" stroke="#8533ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M624,96 C669,96 679,632 724,632" fill="none" stroke="#8533ff" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="724" cy="632" r="3" fill="#8533ff"/>
-<path d="M624,816 C669,816 679,716 724,716" fill="none" stroke="#8533ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M624,816 C669,816 679,716 724,716" fill="none" stroke="#8533ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M624,816 C669,816 679,716 724,716" fill="none" stroke="#8533ff" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="724" cy="716" r="3" fill="#8533ff"/>
-<path d="M1004,604 C1049,604 1059,644 1104,644" fill="none" stroke="#8533ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M1004,604 C1049,604 1059,644 1104,644" fill="none" stroke="#8533ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M1004,604 C1049,604 1059,644 1104,644" fill="none" stroke="#8533ff" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="1104" cy="644" r="3" fill="#8533ff"/>
+<path d="M624,416 C669,416 679,660 724,660" fill="none" stroke="#8847ea" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M624,416 C669,416 679,660 724,660" fill="none" stroke="#8847ea" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M624,416 C669,416 679,660 724,660" fill="none" stroke="#8847ea" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="724" cy="660" r="3" fill="#8847ea"/>
+<path d="M284,958 C482,958 526,604 724,604" fill="none" stroke="#c9ea47" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M284,958 C482,958 526,604 724,604" fill="none" stroke="#c9ea47" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M284,958 C482,958 526,604 724,604" fill="none" stroke="#c9ea47" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="724" cy="604" r="3" fill="#c9ea47"/>
+<path d="M284,958 C329,958 339,1096 384,1096" fill="none" stroke="#c9ea47" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M284,958 C329,958 339,1096 384,1096" fill="none" stroke="#c9ea47" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M284,958 C329,958 339,1096 384,1096" fill="none" stroke="#c9ea47" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="384" cy="1096" r="3" fill="#c9ea47"/>
+<path d="M624,1096 C669,1096 679,744 724,744" fill="none" stroke="#88ea47" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M624,1096 C669,1096 679,744 724,744" fill="none" stroke="#88ea47" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M624,1096 C669,1096 679,744 724,744" fill="none" stroke="#88ea47" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="724" cy="744" r="3" fill="#88ea47"/>
+<path d="M624,656 C669,656 679,688 724,688" fill="none" stroke="#8847ea" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M624,656 C669,656 679,688 724,688" fill="none" stroke="#8847ea" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M624,656 C669,656 679,688 724,688" fill="none" stroke="#8847ea" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="724" cy="688" r="3" fill="#8847ea"/>
+<path d="M624,96 C669,96 679,632 724,632" fill="none" stroke="#8847ea" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M624,96 C669,96 679,632 724,632" fill="none" stroke="#8847ea" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M624,96 C669,96 679,632 724,632" fill="none" stroke="#8847ea" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="724" cy="632" r="3" fill="#8847ea"/>
+<path d="M624,816 C669,816 679,716 724,716" fill="none" stroke="#8847ea" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M624,816 C669,816 679,716 724,716" fill="none" stroke="#8847ea" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M624,816 C669,816 679,716 724,716" fill="none" stroke="#8847ea" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="724" cy="716" r="3" fill="#8847ea"/>
+<path d="M1004,604 C1049,604 1059,644 1104,644" fill="none" stroke="#8847ea" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M1004,604 C1049,604 1059,644 1104,644" fill="none" stroke="#8847ea" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M1004,604 C1049,604 1059,644 1104,644" fill="none" stroke="#8847ea" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="1104" cy="644" r="3" fill="#8847ea"/>
 <g transform="translate(384,364)">
-<defs><linearGradient id="tint-show" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#312751"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<defs><linearGradient id="tint-show" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#322a4d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="240" height="174" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="174" rx="8" fill="url(#tint-show)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#8533ff"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#8847ea"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Pattern Coll…</text>
 <rect x="135.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -5107,10 +5107,10 @@
 <rect x="0.5" y="0.5" width="239" height="173" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(44,624)">
-<defs><linearGradient id="tint-input" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2e362c"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<defs><linearGradient id="tint-input" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2d342d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="240" height="354" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="354" rx="8" fill="url(#tint-input)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#d6ff33"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#c9ea47"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Audio</text>
 <rect x="141.8" y="8" width="20.2" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -5130,10 +5130,10 @@
 <rect x="0.5" y="0.5" width="239" height="353" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(384,604)">
-<defs><linearGradient id="tint-show" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#312751"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<defs><linearGradient id="tint-show" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#322a4d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="240" height="103" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="103" rx="8" fill="url(#tint-show)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#8533ff"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#8847ea"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Transition P…</text>
 <rect x="135.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -5153,10 +5153,10 @@
 <rect x="0.5" y="0.5" width="239" height="102" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(384,984)">
-<defs><linearGradient id="tint-audio" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b3e2c"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<defs><linearGradient id="tint-audio" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c3c2e"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="240" height="394" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="394" rx="8" fill="url(#tint-audio)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#85ff33"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#88ea47"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Beat Detect</text>
 <rect x="135.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -5223,10 +5223,10 @@
 <rect x="0.5" y="0.5" width="239" height="393" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(384,44)">
-<defs><linearGradient id="tint-show" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#312751"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<defs><linearGradient id="tint-show" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#322a4d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="240" height="267" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="267" rx="8" fill="url(#tint-show)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#8533ff"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#8847ea"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Player Contr…</text>
 <rect x="135.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -5263,10 +5263,10 @@
 <rect x="0.5" y="0.5" width="239" height="266" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(384,764)">
-<defs><linearGradient id="tint-show" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#312751"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<defs><linearGradient id="tint-show" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#322a4d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="240" height="155" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="155" rx="8" fill="url(#tint-show)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#8533ff"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#8847ea"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Player Parti…</text>
 <rect x="135.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -5291,10 +5291,10 @@
 <rect x="0.5" y="0.5" width="239" height="154" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(724,284)">
-<defs><linearGradient id="tint-show" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#312751"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<defs><linearGradient id="tint-show" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#322a4d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="280" height="788" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="280" height="788" rx="8" fill="url(#tint-show)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L272,0 Q280,0 280,8 L280,32 Z" fill="#8533ff"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L272,0 Q280,0 280,8 L280,32 Z" fill="#8847ea"/>
 <rect x="1" y="32" width="278" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Music Player</text>
 <rect x="175.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -5592,7 +5592,7 @@
 <line x1="8" y1="480.5" x2="272" y2="480.5" stroke="rgba(255,255,255,0.05)"/>
 <text x="8" y="502" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Expose input…</text>
 <text x="8" y="526" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▾ PLAYBACK</text>
-<text x="10" y="547" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">volume</text>
+<text x="10" y="547" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Volume</text>
 <g>
 <rect x="138" y="541" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
 <rect x="138" y="541" width="72.0" height="4" rx="2" fill="#d633ff"/>
@@ -5620,7 +5620,7 @@
 <rect x="138" y="628.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
 </g>
 <text x="264" y="639" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="10" y="658" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">min hold (s)</text>
+<text x="10" y="658" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Min Time (s)</text>
 <g>
 <rect x="138" y="652" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
 <rect x="138" y="652" width="0.7" height="4" rx="2" fill="#d633ff"/>
@@ -5628,7 +5628,7 @@
 <text x="250" y="658" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">4</text>
 </g>
 <text x="264" y="658" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="10" y="677" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">max hold (s)</text>
+<text x="10" y="677" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Max Time (s)</text>
 <g>
 <rect x="138" y="671" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
 <rect x="138" y="671" width="2.6" height="4" rx="2" fill="#d633ff"/>
@@ -5636,7 +5636,7 @@
 <text x="250" y="677" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">12</text>
 </g>
 <text x="264" y="677" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="10" y="696" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">fade (s)</text>
+<text x="10" y="696" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Transition (s)</text>
 <g>
 <rect x="138" y="690" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
 <rect x="138" y="690" width="7.2" height="4" rx="2" fill="#d633ff"/>
@@ -5655,7 +5655,7 @@
 </g>
 <text x="264" y="734" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
 <text x="8" y="755" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▾ RANDOMNESS</text>
-<text x="10" y="776" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">seed</text>
+<text x="10" y="776" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Seed</text>
 <g>
 <rect x="138" y="770" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
 <rect x="138" y="770" width="0.0" height="4" rx="2" fill="#d633ff"/>
@@ -5666,10 +5666,10 @@
 <rect x="0.5" y="0.5" width="279" height="787" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(1104,324)">
-<defs><linearGradient id="tint-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#392649"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<defs><linearGradient id="tint-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#372946"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="280" height="539" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="280" height="539" rx="8" fill="url(#tint-output)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L272,0 Q280,0 280,8 L280,32 Z" fill="#d633ff"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L272,0 Q280,0 280,8 L280,32 Z" fill="#c947ea"/>
 <rect x="1" y="32" width="278" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">LED Matrix</text>
 <rect x="175.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>

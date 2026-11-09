@@ -62,12 +62,11 @@ export { hasAudioOutputStage } from '../upload/buildMode'
 
 /**
  * The part whose software volume the decoder applies: the stage the board
- * drives. With a DAC in the chain that is the DAC, and the power amplifier's
- * own knob is the analog one on the board; with the power amplifier fed
- * straight from the internal DAC, it is the power amplifier.
+ * drives, the I2S amplifier or DAC. A power amplifier after a DAC has only
+ * the analog knob on its board, and one with no DAC is refused.
  */
 export function audioVolumeStage(nodes: readonly StudioNode[]): StudioNode | undefined {
-  return i2sAudioStage(nodes) ?? powerAmplifierStage(nodes)
+  return i2sAudioStage(nodes)
 }
 
 /**
@@ -98,6 +97,11 @@ export function powerAmplifierFeed(nodes: readonly StudioNode[]): PowerAmplifier
 /**
  * The output this graph will actually use.
  *
+ * `internalDac` is what the parts call for, not a path that plays: the pinned
+ * ESP32-audioI2S (3.0.12, IDF 5) cannot drive the internal DAC, so validation
+ * refuses a player build that resolves here (`powerAmplifierFeedIssues`, and a
+ * player with no audio stage at all).
+ *
  * An I2S stage means I2S — a DAC feeding a power amplifier included, because
  * the thing on the board's pins is still the DAC. A power amplifier with no I2S
  * stage means the opposite: it cannot decode I2S at all, so the sound has to
@@ -115,19 +119,3 @@ export function audioOutputMode(nodes: StudioNode[], fqbn = ''): AudioOutputMode
   return boardHasInternalDac(fqbn) ? 'internalDac' : 'i2s'
 }
 
-/** True when the show has no way to make a sound: no I2S stage, and no DAC to
- *  fall back on. Worth saying before an upload rather than after a silent
- *  board. */
-export function audioOutputMissing(nodes: StudioNode[], fqbn = ''): boolean {
-  // No board chosen yet is not the same as a board with no DAC. Claiming a
-  // fault from not knowing would put an error on every graph before the user
-  // has said what they are flashing.
-  if (!fqbn) return false
-  const hasSdCard = nodes.some((node) => node.data.nodeType === 'SDCard')
-  if (!hasSdCard) return false
-  if (i2sAudioStage(nodes)) return false
-  // A power amplifier is not a way out on its own: something has to feed it
-  // line level, and with no DAC on the bench that is the internal one. Fitted
-  // to a board without one, the part is present and still cannot make a sound.
-  return !boardHasInternalDac(fqbn)
-}

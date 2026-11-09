@@ -69,8 +69,8 @@ describe('Node Reference generated assets', () => {
     expect(svg).toContain('Expose input…')
     // The player is 280 px wide so this label fits the shared label column.
     expect(svg).toContain('Beat Transitions')
-    expect(svg).toContain('min hold (s)')
-    expect(svg).toContain('max hold (s)')
+    expect(svg).toContain('Min Time (s)')
+    expect(svg).toContain('Max Time (s)')
     expect(svg).toContain('▾ TIMING')
     expect(svg).not.toContain('Play / Pause')
     expect(svg).not.toContain('Previous Pattern')

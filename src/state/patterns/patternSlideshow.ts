@@ -20,7 +20,16 @@ export function asSlideshowOrder(value: unknown): PatternSlideshowOrder {
 }
 
 /** Shortest hold worth offering: below this a slideshow is a strobe. */
-export const SLIDESHOW_MIN_INTERVAL_SEC = 1
+export const SLIDESHOW_MIN_HOLD_SEC = 1
+
+/**
+ * The hold a new slideshow draws from. Unequal, so Energy Pacing and Dwells &
+ * Bursts have a range to lean within once Audio Reactive is on; equal Min and
+ * Max Time is a fixed hold.
+ */
+export const SLIDESHOW_DEFAULT_MIN_TIME = 8
+export const SLIDESHOW_DEFAULT_MAX_TIME = 30
+export const SLIDESHOW_DEFAULT_TRANSITION_SEC = 1.5
 
 /** Average bass/mids/treble level at or below which the room is silent. */
 export const SLIDESHOW_SILENCE_THRESHOLD = 0.025
@@ -48,15 +57,12 @@ export function advanceSlideshowSilenceFade(
 export interface SlideshowSettings {
   order: PatternSlideshowOrder
   /**
-   * Shortest and longest hold in seconds, the Music Player's pair. Without
-   * Audio Reactive both are the fixed Interval.
+   * Shortest and longest hold in seconds, the Music Player's pair, with or
+   * without Audio Reactive. Equal means a fixed hold.
    */
   minTime: number
   maxTime: number
-  /**
-   * Seconds to cross into the next pattern. Zero when transitions are off,
-   * which both sides already render as a cut, so "off" needs no second path.
-   */
+  /** Seconds to cross into the next pattern; 0 is a cut, on both sides. */
   transitionSec: number
   /**
    * Wait for a fresh beat once the hold ends; a Sequence hold counts beats.
@@ -73,7 +79,6 @@ export interface SlideshowSettings {
 
 /** Wired timing inputs, which take over from the matching properties. */
 export interface SlideshowWiredTiming {
-  interval?: number | null
   minTime?: number | null
   maxTime?: number | null
   transitionSec?: number | null
@@ -100,22 +105,19 @@ export function slideshowSettings(
   props: Record<string, unknown>,
   wired: SlideshowWiredTiming = {},
 ): SlideshowSettings {
-  const transitionsOn = props.transitionsEnabled !== false
   const audioReactive = props.audioReactive === true
-  // Without Audio Reactive the hold is one Interval, and the timing that
-  // varies it is switched off with the sound it would vary it by.
-  const interval = Math.max(SLIDESHOW_MIN_INTERVAL_SEC, seconds(wired.interval, props.interval, 20))
-  const minTime = audioReactive
-    ? Math.max(SLIDESHOW_MIN_INTERVAL_SEC, seconds(wired.minTime, props.minTime, 20))
-    : interval
+  // The hold is always Min to Max Time; only the timing that listens (Beat
+  // Transitions, Energy Pacing, Dwells & Bursts) is switched off with the
+  // sound it would follow.
+  const minTime = Math.max(SLIDESHOW_MIN_HOLD_SEC, seconds(wired.minTime, props.minTime, SLIDESHOW_DEFAULT_MIN_TIME))
   const seed = Math.round(Number(props.seed ?? 0))
   return {
     order: asSlideshowOrder(props.order),
     minTime,
-    maxTime: audioReactive ? Math.max(minTime, seconds(wired.maxTime, props.maxTime, 20)) : interval,
-    // A fade of zero with transitions on is a cut the user asked for, so it is
-    // left alone rather than floored up to a minimum they did not.
-    transitionSec: transitionsOn ? seconds(wired.transitionSec, props.transitionSec, 1.5) : 0,
+    maxTime: Math.max(minTime, seconds(wired.maxTime, props.maxTime, SLIDESHOW_DEFAULT_MAX_TIME)),
+    // A transition of zero is a cut the user asked for, so it is left alone
+    // rather than floored up to a minimum they did not.
+    transitionSec: seconds(wired.transitionSec, props.transitionSec, SLIDESHOW_DEFAULT_TRANSITION_SEC),
     beatTransitions: audioReactive && props.beatTransitions === true && wired.beatSource !== false,
     energyPacing: audioReactive && props.energyPacing === true,
     dwellsAndBursts: audioReactive && props.dwellsAndBursts === true,

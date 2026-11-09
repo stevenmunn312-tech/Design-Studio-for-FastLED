@@ -1045,161 +1045,34 @@ freeze, or drop them.
 
 #### Outputs and shows
 
-- [ ] **Category: Unify show-engine timing names and labels (Med, S).** Music
-  Player and Pattern Slideshow use `minTime`/`maxTime`/`transitionSec` with
-  ports "Min Time"/"Max Time"/"Transition", but the fields read "min hold
-  (s)"/"max hold (s)"/"fade (s)", and "fade" is wrong when a Transition Pool
-  picks iris or cube. Performance Generator uses `patternHold`/
-  `transitionDuration`, and Sequencer and Slideshow use `interval`/`fade`.
-  Before v1.0.0 settle on one name per concept and one label style (Music
-  Player also mixes Title Case with lower case). Evidence
-  `src/state/nodeLibrary.ts:3335`, `src/nodes/show/definitions.ts:331`.
-- [ ] **Category: Test that every live player/show input reaches firmware
-  (Med, M).** `LIVE_PLAYER_SHOW_PROPERTIES` declares ports as verified live
-  inputs, but nothing checks the generated sketch. Add a test that walks the
-  list and confirms each port changes the generated sketch in the show and SD
-  player generators. Evidence `src/state/player/runtimeControlScope.ts:34`.
-- [ ] **Category: Show master brightness as a percentage (Low, S).**
-  Brightness uses five scales: Board 0-255, LED output 0-1, Stereo VU 0-1,
-  Segment Display 0-7/0-15, Analog Strip 0-1. Show the Board level as a
-  percentage so the fixtures read alike (FastLED can still store 0-255).
-- [ ] **Category: Rename display nodes after the hardware (Low, S).** Info
-  Display, Display Panel and Segment Display stay separate nodes. Relabel them
-  with the parts people buy ("OLED Display", "TFT Display", "7-Segment
-  Display").
-- [ ] **Category: Say when to use Player Controls vs direct action ports (Low,
-  S).** The engines and the LED output now take Next, Toggle-blackout and
-  Brightness Up/Down directly. Add one help sentence on each engine: one or two
-  buttons, wire them directly; a whole panel, use Player Controls.
-- [ ] **Category: Point the sidebar Output section at the Hardware tab (Low,
-  S).** It lists only Master Speed, Frame Stream and Analog RGB Strip because
-  everything else is added from the bench. Add a permanent "LED outputs are on
-  the Hardware tab" row. Evidence `src/build/hardware.ts:27`.
-- [ ] **Board: Add a Frame Rate control (High, S).** `frameRate` is described
-  and the Board help says to set it, but `src/components/Canvas/bodies/BoardNodeBody.tsx` has no fps row;
-  the only writer is the Graph Health repair `setBoardFrameRate`, which can
-  only lower it. Add an fps row beside Master brightness. Evidence
-  `src/components/Canvas/bodies/BoardNodeBody.tsx:404`, `src/state/graphStore.ts:4704`.
-- [ ] **Board: Reword help step 2 on the power cap (Low, S).** It presents the
-  cap as the answer when the LEDs could draw more than the supply gives. Say to
-  size the supply from the "Required power supply" figure, and use the cap to
-  limit brightness or heat. Evidence `src/components/HelpModal/reference/output.ts:15`.
 - [ ] **LED output: Lift the 300-LED cap on strings, rings and corkscrews
   (Med, M).** `MAX_LED_RUN` stops them at 300 while a matrix may reach 4096,
   though one 5 m reel at 144/m is 720. Raise the chain cap toward the matrix
   total (data lanes already split long chains), or document why it is 300.
-  Evidence `src/state/output/ledOutputForm.ts:42`.
-- [ ] **LED output: Merge supersample and render scale (Low, S).** The two
-  controls grey each other out. Replace them with one "Render resolution: Half
-  / Full / 2x smooth" select. Evidence `src/state/nodeLibrary.ts:5235`.
-- [ ] **Stereo VU Meter: Remove the unenforced power cap (High, S).** The node
-  defaults to `powerLimit: true, milliamps: 1800` and help promises a shared
-  rail cap, but no generator emits it (only the Board cap) and
-  `src/codegen/audio/stereoVuMeterCpp.ts` never reads either property. The Build Diagram reports
-  a limit the sketch never applies. Remove both properties as was done for LED
-  outputs. Evidence `src/nodes/output/definitions.ts:292`, `src/codegen/cppGenerator.ts:468`.
-- [ ] **Stereo VU Meter: Collapse or preset the Response group (Low, S).** Its
-  30 properties include a nine-row Response group (gain through beat accent)
-  few people touch. Start it collapsed, or offer 3-4 presets (Hi-fi, Punchy,
-  Smooth).
-- [ ] **DFPlayer Mini: Make Play a one-shot option or fix the help example
-  (Med, S).** Firmware pauses as soon as Play falls, and a Button's Pressed is
-  true only while held, so the doorbell example stops on release. Add a "Play
-  mode: Hold / One-shot" choice (rising edge plays to the end using BUSY), or
-  insert a Toggle Trigger in the example. Evidence `src/components/HelpModal/reference/output.ts:280`,
-  `src/codegen/peripherals/dfPlayerCpp.ts:82`.
-- [ ] **Display Panel: List all four modules in help (Low, S).** Help names the
-  1.54-inch and 2.4-inch modules, but the catalogue also has the ILI9341
-  2.8-inch + touch and the XC4630 2.8-inch shield. List all four, or say
-  "choose the module on the Hardware shelf". Evidence `src/components/HelpModal/reference/output.ts:328`,
-  `src/build/parts/partOptions.ts:572`.
-- [ ] **Master Speed: Reconcile help and validation (Med, S).** Help says the
-  Music Player ignores it, but validation blocks a player build. Make it a
-  warning with a one-click "Remove Master Speed" fix, or change the help to say
-  it is an error. Evidence `src/components/HelpModal/reference/output.ts:360`, `src/utils/validateGraph.ts:3120`.
-- [ ] **Amplifier: Fix stale help about built-in pin defaults (Med, S).** Help
-  says a player without an Amplifier uses its pin defaults, but a Music Player
-  or show without an audio-output stage is now an error. Say the player needs
-  one. Evidence `src/components/HelpModal/reference/output.ts:409`, `src/utils/validateGraph.ts:2692`.
-- [ ] **Amplifier: Use one label for max volume (Low, S).** `maxVolume` is the
-  ceiling that player volume 1.0 maps to, but the tooltip, the bench field and
-  help each describe it differently. Use "Max volume (0-21)" with "the level at
-  full player volume". Evidence `src/state/nodeLibrary.ts:3210`,
-  `src/build/parts/partFields.ts:73`.
-- [ ] **Power Amplifier: Error on the internal-DAC path (High, S).** On a
-  classic ESP32 with no DAC on the bench it is accepted and emits
-  `Audio audio(true)`, but ESP32-audioI2S 3.0.12 is silent there under IDF 5.
-  Make "power amplifier with no DAC" an error on every board with the existing
-  "Add a PCM5102A" fix, and remove the built-in-DAC paragraph from help.
-  Evidence `src/utils/validateGraph.ts:1529`, `src/codegen/playerSketchGenerator.ts:1658`.
+  Evidence `src/state/output/ledOutputForm.ts:42`. Not a constant change: a
+  string's canvas is `ledCount` x 1, so `WIDTH` grows with the cap, and some
+  emitted pattern code sizes per-column arrays by `WIDTH` on the loop stack
+  (Spectrum Visualizer's wave `_wvV[WIDTH], _wvY[WIDTH]` floats in
+  `src/nodes/audioReactive/codegen.ts:199`, 8 bytes per LED; the 1-D
+  automaton's `_row[WIDTH]` in `src/nodes/field/codegen.ts:394`) or as static
+  columns (`_svLevel` and friends, 16 bytes per column). At 720 LEDs the
+  stack arrays alone pass 5 KB of an 8 KB loop task. Move those to static or
+  heap storage (or cap them by a column count), raise `MAX_LED_RUN`, make
+  `ledCount` a typed number (`entry: 'number'`, a 1-4096 slider cannot be
+  dragged), and confirm with compiles of a long string through the sweep in
+  `showGenerator.test.ts` before trusting it on hardware.
+  `NETWORK_MAX_LEDS` and the positioned-string `MAX_LEDS` are separate 300
+  caps.
 - [ ] **Analog RGB Strip: Resolve overlap with Power Switch (Med, M).** The
   YYNMOS-4 and Mosfetti boards Power Switch catalogues are the usual way to
   drive an analog strip, yet the strip leaves the driver as "whatever the bench
   has" and lives in the sidebar, not on the bench. Either give it an optional
   driver `partId` and make it a bench part, or add an "RGB strip" load mode
   with a Color input to Power Switch. Evidence `src/build/hardwareManifest.ts:1253`,
-  `src/build/hardware.ts:27`.
-- [ ] **Analog RGB Strip: Change default pins that clash with Amplifier (Low,
-  S).** Default R=25, G=26 are the Amplifier's default LRC and BCLK, so a music
-  build with an analog strip starts with a pin conflict. Evidence
-  `src/nodes/output/definitions.ts:691`.
-- [ ] **Music Library: Remove the empty wire to Performance Generator (Med,
-  M).** The `music` wire carries only `true`; the generator reads the global
-  music store either way, and validation warns until the cable is drawn. Fold
-  the library into the Performance Generator (double-click or "Edit songs"
-  opens the library UI), or make Music Library portless like SD Card and drop
-  the warning. Evidence `src/nodes/show/evaluate.ts:1744`, `src/utils/validateGraph.ts:4886`.
-- [ ] **Player Particles: Make Style a named select (Med, S).** Style is a
-  0-16 slider although the 17 styles have names (rain, explode, fireworks,
-  swirl, twinkle, ring and so on). Replace it with a named select. Evidence
-  `src/state/nodeLibrary.ts:1491`, `src/nodes/show/evaluate.ts:800`.
-- [ ] **Music Player: Remove the stale "SD player only crossfades" claim (Med,
-  S).** Help and the `transitionSec` tooltip say the SD player uses crossfade,
-  but it now compiles the wired Transition Pool, so users are told to skip a
-  working feature. Evidence `src/components/HelpModal/reference/show.ts:151`, `src/state/nodeLibrary.ts:1797`.
-- [ ] **Music Player: Honour or grey out `seed` on SD builds (Low, S).** `seed`
-  is preview-only on the SD player; the slideshow honours it. Either honour it
-  in `src/codegen/playerSketchGenerator.ts` or grey it out for SD, Bluetooth and Radio
-  builds. Evidence `src/state/nodeLibrary.ts:1806`, `src/codegen/showGenerator.ts:1777`.
-- [ ] **Music Player: Trim the help overview (Low, S).** The overview is eight
-  paragraphs covering every source. Move the Bluetooth and Radio paragraphs
-  into the `musicSource` tooltip and a propertyNote so the overview teaches the
-  common SD/timed path. Evidence `src/components/HelpModal/reference/show.ts:131`.
-- [ ] **Sequencer: Rename to avoid the engines' "Sequence" order (Low, S).**
-  The name collides with the step editor on the Music Player and Slideshow,
-  but this node is a four-slot timed crossfade. Rename it ("Crossfade Cycle" or
-  "Look Rotator"). Evidence `src/nodes/show/codegen.ts:335`.
-- [ ] **Transition Pool: Update the description and comment (Low, S).** The
-  sidebar description says "for the Music Player / Performance Generator" and
-  the definition comment names only Performance Generator, but Pattern
-  Slideshow takes it too. Update both. Evidence
-  `src/nodes/show/definitions.ts:381`, `src/nodes/show/definitions.ts:194`.
-- [ ] **Pattern Slideshow: Merge Interval into Min/Max Time (Med, M).** Without
-  Audio Reactive the resolver sets `minTime = maxTime = interval`; with it,
-  Interval is hidden and Min/Max default to 20/20, so Energy Pacing visibly
-  changes nothing. Drop `interval` and its port, always show Min/Max (equal
-  means fixed), gate only Beat Transitions, Energy Pacing and Dwells & Bursts on
-  Audio Reactive, and default to an unequal pair such as 8-30 s. Evidence
-  `src/state/patterns/patternSlideshow.ts:107`, `src/nodes/show/definitions.ts:263`.
-- [ ] **Pattern Slideshow: Remove the Transitions switch (Low, S).**
-  `transitionsEnabled: false` and Transition 0 s both give a hard cut. Keep
-  only the duration field. Evidence `src/state/patterns/patternSlideshow.ts:118`.
-- [ ] **Performance Generator: Show in the main preview by default (Low, S).**
-  `showInMainPreview` defaults off, so a generator wired to an LED output plays
-  only in its small body canvas while that output's main preview stays black.
-  Default it on. Evidence `src/nodes/show/evaluate.ts:1747`,
-  `src/components/Canvas/bodies/PerformanceGeneratorBody.tsx:425`.
-- [ ] **SD Card: Fix the diagnostic that names a removed input (Med, S).** With
-  no Frame on an LED output and an SD Card on the bench, the fix says "wire an
-  SD Card node to the SD Card input", but the LED output has no `sdcard` port
-  and SD Card is portless. Replace with the normal "connect a Frame" fix and
-  remove the dead checks. Evidence `src/utils/validateGraph.ts:3931`,
-  `src/utils/hardwareValidation.ts:321`.
-- [ ] **SD Card: Update stale description and comment (Low, S).** The sidebar
-  description "SD card and audio pins for the music-sync player" is out of
-  date (audio moved to the Amplifier), and so is the comment about a classic
-  ESP32 falling back to its built-in DAC. Evidence
-  `src/nodes/show/definitions.ts:384`, `src/nodes/show/definitions.ts:363`.
+  `src/build/hardware.ts:27`. Needs a product decision between the two
+  shapes (one node that names its MOSFET board, or Power Switch growing a
+  colour load), and either way the Build Diagram wiring for an RGB load on a
+  four-channel board. Its default pins no longer clash with the Amplifier.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 

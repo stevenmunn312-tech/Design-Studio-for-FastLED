@@ -51,9 +51,10 @@ import { DECODER_MAX_VOLUME } from '../build/parts/partFields'
 import { MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './player/masterSpeed'
 import { MUSIC_PLAYER_MIN_HOLD_SEC } from './player/musicPlayerTiming'
 import { PARTICLE_REST_SEC_MAX, PARTICLE_VOLLEY_BURSTS_MAX } from './player/playerDynamics'
+import { PARTICLE_STYLES } from './player/particleStyles'
 import { WIREFRAME_MODEL_OPTIONS } from '../nodes/shapes/wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './output/ledOutputForm'
-import { RENDER_SCALE_OPTIONS } from './output/renderScale'
+import { RENDER_RESOLUTIONS } from './output/renderScale'
 import { POSITION_PRESETS, POSITIONS_MM_PER_UNIT_MAX, STRIP_LAYOUTS, usesNetwork, usesPositions } from './output/stringPositions'
 import { NETWORK_LEDS_PER_EDGE, NETWORK_MAX_NODES, NETWORK_PRESETS } from './output/segmentNetwork'
 import { RIPPLE_BEHAVIOURS, RIPPLE_LIFETIME_SEC, RIPPLE_WIDTH } from '../nodes/shared/rippleNetwork'
@@ -196,7 +197,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   ...OUTPUT_DESCRIPTIONS,
   ...HARDWARE_DESCRIPTIONS,
   ...GRAPH_DESCRIPTIONS,
-  Display: 'A screen drawn widget by widget, owned by the Display Panel it was created for.',
+  Display: 'A screen drawn widget by widget, owned by the TFT Display it was created for.',
 }
 
 // Single source of truth for category display order, labels, and accent colors.
@@ -295,7 +296,6 @@ export const PORT_COLORS: Record<string, string> = {
   storage: '#c78cff',
   dmx: '#6bf8ff',
   datetime: '#d8ff63',
-  music: '#ffb74d',
   patternset: '#38a6ff',
   display: '#ffe066',
   transitionset: '#b388ff',
@@ -378,7 +378,7 @@ export const STEREO_VU_CLOCK_PIN_KEYS = ['leftClockPin', 'rightClockPin'] as con
  * The GPIO properties a Stereo VU Meter actually drives: both rails' data
  * pins, plus both clock pins only when the chipset is clocked. The bench, the
  * manifest and pin retargeting all read this, so a clockless fixture never
- * reserves or shows a clock line it does not wire — the way the Info Display
+ * reserves or shows a clock line it does not wire — the way the OLED Display
  * reserves only the wires its module has.
  */
 export function stereoVuPinKeys(properties: Record<string, unknown>): readonly string[] {
@@ -478,7 +478,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   colorOrder: { control: 'select', options: COLOR_ORDER_OPTIONS },
   correction: { control: 'select', options: CORRECTION_OPTIONS },
   whitePoint: { control: 'select', options: WHITE_POINT_OPTIONS },
-  renderScale: { control: 'select', options: RENDER_SCALE_OPTIONS },
+  renderResolution: { control: 'select', options: RENDER_RESOLUTIONS },
   overclock:  { control: 'slider', min: 1, max: 1.7, step: 0.05 },
   hub75R1Pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   hub75G1Pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -778,8 +778,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   PerformanceGenerator: {
     beatIntensity:      { control: 'slider', min: 0, max: 1, step: 0.05 },
     energySensitivity:  { control: 'slider', min: 0, max: 1, step: 0.05 },
-    transitionDuration: { control: 'slider', min: 0.1, max: 3, step: 0.1 },
-    patternHold:        { control: 'slider', min: 1, max: 30, step: 1 },
+    transitionSec:      { control: 'slider', min: 0.1, max: 3, step: 0.1 },
+    minTime:            { control: 'slider', min: 1, max: 30, step: 1 },
     paletteMode:        { control: 'select', options: ['mood', 'cycle', 'fixed'] },
     fixedPalette:       { control: 'select', options: STUDIO_PALETTES },
   },
@@ -872,7 +872,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     peakFall: { control: 'slider', min: 0.1, max: 4, step: 0.05 },
     trailAmount: { control: 'slider', min: 0, max: 1, step: 0.01 },
     beatAccent: { control: 'slider', min: 0, max: 1, step: 0.01 },
-    milliamps: { control: 'slider', min: 100, max: 20000, step: 100 },
   },
   // Saturation's amount is 0–2 (1 = unchanged), not the shared 0–1 opacity.
   Saturation: {
@@ -1330,7 +1329,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   // The I2S decoder's 0–21 volume steps, typed in the part's hardware panel.
   Amplifier: { maxVolume: { control: 'slider', min: 0, max: DECODER_MAX_VOLUME, step: 1, entry: 'number' } },
-  PowerAmplifier: { maxVolume: { control: 'slider', min: 0, max: DECODER_MAX_VOLUME, step: 1, entry: 'number' } },
   PowerConverter: {
     sourceVoltage: { control: 'slider', min: 5, max: 48, step: 0.5 },
   },
@@ -1516,7 +1514,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     repeatIntervalMs: { control: 'slider', min: 25, max: 500, step: 5 },
   },
   PlayerParticles: {
-    style: { control: 'slider', min: 0, max: 16, step: 1 },
+    style: { control: 'select', options: PARTICLE_STYLES },
     intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
     volleyBursts: { control: 'slider', min: 1, max: PARTICLE_VOLLEY_BURSTS_MAX, step: 1 },
     restSec: { control: 'slider', min: 0, max: PARTICLE_REST_SEC_MAX, step: 0.5 },
@@ -1661,7 +1659,7 @@ export const INTERNAL_PROPERTY_KEYS: ReadonlySet<string> = new Set([
   // Which widgets read the panel's own source rather than a cable. Projected
   // from the screen design on every edit, never typed.
   'widgetSources',
-  // Which Display Panel a Touch node is the glass of. The two are one physical
+  // Which TFT Display a Touch node is the glass of. The two are one physical
   // module and are added together; the node says which panel in words.
   'panelId',
   // Which Board a part, LED output or network endpoint is attached to, chosen
@@ -1839,7 +1837,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   network: 'A custom network as JSON: {"nodes": [[x, y], …], "edges": [[from, to], …]} with positions in canvas pixels and edges as node indices in wiring order, from to to. Up to 64 nodes and 128 edges. An unreadable network shows the hexagons instead.',
   ledsPerEdge: 'LEDs along each edge of the network. The string has this many times the number of edges, capped at 300 LEDs in all.',
   positions: 'One x,y pair per LED in wire order, in canvas pixels, for example 2,3 4.5,3.5 7,4. Separate with commas, spaces or new lines. Needs a pair for every LED, otherwise the LEDs fall back to a straight row across the middle.',
-  renderScale: 'Render the graph at half the panel resolution and upscale it smoothly onto the LEDs. It quarters the render cost and memory on a large panel, and the picture is softer. Turn off Supersample first: the two cannot combine.',
+  renderResolution: 'The resolution the graph renders at. Full renders one pixel per LED. Half renders at half the panel resolution and upscales smoothly onto the LEDs: a quarter of the render cost and memory on a large panel, and a softer picture. 2x smooth renders at twice the size and averages 2x2 blocks per LED for smoother motion, at about 4x the cost.',
   whitePoint: "The colour temperature the LEDs treat as white (FastLED.setTemperature), for example Tungsten100W for a warmer white. It scales the red, green and blue channels, so it lowers brightness, and it doesn't change the live preview. Dimming stays linear in light output.",
   dither: 'FastLED temporal dithering for smoother low-brightness gradients. Off is steadier under a camera but can band on the LEDs themselves.',
   correction: "Colour-temperature compensation for the physical LEDs (FastLED.setCorrection) — doesn't change the live preview.",
@@ -1899,16 +1897,16 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     beatTransitions: 'Wait for a fresh beat after a random cooldown between Min Time and Max Time. The Beat input overrides the Audio input. Without beats, the current pattern keeps playing. Off uses timed changes.',
     minTime: 'Minimum hold time in seconds. With Beat Transitions enabled, this is the shortest cooldown after a transition finishes.',
     maxTime: 'Maximum random hold time in seconds. With Beat Transitions enabled, the player still waits for the next beat after the cooldown ends.',
-    transitionSec: 'Duration of the change between patterns, in seconds. The next hold or beat cooldown starts when this transition finishes. Preview chooses a style from the connected Transitions pool, or crossfade when none is supplied; the generic SD player uses crossfade.',
+    transitionSec: 'Duration of the change between patterns, in seconds. The next hold or beat cooldown starts when this transition finishes. Each change picks a style from the connected Transitions pool, in preview and on the board, or crossfades when none is supplied.',
     energyPacing: 'Lean each hold toward Min Time while the music is intense and toward Max Time while it is calm. Intensity is measured against the track’s own recent loudest and quietest passages. Needs Audio.',
     dwellsAndBursts: 'Now and then hold one pattern for twice Max Time, and now and then change eight patterns in quick succession, each change just after its transition. Beat Transitions still makes every change wait for a beat.',
     volume: 'Playback volume from 0 (muted) to 1 (full volume). This controls the music, not LED brightness or microphone gain. A wired Volume input takes priority over this field.',
-    musicSource: 'Where the board gets its music. SD Card plays the MP3s on the card. Bluetooth makes the board a speaker your phone pairs with: the phone chooses the music, and the board plays it through the amplifier and reacts to it. Internet Radio streams the stations listed on the node over Wi-Fi; Next and Previous change station. Bluetooth needs a classic ESP32, Internet Radio any ESP32 with Wi-Fi, and both an I2S amplifier or DAC. The preview plays your local tracks for SD Card and Bluetooth, and the stations for Internet Radio, through the upload helper.',
+    musicSource: 'Where the board gets its music. SD Card plays the MP3s on the card. Bluetooth makes the board a speaker your phone pairs with: the phone chooses the music, and the board plays it through the amplifier and reacts to it; Previous, Next and Play / Pause go to the phone, and its title and artist reach the display. Internet Radio streams the stations listed on the node over Wi-Fi; Next and Previous change station, and the display shows the station as the album and what is on air as the title and artist. Bluetooth needs a classic ESP32 (the S3, C3, C6 and H2 have Bluetooth Low Energy only), Internet Radio any ESP32 with Wi-Fi, and both an I2S amplifier or DAC. Both are experimental. The preview plays your local tracks for SD Card and Bluetooth, and the stations for Internet Radio, through the upload helper.',
     bluetoothName: 'The name your phone lists when it looks for Bluetooth speakers. Letters, digits, spaces and - _ . only, up to 32 characters.',
-    stations: 'The internet radio stations the board plays, in order, each a name and a stream URL. Add them by URL or by searching the radio-browser.info directory. A stations.m3u on the SD card, when there is one, replaces this list at start-up.',
+    stations: 'The internet radio stations the board plays, in order, each a name and a stream URL. Add them by URL or by searching the radio-browser.info directory. A station that does not start within 12 seconds, or keeps dropping, is skipped. A stations.m3u on the SD card, when there is one, replaces this list at start-up, so stations can change without a new build.',
     wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens, when the Music Player holds the board’s Wi-Fi settings. When another network node (a Web Remote, Art-Net or NTP) comes first, the board uses that node’s name and Wi-Fi instead.',
     stationPage: 'Serve a small web page on the board for choosing a station from a phone on the same Wi-Fi, at the board’s name followed by .local. With an access code set, the page can also add and remove stations, which the board keeps through restarts.',
-    seed: 'Controls random pattern, hold-time, transition, and particle choices in preview. Zero runs freely; a nonzero value makes the random sequence repeatable for the same inputs. The SD player uses its own random sequence.',
+    seed: 'Controls random pattern, hold-time, transition, and particle choices. Zero runs freely, differently after each power-up; a nonzero value makes the sequence repeatable for the same inputs, in preview and on the board. The two draw from different generators, so the device repeats its own sequence rather than the preview’s.',
   },
   PdTriggerSource: {
     requestedVoltage: 'The voltage the trigger asks the charger for, set on the board by its button or solder pads. Set the same value on the converter it feeds, because the plan checks they agree.',
@@ -2037,7 +2035,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     leftDirection: 'Where the left string data enters. The renderer keeps visual left on screen-left and reverses physical LED order as needed.',
     rightDirection: 'Where the right string data enters. The renderer keeps visual right on screen-right and reverses physical LED order as needed.',
     swapChannels: 'Swaps audio channels without swapping the physical left/right rail placement.',
-    milliamps: 'Current cap shared by both side strings.',
     leftLedCount: 'LEDs on the left rail. Each rail renders at its own length, so the two need not match.',
     rightLedCount: 'LEDs on the right rail. Each rail renders at its own length, so the two need not match.',
     leftDataPin: 'The GPIO wired to the left rail\'s data-in.',
@@ -2045,7 +2042,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     leftClockPin: 'Clocked chipsets only — the GPIO wired to the left rail\'s clock-in.',
     rightClockPin: 'Clocked chipsets only — the GPIO wired to the right rail\'s clock-in.',
     brightness: 'Overall level of both rails, 0 to 1, under the Board\'s master level.',
-    powerLimit: 'Cap the current of both rails together so a loud track cannot brown out the supply.',
     enabled: 'Off darkens both rails without removing the part from the build.',
     visualizationPolicy: 'Manual keeps one look. Timed cycle and Beat cycle step through looks; Shuffle cycles in a random order.',
     visualizationMode: 'The look drawn on the rails when the mode is Manual, or the starting look when cycling.',
@@ -2092,7 +2088,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     speed: 'Requested fan speed from 0 to 1. This exact fan stops at 0 and reaches about 5000 rpm at 1.',
   },
   DFPlayerOutput: {
-    play: 'Plays the chosen /mp3 file while true and pauses when it falls. With nothing wired, the Play setting is used.',
+    play: 'Plays the chosen /mp3 file while true and pauses when it falls, so a button held only for a press stops it on release; put a One Shot Trigger in front to play a short sound through. With nothing wired, the Play setting is used.',
     uartRxPin: 'Controller RX wired to the module TX pad.',
     uartTxPin: 'Controller TX wired to the module RX pad. Add a 1 kΩ series resistor if UART noise reaches the audio output.',
     busyPin: 'Reads the active-low BUSY pad. Playing is true while BUSY is low.',
@@ -2201,7 +2197,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   PlayerParticles: {
     enabled: 'Enables a particle burst on each wired Music Player beat.',
-    style: 'Spark motion style used for each burst (0–16).',
+    style: 'How the sparks of each burst move: rise, rain, explode, fireworks, swirl, twinkle, ring, fountain, helix, meteor, confetti, sparkle, comet, snow, gravity, bubbles or vortex.',
     color: 'Fixed spark colour used when Random Color is off.',
     intensity: 'Brightness of the additive particle overlay.',
     randomColor: 'Pick a new spark colour on every beat instead of the fixed colour.',
@@ -3182,23 +3178,21 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   PatternSlideshow: {
     order: 'Sequential walks the collection top to bottom, skips a weight of 0, and wraps. Random never repeats the pattern just shown, and a higher weight is chosen more often. Sequence plays the steps edited on the node. With Beat Transitions on, a Sequence hold counts beats, and Energy Pacing and Dwells & Bursts stay off.',
-    sequence: 'The steps Sequence order plays, edited with Add step and Edit sequence. Each step names a pattern or a tag, a hold, and a transition, and can ramp speed, brightness, energy or a named input. With Beat Transitions on, the hold counts beats. None holds the current pattern. Previous and Next move between steps. Interval, or Min and Max Time, apply to Sequential and Random.',
-    interval: 'Seconds each pattern holds before the slideshow moves on. Audio Reactive replaces it with Min and Max Time.',
+    sequence: 'The steps Sequence order plays, edited with Add step and Edit sequence. Each step names a pattern or a tag, a hold, and a transition, and can ramp speed, brightness, energy or a named input. With Beat Transitions on, the hold counts beats. None holds the current pattern. Previous and Next move between steps. Min and Max Time apply to Sequential and Random.',
     beatTransitions: 'Wait for a fresh beat after a random hold between Min Time and Max Time. The Beat input overrides the Audio input. Without beats, the current pattern keeps playing. Off uses timed changes. Needs Audio Reactive and a wired Beat or Audio.',
-    minTime: 'Shortest time in seconds a pattern holds before the slideshow moves on. With Beat Transitions on, this is the shortest wait after a transition finishes. Needs Audio Reactive; without it, Interval sets the hold.',
-    maxTime: 'Longest random hold in seconds. With Beat Transitions on, the slideshow still waits for the next beat after the hold ends. Needs Audio Reactive.',
-    transitionsEnabled: 'Blend between patterns when changing. Off switches instantly.',
-    transitionSec: 'Seconds the blend between two patterns takes. 0 is a hard cut. The next hold starts when this transition finishes.',
+    minTime: 'Shortest time in seconds a pattern holds before the slideshow moves on; each hold is a random time between this and Max Time. Set both the same for a fixed hold. With Beat Transitions on, this is the shortest wait after a transition finishes.',
+    maxTime: 'Longest random hold in seconds. Energy Pacing and Dwells & Bursts vary the hold within Min Time to Max Time. With Beat Transitions on, the slideshow still waits for the next beat after the hold ends.',
+    transitionSec: 'Seconds the change between two patterns takes, in a style from the wired Transition Pool or a crossfade. 0 is a hard cut. The next hold starts when this transition finishes.',
     energyPacing: 'Lean each hold toward Min Time while the sound is intense and toward Max Time while it is calm, measured against its own recent loudest and quietest moments. Needs Audio Reactive and a wired Audio.',
     dwellsAndBursts: 'Now and then hold one pattern for twice Max Time, and now and then change eight patterns in quick succession, each change just after its transition. Beat Transitions still makes every change wait for a beat. Needs Audio Reactive.',
-    audioReactive: 'Let patterns that listen to audio react, fade to black in silence, and time the show with Min and Max Time, Beat Transitions, Energy Pacing and Dwells & Bursts in place of Interval. Off ignores any wired audio.',
+    audioReactive: 'Let patterns that listen to audio react, fade to black in silence, and turn on Beat Transitions, Energy Pacing and Dwells & Bursts. Off ignores any wired audio, and the show holds each pattern between Min and Max Time.',
     seed: 'Fixes the random order and timing so the same slideshow replays identically. 0 varies every run.',
   },
   PerformanceGenerator: {
     beatIntensity: 'How hard each detected beat flashes the pattern, 0 none to 1 full.',
     energySensitivity: 'How readily loud sections speed patterns up and trigger surges, 0 calm to 1 eager.',
-    transitionDuration: 'Seconds a pattern change takes when the show switches patterns.',
-    patternHold: 'Minimum seconds a pattern stays before the show may switch on a beat.',
+    transitionSec: 'Seconds a pattern change takes when the show switches patterns.',
+    minTime: 'Minimum seconds a pattern stays before the show may switch on a beat.',
     paletteMode: 'Mood picks a palette per song section, Cycle rotates palettes, Fixed keeps one palette.',
     fixedPalette: 'The palette used for the whole show when Palette Mode is Fixed.',
     useGroupInputs: 'Feed each pattern\'s energy, speed and palette inputs from the music so patterns follow the song. Any other Group Input with a plain name gets its own lane in Edit lanes.',
@@ -3235,7 +3229,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     routeMode: 'Native renders the graph at this output\'s own size. Fit scales and Crop cuts the shared canvas to it.',
     routeX: 'Left edge of the crop window on the shared canvas, in LEDs.',
     routeY: 'Top edge of the crop window on the shared canvas, in LEDs.',
-    supersample: 'Render at twice the size and average 2x2 blocks per LED for smoother motion, at about 4x the cost.',
     hub75R1Pin: 'Red data for the top half of the panel (R1 on the ribbon).',
     hub75G1Pin: 'Green data for the top half of the panel (G1 on the ribbon).',
     hub75B1Pin: 'Blue data for the top half of the panel (B1 on the ribbon).',
@@ -3321,10 +3314,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     i2sBclk: 'I2S bit clock wired to the amp\'s BCLK.',
     i2sLrc: 'I2S word select wired to the amp\'s LRC/WS.',
     i2sDout: 'I2S data from the board to the amp\'s DIN.',
-    maxVolume: 'Starting software volume, 0 to 21. Volume controls move from here.',
-  },
-  PowerAmplifier: {
-    maxVolume: 'Starting software volume, 0 to 21, used only when the board\'s own DAC feeds this amp.',
+    maxVolume: 'Max volume, 0 to 21: the decoder level at full player volume. The player starts there, and volume controls and a wired Volume scale below it.',
   },
   BassPulse: {
     bass: 'Bass level (0–1) when unwired: picks the palette colour and sets brightness.',
@@ -3439,38 +3429,42 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   PatternMaster: {
     musicSource: 'Music Source',
     bluetoothName: 'Bluetooth Name',
-    wifiHostname: 'hostname',
+    wifiHostname: 'Hostname',
     stationPage: 'Phone Station Page',
+    stations: 'Stations',
+    volume: 'Volume',
     order: 'Pattern Order',
     sequence: 'Sequence',
     beatTransitions: 'Beat Transitions',
     energyPacing: 'Energy Pacing',
     dwellsAndBursts: 'Dwells & Bursts',
-    minTime: 'min hold (s)',
-    maxTime: 'max hold (s)',
-    transitionSec: 'fade (s)',
+    minTime: 'Min Time (s)',
+    maxTime: 'Max Time (s)',
+    transitionSec: 'Transition (s)',
+    seed: 'Seed',
   },
   PatternSlideshow: {
     order: 'Pattern Order',
     sequence: 'Sequence',
-    interval: 'interval (s)',
     beatTransitions: 'Beat Transitions',
     energyPacing: 'Energy Pacing',
     dwellsAndBursts: 'Dwells & Bursts',
-    minTime: 'min hold (s)',
-    maxTime: 'max hold (s)',
-    transitionsEnabled: 'Transitions',
-    transitionSec: 'fade (s)',
+    minTime: 'Min Time (s)',
+    maxTime: 'Max Time (s)',
+    transitionSec: 'Transition (s)',
     audioReactive: 'Audio Reactive',
+    seed: 'Seed',
   },
+  // The three show engines label alike, in Title Case to match their ports:
+  // one hold is Min Time and one change Transition, on every engine.
   PerformanceGenerator: {
-    beatIntensity: 'beat intensity',
-    energySensitivity: 'energy sensitivity',
-    transitionDuration: 'transition (s)',
-    patternHold: 'pattern hold (s)',
-    paletteMode: 'palette mode',
-    fixedPalette: 'palette',
-    useGroupInputs: 'use group inputs',
+    beatIntensity: 'Beat Intensity',
+    energySensitivity: 'Energy Sensitivity',
+    transitionSec: 'Transition (s)',
+    minTime: 'Min Time (s)',
+    paletteMode: 'Palette Mode',
+    fixedPalette: 'Palette',
+    useGroupInputs: 'Use Group Inputs',
   },
   Transition: {
     tileSize: 'tile size',
@@ -3852,7 +3846,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     tileSerpentine: 'tile serpentine',
     tileRotations: 'tile turns',
     customXYMap: 'custom map',
-    renderScale: 'render scale',
+    renderResolution: 'render resolution',
     whitePoint: 'white point',
     hub75WideScan: 'wide scan',
     hub75ColorDepthBits: 'color depth',
@@ -3885,9 +3879,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     peakFall: 'peak fall',
     trailAmount: 'trail amount',
     beatAccent: 'beat accent',
-    milliamps: 'pair current cap (mA)',
     colorOrder: 'color order',
-    powerLimit: 'power cap',
   },
   DMXInput: {
     inputMode: 'firmware source',
@@ -4231,7 +4223,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     ] },
     { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
     { key: 'positions', label: 'String Layout', keys: ['stripLayout', 'positionsPreset', 'networkPreset', 'ledsPerEdge', 'positionsWidth', 'positionsHeight', 'positionsMmPerUnit', 'positions', 'network'] },
-    { key: 'rendering', label: 'Rendering', keys: ['supersample', 'renderScale', 'correction', 'whitePoint', 'dither'] },
+    { key: 'rendering', label: 'Rendering', keys: ['renderResolution', 'correction', 'whitePoint', 'dither'] },
     // The least-used group last: a crop offset into a larger frame.
     { key: 'routing', label: 'Frame Route', keys: ['routeMode', 'routeX', 'routeY'] },
     // No 'brightness' or power group here: master brightness, the power cap
@@ -4252,7 +4244,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
       'gain', 'noiseGate', 'responseCurve', 'attackMs', 'releaseMs', 'peakHoldMs', 'peakFall',
       'trailAmount', 'beatAccent',
     ] },
-    { key: 'power', label: 'Power', keys: ['brightness', 'powerLimit', 'milliamps', 'enabled'] },
+    { key: 'power', label: 'Power', keys: ['brightness', 'enabled'] },
   ],
   Image: [
     { key: 'transform', label: 'Transform', keys: ['fit', 'positionX', 'positionY', 'rotation', 'flipX', 'flipY', 'zoom', 'cropX', 'cropY'] },
@@ -4360,7 +4352,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   PerformanceGenerator: [
     { key: 'response', label: 'Response', keys: ['beatIntensity', 'energySensitivity'] },
-    { key: 'timing', label: 'Timing', keys: ['transitionDuration', 'patternHold'] },
+    { key: 'timing', label: 'Timing', keys: ['transitionSec', 'minTime'] },
     { key: 'palette', label: 'Palette', keys: ['paletteMode', 'fixedPalette'] },
     { key: 'inputs', label: 'Inputs', keys: ['useGroupInputs'] },
   ],
@@ -4376,12 +4368,12 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
   ],
   // Audio Reactive sits with playback because it decides which timing rows
-  // apply: Interval without it, the rest of Timing with it. The shared rows
-  // keep the Music Player's order, with the slideshow's own switch and
-  // Interval slotted in, so the two nodes read alike.
+  // listen: Beat Transitions, Energy Pacing and Dwells & Bursts. The hold and
+  // the transition always apply. The rows keep the Music Player's order, so
+  // the two nodes read alike.
   PatternSlideshow: [
     { key: 'playback', label: 'Playback', keys: ['order', 'sequence', 'audioReactive'] },
-    { key: 'timing', label: 'Timing', keys: ['interval', 'beatTransitions', 'minTime', 'maxTime', 'transitionsEnabled', 'transitionSec', 'energyPacing', 'dwellsAndBursts'] },
+    { key: 'timing', label: 'Timing', keys: ['beatTransitions', 'minTime', 'maxTime', 'transitionSec', 'energyPacing', 'dwellsAndBursts'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
   ],
   ControlMap: [
@@ -5112,7 +5104,7 @@ export function tftTransportForProps(properties: Record<string, unknown>) {
   return tftTransportFor(partById(String(properties.partId ?? ''))?.display?.interface)
 }
 
-const SLIDESHOW_REACTIVE_TIMING = new Set(['beatTransitions', 'minTime', 'maxTime', 'energyPacing', 'dwellsAndBursts'])
+const SLIDESHOW_REACTIVE_TIMING = new Set(['beatTransitions', 'energyPacing', 'dwellsAndBursts'])
 
 /**
  * Nodes whose disabled properties stay on the node, greyed, instead of
@@ -5283,7 +5275,6 @@ export function isPropertyEnabled(
   }
   if (nodeType === 'StereoVuMeter') {
     if (key === 'cycleInterval') return properties.visualizationPolicy !== 'Manual'
-    if (key === 'milliamps') return properties.powerLimit === true
     // A clock line only exists on an SPI chipset, as on the LED output.
     if (key === 'leftClockPin' || key === 'rightClockPin') return SPI_CHIPSETS.has(String(properties.chipset ?? 'WS2812B'))
   }
@@ -5351,12 +5342,9 @@ export function isPropertyEnabled(
       if (key === 'hub75EPin') return hub75 && properties.hub75WideScan === true
       return hub75
     }
-    // Supersampling averages an SS x SS block down to one LED, and panel/custom
-    // wiring orders describe a grid — neither means anything on a single chain.
-    if (key === 'supersample') return !linear && properties.renderScale !== '1/2'
-    // Half-resolution render is a matrix-panel feature: a chain has no second
-    // axis, HUB75 does not resample, and it cannot combine with supersample.
-    if (key === 'renderScale') return form === 'matrix' && properties.supersample !== true
+    // Render resolution is a matrix-panel choice: a chain has no 2 x 2 block to
+    // average down or second axis to save on, and HUB75 resamples neither way.
+    if (key === 'renderResolution') return form === 'matrix'
     if (key === 'layout') return !linear
     if (key === 'tilesX' || key === 'tilesY' || key === 'tileSerpentine' || key === 'tileRotations')
       return !linear && properties.layout === 'panels'
@@ -5410,10 +5398,9 @@ export function isPropertyEnabled(
         return ft === 'lissajousField'
     }
   }
-  // Audio Reactive swaps the fixed Interval for the timing that listens.
+  // Audio Reactive turns on the timing that listens; the hold always applies.
   if (nodeType === 'PatternSlideshow') {
     const reactive = properties.audioReactive === true
-    if (key === 'interval') return !reactive
     // Beat Transitions waits on a beat and Energy Pacing measures a level, so
     // each row is live only once the wire that feeds it is plugged in: Beat
     // or Audio for the one, Audio for the other. The resolver and both

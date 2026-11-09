@@ -13,11 +13,16 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
   {
     // Music source for the pre-planned show pipeline. Double-click on the canvas
     // opens the Music Library panel (drop MP3s, analyse, export).
+    //
+    // Portless, as the SD Card is. Its Music wire carried only `true`: the
+    // songs live in the global music store, which the Performance Generator
+    // reads whether or not a cable is drawn, and validation nagged until one
+    // was. The node is where songs are added, not a stage a show flows through.
     type: 'MusicLibrary',
     label: 'Music Library',
     category: 'show',
     inputs: [],
-    outputs: [{ id: 'music', label: 'Music', dataType: 'music' }],
+    outputs: [],
     defaultProperties: {},
   },
 
@@ -79,7 +84,9 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     },
     outputs: [{ id: 'particleFx', label: 'Particle FX', dataType: 'playerparticles' }],
     defaultProperties: {
-      enabled: true, style: 0, color: '#ff8000', intensity: 0.8,
+      // Style is a name (state/player/particleStyles.ts); its position in that
+      // list is the id the preview and firmware switches dispatch on.
+      enabled: true, style: 'rise', color: '#ff8000', intensity: 0.8,
       randomColor: false, randomStyle: false,
       // Burst frequency: this many beats in a row each burst, then the sparks
       // rest. See particleVolleyFire in playerDynamics.ts.
@@ -164,8 +171,11 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // Timeline-as-a-node: cycles its inputs with a timed crossfade.
+    // Labelled Crossfade Cycle: "Sequencer" sent people looking here for the
+    // step editor that the Music Player and Pattern Slideshow call Sequence.
+    // The type id stays, so saves load.
     type: 'Sequencer',
-    label: 'Sequencer',
+    label: 'Crossfade Cycle',
     category: 'show',
     inputs: [
       { id: 'p0', label: 'Pattern 1', dataType: 'frame' },
@@ -191,10 +201,11 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { patternIds: [], patternSections: {} },
   },
   {
-    // A pool of extra transition styles (toggled via the chip grid, same
-    // catalogue as the Transition node) for a Performance Generator's
-    // `transitions` input — when wired, generateShow mixes these into its
-    // rule-based crossfade/wipe/dissolve picks instead of only ever using those three.
+    // A pool of transition styles (toggled via the chip grid, same catalogue
+    // as the Transition node) for a show engine's `transitions` input. A
+    // Music Player and a Pattern Slideshow pick one of them at each change;
+    // a Performance Generator's generateShow mixes them into its rule-based
+    // crossfade/wipe/dissolve picks instead of only ever using those three.
     type: 'TransitionSet',
     label: 'Transition Pool',
     category: 'show',
@@ -213,9 +224,9 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
      * `isPatternShow` keys on it, so the three generators are told apart by
      * which node is present rather than by which hardware is absent.
      *
-     * Timing is a fixed Interval until Audio Reactive is on, and then it is
-     * the player's: the same Min/Max hold, Beat Transitions, Energy Pacing and
-     * Dwells & Bursts, read by the same resolver. What differs is what a
+     * Timing is the player's: the same Min/Max hold, read by the same
+     * resolver, with Beat Transitions, Energy Pacing and Dwells & Bursts
+     * waiting on Audio Reactive. What differs is what a
      * slideshow actually needs: transitions that default to a fade without
      * requiring a TransitionSet, and reactivity off unless asked for — the
      * point of the mode is slow patterns that do not twitch at room noise.
@@ -238,13 +249,12 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
       // The player's explicit trigger, in the player's place: wired, it
       // overrides the Audio wire's beat for Beat Transitions and the sparks.
       { id: 'beat',        label: 'Beat',        dataType: 'bool' },
-      { id: 'interval',    label: 'Interval',    dataType: 'float' },
       { id: 'minTime',     label: 'Min Time',    dataType: 'float' },
       { id: 'maxTime',     label: 'Max Time',    dataType: 'float' },
       { id: 'transitionSec', label: 'Transition', dataType: 'float' },
       ...playerControlActionPortsFor('engine'),
     ],
-    propertyInputs: { interval: 'interval', minTime: 'minTime', maxTime: 'maxTime', transitionSec: 'transitionSec' },
+    propertyInputs: { minTime: 'minTime', maxTime: 'maxTime', transitionSec: 'transitionSec' },
     actionInputs: playerControlActionPortsFor('engine').map((port) => port.id),
     outputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
@@ -255,14 +265,13 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
       order: 'Random',
       audioReactive: false,
       // Timing rows draw in the Music Player's order, so the two nodes read
-      // alike: Interval, then Beat Transitions and the hold it gates, the
-      // transitions switch and fade, then the pacing. Audio Reactive decides
-      // which half is live.
-      interval: 20,
+      // alike: Beat Transitions and the hold it gates, the transition, then
+      // the pacing. The hold is always Min to Max Time (equal is fixed);
+      // Audio Reactive turns on only the rows that listen. An unequal default
+      // gives Energy Pacing a range to lean within. Transition 0 is a cut.
       beatTransitions: false,
-      minTime: 20,
-      maxTime: 20,
-      transitionsEnabled: true,
+      minTime: 8,
+      maxTime: 30,
       transitionSec: 1.5,
       energyPacing: false,
       dwellsAndBursts: false,
@@ -300,10 +309,10 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     label: 'Performance Generator',
     category: 'show',
     inputs: [
-      // Music first, then the collection it schedules, then the pool of styles
-      // it moves between them: the order a show is actually described in, and
-      // the order a drag-to-splice drop walks (`spliceTargetPorts`).
-      { id: 'music', label: 'Music', dataType: 'music' },
+      // The collection it schedules, then the pool of styles it moves between
+      // them: the order a show is actually described in, and the order a
+      // drag-to-splice drop walks (`spliceTargetPorts`). The songs come from
+      // the Music Library's store, with no wire.
       { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
       { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
       // Last, because it is the only input that is not part of authoring the
@@ -330,12 +339,17 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: {
       beatIntensity:      0.8,
       energySensitivity:  0.7,
-      transitionDuration: 0.5,
-      patternHold:        10,
+      // The Music Player's names: the shortest hold is Min Time, the change
+      // is Transition, on all three show engines.
+      transitionSec:      0.5,
+      minTime:            10,
       paletteMode:        'mood',
       fixedPalette:       'rainbow',
       useGroupInputs:     true,
-      showInMainPreview:  false,
+      // On, so a generator wired to an LED output plays in that output's main
+      // preview rather than only in its small body canvas, leaving the output
+      // it names black.
+      showInMainPreview:  true,
     },
   },
   {
@@ -361,10 +375,11 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
       sdMisoPin:   13,
       sdMosiPin:   11,
       // Audio output is no longer asked here. Adding an Amplifier part *is* the
-      // statement that this build uses I2S, and a classic ESP32 with no amp
-      // falls back to its built-in DAC — see state/audio/audioOutput.ts. Volume moved
-      // to the amplifier with it: where the music is stored and how loudly it
-      // comes out are different questions about different parts.
+      // statement that this build uses I2S, and a player with no audio stage
+      // on the bench is refused rather than guessed — see
+      // state/audio/audioOutput.ts. Volume moved to the amplifier with it:
+      // where the music is stored and how loudly it comes out are different
+      // questions about different parts.
     },
   },
 ]
@@ -378,8 +393,8 @@ export const SHOW_DESCRIPTIONS: Record<string, string> = {
   SongInfo: 'Opens the Music Player’s track report into one wire per field.',
   Sequencer: 'Crossfades through its inputs on a timer.',
   PatternCollection: 'Holds show patterns, each with a weight, energy tags, and restart or resume.',
-  TransitionSet: 'A pool of transition styles for the Music Player / Performance Generator.',
+  TransitionSet: 'Transition styles for a Music Player, Slideshow or Performance Generator.',
   PatternSlideshow: 'Plays a collection on a timer, in order, at random, or from a sequence.',
   PerformanceGenerator: 'Plans a timed show from music. Edit it in lanes, with ramps and locked sections.',
-  SDCard: 'SD card and audio pins for the music-sync player; a bench part, not wired.',
+  SDCard: 'SD card on SPI that the music player and shows read; a bench part, not wired.',
 }

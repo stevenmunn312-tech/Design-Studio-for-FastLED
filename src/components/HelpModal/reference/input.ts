@@ -179,13 +179,13 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
 
   TouchInput: {
     overview: [
-      'Touch Screen is the glass in front of a Display Panel. A touch panel is two chips — the display and an XPT2046 digitiser — so the panel draws and this node listens.',
+      'Touch Screen is the glass in front of a TFT Display. A touch panel is two chips — the display and an XPT2046 digitiser — so the panel draws and this node listens.',
       'On the fixed transport screens its Controls output carries what a finger did: Fixed Transport has Previous, Play / Pause, Next and a volume strip; Now Playing has Play / Pause and volume. Wire Controls to a Music Player. The other fixed layouts only report, so they publish nothing here.',
       'When the panel shows your own screen design, every widget gets an output of its own on this node — a slider, a button, a colour picker — and design templates also fold their transport buttons into Controls. That is the way to put a brightness slider or a blackout button on the glass.',
       'The node arrives with its panel when you add a touch module from the Hardware tab, and it always belongs to that panel. Calibrate touch measures where the glass reads its edges; run it once on the real module rather than typing the numbers.',
     ],
     steps: [
-      'Add a Display Panel module with touch from the Hardware tab. Its Touch Screen node comes with it.',
+      'Add a TFT Display module with touch from the Hardware tab. Its Touch Screen node comes with it.',
       'Wire a Music Player’s Display output into the panel and choose Fixed Transport or Now Playing, or draw a screen design for the panel.',
       'Wire Controls to the Music Player, or the design’s widget outputs to the inputs they should drive.',
       'After uploading, press Calibrate touch on the node and follow the prompts on the panel.',
@@ -207,7 +207,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
         amp: ['Amplifier'],
       },
       wires: ['patterns.patternset > player.patternset', 'player.display > panel.display', 'touch.controls > player.controls'],
-      explanation: 'The Music Player reports its state to the Display Panel, which draws the Fixed Transport screen. Touch Screen turns presses on that glass into Controls, and the player obeys them: previous, play or pause, next, and a volume strip.',
+      explanation: 'The Music Player reports its state to the TFT Display, which draws the Fixed Transport screen. Touch Screen turns presses on that glass into Controls, and the player obeys them: previous, play or pause, next, and a volume strip.',
       preview: 'Once the collection holds patterns the {output} plays them in order. Press the buttons on the panel preview to pause or skip.',
       workflow: true,
     }),
@@ -750,7 +750,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
   PowerMonitorInput: {
     overview: [
       'Power Monitor measures a supply rail with an INA219 or INA226 on the I2C bus: volts, amps, and the watts they make. Put it between the supply and a load — the supply on Vin+, the load on Vin−, and a shared ground.',
-      'Overcurrent goes true while the current is above your limit, which is a quick way to warn, dim or shut down. Display carries the whole reading to a Segment Display, Info Display or Display Panel over one wire.',
+      'Overcurrent goes true while the current is above your limit, which is a quick way to warn, dim or shut down. Display carries the whole reading to a 7-Segment Display, OLED Display or TFT Display over one wire.',
       'Turn on Debug for a once-a-second printout of the raw readings on the serial monitor.',
       PREVIEW_STAND_IN,
     ],
@@ -793,7 +793,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'Wire DateTime to Clock Display or Format Date/Time, Display to a panel, or the separate fields to a Schedule Trigger.',
     ],
     outputs: {
-      display: 'The time for a Segment Display, Info Display or Display Panel, which then shows a clock.',
+      display: 'The time for a 7-Segment Display, OLED Display or TFT Display, which then shows a clock.',
       dateTime: 'The complete reading — date, time and health — on one wire for Clock Display, Format Date/Time and Schedule Trigger.',
       valid: 'True once the clock holds a real time.',
       synced: 'True when the time comes from an authority: NTP, or a healthy DS3231.',

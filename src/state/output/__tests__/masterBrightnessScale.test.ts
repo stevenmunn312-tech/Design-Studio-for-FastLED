@@ -3,7 +3,7 @@
 // LED-output brightness is per-fixture runtime state; controller brightness is
 // the Board's global FastLED setting. The names and scales remain separate.
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
 import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS } from '../../../build/controllerSettings'
 import { propertyGroupsFor, propertyMeta, NODE_LIBRARY } from '../../nodeLibrary'
 import type { StudioNode } from '../../graphStore'
@@ -62,6 +62,13 @@ describe('a graph with a Board', () => {
 // brightness on every new LED output, in a brand new project, forever.
 describe('a personal default saved from the old slider', () => {
   const KEY = 'design-studio-for-fastled.node-defaults.v1'
+
+  // Pay the cold transform once, with its own budget, so the 5 s test timeout
+  // measures the test rather than the size of the app (patterns/testing.md).
+  // On a busy machine the first reload alone took over 7 s.
+  beforeAll(async () => {
+    await import('../../nodeDefaults')
+  }, 60_000)
 
   // These reload the module to exercise its load-time sanitise, so the registry
   // has to be put back or a later test in this file gets a half-reset one.

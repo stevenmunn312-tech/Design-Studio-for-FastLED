@@ -57,7 +57,7 @@ note is about the parts themselves. `TransportDisplay` also consumes this
 envelope, or a screen design named on the panel itself; it no longer
 takes per-field content wires. The design is not a hardware part.
 
-The Info Display's Pattern Browser screen reads the shared selection contract
+The OLED Display's Pattern Browser screen reads the shared selection contract
 rather than tracking an index of its own — active versus highlighted, wrapping,
 confirm, and what happens when the collection changes are defined once in
 [the generative pattern show note](generative-pattern-show.md#which-pattern-is-playing).

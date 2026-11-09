@@ -7,15 +7,16 @@ Moved out of the always-loaded `CLAUDE.md` so a session reads it only when
 working in this area; record new patterns for this area here, not there. History
 of the entries before the move: `git log -p -- CLAUDE.md`.
 
-- A PowerAmplifier with no line-level source warns in every graph, including
-  Music Player and hardware-only builds, when its board lacks a known DAC
-  output. `powerAmplifierInputWarnings` shares the rule between Graph Health
-  and `validateGraph`; a generated show's existing audio error takes precedence
-  to avoid duplicate cards. `boardHasDacOutput` describes hardware capability,
-  independently of `boardHasInternalDac`, which describes Studio's supported
-  internal-DAC playback path. Do not treat PWM or ADC inputs as DAC outputs.
-  The repair opens the Audio outputs shelf; adding a DAC or DFPlayer line
-  output clears the warning. Each board's partition owns its audio source.
+- A PowerAmplifier with no line-level source (no I2S DAC, no DFPlayer on Line
+  Out) is reported on every board, with or without a board chosen: the board's
+  own DAC is no feed, because ESP32-audioI2S 3.0.12 under IDF 5 never drives
+  it, so the player's `Audio audio(true)` is silent. `powerAmplifierFeedIssues`
+  is the one rule for Graph Health, `validateGraph` and the deploy gate. It is
+  an error when a player build or a Performance Generator would play through
+  the amplifier, and a warning on a bench with nothing playing yet, since the
+  LED firmware still builds. The repair opens the Audio outputs shelf; adding
+  a DAC or DFPlayer line output clears it. Each board's partition owns its
+  audio source.
 
 - Pin diagnostics open each affected part's Hardware wiring inspector instead
   of locating signal nodes. The split-I2C-bus card offers `move-i2c-pins` with

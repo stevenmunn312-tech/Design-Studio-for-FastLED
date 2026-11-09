@@ -1,6 +1,7 @@
 import type { ShowTargetEdge } from '../../state/player/showTarget'
 import { particleEnergyGate, particleRestMs, particleVolleyBursts } from '../../state/player/playerDynamics'
 import { hexToRgb } from '../../state/palettes/polinePalette'
+import { PARTICLE_STYLES, particleStyleIndex } from '../../state/player/particleStyles'
 
 /** Player Particles' inspector values as a generator reads them. A wired
  *  Enabled, Intensity, Color, Random Style or Random Color is read live
@@ -8,6 +9,7 @@ import { hexToRgb } from '../../state/palettes/polinePalette'
  *  bake into the sketch like transition choices. */
 export interface PlayerParticlesConfig {
   enabled: boolean
+  /** The style's numeric id, from the stored name (`particleStyleIndex`). */
   style: number
   color: { r: number; g: number; b: number }
   intensity: number
@@ -60,7 +62,7 @@ export function playerParticlesWiredTo(
   }
   return {
     enabled: props.enabled !== false,
-    style: Math.round(clamp(props.style, 0, 0, 16)),
+    style: particleStyleIndex(props.style),
     color: hexToRgb(String(props.color ?? '#ff8000')),
     intensity: clamp(props.intensity, 0.8, 0, 1),
     randomColor: props.randomColor === true,
@@ -118,8 +120,8 @@ export function playerParticleBurstCpp(fx: PlayerParticlesConfig, live: PlayerPa
     liveIntensity: live.intensity
       ? [`  if (burstStart != 0) burstIntensity = constrain(${live.intensity}, 0.0f, 1.0f);`]
       : [],
-    style: live.randomStyle ? `((${live.randomStyle}) ? random8(17) : ${fx.style})`
-      : fx.randomStyle ? 'random8(17)' : String(fx.style),
+    style: live.randomStyle ? `((${live.randomStyle}) ? random8(${PARTICLE_STYLES.length}) : ${fx.style})`
+      : fx.randomStyle ? `random8(${PARTICLE_STYLES.length})` : String(fx.style),
     /** False when the style is fixed, so the overlay's switch can keep one arm. */
     styleVaries: !!live.randomStyle || fx.randomStyle,
     /** The colour a burst starts with, always an expression. */

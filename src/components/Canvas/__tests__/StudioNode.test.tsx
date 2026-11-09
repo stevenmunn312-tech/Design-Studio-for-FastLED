@@ -1312,7 +1312,7 @@ describe('StudioNode', () => {
 
       expect(keys).toContain('LED count')
       expect(keys).toContain('chipset')
-      for (const dead of ['serpentine', 'supersample', 'custom map', 'tiles X', 'width', 'height', 'hub75R1Pin', 'hub75ClkPin']) {
+      for (const dead of ['serpentine', 'render resolution', 'custom map', 'tiles X', 'width', 'height', 'hub75R1Pin', 'hub75ClkPin']) {
         expect(keys, dead).not.toContain(dead)
       }
       // A string has no grid, so the whole Layout group goes with it.
@@ -1459,7 +1459,7 @@ describe('StudioNode', () => {
     const node = makeNode('PerformanceGenerator', {
       beatIntensity: 0.8,
       energySensitivity: 0.7,
-      transitionDuration: 0.5,
+      transitionSec: 0.5,
       paletteMode: 'mood',
       fixedPalette: 'rainbow',
     })
@@ -1493,7 +1493,7 @@ describe('StudioNode', () => {
     const node = makeNode('PerformanceGenerator', {
       beatIntensity: 0.8,
       energySensitivity: 0.7,
-      transitionDuration: 0.5,
+      transitionSec: 0.5,
       paletteMode: 'mood',
       fixedPalette: 'rainbow',
     })
@@ -1515,6 +1515,8 @@ describe('StudioNode', () => {
     expect(container.querySelector('[data-handle="source:frame"]')).toBeTruthy()
     expect(container.querySelector('[data-handle="source:shows"]')).toBeNull()
     expect(container.querySelector('[data-handle="target:transitions"]')).toBeTruthy()
+    // Music went when the Music Library became portless.
+    expect(container.querySelector('[data-handle="target:music"]')).toBeNull()
   })
 
   it('embeds a live beat/BPM widget in the Beat Detect node', () => {

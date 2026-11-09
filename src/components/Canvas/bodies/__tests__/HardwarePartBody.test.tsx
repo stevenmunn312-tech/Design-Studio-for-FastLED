@@ -49,15 +49,14 @@ describe('HardwarePartBody', () => {
   })
 
   /*
-   * Volume is the decoder's, applied at the stage the board drives. Fed by a
-   * DAC, that stage is the DAC, so the power amplifier's own field would be a
-   * second answer nothing reads — it is hidden and the panel says where the
-   * setting lives instead.
+   * Volume is the decoder's, applied at the stage the board drives: the DAC.
+   * A power amplifier has no field of its own (its one feed without a DAC,
+   * the internal DAC, is refused), and the panel says where the setting lives.
    */
-  it('shows a power amplifier its volume only when no DAC feeds it', () => {
+  it('never shows a power amplifier a volume, and names the DAC that has it', () => {
     setPart('PowerAmplifier')
     const alone = render(<HardwarePartBody nodeId="part" nodeType="PowerAmplifier" />)
-    expect(alone.getByLabelText('Volume')).toBeTruthy()
+    expect(alone.queryByLabelText('Max volume (0–21)')).toBeNull()
     alone.unmount()
 
     const dac = NODE_LIBRARY.find((entry) => entry.type === 'Amplifier')!
@@ -71,8 +70,8 @@ describe('HardwarePartBody', () => {
       }] as never[],
     }))
     const fed = render(<HardwarePartBody nodeId="part" nodeType="PowerAmplifier" />)
-    expect(fed.queryByLabelText('Volume')).toBeNull()
-    expect(fed.getByText(/Volume is set on the PCM5102A/)).toBeTruthy()
+    expect(fed.queryByLabelText('Max volume (0–21)')).toBeNull()
+    expect(fed.getByText(/Max volume is set on the PCM5102A/)).toBeTruthy()
   })
 
   it('takes converter source voltage from the battery pack when one is present', () => {
@@ -108,7 +107,7 @@ describe('HardwarePartBody', () => {
     fireEvent.change(cs, { target: { value: '5' } })
     expect(useGraphStore.getState().nodes[0].data.properties.sdCsPin).toBe(5)
     expect(queryByLabelText('Audio out')).toBeNull()
-    expect(queryByLabelText('Volume')).toBeNull()
+    expect(queryByLabelText('Max volume (0–21)')).toBeNull()
   })
 
   it('renders the amplifier I2S pins and its volume', () => {
@@ -117,7 +116,7 @@ describe('HardwarePartBody', () => {
     expect(getByLabelText('BCLK')).toBeTruthy()
     expect(getByLabelText('LRC / WS')).toBeTruthy()
     expect(getByLabelText('DIN')).toBeTruthy()
-    expect(getByLabelText('Volume')).toBeTruthy()
+    expect(getByLabelText('Max volume (0–21)')).toBeTruthy()
     expect(queryByText('Size')).toBeNull()
   })
 
@@ -245,7 +244,7 @@ describe('HardwarePartBody', () => {
   it("holds a typed volume to the decoder's 0-21 steps", () => {
     setPart('Amplifier')
     const { getByLabelText } = render(<HardwarePartBody nodeId="part" nodeType="Amplifier" />)
-    const volume = getByLabelText('Volume') as HTMLInputElement
+    const volume = getByLabelText('Max volume (0–21)') as HTMLInputElement
     fireEvent.change(volume, { target: { value: '99' } })
     fireEvent.blur(volume)
     expect(useGraphStore.getState().nodes[0].data.properties.maxVolume).toBe(21)

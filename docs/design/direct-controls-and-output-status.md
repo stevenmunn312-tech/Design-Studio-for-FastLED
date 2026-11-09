@@ -45,8 +45,8 @@ LED Status layout, or binds those readings into its own screen design.
 Juggle: Frame ----------------------> LED String: Frame
 Touch: Speed -----------------------> Juggle: Speed
 Touch: Brightness ------------------> LED String: Brightness
-LED String: Display ---------------> Display Panel: Display
-Physical Button: Pressed ----------> Display Panel: Enabled
+LED String: Display ---------------> TFT Display: Display
+Physical Button: Pressed ----------> TFT Display: Enabled
 ```
 
 The physical button in this example enables the panel **while held**. A toggle
@@ -321,7 +321,7 @@ expose inputs together, undoable as one operation.
 
 ### 4. Derive named Touch outputs from the panel
 
-- [x] Move custom screen widget output sockets from the Display Panel to the
+- [x] Move custom screen widget output sockets from the TFT Display to the
   paired Touch node. Widget input sockets remain on the panel, because the
   panel draws graph values into widgets; Button/Toggle/Slider/Dial outputs now
   leave through Touch in preview, normal sketches, show controllers and SD
@@ -758,8 +758,8 @@ slideshow, no Player Controls.
 Juggle: Frame ----------------------> LED String: Frame
 Touch: Speed -----------------------> Juggle: Speed
 Touch: Brightness ------------------> LED String: Brightness
-LED String: Display ---------------> Display Panel: Display
-Physical Button: Pressed ----------> Display Panel: Enabled
+LED String: Display ---------------> TFT Display: Display
+Physical Button: Pressed ----------> TFT Display: Enabled
 ```
 
 Juggle keeps Frame visible and Speed hidden until **Expose input** or a
@@ -812,7 +812,7 @@ fixture lighting through Player Controls.
 ```text
 Music Player: Frame ---------------> Wash: Frame
 Music Player: Frame ---------------> House: Frame
-Music Player: Display -------------> Display Panel: Display
+Music Player: Display -------------> TFT Display: Display
 Touch: Volume ---------------------> Music Player: Volume
 Touch: Play/Pause --> Trigger (Changed) --> Music Player: Play/Pause
 Touch: Blackout --> Not ----------> (not an LED Enabled wire)
@@ -837,8 +837,8 @@ A panel already showing a source. Place a template, or choose
 **Connect template controls** later.
 
 ```text
-Music Player: Display -------------> Display Panel: Display
-Display Panel owns its screen design (displayId, no mount wire)
+Music Player: Display -------------> TFT Display: Display
+TFT Display owns its screen design (displayId, no mount wire)
 Touch: Volume ---------------------> Music Player: Volume
 Touch: Play/Pause --> Trigger (Changed) --> Music Player: Play/Pause
 ```
@@ -846,7 +846,7 @@ Touch: Play/Pause --> Trigger (Changed) --> Music Player: Play/Pause
 For an LED Status template on a panel showing an LED output:
 
 ```text
-LED String: Display ---------------> Display Panel: Display
+LED String: Display ---------------> TFT Display: Display
 Touch: Brightness ------------------> LED String: Brightness
 Touch: Lights --> Not -------------> LED String: Enabled
 ```

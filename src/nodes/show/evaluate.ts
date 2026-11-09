@@ -13,6 +13,9 @@ import {
   asSlideshowOrder,
   slideshowSettings,
   advanceSlideshowSilenceFade,
+  SLIDESHOW_DEFAULT_MAX_TIME,
+  SLIDESHOW_DEFAULT_MIN_TIME,
+  SLIDESHOW_DEFAULT_TRANSITION_SEC,
 } from '../../state/patterns/patternSlideshow'
 import {
   classicFormula, collectionProfiles, energyBandFromIntensity, nextPatternIndex, pickEntries,
@@ -62,6 +65,7 @@ import type {
 } from '../../state/evaluator/types'
 import { clearInstanceStateByPrefix, instanceState, touchInstanceStatePrefix } from '../../state/evaluator/memory'
 import { isAudioReactiveSubgraph } from '../../state/patterns/audioReactiveSubgraph'
+import { PARTICLE_STYLES, particleStyleIndex } from '../../state/player/particleStyles'
 import {
   PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS, blankParticleVolley, particleEnergyGate, particleEnergyPasses,
   particleRestMs, particleVolleyBursts, particleVolleyFire,
@@ -1117,7 +1121,7 @@ function evalPatternShow(
     && particleVolleyFire(st.volley, t * 1000, o.particleSpacing)) {
     st.burst = {
       t: t * 1000,
-      style: o.randomStyle ? Math.floor(rnd() * 17) : o.particleStyle,
+      style: o.randomStyle ? Math.floor(rnd() * PARTICLE_STYLES.length) : o.particleStyle,
       color: o.randomColor ? hsv(rnd() * 360, 1, 1) : o.particleColor,
     }
   }
@@ -1402,7 +1406,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     return {
       particleFx: {
         enabled: Boolean(input(id, 'enabled', Boolean(props.enabled))),
-        style: Math.max(0, Math.min(16, Math.round(Number(props.style ?? 0)))),
+        style: particleStyleIndex(props.style),
         color: colorIn && typeof colorIn === 'object' && !Array.isArray(colorIn)
           ? colorIn as RGB
           : hexToRgb(String(props.color ?? '#ff8000')),
@@ -1575,14 +1579,13 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     // `evalPatternShow`, one selection contract, the player's timing. What
     // differs is only audio the patterns ignore unless asked.
     const ids = (input(id, 'patternset', null) as string[] | null) ?? []
-    const wired = (port: 'interval' | 'minTime' | 'maxTime' | 'transitionSec', fallback: number) =>
+    const wired = (port: 'minTime' | 'maxTime' | 'transitionSec', fallback: number) =>
       incoming.has(`${id}:${port}`) ? num(id, port, props, port, fallback) : null
     const beatWired = incoming.has(`${id}:beat`)
     const settings = slideshowSettings(props, {
-      interval: wired('interval', 20),
-      minTime: wired('minTime', 20),
-      maxTime: wired('maxTime', 20),
-      transitionSec: wired('transitionSec', 1.5),
+      minTime: wired('minTime', SLIDESHOW_DEFAULT_MIN_TIME),
+      maxTime: wired('maxTime', SLIDESHOW_DEFAULT_MAX_TIME),
+      transitionSec: wired('transitionSec', SLIDESHOW_DEFAULT_TRANSITION_SEC),
       // Beat Transitions has something to wait for: the Beat wire, or the
       // Audio wire's own detector. With neither it is off, as the node's
       // disabled row says, and the slideshow runs on its timer.
@@ -1741,13 +1744,10 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
   TransitionSet(_c, _id, props) {
     return { transitions: (props.transitions as string[] | undefined) ?? [] }
   },
-  MusicLibrary() {
-    return { music: true }
-  },
   PerformanceGenerator({ inputSourceType, input, elapsedT: t, W, H, stateKey, incoming, nodeMap }, id) {
     // The `frame` edge names the show's destination; it does not carry it.
-    // Playback lives in the node body (PerformanceGeneratorBody) and, opt-in
-    // via `showInMainPreview`, reaches the main LED preview through
+    // Playback lives in the node body (PerformanceGeneratorBody) and, with
+    // `showInMainPreview` (on by default), reaches the main LED preview through
     // showPlayback.ts — which composites over this frame rather than through
     // it, because a show is driven by an audio transport that the evaluator's
     // tick has no relationship to. So the port emits blank: with nothing

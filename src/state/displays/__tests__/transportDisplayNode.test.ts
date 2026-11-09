@@ -35,7 +35,8 @@ describe('TransportDisplay registration', () => {
   // where your intent came from.
   it('is a workbench-owned signal terminal that nothing comes out of', () => {
     const def = NODE_LIBRARY.find((entry) => entry.type === 'TransportDisplay')!
-    expect(def.label).toBe('Display Panel')
+    // Named after the part people buy; the type id stays.
+    expect(def.label).toBe('TFT Display')
     expect(def.category).toBe('output')
     expect(def.outputs).toEqual([])
     expect(isHardwareManagedSignalNodeType(def.type)).toBe(true)

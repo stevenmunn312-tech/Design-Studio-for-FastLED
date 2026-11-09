@@ -96,7 +96,7 @@ describe('buildShowPlayer', () => {
     // node's Enabled off and shipped no overlay at all.
     const nodes = [
       node('player', 'PatternMaster'),
-      node('fx', 'PlayerParticles', { enabled: false, style: 4, intensity: 0.85 }),
+      node('fx', 'PlayerParticles', { enabled: false, style: 'swirl', intensity: 0.85 }),
       node('sparks', 'ButtonInput', { pin: 12 }),
       node('gold', 'Color', { color: '#ffb020' }),
       node('sd', 'SDCard'), node('amp', 'Amplifier'),

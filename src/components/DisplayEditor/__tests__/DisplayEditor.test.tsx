@@ -502,7 +502,7 @@ describe('DisplayEditor', () => {
     useGraphStore.setState({ nodes: [panelNode()], edges: [] })
     const view = renderEditor()
 
-    const back = view.getByRole('button', { name: 'Display Panel' })
+    const back = view.getByRole('button', { name: 'TFT Display' })
     fireEvent.click(back)
 
     expect(useUiStore.getState().designWorkspaceView).toEqual({ kind: 'graph' })
@@ -514,7 +514,7 @@ describe('DisplayEditor', () => {
   it('always names the panel it belongs to', () => {
     useGraphStore.setState({ nodes: [panelNode()], edges: [] })
     const view = renderEditor()
-    expect(view.getByRole('button', { name: 'Display Panel' })).toBeTruthy()
+    expect(view.getByRole('button', { name: 'TFT Display' })).toBeTruthy()
   })
 
   it('shows the pack artwork on the widget palette and the template list', () => {
