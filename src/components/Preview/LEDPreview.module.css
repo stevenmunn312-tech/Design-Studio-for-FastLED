@@ -358,7 +358,7 @@
   left: 50%;
   bottom: var(--space-3);
   transform: translateX(-50%);
-  padding: 4px var(--space-2);
+  padding: var(--space-0) var(--space-2);
   border: 1px solid var(--chrome-border);
   border-radius: var(--radius-control);
   background: var(--bg-panel);
