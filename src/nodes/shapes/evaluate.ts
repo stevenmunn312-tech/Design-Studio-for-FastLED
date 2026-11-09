@@ -12,7 +12,7 @@ import { customPathPoint, pathTable } from './customPath'
 import {
   FOURIER_RING_HALF_Q8, FOURIER_RING_LEVEL_8, FOURIER_RING_MIN_Q8, FOURIER_SCALE_MIN,
   FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN, FOURIER_TRAIL_JUMP_A16,
-  FOURIER_TRAIL_STEPS_MAX, fourierPenQ8, fourierTable, fourierTableQ,
+  FOURIER_TRAIL_STEPS_MAX, fourierPenQ8, fourierTable, fourierTableQ, fourierTableSize,
 } from './fourierOutline'
 import type { NodeEvaluators } from '../../state/evaluator/types'
 import {
@@ -795,11 +795,12 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       g: byte(num(id, 'g', props, 'g', 220) / 255),
       b: byte(num(id, 'b', props, 'b', 80) / 255),
     }
+    const harmonics = num(id, 'harmonics', props, 'harmonics', 32)
     return { frame: evalFourierEpicycles(stateKey(id), input(id, 'base', null) as Frame | null, {
       outline: props.outline ?? 'heart',
       customPoints: props.customPoints ?? '',
-      maxHarmonics: props.maxHarmonics ?? 32,
-      harmonics: num(id, 'harmonics', props, 'harmonics', 32),
+      maxHarmonics: fourierTableSize(props.maxHarmonics ?? 32, harmonics, input(id, 'harmonics', null) !== null),
+      harmonics,
       speed: num(id, 'speed', props, 'speed', 0.2),
       scale: num(id, 'scale', props, 'scale', 0.8),
       thickness: num(id, 'thickness', props, 'thickness', 1.25),

@@ -25,8 +25,11 @@ the [pattern node expansion](../plans/pattern-node-expansion.md).
   (a non-number, an odd count, too few or too many points, or points with no
   length between them) draws the circle. The inspector shows the field only
   for the custom outline.
-- `maxHarmonics` (4–64) sizes the coefficient table baked into the sketch, so
-  it is a property, as Particles' `count` is.
+- `maxHarmonics` (4–64) sizes the coefficient table baked into the sketch
+  while `harmonics` is wired, so it is a property, as Particles' `count` is.
+  While `harmonics` is a fixed number the table is `ceil(harmonics)` terms
+  (`fourierTableSize`), so the whole 1–64 slider reaches and the row is
+  greyed out.
 - `harmonics` (1–64, fractional) is the number of circles in use, clamped to
   the table. A fraction draws the next circle at that fraction of its radius,
   so the morph is smooth.

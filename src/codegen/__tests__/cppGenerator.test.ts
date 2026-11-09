@@ -3339,7 +3339,8 @@ describe('Pattern node expansion - Phase 6 Fourier Epicycles codegen', () => {
   }
 
   it.each(['heart', 'star', 'square', 'infinity', 'lissajous', 'rose', 'circle'])('bakes the %s coefficients the preview uses', (outline) => {
-    const cpp = generateEpicycles({ outline, maxHarmonics: 24 })
+    // An unwired Harmonics sizes the table itself (fourierTableSize).
+    const cpp = generateEpicycles({ outline, harmonics: 24 })
     const terms = fourierTableQ(fourierTable(outline, '', 24))
     expect(cpp).toContain(`/* Fourier Epicycles: ${outline}, ${terms.length} terms */`)
     const table = bakedTable(cpp)

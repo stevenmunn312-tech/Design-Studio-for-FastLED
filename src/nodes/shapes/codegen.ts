@@ -26,7 +26,7 @@ import { safeId, floatLit } from '../../codegen/cppLiterals'
 import { hexCrgbCpp } from '../../codegen/colorControlCpp'
 import {
   FOURIER_SCALE_MIN, FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN,
-  fourierOutline, fourierTable, fourierTableQ,
+  fourierOutline, fourierTable, fourierTableQ, fourierTableSize,
 } from './fourierOutline'
 
 // Shape's `size` and ClockDisplay's `radius` were tuned as raw pixel
@@ -343,12 +343,14 @@ export const SHAPES_EMITTERS: NodeEmitters = {
   },
   // The coefficient table is computed in TypeScript and baked as numbers;
   // the per-frame sum and the drawing order are evalFourierEpicycles'.
-  FourierEpicycles({ id, p, ln, f, channelColor, ownBuf, seedFrom, needsT, needsFourier }) {
+  FourierEpicycles({ node, id, p, ln, f, channelColor, ownBuf, seedFrom, needsT, needsFourier, edges }) {
     needsT.v = true
     needsFourier.v = true
     const ob = ownBuf()
     const outline = fourierOutline(p.outline)
-    const table = fourierTableQ(fourierTable(outline, p.customPoints, p.maxHarmonics))
+    const harmonicsWired = edges.some((e) => e.target === node.id && e.targetHandle === 'harmonics')
+    const size = fourierTableSize(p.maxHarmonics ?? 32, Number(p.harmonics ?? 32), harmonicsWired)
+    const table = fourierTableQ(fourierTable(outline, p.customPoints, size))
     const A = `_fe_${id}`
     const rows = table.map((term) => `{${term.frequency & 0xffff},${term.amplitude},${term.phase}}`)
     ln(`  { /* Fourier Epicycles: ${outline}, ${table.length} terms */`)

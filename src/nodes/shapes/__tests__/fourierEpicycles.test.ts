@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { evalFourierEpicycles, type FourierEpicyclesParams } from '../evaluate'
 import { isPropertyEnabled } from '../../../state/nodeLibrary'
+import { fourierTableSize } from '../fourierOutline'
 import type { Frame } from '../../../state/palettes/ledColor'
 
 const defaults: FourierEpicyclesParams = {
@@ -90,5 +91,15 @@ describe('Fourier Epicycles evaluator', () => {
   it('offers the custom points text only for the custom outline', () => {
     expect(isPropertyEnabled('FourierEpicycles', 'customPoints', { outline: 'custom' })).toBe(true)
     expect(isPropertyEnabled('FourierEpicycles', 'customPoints', { outline: 'heart' })).toBe(false)
+  })
+
+  it('sizes the table from a fixed Harmonics, and from Max harmonics only for a wire', () => {
+    // The top of the slider reaches: 64 circles, not Max harmonics' 32.
+    expect(fourierTableSize(32, 64, false)).toBe(64)
+    expect(fourierTableSize(32, 12.3, false)).toBe(13)
+    expect(fourierTableSize(32, 2, false)).toBe(4)
+    expect(fourierTableSize(32, 64, true)).toBe(32)
+    expect(isPropertyEnabled('FourierEpicycles', 'maxHarmonics', {}, new Set())).toBe(false)
+    expect(isPropertyEnabled('FourierEpicycles', 'maxHarmonics', {}, new Set(['harmonics']))).toBe(true)
   })
 })

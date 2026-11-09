@@ -207,7 +207,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   FourierEpicycles: {
     overview: [
       'Fourier Epicycles redraws an outline with a chain of rotating circles, each turning at a different speed — the way a Fourier series builds any shape from circles.',
-      'Harmonics sets how many circles are in use, largest first. With a few the outline is a rough blob; with all of them it is exact. Fractions fade the next circle in, so animating Harmonics grows the shape before your eyes.',
+      'Harmonics sets how many circles are in use, largest first. With a few the outline is a rough blob; with all of them it is exact. Fractions fade the next circle in, so animating Harmonics grows the shape before your eyes. While Harmonics is wired, Max harmonics caps how many circles it can reach.',
       'Show Circles draws the circles as dim guides and Show Pen marks where the drawing happens. Custom outlines take your own points.',
     ],
     inputs: {

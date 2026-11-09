@@ -2300,7 +2300,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   FourierEpicycles: {
     outline: 'Shape the circles redraw. Custom uses the Custom points text.',
     customPoints: 'x,y pairs from -1 to 1, 3 to 128 points, joined into a closed outline. Anything else draws the circle.',
-    maxHarmonics: 'Most circles kept: the largest terms of the outline\'s Fourier series. Sizes the table baked into the sketch.',
+    maxHarmonics: 'Most circles a wired Harmonics can use: the largest terms of the outline\'s Fourier series, sizing the table baked into the sketch. Unwired, Harmonics sizes the table itself.',
     harmonics: 'Circles in use, largest first. Fractions fade the next one in, so animating it grows a circle into the outline.',
     speed: 'Turns of the outline per second. Negative runs backwards.',
     scale: 'Size as a fraction of half the shorter side of the canvas.',
@@ -5139,6 +5139,10 @@ export function isPropertyEnabled(
   }
   if (nodeType === 'FourierEpicycles' && key === 'customPoints') {
     return properties.outline === 'custom'
+  }
+  // Max harmonics bounds a wired Harmonics; a fixed one sizes the table itself.
+  if (nodeType === 'FourierEpicycles' && key === 'maxHarmonics') {
+    return !wiredInputs || wiredInputs.has('harmonics')
   }
   if (nodeType === 'Transform' && key === 'angle') {
     return (properties.transform ?? 'rotate') === 'translate'

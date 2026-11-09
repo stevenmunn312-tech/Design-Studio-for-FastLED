@@ -869,10 +869,7 @@ freeze, or drop them.
   rate. Move it to `trailFadeAmount` (see `docs/development/patterns/graph-and-nodes.md` ~291-302), with
   a firmware twin. `src/nodes/shapes/evaluate.ts:184`,
   `src/nodes/shared/trailFade.ts:42`.
-- [ ] **Fourier Epicycles: Fix the Harmonics slider range (Low, S).** The
-  slider runs to 64 but `maxHarmonics` defaults to 32, so the top half does
-  nothing. Bake `ceil(harmonics)` when unwired and show `maxHarmonics` only
-  when wired. `src/state/nodeLibrary.ts:1434`.
+
 
 
 #### Generative and simulations
