@@ -1858,7 +1858,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         })}
 
         <Suspense fallback={null}>
-          {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody nodeId={id} />}
+          {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody />}
           {d.nodeType === 'PerformanceGenerator' && <PerformanceGeneratorBody nodeId={id} />}
           {d.nodeType === 'Image' && <ImageNodeBody nodeId={id} />}
           {d.nodeType === 'SDVideo' && <SdVideoNodeBody nodeId={id} />}

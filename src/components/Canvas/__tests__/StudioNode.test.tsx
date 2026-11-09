@@ -1482,6 +1482,8 @@ describe('StudioNode', () => {
     expect(container.querySelector('[data-handle="source:frame"]')).toBeTruthy()
     expect(container.querySelector('[data-handle="source:shows"]')).toBeNull()
     expect(container.querySelector('[data-handle="target:transitions"]')).toBeTruthy()
+    // Music went when the Music Library became portless.
+    expect(container.querySelector('[data-handle="target:music"]')).toBeNull()
   })
 
   it('embeds a live beat/BPM widget in the Beat Detect node', () => {

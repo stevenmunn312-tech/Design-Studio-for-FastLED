@@ -12,7 +12,7 @@ export type PortSymbol = 'square' | 'diamond' | 'circle' | 'smallSquare' | 'hexa
 export const PORT_SYMBOL_FOR_TYPE: Record<string, PortSymbol> = {
   frame: 'square', image: 'square', display: 'square', storage: 'square', patternset: 'square',
   field: 'diamond', transitionset: 'diamond', playerparticles: 'diamond',
-  float: 'circle', datetime: 'circle', string: 'circle', playercontrols: 'circle', music: 'circle',
+  float: 'circle', datetime: 'circle', string: 'circle', playercontrols: 'circle',
   bool: 'smallSquare', newcontrol: 'smallSquare',
   audio: 'hexagon', dmx: 'hexagon',
   palette: 'pill',

@@ -20,18 +20,13 @@ const STATUS_LABEL: Record<string, string> = {
 
 const SECTIONS = ['intro', 'verse', 'buildup', 'drop', 'chorus', 'bridge', 'outro'] as const
 
-export default function MusicLibraryNodeBody({ nodeId }: { nodeId: string }) {
+export default function MusicLibraryNodeBody() {
   const { entries, addFiles, retryFailed, removeEntry, clearAll } = useMusicStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const performanceProperties = useGraphStore((s) => {
-    const perfId = s.edges.find((edge) =>
-      edge.source === nodeId && edge.sourceHandle === 'music'
-    )?.target
-    const connected = perfId
-      ? s.nodes.find((node) => node.id === perfId && node.data.nodeType === 'PerformanceGenerator')
-      : undefined
-    return (connected ?? s.nodes.find((node) => node.data.nodeType === 'PerformanceGenerator'))?.data.properties
-  })
+  // The library is portless: songs are analysed with the options of the
+  // project's Performance Generator, the one show the store feeds.
+  const performanceProperties = useGraphStore((s) =>
+    s.nodes.find((node) => node.data.nodeType === 'PerformanceGenerator')?.data.properties)
 
   const doneCount    = entries.filter(e => e.status === 'done').length
   const analyzingAny = entries.some(e => e.status === 'analyzing')

@@ -1209,12 +1209,6 @@ freeze, or drop them.
   driver `partId` and make it a bench part, or add an "RGB strip" load mode
   with a Color input to Power Switch. Evidence `src/build/hardwareManifest.ts:1253`,
   `src/build/hardware.ts:27`.
-- [ ] **Music Library: Remove the empty wire to Performance Generator (Med,
-  M).** The `music` wire carries only `true`; the generator reads the global
-  music store either way, and validation warns until the cable is drawn. Fold
-  the library into the Performance Generator (double-click or "Edit songs"
-  opens the library UI), or make Music Library portless like SD Card and drop
-  the warning. Evidence `src/nodes/show/evaluate.ts:1744`, `src/utils/validateGraph.ts:4886`.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 

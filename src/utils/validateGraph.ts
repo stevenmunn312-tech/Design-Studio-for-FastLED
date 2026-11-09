@@ -4891,15 +4891,6 @@ export function buildGraphDiagnostics(
     const link = edges.find((edge) => edge.target === perfGen.id && edge.targetHandle === 'patternset')
     const collection = link && nodes.find((node) => node.id === link.source && node.data.nodeType === 'PatternCollection')
     const patternIds = collection ? ((collection.data.properties as { patternIds?: string[] }).patternIds ?? []) : []
-    if (!incoming.has(`${perfGen.id}:music`)) {
-      diagnostics.push({
-        id: `${perfGen.id}-music`, severity: 'warning', category: 'show',
-        title: 'Performance Generator has no music source',
-        message: 'It has patterns, but no analysed music to drive the show.',
-        fix: 'Connect a Music Library output to the Performance Generator music input.',
-        nodeIds: [perfGen.id], nodeLabel: nodeLabel(perfGen),
-      })
-    }
     if (collection && patternIds.length === 0) {
       diagnostics.push({
         id: `${collection.id}-empty`, severity: 'warning', category: 'show',
@@ -5052,16 +5043,14 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
     if (issue.severity !== 'error') warnings.push(issue.title)
   }
 
-  // Music-sync generator: a wired Pattern Collection needs a direct music
-  // source on the generator, and an empty collection produces nothing.
+  // Music-sync generator: an empty collection produces nothing. The songs come
+  // from the Music Library's store, with no wire to check; packaging refuses a
+  // show with no analysed song (showPackagingIssues).
   const perfGen = relevantPerformanceGenerator(nodes, edges)
   if (perfGen && incoming.has(`${perfGen.id}:patternset`)) {
     const link = edges.find(e => e.target === perfGen.id && e.targetHandle === 'patternset')
     const coll = link && nodes.find(n => n.id === link.source && n.data.nodeType === 'PatternCollection')
     const ids = coll ? ((coll.data.properties as { patternIds?: string[] }).patternIds ?? []) : []
-    if (!incoming.has(`${perfGen.id}:music`)) {
-      warnings.push('Performance Generator has a Pattern Collection but no music source wired')
-    }
     if (coll && ids.length === 0) {
       warnings.push('Pattern Collection wired to Performance Generator is empty')
     }

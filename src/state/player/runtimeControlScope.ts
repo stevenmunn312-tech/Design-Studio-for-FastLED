@@ -19,7 +19,6 @@ export const MAIN_SUBSTANCE_TYPES = new Set([
   'field',
   'patternset',
   'transitionset',
-  'music',
   'image',
   'dmx',
   'datetime',

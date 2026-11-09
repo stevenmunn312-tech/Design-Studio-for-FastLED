@@ -8,16 +8,13 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
   MusicLibrary: {
     overview: [
       'Music Library holds the songs for a music-synced show. Double-click it to open the library: drop in MP3 files and Studio analyses each one — beats, sections, energy and mood — in the browser.',
-      'Its Music output feeds a Performance Generator, which turns the analysis into a timed light show for each song. The songs and their shows are written to the SD card when you upload.',
+      'It carries no wires: the Performance Generator reads the library’s songs directly and turns each analysis into a timed light show. The songs and their shows are written to the SD card when you upload.',
     ],
     steps: [
       'Double-click the node and drop MP3 files into the library. Wait for each analysis to finish.',
-      'Wire Music into a Performance Generator, and the generator’s Show into the LED output.',
+      'Add a Performance Generator and wire its Show into the LED output.',
       'Add an SD Card part and an amplifier on the Hardware tab, then upload to write the card and flash the player.',
     ],
-    outputs: {
-      music: 'The analysed songs, for a Performance Generator.',
-    },
     outcome: 'Drop songs into the library and the Performance Generator builds a show for each one.',
     example: example({
       featured: 'MusicLibrary',
@@ -26,8 +23,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         songs: ['MusicLibrary'],
         shows: ['PerformanceGenerator', { paletteMode: 'mood' }],
       },
-      wires: ['songs.music > shows.music'],
-      explanation: 'Music Library analyses the songs you drop into it and passes them to Performance Generator, which plans a show for each: patterns on the sections, flashes on the beats, palettes from the mood. The generator’s Show goes to the LED output that will play it.',
+      explanation: 'Music Library analyses the songs you drop into it, and Performance Generator plans a show for each, with no wire between them: patterns on the sections, flashes on the beats, palettes from the mood. The generator’s Show goes to the LED output that will play it.',
       preview: 'The {output} plays the generated show once songs are analysed; press play in the Performance Generator body to watch it.',
       workflow: true,
     }),
@@ -358,13 +354,12 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       'Its Show output names the LED output the show plays on. The shows and songs are written to the SD card at upload, and the board plays them with no graph running — press play in the node body to watch a show first.',
     ],
     steps: [
-      'Wire a Music Library into Music, and optionally a Pattern Collection and a Transition Pool.',
+      'Add a Music Library and drop your songs into it; the generator reads them with no wire. Optionally wire a Pattern Collection and a Transition Pool.',
       'Wire Show to the LED output the show should play on.',
       'Press play in the node to watch a show. Edit timeline trims events on the strip. Edit lanes is the full editor. An edit locks that section, and Revert rebuilds the show from the song.',
       'Add an SD Card part and an amplifier on the Hardware tab, then upload.',
     ],
     inputs: {
-      music: 'The analysed songs, from a Music Library.',
       patternset: 'Your patterns to schedule, from a Pattern Collection. Unwired, the built-in patterns are used.',
       transitions: 'Transition styles to choose from, from a Transition Pool.',
       controls: 'A Controls bundle for the SD player’s transport, volume and lights. For one or two buttons, wire them straight to the engine’s own action inputs (Expose input…); for a whole panel, a touch screen or a remote, gather them on Player Controls and wire its Controls here.',
@@ -383,7 +378,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         transitions: ['TransitionSet'],
         generator: ['PerformanceGenerator', { paletteMode: 'mood', minTime: 8 }],
       },
-      wires: ['music.music > generator.music', 'patterns.patternset > generator.patternset', 'transitions.transitions > generator.transitions'],
+      wires: ['patterns.patternset > generator.patternset', 'transitions.transitions > generator.transitions'],
       explanation: 'Performance Generator plans a show for every song in the Music Library, choosing among your collected patterns for each section, holding each for at least eight seconds, and moving between them with styles from the Transition Pool.',
       preview: 'Once songs are analysed and patterns collected, the generator’s player shows what the {output} will do for each track.',
       workflow: true,
@@ -408,7 +403,6 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         generator: ['PerformanceGenerator'],
         card: ['SDCard'],
       },
-      wires: ['music.music > generator.music'],
       explanation: 'The SD Card sits on the bench without wires. When you upload, the songs from the Music Library and the shows from the Performance Generator are written to it, and the player reads them from there.',
       preview: 'SD Card has no picture of its own; the {output} plays whatever the generator planned.',
       workflow: true,

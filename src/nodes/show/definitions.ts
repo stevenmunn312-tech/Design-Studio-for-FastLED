@@ -13,11 +13,16 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
   {
     // Music source for the pre-planned show pipeline. Double-click on the canvas
     // opens the Music Library panel (drop MP3s, analyse, export).
+    //
+    // Portless, as the SD Card is. Its Music wire carried only `true`: the
+    // songs live in the global music store, which the Performance Generator
+    // reads whether or not a cable is drawn, and validation nagged until one
+    // was. The node is where songs are added, not a stage a show flows through.
     type: 'MusicLibrary',
     label: 'Music Library',
     category: 'show',
     inputs: [],
-    outputs: [{ id: 'music', label: 'Music', dataType: 'music' }],
+    outputs: [],
     defaultProperties: {},
   },
 
@@ -304,10 +309,10 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     label: 'Performance Generator',
     category: 'show',
     inputs: [
-      // Music first, then the collection it schedules, then the pool of styles
-      // it moves between them: the order a show is actually described in, and
-      // the order a drag-to-splice drop walks (`spliceTargetPorts`).
-      { id: 'music', label: 'Music', dataType: 'music' },
+      // The collection it schedules, then the pool of styles it moves between
+      // them: the order a show is actually described in, and the order a
+      // drag-to-splice drop walks (`spliceTargetPorts`). The songs come from
+      // the Music Library's store, with no wire.
       { id: 'patternset', label: 'Patterns', dataType: 'patternset' },
       { id: 'transitions', label: 'Transitions', dataType: 'transitionset' },
       // Last, because it is the only input that is not part of authoring the

@@ -706,7 +706,7 @@ describe('nodeLibrary', () => {
     const generator = NODE_LIBRARY.find((n) => n.type === 'PerformanceGenerator')
     const performanceActions = playerControlActionPortsFor('performance').map((port) => port.id)
     expect(generator?.inputs.map((p) => p.id))
-      .toEqual(['music', 'patternset', 'transitions', 'controls', ...performanceActions])
+      .toEqual(['patternset', 'transitions', 'controls', ...performanceActions])
     expect(generator?.actionInputs).toEqual(performanceActions)
     expect(generator?.defaultProperties).toMatchObject({
       useGroupInputs: true,

@@ -88,7 +88,6 @@ describe('SET_PARAM slot indices', () => {
       node('sd', 'SDCard'), node('amp', 'Amplifier'),
     ]
     const edges = [
-      edge('music', 'library', 'music', 'perf', 'music'),
       edge('set', 'collection', 'patternset', 'perf', 'patternset'),
       edge('frame', 'perf', 'frame', 'out', 'frame'),
     ]

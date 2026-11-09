@@ -53,7 +53,6 @@ describe('a placed source', () => {
     ['TransitionSet', 'transitions', 'PatternMaster', 'transitions'],
     ['PatternCollection', 'patternset', 'PatternMaster', 'patternset'],
     ['PlayerParticles', 'particleFx', 'PatternMaster', 'particleFx'],
-    ['MusicLibrary', 'music', 'PerformanceGenerator', 'music'],
     ['RTCInput', 'dateTime', 'ClockDisplay', 'dateTime'],
     ['DMXInput', 'dmx', 'DMXChannel', 'dmx'],
     ['Image', 'image', 'PaletteFromImage', 'image'],

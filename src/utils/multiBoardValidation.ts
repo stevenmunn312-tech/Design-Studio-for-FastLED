@@ -405,7 +405,6 @@ const UNCARRIED_TYPE_TITLES: Record<string, string> = {
   field: 'A field',
   image: 'An image',
   palette: 'A palette',
-  music: 'Music',
   patternset: 'A pattern collection',
   transitionset: 'A transition set',
   playercontrols: 'Player controls',

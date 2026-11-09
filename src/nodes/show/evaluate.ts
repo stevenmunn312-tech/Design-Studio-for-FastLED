@@ -1744,9 +1744,6 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
   TransitionSet(_c, _id, props) {
     return { transitions: (props.transitions as string[] | undefined) ?? [] }
   },
-  MusicLibrary() {
-    return { music: true }
-  },
   PerformanceGenerator({ inputSourceType, input, elapsedT: t, W, H, stateKey, incoming, nodeMap }, id) {
     // The `frame` edge names the show's destination; it does not carry it.
     // Playback lives in the node body (PerformanceGeneratorBody) and, with

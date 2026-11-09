@@ -56,7 +56,6 @@ function performanceShow() {
     node('controls', 'ControlMap', { controls: ['playPause'] }),
   ]
   const edges = [
-    edge('e1', 'lib', 'music', 'perf', 'music'),
     edge('e2', 'collection', 'patternset', 'perf', 'patternset'),
     edge('e3', 'perf', 'frame', 'out', 'frame'),
     edge('e4', 'perf', 'display', 'oled', 'display'),

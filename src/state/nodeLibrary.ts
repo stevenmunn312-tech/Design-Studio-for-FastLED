@@ -291,7 +291,6 @@ export const PORT_COLORS: Record<string, string> = {
   storage: '#c78cff',
   dmx: '#6bf8ff',
   datetime: '#d8ff63',
-  music: '#ffb74d',
   patternset: '#38a6ff',
   display: '#ffe066',
   transitionset: '#b388ff',

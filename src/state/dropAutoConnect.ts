@@ -10,7 +10,7 @@ type Port = { id: string; dataType: string }
  * placed node can often find its partner unaided.
  */
 const AUTO_CONNECT_DATA_TYPES: ReadonlySet<string> = new Set([
-  'audio', 'transitionset', 'patternset', 'playerparticles', 'music',
+  'audio', 'transitionset', 'patternset', 'playerparticles',
   'datetime', 'dmx', 'image',
 ])
 

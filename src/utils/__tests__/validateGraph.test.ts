@@ -783,7 +783,6 @@ describe('validateGraph', () => {
       node('out', 'MatrixOutput'),
     ]
     const edges = [
-      { id: 'e1', source: 'lib', target: 'pg', sourceHandle: 'music', targetHandle: 'music' } as unknown as StudioEdge,
       { id: 'e2', source: 'pg', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' } as unknown as StudioEdge,
     ]
     const { errors } = validateGraph(nodes, edges)
@@ -798,12 +797,13 @@ describe('validateGraph', () => {
     // simply stopped after the generator.
     const nodes = [
       node('lib', 'MusicLibrary'),
+      node('coll', 'PatternCollection'),
       node('pg', 'PerformanceGenerator'),
       node('sd', 'SDCard'),
       node('out', 'MatrixOutput'),
     ]
     const edges = [
-      { id: 'e1', source: 'lib', target: 'pg', sourceHandle: 'music', targetHandle: 'music' } as unknown as StudioEdge,
+      { id: 'e1', source: 'coll', target: 'pg', sourceHandle: 'patternset', targetHandle: 'patternset' } as unknown as StudioEdge,
     ]
     const { errors } = validateGraph(nodes, edges)
     expect(errors.some((e) => e.includes('not sending its show anywhere'))).toBe(true)
@@ -961,23 +961,26 @@ describe('validateGraph', () => {
     return n
   }
 
-  it('warns when a Performance Generator has patterns but no music source', () => {
+  // The Music Library is portless: the generator reads the songs from the
+  // store, so there is no wire to be missing.
+  it('does not ask for a music wire on a Performance Generator', () => {
     const nodes = [collection('pc', ['g1']), node('pg', 'PerformanceGenerator'), node('out', 'MatrixOutput')]
     const edges = [edge('e1', 'pc', 'pg', 'patternset')]
     const { warnings } = validateGraph(nodes, edges)
-    expect(warnings.some(w => w.includes('no music source'))).toBe(true)
+    expect(warnings.some(w => w.includes('music source'))).toBe(false)
+    expect(buildGraphDiagnostics(nodes, edges).some((issue) => issue.id === 'pg-music')).toBe(false)
   })
 
   it('warns when the wired Pattern Collection is empty', () => {
     const nodes = [collection('pc', []), node('lib', 'MusicLibrary'), node('pg', 'PerformanceGenerator'), node('out', 'MatrixOutput')]
-    const edges = [edge('e1', 'pc', 'pg', 'patternset'), edge('e2', 'lib', 'pg', 'music')]
+    const edges = [edge('e1', 'pc', 'pg', 'patternset')]
     const { warnings } = validateGraph(nodes, edges)
     expect(warnings.some(w => w.includes('is empty'))).toBe(true)
   })
 
-  it('does not warn when music and a non-empty collection are both wired', () => {
+  it('does not warn when a non-empty collection is wired', () => {
     const nodes = [collection('pc', ['g1']), node('lib', 'MusicLibrary'), node('pg', 'PerformanceGenerator'), node('out', 'MatrixOutput')]
-    const edges = [edge('e1', 'pc', 'pg', 'patternset'), edge('e2', 'lib', 'pg', 'music')]
+    const edges = [edge('e1', 'pc', 'pg', 'patternset')]
     const { warnings } = validateGraph(nodes, edges)
     expect(warnings.some(w => w.includes('no music source') || w.includes('is empty'))).toBe(false)
   })
@@ -2498,7 +2501,6 @@ describe('a sketch holds at most 255 patterns', () => {
       node('out', 'MatrixOutput'),
     ]
     const edges = [
-      { id: 'e1', source: 'lib', target: 'pg', sourceHandle: 'music', targetHandle: 'music' },
       { id: 'e2', source: 'coll', target: 'pg', sourceHandle: 'patternset', targetHandle: 'patternset' },
       { id: 'e3', source: 'pg', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' },
     ] as unknown as StudioEdge[]
