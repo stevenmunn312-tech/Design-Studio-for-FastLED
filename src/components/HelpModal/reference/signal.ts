@@ -246,7 +246,7 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
       featured: 'DMXChannel',
       title: 'A desk fader that adds sparkle',
       nodes: {
-        dmx: ['DMXInput', { inputMode: 'sACN', universe: 1, previewPort: 5568 }],
+        dmx: ['DMXInput', { inputMode: 'sACN', universe: 1, udpPort: 5568 }],
         sparkle: ['DMXChannel', { channel: 12 }],
         sea: ['Pacifica', { palette: 'ocean', speed: 0.35 }],
         glitter: ['Glitter', { glitterMode: 'add', r: 255, g: 255, b: 255 }],

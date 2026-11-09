@@ -40,6 +40,12 @@ export interface NodeDefinition {
   /** Property and action inputs shown before the user chooses an exposure list. */
   defaultExposedInputs?: string[]
   /**
+   * The outputs a tall node draws by default. Declaring it folds every other
+   * output: drawn while wired, or while the node shows all its outputs. See
+   * `state/outputFolding.ts`.
+   */
+  defaultExposedOutputs?: string[]
+  /**
    * Which input an existing noodle should land on when this node is dropped
    * onto it, where declaration order does not already answer it.
    *

@@ -1,6 +1,8 @@
 import { sanitizePin } from '../hardwarePins'
 import { libraryDefaults } from '../../state/nodeLibrary'
-import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from '../../state/peripherals/keypad'
+import {
+  KEYPAD_COL_KEYS, KEYPAD_DIGITS, KEYPAD_KEY_COUNT, KEYPAD_ROW_KEYS, keypadKeyIndex, keypadKeyPort,
+} from '../../state/peripherals/keypad'
 
 /*
  * A 4x4 membrane matrix keypad, scanned column by column.
@@ -43,10 +45,22 @@ export function keypadSetupCpp(props: Record<string, unknown>): string[] {
   ]
 }
 
+/** The per-key outputs to publish: those in `ports`, or every one when unknown. */
+export function keypadKeysRead(ports?: ReadonlySet<string>): number[] {
+  if (!ports) return Array.from({ length: KEYPAD_KEY_COUNT }, (_, key) => key)
+  return [...ports].map(keypadKeyIndex).filter((key): key is number => key !== null).sort((a, b) => a - b)
+}
+
+/**
+ * `keys` are the per-key outputs something reads, each true while the scan
+ * holds that key; `digit` adds the last number key pressed, held like Key.
+ */
 export function keypadLoopCpp(
   props: Record<string, unknown>,
   id: string,
-  local: (port: 'key' | 'pressed') => string,
+  local: (port: string) => string,
+  keys: readonly number[] = [],
+  digit = false,
 ): string[] {
   return [
     `  static const uint8_t _kpRows_${id}[4] = {${pins(props, KEYPAD_ROW_KEYS).join(', ')}};`,
@@ -58,5 +72,11 @@ export function keypadLoopCpp(
     `  if (_kpKey_${id} >= 0) _kpLast_${id} = (float)_kpKey_${id};`,
     `  float ${local('key')} = _kpLast_${id};`,
     `  bool ${local('pressed')} = _kpKey_${id} >= 0;`,
+    ...(digit ? [
+      `  static const int8_t _kpDigits_${id}[16] = {${KEYPAD_DIGITS.join(', ')}}; static float _kpDigit_${id} = 0.0f;`,
+      `  if (_kpKey_${id} >= 0 && _kpDigits_${id}[_kpKey_${id}] >= 0) _kpDigit_${id} = (float)_kpDigits_${id}[_kpKey_${id}];`,
+      `  float ${local('digit')} = _kpDigit_${id};`,
+    ] : []),
+    ...keys.map((key) => `  bool ${local(keypadKeyPort(key))} = _kpKey_${id} == ${key};`),
   ]
 }

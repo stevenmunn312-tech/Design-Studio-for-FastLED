@@ -16,10 +16,14 @@ import { isNormalizedOutput } from '../shared/signalRange'
 import { applyBlackPoint, blackPointByte } from '../color/paletteBlackPoint'
 import { loopPacingCpp, loopPacingUs } from '../../codegen/loopPacing'
 import { controllerSettings } from '../../build/controllerSettings'
-import { dmxNetworkProtocol, dmxUsesNetwork, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
+import { dmxListenUniverse, dmxNetworkProtocol, dmxUsesNetwork, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
+import { useDmxStore } from '../../state/peripherals/dmxStore'
+import { useDdpStore } from '../../state/peripherals/ddpStore'
+import { blankDmxSnapshot } from '../../state/peripherals/dmx'
 import { workspaceTrustHolds } from '../../state/patterns/patternTrust'
 import { usesNetwork } from '../../codegen/peripherals/networkCpp'
 import { midiUsesUart } from '../../state/peripherals/midiSource'
+import { MidiEngine } from '../../midi/midiEngine'
 import { findPreviewOnlyWarnings } from '../../utils/validateGraph'
 import type { Frame } from '../../state/palettes/ledColor'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
@@ -225,6 +229,35 @@ describe('sACN on the DMX input', () => {
     expect(cpp).toContain('_sacnUni_d == 3')
     expect(cpp).toContain('_dmxData_d[0]')
   })
+
+  // sACN senders never send universe 0, so the Art-Net default reads as 1:
+  // the group joined and the universe filtered are the same one.
+  it('listens to universe 1 when sACN is left on the Art-Net default of 0', () => {
+    expect(dmxListenUniverse({ inputMode: 'sACN', universe: 0 })).toBe(1)
+    expect(dmxListenUniverse({ inputMode: 'Art-Net', universe: 0 })).toBe(0)
+    expect(dmxListenUniverse({ inputMode: 'sACN', universe: 7 })).toBe(7)
+    const cpp = generateCpp([node('d', 'DMXInput', { inputMode: 'sACN', universe: 0 })], [])
+    expect(cpp).toContain('_sacnUdp_d.beginMulticast(IPAddress(239, 255, 0, 1), 5568);')
+    expect(cpp).toContain('_sacnUni_d == 1')
+    expect(cpp).not.toContain('_sacnUni_d == 0')
+  })
+
+  it('publishes Live on both sides, and keeps no unread packet state', () => {
+    for (const inputMode of ['Art-Net', 'sACN', 'DMX512']) {
+      const cpp = generateCpp([node('d', 'DMXInput', { inputMode })], [])
+      expect(cpp).toContain('bool _dmxLive_d = false;')
+      expect(cpp).toMatch(/bool \w+ = _dmxLive_d;/)
+      expect(cpp).not.toContain('_dmxValid_')
+      expect(cpp).not.toContain('_dmxPacketRate_')
+    }
+    const dmx = node('d', 'DMXInput', { inputMode: 'Art-Net', universe: 2 })
+    useDmxStore.setState({ snapshot: { ...blankDmxSnapshot(2), live: true } })
+    expect(outputsOf([dmx], []).get('d')?.live).toBe(true)
+    // A live desk on another universe is not this node's.
+    useDmxStore.setState({ snapshot: { ...blankDmxSnapshot(5), live: true } })
+    expect(outputsOf([dmx], []).get('d')?.live).toBe(false)
+    useDmxStore.setState({ snapshot: blankDmxSnapshot(0) })
+  })
 })
 
 describe('DDP Input', () => {
@@ -239,6 +272,18 @@ describe('DDP Input', () => {
     expect(cpp).toContain('_ddpUdp_d.begin(4048);')
     expect(cpp).toContain('(_ddpBuf_d[0] & 0xC0) == 0x40')
     expect(cpp).toContain('memcpy(((uint8_t*)buf_d) + _ddpOff_d')
+  })
+
+  it('reports Live while frames arrive, on both sides', () => {
+    const ddp = node('d', 'DdpInput')
+    expect(outputsOf([ddp], []).get('d')?.live).toBe(false)
+    useDdpStore.setState({ live: true })
+    expect(outputsOf([ddp], []).get('d')?.live).toBe(true)
+    useDdpStore.setState({ live: false })
+    const cpp = generateCpp([ddp], [])
+    expect(cpp).toContain('uint32_t _ddpLastMs_d = 0;')
+    expect(cpp).toContain('_ddpLastMs_d = millis();')
+    expect(cpp).toMatch(/bool \w+ = _ddpLastMs_d != 0 && millis\(\) - _ddpLastMs_d <= 2000u;/)
   })
 })
 
@@ -291,6 +336,23 @@ describe('Frame Stream, Analog RGB Strip and DIN MIDI', () => {
     const channels = [...cpp.matchAll(/ledcAttachPin\((\d+), (\d+)\)/g)].map((m) => Number(m[2]))
     expect(channels).toHaveLength(7)
     expect(new Set(channels).size).toBe(7)
+  })
+
+  it('applies the Channel filter in the preview as the sketch does', () => {
+    const engine = MidiEngine.instance
+    const onTwo = node('a', 'MidiInput', { note: 63, cc: 9, channel: 2 })
+    const onThree = node('b', 'MidiInput', { note: 63, cc: 9, channel: 3 })
+    const omni = node('c', 'MidiInput', { note: 63, cc: 9, channel: 0 })
+    engine.handleMessage(new Uint8Array([0x92, 63, 127])) // note on, channel 3
+    engine.handleMessage(new Uint8Array([0xb1, 9, 127]))  // CC on channel 2
+    const outputs = outputsOf([onTwo, onThree, omni], [])
+    expect(outputs.get('a')).toMatchObject({ note: 0, gate: false, cc: 1 })
+    expect(outputs.get('b')).toMatchObject({ note: 1, gate: true, cc: 0 })
+    expect(outputs.get('c')).toMatchObject({ note: 1, gate: true, cc: 1 })
+    engine.handleMessage(new Uint8Array([0x82, 63, 0]))
+    engine.handleMessage(new Uint8Array([0xb1, 9, 0]))
+    // The sketch filters the same way.
+    expect(generateCpp([node('d', 'MidiInput', { midiSource: 'DIN (UART)', channel: 3 })], [])).toContain('if (3 != 0 && _ch != 3) continue;')
   })
 
   it('reads a DIN jack on a UART in firmware, and stays preview-only on Web MIDI', () => {
@@ -393,5 +455,28 @@ describe('Text with a wired string and Palette Transform', () => {
       }
       expect(applyBlackPoint(255, bp)).toBe(255)
     }
+  })
+})
+
+describe('Code node A and B', () => {
+  it('declares a and b around the pasted loop, wired or from the fields', () => {
+    const code = node('c', 'Code', { code: 'leds[0] = CRGB(a, b, 0);', a: 0.5, b: 2 })
+    const out = node('out', 'MatrixOutput', { width: 8, height: 8 })
+    const shown = edge('c', 'frame', 'out', 'frame')
+    const cpp = generateCpp([code, out], [shown])
+    // The pasted body has a block of its own, so its own `a` shadows the input.
+    expect(cpp).toContain('float a=0.5, b=2; (void)a; (void)b;\n    {\n    leds[0] = CRGB(a, b, 0);\n    }')
+    const wired = generateCpp([node('k', 'Constant', { value: 3 }), code, out], [edge('k', 'value', 'c', 'a'), shown])
+    expect(wired).not.toContain('float a=0, b=2;')
+    expect(wired).toMatch(/float a=[^,]+, b=2;/)
+  })
+
+  it('leaves a Global variable named a to the pasted code', () => {
+    const cpp = generateCpp([
+      node('c', 'Code', { globalCode: 'uint8_t a = 1;', code: 'a++; leds[0] = CRGB(a, b, 0);' }),
+      node('out', 'MatrixOutput'),
+    ], [edge('c', 'frame', 'out', 'frame')])
+    expect(cpp).toContain('float b=0; (void)b;')
+    expect(cpp).not.toContain('float a=')
   })
 })

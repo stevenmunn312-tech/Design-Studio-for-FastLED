@@ -575,6 +575,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   at all: its Color A and Color B ports are its only colour wires, and stay
   Touch-controllable through `colorChannels`. See
   [direct controls and LED output status](../../design/direct-controls-and-output-status.md).
+- Output folding is the output side of the exposure list. A definition's
+  `defaultExposedOutputs` folds every other output it has: a folded output is
+  drawn while something is wired to it, or while the node shows all of them
+  (`StudioNodeData.showAllOutputs`, toggled by the "N more outputs" button).
+  `drawnOutputs` (`state/outputFolding.ts`) is the one rule, read by
+  `StudioNode`, the canvas's accessible output count and the node cards.
+  It is presentation only: the evaluator publishes every output, and an
+  emitter decides what it computes. A per-item output that costs a line
+  each (Touch Pad's Pad N, Keypad's Key N and Digit) is emitted only when
+  wired, from the node's outgoing edges in the normal sketch and from the
+  control graph's `ports`; with no port set, the control compiler gets all of
+  them. Folding a tall node is how a sensor offers "pad 3 pressed" as one
+  wire without a grow-a-port socket to configure.
 - A property input's `defaultProperties` entry must hold not just *a* default
   but the exact literal the code already falls back to:
   `src/state/__tests__/propertyInputFallbacks.test.ts` reads
@@ -638,10 +651,17 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   listener parses both DMX protocols by header, so a protocol choice only
   decides the default port (`dmxListenPort`: the other protocol's
   registered port reads as this one's, so switching mode moves the port) and
-  the sACN multicast join. A firmware source that never deploys (Web MIDI)
+  the sACN multicast join; the universe both sides listen to is
+  `dmxListenUniverse`, which reads sACN's missing universe 0 as 1. A firmware source that never deploys (Web MIDI)
   and one that does (a DIN jack on a UART) share the MIDI node:
   `midiUsesUart` (`state/peripherals/midiSource.ts`) is what the emitter,
-  the preview-only warning, the pin walk and the row gating ask.
+  the preview-only warning, the pin walk and the row gating ask, and
+  `midiUartPort` the UART that `midiUartValidationIssues` keeps clear of the
+  radar's UART1, DMX512, the DFPlayer and a second jack. The preview applies
+  the sketch's Channel filter: `MidiEngine` keeps per-channel maps beside the
+  any-channel ones and `midiReading` picks between them, so the evaluator and
+  the node body read the same value. The body's note pad and CC slider send
+  through `MidiEngine.play`, which reaches every node but no MIDI-learn capture.
   The Web Remote joined the network users through `usesNetwork` alone, and
   `validateGraph.ts`'s three copies of the old predicate now ask it too, with
   only the Web Remote excluded where it reports its own board finding.

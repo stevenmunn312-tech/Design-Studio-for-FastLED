@@ -25,7 +25,8 @@
  *
  * Note this is *not* the unit the browser's encoder body produces — that one is
  * a mouse drag. Callers convert their own source, which is why the divisor is
- * an argument rather than baked into the step.
+ * an argument rather than baked into the step. An Encoder node's Position
+ * output reads in clicks, so a reader of it multiplies by this first.
  */
 export const ENCODER_COUNTS_PER_STEP = 4
 

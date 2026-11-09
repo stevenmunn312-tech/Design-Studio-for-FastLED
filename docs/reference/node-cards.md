@@ -12,12 +12,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Audio example graph](../../public/node-cards/graphs/audio.svg)
 
-### Storage
-
-![Storage node](../../public/node-cards/storage.svg)
-
-![Storage example graph](../../public/node-cards/graphs/storage.svg)
-
 ### Microphone
 
 ![Microphone node](../../public/node-cards/mic-input.svg)
@@ -928,11 +922,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![AnimARTrix example graph](../../public/node-cards/graphs/animartrix.svg)
 
-### Custom Formula
+### Formula Pattern
 
-![Custom Formula node](../../public/node-cards/custom-formula.svg)
+![Formula Pattern node](../../public/node-cards/custom-formula.svg)
 
-![Custom Formula example graph](../../public/node-cards/graphs/custom-formula.svg)
+![Formula Pattern example graph](../../public/node-cards/graphs/custom-formula.svg)
 
 ### Code
 

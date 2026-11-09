@@ -31,7 +31,6 @@ export const PORT_DESCRIPTIONS: Record<string, string> = {
   image: 'an uploaded picture as raw pixel data',
   dmx: 'one live DMX universe of 512 channels',
   datetime: 'a complete date, time, and clock-health reading',
-  storage: 'a configured storage provider such as SD, onboard flash, or USB',
   playercontrols: 'a bundle of transport commands and normalized volume/brightness values, read by Music Player or by an LED output',
   playerparticles: 'the beat-particle overlay style and intensity configuration',
   string: 'a bounded line of display text',

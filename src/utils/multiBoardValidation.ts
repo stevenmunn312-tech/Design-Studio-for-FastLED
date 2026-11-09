@@ -409,7 +409,6 @@ const UNCARRIED_TYPE_TITLES: Record<string, string> = {
   transitionset: 'A transition set',
   playercontrols: 'Player controls',
   playerparticles: 'Player particles',
-  storage: 'Storage',
   dmx: 'DMX',
 }
 

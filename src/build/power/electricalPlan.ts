@@ -437,14 +437,12 @@ function inputProtection(inputCurrentMa: number, sourceVoltage: number) {
 
 /**
  * What a USB-C PD trigger on the bench means for the plan. It is the upstream
- * source the converters share, so the voltage it requests has to be the one they
- * are configured for, and what they draw from it has to fit its rating. These are
- * warnings: a trigger may be feeding something the plan cannot see.
+ * source the converters share, and they take the voltage it requests, so what
+ * they draw from it has to fit its rating. These are warnings: a trigger may be
+ * feeding something the plan cannot see.
  */
 function pdTriggerWarnings(
   manifest: HardwareManifest,
-  controllerVoltage: number | undefined,
-  railVoltage: number | undefined,
   upstreamCurrentMa: number,
 ): ElectricalPlanIssue[] {
   const triggers = manifest.primaryItems.filter((item) => item.kind === 'pd-trigger' && item.supported)
@@ -458,20 +456,9 @@ function pdTriggerWarnings(
     }]
   }
   const trigger = triggers[0]
-  const requested = Number(trigger.facts.requestedVoltage)
+  // The one trigger is the converters' source: they take its voltage in the
+  // manifest (converterSourceFor), so there is no second value to disagree.
   const issues: ElectricalPlanIssue[] = []
-  const mismatched = [
-    controllerVoltage !== undefined && controllerVoltage !== requested ? `the controller converter is set to ${controllerVoltage} V` : '',
-    railVoltage !== undefined && railVoltage !== requested ? `the LED rail converter is set to ${railVoltage} V` : '',
-  ].filter(Boolean)
-  if (mismatched.length > 0) {
-    issues.push({
-      id: 'pd-trigger-source-voltage',
-      severity: 'warning',
-      title: 'USB-C PD trigger',
-      detail: `The trigger is set to request ${requested} V, but ${mismatched.join(' and ')}. Set them to the same voltage, or change the voltage the trigger asks for.`,
-    })
-  }
   const ratedMa = Number.parseFloat(String(trigger.facts.maxCurrent)) * 1000
   if (Number.isFinite(ratedMa) && upstreamCurrentMa > ratedMa) {
     issues.push({
@@ -984,8 +971,6 @@ export function calculateElectricalPlan(
   if (!batterySource) {
     warnings.push(...pdTriggerWarnings(
       manifest,
-      controllerSupply?.sourceVoltage,
-      railConverter?.sourceVoltage,
       (totals?.source?.designCurrentMa ?? 0) || (controllerSupply?.inputCurrentMa ?? 0),
     ))
   }

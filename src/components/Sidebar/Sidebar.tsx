@@ -52,7 +52,6 @@ const SIDEBAR_NODE_LIBRARY = NODE_LIBRARY.filter((definition) => !isHardwareLibr
 
 const INTENT_TAGS: Record<string, string[]> = {
   Audio: ['audio', 'source', 'hardware'],
-  Storage: ['storage', 'sd', 'flash', 'usb', 'hardware'],
   MicInput: ['audio', 'hardware'],
   DMXInput: ['dmx', 'art-net', 'lighting console'],
   DMXChannel: ['dmx', 'decoder', 'channel'],

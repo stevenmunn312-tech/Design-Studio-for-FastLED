@@ -1,6 +1,7 @@
 import { sanitizePin } from '../hardwarePins'
 import {
-  formatMotionVectorAddress, motionVectorAccelCode, motionVectorAddress, motionVectorGyroCode, motionVectorSpec,
+  formatMotionVectorAddress, motionVectorAccelCode, motionVectorAddress, motionVectorGyroCode, motionVectorShakeCpp,
+  motionVectorSpec,
 } from '../../state/peripherals/motionVector'
 
 /*
@@ -48,7 +49,7 @@ export function motionVectorSetupCpp(props: Record<string, unknown>): string {
 export function motionVectorLoopCpp(
   props: Record<string, unknown>,
   id: string,
-  local: (port: 'accelX' | 'accelY' | 'accelZ' | 'gyroX' | 'gyroY' | 'gyroZ' | 'connected') => string,
+  local: (port: 'accelX' | 'accelY' | 'accelZ' | 'gyroX' | 'gyroY' | 'gyroZ' | 'shake' | 'connected') => string,
 ): string[] {
   const spec = motionVectorSpec(props.partId)
   const address = motionVectorAddressCpp(props)
@@ -64,6 +65,7 @@ export function motionVectorLoopCpp(
     `  if (_mpuReady_${id} && !_mpuRead(${address}, ${accelLsb}f, ${gyroLsb}f, _mpuV_${id})) _mpuReady_${id} = false;`,
     `  float ${local('accelX')} = _mpuV_${id}[0], ${local('accelY')} = _mpuV_${id}[1], ${local('accelZ')} = _mpuV_${id}[2];`,
     `  float ${local('gyroX')} = _mpuV_${id}[3], ${local('gyroY')} = _mpuV_${id}[4], ${local('gyroZ')} = _mpuV_${id}[5];`,
+    `  float ${local('shake')} = ${motionVectorShakeCpp(`_mpuV_${id}[0]`, `_mpuV_${id}[1]`, `_mpuV_${id}[2]`)};`,
     `  bool ${local('connected')} = _mpuReady_${id};`,
   ]
 }

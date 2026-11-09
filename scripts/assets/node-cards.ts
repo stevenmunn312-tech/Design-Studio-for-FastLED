@@ -55,6 +55,7 @@ import { partDerivedInputs } from '../../src/build/parts/partPorts'
 import { partRenderForNodeType } from '../../src/build/parts/partRenders'
 import { buttonBankOutputs } from '../../src/state/player/buttonBank'
 import { webRemoteOutputs } from '../../src/state/peripherals/webRemote'
+import { drawnOutputs } from '../../src/state/outputFolding'
 import { PREVIEW_POINTS, PREVIEW_SECONDS, waveNodeSamples } from '../../src/nodes/signal/wave'
 import { CUSTOM_DESIGN_LAYOUT, asTransportDisplayLayout } from '../../src/state/displays/transportDisplay'
 import { powerMonitorPreviewDefaults, powerMonitorPreviewReading } from '../../src/state/peripherals/powerMonitor'
@@ -1092,9 +1093,11 @@ function nodePorts(
   wiredOutputs: ReadonlySet<string>,
 ): { inputs: NodePort[]; outputs: NodePort[]; rowCount: number } {
   const declared = (partDerivedInputs(def.type, props.partId) ?? def.inputs) as NodePort[]
-  const outputs = ((def.type === 'ButtonBank' ? buttonBankOutputs(props.buttons)
+  const unfolded = ((def.type === 'ButtonBank' ? buttonBankOutputs(props.buttons)
     : def.type === 'WebRemoteInput' ? webRemoteOutputs(props.controls) : def.outputs) as Array<NodePort & { carriedByControls?: boolean }>)
     .filter((port) => !port.carriedByControls || wiredOutputs.has(port.id))
+  // A tall sensor's folded outputs are drawn only when wired, as on the canvas.
+  const outputs = drawnOutputs(def.type, unfolded, wiredOutputs, false)
   // Separate state commands belong to Toggle; a wired one stays visible.
   const active = declared.filter((port) => def.type !== 'Trigger'
     || props.triggerOp === 'toggle' || !['on', 'off'].includes(port.id) || connected.has(port.id))

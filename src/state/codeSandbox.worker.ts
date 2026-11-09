@@ -54,6 +54,11 @@ export interface RunRequest {
   t: number
   W: number
   H: number
+  /** The node's A and B, bound as `a` and `b` in the Loop section only, as in the sketch. */
+  a: number
+  b: number
+  /** Which of `a` and `b` to bind: those the Global section does not use (`codeInputNames`). */
+  inputs: readonly string[]
   /** Packed W×H×3 RGB bytes to seed `leds[]` from a wired frame input, or null if unwired. */
   seed: Uint8ClampedArray | null
 }
@@ -65,7 +70,7 @@ export interface RunResponse {
 }
 
 type Shim = Record<string, unknown>
-type CodeFn = (leds: RGB[], NUM_LEDS: number, WIDTH: number, HEIGHT: number, t: number, shim: Shim) => void
+type CodeFn = (leds: RGB[], NUM_LEDS: number, WIDTH: number, HEIGHT: number, t: number, shim: Shim, a: number, b: number) => void
 /** Runs the Global section once and returns the per-frame loop function. */
 type CodeFactory = (leds: RGB[], NUM_LEDS: number, WIDTH: number, HEIGHT: number, t: number, shim: Shim) => CodeFn
 
@@ -135,8 +140,10 @@ export function declaredNames(src: string): Set<string> {
 /** Build the factory: the Global section runs in the factory body, so its
  *  variables and helpers live in the closure the loop function keeps. The
  *  loop function rebinds `leds`, the size constants, `t` and the shim names
- *  each frame before running the Loop section. */
-function compileSections(globalBody: string, body: string): CodeFactory {
+ *  each frame before running the Loop section. `a` and `b` are bound in a
+ *  block around the Loop section, as the sketch declares them, so a loop that
+ *  declares its own `a` shadows them. */
+function compileSections(globalBody: string, body: string, inputs: readonly string[] = ['a', 'b']): CodeFactory {
   const user = new Set([...declaredNames(globalBody), ...declaredNames(body)])
   const names = SHIM_NAMES.filter((n) => !user.has(n)).join(', ')
   return new Function('_leds', '_N', '_W', '_H', '_t', '_shim',
@@ -144,11 +151,17 @@ function compileSections(globalBody: string, body: string): CodeFactory {
     'let leds = _leds, NUM_LEDS = _N, WIDTH = _W, HEIGHT = _H, t = _t;\n' +
     `let { ${names} } = _shim;\n` +
     globalBody + '\n' +
-    'return function (_leds, _N, _W, _H, _t, _shim) {\n' +
+    'return function (_leds, _N, _W, _H, _t, _shim, _a, _b) {\n' +
     'leds = _leds; NUM_LEDS = _N; WIDTH = _W; HEIGHT = _H; t = _t;\n' +
     `({ ${names} } = _shim);\n` +
-    body + '\n};',
+    `{ ${bindInputs(inputs)}\n{\n` + body + '\n}\n}\n};',
   ) as CodeFactory
+}
+
+/** `let a = _a, b = _b;` for the bound names; `let` because a loop may assign to them. */
+function bindInputs(inputs: readonly string[]): string {
+  const bound = inputs.filter((name) => name === 'a' || name === 'b')
+  return bound.length > 0 ? `let ${bound.map((name) => `${name} = _${name}`).join(', ')};` : ''
 }
 
 /** A CHSV value: the RGB the preview paints, carrying its hue/sat/val so
@@ -432,6 +445,8 @@ function makeCodeShim(ledsRef: RGB[], t: number, W: number, H: number): Shim {
  *  it can be unit tested without invoking the module's bootstrap side effects. */
 export function handleRunRequest(req: RunRequest): RunResponse {
   const { id, cacheKey, globalBody, body, t, W, H, seed } = req
+  const a = Number.isFinite(req.a) ? req.a : 0
+  const b = Number.isFinite(req.b) ? req.b : 0
   const N = W * H
 
   if (leds.length !== N) {
@@ -450,7 +465,7 @@ export function handleRunRequest(req: RunRequest): RunResponse {
     timers = new Map()
     timerPeriods = new Map()
     try {
-      compiledFn = compileSections(globalBody, body)(leds, N, W, H, t, makeCodeShim(leds, t, W, H))
+      compiledFn = compileSections(globalBody, body, req.inputs ?? ['a', 'b'])(leds, N, W, H, t, makeCodeShim(leds, t, W, H))
       compileError = null
     } catch (err) {
       compiledFn = null
@@ -461,7 +476,7 @@ export function handleRunRequest(req: RunRequest): RunResponse {
   let error: string | null = null
   if (compiledFn) {
     try {
-      compiledFn(leds, N, W, H, t, makeCodeShim(leds, t, W, H))
+      compiledFn(leds, N, W, H, t, makeCodeShim(leds, t, W, H), a, b)
     } catch (err) {
       error = errMsg(err)
     }

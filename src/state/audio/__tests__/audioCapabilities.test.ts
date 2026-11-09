@@ -6,6 +6,8 @@ import {
   audioCapabilitySources,
   graphAudioCapabilityKind,
   graphAudioCapabilitySource,
+  graphPreviewsComputerInput,
+  previewAudioCapabilityKind,
   resolveAudioCapabilitySource,
   selectedAudioCapabilityKind,
 } from '../audioCapabilities'
@@ -132,5 +134,22 @@ describe('Music Player decoder source', () => {
     expect(audioCapabilitySources([amp, card, radioPlayer])).toMatchObject([
       { id: 'decoder:player', kind: 'decoder', label: 'Music Player (Internet Radio)' },
     ])
+  })
+})
+
+describe('preview audio without a bench part', () => {
+  it('previews a Microphone or Line Input choice with the computer input until the part is added', () => {
+    expect(previewAudioCapabilityKind([], audioCapabilityIntent('microphone'))).toBe('microphone')
+    expect(previewAudioCapabilityKind([], '')).toBe('microphone')
+    expect(previewAudioCapabilityKind([], audioCapabilityIntent('line-in'))).toBe('line-in')
+    // The decoder has no stand-in, and a provider id that is gone resolves to nothing.
+    expect(previewAudioCapabilityKind([], audioCapabilityIntent('decoder'))).toBeNull()
+    expect(previewAudioCapabilityKind([], 'removed-mic')).toBeNull()
+
+    const audio = hardware('audio', 'Audio', { sourceId: audioCapabilityIntent('microphone') })
+    expect(graphPreviewsComputerInput([audio])).toBe(true)
+    // Once the part is on the bench the preview follows it instead.
+    expect(graphPreviewsComputerInput([audio, hardware('mic-1', 'MicInput')])).toBe(false)
+    expect(graphPreviewsComputerInput([])).toBe(false)
   })
 })

@@ -1023,7 +1023,7 @@ Unless a future row says otherwise, treat the following as experimental:
   recorded before the part existed, under the module's counting.
   Graduation needs a dated row naming the board/FQBN and the three GPIOs, with
   one pattern per click in both directions, Pressed on push and release, and
-  Position stepping by four per click.
+  Position stepping by one per click.
 - **HC-SR04 ultrasonic distance sensor.** `DistanceInput` has a modelled
   asset, preview, library-free trigger/echo firmware (10 µs Trig, timed Echo,
   a reading every 60 ms with the last good value held), manifest and Build

@@ -3,8 +3,7 @@ import { rootGraphNodes, useGraphStore, useNodeProperties } from '../../../state
 import { useDmxStore } from '../../../state/peripherals/dmxStore'
 import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../../state/peripherals/networkCredentials'
 import { wiredNetworkIn, wiredNetworkPhrase } from '../../../state/peripherals/ethernetModule'
-import { clampDmxUniverse } from '../../../state/peripherals/dmx'
-import { dmxListenPort, dmxNetworkProtocol } from '../../../state/peripherals/dmxTransceiver'
+import { dmxListenPort, dmxListenUniverse, dmxNetworkProtocol } from '../../../state/peripherals/dmxTransceiver'
 import styles from './DmxInputBody.module.css'
 import WifiPasswordInput from '../WifiPasswordInput'
 
@@ -35,7 +34,7 @@ export default function DmxInputBody({ nodeId }: { nodeId: string }) {
     return network ? wiredNetworkPhrase(network) : null
   })
 
-  const universe = clampDmxUniverse(props.universe ?? 0)
+  const universe = dmxListenUniverse(props)
   // Art-Net or sACN; null is the wired DMX512 receiver, which the preview
   // cannot hear. The helper parses both protocols on whichever port it binds,
   // so the protocol decides the default port and the sACN multicast join.
@@ -45,7 +44,7 @@ export default function DmxInputBody({ nodeId }: { nodeId: string }) {
 
   // Opening the listener is a real network side effect performed by the local
   // helper — it binds a UDP socket on every interface, on a port this node's
-  // own `previewPort` property chooses. That property travels inside a shared
+  // own `udpPort` property chooses. That property travels inside a shared
   // graph, so merely opening someone else's project used to expose a
   // LAN-reachable socket on a port they picked, before the user had decided
   // anything. Hold it until the workspace is trusted, the same gate the

@@ -196,8 +196,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   advance and a user step move the same cursor. Physical intent becomes
   selection through the `PlayerControls` node — its
   `patternSelect`/`patternPrevious`/`patternNext` inputs feed the evaluator's
-  `PlayerControls` bundle, carried as `patternSteps` (whole detents; the
-  encoder's raw count is converted where it's read), not through a display.
+  `PlayerControls` bundle, carried as `patternSteps` (whole detents), not
+  through a display. An Encoder's Position output reads in clicks, so a
+  `patternSelect` reader multiplies it by `ENCODER_COUNTS_PER_STEP` back into
+  quadrature steps (the evaluator before `encoderSteps`, `CtlDetent` through
+  `lroundf`) and keeps the carry and re-seat rules that hide contact bounce;
+  the player sketch's own encoder reads count steps from the pins directly.
   `src/state/patterns/patternSelection.ts` defines one cursor — a step moves
   the running pattern, with nothing to confirm — wrapping at both ends, and a
   cursor carrying both id and index so a reorder keeps playing the same pattern

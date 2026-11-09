@@ -1,7 +1,15 @@
 import { sanitizePin } from '../hardwarePins'
 import {
-  formatTouchPadAddress, touchPadAddress, touchPadSpec, touchPadThreshold,
+  TOUCH_PAD_PAD_COUNT, formatTouchPadAddress, touchPadAddress, touchPadPadIndex, touchPadPadPort, touchPadSpec,
+  touchPadThreshold,
 } from '../../state/peripherals/touchPad'
+
+/** The per-electrode outputs to publish: those in `ports`, or every one when unknown. */
+export function touchPadPadsRead(ports?: ReadonlySet<string>): number[] {
+  if (!ports) return Array.from({ length: TOUCH_PAD_PAD_COUNT }, (_, electrode) => electrode)
+  return [...ports].map(touchPadPadIndex).filter((electrode): electrode is number => electrode !== null)
+    .sort((a, b) => a - b)
+}
 
 /*
  * MPR121 touch reads, straight off the registers over the shared `Wire` bus.
@@ -59,10 +67,15 @@ export function touchPadSetupCpp(props: Record<string, unknown>): string {
   return `  Wire.begin(${sanitizePin(props.sdaPin, 21)}, ${sanitizePin(props.sclPin, 22)});  // MPR121 I2C bus`
 }
 
+/**
+ * `pads` are the per-electrode outputs to publish: only the ones something
+ * reads, so an unwired Pad costs nothing.
+ */
 export function touchPadLoopCpp(
   props: Record<string, unknown>,
   id: string,
-  local: (port: 'electrode' | 'touched' | 'count' | 'connected') => string,
+  local: (port: string) => string,
+  pads: readonly number[] = [],
 ): string[] {
   const address = touchPadAddressCpp(props)
   const touch = touchPadThreshold(props, 'touch')
@@ -83,5 +96,6 @@ export function touchPadLoopCpp(
     `  bool ${local('touched')} = _mprN_${id} > 0;`,
     `  float ${local('count')} = (float)_mprN_${id};`,
     `  bool ${local('connected')} = _mprReady_${id};`,
+    ...pads.map((electrode) => `  bool ${local(touchPadPadPort(electrode))} = (_mprBits_${id} & (1u << ${electrode})) != 0;`),
   ]
 }

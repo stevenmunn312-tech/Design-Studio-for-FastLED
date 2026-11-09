@@ -49,6 +49,16 @@ describe('IR remote node body', () => {
     } as never)
   })
 
+  it('adds the kit remote without disturbing a learned key or its wire', () => {
+    useGraphStore.setState({ edges: [edge('e1', irRemoteButtonHandle('power'))] } as never)
+    render(<IRRemoteBody nodeId="ir" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add kit remote' }))
+    const buttons = useGraphStore.getState().nodes[0].data.properties.buttons as { id: string; label: string }[]
+    expect(buttons[0]).toEqual(power)
+    expect(buttons.map((button) => button.label)).toContain('OK')
+    expect(useGraphStore.getState().edges).toHaveLength(1)
+  })
+
   it('saves the Debug checkbox without changing learned keys or wires', () => {
     useGraphStore.setState({ edges: [edge('e1', irRemoteButtonHandle('power'))] } as never)
     render(<IRRemoteBody nodeId="ir" />)

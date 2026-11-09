@@ -35,12 +35,13 @@ export function encoderUsesPullup(props: Record<string, unknown>): boolean {
 }
 
 /**
- * How much each A/B transition adds to the node's position.
+ * How much each A/B transition adds to the node's step count.
  *
- * The position counts in the module's units — four per click — whatever part
- * is fitted, so a pattern browser, a volume step or a graph scaled off the
+ * The count is in the module's units — four per click — whatever part is
+ * fitted, so a pattern browser, a volume step or a graph scaled off the
  * position turns the same amount per click on either part. An SR1230 makes two
- * transitions per click (15 pulses, 30 detents), so each one counts two.
+ * transitions per click (15 pulses, 30 detents), so each one counts two. The
+ * Position output divides the count by four, so it reads in clicks.
  */
 export function encoderCountScale(props: Record<string, unknown>): number {
   const spec = encoderSpec(props)
@@ -75,8 +76,8 @@ export function encoderLevelClicks(props: Record<string, unknown>): number {
 }
 
 /**
- * Level is counted in Position's own counts, from 0 to this span (four counts
- * a click), and read as count / span: whole numbers, so both ends are exact.
+ * Level is counted in the decoder's steps, from 0 to this span (four a click),
+ * and read as count / span: whole numbers, so both ends are exact.
  */
 export function encoderLevelSpan(props: Record<string, unknown>): number {
   return ENCODER_COUNTS_PER_STEP * encoderLevelClicks(props)

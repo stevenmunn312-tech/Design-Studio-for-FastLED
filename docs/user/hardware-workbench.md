@@ -366,8 +366,11 @@ in Studio; leave RX and OUT unwired. Its UART is 3.3 V logic, so no divider is
 needed. Mount the component/antenna face toward the occupied area and keep
 metal and dense power wiring out of the space immediately in front of it.
 
-The node offers Presence, Moving, Still, and Distance outputs. In preview,
-toggle Moving and Still and drag the distance slider. Only one sensor can be
+The node offers Presence, Moving, Still, Distance (in millimetres, like the
+Distance Sensor) and Connected outputs. Connected is false when no report has
+arrived for a second, which is how an unplugged radar differs from an empty
+room. In preview, toggle Moving and Still, drag the distance slider, and use
+Unplug to read the radar as missing. Only one sensor can be
 active because the generated reader owns UART1. If a DMX512 input also uses
 UART1, Graph Health asks you to move DMX to UART2 on a board that provides it.
 The feature requires an
@@ -422,7 +425,8 @@ The node publishes **Temperature** in °C and **Connected**. Temperature is a
 physical value, so use Map Range before wiring it into brightness, hue or
 speed. Connected turns false when a reading fails, for instance when the probe
 is unplugged, and Temperature then holds its last good value. In preview, the
-on-node slider simulates the reading. The probe is experimental until a
+on-node slider simulates the reading, and **Unplug** pulls the probe out so
+you can try the graph's fallback. The probe is experimental until a
 physical comparison is recorded in the support matrix.
 
 ### Touch pads with an MPR121
@@ -438,10 +442,13 @@ controllers on one bus do not collide.
 The node publishes **Electrode**, the lowest electrode touched as an index from 0 to 11
 that stays at its value after release, **Touched**, true while any electrode is down,
 **Count**, how many are down, and **Connected**. Use Compare or Map Range to turn the
-index into a scene, a preset or a level. The two thresholds set how far a pad must
+index into a scene, a preset or a level. For one pad on its own, choose **more outputs**
+on the node: **Pad 0** to **Pad 11** are true while that pad is touched, so a pad drives
+a Trigger with one wire. The two thresholds set how far a pad must
 change from its baseline to count as touched or released: lower them for a more
 sensitive pad, and raise the touch threshold if a pad triggers by itself. In preview,
-the twelve pads on the node stand in for the electrodes. The MPR121 is experimental
+the twelve pads on the node stand in for the electrodes, and **Unplug** reads the chip as
+missing. The MPR121 is experimental
 until a physical run is recorded in the support matrix.
 
 ### Pick scenes with a 4x4 keypad
@@ -455,9 +462,12 @@ order against the markings on your keypad's tail, because some are printed the o
 way round.
 
 The node publishes **Key**, the last key pressed as an index from 0 to 15 row by
-row (1 2 3 A, 4 5 6 B, 7 8 9 C, * 0 # D), and **Pressed**, true while any key is
-down. Key stays at its value after the key is released, so it can pick a scene or a
-preset; use Map Range or a comparison to turn it into a control. Two keys pressed
+row (1 2 3 A, 4 5 6 B, 7 8 9 C, * 0 # D), **Pressed**, true while any key is
+down, and **Digit**, the last number key pressed as the number printed on it (the key
+marked 0 reads 0, and the letter keys, * and # leave it alone). Key and Digit stay at
+their value after the key is released, so they can pick a scene or a preset. For one
+key on its own, choose **more outputs** on the node: each key has an output that is
+true while it is held. Two keys pressed
 together can read as a third, because the matrix has no diodes, and only the first
 key found is reported. In preview, the sixteen buttons on the node stand in for the
 keys. The keypad is experimental until a physical run is recorded in the support
@@ -489,13 +499,16 @@ pins, which the shelf fills in. Leave **AD0** unwired for address 0x68, or tie i
 high for 0x69. A DS3231 clock also answers at 0x68, so choose 0x69 when both share
 a bus. XDA, XCL and INT are not needed.
 
-The node publishes **Accel X, Y and Z** in g, **Gyro X, Y and Z** in degrees per
-second, and **Connected**. Lying flat, gravity reads about +1 g on Z, so tilting
+The node publishes **Accel X, Y and Z** in g, **Shake**, and **Connected**, with
+**Gyro X, Y and Z** in degrees per second a click away under **more outputs**. Shake
+is how far the acceleration is from the 1 g of gravity, so it reads 0 at rest in
+any position; wired straight into a Trigger it fires from 0.5 g, a firm shake.
+Lying flat, gravity reads about +1 g on Z, so tilting
 the board swings X and Y between -1 and +1. The ranges are plus or minus 2 g and
 plus or minus 250 degrees per second. These are physical values, so use Map Range
 before wiring one into brightness, hue or speed. Connected turns false when the
 sensor stops answering, and the last good values are held. In preview, six sliders
-stand in for the axes. The sensor is experimental until a physical run is recorded
+stand in for the axes and **Unplug** reads the sensor as missing. The sensor is experimental until a physical run is recorded
 in the support matrix.
 
 ### Steer with a thumb joystick
@@ -531,7 +544,7 @@ speed. Connected turns false when no echo returns, for instance when nothing is
 in range or the sensor is unplugged, and Distance then holds its last good
 value. Readings are taken every 60 ms. Soft or steeply angled surfaces reflect
 poorly and can read as no echo. In preview, the on-node slider simulates the
-reading. The sensor is experimental until a physical comparison is recorded in
+reading and **Unplug** reads the sensor as missing. The sensor is experimental until a physical comparison is recorded in
 the support matrix.
 
 ### Measure distance with a VL53L0X laser sensor

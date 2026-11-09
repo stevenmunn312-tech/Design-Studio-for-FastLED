@@ -20,6 +20,7 @@ import { partPinLabelForProperty } from '../../../build/parts/partCatalogue'
 import { i2sAudioStage } from '../../../state/audio/audioOutput'
 import { resolvePartIdentity } from '../../../build/parts/partOptions'
 import { encoderIsBare } from '../../../state/peripherals/encoder'
+import { converterSourceFor } from '../../../state/peripherals/pdTrigger'
 
 // A physical part's settings, shown in the hardware view rather than on its
 // signal node. Hardware-only parts and graph-visible inputs/outputs share this
@@ -58,7 +59,14 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const removeButtonBankEntry = useGraphStore((s) => s.removeButtonBankEntry)
   const savedProps = useNodeProperties(nodeId, 'root')
-  const hasBatteryPack = useGraphStore((s) => rootGraphNodes(s).some((n) => n.data.nodeType === 'BatteryPack'))
+  // A converter's source voltage is decided upstream when a Battery Pack or a
+  // single PD trigger is on the bench; it is shown, not typed, then.
+  const converterSource = useGraphStore((s) => {
+    if (nodeType !== 'PowerConverter') return ''
+    const source = converterSourceFor(rootGraphNodes(s))
+    return source.kind === 'battery' ? 'battery pack'
+      : source.kind === 'pd-trigger' ? `${source.voltage} V from the USB-C PD trigger` : ''
+  })
   const props = { ...libraryDefaults(nodeType), ...savedProps }
   const nodeLabel = useGraphStore((s) => rootGraphNodes(s).find((n) => n.id === nodeId)?.data.label ?? nodeType)
   const declaredFields = PART_FIELDS[nodeType] ?? []
@@ -76,7 +84,7 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
     : resolvePartIdentity('Amplifier', { model: volumeStageModel })?.option.label ?? 'I2S stage'
   const otherFields = declaredFields
     .filter((field) => field.kind !== 'pin')
-    .filter((field) => !(nodeType === 'PowerConverter' && hasBatteryPack && field.key === 'sourceVoltage'))
+    .filter((field) => !(converterSource && field.key === 'sourceVoltage'))
     // A bare encoder's contacts float without the pull-up, so it is not a choice.
     .filter((field) => !(nodeType === 'EncoderInput' && field.key === 'pullup' && encoderIsBare(props)))
   const buttonEntries = nodeType === 'ButtonBank' ? normalizeButtonBankEntries(props.buttons) : []
@@ -200,8 +208,8 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
       {volumeStageLabel && (
         <p className={styles.bankEmpty}>Max volume is set on the {volumeStageLabel}, the part the board drives.</p>
       )}
-      {nodeType === 'PowerConverter' && hasBatteryPack && (
-        <p className={styles.bankEmpty}>Source: battery pack</p>
+      {converterSource && (
+        <p className={styles.bankEmpty}>Source: {converterSource}</p>
       )}
       {otherFields.length > 0 && (
         <div className={styles.detail}>

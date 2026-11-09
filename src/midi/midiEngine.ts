@@ -7,8 +7,38 @@
 export interface MidiSnapshot {
   supported: boolean
   active: boolean
-  noteVelocity: Map<number, number>  // 0–1, keyed by MIDI note number
-  ccValues: Map<number, number>      // 0–1, keyed by MIDI CC number
+  noteVelocity: Map<number, number>  // 0–1, keyed by MIDI note number, the latest on any channel
+  ccValues: Map<number, number>      // 0–1, keyed by MIDI CC number, the latest on any channel
+  /** The same per channel, keyed by `midiChannelKey(channel 1–16, number)`. */
+  channelNoteVelocity: Map<number, number>
+  channelCcValues: Map<number, number>
+}
+
+/** Key into the per-channel maps: a channel numbered 1–16, as the MIDI node
+ *  counts them, and a note or controller number. */
+export function midiChannelKey(channel: number, number: number): number {
+  return channel * 128 + number
+}
+
+/**
+ * What a MIDI node reads for its note and controller. Channel 0 is omni, the
+ * latest message on any channel, and 1–16 only that channel's, the sketch's
+ * filter (`_ch != channel`), so two nodes on different channels behave in
+ * the preview as they will on the board.
+ */
+export function midiReading(
+  snapshot: Pick<MidiSnapshot, 'noteVelocity' | 'ccValues' | 'channelNoteVelocity' | 'channelCcValues'>,
+  channel: number,
+  note: number,
+  cc: number,
+): { velocity: number; cc: number } {
+  if (channel === 0) {
+    return { velocity: snapshot.noteVelocity.get(note) ?? 0, cc: snapshot.ccValues.get(cc) ?? 0 }
+  }
+  return {
+    velocity: snapshot.channelNoteVelocity.get(midiChannelKey(channel, note)) ?? 0,
+    cc: snapshot.channelCcValues.get(midiChannelKey(channel, cc)) ?? 0,
+  }
 }
 
 /** One raw MIDI event, exposed for one-shot "learn" capture (Performance
@@ -37,6 +67,8 @@ export class MidiEngine {
   private rawListeners = new Set<RawListener>()
   private noteVelocity = new Map<number, number>()
   private ccValues = new Map<number, number>()
+  private channelNoteVelocity = new Map<number, number>()
+  private channelCcValues = new Map<number, number>()
   private active = false
   // True once Web MIDI access was granted and the inputs are attached. A
   // request that is still pending is tracked separately so two subscribers
@@ -89,10 +121,12 @@ export class MidiEngine {
 
   private releaseHeldNotes() {
     let released = false
-    for (const [note, velocity] of this.noteVelocity) {
-      if (velocity === 0) continue
-      this.noteVelocity.set(note, 0)
-      released = true
+    for (const map of [this.noteVelocity, this.channelNoteVelocity]) {
+      for (const [key, velocity] of map) {
+        if (velocity === 0) continue
+        map.set(key, 0)
+        released = true
+      }
     }
     if (released) this.emit()
   }
@@ -101,20 +135,37 @@ export class MidiEngine {
    *  `input.onmidimessage` assignment above) — not part of the steady-state
    *  subscribe() API, which stays the snapshot shape. */
   handleMessage(data: Uint8Array | null) {
+    this.apply(data, true)
+  }
+
+  /**
+   * A message from the MIDI node's own note pad and CC slider, the stand-in
+   * for a controller while designing. It reaches every node as a device's
+   * would, but never a MIDI-learn capture, which is listening for hardware.
+   */
+  play(data: Uint8Array) {
+    this.apply(data, false)
+  }
+
+  private apply(data: Uint8Array | null, raw: boolean) {
     if (!data || data.length < 2) return
     const type = data[0] & 0xf0
     const channel = data[0] & 0x0f
     const d1 = data[1]
     const d2 = data.length > 2 ? data[2] : 0
+    const key = midiChannelKey(channel + 1, d1)
     if (type === 0x90 && d2 > 0) {
       this.noteVelocity.set(d1, d2 / 127)
-      this.emitRaw({ kind: 'note', channel, number: d1, value: d2 / 127 })
+      this.channelNoteVelocity.set(key, d2 / 127)
+      if (raw) this.emitRaw({ kind: 'note', channel, number: d1, value: d2 / 127 })
     } else if (type === 0x80 || (type === 0x90 && d2 === 0)) {
       this.noteVelocity.set(d1, 0)
+      this.channelNoteVelocity.set(key, 0)
       // Note-off intentionally not emitted as a raw learn-capture event.
     } else if (type === 0xb0) {
       this.ccValues.set(d1, d2 / 127)
-      this.emitRaw({ kind: 'cc', channel, number: d1, value: d2 / 127 })
+      this.channelCcValues.set(key, d2 / 127)
+      if (raw) this.emitRaw({ kind: 'cc', channel, number: d1, value: d2 / 127 })
     } else {
       return
     }
@@ -136,6 +187,8 @@ export class MidiEngine {
       active: this.active,
       noteVelocity: new Map(this.noteVelocity),
       ccValues: new Map(this.ccValues),
+      channelNoteVelocity: new Map(this.channelNoteVelocity),
+      channelCcValues: new Map(this.channelCcValues),
     }
   }
 }

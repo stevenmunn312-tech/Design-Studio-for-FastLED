@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  addIrKitRemote,
   addIrRemoteButton,
+  IR_KIT_REMOTE_KEYS,
   blankIrRepeatState,
   canonicalIrProtocol,
   duplicateIrRemoteMappings,
@@ -145,5 +147,35 @@ describe('IR remote mapping primitives', () => {
     expect(parseIrLearnLine('FLS_IR v=1 protocol=raw address=1 command=1 repeat=0')).toBeNull()
     expect(parseIrLearnLine('FLS_IR v=1 protocol=NEC address=-1 command=1 repeat=0')).toBeNull()
     expect(parseIrLearnLine(`${'F'.repeat(300)}`)).toBeNull()
+  })
+})
+
+describe('the kit remote preset', () => {
+  it('adds the 17 keys at NEC address 0, arrows repeating while held', () => {
+    const kit = addIrKitRemote([])
+    expect(kit).toHaveLength(17)
+    expect(new Set(kit.map((button) => button.command)).size).toBe(17)
+    expect(kit.every((button) => button.protocol === 'NEC' && button.address === 0)).toBe(true)
+    expect(kit.find((button) => button.label === 'OK')).toMatchObject({ command: 0x1c, repeat: 'once' })
+    expect(kit.find((button) => button.label === 'Up')).toMatchObject({ command: 0x18, repeat: 'held' })
+    expect(kit.find((button) => button.label === '0')?.command).toBe(0x19)
+    expect(IR_KIT_REMOTE_KEYS.map((key) => key.label)).toEqual(
+      ['Up', 'Down', 'Left', 'Right', 'OK', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'])
+  })
+
+  // A key already learned off the same remote keeps its name and wire.
+  it('skips a code already mapped, and never duplicates on a second add', () => {
+    const learned: IrRemoteButton = { id: 'go', label: 'Go', protocol: 'NEC', address: 0, command: 0x1c, repeat: 'once' }
+    const kit = addIrKitRemote([learned])
+    expect(kit).toHaveLength(17)
+    expect(kit[0]).toEqual(learned)
+    expect(kit.filter((button) => button.command === 0x1c)).toHaveLength(1)
+    expect(addIrKitRemote(kit)).toEqual(kit)
+  })
+
+  it('stops at the receiver limit', () => {
+    const full = Array.from({ length: MAX_IR_REMOTE_BUTTONS - 3 }, (_, n): IrRemoteButton => (
+      { id: `k${n}`, label: `K${n}`, protocol: 'Sony', address: 1, command: n, repeat: 'once' }))
+    expect(addIrKitRemote(full)).toHaveLength(MAX_IR_REMOTE_BUTTONS)
   })
 })

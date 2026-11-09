@@ -21,7 +21,7 @@ import { SHAPES_EVALUATORS } from '../nodes/shapes/evaluate'
 import { SHOW_EVALUATORS } from '../nodes/show/evaluate'
 import { SIGNAL_EVALUATORS } from '../nodes/signal/evaluate'
 import { SIMULATIONS_EVALUATORS } from '../nodes/simulations/evaluate'
-export type { Field, AudioSignal, StorageSignal, PlayerControls, PlayerParticles, PortValue, GroupDef, GroupRegistry, AudioOverride } from './evaluator/types'
+export type { Field, AudioSignal, PlayerControls, PlayerParticles, PortValue, GroupDef, GroupRegistry, AudioOverride } from './evaluator/types'
 export { VOCAL_AURORA_MIN_INPUT_GAIN, VOCAL_AURORA_MAX_INPUT_GAIN, BEAT_FLASH_ATTACK_MAX_SEC } from '../nodes/audioReactive/evaluate'
 export { prunePoolBuffers, pruneEvaluatorState, resetEvaluatorState, getEvaluatorMemoryStats } from './evaluator/memory'
 export { buildFrame } from './evaluator/frames'
@@ -296,7 +296,7 @@ export function evaluateScalar(
   tick: number,
   gridW = DEFAULT_W,
   gridH = DEFAULT_H,
-  // Whether gated nodes (Expression, Custom Formula, Code) may run their
+  // Whether gated nodes (Expression, Formula Pattern, Code) may run their
   // preview logic; a probe over an untrusted workspace must read them as 0,
   // exactly as the live render does.
   trusted = true,

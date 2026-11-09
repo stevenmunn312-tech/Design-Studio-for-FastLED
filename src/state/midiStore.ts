@@ -1,12 +1,7 @@
 import { create } from 'zustand'
-import { MidiEngine } from '../midi/midiEngine'
+import { MidiEngine, type MidiSnapshot } from '../midi/midiEngine'
 
-interface MidiState {
-  supported: boolean
-  active: boolean
-  noteVelocity: Map<number, number>
-  ccValues: Map<number, number>
-}
+type MidiState = MidiSnapshot
 
 // Zustand bridge over MidiEngine.instance, mirroring useAudioStore's pattern
 // over AudioEngine — the evaluator reads this via getState() rather than a
@@ -19,5 +14,7 @@ export const useMidiStore = create<MidiState>()((set) => {
     active: false,
     noteVelocity: new Map(),
     ccValues: new Map(),
+    channelNoteVelocity: new Map(),
+    channelCcValues: new Map(),
   }
 })

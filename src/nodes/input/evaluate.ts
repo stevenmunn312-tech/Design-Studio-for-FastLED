@@ -4,6 +4,7 @@ import { useDdpStore } from '../../state/peripherals/ddpStore'
 import { buildFrame as buildDdpFrame } from '../../state/evaluator/frames'
 import { useHardwareInputStore } from '../../state/peripherals/hardwareInputStore'
 import { encoderLevelCountStep, encoderLevelSpan, encoderLevelStartCount } from '../../state/peripherals/encoder'
+import { ENCODER_COUNTS_PER_STEP } from '../../state/patterns/patternSelection'
 import {
   powerMonitorLimitAmps,
   powerMonitorPreviewDefaults,
@@ -19,11 +20,14 @@ import {
   temperaturePreviewDefault, temperaturePreviewKey, temperaturePreviewReading,
 } from '../../state/peripherals/temperatureSensor'
 import { joystickAxis, joystickPreviewKey } from '../../state/peripherals/joystick'
-import { KEYPAD_KEY_COUNT, keypadButtonKey, keypadLastKey } from '../../state/peripherals/keypad'
+import { KEYPAD_KEY_COUNT, keypadButtonKey, keypadDigit, keypadKeyPort, keypadLastKey, keypadScanKey } from '../../state/peripherals/keypad'
 import {
-  MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewKey, motionVectorPreviewReading,
+  MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewKey, motionVectorPreviewReading, motionVectorShake,
 } from '../../state/peripherals/motionVector'
-import { touchPadButtonKey, touchPadElectrodeCount, touchPadLastElectrode } from '../../state/peripherals/touchPad'
+import {
+  TOUCH_PAD_PAD_COUNT, touchPadButtonKey, touchPadElectrodeCount, touchPadLastElectrode, touchPadPadPort,
+} from '../../state/peripherals/touchPad'
+import { unpluggedPreviewKey } from '../../state/peripherals/sensorPreview'
 import { distancePreviewDefault, distancePreviewKey, distancePreviewReading } from '../../state/peripherals/distanceSensor'
 import { useTransportDisplayTouchStore } from '../../state/displays/transportDisplayTouchStore'
 import { useDisplayRuntimeStore } from '../../state/displays/displayRuntimeStore'
@@ -33,7 +37,10 @@ import {
   parseDisplayWidgetPortId, displayControlOutput, displayControlStartValue, displayPickerStartHue, displayTextEntryStart,
 } from '../../state/displays/displayRegistry'
 import { useMidiStore } from '../../state/midiStore'
+import { midiReading } from '../../midi/midiEngine'
+import { midiChannel } from '../../state/peripherals/midiSource'
 import { blankDmxSnapshot } from '../../state/peripherals/dmx'
+import { dmxListenUniverse } from '../../state/peripherals/dmxTransceiver'
 import {
   type IrPreviewMemory,
   normalizeIrRemoteButtons,
@@ -60,8 +67,7 @@ import { displayHasTouch } from '../../build/parts/partCatalogue'
 import { useGraphStore } from '../../state/graphStore'
 import { isDisplaySignal, type DisplaySignal } from '../../state/displays/displaySignal'
 import { tftControllerForProps } from '../../state/nodeLibrary'
-import { resolveAudioCapabilitySource } from '../../state/audio/audioCapabilities'
-import { resolveStorageCapabilitySource } from '../../build/storageCapabilities'
+import { previewAudioCapabilityKind } from '../../state/audio/audioCapabilities'
 import { normalizeButtonBankEntries, buttonBankHandle } from '../../state/player/buttonBank'
 import { normalizeWebRemoteControls, webRemoteControlOutput, webRemotePortId, webRemoteStartState } from '../../state/peripherals/webRemote'
 import { sampleWebRemoteControl } from '../../state/peripherals/webRemoteRuntime'
@@ -87,6 +93,8 @@ const transportDisplayTouchState = instanceState('transportDisplayTouchState', n
 // An Encoder's Level is counted, not computed from Position: it stops at its
 // ends (encoderLevelCountStep), so it remembers its count and the last Position.
 const encoderLevelState = instanceState('encoderLevelState', new Map<string, { count: number; position: number; pressed: boolean; start: number }>())
+// A keypad's Digit holds the last number key, as the sketch's `_kpDigit` does.
+const keypadDigitState = instanceState('keypadDigitState', new Map<string, number>())
 /** Per Touch node: each bundled widget's last press value or gesture count. */
 const designBundleState = instanceState('designBundleState', new Map<string, Map<string, number | boolean>>())
 
@@ -132,13 +140,11 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
   Audio({ audioOverride, capabilityNodes }, _id, props) {
     // One authored choice maps both environments: microphone/line-in use
     // browser capture in-app and their physical input on hardware; decoder
-    // uses the in-app music player here and the hardware player there.
-    const source = resolveAudioCapabilitySource(capabilityNodes, props.sourceId)
-    return { audio: source ? (audioOverride ?? liveAudioSignal(source.kind)) : null }
-  },
-  Storage({ capabilityNodes }, _id, props) {
-    const source = resolveStorageCapabilitySource(capabilityNodes, props.sourceId)
-    return { storage: source ? { id: source.id, kind: source.kind, label: source.label } : null }
+    // uses the in-app music player here and the hardware player there. A
+    // microphone or line input not yet on the bench still previews with the
+    // computer's input; deploy asks for the part.
+    const kind = previewAudioCapabilityKind(capabilityNodes, props.sourceId)
+    return { audio: kind ? (audioOverride ?? liveAudioSignal(kind)) : null }
   },
   /*
      * The glass in front of a Display Panel.
@@ -377,47 +383,66 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
     ) }
   },
   // No probe in the browser: the node body's slider stands in for the
-  // measured temperature, and the probe is always connected.
+  // measured temperature. Unplugged, the reading holds as the sketch's does.
   TemperatureInput(_c, id, props) {
-    const pot = useHardwareInputStore.getState().pot
+    const { pot, button } = useHardwareInputStore.getState()
     const fraction = pot.get(temperaturePreviewKey(id)) ?? temperaturePreviewDefault(props.partId)
-    return { temperature: temperaturePreviewReading(props.partId, fraction), connected: true }
+    return { temperature: temperaturePreviewReading(props.partId, fraction), connected: !button.get(unpluggedPreviewKey(id)) }
   },
   // No sensor in the browser: six sliders stand in for the axes, starting with
-  // the board lying flat (1 g on Z, nothing turning), and it is always connected.
+  // the board lying flat (1 g on Z, nothing turning). Unplugged, the readings
+  // hold as the sketch's do.
   MotionVectorInput(_c, id, props) {
-    const pot = useHardwareInputStore.getState().pot
+    const { pot, button } = useHardwareInputStore.getState()
     const readings = Object.fromEntries(MOTION_VECTOR_AXES.map((axis) => [
       axis,
       motionVectorPreviewReading(props.partId, axis,
         pot.get(motionVectorPreviewKey(id, axis)) ?? motionVectorPreviewDefault(props.partId, axis)),
-    ]))
-    return { ...readings, connected: true }
+    ])) as Record<typeof MOTION_VECTOR_AXES[number], number>
+    return {
+      ...readings,
+      shake: motionVectorShake(readings.accelX, readings.accelY, readings.accelZ),
+      connected: !button.get(unpluggedPreviewKey(id)),
+    }
   },
   // No touch controller in the browser: the node body's twelve pads stand in for the
   // electrodes. The lowest pad held is the electrode, and it is kept after release the
-  // way the firmware keeps it.
+  // way the firmware keeps it. Unplugged, nothing reads as touched, as on the board.
   TouchPadInput(_c, id, props) {
     const state = useHardwareInputStore.getState()
+    const connected = !state.button.get(unpluggedPreviewKey(id))
+    const electrodes = touchPadElectrodeCount(props.partId)
+    const touched = (electrode: number) => connected && electrode < electrodes
+      && Boolean(state.button.get(touchPadButtonKey(id, electrode)))
     let count = 0
     let lowest = -1
-    for (let electrode = 0; electrode < touchPadElectrodeCount(props.partId); electrode += 1) {
-      if (!state.button.get(touchPadButtonKey(id, electrode))) continue
+    for (let electrode = 0; electrode < electrodes; electrode += 1) {
+      if (!touched(electrode)) continue
       count += 1
       if (lowest < 0) lowest = electrode
     }
     return {
       electrode: lowest >= 0 ? lowest : state.pot.get(touchPadLastElectrode(id)) ?? 0,
-      touched: count > 0, count, connected: true,
+      touched: count > 0, count, connected,
+      ...Object.fromEntries(Array.from({ length: TOUCH_PAD_PAD_COUNT }, (_, electrode) => [
+        touchPadPadPort(electrode), touched(electrode),
+      ])),
     }
   },
   // No keypad in the browser: the node body's sixteen buttons stand in for the
-  // keys, and the last one pressed is held the way the firmware holds it.
-  KeypadInput(_c, id) {
+  // keys, and the last one pressed is held the way the firmware holds it. The
+  // per-key outputs follow the sketch's scan, which reports one key at a time.
+  KeypadInput({ stateKey }, id) {
     const state = useHardwareInputStore.getState()
-    let pressed = false
-    for (let key = 0; key < KEYPAD_KEY_COUNT; key += 1) if (state.button.get(keypadButtonKey(id, key))) pressed = true
-    return { key: state.pot.get(keypadLastKey(id)) ?? 0, pressed }
+    const held = keypadScanKey((key) => key < KEYPAD_KEY_COUNT && Boolean(state.button.get(keypadButtonKey(id, key))))
+    const last = state.pot.get(keypadLastKey(id)) ?? 0
+    const digitKey = markStateUsed(stateKey(id))
+    const digit = keypadDigit(last) ?? keypadDigitState.get(digitKey) ?? 0
+    keypadDigitState.set(digitKey, digit)
+    return {
+      key: last, pressed: held >= 0, digit,
+      ...Object.fromEntries(Array.from({ length: KEYPAD_KEY_COUNT }, (_, key) => [keypadKeyPort(key), held === key])),
+    }
   },
   // No stick in the browser: two sliders stand in for the axes (centred at
   // half travel) and the node body's button for the switch.
@@ -430,11 +455,11 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
     }
   },
   // No sensor in the browser: the node body's slider stands in for the
-  // measured distance, and the sensor is always connected.
+  // measured distance. Unplugged, the reading holds as the sketch's does.
   DistanceInput(_c, id, props) {
-    const pot = useHardwareInputStore.getState().pot
+    const { pot, button } = useHardwareInputStore.getState()
     const fraction = pot.get(distancePreviewKey(id)) ?? distancePreviewDefault(props.partId)
-    return { distance: distancePreviewReading(props.partId, fraction), connected: true }
+    return { distance: distancePreviewReading(props.partId, fraction), connected: !button.get(unpluggedPreviewKey(id)) }
   },
   EnvironmentInput(_c, id, props) {
     const pot = useHardwareInputStore.getState().pot
@@ -461,15 +486,17 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
   },
   // The browser has no radar, so two latches model the module's moving and
   // stationary target bits and one slider supplies its detection distance.
+  // Unplugged, no frame arrives: nobody there, as the sketch reports it.
   PresenceInput(_c, id, props) {
     const inputState = useHardwareInputStore.getState()
+    const connected = !inputState.button.get(unpluggedPreviewKey(id))
     return { ...presencePreviewReading(
       props.partId,
-      inputState.button.get(presencePreviewKey(id, 'moving')) ?? false,
-      inputState.button.get(presencePreviewKey(id, 'still')) ?? false,
+      connected && (inputState.button.get(presencePreviewKey(id, 'moving')) ?? false),
+      connected && (inputState.button.get(presencePreviewKey(id, 'still')) ?? false),
       inputState.pot.get(presencePreviewKey(id, 'distance'))
         ?? presencePreviewDefaultDistance(props.partId),
-    ) }
+    ), connected }
   },
   EncoderInput({ stateKey }, id, props) {
     const enc = useHardwareInputStore.getState().encoder.get(id)
@@ -481,25 +508,31 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
     let count = prev && prev.start === start ? encoderLevelCountStep(prev.count, position - prev.position, props) : start
     if (props.resetOnPress === true && pressed && !prev?.pressed) count = start
     encoderLevelState.set(key, { count, position, pressed, start })
-    return { position, level: count / encoderLevelSpan(props), pressed }
+    // Position is counted in steps and published in clicks, as the sketch does.
+    return { position: position / ENCODER_COUNTS_PER_STEP, level: count / encoderLevelSpan(props), pressed }
   },
   // The helper's latest DDP bytes as a frame, pixel i at row-major i: a
   // sender that addresses the matrix the same way (xLights' default) lands
   // where it expects. Bytes beyond what has arrived read black.
   DdpInput({ W, H }) {
-    const pixels = useDdpStore.getState().pixels
-    return { frame: buildDdpFrame(W, H, (x, y) => {
-      const i = (y * W + x) * 3
-      return i + 2 < pixels.length ? { r: pixels[i], g: pixels[i + 1], b: pixels[i + 2] } : { r: 0, g: 0, b: 0 }
-    }) }
-  },
-  DMXInput(_c, _id, props) {
-    const universe = Math.max(0, Math.min(32767, Math.round(Number(props.universe ?? 0))))
-    const snapshot = useDmxStore.getState().snapshot
+    const { pixels, live } = useDdpStore.getState()
     return {
-      dmx: snapshot.universe === universe
-        ? snapshot
-        : blankDmxSnapshot(universe),
+      frame: buildDdpFrame(W, H, (x, y) => {
+        const i = (y * W + x) * 3
+        return i + 2 < pixels.length ? { r: pixels[i], g: pixels[i + 1], b: pixels[i + 2] } : { r: 0, g: 0, b: 0 }
+      }),
+      live,
+    }
+  },
+  // Live is the helper hearing this universe; it goes false 2 s after the
+  // last packet, as the sketch's does.
+  DMXInput(_c, _id, props) {
+    const universe = dmxListenUniverse(props)
+    const snapshot = useDmxStore.getState().snapshot
+    const heard = snapshot.universe === universe
+    return {
+      dmx: heard ? snapshot : blankDmxSnapshot(universe),
+      live: heard && snapshot.live,
     }
   },
   RTCInput({ t, stateKey }, id, props) {
@@ -547,11 +580,14 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
       weekend: rtc.weekend,
     }
   },
+  // The Channel filter is the sketch's: 0 hears every channel, 1–16 one.
   MidiInput(_c, _id, props) {
-    const midi = useMidiStore.getState()
-    const noteNum = Math.round(Number(props.note ?? 60))
-    const ccNum = Math.round(Number(props.cc ?? 1))
-    const vel = midi.noteVelocity.get(noteNum) ?? 0
-    return { note: vel, gate: vel > 0, cc: midi.ccValues.get(ccNum) ?? 0 }
+    const reading = midiReading(
+      useMidiStore.getState(),
+      midiChannel(props.channel),
+      Math.round(Number(props.note ?? 60)),
+      Math.round(Number(props.cc ?? 1)),
+    )
+    return { note: reading.velocity, gate: reading.velocity > 0, cc: reading.cc }
   },
 }

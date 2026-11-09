@@ -50,6 +50,24 @@ export function normalizeButtonBankEntries(value: unknown): ButtonBankEntry[] {
   return entries
 }
 
+/**
+ * The row a Button Bank starts with when it is added from the bench, so the
+ * module on the bench wires to a button at once instead of to nothing. Its
+ * pin is the one the board's plan handed out, stamped like any app-assigned
+ * pin so a later board change can move it; with no pin free it has none (-1)
+ * and reads unpressed until one is chosen.
+ */
+export function firstButtonBankRow(pin: number | undefined, board?: string): ButtonBankEntry[] {
+  return [{
+    id: 'button-1',
+    label: 'Button 1',
+    pin: pin ?? -1,
+    pullup: true,
+    ...(pin !== undefined ? { assignedPin: pin } : {}),
+    ...(pin !== undefined && board ? { assignedBoard: board } : {}),
+  }]
+}
+
 export function buttonBankHandle(entryId: string): string {
   return `button-${entryId}`
 }

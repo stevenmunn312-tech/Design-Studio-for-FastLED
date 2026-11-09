@@ -94,13 +94,6 @@ export interface AudioSignal {
   samples?: readonly number[]
 }
 
-/** Provider identity carried by the Storage capability port. */
-export interface StorageSignal {
-  id: string
-  kind: 'sd' | 'flash' | 'usb'
-  label: string
-}
-
 /** Semantic commands and values carried by a Player Controls node cable. Command
  * booleans are one-evaluation pulses. Absolute controls are omitted when no
  * local or chained absolute source exists; deltas accumulate across chains. */
@@ -140,7 +133,7 @@ export interface PlayerParticles {
   energyGate: number
 }
 
-export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | StorageSignal | PlayerControls | PlayerParticles | SegmentFrame | OledSurface | TftSurface | PatternSelectValue | DisplaySignal | StereoVuFrame | null
+export type PortValue = number | boolean | string | string[] | RGB | RGB[] | Frame | Field | ImagePaletteSource | DmxSnapshot | RtcPreview | AudioSignal | PlayerControls | PlayerParticles | SegmentFrame | OledSurface | TftSurface | PatternSelectValue | DisplaySignal | StereoVuFrame | null
 
 /** A reusable pattern group: a named subgraph that a `Group` node evaluates. */
 export interface GroupDef { nodes: StudioNode[]; edges: StudioEdge[] }

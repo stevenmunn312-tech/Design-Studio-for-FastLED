@@ -6,7 +6,7 @@ const NO_PIXELS = 'The LED preview is unchanged: this part changes the wiring pl
 export const HARDWARE_REFERENCE: NodeReferenceMap = {
   EthernetModule: {
     overview: [
-      'Ethernet adds a W5500 wired network module, so the board reaches the network over an RJ45 cable instead of Wi-Fi. Art-Net and NTP use it when it is on the bench.',
+      'Ethernet adds a W5500 wired network module, so the board reaches the network over an RJ45 cable instead of Wi-Fi. Every network node uses it when it is on the bench: Art-Net and sACN, DDP, the Web Remote, NTP clock sync, Frame Stream and internet radio.',
       'A cable is steadier than Wi-Fi for a lighting rig. The module talks to the board over SPI, using its own chip-select, interrupt and reset lines.',
     ],
     steps: [
@@ -20,7 +20,7 @@ export const HARDWARE_REFERENCE: NodeReferenceMap = {
       title: 'Receive Art-Net over a cable',
       nodes: {
         ethernet: ['EthernetModule'],
-        dmx: ['DMXInput', { inputMode: 'Art-Net', universe: 0, previewPort: 6454 }],
+        dmx: ['DMXInput', { inputMode: 'Art-Net', universe: 0, udpPort: 6454 }],
         channel: ['DMXChannel', { channel: 1 }],
         base: ['Pacifica', { palette: 'ocean' }],
         level: ['BrightnessMod'],
@@ -35,10 +35,11 @@ export const HARDWARE_REFERENCE: NodeReferenceMap = {
     overview: [
       'DC-DC Converter turns a higher DC supply into 5 V. The LM2596 module powers the controller through its 5 V pin in place of USB; the Mean Well SD-100 makes isolated 5 V power zones for the LEDs from 12 V or 24 V.',
       'Source Volts must sit inside the module’s input range and above its output by the dropout. The Build Diagram draws the converter with its input and output protection and checks it against the load.',
+      'When the bench already says what feeds it, the converter takes that instead of a typed value: a Battery Pack is its source, and so is a single USB-C PD trigger, at the voltage the trigger requests. Its settings then show the source rather than asking for it.',
     ],
     steps: [
       'Add the converter from the Hardware tab and choose the module.',
-      'Set Source Volts to the supply feeding it.',
+      'Set Source Volts to the supply feeding it, unless a Battery Pack or a PD trigger on the bench already supplies it.',
       'Wire it as the Build Diagram shows, with the fuse and wire sizes it gives.',
     ],
     outcome: NO_PIXELS,
@@ -109,11 +110,10 @@ export const HARDWARE_REFERENCE: NodeReferenceMap = {
   PdTriggerSource: {
     overview: [
       'USB-C PD Trigger asks a USB-C Power Delivery charger for a fixed voltage — 5, 9, 12, 15 or 20 V — so an ordinary laptop or phone charger can power a converter or a 12 V load.',
-      'The voltage is set on the board itself with its button or solder pads. Set the same value here, and on the converter it feeds; the Build Diagram checks that they agree.',
+      'The voltage is set on the board itself with its button or solder pads. Set the same value here; the converter it feeds takes it as its source voltage, so it is entered once.',
     ],
     steps: [
       'Add the trigger from the Hardware tab and set the requested voltage to match the board.',
-      'Set the converter’s source volts to the same value.',
     ],
     outcome: NO_PIXELS,
     example: example({

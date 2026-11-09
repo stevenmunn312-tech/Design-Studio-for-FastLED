@@ -19,6 +19,8 @@ import {
   MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewKey, motionVectorPreviewReading,
 } from '../../../state/peripherals/motionVector'
 import { distancePreviewDefault, distancePreviewKey, distancePreviewReading } from '../../../state/peripherals/distanceSensor'
+import { unpluggedPreviewKey } from '../../../state/peripherals/sensorPreview'
+import { ENCODER_COUNTS_PER_STEP } from '../../../state/patterns/patternSelection'
 import styles from './HardwareInputBody.module.css'
 
 // Live preview widgets for the ButtonInput/PotInput/EncoderInput stub nodes —
@@ -48,6 +50,39 @@ function ButtonInputWidget({ nodeId, idleLabel = 'press', activeLabel = 'PRESSED
       {pressed ? activeLabel : idleLabel}
     </button>
   )
+}
+
+/**
+ * A latching toggle, for a sensor whose line holds its state for seconds: a
+ * PIR stays high well past the movement, so a press-and-hold button was the
+ * wrong stand-in. Click once for motion, again for none.
+ */
+function ToggleInputWidget({ nodeId, label, pressedLabel = label.toUpperCase() }: {
+  nodeId: string
+  label: string
+  pressedLabel?: string
+}) {
+  const on = useHardwareInputStore((s) => s.button.get(nodeId) ?? false)
+  const setButton = useHardwareInputStore((s) => s.setButton)
+  return (
+    <button
+      type="button"
+      className={`nodrag ${styles.button} ${on ? styles.buttonPressed : ''}`}
+      aria-pressed={on}
+      onClick={() => setButton(nodeId, !on)}
+    >
+      {on ? pressedLabel : label}
+    </button>
+  )
+}
+
+/**
+ * Pulls the sensor out, in the preview only: Connected goes false and the
+ * readings do what the sketch's do with the module missing, so the fallback a
+ * graph builds for it can be tried while designing.
+ */
+function UnplugToggle({ nodeId }: { nodeId: string }) {
+  return <ToggleInputWidget nodeId={unpluggedPreviewKey(nodeId)} label="unplug" pressedLabel="UNPLUGGED" />
 }
 
 function PotInputWidget({ nodeId, storeKey = nodeId, initial = 0.5, readout }: {
@@ -126,7 +161,8 @@ function PresenceInputWidget({ nodeId, partId }: { nodeId: string; partId: unkno
           aria-pressed={still} onClick={() => setButton(stillKey, !still)}>still</button>
       </div>
       <PotInputWidget nodeId={nodeId} storeKey={presencePreviewKey(nodeId, 'distance')} initial={distance}
-        readout={(fraction) => `${presencePreviewReading(partId, true, false, fraction).distance.toFixed(2)} m`} />
+        readout={(fraction) => `${presencePreviewReading(partId, true, false, fraction).distance} mm`} />
+      <UnplugToggle nodeId={nodeId} />
     </>
   )
 }
@@ -167,7 +203,7 @@ function MotionVectorInputWidget({ nodeId, partId }: { nodeId: string; partId: u
         return axis.startsWith('accel') ? `${axis.slice(5)} ${value.toFixed(2)} g` : `${axis.slice(4)} ${Math.round(value)}°/s`
       }}
     />
-  ))}</>
+  ))}<UnplugToggle nodeId={nodeId} /></>
 }
 
 function KeypadInputWidget({ nodeId }: { nodeId: string }) {
@@ -238,6 +274,7 @@ function TouchPadInputWidget({ nodeId, partId }: { nodeId: string; partId: unkno
           </button>
         )
       })}
+      <div className={styles.keypadWide}><UnplugToggle nodeId={nodeId} /></div>
     </div>
   )
 }
@@ -255,21 +292,27 @@ function JoystickInputWidget({ nodeId, deadzone }: { nodeId: string; deadzone: u
 }
 
 function DistanceInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
-  return <PotInputWidget
-    nodeId={nodeId}
-    storeKey={distancePreviewKey(nodeId)}
-    initial={distancePreviewDefault(partId)}
-    readout={(fraction) => `${Math.round(distancePreviewReading(partId, fraction))} mm`}
-  />
+  return <>
+    <PotInputWidget
+      nodeId={nodeId}
+      storeKey={distancePreviewKey(nodeId)}
+      initial={distancePreviewDefault(partId)}
+      readout={(fraction) => `${Math.round(distancePreviewReading(partId, fraction))} mm`}
+    />
+    <UnplugToggle nodeId={nodeId} />
+  </>
 }
 
 function TemperatureInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
-  return <PotInputWidget
-    nodeId={nodeId}
-    storeKey={temperaturePreviewKey(nodeId)}
-    initial={temperaturePreviewDefault(partId)}
-    readout={(fraction) => `${temperaturePreviewReading(partId, fraction).toFixed(1)} °C`}
-  />
+  return <>
+    <PotInputWidget
+      nodeId={nodeId}
+      storeKey={temperaturePreviewKey(nodeId)}
+      initial={temperaturePreviewDefault(partId)}
+      readout={(fraction) => `${temperaturePreviewReading(partId, fraction).toFixed(1)} °C`}
+    />
+    <UnplugToggle nodeId={nodeId} />
+  </>
 }
 
 // Dragging vertically spins the dial (up = increase, matching a mouse-look
@@ -316,7 +359,7 @@ function EncoderInputWidget({ nodeId, resetOnPress }: { nodeId: string; resetOnP
       >
         <div className={styles.encoderNotch} style={{ transform: `rotate(${angle}deg)` }} />
       </div>
-      <span className={styles.potReadout}>{Math.round(position)}</span>
+      <span className={styles.potReadout}>{Math.round(position / ENCODER_COUNTS_PER_STEP)}</span>
     </div>
   )
 }
@@ -335,7 +378,7 @@ export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = fal
   if (nodeType === 'TouchButtonInput') return <ButtonInputWidget nodeId={nodeId} idleLabel="touch" activeLabel="TOUCHED" />
   if (nodeType === 'PotInput') return <PotInputWidget nodeId={nodeId} />
   // Same two widgets, same two run-state maps — see the evaluator's note.
-  if (nodeType === 'MotionInput') return <ButtonInputWidget nodeId={nodeId} />
+  if (nodeType === 'MotionInput') return <ToggleInputWidget nodeId={nodeId} label="motion" />
   if (nodeType === 'LightInput') return <LightInputWidget nodeId={nodeId} partId={partId} maxLux={maxLux} />
   if (nodeType === 'EncoderInput') return <EncoderInputWidget nodeId={nodeId} resetOnPress={resetOnPress} />
   return null

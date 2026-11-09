@@ -4,7 +4,8 @@ import { boardPartitionOf, rootGraphNodes, useGraphStore } from './state/graphSt
 import { useAudioStore } from './state/audio/audioStore'
 import { useShowPlayback } from './state/player/showPlayback'
 import { AudioEngine } from './audio/audioEngine'
-import { graphAudioCapabilitySource } from './state/audio/audioCapabilities'
+import { graphAudioCapabilitySource, graphPreviewsComputerInput } from './state/audio/audioCapabilities'
+import { graphConsumesAudio } from './components/Preview/previewAudioUsage'
 import { MIC_DEFAULTS } from './audio/micAnalysis'
 import MenuBar from './components/MenuBar/MenuBar'
 import Sidebar from './components/Sidebar/Sidebar'
@@ -103,6 +104,11 @@ export default function App() {
   })
   const audioInputProps = (audioInputNode?.data.properties as Record<string, unknown> | undefined) ?? null
   const hasAudioInputNode = audioInputProps !== null
+  // A Microphone or Line Input choice whose part is not on the bench yet
+  // previews with the computer's input, but only once audio reaches an
+  // output, so an Audio node nobody listens to never asks for the microphone.
+  const previewsComputerInput = useGraphStore((s) =>
+    graphPreviewsComputerInput(rootGraphNodes(s)) && graphConsumesAudio(s.nodes, s.edges))
   // The active board's partition, so switching boards re-mirrors that board's
   // FQBN into the upload store and retargets that board's pins — never the
   // first Board node's. See docs/design/multi-board.md.
@@ -429,7 +435,7 @@ export default function App() {
       if (hadAudioInputNode.current) stopAudio()
       return
     }
-    if (hasAudioInputNode && audioInputSupported) {
+    if ((hasAudioInputNode && audioInputSupported) || previewsComputerInput) {
       hadAudioInputNode.current = true
       startAudio().catch(() => {
         setStatus('Audio input could not start. Check browser permission and the selected input.', 'error')
@@ -438,7 +444,7 @@ export default function App() {
     }
     hadAudioInputNode.current = false
     stopAudio()
-  }, [hasAudioInputNode, audioInputSupported, showPreviewPlaying, startAudio, stopAudio, setStatus])
+  }, [hasAudioInputNode, audioInputSupported, previewsComputerInput, showPreviewPlaying, startAudio, stopAudio, setStatus])
 
   useEffect(() => () => {
     if (hadAudioInputNode.current) stopAudio()

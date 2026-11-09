@@ -1,4 +1,6 @@
 import { irRemoteButtonHandle } from '../../../state/peripherals/irRemote'
+import { KEYPAD_LEGENDS, keypadKeyPort } from '../../../state/peripherals/keypad'
+import { TOUCH_PAD_PAD_COUNT, touchPadPadPort } from '../../../state/peripherals/touchPad'
 import { buttonBankHandle } from '../../../state/player/buttonBank'
 import { webRemotePortId } from '../../../state/peripherals/webRemote'
 import { example, RING, STRIP } from './example'
@@ -6,11 +8,22 @@ import type { NodeReferenceMap } from './types'
 
 const PREVIEW_STAND_IN = 'The browser has no sensor attached, so the node body carries controls that stand in for the readings while you design. The uploaded sketch reads the real part instead.'
 
+// For the sensors with a Connected output.
+const UNPLUG_STAND_IN = 'Its Unplug toggle pulls the sensor out in the preview only: Connected goes false and the readings do what the board’s do with the module missing, so you can try the fallback your graph builds for it.'
+
+// Many outputs, one sentence each, built rather than typed sixteen times.
+const PAD_OUTPUTS = Object.fromEntries(Array.from({ length: TOUCH_PAD_PAD_COUNT }, (_, electrode) => [
+  touchPadPadPort(electrode), `True while pad ${electrode} is touched.`,
+]))
+const KEY_OUTPUTS = Object.fromEntries(KEYPAD_LEGENDS.map((legend, key) => [
+  keypadKeyPort(key), `True while the ${legend} key is held.`,
+]))
+
 export const INPUT_REFERENCE: NodeReferenceMap = {
   Audio: {
     overview: [
       'Audio is the one place a graph gets its sound. Choose the source in its body — a microphone, a line input, or the Music Player’s own decoder — and every analyser wired to it hears the same signal.',
-      'The same choice holds in both worlds. In the browser, a microphone or line input is captured through your computer’s audio input; on the board, the Microphone or Line In part on the bench is read over I2S. Pick the source once and the preview and the firmware agree.',
+      'The same choice holds in both worlds. In the browser, a microphone or line input is captured through your computer’s audio input; on the board, the Microphone or Line In part on the bench is read over I2S. Pick the source once and the preview and the firmware agree. Until the part is on the bench the preview still listens through the computer, so you can design first; uploading asks for the part.',
       'Fan a single Audio node out to as many analysers and audio patterns as you like. Add a second one only when you really have two sources, such as a microphone for the room and the decoder for the music.',
     ],
     steps: [
@@ -38,30 +51,6 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       ],
       explanation: 'A single Audio node feeds two very different listeners. Spectrum Visualizer draws the whole spectrum as mirrored bars, while Beat Detect listens to the same stream for hits and flashes the picture through Beat Flash.',
       preview: 'Allow microphone access and play music nearby. The {output} shows bars rising from the centre line, and each detected beat washes the frame violet for a moment.',
-    }),
-  },
-
-  Storage: {
-    overview: [
-      'Storage names where a build keeps its files: the SD card on the bench, the board’s own flash, or files sent over USB. The choices in its body come from the hardware you have added, so it lists only what exists.',
-      'With exactly one provider available Storage picks it for you; with several it waits for your choice and reports nothing until you make one.',
-      'No node takes a Storage input yet, so for now the node records the decision on the canvas. Song files for the music player are still placed by the SD Card part and the Performance Generator.',
-    ],
-    outputs: {
-      storage: 'The chosen provider: which card or flash, and what kind it is. Empty until a provider exists and is chosen.',
-    },
-    outcome: 'The node records which storage the build uses. It draws nothing on the LEDs.',
-    example: example({
-      featured: 'Storage',
-      title: 'Point the build at the SD card',
-      nodes: {
-        sd: ['SDCard'],
-        storage: ['Storage'],
-        pattern: ['Breathe', { palette: 'amethyst', bpm: 10 }],
-      },
-      explanation: 'The SD Card part on the bench becomes a storage provider, and Storage offers it in its body. Breathe keeps the LEDs alive beside it, because choosing storage changes no pixels.',
-      preview: 'The {output} breathes slowly in violet. Storage has no picture of its own; open its body to see the SD card listed.',
-      workflow: true,
     }),
   },
 
@@ -220,7 +209,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'In the preview, each button row in the body has its own press control.',
     ],
     steps: [
-      'Add a button in the body for each physical button, and name it after what it does.',
+      'Add the bank from the Hardware tab. It arrives with Button 1 already on a free pin; add a button in the body for each further physical button, and name each after what it does.',
       'Wire each button between its GPIO and ground.',
     ],
     outputs: {
@@ -254,6 +243,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'IR Remote turns the keys of an ordinary handheld remote into graph signals. Add the receiver from the Hardware tab, then learn each key in the body by pointing your own remote at it; every learned key becomes a named output.',
       'A key output pulses true once per press, or keeps pulsing while the key is held when that key is set to repeat. That makes keys events rather than levels: wire them to Next and Previous style inputs, to Trigger, or to Step Value to turn presses into a number.',
+      'No board yet? Add kit remote fills in the 17-key NEC remote most receiver kits ship with (0 to 9, * and #, the arrows and OK), so you can wire Up, Down and OK now and check them against your own remote later.',
       'In the preview, click a key square on the node to press it. Turn on Debug and the uploaded sketch prints every code it receives, which helps with an unfamiliar remote.',
     ],
     steps: [
@@ -333,7 +323,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'Motion Sensor reads a motion module and reports Motion as true while it sees movement. Pick the module on the bench: an HC-SR501 PIR, which sees a warm body move, or an RCWL-0516 microwave sensor, which senses movement even through a plastic case.',
       'Both hold their output high for a moment after the last movement — the HC-SR501 for as long as its time trimmer is set, the RCWL-0516 for about two seconds. Neither sees a person sitting still; use Presence Sensor when stillness matters.',
-      'In the preview, the motion control on the node stands in for the sensor.',
+      'In the preview, the Motion toggle on the node stands in for the sensor: click it once for movement and again when it has passed, the way the module’s line holds high.',
     ],
     steps: [
       'Add the motion module from the Hardware tab.',
@@ -361,8 +351,10 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
   PresenceInput: {
     overview: [
       'Presence Sensor reads an HLK-LD2410C millimetre-wave radar. Unlike a PIR it sees people who are sitting still, so Presence stays true while someone reads in a chair.',
-      'Moving and Still report the two kinds of target separately, and Distance gives the detected range in metres, from 0 to 6. The sketch only listens to the radar’s serial stream, so one RX pin is the whole connection.',
+      'Moving and Still report the two kinds of target separately, and Distance gives the detected range in millimetres, from 0 to 6000, the same unit as Distance Sensor. The sketch only listens to the radar’s serial stream, so one RX pin is the whole connection.',
+      'Connected is false when no report has arrived for a second, which is what an unplugged radar looks like; Presence then reads false too, so use Connected to tell that from an empty room.',
       PREVIEW_STAND_IN,
+      UNPLUG_STAND_IN,
     ],
     steps: [
       'Add the radar module from the Hardware tab.',
@@ -372,7 +364,8 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       presence: 'True while anyone is detected, moving or still.',
       moving: 'True while a moving target is detected.',
       still: 'True while a stationary target is detected.',
-      distance: 'Distance to the detected target in metres, 0 to 6. It reads 0 with nobody there.',
+      distance: 'Distance to the detected target in millimetres, 0 to 6000. It reads 0 with nobody there.',
+      connected: 'True while the radar is sending reports. False when nothing has arrived for a second.',
     },
     propertyNote: 'The radar talks at its own fixed baud, so the receive pin is the only setting.',
     example: example({
@@ -380,11 +373,11 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       title: 'Breathe faster as someone comes closer',
       nodes: {
         radar: ['PresenceInput', { rxPin: 18 }],
-        closeness: ['MapRange', { inMin: 0, inMax: 6, outMin: 40, outMax: 8 }],
+        closeness: ['MapRange', { inMin: 0, inMax: 6000, outMin: 40, outMax: 8 }],
         breathe: ['Breathe', { palette: 'sunset', minLevel: 0.1, curve: 'natural' }],
       },
       wires: ['radar.distance > closeness.value', 'closeness.result > breathe.bpm'],
-      explanation: 'Presence Sensor reports the target’s distance in metres. Map Range turns six metres into a slow 8 breaths a minute and arm’s length into a quick 40, so Breathe quickens as someone approaches.',
+      explanation: 'Presence Sensor reports the target’s distance in millimetres. Map Range turns six metres into a slow 8 breaths a minute and arm’s length into a quick 40, so Breathe quickens as someone approaches.',
       preview: 'The {output} breathes in sunset colours. Toggle Moving on the radar node and drag its distance slider: far away the breathing is slow and calm, up close it races.',
     }),
   },
@@ -456,6 +449,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'Temperature Probe reads a waterproof DS18B20 in degrees Celsius over a single data wire. It suits liquids and places a board cannot go: an aquarium, a hot tub, a fermenter, a cold frame.',
       'Connected is false while the probe does not answer, so a graph can hold a safe look instead of following a stale reading. The data line needs a 4.7 kΩ pull-up to 3.3 V, which the Build Diagram draws.',
       PREVIEW_STAND_IN,
+      UNPLUG_STAND_IN,
     ],
     steps: [
       'Add the probe from the Hardware tab.',
@@ -485,8 +479,10 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'Accel & Gyro reads an MPU-6050: acceleration on three axes in g, and rotation rate on three axes in degrees per second.',
       'Lying flat, gravity reads about +1 g on Z and 0 on X and Y, so tilting the board swings X and Y between −1 and +1. Rotation rates are 0 while the board is still and jump while it turns. The values keep their units, so a Map Range usually sits between this node and a control.',
+      'Shake is how far the acceleration is from the 1 g of gravity at rest, so it reads 0 lying still in any position and rises as the board is shaken or knocked. Wired straight into a switch input such as Trigger it reads true from 0.5 g, a firm shake. The three gyro outputs are folded; choose more outputs on the node to wire them.',
       'The sensor shares the I2C bus. Its address is 0x68, the same as a DS3231 clock, so tie AD0 high and pick 0x69 when both are fitted. Connected goes false if the chip stops answering.',
       PREVIEW_STAND_IN,
+      UNPLUG_STAND_IN,
     ],
     steps: [
       'Add the MPU-6050 board from the Hardware tab.',
@@ -500,6 +496,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       gyroX: 'Rotation rate about X in degrees per second.',
       gyroY: 'Rotation rate about Y in degrees per second.',
       gyroZ: 'Rotation rate about Z in degrees per second.',
+      shake: 'How hard the board is being shaken, in g: the acceleration’s distance from 1 g. 0 at rest.',
       connected: 'True while the sensor answers on the bus.',
     },
     propertyNote: 'SDA and SCL are shared with every other I2C part. Use 0x69 when a DS3231 clock is on the same bus.',
@@ -521,9 +518,10 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
   TouchPadInput: {
     overview: [
       'Touch Pad reads an MPR121: twelve capacitive electrodes on one I2C chip. Wire foil, copper tape or conductive paint to the electrodes and anything can become a touch key.',
-      'Electrode is the lowest pad currently touched, numbered 0 to 11, and it holds that number after release. Touched is true while any pad is down, and Count says how many are.',
+      'Electrode is the lowest pad currently touched, numbered 0 to 11, and it holds that number after release. Touched is true while any pad is down, and Count says how many are. For one pad on its own, choose more outputs on the node: Pad 0 to Pad 11 are true while that pad is touched, one wire each.',
       'Touch Threshold sets how far a pad’s reading must fall to count as a touch; Release Threshold how far it must recover. Lower the touch threshold for thin pads behind glass, and raise it if a pad triggers by itself.',
       PREVIEW_STAND_IN,
+      UNPLUG_STAND_IN,
     ],
     steps: [
       'Add the MPR121 from the Hardware tab.',
@@ -535,6 +533,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       touched: 'True while any pad is touched.',
       count: 'How many pads are touched at once.',
       connected: 'True while the chip answers on the bus.',
+      ...PAD_OUTPUTS,
     },
     propertyNote: 'Address is set by the ADDR pin. The two thresholds are the chip’s own registers, written by the sketch at start-up.',
     example: example({
@@ -555,7 +554,8 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
   KeypadInput: {
     overview: [
       'Keypad reads a 4×4 membrane keypad over eight GPIOs: four rows and four columns. Key is the last key pressed, numbered 0 to 15 row by row (1 2 3 A, 4 5 6 B, 7 8 9 C, * 0 # D), and Pressed is true while any key is down.',
-      'Key holds its value after release, so it works as a selector: pick a pattern, a palette or a level by number. The keypad is passive — no power, no ground — and rows use the internal pull-up, so avoid input-only pins for them.',
+      'Key holds its value after release, so it works as a selector: pick a pattern, a palette or a level by number. Digit is the last number key pressed, read as the number printed on it, so the key marked 0 is 0 rather than 13 and the letter keys leave it alone. For one key on its own, choose more outputs on the node: each key has an output that is true while it is held.',
+      'The keypad is passive — no power, no ground — and rows use the internal pull-up, so avoid input-only pins for them.',
       'In the preview, click the keys drawn on the node.',
     ],
     steps: [
@@ -565,6 +565,8 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     outputs: {
       key: 'The last key pressed, 0 to 15, row by row from the top left. Held after release.',
       pressed: 'True while any key is held.',
+      digit: 'The last number key pressed, 0 to 9, as printed on it. Held after release; the letter keys, * and # leave it alone.',
+      ...KEY_OUTPUTS,
     },
     propertyNote: 'Rows need pull-up capable pins; columns must be able to drive an output.',
     example: example({
@@ -617,16 +619,17 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'Distance Sensor measures how far away something is, in millimetres. Pick the module on the bench: an HC-SR04 ultrasonic ranger (about 2 cm to 4 m), or a VL53L0X or VL53L1X laser time-of-flight sensor for tighter, quicker readings.',
       'The ultrasonic module uses Trig and Echo pins, and its 5 V Echo needs the divider the Build Diagram draws. The laser sensors share the I2C bus; to fit two, give each its own SHDN pin and an address from 0x30 to 0x33.',
-      'Connected is false when no echo or reading comes back, so a graph can tell an empty room from an unplugged sensor.',
+      'When nothing is in range, Distance holds the last thing it measured rather than jumping, so a mapped output does not flick on a missed reading. The two kinds of module report that moment differently. A laser sensor stays Connected, since it still answers on the bus. An HC-SR04 cannot tell an empty room from a missing module, because both return no echo, so Connected goes false in either case.',
       PREVIEW_STAND_IN,
+      UNPLUG_STAND_IN,
     ],
     steps: [
       'Add the distance module from the Hardware tab.',
       'For the HC-SR04, wire VCC to 5 V, Trig directly, and Echo through the 1 kΩ / 2 kΩ divider. For a laser sensor, wire VIN, GND, SDA and SCL.',
     ],
     outputs: {
-      distance: 'Distance to the nearest object in millimetres.',
-      connected: 'True while the sensor is returning readings.',
+      distance: 'Distance to the nearest object in millimetres. It holds the last reading while nothing is in range.',
+      connected: 'True while the sensor answers. A laser sensor is Connected whether or not anything is in range; an HC-SR04 is Connected only while an echo comes back.',
     },
     propertyNote: 'Trig and Echo serve the ultrasonic module; SDA, SCL, address and SHDN serve the laser modules. Only the fields for the chosen module are used.',
     example: example({
@@ -672,7 +675,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
 
   EncoderInput: {
     overview: [
-      'Encoder reads a rotary encoder: a knob with no end stops, plus the push switch most of them carry. Position counts up one way and down the other, as far as you keep turning; Pressed is true while the knob is pushed in.',
+      'Encoder reads a rotary encoder: a knob with no end stops, plus the push switch most of them carry. Position counts clicks, up one way and down the other, as far as you keep turning; Pressed is true while the knob is pushed in.',
       'Because it never runs out of travel, Position suits values that should wrap or keep going — rotation, hue, a menu position. Turn on Reset On Press to zero Position with each push.',
       'For a volume or a brightness, use Level instead: the same turning held between 0 and 1, starting at Level Start, with Clicks 0 To 1 setting how far a turn goes. It stops at each end, so the first click back always moves it — wire it straight in with no Map Range.',
       'In the preview, drag the dial on the node up or down to turn it and click it to press. On the board the sketch polls the A and B lines and reads the switch like a button.',
@@ -683,7 +686,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'For the bare SR1230, wire A, B and SW to the GPIOs shown, then C and the other switch leg each to ground. It has no supply pin, and its lines always use the board’s internal pull-ups.',
     ],
     outputs: {
-      position: 'Steps turned since start-up: up one way, down the other, without limit. Four steps a click.',
+      position: 'Clicks turned since start-up: up one way, down the other, without limit. It moves in quarters between detents and reads a whole number at each one.',
       level: 'The turning as a value from 0 to 1 that stops at each end, ready for a volume or a brightness.',
       pressed: 'True while the knob is pushed in.',
     },
@@ -723,13 +726,14 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     ],
     outputs: {
       dmx: 'The latest universe of 512 channel values. Feed it to DMX Channel nodes.',
+      live: 'True while the desk is sending, and false once it has been quiet for a moment (one second on a DMX512 line, two on the network). Wire it to a Frame Switch to fall back to your own show when the desk goes quiet.',
     },
-    propertyNote: 'Universe and port must match the sender. The network fields apply to Art-Net and sACN; the UART pins apply to DMX512.',
+    propertyNote: 'Universe and port must match the sender. sACN numbers its universes from 1, so universe 0 listens to universe 1 in sACN mode. The network fields apply to Art-Net and sACN; the UART pins apply to DMX512.',
     example: example({
       featured: 'DMXInput',
       title: 'Patch the matrix as a two-channel fixture',
       nodes: {
-        dmx: ['DMXInput', { inputMode: 'Art-Net', universe: 0, previewPort: 6454 }],
+        dmx: ['DMXInput', { inputMode: 'Art-Net', universe: 0, udpPort: 6454 }],
         dimmer: ['DMXChannel', { channel: 1 }],
         colour: ['DMXChannel', { channel: 2 }],
         wheel: ['PaletteSampler', { palette: 'rainbow' }],
@@ -828,10 +832,11 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'MIDI listens to one note and one controller. Velocity is how hard that note was struck, from 0 to 1, Gate is true while it is held, and CC is the controller’s last value, also 0 to 1.',
       'In the browser it reads any controller the Web MIDI API can see. Set Source to DIN (UART) and the uploaded sketch reads a MIDI jack wired to the board as well, so a keyboard can play the finished build.',
-      'Channel 0 listens to every channel. Use several MIDI nodes to map several keys or knobs.',
+      'Channel 0 listens to every channel; 1 to 16 hears only that channel, in the preview as on the board. Use several MIDI nodes to map several keys or knobs.',
+      'With no controller to hand, the node’s Play note pad and CC slider send the same messages a keyboard would, on the node’s channel.',
     ],
     steps: [
-      'For the preview, plug a MIDI controller into your computer and allow MIDI access.',
+      'For the preview, plug a MIDI controller into your computer and allow MIDI access, or play the node’s own pad and slider.',
       'For the board, set Source to DIN (UART) and wire a MIDI FeatherWing or opto-isolated input to the RX pin shown.',
     ],
     outputs: {
@@ -839,7 +844,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       gate: 'True while the watched note is held.',
       cc: 'The watched controller’s last value, 0 to 1.',
     },
-    propertyNote: 'Note and CC choose what to listen for. The UART fields apply only to DIN.',
+    propertyNote: 'Note and CC choose what to listen for. The UART fields apply only to DIN, and the UART must be one nothing else reads: UART1 is the Presence Sensor’s.',
     example: example({
       featured: 'MidiInput',
       title: 'Play a storm at sea from a keyboard',
@@ -874,19 +879,21 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'In the sender, add a DDP output aimed at the board’s address on port 4048, sized to your matrix.',
     ],
     outputs: {
-      frame: 'The most recent frame the sender delivered.',
+      frame: 'The most recent frame the sender delivered. It holds the last picture when the stream stops.',
+      live: 'True while frames are arriving, and false two seconds after the last one. Use it to switch to your own pattern between songs.',
     },
     propertyNote: 'The port must match the sender’s; 4048 is DDP’s standard port.',
     example: example({
       featured: 'DdpInput',
-      title: 'Sparkle over a streamed sequence',
+      title: 'Your own pattern between songs',
       nodes: {
-        ddp: ['DdpInput', { previewPort: 4048 }],
-        glitter: ['Glitter', { density: 0.18, glitterMode: 'add', r: 255, g: 240, b: 200 }],
+        ddp: ['DdpInput', { udpPort: 4048 }],
+        idle: ['Pacifica'],
+        choose: ['FrameSwitch'],
       },
-      wires: ['ddp.frame > glitter.frame'],
-      explanation: 'DDP Input brings in frames from xLights or LedFx, and Glitter adds the board’s own sparkle on top. The sequence and the local effect mix on the controller, so the sparkle keeps going even between songs.',
-      preview: 'With nothing streaming, the {output} shows only scattered warm sparkles. Start a DDP stream aimed at this computer and the sequence appears beneath them.',
+      wires: ['idle.frame > choose.a', 'ddp.frame > choose.b', 'ddp.live > choose.sel'],
+      explanation: 'DDP Input brings in frames from xLights or LedFx. Its Live output goes true while frames arrive, so Frame Switch shows the stream then and Pacifica the rest of the time. When the sender stops between songs, the board goes back to its own pattern two seconds later instead of freezing on the last frame.',
+      preview: 'With nothing streaming, the {output} shows Pacifica’s ocean. Start a DDP stream aimed at this computer and the sequence takes over; stop it and Pacifica returns.',
     }),
   },
 }

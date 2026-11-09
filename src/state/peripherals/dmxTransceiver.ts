@@ -1,3 +1,5 @@
+import { clampDmxUniverse } from './dmx'
+
 // The RS-485 transceiver a DMX512 input is wired through.
 //
 // `DMXInput` is a graph node with two firmware sources, and only one of them is
@@ -39,20 +41,29 @@ export function dmxNetworkProtocol(properties: Record<string, unknown>): 'Art-Ne
   return mode === 'DMX512' ? null : mode
 }
 
-/** Each protocol's registered UDP port; the preview port property defaults to it. */
+/** Each protocol's registered UDP port; the `udpPort` property defaults to it. */
 export const DMX_PROTOCOL_PORTS = { 'Art-Net': 6454, sACN: 5568 } as const
 
 /** The UDP port a network-mode node listens on, in the helper and the
- *  sketch: the user's `previewPort`, except that the other protocol's
+ *  sketch: the user's `udpPort`, except that the other protocol's
  *  registered port (the library default, or a value left behind by a switch)
  *  reads as this protocol's own, so changing the mode changes the port. */
 export function dmxListenPort(properties: Record<string, unknown>): number {
   const protocol = dmxNetworkProtocol(properties) ?? 'Art-Net'
   const own = DMX_PROTOCOL_PORTS[protocol]
-  const raw = Math.round(Number(properties.previewPort))
+  const raw = Math.round(Number(properties.udpPort))
   if (!Number.isFinite(raw) || raw < 1 || raw > 65535) return own
   const other = protocol === 'sACN' ? DMX_PROTOCOL_PORTS['Art-Net'] : DMX_PROTOCOL_PORTS.sACN
   return raw === other ? own : raw
+}
+
+/** The universe a node listens to, in the helper, the preview and the sketch.
+ *  sACN numbers universes from 1 and senders never send 0, so the Art-Net
+ *  default of 0 reads as 1 in sACN mode. Left at 0, the sketch joined universe
+ *  1's multicast group but kept only packets for universe 0, and heard nothing. */
+export function dmxListenUniverse(properties: Record<string, unknown>): number {
+  const universe = clampDmxUniverse(properties.universe ?? 0)
+  return dmxNetworkProtocol(properties) === 'sACN' ? Math.max(1, universe) : universe
 }
 
 /** The E1.31 multicast group for a universe: 239.255.<hi>.<lo>. */

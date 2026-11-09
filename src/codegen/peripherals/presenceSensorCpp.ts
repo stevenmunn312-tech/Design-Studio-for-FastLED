@@ -81,16 +81,22 @@ export function presenceSensorSetupCpp(props: Record<string, unknown>, rxPin: nu
   ]
 }
 
-/** One node's readings, as four locals named by `local(port)`. */
+/**
+ * One node's readings, as locals named by `local(port)`. Connected is a frame
+ * within the last second; without one the readings are "nobody there", so a
+ * graph tells an unplugged radar from an empty room by Connected. Distance is
+ * in millimetres, like the Distance Sensor's.
+ */
 export function presenceSensorLoopCpp(
-  local: (port: 'presence' | 'moving' | 'still' | 'distance') => string,
+  local: (port: 'presence' | 'moving' | 'still' | 'distance' | 'connected') => string,
 ): string[] {
   return [
     '  _ldPoll();',
-    `  uint8_t ${local('presence')}_state = (_ldLastFrameMs != 0 && millis() - _ldLastFrameMs < 1000u) ? _ldState : 0;`,
+    `  bool ${local('connected')} = _ldLastFrameMs != 0 && millis() - _ldLastFrameMs < 1000u;`,
+    `  uint8_t ${local('presence')}_state = ${local('connected')} ? _ldState : 0;`,
     `  bool ${local('presence')} = ${local('presence')}_state != 0;`,
     `  bool ${local('moving')} = (${local('presence')}_state & 0x01) != 0;`,
     `  bool ${local('still')} = (${local('presence')}_state & 0x02) != 0;`,
-    `  float ${local('distance')} = ${local('presence')} ? _ldDistanceCm / 100.0f : 0.0f;`,
+    `  float ${local('distance')} = ${local('presence')} ? _ldDistanceCm * 10.0f : 0.0f;`,
   ]
 }

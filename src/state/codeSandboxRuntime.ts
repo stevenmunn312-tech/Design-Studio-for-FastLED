@@ -18,6 +18,7 @@
 
 import type { Frame, RGB } from './palettes/ledColor'
 import type { RunRequest, RunResponse } from './codeSandbox.worker'
+import { codeInputNames } from './codeInputs'
 
 const RUN_TIMEOUT_MS = 100
 
@@ -838,7 +839,10 @@ function createInstance(key: string, W: number, H: number): Instance | null {
  * a given key), while the actual compile/run happens asynchronously in that
  * instance's dedicated worker.
  */
-export function evalCodeAsync(key: string, globalCode: string, code: string, seed: Frame | null, t: number, W: number, H: number): Frame {
+export function evalCodeAsync(
+  key: string, globalCode: string, code: string, seed: Frame | null, t: number, W: number, H: number,
+  a = 0, b = 0,
+): Frame {
   let inst = instances.get(key)
   if (!inst) {
     const created = createInstance(key, W, H)
@@ -854,7 +858,8 @@ export function evalCodeAsync(key: string, globalCode: string, code: string, see
 
   const cacheKey = globalCode + ' ' + code
   const { globalBody, body } = transpileSections(globalCode, code)
-  const req = { cacheKey, globalBody, body, t, W, H, seed: packSeed(seed, W, H) }
+  const inputs = codeInputNames(globalCode)
+  const req = { cacheKey, globalBody, body, t, W, H, a, b, inputs, seed: packSeed(seed, W, H) }
   if (inst.pendingRunId === null) post(key, inst, req)
   else inst.queued = req   // one in flight already — newest wins, posted on reply
 

@@ -9,7 +9,7 @@ import { BME280_DEFAULT_ADDRESS, BME280_PART_ID, formatEnvironmentAddress } from
 import { IR_REMOTE_LEARN_HANDLE } from '../../state/peripherals/irRemote'
 import { TOUCH_CONTROL_ADD_DATA_TYPE, TOUCH_CONTROL_ADD_HANDLE, TOUCH_CONTROL_ADD_LABEL } from '../../state/displays/displayRegistry'
 import { JOYSTICK_DEFAULT_DEADZONE, KY023_PART_ID } from '../../state/peripherals/joystick'
-import { KEYPAD_PART_ID } from '../../state/peripherals/keypad'
+import { KEYPAD_KEY_COUNT, KEYPAD_LEGENDS, KEYPAD_PART_ID, keypadKeyPort } from '../../state/peripherals/keypad'
 import { ENCODER_LEVEL_DEFAULTS } from '../../state/peripherals/encoder'
 import { BH1750_DEFAULT_ADDRESS, DEFAULT_LIGHT_SENSOR_PART_ID, LIGHT_SENSOR_DEFAULT_MAX_LUX, formatLightSensorAddress } from '../../state/peripherals/lightSensor'
 import { MPU6050_PART_ID, formatMotionVectorAddress, motionVectorSpec } from '../../state/peripherals/motionVector'
@@ -17,7 +17,7 @@ import { DEFAULT_POWER_MONITOR_PART_ID, POWER_MONITOR_DEFAULT_LIMIT_AMPS, format
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_RX_PIN_KEY } from '../../state/peripherals/presenceSensor'
 import { DS18B20_PART_ID } from '../../state/peripherals/temperatureSensor'
 import { DEFAULT_TOUCH_BUTTON_PART_ID } from '../../state/peripherals/touchButton'
-import { MPR121_PART_ID, formatTouchPadAddress, touchPadSpec } from '../../state/peripherals/touchPad'
+import { MPR121_PART_ID, TOUCH_PAD_PAD_COUNT, formatTouchPadAddress, touchPadPadPort, touchPadSpec } from '../../state/peripherals/touchPad'
 
 export const INPUT_DEFINITIONS: NodeDefinition[] = [
   {
@@ -29,16 +29,6 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     // The source kind is selectable before Hardware exists. Microphone is the
     // discoverable default and resolves as soon as its provider is added.
     defaultProperties: { sourceId: 'kind:microphone' },
-  },
-  {
-    type: 'Storage',
-    label: 'Storage',
-    category: 'input',
-    inputs: [],
-    outputs: [{ id: 'storage', label: 'Storage', dataType: 'storage' }],
-    // The concrete provider is chosen from root hardware by
-    // StorageCapabilityBody. Empty is meaningful when no board or card is attached.
-    defaultProperties: { sourceId: '' },
   },
   // ── Inputs ─────────────────────────────────────────────────────────────
   {
@@ -235,7 +225,8 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       { id: 'presence', label: 'Presence', dataType: 'bool' },
       { id: 'moving', label: 'Moving', dataType: 'bool' },
       { id: 'still', label: 'Still', dataType: 'bool' },
-      { id: 'distance', label: 'Distance (m)', dataType: 'float' },
+      { id: 'distance', label: 'Distance (mm)', dataType: 'float' },
+      { id: 'connected', label: 'Connected', dataType: 'bool' },
     ],
     defaultProperties: { partId: DEFAULT_PRESENCE_PART_ID, [PRESENCE_RX_PIN_KEY]: 18 },
   },
@@ -251,8 +242,8 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       { id: 'level', label: 'Level', dataType: 'float' },
       { id: 'lux', label: 'Lux', dataType: 'float' },
     ],
-    // GPIO4 is ADC1 on the app's default board — see PotInput below for why
-    // that matters and why a classic-ESP32 default would be wrong here.
+    // A fallback only: adding the part plans an analog pin for the selected
+    // board (see PotInput below).
     defaultProperties: {
       partId: DEFAULT_LIGHT_SENSOR_PART_ID,
       pin: 4,
@@ -298,7 +289,9 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
   {
     // A six-axis inertial sensor. Acceleration is in g and rotation rate in
     // degrees per second, so the values keep their physical units and Map Range
-    // is the explicit bridge to a control, like the environment sensor.
+    // is the explicit bridge to a control, like the environment sensor. Shake
+    // is the acceleration's distance from 1 g (motionVectorShake). The gyro
+    // axes fold until asked for.
     type: 'MotionVectorInput',
     label: 'Accel & Gyro',
     category: 'input',
@@ -310,8 +303,10 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       { id: 'gyroX', label: 'Gyro X (°/s)', dataType: 'float' },
       { id: 'gyroY', label: 'Gyro Y (°/s)', dataType: 'float' },
       { id: 'gyroZ', label: 'Gyro Z (°/s)', dataType: 'float' },
+      { id: 'shake', label: 'Shake (g)', dataType: 'float' },
       { id: 'connected', label: 'Connected', dataType: 'bool' },
     ],
+    defaultExposedOutputs: ['accelX', 'accelY', 'accelZ', 'shake', 'connected'],
     defaultProperties: {
       partId: MPU6050_PART_ID,
       sdaPin: 21,
@@ -320,10 +315,11 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // A twelve-electrode capacitive-touch controller. Twelve boolean ports would make a
-    // node taller than the canvas is wide, so it publishes the lowest electrode touched
-    // as an index (0 to 11, held after release), how many are down and whether any is.
-    // Compare or Map Range turns the index into a scene, a preset or a level.
+    // A twelve-electrode capacitive-touch controller. It publishes the lowest
+    // electrode touched as an index (0 to 11, held after release), how many are
+    // down and whether any is; Compare or Map Range turns the index into a scene,
+    // a preset or a level. A Pad output per electrode is folded until asked for,
+    // so "pad 3 pressed" is one wire rather than Compare and And.
     type: 'TouchPadInput',
     label: 'Touch Pad',
     category: 'input',
@@ -333,7 +329,10 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       { id: 'touched', label: 'Touched', dataType: 'bool' },
       { id: 'count', label: 'Count', dataType: 'float' },
       { id: 'connected', label: 'Connected', dataType: 'bool' },
+      ...Array.from({ length: TOUCH_PAD_PAD_COUNT }, (_, electrode) => (
+        { id: touchPadPadPort(electrode), label: `Pad ${electrode}`, dataType: 'bool' })),
     ],
+    defaultExposedOutputs: ['electrode', 'touched', 'count', 'connected'],
     defaultProperties: {
       partId: MPR121_PART_ID,
       sdaPin: 21,
@@ -344,10 +343,10 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // A 4x4 matrix keypad on eight GPIOs. Sixteen boolean ports would make a node
-    // taller than the canvas is wide, so it publishes the last key pressed as an
-    // index (0 to 15, row by row) and whether any key is down. That is what a
-    // scene or preset picker wants, and Map Range or Compare turns it into more.
+    // A 4x4 matrix keypad on eight GPIOs. It publishes the last key pressed as an
+    // index (0 to 15, row by row), whether any key is down, and the last number
+    // key pressed as a Digit, which is what a preset picker wants. A Key output
+    // per key is folded until asked for, so "key A pressed" is one wire.
     type: 'KeypadInput',
     label: 'Keypad',
     category: 'input',
@@ -355,7 +354,11 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     outputs: [
       { id: 'key', label: 'Key (0-15)', dataType: 'float' },
       { id: 'pressed', label: 'Pressed', dataType: 'bool' },
+      { id: 'digit', label: 'Digit (0-9)', dataType: 'float' },
+      ...Array.from({ length: KEYPAD_KEY_COUNT }, (_, key) => (
+        { id: keypadKeyPort(key), label: `Key ${KEYPAD_LEGENDS[key]}`, dataType: 'bool' })),
     ],
+    defaultExposedOutputs: ['key', 'pressed', 'digit'],
     defaultProperties: {
       partId: KEYPAD_PART_ID,
       row1Pin: 13, row2Pin: 14, row3Pin: 27, row4Pin: 26,
@@ -406,17 +409,19 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     category: 'input',
     inputs: [],
     outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
-    // GPIO4 is ADC1 on the app's default board (ESP32-S3, ADC1 = GPIO1-10) —
-    // the old default of 34 was an ADC1 pin on the *classic* ESP32 (ADC1 =
-    // GPIO32-39) but has no ADC capability at all on the S3, so a fresh node
-    // silently read garbage on the app's own default board.
+    // A fallback only: adding the part asks the board's pin plan for an
+    // analog-capable pin (pinRetarget.ts), so the value here rarely survives.
+    // GPIO4 is ADC1 on the ESP32-S3 (ADC1 = GPIO1-10); the old default of 34
+    // had no ADC at all on the S3. On the classic ESP32, the app's default
+    // board (`DEFAULT_BOARD_PROFILE_ID`), GPIO4 is an ADC2 pin, which Wi-Fi
+    // blocks, so this fallback is not a recommendation there.
     defaultProperties: { pin: 4 },
   },
   {
     // Rotary encoder (e.g. KY-040) — polling quadrature decode (no interrupts,
     // matching ButtonInput/PotInput's plain digitalRead/analogRead approach).
-    // `position` is an unbounded running count; wire through MapRange/Mod to
-    // wrap it. `level` is the same turning held to 0-1 as it is counted
+    // `position` is an unbounded running count of clicks; wire through
+    // MapRange/Mod to wrap it. `level` is the same turning held to 0-1 as it is counted
     // (state/peripherals/encoder.ts), for a volume or a brightness.
     type: 'EncoderInput',
     label: 'Encoder',
@@ -437,11 +442,14 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     label: 'DMX / Art-Net',
     category: 'input',
     inputs: [],
-    outputs: [{ id: 'dmx', label: 'DMX', dataType: 'dmx' }],
+    outputs: [
+      { id: 'dmx', label: 'DMX', dataType: 'dmx' },
+      { id: 'live', label: 'Live', dataType: 'bool' },
+    ],
     defaultProperties: {
       inputMode: 'Art-Net',
       universe: 0,
-      previewPort: 6454,
+      udpPort: 6454,
       wifiHostname: 'fastled-dmx',
       useDhcp: true,
       staticIp: '',
@@ -503,6 +511,9 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       { id: 'secondsOfDay', label: 'Seconds Today', dataType: 'float' },
       { id: 'weekend', label: 'Weekend', dataType: 'bool' },
     ],
+    // Fourteen outputs would make the clock the tallest node on the canvas;
+    // the rest are a click away, and a wired one is always drawn.
+    defaultExposedOutputs: ['display', 'dateTime', 'valid', 'hour', 'minute'],
     defaultProperties: {
       timeSource: 'Compile Time',
       sdaPin: 21,
@@ -524,10 +535,11 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // Web MIDI input — no embedded-hardware equivalent, so this is
-    // preview-only (VJ-style control while designing). `note`/`cc` are the
-    // MIDI numbers this node listens for; `note` output is note-on velocity
-    // (0 once released), `gate` is held state, `cc` is the last CC value.
+    // MIDI input: Web MIDI in the preview, and a DIN jack on a UART in
+    // firmware. `note`/`cc` are the MIDI numbers this node listens for and
+    // `channel` the one it hears (0 = all), on both sides; `note` output is
+    // note-on velocity (0 once released), `gate` is held state, `cc` is the
+    // last CC value.
     type: 'MidiInput',
     label: 'MIDI',
     category: 'input',
@@ -553,9 +565,12 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     label: 'DDP Input',
     category: 'input',
     inputs: [],
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
+    outputs: [
+      { id: 'frame', label: 'Frame', dataType: 'frame' },
+      { id: 'live', label: 'Live', dataType: 'bool' },
+    ],
     defaultProperties: {
-      previewPort: 4048,
+      udpPort: 4048,
       wifiHostname: 'fastled-ddp',
       useDhcp: true,
       staticIp: '',
@@ -569,7 +584,6 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
 export const INPUT_DESCRIPTIONS: Record<string, string> = {
   DdpInput: 'A frame streamed over the network by DDP (xLights, LedFx, WLED).',
   Audio: 'Selects Microphone, Line input, or Audio decoder for audio reactivity.',
-  Storage: 'Selects SD, onboard flash, or USB storage attached to the board.',
   MicInput: 'I2S MEMS microphone Hardware provider selected through the Audio node.',
   LineInput: 'PCM1802 Hardware provider selected through the Audio node.',
   // hardware

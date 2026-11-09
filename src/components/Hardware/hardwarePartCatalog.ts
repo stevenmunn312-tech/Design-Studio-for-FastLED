@@ -385,12 +385,12 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     singleton: true,
   },
   {
-    // Wired Ethernet for Art-Net and NTP. Carries no signal, like the SD card:
+    // Wired Ethernet for the board's network. Carries no signal, like the SD card:
     // it changes how the sketch reaches the network, not what any node outputs.
     nodeType: 'EthernetModule',
     partId: 'ethernet',
     label: 'Ethernet',
-    hint: 'Wired network for Art-Net and NTP, in place of Wi-Fi',
+    hint: 'Wired network for every network node, in place of Wi-Fi',
     footprint: partDimensionsMm('wiz850io-ethernet-module', { width: 27.95, height: 23 }),
     render: partRenderSrc('wiz850io-ethernet-module') ?? undefined,
     pinFields: [
@@ -589,7 +589,7 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
     nodeType: 'ButtonBank',
     partId: 'button-bank',
     label: 'Button bank',
-    hint: 'Connect outputs to add and name buttons',
+    hint: 'Starts with one button; connect outputs to add and name more',
     footprint: BUTTON_MODULE_FOOTPRINT_MM,
     signalPort: 'add-button',
     pinRequests: [],

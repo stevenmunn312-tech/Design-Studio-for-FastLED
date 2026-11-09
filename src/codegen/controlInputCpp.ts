@@ -11,12 +11,15 @@ import { touchButtonPressedLevel } from '../state/peripherals/touchButton'
 import { ENVIRONMENT_SENSOR_HELPER_CPP, environmentSensorLoopCpp } from './peripherals/environmentSensorCpp'
 import { TEMPERATURE_SENSOR_HELPER_CPP, temperatureSensorLoopCpp } from './peripherals/temperatureSensorCpp'
 import { MOTION_VECTOR_HELPER_CPP, motionVectorLoopCpp, motionVectorSetupCpp } from './peripherals/motionVectorCpp'
-import { TOUCH_PAD_HELPER_CPP, touchPadLoopCpp, touchPadSetupCpp } from './peripherals/touchPadCpp'
-import { KEYPAD_HELPER_CPP, keypadLoopCpp, keypadSetupCpp } from './peripherals/keypadCpp'
+import { TOUCH_PAD_HELPER_CPP, touchPadLoopCpp, touchPadPadsRead, touchPadSetupCpp } from './peripherals/touchPadCpp'
+import { KEYPAD_HELPER_CPP, keypadKeysRead, keypadLoopCpp, keypadSetupCpp } from './peripherals/keypadCpp'
+import { touchPadPadPort } from '../state/peripherals/touchPad'
+import { keypadKeyPort } from '../state/peripherals/keypad'
 import { JOYSTICK_HELPER_CPP, joystickLoopCpp, joystickSetupCpp } from './peripherals/joystickCpp'
 import { DISTANCE_SENSOR_HELPER_CPP, distanceSensorIncludes, distanceSensorLoopCpp, distanceSensorSetupCpp } from './peripherals/distanceSensorCpp'
 import { distanceSensorTransport } from '../state/peripherals/distanceSensor'
 import { encoderCountScale, encoderLevelSpan, encoderLevelStartCount, encoderUsesPullup } from '../state/peripherals/encoder'
+import { ENCODER_COUNTS_PER_STEP } from '../state/patterns/patternSelection'
 import { ANALOG_FULL_SCALE_CPP, analogLevelCpp } from './helpers/analogReadCpp'
 
 export interface ControlInputEmission {
@@ -113,7 +116,8 @@ export function controlInputCpp(
         loop.push(`  if (${v('pressed')} && !_encSwLast_${id}) { _encPos_${id} = 0;${level ? ` _encLvl_${id} = ${start};` : ''} }`)
         loop.push(`  _encSwLast_${id} = ${v('pressed')};`)
       }
-      loop.push(`  float ${v('position')} = _encPos_${id};`)
+      // Counted in quadrature steps, published in clicks: whole at each detent.
+      loop.push(`  float ${v('position')} = _encPos_${id} / ${ENCODER_COUNTS_PER_STEP}.0f;`)
       outputs.position = 'float'
       if (level) {
         loop.push(`  float ${v('level')} = _encLvl_${id} / ${span}.0f;`)
@@ -123,7 +127,7 @@ export function controlInputCpp(
         // Every change of Level and every edge of the switch, raw: a bouncing
         // contact shows as several presses, which is what this is for.
         loop.push(`  static int16_t _encDbgLvl_${id} = -1; static bool _encDbgSw_${id} = false;`)
-        loop.push(`  if (_encLvl_${id} != _encDbgLvl_${id}) { _encDbgLvl_${id} = _encLvl_${id}; Serial.printf("[encoder] level=%.3f position=%.0f\\n", ${v('level')}, ${v('position')}); }`)
+        loop.push(`  if (_encLvl_${id} != _encDbgLvl_${id}) { _encDbgLvl_${id} = _encLvl_${id}; Serial.printf("[encoder] level=%.3f position=%.2f\\n", ${v('level')}, ${v('position')}); }`)
         loop.push(`  if (${v('pressed')} != _encDbgSw_${id}) { _encDbgSw_${id} = ${v('pressed')}; Serial.println(${v('pressed')} ? "[encoder] press" : "[encoder] release"); }`)
       }
       break
@@ -141,6 +145,7 @@ export function controlInputCpp(
       outputs.moving = 'bool'
       outputs.still = 'bool'
       outputs.distance = 'float'
+      outputs.connected = 'bool'
       break
     }
     case 'PowerMonitorInput': {
@@ -180,24 +185,30 @@ export function controlInputCpp(
     case 'MotionVectorInput': {
       setup.push(motionVectorSetupCpp(p))
       loop.push(...motionVectorLoopCpp(p, id, (port) => v(port)))
-      for (const port of ['accelX', 'accelY', 'accelZ', 'gyroX', 'gyroY', 'gyroZ']) outputs[port] = 'float'
+      for (const port of ['accelX', 'accelY', 'accelZ', 'gyroX', 'gyroY', 'gyroZ', 'shake']) outputs[port] = 'float'
       outputs.connected = 'bool'
       break
     }
     case 'TouchPadInput': {
       setup.push(touchPadSetupCpp(p))
-      loop.push(...touchPadLoopCpp(p, id, (port) => v(port)))
+      const pads = touchPadPadsRead(ports)
+      loop.push(...touchPadLoopCpp(p, id, (port) => v(port), pads))
       outputs.electrode = 'float'
       outputs.touched = 'bool'
       outputs.count = 'float'
       outputs.connected = 'bool'
+      for (const electrode of pads) outputs[touchPadPadPort(electrode)] = 'bool'
       break
     }
     case 'KeypadInput': {
       setup.push(...keypadSetupCpp(p))
-      loop.push(...keypadLoopCpp(p, id, (port) => v(port)))
+      const keys = keypadKeysRead(ports)
+      const digit = !ports || ports.has('digit')
+      loop.push(...keypadLoopCpp(p, id, (port) => v(port), keys, digit))
       outputs.key = 'float'
       outputs.pressed = 'bool'
+      if (digit) outputs.digit = 'float'
+      for (const key of keys) outputs[keypadKeyPort(key)] = 'bool'
       break
     }
     case 'JoystickInput': {

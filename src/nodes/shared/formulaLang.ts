@@ -454,7 +454,7 @@ export function nodeFormulaError(source: string): string | null {
 
 // ── The Field Formula contract ────────────────────────────────────────────
 //
-// Field Formula sees everything Custom Formula sees plus `prev`: this node's
+// Field Formula sees everything Formula Pattern sees plus `prev`: this node's
 // own field value at (x, y) from the previous frame, 0 on the first frame and
 // after a Restart entry. Reading it makes the node's field buffer persistent
 // in the preview and in the sketch (the "writable buffer": the formula writes

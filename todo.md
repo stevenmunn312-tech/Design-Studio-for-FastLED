@@ -91,116 +91,37 @@ freeze, or drop them.
   bench Network shelf) and drop the fields from every network node, which
   also removes the "nodes disagree" warning. Evidence
   `src/codegen/peripherals/networkCpp.ts:67`, `src/utils/validateGraph.ts:325`.
+  Still open after the 2026-11-10 pass: it touches six node types and their
+  bodies, `networkCredentials.ts` (keyed by node id), `networkSourceIn`,
+  `multiBoardValidation.ts`'s SSID check, the Board's clock-sync fields and
+  every bundled project with a network node, and needs the product call of
+  Board versus a bench Wi-Fi entry. The copy now says "network nodes"
+  rather than "DMX / RTC nodes".
 - [ ] **Category: Move DMX512 and DIN MIDI hardware to bench parts (Med, M).**
   Every other physical input is a bench part with auto-assigned pins, but
   DMX512 and DIN MIDI keep raw pin sliders and a user-picked UART on library
   nodes. Mirror the Audio to Microphone model: bench parts for the RS-485
   transceiver and MIDI wing, UART allocated automatically, and drop
   `dmxPort`/`midiUart`. Evidence `src/nodes/input/definitions.ts:451`,
-  `src/build/hardwareManifest.ts:1502`.
-- [ ] **Category: Fold tall output lists on sensor nodes (Med, M).**
-  RTCInput has 14 outputs, MotionVectorInput 7, PowerMonitorInput 5, and
-  `NodeDefinition` has no output equivalent of `defaultExposedInputs`. Add an
-  "exposed outputs" list: show the common ones, reveal the rest on demand,
-  always show wired ones. Evidence `src/types/index.ts:41`.
-- [ ] **Category: Per-pad/per-key output sockets (Med, S).** ButtonBank,
-  IRRemoteInput and WebRemoteInput grow a named output per item from a
-  trailing socket, but TouchPadInput and KeypadInput only publish an index,
-  so "pad 3 pressed" needs Compare + And. Offer the same grow-a-port socket
-  on both nodes.
-- [ ] **Category: Let preview test the disconnected branch (Low, S).** Every
-  sensor with a Connected output returns `connected: true` in preview, so the
-  fallback a graph builds can't be exercised. Add an "unplug" toggle to the
-  stand-in widget. Evidence `src/nodes/input/evaluate.ts:384`.
-- [ ] **Category: Use one distance unit (Low, S).** PresenceInput reports
-  Distance in metres, DistanceInput in millimetres. Pick one and rename
-  ports (pre-1.0 allows it). Evidence `src/codegen/peripherals/presenceSensorCpp.ts:90`.
+  `src/build/hardwareManifest.ts:1502`. Still open: it needs bench entries
+  (and verified renders) for the MAX485 board and the MIDI FeatherWing, and a
+  UART allocator. Meanwhile `midiUartValidationIssues` refuses a DIN UART the
+  radar, DMX512, the DFPlayer or a second jack already reads.
 - [ ] **Category: Optionally merge TouchButton and Motion into Button
   (Low, M).** ButtonInput, TouchButtonInput and MotionInput are all one
   digital line, and TouchButton already derives active level from `partId`.
   Only worth doing together with the Button/ButtonBank merge; the distinct
   port names read well otherwise. Evidence `src/codegen/controlInputCpp.ts:65`.
-- [ ] **Audio: Give preview audio without a Microphone part (High, S).** With
-  no Microphone part on the bench the preview gets no audio at all, so a
-  design-first user drops an audio pattern and sees nothing. Let the
-  Microphone intent use the computer mic in preview when no provider exists
-  (deploy still asks for the part), or turn the disabled-state hint into an
-  "Add microphone to bench" button. Evidence `src/nodes/input/evaluate.ts:136`,
-  `src/state/audio/audioCapabilities.ts:158`.
-- [ ] **Storage: Hide or remove the node until something reads it (Med, S).**
-  No node declares a `storage` input and Help admits none takes it, so the
-  node's output can never be consumed and its only diagnostic can never
-  fire. Hide it from the library (or remove before v1.0) until the SD player
-  or another node reads it. Evidence `src/nodes/input/definitions.ts:38`,
-  `src/utils/validateGraph.ts:3958`.
 - [ ] **Button: Make Button a one-row Button Bank (Med, M).** Button Bank is a
   strict superset (per-row name, pin, pull-up, identical `pinMode` and
   `digitalRead` code). Make Button a bank that starts with one row and offers
   "Add button", so one node and one shelf entry cover both and a single
   button grows without rewiring. Evidence `src/state/player/buttonBank.ts:7`,
-  `src/codegen/controlInputCpp.ts:56`.
-- [ ] **Button Bank: Start with one row on the bench (Low, S).** It is added
-  to the bench empty with no pins, so the module wires to nothing until the
-  user goes to the canvas. Start it with one row. Evidence
-  `src/components/Hardware/hardwarePartCatalog.ts:589`.
-- [ ] **IR Remote: Add a kit-remote preset (Med, S).** Without a board the
-  only way to add keys is typing NEC address/command numbers, yet most
-  receiver kits ship the same 17/21-key NEC remote. Add a one-click preset
-  with named keys so users can wire Up/Down/OK before hardware exists.
-  Evidence `src/components/Canvas/bodies/IRRemoteBody.tsx:107`.
-- [ ] **Motion Sensor: Use a latching toggle in the preview (Med, S).** The
-  stand-in is a momentary press widget labelled "press"/"PRESSED", but Help
-  says "Toggle Motion" and a PIR holds high for seconds. Use a latching
-  motion toggle like PresenceInput's moving/still. Evidence
-  `src/components/Canvas/bodies/HardwareInputBody.tsx:338`, `src/components/HelpModal/reference/input.ts:357`.
-- [ ] **Presence Sensor: Add a Connected output (Low, S).** Firmware reports
-  "nobody" when no frame arrived within 1 s, so an unplugged radar looks like
-  an empty room. Add `connected` like the other bus sensors. Evidence
-  `src/codegen/peripherals/presenceSensorCpp.ts:90`.
-- [ ] **Accel & Gyro: Add a shake output (Med, S).** "Shake to change
-  pattern" currently needs Expression (sqrt(x^2+y^2+z^2)-1) plus Compare.
-  Add a `shake` float or thresholded bool output. The gyro ports are
-  candidates for output folding.
-- [ ] **Touch Pad: Add per-electrode outputs (Med, S).** "Pad N pressed"
-  needs Compare(Electrode = N) And Touched. Offer per-electrode outputs on
-  demand through the grow-a-port socket (see Category).
-- [ ] **Keypad: Add per-key outputs (Med, S).** Same per-key socket as Touch
-  Pad, so "key A pressed" needs no Compare + And.
-- [ ] **Keypad: Add a label or digit output (Low, S).** Key is an index into
-  the 4x4 layout, so the key printed "0" is 13. Add a `label` string output,
-  or a `digit` output reading 0-9 for number keys, so presets can be picked
-  by number. Evidence `src/components/HelpModal/reference/input.ts:557`.
-- [ ] **Distance Sensor: Fix the Connected claim or out-of-range handling
-  (Med, S).** Help says Connected tells an empty room from an unplugged
-  sensor, but for the HC-SR04 a no-echo timeout and a missing module both set
-  Connected false and Distance holds the last good reading, so the Help
-  example rings keep racing at the near value. Report out-of-range as maximum
-  distance with a separate `inRange` flag, or correct the copy and document
-  the hold. Evidence `src/codegen/peripherals/distanceSensorCpp.ts:29`, `src/components/HelpModal/reference/input.ts:620`.
-- [ ] **Potentiometer: Fix stale default-board comment (Low, S).** A comment
-  says the app default board is an S3, but `DEFAULT_BOARD_PROFILE_ID` is a
-  classic ESP32. Harmless, correct the comment. Evidence
-  `src/nodes/input/definitions.ts:409`, `src/build/hardware.ts:3`.
-- [ ] **Encoder: Count Position in clicks, not quarter steps (Med, S).**
-  Position counts four per detent, so every Map Range must divide by four,
-  and the Help example is wrong ("24 clicks one half turn" with +/-24 is 6
-  clicks). Count in clicks before v1.0 (Level already does), or at least fix
-  the example text. Evidence `src/state/peripherals/encoder.ts:40`,
-  `src/components/HelpModal/reference/input.ts:708`.
-- [ ] **DMX / Art-Net: Fix sACN with default universe 0 (Med, S).** The
-  sketch joins universe 1's multicast group (clamped to 1) but filters for
-  universe 0, and sACN senders never send universe 0, so nothing is ever
-  received. Bump 0 to 1 when sACN is chosen, or raise a diagnostic with that
-  fix. Evidence `src/state/peripherals/dmxTransceiver.ts:59`, `src/nodes/input/codegen.ts:101`.
-- [ ] **DMX / Art-Net: Expose a Live output (Med, S).** Firmware computes
-  `_dmxValid_`, `_dmxLive_` and `_dmxPacketRate_` but nothing reads them, so
-  they are dead firmware state. Publish `live` as a bool output ("desk went
-  quiet, fall back to my own show"), which also makes the code reachable.
-  Evidence `src/nodes/input/codegen.ts:103`.
-- [ ] **DMX / Art-Net: Rename previewPort to udpPort (Low, S).** The property
-  is labelled "preview UDP port" but is also the firmware listen port. Rename
-  the key to `udpPort` and the label to "UDP port". Evidence
-  `src/state/nodeLibrary.ts:3769`, `src/state/peripherals/dmxTransceiver.ts:49`.
+  `src/codegen/controlInputCpp.ts:56`. Still open: retiring `ButtonInput`
+  reaches about 36 source files (player and show firmware bindings, pin
+  retargeting, board links, templates, the deck) and 59 test files. The bench
+  now adds a Button Bank with its first row on a pin
+  (`firstButtonBankRow`), which the merged Button would reuse.
 - [ ] **RTC Clock: Allow a Clock node without a DS3231 (High, M).** RTCInput
   is hidden from the library and the only shelf entries are two DS3231
   modules, yet Compile Time, Manual and NTP need no part (and the Help
@@ -208,62 +129,21 @@ freeze, or drop them.
   they don't own. Apply the Audio pattern: a library "Clock" capability node
   with the time-source choice, where a DS3231 on the bench is one provider.
   Evidence `src/build/hardware.ts:28`, `src/components/Hardware/hardwarePartCatalog.ts:533`.
+  Still open: it is a new capability node (definition, resolver, evaluator
+  and emitter shared with RTCInput, Help, card) plus decisions the item does
+  not settle, such as whether the DS3231 part keeps its own outputs once a
+  Clock node reads it. A bench entry for a module-less clock would need a
+  part render that does not exist.
 - [ ] **RTC Clock: Handle daylight saving time (Med, M).** NTP time is UTC
   plus a fixed minute offset, so clocks and Schedule Triggers are an hour off
   for half the year in DST regions. Offer a region/time-zone picker that
   emits a POSIX TZ string (`configTzTime` on ESP32). Evidence
   `src/state/peripherals/rtc.ts`, `src/codegen/peripherals/rtcInputCpp.ts`.
-- [ ] **RTC Clock: Fold its 14 outputs (Med, M).** Show DateTime, Display,
-  Hour, Minute and Valid by default and reveal the rest on demand, using the
-  output folding in Category.
-- [ ] **MIDI: Apply the Channel filter in preview (Med, S).** Firmware
-  filters by Channel but the preview ignores it, because
-  `MidiEngine.handleMessage` drops the channel and the evaluator reads by
-  note number only. Two MIDI nodes on different channels behave differently
-  on the board. Evidence `src/midi/midiEngine.ts:103`, `src/nodes/input/evaluate.ts:550`.
-- [ ] **MIDI: Check the DIN UART for clashes (Med, S).** Default `midiUart: 1`
-  is the Presence Sensor's fixed UART1, but UART validation covers only
-  Presence against DMX512 and DFPlayer. Add MIDI to that check, or allocate
-  the UART automatically (see Category). Evidence `src/nodes/input/definitions.ts:544`,
-  `src/utils/validateGraph.ts:2277`.
-- [ ] **MIDI: Add an on-node play-note pad and CC slider (Low, S).** It is the
-  only input with no stand-in; the body is a read-only readout. Add a small
-  note pad and CC slider so users can design without a controller. Evidence
-  `src/components/Canvas/bodies/MidiInputBody.tsx:19`.
-- [ ] **DDP Input: Add a Live output (Med, S).** The core use is "show the
-  xLights/LedFx stream while it plays, otherwise run my own pattern", but
-  nothing tells the graph the stream stopped (Help's "between songs" example
-  claims otherwise). Emit a last-packet timestamp in firmware and publish a
-  `live` bool; the preview store already tracks `live`. Evidence
-  `src/components/Canvas/bodies/DdpInputBody.tsx:21`, `src/components/HelpModal/reference/input.ts:888`.
-- [ ] **DDP Input: Rename previewPort to udpPort (Low, S).** It is the
-  firmware port too. Evidence `src/nodes/input/codegen.ts:248`.
-- [ ] **Ethernet: Update the "Art-Net and NTP" copy (Low, S).** The network
-  layer serves Art-Net, sACN, DDP, Web Remote, Stream Output, internet radio
-  and clock sync, but the description, shelf hint, part note, Help text,
-  unused-module diagnostic and the DMX/RTC disagreement warning name only
-  Art-Net/NTP or DMX/RTC. Reword to "the board's network (Art-Net/sACN, DDP,
-  Web Remote, NTP...)". Evidence `src/nodes/hardware/definitions.ts:95`,
-  `src/utils/validateGraph.ts:2208`.
-- [ ] **DC-DC Converter: Derive Source V from upstream (Med, M).** Source V is
-  typed even when decided elsewhere: a Battery Pack ignores it, and with a PD
-  trigger the user enters the voltage twice and is warned if they differ.
-  Derive the source from the upstream battery or trigger when on the bench
-  and show it read-only, which removes the PD-mismatch warning. Evidence
-  `src/build/power/electricalPlan.ts:549`, `src/build/power/electricalPlan.ts:461`.
-- [ ] **Custom Formula: Expose A and B by default (Low, S).** A, B and
-  Palette are property inputs with no `defaultExposedInputs`, so the node
-  shows no input ports until exposed, unlike Expression. Expose A and B by
-  default. Evidence `src/nodes/code/definitions.ts:19`, `src/nodes/math/definitions.ts:146`.
-- [ ] **Custom Formula: Rename to Formula Pattern (Low, S).** Four formula
-  nodes share one language under unrelated names (Expression, Custom
-  Formula, Field Formula, Formula Shapes). "Formula Pattern" says it outputs
-  a frame; also point Help to Field Formula, Field, Frame for composition.
-- [ ] **Code: Add float A/B inputs (Med, M).** The only input is an optional
-  seed Frame, so a pasted FastLED effect can't follow a pot, Web Remote
-  slider or audio level without editing the code. Add Custom Formula's float
-  A/B inputs, available as `a`/`b` in both the shim and the sketch. Evidence
-  `src/nodes/code/definitions.ts:31`.
+  Still open. The shape: a curated zone list mapping labels to POSIX strings;
+  a pure POSIX-rule evaluator for the preview (`Mm.w.d/time` rules) held to
+  `Intl` in tests; `configTzTime` on ESP32 and `configTime(tz, server)` on
+  ESP8266 in the `FLS_NET_SNTP` branch; and a generated rule function for the
+  UNO R4 WiFi branch, which runs its own SNTP and applies the offset itself.
 
 #### Audio and audio-reactive
 

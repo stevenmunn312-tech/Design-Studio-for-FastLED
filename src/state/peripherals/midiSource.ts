@@ -24,6 +24,11 @@ export function midiUsesUart(properties: Record<string, unknown>): boolean {
  */
 export const MIDI_DIN_PART_ID = 'adafruit-midi-featherwing'
 
+/** The ESP32 UART a DIN-mode node reads, held to 1 or 2. */
+export function midiUartPort(properties: Record<string, unknown>): 1 | 2 {
+  return Math.round(Number(properties.midiUart ?? 1)) >= 2 ? 2 : 1
+}
+
 /** DIN MIDI's fixed serial speed. */
 export const MIDI_BAUD = 31250
 

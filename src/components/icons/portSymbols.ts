@@ -10,7 +10,7 @@ import type { CSSProperties } from 'react'
 export type PortSymbol = 'square' | 'diamond' | 'circle' | 'smallSquare' | 'hexagon' | 'pill' | 'dot'
 
 export const PORT_SYMBOL_FOR_TYPE: Record<string, PortSymbol> = {
-  frame: 'square', image: 'square', display: 'square', storage: 'square', patternset: 'square',
+  frame: 'square', image: 'square', display: 'square', patternset: 'square',
   field: 'diamond', transitionset: 'diamond', playerparticles: 'diamond',
   float: 'circle', datetime: 'circle', string: 'circle', playercontrols: 'circle',
   bool: 'smallSquare', newcontrol: 'smallSquare',

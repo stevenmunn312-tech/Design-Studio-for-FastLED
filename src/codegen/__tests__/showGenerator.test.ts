@@ -1422,7 +1422,8 @@ describe('displays in a show controller', () => {
         edge('turn', 'enc', 'position', 'ctl', 'patternSelect'),
         edge('cmd', 'ctl', 'controls', 'pm', 'controls')]
       const cpp = generateShowSketch(nodes, edges, groups)
-      expect(cpp).toContain('n_ctl_controls.patternSteps += _pcD_ctl.update((long)(n_enc_position));')
+      // Position is in clicks; the detent counter takes steps, four a click.
+      expect(cpp).toContain('n_ctl_controls.patternSteps += _pcD_ctl.update(lroundf((n_enc_position) * 4.0f));')
       expect(cpp).toContain('_selUpdate(_sel_show, PATTERN_COUNT, n_ctl_controls.patternSteps);')
     })
 

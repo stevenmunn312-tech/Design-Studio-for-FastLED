@@ -60,3 +60,18 @@ const ACCEL_FS_CODE: Record<number, number> = { 2: 0, 4: 1, 8: 2, 16: 3 }
 const GYRO_FS_CODE: Record<number, number> = { 250: 0, 500: 1, 1000: 2, 2000: 3 }
 export const motionVectorAccelCode = (rangeG: number) => ACCEL_FS_CODE[rangeG] ?? 0
 export const motionVectorGyroCode = (rangeDps: number) => GYRO_FS_CODE[rangeDps] ?? 0
+
+/**
+ * How hard the sensor is being shaken, in g: how far the acceleration's size
+ * is from the 1 g of gravity at rest. Lying still in any orientation reads 0.
+ * Wired straight into a bool input it reads true from 0.5 g, a firm shake,
+ * so "shake to change pattern" needs no Expression or Compare.
+ */
+export function motionVectorShake(x: number, y: number, z: number): number {
+  return Math.abs(Math.sqrt(x * x + y * y + z * z) - 1)
+}
+
+/** The same in C++, over three float expressions. */
+export function motionVectorShakeCpp(x: string, y: string, z: string): string {
+  return `fabsf(sqrtf(${x} * ${x} + ${y} * ${y} + ${z} * ${z}) - 1.0f)`
+}

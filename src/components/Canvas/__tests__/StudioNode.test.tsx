@@ -735,10 +735,11 @@ describe('StudioNode', () => {
     expect(potentiometer.style.borderRadius).toBe('50%')
   })
 
-  it('shows an honest empty state when Audio has no attached source', () => {
-    const { getByText, getByRole } = renderNode(makeNode('Audio', { sourceId: '' }))
-    expect(getByText('Audio reactivity is disabled.')).toBeTruthy()
-    expect(getByText('Add a microphone on the Hardware tab to enable.')).toBeTruthy()
+  it('previews with the computer microphone when no microphone is on the bench', () => {
+    const { getByText, getByRole, queryByText } = renderNode(makeNode('Audio', { sourceId: '' }))
+    expect(getByText('Previewing with the computer’s microphone.')).toBeTruthy()
+    expect(getByText('Add a microphone on the Hardware tab so the board can hear the room too.')).toBeTruthy()
+    expect(queryByText('Audio reactivity is disabled.')).toBeNull()
     const source = getByRole('combobox', { name: 'Audio source' }) as HTMLSelectElement
     expect(source.value).toBe('kind:microphone')
     expect([...source.options].map((option) => option.text)).toEqual([
@@ -754,10 +755,13 @@ describe('StudioNode', () => {
     const { getByRole, getByText, queryByText } = renderNode(audio)
     const source = getByRole('combobox', { name: 'Audio source' }) as HTMLSelectElement
 
+    fireEvent.change(source, { target: { value: 'kind:decoder' } })
+    await waitFor(() => expect(source.value).toBe('kind:decoder'))
+    expect(getByText('Audio reactivity is disabled.')).toBeTruthy()
+
     fireEvent.change(source, { target: { value: 'kind:microphone' } })
     await waitFor(() => expect(source.value).toBe('kind:microphone'))
-    expect(getByText('Audio reactivity is disabled.')).toBeTruthy()
-    expect(getByText('Add a microphone on the Hardware tab to enable.')).toBeTruthy()
+    expect(getByText('Previewing with the computer’s microphone.')).toBeTruthy()
 
     const selectedAudio = useGraphStore.getState().nodes.find((node) => node.id === audio.id)!
     const mic = { ...makeNode('MicInput', { partId: 'inmp441-i2s-microphone' }), id: 'mic' } as StudioNodeT
@@ -765,7 +769,7 @@ describe('StudioNode', () => {
 
     await waitFor(() => {
       expect([...source.options].map((option) => option.text)).toContain('Microphone - INMP441')
-      expect(queryByText('Audio reactivity is disabled.')).toBeNull()
+      expect(queryByText('Previewing with the computer’s microphone.')).toBeNull()
     })
   })
 
@@ -1568,6 +1572,19 @@ describe('StudioNode', () => {
       .getByText('0')).toBeTruthy()
   })
 
+  // A PIR holds its line high for seconds, so its stand-in latches.
+  it('latches the Motion Sensor stand-in on and off with single clicks', () => {
+    const motion = makeNode('MotionInput', { pin: 5 })
+    const { getByRole } = renderNode(motion)
+    const toggle = getByRole('button', { name: 'motion' })
+    expect(toggle.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(toggle)
+    expect(useHardwareInputStore.getState().button.get(motion.id)).toBe(true)
+    expect(getByRole('button', { name: 'MOTION' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(getByRole('button', { name: 'MOTION' }))
+    expect(useHardwareInputStore.getState().button.get(motion.id)).toBe(false)
+  })
+
   it('keeps hardware-input widgets visible when UI FX are off', () => {
     useUiStore.setState({ uiEffectsEnabled: false })
 
@@ -1580,7 +1597,8 @@ describe('StudioNode', () => {
   })
 
   it('resetOnPress zeros the encoder position on a tap (no drag)', () => {
-    useHardwareInputStore.setState({ encoder: new Map([['n1', { position: 5, pressed: false }]]) })
+    // The dial reads clicks: twenty quadrature steps are five.
+    useHardwareInputStore.setState({ encoder: new Map([['n1', { position: 20, pressed: false }]]) })
     const { getByTitle, getByText } = renderNode(
       makeNode('EncoderInput', { pinA: 32, pinB: 33, pinSW: 25, pullup: true, resetOnPress: true })
     )
@@ -1628,6 +1646,30 @@ describe('StudioNode', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  // Fourteen outputs fold to the common five; a wire keeps a folded one drawn.
+  it('folds the RTC Clock to its common outputs until all are asked for', () => {
+    const node = { ...makeNode('RTCInput', {}), id: 'rtc-fold' }
+    const view = renderNode(node)
+    const sockets = () => [...view.container.querySelectorAll('[data-handle^="source:"]')]
+      .map((handle) => handle.getAttribute('data-handle'))
+    expect(sockets()).toEqual(['source:display', 'source:dateTime', 'source:valid', 'source:hour', 'source:minute'])
+    fireEvent.click(view.getByRole('button', { name: '9 more outputs' }))
+    expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'rtc-fold')?.data.showAllOutputs).toBe(true)
+    view.unmount()
+
+    const shown = renderNode({ ...node, data: { ...node.data, showAllOutputs: true } })
+    expect(shown.container.querySelectorAll('[data-handle^="source:"]')).toHaveLength(14)
+    expect(shown.getByRole('button', { name: 'Fewer outputs' }).getAttribute('aria-expanded')).toBe('true')
+    shown.unmount()
+
+    const wired = renderNode(node)
+    act(() => useGraphStore.setState({ edges: [{ id: 'e-wk', source: 'rtc-fold', sourceHandle: 'weekend', target: 'x', targetHandle: 'value' }] }))
+    expect([...wired.container.querySelectorAll('[data-handle^="source:"]')].map((handle) => handle.getAttribute('data-handle')))
+      .toContain('source:weekend')
+    expect(wired.getByRole('button', { name: '8 more outputs' })).toBeTruthy()
+    act(() => useGraphStore.setState({ edges: [] }))
   })
 
   // The readout follows the node's configured source, so an unusable Manual

@@ -37,7 +37,6 @@ import MatrixSizePopup from './MatrixSizePopup'
 import BeatDetectBody from './bodies/BeatDetectBody'
 import FFTAnalyzerBody from './bodies/FFTAnalyzerBody'
 import AudioCapabilityBody from './bodies/AudioCapabilityBody'
-import StorageCapabilityBody from './bodies/StorageCapabilityBody'
 import HardwareInputBody from './bodies/HardwareInputBody'
 import ButtonBankBody from './bodies/ButtonBankBody'
 import WebRemoteBody from './bodies/WebRemoteBody'
@@ -51,6 +50,8 @@ import RtcInputBody from './bodies/RtcInputBody'
 import { pinSupports, pinWarningForCapability } from '../../build/boards/boardGpio'
 import { buttonBankOutputs } from '../../state/player/buttonBank'
 import { webRemoteOutputs } from '../../state/peripherals/webRemote'
+import { drawnOutputs, foldedOutputCount } from '../../state/outputFolding'
+import { midiChannel } from '../../state/peripherals/midiSource'
 import { partDerivedInputs } from '../../build/parts/partPorts'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
@@ -1122,6 +1123,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const setNodeMinimized = useGraphStore((s) => s.setNodeMinimized)
+  const setNodeOutputsShown = useGraphStore((s) => s.setNodeOutputsShown)
   const removeNodeCompletely = useGraphStore((s) => s.removeNodeCompletely)
   const setGroupInputRole = useGraphStore((s) => s.setGroupInputRole)
   const pinProperty = useGraphStore((s) => s.pinProperty)
@@ -1159,9 +1161,12 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // A template control the Touch node's Controls wire already carries is not
   // drawn as its own output unless something is wired to it directly.
   const wiredOutputsKey = useGraphStore((s) => wiredOutputsKeyFor(s.edges, id))
-  const outputs = useMemo(() => {
+  const showAllOutputs = d.showAllOutputs === true
+  // A tall sensor folds its less common outputs (`outputFolding.ts`); a wired
+  // one is always drawn.
+  const { outputs, foldedOutputs } = useMemo(() => {
     const wiredOutputs = new Set(wiredOutputsKey.split(';').filter(Boolean))
-    return orderPorts(
+    const all = orderPorts(
       (d.nodeType === 'ButtonBank'
         ? buttonBankOutputs(rawProps.buttons)
         : d.nodeType === 'WebRemoteInput'
@@ -1171,7 +1176,11 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           : def?.outputs ?? d.outputs ?? []) as PortDef[],
       savedOutputs,
     ).filter((port) => !port.carriedByControls || wiredOutputs.has(port.id))
-  }, [d.nodeType, d.outputs, def?.outputs, rawProps.buttons, rawProps.controls, savedOutputs, wiredOutputsKey])
+    return {
+      outputs: drawnOutputs(d.nodeType, all, wiredOutputs, showAllOutputs),
+      foldedOutputs: foldedOutputCount(d.nodeType, all, wiredOutputs),
+    }
+  }, [d.nodeType, d.outputs, def?.outputs, rawProps.buttons, rawProps.controls, savedOutputs, wiredOutputsKey, showAllOutputs])
 
   // Which of this node's input ports are wired, and to which upstream port. When
   // a port is wired the evaluator ignores the matching property, so a pot or
@@ -1459,7 +1468,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const musicLibraryAnalyzing = useMusicStore((s) => s.entries.some((entry) => entry.status === 'analyzing'))
   // The Code node embeds a multi-line C++ editor, so it needs a wider frame.
   const isCode = d.nodeType === 'Code'
-  // Custom Formula and Expression embed the Code node's editor with their
+  // Formula Pattern and Expression embed the Code node's editor with their
   // parse error beneath it; Expression's vocabulary is the scalar one.
   const isFormulaNode = d.nodeType === 'CustomFormula' || d.nodeType === 'Expression'
   const formulaError = d.nodeType === 'CustomFormula' ? nodeFormulaError(String(props.formula ?? ''))
@@ -1657,7 +1666,6 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {showLiveNodeVisuals && isBeatDetect && <BeatDetectBody nodeId={id} />}
         {showLiveNodeVisuals && isFFTAnalyzer && <FFTAnalyzerBody nodeId={id} bands={Number(props.bands ?? 24)} />}
         {d.nodeType === 'Audio' && <AudioCapabilityBody nodeId={id} sourceId={props.sourceId} />}
-        {d.nodeType === 'Storage' && <StorageCapabilityBody nodeId={id} sourceId={props.sourceId} />}
         {/* Hardware-input widgets are functional preview controls, not purely
             decorative FX, so keep them available even when UI FX are off. */}
         {isHardwareInput && <HardwareInputBody nodeId={id} nodeType={d.nodeType} resetOnPress={props.resetOnPress === true} partId={props.partId} maxLux={props.maxLux} deadzone={props.deadzone} />}
@@ -1669,7 +1677,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {d.nodeType === 'DMXInput' && <DmxInputBody nodeId={id} />}
         {d.nodeType === 'DdpInput' && <DdpInputBody nodeId={id} />}
         {d.nodeType === 'RTCInput' && <RtcInputBody nodeId={id} />}
-        {showLiveNodeVisuals && d.nodeType === 'MidiInput' && <MidiInputBody note={Math.round(Number(props.note ?? 60))} cc={Math.round(Number(props.cc ?? 1))} />}
+        {d.nodeType === 'MidiInput' && <MidiInputBody note={Math.round(Number(props.note ?? 60))} cc={Math.round(Number(props.cc ?? 1))} channel={midiChannel(props.channel)} />}
         {(d.nodeType === 'CustomPalette' || d.nodeType === 'Poline') && (
           <Suspense fallback={null}>
             {d.nodeType === 'CustomPalette' && <CustomPaletteEditorBody nodeId={id} topPlacement />}
@@ -1863,6 +1871,18 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
             </div>
           )
         })}
+
+        {foldedOutputs > 0 && (
+          <button
+            type="button"
+            className={`nodrag ${styles.outputFold}`}
+            aria-expanded={showAllOutputs}
+            onClick={() => setNodeOutputsShown(id, !showAllOutputs)}
+            title={showAllOutputs ? 'Fold the less common outputs; wired ones stay' : 'Show every output this node has'}
+          >
+            {showAllOutputs ? 'Fewer outputs' : `${foldedOutputs} more output${foldedOutputs === 1 ? '' : 's'}`}
+          </button>
+        )}
 
         <Suspense fallback={null}>
           {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody />}

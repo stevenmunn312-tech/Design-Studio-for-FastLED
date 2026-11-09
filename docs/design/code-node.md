@@ -51,6 +51,13 @@ FastLED code into a bespoke API.)
 - Property `code: string` (the pasted body). Optional `frame` input so the code
   can seed from / fade an incoming frame (as the real demos do with
   `fadeToBlackBy(leds, NUM_LEDS, n)`), and a `frame` output.
+- Float inputs `a` and `b` (property inputs, drawn by default), which the Loop
+  section reads as `a` and `b`, so pasted code can follow a pot, a remote
+  slider or an audio level. Both sides declare them in a block around the
+  Loop section, so a loop that declares its own `a` shadows the input; a name
+  the Global section already uses stays the user's and is not bound
+  (`codeInputNames` in `state/codeInputs.ts`, read by the emitter and the
+  sandbox alike).
 - **Two editors** (`<textarea>`, monospace, `nodrag` + `nowheel`):
   - **Global** (`properties.globalCode`) → emitted at **file scope** (helper
     functions, persistent vars, palettes), mirroring how real FastLED sketches
@@ -72,7 +79,10 @@ void loop() {
   ...
   { CRGB* leds = buf_<id>;   // loop body writes into this node's buffer
     /* memmove buf_<id> from the frame input if wired; else it persists */
+    float a=<A>, b=<B>; (void)a; (void)b;   // names the Global section uses are left out
+    {
     <loop section, verbatim>
+    }
   }
 }
 ```

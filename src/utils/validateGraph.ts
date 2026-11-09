@@ -85,7 +85,6 @@ import { CUSTOM_DESIGN_LAYOUT, shownDesignId } from '../state/displays/transport
 import { displayWidgetIsControl, normalizeDisplayControlRole, parseDisplayWidgetPortId } from '../state/displays/displayRegistry'
 import { templateControlPlan } from '../state/displays/templateControlPlan'
 import { resolveAudioCapabilitySource, selectedAudioCapabilityKind } from '../state/audio/audioCapabilities'
-import { resolveStorageCapabilitySource } from '../build/storageCapabilities'
 import {
   duplicateIrRemoteMappings,
   irRemoteButtonIdFromHandle,
@@ -106,7 +105,7 @@ import { BOARD_LINK_OUT_NODE_TYPE, isBoardLinkNodeType } from '../build/boardLin
 import { WEB_REMOTE_NODE_TYPE, normalizeWebRemoteControls } from '../state/peripherals/webRemote'
 import { fqbnHasWifi, fqbnServesWebRemote } from '../state/peripherals/networkCapability'
 import { particleMode, particlePoolSize } from '../nodes/simulations/particleModes'
-import { midiUsesUart } from '../state/peripherals/midiSource'
+import { midiUartPort, midiUsesUart } from '../state/peripherals/midiSource'
 import {
   formatLightSensorAddress, lightSensorAddress, lightSensorAddressOptions, lightSensorTransport,
 } from '../state/peripherals/lightSensor'
@@ -208,21 +207,6 @@ export function findAudioCapabilityErrors(
     .map((node) => `${nodeLabel(node)} has no attached source — add a microphone, line-in ADC, or SD music player, or choose an available source`)
 }
 
-/** A used Storage capability must resolve to one concrete provider. */
-export function findStorageCapabilityErrors(
-  nodes: StudioNode[],
-  edges: StudioEdge[],
-  capabilityNodes: readonly StudioNode[] = nodes,
-): string[] {
-  return nodes
-    .filter((node) =>
-      node.data.nodeType === 'Storage' &&
-      edges.some((edge) => edge.source === node.id) &&
-      !resolveStorageCapabilitySource(capabilityNodes, String(node.data.properties.sourceId ?? ''))
-    )
-    .map((node) => `${nodeLabel(node)} has no attached storage provider — add a board or SD card, or choose an available provider`)
-}
-
 export function findStereoVuMeterErrors(nodes: StudioNode[], edges: StudioEdge[]): string[] {
   return nodes.flatMap((node) => {
     if (node.data.nodeType !== 'StereoVuMeter') return []
@@ -321,8 +305,8 @@ function findNetworkConfigWarnings(nodes: StudioNode[]): string[] {
   }))
   if (signatures.size > 1) {
     warnings.push(wired
-      ? 'Network-enabled DMX / RTC nodes disagree on network settings — generated firmware shares one Ethernet connection'
-      : 'Network-enabled DMX / RTC nodes disagree on Wi-Fi settings — generated firmware shares one Wi-Fi connection')
+      ? 'Network nodes disagree on network settings — generated firmware shares one Ethernet connection'
+      : 'Network nodes disagree on Wi-Fi settings — generated firmware shares one Wi-Fi connection')
   }
 
   for (const node of users) {
@@ -1838,11 +1822,11 @@ export function findDeployBlockingErrors(
     ...findShowRequirementErrors(nodes, edges),
     ...findPatternCountErrors(nodes, edges),
     ...findAudioCapabilityErrors(nodes, edges),
-    ...findStorageCapabilityErrors(nodes, edges),
     ...findStereoVuMeterErrors(nodes, edges),
     ...findIrRemoteErrors(nodes, edges, selectedFqbn),
     ...findPresenceSensorErrors(nodes, selectedFqbn),
     ...findDfPlayerErrors(nodes, selectedFqbn),
+    ...findMidiUartErrors(nodes, selectedFqbn),
     ...findBluetoothPlayerErrors(nodes, edges, selectedFqbn),
     ...findRadioPlayerErrors(nodes, edges, selectedFqbn),
     ...findBuzzerErrors(nodes, selectedFqbn),
@@ -2209,8 +2193,8 @@ function ethernetValidationIssues(nodes: StudioNode[], selectedFqbn: string): Gr
     issues.push({
       id: `${module.id}-ethernet-unused`, severity: 'warning', category: 'board',
       title: 'Nothing uses the Ethernet module',
-      message: 'The Ethernet module carries Art-Net receive and NTP time sync. With neither in the graph, the sketch does not start it.',
-      fix: 'Add a DMX Input in Art-Net mode or an RTC Clock synced by NTP, or remove the Ethernet module.',
+      message: 'The Ethernet module carries the board\'s network: Art-Net and sACN, DDP, the Web Remote, NTP clock sync, Frame Stream and internet radio. With none of them in the graph, the sketch does not start it.',
+      fix: 'Add a network node, such as DMX / Art-Net in a network mode, DDP Input, Web Remote or an RTC Clock synced by NTP, or remove the Ethernet module.',
       nodeIds: [module.id], nodeLabel: nodeLabel(module),
     })
     return issues
@@ -2521,6 +2505,47 @@ function dfPlayerValidationIssues(nodes: StudioNode[], selectedFqbn: string): Gr
 
 export function findDfPlayerErrors(nodes: StudioNode[], selectedFqbn = ''): string[] {
   return dfPlayerValidationIssues(nodes, selectedFqbn).map(validationIssueMessage)
+}
+
+/**
+ * A DIN MIDI jack reads a whole UART, so it shares its port with nothing: not
+ * the presence sensor's fixed UART1, not DMX512 or the DFPlayer on the same
+ * port, and not a second DIN MIDI node, which would split the bytes between
+ * two readers. The default UART1 is the presence sensor's, so this is the
+ * clash a new MIDI node meets first.
+ */
+function midiUartValidationIssues(nodes: StudioNode[], selectedFqbn: string): GraphDiagnostic[] {
+  const props = (node: StudioNode) => node.data.properties as Record<string, unknown>
+  const midi = nodes.filter((node) => node.data.nodeType === 'MidiInput' && midiUsesUart(props(node)))
+  const dfPort = dfPlayerUartPort(selectedFqbn)
+  const issues: GraphDiagnostic[] = []
+  for (const port of [1, 2] as const) {
+    const readers = midi.filter((node) => midiUartPort(props(node)) === port)
+    if (readers.length === 0) continue
+    const rivals = nodes.filter((node) =>
+      (node.data.nodeType === 'PresenceInput' && port === PRESENCE_UART_PORT)
+      || (node.data.nodeType === 'DFPlayerOutput' && port === dfPort)
+      || (node.data.nodeType === 'DMXInput' && String(props(node).inputMode ?? 'Art-Net') === 'DMX512'
+        && Math.round(Number(props(node).dmxPort ?? 1)) === port))
+    if (rivals.length === 0 && readers.length < 2) continue
+    const other = port === 1 ? 2 : 1
+    issues.push({
+      id: `midi-uart${port}`, severity: 'error', category: 'pins',
+      title: `DIN MIDI shares UART${port}`,
+      message: rivals.length > 0
+        ? `${readers.map(nodeLabel).join(', ')} and ${rivals.map(nodeLabel).join(', ')} cannot read from the same UART peripheral.`
+        : `${readers.map(nodeLabel).join(', ')} all read UART${port}, so each would get only some of the jack's bytes.`,
+      fix: `Set the MIDI node's UART to ${other} on a board that provides it, or remove one of the devices.`,
+      nodeIds: [...readers, ...rivals].map((node) => node.id),
+      nodeLabel: `UART${port}`,
+      propertyKey: 'midiUart',
+    })
+  }
+  return issues
+}
+
+export function findMidiUartErrors(nodes: StudioNode[], selectedFqbn = ''): string[] {
+  return midiUartValidationIssues(nodes, selectedFqbn).map(validationIssueMessage)
 }
 
 /**
@@ -3976,30 +4001,13 @@ export function buildGraphDiagnostics(
     })
   }
 
-  for (const storageNode of nodes.filter((node) =>
-    node.data.nodeType === 'Storage' &&
-    edges.some((edge) => edge.source === node.id) &&
-    !resolveStorageCapabilitySource(options.capabilityNodes ?? nodes, String(node.data.properties.sourceId ?? ''))
-  )) {
-    diagnostics.push({
-      id: `${storageNode.id}-source`,
-      severity: 'error',
-      category: 'connection',
-      title: 'Storage has no attached provider',
-      message: 'This Storage signal is in use, but it does not resolve to attached storage hardware.',
-      fix: 'Add a board with storage or an SD card in Hardware, then choose it from the Storage source list.',
-      nodeIds: [storageNode.id],
-      nodeLabel: nodeLabel(storageNode),
-      propertyKey: 'sourceId',
-    })
-  }
-
   // The compact deploy errors and these rich drawer entries are projected
   // from the same structured findings. Keep this ahead of incidental pin and
   // disconnected-node warnings so the actual authored repair is prominent.
   diagnostics.push(...irRemoteValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...presenceSensorValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...dfPlayerValidationIssues(nodes, options.selectedFqbn ?? ''))
+  diagnostics.push(...midiUartValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...bluetoothPlayerValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...radioPlayerValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...buzzerValidationIssues(nodes, options.selectedFqbn ?? ''))
@@ -4397,7 +4405,7 @@ export function buildGraphDiagnostics(
       category: 'board',
       title: 'Network configuration needs attention',
       message,
-      fix: 'Use one shared Wi-Fi setup across DMX / RTC nodes, and complete every required address field.',
+      fix: 'Use one shared Wi-Fi setup across the network nodes, and complete every required address field.',
       nodeIds: [],
     })
   })
@@ -4918,14 +4926,12 @@ export function buildGraphDiagnostics(
     })
   }
 
-  // A hardware part chosen as the source of an Audio or Storage capability node
-  // is wired by that choice, not by a cable, so it is never "disconnected".
+  // A hardware part chosen as the source of an Audio capability node is wired
+  // by that choice, not by a cable, so it is never "disconnected".
   const capabilityProviderIds = new Set<string>()
   for (const node of nodes) {
     const sourceId = (node.data.properties as Record<string, unknown>).sourceId
-    const provider = node.data.nodeType === 'Audio' ? resolveAudioCapabilitySource(nodes, sourceId)
-      : node.data.nodeType === 'Storage' ? resolveStorageCapabilitySource(nodes, sourceId)
-        : null
+    const provider = node.data.nodeType === 'Audio' ? resolveAudioCapabilitySource(nodes, sourceId) : null
     if (provider) capabilityProviderIds.add(provider.node.id)
   }
 

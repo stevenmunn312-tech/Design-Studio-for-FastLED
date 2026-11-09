@@ -96,7 +96,14 @@ export default function AudioCapabilityBody({ nodeId, sourceId }: Props) {
         <span><b>External</b>{externalSource}</span>
       </div>
 
-      {!selected && (
+      {!selected && selectedOption && selectedKind !== 'decoder' && (
+        <div className={styles.disabledState} role="status">
+          <strong>Previewing with the computer’s {selectedKind === 'line-in' ? 'audio input' : 'microphone'}.</strong>
+          <span>{selectedOption.unavailableHint}</span>
+        </div>
+      )}
+
+      {!selected && (!selectedOption || selectedKind === 'decoder') && (
         <div className={styles.disabledState} role="status">
           <strong>Audio reactivity is disabled.</strong>
           <span>Choose an available source, or add one in Hardware.</span>

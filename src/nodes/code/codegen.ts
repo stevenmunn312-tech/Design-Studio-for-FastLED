@@ -1,4 +1,5 @@
 import { usesShims } from '../shared/fastledShims'
+import { codeInputNames } from '../../state/codeInputs'
 import { nodeFormulaCpp } from '../shared/formulaLang'
 import type { NodeEmitters } from '../../codegen/emitContext'
 
@@ -26,12 +27,12 @@ export const CODE_EMITTERS: NodeEmitters = {
     ln(`      float x=(float)_x/(WIDTH-1>0?WIDTH-1:1),y=(float)_y/(HEIGHT-1>0?HEIGHT-1:1);`)
     ln(`      float cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
     ln(`      float r=sqrtf(cx*cx+cy*cy),angle=atan2f(cy,cx); (void)cx;(void)cy;(void)r;(void)angle;`)
-    // Custom Formula has no field input; the name reads 0, as in the preview.
+    // Formula Pattern has no field input; the name reads 0, as in the preview.
     ln(`      float fieldIn=0.0f; (void)fieldIn;`)
     ln(`      float _v=${formula};`)
     ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(fmod(fmod(_v,1)+1,1)*255));}}`)
   },
-  Code({ node, p, ln, ownBuf, srcBuf, globalLines, needsT }) {
+  Code({ node, p, ln, f, ownBuf, srcBuf, globalLines, needsT }) {
     // Paste-through: the user's FastLED loop body writes into leds[], aliased
     // to this node's own buffer. A wired frame input seeds it each loop;
     // unwired the buffer persists, so fadeToBlackBy accumulates trails the
@@ -49,7 +50,16 @@ export const CODE_EMITTERS: NodeEmitters = {
     ln(`  {`)
     if (src) ln(`    ::memmove(${ob}, ${src}, sizeof(CRGB) * NUM_LEDS);`)
     ln(`    CRGB* leds = ${ob}; (void)leds;`)
+    // A and B, read by the loop as `a` and `b` (state/codeInputs.ts). The
+    // pasted code sits in a block of its own, so a loop that declares its own
+    // `a` shadows the input rather than redeclaring it.
+    const inputs = codeInputNames(String(p.globalCode ?? ''))
+    if (inputs.length > 0) {
+      ln(`    float ${inputs.map((name) => `${name}=${f(name, name, 0)}`).join(', ')}; ${inputs.map((name) => `(void)${name};`).join(' ')}`)
+    }
+    ln(`    {`)
     for (const line of code.split('\n')) ln(`    ${line}`)
+    ln(`    }`)
     ln(`  }`)
   },
 }

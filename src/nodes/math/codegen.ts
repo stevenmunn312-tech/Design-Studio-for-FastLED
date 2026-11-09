@@ -11,7 +11,7 @@ export const MATH_EMITTERS: NodeEmitters = {
   Constant({ ln, v, f }) {
     ln(`  float ${v('value')} = ${f('value', 'value', 1)};`)
   },
-  // Same fail-closed validation as Custom Formula: a formula the sandboxed
+  // Same fail-closed validation as Formula Pattern: a formula the sandboxed
   // parser rejects emits 0 rather than its text, so a shared graph cannot
   // inject into the sketch. validateGraph blocks export on the same check.
   Expression({ p, ln, v, f, needsT, needsShims, needsPhi }) {

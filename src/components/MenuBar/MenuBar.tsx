@@ -9,7 +9,7 @@ import { withFreshBoardLink } from '../../state/peripherals/boardLinkCopy'
 import { useBoardLinkKeyStore } from '../../state/peripherals/boardLinkKey'
 import { usePerformanceDeckSession } from '../../state/player/performanceDeckSessionStore'
 import { useAudioStore } from '../../state/audio/audioStore'
-import { graphAudioCapabilityKind, graphAudioCapabilitySource } from '../../state/audio/audioCapabilities'
+import { graphAudioCapabilityKind, graphAudioCapabilitySource, graphPreviewsComputerInput } from '../../state/audio/audioCapabilities'
 import { useShowPlayback } from '../../state/player/showPlayback'
 import { useProjectStore } from '../../state/projectStore'
 import { boardByFqbn, useUploadStore } from '../../state/upload/uploadStore'
@@ -167,6 +167,8 @@ export default function MenuBar() {
   const audioInputPartId = useGraphStore((s) => (graphAudioCapabilitySource(rootGraphNodes(s))
     ?.node.data.properties as Record<string, unknown> | undefined)?.partId)
   const audioSourceKind = useGraphStore((s) => graphAudioCapabilityKind(rootGraphNodes(s)))
+  // No part on the bench yet: the preview uses the computer's own input.
+  const previewsComputerInput = useGraphStore((s) => graphPreviewsComputerInput(rootGraphNodes(s)))
   const hasMicNode = audioInputType === 'MicInput'
   const hasLineInputNode = audioInputType === 'LineInput'
   const selectedBoardProfile = useGraphStore((s) => selectedPhysicalBoardProfile(rootGraphNodes(s)))
@@ -179,6 +181,8 @@ export default function MenuBar() {
   const showPlaying = useShowPlayback((s) => s.playing)
   const micUnavailableMessage = audioSourceKind === 'decoder'
     ? 'Audio source is set to Audio Decoder. Preview listens to the in-app music player.'
+    : previewsComputerInput
+    ? null
     : !hasMicNode && !hasLineInputNode
     ? 'Add a microphone on the Hardware tab to enable'
     : !selectedBoardProfile

@@ -206,7 +206,7 @@ function QuickStartTab() {
           <code>w</code> and <code>h</code> are pixel counts; the last valid coordinates are <code>max_x</code> (<code>w - 1</code>) and <code>max_y</code> (<code>h - 1</code>). Invalid expressions are outlined and block export or upload. Sliders and hardware setup fields remain literal values.
         </div>
         <div className={styles.note}>
-          The <strong>Custom Formula</strong> and <strong>Field Formula</strong> nodes use a separate, larger per-pixel language with its own variables and FastLED helpers — see their Node Reference entries. Like the fields above, a formula that does not parse renders blank and blocks export or upload, in preview and in generated firmware alike.
+          The <strong>Formula Pattern</strong> and <strong>Field Formula</strong> nodes use a separate, larger per-pixel language with its own variables and FastLED helpers — see their Node Reference entries. Like the fields above, a formula that does not parse renders blank and blocks export or upload, in preview and in generated firmware alike.
         </div>
       </div>
 
