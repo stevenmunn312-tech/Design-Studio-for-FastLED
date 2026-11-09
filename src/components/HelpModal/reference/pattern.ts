@@ -912,7 +912,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   SpectrumVisualizer: {
     overview: [
       'Spectrum Visualizer shows the whole spectrum: classic bars, centre-mirrored bars, a thin ribbon, a ring (Orbit), a scrolling Waterfall history, or Three Band, three stylised bass, mids and treble bars.',
-      'Wire Audio straight in. Gain lifts a quiet source, Smoothing steadies the columns, Tilt lifts the treble columns, and Peak Hold and Peak Gravity shape the falling peak dots.',
+      'Wire Audio straight in. Gain lifts a quiet source, Smoothing steadies the columns, Tilt lifts the treble columns, and Peak Hold and Peak Gravity shape the falling peak dots. Three Band reads each of its bars from a wire where there is one, or from a third of the spectrum, eased by Smoothing, where there is not.',
       'On the canvas it takes the name of the style chosen.',
     ],
     inputs: {

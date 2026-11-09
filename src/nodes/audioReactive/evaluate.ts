@@ -78,6 +78,8 @@ interface SpectrumVisualizerState {
 }
 const spectrumVisualizerState = instanceState('spectrumVisualizerState', new Map<string, SpectrumVisualizerState>())
 const waveformState = instanceState('waveformState', new Map<string, WaveformState>())
+// Three Band's eased spectrum thirds, for its unwired bands.
+const threeBandLevels = instanceState('threeBandLevels', new Map<string, { levels: number[]; lastT: number }>())
 
 // ── New audio-reactive pattern state ──────────────────────────────────────
 // KickShock — pool of expanding shockwave rings, spawned on kick/snare edges.
@@ -1160,7 +1162,7 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
       return samplePaletteClamped(palette, span > 1 ? d / (span - 1) : 0)
     }) }
   },
-  SpectrumVisualizer({ input, num, pal, t, W, H, stateKey }, id, props) {
+  SpectrumVisualizer({ input, num, pal, t, elapsedT, W, H, stateKey }, id, props) {
     const audioValue = input(id, 'audio', null)
     const audio = isAudioSignal(audioValue) ? audioValue : null
     const hasLiveAudio = Boolean(audio && (audio.active || audio.micActive))
@@ -1174,13 +1176,23 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
         : []
     const palette = pal(id, 'paletteIn', props, 'palette', 'citrus')
     if (props.style === 'Three Band') {
-      // A wired band wins; an unwired one is that third of the spectrum.
+      // A wired band wins; an unwired one is that third of the spectrum,
+      // eased by Smoothing per 60th of a second as the other styles' columns
+      // are, so the bars do not jitter frame to frame.
       const bands = Math.max(4, Math.min(32, Math.round(Number(props.bands ?? 16))))
       const sampled = resampleSpectrumBins(spectrum, bands)
       const gain = Math.max(0.25, Math.min(4, num(id, 'gain', props, 'gain', 1.25)))
-      const [bass, mids, treble] = spectrumThirdBounds(bands).map(([from, to], i) =>
-        num(id, ['bass', 'mids', 'treble'][i], props, ['bass', 'mids', 'treble'][i],
-          clamp01(sampled.slice(from, to).reduce((sum, v) => sum + v, 0) / (to - from) * gain)))
+      const smoothing = Math.max(0, Math.min(0.95, num(id, 'smoothing', props, 'smoothing', 0.58)))
+      const key = stateKey(id)
+      const held = threeBandLevels.get(key)
+      const keep = keepOver(smoothing, envelopeDt(held?.lastT, elapsedT))
+      const thirds = spectrumThirdBounds(bands).map(([from, to], i) => {
+        const raw = clamp01(sampled.slice(from, to).reduce((sum, v) => sum + v, 0) / (to - from) * gain)
+        return held ? held.levels[i] * keep + raw * (1 - keep) : raw
+      })
+      threeBandLevels.set(key, { levels: thirds, lastT: elapsedT })
+      const [bass, mids, treble] = thirds.map((third, i) =>
+        num(id, ['bass', 'mids', 'treble'][i], props, ['bass', 'mids', 'treble'][i], third))
       const energy = num(id, 'energy', props, 'energy', 0.7)
       const speed = num(id, 'speed', props, 'speed', 0.6)
       return { frame: evalThreeBand(stateKey(id), bass, mids, treble, energy, speed, t, palette, props.mirror !== false, W, H) }

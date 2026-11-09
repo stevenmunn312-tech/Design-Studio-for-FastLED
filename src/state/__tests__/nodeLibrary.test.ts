@@ -469,7 +469,9 @@ describe('nodeLibrary', () => {
       expect(isPropertyEnabled('SpectrumVisualizer', key, { style: 'Three Band' }), key).toBe(true)
       expect(isPropertyEnabled('SpectrumVisualizer', key, { style: 'Bars' }), key).toBe(false)
     }
-    for (const key of ['smoothing', 'tilt', 'peakHold', 'peakGravity']) {
+    // Three Band eases its unwired bands with Smoothing.
+    expect(isPropertyEnabled('SpectrumVisualizer', 'smoothing', { style: 'Three Band' })).toBe(true)
+    for (const key of ['tilt', 'peakHold', 'peakGravity']) {
       expect(isPropertyEnabled('SpectrumVisualizer', key, { style: 'Three Band' }), key).toBe(false)
     }
   })

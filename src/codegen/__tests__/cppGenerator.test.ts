@@ -4256,9 +4256,9 @@ describe('generateCpp — INMP441 audio engine', () => {
     // Unwired bands read thirds of a spectrum that sums nothing without audio.
     expect(barsCpp).toContain('_sum+=0.0f;')
     expect(barsCpp).not.toContain('_audioSpectrum[')
-    expect(barsCpp).toContain('float _b = min(1.0f, max(0.0f, constrain((_svBands[0]')
-    expect(barsCpp).toContain('_m = min(1.0f, max(0.0f, constrain((_svBands[')
-    expect(barsCpp).toContain('_t = min(1.0f, max(0.0f, constrain((_svBands[')
+    // Each unwired band is its third, eased by Smoothing as the preview eases it.
+    expect(barsCpp).toContain('_svTB_silentBars[0]=_svTB_silentBars[0]<0.0f?_r:_svTB_silentBars[0]*_svKeep+_r*(1.0f-_svKeep);')
+    expect(barsCpp).toContain('float _b = min(1.0f, max(0.0f, _svTB_silentBars[0])), _m = min(1.0f, max(0.0f, _svTB_silentBars[1])), _t = min(1.0f, max(0.0f, _svTB_silentBars[2]));')
     // Bass Pulse's unwired Bass is its 0.5 field, as the preview reads it.
     expect(pulseCpp).toContain('float _lv = constrain(0.5, 0.0f, 1.0f)')
   })

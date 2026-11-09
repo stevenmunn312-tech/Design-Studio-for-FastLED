@@ -37,19 +37,33 @@ function threeBandCpp({ node, id, p, ln, f, ownBuf, incoming, paletteExpr, needs
   const bands = Math.max(4, Math.min(32, Math.round(Number(p.bands ?? 16))))
   const audioConnected = hasExplicitAudioInput(node.id)
   const thirds = spectrumThirdBounds(bands)
+  // An unwired band is its spectrum third eased by Smoothing per 60th of a
+  // second (keepOver), as the preview eases it; a wired band reads the wire.
+  const ports = ['bass', 'mids', 'treble']
+  const eased = ports.some((port) => !incoming.has(`${node.id}:${port}`))
   const band = (port: string, i: number) => {
     if (incoming.has(`${node.id}:${port}`)) return f(port, port, 0)
-    const [from, to] = thirds[i]
-    return `constrain((${Array.from({ length: to - from }, (_, k) => `_svBands[${from + k}]`).join('+')})/${(to - from).toFixed(1)}f*_svGain,0.0f,1.0f)`
+    return `_svTB_${id}[${i}]`
   }
   const energy = f('energy', 'energy', 0.7)
   const speed = f('speed', 'speed', 0.6)
   const pal = paletteExpr(node.id, 'paletteIn', p)
   const mirror = p.mirror !== false
   ln(`  { // SpectrumVisualizer · Three Band`)
-  ln(`    float _svGain=constrain(${f('gain', 'gain', 1.25)},0.25f,4.0f);`)
-  ln(`    float _svBands[${bands}]={0};`)
-  ln(`    for(int _b=0;_b<${bands};_b++){ int _lo=(_b*32)/${bands},_hi=max(_lo+1,((_b+1)*32+${bands - 1})/${bands}); float _sum=0.0f; for(int _i=_lo;_i<_hi;_i++) _sum+=${audioConnected ? '_audioSpectrum[_i]' : '0.0f'}; _svBands[_b]=_sum/(_hi-_lo); }`)
+  // The spectrum is read only for an unwired band.
+  if (eased) ln(`    float _svGain=constrain(${f('gain', 'gain', 1.25)},0.25f,4.0f);`)
+  if (eased) ln(`    float _svBands[${bands}]={0};`)
+  if (eased) ln(`    for(int _b=0;_b<${bands};_b++){ int _lo=(_b*32)/${bands},_hi=max(_lo+1,((_b+1)*32+${bands - 1})/${bands}); float _sum=0.0f; for(int _i=_lo;_i<_hi;_i++) _sum+=${audioConnected ? '_audioSpectrum[_i]' : '0.0f'}; _svBands[_b]=_sum/(_hi-_lo); }`)
+  if (eased) {
+    ln(`    static float _svTB_${id}[3]={-1.0f,-1.0f,-1.0f};`)
+    for (const line of envelopeDtCpp(`_svTB${id}`)) ln(`    ${line}`)
+    ln(`    float _svKeep=${keepOverCpp(`constrain(${f('smoothing', 'smoothing', 0.58)},0.0f,0.95f)`, `_svTB${id}Dt`)};`)
+    thirds.forEach(([from, to], i) => {
+      if (incoming.has(`${node.id}:${ports[i]}`)) return
+      const raw = `constrain((${Array.from({ length: to - from }, (_, k) => `_svBands[${from + k}]`).join('+')})/${(to - from).toFixed(1)}f*_svGain,0.0f,1.0f)`
+      ln(`    { float _r=${raw}; _svTB_${id}[${i}]=_svTB_${id}[${i}]<0.0f?_r:_svTB_${id}[${i}]*_svKeep+_r*(1.0f-_svKeep); }`)
+    })
+  }
   const bass = band('bass', 0), mids = band('mids', 1), treble = band('treble', 2)
   ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
   ln(`    float _b = min(1.0f, max(0.0f, ${bass})), _m = min(1.0f, max(0.0f, ${mids})), _t = min(1.0f, max(0.0f, ${treble}));`)

@@ -305,11 +305,6 @@ freeze, or drop them.
   scale, so wired into a 0–1 input it barely moves and the help tells users
   to add a Smooth node. Apply Sensitivity as a gain plus about 0.15 s of
   smoothing. Evidence `src/nodes/audio/evaluate.ts:294`.
-- [ ] **Spectrum Visualizer: Smooth Three Band or split it out (Med, S).**
-  Three Band ignores the Smoothing and Tilt rows it shows; unwired bands
-  are raw spectrum thirds × gain, so bars jitter next to every other style.
-  Apply the smoothing, or make Three Band its own node. Evidence
-  `src/nodes/audioReactive/evaluate.ts:1158`.
 - [ ] **Gravity Well: Replace R/G/B ports with a palette (Med, S).** It is
   the only band pattern with no palette; a Color port overrides three R/G/B
   float ports. Swap the R/G/B ports for a palette and keep the optional

@@ -2496,7 +2496,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     mirror: 'Three Band only: draws the bars from the left edge and reflects them, so bass sits at both ends.',
     bands: 'How many frequency columns are drawn (4–32); fewer gives chunkier bars. Fixed at build time.',
     gain: 'Multiplies every band before drawing (0.25–4); above 1 lifts a quiet source. Three Band applies it to an unwired band.',
-    smoothing: 'How much of last frame each column keeps (0–0.95). Higher is steadier, slower.',
+    smoothing: 'Share each column keeps every 60th of a second (0–0.95); on Three Band, each unwired band. Higher is steadier, slower.',
     tilt: 'Boosts higher bands progressively (0–1) so treble columns reach as high as bass.',
     peakHold: 'Seconds a peak dot stays before it starts falling (0–2).',
     peakGravity: 'How fast a released peak dot accelerates downward (0.2–6); higher drops quicker.',
@@ -5358,7 +5358,8 @@ export function isPropertyEnabled(
     const threeBand = style === 'Three Band'
     if (key === 'waterfallSpeed') return style === 'Waterfall'
     if (key === 'peakHold' || key === 'peakGravity') return style !== 'Waterfall' && !threeBand
-    if (key === 'smoothing' || key === 'tilt') return !threeBand
+    // Three Band eases its unwired bands with Smoothing; it has no Tilt.
+    if (key === 'tilt') return !threeBand
     if (key === 'energy' || key === 'speed' || key === 'mirror') return threeBand
   }
   if (nodeType === 'FrameFeedback') {
