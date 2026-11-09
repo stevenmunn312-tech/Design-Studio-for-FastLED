@@ -376,42 +376,42 @@
             },
             {
               "id": "rotate",
-              "label": "Rotate",
+              "label": "Rotate (\u00b0)",
               "dataType": "float"
             },
             {
               "id": "rotateRate",
-              "label": "Rotate Rate",
+              "label": "Rate (\u00b0/s)",
               "dataType": "float"
             },
             {
               "id": "scale",
-              "label": "Scale",
+              "label": "Scale (\u00d7)",
               "dataType": "float"
             },
             {
               "id": "scaleRate",
-              "label": "Scale Rate",
+              "label": "Rate (%/s)",
               "dataType": "float"
             },
             {
               "id": "offsetX",
-              "label": "Offset X",
+              "label": "Offset X (px)",
               "dataType": "float"
             },
             {
               "id": "offsetY",
-              "label": "Offset Y",
+              "label": "Offset Y (px)",
               "dataType": "float"
             },
             {
               "id": "offsetXRate",
-              "label": "Offset X Rate",
+              "label": "X Rate (px/s)",
               "dataType": "float"
             },
             {
               "id": "offsetYRate",
-              "label": "Offset Y Rate",
+              "label": "Y Rate (px/s)",
               "dataType": "float"
             }
           ],

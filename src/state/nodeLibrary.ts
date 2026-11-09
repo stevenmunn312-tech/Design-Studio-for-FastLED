@@ -119,6 +119,7 @@ import {
   FRAME_OFFSET, FRAME_SCALE, FRAME_TRANSFORM_EDGES, FRAME_TRANSFORM_MODES, TRANSFORM_RATE, frameTransformMode,
 } from '../nodes/composite/frameTransform'
 import { BLUR_RADIUS, GRADIENT_REPEAT, GRADIENT_TYPES } from '../nodes/field/gradientField'
+import { FIELD_EDGE_MODES, FIELD_STRENGTH, FIELD_TILES, FIELD_ZOOM } from '../nodes/field/fieldTransform'
 import { METER_ORIGINS, METER_PEAK_HOLD } from '../nodes/audioReactive/levelMeter'
 import { BAND_HZ, BAND_PRESETS } from '../audio/frequencyBand'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM } from '../audio/beatPhase'
@@ -251,7 +252,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
+  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldWarp', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -1407,6 +1408,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     sampling: { control: 'select', options: ['bilinear', 'nearest'] },
   },
   FieldWarp: {
+    strength: { control: 'slider', min: FIELD_STRENGTH.min, max: FIELD_STRENGTH.max, step: 0.1 },
+    angle: { control: 'slider', min: -180, max: 180, step: 1 },
+    spin: { control: 'slider', min: -360, max: 360, step: 1 },
+    zoom: { control: 'slider', min: FIELD_ZOOM.min, max: FIELD_ZOOM.max, step: 0.05 },
+    tilesX: { control: 'slider', min: FIELD_TILES.min, max: FIELD_TILES.max, step: 1 },
+    tilesY: { control: 'slider', min: FIELD_TILES.min, max: FIELD_TILES.max, step: 1 },
+    edgeMode: { control: 'select', options: [...FIELD_EDGE_MODES] },
     sampling: { control: 'select', options: ['bilinear', 'nearest'] },
   },
   FieldSymmetry: {
@@ -3121,16 +3129,16 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     t: 'Mix only: crossfade between A and B. 0 shows only A, 1 only B. Wire a signal to animate it.',
   },
   FieldWarp: {
-    strength: 'How far the dX and dY fields can push each pixel, in pixels. A field value of 0.5 is no push.',
-    sampling: 'Bilinear blends the pixels between, so a warp flows smoothly; nearest keeps hard steps, for a field that must stay crisp.',
-  },
-  FieldRotate: {
-    angle: 'Fixed turn of the field about the centre, in degrees. Pixels wrap round at the edges.',
-    spin: 'Keeps the field turning, in degrees per second. 0 holds still.',
-  },
-  FieldTile: {
-    tilesX: 'Copies across the width. The field is shrunk by skipping pixels, then repeated.',
-    tilesY: 'Copies down the height. The field is shrunk by skipping pixels, then repeated.',
+    dx: 'A field that pushes each pixel sideways. 0.5 is no push.',
+    dy: 'A field that pushes each pixel up or down. 0.5 is no push.',
+    strength: 'How far the Offset X and Y fields can push each pixel, in pixels. A field value of 0.5 is no push.',
+    angle: 'Fixed turn of the field about the centre, in degrees.',
+    spin: 'Keeps the field turning, in degrees a second. Negative turns the other way; 0 holds still.',
+    zoom: 'Size about the centre. Above 1 enlarges the field; below 1 shrinks it and shows what lies past its edges.',
+    tilesX: 'Copies across the width, from the left edge. Each copy blends the pixels it shrinks rather than skipping them.',
+    tilesY: 'Copies down the height, from the top edge. Each copy blends the pixels it shrinks rather than skipping them.',
+    edgeMode: 'What lies past the field\'s edges once it is turned, shrunk or tiled: the edge held, the field repeated, or the field mirrored so every other copy is reflected.',
+    sampling: 'Bilinear blends the pixels between, so a warp or turn flows smoothly; nearest keeps hard steps, for a field that must stay crisp.',
   },
   Blur2D: {
     amount: 'How far colour bleeds into neighbours. 0 is sharp; 1 is a heavy smear.',
@@ -3602,17 +3610,17 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     value: 'B value',
     t: 'mix',
   },
-  FieldTile: {
-    tilesX: 'tiles X',
-    tilesY: 'tiles Y',
-  },
   FieldSymmetry: {
     offsetX: 'offset X',
     offsetY: 'offset Y',
     spin: 'spin (°/s)',
   },
-  FieldRotate: {
+  FieldWarp: {
+    angle: 'angle (°)',
     spin: 'spin (°/s)',
+    tilesX: 'tiles X',
+    tilesY: 'tiles Y',
+    edgeMode: 'edges',
   },
   Blend: {
     blendMode: 'mode',
@@ -4477,6 +4485,14 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'position', label: 'Position', keys: ['offsetX', 'offsetY', 'angle', 'scale'] },
     { key: 'repeat', label: 'Repeat', keys: ['count', 'falloff', 'blendMode'] },
   ],
+  // Field Transform mirrors Frame Warp's push and sampling, with the turn,
+  // zoom and tiles between them.
+  FieldWarp: [
+    { key: 'push', label: 'Push', keys: ['strength'] },
+    { key: 'turn', label: 'Turn', keys: ['angle', 'spin'] },
+    { key: 'scale', label: 'Zoom & Tiles', keys: ['zoom', 'tilesX', 'tilesY'] },
+    { key: 'sampling', label: 'Sampling', keys: ['edgeMode', 'sampling'] },
+  ],
   FrameWarp: [
     { key: 'push', label: 'Push', keys: ['motion', 'motionSpeed', 'strength'] },
     { key: 'sampling', label: 'Sampling', keys: ['edgeMode', 'sampling'] },
@@ -4813,7 +4829,7 @@ export function bypassPort(outputs: { id: string; dataType?: string }[], inputs:
  *
  * The rule is *declaration order*, with `spliceInput` as the override. That
  * works because the library declares a node's primary input first — Mask takes
- * `frame` before `mask`, Clamp `value` before `min`, Field Warp `field` before
+ * `frame` before `mask`, Clamp `value` before `min`, Field Transform `field` before
  * `dx` — so the first compatible input is nearly always the pass-through one.
  * Blend is the exception the override exists for: `a` and `b` are peers, and
  * only one of them is the layer underneath.

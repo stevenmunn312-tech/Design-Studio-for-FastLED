@@ -89,14 +89,15 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Geometry',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
-      { id: 'rotate', label: 'Rotate', dataType: 'float' },
-      { id: 'rotateRate', label: 'Rotate Rate', dataType: 'float' },
-      { id: 'scale', label: 'Scale', dataType: 'float' },
-      { id: 'scaleRate', label: 'Scale Rate', dataType: 'float' },
-      { id: 'offsetX', label: 'Offset X', dataType: 'float' },
-      { id: 'offsetY', label: 'Offset Y', dataType: 'float' },
-      { id: 'offsetXRate', label: 'Offset X Rate', dataType: 'float' },
-      { id: 'offsetYRate', label: 'Offset Y Rate', dataType: 'float' },
+      // Each socket sits on its property row, so it reads as the row does.
+      { id: 'rotate', label: 'Rotate (°)', dataType: 'float' },
+      { id: 'rotateRate', label: 'Rate (°/s)', dataType: 'float' },
+      { id: 'scale', label: 'Scale (×)', dataType: 'float' },
+      { id: 'scaleRate', label: 'Rate (%/s)', dataType: 'float' },
+      { id: 'offsetX', label: 'Offset X (px)', dataType: 'float' },
+      { id: 'offsetY', label: 'Offset Y (px)', dataType: 'float' },
+      { id: 'offsetXRate', label: 'X Rate (px/s)', dataType: 'float' },
+      { id: 'offsetYRate', label: 'Y Rate (px/s)', dataType: 'float' },
     ],
     propertyInputs: {
       rotate: 'rotate', rotateRate: 'rotateRate', scale: 'scale', scaleRate: 'scaleRate',

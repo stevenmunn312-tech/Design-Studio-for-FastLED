@@ -264,11 +264,18 @@
           "y": 0
         },
         "data": {
-          "label": "Field Warp",
+          "label": "Field Transform",
           "nodeType": "FieldWarp",
           "category": "field",
           "properties": {
-            "strength": 1.35
+            "strength": 1.35,
+            "angle": 0,
+            "spin": 0,
+            "zoom": 1,
+            "tilesX": 1,
+            "tilesY": 1,
+            "edgeMode": "clamp",
+            "sampling": "bilinear"
           },
           "inputs": [
             {
@@ -278,17 +285,42 @@
             },
             {
               "id": "dx",
-              "label": "dX",
+              "label": "Offset X",
               "dataType": "field"
             },
             {
               "id": "dy",
-              "label": "dY",
+              "label": "Offset Y",
               "dataType": "field"
             },
             {
               "id": "strength",
               "label": "Strength",
+              "dataType": "float"
+            },
+            {
+              "id": "angle",
+              "label": "Angle (°)",
+              "dataType": "float"
+            },
+            {
+              "id": "spin",
+              "label": "Spin (°/s)",
+              "dataType": "float"
+            },
+            {
+              "id": "zoom",
+              "label": "Zoom",
+              "dataType": "float"
+            },
+            {
+              "id": "tilesX",
+              "label": "Tiles X",
+              "dataType": "float"
+            },
+            {
+              "id": "tilesY",
+              "label": "Tiles Y",
               "dataType": "float"
             }
           ],

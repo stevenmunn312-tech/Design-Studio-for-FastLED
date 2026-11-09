@@ -380,11 +380,11 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     id: 'field-warp',
     level: 'Intermediate',
     preview: 'Runs in the browser — nothing to plug in to start.',
-    name: 'Field Warp Demo',
+    name: 'Field Transform Demo',
     description: 'Learn a field pipeline: one noise field becomes the image while two more bend its coordinates.',
     completionSteps: [
-      'Follow the three Field wires: Base supplies brightness; dX and dY supply distortion.',
-      'Change Field Warp Strength first so the role of the displacement fields is obvious.',
+      'Follow the three Field wires: Base supplies brightness; Offset X and Offset Y supply distortion.',
+      'Change Field Transform Strength first so the role of the displacement fields is obvious.',
       'Tune each Field Noise Scale and Speed, then use Field → Frame to colorize the result.',
     ],
     nodeSpecs: [
@@ -396,7 +396,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 3, row: 1 },
       tutorialNote(
         'guide', 0, -1,
-        'FIELD PIPELINE\nFields are brightness maps. Base is the image; dX and dY bend it.\nTry Warp Strength, then Noise Scale.',
+        'FIELD PIPELINE\nFields are brightness maps. Base is the image; Offset X and Y bend it.\nTry Strength, then Noise Scale.',
       ),
     ],
     edgeSpecs: [

@@ -28,6 +28,7 @@ import {
 } from '../../state/evaluator/turing'
 import { buildSliceChildMatrices, resolveSlicePattern, sliceBit, walkSliceLeaf } from './sliceTiling'
 import { BLUR_RADIUS, GRADIENT_REPEAT, blurRadius, gradientLinearSpan, gradientRadialSpan, gradientRepeat, gradientType, gradientWraps } from './gradientField'
+import { type FieldTransformFrame, fieldEdgeMode, fieldTransformFrame, fieldTransformPixel } from './fieldTransform'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 
 interface WaveSimState { prev: Float32Array; cur: Float32Array; next: Float32Array; w: number; h: number; prevTrigger: boolean; pulse: number }
@@ -554,72 +555,14 @@ function evalShapeField(
   return out
 }
 
-/**
- * A field read between pixels, edges clamped: the four neighbours blended by
- * how close the point is to each. The Field Warp emitter writes the same sum
- * in the same order.
- */
-export function sampleFieldBilinear(field: Field, sx: number, sy: number, W: number, H: number): number {
-  const fx = Math.max(0, Math.min(W - 1, sx)), fy = Math.max(0, Math.min(H - 1, sy))
-  const x0 = Math.floor(fx), y0 = Math.floor(fy)
-  const x1 = Math.min(x0 + 1, W - 1), y1 = Math.min(y0 + 1, H - 1)
-  const ax = fx - x0, ay = fy - y0
-  const top = field[y0 * W + x0] * (1 - ax) + field[y0 * W + x1] * ax
-  const bottom = field[y1 * W + x0] * (1 - ax) + field[y1 * W + x1] * ax
-  return top * (1 - ay) + bottom * ay
-}
-
-// Sample `field` at coordinates pushed by the dx/dy offset fields. Offsets map
-// 0–1 → −strength…+strength pixels (an unwired offset field = no push), and
-// the sample is bilinear or nearest, clamped to the matrix edges.
-function evalFieldWarp(
-  field: Field | null, dx: Field | null, dy: Field | null, strength: number, bilinear: boolean, W = DEFAULT_W, H = DEFAULT_H,
-): Field {
+// Field Transform (./fieldTransform.ts): push by the offset fields, turn,
+// zoom and tile, read at the edge mode. No source field is an empty field.
+function evalFieldTransform(field: Field | null, dx: Field | null, dy: Field | null, frame: FieldTransformFrame): Field {
+  const { W, H } = frame
   const out = allocField(W * H)
   if (!field) return out
   for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const ox = dx ? (2 * dx[y * W + x] - 1) * strength : 0
-      const oy = dy ? (2 * dy[y * W + x] - 1) * strength : 0
-      if (bilinear) {
-        out[y * W + x] = sampleFieldBilinear(field, x + ox, y + oy, W, H)
-        continue
-      }
-      const sx = Math.max(0, Math.min(W - 1, Math.round(x + ox)))
-      const sy = Math.max(0, Math.min(H - 1, Math.round(y + oy)))
-      out[y * W + x] = field[sy * W + sx]
-    }
-  }
-  return out
-}
-
-// Rotate a field around its centre by `angleRad`. Samples the source at the
-// inverse-rotated coordinate (nearest-neighbour), wrapping at the matrix edges.
-function evalFieldRotate(field: Field | null, angleRad: number, W = DEFAULT_W, H = DEFAULT_H): Field {
-  const out = allocField(W * H)
-  if (!field) return out
-  const cxc = (W - 1) / 2, cyc = (H - 1) / 2
-  const ca = Math.cos(-angleRad), sa = Math.sin(-angleRad)
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const dx = x - cxc, dy = y - cyc
-      const sx = ((Math.round(dx * ca - dy * sa + cxc) % W) + W) % W
-      const sy = ((Math.round(dx * sa + dy * ca + cyc) % H) + H) % H
-      out[y * W + x] = field[sy * W + sx]
-    }
-  }
-  return out
-}
-
-// Tile/repeat a field `tilesX`×`tilesY` times across the matrix (nearest sample).
-function evalFieldTile(field: Field | null, tilesX: number, tilesY: number, W = DEFAULT_W, H = DEFAULT_H): Field {
-  const out = allocField(W * H)
-  if (!field) return out
-  const tx = Math.max(1, Math.round(tilesX)), ty = Math.max(1, Math.round(tilesY))
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      out[y * W + x] = field[((y * ty) % H) * W + ((x * tx) % W)]
-    }
+    for (let x = 0; x < W; x++) out[y * W + x] = fieldTransformPixel(field, dx, dy, x, y, frame)
   }
   return out
 }
@@ -975,31 +918,23 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
       W, H,
     ) }
   },
-  FieldWarp({ input, num, W, H }, id, props) {
+  // Field Transform. Keep in lockstep with its emitter: Angle plus the Spin
+  // integrated on the node's speed clock is the turn.
+  FieldWarp({ input, num, t, W, H, stateKey }, id, props) {
     const fv = input(id, 'field', null)
     const dxv = input(id, 'dx', null)
     const dyv = input(id, 'dy', null)
-    const strength = num(id, 'strength', props, 'strength', 2)
-    return { field: evalFieldWarp(
+    const degrees = num(id, 'angle', props, 'angle', 0) + speedPhase(stateKey(id), t, num(id, 'spin', props, 'spin', 0))
+    return { field: evalFieldTransform(
       fv instanceof Float32Array ? fv : null,
       dxv instanceof Float32Array ? dxv : null,
       dyv instanceof Float32Array ? dyv : null,
-      strength, props.sampling !== 'nearest', W, H,
+      fieldTransformFrame(
+        num(id, 'strength', props, 'strength', 2), degrees, num(id, 'zoom', props, 'zoom', 1),
+        num(id, 'tilesX', props, 'tilesX', 1), num(id, 'tilesY', props, 'tilesY', 1),
+        fieldEdgeMode(props.edgeMode), props.sampling !== 'nearest', W, H,
+      ),
     ) }
-  },
-  FieldRotate({ input, num, t, W, H, stateKey }, id, props) {
-    const fv = input(id, 'field', null)
-    const field = fv instanceof Float32Array ? fv : null
-    // angle (degrees) plus an optional continuous spin (degrees/sec).
-    const deg = num(id, 'angle', props, 'angle', 0) + speedPhase(stateKey(id), t, num(id, 'spin', props, 'spin', 30))
-    return { field: evalFieldRotate(field, (deg * Math.PI) / 180, W, H) }
-  },
-  FieldTile({ input, num, W, H }, id, props) {
-    const fv = input(id, 'field', null)
-    const field = fv instanceof Float32Array ? fv : null
-    const tx = num(id, 'tilesX', props, 'tilesX', 2)
-    const ty = num(id, 'tilesY', props, 'tilesY', 2)
-    return { field: evalFieldTile(field, tx, ty, W, H) }
   },
   FieldSymmetry({ input, num, t, W, H, stateKey }, id, props) {
     const source = input(id, 'field', null)
