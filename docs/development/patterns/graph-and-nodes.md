@@ -602,7 +602,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   and an emitter whose value needs a different block delegates to its own
   function (`fire2012Cpp`, `threeBandCpp`) before destructuring the context.
   Bundled content is converted, not migrated: pre-1.0, a save holding a
-  removed type shows it as unknown.
+  removed type shows it as unknown. Where a promoted saved graph (kept byte
+  for byte) uses a node that gains a new default mode, the absent key keeps
+  the old behaviour and the other bundled seeds name it: Audio → Hue reads a
+  missing `mode` as Weighted Sum while new nodes start on Balance. The
+  canvas backfills the library default for a missing key, so such a node
+  shows Balance until its Mode is set; keep this to cases the promoted
+  graphs force.
 - Loop pacing is one helper, `loopPacingCpp` (`codegen/loopPacing.ts`),
   fed by the Board's `frameRate` through `controllerSettings`: the normal
   sketch, the show controller and the player all end their loop with it, and

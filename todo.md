@@ -273,47 +273,72 @@ freeze, or drop them.
   Features' peak-relative Energy output and invites Energy → Reactivity
   wiring (about 20 bundled-pattern edges and the Vocal Aurora help example
   do this). Rename the id and port (pre-1.0, so no migration needed) so
-  choosing Energy or Loudness becomes a deliberate wire.
+  choosing Energy or Loudness becomes a deliberate wire. Left open: the
+  fourteen promoted saved graphs (`bundledSavedAudioPatterns.ts`) must stay
+  byte for byte, and several carry `energy` properties and edges, so a
+  rename needs a decision on how their copies are converted; the show
+  engines' `useGroupInputs` also feed a pattern's `energy` input by name.
 - [ ] **Category: Remap Speed so the current look sits mid-slider (Med, M).**
   BassRings, MidrangeWaves, MidrangeBloom, TreblePrism, AudioCascade,
   KickShock, VocalAurora, BeatKaleidoscope, SpectraMosaic, EmberPulse,
   TurbulentBloom, GravityWell, RainRipples and PrismStorm default `speed`
   to 1.0 on a 0–1 slider, leaving no room to go faster. Remap so the
   current look is 0.5 (internal rate = 2 × slider) and update saved values
-  and bundled patterns. Evidence `src/state/nodeLibrary.ts:583`.
+  and bundled patterns. Evidence `src/state/nodeLibrary.ts:583`. Left open:
+  many bundled patterns wire Map Range or audio levels into these speeds,
+  and the promoted graphs cannot be edited, so a remap changes tuned looks
+  unless every wired range is halved too; needs a by-ear check.
 - [ ] **Category: Add an optional Audio input to the band patterns (Med,
   M).** Every band pattern needs Mic → FFT Analyzer → pattern. Spectrum
   Visualizer's Three Band style already falls back to the spectrum thirds
   when its band ports are unwired. Give the band patterns an optional Audio
   input with the same fallback so a first patch is one wire; keep FFT
   Analyzer for gain, smoothing and tilt. Evidence
-  `src/nodes/audioReactive/evaluate.ts:1158`.
+  `src/nodes/audioReactive/evaluate.ts:1158`. Left open (size): about
+  fourteen evaluators and emitters. Three Band now eases its unwired thirds
+  (keepOver in `nodes/shared/envelopeClock.ts`) and FFT Analyzer analyses at
+  a fixed 24-bin split (`FFT_ANALYSIS_BANDS`); a shared helper doing both
+  with per-node state, the port declared last so splicing is unchanged, and
+  `dropConnections` auto-wiring it would make a first patch one wire.
 - [ ] **Category: Standardise colour inputs on Palette plus optional Color
   (Low, M).** Gravity Well uses a Color port plus R/G/B and no palette,
   Beat Flash uses a `'none'` palette sentinel plus R/G/B, Dance Flash is
   R/G/B only, and Ember Pulse is a fixed HeatColor ramp. Move all four to a
   Palette port plus an optional Color port. Evidence
-  `src/state/nodeLibrary.ts:740`.
+  `src/state/nodeLibrary.ts:740`. Beat Flash is done: a Color select
+  (Solid, Palette) replaced the `'none'` sentinel and gates R/G/B. Dance
+  Flash and Ember Pulse remain (the HeatColor ramp is a look choice), and
+  Gravity Well is blocked as below.
 - [ ] **Audio Features: Apply Sensitivity and smoothing to Loudness (Med,
   S).** Loudness is the raw meter and real music sits at 0.02–0.2 of its
   scale, so wired into a 0–1 input it barely moves and the help tells users
   to add a Smooth node. Apply Sensitivity as a gain plus about 0.15 s of
-  smoothing. Evidence `src/nodes/audio/evaluate.ts:294`.
+  smoothing. Evidence `src/nodes/audio/evaluate.ts:294`. Left open: the
+  shared energy stage (`energyDynamics.ts`) reads each pattern's own Audio
+  Features Loudness, whose Sensitivity varies 0.5–0.65 across the bundled
+  patterns, through its own 0.15 s Smooth, with ranges set by ear for the
+  raw meter. A gain would retune 86 patterns and a second smoother would
+  stack lag (the 0.6 s delay Steve heard). Needs a decision: a separate
+  eased output, or moving the stage onto it and retuning by ear.
 - [ ] **Gravity Well: Replace R/G/B ports with a palette (Med, S).** It is
   the only band pattern with no palette; a Color port overrides three R/G/B
   float ports. Swap the R/G/B ports for a palette and keep the optional
   Color port, or fold it into Bass Rings as a "lensing" style. Evidence
-  `src/nodes/audioReactive/definitions.ts:457`.
-- [ ] **Rain Ripples: Consider merging with Kick Shock (Low, M).** Rain
-  Ripples is Kick Shock's kick lane with a bool trigger, sharing count,
-  decay, thickness, spread and blend. Fold it in as a Trigger input plus a
-  preset, or leave as is. Evidence `src/state/nodeLibrary.ts:962`.
+  `src/nodes/audioReactive/definitions.ts:457`. Left open: the promoted
+  Event Horizon graph (byte for byte) colours its well with unwired R/G/B
+  80/160/255, so dropping R/G/B recolours it; a Solid/Palette select like
+  Beat Flash's would keep it, but a saved node without the key would read
+  differently from a new one. Needs a decision on that graph.
 - [ ] **Color Trails: Cut the tuning knobs (Med, M).** Twelve knobs over 15
   inputs, with separate X and Y speed, amplitude and frequency, and a
   Persistence slider (0.9–0.9999, step 0.0001) the help explains in
   minutes. Link X and Y by default (one Flow speed, strength and scale plus
   an "independent axes" toggle), and replace Persistence with a Trail
-  length in seconds. Evidence `src/state/nodeLibrary.ts:899`.
+  length in seconds. Evidence `src/state/nodeLibrary.ts:899`. Left open:
+  all four bundled Color Trails tune X and Y differently (often opposite
+  signs), so each would need the independent toggle and a conversion of
+  Persistence (0.9988–0.99935 per frame) into seconds; the trail-length
+  curve wants a by-ear check.
 
 #### Colour and maths
 
