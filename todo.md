@@ -666,13 +666,6 @@ freeze, or drop them.
   pixel stays 1 in preview but is 0 on the board. Add `+0.5f` in firmware
   or use the byte kernel on both sides. Evidence
   `src/nodes/composite/evaluate.ts:256`, `src/nodes/composite/codegen.ts:17`.
-- [ ] **Gamma: Make preview match FastLED on dim pixels (Med, S).** Preview
-  uses `Math.round(255*(c/255)^g)`; firmware `napplyGamma_video` truncates
-  and lifts every non-zero input to at least 1. At gamma 2.2, inputs up to
-  about 12 are black in preview but glow on the LEDs. Truncate, then raise
-  non-zero results to 1 in the preview, and add a gamma parity test.
-  Evidence `src/nodes/composite/evaluate.ts:551`,
-  `src/nodes/composite/codegen.ts:222`.
 - [ ] **Gamma: Offer a Gamma setting on the LED output (Low, M).** Help says
   to put Gamma last, just before the LED output; a setting on the output
   would remove a node from most finished graphs. Evidence

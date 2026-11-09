@@ -22,6 +22,7 @@ import { speedPhase } from '../shared/speedClock'
 import { fadeFrameToBlackBy, timedFadeAmount } from '../shared/trailFade'
 import { TRAILS_REFERENCE_FPS } from './trails'
 import { evalKaleidoscope } from './kaleidoscope'
+import { gammaVideoTable } from './gamma'
 import {
   arrayCopy, arrayDim, arrayOver, arraySource, blendMix8, div255, feedbackFrame, feedbackSource, sampleFrameQ8, wallpaperFrame,
   wallpaperSourceQ8,
@@ -545,12 +546,13 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       ),
     }
   },
+  // FastLED's napplyGamma_video, ported byte for byte (./gamma.ts): fixed
+  // point, rounded, and a lit channel never drops to 0.
   Gamma({ input, num, W, H }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
-    const g = Math.max(0.1, num(id, 'gamma', props, 'gamma', 2.2))
+    const table = gammaVideoTable(Math.max(0.1, num(id, 'gamma', props, 'gamma', 2.2)))
     if (!src) { return { frame: null } }
-    const corr = (c: number) => Math.round(255 * Math.pow(c / 255, g))
-    return { frame: buildFrame(W, H, (x, y) => { const px = src[y][x]; return { r: corr(px.r), g: corr(px.g), b: corr(px.b) } }) }
+    return { frame: buildFrame(W, H, (x, y) => { const px = src[y][x]; return { r: table[px.r], g: table[px.g], b: table[px.b] } }) }
   },
   Invert({ input, W, H }, id) {
     const src = input(id, 'frame', null) as Frame | null
