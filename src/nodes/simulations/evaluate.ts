@@ -976,7 +976,7 @@ export function golStep(cells: Uint8Array, next: Uint8Array, prev: Uint8Array, W
   return pop === 0 || !changed || !changed2
 }
 
-function evalGameOfLife(nodeId: string, palette: Palette, speed: number, trail: number, tick: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
+function evalGameOfLife(nodeId: string, palette: Palette, speed: number, trail: number, tick: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
   const N = W * H
   const reseed = (cells: Uint8Array) => {
     for (let i = 0; i < N; i++) cells[i] = seededRandom(`${nodeId}:gol`, seed) < 0.3 ? 1 : 0
@@ -998,7 +998,9 @@ function evalGameOfLife(nodeId: string, palette: Palette, speed: number, trail: 
     s.lastStep = tick
   }
   const { cells, bright } = s
-  const keep = trailKeep(nodeId, t, trail)
+  // Elapsed seconds, like the generation timer, so Master Speed leaves the
+  // trail alone as it does on the board (millis()).
+  const keep = trailKeep(nodeId, tick / 60, trail)
   for (let i = 0; i < N; i++) bright[i] = cells[i] ? 1 : bright[i] * keep
   return buildFrame(W, H, (x, y) => {
       const b = bright[y * W + x]
@@ -1179,10 +1181,10 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
     return evalReactionDiffusion(stateKey(id), feed, kill, iters, palette, W, H, normalizedSeed(props.seed))
   },
-  GameOfLife({ num, pal, elapsedTick: tick, t, W, H, stateKey }, id, props) {
+  GameOfLife({ num, pal, elapsedTick: tick, W, H, stateKey }, id, props) {
     const palette = pal(id, 'paletteIn', props, 'palette', 'mojito')
     const speed = num(id, 'speed', props, 'speed', 8)
     const trail = num(id, 'trail', props, 'trail', 0.37)
-    return { frame: evalGameOfLife(stateKey(id), palette, speed, trail, tick, t, W, H, normalizedSeed(props.seed)) }
+    return { frame: evalGameOfLife(stateKey(id), palette, speed, trail, tick, W, H, normalizedSeed(props.seed)) }
   },
 }

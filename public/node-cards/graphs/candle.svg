@@ -1127,15 +1127,15 @@
 <g id="lamp-6.94x6.94"><rect x="-2.78" y="-1.53" width="12.49" height="9.99" rx="5.00" fill-opacity="0.34"/><rect width="6.94" height="6.94" rx="1.53"/></g>
 <g id="lamp-16.50x16.50"><rect x="-6.60" y="-3.63" width="29.70" height="23.76" rx="11.88" fill-opacity="0.34"/><rect width="16.50" height="16.50" rx="3.63"/></g>
 </defs>
-<path d="M284,324 C329,324 339,384 384,384" fill="none" stroke="#33d6ff" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M284,324 C329,324 339,384 384,384" fill="none" stroke="#33d6ff" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M284,324 C329,324 339,384 384,384" fill="none" stroke="#33d6ff" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="384" cy="384" r="3" fill="#33d6ff"/>
+<path d="M284,324 C329,324 339,384 384,384" fill="none" stroke="#47c9ea" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M284,324 C329,324 339,384 384,384" fill="none" stroke="#47c9ea" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M284,324 C329,324 339,384 384,384" fill="none" stroke="#47c9ea" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="384" cy="384" r="3" fill="#47c9ea"/>
 <g transform="translate(44,44)">
-<defs><linearGradient id="tint-pattern" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22404d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<defs><linearGradient id="tint-pattern" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#253e4a"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="240" height="400" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="400" rx="8" fill="url(#tint-pattern)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#33d6ff"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#47c9ea"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Candle</text>
 <rect x="135.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -1437,10 +1437,10 @@
 <rect x="0.5" y="0.5" width="239" height="399" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(384,64)">
-<defs><linearGradient id="tint-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#392649"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<defs><linearGradient id="tint-output" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#372946"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="280" height="539" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="280" height="539" rx="8" fill="url(#tint-output)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L272,0 Q280,0 280,8 L280,32 Z" fill="#d633ff"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L272,0 Q280,0 280,8 L280,32 Z" fill="#c947ea"/>
 <rect x="1" y="32" width="278" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">LED Matrix</text>
 <rect x="175.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>

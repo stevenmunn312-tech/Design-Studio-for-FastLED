@@ -52,7 +52,7 @@ describe('nodePresets', () => {
       code: 'leds[0] = CRGB::Red;',
       globalCode: 'int x;',
       brightness: 0.5,
-    })).toEqual({ brightness: 0.5 })
+    })).toEqual({ a: 0, b: 0, brightness: 0.5 })
     expect(presettableProperties('Group', { groupId: 'group-1', opacity: 0.5 })).toEqual({ opacity: 0.5 })
     const imageProps = presettableProperties('Image', { image: { w: 1 }, playbackRate: 2, brightness: 0.8 })
     expect(imageProps).toEqual(expect.objectContaining({ brightness: 0.8 }))

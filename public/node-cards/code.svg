@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 376 731" width="376" height="731" role="img" aria-label="Code node">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 376 802" width="376" height="802" role="img" aria-label="Code node">
 
 <defs>
 <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="11" flood-color="#000" flood-opacity="0.24"/></filter>
@@ -7,10 +7,10 @@
 <g id="lamp-9.44x9.44"><rect x="-3.78" y="-2.08" width="16.99" height="13.59" rx="6.79" fill-opacity="0.34"/><rect width="9.44" height="9.44" rx="2.08"/></g>
 </defs>
 <g transform="translate(28,24)">
-<defs><linearGradient id="tint-pattern" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22404d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
-<rect x="0" y="0" width="320" height="667" rx="8" fill="#1f242b" filter="url(#shadow)"/>
-<rect x="0" y="0" width="320" height="667" rx="8" fill="url(#tint-pattern)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L312,0 Q320,0 320,8 L320,32 Z" fill="#33d6ff"/>
+<defs><linearGradient id="tint-pattern" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#253e4a"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<rect x="0" y="0" width="320" height="738" rx="8" fill="#1f242b" filter="url(#shadow)"/>
+<rect x="0" y="0" width="320" height="738" rx="8" fill="url(#tint-pattern)"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L312,0 Q320,0 320,8 L320,32 Z" fill="#47c9ea"/>
 <rect x="1" y="32" width="318" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Code</text>
 <rect x="215.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -299,10 +299,26 @@
 <text x="16" y="596.6" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">  dothue += 32;</text>
 <text x="16" y="614" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">}</text>
 <line x1="8" y1="636.5" x2="312" y2="636.5" stroke="rgba(255,255,255,0.05)"/>
-<text x="8" y="655" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bypass</text>
+<text x="8" y="658" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Expose input…</text>
+<text x="8" y="682" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">a</text>
 <g>
-<rect x="178" y="644.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
+<rect x="178" y="668" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
+<text x="183" y="682" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0</text>
 </g>
-<rect x="0.5" y="0.5" width="319" height="666" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<text x="304" y="682" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<circle cx="0" cy="678" r="9" fill="#9aa0a6" opacity="0.22"/>
+<circle cx="0" cy="678" r="6" fill="#9aa0a6"/>
+<text x="8" y="705" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">b</text>
+<g>
+<rect x="178" y="691" width="112" height="20" rx="4" fill="#0d0f12" stroke="rgba(255,255,255,0.1)"/>
+<text x="183" y="705" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0">0</text>
+</g>
+<circle cx="0" cy="701" r="9" fill="#9aa0a6" opacity="0.22"/>
+<circle cx="0" cy="701" r="6" fill="#9aa0a6"/>
+<text x="8" y="726" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bypass</text>
+<g>
+<rect x="178" y="715.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
+</g>
+<rect x="0.5" y="0.5" width="319" height="737" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 </svg>

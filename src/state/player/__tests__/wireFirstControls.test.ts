@@ -124,7 +124,7 @@ describe('which inputs can take a wired control', () => {
     // the generator were taught to read them.
     for (const [port, label] of [
       ['speed', 'Speed'], ['dotSize', 'Dot Size'], ['count', 'Count'],
-      ['persistence', 'Persistence'], ['freqA', 'Freq A'], ['freqB', 'Freq B'],
+      ['trail', 'Trail'], ['freqA', 'Freq A'], ['freqB', 'Freq B'],
       ['petals', 'Petals'], ['chaos', 'Chaos'],
     ] as const) {
       const properties = { formulaType: 'phyllotaxis', preset: 'classic' }

@@ -633,7 +633,7 @@ const phase10String = (() => {
     node('gauge', 'Gauge', { gaugeStyle: 'bar', segments: 6, peakHold: 2, direction: 'right', palette: 'heat' }),
     node('candle', 'Candle', { mode: 'perPixel' }),
     node('bolt', 'Lightning', { rate: 20 }),
-    node('beat', 'Heartbeat', { bpm: 72 }),
+    node('beat', 'Breathe', { curve: 'heartbeat', bpm: 72 }),
     node('tv', 'TVSimulator', {}),
     node('sun', 'Sunrise', { mode: 'manual' }),
     node('fire', 'Fire', { direction: 'right', fireStyle: 'smoke' }),

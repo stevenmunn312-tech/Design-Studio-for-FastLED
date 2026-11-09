@@ -73,12 +73,21 @@ in section 4.
 ### Node review follow-ups
 
 From the 2026-11-09 review of every library node (235). The ten bugs it
-found that were confirmed in code are fixed (`aedaa095`). What follows are the
-review's remaining suggestions, one checkbox each, tagged (impact, effort)
-and cited to the code they came from. They have not been rechecked against
-the code since, so confirm the claim before acting on it. Merges, renames and
-removed properties change saved shapes: land them before the HW-18 format
-freeze, or drop them.
+found that were confirmed in code are fixed (`aedaa095`), and on 2026-11-10
+the rest of its suggestions were checked against the code and most landed
+(see CHANGELOG). What follows is what was left: each item needs a product
+decision, a bench part, a by-ear check or a larger rework, and most carry a
+note on what was found. Merges, renames and removed properties change saved
+shapes: land them before the HW-18 format freeze, or drop them.
+
+New firmware from that pass has not been compiled yet. Before the freeze,
+compile one fixture each for: DMX and DDP Live, Presence `connected` and mm,
+Keypad keys and Digit, Touch Pad pads, Accel Shake, the Code node's a/b
+block, Encoder clicks (`CtlDetent` with `lroundf`), demo drums, the envelope
+clock, Beat Phase, Schedule Trigger's DateTime, Saturation Keep Brightness,
+Frame Warp motion, the shared trail knob, Game of Life's period-2 reseed,
+Plasma Scale, Field Warp bilinear sampling, Path speed, Text Base, and the
+Music Player seed.
 
 #### Inputs, hardware, graph and code
 

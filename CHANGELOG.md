@@ -9,6 +9,65 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Audio previews with the computer's microphone or line input before the part
+  is on the bench; deploy still asks for the part.
+- DMX / Art-Net and DDP Input have a Live output, for falling back to your own
+  show when the source goes quiet.
+- Nodes can fold less common outputs behind an "N more outputs" button; wired
+  outputs always stay visible. RTC Clock, Accel & Gyro, Touch Pad and Keypad
+  use it.
+- Touch Pad has a Pad output per electrode, and Keypad a Key output per key
+  and a Digit output (the last number key pressed, as printed).
+- Accel & Gyro has a Shake output (g away from rest).
+- Presence Sensor has a Connected output.
+- Sensors with a Connected output have an Unplug toggle on their preview
+  stand-in.
+- The MIDI node has a Play note pad and a CC slider.
+- IR Remote has an "Add kit remote" preset with the 17-key NEC kit remote.
+- The Code node has A and B inputs, read as `a` and `b` in the loop.
+- Audio → Hue Balance mode (default for new nodes), with Hue Start and Span;
+  Weighted Sum is kept.
+- Vibe 0-1 Output toggle; Pitch Detect Pitch class output; Frequency Band
+  presets.
+- Dance Flash Gap select (30 s, 1-2 min, 2-5 min).
+- Adjust Color node: shift one colour's hue and scale its saturation and
+  brightness in one node.
+- Map Range "Clamp output" option holds the result between Out Min and Out
+  Max.
+- Compare chooses >, <, ≥ or ≤ and takes a Hysteresis band against flicker
+  near the threshold.
+- Smooth has an optional Fall time for fast-attack, slow-release levels.
+- Palette Sampler "Ends" option (Wrap or Hold ends).
+- Palette Sweep "Loop" motion.
+- Palette Transform Black point control and its own preset palette.
+- Harmony Palette Shade control.
+- Palette Bank Index input picks a palette directly.
+- Poline "trough" preset with a dark tinted middle anchor.
+- Saturation's Keep Brightness, which does Color Boost's job and can also
+  desaturate.
+- Frame Switch's Select switch.
+- A Trigger input on Random; Min and Max are wireable.
+- Frame Feedback's Zoom + Turn transform.
+- Zones' per-zone Fit.
+- Frame Warp's built-in swirl, ripple and turbulence.
+- Word labels on the symmetry group dropdowns.
+- Scopes on Noise LFO and Envelope.
+- Field Formula A and B values, so a constant needs no wired node.
+- Wave Sim Splash X and Y inputs place splashes.
+- Field Math's B Value stands in for an unwired B field.
+- Field → Frame Low and High.
+- Frame → Field Conversion (average, max, luma).
+- Text Base input.
+- Path Speed while T is unwired, and star, square and infinity shapes.
+- Shape Scale with matrix (on for new nodes).
+- Line Thickness.
+- Rainbow Axis (String, Horizontal, Vertical) and a Pride 2015 Palette select
+  ('none' is the rainbow).
+- Plasma Scale.
+- A Sunrise Trigger input that restarts the timed ramp.
+- Board frame rate control beside Master brightness.
+- An "LED outputs are on the Hardware tab" row in the sidebar's Output
+  section.
 - **Audio Features gains a Loudness output.** Energy and the spectrum adapt
   to the loudest moment of the last few seconds, so a quiet verse after a
   loud chorus reads nearly as energetic as the chorus. Loudness is how loud
@@ -183,6 +242,105 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- Encoder Position counts clicks rather than quarter steps.
+- Presence Sensor Distance is in millimetres, like Distance Sensor.
+- `previewPort` is renamed `udpPort` ("UDP port") on DMX / Art-Net and DDP
+  Input.
+- Custom Formula is renamed Formula Pattern, and its A and B sockets show by
+  default.
+- Motion Sensor's preview control is a latching toggle.
+- A Button Bank added from the bench starts with one button on a pin.
+- A DC-DC converter fed by a USB-C PD trigger takes the trigger's voltage as
+  its source; the mismatch warning is gone.
+- Ethernet copy and the network disagreement warning name all network nodes.
+- Audio-reactive patterns draw their band and drum sockets by default.
+- Bass Pulse's Bass defaults to 0.5; Kick Shock and Percussion Blobs play a
+  slow demo beat while no drum is wired.
+- Beat Flash has one Mode select (Lighten, Add, Replace) and a Color select
+  (Solid, Palette); Intensity defaults to 0.45.
+- Frequency Band's Hz sliders cover the EQ's 90 Hz-5.1 kHz.
+- Beat Detect shows Attack and Decay under "Baked show".
+- FFT Analyzer's Bands sets only the meter; the analysis split is fixed.
+- Prism Storm is labelled Hi-Hat Shards; Color Trails' Seed is labelled
+  Profile.
+- Help examples for Vibe, Vocal Aurora, Beat Phase, Pitch Detect and Audio →
+  Hue; added "which level to use" guidance.
+- Dropdowns show readable names instead of internal ids.
+- Gradient Sampler and Gradient Frame show their two colours as swatches;
+  Gradient Sampler's six per-channel sockets are removed.
+- Color Temperature takes Kelvin (1800-9000 K) instead of a 0-1 Warmth.
+- Harmony Palette holds each harmony hue as a band instead of sweeping the
+  hues between.
+- Palette Sweep easing uses Ease's curves (saved values sine/quad/cubic become
+  inOutSine/inOutQuad/inOutCubic).
+- Step Value's Initial/Minimum/Maximum/Step accept any value up to ±1,000,000;
+  Increase/Decrease/Reset can take Touch buttons.
+- Map Range and Clamp show only the Value socket by default.
+- A new Palette Bank starts with four presets.
+- HSV ports read Hue / Saturation / Brightness consistently; HSV → RGB's byte
+  units are labelled "0-255 wheel" with the Hue slider to 255.
+- Custom Palette's strip numbers the stops its Color 1-4 inputs drive.
+- Ease no longer offers Fast Approx (saved nodes keep it), and its in-out
+  curves are titled "Ease In/Out".
+- The Effects sidebar is grouped into Layer, Color, Geometry and Trails &
+  Blur.
+- Schedule Trigger reads an RTC Clock's DateTime from one wire. Start and end
+  are time fields (seconds optional). Enable moved to Timing.
+- Transform's Rate row names its unit and steps by 0.1.
+- Array lightens by default, and its copy limit is 24 everywhere.
+- Wave is unipolar by default, and its frequency steps by 0.01 Hz.
+- Clock is renamed Tempo Clock, and Symmetry is renamed Tile Symmetry.
+- Frame Feedback's mix port is called Opacity.
+- Field Formula's x and y run 0 to 1, like Custom Formula's; new px and py
+  give the pixel column and row.
+- Fluid's Speed is now Quality (solver passes).
+- Fractal Field's Spin is now Rotation.
+- Fractal Field's Zoom is now Depth, zoom in doublings, so a steady ramp flies
+  in evenly.
+- Spin rows and ports show their units (°/s or turns/s).
+- Several field and shape ports now read the same as their property rows.
+- Wave Sim's wrap setting (now Wrap edges) covers both axes.
+- Gradient Frame's Vertical switch is a wireable Angle.
+- Shape Field's circle is named ellipse, matching Shape.
+- Field Warp defaults to strength 2 with bilinear sampling.
+- Image Sampling sits under Transform.
+- Clock Display's Scale with matrix is greyed out outside the analogue modes.
+- Fourier Epicycles' Persistence is a half-life (1 halves the trail every 2
+  s).
+- Every trail now uses one Trail knob (0 none, 1 longest, about a 2 s
+  half-life) timed by the clock, on Confetti, Juggle, Scanner, Flow Field,
+  Network Ripple, String Particles, Game of Life and Formula Points.
+- Boids colours every mode except Solid from the palette; Spectrum is removed,
+  and rows are enabled per colour mode.
+- Renamed Radial Burst Arms to Rings, Blobs Scale to Size, Reaction Diffusion
+  Speed to Steps, and Particles modes Gravity to Drops and Attractor to Chase.
+- Ripple is now labelled Network Ripple, and Formula Points' attractor reads
+  de Jong Attractor.
+- Unit labels for Game of Life, Lightning, Network Ripple and Particles rates.
+- Fire Turbulence steps in whole values.
+- Noise defaults to fBm, and its Field type is labelled Sine Grid.
+- Flow Field Scale range now spans the usable eddy sizes.
+- Confetti's amount comes from Density alone; Speed is relabelled Color Drift.
+- Starfield's description no longer promises streaks.
+- Master brightness shows as a percentage on the Board and in the Control
+  Deck.
+- Music Player help no longer says the SD player only crossfades, and its
+  Bluetooth and radio details moved into tooltips.
+- Player Particles Style is a named list instead of a 0-16 slider (a saved
+  number plays the default "rise").
+- The show engines' timing is labelled Min Time (s), Max Time (s) and
+  Transition (s), and the Performance Generator uses the same names
+  (patternHold/transitionDuration renamed minTime/transitionSec).
+- Pattern Slideshow always holds between Min and Max Time (default 8-30 s);
+  Interval and the Transitions switch are removed.
+- "Max volume (0-21)" is one label everywhere.
+- Help lists all four TFT modules and says when to use Player Controls.
+- A Performance Generator show plays in the main LED preview by default.
+- Sequencer is renamed Crossfade Cycle.
+- Info Display, Display Panel and Segment Display are renamed OLED Display,
+  TFT Display and 7-Segment Display.
+- The LED output's Supersample and Render scale are one "Render resolution"
+  select (Half / Full / 2x smooth).
 - **fbuild is the default build engine again.** The helper builds with fbuild
   whenever it is installed and falls back to arduino-cli when it is not. The
   three-minute wait on an unchanged ESP32 build that made arduino-cli the
@@ -602,6 +760,79 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- SACN on the default universe 0 never received anything; it now listens to
+  universe 1.
+- The MIDI Channel filter now applies in the preview as it does on the board.
+- Graph Health and the deploy gate now catch a DIN MIDI UART that clashes with
+  another device.
+- Distance Sensor Help no longer claims Connected tells an empty room from an
+  unplugged HC-SR04.
+- Beat Flash, Beat Kaleidoscope and Ember Pulse fire once per rising beat
+  instead of on every frame the input is true.
+- Audio smoothing and beat envelopes (FFT Analyzer, Percussion Detect, Audio
+  Features, Frequency Band, Beat Flash, Beat Kaleidoscope, Ember Pulse) keep
+  time by the clock, so a non-60 fps Board responds as fast.
+- Audio Features' Silence follows absolute Loudness, so a quiet verse no
+  longer counts as silence after a loud chorus.
+- Beat Phase follows the measured beat after two beats, so Count and Bar no
+  longer double-step when BPM does not match the song.
+- Beat Flash's lighten mode matches between preview and device and never
+  darkens the base.
+- Spectrum Visualizer's Three Band bars no longer jitter (unwired bands follow
+  Smoothing).
+- Audio Flow's preview noise matches the device.
+- Gradient Sampler clamps T, so a wired value outside 0-1 no longer wraps the
+  colour on hardware.
+- Poline palettes no longer posterise on hardware; preview and firmware use
+  the same blended table.
+- Custom Palette's description and Help no longer claim up to four evenly
+  spaced colours.
+- Schedule Trigger's Trigger mode now fires every day, and Weekdays mode now
+  runs, where unwired clock fields had broken both.
+- Gamma's preview matches FastLED on dim pixels.
+- Transform's Scale mode zooms in and out forever instead of freezing.
+- Blend's and Frame Feedback's Normal mode, Brightness and Mirror's glow now
+  match between preview and board.
+- Mirror's Diagonal works on non-square matrices.
+- Frame Feedback's echo fades at the same speed at any frame rate.
+- Gradient Field's rings are round and its angles true on non-square panels
+  and strips; Angle also turns the angular ramp.
+- Gradient Frame no longer divides by zero on a strip.
+- Path's T wraps instead of stopping at 1.
+- Image brightness applies after contrast, so 0 is black.
+- Fourier Epicycles' Harmonics slider reaches 64 while unwired.
+- Automaton runs at its exact speed.
+- Line no longer doubles its colour; coordinates are pixel centres.
+- Scanner's glow now trails behind the beam, and the beam stays bright at the
+  dark end of palettes such as lava.
+- Fire and Digital Rain run along a string by default (new Auto direction),
+  and Blobs are no longer near-black on a string.
+- Rainbow and Pride 2015 colours in the preview now match FastLED's rainbow
+  wheel on the controller.
+- A wired TV Simulator Cut Rate or a heartbeat BPM no longer makes the picture
+  jump.
+- Network Ripple's network JSON row is enabled only for the custom preset.
+- Plasma at speed 0 now holds still.
+- The Particles preview holds no more particles than the controller; Rate and
+  Decay are enabled only where they apply; and the unused per-particle colour
+  (360 bytes of RAM) is removed.
+- Flow Field draws the same flow on the controller as in the preview.
+- Starfield and Flow Field no longer reserve their largest pool when Count is
+  not wired.
+- Game of Life reseeds boards stuck flipping between two states.
+- Starfield, Digital Rain and Flow Field keep their pace when the frame rate
+  drops.
+- Board help says to size the power supply from the Required power supply
+  figure and use the cap only to limit brightness or heat.
+- A Power Amplifier with no DAC is reported on every board (an error when
+  music would play through it), since the board's own DAC is silent with the
+  pinned audio library.
+- The no-Frame diagnostic no longer tells you to wire a non-existent SD Card
+  input.
+- Master Speed help now says a music-player build refuses it.
+- The Music Player's Seed is honoured on the board.
+- The DFPlayer doorbell example plays through after the button is released.
+- Analog RGB Strip default pins no longer clash with the Amplifier.
 - Trails now fades all the way to black. Below a channel level of about 148
   at the default Decay, each frame's rounding took nothing off, so old light
   hung on for ever, in the preview and on the LEDs. Decay keeps its meaning,
@@ -925,6 +1156,26 @@ versioning (`0.y.z`) until the first stable release.
   entered the claimed set, so parts that did retarget were assigned its pins on
   top of it. One omission produced both faults, and both looked like wiring
   mistakes.
+
+### Removed
+
+- Saved projects are not migrated for the node removals, renames and property
+  changes below (pre-1.0); every bundled pattern, Help example and starter
+  template was converted.
+- The Storage node, which nothing could read.
+- Beat Detect's Flux, Onset, Contrast, Threshold and Cooldown outputs; the
+  node's readout shows them instead.
+- Lerp (use Map Range) and Gate (use Switch).
+- Color Boost (use Saturation with Keep Brightness).
+- The Float → Field node.
+- Text's unused font property.
+- The Heartbeat node; use Breathe's new Heartbeat curve (BPM now 1-240).
+- Fire's Palette Mix.
+- The Stereo VU Meter's own power cap, which no firmware applied; its rails
+  share the Board's cap.
+- The Power Amplifier's own volume setting.
+- The Music Library's wire into the Performance Generator; the library is
+  portless.
 
 ### Added
 

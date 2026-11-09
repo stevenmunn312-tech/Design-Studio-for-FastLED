@@ -268,11 +268,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Wave example graph](../../public/node-cards/graphs/wave.svg)
 
-### Clock
+### Tempo Clock
 
-![Clock node](../../public/node-cards/clock.svg)
+![Tempo Clock node](../../public/node-cards/clock.svg)
 
-![Clock example graph](../../public/node-cards/graphs/clock.svg)
+![Tempo Clock example graph](../../public/node-cards/graphs/clock.svg)
 
 ### Schedule Trigger
 
@@ -898,11 +898,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Rain Ripples example graph](../../public/node-cards/graphs/rain-ripples.svg)
 
-### Prism Storm
+### Hi-Hat Shards
 
-![Prism Storm node](../../public/node-cards/prism-storm.svg)
+![Hi-Hat Shards node](../../public/node-cards/prism-storm.svg)
 
-![Prism Storm example graph](../../public/node-cards/graphs/prism-storm.svg)
+![Hi-Hat Shards example graph](../../public/node-cards/graphs/prism-storm.svg)
 
 ### Audio Flow
 
@@ -1064,12 +1064,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ## Effects
 
-### Blur 2D
-
-![Blur 2D node](../../public/node-cards/blur2-d.svg)
-
-![Blur 2D example graph](../../public/node-cards/graphs/blur2-d.svg)
-
 ### Blend
 
 ![Blend node](../../public/node-cards/blend.svg)
@@ -1088,11 +1082,17 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Glitter example graph](../../public/node-cards/graphs/glitter.svg)
 
-### Frame Transform
+### Frame Switch
 
-![Frame Transform node](../../public/node-cards/frame-transform.svg)
+![Frame Switch node](../../public/node-cards/frame-switch.svg)
 
-![Frame Transform example graph](../../public/node-cards/graphs/frame-transform.svg)
+![Frame Switch example graph](../../public/node-cards/graphs/frame-switch.svg)
+
+### Zones
+
+![Zones node](../../public/node-cards/zones.svg)
+
+![Zones example graph](../../public/node-cards/graphs/zones.svg)
 
 ### Brightness
 
@@ -1118,6 +1118,18 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Saturation example graph](../../public/node-cards/graphs/saturation.svg)
 
+### Invert
+
+![Invert node](../../public/node-cards/invert.svg)
+
+![Invert example graph](../../public/node-cards/graphs/invert.svg)
+
+### Frame Transform
+
+![Frame Transform node](../../public/node-cards/frame-transform.svg)
+
+![Frame Transform example graph](../../public/node-cards/graphs/frame-transform.svg)
+
 ### Transform
 
 ![Transform node](../../public/node-cards/transform.svg)
@@ -1129,12 +1141,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Array node](../../public/node-cards/array.svg)
 
 ![Array example graph](../../public/node-cards/graphs/array.svg)
-
-### Invert
-
-![Invert node](../../public/node-cards/invert.svg)
-
-![Invert example graph](../../public/node-cards/graphs/invert.svg)
 
 ### Mirror
 
@@ -1148,41 +1154,35 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Kaleidoscope example graph](../../public/node-cards/graphs/kaleidoscope.svg)
 
-### Trails
-
-![Trails node](../../public/node-cards/trails.svg)
-
-![Trails example graph](../../public/node-cards/graphs/trails.svg)
-
 ### Frame Warp
 
 ![Frame Warp node](../../public/node-cards/frame-warp.svg)
 
 ![Frame Warp example graph](../../public/node-cards/graphs/frame-warp.svg)
 
-### Symmetry
+### Tile Symmetry
 
-![Symmetry node](../../public/node-cards/symmetry.svg)
+![Tile Symmetry node](../../public/node-cards/symmetry.svg)
 
-![Symmetry example graph](../../public/node-cards/graphs/symmetry.svg)
+![Tile Symmetry example graph](../../public/node-cards/graphs/symmetry.svg)
+
+### Blur 2D
+
+![Blur 2D node](../../public/node-cards/blur2-d.svg)
+
+![Blur 2D example graph](../../public/node-cards/graphs/blur2-d.svg)
+
+### Trails
+
+![Trails node](../../public/node-cards/trails.svg)
+
+![Trails example graph](../../public/node-cards/graphs/trails.svg)
 
 ### Frame Feedback
 
 ![Frame Feedback node](../../public/node-cards/frame-feedback.svg)
 
 ![Frame Feedback example graph](../../public/node-cards/graphs/frame-feedback.svg)
-
-### Frame Switch
-
-![Frame Switch node](../../public/node-cards/frame-switch.svg)
-
-![Frame Switch example graph](../../public/node-cards/graphs/frame-switch.svg)
-
-### Zones
-
-![Zones node](../../public/node-cards/zones.svg)
-
-![Zones example graph](../../public/node-cards/graphs/zones.svg)
 
 ## Show
 

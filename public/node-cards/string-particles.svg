@@ -7,10 +7,10 @@
 <g id="lamp-6.94x6.94"><rect x="-2.78" y="-1.53" width="12.49" height="9.99" rx="5.00" fill-opacity="0.34"/><rect width="6.94" height="6.94" rx="1.53"/></g>
 </defs>
 <g transform="translate(28,24)">
-<defs><linearGradient id="tint-pattern" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22404d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<defs><linearGradient id="tint-pattern" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#253e4a"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="240" height="425" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="240" height="425" rx="8" fill="url(#tint-pattern)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#33d6ff"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#47c9ea"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">String Parti…</text>
 <rect x="135.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
@@ -151,22 +151,22 @@
 <use href="#lamp-6.94x6.94" x="192.84" y="141.59" fill="rgb(0,0,0)"/>
 <use href="#lamp-6.94x6.94" x="206.72" y="141.59" fill="rgb(0,0,0)"/>
 <use href="#lamp-6.94x6.94" x="220.59" y="141.59" fill="rgb(0,0,0)"/>
-<use href="#lamp-6.94x6.94" x="12.47" y="155.47" fill="rgb(76,63,65)"/>
-<use href="#lamp-6.94x6.94" x="26.34" y="155.47" fill="rgb(115,113,186)"/>
-<use href="#lamp-6.94x6.94" x="40.22" y="155.47" fill="rgb(217,135,136)"/>
-<use href="#lamp-6.94x6.94" x="54.09" y="155.47" fill="rgb(255,255,201)"/>
-<use href="#lamp-6.94x6.94" x="67.97" y="155.47" fill="rgb(250,221,172)"/>
-<use href="#lamp-6.94x6.94" x="81.84" y="155.47" fill="rgb(229,202,227)"/>
-<use href="#lamp-6.94x6.94" x="95.72" y="155.47" fill="rgb(133,121,158)"/>
-<use href="#lamp-6.94x6.94" x="109.59" y="155.47" fill="rgb(149,174,98)"/>
-<use href="#lamp-6.94x6.94" x="123.47" y="155.47" fill="rgb(146,198,117)"/>
-<use href="#lamp-6.94x6.94" x="137.34" y="155.47" fill="rgb(92,133,88)"/>
-<use href="#lamp-6.94x6.94" x="151.22" y="155.47" fill="rgb(50,52,52)"/>
-<use href="#lamp-6.94x6.94" x="165.09" y="155.47" fill="rgb(173,130,171)"/>
+<use href="#lamp-6.94x6.94" x="12.47" y="155.47" fill="rgb(78,65,65)"/>
+<use href="#lamp-6.94x6.94" x="26.34" y="155.47" fill="rgb(117,115,190)"/>
+<use href="#lamp-6.94x6.94" x="40.22" y="155.47" fill="rgb(219,137,140)"/>
+<use href="#lamp-6.94x6.94" x="54.09" y="155.47" fill="rgb(255,255,204)"/>
+<use href="#lamp-6.94x6.94" x="67.97" y="155.47" fill="rgb(252,223,175)"/>
+<use href="#lamp-6.94x6.94" x="81.84" y="155.47" fill="rgb(231,205,229)"/>
+<use href="#lamp-6.94x6.94" x="95.72" y="155.47" fill="rgb(135,124,160)"/>
+<use href="#lamp-6.94x6.94" x="109.59" y="155.47" fill="rgb(152,178,101)"/>
+<use href="#lamp-6.94x6.94" x="123.47" y="155.47" fill="rgb(147,200,119)"/>
+<use href="#lamp-6.94x6.94" x="137.34" y="155.47" fill="rgb(93,135,91)"/>
+<use href="#lamp-6.94x6.94" x="151.22" y="155.47" fill="rgb(51,54,54)"/>
+<use href="#lamp-6.94x6.94" x="165.09" y="155.47" fill="rgb(176,134,174)"/>
 <use href="#lamp-6.94x6.94" x="178.97" y="155.47" fill="rgb(255,255,255)"/>
-<use href="#lamp-6.94x6.94" x="192.84" y="155.47" fill="rgb(126,108,64)"/>
-<use href="#lamp-6.94x6.94" x="206.72" y="155.47" fill="rgb(141,105,62)"/>
-<use href="#lamp-6.94x6.94" x="220.59" y="155.47" fill="rgb(157,109,63)"/>
+<use href="#lamp-6.94x6.94" x="192.84" y="155.47" fill="rgb(130,111,65)"/>
+<use href="#lamp-6.94x6.94" x="206.72" y="155.47" fill="rgb(144,108,63)"/>
+<use href="#lamp-6.94x6.94" x="220.59" y="155.47" fill="rgb(163,112,66)"/>
 <use href="#lamp-6.94x6.94" x="12.47" y="169.34" fill="rgb(0,0,0)"/>
 <use href="#lamp-6.94x6.94" x="26.34" y="169.34" fill="rgb(0,0,0)"/>
 <use href="#lamp-6.94x6.94" x="40.22" y="169.34" fill="rgb(0,0,0)"/>

@@ -771,8 +771,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      ::memcpy(${u},${un},sizeof(${u})); ::memcpy(${v},${vn},NUM_LEDS*sizeof(float)); }`)
     ln(`    for (int _i=0; _i<NUM_LEDS; _i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${v}[_i]*255)); }`)
   },
-  GameOfLife({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
-    needsT.v = true
+  GameOfLife({ node, id, p, ln, f, ownBuf, paletteExpr }) {
     const ob = ownBuf()
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const speed = f('speed', 'speed', 8)
@@ -794,7 +793,9 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      _gst_${id}=(_pop==0||!_chg||!_chg2)?_gst_${id}+1:0;`)
     ln(`      if (_gst_${id}>3) { for (int _i=0;_i<NUM_LEDS;_i++) ${c}[_i]=random8()<77?1:0; _gst_${id}=0; }`)
     ln(`      _gt_${id}=millis(); }`)
-    const keep = trailKeepCpp(ln, phaseTag(id), f('trail', 'trail', 0.37))
+    // Game of Life keeps time by millis(), as its generations do, so its
+    // trail ignores Master Speed too.
+    const keep = trailKeepCpp(ln, phaseTag(id), f('trail', 'trail', 0.37), '    ', '(millis()*0.001f)')
     ln(`    for (int _i=0;_i<NUM_LEDS;_i++){ ${br}[_i]=${c}[_i]?1.0f:${br}[_i]*${keep}; ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${br}[_i]*255)); ${ob}[_i].nscale8((uint8_t)(${br}[_i]*255)); } }`)
   },
 }

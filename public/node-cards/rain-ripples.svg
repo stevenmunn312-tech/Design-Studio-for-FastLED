@@ -7,10 +7,10 @@
 <g id="lamp-7.56x7.56"><rect x="-3.03" y="-1.66" width="13.61" height="10.89" rx="5.44" fill-opacity="0.34"/><rect width="7.56" height="7.56" rx="1.66"/></g>
 </defs>
 <g transform="translate(28,24)">
-<defs><linearGradient id="tint-pattern" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22404d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
+<defs><linearGradient id="tint-pattern" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#253e4a"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
 <rect x="0" y="0" width="260" height="426" rx="8" fill="#1f242b" filter="url(#shadow)"/>
 <rect x="0" y="0" width="260" height="426" rx="8" fill="url(#tint-pattern)"/>
-<path d="M0,32 L0,8 Q0,0 8,0 L252,0 Q260,0 260,8 L260,32 Z" fill="#33d6ff"/>
+<path d="M0,32 L0,8 Q0,0 8,0 L252,0 Q260,0 260,8 L260,32 Z" fill="#47c9ea"/>
 <rect x="1" y="32" width="258" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Rain Ripples</text>
 <rect x="155.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>

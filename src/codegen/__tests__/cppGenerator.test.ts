@@ -2225,8 +2225,9 @@ describe('generateCpp', () => {
     expect(cpp).toContain('static uint8_t _gc_g[NUM_LEDS], _gn_g[NUM_LEDS]')
     expect(cpp).toContain('millis() - _gt_g')
     expect(cpp).toContain('ColorFromPalette(paldef_mojito,(uint8_t)(_gb_g[_i]*255))')
-    // Dead cells dim on the shared trail clock, as the preview's trailKeep does.
+    // Dead cells dim on the shared trail, timed by millis() like the steps.
     expect(cpp).toContain('static float _tkeep_gT = -1.0f;')
+    expect(cpp).toContain('float _tkeep_gNow = (millis()*0.001f);')
     expect(cpp).toContain('_gb_g[_i]=_gc_g[_i]?1.0f:_gb_g[_i]*_tkeep_g;')
   })
 
@@ -3479,7 +3480,7 @@ describe('Pattern node expansion - Phase 6 Fourier Epicycles codegen', () => {
   it('fades the trail by a half-life on the clock, before the pen draws', () => {
     const cpp = generateEpicycles({ persistence: 0.4 })
     expect(cpp).toContain('_trail_fe')
-    expect(cpp).toContain('constrain((1.0f-(0.4)), 0.0f, 1.0f)')
+    expect(cpp).toContain('constrain((0.4), 0.0f, 1.0f)')
     expect(cpp).toContain('fadeToBlackBy(_fe_fetrail, NUM_LEDS, _by);')
     expect(cpp.indexOf('fadeToBlackBy(_fe_fetrail')).toBeLessThan(cpp.indexOf('_feTrail(_fe_fetrail,'))
     expect(cpp).not.toMatch(/_feTrail\([^)]*0\.4/)

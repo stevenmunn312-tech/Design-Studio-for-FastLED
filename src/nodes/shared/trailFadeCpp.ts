@@ -24,13 +24,18 @@ function survivesCpp(trailExpr: string, dtExpr: string): string {
 
 /**
  * Firmware twin of `trailKeep`: declares `_tkeep_<tag>`, the share of a float
- * trail that survives this frame, and returns its name. The caller must have
- * set `needsT`.
+ * trail that survives this frame, and returns its name. On the default clock
+ * the caller must have set `needsT`; `clock` names another, such as millis().
  */
-export function trailKeepCpp(ln: (line: string) => void, tag: string, trailExpr: string, indent = '    '): string {
+export function trailKeepCpp(
+  ln: (line: string) => void, tag: string, trailExpr: string, indent = '    ', clock = 't',
+): string {
   const v = `_tkeep_${tag}`
+  // Any clock but the sketch's own `t` is read once into a local.
+  const now = clock === 't' ? 't' : `${v}Now`
   ln(`${indent}static float ${v}T = -1.0f;`)
-  ln(`${indent}float ${v} = ${v}T < 0.0f ? 1.0f : ${survivesCpp(trailExpr, `fmaxf(0.0f, t - ${v}T)`)}; ${v}T = t;`)
+  if (now !== 't') ln(`${indent}float ${now} = ${clock};`)
+  ln(`${indent}float ${v} = ${v}T < 0.0f ? 1.0f : ${survivesCpp(trailExpr, `fmaxf(0.0f, ${now} - ${v}T)`)}; ${v}T = ${now};`)
   ln(`${indent}if (!(${v} >= 0.0f)) ${v} = 1.0f;`)
   return v
 }
