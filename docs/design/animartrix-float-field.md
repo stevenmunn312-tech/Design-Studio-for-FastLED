@@ -97,7 +97,10 @@ concentric ring animation identical to the original sketch.
 Converts a `field` to a `frame` by looking up each pixel's scalar value in a palette.
 
 - **Input:** `field`, `palette` (palette port, optional)
-- **Property:** `palette` (preset dropdown, fallback when port unwired), `brightness` (0–1 slider)
+- **Property:** `palette` (preset dropdown, fallback when port unwired), `brightness` (0–1 slider),
+  `low` and `high` (wireable 0–1 sliders, Field Levels' remap through the shared `fieldRange`, so a
+  mid-range field such as noise can still reach the palette's ends; at 0 and 1 the sketch reads the
+  field straight)
 - **Output:** `frame`
 
 This is a terminal node in any field chain. It is the only place palette
@@ -140,9 +143,9 @@ Combines two fields pixel-by-pixel.
   (same bundled-node pattern as `Math` and `Blend`)
 - **Output:** `field`
 
-When `b` is unwired it defaults to a zero field, so unary operations
-(negate → `subtract` with `a` = 0, invert → `subtract` with constant field) work
-without a second source.
+When `a` is unwired it is a zero field. When `b` is unwired it reads the
+wireable `value` (0–1, default 0, labelled B value), so "multiply by the bass"
+or "subtract a threshold" is one node; this replaced the Float → Field node.
 
 ---
 

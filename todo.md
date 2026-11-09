@@ -839,10 +839,6 @@ freeze, or drop them.
   Formula/Field Formula and the gradient patterns repeat likewise. Add
   `noiseType` to Field Noise and a Conway `life` type to Automaton so field
   chains are not stuck with the subset.
-- [ ] **Field Noise: Add contrast/normalise to fBm (Med, S).** fBm is a
-  weighted average of octaves, so values cluster near 0.5 and the palette ends
-  (including black) are rarely reached. Add a contrast or normalise option
-  here, or handle it in Field -> Frame. `src/nodes/shared/integerPatterns.ts:1159`.
 - [ ] **Fractal Field: Make zoom exponential (Med, M).** Linear 0.25-64 means
   1x to 2x is about 1.6% of the travel, so flying into the Mandelbrot is
   impractical. Expose zoom as an exponent (zoom = 2^z, z 0-6) or add a log
@@ -851,23 +847,13 @@ freeze, or drop them.
   quantises speed to whole 60-tick intervals (31-40 all run 30 steps/s) while
   firmware uses `1000/speed` ms. Accumulate fractional steps on the clock.
   `src/state/evaluator/automaton.ts:31`, `src/nodes/field/codegen.ts:392`.
-- [ ] **Field -> Frame: Add input range or auto-normalise (Med, S).** Fields
-  rarely reach the palette's black point or top (Field Noise averages near
-  0.5, Frame -> Field red is 0.33, Fractal/Automaton sit low), so painting
-  uses the middle of the palette and every chain needs a Field Levels node.
-  Add `low`/`high` (Field Levels semantics) or an auto-normalise toggle.
-  `src/nodes/field/evaluate.ts:836`, `src/state/evaluator/frames.ts:189`.
 - [ ] **Field -> Frame: Add a wireable palette offset (Low, S).** Colour
   cycling today needs a Palette plus Palette Transform into `paletteIn`.
-- [ ] **Frame -> Field: Add a conversion mode select (Med, S).** Plain
-  `(r+g+b)/3` makes saturated red or blue a 0.33 field and a rainbow
-  0.33-0.67. Add modes: average (today), max (HSV value) and luma.
-  `src/nodes/field/evaluate.ts:853`, `src/nodes/field/codegen.ts:440`.
-- [ ] **Field Math: Let unwired B be a wireable constant (Med, S).** An
-  unwired side is a zero field, so scaling or offsetting by a knob or audio
-  level needs Float -> Field. Add a `value` (0-1) for B alongside Mix, so
-  "multiply by bass" is one node and Float -> Field can retire.
-  `src/nodes/field/evaluate.ts:452`.
+  Needs a decision first: Field -> Frame reads a field as an amount (1 is the
+  last colour, `LINEARBLEND_NOWRAP`), while a cycling offset must wrap, so
+  somewhere in the field a 1 takes the colour of a 0 and the jump moves with
+  the offset. Low/High now exist on the node; an offset would apply after
+  them.
 - [ ] **Gradient Field: Use aspect-correct coordinates (Med, S).** Coordinates
   are normalised per axis, so the radial ramp is an ellipse on non-square
   panels and Angle is not a true angle. Use short-side units as Shape Field
@@ -877,9 +863,6 @@ freeze, or drop them.
   in `isPropertyEnabled`. Also `cx/cy` are described as radial/angular only
   but pivot the linear ramp too. `src/nodes/field/evaluate.ts:899`,
   `src/state/nodeLibrary.ts:2171`.
-- [ ] **Float -> Field: Retire the node (Med, S).** Its only job is feeding
-  Field Math; no bundled pattern uses it besides its own Help example. Remove
-  it once Field Math's unwired B reads a constant.
 - [ ] **Field Warp: Raise default strength and add bilinear sampling (Med,
   S).** Default strength 1 is only +-1 px, barely visible (its Help example
   uses 3, Frame Warp defaults to 2), and nearest-only sampling steps visibly.

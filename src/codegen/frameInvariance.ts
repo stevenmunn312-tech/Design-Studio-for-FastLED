@@ -30,7 +30,7 @@ import type { StudioEdge, StudioNode } from '../state/graphStore'
  */
 export const FRAME_INVARIANT_NODE_TYPES: ReadonlySet<string> = new Set([
   'SolidColor', 'GradientFrame', 'Shape', 'Line', 'Path', 'Image',
-  'GradientField', 'ShapeField', 'FractalField', 'FloatToField', 'FrameToField', 'FieldToFrame',
+  'GradientField', 'ShapeField', 'FractalField', 'FrameToField', 'FieldToFrame',
   'FieldMath', 'FieldLevels', 'FieldWarp', 'FieldTile', 'FieldFormula',
   'Blur2D', 'Blend', 'Mask', 'FrameTransform', 'BrightnessMod', 'HueShift', 'Gamma',
   'Saturation', 'ColorBoost', 'Array', 'Invert', 'Mirror', 'Kaleidoscope', 'FrameWarp',

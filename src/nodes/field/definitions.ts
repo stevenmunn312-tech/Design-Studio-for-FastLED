@@ -274,38 +274,45 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
       { id: 'field', label: 'Field', dataType: 'field' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'brightness', label: 'Brightness', dataType: 'float' },
+      { id: 'low', label: 'Low', dataType: 'float' },
+      { id: 'high', label: 'High', dataType: 'float' },
     ],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    propertyInputs: { brightness: 'brightness' },
+    propertyInputs: { brightness: 'brightness', low: 'low', high: 'high' },
     defaultExposedInputs: ['brightness'],
-    defaultProperties: { palette: 'ocean', brightness: 1 },
+    defaultProperties: { palette: 'ocean', brightness: 1, low: 0, high: 1 },
   },
   // Phase 2 field-composition nodes.
   {
     // The inverse of Field → Frame: extracts a 0–1 brightness field from a
-    // rendered frame (average of r,g,b — the same convention Mask uses for a
-    // mask frame's opacity), so a pattern's output can drive a warp or mask.
+    // rendered frame (by default the average of r,g,b, the convention Mask
+    // uses for a mask frame's opacity), so a pattern's output can drive a
+    // warp or mask.
     type: 'FrameToField',
     label: 'Frame → Field',
     category: 'field',
     inputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    defaultProperties: {},
+    defaultProperties: { conversion: 'average' },
   },
   {
     // `t` only matters to the `mix` op, where it is the A→B crossfade (the
-    // Field Lerp node this replaced); the other ops ignore it.
+    // Field Lerp node this replaced); the other ops ignore it. `value` is what
+    // an unwired B reads, so "multiply by the bass" needs no second field (the
+    // Float → Field node this replaced).
     type: 'FieldMath',
     label: 'Field Math',
     category: 'field',
     inputs: [
       { id: 'a', label: 'A', dataType: 'field' },
       { id: 'b', label: 'B', dataType: 'field' },
+      { id: 'value', label: 'B Value', dataType: 'float' },
       { id: 't', label: 'Mix', dataType: 'float' },
     ],
-    propertyInputs: { t: 't' },
+    propertyInputs: { value: 'value', t: 't' },
+    defaultExposedInputs: ['value'],
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    defaultProperties: { fieldOp: 'add', t: 0.5 },
+    defaultProperties: { fieldOp: 'add', value: 0, t: 0.5 },
   },
   {
     type: 'FieldLevels',
@@ -338,18 +345,6 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     defaultExposedInputs: ['angle', 'offset'],
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
     defaultProperties: { gradientType: 'linear', angle: 0, cx: 0.5, cy: 0.5, offset: 0, repeat: 1 },
-  },
-  {
-    // One number as a uniform field, so a level or a knob can enter the
-    // field chain: mixed in by Field Math, or thresholded by Field Levels.
-    type: 'FloatToField',
-    label: 'Float → Field',
-    category: 'field',
-    inputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
-    propertyInputs: { value: 'value' },
-    defaultExposedInputs: ['value'],
-    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    defaultProperties: { value: 0.5 },
   },
   {
     // A separable box blur over a field, `radius` pixels each way, edges
@@ -471,10 +466,9 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = {
   TuringField: 'Multi-scale Turing pattern field: labyrinths that keep reorganising.',
   FieldToFrame: 'Maps a scalar field through a palette to a frame.',
   FrameToField: 'Extracts a brightness field from a rendered frame.',
-  FieldMath: 'Combines two fields: add, subtract, multiply, min, max, difference, or mix by T.',
+  FieldMath: 'Adds, multiplies, mixes… two fields, or a field and a number.',
   FieldLevels: 'Remaps, thresholds, quantises or inverts a scalar field.',
   GradientField: 'A linear, radial or angular ramp across the matrix, with offset and repeat.',
-  FloatToField: 'Fills a field with one number, so a level can enter the field chain.',
   FieldBlur: 'Box-blurs a field by a radius in pixels.',
   ShapeField: 'Circle, rectangle or polygon as a fill, a distance field, or a falloff.',
   FieldWarp: 'Samples a field at coordinates pushed by two offset fields.',

@@ -9,6 +9,7 @@ import type { NodeEmitters } from '../../codegen/emitContext'
 import { seedProp, floatLit } from '../../codegen/cppLiterals'
 import { seedOffset } from '../../state/evaluator/random'
 import { wrapXBlockLines } from '../../codegen/helpers/wrapXHelperCpp'
+import { fieldRangeCpp, frameToFieldConversion, pixelToFieldCpp } from '../../state/evaluator/frames'
 import { noiseShape, noiseShapeCpp } from '../../state/evaluator/noiseShape'
 import { GOLDEN_RATIO, LISSAJOUS_FIELD_SAMPLES } from './evaluate'
 import { resolveSlicePattern } from './sliceTiling'
@@ -423,7 +424,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     }
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=${A}c[_i]/${floatLit(top)}; }`)
   },
-  FieldToFrame({ node, p, ln, f, ownBuf, srcField, paletteExpr }) {
+  FieldToFrame({ node, p, ln, f, ownBuf, srcField, paletteExpr, edges }) {
     const ob = ownBuf()
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const src = srcField('field')
@@ -431,29 +432,36 @@ export const FIELD_EMITTERS: NodeEmitters = {
     if (!src) {
       ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
     } else {
+      // Low and High remap as Field Levels does; at 0 and 1, unwired, they
+      // are the identity and the sketch reads the field straight.
+      const wired = (port: string) => edges.some((e) => e.target === node.id && e.targetHandle === port)
+      const ranged = wired('low') || wired('high') || Number(p.low ?? 0) !== 0 || Number(p.high ?? 1) !== 1
       // NOWRAP, as the evaluator clamps: a field of 1 is the palette's last
       // colour. LINEARBLEND blends indexes 241–255 back towards entry 0.
       ln(`  { float _br=constrain(${bright},0.0f,1.0f);`)
+      if (ranged) ln(`    float _lo=${f('low', 'low', 0)},_hi=${f('high', 'high', 1)};`)
+      const v = ranged ? fieldRangeCpp(`${src}[_i]`, '_lo', '_hi') : `${src}[_i]`
       ln(`    for(int _i=0;_i<NUM_LEDS;_i++)`)
-      ln(`      ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${src}[_i]*255),(uint8_t)(_br*255),LINEARBLEND_NOWRAP); }`)
+      ln(`      ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(${v}*255),(uint8_t)(_br*255),LINEARBLEND_NOWRAP); }`)
     }
   },
   // The inverse of FieldToFrame: a 0–1 brightness field from a rendered
-  // frame (average of r,g,b, matching Mask's mask-opacity convention).
-  FrameToField({ ln, srcBuf, ownField }) {
+  // frame, by the conversion the evaluator uses (`pixelToField`).
+  FrameToField({ p, ln, srcBuf, ownField }) {
     const of = ownField()
     const src = srcBuf('frame')
     if (!src) {
       ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=0.0f;`)
     } else {
-      ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=(${src}[_i].r+${src}[_i].g+${src}[_i].b)/3.0f/255.0f;`)
+      ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=${pixelToFieldCpp(`${src}[_i]`, frameToFieldConversion(p.conversion))};`)
     }
   },
   FieldMath({ p, ln, f, ownField, srcField }) {
     const of = ownField()
     const op = String(p.fieldOp ?? 'add')
     const sa = srcField('a'), sb = srcField('b')
-    const av = sa ? `${sa}[_i]` : '0.0f', bv = sb ? `${sb}[_i]` : '0.0f'
+    // An unwired B reads the B value, as the evaluator does.
+    const av = sa ? `${sa}[_i]` : '0.0f', bv = sb ? `${sb}[_i]` : '_bv'
     let expr: string
     switch (op) {
       case 'subtract':   expr = `_a - _b`; break
@@ -467,6 +475,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     }
     ln(`  { /* FieldMath: ${op} */`)
     if (op === 'mix') ln(`    float _t=constrain(${f('t', 't', 0.5)},0.0f,1.0f);`)
+    if (!sb) ln(`    float _bv=constrain(${f('value', 'value', 0)},0.0f,1.0f);`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++){`)
     ln(`      float _a=${av}, _b=${bv};`)
     ln(`      ${of}[_i]=constrain(${expr},0.0f,1.0f);}}`)
@@ -479,7 +488,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`  { /* FieldLevels */`)
     ln(`    float _low=${f('low', 'low', 0)},_high=${f('high', 'high', 1)};`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++){ float _src=${src ? `${src}[_i]` : '0.0f'};`)
-    ln(`      float _v=_high<=_low?(_src>=_low?1.0f:0.0f):constrain((_src-_low)/fmaxf(1e-4f,_high-_low),0.0f,1.0f);`)
+    ln(`      float _v=${fieldRangeCpp('_src', '_low', '_high')};`)
     if (steps >= 2) ln(`      _v=roundf(_v*${steps - 1}.0f)/${steps - 1}.0f;`)
     ln(`      ${of}[_i]=${invert ? '1.0f-_v' : '_v'}; } }`)
   },
@@ -500,10 +509,6 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(wraps
       ? `      _v=fmodf(_v,1.0f); if(_v<0.0f)_v+=1.0f; ${of}[_y*WIDTH+_x]=_v;}}`
       : `      ${of}[_y*WIDTH+_x]=constrain(_v,0.0f,1.0f);}}`)
-  },
-  FloatToField({ ln, f, ownField }) {
-    const of = ownField()
-    ln(`  { float _fv=constrain(${f('value', 'value', 0.5)},0.0f,1.0f); for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=_fv; }`)
   },
   FieldBlur({ id, ln, f, ownField, srcField }) {
     const of = ownField()

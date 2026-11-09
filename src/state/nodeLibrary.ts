@@ -72,6 +72,7 @@ import {
   AUTOMATON_SPEED_MAX, AUTOMATON_SPEED_MIN, AUTOMATON_TYPES, CYCLIC_STATES_MAX, CYCLIC_STATES_MIN, CYCLIC_THRESHOLD_MAX, CYCLIC_THRESHOLD_MIN,
 } from './evaluator/automaton'
 import { FLUID_ITERATIONS_MAX, FLUID_ITERATIONS_MIN } from './evaluator/fluid'
+import { FRAME_TO_FIELD_CONVERSIONS } from './evaluator/frames'
 import {
   FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_TYPES, FRACTAL_ZOOM_MAX, FRACTAL_ZOOM_MIN,
 } from './evaluator/fractal'
@@ -232,7 +233,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FloatToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
+  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -1389,6 +1390,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     high: N01,
     steps: { control: 'slider', min: 1, max: 16, step: 1 },
   },
+  FieldToFrame: {
+    low: N01,
+    high: N01,
+  },
+  FrameToField: {
+    conversion: { control: 'select', options: [...FRAME_TO_FIELD_CONVERSIONS] },
+  },
   GradientField: {
     gradientType: { control: 'select', options: [...GRADIENT_TYPES] },
     cx: N01,
@@ -1396,7 +1404,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     offset: { control: 'slider', min: -1, max: 1, step: 0.01 },
     repeat: { control: 'slider', min: GRADIENT_REPEAT.min, max: GRADIENT_REPEAT.max, step: 1 },
   },
-  FloatToField: { value: N01 },
   FieldBlur: { radius: { control: 'slider', min: BLUR_RADIUS.min, max: BLUR_RADIUS.max, step: 1 } },
   ShapeField: {
     shape: { control: 'select', options: ['circle', 'rect', 'polygon'] },
@@ -2176,9 +2183,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     offset: 'Slides the ramp along itself; wire a signal to scroll stripes or spin a pinwheel.',
     repeat: 'How many times the ramp repeats across the matrix. Above 1 the ramp wraps instead of clamping.',
   },
-  FloatToField: {
-    value: 'The level every pixel of the field takes, 0 to 1, when nothing is wired into Value.',
-  },
   FieldBlur: {
     radius: 'Pixels each way the blur reaches, 1 to 4. Edges are clamped, not wrapped.',
   },
@@ -2954,11 +2958,17 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     thickness: 'Width of the glowing curve as a fraction of the canvas.',
   },
   FieldToFrame: {
-    palette: 'Colours the field is painted with: 0 is the first colour, 1 the last.',
+    palette: 'Colours the field is painted with: Low takes the first colour, High the last.',
     brightness: 'Scales the painted colours, 0 to 1. Wire a VU level here to pulse the whole field.',
+    low: 'Field value that takes the palette\'s first colour; anything below it does too. Raise it for a field that never reaches 0, such as noise.',
+    high: 'Field value that takes the palette\'s last colour; anything above it does too. Lower it for a field that never reaches 1. At or below Low it is a hard threshold.',
+  },
+  FrameToField: {
+    conversion: 'How a colour becomes one number. Average: (R+G+B)/3, so pure red is 0.33. Max: the brightest channel (HSV value), so any fully lit colour is 1. Luma: brightness as the eye sees it, green brighter than blue.',
   },
   FieldMath: {
-    fieldOp: 'How the two fields combine per pixel. An unwired side counts as 0.',
+    fieldOp: 'How the two fields combine per pixel. An unwired A counts as 0; an unwired B reads B value.',
+    value: 'What B reads while the B field is unwired, 0 to 1. Wire a level here to scale, raise or threshold A by it.',
     t: 'Mix only: crossfade between A and B. 0 shows only A, 1 only B. Wire a signal to animate it.',
   },
   FieldWarp: {
@@ -3434,6 +3444,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   FieldMath: {
     fieldOp: 'operation',
+    value: 'B value',
     t: 'mix',
   },
   FieldTile: {

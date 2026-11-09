@@ -5,7 +5,7 @@ import { speedPhase } from '../shared/speedClock'
 import { noiseFieldFrame, noiseFieldSum, roseFrame, rosePixel, truchetFrame, truchetPixel, wallpaperFrame, wallpaperSourceQ8 } from '../shared/integerPatterns'
 import type { Frame } from '../../state/palettes/ledColor'
 import { compileFormula, fieldFormulaCache, centeredX, centeredY } from '../../state/evaluator/formula'
-import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame } from '../../state/evaluator/frames'
+import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame, fieldRange, frameToFieldConversion, pixelToField } from '../../state/evaluator/frames'
 import { allocField, instanceState } from '../../state/evaluator/memory'
 import { wrapXBlend } from '../../state/evaluator/wrapX'
 import { noiseShape, shapeNoise } from '../../state/evaluator/noiseShape'
@@ -454,14 +454,15 @@ function evalAutomaton(
   return out
 }
 
-// Combine two fields pixel-by-pixel. An unwired input is a zero field, so unary
-// ops (e.g. `subtract` from 0 to negate, clamped) still behave sensibly. `t`
-// is the mix op's A→B crossfade.
-function evalFieldMath(a: Field | null, b: Field | null, op: string, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+// Combine two fields pixel-by-pixel. An unwired A is a zero field; an unwired
+// B reads `bValue`, 0 to 1, so scaling or offsetting a field by a level is one
+// node. `t` is the mix op's A→B crossfade.
+function evalFieldMath(a: Field | null, b: Field | null, op: string, t: number, bValue: number, W = DEFAULT_W, H = DEFAULT_H): Field {
   const out = allocField(W * H)
   const mix = clamp01(t)
+  const bConst = clamp01(bValue)
   for (let i = 0; i < W * H; i++) {
-    const x = a ? a[i] : 0, y = b ? b[i] : 0
+    const x = a ? a[i] : 0, y = b ? b[i] : bConst
     let v: number
     switch (op) {
       case 'subtract':   v = x - y; break
@@ -491,9 +492,7 @@ function evalFieldLevels(
   const count = Math.max(1, Math.min(16, Math.round(steps)))
   for (let i = 0; i < W * H; i++) {
     const source = field ? field[i] : 0
-    let value = high <= low
-      ? (source >= low ? 1 : 0)
-      : clamp01((source - low) / Math.max(1e-4, high - low))
+    let value = fieldRange(source, low, high)
     if (count >= 2) value = Math.round(value * (count - 1)) / (count - 1)
     out[i] = invert ? 1 - value : value
   }
@@ -851,20 +850,18 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const field = fv instanceof Float32Array ? fv : null
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
     const brightness = num(id, 'brightness', props, 'brightness', 1)
-    return { frame: evalFieldToFrame(field, palette, brightness, W, H) }
+    const low = num(id, 'low', props, 'low', 0), high = num(id, 'high', props, 'high', 1)
+    return { frame: evalFieldToFrame(field, palette, brightness, W, H, low, high) }
   },
   // The inverse of FieldToFrame: a 0–1 brightness field from a rendered
-  // frame (average of r,g,b — the same convention Mask uses for a mask
-  // frame's opacity).
-  FrameToField({ input, W, H }, id) {
+  // frame, by the chosen conversion (`pixelToField`, shared with the sketch).
+  FrameToField({ input, W, H }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
+    const conversion = frameToFieldConversion(props.conversion)
     const out2 = allocField(W * H)
     if (src) {
       for (let y = 0; y < H; y++) {
-        for (let x = 0; x < W; x++) {
-          const px = src[y][x]
-          out2[y * W + x] = (px.r + px.g + px.b) / 3 / 255
-        }
+        for (let x = 0; x < W; x++) out2[y * W + x] = pixelToField(src[y][x], conversion)
       }
     }
     return { field: out2 }
@@ -876,7 +873,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     return { field: evalFieldMath(
       av instanceof Float32Array ? av : null,
       bv instanceof Float32Array ? bv : null,
-      op, num(id, 't', props, 't', 0.5), W, H,
+      op, num(id, 't', props, 't', 0.5), num(id, 'value', props, 'value', 0), W, H,
     ) }
   },
   FieldLevels({ input, num, W, H }, id, props) {
@@ -915,11 +912,6 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
         out[y * W + x] = wraps ? ((v % 1) + 1) % 1 : clamp01(v)
       }
     }
-    return { field: out }
-  },
-  FloatToField({ num, W, H }, id, props) {
-    const out = allocField(W * H)
-    out.fill(clamp01(num(id, 'value', props, 'value', 0.5)))
     return { field: out }
   },
   // Keep in lockstep with the `FieldBlur` emitter: a separable box blur,
