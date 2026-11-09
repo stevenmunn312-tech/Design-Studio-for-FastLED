@@ -161,7 +161,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       trail: 'trail', palette: 'paletteIn',
     },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.67, scale: 0.08, count: 80, trail: 0.53, palette: 'ocean', seed: 0, flowMode: 'angle' },
+    defaultProperties: { speed: 0.67, scale: 0.32, count: 80, trail: 0.53, palette: 'ocean', seed: 0, flowMode: 'angle' },
   },
   {
     // String Particles — a 1-D particle pool drawn along a row, column or ring track.

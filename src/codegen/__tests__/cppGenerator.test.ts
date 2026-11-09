@@ -1689,12 +1689,12 @@ describe('generateCpp', () => {
       .toContain('field_n[_i]=(1.0f-fabsf(2.0f*constrain(field_n[_i],0.0f,1.0f)-1.0f));')
 
     const flow = (props: Record<string, unknown>) => generateCpp([node('n', 'FlowField', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
-    expect(flow({})).toContain('float _dx=cos(_a),_dy=sin(_a);')
-    expect(flow({})).not.toContain('inoise16')
+    expect(flow({})).toContain('float _dx=cosf(_a),_dy=sinf(_a);')
+    expect(flow({})).not.toContain('_gx=')
     const curl = flow({ flowMode: 'curl' })
-    expect(curl).toContain('inoise16(_cx+3277u,_cy,_cz)-(float)inoise16(_cx-3277u,_cy,_cz)')
+    expect(curl).toContain('(_snoise2(_nx+0.05f,_ny)-_snoise2(_nx-0.05f,_ny))*5.0f')
     expect(curl).toContain('float _dx=_gy*1.5f,_dy=-_gx*1.5f;')
-    expect(curl).not.toContain('inoise8')
+    expect(curl).not.toContain('float _a=')
   })
 
   it('emits String Particles on each track and in each mode', () => {
@@ -2163,11 +2163,12 @@ describe('generateCpp', () => {
     expect(cpp).toContain('_gb_g[_i]=_gc_g[_i]?1.0f:_gb_g[_i]*_tkeep_g;')
   })
 
-  it('reseeds Game of Life after four empty or frozen steps, as the preview does', () => {
+  it('reseeds Game of Life after four empty, frozen or period-2 steps, as the preview does', () => {
     const gol = node('g', 'GameOfLife', 'pattern', { speed: 8, trail: 0.37, palette: 'mojito' })
     const cpp = generateCpp([gol, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('if(_gn_g[_i]!=_gc_g[_i]) _chg=true;')
-    expect(cpp).toContain('_gst_g=(_pop==0||!_chg)?_gst_g+1:0;')
+    expect(cpp).toContain('if(_gn_g[_i]!=_gc_g[_i]) _chg=true; if(_gn_g[_i]!=_gp_g[_i]) _chg2=true;')
+    expect(cpp).toContain('::memcpy(_gp_g,_gc_g,sizeof(_gc_g)); ::memcpy(_gc_g,_gn_g,sizeof(_gc_g));')
+    expect(cpp).toContain('_gst_g=(_pop==0||!_chg||!_chg2)?_gst_g+1:0;')
     expect(cpp).toContain('if (_gst_g>3) {')
   })
 
@@ -2190,30 +2191,37 @@ describe('generateCpp', () => {
     expect(cpp).toContain('ColorFromPalette(paldef_lava')
   })
 
-  it('emits a stateful FlowField with particle buffers', () => {
-    const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.08, count: 50, trail: 0.53, palette: 'ocean' })
+  it('emits a stateful FlowField with particle buffers, steering by the preview\'s noise', () => {
+    const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.32, count: 50, trail: 0.53, palette: 'ocean' })
     const cpp = generateCpp([ff, outputNode], [edge('e', 'ff', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('const int _count=max(8,min(400,(int)floorf(50)))')
-    expect(cpp).toContain('static float _fpx_ff[400], _fpy_ff[400], _ftr_ff[NUM_LEDS]')
-    expect(cpp).toContain('inoise8(')
-    // The noise z axis wraps at its integer width before the cast; `t*100`
-    // passes 65535 eleven minutes in, and a float past a type's range is
-    // undefined to convert.
-    expect(cpp).toContain('uint16_t _z=(uint16_t)fmodf(t*100.0f,65536.0f);')
-    expect(cpp).not.toContain('(uint16_t)(t*100)')
+    // Unwired, the count is fixed, so the pool is that size and no bigger.
+    expect(cpp).toContain('const int _count=50; static float _fpx_ff[50], _fpy_ff[50], _ftr_ff[NUM_LEDS]')
+    // The same _snoise2 field, translating in x, and the same ±4π angle as the preview.
+    expect(cpp).toContain('float _spd=(constrain((1), 0.0f, 1.0f) * 1.500f),_sc=(constrain((0.32), 0.0f, 1.0f) * 0.250f),_z=t*0.1f;')
+    expect(cpp).toContain('float _nx=_fpx_ff[_i]*_sc+_z,_ny=_fpy_ff[_i]*_sc;')
+    expect(cpp).toContain('float _a=_snoise2(_nx,_ny)*12.566371f;')
+    expect(cpp).not.toContain('inoise8(')
     expect(cpp).toContain('_ftr_ff[_i]*=_tkeep_ff;')
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
 
     const curl = generateCpp([node('ff', 'FlowField', 'pattern', { flowMode: 'curl' }), outputNode], [edge('e', 'ff', 'out', 'frame', 'frame')])
-    expect(curl).toContain('_cz=(uint32_t)fmodf(t*0.1f*65536.0f,4294967296.0f);')
-    expect(curl).not.toContain('_cz=(uint32_t)(t*0.1f*65536.0f)')
+    expect(curl).toContain('float _gx=(_snoise2(_nx+0.05f,_ny)-_snoise2(_nx-0.05f,_ny))*5.0f,_gy=(_snoise2(_nx,_ny+0.05f)-_snoise2(_nx,_ny-0.05f))*5.0f;')
+    expect(curl).toContain('float _dx=_gy*1.5f,_dy=-_gx*1.5f;')
+    expect(curl).not.toContain('inoise16(')
+
+    // A wired count can reach the maximum, so the pool is the maximum.
+    const lfo = node('lfo', 'LFO', 'input', {})
+    const wired = generateCpp([lfo, ff, outputNode], [edge('e', 'ff', 'out', 'frame', 'frame'), edge('c', 'lfo', 'ff', 'value', 'count')])
+    expect(wired).toContain('const int _count=max(8,min(400,(int)floorf(n_lfo_value))); static float _fpx_ff[400]')
   })
 
   it('emits a stateful Starfield with star buffers and projection', () => {
     const sf = node('sf', 'Starfield', 'pattern', { speed: 2, count: 80, r: 255, g: 255, b: 255 })
     const cpp = generateCpp([sf, outputNode], [edge('e', 'sf', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('const int _count=max(8,min(300,(int)floorf(80)))')
-    expect(cpp).toContain('static float _sfx_sf[300], _sfy_sf[300], _sfz_sf[300]')
+    expect(cpp).toContain('const int _count=80; static float _sfx_sf[80], _sfy_sf[80], _sfz_sf[80]')
+    const lfo = node('lfo', 'LFO', 'input', {})
+    const wired = generateCpp([lfo, sf, outputNode], [edge('e', 'sf', 'out', 'frame', 'frame'), edge('c', 'lfo', 'sf', 'value', 'count')])
+    expect(wired).toContain('static float _sfx_sf[300], _sfy_sf[300], _sfz_sf[300]')
     expect(cpp).toContain('fill_solid(buf_sf, NUM_LEDS, CRGB::Black)')
     expect(cpp).toContain('.nscale8(')
   })

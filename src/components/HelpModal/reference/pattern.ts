@@ -748,7 +748,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'FlowField',
       title: 'Smoke curling through the air',
       nodes: {
-        smoke: ['FlowField', { flowMode: 'curl', count: 300, scale: 0.1, trail: 0.59, palette: 'opal', speed: 0.55 }],
+        smoke: ['FlowField', { flowMode: 'curl', count: 300, scale: 0.4, trail: 0.59, palette: 'opal', speed: 0.55 }],
       },
       explanation: 'Flow Field in curl mode keeps its 300 particles circulating in smooth eddies, and long trails turn their paths into wisps like smoke, tinted by the opal palette.',
       preview: 'The {output} shows pale teal wisps curling and swirling across the matrix.',

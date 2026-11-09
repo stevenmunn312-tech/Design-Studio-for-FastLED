@@ -648,7 +648,7 @@ const PALETTE_BUILDER_TYPES = PALETTE_BUILDER_NODE_TYPES
 // with materially large fixed per-LED overhead.
 const STATEFUL_EXTRA_BYTES_PER_LED: Record<string, number> = {
   Fire: 1,                // uint8 heat[HEIGHT][WIDTH], every style
-  GameOfLife: 6,          // uint8 cells + uint8 next + float bright
+  GameOfLife: 7,          // uint8 cells + next + two-back, float bright
   ReactionDiffusion: 12,  // 3 float arrays (u, un, vn); v is its own field buffer
   FluidSim: 24,           // six float arrays (u, v, u0, v0, d, d0); the outputs are their own field buffers
   Automaton: 2,           // uint8 cells + uint8 next

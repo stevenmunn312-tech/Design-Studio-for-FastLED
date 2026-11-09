@@ -69,6 +69,20 @@ function fireMirrorCpp(ln: (line: string) => void, direction: string, ob: string
   else ln(`    ${direction === 'left' || direction === 'right' ? rows : columns}`)
 }
 
+/**
+ * A particle pool's `_count` declaration and static size. Unwired, the count
+ * is fixed at generation time, so the pool is that size; wired, it can reach
+ * the maximum, so the pool is the maximum and `_count` follows the wire.
+ */
+function poolCpp(
+  wired: boolean, countExpr: string, saved: unknown, fallback: number, bounds: { min: number; max: number },
+): { count: string; size: number } {
+  if (wired) return { count: `const int _count=max(${bounds.min},min(${bounds.max},(int)floorf(${countExpr})));`, size: bounds.max }
+  const n = Number(saved ?? fallback)
+  const size = Math.max(bounds.min, Math.min(bounds.max, Math.floor(Number.isFinite(n) ? n : fallback)))
+  return { count: `const int _count=${size};`, size }
+}
+
 /** Fire's `fire2012` style: FastLED's Fire2012 heat algorithm. */
 function fire2012Cpp(ctx: EmitContext): void {
   const { node, id, p, ln, f, ownBuf, paletteExpr } = ctx
@@ -472,34 +486,35 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
       }
     }
   },
-  FlowField({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  // The flow is the preview's own: the `_snoise2` twin at (x*scale + t*0.1,
+  // y*scale), an angle of ±4π, or its curl by the same central differences.
+  FlowField({ node, id, p, ln, f, ownBuf, incoming, paletteExpr, needsT, needsSimplex }) {
     needsT.v = true
+    needsSimplex.v = true
     const ob = ownBuf()
-    const speed = rateCpp(f('speed', 'speed', 0.67), SPEED_MAX.FlowField), scale = rateCpp(f('scale', 'scale', 0.08), SCALE_MAX.FlowField)
+    const speed = rateCpp(f('speed', 'speed', 0.67), SPEED_MAX.FlowField), scale = rateCpp(f('scale', 'scale', 0.32), SCALE_MAX.FlowField)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const seed = seedProp(p)
     const px = `_fpx_${id}`, py = `_fpy_${id}`, tr = `_ftr_${id}`
     ln(`  { // Flow field`)
-    const { min: flowMin, max: flowMax } = FLOW_FIELD_COUNT
-    ln(`    const int _count=max(${flowMin},min(${flowMax},(int)floorf(${f('count', 'count', 80)}))); static float ${px}[${flowMax}], ${py}[${flowMax}], ${tr}[NUM_LEDS]; static bool _fi_${id}=false;`)
+    // A wired count can reach the maximum, so only then is the pool that size.
+    const pool = poolCpp(incoming.has(`${node.id}:count`), f('count', 'count', 80), p.count, 80, FLOW_FIELD_COUNT)
+    ln(`    ${pool.count} static float ${px}[${pool.size}], ${py}[${pool.size}], ${tr}[NUM_LEDS]; static bool _fi_${id}=false;`)
     if (seed) ln(`    static bool _fs_${id}=false; if(!_fs_${id}){ random16_set_seed(${seed}u); _fs_${id}=true; }`)
-    ln(`    if(!_fi_${id}){ for(int _i=0;_i<${flowMax};_i++){ ${px}[_i]=(random8()/255.0f)*WIDTH; ${py}[_i]=(random8()/255.0f)*HEIGHT; } for(int _i=0;_i<NUM_LEDS;_i++)${tr}[_i]=0; _fi_${id}=true; }`)
-    // Noise axes wrap at their integer width before the cast: a float past the
-    // type's range is undefined to convert, and `t*100` passes 65535 in 11 minutes.
-    ln(`    float _spd=${speed},_sc=${scale}; uint16_t _z=(uint16_t)fmodf(t*100.0f,65536.0f);`)
+    ln(`    if(!_fi_${id}){ for(int _i=0;_i<${pool.size};_i++){ ${px}[_i]=(random8()/255.0f)*WIDTH; ${py}[_i]=(random8()/255.0f)*HEIGHT; } for(int _i=0;_i<NUM_LEDS;_i++)${tr}[_i]=0; _fi_${id}=true; }`)
+    ln(`    float _spd=${speed},_sc=${scale},_z=t*0.1f;`)
     const keep = trailKeepCpp(ln, phaseTag(id), f('trail', 'trail', 0.53))
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${tr}[_i]*=${keep};`)
     ln(`    for(int _i=0;_i<_count;_i++){`)
+    ln(`      float _nx=${px}[_i]*_sc+_z,_ny=${py}[_i]*_sc;`)
     if (p.flowMode === 'curl') {
-      // Central differences of inoise16 a CURL_EPS apart (in cells), turned a quarter turn.
-      const eps = Math.round(CURL_EPS * 65536)
-      ln(`      uint32_t _cx=(uint32_t)(${px}[_i]*_sc*65536.0f),_cy=(uint32_t)(${py}[_i]*_sc*65536.0f),_cz=(uint32_t)fmodf(t*0.1f*65536.0f,4294967296.0f);`)
-      ln(`      float _gx=((float)inoise16(_cx+${eps}u,_cy,_cz)-(float)inoise16(_cx-${eps}u,_cy,_cz))/(65535.0f*${2 * CURL_EPS}f);`)
-      ln(`      float _gy=((float)inoise16(_cx,_cy+${eps}u,_cz)-(float)inoise16(_cx,_cy-${eps}u,_cz))/(65535.0f*${2 * CURL_EPS}f);`)
-      ln(`      float _dx=_gy*${CURL_GAIN}f,_dy=-_gx*${CURL_GAIN}f;`)
+      // curlFlow over n = _snoise2*0.5+0.5: central differences CURL_EPS apart, turned a quarter turn.
+      const e = floatLit(CURL_EPS), d = floatLit(0.5 / (2 * CURL_EPS))
+      ln(`      float _gx=(_snoise2(_nx+${e},_ny)-_snoise2(_nx-${e},_ny))*${d},_gy=(_snoise2(_nx,_ny+${e})-_snoise2(_nx,_ny-${e}))*${d};`)
+      ln(`      float _dx=_gy*${floatLit(CURL_GAIN)},_dy=-_gx*${floatLit(CURL_GAIN)};`)
     } else {
-      ln(`      float _a=(inoise8((uint16_t)(${px}[_i]*_sc*256),(uint16_t)(${py}[_i]*_sc*256),_z)/255.0f)*6.2831f*2;`)
-      ln(`      float _dx=cos(_a),_dy=sin(_a);`)
+      ln(`      float _a=_snoise2(_nx,_ny)*12.566371f;`)
+      ln(`      float _dx=cosf(_a),_dy=sinf(_a);`)
     }
     ln(`      ${px}[_i]=fmodf(${px}[_i]+_dx*_spd*0.6f+WIDTH,WIDTH); ${py}[_i]=fmodf(${py}[_i]+_dy*_spd*0.6f+HEIGHT,HEIGHT);`)
     ln(`      int _xi=(int)${px}[_i],_yi=(int)${py}[_i]; if(_xi>=0&&_xi<WIDTH&&_yi>=0&&_yi<HEIGHT){ int _id=_yi*WIDTH+_xi; ${tr}[_id]=min(1.0f,${tr}[_id]+0.5f); } }`)
@@ -648,17 +663,17 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     }
     ln(`      ${ob}[${at}]=CRGB(_r,_g,_bl); } }`)
   },
-  Starfield({ node, id, p, ln, f, ownBuf, paletteExpr }) {
+  Starfield({ node, id, p, ln, f, ownBuf, incoming, paletteExpr }) {
     const ob = ownBuf()
     const speed = rateCpp(f('speed', 'speed', 0.33), SPEED_MAX.Starfield)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const seed = seedProp(p)
     const sx = `_sfx_${id}`, sy = `_sfy_${id}`, sz = `_sfz_${id}`
     ln(`  { // Starfield`)
-    const { min: starMin, max: starMax } = STARFIELD_COUNT
-    ln(`    const int _count=max(${starMin},min(${starMax},(int)floorf(${f('count', 'count', 60)}))); static float ${sx}[${starMax}], ${sy}[${starMax}], ${sz}[${starMax}]; static bool _sfi_${id}=false;`)
+    const pool = poolCpp(incoming.has(`${node.id}:count`), f('count', 'count', 60), p.count, 60, STARFIELD_COUNT)
+    ln(`    ${pool.count} static float ${sx}[${pool.size}], ${sy}[${pool.size}], ${sz}[${pool.size}]; static bool _sfi_${id}=false;`)
     if (seed) ln(`    static bool _sfs_${id}=false; if(!_sfs_${id}){ random16_set_seed(${seed}u); _sfs_${id}=true; }`)
-    ln(`    if(!_sfi_${id}){ for(int _i=0;_i<${starMax};_i++){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=random8()/255.0f*0.9f+0.1f; } _sfi_${id}=true; }`)
+    ln(`    if(!_sfi_${id}){ for(int _i=0;_i<${pool.size};_i++){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=random8()/255.0f*0.9f+0.1f; } _sfi_${id}=true; }`)
     ln(`    float _spd=${speed}; fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
     ln(`    for(int _i=0;_i<_count;_i++){ ${sz}[_i]-=_spd*0.015f;`)
     ln(`      if(${sz}[_i]<=0.02f){ ${sx}[_i]=random8()/127.5f-1; ${sy}[_i]=random8()/127.5f-1; ${sz}[_i]=1; }`)
@@ -758,21 +773,21 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const speed = f('speed', 'speed', 8)
     const seed = seedProp(p)
-    const c = `_gc_${id}`, nx = `_gn_${id}`, br = `_gb_${id}`
+    const c = `_gc_${id}`, nx = `_gn_${id}`, pv = `_gp_${id}`, br = `_gb_${id}`
     ln(`  { // Game of Life`)
-    ln(`    static uint8_t ${c}[NUM_LEDS], ${nx}[NUM_LEDS]; static float ${br}[NUM_LEDS]; static bool _gi_${id}=false; static uint32_t _gt_${id}=0; static uint8_t _gst_${id}=0;`)
+    ln(`    static uint8_t ${c}[NUM_LEDS], ${nx}[NUM_LEDS], ${pv}[NUM_LEDS]; static float ${br}[NUM_LEDS]; static bool _gi_${id}=false; static uint32_t _gt_${id}=0; static uint8_t _gst_${id}=0;`)
     if (seed) ln(`    static bool _gs_${id}=false; if(!_gs_${id}){ random16_set_seed(${seed}u); _gs_${id}=true; }`)
     ln(`    if (!_gi_${id}) { for (int _i=0;_i<NUM_LEDS;_i++){${c}[_i]=random8()<77?1:0;${br}[_i]=0;} _gi_${id}=true; }`)
     ln(`    if (millis() - _gt_${id} >= (uint32_t)(1000.0f / max(1.0f, (float)(${speed})))) {`)
-    ln(`      int _pop=0; bool _chg=false;`)
+    ln(`      int _pop=0; bool _chg=false, _chg2=false;`)
     ln(`      for (int _y=0;_y<HEIGHT;_y++){ int _ym=((_y-1+HEIGHT)%HEIGHT)*WIDTH,_yp=((_y+1)%HEIGHT)*WIDTH,_yr=_y*WIDTH;`)
     ln(`        for (int _x=0;_x<WIDTH;_x++){ int _xm=(_x-1+WIDTH)%WIDTH,_xp=(_x+1)%WIDTH,_i=_yr+_x;`)
     ln(`          int _n=${c}[_ym+_xm]+${c}[_ym+_x]+${c}[_ym+_xp]+${c}[_yr+_xm]+${c}[_yr+_xp]+${c}[_yp+_xm]+${c}[_yp+_x]+${c}[_yp+_xp];`)
-    ln(`          ${nx}[_i]=${c}[_i]?((_n==2||_n==3)?1:0):(_n==3?1:0); _pop+=${nx}[_i]; if(${nx}[_i]!=${c}[_i]) _chg=true; } }`)
-    ln(`      ::memcpy(${c},${nx},sizeof(${c}));`)
-    // Reseeds once the board has been empty or frozen for four steps, as the
-    // preview does, so a field of still lifes doesn't hold forever.
-    ln(`      _gst_${id}=(_pop==0||!_chg)?_gst_${id}+1:0;`)
+    ln(`          ${nx}[_i]=${c}[_i]?((_n==2||_n==3)?1:0):(_n==3?1:0); _pop+=${nx}[_i]; if(${nx}[_i]!=${c}[_i]) _chg=true; if(${nx}[_i]!=${pv}[_i]) _chg2=true; } }`)
+    ln(`      ::memcpy(${pv},${c},sizeof(${c})); ::memcpy(${c},${nx},sizeof(${c}));`)
+    // Reseeds once the board has been empty, frozen, or flipping between two
+    // states (blinkers among still lifes) for four steps, as the preview does.
+    ln(`      _gst_${id}=(_pop==0||!_chg||!_chg2)?_gst_${id}+1:0;`)
     ln(`      if (_gst_${id}>3) { for (int _i=0;_i<NUM_LEDS;_i++) ${c}[_i]=random8()<77?1:0; _gst_${id}=0; }`)
     ln(`      _gt_${id}=millis(); }`)
     const keep = trailKeepCpp(ln, phaseTag(id), f('trail', 'trail', 0.37))

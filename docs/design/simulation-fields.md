@@ -130,6 +130,8 @@ Noise is the one place the two sides use different functions. The preview
 samples `_snoise2` and the sketch samples FastLED's `inoise8`, one noise unit
 being 256 in `inoise8`'s fixed point. Fire smoke, Luminova and String Particles'
 meteor bed all carry the same documented approximation gap as Field Noise.
+Flow Field does not: both sides steer by the `_snoise2` twin, its angle and its
+curl alike.
 Random draws in Digital Rain, Automaton and Luminova come from
 the seeded LCG in the preview and `random8`/`random16` in the sketch, so a seed
 gives the same statistics, not the same picture. The classics avoid this by

@@ -369,7 +369,7 @@ const WEBSITE_PATTERN_SEEDS: PatternSeed[] = [
       }),
       studioNode('flow', 'FlowField', -460, 40, {
         speed: 0.11,
-        scale: 0.09,
+        scale: 0.36,
         count: 30,
         trail: 0.65,
         seed: 244,

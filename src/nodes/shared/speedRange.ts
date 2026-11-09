@@ -43,7 +43,8 @@ export const SPEED_MAX: Record<string, number> = {
 
 /** scale `1.0` (slider max) maps to this internal scale, per node type. */
 export const SCALE_MAX: Record<string, number> = {
-  FlowField: 1, Blobs: 0.5, FieldNoise: 0.5,
+  // FlowField — past about 0.3 every pixel has its own eddy, so 0.25 tops the slider.
+  FlowField: 0.25, Blobs: 0.5, FieldNoise: 0.5,
   // Plasma — multiplies its spatial frequencies; the default 0.5 is the classic 1.
   Plasma: 2,
   Pride2015: 1.5, Pacifica: 1,

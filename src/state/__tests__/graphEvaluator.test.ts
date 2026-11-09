@@ -67,7 +67,7 @@ import { waveSample } from '../../nodes/signal/wave'
 import { blobSpan } from '../../nodes/generative/evaluate'
 import { plasmaFrame } from '../../nodes/shared/integerPatterns'
 import { particlePoolSize } from '../../nodes/simulations/particleModes'
-import { boidPalettePosition } from '../../nodes/simulations/evaluate'
+import { boidPalettePosition, golStep } from '../../nodes/simulations/evaluate'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { samplePalette } from '../palettes/ledColor'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -2561,7 +2561,7 @@ describe('evaluateGraph', () => {
   })
 
   it('FlowField deposits trails that build up over frames', () => {
-    const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.1, count: 60, trail: 0.53, palette: 'ocean' })
+    const ff = node('ff', 'FlowField', 'pattern', { speed: 1, scale: 0.4, count: 60, trail: 0.53, palette: 'ocean' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e', 'ff', 'frame', 'out', 'frame')]
     let frame = evaluateGraph([ff, out], edges, 0, 10, 10)!
@@ -2596,6 +2596,25 @@ describe('evaluateGraph', () => {
     const first = lit[0]
     const ok = lit.every((px) => px.r === first.r && px.g === first.g && px.b === first.b)
     expect(ok).toBe(true)
+  })
+
+  it('GameOfLife counts a board flipping between two states as stagnant', () => {
+    // A 5x5 torus holding one blinker flips forever. Its first step differs
+    // from the (empty) board two back; every later one matches it, so four
+    // such steps in a row reseed, where before only empty or frozen did.
+    let cells = new Uint8Array(25), next = new Uint8Array(25)
+    const prev = new Uint8Array(25)
+    cells[2 * 5 + 1] = cells[2 * 5 + 2] = cells[2 * 5 + 3] = 1
+    const stagnant: boolean[] = []
+    for (let i = 0; i < 4; i++) {
+      stagnant.push(golStep(cells, next, prev, 5, 5));
+      [cells, next] = [next, cells]
+    }
+    expect(stagnant).toEqual([false, true, true, true])
+    // A still life is stagnant from the first step, as it always was.
+    const block = new Uint8Array(25)
+    block[6] = block[7] = block[11] = block[12] = 1
+    expect(golStep(block, new Uint8Array(25), new Uint8Array(25), 5, 5)).toBe(true)
   })
 
   it('ReactionDiffusion seeds a non-uniform field that evolves over frames', () => {

@@ -1026,10 +1026,6 @@ freeze, or drop them.
   Help example uses 4. For String Particles, a ring form gives the ring track
   and LED count and a strip form gives row. Evidence `src/state/nodeLibrary.ts:2244`,
   `:2261`.
-- [ ] **Category: Size Starfield and Flow Field pools to the property when
-  `count` is unwired (Low, S).** Both always declare the maximum pool (300 x
-  12 B = 3.6 KB; 400 x 8 B = 3.2 KB) because `count` is wireable. Evidence
-  `src/nodes/simulations/codegen.ts:674`, `:500`.
 - [ ] **Confetti: Rename Speed to "Colour drift" (Med, S).** Speed and Density
   both set spawn count (`density*(0.08+speed*0.3)*sqrt(area)`), and the
   Density tooltip admits it multiplies Speed. Keep Density for amount and
@@ -1048,25 +1044,10 @@ freeze, or drop them.
   Singularity uses `fireworks`, Help uses `snow` and `luminova`) and drops a
   look someone may use, so decide the list before cutting. Evidence
   `src/nodes/simulations/particleModes.ts:5`.
-- [ ] **Flow Field: Make preview and firmware draw the same flow (Med, S).** The
-  preview steers by `_snoise2(...)*4π` (angle ±4π, field translating in x);
-  firmware uses `inoise8(...,t*100)/255*4π` (angle 0..4π, field evolving in z).
-  Curl mode likewise uses `inoise16` against `_snoise2`. Use the shipped
-  `_snoise2` twin in firmware. Evidence `src/nodes/simulations/evaluate.ts:588`, `src/nodes/simulations/codegen.ts:505`.
-- [ ] **Flow Field: Cut `SCALE_MAX` to about 0.25 (Med, S).** Default 0.08 on a
-  0-1 slider means most of the slider is unusable; past about 0.3 every pixel
-  has an eddy. Evidence `src/nodes/generative/definitions.ts:165`,
-  `src/nodes/shared/speedRange.ts:46`.
 - [ ] **Ripple: Rename to "Network Ripple" (Med, S).** It only works on a
   segment network and draws hexagons, while Radial Burst's Help example is
   already titled "Ripples spreading on a still pond", and RainRipples and the
   "Ripple Wipe" transition exist. Evidence `src/components/HelpModal/reference/pattern.ts:662`.
-- [ ] **Game of Life: Reseed when only period-2 oscillators remain (Med, S).**
-  Stale detection counts only an empty or unchanged board, so a 16x16 torus
-  ending in blocks plus blinkers loops forever, against the reseed promise.
-  Also compare against the board two generations back, or reseed when
-  population is unchanged for N generations. Evidence
-  `src/nodes/simulations/evaluate.ts:997`, `src/nodes/simulations/codegen.ts:787`.
 
 #### Outputs and shows
 

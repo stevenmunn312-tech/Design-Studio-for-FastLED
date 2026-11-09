@@ -420,7 +420,7 @@ const STANDARD_PATTERN_SEEDS: BundledSeed[] = [
       }),
       studioNode('flow', 'FlowField', -460, 40, {
         speed: 0.18,
-        scale: 0.12,
+        scale: 0.48,
         count: 42,
         trail: 0.62,
         seed: 522,

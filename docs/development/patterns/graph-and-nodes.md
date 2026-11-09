@@ -277,7 +277,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   constant they each import, such as `SPIRAL_ARMS` in
   `src/nodes/generative/limits.ts` or `FLOW_FIELD_COUNT` in
   `src/nodes/simulations/limits.ts`, whose `max` also sizes the sketch's
-  static pool. Three literals drift: Reaction Diffusion's slider ran to 30
+  static pool when `count` is wired; unwired, the count is fixed at
+  generation time and the pool is that size. Three literals drift: Reaction Diffusion's slider ran to 30
   steps a frame while both sides stopped at 20. A wireable 0–1 level that
   becomes a byte goes through `levelByteCpp` and its siblings in
   `colorControlCpp.ts`, because `(uint8_t)(x * 255)` wraps a wired 1.1 round

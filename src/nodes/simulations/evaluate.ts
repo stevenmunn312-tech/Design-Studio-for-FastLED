@@ -57,7 +57,7 @@ const particleSeedState = instanceState('particleSeedState', new Map<string, str
 interface RDState { u: Float32Array; v: Float32Array; un: Float32Array; vn: Float32Array; w: number; h: number; seed: number }
 const rdState = instanceState('rdState', new Map<string, RDState>())
 
-interface GolState { cells: Uint8Array; next: Uint8Array; bright: Float32Array; w: number; h: number; seed: number; lastStep: number; stale: number }
+interface GolState { cells: Uint8Array; next: Uint8Array; prev: Uint8Array; bright: Float32Array; w: number; h: number; seed: number; lastStep: number; stale: number }
 const golState = instanceState('golState', new Map<string, GolState>())
 
 interface FlowState { px: Float32Array; py: Float32Array; trail: Float32Array; w: number; h: number; seed: number }
@@ -948,6 +948,28 @@ function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters
 // Conway's Game of Life on a toroidal grid. Live cells glow at the palette's hot
 // end; dead cells fade out by `trail`, cooling toward the palette start. Steps
 // at `speed`/sec and reseeds when it stagnates.
+/**
+ * One Life generation from `cells` into `next` on a torus, as the sketch steps
+ * it, leaving `prev` holding `cells` for the next call. Returns whether the
+ * board is stagnant: empty, frozen, or back where it was two generations ago,
+ * the blinkers-among-still-lifes loop a small torus often settles into.
+ */
+export function golStep(cells: Uint8Array, next: Uint8Array, prev: Uint8Array, W: number, H: number): boolean {
+  let pop = 0, changed = false, changed2 = false
+  for (let y = 0; y < H; y++) {
+    const ym = ((y - 1 + H) % H) * W, yp = ((y + 1) % H) * W, yr = y * W
+    for (let x = 0; x < W; x++) {
+      const xm = (x - 1 + W) % W, xp = (x + 1) % W, i = yr + x
+      const n = cells[ym + xm] + cells[ym + x] + cells[ym + xp] + cells[yr + xm]
+        + cells[yr + xp] + cells[yp + xm] + cells[yp + x] + cells[yp + xp]
+      const nv = cells[i] ? (n === 2 || n === 3 ? 1 : 0) : (n === 3 ? 1 : 0)
+      next[i] = nv; pop += nv; if (nv !== cells[i]) changed = true; if (nv !== prev[i]) changed2 = true
+    }
+  }
+  prev.set(cells)
+  return pop === 0 || !changed || !changed2
+}
+
 function evalGameOfLife(nodeId: string, palette: Palette, speed: number, trail: number, tick: number, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
   const N = W * H
   const reseed = (cells: Uint8Array) => {
@@ -957,25 +979,15 @@ function evalGameOfLife(nodeId: string, palette: Palette, speed: number, trail: 
   if (!s || s.w !== W || s.h !== H || s.seed !== seed) {
     seededRngState.delete(`${nodeId}:gol`)
     const cells = new Uint8Array(N); reseed(cells)
-    s = { cells, next: new Uint8Array(N), bright: new Float32Array(N), w: W, h: H, seed, lastStep: -1e9, stale: 0 }
+    s = { cells, next: new Uint8Array(N), prev: new Uint8Array(N), bright: new Float32Array(N), w: W, h: H, seed, lastStep: -1e9, stale: 0 }
     golState.set(nodeId, s)
   }
   const interval = Math.max(1, Math.round(60 / Math.max(1, Math.min(60, speed))))
   if (tick - s.lastStep >= interval) {
-    const { cells, next } = s
-    let pop = 0, changed = false
-    for (let y = 0; y < H; y++) {
-      const ym = ((y - 1 + H) % H) * W, yp = ((y + 1) % H) * W, yr = y * W
-      for (let x = 0; x < W; x++) {
-        const xm = (x - 1 + W) % W, xp = (x + 1) % W, i = yr + x
-        const n = cells[ym + xm] + cells[ym + x] + cells[ym + xp] + cells[yr + xm]
-          + cells[yr + xp] + cells[yp + xm] + cells[yp + x] + cells[yp + xp]
-        const nv = cells[i] ? (n === 2 || n === 3 ? 1 : 0) : (n === 3 ? 1 : 0)
-        next[i] = nv; pop += nv; if (nv !== cells[i]) changed = true
-      }
-    }
+    const { cells, next, prev } = s
+    const stagnant = golStep(cells, next, prev, W, H)
     s.cells = next; s.next = cells   // swap
-    s.stale = (pop === 0 || !changed) ? s.stale + 1 : 0
+    s.stale = stagnant ? s.stale + 1 : 0
     if (s.stale > 3) { reseed(s.cells); s.stale = 0 }
     s.lastStep = tick
   }
@@ -1100,7 +1112,7 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
   },
   FlowField({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.67), SPEED_MAX.FlowField)
-    const scale = denormRate(num(id, 'scale', props, 'scale', 0.08), SCALE_MAX.FlowField)
+    const scale = denormRate(num(id, 'scale', props, 'scale', 0.32), SCALE_MAX.FlowField)
     const count = num(id, 'count', props, 'count', 80)
     const trail = num(id, 'trail', props, 'trail', 0.53)
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
