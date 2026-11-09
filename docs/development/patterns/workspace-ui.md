@@ -139,6 +139,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   than decided per surface. Help derives its validated-hardware paragraph from
   the matrix itself (`src/utils/supportMatrix.ts`, a `?raw` chunk fetched when
   Help opens), so a new support row never needs a copy change.
+- A select whose stored values are codes (wallpaper groups' p4m, p6m) gives
+  its `PropertyControl` a `labels` map; `propertyOptionLabel` is what the
+  node's dropdown and Help's fallback text show, and the saved value stays
+  the code. A time of day is the `time` control, an `<input type="time">`
+  over "HH:MM" or "HH:MM:SS" text (Schedule Trigger's start and end).
 
 ## Layout and input traps
 

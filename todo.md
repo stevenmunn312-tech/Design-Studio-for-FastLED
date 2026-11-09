@@ -662,12 +662,6 @@ freeze, or drop them.
   Formula nodes. Add a Swirl / Ripple / Turbulence select with a speed,
   used when dx/dy are unwired. Evidence
   `src/nodes/composite/evaluate.ts:378`.
-- [ ] **Symmetry: Add display labels to select options (Med, M).** The group
-  dropdown shows crystallographic codes (p1, pm, p4m, p6m...) and
-  `PropertyControl` selects cannot carry labels. Add optional option labels
-  (e.g. "p4m: square, mirrors + quarter turns"), also useful for
-  FieldSymmetry. Evidence `src/state/evaluator/symmetry.ts:1`,
-  `src/state/nodeLibrary.ts:410`.
 - [ ] **Frame Feedback: Allow rotate and zoom together (Med, M).**
   Translate, Rotate and Scale are mutually exclusive, so the classic
   turning tunnel needs a separate Transform in front. Add a combined "Zoom

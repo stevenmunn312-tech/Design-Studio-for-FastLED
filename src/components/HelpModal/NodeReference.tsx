@@ -194,7 +194,7 @@ function describeProperty(node: NodeDefinition, key: string): string {
   const meta = propertyMeta(node.type, key)
   const name = displayPropertyLabel(node.type, key)
   if (meta?.control === 'slider') return `${name}, from ${formatNumber(meta.min)} to ${formatNumber(meta.max)}.`
-  if (meta?.control === 'select') return `${name}: ${meta.options.join(', ')}.`
+  if (meta?.control === 'select') return `${name}: ${meta.options.map((option) => meta.labels?.[option] ?? option).join(', ')}.`
   return `${name}.`
 }
 

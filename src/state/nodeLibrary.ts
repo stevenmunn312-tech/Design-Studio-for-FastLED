@@ -83,7 +83,7 @@ import { FIRE_STYLES } from './evaluator/fireSmoke'
 import { PARTICLE_MODES } from '../nodes/simulations/particleModes'
 import { FUNCTION_OPS } from '../nodes/math/mathIdentity'
 import { LOGIC_OPS } from '../nodes/math/logic'
-import { WALLPAPER_GROUPS } from './evaluator/symmetry'
+import { WALLPAPER_GROUP_LABELS, WALLPAPER_GROUPS } from './evaluator/symmetry'
 import { TRUCHET_LATTICES, TRUCHET_MOTIFS } from './evaluator/truchet'
 import {
   TURING_BASE_RADIUS_MAX, TURING_BASE_RADIUS_MIN, TURING_ITERATIONS_MAX, TURING_SCALES_MAX,
@@ -414,7 +414,8 @@ export const WHITE_POINT_OPTIONS = [
  */
 export type PropertyControl =
   // `numeric` stores the chosen option as a number rather than its text.
-  | { control: 'select'; options: readonly string[]; numeric?: true }
+  // `labels` shows an option as words while the stored value stays its code.
+  | { control: 'select'; options: readonly string[]; numeric?: true; labels?: Readonly<Record<string, string>> }
   | { control: 'slider'; min: number; max: number; step: number; entry?: 'number' }
   // A 24-hour time of day, stored as "HH:MM" or "HH:MM:SS" text.
   | { control: 'time' }
@@ -1364,7 +1365,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     sampling: { control: 'select', options: ['bilinear', 'nearest'] },
   },
   FieldSymmetry: {
-    group: { control: 'select', options: [...WALLPAPER_GROUPS] },
+    group: { control: 'select', options: [...WALLPAPER_GROUPS], labels: WALLPAPER_GROUP_LABELS },
     cells: { control: 'slider', min: 0.5, max: 8, step: 0.1 },
     rotation: { control: 'slider', min: -180, max: 180, step: 1 },
     spin: { control: 'slider', min: -360, max: 360, step: 5 },
@@ -1372,7 +1373,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     offsetY: { control: 'slider', min: -8, max: 8, step: 0.1 },
   },
   Symmetry: {
-    group: { control: 'select', options: [...WALLPAPER_GROUPS] },
+    group: { control: 'select', options: [...WALLPAPER_GROUPS], labels: WALLPAPER_GROUP_LABELS },
     cells: { control: 'slider', min: 0.5, max: 8, step: 0.1 },
     rotation: { control: 'slider', min: -180, max: 180, step: 1 },
     spin: { control: 'slider', min: -360, max: 360, step: 5 },
@@ -1676,6 +1677,12 @@ export function propertyMeta(nodeType: string, key: string): PropertyControl | u
     ?? DERIVED_COLOR_CHANNEL_META[nodeType]?.[key]
     ?? PROPERTY_META[key]
     ?? (isGpioPinProperty(nodeType, key) ? GPIO_PIN_CONTROL : undefined)
+}
+
+/** The words a select shows for one of its options: its label, else the option itself. */
+export function propertyOptionLabel(nodeType: string, key: string, option: string): string {
+  const meta = propertyMeta(nodeType, key)
+  return (meta?.control === 'select' ? meta.labels?.[option] : undefined) ?? option
 }
 
 /** Select choices that depend on another property of the same node. */

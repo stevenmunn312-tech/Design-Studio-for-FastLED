@@ -79,6 +79,17 @@ describe('StudioNode', () => {
     expect(useGraphStore.getState().nodes.find((node) => node.id === 'n1')!.data.properties.start).toBe('21:30:15')
   })
 
+  it('shows a symmetry group as words while storing its code', () => {
+    const { container } = renderNode(makeNode('Symmetry', { ...libraryDefaults('Symmetry') }))
+    openAllGroups(container)
+    const group = container.querySelector('select[aria-label="group value"]') as HTMLSelectElement
+    const options = Array.from(group.options)
+    expect(options.find((option) => option.value === 'p4m')?.textContent).toBe('p4m: square, mirrors + quarter turns')
+    expect(options.map((option) => option.value)).toContain('p6m')
+    fireEvent.change(group, { target: { value: 'p6' } })
+    expect(useGraphStore.getState().nodes.find((node) => node.id === 'n1')!.data.properties.group).toBe('p6')
+  })
+
   it('adds Beat Transitions to the timing controls of an existing Music Player', () => {
     const { container } = renderNode(makeNode('PatternMaster', { minTime: 4, maxTime: 12 }))
     const header = within(container).getByRole('button', { name: /timing/i })

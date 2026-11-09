@@ -7,7 +7,7 @@ import { compositionDims } from '../../state/output/outputRouting'
 import type { StudioEdge, StudioNode as StudioNodeT, StudioNodeData } from '../../state/graphStore'
 import { useUiStore, type ConnectionDragHint } from '../../state/uiStore'
 import { EXPERIMENTAL_LABEL, isExperimentalPropertyOption } from '../../utils/experimentalFeatures'
-import { NODE_LIBRARY, NODE_DESCRIPTIONS, CATEGORY_ACCENT_VAR, portColor, portsCompatible, propertyMeta, propertyOptions, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty, gpioRequirementForProperty } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, NODE_DESCRIPTIONS, CATEGORY_ACCENT_VAR, portColor, portsCompatible, propertyMeta, propertyOptionLabel, propertyOptions, propertyDescription, propertyLabel, hasClampableInputs, bypassPort, nodeDisplayLabel, isPropertyEnabled, libraryDefaults, propertyGroupsFor, supportsScalarExpression, isGpioPinProperty, gpioRequirementForProperty } from '../../state/nodeLibrary'
 import { isPinnableProperty } from '../../state/player/performanceDeck'
 import { useUploadStore, boardGpioInfo } from '../../state/upload/uploadStore'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../nodes/shared/scalarExpression'
@@ -702,7 +702,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 onChange={(e) => writeValue(meta.numeric ? Number(e.target.value) : e.target.value)}
               >
                 {selectOptions.map((opt) => (
-                  <option key={opt} value={opt}>{opt}{isExperimentalPropertyOption(nodeType, key, opt) ? ` (${EXPERIMENTAL_LABEL})` : ''}</option>
+                  <option key={opt} value={opt}>{propertyOptionLabel(nodeType, key, opt)}{isExperimentalPropertyOption(nodeType, key, opt) ? ` (${EXPERIMENTAL_LABEL})` : ''}</option>
                 ))}
               </select>
             ) : isGpioPin && meta?.control === 'slider' && typeof val === 'number' ? (
