@@ -219,7 +219,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       title: 'Watch circles learn to draw a star',
       nodes: {
         learn: ['Wave', { frequency: 0.05, amplitude: 31, offset: 1, unipolar: true, waveform: 'triangle' }],
-        draw: ['FourierEpicycles', { outline: 'star', speed: 0.25, persistence: 0.99, showCircles: true, r: 255, g: 210, b: 90 }],
+        draw: ['FourierEpicycles', { outline: 'star', speed: 0.25, persistence: 0.91, showCircles: true, r: 255, g: 210, b: 90 }],
       },
       wires: ['learn.result > draw.harmonics'],
       output: MATRIX(24, 24),

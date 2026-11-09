@@ -1088,7 +1088,7 @@
             "speed": 0.12,
             "scale": 1,
             "thickness": 4,
-            "persistence": 0.645,
+            "persistence": 0.3,
             "showCircles": false,
             "showPen": false,
             "r": 255,

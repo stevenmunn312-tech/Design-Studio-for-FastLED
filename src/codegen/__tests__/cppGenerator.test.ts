@@ -3341,6 +3341,15 @@ describe('Pattern node expansion - Phase 6 Fourier Epicycles codegen', () => {
     return [...body![1].matchAll(/\{(\d+),(\d+),(\d+)\}/g)].map((row) => row.slice(1).map(Number))
   }
 
+  it('fades the trail by a half-life on the clock, before the pen draws', () => {
+    const cpp = generateEpicycles({ persistence: 0.4 })
+    expect(cpp).toContain('_trail_fe')
+    expect(cpp).toContain('constrain((1.0f-(0.4)), 0.0f, 1.0f)')
+    expect(cpp).toContain('fadeToBlackBy(_fe_fetrail, NUM_LEDS, _by);')
+    expect(cpp.indexOf('fadeToBlackBy(_fe_fetrail')).toBeLessThan(cpp.indexOf('_feTrail(_fe_fetrail,'))
+    expect(cpp).not.toMatch(/_feTrail\([^)]*0\.4/)
+  })
+
   it.each(['heart', 'star', 'square', 'infinity', 'lissajous', 'rose', 'circle'])('bakes the %s coefficients the preview uses', (outline) => {
     // An unwired Harmonics sizes the table itself (fourierTableSize).
     const cpp = generateEpicycles({ outline, harmonics: 24 })

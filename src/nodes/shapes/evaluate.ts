@@ -5,6 +5,7 @@ import type { ImagePaletteSource } from '../../state/palettes/imagePalette'
 import { hexToRgb } from '../../state/palettes/polinePalette'
 import { denormRate, SPEED_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
+import { trailFadeAmount } from '../shared/trailFade'
 import { type Frame, type RGB, type Palette, samplePalette } from '../../state/palettes/ledColor'
 import { resolveWireframeMesh, projectWireframeVertices } from './wireframeModel'
 import { pathPoint } from './pathShapes'
@@ -182,8 +183,11 @@ export function evalFourierEpicycles(
   // so a slow frame rate leaves the curve rather than dots or corner-cutting
   // chords. More than a quarter turn since last frame is a restart or a
   // seek, and draws only the new point.
-  const keep = 255 - Math.trunc((1 - Math.max(0, Math.min(1, p.persistence))) * 255)
-  for (let i = 0; i < N * 3; i++) trail[i] = scale8(trail[i], keep)
+  // Persistence is a half-life on a log scale (shared/trailFade.ts): 1 is the
+  // longest trail, 0 none, faded by the time that has passed, as the sketch's
+  // fadeToBlackBy does.
+  const by = trailFadeAmount(nodeId, t, 1 - Math.max(0, Math.min(1, p.persistence)))
+  if (by > 0) for (let i = 0; i < N * 3; i++) trail[i] = (trail[i] * (256 - by)) >> 8
   const delta = (((turn - st.turn) & 0xffff) << 16) >> 16
   if (!st.has || Math.abs(delta) > FOURIER_TRAIL_JUMP_A16) {
     fourierDisc(W, H, penX, penY, radius, p.color, lighten)
@@ -825,7 +829,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       speed: num(id, 'speed', props, 'speed', 0.2),
       scale: num(id, 'scale', props, 'scale', 0.8),
       thickness: num(id, 'thickness', props, 'thickness', 1.25),
-      persistence: num(id, 'persistence', props, 'persistence', 0.995),
+      persistence: num(id, 'persistence', props, 'persistence', 1),
       color,
       showCircles: props.showCircles !== false,
       showPen: props.showPen !== false,

@@ -257,7 +257,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       outline: 'heart', customPoints: '', maxHarmonics: 32, harmonics: 32, speed: 0.2,
-      scale: 0.8, thickness: 1.25, persistence: 0.995, showCircles: true, showPen: true,
+      scale: 0.8, thickness: 1.25, persistence: 1, showCircles: true, showPen: true,
       r: 255, g: 220, b: 80,
     },
   },

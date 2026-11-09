@@ -857,12 +857,7 @@ freeze, or drop them.
   Shape, Text and Clock Display take 0-1. A units select or a 0-1 default
   is a product choice, and a 0-1 default would move every saved Line and
   the Help examples that use pixel expressions.
-- [ ] **Fourier Epicycles: Move persistence to half-life trail fade (Med,
-  M).** `persistence` is a per-frame share on a 0-1 slider with default 0.995,
-  so useful values sit in the top 5% of travel and trail length follows frame
-  rate. Move it to `trailFadeAmount` (see `docs/development/patterns/graph-and-nodes.md` ~291-302), with
-  a firmware twin. `src/nodes/shapes/evaluate.ts:184`,
-  `src/nodes/shared/trailFade.ts:42`.
+
 
 
 

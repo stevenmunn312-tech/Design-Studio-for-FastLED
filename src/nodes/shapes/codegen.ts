@@ -11,6 +11,7 @@ import { asAnimatedImage, asImage } from '../shared/image'
 import { hexToRgb } from '../../state/palettes/polinePalette'
 import { rateCpp, SPEED_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
+import { trailFadeCpp } from '../shared/trailFadeCpp'
 import { POLAR_PIXEL_CPP, polarFrameCpp, wireframeEdgeCpp } from '../shared/integerPatterns'
 import {
   resolveWireframeMesh,
@@ -366,7 +367,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`    float _turnF=${ph}; _turnF-=floorf(_turnF); uint16_t _turn=(uint16_t)(int32_t)(_turnF*65536.0f);`)
     ln(`    int32_t _penX, _penY;`)
     ln(`    _fePen(${A},${table.length},_hw,_hfr,_turn,_ext,_cx,_cy,${p.showCircles !== false ? ob : '0'},WIDTH,HEIGHT,_col,&_penX,&_penY);`)
-    ln(`    _feTrail(${A}trail,WIDTH,HEIGHT,${f('persistence', 'persistence', 0.995)},${A},${table.length},_hw,_hfr,_turn,_ext,_cx,_cy,_penX,_penY,_rad8,_col,&${A}turn,&${A}x,&${A}y,&${A}has);`)
+    // Persistence is a half-life (trailFadeCpp), the evaluator's trailFadeAmount.
+    trailFadeCpp(ln, phaseTag(id), `1.0f-(${f('persistence', 'persistence', 1)})`, `${A}trail`)
+    ln(`    _feTrail(${A}trail,WIDTH,HEIGHT,${A},${table.length},_hw,_hfr,_turn,_ext,_cx,_cy,_penX,_penY,_rad8,_col,&${A}turn,&${A}x,&${A}y,&${A}has);`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]+=${A}trail[_i];`)
     if (p.showPen !== false) ln(`    _feDisc(${ob},WIDTH,HEIGHT,_penX,_penY,_rad8+128,_col,false);`)
     ln(`  }`)

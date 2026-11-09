@@ -289,7 +289,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   is the time since that node's previous pass (0 on its first), measured on
   both sides, where it was a fixed 1/60.
 - A trail fade is a half-life on a log scale, applied by the time that has
-  passed, not a share taken off each frame. Juggle and Confetti use it. Their
+  passed, not a share taken off each frame. Juggle and Confetti use it, and
+  Fourier Epicycles' `persistence` as `1 - fade`. Their
   old `1 - fade` per frame put
   every visible difference below 0.1 (at 60 fps, 0.1 already halved a trail in
   a tenth of a second), and the trail length moved with the frame rate.

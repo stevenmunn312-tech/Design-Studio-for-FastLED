@@ -67,13 +67,12 @@ static void _fePen(const uint16_t (*table)[3],int count,int whole,int frac,uint1
   *penX=cx+x; *penY=cy-y;
 }
 
-// Fade the trail, then draw the pen's path since last frame along the
-// outline. More than a quarter turn since last frame draws only the new point.
-static void _feTrail(CRGB* trail,int W,int H,float persistence,const uint16_t (*table)[3],int count,
+// Draw the pen's path since last frame along the outline into the trail
+// (faded beforehand by the node's trailFadeCpp block). More than a quarter
+// turn since last frame draws only the new point.
+static void _feTrail(CRGB* trail,int W,int H,const uint16_t (*table)[3],int count,
                      int whole,int frac,uint16_t turn,int32_t extent,int32_t cx,int32_t cy,int32_t penX,int32_t penY,
                      int32_t radius,CRGB color,uint16_t* lastTurn,int32_t* lastX,int32_t* lastY,bool* has) {
-  uint8_t keep=255-(uint8_t)((1.0f-constrain(persistence,0.0f,1.0f))*255.0f);
-  for(int i=0;i<W*H;i++){ trail[i].r=_feScale(trail[i].r,keep); trail[i].g=_feScale(trail[i].g,keep); trail[i].b=_feScale(trail[i].b,keep); }
   int32_t delta=(int16_t)(uint16_t)(turn-*lastTurn);
   if(!*has||abs(delta)>${FOURIER_TRAIL_JUMP_A16}){ _feDisc(trail,W,H,penX,penY,radius,color,true); }
   else {

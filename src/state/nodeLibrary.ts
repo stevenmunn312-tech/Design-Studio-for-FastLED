@@ -1449,7 +1449,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     speed: { control: 'slider', min: -FOURIER_SPEED_MAX, max: FOURIER_SPEED_MAX, step: 0.01 },
     scale: { control: 'slider', min: FOURIER_SCALE_MIN, max: 1, step: 0.01 },
     thickness: { control: 'slider', min: FOURIER_THICKNESS_MIN, max: FOURIER_THICKNESS_MAX, step: 0.05 },
-    persistence: { control: 'slider', min: 0, max: 1, step: 0.005 },
+    persistence: { control: 'slider', min: 0, max: 1, step: 0.01 },
   },
   PaletteBank: {
     blend: { control: 'slider', min: 0, max: PALETTE_BANK_BLEND_MAX, step: 1 },
@@ -2306,7 +2306,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     speed: 'Turns of the outline per second. Negative runs backwards.',
     scale: 'Size as a fraction of half the shorter side of the canvas.',
     thickness: 'Pen width in pixels.',
-    persistence: 'How much of the trail survives each frame. 1 never fades.',
+    persistence: 'How long the trail lasts: 1 halves it every 2 seconds, 0 leaves none. Each step along the slider shortens it by the same ratio, whatever the frame rate.',
     showCircles: 'Draw the rotating circles as dim guides.',
     showPen: 'Draw a brighter dot where the pen is.',
   },

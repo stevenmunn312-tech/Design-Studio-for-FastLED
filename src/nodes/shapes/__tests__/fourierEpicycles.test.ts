@@ -6,7 +6,7 @@ import type { Frame } from '../../../state/palettes/ledColor'
 
 const defaults: FourierEpicyclesParams = {
   outline: 'heart', customPoints: '', maxHarmonics: 32, harmonics: 32, speed: 0.25, scale: 0.8,
-  thickness: 1.25, persistence: 0.995, color: { r: 255, g: 220, b: 80 }, showCircles: true, showPen: true,
+  thickness: 1.25, persistence: 1, color: { r: 255, g: 220, b: 80 }, showCircles: true, showPen: true,
 }
 
 function lit(frame: Frame): number {
