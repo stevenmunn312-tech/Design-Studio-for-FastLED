@@ -636,13 +636,19 @@ freeze, or drop them.
 #### Effects and signals
 
 - [ ] **Category: Merge the overlapping frame-transform nodes (Med, M).**
-  Frame Transform, Transform, Frame Warp, Array, Frame Feedback and Symmetry
-  each own part of offset/rotate/scale, "Rotate" means three different
-  things, and "Transform" vs "Frame Transform" are near-identical names for
-  opposite behaviours. Before v1, make one Frame Transform with any-angle
-  rotate, scale and offset, each with an optional per-second rate. Keep
-  Frame Warp for field-driven displacement only. Evidence
-  `src/nodes/composite/definitions.ts`.
+  Frame Transform, Transform, Frame Warp, Array, Frame Feedback and Tile
+  Symmetry each own part of offset/rotate/scale, "Rotate" means three
+  different things, and "Transform" vs "Frame Transform" are near-identical
+  names for opposite behaviours. Before v1, make one Frame Transform with
+  any-angle rotate, scale and offset, each with an optional per-second rate.
+  Keep Frame Warp for field-driven displacement only. Needs a product call
+  before code: whether the merged node keeps Frame Transform's whole-pixel
+  wrap and quarter turns (exact, no resampling) beside a resampled any-angle
+  path, and whether Frame Warp's own zoom/rotate go. Transform's Scale now
+  breathes between half and double size (`transformZoom.ts`), the rule a
+  per-second zoom rate would reuse. Moves: Transform in 4 bundled JSON
+  patterns and 5 help examples; Frame Transform in the Blend and Frame
+  Transform help examples. Evidence `src/nodes/composite/definitions.ts`.
 - [ ] **Category: Fold Kaleidoscope into Mirror (Med, M).** Mirror,
   Kaleidoscope and Tile Symmetry all fold a frame (Symmetry is now labelled
   Tile Symmetry). Add a "Radial" axis to Mirror with a Segments control
@@ -658,7 +664,12 @@ freeze, or drop them.
   `src/state/nodeLibrary.ts:5253`.
 - [ ] **Gamma: Offer a Gamma setting on the LED output (Low, M).** Help says
   to put Gamma last, just before the LED output; a setting on the output
-  would remove a node from most finished graphs. Evidence
+  would remove a node from most finished graphs. Left for the Outputs list:
+  it is an LED output property, applied in `ledOutputRuntimeCpp` beside
+  Enabled and Brightness so the normal sketch, show controller and SD player
+  agree, and in the preview's output routing. The preview can reuse
+  `gammaVideoTable` (`src/nodes/composite/gamma.ts`), now a byte-exact
+  port of FastLED's `napplyGamma_video`. Evidence
   `src/components/HelpModal/reference/composite.ts:171`.
 - [ ] **Math Switch: Add a Select property (Med, S).** Frame Switch gained a
   `select` switch as its `sel` port's property input; Math `Switch` has the
