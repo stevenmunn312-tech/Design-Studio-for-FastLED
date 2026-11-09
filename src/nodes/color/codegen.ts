@@ -18,6 +18,7 @@ import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { easeByteCpp } from '../math/easing'
 import { paletteEnds, sweepMotion } from './paletteMotion'
 import { colorTemperatureCpp } from './colorTemperature'
+import { BLACK_POINT_LAMBDA_CPP, blackPointByteCpp } from './paletteBlackPoint'
 
 export const COLOR_EMITTERS: NodeEmitters = {
   HueCycle({ id, ln, v, f, needsT, needsHsv }) {
@@ -244,13 +245,21 @@ export const COLOR_EMITTERS: NodeEmitters = {
   },
   // Keep in lockstep with the `PaletteTransform` evaluator: entry by entry
   // at rest (an index lookup smears entry 15 round to 0 — see PaletteBlend),
-  // a wrapping ColorFromPalette once Offset rotates it, then nscale8.
-  PaletteTransform({ node, id, p, ln, f, paletteExpr }) {
-    const src = paletteExpr(node.id, 'paletteIn', { palette: 'rainbow' })
+  // a wrapping ColorFromPalette once Offset rotates it, the black point
+  // (paletteBlackPoint.ts), then nscale8. The source is the node's own preset
+  // until a palette is wired in.
+  PaletteTransform({ node, id, p, ln, f, paletteExpr, incoming }) {
+    const src = paletteExpr(node.id, 'paletteIn', { palette: p.paletteIn ?? 'rainbow' })
     const reverse = Boolean(p.reverse)
+    // A floor of 0 changes nothing, so it costs nothing until it can move.
+    const usesBlackPoint = incoming.has(`${node.id}:blackPoint`) || Number(p.blackPoint ?? 0) > 0
     ln(`  CRGBPalette16 pal_${id};`)
     ln(`  { float _off=fmodf(${f('offset', 'offset', 0)},1.0f); if(_off<0.0f)_off+=1.0f; uint8_t _br=(uint8_t)(constrain(${f('brightness', 'brightness', 1)},0.0f,1.0f)*255.0f);`)
+    if (usesBlackPoint) {
+      ln(`    const uint8_t _bp=${blackPointByteCpp(f('blackPoint', 'blackPoint', 0))}; ${BLACK_POINT_LAMBDA_CPP}`)
+    }
     ln(`    for(int _i=0;_i<16;_i++){ int _k=${reverse ? '15-_i' : '_i'}; CRGB _c=_off>0.0f?ColorFromPalette(${src},(uint8_t)(fmodf(_k/15.0f+_off,1.0f)*255.0f),255,LINEARBLEND):${src}[_k];`)
+    if (usesBlackPoint) ln(`      _c=CRGB(_lv(_c.r),_lv(_c.g),_lv(_c.b));`)
     ln(`      _c.nscale8(_br); pal_${id}[_i]=_c; } }`)
   },
   PaletteBlend({ node, id, p, ln, f, paletteExpr }) {

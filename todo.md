@@ -492,17 +492,6 @@ freeze, or drop them.
   Every stop has the same Value, so full-frame patterns wash out. Add a
   0–1 "Shade" that dips Value between the hue bands. Evidence
   `src/state/palettes/harmonyPalette.ts:33`.
-- [ ] **Palette Transform: Add a Black point control (High, M).** Add a 0–1
-  levels-style floor, per entry `c' = max(0, c − f)/(1 − f)`, in the same
-  loop on both sides, so any catalogue palette gets real contrast without a
-  hand-built Poline. Evidence `src/nodes/color/evaluate.ts:247`,
-  `src/nodes/color/codegen.ts:244`.
-- [ ] **Palette Transform: Add its own preset select (Med, S).** With nothing
-  wired it silently transforms `rainbow`, so reversing or dimming a preset
-  needs Palette Selector first. Use a key other than `palette` (as Palette
-  Blend does with `paletteA`) so it stays a builder under
-  `PALETTE_BUILDER_NODE_TYPES`. Evidence `src/nodes/color/evaluate.ts:242`,
-  `src/nodes/color/codegen.ts:241`.
 - [ ] **Palette Bank: Seed default palettes (Med, S).** A fresh node has
   `palettes: []`, outputs the fallback and raises a validation warning. Seed
   3–4 contrasting presets so the first Next does something visible. Evidence

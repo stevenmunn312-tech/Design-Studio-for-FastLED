@@ -419,13 +419,15 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
 
   PaletteTransform: {
     overview: [
-      'Palette Transform changes a palette on its way to a pattern: Reverse runs it backwards, Offset rotates its colours round, and Brightness dims every colour.',
+      'Palette Transform changes a palette on its way to a pattern: Reverse runs it backwards, Offset rotates its colours round, Black point pulls its dark end down to black, and Brightness dims every colour. Pick a preset on the node, or wire any palette into it.',
       'Offset is the useful one to animate. Wire a ramp into it and the colours flow through a pattern that otherwise stands still.',
+      'Black point is the contrast control. Built-in palettes bottom out at a dark colour rather than black, so a pattern that fills the frame can look washed out; a black point of 0.2 to 0.4 gives it deep shadows while keeping the order of its colours.',
     ],
     inputs: {
-      paletteIn: 'The palette to transform.',
+      paletteIn: 'The palette to transform. Replaces the Palette choice.',
       offset: 'Rotation round the palette, 0 to 1 for a full turn.',
       brightness: 'Scale for every colour, 0 to 1.',
+      blackPoint: 'The level pulled down to black, 0 (none) to 0.9.',
     },
     outputs: {
       palette: PALETTE_OUT,
@@ -434,14 +436,13 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
       featured: 'PaletteTransform',
       title: 'Colours flowing through still stripes',
       nodes: {
-        party: ['PaletteSelector', { palette: 'party' }],
         flow: ['Wave', { frequency: 0.2, amplitude: 1, unipolar: true, waveform: 'sawtooth' }],
-        shift: ['PaletteTransform'],
+        shift: ['PaletteTransform', { paletteIn: 'party', blackPoint: 0.25 }],
         stripes: ['PaletteGradient', { angle: 30, repeat: 2, speed: 0 }],
       },
-      wires: ['party.palette > shift.paletteIn', 'flow.result > shift.offset', 'shift.palette > stripes.paletteIn'],
-      explanation: 'Palette Gradient draws fixed diagonal stripes with its scroll at 0. Palette Transform rotates the party palette’s colours with a sawtooth ramp, so the stripes stay put while the colours stream through them.',
-      preview: 'The {output} shows diagonal bands whose colours flow steadily along them.',
+      wires: ['flow.result > shift.offset', 'shift.palette > stripes.paletteIn'],
+      explanation: 'Palette Gradient draws fixed diagonal stripes with its scroll at 0. Palette Transform takes the party preset, deepens its darker colours with a black point of 0.25, and rotates it with a sawtooth ramp, so the stripes stay put while the colours stream through them with dark gaps between.',
+      preview: 'The {output} shows diagonal bands whose colours flow steadily along them, separated by deep shadows.',
     }),
   },
 

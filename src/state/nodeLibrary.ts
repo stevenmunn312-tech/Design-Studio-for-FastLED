@@ -26,6 +26,7 @@ import { CLOCKED_DATA_RATES_MHZ, dataRateOptionsMhz } from '../build/ledDrivers'
 import { EASE_PICKER_TYPES, SWEEP_EASE_TYPES } from '../nodes/math/easing'
 import { PALETTE_ENDS, SWEEP_MOTIONS } from '../nodes/color/paletteMotion'
 import { COLOR_TEMPERATURE_K } from '../nodes/color/colorTemperature'
+import { PALETTE_BLACK_POINT_MAX } from '../nodes/color/paletteBlackPoint'
 import { STEP_VALUE_ABS_LIMIT } from '../nodes/shared/stepValue'
 import { COMPARE_LABELS, COMPARE_OPS } from '../nodes/math/compare'
 import { WAVE_RATE_UNITS } from '../nodes/signal/wave'
@@ -939,7 +940,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     beatsPerBar: { control: 'slider', min: BEAT_PHASE_BAR.min, max: BEAT_PHASE_BAR.max, step: 1 },
   },
   PaletteTransform: {
+    paletteIn: { control: 'select', options: PALETTES },
     offset: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    blackPoint: { control: 'slider', min: 0, max: PALETTE_BLACK_POINT_MAX, step: 0.01 },
     brightness: N01,
   },
   SpectrumVisualizer: {
@@ -2806,8 +2809,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     amount: 'Mix between the two: 0 is all A, 1 is all B.',
   },
   PaletteTransform: {
+    paletteIn: 'Preset palette to transform. A wired Palette input replaces it.',
     reverse: 'Runs the palette backwards, so its last colour comes first.',
     offset: 'Rotates the colours round the palette, 0 to 1 being one full turn. Wire a signal to scroll them.',
+    blackPoint: 'Pulls the palette\'s dark end down to black and stretches the rest back to full, like a levels control: any colour channel at or below this level becomes 0. Catalogue palettes bottom out at a dark colour, not black, so a full-frame pattern washes out; 0.2 to 0.4 gives them real contrast. 0 changes nothing.',
     brightness: 'Scales every entry, 0 dark to 1 unchanged.',
   },
   Text: {
@@ -3609,6 +3614,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     mixMode: 'mix',
   },
   Temperature: { kelvin: 'temperature (K)' },
+  PaletteTransform: { paletteIn: 'palette', blackPoint: 'black point' },
   PaletteGradient: {
     speed: 'scroll',
   },

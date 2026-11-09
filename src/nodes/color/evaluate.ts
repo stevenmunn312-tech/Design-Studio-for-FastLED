@@ -28,6 +28,7 @@ import { speedPhase } from '../shared/speedClock'
 import { applyEase } from '../math/easing'
 import { paletteEnds, sweepLeg, sweepMotion } from './paletteMotion'
 import { clampColorTemperature } from './colorTemperature'
+import { applyBlackPoint, blackPointByte } from './paletteBlackPoint'
 import { byte, heatColor } from '../../state/evaluator/frames'
 import { toggleTapPress } from '../../state/evaluator/signals'
 import { instanceState } from '../../state/evaluator/memory'
@@ -216,21 +217,23 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     ) }
   },
   // Keep in lockstep with the `PaletteTransform` emitter: entry by entry
-  // (clamped) at rest, a wrapping sample once Offset rotates it, then scaled.
+  // (clamped) at rest, a wrapping sample once Offset rotates it, then the
+  // black point, then scaled. With nothing wired it transforms its own preset.
   PaletteTransform({ num, pal }, id, props) {
-    const src = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+    const src = pal(id, 'paletteIn', props, 'paletteIn', 'rainbow')
     const reverse = Boolean(props.reverse)
     const rawOffset = num(id, 'offset', props, 'offset', 0)
     const offset = ((rawOffset % 1) + 1) % 1
     const brightness = Math.max(0, Math.min(1, num(id, 'brightness', props, 'brightness', 1)))
+    const floor = blackPointByte(num(id, 'blackPoint', props, 'blackPoint', 0))
     const stops: RGB[] = []
     for (let i = 0; i < 16; i++) {
       const u = reverse ? 1 - i / 15 : i / 15
       const c = offset > 0 ? samplePalette(src, ((u + offset) % 1 + 1) % 1) : samplePaletteClamped(src, u)
       stops.push({
-        r: Math.round(c.r * brightness),
-        g: Math.round(c.g * brightness),
-        b: Math.round(c.b * brightness),
+        r: Math.round(applyBlackPoint(c.r, floor) * brightness),
+        g: Math.round(applyBlackPoint(c.g, floor) * brightness),
+        b: Math.round(applyBlackPoint(c.b, floor) * brightness),
       })
     }
     return { palette: stops }

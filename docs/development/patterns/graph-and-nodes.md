@@ -314,7 +314,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   selector names a preset, a builder makes one from its inputs — and
   `cppGenerator.ts`'s `paletteExpr` and `validateGraph.ts`'s RAM estimate both
   read it, having previously held two hand-written copies that a fifth palette
-  node could join only one of. The browser's `Palette = string | RGB[]` union
+  node could join only one of. A builder may still offer a preset of its own
+  under the name of the port that replaces it (Palette Blend's `paletteA`
+  and `paletteB`, Palette Transform's `paletteIn`), which the generator and
+  the RAM estimate read while that port is unwired. Palette Transform's Black
+  point (`paletteBlackPoint.ts`) is the contrast tool for any palette: a
+  levels floor in whole-byte steps on both sides, emitted only while it can
+  be above 0. The browser's `Palette = string | RGB[]` union
   (`ledColor.ts`) is resolved from the *value* at evaluation time; firmware has
   no runtime union at all, deciding from the source node at generation time. **Splice
   targets** follow declaration order — `spliceTargetPorts` in `nodeLibrary.ts`,

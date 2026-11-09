@@ -239,9 +239,12 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { paletteA: 'rainbow', paletteB: 'ocean', amount: 0.5 },
   },
   {
-    // Reverse, rotate or dim any palette on its way to a pattern: a wired
-    // Offset scrolls the colours round, Brightness scales every entry. A
-    // builder (no `palette` property), so it emits its own CRGBPalette16.
+    // Reverse, rotate, deepen or dim any palette on its way to a pattern: a
+    // wired Offset scrolls the colours round, Black point pulls the dark end
+    // to black (paletteBlackPoint.ts), Brightness scales every entry. Its
+    // own preset is `paletteIn`, named for the port that replaces it (as
+    // Palette Blend's `paletteA`), so it carries no `palette` property and
+    // stays a builder that emits its own CRGBPalette16.
     type: 'PaletteTransform',
     label: 'Palette Transform',
     category: 'color',
@@ -250,11 +253,12 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'offset', label: 'Offset', dataType: 'float' },
       { id: 'brightness', label: 'Brightness', dataType: 'float' },
+      { id: 'blackPoint', label: 'Black Point', dataType: 'float' },
     ],
     outputs: [{ id: 'palette', label: 'Palette', dataType: 'palette' }],
-    propertyInputs: { offset: 'offset', brightness: 'brightness' },
+    propertyInputs: { offset: 'offset', brightness: 'brightness', blackPoint: 'blackPoint' },
     defaultExposedInputs: ['offset'],
-    defaultProperties: { reverse: false, offset: 0, brightness: 1 },
+    defaultProperties: { paletteIn: 'rainbow', reverse: false, offset: 0, blackPoint: 0, brightness: 1 },
   },
   {
     // An ordered bank of presets the author ships, stepped by Next/Previous and
@@ -311,6 +315,6 @@ export const COLOR_DESCRIPTIONS: Record<string, string> = {
   Poline: 'Smooth poline palette through three anchor colours.',
   HarmonyPalette: 'Palette of colour-wheel harmony hues around a base hue.',
   PaletteBlend: 'Interpolates between two palettes.',
-  PaletteTransform: 'Reverses, rotates or dims a palette on its way to a pattern.',
+  PaletteTransform: 'Reverses, rotates, deepens or dims a palette on its way to a pattern.',
   PaletteBank: 'An ordered bank of palettes Next/Previous steps through, blending between them.',
 }
