@@ -351,7 +351,7 @@ const STANDARD_PATTERN_SEEDS: BundledSeed[] = [
         rB: 255,
         gB: 78,
         bB: 116,
-        vertical: true,
+        angle: 90,
       }),
       studioNode('pal', 'Poline', -760, 200, {
         anchorA: '#1f1b49',
@@ -479,7 +479,7 @@ const STANDARD_PATTERN_SEEDS: BundledSeed[] = [
         rB: 18,
         gB: 104,
         bB: 120,
-        vertical: true,
+        angle: 90,
       }),
       studioNode('pal', 'PaletteSelector', -760, 200, { palette: 'ocean' }),
       studioNode('pac', 'Pacifica', -420, 200, { speed: 0.12, scale: 0.46 }),
@@ -574,7 +574,6 @@ const STANDARD_PATTERN_SEEDS: BundledSeed[] = [
         rB: 96,
         gB: 18,
         bB: 74,
-        vertical: false,
       }),
       studioNode('pal', 'Poline', -1040, 220, {
         anchorA: '#2a1234',
@@ -649,7 +648,7 @@ const STANDARD_PATTERN_SEEDS: BundledSeed[] = [
         rB: 18,
         gB: 46,
         bB: 110,
-        vertical: true,
+        angle: 90,
       }),
       studioNode('pal', 'Poline', -1040, 220, {
         anchorA: '#090f28',

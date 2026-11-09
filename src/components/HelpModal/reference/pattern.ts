@@ -252,7 +252,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   GradientFrame: {
     overview: [
-      'Gradient Frame fills the matrix with a smooth blend from Color A to Color B, left to right or top to bottom.',
+      'Gradient Frame fills the matrix with a smooth blend from Color A to Color B along any angle: 0 runs left to right, 90 top to bottom. It reaches from corner to corner, as Palette Gradient does.',
       'Mix chooses the path between the two colours: straight through RGB, or round the hue wheel the short or long way. The long way turns any two colours into a rainbow.',
     ],
     inputs: {
@@ -263,7 +263,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'GradientFrame',
       title: 'A dusk sky in two colours',
       nodes: {
-        sky: ['GradientFrame', { rA: 30, gA: 10, bA: 90, rB: 255, gB: 120, bB: 30, vertical: true, mixMode: 'hsvShort' }],
+        sky: ['GradientFrame', { rA: 30, gA: 10, bA: 90, rB: 255, gB: 120, bB: 30, angle: 90, mixMode: 'hsvShort' }],
         stars: ['Glitter', { density: 0.06, glitterMode: 'add', r: 255, g: 255, b: 255 }],
       },
       wires: ['sky.frame > stars.frame'],

@@ -687,16 +687,18 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     }
     ln(`  }`)
   },
-  GradientFrame({ node, id, p, ln, channelColor, gradientChannel, ownBuf, incoming, boolExpr, needsHueMix }) {
+  GradientFrame({ id, p, ln, f, channelColor, gradientChannel, ownBuf, needsHueMix }) {
     const ob = ownBuf()
     // Both ends are hoisted to locals so a wired Color A/B is honoured:
     // the evaluator has always followed those wires and this baked the
     // fields instead, which is the parity break the port registry forbids.
     const cA = `_gfA_${id}`, cB = `_gfB_${id}`
-    const vert = incoming.get(`${node.id}:vertical`) ? null : Boolean(p.vertical)
     ln(`  { CRGB ${cA}=${channelColor('colorA', 0, 200, 255, ['rA', 'gA', 'bA'])},${cB}=${channelColor('colorB', 255, 0, 255, ['rB', 'gB', 'bB'])};`)
+    // The evaluator's linearRamp: corner to corner along Angle, never 0/0.
+    ln(`    float _a=${f('angle', 'angle', 0)}*0.01745329f,_co=cosf(_a),_si=sinf(_a);`)
+    ln(`    float _pmin=(_co<0?(WIDTH-1)*_co:0)+(_si<0?(HEIGHT-1)*_si:0),_pmax=(_co>0?(WIDTH-1)*_co:0)+(_si>0?(HEIGHT-1)*_si:0),_rng=fmaxf(1e-6f,_pmax-_pmin);`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`    float _t=${vert === null ? `((${boolExpr(node.id, 'vertical')}) ? _y/(HEIGHT-1.0f) : _x/(WIDTH-1.0f))` : vert ? '_y/(HEIGHT-1.0f)' : '_x/(WIDTH-1.0f)'};`)
+    ln(`    float _t=(_x*_co+_y*_si-_pmin)/_rng;`)
     const mode = gradientMixMode(p.mixMode)
     if (mode === 'rgb') {
       ln(`    ${ob}[_y*WIDTH+_x]=CRGB(${gradientChannel(cA, cB, 'r', '_t')},${gradientChannel(cA, cB, 'g', '_t')},${gradientChannel(cA, cB, 'b', '_t')});}}`)

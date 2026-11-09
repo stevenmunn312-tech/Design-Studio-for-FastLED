@@ -116,7 +116,7 @@ if ((phase2.match(/static inline CRGB _sampleFrame\(/g)?.length ?? 0) !== 1) {
 }
 
 const phase3Nodes = [
-  node('source', 'FieldFormula', { formula: '(x+2*y)/(3*(W-1))' }),
+  node('source', 'FieldFormula', { formula: '(px+2*py)/(3*(W-1))' }),
   node('field-symmetry', 'FieldSymmetry', {
     group: 'p4m', cells: 2.4, rotation: 12, spin: 18, offsetX: 0.15, offsetY: -0.2,
   }),

@@ -854,15 +854,6 @@ freeze, or drop them.
   somewhere in the field a 1 takes the colour of a 0 and the jump moves with
   the offset. Low/High now exist on the node; an offset would apply after
   them.
-- [ ] **Gradient Field: Use aspect-correct coordinates (Med, S).** Coordinates
-  are normalised per axis, so the radial ramp is an ellipse on non-square
-  panels and Angle is not a true angle. Use short-side units as Shape Field
-  does. `src/nodes/field/evaluate.ts:893`.
-- [ ] **Gradient Field: Gate Angle and fix cx/cy description (Low, S).**
-  `angular` ignores Angle: use it to turn the pinwheel or gate it to `linear`
-  in `isPropertyEnabled`. Also `cx/cy` are described as radial/angular only
-  but pivot the linear ramp too. `src/nodes/field/evaluate.ts:899`,
-  `src/state/nodeLibrary.ts:2171`.
 - [ ] **Field Warp: Raise default strength and add bilinear sampling (Med,
   S).** Default strength 1 is only +-1 px, barely visible (its Help example
   uses 3, Frame Warp defaults to 2), and nearest-only sampling steps visibly.
@@ -920,14 +911,6 @@ freeze, or drop them.
   slider runs to 64 but `maxHarmonics` defaults to 32, so the top half does
   nothing. Bake `ceil(harmonics)` when unwired and show `maxHarmonics` only
   when wired. `src/state/nodeLibrary.ts:1434`.
-- [ ] **Gradient Frame: Replace `vertical` with `angle` or fold into Palette
-  Gradient (Med, S).** It is horizontal/vertical only beside Palette
-  Gradient's free angle. Add `angle`, or add an A/B colour mode to Palette
-  Gradient and retire this node. `src/nodes/shapes/evaluate.ts:480`.
-- [ ] **Gradient Frame: Guard vertical on strips (Low, S).** With H=1,
-  `_y/(HEIGHT-1.0f)` is 0/0 = NaN, and NaN cast to a byte is undefined
-  behaviour on the board. Guard with `max(1, H-1)` as Palette Gradient does.
-  `src/nodes/shapes/codegen.ts:685`.
 - [ ] **Image: Apply brightness after contrast (Low, S).** Brightness runs
   before contrast, so with contrast 0.5, Brightness 0 leaves a 25% grey veil
   and fading by wiring Brightness fails. Apply brightness last, on both sides.

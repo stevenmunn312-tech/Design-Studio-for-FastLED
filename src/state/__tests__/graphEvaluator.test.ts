@@ -4037,7 +4037,7 @@ describe('Float Field — Phase 2 (ShapeField falloff / FieldMath / FieldWarp)',
   })
 
   it('FieldWarp with no offset returns the source field unchanged', () => {
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
     const fw = node('fw', 'FieldWarp', 'composite', { strength: 2 })
     const g = withFieldTail('fw', [src, fw], [edge('e1', 'src', 'field', 'fw', 'field')])
     const ref = fieldOut('src', g.nodes, g.edges)
@@ -4047,7 +4047,7 @@ describe('Float Field — Phase 2 (ShapeField falloff / FieldMath / FieldWarp)',
 
   it('FieldWarp shifts the sample when an offset field is wired', () => {
     // x-ramp source; a constant 1.0 dx field pushes the sample +strength px in x.
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
     const dx = node('dx', 'FieldFormula', 'pattern', { formula: '1' })  // → +strength
     const fw = node('fw', 'FieldWarp', 'composite', { strength: 1 })
     const g = withFieldTail('fw', [src, dx, fw], [
@@ -4063,7 +4063,7 @@ describe('Float Field — Phase 2 (ShapeField falloff / FieldMath / FieldWarp)',
 
 describe('Pattern node expansion — Phase 2 Frame Warp', () => {
   const source = () => node('warp-source', 'GradientFrame', 'pattern', {
-    rA: 0, gA: 0, bA: 0, rB: 255, gB: 0, bB: 0, vertical: false,
+    rA: 0, gA: 0, bA: 0, rB: 255, gB: 0, bB: 0,
   })
   const output = () => node('warp-output', 'MatrixOutput', 'output', {})
 
@@ -4110,7 +4110,7 @@ describe('Pattern node expansion — Phase 2 Frame Warp', () => {
 
 describe('Pattern node expansion - Phase 3 Symmetry', () => {
   function renderField(properties: Record<string, unknown>, t = 0, width = 16, height = 16) {
-    const src = node('sym-field-src', 'FieldFormula', 'field', { formula: '(x+2*y)/(3*(W-1))' })
+    const src = node('sym-field-src', 'FieldFormula', 'field', { formula: '(px+2*py)/(3*(W-1))' })
     const symmetry = node('field-symmetry', 'FieldSymmetry', 'field', properties)
     const map = node('sym-field-map', 'FieldToFrame', 'field', {})
     const out = node('sym-field-out', 'MatrixOutput', 'output', {})
@@ -4159,7 +4159,7 @@ describe('Pattern node expansion - Phase 3 Symmetry', () => {
     }
 
     const src = node('sym-frame-src', 'GradientFrame', 'pattern', {
-      rA: 0, gA: 0, bA: 0, rB: 255, gB: 0, bB: 0, vertical: false,
+      rA: 0, gA: 0, bA: 0, rB: 255, gB: 0, bB: 0,
     })
     const symmetry = node('symmetry', 'Symmetry', 'composite', identity)
     const out = node('sym-frame-out', 'MatrixOutput', 'output', {})
@@ -4302,7 +4302,7 @@ describe('Pattern node expansion — Phase 0 field helpers', () => {
   }
 
   it('Field Levels remaps, quantises, thresholds, and inverts', () => {
-    const src = node('levels-src', 'FieldFormula', 'field', { formula: 'x/(W-1)' })
+    const src = node('levels-src', 'FieldFormula', 'field', { formula: 'px/(W-1)' })
     const levels = node('levels', 'FieldLevels', 'field', { low: 0.25, high: 0.75, steps: 3, invert: false })
     const graph = withFieldTail('levels', [src, levels], [edge('levels-in', src.id, 'field', levels.id, 'field')])
     expect([...fieldOut('levels', graph.nodes, graph.edges).slice(0, W)]).toEqual([0, 0, 1, 1])
@@ -4479,7 +4479,7 @@ describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
   }
 
   it('FieldRotate by 0° returns the source unchanged', () => {
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
     const fr = node('fr', 'FieldRotate', 'composite', { angle: 0, spin: 0 })
     const g = withFieldTail('fr', [src, fr], [edge('e1', 'src', 'field', 'fr', 'field')])
     const ref = fieldOut('src', g.nodes, g.edges)
@@ -4490,7 +4490,7 @@ describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
   it('FieldRotate by 90° turns an x-ramp into a y-ramp', () => {
     // x-ramp: value depends only on column. After a 90° rotation it should vary
     // by row instead — i.e. each row becomes (near) constant across columns.
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
     const fr = node('fr', 'FieldRotate', 'composite', { angle: 90, spin: 0 })
     const g = withFieldTail('fr', [src, fr], [edge('e1', 'src', 'field', 'fr', 'field')])
     const rot = fieldOut('fr', g.nodes, g.edges)
@@ -4501,7 +4501,7 @@ describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
   })
 
   it('FieldRotate spin advances with time', () => {
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
     const fr = node('fr', 'FieldRotate', 'composite', { angle: 0, spin: 90 })
     const g = withFieldTail('fr', [src, fr], [edge('e1', 'src', 'field', 'fr', 'field')])
     const at0 = fieldOut('fr', g.nodes, g.edges, 0)
@@ -4510,7 +4510,7 @@ describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
   })
 
   it('FieldTile 2×1 repeats the field horizontally', () => {
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
     const ft = node('ft', 'FieldTile', 'composite', { tilesX: 2, tilesY: 1 })
     const g = withFieldTail('ft', [src, ft], [edge('e1', 'src', 'field', 'ft', 'field')])
     const ref = fieldOut('src', g.nodes, g.edges)
@@ -4522,7 +4522,7 @@ describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
   })
 
   it('FieldTile clamps tile counts to ≥1', () => {
-    const src = node('src', 'FieldFormula', 'pattern', { formula: 'x/(W-1)' })
+    const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
     const ft = node('ft', 'FieldTile', 'composite', { tilesX: 0, tilesY: 0 })
     const g = withFieldTail('ft', [src, ft], [edge('e1', 'src', 'field', 'ft', 'field')])
     const ref = fieldOut('src', g.nodes, g.edges)

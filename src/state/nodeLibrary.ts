@@ -2177,9 +2177,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   GradientField: {
     gradientType: 'Linear runs along Angle, radial grows from the centre, angular sweeps round it like a pinwheel.',
-    angle: 'Direction of a linear ramp in degrees: 0 left to right, 90 top to bottom.',
-    cx: 'Centre of a radial or angular ramp, left to right (0 to 1).',
-    cy: 'Centre of a radial or angular ramp, top to bottom (0 to 1).',
+    angle: 'Direction of a linear ramp in degrees: 0 left to right, 90 top to bottom. Turns an angular ramp\'s start the same way.',
+    cx: 'The ramp\'s pivot, left to right (0 to 1): the centre of a radial or angular ramp, and the point a linear ramp passes 0.5 and turns round.',
+    cy: 'The ramp\'s pivot, top to bottom (0 to 1): the centre of a radial or angular ramp, and the point a linear ramp passes 0.5 and turns round.',
     offset: 'Slides the ramp along itself; wire a signal to scroll stripes or spin a pinwheel.',
     repeat: 'How many times the ramp repeats across the matrix. Above 1 the ramp wraps instead of clamping.',
   },
@@ -2301,7 +2301,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   GradientFrame: {
     mixMode: 'How the ends blend: straight through RGB, or round the hue wheel the short or long way.',
-    vertical: 'Run the gradient top to bottom instead of left to right.',
+    angle: 'Direction of the blend in degrees: 0 runs Color A to Color B left to right, 90 top to bottom.',
     rA: 'Red of Color A, 0 to 255. Ignored while the Color A port is wired.',
     gA: 'Green of Color A, 0 to 255. Ignored while the Color A port is wired.',
     bA: 'Blue of Color A, 0 to 255. Ignored while the Color A port is wired.',
@@ -5144,6 +5144,9 @@ export function isPropertyEnabled(
   }
   if (nodeType === 'FieldMath' && key === 't') {
     return properties.fieldOp === 'mix'
+  }
+  if (nodeType === 'GradientField' && key === 'angle') {
+    return properties.gradientType !== 'radial'
   }
   if (nodeType === 'FractalField' && (key === 'cRe' || key === 'cIm')) {
     return properties.fractalType === undefined || properties.fractalType === 'julia'

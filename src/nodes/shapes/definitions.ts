@@ -305,7 +305,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'colorA', label: 'Color A', dataType: 'color' },
       { id: 'colorB', label: 'Color B', dataType: 'color' },
-      { id: 'vertical', label: 'Vertical', dataType: 'bool' },
+      { id: 'angle', label: 'Angle', dataType: 'float' },
       { id: 'rA', label: 'R (A)', dataType: 'float' },
       { id: 'gA', label: 'G (A)', dataType: 'float' },
       { id: 'bA', label: 'B (A)', dataType: 'float' },
@@ -314,11 +314,11 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
       { id: 'bB', label: 'B (B)', dataType: 'float' },
     ],
     propertyInputs: {
-      vertical: 'vertical',
+      angle: 'angle',
       rA: 'rA', gA: 'gA', bA: 'bA', rB: 'rB', gB: 'gB', bB: 'bB',
     },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255, vertical: false, mixMode: 'rgb' },
+    defaultProperties: { rA: 0, gA: 200, bA: 255, rB: 255, gB: 0, bB: 255, angle: 0, mixMode: 'rgb' },
   },
   {
     // Angled palette gradient across the matrix.
@@ -430,7 +430,7 @@ export const SHAPES_DESCRIPTIONS: Record<string, string> = {
   Path: 'Traces a parametric curve point with subpixel splatting.',
   FourierEpicycles: 'Redraws an outline with nested rotating circles, from its Fourier series.',
   Wireframe3D: 'Rotating 3D wireframe model, auto-scaled to fit the matrix.',
-  GradientFrame: 'Two-color linear gradient fill.',
+  GradientFrame: 'Two-color linear gradient fill at any angle.',
   PaletteGradient: 'Palette gradient across the matrix at any angle.',
   PolarGradient: 'Palette swept around the centre by angle, radius or a spiral of both.',
   Image: 'Still or animated (GIF/APNG/WebP) image with fit, crop, colour controls.',

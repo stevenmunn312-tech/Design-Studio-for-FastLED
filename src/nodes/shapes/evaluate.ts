@@ -476,8 +476,22 @@ function textAlignedStart(value: number, size: number, lengthPx: number, align: 
   return align === 'end' ? edge - lengthPx : edge
 }
 
-function evalGradientFrame(cA: RGB, cB: RGB, vertical: boolean, mode: GradientMixMode, W = DEFAULT_W, H = DEFAULT_H): Frame {
-  return buildFrame(W, H, (x, y) => mixGradientColors(cA, cB, vertical ? y / (H - 1) : x / (W - 1), mode))
+// A pixel's place, 0–1, along a direction `angle` degrees across the matrix:
+// 0 at the first corner the direction reaches and 1 at the last. Shared by
+// Gradient Frame and Palette Gradient; the range never falls below 1e-6, so a
+// strip read across its one row is 0, not 0/0.
+function linearRamp(angle: number, W: number, H: number): (x: number, y: number) => number {
+  const a = (angle * Math.PI) / 180
+  const cosA = Math.cos(a), sinA = Math.sin(a)
+  const projMin = (cosA < 0 ? (W - 1) * cosA : 0) + (sinA < 0 ? (H - 1) * sinA : 0)
+  const projMax = (cosA > 0 ? (W - 1) * cosA : 0) + (sinA > 0 ? (H - 1) * sinA : 0)
+  const range = Math.max(1e-6, projMax - projMin)
+  return (x, y) => (x * cosA + y * sinA - projMin) / range
+}
+
+function evalGradientFrame(cA: RGB, cB: RGB, angle: number, mode: GradientMixMode, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const ramp = linearRamp(angle, W, H)
+  return buildFrame(W, H, (x, y) => mixGradientColors(cA, cB, ramp(x, y), mode))
 }
 
 // Angled palette gradient: project each pixel onto a direction set by `angle`,
@@ -485,15 +499,8 @@ function evalGradientFrame(cA: RGB, cB: RGB, vertical: boolean, mode: GradientMi
 // cycles and an optional time-scrolling offset).
 function evalPaletteGradient(key: string, angle: number, repeat: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const phase = speedPhase(key, t, speed)
-  const a = (angle * Math.PI) / 180
-  const cosA = Math.cos(a), sinA = Math.sin(a)
-  const projMin = (cosA < 0 ? (W - 1) * cosA : 0) + (sinA < 0 ? (H - 1) * sinA : 0)
-  const projMax = (cosA > 0 ? (W - 1) * cosA : 0) + (sinA > 0 ? (H - 1) * sinA : 0)
-  const range = Math.max(1e-6, projMax - projMin)
-  return buildFrame(W, H, (x, y) => {
-      const tnorm = (x * cosA + y * sinA - projMin) / range
-      return samplePalette(palette, tnorm * repeat + phase)
-    })
+  const ramp = linearRamp(angle, W, H)
+  return buildFrame(W, H, (x, y) => samplePalette(palette, ramp(x, y) * repeat + phase))
 }
 
 const gaugePeakState = instanceState('gaugePeakState', new Map<string, GaugePeak>())
@@ -843,7 +850,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       g: byte(num(id, 'gB', props, 'gB', 0) / 255),
       b: byte(num(id, 'bB', props, 'bB', 255) / 255),
     }
-    return { frame: evalGradientFrame(cA, cB, Boolean(input(id, 'vertical', Boolean(props.vertical))), gradientMixMode(props.mixMode), W, H) }
+    return { frame: evalGradientFrame(cA, cB, num(id, 'angle', props, 'angle', 0), gradientMixMode(props.mixMode), W, H) }
   },
   PaletteGradient({ num, pal, t, W, H, stateKey }, id, props) {
     const angle   = num(id, 'angle', props, 'angle', 45)

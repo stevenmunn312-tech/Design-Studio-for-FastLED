@@ -349,7 +349,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
 
   GradientField: {
     overview: [
-      'Gradient Field is a ramp as a field: linear along an angle, radial from a centre, or angular like a pinwheel.',
+      'Gradient Field is a ramp as a field: linear along an angle, radial from a centre, or angular like a pinwheel. It measures in pixels, so rings stay round and the angle is true on a wide or tall panel, and a linear ramp runs edge to edge at 0 and 90 degrees and corner to corner on a diagonal.',
       'Repeat makes it wrap several times across the canvas, turning it into stripes, rings or spokes. Offset slides the ramp; wire a ramp into it to scroll them.',
     ],
     outputs: { field: FIELD_OUT },

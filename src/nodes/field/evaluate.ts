@@ -27,7 +27,7 @@ import {
   turingStep, turingStepSize,
 } from '../../state/evaluator/turing'
 import { buildSliceChildMatrices, resolveSlicePattern, sliceBit, walkSliceLeaf } from './sliceTiling'
-import { BLUR_RADIUS, GRADIENT_REPEAT, RADIAL_REACH, blurRadius, gradientRepeat, gradientType, gradientWraps } from './gradientField'
+import { BLUR_RADIUS, GRADIENT_REPEAT, blurRadius, gradientLinearSpan, gradientRadialSpan, gradientRepeat, gradientType, gradientWraps } from './gradientField'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 
 interface WaveSimState { prev: Float32Array; cur: Float32Array; next: Float32Array; w: number; h: number; prevTrigger: boolean; pulse: number }
@@ -898,16 +898,16 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     const offset = num(id, 'offset', props, 'offset', 0)
     const wraps = gradientWraps(type, repeat)
     const ca = Math.cos(angle), sa = Math.sin(angle)
+    const span = type === 'radial' ? gradientRadialSpan(W, H) : gradientLinearSpan(ca, sa, W, H)
+    const px = cx * (W - 1), py = cy * (H - 1)
     const out = allocField(W * H)
     for (let y = 0; y < H; y++) {
-      const ny = H > 1 ? y / (H - 1) : 0
       for (let x = 0; x < W; x++) {
-        const nx = W > 1 ? x / (W - 1) : 0
-        const dx = nx - cx, dy = ny - cy
+        const dx = x - px, dy = y - py
         let d: number
-        if (type === 'radial') d = Math.sqrt(dx * dx + dy * dy) / RADIAL_REACH
-        else if (type === 'angular') d = Math.atan2(dy, dx) / (Math.PI * 2) + 0.5
-        else d = dx * ca + dy * sa + 0.5
+        if (type === 'radial') d = Math.sqrt(dx * dx + dy * dy) / span
+        else if (type === 'angular') d = (Math.atan2(dy, dx) - angle) / (Math.PI * 2) + 0.5
+        else d = (dx * ca + dy * sa) / span + 0.5
         const v = (d + offset) * repeat
         out[y * W + x] = wraps ? ((v % 1) + 1) % 1 : clamp01(v)
       }

@@ -13,7 +13,7 @@ import { fieldRangeCpp, frameToFieldConversion, pixelToFieldCpp } from '../../st
 import { noiseShape, noiseShapeCpp } from '../../state/evaluator/noiseShape'
 import { GOLDEN_RATIO, LISSAJOUS_FIELD_SAMPLES } from './evaluate'
 import { resolveSlicePattern } from './sliceTiling'
-import { BLUR_RADIUS, GRADIENT_REPEAT, RADIAL_REACH, gradientRepeat, gradientType, gradientWraps } from './gradientField'
+import { BLUR_RADIUS, GRADIENT_REPEAT, gradientRepeat, gradientType, gradientWraps } from './gradientField'
 import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/symmetry'
 import { truchetLattice, truchetMotif, truchetMotifIndex, truchetOrientationCount } from '../../state/evaluator/truchet'
 import {
@@ -497,14 +497,17 @@ export const FIELD_EMITTERS: NodeEmitters = {
     const type = gradientType(p.gradientType)
     const repeat = gradientRepeat(Number(p.repeat ?? GRADIENT_REPEAT.default))
     const wraps = gradientWraps(type, repeat)
+    // Pixels from the pivot, one unit on both axes (gradientField.ts).
     ln(`  { /* GradientField: ${type} */`)
-    ln(`    float _ga=(${f('angle', 'angle', 0)})*0.017453292519943f,_gca=cosf(_ga),_gsa=sinf(_ga);`)
-    ln(`    float _gcx=${f('cx', 'cx', 0.5)},_gcy=${f('cy', 'cy', 0.5)},_gof=${f('offset', 'offset', 0)},_grp=${floatLit(repeat)};`)
+    if (type !== 'radial') ln(`    float _ga=(${f('angle', 'angle', 0)})*0.017453292519943f;`)
+    if (type === 'linear') ln(`    float _gca=cosf(_ga),_gsa=sinf(_ga),_gsp=fmaxf(1e-6f,fabsf(_gca)*(WIDTH-1)+fabsf(_gsa)*(HEIGHT-1));`)
+    if (type === 'radial') ln(`    float _gsp=fmaxf(1e-6f,0.5f*sqrtf((float)((WIDTH-1)*(WIDTH-1)+(HEIGHT-1)*(HEIGHT-1))));`)
+    ln(`    float _gcx=${f('cx', 'cx', 0.5)}*(WIDTH-1),_gcy=${f('cy', 'cy', 0.5)}*(HEIGHT-1),_gof=${f('offset', 'offset', 0)},_grp=${floatLit(repeat)};`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _nx=WIDTH>1?(float)_x/(WIDTH-1):0.0f,_ny=HEIGHT>1?(float)_y/(HEIGHT-1):0.0f,_dx=_nx-_gcx,_dy=_ny-_gcy;`)
-    if (type === 'radial') ln(`      float _d=sqrtf(_dx*_dx+_dy*_dy)/${floatLit(RADIAL_REACH, 7)};`)
-    else if (type === 'angular') ln(`      float _d=atan2f(_dy,_dx)/6.283185307f+0.5f;`)
-    else ln(`      float _d=_dx*_gca+_dy*_gsa+0.5f;`)
+    ln(`      float _dx=_x-_gcx,_dy=_y-_gcy;`)
+    if (type === 'radial') ln(`      float _d=sqrtf(_dx*_dx+_dy*_dy)/_gsp;`)
+    else if (type === 'angular') ln(`      float _d=(atan2f(_dy,_dx)-_ga)/6.283185307f+0.5f;`)
+    else ln(`      float _d=(_dx*_gca+_dy*_gsa)/_gsp+0.5f;`)
     ln(`      float _v=(_d+_gof)*_grp;`)
     ln(wraps
       ? `      _v=fmodf(_v,1.0f); if(_v<0.0f)_v+=1.0f; ${of}[_y*WIDTH+_x]=_v;}}`

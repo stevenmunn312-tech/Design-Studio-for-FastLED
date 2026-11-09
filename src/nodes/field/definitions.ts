@@ -331,7 +331,8 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     // A plain ramp across the matrix: linear along Angle, radial from the
     // centre, or angular round it. `offset` slides the ramp and `repeat`
     // folds it, so one node makes stripes, rings or a pinwheel for Field →
-    // Frame, Field Math or a Field Warp to shape.
+    // Frame, Field Math or a Field Warp to shape. It measures in pixels, one
+    // unit on both axes, so rings stay round and angles true on any panel.
     type: 'GradientField',
     label: 'Gradient Field',
     category: 'field',
