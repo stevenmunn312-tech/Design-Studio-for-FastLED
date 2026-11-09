@@ -1231,10 +1231,6 @@ freeze, or drop them.
   the library into the Performance Generator (double-click or "Edit songs"
   opens the library UI), or make Music Library portless like SD Card and drop
   the warning. Evidence `src/nodes/show/evaluate.ts:1744`, `src/utils/validateGraph.ts:4886`.
-- [ ] **Sequencer: Rename to avoid the engines' "Sequence" order (Low, S).**
-  The name collides with the step editor on the Music Player and Slideshow,
-  but this node is a four-slot timed crossfade. Rename it ("Crossfade Cycle" or
-  "Look Rotator"). Evidence `src/nodes/show/codegen.ts:335`.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 

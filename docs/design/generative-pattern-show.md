@@ -448,6 +448,7 @@ particle overlay flow; see `docs/release/beta-support-matrix.md`.
 ## Relationship to existing nodes
 
 `PatternMaster` remains the internal node type for Music Player. `Sequencer`
-(cycles four inputs with crossfade) is the smaller fixed-input alternative;
+(Crossfade Cycle: cycles four inputs with crossfade) is the smaller
+fixed-input alternative;
 Music Player instead consumes a Pattern Collection and can use the transition catalogue
 styles. `Transition` stays the manual two-input A→B primitive.

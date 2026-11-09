@@ -1264,11 +1264,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Song Info example graph](../../public/node-cards/graphs/song-info.svg)
 
-### Sequencer
+### Crossfade Cycle
 
-![Sequencer node](../../public/node-cards/sequencer.svg)
+![Crossfade Cycle node](../../public/node-cards/sequencer.svg)
 
-![Sequencer example graph](../../public/node-cards/graphs/sequencer.svg)
+![Crossfade Cycle example graph](../../public/node-cards/graphs/sequencer.svg)
 
 ### Transition
 

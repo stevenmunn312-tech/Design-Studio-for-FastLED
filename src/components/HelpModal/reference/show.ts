@@ -231,8 +231,8 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
 
   Sequencer: {
     overview: [
-      'Sequencer plays up to four frames in turn: each holds for Interval seconds, then crossfades into the next over Fade seconds. Unwired slots are skipped.',
-      'It is the simplest way to rotate between a few looks without a Pattern Collection. For many patterns, random order or music, use Pattern Slideshow or Music Player.',
+      'Crossfade Cycle plays up to four frames in turn: each holds for Interval seconds, then crossfades into the next over Fade seconds. Unwired slots are skipped.',
+      'It is the simplest way to rotate between a few looks without a Pattern Collection. For many patterns, random order, music, or a step-by-step Sequence, use Pattern Slideshow or Music Player.',
     ],
     inputs: {
       p0: 'The first frame.',
@@ -254,7 +254,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         rotation: ['Sequencer', { interval: 3, fade: 1 }],
       },
       wires: ['sea.frame > rotation.p0', 'hearth.frame > rotation.p1', 'aurora.frame > rotation.p2', 'stars.frame > rotation.p3'],
-      explanation: 'Sequencer holds each of four looks — sea, hearth, aurora and twinkling lights — for three seconds, crossfading over one second into the next, then loops.',
+      explanation: 'Crossfade Cycle holds each of four looks — sea, hearth, aurora and twinkling lights — for three seconds, crossfading over one second into the next, then loops.',
       preview: 'The {output} moves from ocean waves to fire to aurora clouds to twinkling lights, blending between each.',
     }),
   },
