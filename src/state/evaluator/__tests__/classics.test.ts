@@ -153,6 +153,16 @@ describe('Digital Rain', () => {
   }
   const litCells = (f: { r: number; g: number; b: number }[][]) => f.flatMap((row, y) => row.map((p, x) => (p.r || p.g || p.b ? [x, y] : null)).filter(Boolean) as number[][])
 
+  it('runs along a string and down a matrix by default', () => {
+    const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+    expect(same(rain({}, 40, 30, 1), rain({ direction: 'right' }, 40, 30, 1))).toBe(true)
+    expect(same(rain({}, 40), rain({ direction: 'down' }, 40))).toBe(true)
+    // Along the string a stream is a run of cells with a tail, not one LED.
+    let longest = 0
+    for (let ticks = 20; ticks <= 60; ticks += 10) longest = Math.max(longest, litCells(rain({ tailLength: 8 }, ticks, 30, 1)).length)
+    expect(longest).toBeGreaterThan(2)
+  })
+
   it('lights something in every direction and stays inside the canvas', () => {
     for (const direction of ['down', 'up', 'left', 'right']) {
       const cells = litCells(rain({ direction }, 60))

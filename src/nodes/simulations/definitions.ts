@@ -7,7 +7,7 @@ import { REACTION_DIFFUSION_RATES } from './reactionDiffusionPresets'
 export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
   {
     // `direction` rotates which edge sparks (the flame base) and which way heat
-    // rises; `turbulence` widens the sideways diffusion kernel (1 = the
+    // rises, and `auto` burns along the longer side; `turbulence` widens the sideways diffusion kernel (1 = the
     // original 3-wide average); `paletteMix` blends the palette colour with
     // plain heat-brightness grayscale (1 = full colour, 0 = grayscale);
     // `mirror` folds the flame symmetric across its width; `seed` (0 = free-
@@ -35,7 +35,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       // fall back to, now dialable so a pattern can be judged without audio.
       intensity: 0.7,
       cooling: 55, sparking: 120, palette: 'fire',
-      direction: 'up', turbulence: 1, paletteMix: 1, mirror: false, seed: 0, fireStyle: 'classic',
+      direction: 'auto', turbulence: 1, paletteMix: 1, mirror: false, seed: 0, fireStyle: 'classic',
     },
   },
   {

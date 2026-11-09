@@ -4,6 +4,7 @@ import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STA
 import { speedPhase } from '../shared/speedClock'
 import { fadeBytesToBlackBy, fadeFrameToBlackBy, trailFadeAmount, trailKeep } from '../shared/trailFade'
 import { particleRadius } from './particleScale'
+import { fireDirection, type FireDirection } from './fireDirection'
 import { curlFlow } from '../../state/evaluator/curl'
 import {
   FIRE_SMOKE_SCALE_ACROSS, FIRE_SMOKE_SCALE_ALONG, FIRE_SMOKE_SPEED, fireSmokeDim, fireStyle,
@@ -72,7 +73,7 @@ const boidState = instanceState('boidState', new Map<string, BoidState>())
 // seed) — both nodes keep their own heat algorithm but share this exact set
 // of extra controls. Keep these helpers in sync with cppGenerator's Fire/
 // Fire2012 cases.
-export type FireDirection = 'up' | 'down' | 'left' | 'right'
+export type { FireDirection }
 
 // The heat simulation always runs in a canonical [P][S] grid — P (primary) is
 // the distance from the flame base (index 0 = the base, where sparks land)
@@ -1055,7 +1056,7 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const cooling = num(id, 'cooling', props, 'cooling', 55)
     const sparking = num(id, 'sparking', props, 'sparking', 120)
     const palette = pal(id, 'paletteIn', props, 'palette', 'fire')
-    const direction = (String(props.direction ?? 'up')) as FireDirection
+    const direction = fireDirection(props.direction, W, H)
     const turbulence = Math.max(0, Math.min(2, num(id, 'turbulence', props, 'turbulence', 1)))
     const paletteMix = Math.max(0, Math.min(1, num(id, 'paletteMix', props, 'paletteMix', 1)))
     const mirror = Boolean(props.mirror)

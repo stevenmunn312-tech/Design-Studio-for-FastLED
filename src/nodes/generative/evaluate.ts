@@ -1,5 +1,6 @@
 import { juggleDotCount, JUGGLE_COUNT } from './juggle'
 import { SCANNER_PALETTE_FLOOR, SPIRAL_ARMS } from './limits'
+import { STRING_MAX_ROWS } from '../shared/stringCanvas'
 import {
   BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, breatheCurve, breatheEnvelope, chaseSpacing, wipePalettePosition, wipeReversed,
 } from './classics1d'
@@ -471,11 +472,19 @@ function evalFbmField(key: string, speed: number, scale: number, octaves: number
   return out
 }
 
+/**
+ * The side Blobs sizes its blobs by: the shorter one, except on a string,
+ * where that is a single LED and the blobs shrank to a dim speck.
+ */
+export function blobSpan(W: number, H: number): number {
+  return Math.min(W, H) > STRING_MAX_ROWS ? Math.min(W, H) : Math.max(W, H)
+}
+
 // Metaballs: several moving charges; each pixel's field is the summed inverse-
 // square influence, mapped smoothly to a palette (lava-lamp blobs).
 function evalBlobs(key: string, speed: number, scale: number, count: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const n = Math.max(1, Math.min(6, Math.floor(count)))
-  const r2 = (scale * Math.min(W, H)) ** 2
+  const r2 = (scale * blobSpan(W, H)) ** 2
   const ph = speedPhase(key, t, speed)
   const bx: number[] = [], by: number[] = []
   for (let i = 0; i < n; i++) {
@@ -717,7 +726,7 @@ const CLASSIC_EVALUATORS: NodeEvaluators = {
   DigitalRain({ num, pal, t, W, H, stateKey }, id, props) {
     return {
       frame: evalDigitalRain(
-        stateKey(id), rainDirection(props.direction), num(id, 'density', props, 'density', 0.5),
+        stateKey(id), rainDirection(props.direction, W, H), num(id, 'density', props, 'density', 0.5),
         denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.DigitalRain), num(id, 'tailLength', props, 'tailLength', 8),
         num(id, 'flicker', props, 'flicker', 0.3), t, pal(id, 'paletteIn', props, 'palette', 'forest'), W, H, normalizedSeed(props.seed),
       ),

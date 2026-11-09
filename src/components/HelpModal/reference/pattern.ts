@@ -604,7 +604,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   DigitalRain: {
     overview: [
       'Digital Rain sends streams of light falling down the matrix, each with a bright head and a fading tail — the screen from The Matrix.',
-      'Density sets how often streams start, Tail Length how long they are, and Flicker how much they sparkle. Direction makes them fall any way, including along a string.',
+      'Density sets how often streams start, Tail Length how long they are, and Flicker how much they sparkle. They fall down a matrix and run along a string; Direction makes them fall any other way.',
     ],
     example: example({
       featured: 'DigitalRain',
@@ -703,7 +703,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   Fire: {
     overview: [
-      'Fire burns upward from the bottom edge, or from any side. Classic is a flame with turbulence; Smoke adds a drifting smoke layer, as in FastLED’s Fire2023; Fire2012 is FastLED’s original heat simulation.',
+      'Fire rises up a matrix from its bottom edge, and burns along a string from its first LED. Direction can turn it to burn from any side. Classic is a flame with turbulence; Smoke adds a drifting smoke layer, as in FastLED’s Fire2023; Fire2012 is FastLED’s original heat simulation.',
       'Cooling shortens the flames and Sparking makes the base busier. Turbulence widens the heat’s sideways spread. Mirror folds the fire symmetrically, which suits a fire on both ends of a string.',
       'The heat palette reproduces FastLED’s HeatColors; any other palette makes fire in that colour.',
     ],
@@ -711,7 +711,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'Fire',
       title: 'Fire2012 on a string, the way it started',
       nodes: {
-        flame: ['Fire', { fireStyle: 'fire2012', palette: 'heat', cooling: 55, sparking: 120, direction: 'right' }],
+        flame: ['Fire', { fireStyle: 'fire2012', palette: 'heat', cooling: 55, sparking: 120 }],
       },
       output: STRIP(60),
       explanation: 'Fire in Fire2012 style is Mark Kriegsman’s original FastLED fire, written for a single string: heat rises from the first LED and cools as it travels along.',
@@ -723,6 +723,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Particles runs one of twenty particle displays: fountains, fireworks, snow, rain, embers, bubbles, comets, fireflies, a tornado, a waterfall and more.',
       'Rate is how often new particles appear in the spawning displays; fixed-count displays such as orbit and fireflies use Count instead. Gravity, Bounce and Spread shape the displays that fall and fly. Colour comes from the palette by age.',
+      'Its displays rise, fall and spread in two dimensions, so on a one-row string most of them have nowhere to go. String Particles is made for strings and rings.',
       'On the canvas the node takes the name of the display chosen.',
     ],
     example: example({

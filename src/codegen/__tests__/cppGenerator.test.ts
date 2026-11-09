@@ -150,7 +150,10 @@ describe('generateCpp', () => {
     expect(cpp.split('\n')).not.toContain('template<uint8_t RENDER_PASS, int RENDER_WIDTH, int RENDER_HEIGHT>')
     expect(cpp).toContain('renderOutputPass<0, 60, 1>')
     expect(cpp).toContain('renderOutputPass<1, 16, 16>')
-    expect(cpp).toContain('static uint8_t _fireHeat_fire[RENDER_HEIGHT][RENDER_WIDTH]')
+    // Fire's `auto` direction is decided by each pass's own shape: it burns
+    // along the 60x1 string and up the 16x16 matrix.
+    const along = '(RENDER_WIDTH>RENDER_HEIGHT&&RENDER_HEIGHT<=2)'
+    expect(cpp).toContain(`static uint8_t _fireHeat_fire[(${along}?RENDER_WIDTH:RENDER_HEIGHT)][(${along}?RENDER_HEIGHT:RENDER_WIDTH)]`)
     expect(cpp).toContain('if constexpr (RENDER_PASS == 0)')
     expect(cpp).toContain('if constexpr (RENDER_PASS == 1)')
     expect(cpp.match(/\/\/ Fire pattern/g)).toHaveLength(1)
@@ -1868,6 +1871,23 @@ describe('generateCpp', () => {
     expect(wave).not.toContain('CHSV(_hue,230,_bri)')
   })
 
+  it('burns Fire and Digital Rain along a string and up or down a matrix by default', () => {
+    const strip = node('out', 'MatrixOutput', 'output', { form: 'strip', ledCount: 60, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' })
+    const on = (type: string, out: StudioNode, props: Record<string, unknown> = {}) =>
+      generateCpp([node('n', type, 'pattern', props), out], [edge('e', 'n', 'out', 'frame', 'frame')])
+    // On the one string the sketch renders, auto resolves at generation time.
+    const fireStrip = on('Fire', strip)
+    expect(fireStrip).toContain('static uint8_t _fireHeat_n[WIDTH][HEIGHT];')
+    expect(fireStrip).toContain('buf_n[(_s)*WIDTH+(_p)] = _c;')
+    expect(fireStrip).not.toContain('HEIGHT<=2')
+    expect(on('Fire', outputNode)).toContain('static uint8_t _fireHeat_n[HEIGHT][WIDTH];')
+    expect(on('Fire', strip, { direction: 'up' })).toContain('static uint8_t _fireHeat_n[HEIGHT][WIDTH];')
+    const rainStrip = on('DigitalRain', strip)
+    expect(rainStrip).toContain('static float _dr_nh[HEIGHT]')
+    expect(rainStrip).toContain('[_l*WIDTH+_ps]=CRGB(')
+    expect(on('DigitalRain', outputNode)).toContain('static float _dr_nh[WIDTH]')
+  })
+
   it('emits the Fire smoke layer only in the smoke style', () => {
     const fire = (props: Record<string, unknown> = {}) => generateCpp([node('n', 'Fire', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
     const classic = fire()
@@ -2134,6 +2154,8 @@ describe('generateCpp', () => {
   it('emits a Blobs metaball field', () => {
     const b = node('b', 'Blobs', 'pattern', { speed: 0.6, scale: 0.22, count: 3, palette: 'lava' })
     const cpp = generateCpp([b, outputNode], [edge('e', 'b', 'out', 'frame', 'frame')])
+    // Sized by the shorter side, or by the length of a string (blobSpan).
+    expect(cpp).toContain('_r=(constrain((0.22), 0.0f, 1.0f) * 0.500f)*(min(WIDTH,HEIGHT)>2?min(WIDTH,HEIGHT):max(WIDTH,HEIGHT))')
     expect(cpp).toContain('int _count=max(1,min(6,(int)floorf(3)))')
     expect(cpp).toContain('float _bx[6], _by[6]')
     expect(cpp).toContain('_f/(_f+1.0f)')

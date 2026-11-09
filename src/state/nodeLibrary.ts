@@ -68,6 +68,7 @@ import { NOISE_SHAPES, WORLEY_MODES } from './evaluator/noiseShape'
 import { MAX_STRING_PARTICLES, RING_TRACK_MAX, RING_TRACK_MIN, STRING_PARTICLE_MODES, STRING_TRACKS } from './evaluator/stringTrack'
 import { CANDLE_MODES, HEARTBEAT_BPM_MAX, HEARTBEAT_BPM_MIN, SUNRISE_MODES } from './evaluator/classics'
 import { RAIN_DIRECTIONS } from './evaluator/digitalRain'
+import { FIRE_DIRECTIONS } from '../nodes/simulations/fireDirection'
 import {
   AUTOMATON_SPEED_MAX, AUTOMATON_SPEED_MIN, AUTOMATON_TYPES, CYCLIC_STATES_MAX, CYCLIC_STATES_MIN, CYCLIC_THRESHOLD_MAX, CYCLIC_THRESHOLD_MIN,
 } from './evaluator/automaton'
@@ -1600,7 +1601,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     subdivision: { control: 'slider', min: 1, max: 8, step: 1 },
   },
   Fire: {
-    direction:   { control: 'select', options: ['up', 'down', 'left', 'right'] },
+    direction:   { control: 'select', options: [...FIRE_DIRECTIONS] },
     fireStyle:   { control: 'select', options: [...FIRE_STYLES] },
     intensity:   N01,
     turbulence:  { control: 'slider', min: 0, max: 2, step: 0.1 },
@@ -2071,7 +2072,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     count: 'Number of representative colour anchors extracted before interpolation to 16 FastLED stops.',
   },
   Fire: {
-    direction: 'Which way the flame rises.',
+    direction: 'Which way the flame rises. Auto rises up a matrix or ring and burns along a string from its first LED.',
     fireStyle: 'Classic: the flame as it always was. Smoke: a second noise layer drifts up through the flame and dims it, as in FastLED\'s Fire2023. Fire2012: FastLED\'s own Fire2012 heat simulation; Intensity has no effect on it.',
     turbulence: 'Widens the sideways heat diffusion window; 1 reproduces the original fixed-width kernel.',
     paletteMix: 'Blends the palette colour toward plain heat-brightness grayscale.',
@@ -2232,7 +2233,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     progress: 'Point on the ramp in Manual mode, 0 night to 1 full daylight.',
   },
   DigitalRain: {
-    direction: 'Which way the streams fall. On a string, left and right run them along its length.',
+    direction: 'Which way the streams fall. Auto runs them down a matrix and along a string.',
     density: 'How readily idle lanes start a new stream.',
     tailLength: 'Longest tail, in LEDs. Each stream draws between half and all of this.',
     speed: 'How fast the streams fall, 0 still to 1 fastest.',
@@ -2885,12 +2886,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   Blobs: {
     speed: 'How fast the blobs wander, 0 still to 1 fastest.',
-    scale: 'Blob size as a share of the shorter side; larger blobs merge sooner.',
+    scale: 'Blob size as a share of the shorter side, or of the length on a string; larger blobs merge sooner.',
     count: 'Number of blobs, 1 to 6.',
     palette: 'Colour by field strength: palette start outside, palette end inside a blob.',
   },
   Particles: {
-    particleType: 'Which particle display to run. Fixed-count displays ignore Rate.',
+    particleType: 'Which particle display to run. Fixed-count displays ignore Rate. These move in two dimensions; on a one-row string, String Particles fits better.',
     rate: 'Chance of a new particle each frame, 0 none to 1 constant. Ignored by fixed-count displays.',
     decay: 'Life kept each frame, 0 vanishes at once to 1 never fades.',
     palette: 'Colour by age: new particles take the palette end, fading ones its start.',

@@ -273,7 +273,7 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     ],
     propertyInputs: { density: 'density', speed: 'speed', tailLength: 'tailLength', flicker: 'flicker', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { direction: 'down', density: 0.5, speed: 0.5, tailLength: 8, flicker: 0.3, palette: 'forest', seed: 0 },
+    defaultProperties: { direction: 'auto', density: 0.5, speed: 0.5, tailLength: 8, flicker: 0.3, palette: 'forest', seed: 0 },
   },
   {
     // TV Simulator — seeded scene cuts between coloured blocks, with a slow drift.

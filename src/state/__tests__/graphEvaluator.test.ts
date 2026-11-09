@@ -64,6 +64,7 @@ vi.mock('../codeSandboxRuntime', async (importOriginal) => {
 import { evaluateGraph as evaluateGraphImpl, evaluateGraphFull as evaluateGraphFullImpl, evaluateScalar, evaluateScalarSeries, pruneEvaluatorState, prunePoolBuffers, resetEvaluatorState, getEvaluatorMemoryStats, renderParticleBurst, PARTICLE_LIFE_MS } from '../graphEvaluator'
 import type { Frame, RGB } from '../graphEvaluator'
 import { waveSample } from '../../nodes/signal/wave'
+import { blobSpan } from '../../nodes/generative/evaluate'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { samplePalette } from '../palettes/ledColor'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -2169,6 +2170,34 @@ describe('evaluateGraph', () => {
     const p0 = JSON.stringify(f0[0][0])
     expect(f0.every((r) => r.every((px) => JSON.stringify(px) === p0))).toBe(false)  // varied
     expect(JSON.stringify(at(120))).not.toEqual(JSON.stringify(f0))                   // animates
+  })
+
+  it('Blobs sizes by the length of a string, so a strip is not left near black', () => {
+    expect(blobSpan(16, 16)).toBe(16)
+    expect(blobSpan(32, 8)).toBe(8)
+    expect(blobSpan(60, 1)).toBe(60)
+    expect(blobSpan(60, 2)).toBe(60)
+    const b = node('b-strip', 'Blobs', 'pattern', { speed: 0.3, scale: 0.44, count: 3, palette: 'lava' })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([b, out], [edge('e', 'b-strip', 'frame', 'out', 'frame')], 30, 60, 1)!
+    const mean = frame[0].reduce((a, px) => a + px.r + px.g + px.b, 0) / 60
+    expect(mean).toBeGreaterThan(150)
+  })
+
+  it('Fire burns along a string and up a matrix by default', () => {
+    const run = (id: string, props: Record<string, unknown>, w: number, h: number) => {
+      const fire = node(id, 'Fire', 'pattern', { seed: 7, ...props })
+      const out = node('out', 'MatrixOutput', 'output', {})
+      let frame = evaluateGraph([fire, out], [edge('e', id, 'frame', 'out', 'frame')], 0, w, h)!
+      for (let i = 1; i <= 40; i++) frame = evaluateGraph([fire, out], [edge('e', id, 'frame', 'out', 'frame')], i, w, h)!
+      return JSON.stringify(frame)
+    }
+    expect(run('fire-auto-strip', {}, 30, 1)).toBe(run('fire-right-strip', { direction: 'right' }, 30, 1))
+    expect(run('fire-auto-matrix', {}, 8, 8)).toBe(run('fire-up-matrix', { direction: 'up' }, 8, 8))
+    // A flame along the string: hot at the first LED, cooling toward the end.
+    const strip = JSON.parse(run('fire-strip-shape', {}, 30, 1)) as { r: number; g: number; b: number }[][]
+    const heat = (from: number, to: number) => strip[0].slice(from, to).reduce((a, px) => a + px.r + px.g + px.b, 0)
+    expect(heat(0, 10)).toBeGreaterThan(heat(20, 30))
   })
 
   it('Gabor Noise produces a varied frame that animates', () => {

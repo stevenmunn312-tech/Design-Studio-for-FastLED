@@ -1,5 +1,6 @@
 import { juggleDotCount, JUGGLE_COUNT } from './juggle'
 import { SCANNER_PALETTE_FLOOR, SPIRAL_ARMS } from './limits'
+import { STRING_MAX_ROWS } from '../shared/stringCanvas'
 import { BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, WIPE_PALETTE_STEP, breatheCurve, breatheEnvelopeCpp } from './classics1d'
 import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
@@ -9,7 +10,7 @@ import {
   SINE_FIELD_VALUE_CPP, burstFrameCpp, pacificaFrameCpp, sineFieldFrameCpp, spiralFrameCpp, plasmaFrameCpp, prideFrameCpp, twinkleFrameCpp,
 } from '../shared/integerPatterns'
 import type { NodeEmitters } from '../../codegen/emitContext'
-import { RAIN_FLICKER_HZ, RAIN_SPAWN, RAIN_STEP, rainDirection, rainIndexCpp } from '../../state/evaluator/digitalRain'
+import { RAIN_ALONG_CPP, RAIN_FLICKER_HZ, RAIN_SPAWN, RAIN_STEP, rainDirection, rainDirectionChoice, rainIndexCpp } from '../../state/evaluator/digitalRain'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { seedOffset } from '../../state/evaluator/random'
 import { wrapXBlockLines } from '../../codegen/helpers/wrapXHelperCpp'
@@ -434,7 +435,8 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     const speed = rateCpp(f('speed', 'speed', 0.3), SPEED_MAX.Blobs), scale = rateCpp(f('scale', 'scale', 0.44), SCALE_MAX.Blobs)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { // Blobs (metaballs)`)
-    ln(`    float _spd=${speed}, _r=${scale}*min(WIDTH,HEIGHT), _r2=_r*_r;`)
+    // blobSpan: the shorter side, or the length of a string.
+    ln(`    float _spd=${speed}, _r=${scale}*(min(WIDTH,HEIGHT)>${STRING_MAX_ROWS}?min(WIDTH,HEIGHT):max(WIDTH,HEIGHT)), _r2=_r*_r;`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
     ln(`    int _count=max(1,min(6,(int)floorf(${f('count', 'count', 3)}))); float _bx[6], _by[6];`)
     ln(`    for(int _i=0;_i<_count;_i++){ _bx[_i]=WIDTH*(0.5f+0.4f*sin(${ph}*(0.7f+_i*0.13f)+_i*1.7f)); _by[_i]=HEIGHT*(0.5f+0.4f*cos(${ph}*(0.6f+_i*0.17f)+_i*2.3f)); }`)
@@ -518,12 +520,16 @@ const CLASSIC_EMITTERS: NodeEmitters = {
     ln(`    float _u=constrain((_p-_sa[_k])/(_sa[_k+1]-_sa[_k]),0.0f,1.0f),_v=powf(_p,${lit(SUNRISE_GAMMA)});`)
     ln(`    fill_solid(${ob},NUM_LEDS,CRGB((uint8_t)((_sr[_k]+(_sr[_k+1]-_sr[_k])*_u)*_v),(uint8_t)((_sg[_k]+(_sg[_k+1]-_sg[_k])*_u)*_v),(uint8_t)((_sb[_k]+(_sb[_k+1]-_sb[_k])*_u)*_v))); }`)
   },
-  DigitalRain({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  DigitalRain({ node, id, p, ln, f, ownBuf, paletteExpr, needsT, nativeMultiRender, width, height }) {
     needsT.v = true
     const ob = ownBuf()
-    const dir = rainDirection(p.direction)
+    // `auto` resolves on the one canvas the sketch renders, as the preview
+    // does on its own; each render pass of its own decides from its size.
+    const choice = rainDirectionChoice(p.direction)
+    const dir = choice === 'auto' && nativeMultiRender ? 'auto' : rainDirection(choice, width, height)
     const vertical = dir === 'down' || dir === 'up'
-    const lanes = vertical ? 'WIDTH' : 'HEIGHT', along = vertical ? 'HEIGHT' : 'WIDTH'
+    const lanes = dir === 'auto' ? `(${RAIN_ALONG_CPP}?HEIGHT:WIDTH)` : vertical ? 'WIDTH' : 'HEIGHT'
+    const along = dir === 'auto' ? `(${RAIN_ALONG_CPP}?WIDTH:HEIGHT)` : vertical ? 'HEIGHT' : 'WIDTH'
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const seed = seedProp(p)
     const A = `_dr_${id}`

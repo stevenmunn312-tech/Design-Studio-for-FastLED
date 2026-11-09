@@ -991,17 +991,6 @@ freeze, or drop them.
 
 #### Generative and simulations
 
-- [ ] **Category: Make Fire, Digital Rain, Blobs and Particles work on a
-  one-row strip (High, S).** Strips (60x1, 10x1, 65x1) are supported forms and
-  these defaults break on them. Fire `direction: 'up'` gives a one-row heat
-  grid, so no propagation runs and the strip shows random flicker. Digital
-  Rain `direction: 'down'` makes every LED a one-cell lane. Blobs sizes by
-  `min(W,H)`, so the radius is about 0.2 px and the strip stays near black.
-  Particles spawn and die on y. Add an `auto` direction (along the longer
-  axis) as the default for Fire and Digital Rain, size Blobs from the longer
-  side when one side is 1, and point Particles users to String Particles on a
-  one-row canvas. Evidence `src/nodes/simulations/evaluate.ts:123`,
-  `src/nodes/generative/evaluate.ts:458`.
 - [ ] **Category: Move simulation motion onto the clock (Med, M).** Trails
   are done: every trail now fades by elapsed time through the shared `trail`
   knob. Motion still advances per pass, against "never per pass" in

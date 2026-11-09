@@ -15,6 +15,7 @@ import {
   RIPPLE_LIFETIME_SEC, RIPPLE_MAX_RIPPLES, RIPPLE_WIDTH, arrivalEnd, buildRippleTables, rippleBehaviour, rippleShape,
 } from '../shared/rippleNetwork'
 import { particleRadius } from './particleScale'
+import { FIRE_ALONG_CPP, fireDirection, fireDirectionChoice } from './fireDirection'
 import { particleMode, particlePoolSize } from './particleModes'
 import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
@@ -30,12 +31,24 @@ import { angle16Cpp, phyllotaxisPointCpp, splatDiscQ8Cpp } from '../shared/integ
 // macros actually expand to — including the supersampled render resolution,
 // which the raw `width`/`height` JS constants don't reflect. The mapping back
 // to real (x, y) only happens once, in the final palette-sampling loop.
+//
+// `auto` is resolved here from the one canvas the sketch renders, as the
+// preview resolves it on its own. When each output renders a canvas of its
+// own, every pass decides from its own WIDTH and HEIGHT instead, which the
+// compiler folds to one arm per pass.
+function fireDirectionCpp({ p, nativeMultiRender, width, height }: EmitContext): string {
+  const choice = fireDirectionChoice(p.direction)
+  if (choice !== 'auto' || nativeMultiRender) return choice
+  return fireDirection(choice, width, height)
+}
 function fireGrid(direction: string): { P: string; S: string } {
+  if (direction === 'auto') return { P: `(${FIRE_ALONG_CPP}?WIDTH:HEIGHT)`, S: `(${FIRE_ALONG_CPP}?HEIGHT:WIDTH)` }
   const vertical = direction !== 'left' && direction !== 'right'
   return { P: vertical ? 'HEIGHT' : 'WIDTH', S: vertical ? 'WIDTH' : 'HEIGHT' }
 }
 function fireXYExpr(direction: string, pExpr: string, sExpr: string): { x: string; y: string } {
   switch (direction) {
+    case 'auto':  return { x: `(${FIRE_ALONG_CPP}?(${pExpr}):(${sExpr}))`, y: `(${FIRE_ALONG_CPP}?(${sExpr}):(HEIGHT-1-(${pExpr})))` }
     case 'down':  return { x: sExpr, y: pExpr }
     case 'left':  return { x: `(WIDTH-1-(${pExpr}))`, y: sExpr }
     case 'right': return { x: pExpr, y: sExpr }
@@ -44,12 +57,24 @@ function fireXYExpr(direction: string, pExpr: string, sExpr: string): { x: strin
   }
 }
 
+/**
+ * Folds the rendered buffer symmetric across the flame's width — up/down
+ * mirror columns, left/right mirror rows. Mirrors fireMirror.
+ */
+function fireMirrorCpp(ln: (line: string) => void, direction: string, ob: string): void {
+  const rows = `for (int _y=0;_y<HEIGHT/2;_y++) for (int _x=0;_x<WIDTH;_x++) ${ob}[(HEIGHT-1-_y)*WIDTH+_x] = ${ob}[_y*WIDTH+_x];`
+  const columns = `for (int _y=0;_y<HEIGHT;_y++) for (int _x=0;_x<WIDTH/2;_x++) ${ob}[_y*WIDTH+(WIDTH-1-_x)] = ${ob}[_y*WIDTH+_x];`
+  if (direction === 'auto') ln(`    if (${FIRE_ALONG_CPP}) { ${rows} } else { ${columns} }`)
+  else ln(`    ${direction === 'left' || direction === 'right' ? rows : columns}`)
+}
+
 /** Fire's `fire2012` style: FastLED's Fire2012 heat algorithm. */
-function fire2012Cpp({ node, id, p, ln, f, ownBuf, incoming, paletteExpr }: EmitContext): void {
+function fire2012Cpp(ctx: EmitContext): void {
+  const { node, id, p, ln, f, ownBuf, incoming, paletteExpr } = ctx
   const ob = ownBuf()
   const cooling = f('cooling', 'cooling', 55), sparking = f('sparking', 'sparking', 120)
   const pal = paletteExpr(node.id, 'paletteIn', p)
-  const direction = String(p.direction ?? 'up')
+  const direction = fireDirectionCpp(ctx)
   // The diffusion window is a loop bound and a divisor, not an array
   // size, so both become runtime reads of one local.
   const spread = `_fireSpread_${id}`
@@ -94,12 +119,7 @@ function fire2012Cpp({ node, id, p, ln, f, ownBuf, incoming, paletteExpr }: Emit
     ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*${keep}+_c.r*${mix}),(uint8_t)(_h*${keep}+_c.g*${mix}),(uint8_t)(_h*${keep}+_c.b*${mix}));`)
   }
   ln(`    }`)
-  if (mirrorP) {
-    if (direction === 'left' || direction === 'right')
-      ln(`    for (int _y=0;_y<HEIGHT/2;_y++) for (int _x=0;_x<WIDTH;_x++) ${ob}[(HEIGHT-1-_y)*WIDTH+_x] = ${ob}[_y*WIDTH+_x];`)
-    else
-      ln(`    for (int _y=0;_y<HEIGHT;_y++) for (int _x=0;_x<WIDTH/2;_x++) ${ob}[_y*WIDTH+(WIDTH-1-_x)] = ${ob}[_y*WIDTH+_x];`)
-  }
+  if (mirrorP) fireMirrorCpp(ln, direction, ob)
   ln(`  }`)
 }
 
@@ -112,7 +132,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const cooling = f('cooling', 'cooling', 55)
     const sparking = f('sparking', 'sparking', 120)
     const pal = paletteExpr(node.id, 'paletteIn', p)
-    const direction = String(p.direction ?? 'up')
+    const direction = fireDirectionCpp(ctx)
     const smoke = fireStyle(p.fireStyle) === 'smoke'
     if (smoke) needsT.v = true
     // The diffusion window is a loop bound and a divisor, not an array
@@ -170,14 +190,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
       ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*${keep}+_c.r*${mix}),(uint8_t)(_h*${keep}+_c.g*${mix}),(uint8_t)(_h*${keep}+_c.b*${mix}));`)
     }
     ln(`    }`)
-    if (mirrorP) {
-      // Fold the rendered buffer symmetric across the flame's width —
-      // up/down mirror columns, left/right mirror rows. Mirrors fireMirror.
-      if (direction === 'left' || direction === 'right')
-        ln(`    for (int _y=0;_y<HEIGHT/2;_y++) for (int _x=0;_x<WIDTH;_x++) ${ob}[(HEIGHT-1-_y)*WIDTH+_x] = ${ob}[_y*WIDTH+_x];`)
-      else
-        ln(`    for (int _y=0;_y<HEIGHT;_y++) for (int _x=0;_x<WIDTH/2;_x++) ${ob}[_y*WIDTH+(WIDTH-1-_x)] = ${ob}[_y*WIDTH+_x];`)
-    }
+    if (mirrorP) fireMirrorCpp(ln, direction, ob)
     ln(`  }`)
   },
   Particles({ node, id, p, ln, f, ownBuf, width, height, paletteExpr, needsT }) {

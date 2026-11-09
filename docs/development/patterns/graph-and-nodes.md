@@ -288,6 +288,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `speedPhase`. Time's `dt`
   is the time since that node's previous pass (0 on its first), measured on
   both sides, where it was a fixed 1/60.
+- A string renders on a canvas one row tall, so a pattern that rises, falls
+  or sizes itself by the shorter side has nothing to work with there. Fire
+  and Digital Rain default to an `auto` direction that runs along a string
+  and keeps a matrix's usual orientation, and Blobs sizes by a string's
+  length; all three ask `isRowString` (`src/nodes/shared/stringCanvas.ts`).
+  The sketch resolves `auto` at generation time from the one canvas it
+  renders, and from each pass's own `WIDTH`/`HEIGHT` (`IS_ROW_STRING_CPP`,
+  folded per template instance) when outputs render on canvases of their own.
 - A trail is one knob, `trail`, with one meaning: 0 leaves none and 1 the
   longest. It is a half-life on a log scale, applied by the time that has
   passed, not a share taken off each frame. Confetti, Juggle, Scanner, Flow
