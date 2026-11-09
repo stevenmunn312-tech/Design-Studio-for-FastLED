@@ -105,7 +105,7 @@ Limits: 64 nodes, 128 edges, 300 LEDs, the positioned-string ceiling.
 ### Layout editor
 
 `SegmentNetworkEditor` (`src/components/Canvas/`), opened by the pencil
-button beside the `network` row of an LED Output or a Ripple node, closed by
+button beside the `network` row of an LED Output or a Network Ripple node, closed by
 Escape through `useModalFocus` (which goes through `useEscapeLayer`). A
 16 × 10 unit canvas with the nodes as draggable dots and the edges as
 numbered lines: click empty space to add a node, click one node and then
@@ -117,9 +117,9 @@ selects the custom preset, so the output fits the shape to its own canvas as
 it would any custom network. The JSON stays the saved form, so a project
 file carries it and a share link works; the editor only spares the typing.
 
-### The Ripple pattern
+### The Network Ripple pattern
 
-`Ripple` (category `pattern`, Shapes & Text) draws ripples that start at a
+`Ripple` (labelled Network Ripple; category `pattern`, Simulations) draws ripples that start at a
 node and travel along edges, choosing at each node how to continue. Like
 String Particles' `track` and `ringLeds`, the pattern repeats the output's
 geometry by property rather than reading the output: it holds the same

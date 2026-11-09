@@ -754,11 +754,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![String Particles example graph](../../public/node-cards/graphs/string-particles.svg)
 
-### Ripple
+### Network Ripple
 
-![Ripple node](../../public/node-cards/ripple.svg)
+![Network Ripple node](../../public/node-cards/ripple.svg)
 
-![Ripple example graph](../../public/node-cards/graphs/ripple.svg)
+![Network Ripple example graph](../../public/node-cards/graphs/ripple.svg)
 
 ### Starfield
 

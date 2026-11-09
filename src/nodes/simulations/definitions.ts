@@ -184,9 +184,10 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
     // Ripples travelling the edges of a segment network, choosing a turn at
     // every node: the Chromancer model (docs/design/segment-networks.md).
     // Repeats the LED output's network by property, as String Particles
-    // repeats a ring's LED count.
+    // repeats a ring's LED count. Labelled Network Ripple: it draws only on a
+    // segment network, apart from Radial Burst's and Rain Ripples' rings.
     type: 'Ripple',
-    label: 'Ripple',
+    label: 'Network Ripple',
     category: 'pattern',
     subcategory: 'Simulations',
     inputs: [

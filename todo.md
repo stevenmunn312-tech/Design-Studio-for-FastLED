@@ -1034,10 +1034,6 @@ freeze, or drop them.
   Singularity uses `fireworks`, Help uses `snow` and `luminova`) and drops a
   look someone may use, so decide the list before cutting. Evidence
   `src/nodes/simulations/particleModes.ts:5`.
-- [ ] **Ripple: Rename to "Network Ripple" (Med, S).** It only works on a
-  segment network and draws hexagons, while Radial Burst's Help example is
-  already titled "Ripples spreading on a still pond", and RainRipples and the
-  "Ripple Wipe" transition exist. Evidence `src/components/HelpModal/reference/pattern.ts:662`.
 
 #### Outputs and shows
 
