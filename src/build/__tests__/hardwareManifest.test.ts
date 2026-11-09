@@ -6,6 +6,7 @@ import {
   peripheralSignalPadIndex,
 } from '../../components/BuildDiagram/physicalDiagramLayout'
 import { buildHardwareManifest, collectPinUses } from '../hardwareManifest'
+import { NODE_LIBRARY } from '../../state/nodeLibrary'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {
@@ -475,6 +476,17 @@ describe('hardwareManifest', () => {
     expect(item.supported).toBe(true)
     expect(item.pins.map((pin) => pin.propertyKey)).toEqual(['rPin', 'gPin', 'bPin'])
     expect(item.facts).toMatchObject({ channels: 3, drive: 'PWM 2000 Hz', polarity: 'common anode (inverted PWM)' })
+  })
+
+  // Nothing reassigns a library node's pins on add, so its defaults must not
+  // land on the Amplifier's: a music build that added a strip used to open
+  // with a conflict on GPIO 25 and 26.
+  it('defaults an Analog RGB Strip to pins clear of the Amplifier', () => {
+    const library = (type: string) => NODE_LIBRARY.find((entry) => entry.type === type)!.defaultProperties ?? {}
+    const pins = (type: string) => collectPinUses([node(type, type, library(type))])
+      .map((use) => use.pin)
+    const amplifier = new Set(pins('Amplifier'))
+    expect(pins('AnalogStripOutput').filter((pin) => amplifier.has(pin))).toEqual([])
   })
 })
 

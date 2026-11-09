@@ -1225,10 +1225,6 @@ freeze, or drop them.
   driver `partId` and make it a bench part, or add an "RGB strip" load mode
   with a Color input to Power Switch. Evidence `src/build/hardwareManifest.ts:1253`,
   `src/build/hardware.ts:27`.
-- [ ] **Analog RGB Strip: Change default pins that clash with Amplifier (Low,
-  S).** Default R=25, G=26 are the Amplifier's default LRC and BCLK, so a music
-  build with an analog strip starts with a pin conflict. Evidence
-  `src/nodes/output/definitions.ts:691`.
 - [ ] **Music Library: Remove the empty wire to Performance Generator (Med,
   M).** The `music` wire carries only `true`; the generator reads the global
   music store either way, and validation warns until the cable is drawn. Fold

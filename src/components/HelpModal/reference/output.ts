@@ -501,7 +501,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       title: 'A 12 V cove light that follows the matrix',
       nodes: {
         hue: ['HueCycle', { rate: 0.05 }],
-        cove: ['AnalogStripOutput', { rPin: 25, gPin: 26, bPin: 27 }],
+        cove: ['AnalogStripOutput', { rPin: 32, gPin: 33, bPin: 27 }],
         fill: ['SolidColor'],
       },
       wires: ['hue.color > cove.color', 'hue.color > fill.color'],

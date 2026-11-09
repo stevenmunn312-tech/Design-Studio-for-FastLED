@@ -687,7 +687,10 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
     ],
     propertyInputs: { r: 'r', g: 'g', b: 'b', brightness: 'brightness' },
     outputs: [],
-    defaultProperties: { r: 255, g: 96, b: 0, brightness: 1, rPin: 25, gPin: 26, bPin: 27, pwmHz: 5000, commonAnode: false },
+    // Not 25 and 26: those are the Amplifier's LRC and BCLK, so a music build
+    // that added the strip used to start with a pin conflict. The strip is a
+    // library node, not a bench part, so nothing reassigns its pins on add.
+    defaultProperties: { r: 255, g: 96, b: 0, brightness: 1, rPin: 32, gPin: 33, bPin: 27, pwmHz: 5000, commonAnode: false },
   },
 ]
 
