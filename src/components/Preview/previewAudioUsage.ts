@@ -1,5 +1,5 @@
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
-import { resolveAudioCapabilitySource } from '../../state/audio/audioCapabilities'
+import { previewAudioCapabilityKind } from '../../state/audio/audioCapabilities'
 
 interface PortLike {
   id?: string
@@ -37,7 +37,7 @@ function hasIncomingAudioSource(
   const source = nodes.find((node) => node.id === edge.source)
   if (!source) return false
   if (source.data.nodeType !== 'Audio') return true
-  return resolveAudioCapabilitySource(
+  return previewAudioCapabilityKind(
     nodes,
     (source.data.properties as Record<string, unknown>).sourceId,
   ) !== null

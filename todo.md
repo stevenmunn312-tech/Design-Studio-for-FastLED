@@ -120,13 +120,6 @@ freeze, or drop them.
   digital line, and TouchButton already derives active level from `partId`.
   Only worth doing together with the Button/ButtonBank merge; the distinct
   port names read well otherwise. Evidence `src/codegen/controlInputCpp.ts:65`.
-- [ ] **Audio: Give preview audio without a Microphone part (High, S).** With
-  no Microphone part on the bench the preview gets no audio at all, so a
-  design-first user drops an audio pattern and sees nothing. Let the
-  Microphone intent use the computer mic in preview when no provider exists
-  (deploy still asks for the part), or turn the disabled-state hint into an
-  "Add microphone to bench" button. Evidence `src/nodes/input/evaluate.ts:136`,
-  `src/state/audio/audioCapabilities.ts:158`.
 - [ ] **Storage: Hide or remove the node until something reads it (Med, S).**
   No node declares a `storage` input and Help admits none takes it, so the
   node's output can never be consumed and its only diagnostic can never

@@ -800,7 +800,19 @@ describe('evaluateGraph', () => {
     expect(connected.get('audio-cap')?.audio).toMatchObject({ active: true })
     expect(connected.get('fft-cap')?.bass).toBeCloseTo(0.4)
 
-    const emptyAudio = node('audio-empty', 'Audio', 'input', { sourceId: '' })
+    // No microphone on the bench yet: the preview hears the computer's input.
+    const benchless = node('audio-benchless', 'Audio', 'input', { sourceId: '' })
+    const benchlessFft = node('fft-benchless', 'FFTAnalyzer', 'audio', { smoothing: 0 })
+    const computer = evaluateGraphFull(
+      [benchless, benchlessFft],
+      [edge('benchless-edge', 'audio-benchless', 'audio', 'fft-benchless', 'audio')],
+      0, W, H,
+    ).outputs
+    expect(computer.get('audio-benchless')?.audio).toMatchObject({ active: true })
+    expect(computer.get('fft-benchless')?.bass).toBeCloseTo(0.4)
+
+    // A concrete provider id that is gone resolves to nothing.
+    const emptyAudio = node('audio-empty', 'Audio', 'input', { sourceId: 'removed-mic' })
     const emptyFft = node('fft-empty', 'FFTAnalyzer', 'audio', { smoothing: 0 })
     const empty = evaluateGraphFull(
       [emptyAudio, emptyFft],

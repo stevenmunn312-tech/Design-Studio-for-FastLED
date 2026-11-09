@@ -60,7 +60,7 @@ import { displayHasTouch } from '../../build/parts/partCatalogue'
 import { useGraphStore } from '../../state/graphStore'
 import { isDisplaySignal, type DisplaySignal } from '../../state/displays/displaySignal'
 import { tftControllerForProps } from '../../state/nodeLibrary'
-import { resolveAudioCapabilitySource } from '../../state/audio/audioCapabilities'
+import { previewAudioCapabilityKind } from '../../state/audio/audioCapabilities'
 import { resolveStorageCapabilitySource } from '../../build/storageCapabilities'
 import { normalizeButtonBankEntries, buttonBankHandle } from '../../state/player/buttonBank'
 import { normalizeWebRemoteControls, webRemoteControlOutput, webRemotePortId, webRemoteStartState } from '../../state/peripherals/webRemote'
@@ -132,9 +132,11 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
   Audio({ audioOverride, capabilityNodes }, _id, props) {
     // One authored choice maps both environments: microphone/line-in use
     // browser capture in-app and their physical input on hardware; decoder
-    // uses the in-app music player here and the hardware player there.
-    const source = resolveAudioCapabilitySource(capabilityNodes, props.sourceId)
-    return { audio: source ? (audioOverride ?? liveAudioSignal(source.kind)) : null }
+    // uses the in-app music player here and the hardware player there. A
+    // microphone or line input not yet on the bench still previews with the
+    // computer's input; deploy asks for the part.
+    const kind = previewAudioCapabilityKind(capabilityNodes, props.sourceId)
+    return { audio: kind ? (audioOverride ?? liveAudioSignal(kind)) : null }
   },
   Storage({ capabilityNodes }, _id, props) {
     const source = resolveStorageCapabilitySource(capabilityNodes, props.sourceId)

@@ -10,7 +10,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
   Audio: {
     overview: [
       'Audio is the one place a graph gets its sound. Choose the source in its body — a microphone, a line input, or the Music Player’s own decoder — and every analyser wired to it hears the same signal.',
-      'The same choice holds in both worlds. In the browser, a microphone or line input is captured through your computer’s audio input; on the board, the Microphone or Line In part on the bench is read over I2S. Pick the source once and the preview and the firmware agree.',
+      'The same choice holds in both worlds. In the browser, a microphone or line input is captured through your computer’s audio input; on the board, the Microphone or Line In part on the bench is read over I2S. Pick the source once and the preview and the firmware agree. Until the part is on the bench the preview still listens through the computer, so you can design first; uploading asks for the part.',
       'Fan a single Audio node out to as many analysers and audio patterns as you like. Add a second one only when you really have two sources, such as a microphone for the room and the decoder for the music.',
     ],
     steps: [

@@ -112,6 +112,31 @@ export function resolveAudioCapabilitySource(
   return kind ? sources.find((source) => source.kind === kind) ?? null : null
 }
 
+/** The source class the browser preview listens to for an authored choice.
+ * A provider on the bench decides it. A Microphone or Line Input choice whose
+ * part is not on the bench yet still previews with the computer's own audio
+ * input, so a design-first user sees an audio pattern move before the part is
+ * bought; the deploy gate (`findAudioCapabilityErrors`) still asks for it. The
+ * decoder has no stand-in: without its player it stays silent. */
+export function previewAudioCapabilityKind(
+  nodes: readonly StudioNode[],
+  sourceId: unknown,
+): AudioCapabilityKind | null {
+  const source = resolveAudioCapabilitySource(nodes, sourceId)
+  if (source) return source.kind
+  const kind = selectedAudioCapabilityKind(nodes, sourceId)
+  return kind === 'microphone' || kind === 'line-in' ? kind : null
+}
+
+/** True when the root graph's Audio choice previews with the computer's input
+ * because its Microphone or Line Input part is not on the bench yet. */
+export function graphPreviewsComputerInput(nodes: readonly StudioNode[]): boolean {
+  const capability = nodes.find((node) => node.data.nodeType === 'Audio')
+  if (!capability) return false
+  const sourceId = (capability.data.properties as Record<string, unknown>).sourceId
+  return !resolveAudioCapabilitySource(nodes, sourceId) && previewAudioCapabilityKind(nodes, sourceId) !== null
+}
+
 /** Resolve the root graph's one Audio capability. Older in-memory fixtures
  * that still expose a concrete microphone/line-input node directly fall back
  * to that provider, keeping preview controls useful while they are normalized. */
@@ -155,14 +180,14 @@ export function audioCapabilityOptions(nodes: readonly StudioNode[]): AudioCapab
       value: audioCapabilityIntent('microphone'),
       label: 'Microphone',
       source: source('microphone'),
-      unavailableHint: 'Add a microphone on the Hardware tab to enable.',
+      unavailableHint: 'Add a microphone on the Hardware tab so the board can hear the room too.',
     },
     {
       kind: 'line-in',
       value: audioCapabilityIntent('line-in'),
       label: 'Line Input',
       source: source('line-in'),
-      unavailableHint: 'Add a PCM1802 line input on the Hardware tab to enable.',
+      unavailableHint: 'Add a PCM1802 line input on the Hardware tab so the board can hear it too.',
     },
     {
       kind: 'decoder',

@@ -702,10 +702,11 @@ describe('StudioNode', () => {
     expect(potentiometer.style.borderRadius).toBe('50%')
   })
 
-  it('shows an honest empty state when Audio has no attached source', () => {
-    const { getByText, getByRole } = renderNode(makeNode('Audio', { sourceId: '' }))
-    expect(getByText('Audio reactivity is disabled.')).toBeTruthy()
-    expect(getByText('Add a microphone on the Hardware tab to enable.')).toBeTruthy()
+  it('previews with the computer microphone when no microphone is on the bench', () => {
+    const { getByText, getByRole, queryByText } = renderNode(makeNode('Audio', { sourceId: '' }))
+    expect(getByText('Previewing with the computer’s microphone.')).toBeTruthy()
+    expect(getByText('Add a microphone on the Hardware tab so the board can hear the room too.')).toBeTruthy()
+    expect(queryByText('Audio reactivity is disabled.')).toBeNull()
     const source = getByRole('combobox', { name: 'Audio source' }) as HTMLSelectElement
     expect(source.value).toBe('kind:microphone')
     expect([...source.options].map((option) => option.text)).toEqual([
@@ -721,10 +722,13 @@ describe('StudioNode', () => {
     const { getByRole, getByText, queryByText } = renderNode(audio)
     const source = getByRole('combobox', { name: 'Audio source' }) as HTMLSelectElement
 
+    fireEvent.change(source, { target: { value: 'kind:decoder' } })
+    await waitFor(() => expect(source.value).toBe('kind:decoder'))
+    expect(getByText('Audio reactivity is disabled.')).toBeTruthy()
+
     fireEvent.change(source, { target: { value: 'kind:microphone' } })
     await waitFor(() => expect(source.value).toBe('kind:microphone'))
-    expect(getByText('Audio reactivity is disabled.')).toBeTruthy()
-    expect(getByText('Add a microphone on the Hardware tab to enable.')).toBeTruthy()
+    expect(getByText('Previewing with the computer’s microphone.')).toBeTruthy()
 
     const selectedAudio = useGraphStore.getState().nodes.find((node) => node.id === audio.id)!
     const mic = { ...makeNode('MicInput', { partId: 'inmp441-i2s-microphone' }), id: 'mic' } as StudioNodeT
@@ -732,7 +736,7 @@ describe('StudioNode', () => {
 
     await waitFor(() => {
       expect([...source.options].map((option) => option.text)).toContain('Microphone - INMP441')
-      expect(queryByText('Audio reactivity is disabled.')).toBeNull()
+      expect(queryByText('Previewing with the computer’s microphone.')).toBeNull()
     })
   })
 

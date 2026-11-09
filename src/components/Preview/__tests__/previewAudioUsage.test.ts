@@ -71,6 +71,20 @@ describe('graphConsumesAudio', () => {
     expect(graphConsumesAudio([node('mic', 'MicInput'), audio, fft, bars, out], edges)).toBe(true)
   })
 
+  it('counts a Microphone choice with no part on the bench, which previews the computer mic', () => {
+    const fft = node('fft', 'FFTAnalyzer')
+    const bars = node('bars', 'SpectrumVisualizer', { style: 'Three Band' })
+    const out = node('out', 'MatrixOutput')
+    const edges = [
+      edge('e1', 'audio', 'audio', 'fft', 'audio'),
+      edge('e2', 'fft', 'bass', 'bars', 'bass'),
+      edge('e3', 'bars', 'frame', 'out', 'frame'),
+    ]
+    expect(graphConsumesAudio([node('audio', 'Audio', { sourceId: 'kind:microphone' }), fft, bars, out], edges)).toBe(true)
+    // The decoder has no stand-in without its player.
+    expect(graphConsumesAudio([node('audio', 'Audio', { sourceId: 'kind:decoder' }), fft, bars, out], edges)).toBe(false)
+  })
+
   it('returns true when a Spectrum Visualizer consumes wired audio', () => {
     expect(graphConsumesAudio(
       [node('mic', 'MicInput'), node('spectrum', 'SpectrumVisualizer'), node('out', 'MatrixOutput')],
