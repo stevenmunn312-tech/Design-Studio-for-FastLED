@@ -42,7 +42,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   guarantee that keeps constant rates bit-identical to the old form.
 
 - Show transitions embed `FRAME_SAMPLE_HELPER_CPP`. When collected patterns
-  also lift that block (Frame Warp or Tile Symmetry), emit it only when transitions
+  also lift that block (Frame Warp, Smooth Frame Transform or Tile Symmetry), emit it only when transitions
   are disabled; deduplicating the standalone helper list alone cannot remove
   a block embedded in the transition helper. Keep coverage for both modes.
 
@@ -403,6 +403,14 @@ Symmetry, FieldSymmetry and Truchet, and exact ports of FastLED's 2D and 3D
 `inoise8` for the noise nodes. Gaussian falloffs are interpolated 257-entry
 tables over the squared distance, and blend modes divide by 255 exactly with
 `((x + 1) * 257) >> 16`.
+
+A float kernel with optional steps decides them at generation time, not with
+a run-time branch: Frame Transform and Field Transform emit a turn, scale,
+slide, push or tile only when a wire or a set value can move it, and the
+preview skips the same steps by their values, so an identity step changes no
+number on either side. Their kernel builders take a C++ expression or `null`
+per step (`smoothTransformCpp`, `fieldTransformCpp`), which also lets a
+parity test run each specialised form through `compileCppSnippet`.
 
 `cppSpecialize` folds constant parameters and `if`/`switch`, but not a bool
 argument expression, and it keeps code after an early `return`. So a helper

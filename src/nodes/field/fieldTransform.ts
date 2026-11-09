@@ -185,7 +185,8 @@ export function fieldTransformCpp(spec: FieldTransformCppSpec): { frame: string[
     : `constrain((int)floorf((${v})+0.5f),${FIELD_TILES.min},${FIELD_TILES.max})`
   if (tiled) frame.push(`float _ftTx=${tiles(spec.tilesX)},_ftTy=${tiles(spec.tilesY)};`)
   if (spec.samples === null) {
-    frame.push(`int _ftN=constrain((int)ceilf(fmaxf(${tiled ? '_ftTx' : '1.0f'},${tiled ? '_ftTy' : '1.0f'})/${zoom ? '_ftZ' : '1.0f'}),1,${FIELD_SAMPLES_MAX});`)
+    const squeeze = `${tiled ? 'fmaxf(_ftTx,_ftTy)' : '1.0f'}${zoom ? '/_ftZ' : ''}`
+    frame.push(`int _ftN=constrain((int)ceilf(${squeeze}),1,${FIELD_SAMPLES_MAX});`)
   } else if (spec.samples > 1) {
     frame.push(`int _ftN=${spec.samples};`)
   }

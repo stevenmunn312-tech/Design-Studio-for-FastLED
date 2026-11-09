@@ -423,7 +423,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Index left unwired at 0.
 - Floating-point frame reads share `sampleFrame` in `evaluator/frames.ts` and
   `_sampleFrame` from `frameSampleHelperCpp.ts`; add edge policies or rounding
-  changes there rather than inside a node. Frame Warp uses the pair directly.
+  changes there rather than inside a node. Frame Warp and Smooth Frame
+  Transform use the pair directly. Field reads have their own pair in
+  `field/fieldTransform.ts` (`sampleField`, `fieldEdge` and `fieldEdgeCpp`,
+  with a mirror edge a frame has no use for).
   The 3D transitions use its scaled form so depth shading stays inside the
   weighted sum and RGB is still quantised exactly once.
 - A select whose values are baked as numeric firmware ids keeps one append-only
@@ -674,9 +677,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   than a lookalike: Fire's `fire2012` style runs the Fire2012 algorithm, Noise's
   `fbm` and `gabor` types the old Fractal and Gabor Noise, Shape Field's
   `falloff` the distance from a point, Spectrum Visualizer's `Three Band` the
-  stylised bars, and Wave's `rateUnit`, `unipolar` and `offset` reproduce
+  stylised bars, Wave's `rateUnit`, `unipolar` and `offset` reproduce
   Counter and BeatSin exactly (`statefulSignalParity.test.ts` runs both on
-  each side). A knob only one value reads is gated by `isPropertyEnabled`,
+  each side), and Frame Transform's `mode` is the old Frame Transform
+  (`exact`) or the old Transform (`smooth`, read `nearest` on `black` edges
+  to match it). Where the old nodes were one operation split by parameter,
+  the merge is one kernel instead: Field Transform pushes, turns, zooms and
+  tiles in a single read, and a rate sits beside each value it moves
+  (`rotateRate`, `offsetXRate`) rather than behind a mode, so the per-mode
+  unit label went with the mode. A knob only one value reads is gated by `isPropertyEnabled`,
   and an emitter whose value needs a different block delegates to its own
   function (`fire2012Cpp`, `threeBandCpp`) before destructuring the context.
   Bundled content is converted, not migrated: pre-1.0, a save holding a
