@@ -69,8 +69,7 @@ const starState = instanceState('starState', new Map<string, StarState>())
 interface BoidState { x: Float32Array; y: Float32Array; vx: Float32Array; vy: Float32Array; w: number; h: number; seed: number }
 const boidState = instanceState('boidState', new Map<string, BoidState>())
 
-// ── Shared Fire/Fire2012 controls (direction, turbulence, paletteMix, mirror,
-// seed) — both nodes keep their own heat algorithm but share this exact set
+// ── Shared Fire/Fire2012 controls (direction, turbulence, mirror, seed) — both nodes keep their own heat algorithm but share this exact set
 // of extra controls. Keep these helpers in sync with cppGenerator's Fire/
 // Fire2012 cases.
 export type { FireDirection }
@@ -119,7 +118,7 @@ function fireMirror(frame: Frame, direction: FireDirection, W: number, H: number
 function evalFire(
   nodeId: string, intensity: number, cooling: number, sparking: number, palette: Palette,
   W = DEFAULT_W, H = DEFAULT_H,
-  direction: FireDirection = 'up', turbulence = 1, paletteMix = 1, mirror = false, seed = 0,
+  direction: FireDirection = 'up', turbulence = 1, mirror = false, seed = 0,
   smoke = false, t = 0,
 ): Frame {
   const P = firePrimaryLen(direction, W, H), S = fireSecondaryLen(direction, W, H)
@@ -152,7 +151,6 @@ function evalFire(
     if (fireRandom(nodeId, seed) < sparkChance)
       heat[0][s] = Math.min(1, 0.75 + fireRandom(nodeId, seed) * 0.25)
 
-  const mix = Math.max(0, Math.min(1, paletteMix))
   const frame = allocFrame(W, H)
   for (let p = 0; p < P; p++) {
     for (let s = 0; s < S; s++) {
@@ -161,13 +159,7 @@ function evalFire(
       const h = smoke ? heat[p][s] * fireSmokeDim(_snoise2(s * FIRE_SMOKE_SCALE_ACROSS, (P - 1 - p) * FIRE_SMOKE_SCALE_ALONG + t * FIRE_SMOKE_SPEED) * 0.5 + 0.5) : heat[p][s]
       const c = samplePalette(palette, h)
       const px = frame[y][x]
-      if (mix >= 1) { px.r = c.r; px.g = c.g; px.b = c.b }
-      else {
-        const gray = h * 255
-        px.r = Math.round(gray * (1 - mix) + c.r * mix)
-        px.g = Math.round(gray * (1 - mix) + c.g * mix)
-        px.b = Math.round(gray * (1 - mix) + c.b * mix)
-      }
+      px.r = c.r; px.g = c.g; px.b = c.b
     }
   }
   return mirror ? fireMirror(frame, direction, W, H) : frame
@@ -1003,7 +995,7 @@ const fire2012Heat = instanceState('fire2012Heat', new Map<string, Uint8Array[]>
 function evalFire2012(
   nodeId: string, cooling: number, sparking: number, palette: Palette,
   W = DEFAULT_W, H = DEFAULT_H,
-  direction: FireDirection = 'up', turbulence = 1, paletteMix = 1, mirror = false, seed = 0,
+  direction: FireDirection = 'up', turbulence = 1, mirror = false, seed = 0,
 ): Frame {
   const P = firePrimaryLen(direction, W, H), S = fireSecondaryLen(direction, W, H)
   const stored = fire2012Heat.get(nodeId)
@@ -1037,22 +1029,14 @@ function evalFire2012(
       heat[0][s] = Math.min(255, heat[0][s] + Math.floor(fireRandom(nodeId, seed) * 95) + 160)
 
   // Heat (0–255) indexes the palette; the default 'heat' palette reproduces the
-  // classic FastLED HeatColors fire ramp. `paletteMix` blends toward plain
-  // heat-brightness grayscale, same convention as Fire above.
-  const mix = Math.max(0, Math.min(1, paletteMix))
+  // classic FastLED HeatColors fire ramp.
   const frame = allocFrame(W, H)
   for (let p = 0; p < P; p++) {
     for (let s = 0; s < S; s++) {
       const [x, y] = fireToXY(direction, p, s, W, H)
-      const h = heat[p][s]
-      const c = samplePalette(palette, h / 255)
+      const c = samplePalette(palette, heat[p][s] / 255)
       const px = frame[y][x]
-      if (mix >= 1) { px.r = c.r; px.g = c.g; px.b = c.b }
-      else {
-        px.r = Math.round(h * (1 - mix) + c.r * mix)
-        px.g = Math.round(h * (1 - mix) + c.g * mix)
-        px.b = Math.round(h * (1 - mix) + c.b * mix)
-      }
+      px.r = c.r; px.g = c.g; px.b = c.b
     }
   }
   return mirror ? fireMirror(frame, direction, W, H) : frame
@@ -1066,12 +1050,11 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'fire')
     const direction = fireDirection(props.direction, W, H)
     const turbulence = Math.max(0, Math.min(2, num(id, 'turbulence', props, 'turbulence', 1)))
-    const paletteMix = Math.max(0, Math.min(1, num(id, 'paletteMix', props, 'paletteMix', 1)))
     const mirror = Boolean(props.mirror)
     const seed = Math.max(0, Math.round(Number(props.seed ?? 0)))
     const style = fireStyle(props.fireStyle)
-    if (style === 'fire2012') return { frame: evalFire2012(stateKey(id), cooling, sparking, palette, W, H, direction, turbulence, paletteMix, mirror, seed) }
-    return { frame: evalFire(stateKey(id), intensity, cooling, sparking, palette, W, H, direction, turbulence, paletteMix, mirror, seed, style === 'smoke', t) }
+    if (style === 'fire2012') return { frame: evalFire2012(stateKey(id), cooling, sparking, palette, W, H, direction, turbulence, mirror, seed) }
+    return { frame: evalFire(stateKey(id), intensity, cooling, sparking, palette, W, H, direction, turbulence, mirror, seed, style === 'smoke', t) }
   },
   Particles({ num, pal, t, W, H, stateKey }, id, props) {
     const mode = particleMode(props.particleType)

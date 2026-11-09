@@ -1325,7 +1325,7 @@ describe('generateCpp', () => {
     expect(cpp).toContain('Fire2012')
     expect(cpp).toContain('_heat_f')
     // The 'heat' palette reproduces the classic HeatColors fire ramp.
-    expect(cpp).toContain('ColorFromPalette(paldef_heat, _h)')
+    expect(cpp).toContain('ColorFromPalette(paldef_heat, _heat_f[_p][_s])')
   })
 
   it('cools and sparks the classic Fire over the preview heat range, scaled to 0-255', () => {
@@ -1364,24 +1364,10 @@ describe('generateCpp', () => {
       }
     })
 
-    it('blends at runtime only once palette mix can move', () => {
-      // Wiring the knob means the generator can no longer pick between the two
-      // blocks, so the mix arm is emitted with a live factor. Left unwired at
-      // its default it still emits the plain assignment and costs nothing.
-      const plain = generateCpp([fireNode()], [])
-      expect(plain).not.toContain('_pmix')
-      const lfo = node('lfo', 'LFO', 'input', {})
-      const wired = generateCpp(
-        [lfo, fireNode()],
-        [edge('e', 'lfo', 'f', 'value', 'paletteMix')],
-      )
-      expect(wired).toContain('float _pmix=constrain(n_lfo_value,0.0f,1.0f)')
-      expect(wired).toContain('_h*_pkeep+_c.r*_pmix')
-    })
-
-    it('paletteMix<1 blends the palette colour with heat-brightness grayscale', () => {
-      const cpp = generateCpp([fireNode({ paletteMix: 0.25 })], [])
-      expect(cpp).toContain('_h*0.75f+_c.r*0.25f')
+    it('writes the palette colour straight through, with no grayscale blend', () => {
+      const cpp = generateCpp([fireNode()], [])
+      expect(cpp).not.toContain('_pmix')
+      expect(cpp).not.toContain('_pkeep')
     })
 
     it('mirror folds the rendered buffer symmetric across its width', () => {

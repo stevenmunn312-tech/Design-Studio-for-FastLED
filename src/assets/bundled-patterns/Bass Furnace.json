@@ -251,8 +251,7 @@
       "sparking": 190,
       "palette": "fire",
       "direction": "up",
-      "turbulence": 1.6,
-      "paletteMix": 1,
+      "turbulence": 2,
       "mirror": false,
       "seed": 5
      },

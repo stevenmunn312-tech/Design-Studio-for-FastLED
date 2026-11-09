@@ -7,11 +7,10 @@ import { REACTION_DIFFUSION_RATES } from './reactionDiffusionPresets'
 export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
   {
     // `direction` rotates which edge sparks (the flame base) and which way heat
-    // rises, and `auto` burns along the longer side; `turbulence` widens the sideways diffusion kernel (1 = the
-    // original 3-wide average); `paletteMix` blends the palette colour with
-    // plain heat-brightness grayscale (1 = full colour, 0 = grayscale);
-    // `mirror` folds the flame symmetric across its width; `seed` (0 = free-
-    // running) switches cooling/sparking to a deterministic per-instance PRNG
+    // rises, and `auto` rises up a matrix and burns along a string;
+    // `turbulence` widens the sideways diffusion kernel in whole steps (1 = the
+    // original 3-wide average); `mirror` folds the flame symmetric across its
+    // width; `seed` (0 = free-running) switches cooling/sparking to a deterministic per-instance PRNG
     // so the same seed reproduces the same flame. See PROPERTY_META overrides
     // and the Fire cases in evaluate.ts/codegen.ts. `fireStyle` picks the heat
     // algorithm: classic, smoke (classic dimmed by a drifting noise layer) or
@@ -26,16 +25,15 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
       { id: 'sparking', label: 'Sparking', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'turbulence', label: 'Turbulence', dataType: 'float' },
-      { id: 'paletteMix', label: 'Palette Mix', dataType: 'float' },
     ],
-    propertyInputs: { intensity: 'intensity', cooling: 'cooling', sparking: 'sparking', palette: 'paletteIn', turbulence: 'turbulence', paletteMix: 'paletteMix' },
+    propertyInputs: { intensity: 'intensity', cooling: 'cooling', sparking: 'sparking', palette: 'paletteIn', turbulence: 'turbulence' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       intensity: 0.7,
       cooling: 55, sparking: 120, palette: 'fire',
-      direction: 'auto', turbulence: 1, paletteMix: 1, mirror: false, seed: 0, fireStyle: 'classic',
+      direction: 'auto', turbulence: 1, mirror: false, seed: 0, fireStyle: 'classic',
     },
   },
   {

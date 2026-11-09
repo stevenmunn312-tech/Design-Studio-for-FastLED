@@ -1603,8 +1603,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     direction:   { control: 'select', options: [...FIRE_DIRECTIONS] },
     fireStyle:   { control: 'select', options: [...FIRE_STYLES] },
     intensity:   N01,
-    turbulence:  { control: 'slider', min: 0, max: 2, step: 0.1 },
-    paletteMix:  { control: 'slider', min: 0, max: 1, step: 0.01 },
+    // Whole steps: the kernel is 1, 3 or 5 cells wide on both sides.
+    turbulence:  { control: 'slider', min: 0, max: 2, step: 1 },
     seed:        { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   Zones: {
@@ -2073,8 +2073,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Fire: {
     direction: 'Which way the flame rises. Auto rises up a matrix or ring and burns along a string from its first LED.',
     fireStyle: 'Classic: the flame as it always was. Smoke: a second noise layer drifts up through the flame and dims it, as in FastLED\'s Fire2023. Fire2012: FastLED\'s own Fire2012 heat simulation; Intensity has no effect on it.',
-    turbulence: 'Widens the sideways heat diffusion window; 1 reproduces the original fixed-width kernel.',
-    paletteMix: 'Blends the palette colour toward plain heat-brightness grayscale.',
+    turbulence: 'Sideways heat spread: 0 narrow, 1 normal (the original kernel), 2 wide.',
     mirror: 'Folds the rendered frame symmetric across its width (up/down) or height (left/right).',
     intensity: 'Overall flame height, 0 embers to 1 full blaze. Scales the spark chance. Not used by the Fire2012 style.',
     cooling: 'How fast heat fades as it rises, 0 to 255. Higher gives shorter flames.',
@@ -3548,7 +3547,6 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   Fire: {
     fireStyle: 'style',
-    paletteMix: 'palette mix',
   },
   Particles: {
     particleType: 'type',
@@ -4317,7 +4315,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   Fire: [
     { key: 'flame', label: 'Flame', keys: ['fireStyle', 'intensity', 'cooling', 'sparking', 'turbulence'] },
     { key: 'shape', label: 'Shape', keys: ['direction', 'mirror'] },
-    { key: 'color', label: 'Color', keys: ['palette', 'paletteMix'] },
+    { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   Particles: [
     { key: 'mode', label: 'Mode', keys: ['particleType', 'rate', 'decay', 'count'] },

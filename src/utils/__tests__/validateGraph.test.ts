@@ -165,13 +165,13 @@ describe('validateGraph', () => {
   it('leaves alone the wires that need no scaling', () => {
     const fft = libraryNode('fft', 'FFTAnalyzer')
     // Plasma's Speed is one of the inputs the evaluator denormalises for you,
-    // and Fire's Palette Mix is genuinely 0-1.
+    // and Fire's Intensity is genuinely 0-1.
     const plasma = libraryNode('plasma', 'Plasma')
-    const fire = libraryNode('fire', 'Fire', { fireStyle: 'fire2012' })
+    const fire = libraryNode('fire', 'Fire')
     const map = libraryNode('map', 'MapRange')
     const wires = [
       { id: 'a', source: 'fft', sourceHandle: 'bass', target: 'plasma', targetHandle: 'speed' },
-      { id: 'b', source: 'fft', sourceHandle: 'mids', target: 'fire', targetHandle: 'paletteMix' },
+      { id: 'b', source: 'fft', sourceHandle: 'mids', target: 'fire', targetHandle: 'intensity' },
       { id: 'c', source: 'fft', sourceHandle: 'treble', target: 'map', targetHandle: 'value' },
       // An already-scaled signal is not a normalised source, so it says nothing.
       { id: 'd', source: 'map', sourceHandle: 'result', target: 'fire', targetHandle: 'sparking' },

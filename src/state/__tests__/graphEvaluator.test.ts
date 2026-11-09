@@ -4943,7 +4943,7 @@ describe('Zones', () => {
 })
 
 // ── Fire extra controls, default and Fire2012 styles (direction, turbulence,
-//    paletteMix, mirror, seed) ───────────────────────────────────────────────
+//    mirror, seed) ───────────────────────────────────────────────
 
 describe.each([
   { label: 'Fire', style: {} },
@@ -4983,20 +4983,6 @@ describe.each([
       for (let y = 0; y < 8; y++)
         for (let x = 0; x < 4; x++)
           expect(frame[y][7 - x]).toEqual(frame[y][x])
-    } finally {
-      spy.mockRestore()
-    }
-  })
-
-  it('paletteMix=0 desaturates to grayscale heat brightness (equal r/g/b)', () => {
-    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.01)
-    try {
-      const { nodes, edges } = withOutput(node('fGray', type, 'pattern', { ...hotProps, paletteMix: 0, palette: 'fire' }))
-      let frame = evaluateGraph(nodes, edges, 0, 8, 8)!
-      for (let t = 1; t <= 3; t++) frame = evaluateGraph(nodes, edges, t, 8, 8)!
-      const lit = frame.flat().filter((px) => px.r + px.g + px.b > 0)
-      expect(lit.length).toBeGreaterThan(0)
-      expect(lit.every((px) => px.r === px.g && px.g === px.b)).toBe(true)
     } finally {
       spy.mockRestore()
     }

@@ -757,17 +757,18 @@ describe('nodeLibrary', () => {
     expect(isPropertyEnabled('Particles', 'bounce', { particleType: 'fountain' })).toBe(false)
   })
 
-  it('Fire keeps the direction/turbulence/paletteMix/mirror/seed controls for every style', () => {
+  it('Fire keeps the direction/turbulence/mirror/seed controls for every style', () => {
     const n = NODE_LIBRARY.find((nd) => nd.type === 'Fire')
     expect(n?.defaultProperties).toMatchObject({
-      direction: 'auto', turbulence: 1, paletteMix: 1, mirror: false, seed: 0,
+      direction: 'auto', turbulence: 1, mirror: false, seed: 0,
     })
+    expect(n?.defaultProperties).not.toHaveProperty('paletteMix')
     expect(propertyMeta('Fire', 'direction')).toMatchObject({ control: 'select' })
     expect((propertyMeta('Fire', 'direction') as { options?: string[] }).options)
       .toEqual(['auto', 'up', 'down', 'left', 'right'])
-    expect(propertyMeta('Fire', 'turbulence')).toMatchObject({ control: 'slider', min: 0, max: 2 })
-    expect(propertyMeta('Fire', 'paletteMix')).toMatchObject({ control: 'slider', min: 0, max: 1 })
-    for (const key of ['direction', 'turbulence', 'paletteMix', 'mirror', 'seed']) {
+    // Both sides round turbulence to a whole kernel width, so the slider steps by one.
+    expect(propertyMeta('Fire', 'turbulence')).toMatchObject({ control: 'slider', min: 0, max: 2, step: 1 })
+    for (const key of ['direction', 'turbulence', 'mirror', 'seed']) {
       expect(isPropertyEnabled('Fire', key, { fireStyle: 'fire2012' }), key).toBe(true)
     }
     // The classic Fire2012 style runs on cooling/sparking, not intensity.

@@ -1051,13 +1051,6 @@ freeze, or drop them.
   Progress fed from a schedule through several nodes. A rising edge on
   `trigger` would let ScheduleTrigger or RTC wire in directly. Evidence
   `src/state/nodeLibrary.ts:2228`.
-- [ ] **Fire: Make Turbulence a three-option select (Low, S).** The 0-2 slider
-  has step 0.1, but both preview and firmware round it to 0, 1 or 2. Use a
-  select (narrow, normal, wide) or an integer slider. Evidence
-  `src/state/nodeLibrary.ts:1603`, `src/nodes/simulations/evaluate.ts:131`.
-- [ ] **Fire: Consider dropping `paletteMix` (Low, S).** It is a grayscale blend
-  a downstream saturation node already covers, and removing it removes an
-  emitted branch and a port. Evidence `src/nodes/simulations/codegen.ts:120`.
 - [ ] **Particles: Prune overlapping modes and rename clashing ones (Med, M).**
   `confetti` duplicates the Confetti node; `rain` and `sparkle` overlap Digital
   Rain; `orbit` and `vortex` are both rotation about the centre. `attractor`

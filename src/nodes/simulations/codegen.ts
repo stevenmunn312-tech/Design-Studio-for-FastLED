@@ -23,7 +23,7 @@ import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { REACTION_DIFFUSION_RATES, reactionDiffusionRates } from './reactionDiffusionPresets'
 import { angle16Cpp, phyllotaxisPointCpp, splatDiscQ8Cpp } from '../shared/integerPatterns'
 
-// Fire's styles share these direction/turbulence/paletteMix/mirror/seed
+// Fire's styles share these direction/turbulence/mirror/seed
 // controls — mirrors graphEvaluator.ts's firePrimaryLen/fireSecondaryLen/
 // fireToXY. The heat simulation always runs in a canonical [P][S] grid (P =
 // distance from the flame base where sparks land, S = position across the
@@ -71,7 +71,7 @@ function fireMirrorCpp(ln: (line: string) => void, direction: string, ob: string
 
 /** Fire's `fire2012` style: FastLED's Fire2012 heat algorithm. */
 function fire2012Cpp(ctx: EmitContext): void {
-  const { node, id, p, ln, f, ownBuf, incoming, paletteExpr } = ctx
+  const { node, id, p, ln, f, ownBuf, paletteExpr } = ctx
   const ob = ownBuf()
   const cooling = f('cooling', 'cooling', 55), sparking = f('sparking', 'sparking', 120)
   const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -80,11 +80,6 @@ function fire2012Cpp(ctx: EmitContext): void {
   // size, so both become runtime reads of one local.
   const spread = `_fireSpread_${id}`
   const spreadDecl = `    int ${spread}=(int)roundf(constrain(${f('turbulence', 'turbulence', 1)},0.0f,2.0f));`
-  // The palette blend picks between two emitted blocks, so the mix arm is
-  // emitted whenever the knob can move — wired, or already below 1.
-  const paletteMixE = `constrain(${f('paletteMix', 'paletteMix', 1)},0.0f,1.0f)`
-  const paletteMixWired = incoming.has(`${node.id}:paletteMix`)
-  const paletteMixP = Math.max(0, Math.min(1, Number(p.paletteMix ?? 1)))
   const mirrorP = Boolean(p.mirror)
   const seedP = Math.max(0, Math.round(Number(p.seed ?? 0)))
   const { P, S } = fireGrid(direction)
@@ -108,17 +103,7 @@ function fire2012Cpp(ctx: EmitContext): void {
   ln(`    for(int _s=0;_s<${S};_s++) if(${rnd01}*255 < ${sparking}) ${HB}[0][_s]=qadd8(${HB}[0][_s],(uint8_t)(${rnd01}*95+160));`)
   ln(`    for (int _p = 0; _p < ${P}; _p++) for (int _s = 0; _s < ${S}; _s++) {`)
   const { x: fx, y: fy } = fireXYExpr(direction, '_p', '_s')
-  ln(`      uint8_t _h=${HB}[_p][_s]; CRGB _c=ColorFromPalette(${pal}, _h);`)
-  if (paletteMixP >= 1 && !paletteMixWired) {
-    ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = _c;`)
-  } else if (paletteMixWired) {
-    ln(`      float _pmix=${paletteMixE}, _pkeep=1.0f-_pmix;`)
-    ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*_pkeep+_c.r*_pmix),(uint8_t)(_h*_pkeep+_c.g*_pmix),(uint8_t)(_h*_pkeep+_c.b*_pmix));`)
-  } else {
-    const keep = floatLit(1 - paletteMixP)
-    const mix = floatLit(paletteMixP)
-    ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*${keep}+_c.r*${mix}),(uint8_t)(_h*${keep}+_c.g*${mix}),(uint8_t)(_h*${keep}+_c.b*${mix}));`)
-  }
+  ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = ColorFromPalette(${pal}, ${HB}[_p][_s]);`)
   ln(`    }`)
   if (mirrorP) fireMirrorCpp(ln, direction, ob)
   ln(`  }`)
@@ -127,7 +112,7 @@ function fire2012Cpp(ctx: EmitContext): void {
 export const SIMULATIONS_EMITTERS: NodeEmitters = {
   Fire(ctx) {
     if (fireStyle(ctx.p.fireStyle) === 'fire2012') { fire2012Cpp(ctx); return }
-    const { node, id, p, ln, f, ownBuf, incoming, paletteExpr, needsT } = ctx
+    const { node, id, p, ln, f, ownBuf, paletteExpr, needsT } = ctx
     const ob = ownBuf()
     const intensity = f('intensity', 'intensity', 0.7)
     const cooling = f('cooling', 'cooling', 55)
@@ -140,11 +125,6 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     // size, so both become runtime reads of one local.
     const spread = `_fireSpread_${id}`
     const spreadDecl = `    int ${spread}=(int)roundf(constrain(${f('turbulence', 'turbulence', 1)},0.0f,2.0f));`
-    // The palette blend picks between two emitted blocks, so the mix arm is
-    // emitted whenever the knob can move — wired, or already below 1.
-    const paletteMixE = `constrain(${f('paletteMix', 'paletteMix', 1)},0.0f,1.0f)`
-    const paletteMixWired = incoming.has(`${node.id}:paletteMix`)
-    const paletteMixP = Math.max(0, Math.min(1, Number(p.paletteMix ?? 1)))
     const mirrorP = Boolean(p.mirror)
     const seedP = Math.max(0, Math.round(Number(p.seed ?? 0)))
     const { P, S } = fireGrid(direction)
@@ -180,16 +160,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
       ln(`      _h=(uint8_t)(_h*(1.0f-${floatLit(FIRE_SMOKE_DEPTH)}*(inoise8((uint16_t)(_s*${u(FIRE_SMOKE_SCALE_ACROSS)}),(uint16_t)((${P}-1-_p)*${u(FIRE_SMOKE_SCALE_ALONG)}+t*${floatLit(u(FIRE_SMOKE_SPEED))}))/255.0f)));`)
       ln(`      CRGB _c=ColorFromPalette(${pal}, _h);`)
     } else ln(`      uint8_t _h=${HB}[_p][_s]; CRGB _c=ColorFromPalette(${pal}, _h);`)
-    if (paletteMixP >= 1 && !paletteMixWired) {
-      ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = _c;`)
-    } else if (paletteMixWired) {
-      ln(`      float _pmix=${paletteMixE}, _pkeep=1.0f-_pmix;`)
-      ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*_pkeep+_c.r*_pmix),(uint8_t)(_h*_pkeep+_c.g*_pmix),(uint8_t)(_h*_pkeep+_c.b*_pmix));`)
-    } else {
-      const keep = floatLit(1 - paletteMixP)
-      const mix = floatLit(paletteMixP)
-      ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = CRGB((uint8_t)(_h*${keep}+_c.r*${mix}),(uint8_t)(_h*${keep}+_c.g*${mix}),(uint8_t)(_h*${keep}+_c.b*${mix}));`)
-    }
+    ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = _c;`)
     ln(`    }`)
     if (mirrorP) fireMirrorCpp(ln, direction, ob)
     ln(`  }`)

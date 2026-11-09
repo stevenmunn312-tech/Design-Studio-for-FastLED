@@ -30,8 +30,11 @@ describe('signalRange', () => {
     for (const nodeType of Object.keys(SPEED_MAX)) {
       expect(signalRangeMismatch(nodeType, 'speed'), `${nodeType}.speed`).toBeNull()
     }
+    // Blobs calls its scale Size.
+    const scaleKey: Record<string, string> = { Blobs: 'size' }
     for (const nodeType of Object.keys(SCALE_MAX)) {
-      expect(signalRangeMismatch(nodeType, 'scale'), `${nodeType}.scale`).toBeNull()
+      const key = scaleKey[nodeType] ?? 'scale'
+      expect(signalRangeMismatch(nodeType, key), `${nodeType}.${key}`).toBeNull()
     }
     // The bundled nodes key their maps by variant, so the node itself is
     // always denormalised whichever variant is selected.
@@ -71,9 +74,9 @@ describe('signalRange', () => {
   })
 
   it('leaves a normalised source pointed at a 0-1 input alone', () => {
-    // paletteMix is 0-1, so an audio band drives it exactly as intended.
-    expect(inputClampRange('Fire', 'paletteMix')).toEqual({ min: 0, max: 1 })
-    expect(signalRangeMismatch('Fire', 'paletteMix')).toBeNull()
+    // Intensity is 0-1, so an audio band drives it exactly as intended.
+    expect(inputClampRange('Fire', 'intensity')).toEqual({ min: 0, max: 1 })
+    expect(signalRangeMismatch('Fire', 'intensity')).toBeNull()
   })
 
   it('carries StepValue authored bounds into range comparisons', () => {
