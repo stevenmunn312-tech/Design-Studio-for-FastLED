@@ -804,6 +804,12 @@ freeze, or drop them.
   cannot move (reach is 0). Centre on pixel centres, `(y+0.5-H/2)/(H/2)`, and
   use the long side when one dimension is 1. Same for the rose kernel.
   `src/state/evaluator/formula.ts:28`, `src/nodes/shared/integerPatterns.ts:1232`.
+  Gradient Field is done (it measures in pixels from its pivot, so its radial
+  centre sits on a strip's row). Still to do: `centeredX/Y` is shared with
+  Custom Formula and every emitter's `cx/cy` line; the rose kernel is an
+  integer kernel with a C++ twin; Shape Field, Path, Fourier and Shape's new
+  Scale with matrix (`matrixSizeScale`) all size by the short side, which is
+  1 on a strip.
 - [ ] **Category: Merge Field Warp, Field Rotate and Field Tile into one
   transform node (Med, M).** They duplicate Frame Warp, which has offset
   fields, strength, zoom, rotate, edge mode and bilinear sampling. Build one
@@ -812,7 +818,9 @@ freeze, or drop them.
   opposite edge into the corners) and Field Tile dropping detail by skipping
   pixels. Migrate the bundled patterns that use the three (Fibonacci Spiral
   Drive, Golden Ratio Cathedral, Lissajous Lattice, audio release sets).
-  `src/nodes/field/evaluate.ts:575`, `:590`.
+  `src/nodes/field/evaluate.ts:575`, `:590`. Field Warp already has
+  strength 2 and bilinear sampling (`sampleFieldBilinear` and its emitted
+  twin), which the merged node can reuse for rotate and tile.
 - [ ] **Category: Give Formula Shapes placement or fold it into Shape Field
   (Med, M).** Rose and superformula are shape outlines but always centred at a
   fixed scale, with no cx/cy/size and no fill/distance mode. Either add them
@@ -826,7 +834,10 @@ freeze, or drop them.
   compatibility break. `src/nodes/shapes/evaluate.ts:47`.
 - [ ] **Category: Rename the FormulaField type to FormulaShapes (Low, M).**
   `FieldFormula` and `FormulaField` are easy to swap in docs and code.
-  Pre-v1, rename the type cleanly if the node stays.
+  Pre-v1, rename the type cleanly if the node stays. Needs a decision: the
+  node-review pass kept node type ids on renames (the label already reads
+  Formula Shapes), and the id is in three bundled patterns, the node cards'
+  file names and saved projects.
 - [ ] **Category: Grow field nodes so pattern/field twins are not subsets
   (Low, M).** Noise has 9 algorithms vs Field Noise's fBm only; Game of Life
   has no Automaton equivalent; Reaction Diffusion/Turing Field, Custom
@@ -843,6 +854,10 @@ freeze, or drop them.
 - [ ] **Text: Add an integer size (Med, M).** The only font is 3x5, tiny on
   32x32 or 64x32 HUB75 panels. Add an integer `size` (pixel scale 1-4),
   shared with Clock Display's digits. `src/nodes/shared/font.ts:10`.
+  Touches `textBlockLayout` widths and heights, `renderTextInto` and the
+  scroll totals in the preview, and both sketch paths (the baked column
+  arrays and the wired `_fontCol` loop, each with wrap and scroll), plus
+  Clock Display's `blitText` and its clock glyph table.
 - [ ] **Clock Display: Split Stopwatch/Timer into a signal node (Low, M).**
   A transport lives inside a drawing node; anyone wanting only `done` still
   draws digits. Consider a small Timer signal node with Clock Display drawing

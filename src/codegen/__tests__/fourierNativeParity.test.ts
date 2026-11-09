@@ -53,6 +53,8 @@ struct CRGB {
 };
 const CRGB CRGB::Black(0,0,0);
 static void fill_solid(CRGB* b,int n,CRGB c) { for(int i=0;i<n;i++) b[i]=c; }
+// FastLED's fadeToBlackBy is nscale8 by 255-by: v*(256-by)>>8 with the fixed scale8.
+static void fadeToBlackBy(CRGB* b,int n,uint8_t by) { for(int i=0;i<n;i++){ b[i].r=(b[i].r*(256-by))>>8; b[i].g=(b[i].g*(256-by))>>8; b[i].b=(b[i].b*(256-by))>>8; } }
 ${LIB8TION_HOST_CPP}`
 
 describe.skipIf(!HAS_GPP)('Fourier Epicycles native parity', () => {
@@ -90,7 +92,7 @@ describe.skipIf(!HAS_GPP)('Fourier Epicycles native parity', () => {
       for (let i = 0; i < frames; i++) {
         preview = evalFourierEpicycles(`native-${outline}`, null, {
           outline, customPoints: '', maxHarmonics: 32, harmonics, speed, scale: 0.8, thickness: 1.25,
-          persistence: 0.995, color: { r: 255, g: 220, b: 80 }, showCircles, showPen,
+          persistence: 1, color: { r: 255, g: 220, b: 80 }, showCircles, showPen,
         }, Math.fround(i / 60), size, size)
       }
       const differing = native.filter(([r, g, b], i) => {
