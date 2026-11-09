@@ -209,7 +209,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'In the preview, each button row in the body has its own press control.',
     ],
     steps: [
-      'Add a button in the body for each physical button, and name it after what it does.',
+      'Add the bank from the Hardware tab. It arrives with Button 1 already on a free pin; add a button in the body for each further physical button, and name each after what it does.',
       'Wire each button between its GPIO and ground.',
     ],
     outputs: {

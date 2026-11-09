@@ -17,6 +17,7 @@ import { outputForm, LED_OUTPUT_FORM_LABELS } from '../../state/output/ledOutput
 import { automaticStereoVuLedCount, VU_LED_COUNT_CUSTOM_KEY } from '../../state/audio/stereoVuSizing'
 import { partDerivedInputs } from '../../build/parts/partPorts'
 import { defaultSourceVoltageFor } from '../../state/peripherals/powerConverter'
+import { buttonBankOutputs, firstButtonBankRow } from '../../state/player/buttonBank'
 import {
   type FixturePartEntry, type InputPartEntry, fixturePinRequests, LED_OUTPUT_ENTRIES, LED_OUTPUT_NODE_TYPE, MIC_NODE_TYPE,
 } from './hardwarePartCatalog'
@@ -73,6 +74,15 @@ export function inputPartActions({
     )
     if (!assigned.ok) return
     const assignedPins = assigned.pins
+    // A Button Bank's pins live in its rows, so its first row takes a pin of
+    // its own rather than a top-level property.
+    const board = boardProfile?.id ?? selectedFqbn
+    const bankPin = entry.nodeType === 'ButtonBank'
+      ? assignHardwarePartPins(boardProfile, selectedFqbn, nodes, [{ key: 'pin' }], entry.nodeType, {})
+      : null
+    const bankRow = bankPin
+      ? { buttons: firstButtonBankRow(bankPin.ok ? bankPin.pins.pin : undefined, board) }
+      : {}
 
     const nodeId = `${entry.nodeType}-${Date.now()}-${Math.round(Math.random() * 1e6)}`
     addNode({
@@ -95,19 +105,22 @@ export function inputPartActions({
           {
             ...resolveDefaultProperties(definition.type, definition.defaultProperties, boardProfile),
             ...(entry.properties ?? {}),
+            ...bankRow,
           },
           assignedPins,
-          boardProfile?.id ?? selectedFqbn,
+          board,
         ),
         inputs: definition.inputs,
-        outputs: definition.outputs,
+        outputs: entry.nodeType === 'ButtonBank' && 'buttons' in bankRow
+          ? buttonBankOutputs(bankRow.buttons)
+          : definition.outputs,
       },
     } as never)
     // A microphone or line-in is hidden on the canvas and reaches the graph
     // only through an Audio node, so the first one brings that node with it.
     const audioAdded = [MIC_NODE_TYPE, 'LineInput'].includes(entry.nodeType)
       && ensureRootAudioNode(entry.nodeType === MIC_NODE_TYPE ? 'microphone' : 'line-in') !== null
-    const pins = Object.values(assignedPins)
+    const pins = [...Object.values(assignedPins), ...(bankPin?.ok ? [bankPin.pins.pin] : [])]
     setStatus(
       pins.length
         ? `Added ${entry.label} on pin${pins.length > 1 ? 's' : ''} ${pins.join(', ')}${audioAdded ? ' and an Audio node' : ''}`

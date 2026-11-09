@@ -109,10 +109,6 @@ freeze, or drop them.
   "Add button", so one node and one shelf entry cover both and a single
   button grows without rewiring. Evidence `src/state/player/buttonBank.ts:7`,
   `src/codegen/controlInputCpp.ts:56`.
-- [ ] **Button Bank: Start with one row on the bench (Low, S).** It is added
-  to the bench empty with no pins, so the module wires to nothing until the
-  user goes to the canvas. Start it with one row. Evidence
-  `src/components/Hardware/hardwarePartCatalog.ts:589`.
 - [ ] **RTC Clock: Allow a Clock node without a DS3231 (High, M).** RTCInput
   is hidden from the library and the only shelf entries are two DS3231
   modules, yet Compile Time, Manual and NTP need no part (and the Help

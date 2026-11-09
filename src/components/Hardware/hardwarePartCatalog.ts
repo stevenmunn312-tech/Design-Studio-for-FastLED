@@ -589,7 +589,7 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
     nodeType: 'ButtonBank',
     partId: 'button-bank',
     label: 'Button bank',
-    hint: 'Connect outputs to add and name buttons',
+    hint: 'Starts with one button; connect outputs to add and name more',
     footprint: BUTTON_MODULE_FOOTPRINT_MM,
     signalPort: 'add-button',
     pinRequests: [],
