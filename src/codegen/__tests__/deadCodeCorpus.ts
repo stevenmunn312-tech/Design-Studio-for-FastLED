@@ -141,7 +141,7 @@ function showSketches(): Record<string, string> {
     'music-one-pattern': musicPlayer(['solid']),
     'music-three-patterns': musicPlayer(['solid', 'plasma', 'rainbow']),
     'music-particles': musicPlayer(['solid', 'plasma', 'rainbow'], {
-      nodes: [node('particles', 'PlayerParticles', { style: 3 })],
+      nodes: [node('particles', 'PlayerParticles', { style: 'fireworks' })],
       edges: [edge('fx', 'particles', 'particleFx', 'master', 'particleFx')],
     }),
     'music-beat-transitions': musicPlayer(['solid', 'plasma', 'rainbow'], { master: { beatTransitions: true } }),
@@ -182,7 +182,7 @@ function showSketches(): Record<string, string> {
       nodes: [
         node('board', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' }),
         node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 }), node('audio', 'Audio', { sourceId: 'mic' }),
-        node('particles', 'PlayerParticles', { style: 3, energyGate: 0.3 }),
+        node('particles', 'PlayerParticles', { style: 'fireworks', energyGate: 0.3 }),
       ],
       edges: [edge('audio', 'audio', 'audio', 'show', 'audio'), edge('fx', 'particles', 'particleFx', 'show', 'particleFx')],
     }),

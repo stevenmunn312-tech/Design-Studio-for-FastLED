@@ -62,6 +62,7 @@ import type {
 } from '../../state/evaluator/types'
 import { clearInstanceStateByPrefix, instanceState, touchInstanceStatePrefix } from '../../state/evaluator/memory'
 import { isAudioReactiveSubgraph } from '../../state/patterns/audioReactiveSubgraph'
+import { PARTICLE_STYLES, particleStyleIndex } from '../../state/player/particleStyles'
 import {
   PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS, blankParticleVolley, particleEnergyGate, particleEnergyPasses,
   particleRestMs, particleVolleyBursts, particleVolleyFire,
@@ -1117,7 +1118,7 @@ function evalPatternShow(
     && particleVolleyFire(st.volley, t * 1000, o.particleSpacing)) {
     st.burst = {
       t: t * 1000,
-      style: o.randomStyle ? Math.floor(rnd() * 17) : o.particleStyle,
+      style: o.randomStyle ? Math.floor(rnd() * PARTICLE_STYLES.length) : o.particleStyle,
       color: o.randomColor ? hsv(rnd() * 360, 1, 1) : o.particleColor,
     }
   }
@@ -1402,7 +1403,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     return {
       particleFx: {
         enabled: Boolean(input(id, 'enabled', Boolean(props.enabled))),
-        style: Math.max(0, Math.min(16, Math.round(Number(props.style ?? 0)))),
+        style: particleStyleIndex(props.style),
         color: colorIn && typeof colorIn === 'object' && !Array.isArray(colorIn)
           ? colorIn as RGB
           : hexToRgb(String(props.color ?? '#ff8000')),

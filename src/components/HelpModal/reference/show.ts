@@ -112,7 +112,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       nodes: {
         sparks: ['ButtonInput'],
         gold: ['Color', { color: '#ffb020' }],
-        fx: ['PlayerParticles', { style: 4, intensity: 0.85 }],
+        fx: ['PlayerParticles', { style: 'swirl', intensity: 0.85 }],
         mic: ['MicInput'],
         patterns: ['PatternCollection'],
         player: ['PatternMaster'],

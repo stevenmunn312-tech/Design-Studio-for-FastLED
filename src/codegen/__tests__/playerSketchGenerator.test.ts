@@ -568,7 +568,7 @@ describe('playerSketchGenerator', () => {
       const nodes = [
         { id: 'master', data: { nodeType: 'PatternMaster', properties: {} } },
         { id: 'fx', data: { nodeType: 'PlayerParticles', properties: {
-          enabled: true, style: 6, color: '#3366cc', intensity: 0.72,
+          enabled: true, style: 'ring', color: '#3366cc', intensity: 0.72,
           randomColor: true, randomStyle: false,
         } } },
       ]

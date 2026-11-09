@@ -1264,10 +1264,6 @@ freeze, or drop them.
   the library into the Performance Generator (double-click or "Edit songs"
   opens the library UI), or make Music Library portless like SD Card and drop
   the warning. Evidence `src/nodes/show/evaluate.ts:1744`, `src/utils/validateGraph.ts:4886`.
-- [ ] **Player Particles: Make Style a named select (Med, S).** Style is a
-  0-16 slider although the 17 styles have names (rain, explode, fireworks,
-  swirl, twinkle, ring and so on). Replace it with a named select. Evidence
-  `src/state/nodeLibrary.ts:1491`, `src/nodes/show/evaluate.ts:800`.
 - [ ] **Sequencer: Rename to avoid the engines' "Sequence" order (Low, S).**
   The name collides with the step editor on the Music Player and Slideshow,
   but this node is a four-slot timed crossfade. Rename it ("Crossfade Cycle" or

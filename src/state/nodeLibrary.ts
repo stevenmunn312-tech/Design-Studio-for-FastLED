@@ -46,6 +46,7 @@ import { DECODER_MAX_VOLUME } from '../build/parts/partFields'
 import { MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './player/masterSpeed'
 import { MUSIC_PLAYER_MIN_HOLD_SEC } from './player/musicPlayerTiming'
 import { PARTICLE_REST_SEC_MAX, PARTICLE_VOLLEY_BURSTS_MAX } from './player/playerDynamics'
+import { PARTICLE_STYLES } from './player/particleStyles'
 import { WIREFRAME_MODEL_OPTIONS } from '../nodes/shapes/wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './output/ledOutputForm'
 import { RENDER_SCALE_OPTIONS } from './output/renderScale'
@@ -1488,7 +1489,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     repeatIntervalMs: { control: 'slider', min: 25, max: 500, step: 5 },
   },
   PlayerParticles: {
-    style: { control: 'slider', min: 0, max: 16, step: 1 },
+    style: { control: 'select', options: PARTICLE_STYLES },
     intensity: { control: 'slider', min: 0, max: 1, step: 0.01 },
     volleyBursts: { control: 'slider', min: 1, max: PARTICLE_VOLLEY_BURSTS_MAX, step: 1 },
     restSec: { control: 'slider', min: 0, max: PARTICLE_REST_SEC_MAX, step: 0.5 },
@@ -2094,7 +2095,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   PlayerParticles: {
     enabled: 'Enables a particle burst on each wired Music Player beat.',
-    style: 'Spark motion style used for each burst (0–16).',
+    style: 'How the sparks of each burst move: rise, rain, explode, fireworks, swirl, twinkle, ring, fountain, helix, meteor, confetti, sparkle, comet, snow, gravity, bubbles or vortex.',
     color: 'Fixed spark colour used when Random Color is off.',
     intensity: 'Brightness of the additive particle overlay.',
     randomColor: 'Pick a new spark colour on every beat instead of the fixed colour.',

@@ -723,7 +723,7 @@ describe('showGenerator', () => {
     // enabled bundle is the ask, so Audio Reactive stays off here and the
     // patterns hold still under the sparks.
     const particleFx = node('pfx', 'PlayerParticles', {
-      enabled: true, style: 3, color: '#3366cc', intensity: 0.9, volleyBursts: 2, restSec: 5, energyGate: 0.4,
+      enabled: true, style: 'fireworks', color: '#3366cc', intensity: 0.9, volleyBursts: 2, restSec: 5, energyGate: 0.4,
     })
     const withMic = [...nodes, particleFx, micBoard,
       ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 })]
@@ -758,7 +758,7 @@ describe('showGenerator', () => {
 
     // Off, or with no live audio to beat, the overlay ships nothing.
     const off = generateShowSketch(withMic.map((n) => n.id === 'pfx'
-      ? node('pfx', 'PlayerParticles', { enabled: false, style: 3 })
+      ? node('pfx', 'PlayerParticles', { enabled: false, style: 'fireworks' })
       : n), wire, groups)
     expect(off).not.toContain('particleOverlay')
     const unwiredAudio = generateShowSketch(withMic, [...edges, edge('efx', 'pfx', 'particleFx', 'pm', 'particleFx')], groups)
@@ -768,7 +768,7 @@ describe('showGenerator', () => {
   it('reads wired Player Particles Enabled, Intensity, Color and Random Style live', () => {
     // The preview reads these wires; the sketch once baked the node's fields,
     // so Help's "a button enables the sparks" did nothing on the board.
-    const particleFx = node('pfx', 'PlayerParticles', { enabled: false, style: 3, intensity: 0.5 })
+    const particleFx = node('pfx', 'PlayerParticles', { enabled: false, style: 'fireworks', intensity: 0.5 })
     const sparks = node('sparks', 'ButtonInput', { pin: 12 })
     const roll = node('roll', 'ButtonInput', { pin: 13 })
     const knob = node('knob', 'PotInput', { pin: 4 })

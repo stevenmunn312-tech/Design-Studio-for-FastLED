@@ -1,5 +1,6 @@
 import type { SongAnalysis, SongSection, ShowFile, ShowEvent, AudioEnvelope, EnergyPoint } from '../types/showFile'
 import { encodeSpectrumBytes, spectrumBytes, SPECTRUM_TRACK_BINS, type SpectrumTrack } from '../audio/spectrumTrack'
+import { PARTICLE_STYLES } from '../state/player/particleStyles'
 import {
   DETECTOR_KINDS, DETECTOR_RECORD_BYTES, DETECTOR_TRAILER_FLAG_PITCH, DETECTOR_TRAILER_FLAG_STRUCTURE,
   DETECTOR_TRAILER_FLAG_VIBE, DETECTOR_TRAILER_VERSION, detectorBytes, encodeDetectorBytes,
@@ -220,14 +221,9 @@ export const SECTION_TYPES: SongSection['type'][] = [
 ]
 
 /** Particle-burst overlay styles, indexed by the PARTICLE_BURST `style` param
- *  (the value is the on-wire id). The spark motion for each lives in
- *  showPreview.ts (`particleOverlayAt`) and the firmware player, kept in sync.
- *  Shared with the timeline editor's style dropdown. */
-export const PARTICLE_STYLES = [
-  'rise', 'rain', 'explode', 'fireworks', 'swirl', 'twinkle',
-  'ring', 'fountain', 'helix', 'meteor', 'confetti',
-  'sparkle', 'comet', 'snow', 'gravity', 'bubbles', 'vortex',
-] as const
+ *  (the value is the on-wire id). One list with Player Particles' Style
+ *  select; shared with the timeline editor's style dropdown. */
+export { PARTICLE_STYLES }
 
 // ── Transition map: from section type → transition style ──────────────────────
 
