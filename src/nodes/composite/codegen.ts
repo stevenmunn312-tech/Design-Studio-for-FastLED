@@ -36,7 +36,7 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     else if (a || b) ln(`  ::memmove(${ob}, ${a ?? b}, sizeof(CRGB) * NUM_LEDS);`)
     else ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
   },
-  // Named rectangular zones — mirrors the evaluator's Zones case: seed
+  // Rectangular zones — mirrors the evaluator's Zones case: seed
   // from base (or black), then for each enabled+wired zone, copy its own
   // buffer into this node's buffer only within that zone's rectangle.
   Zones({ p, ln, ownBuf, srcBuf }) {

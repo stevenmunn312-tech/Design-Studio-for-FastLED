@@ -332,7 +332,8 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Trails & Blur',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
-      { id: 'amount', label: 'Amount', dataType: 'float' },
+      // Opacity, as Blend calls the same 0-1 mix (its row says opacity too).
+      { id: 'amount', label: 'Opacity', dataType: 'float' },
       { id: 'fade', label: 'Fade', dataType: 'float' },
       { id: 'offsetX', label: 'Offset X', dataType: 'float' },
       { id: 'offsetY', label: 'Offset Y', dataType: 'float' },
@@ -376,7 +377,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { select: false },
   },
   {
-    // Named rectangular regions ("zones") for installations with multiple
+    // Rectangular regions ("zones") for installations with multiple
     // logical display areas — each zone routes its own wired frame into its
     // rectangle of the matrix (normalized 0–1 x/y/w/h), later zones painting
     // over earlier ones where they overlap. An unwired or disabled zone
@@ -424,5 +425,5 @@ export const COMPOSITE_DESCRIPTIONS: Record<string, string> = {
   Symmetry: 'Repeats a frame through a square or hexagonal wallpaper symmetry group.',
   FrameFeedback: 'Recursive delay — blend a faded prior output over the live input.',
   FrameSwitch: 'Shows frame A or B, selected by a boolean.',
-  Zones: 'Routes up to four wired frames into their own named rectangle of the matrix.',
+  Zones: 'Routes up to four wired frames into their own rectangle of the matrix.',
 }

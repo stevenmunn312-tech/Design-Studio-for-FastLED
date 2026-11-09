@@ -261,7 +261,7 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     const sel = Boolean(input(id, 'sel', props.select === true))
     return { frame: (sel ? b : a) ?? (sel ? a : b) }
   },
-  // Named rectangular zones — each of A–D routes its own wired frame into
+  // Rectangular zones — each of A–D routes its own wired frame into
   // a normalized 0–1 rectangle of the matrix, later zones painting over
   // earlier ones where they overlap. An unwired or disabled zone is
   // skipped entirely, leaving whatever `base`/an earlier zone already put

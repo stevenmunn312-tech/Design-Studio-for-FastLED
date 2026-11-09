@@ -687,10 +687,6 @@ freeze, or drop them.
   `fade` is linear and per frame, so the look depends on frame rate. Move
   it to the shared half-life fade and use the same semantics as Trails,
   which it generalises. Evidence `src/state/nodeLibrary.ts:3482`.
-- [ ] **Frame Feedback: Unify "Amount" vs "opacity" naming (Low, S).** The
-  port is labelled Amount but its row says "opacity", and Blend's port says
-  Opacity. Pick one word across Blend and Frame Feedback. Evidence
-  `src/nodes/composite/definitions.ts:328`, `src/state/nodeLibrary.ts:3482`.
 - [ ] **Math Switch: Add a Select property (Med, S).** Frame Switch gained a
   `select` switch as its `sel` port's property input; Math `Switch` has the
   same gap (unwired it always passes A). Left to the Colour and maths list's
@@ -702,9 +698,6 @@ freeze, or drop them.
   full-matrix fire. Add nearest-neighbour downscale into the rectangle.
   Evidence `src/nodes/composite/evaluate.ts:314`,
   `src/nodes/composite/codegen.ts:47`.
-- [ ] **Zones: Fix the "named rectangle" wording (Low, S).** Zones cannot be
-  named. Drop "named" or add a label field. Evidence
-  `src/nodes/composite/definitions.ts:416`.
 
 #### Fields and shapes
 

@@ -4846,7 +4846,7 @@ describe('signal utility nodes', () => {
   })
 })
 
-// ── Zones (named rectangular regions) ────────────────────────────────────────
+// ── Zones (rectangular regions) ────────────────────────────────────────────
 
 describe('Zones', () => {
   it('routes a wired zone frame into its rectangle, leaving base outside it', () => {
