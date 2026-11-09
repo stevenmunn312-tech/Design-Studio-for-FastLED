@@ -114,6 +114,7 @@ import {
   normalizeButtonBankEntries,
 } from './player/buttonBank'
 import {
+  addIrKitRemote as appendIrKitRemote,
   addIrRemoteButton as appendIrRemoteButton,
   irRemoteButtonHandle,
   IR_REMOTE_LEARN_HANDLE,
@@ -394,6 +395,8 @@ interface GraphState {
   removeButtonBankEntry: (nodeId: string, entryId: string) => void
   /** Append one manually entered IR key and its output. One undo step. */
   addIrRemoteButton: (nodeId: string) => void
+  /** Add the 17-key kit remote's keys a receiver does not have yet. */
+  addIrKitRemote: (nodeId: string) => void
   /** Save one learned key. Returns an error string instead of changing the graph. */
   learnIrRemoteButton: (nodeId: string, draft: { label: string; protocol: string; address: number; command: number }) => string | null
   /** Edit one key. The id, and therefore every wire, stays put. */
@@ -2228,6 +2231,9 @@ export const useGraphStore = create<GraphState>()(
 
       addIrRemoteButton: (nodeId) =>
         set((s) => editIrRemote(s, nodeId, (buttons) => appendIrRemoteButton(buttons))),
+
+      addIrKitRemote: (nodeId) =>
+        set((s) => editIrRemote(s, nodeId, (buttons) => appendIrKitRemote(buttons))),
 
       learnIrRemoteButton: (nodeId, draft) => {
         let error: string | null = null

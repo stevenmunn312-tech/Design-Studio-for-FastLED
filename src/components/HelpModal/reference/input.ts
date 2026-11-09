@@ -243,6 +243,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'IR Remote turns the keys of an ordinary handheld remote into graph signals. Add the receiver from the Hardware tab, then learn each key in the body by pointing your own remote at it; every learned key becomes a named output.',
       'A key output pulses true once per press, or keeps pulsing while the key is held when that key is set to repeat. That makes keys events rather than levels: wire them to Next and Previous style inputs, to Trigger, or to Step Value to turn presses into a number.',
+      'No board yet? Add kit remote fills in the 17-key NEC remote most receiver kits ship with (0 to 9, * and #, the arrows and OK), so you can wire Up, Down and OK now and check them against your own remote later.',
       'In the preview, click a key square on the node to press it. Turn on Debug and the uploaded sketch prints every code it receives, which helps with an unfamiliar remote.',
     ],
     steps: [

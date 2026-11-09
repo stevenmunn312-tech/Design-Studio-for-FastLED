@@ -166,6 +166,7 @@ export default function IRRemoteBody({ nodeId }: { nodeId: string }) {
     return counts
   }, [edgeKey])
   const add = useGraphStore((state) => state.addIrRemoteButton)
+  const addKit = useGraphStore((state) => state.addIrKitRemote)
   const buttons = useMemo(() => normalizeIrRemoteButtons(saved), [saved])
   const updateNodeInternals = useUpdateNodeInternals()
 
@@ -188,6 +189,15 @@ export default function IRRemoteBody({ nodeId }: { nodeId: string }) {
         onClick={() => add(nodeId)}
       >
         Add key
+      </button>
+      <button
+        type="button"
+        className={`nodrag ${styles.add}`}
+        disabled={buttons.length >= MAX_IR_REMOTE_BUTTONS}
+        title="Adds the 17 keys of the NEC remote most receiver kits include: 0 to 9, * and #, the arrows and OK"
+        onClick={() => addKit(nodeId)}
+      >
+        Add kit remote
       </button>
       {buttons.length < MAX_IR_REMOTE_BUTTONS && (
         <div className={styles.learn}>

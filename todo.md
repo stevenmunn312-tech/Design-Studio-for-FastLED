@@ -113,11 +113,6 @@ freeze, or drop them.
   to the bench empty with no pins, so the module wires to nothing until the
   user goes to the canvas. Start it with one row. Evidence
   `src/components/Hardware/hardwarePartCatalog.ts:589`.
-- [ ] **IR Remote: Add a kit-remote preset (Med, S).** Without a board the
-  only way to add keys is typing NEC address/command numbers, yet most
-  receiver kits ship the same 17/21-key NEC remote. Add a one-click preset
-  with named keys so users can wire Up/Down/OK before hardware exists.
-  Evidence `src/components/Canvas/bodies/IRRemoteBody.tsx:107`.
 - [ ] **RTC Clock: Allow a Clock node without a DS3231 (High, M).** RTCInput
   is hidden from the library and the only shelf entries are two DS3231
   modules, yet Compile Time, Manual and NTP need no part (and the Help

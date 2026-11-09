@@ -263,6 +263,52 @@ export function addIrRemoteButton(value: unknown): IrRemoteButton[] {
   }]
 }
 
+/**
+ * The 17-key NEC remote most receiver kits ship with (KY-022, HX1838 and
+ * the like): the digits, `*` and `#`, four arrows and OK, all at address 0.
+ * Commands are the NEC command bytes IRremote decodes, the same the learn
+ * flow would record. Adding the set lets a graph wire Up, Down and OK
+ * before any board exists; the arrows repeat while held, the rest fire once.
+ */
+export const IR_KIT_REMOTE_KEYS: readonly { id: string; label: string; command: number; repeat: IrRemoteRepeatPolicy }[] = [
+  { id: 'kit-up', label: 'Up', command: 0x18, repeat: 'held' },
+  { id: 'kit-down', label: 'Down', command: 0x52, repeat: 'held' },
+  { id: 'kit-left', label: 'Left', command: 0x08, repeat: 'held' },
+  { id: 'kit-right', label: 'Right', command: 0x5a, repeat: 'held' },
+  { id: 'kit-ok', label: 'OK', command: 0x1c, repeat: 'once' },
+  { id: 'kit-1', label: '1', command: 0x45, repeat: 'once' },
+  { id: 'kit-2', label: '2', command: 0x46, repeat: 'once' },
+  { id: 'kit-3', label: '3', command: 0x47, repeat: 'once' },
+  { id: 'kit-4', label: '4', command: 0x44, repeat: 'once' },
+  { id: 'kit-5', label: '5', command: 0x40, repeat: 'once' },
+  { id: 'kit-6', label: '6', command: 0x43, repeat: 'once' },
+  { id: 'kit-7', label: '7', command: 0x07, repeat: 'once' },
+  { id: 'kit-8', label: '8', command: 0x15, repeat: 'once' },
+  { id: 'kit-9', label: '9', command: 0x09, repeat: 'once' },
+  { id: 'kit-star', label: '*', command: 0x16, repeat: 'once' },
+  { id: 'kit-0', label: '0', command: 0x19, repeat: 'once' },
+  { id: 'kit-hash', label: '#', command: 0x0d, repeat: 'once' },
+]
+
+/**
+ * Add the kit remote's keys a receiver does not already have. A key whose
+ * code is already mapped, under any name, is skipped, so adding twice, or
+ * after learning a few keys of the same remote, never makes a duplicate.
+ */
+export function addIrKitRemote(value: unknown): IrRemoteButton[] {
+  const buttons = normalizeIrRemoteButtons(value)
+  const ids = new Set(buttons.map((button) => button.id))
+  for (const key of IR_KIT_REMOTE_KEYS) {
+    if (buttons.length >= MAX_IR_REMOTE_BUTTONS) break
+    if (buttons.some((button) => button.protocol === 'NEC' && button.address === 0 && button.command === key.command)) continue
+    let id = key.id
+    for (let n = 2; ids.has(id); n += 1) id = `${key.id}-${n}`
+    ids.add(id)
+    buttons.push({ id, label: key.label, protocol: 'NEC', address: 0, command: key.command, repeat: key.repeat })
+  }
+  return buttons
+}
+
 export function insertIrRemoteButton(
   value: unknown,
   draft: { label: string; protocol: string; address: number; command: number; repeat?: IrRemoteRepeatPolicy },
