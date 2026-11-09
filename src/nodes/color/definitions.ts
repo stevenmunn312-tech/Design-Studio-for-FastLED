@@ -2,7 +2,7 @@
 // placement and Help descriptions. src/state/nodeLibrary.ts merges every
 // category's definitions into NODE_LIBRARY in sidebar order.
 import type { NodeDefinition } from '../../types'
-import { PALETTE_BANK_BLEND_DEFAULT } from '../../state/palettes/paletteBank'
+import { PALETTE_BANK_BLEND_DEFAULT, PALETTE_BANK_DEFAULT_PALETTES } from '../../state/palettes/paletteBank'
 
 export const COLOR_DEFINITIONS: NodeDefinition[] = [
   {
@@ -300,7 +300,7 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     ],
     // `blend` eases a change of palette in with FastLED's
     // nblendPaletteTowardPalette; 0 cuts straight across.
-    defaultProperties: { palettes: [], blend: PALETTE_BANK_BLEND_DEFAULT },
+    defaultProperties: { palettes: [...PALETTE_BANK_DEFAULT_PALETTES], blend: PALETTE_BANK_BLEND_DEFAULT },
   },
 ]
 

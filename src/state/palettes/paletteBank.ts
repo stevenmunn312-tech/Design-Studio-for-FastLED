@@ -21,6 +21,13 @@ import { isStudioPalette, PALETTE_DEFS, paletteStops16, resolvePaletteId } from 
 export const PALETTE_BANK_FALLBACK = resolvePaletteId('')
 
 /**
+ * What a freshly placed bank holds: four presets far enough apart that the
+ * first Next visibly changes the picture. An empty bank only output the
+ * fallback and raised Graph Health's empty-bank warning until it was filled.
+ */
+export const PALETTE_BANK_DEFAULT_PALETTES: readonly string[] = ['party', 'ocean', 'lava', 'forest']
+
+/**
  * The presets this bank ships, in order.
  *
  * Resolved against the catalogue rather than trusted: these ids become C++

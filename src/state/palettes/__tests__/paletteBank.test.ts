@@ -10,7 +10,9 @@ import {
   paletteBankSelection,
   movePaletteBankEntry,
   stepPaletteBankIndex,
+  PALETTE_BANK_DEFAULT_PALETTES,
 } from '../paletteBank'
+import { libraryDefaults } from '../../nodeLibrary'
 import { evaluateGraphFull, evaluateScalarSeries } from '../../graphEvaluator'
 import { useHardwareInputStore } from '../../peripherals/hardwareInputStore'
 import { touchControlPlan } from '../../player/wireFirstControls'
@@ -138,6 +140,16 @@ describe('driving a bank from a touch control', () => {
   it('still refuses a control on an input that takes a signal', () => {
     // The bank's own outputs are not controls, and neither is a palette wire.
     expect(touchControlPlan('PaletteBank', 'palette', {}, false).ok).toBe(false)
+  })
+
+  it('starts a freshly placed bank with contrasting presets', () => {
+    // An empty bank only output the fallback and raised a warning until filled.
+    const seeded = paletteBankEntries(libraryDefaults('PaletteBank'))
+    expect(seeded).toEqual([...PALETTE_BANK_DEFAULT_PALETTES])
+    expect(seeded.length).toBeGreaterThanOrEqual(3)
+    expect(seeded).not.toContain(PALETTE_BANK_FALLBACK)
+    // The first Next moves to a different palette at once.
+    expect(paletteBankSelection(seeded, stepPaletteBankIndex(0, seeded.length, 1))).not.toBe(paletteBankSelection(seeded, 0))
   })
 })
 

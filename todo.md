@@ -477,10 +477,6 @@ freeze, or drop them.
   help example is that chain). Add a colour node with hue offset, saturation
   scale and brightness scale, built on the existing `_rgbHue`/`_hsv` helpers.
   Evidence `src/components/HelpModal/reference/color.ts`.
-- [ ] **Palette Bank: Seed default palettes (Med, S).** A fresh node has
-  `palettes: []`, outputs the fallback and raises a validation warning. Seed
-  3–4 contrasting presets so the first Next does something visible. Evidence
-  `src/nodes/color/definitions.ts:289`.
 - [ ] **Palette Bank: Add an Index input (Med, M).** Next/Previous are the only
   way in, so Step Value, an encoder, DMX or a Touch slider cannot pick a
   palette directly, though the node already outputs Index. Add an Index input
