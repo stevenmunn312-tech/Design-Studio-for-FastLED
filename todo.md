@@ -1197,14 +1197,30 @@ freeze, or drop them.
   (Med, M).** `MAX_LED_RUN` stops them at 300 while a matrix may reach 4096,
   though one 5 m reel at 144/m is 720. Raise the chain cap toward the matrix
   total (data lanes already split long chains), or document why it is 300.
-  Evidence `src/state/output/ledOutputForm.ts:42`.
+  Evidence `src/state/output/ledOutputForm.ts:42`. Not a constant change: a
+  string's canvas is `ledCount` x 1, so `WIDTH` grows with the cap, and some
+  emitted pattern code sizes per-column arrays by `WIDTH` on the loop stack
+  (Spectrum Visualizer's wave `_wvV[WIDTH], _wvY[WIDTH]` floats in
+  `src/nodes/audioReactive/codegen.ts:199`, 8 bytes per LED; the 1-D
+  automaton's `_row[WIDTH]` in `src/nodes/field/codegen.ts:394`) or as static
+  columns (`_svLevel` and friends, 16 bytes per column). At 720 LEDs the
+  stack arrays alone pass 5 KB of an 8 KB loop task. Move those to static or
+  heap storage (or cap them by a column count), raise `MAX_LED_RUN`, make
+  `ledCount` a typed number (`entry: 'number'`, a 1-4096 slider cannot be
+  dragged), and confirm with compiles of a long string through the sweep in
+  `showGenerator.test.ts` before trusting it on hardware.
+  `NETWORK_MAX_LEDS` and the positioned-string `MAX_LEDS` are separate 300
+  caps.
 - [ ] **Analog RGB Strip: Resolve overlap with Power Switch (Med, M).** The
   YYNMOS-4 and Mosfetti boards Power Switch catalogues are the usual way to
   drive an analog strip, yet the strip leaves the driver as "whatever the bench
   has" and lives in the sidebar, not on the bench. Either give it an optional
   driver `partId` and make it a bench part, or add an "RGB strip" load mode
   with a Color input to Power Switch. Evidence `src/build/hardwareManifest.ts:1253`,
-  `src/build/hardware.ts:27`.
+  `src/build/hardware.ts:27`. Needs a product decision between the two
+  shapes (one node that names its MOSFET board, or Power Switch growing a
+  colour load), and either way the Build Diagram wiring for an RGB load on a
+  four-channel board. Its default pins no longer clash with the Amplifier.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 
