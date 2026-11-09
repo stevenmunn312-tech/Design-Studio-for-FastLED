@@ -5389,17 +5389,17 @@ describe('Saturation and RGBToHSV', () => {
     expect(outputs.get('satnu')!.frame).toBeNull()
   })
 
-  it('ColorBoost boost=0 leaves the frame unchanged', () => {
+  it('Saturation keeping brightness leaves the frame unchanged at 1', () => {
     const sc = node('cbsrc0', 'SolidColor', 'pattern', { r: 180, g: 140, b: 120 })
-    const cb = node('cb0', 'ColorBoost', 'composite', { boost: 0 })
+    const cb = node('cb0', 'Saturation', 'composite', { amount: 1, keepBrightness: true })
     const { nodes, edges } = withOutput(cb, [sc], [edge('e1', 'cbsrc0', 'frame', 'cb0', 'frame')])
     const frame = evaluateGraph(nodes, edges, 0, W, H)!
     expect(frame[0][0]).toEqual({ r: 180, g: 140, b: 120 })
   })
 
-  it('ColorBoost increases channel separation while roughly preserving luminance', () => {
+  it('Saturation keeping brightness increases channel separation while roughly preserving luminance', () => {
     const sc = node('cbsrc1', 'SolidColor', 'pattern', { r: 170, g: 140, b: 120 })
-    const cb = node('cb1', 'ColorBoost', 'composite', { boost: 1 })
+    const cb = node('cb1', 'Saturation', 'composite', { amount: 2.5, keepBrightness: true })
     const { nodes, edges } = withOutput(cb, [sc], [edge('e1', 'cbsrc1', 'frame', 'cb1', 'frame')])
     const px = evaluateGraph(nodes, edges, 0, W, H)![0][0]
     const inSpread = Math.max(170, 140, 120) - Math.min(170, 140, 120)
@@ -5410,8 +5410,8 @@ describe('Saturation and RGBToHSV', () => {
     expect(Math.abs(outLuma - inLuma)).toBeLessThan(2)
   })
 
-  it('ColorBoost outputs null when unwired', () => {
-    const cb = node('cbu', 'ColorBoost', 'composite', {})
+  it('Saturation outputs null when unwired', () => {
+    const cb = node('cbu', 'Saturation', 'composite', { keepBrightness: true })
     const { outputs } = evaluateGraphFull([cb], [], 0, W, H)
     expect(outputs.get('cbu')!.frame).toBeNull()
   })

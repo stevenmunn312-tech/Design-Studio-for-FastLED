@@ -649,11 +649,6 @@ freeze, or drop them.
   already hides glow controls by mode), share Symmetry's Rotation/Spin so
   the radial fold can turn, and rename Symmetry "Tile Symmetry". Evidence
   `src/state/nodeLibrary.ts:5253`.
-- [ ] **Category: Merge Color Boost into Saturation (Med, S).** Both scale
-  distance from grey. Saturation is HSV-based (0-2); Color Boost keeps
-  brightness, only boosts, and its 0-1 slider secretly means 1x-2.5x. Make
-  one Saturation node with a "Keep brightness" toggle that switches to the
-  luma formula. Evidence `src/nodes/composite/evaluate.ts:528`.
 - [ ] **Category: Add a scope to Noise LFO and Envelope (Low, M).** Only
   Wave has an on-node scope, but these two are the nodes whose shape is the
   whole point. Evidence `src/components/Canvas/StudioNode.tsx:1315`.
@@ -682,10 +677,6 @@ freeze, or drop them.
   to put Gamma last, just before the LED output; a setting on the output
   would remove a node from most finished graphs. Evidence
   `src/components/HelpModal/reference/composite.ts:171`.
-- [ ] **Color Boost: Match preview and firmware rounding (Low, S).** Preview
-  rounds, firmware truncates `(uint8_t)constrain(...)`. Use one rule on
-  both sides. Evidence `src/nodes/composite/evaluate.ts:533`,
-  `src/nodes/composite/codegen.ts:214`.
 - [ ] **Transform: Make Scale mode loop instead of freezing (Med, S).**
   `s = 1 + phase/100` clamps to 0.05-20, so at the default rate 90 a zoom-in
   freezes at 20x after about 21 s and a negative rate freezes after about

@@ -137,7 +137,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       studioNode('juggle', 'Juggle', -520, 40, { speed: 0.55, fade: 0.57, palette: 'lava', seed: 19 }),
       studioNode('trails', 'Trails', -220, 40, { decay: 0.11 }),
       studioNode('tint', 'HueShift', 360, 40),
-      studioNode('boost', 'ColorBoost', 640, 40, { boost: 0.42 }),
+      studioNode('boost', 'Saturation', 640, 40, { amount: 1.63, keepBrightness: true }),
       groupOutput('out', 920, 40),
     ],
     [
@@ -171,7 +171,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       }),
       studioNode('sparks', 'TrebleSparks', -520, 220, { density: 0.7, palette: 'citrus' }),
       studioNode('mix', 'Blend', -180, 80, { blendMode: 'screen', amount: 0.48 }),
-      studioNode('boost', 'ColorBoost', 420, 80, { boost: 0.55 }),
+      studioNode('boost', 'Saturation', 420, 80, { amount: 1.825, keepBrightness: true }),
       groupOutput('out', 700, 80),
     ],
     [
@@ -231,7 +231,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       studioNode('mosaic', 'SpectraMosaic', -520, 40, {
         energy: 0.85, speed: 0.7, palette: 'peacock', tiles: 5,
       }),
-      studioNode('boost', 'ColorBoost', -180, 40, { boost: 0.48 }),
+      studioNode('boost', 'Saturation', -180, 40, { amount: 1.72, keepBrightness: true }),
       studioNode('blur', 'Blur2D', 420, 40, { amount: 0.05 }),
       studioNode('sat', 'Saturation', 700, 40, { amount: 1.4 }),
       groupOutput('out', 980, 40),
@@ -301,7 +301,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
         visualRange: 5, colorMode: 'palette', palette: 'citrus', seed: 204,
       }),
       studioNode('mix', 'Blend', -180, 80, { blendMode: 'add', amount: 0.42 }),
-      studioNode('boost', 'ColorBoost', 420, 80, { boost: 0.4 }),
+      studioNode('boost', 'Saturation', 420, 80, { amount: 1.6, keepBrightness: true }),
       groupOutput('out', 700, 80),
     ],
     [
@@ -429,7 +429,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       studioNode('plasma', 'Plasma', -520, -40, { speed: 0.22, palette: 'ultraviolet' }),
       studioNode('kale', 'Kaleidoscope', -220, -40, { segments: 5 }),
       studioNode('tint', 'HueShift', -220, 200),
-      studioNode('boost', 'ColorBoost', 360, 40, { boost: 0.5 }),
+      studioNode('boost', 'Saturation', 360, 40, { amount: 1.75, keepBrightness: true }),
       groupOutput('out', 640, 40),
     ],
     [
@@ -468,7 +468,7 @@ export const PATTERN_EXPANSION_AUDIO_SEEDS: BundledSeed[] = [
       }),
       studioNode('shade', 'FieldToFrame', -260, 40, { brightness: 1 }),
       studioNode('trails', 'Trails', 40, 40, { decay: 0.7 }),
-      studioNode('boost', 'ColorBoost', 340, 40, { boost: 0.35 }),
+      studioNode('boost', 'Saturation', 340, 40, { amount: 1.525, keepBrightness: true }),
       groupOutput('out', 640, 40),
     ],
     [

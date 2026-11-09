@@ -570,11 +570,12 @@ describe('nodeLibrary', () => {
     expect((propertyMeta('Noise', 'noiseType') as { options?: string[] }).options).toContain('noise4d')
   })
 
-  it('ColorBoost exposes a frame input and bounded boost control', () => {
-    const cb = NODE_LIBRARY.find((n) => n.type === 'ColorBoost')
-    expect(cb?.inputs.map((p) => p.id)).toEqual(['frame', 'boost'])
-    expect(cb?.defaultProperties).toMatchObject({ boost: 0.5 })
-    expect(propertyMeta('ColorBoost', 'boost')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+  it('Saturation carries the old Color Boost as Keep Brightness', () => {
+    expect(NODE_LIBRARY.some((n) => n.type === 'ColorBoost')).toBe(false)
+    const sat = NODE_LIBRARY.find((n) => n.type === 'Saturation')
+    expect(sat?.inputs.map((p) => p.id)).toEqual(['frame', 'amount'])
+    expect(sat?.defaultProperties).toEqual({ amount: 1, keepBrightness: false })
+    expect(propertyMeta('Saturation', 'amount')).toMatchObject({ control: 'slider', min: 0, max: 2 })
   })
 
   it('BrightnessMod exposes a safe amplification range', () => {

@@ -43,9 +43,10 @@ export const ENERGY_DYNAMICS = {
   /** Full brightness by the room's 90th-percentile frame. */
   lightIn: [0.02, 0.2] as const,
   lightFloor: 0.35,
-  /** The colour lift starts above the room's median and completes on its peaks. */
+  /** The colour lift starts above the room's median and completes on its peaks:
+   *  Saturation with Keep Brightness, from unchanged to 1.45× the colour. */
   boostIn: [0.12, 0.3] as const,
-  boostMax: 0.3,
+  boostMax: 1.45,
 }
 
 const definitions = new Map(NODE_LIBRARY.map((definition) => [definition.type, definition]))
@@ -140,9 +141,9 @@ export function withEnergyDynamics(seed: EnergyDynamicsSeed, options: EnergyDyna
     tailHandle = 'frame'
   }
 
-  ramp('dynBoost', 2, 1, ENERGY_DYNAMICS.boostIn, 0, ENERGY_DYNAMICS.boostMax)
-  shaped('dynColor', 'ColorBoost', 4, { boost: 0 })
-  wire('dynBoost', 'result', 'dynColor', 'boost')
+  ramp('dynBoost', 2, 1, ENERGY_DYNAMICS.boostIn, 1, ENERGY_DYNAMICS.boostMax)
+  shaped('dynColor', 'Saturation', 4, { amount: 1, keepBrightness: true })
+  wire('dynBoost', 'result', 'dynColor', 'amount')
 
   let columns = 5
   if (lightFloor < 1) {

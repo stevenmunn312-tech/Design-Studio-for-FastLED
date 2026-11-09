@@ -81,6 +81,46 @@ describe('Trails', () => {
   })
 })
 
+/**
+ * Runs a colour node's per-pixel firmware loop on `pixels` and returns them.
+ * `head` names the line that opens the loop (its seed copy is dropped, the
+ * buffer is already the input); the body runs to the loop's closing line.
+ */
+function runPixelLoop(nodeType: string, properties: Record<string, unknown>, pixels: RGB[], head: RegExp): RGB[] {
+  const cpp = generateCpp([node('src', 'Code', 'code'), node('fx', nodeType, 'composite', properties),
+    node('out', 'MatrixOutput', 'output', { width: pixels.length, height: 1 })], [
+    edge('e1', 'src', 'fx', 'frame', 'frame'), edge('e2', 'fx', 'out', 'frame', 'frame'),
+  ])
+  const lines = cpp.split('\n')
+  const start = lines.findIndex((line) => head.test(line))
+  const end = lines.findIndex((line, i) => i > start && line.trim() === '} }')
+  const opening = lines[start].replace(/^.*?(float _\w+ = )/, '$1')
+  const block = [opening, ...lines.slice(start + 1, end), '}']
+  const leds = pixels.map((px) => ({ ...px }))
+  compileCppSnippet(block, ['NUM_LEDS', 'buf_fx'], [])(0, { NUM_LEDS: leds.length, buf_fx: leds as never })
+  return leds
+}
+
+describe('Saturation', () => {
+  const preview = (properties: Record<string, unknown>, pixels: RGB[]) => COMPOSITE_EVALUATORS.Saturation!({
+    input: () => [pixels], num: (_id: string, _port: string, props: Record<string, unknown>) => Number(props.amount),
+  } as unknown as EvalContext, 'fx', properties, studio, 'Saturation').frame as RGB[][]
+
+  it('keeps brightness the same way on the board, rounding both sides', () => {
+    // Every channel lands somewhere off a whole level, so truncating on one
+    // side would show here.
+    const pixels = [
+      { r: 170, g: 140, b: 120 }, { r: 12, g: 200, b: 255 }, { r: 3, g: 2, b: 1 },
+      { r: 250, g: 128, b: 9 }, { r: 90, g: 90, b: 91 }, { r: 0, g: 0, b: 0 },
+    ]
+    for (const amount of [0, 0.4, 1.375, 1.825, 2]) {
+      const properties = { amount, keepBrightness: true }
+      expect(runPixelLoop('Saturation', properties, pixels, /float _sm = fmaxf/), `amount ${amount}`)
+        .toEqual(preview(properties, pixels)[0])
+    }
+  })
+})
+
 describe('Zones and Blend', () => {
   it('rounds zone edges as the preview does', () => {
     const cpp = generateCpp([

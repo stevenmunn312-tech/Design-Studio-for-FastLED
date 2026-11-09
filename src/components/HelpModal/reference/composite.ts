@@ -189,6 +189,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
   Saturation: {
     overview: [
       'Saturation scales how colourful a frame is: 0 is greyscale, 1 unchanged, 2 doubles the colour, clipping where it runs out.',
+      'Keep Brightness pushes colours away from grey while holding each pixel’s brightness, so a boost does not also lighten the frame. It suits pastel or washed-out patterns that look milky on LEDs.',
     ],
     inputs: { frame: FRAME_IN },
     outputs: { frame: FRAME_OUT },
@@ -203,25 +204,6 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       wires: ['plasma.frame > colour.frame', 'drain.result > colour.amount'],
       explanation: 'A slow Wave moves Saturation’s amount from 0 to 1.4, so the rainbow Plasma fades to black-and-white and then floods back more vivid than before.',
       preview: 'The {output} shows a plasma slowly losing its colour to grey and regaining it.',
-    }),
-  },
-
-  ColorBoost: {
-    overview: [
-      'Color Boost pushes colours away from grey while keeping their brightness about the same. Unlike Saturation it does not make things brighter, so it suits lifting pastel or washed-out patterns.',
-    ],
-    inputs: { frame: FRAME_IN },
-    outputs: { frame: FRAME_OUT },
-    example: example({
-      featured: 'ColorBoost',
-      title: 'Make pastel colours pop',
-      nodes: {
-        pastel: ['Blobs', { palette: 'cottoncandy', count: 4 }],
-        pop: ['ColorBoost', { boost: 0.85 }],
-      },
-      wires: ['pastel.frame > pop.frame'],
-      explanation: 'Blobs in the soft cotton-candy palette can look milky on LEDs. Color Boost at 0.85 pushes the pinks and blues to vivid without brightening them.',
-      preview: 'The {output} shows merging blobs in strong pinks and blues instead of pale pastels.',
     }),
   },
 

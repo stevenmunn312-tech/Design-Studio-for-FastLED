@@ -138,6 +138,9 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
   {
     // RGB→HSV→scale saturation→RGB; `amount` 1 = unchanged, 0 = greyscale,
     // >1 = boosted (clamped). Shares HueShift's inline RGB↔HSV extraction.
+    // `keepBrightness` scales distance from the Rec. 709 luma instead, so
+    // washed-out content gains colour without brightening (the old Color
+    // Boost, whose boost b is amount 1 + 1.5b here).
     type: 'Saturation',
     label: 'Saturation',
     category: 'composite',
@@ -148,23 +151,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     ],
     propertyInputs: { amount: 'amount' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { amount: 1 },
-  },
-  {
-    // Luminance-preserving saturation enhancement — pushes channels away from
-    // their Rec. 709 luma so washed-out content gains colour without simply
-    // brightening the whole frame.
-    type: 'ColorBoost',
-    label: 'Color Boost',
-    category: 'composite',
-    subcategory: 'Color',
-    inputs: [
-      { id: 'frame', label: 'Frame', dataType: 'frame' },
-      { id: 'boost', label: 'Boost', dataType: 'float' },
-    ],
-    propertyInputs: { boost: 'boost' },
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { boost: 0.5 },
+    defaultProperties: { amount: 1, keepBrightness: false },
   },
   {
     // Animated geometric transform of a frame (rotate / scale / translate).
@@ -421,8 +408,7 @@ export const COMPOSITE_DESCRIPTIONS: Record<string, string> = {
   BrightnessMod: 'Dims or amplifies a frame with saturated 0–3× scaling.',
   HueShift: 'Rotates all hues.',
   Gamma: 'Perceptual gamma correction so gradients look right on the LEDs.',
-  Saturation: 'Scales color saturation (0 = greyscale, 1 = unchanged).',
-  ColorBoost: 'Boosts saturation while approximately preserving luminance.',
+  Saturation: 'Scales color saturation (0 = greyscale), optionally keeping brightness.',
   Transform: 'Animated rotate, scale or translate of a frame.',
   Array: 'Repeats a frame N times with an accumulating offset/rotate/scale, composited.',
   Invert: 'Inverts colors.',

@@ -5427,16 +5427,17 @@ describe('Saturation / RGBToHSV (codegen)', () => {
     expect(cpp).toContain('float _sm = 0; for (int _i = 0; _i < NUM_LEDS; _i++) buf_satn[_i] = _hsvAdjust(buf_satn[_i], 0.0f, _sm);')
   })
 
-  it('ColorBoost emits luminance-preserving channel scaling', () => {
+  it('Saturation keeping brightness emits luminance-preserving, rounded channel scaling', () => {
     const sc = node('scb', 'SolidColor', 'pattern', { r: 170, g: 140, b: 120 })
-    const cb = node('cb', 'ColorBoost', 'composite', { boost: 1 })
+    const cb = node('cb', 'Saturation', 'composite', { amount: 2.5, keepBrightness: true })
     const cpp = generateCpp(
       [sc, cb, outputNode],
       [edge('e1', 'scb', 'cb', 'frame', 'frame'), edge('e2', 'cb', 'out', 'frame', 'frame')],
     )
-    expect(cpp).toContain('float _cb = constrain(1, 0.0f, 1.0f);')
+    expect(cpp).toContain('float _sm = fmaxf(0.0f, 2.5);')
     expect(cpp).toContain('float _l = buf_cb[_i].r * 0.2126f + buf_cb[_i].g * 0.7152f + buf_cb[_i].b * 0.0722f;')
-    expect(cpp).toContain('buf_cb[_i].r = (uint8_t)constrain(_l + (buf_cb[_i].r - _l) * _cs, 0.0f, 255.0f);')
+    expect(cpp).toContain('buf_cb[_i].r = (uint8_t)(constrain(_l + (buf_cb[_i].r - _l) * _sm, 0.0f, 255.0f) + 0.5f);')
+    expect(cpp).not.toContain('_hsvAdjust')
   })
 
   it('GradientSampler emits editable fallback swatches when color inputs are unwired', () => {

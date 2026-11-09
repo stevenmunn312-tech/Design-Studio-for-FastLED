@@ -59,9 +59,10 @@ describe('shared energy dynamics', () => {
       const height = string ? 1 : 16
       const quiet = renderReleaseScenario(pattern, 'quiet', width, height)
       const loud = renderReleaseScenario(pattern, 'energetic', width, height)
-      expect(Number(quiet.outputs.get('dynBoost')?.result), name).toBe(0)
+      // Saturation's amount: 1 leaves the colour alone, up to 1.45 lifts it.
+      expect(Number(quiet.outputs.get('dynBoost')?.result), name).toBe(1)
       expect(Number(quiet.outputs.get('dynLight')?.result), name).toBeLessThan(0.75)
-      expect(Number(loud.outputs.get('dynBoost')?.result), name).toBeGreaterThan(0.2)
+      expect(Number(loud.outputs.get('dynBoost')?.result), name).toBeGreaterThan(1.3)
       expect(Number(loud.outputs.get('dynLight')?.result), name).toBeGreaterThan(0.9)
       expect(mean(releasePixels(loud.frames)), name).toBeGreaterThan(mean(releasePixels(quiet.frames)) * 1.3)
     }

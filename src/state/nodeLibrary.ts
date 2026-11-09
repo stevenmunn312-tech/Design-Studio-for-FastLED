@@ -2998,9 +2998,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   Saturation: {
     amount: 'Scales colour intensity. 0 is greyscale, 1 unchanged, 2 doubles it (clipped).',
-  },
-  ColorBoost: {
-    boost: 'Pushes colours away from grey without changing brightness. 0 is off.',
+    keepBrightness: 'Push colours away from grey without making the frame lighter or darker. Suits washed-out or pastel patterns.',
   },
   Transform: {
     transform: 'What moves: rotate spins, scale zooms, translate slides along Angle.',

@@ -202,22 +202,21 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     const shift = f('shift', 'shift', 0)
     ln(`  { ${seedFrom('frame')} float _dh = (${shift}) * 360.0f; for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = _hsvAdjust(${ob}[_i], _dh, 1.0f); }`)
   },
-  // RGB→HSV→scale saturation→RGB, on the preview's wheel.
-  Saturation({ ln, f, ownBuf, seedFrom, needsHsv }) {
-    needsHsv.v = true
+  // RGB→HSV→scale saturation→RGB, on the preview's wheel. Keep brightness
+  // scales each channel's distance from the Rec. 709 luma instead, rounding
+  // (+0.5f) as the preview's Math.round does.
+  Saturation({ p, ln, f, ownBuf, seedFrom, needsHsv }) {
     const ob = ownBuf()
     const amount = f('amount', 'amount', 1)
+    if (p.keepBrightness === true) {
+      ln(`  { ${seedFrom('frame')} float _sm = fmaxf(0.0f, ${amount}); for (int _i = 0; _i < NUM_LEDS; _i++) {`)
+      ln(`      float _l = ${ob}[_i].r * 0.2126f + ${ob}[_i].g * 0.7152f + ${ob}[_i].b * 0.0722f;`)
+      for (const c of ['r', 'g', 'b']) ln(`      ${ob}[_i].${c} = (uint8_t)(constrain(_l + (${ob}[_i].${c} - _l) * _sm, 0.0f, 255.0f) + 0.5f);`)
+      ln(`    } }`)
+      return
+    }
+    needsHsv.v = true
     ln(`  { ${seedFrom('frame')} float _sm = ${amount}; for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = _hsvAdjust(${ob}[_i], 0.0f, _sm); }`)
-  },
-  ColorBoost({ ln, f, ownBuf, seedFrom }) {
-    const ob = ownBuf()
-    const boost = f('boost', 'boost', 0.5)
-    ln(`  { ${seedFrom('frame')} float _cb = constrain(${boost}, 0.0f, 1.0f); float _cs = 1.0f + _cb * 1.5f; for (int _i = 0; _i < NUM_LEDS; _i++) {`)
-    ln(`      float _l = ${ob}[_i].r * 0.2126f + ${ob}[_i].g * 0.7152f + ${ob}[_i].b * 0.0722f;`)
-    ln(`      ${ob}[_i].r = (uint8_t)constrain(_l + (${ob}[_i].r - _l) * _cs, 0.0f, 255.0f);`)
-    ln(`      ${ob}[_i].g = (uint8_t)constrain(_l + (${ob}[_i].g - _l) * _cs, 0.0f, 255.0f);`)
-    ln(`      ${ob}[_i].b = (uint8_t)constrain(_l + (${ob}[_i].b - _l) * _cs, 0.0f, 255.0f);`)
-    ln(`    } }`)
   },
   Gamma({ ln, f, ownBuf, seedFrom }) {
     const ob = ownBuf()

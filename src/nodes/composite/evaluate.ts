@@ -506,11 +506,26 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       ),
     }
   },
-  // RGB→HSV→scale saturation→RGB; shares HueShift's inline extraction.
+  // RGB→HSV→scale saturation→RGB; shares HueShift's inline extraction. Keep
+  // brightness instead scales each channel's distance from the Rec. 709 luma,
+  // so colour grows without the frame getting lighter; rounded, as the sketch
+  // adds 0.5 before its byte cast.
   Saturation({ input, num }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
     const amount = num(id, 'amount', props, 'amount', 1)
     if (!src) { return { frame: null } }
+    if (props.keepBrightness === true) {
+      const scale = Math.max(0, amount)
+      const channel = (v: number, luma: number) => Math.max(0, Math.min(255, Math.round(luma + (v - luma) * scale)))
+      return {
+        frame: src.map(row =>
+          row.map(px => {
+            const luma = px.r * 0.2126 + px.g * 0.7152 + px.b * 0.0722
+            return { r: channel(px.r, luma), g: channel(px.g, luma), b: channel(px.b, luma) }
+          })
+        ),
+      }
+    }
     return {
       frame: src.map(row =>
         row.map(px => {
@@ -526,25 +541,6 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
           const s = max > 0 ? d / max : 0
           const s2 = Math.max(0, Math.min(1, s * amount))
           return hsv((h + 360) % 360, s2, max)
-        })
-      ),
-    }
-  },
-  ColorBoost({ input, num }, id, props) {
-    const src = input(id, 'frame', null) as Frame | null
-    const boost = Math.max(0, Math.min(1, num(id, 'boost', props, 'boost', 0.5)))
-    if (!src) { return { frame: null } }
-    const scale = 1 + boost * 1.5
-    const clamp255 = (v: number) => Math.max(0, Math.min(255, Math.round(v)))
-    return {
-      frame: src.map(row =>
-        row.map(px => {
-          const luma = px.r * 0.2126 + px.g * 0.7152 + px.b * 0.0722
-          return {
-            r: clamp255(luma + (px.r - luma) * scale),
-            g: clamp255(luma + (px.g - luma) * scale),
-            b: clamp255(luma + (px.b - luma) * scale),
-          }
         })
       ),
     }
