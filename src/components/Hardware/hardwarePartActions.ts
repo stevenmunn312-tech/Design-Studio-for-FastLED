@@ -7,8 +7,13 @@ import { assignHardwarePartPins } from '../../build/pins/i2cPinAssignment'
 import { withAssignedPins } from '../../build/pins/pinRetarget'
 import { micModuleFor } from '../../state/peripherals/micModules'
 import { micSupportedForBoard, micUnsupportedMessage } from '../../build/pins/micPinDefaults'
-import { ensureRootAudioNode, type StudioNode } from '../../state/graphStore'
-import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
+import {
+  boardPartitionOf, ensureRootAudioNode, ensureRootClockNode, rootGraphNodes, useGraphStore, type StudioNode,
+} from '../../state/graphStore'
+import { selectedPhysicalBoardProfile, type PhysicalBoardProfile } from '../../build/boards/boardProfiles'
+import { boardNodesIn } from '../../build/boardPartition'
+import { RTC_MODULE_NODE_TYPE, rtcModuleIn } from '../../state/peripherals/rtcModule'
+import { useUploadStore } from '../../state/upload/uploadStore'
 import { sdSpiPinsForBoard } from '../../build/pins/sdPinDefaults'
 import { displayHasTouch } from '../../build/parts/partCatalogue'
 import { partOptionProperty } from '../../build/parts/partOptions'
@@ -19,12 +24,16 @@ import { partDerivedInputs } from '../../build/parts/partPorts'
 import { defaultSourceVoltageFor } from '../../state/peripherals/powerConverter'
 import { buttonBankOutputs, firstButtonBankRow } from '../../state/player/buttonBank'
 import {
-  type FixturePartEntry, type InputPartEntry, fixturePinRequests, LED_OUTPUT_ENTRIES, LED_OUTPUT_NODE_TYPE, MIC_NODE_TYPE,
+  type FixturePartEntry, type InputPartEntry, fixturePinRequests, INPUT_PARTS, LED_OUTPUT_ENTRIES, LED_OUTPUT_NODE_TYPE,
+  MIC_NODE_TYPE,
 } from './hardwarePartCatalog'
 import type { Connection } from '@xyflow/react'
 import type { NodeDefinition, StatusLevel } from '../../types'
 import type { PlacementBox } from './floatingPlacement'
 import type { BenchParts } from './useBenchParts'
+
+/** Input parts reached only through a library node: Audio's and the Clock's providers. */
+const PROVIDER_PART_TYPES: ReadonlySet<string> = new Set([MIC_NODE_TYPE, 'LineInput', RTC_MODULE_NODE_TYPE])
 
 export interface InputPartActionInputs {
   addNode: (node: StudioNode, centreOnDrop?: boolean) => void
@@ -85,6 +94,9 @@ export function inputPartActions({
       : {}
 
     const nodeId = `${entry.nodeType}-${Date.now()}-${Math.round(Math.random() * 1e6)}`
+    // A provider reached only through its library node (Audio, Clock) is
+    // never drawn on the signal canvas.
+    const offCanvas = PROVIDER_PART_TYPES.has(entry.nodeType)
     addNode({
       id: nodeId,
       type: 'studioNode',
@@ -92,9 +104,9 @@ export function inputPartActions({
         x: viewCenter.x - 180,
         y: viewCenter.y - 120 + (inputParts.length * 60),
       },
-      hidden: [MIC_NODE_TYPE, 'LineInput'].includes(entry.nodeType),
-      selectable: ![MIC_NODE_TYPE, 'LineInput'].includes(entry.nodeType),
-      draggable: ![MIC_NODE_TYPE, 'LineInput'].includes(entry.nodeType),
+      hidden: offCanvas,
+      selectable: !offCanvas,
+      draggable: !offCanvas,
       data: {
         label: definition.label,
         nodeType: definition.type,
@@ -120,18 +132,73 @@ export function inputPartActions({
     // only through an Audio node, so the first one brings that node with it.
     const audioAdded = [MIC_NODE_TYPE, 'LineInput'].includes(entry.nodeType)
       && ensureRootAudioNode(entry.nodeType === MIC_NODE_TYPE ? 'microphone' : 'line-in') !== null
+    // A DS3231 is read by a Clock, so the first one brings a Clock set to it.
+    const clockAdded = entry.nodeType === RTC_MODULE_NODE_TYPE && ensureRootClockNode('DS3231') !== null
+    const companion = audioAdded ? 'an Audio node' : clockAdded ? 'a Clock node' : null
     const pins = [...Object.values(assignedPins), ...(bankPin?.ok ? [bankPin.pins.pin] : [])]
     setStatus(
       pins.length
-        ? `Added ${entry.label} on pin${pins.length > 1 ? 's' : ''} ${pins.join(', ')}${audioAdded ? ' and an Audio node' : ''}`
-        : audioAdded
-          ? `Added ${entry.label} and an Audio node for it`
-          : `Added ${entry.label} and its graph node`,
+        ? `Added ${entry.label} on pin${pins.length > 1 ? 's' : ''} ${pins.join(', ')}${companion ? ` and ${companion}` : ''}`
+        : companion
+          ? `Added ${entry.label} and ${companion} for it`
+          : offCanvas
+            ? `Added ${entry.label}`
+            : `Added ${entry.label} and its graph node`,
       'success',
     )
   }
 
   return { inputPartBlocker, addInputPart }
+}
+
+export type AddRtcModuleResult = { ok: true; label: string; pins: number[] } | { ok: false; reason: string }
+
+/**
+ * Put a DS3231 on a board's bench for the Clocks set to read one: the repair
+ * on Graph Health's "has no DS3231" card and the Clock's own button. It joins
+ * the board's one I2C bus exactly as the shelf entry does, and lands on the
+ * board named (the primary when none is), whichever board the bench shows.
+ */
+export function addRtcModuleToBoard(boardId?: string): AddRtcModuleResult {
+  const state = useGraphStore.getState()
+  const root = rootGraphNodes(state)
+  const boards = boardNodesIn(root)
+  const board = boards.find((entry) => entry.id === boardId) ?? boards[0]
+  const partition = board ? boardPartitionOf(state, board.id).nodes : root
+  if (rtcModuleIn(partition)) return { ok: false, reason: 'The board already has a DS3231' }
+  const entry = INPUT_PARTS.find((candidate) => candidate.nodeType === RTC_MODULE_NODE_TYPE)
+  const definition = NODE_LIBRARY.find((candidate) => candidate.type === RTC_MODULE_NODE_TYPE)
+  if (!entry || !definition) return { ok: false, reason: 'The DS3231 is not in the parts catalogue' }
+  const profile = selectedPhysicalBoardProfile(partition)
+  const fqbn = profile?.compatibleFqbns[0] ?? useUploadStore.getState().selectedFqbn
+  const assigned = assignHardwarePartPins(profile, fqbn, partition, entry.pinRequests, entry.nodeType, entry.properties ?? {})
+  if (!assigned.ok) return { ok: false, reason: assigned.reason }
+  state.addNode({
+    id: `${RTC_MODULE_NODE_TYPE}-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    hidden: true,
+    selectable: false,
+    draggable: false,
+    data: {
+      label: definition.label,
+      nodeType: definition.type,
+      category: definition.category,
+      properties: {
+        ...withAssignedPins(
+          { ...resolveDefaultProperties(definition.type, definition.defaultProperties, profile), ...(entry.properties ?? {}) },
+          assigned.pins,
+          profile?.id ?? fqbn,
+        ),
+        // Named outright with several boards, so the bench showing another
+        // board cannot claim it.
+        ...(board && boards.length > 1 ? { boardId: board.id } : {}),
+      },
+      inputs: definition.inputs,
+      outputs: definition.outputs,
+    },
+  } as StudioNode)
+  return { ok: true, label: entry.label, pins: Object.values(assigned.pins) }
 }
 
 export interface BenchPartActionInputs {

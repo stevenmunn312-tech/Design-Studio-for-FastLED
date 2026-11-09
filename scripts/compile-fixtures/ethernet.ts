@@ -85,10 +85,14 @@ const graphs: Record<string, Fixture> = {
       edge('frame', 'fill', 'frame', 'out', 'frame'),
     ],
   },
-  static: artNet(CLASSIC, [ethernet()], {
-    useDhcp: false,
-    staticIp: '192.168.1.60', staticGateway: '192.168.1.1', staticSubnet: '255.255.255.0', staticDns: '192.168.1.1',
-  }),
+  // The address is the Board's: every network user on it shares one identity.
+  static: artNet(CLASSIC, [
+    node('board', 'Board', {
+      useDhcp: false,
+      staticIp: '192.168.1.60', staticGateway: '192.168.1.1', staticSubnet: '255.255.255.0', staticDns: '192.168.1.1',
+    }),
+    ethernet(),
+  ]),
   // A C3 has no HSPI, so the sketch takes the shared-SPI branch.
   c3: artNet(C3, [board('esp32-c3-devkitm-1'), c3Module()], {}, 2),
   // The same module sharing SPI with a colour panel: the panel names the

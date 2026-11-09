@@ -2311,26 +2311,26 @@
 <g id="lamp-6.94x6.94"><rect x="-2.78" y="-1.53" width="12.49" height="9.99" rx="5.00" fill-opacity="0.34"/><rect width="6.94" height="6.94" rx="1.53"/></g>
 <g id="lamp-8.25x8.25"><rect x="-3.30" y="-1.81" width="14.85" height="11.88" rx="5.94" fill-opacity="0.34"/><rect width="8.25" height="8.25" rx="1.81"/></g>
 </defs>
-<path d="M344,221.5 C389,221.5 399,324 444,324" fill="none" stroke="#c9ea47" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M344,221.5 C389,221.5 399,324 444,324" fill="none" stroke="#c9ea47" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M344,221.5 C389,221.5 399,324 444,324" fill="none" stroke="#c9ea47" stroke-width="1.2" stroke-linecap="round"/>
+<path d="M344,241.5 C389,241.5 399,324 444,324" fill="none" stroke="#c9ea47" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M344,241.5 C389,241.5 399,324 444,324" fill="none" stroke="#c9ea47" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M344,241.5 C389,241.5 399,324 444,324" fill="none" stroke="#c9ea47" stroke-width="1.2" stroke-linecap="round"/>
 <circle cx="444" cy="324" r="3" fill="#c9ea47"/>
 <path d="M684,324 C729,324 739,324 784,324" fill="none" stroke="#47c9ea" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
 <path d="M684,324 C729,324 739,324 784,324" fill="none" stroke="#47c9ea" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
 <path d="M684,324 C729,324 739,324 784,324" fill="none" stroke="#47c9ea" stroke-width="1.2" stroke-linecap="round"/>
 <circle cx="784" cy="324" r="3" fill="#47c9ea"/>
-<path d="M344,259 C542,259 586,384 784,384" fill="none" stroke="#c9ea47" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M344,259 C542,259 586,384 784,384" fill="none" stroke="#c9ea47" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M344,259 C542,259 586,384 784,384" fill="none" stroke="#c9ea47" stroke-width="1.2" stroke-linecap="round"/>
+<path d="M344,279 C542,279 586,384 784,384" fill="none" stroke="#c9ea47" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M344,279 C542,279 586,384 784,384" fill="none" stroke="#c9ea47" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M344,279 C542,279 586,384 784,384" fill="none" stroke="#c9ea47" stroke-width="1.2" stroke-linecap="round"/>
 <circle cx="784" cy="384" r="3" fill="#c9ea47"/>
 <path d="M1024,324 C1069,324 1079,384 1124,384" fill="none" stroke="#4747ea" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
 <path d="M1024,324 C1069,324 1079,384 1124,384" fill="none" stroke="#4747ea" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
 <path d="M1024,324 C1069,324 1079,384 1124,384" fill="none" stroke="#4747ea" stroke-width="1.2" stroke-linecap="round"/>
 <circle cx="1124" cy="384" r="3" fill="#4747ea"/>
-<g transform="translate(44,144)">
+<g transform="translate(44,164)">
 <defs><linearGradient id="tint-input" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2d342d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
-<rect x="0" y="0" width="300" height="300" rx="8" fill="#1f242b" filter="url(#shadow)"/>
-<rect x="0" y="0" width="300" height="300" rx="8" fill="url(#tint-input)"/>
+<rect x="0" y="0" width="300" height="277" rx="8" fill="#1f242b" filter="url(#shadow)"/>
+<rect x="0" y="0" width="300" height="277" rx="8" fill="url(#tint-input)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L292,0 Q300,0 300,8 L300,32 Z" fill="#c9ea47"/>
 <rect x="1" y="32" width="298" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Web Remote</text>
@@ -2350,8 +2350,7 @@
 <text x="282" y="206" text-anchor="middle" font-size="9" fill="#a0a0a0">▾</text>
 <line x1="8" y1="242.5" x2="292" y2="242.5" stroke="rgba(255,255,255,0.05)"/>
 <text x="8" y="263" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▸ PAGE</text>
-<text x="8" y="286" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▸ NETWORK</text>
-<rect x="0.5" y="0.5" width="299" height="299" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<rect x="0.5" y="0.5" width="299" height="276" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(444,44)">
 <defs><linearGradient id="tint-pattern" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#253e4a"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>

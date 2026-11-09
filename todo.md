@@ -91,21 +91,6 @@ Music Player seed.
 
 #### Inputs, hardware, graph and code
 
-- [ ] **Category: One network identity per board (High, M).** Hostname,
-  DHCP/static fields (6 properties) and Wi-Fi SSID/password are repeated on
-  DMXInput, DdpInput, WebRemoteInput, RTCInput (plus StreamOutput and Music
-  Player). Firmware uses only the first network user's settings, so the rest
-  are dead input, and the deploy check reads only the owner's SSID. Move
-  SSID/password/hostname/addressing to the Board (or a Wi-Fi entry in the
-  bench Network shelf) and drop the fields from every network node, which
-  also removes the "nodes disagree" warning. Evidence
-  `src/codegen/peripherals/networkCpp.ts:67`, `src/utils/validateGraph.ts:325`.
-  Still open after the 2026-11-10 pass: it touches six node types and their
-  bodies, `networkCredentials.ts` (keyed by node id), `networkSourceIn`,
-  `multiBoardValidation.ts`'s SSID check, the Board's clock-sync fields and
-  every bundled project with a network node, and needs the product call of
-  Board versus a bench Wi-Fi entry. The copy now says "network nodes"
-  rather than "DMX / RTC nodes".
 - [ ] **Category: Move DMX512 and DIN MIDI hardware to bench parts (Med, M).**
   Every other physical input is a bench part with auto-assigned pins, but
   DMX512 and DIN MIDI keep raw pin sliders and a user-picked UART on library
@@ -131,18 +116,6 @@ Music Player seed.
   retargeting, board links, templates, the deck) and 59 test files. The bench
   now adds a Button Bank with its first row on a pin
   (`firstButtonBankRow`), which the merged Button would reuse.
-- [ ] **RTC Clock: Allow a Clock node without a DS3231 (High, M).** RTCInput
-  is hidden from the library and the only shelf entries are two DS3231
-  modules, yet Compile Time, Manual and NTP need no part (and the Help
-  example uses Compile Time). A user wanting an NTP clock must add a module
-  they don't own. Apply the Audio pattern: a library "Clock" capability node
-  with the time-source choice, where a DS3231 on the bench is one provider.
-  Evidence `src/build/hardware.ts:28`, `src/components/Hardware/hardwarePartCatalog.ts:533`.
-  Still open: it is a new capability node (definition, resolver, evaluator
-  and emitter shared with RTCInput, Help, card) plus decisions the item does
-  not settle, such as whether the DS3231 part keeps its own outputs once a
-  Clock node reads it. A bench entry for a module-less clock would need a
-  part render that does not exist.
 - [ ] **RTC Clock: Handle daylight saving time (Med, M).** NTP time is UTC
   plus a fixed minute offset, so clocks and Schedule Triggers are an hour off
   for half the year in DST regions. Offer a region/time-zone picker that

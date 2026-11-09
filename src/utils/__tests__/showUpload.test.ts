@@ -456,12 +456,13 @@ describe('the performance player without a collection', () => {
   })
 
   // The stations are on the air: flash the player with its station list,
-  // stream over the player's own Wi-Fi, and send nothing to a card.
+  // stream over the Board's Wi-Fi under its name, and send nothing to a card.
   it('flashes an Internet Radio Music Player with its stations and no card files', () => {
     const player = {
       nodes: [
+        node('board-root', 'Board', { wifiHostname: 'den-radio' }),
         node('player', 'PatternMaster', {
-          musicSource: 'Internet Radio', wifiHostname: 'den-radio', stationPage: true,
+          musicSource: 'Internet Radio', stationPage: true,
           stations: [{ name: 'Jazz', url: 'http://jazz.example.com/live' }, { name: 'Bad', url: 'http://x.example.com/a b' }],
         }),
         ...graph.nodes.slice(1).filter((entry) => entry.data.nodeType !== 'SDCard'),

@@ -37,7 +37,7 @@ function node(id: string, nodeType: string, props: Record<string, unknown> = {})
 
 const oled = (id: string, props: Record<string, unknown> = {}) => node(id, 'InfoDisplay', props)
 const ds3231 = (props: Record<string, unknown> = {}) =>
-  node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 21, sclPin: 22, ...props })
+  node('rtc', 'RtcModule', { sdaPin: 21, sclPin: 22, ...props })
 
 describe('reading the transport off the catalogue', () => {
   /*

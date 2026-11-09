@@ -66,12 +66,12 @@ describe('node defaults', () => {
   })
 
   it('uses the exact board RTC defaults instead of saved cross-board pins', () => {
-    useNodeDefaults.getState().setDefault('RTCInput', { sdaPin: 30, sclPin: 31, startYear: 2030 })
+    useNodeDefaults.getState().setDefault('RtcModule', { sdaPin: 30, sclPin: 31, partId: 'jaycar-xc9044-rtc-module' })
     const xiao = boardProfileById('seeed-xiao-esp32s3')
-    expect(resolveDefaultProperties('RTCInput', { sdaPin: 21, sclPin: 22 }, xiao)).toMatchObject({
+    expect(resolveDefaultProperties('RtcModule', { sdaPin: 21, sclPin: 22 }, xiao)).toMatchObject({
       sdaPin: 5,
       sclPin: 6,
-      startYear: 2030,
+      partId: 'jaycar-xc9044-rtc-module',
     })
   })
 

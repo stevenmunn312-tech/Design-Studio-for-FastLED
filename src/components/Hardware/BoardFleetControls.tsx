@@ -1,11 +1,8 @@
-import { boardPartitionOf, useGraphStore } from '../../state/graphStore'
+import { useGraphStore } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { EMPTY_CREDENTIALS, useNetworkCredentialsStore } from '../../state/peripherals/networkCredentials'
-import { wiredNetworkIn } from '../../state/peripherals/ethernetModule'
 import { BOARD_LINK_CHANNEL_MAX, BOARD_LINK_CHANNEL_MIN, boardLinkSettings } from '../../state/peripherals/boardLinkKey'
-import WifiPasswordInput from '../Canvas/WifiPasswordInput'
 import ClampedNumberInput from '../Canvas/ClampedNumberInput'
-import { boardOrdinalLabel, defaultBoardHostname, useBoardNodes } from './boardSelection'
+import { boardOrdinalLabel, useBoardNodes } from './boardSelection'
 import { EXPERIMENTAL_LABEL, EXPERIMENTAL_NOTE } from '../../utils/experimentalFeatures'
 import styles from './BoardFleetControls.module.css'
 
@@ -21,14 +18,9 @@ export default function BoardFleetControls({ boardNodeId, onClose }: { boardNode
   const removeBoard = useGraphStore((state) => state.removeBoard)
   const setBoardClockSync = useGraphStore((state) => state.setBoardClockSync)
   const updateNodeProperty = useGraphStore((state) => state.updateNodeProperty)
-  // Wired through the board's own partition: an Ethernet module on another
-  // board does not carry this one's datagrams.
-  const wired = useGraphStore((state) => wiredNetworkIn(boardPartitionOf(state, boardNodeId).nodes) !== null)
   const setActiveBoardId = useUiStore((state) => state.setActiveBoardId)
   const requestConfirm = useUiStore((state) => state.requestConfirm)
   const setStatus = useUiStore((state) => state.setStatus)
-  const credentials = useNetworkCredentialsStore((state) => state.byNodeId[boardNodeId] ?? EMPTY_CREDENTIALS)
-  const setCredentials = useNetworkCredentialsStore((state) => state.setCredentials)
 
   const index = boards.findIndex((board) => board.id === boardNodeId)
   const board = index >= 0 ? boards[index] : undefined
@@ -36,7 +28,6 @@ export default function BoardFleetControls({ boardNodeId, onClose }: { boardNode
   const profileId = typeof props.profileId === 'string' && props.profileId ? props.profileId : undefined
   const clockSync = props.clockSync === 'leader' || props.clockSync === 'follower'
   const isPrimary = index <= 0
-  const hostname = typeof props.wifiHostname === 'string' ? props.wifiHostname : ''
   const label = boardOrdinalLabel(boards, boardNodeId)
   // The link channel is the project's, stored on the primary Board, so every
   // board's menu shows and sets the same one.
@@ -63,17 +54,9 @@ export default function BoardFleetControls({ boardNodeId, onClose }: { boardNode
     onClose()
   }
 
-  const setSync = (enabled: boolean) => {
-    setBoardClockSync(enabled)
-    if (!enabled) return
-    // A synced board announces itself; give each one its name the first time
-    // sync is asked for, so a project that never syncs stays free of them.
-    boards.forEach((entry, ordinal) => {
-      const current = (entry.data.properties as Record<string, unknown>).wifiHostname
-      if (typeof current === 'string' && current) return
-      updateNodeProperty(entry.id, 'wifiHostname', defaultBoardHostname(ordinal))
-    })
-  }
+  // Each board already announces a name of its own (`defaultBoardHostname`
+  // from its id), so turning sync on changes nothing but the role.
+  const setSync = (enabled: boolean) => setBoardClockSync(enabled)
 
   return (
     <div className={styles.fleet}>
@@ -109,48 +92,9 @@ export default function BoardFleetControls({ boardNodeId, onClose }: { boardNode
               : 'Each board runs its own clock. Turn this on to sync animations and shows over Wi-Fi.'}
           </div>
           {clockSync && (
-            <>
-              <div className={styles.field}>
-                <label className={styles.fieldLabel} htmlFor={`${boardNodeId}-hostname`}>Hostname</label>
-                <input
-                  id={`${boardNodeId}-hostname`}
-                  className={`nodrag ${styles.fieldInput}`}
-                  type="text"
-                  autoComplete="off"
-                  value={hostname}
-                  placeholder={defaultBoardHostname(Math.max(0, index))}
-                  onChange={(event) => updateNodeProperty(boardNodeId, 'wifiHostname', event.target.value)}
-                />
-              </div>
-              {wired ? (
-                <div className={styles.note}>This board reaches the network through its wired link, so it needs no Wi-Fi credentials.</div>
-              ) : (
-                <>
-                  <div className={styles.field}>
-                    <label className={styles.fieldLabel} htmlFor={`${boardNodeId}-ssid`}>Wi-Fi SSID</label>
-                    <input
-                      id={`${boardNodeId}-ssid`}
-                      className={`nodrag ${styles.fieldInput}`}
-                      type="text"
-                      autoComplete="off"
-                      value={credentials.ssid}
-                      onChange={(event) => setCredentials(boardNodeId, { ssid: event.target.value })}
-                      placeholder="network name"
-                    />
-                  </div>
-                  <div className={styles.field}>
-                    <label className={styles.fieldLabel} htmlFor={`${boardNodeId}-password`}>Wi-Fi password</label>
-                    <WifiPasswordInput
-                      id={`${boardNodeId}-password`}
-                      className={`nodrag ${styles.fieldInput}`}
-                      value={credentials.password}
-                      onChange={(password) => setCredentials(boardNodeId, { password })}
-                    />
-                  </div>
-                  <div className={styles.note}>Stored in this browser only — never saved in the project file or share links.</div>
-                </>
-              )}
-            </>
+            <div className={styles.note}>
+              Each board keeps time over its own connection, set in its Network settings above.
+            </div>
           )}
           {primary && (
             <>

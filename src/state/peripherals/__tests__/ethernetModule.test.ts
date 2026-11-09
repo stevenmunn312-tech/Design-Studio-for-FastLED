@@ -40,10 +40,16 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 const ethernet = (props: Record<string, unknown> = {}) => node('eth', 'EthernetModule', props)
 
 /** Art-Net channel 1 driving the brightness of a fill, into one LED output. */
-function artNetGraph(extra: StudioNode[] = [], dmxProps: Record<string, unknown> = {}) {
+/** `boardNetwork` is the Board's network identity, set on the Board in `extra` or on a new one. */
+function artNetGraph(extra: StudioNode[] = [], boardNetwork: Record<string, unknown> = {}) {
+  const hasBoard = extra.some((entry) => entry.data.nodeType === 'Board')
+  const withNetwork = (entry: StudioNode) => (entry.data.nodeType === 'Board'
+    ? { ...entry, data: { ...entry.data, properties: { ...entry.data.properties, ...boardNetwork } } }
+    : entry)
   const nodes = [
-    ...extra,
-    node('dmx', 'DMXInput', { inputMode: 'Art-Net', universe: 0, ...dmxProps }),
+    ...extra.map(withNetwork),
+    ...(!hasBoard && Object.keys(boardNetwork).length ? [node('board', 'Board', boardNetwork)] : []),
+    node('dmx', 'DMXInput', { inputMode: 'Art-Net', universe: 0 }),
     node('ch', 'DMXChannel', { channel: 1 }),
     node('fill', 'SolidColor', { r: 255, g: 120, b: 40 }),
     node('fade', 'BrightnessMod'),
@@ -183,7 +189,7 @@ describe('Ethernet validation', () => {
   })
 
   it('needs no Wi-Fi SSID when a cable carries the network', () => {
-    useNetworkCredentialsStore.getState().setCredentials('dmx', { ssid: '', password: '' })
+    useNetworkCredentialsStore.getState().setCredentials('board-root', { ssid: '', password: '' })
     const wifi = artNetGraph()
     const wired = artNetGraph([ethernet()])
     const ssidWarning = (warnings: string[]) => warnings.some((w) => w.includes('Wi-Fi SSID'))
@@ -272,8 +278,7 @@ describe('Ethernet built into the board', () => {
   })
 
   it('needs no Wi-Fi SSID for Art-Net or NTP', () => {
-    useNetworkCredentialsStore.getState().setCredentials('dmx', { ssid: '', password: '' })
-    useNetworkCredentialsStore.getState().setCredentials('rtc', { ssid: '', password: '' })
+    useNetworkCredentialsStore.getState().setCredentials('board-root', { ssid: '', password: '' })
     const { nodes, edges } = artNetGraph([wt32(), node('rtc', 'RTCInput', { timeSource: 'NTP', ntpServer: 'pool.ntp.org' })])
     const result = validateGraph(nodes, edges, WT32_FQBN)
     expect([...result.errors, ...result.warnings].filter((message) => message.includes('SSID'))).toEqual([])

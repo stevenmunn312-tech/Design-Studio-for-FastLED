@@ -100,7 +100,7 @@ describe('environment firmware', () => {
 describe('environment wiring and validation', () => {
   it('shares SDA/SCL, rejects duplicate or impossible addresses, and draws the exact pads', () => {
     const sensor = node('weather', 'EnvironmentInput', { sdaPin: 21, sclPin: 22 })
-    const rtc = node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 21, sclPin: 22 })
+    const rtc = node('rtc', 'RtcModule', { sdaPin: 21, sclPin: 22 })
     expect(collectPinUses([sensor]).map((use) => [use.propertyKey, use.pin]))
       .toEqual([['sdaPin', 21], ['sclPin', 22]])
     expect(findPinConflicts([sensor, rtc])).toEqual([])

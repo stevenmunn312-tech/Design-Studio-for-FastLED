@@ -1124,7 +1124,7 @@ Unless a future row says otherwise, treat the following as experimental:
   controller/desk software and version, and the universe and channels
   exercised, in addition to the six fields listed below.
 
-### RTC Clock: board × time-source capability matrix
+### Clock: board × time-source capability matrix
 
 `RTCInput`'s `timeSource` picks how firmware seeds its clock; which boards
 each source is allowed on is enforced in `validateGraph.ts`
@@ -1156,7 +1156,9 @@ Notes:
 - Compile Time and Manual need no network and are not blocked on any board.
   Both now have live display evidence, but neither has a long-duration drift
   measurement — see the note below.
-- DS3231 uses address `0x68` and the board core's default SDA/SCL pins. It has no
+- DS3231 is a module on the bench (the Hardware tab's Clocks shelf) that a
+  Clock set to DS3231 reads, at address `0x68` on the module's SDA/SCL pins,
+  which start as the board core's default pair. It has no
   third-party library dependency. Pin labels vary by board, and the current GPIO
   validator cannot infer those board-default aliases, so users must avoid
   assigning the same physical pins to a non-I²C role. Other RTC chips are not

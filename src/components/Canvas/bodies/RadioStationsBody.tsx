@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { rootGraphNodes, useGraphStore, useNodeProperties } from '../../../state/graphStore'
-import { nodeDisplayLabel } from '../../../state/nodeLibrary'
-import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../../state/peripherals/networkCredentials'
-import { wiredNetworkIn, wiredNetworkPhrase } from '../../../state/peripherals/ethernetModule'
+import { useNetworkCredentialsStore } from '../../../state/peripherals/networkCredentials'
+import { boardNetworkIdentity } from '../../../state/peripherals/boardNetwork'
 import { webRemoteMdnsName } from '../../../state/peripherals/webRemote'
-import { networkSourceIn } from '../../../codegen/peripherals/networkCpp'
+import { useNodeBoardId } from '../../Hardware/boardSelection'
+import BoardNetworkNote from './BoardNetworkNote'
 import {
   cleanRadioStationName, normalizeRadioStations, parseRadioPlaylist, radioAccessCodeProblem, radioStationPagePort,
   radioStationsM3u, radioStationUrlProblem, RADIO_CARD_PLAYLIST, RADIO_STATION_NAME_MAX, RADIO_STATIONS_MAX,
@@ -21,7 +21,8 @@ const PLAYLIST_FILE = RADIO_CARD_PLAYLIST.slice(1)
 /**
  * The Music Player's Internet Radio group: the ordered stations Next and
  * Previous walk, a station added by URL or from the radio-browser.info
- * directory, the Wi-Fi the board streams over and the phone station page.
+ * directory, whose network the board streams over (the Board's, set in its
+ * Network settings) and the phone station page.
  * Drawn as property rows inside the group, which the node shows only while
  * Music Source is Internet Radio; anything longer than a label is a tooltip.
  *
@@ -45,29 +46,15 @@ export default function RadioStationsBody({ nodeId, disabled = false }: { nodeId
   const search = useRef<AbortController | null>(null)
   useEffect(() => () => search.current?.abort(), [])
 
-  const credentials = useNetworkCredentialsStore((s) => s.byNodeId[nodeId] ?? EMPTY_CREDENTIALS)
+  // The access code is this player's; the Wi-Fi it streams over is the Board's.
+  const accessCode = useNetworkCredentialsStore((s) => s.byNodeId[nodeId]?.accessCode ?? '')
   const setCredentials = useNetworkCredentialsStore((s) => s.setCredentials)
-  const wired = useGraphStore((s) => {
-    const network = wiredNetworkIn(rootGraphNodes(s))
-    return network ? wiredNetworkPhrase(network) : null
-  })
-  // The board has one connection, and the first network user's settings are
-  // the ones it uses (networkSourceIn). Only when that is this player are its
-  // own name and Wi-Fi fields real.
-  // Strings, not an object: a fresh object per call would re-render forever.
-  const ownerLabel = useGraphStore((s) => {
-    const source = networkSourceIn(rootGraphNodes(s))
-    if (!source || source.id === nodeId) return null
-    return nodeDisplayLabel(String(source.data.nodeType), source.data.properties as Record<string, unknown>, String(source.data.label ?? source.data.nodeType))
-  })
-  const ownerHostname = useGraphStore((s) => {
-    const source = networkSourceIn(rootGraphNodes(s))
-    return source && source.id !== nodeId ? String((source.data.properties as Record<string, unknown>).wifiHostname ?? '') : null
-  })
+  // The page answers to the name of the board the player runs on.
+  const boardId = useNodeBoardId(nodeId)
+  const hostname = useGraphStore((s) => boardNetworkIdentity(rootGraphNodes(s).find((node) => node.id === boardId)).hostname)
   const hasWebRemote = useGraphStore((s) => rootGraphNodes(s).some((node) => node.data.nodeType === 'WebRemoteInput'))
   const port = radioStationPagePort(hasWebRemote)
-  const pageAddress = `http://${webRemoteMdnsName(ownerHostname ?? props.wifiHostname)}.local${port === 80 ? '' : `:${port}`}`
-  const accessCode = credentials.accessCode ?? ''
+  const pageAddress = `http://${webRemoteMdnsName(hostname)}.local${port === 80 ? '' : `:${port}`}`
   const codeProblem = radioAccessCodeProblem(accessCode)
 
   const save = (next: RadioStation[]) => updateNodeProperty(nodeId, 'stations', normalizeRadioStations(next))
@@ -204,33 +191,7 @@ export default function RadioStationsBody({ nodeId, disabled = false }: { nodeId
         </button>
       </div>
 
-      {wired || ownerLabel ? (
-        <div className={nodeStyles.propRow}
-          title={wired
-            ? `The board reaches the network through ${wired}; no Wi-Fi details are needed.`
-            : `The board has one network connection, and ${ownerLabel} holds its settings: the Wi-Fi name, password and network name there are the ones used.`}>
-          <span className={nodeStyles.propKey}>network</span>
-          <span className={styles.value}>{wired ? 'wired' : `via ${ownerLabel}`}</span>
-        </div>
-      ) : (
-        <>
-          <div className={nodeStyles.propRow} title="The name the board announces on the network, up to 32 letters, digits and hyphens.">
-            <span className={nodeStyles.propKey}>hostname</span>
-            <input className={input} type="text" aria-label="Hostname" maxLength={32}
-              value={String(props.wifiHostname ?? '')} onChange={(event) => updateNodeProperty(nodeId, 'wifiHostname', event.target.value)} />
-          </div>
-          <div className={nodeStyles.propRow} title="Stored in this browser only, never in the project file or share links.">
-            <span className={nodeStyles.propKey}>Wi-Fi SSID</span>
-            <input className={input} type="text" autoComplete="off" aria-label="Wi-Fi SSID"
-              value={credentials.ssid} onChange={(event) => setCredentials(nodeId, { ssid: event.target.value })} />
-          </div>
-          <div className={nodeStyles.propRow} title="Stored in this browser only, never in the project file or share links.">
-            <label className={nodeStyles.propKey} htmlFor={`${nodeId}-radio-password`}>Wi-Fi password</label>
-            <WifiPasswordInput id={`${nodeId}-radio-password`} className={input} value={credentials.password}
-              onChange={(password) => setCredentials(nodeId, { password })} />
-          </div>
-        </>
-      )}
+      <BoardNetworkNote nodeId={nodeId} />
 
       <div className={nodeStyles.propRow}
         title={`Serve a page at ${pageAddress} for choosing a station from a phone on the same network. Anyone on the network can choose; adding and removing needs the access code.`}>

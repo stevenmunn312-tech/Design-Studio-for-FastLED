@@ -270,7 +270,7 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
     keys: ['pinA', 'pinB', 'pinSW'],
     requests: [{ key: 'pinA' }, { key: 'pinB' }, { key: 'pinSW' }],
   },
-  RTCInput: {
+  RtcModule: {
     keys: ['sdaPin', 'sclPin'],
     fromProfile: (profile) => {
       const defaults = profileI2cDefault(profile)

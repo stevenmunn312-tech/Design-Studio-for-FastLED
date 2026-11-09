@@ -36,7 +36,7 @@ export const PART_RENDER_BY_NODE_TYPE: Record<string, PartRender> = {
     label: 'INMP441 microphone',
     src: partRenderSrc('inmp441-i2s-microphone') ?? microphoneRender,
   },
-  RTCInput: {
+  RtcModule: {
     label: 'DS3231 RTC module',
     src: partRenderSrc('ds3231-rtc-module') ?? '',
   },

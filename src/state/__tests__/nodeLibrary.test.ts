@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from '../../build/hardware'
+import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType, isHardwareOnlyNodeType } from '../../build/hardware'
 import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, propertyDescription, propertyLabel, PROPERTY_DESCRIPTIONS, PROPERTY_DESCRIPTIONS_OVERRIDES, PROPERTY_GROUPS, isPropertyEnabled, propertyOptions, isGpioPinProperty, gpioRequirementForProperty, nodeDisplayLabel, isInternalProperty, BUNDLED_TITLES, selectOptionLabel, propertyMetaFor } from '../nodeLibrary'
 import { MATH_FUNCTION_NAMES } from '../../nodes/shared/formulaLang'
 import { SHIM_NAMES } from '../../nodes/shared/fastledShims'
@@ -607,23 +607,28 @@ describe('nodeLibrary', () => {
     expect(musicLibrary?.defaultProperties).toEqual({})
   })
 
-  it('RTCInput exposes schedule-friendly clock fields plus firmware clock settings', () => {
+  it('RTCInput is the library Clock: schedule-friendly fields and a time-source choice', () => {
     const rtc = NODE_LIBRARY.find((n) => n.type === 'RTCInput')
     expect(rtc?.category).toBe('input')
+    expect(rtc?.label).toBe('Clock')
+    // A library node now, like Audio; the DS3231 is its provider on the bench.
+    expect(isHardwareLibraryHiddenNodeType('RTCInput')).toBe(false)
+    expect(isHardwareOnlyNodeType('RtcModule')).toBe(true)
+    const module = NODE_LIBRARY.find((n) => n.type === 'RtcModule')
+    expect(module?.inputs).toEqual([])
+    expect(module?.outputs).toEqual([])
+    expect(module?.defaultProperties).toMatchObject({ partId: 'ds3231-rtc-module', sdaPin: 21, sclPin: 22 })
     expect(rtc?.inputs).toEqual([])
     expect(rtc?.outputs.map((port) => port.id)).toEqual([
       // The same reading addressed to a simple panel, which takes one wire.
       'display',
       'dateTime', 'valid', 'synced', 'stale', 'hour', 'minute', 'second', 'weekday', 'day', 'month', 'year', 'secondsOfDay', 'weekend',
     ])
+    expect(rtc?.defaultProperties).not.toHaveProperty('sdaPin')
     expect(rtc?.defaultProperties).toMatchObject({
       timeSource: 'Compile Time',
-      sdaPin: 21,
-      sclPin: 22,
       ntpServer: 'pool.ntp.org',
       timezoneOffsetMinutes: 0,
-      wifiHostname: 'fastled-clock',
-      useDhcp: true,
       startYear: 2026,
       startMonth: 1,
       startDay: 1,
@@ -635,8 +640,8 @@ describe('nodeLibrary', () => {
     expect(isPropertyEnabled('RTCInput', 'startYear', { timeSource: 'Compile Time' })).toBe(false)
     expect(isPropertyEnabled('RTCInput', 'ntpServer', { timeSource: 'NTP' })).toBe(true)
     expect(isPropertyEnabled('RTCInput', 'ntpServer', { timeSource: 'Manual' })).toBe(false)
-    expect(isPropertyEnabled('RTCInput', 'sdaPin', { timeSource: 'DS3231' })).toBe(true)
-    expect(isPropertyEnabled('RTCInput', 'sdaPin', { timeSource: 'NTP' })).toBe(false)
+    expect(isGpioPinProperty('RTCInput', 'sdaPin')).toBe(false)
+    expect(isGpioPinProperty('RtcModule', 'sdaPin')).toBe(true)
     expect(propertyMeta('RTCInput', 'timeSource')).toEqual({
       control: 'select',
       options: ['Compile Time', 'Manual', 'NTP', 'DS3231'],

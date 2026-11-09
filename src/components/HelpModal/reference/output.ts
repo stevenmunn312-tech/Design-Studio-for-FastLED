@@ -300,7 +300,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
 
   InfoDisplay: {
     overview: [
-      'OLED Display is a small 128×64 monochrome screen that reports on one source. Wire a Display output in and the source picks the screen: RTC Clock gives a clock, Music Player a now-playing screen, Pattern Slideshow a pattern browser, Power Monitor a meter, and an LED output its status.',
+      'OLED Display is a small 128×64 monochrome screen that reports on one source. Wire a Display output in and the source picks the screen: Clock gives a clock, Music Player a now-playing screen, Pattern Slideshow a pattern browser, Power Monitor a meter, and an LED output its status.',
       'There is no layout to choose. With nothing wired it says it is unwired rather than sitting blank.',
       'Choose the exact SH1106 or SSD1306 module in Hardware. The SH1106 comes in SPI and I2C versions; the SSD1306 uses I2C.',
     ],
@@ -385,7 +385,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
   SegmentDisplay: {
     overview: [
       '7-Segment Display is a separate numeric readout: a TM1637 with four digits and a colon, or a MAX7219 with eight digits. Wire a Display output in and the source decides the digits.',
-      'RTC Clock shows the time, Music Player the elapsed time, Pattern Slideshow the pattern number, an LED output its brightness in percent, and Power Monitor the amps (or amps and watts on eight digits). Unwired, it shows dashes.',
+      'Clock shows the time, Music Player the elapsed time, Pattern Slideshow the pattern number, an LED output its brightness in percent, and Power Monitor the amps (or amps and watts on eight digits). Unwired, it shows dashes.',
     ],
     steps: [
       'Add the module from Displays on the Hardware shelf and choose the TM1637 or the MAX7219.',
@@ -400,13 +400,14 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       featured: 'SegmentDisplay',
       title: 'A desk clock with a light show',
       nodes: {
+        ds3231: ['RtcModule'],
         rtc: ['RTCInput', { timeSource: 'DS3231' }],
         digits: ['SegmentDisplay', { showColon: true, brightness: 5 }],
         lamp: ['Plasma', { palette: 'sunset', speed: 0.25 }],
       },
       wires: ['rtc.display > digits.display'],
       output: RING(24),
-      explanation: 'RTC Clock reads a DS3231, and its Display output gives the 7-Segment Display the time over one wire, colon blinking each second. The LED ring glows with a slow sunset plasma beside it.',
+      explanation: 'Clock reads a DS3231, and its Display output gives the 7-Segment Display the time over one wire, colon blinking each second. The LED ring glows with a slow sunset plasma beside it.',
       preview: 'The {output} shows a warm sunset plasma; the 7-Segment Display node shows the time, such as 10:04.',
     }),
   },

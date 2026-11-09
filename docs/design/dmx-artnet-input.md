@@ -114,26 +114,31 @@ What deliberately **differs**:
 `wifiSsid` / `wifiPassword` began as ordinary node properties, which put them in
 project files, share links, and the helper-backed `Projects/` JSON mirror in
 plain text. `#127` moved them to `src/state/peripherals/networkCredentials.ts` — a
-browser-local store keyed by node id, like a saved Wi-Fi password on a phone.
-Codegen and `validateGraph` look them up by node id; `graphStore` migrates any
-previously-saved values across on load and strips them from properties.
+browser-local store, like a saved Wi-Fi password on a phone. Since 2026-11-10
+they are the Board's, keyed by the Board node's id; codegen and `validateGraph`
+read them through `boardNetworkCredentialsIn` (`state/peripherals/boardNetwork.ts`).
 
 Generated firmware still embeds the plaintext credential, because there is no
 other way for a sketch to join a network. That is a property of exporting
 firmware, and the export/upload trust warning already covers "this code is going
 to a device." What changed is that sharing a *graph* no longer shares a password.
 
-The rest of the network config stays on the node: `wifiHostname`, `useDhcp`, and
-`staticIp` / `staticGateway` / `staticSubnet` / `staticDns` (enabled only when
-`useDhcp` is off), all gated by `isPropertyEnabled` so DMX512 mode doesn't show
-Wi-Fi fields and vice versa.
+The rest of the network identity is the Board's too, in its Network group:
+`wifiHostname` (empty is `fastled-board`, `fastled-board-2` and so on, from the
+board's id), `useDhcp`, and `staticIp` / `staticGateway` / `staticSubnet` /
+`staticDns` (enabled only when `useDhcp` is off). The DMX node keeps only its
+protocol settings (mode, universe, UDP port, DMX512 wiring) and its body names
+the network it joins, with a button to the Board's settings.
 
-**One sketch, one network connection.** `_netEnsureConnected()` is emitted
-once and shared by every Art-Net `DMXInput` and every NTP `RTCInput`; the first
-node's settings win. `validateGraph` warns when network-enabled nodes disagree
-rather than silently picking one. The connection is Wi-Fi unless an Ethernet
-module is on the bench, in which case it is the cable and no Wi-Fi credentials
-are asked for; see [wired Ethernet](wired-ethernet.md).
+**One board, one network identity.** `_netEnsureConnected()` is emitted once
+and shared by every network user on the board (Art-Net, sACN, DDP, the Web
+Remote, NTP, Frame Stream, internet radio and clock sync), and it joins as the
+Board. Each board of a multi-board project compiles its own partition, so each
+joins as itself. The node-by-node copies these settings once had, and the
+"network nodes disagree" warning they needed, are gone. The connection is
+Wi-Fi unless the board has a wired link, in which case it is the cable and no
+Wi-Fi credentials are asked for; the addressing still applies to the cable.
+See [wired Ethernet](wired-ethernet.md).
 
 ## The transceiver
 

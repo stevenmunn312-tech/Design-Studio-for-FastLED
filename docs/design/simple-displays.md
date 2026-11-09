@@ -43,7 +43,7 @@ property. What is plugged in decides what it shows.**
 | Source | The panel becomes |
 | --- | --- |
 | `PowerMonitorInput` (Power Monitor) | amps across the centre colon on four digits (`00:34` = 0.34 A); amps then watts on eight digits; labelled volts, amps and watts on OLED/TFT panels |
-| `RTCInput` (RTC Clock) | a clock |
+| `RTCInput` (Clock) | a clock |
 | `PatternMaster` (Music Player) | transport: track, position, play state, volume |
 | `PatternSlideshow` | pattern selection: which pattern, where in the collection |
 

@@ -248,9 +248,13 @@ describe('board links — the partition', () => {
   })
 
   it('sends a linked clock whole, as one datetime', () => {
-    const nodes = [...base, node('rtc', 'RTCInput')]
+    // A Clock reading a DS3231 runs on the board that has the module.
+    const nodes = [...base, node('ds3231', 'RtcModule'), node('rtc', 'RTCInput', { timeSource: 'DS3231' })]
     const edges = [...baseEdges, edge('rtc', 'display', 'panel', 'display')]
     expect(boardLinkSchema(nodes, edges).slots[0].fields).toEqual([{ id: 'dateTime', kind: 'datetime', index: 0 }])
+    // A clock with no part to read is computed where it is shown: no link.
+    const local = [...base, node('rtc', 'RTCInput', { timeSource: 'Compile Time' })]
+    expect(boardLinkSchema(local, edges).slots).toEqual([])
   })
 
   it('refuses audio across boards and names the type', () => {

@@ -341,7 +341,6 @@ const classicNodes = [
   node('fill', 'SolidColor'),
   node('rtc', 'RTCInput', {
     timeSource: 'Manual', startYear: 2026, startMonth: 9, startDay: 9, startHour: 20, startMinute: 30,
-    sdaPin: 21, sclPin: 22,
   }),
   panel('classic-tft', {
     partId: 'st7789-tft-240x240', sckPin: 18, mosiPin: 23, csPin: 19, dcPin: 17, resetPin: 16, backlightPin: 13,

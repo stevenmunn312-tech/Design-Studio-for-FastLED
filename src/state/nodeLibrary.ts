@@ -126,6 +126,7 @@ import { BAND_HZ, BAND_PRESETS } from '../audio/frequencyBand'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM } from '../audio/beatPhase'
 import { FRAME_RATE } from '../build/controllerSettings'
 import { DMX_INPUT_MODES, dmxUsesNetwork } from './peripherals/dmxTransceiver'
+import { BOARD_NETWORK_KEYS, isBoardStaticAddressKey } from './peripherals/boardNetwork'
 import { ADALIGHT_BAUDS, STREAM_PROTOCOLS, streamUsesNetwork } from '../nodes/output/frameStream'
 import { MIDI_SOURCES, midiUsesUart } from './peripherals/midiSource'
 import { ENCODER_LEVEL_MAX_CLICKS, encoderUsesPullup } from './peripherals/encoder'
@@ -714,8 +715,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   RTCInput: {
     timeSource: { control: 'select', options: ['Compile Time', 'Manual', 'NTP', 'DS3231'] },
-    sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
-    sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     timezoneOffsetMinutes: { control: 'slider', min: -720, max: 840, step: 15 },
     startMonth: { control: 'slider', min: 1, max: 12, step: 1 },
     startDay: { control: 'slider', min: 1, max: 31, step: 1 },
@@ -1877,7 +1876,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   energy: 'How strongly the audio changes the picture: 0 = calm base motion, 1 = fully reactive.',
   timezoneOffsetMinutes: 'Fixed local offset from UTC for NTP-synced firmware time. Preview still reads the browser clock.',
   dmxPort: 'ESP32 UART used by esp_dmx for DMX512 receive.',
-  requireSync: 'Keeps the schedule inactive until the upstream RTC Clock reports a real NTP sync.',
+  requireSync: 'Keeps the schedule inactive until the upstream Clock reports a real NTP sync.',
   dateTimeFormat: 'Which part of the clock reading the text shows. An invalid clock shows dashes, never a plausible time.',
   decimals: 'Digits after the point. Rounding is half away from zero, matching the generated firmware exactly.',
   padWidth: 'Minimum integer digits, zero-padded on the left, so a changing value does not shift on the display.',
@@ -1971,7 +1970,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     musicSource: 'Where the board gets its music. SD Card plays the MP3s on the card. Bluetooth makes the board a speaker your phone pairs with: the phone chooses the music, and the board plays it through the amplifier and reacts to it; Previous, Next and Play / Pause go to the phone, and its title and artist reach the display. Internet Radio streams the stations listed on the node over Wi-Fi; Next and Previous change station, and the display shows the station as the album and what is on air as the title and artist. Bluetooth needs a classic ESP32 (the S3, C3, C6 and H2 have Bluetooth Low Energy only), Internet Radio any ESP32 with Wi-Fi, and both an I2S amplifier or DAC. Both are experimental. The preview plays your local tracks for SD Card and Bluetooth, and the stations for Internet Radio, through the upload helper.',
     bluetoothName: 'The name your phone lists when it looks for Bluetooth speakers. Letters, digits, spaces and - _ . only, up to 32 characters.',
     stations: 'The internet radio stations the board plays, in order, each a name and a stream URL. Add them by URL or by searching the radio-browser.info directory. A station that does not start within 12 seconds, or keeps dropping, is skipped. A stations.m3u on the SD card, when there is one, replaces this list at start-up, so stations can change without a new build.',
-    wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens, when the Music Player holds the board’s Wi-Fi settings. When another network node (a Web Remote, Art-Net or NTP) comes first, the board uses that node’s name and Wi-Fi instead.',
     stationPage: 'Serve a small web page on the board for choosing a station from a phone on the same Wi-Fi, at the board’s name followed by .local. With an access code set, the page can also add and remove stations, which the board keeps through restarts.',
     seed: 'Controls random pattern, hold-time, transition, and particle choices. Zero runs freely, differently after each power-up; a nonzero value makes the sequence repeatable for the same inputs, in preview and on the board. The two draw from different generators, so the device repeats its own sequence rather than the preview’s.',
   },
@@ -2215,9 +2213,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     sclPin: 'I2C clock pin wired to the breakout SCK pad and shared with every other I2C part.',
   },
   RTCInput: {
-    timeSource: 'Compile Time seeds from the sketch build stamp; Manual uses the fields below; NTP syncs over Wi-Fi; DS3231 reads a battery-backed clock using the SDA/SCL properties initialized from the selected board.',
-    sdaPin: 'DS3231 I2C data pin. Studio fills this from the selected physical board’s Arduino Wire default.',
-    sclPin: 'DS3231 I2C clock pin. Studio fills this from the selected physical board’s Arduino Wire default.',
+    timeSource: 'Compile Time seeds from the sketch build stamp; Manual uses the fields below; NTP syncs over the Board’s network; DS3231 reads the battery-backed DS3231 module on the bench, which the Hardware tab adds.',
     startYear: 'Manual clock start year. Only used when Time source is Manual.',
     startMonth: 'Manual clock start month (1-12). Only used when Time source is Manual.',
     startDay: 'Manual clock start day of month. Only used when Time source is Manual.',
@@ -2225,12 +2221,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     startMinute: 'Manual clock start minute. Only used when Time source is Manual.',
     startSecond: 'Manual clock start second. Only used when Time source is Manual.',
     ntpServer: 'Time server to sync from over the network, for example pool.ntp.org.',
-    wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens.',
-    useDhcp: 'Lets the router hand out an address. Turn off to type a fixed IP below.',
-    staticIp: 'Fixed IPv4 address for the board, for example 192.168.1.50. Used only when DHCP is off.',
-    staticGateway: 'Router address on the same network, for example 192.168.1.1.',
-    staticSubnet: 'Network mask, almost always 255.255.255.0.',
-    staticDns: 'Name server address; leave empty to use the gateway.',
   },
   PaletteFromImage: {
     count: 'Number of representative colour anchors extracted before interpolation to 16 FastLED stops.',
@@ -2590,12 +2580,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     inputMode: 'Art-Net or sACN (E1.31) receives over the network; DMX512 reads a wired DMX line through an RS-485 transceiver.',
     universe: 'Universe this node listens to, 0 to 32767. Must match the sender. sACN numbers universes from 1, so 0 listens to 1 there, and joins the universe\'s multicast group.',
     udpPort: 'UDP port the local helper and the firmware listen on. Switching protocol moves it to that protocol\'s port (6454 Art-Net, 5568 sACN) unless you set another.',
-    wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens.',
-    useDhcp: 'Lets the router hand out an address. Turn off to type a fixed IP below.',
-    staticIp: 'Fixed IPv4 address for the board, for example 192.168.1.50. Used only when DHCP is off.',
-    staticGateway: 'Router address on the same network, for example 192.168.1.1.',
-    staticSubnet: 'Network mask, almost always 255.255.255.0.',
-    staticDns: 'Name server address; leave empty to use the gateway.',
     dmxTxPin: 'GPIO to the transceiver DI pin. Receive-only sketches still need it assigned.',
     dmxRxPin: 'GPIO from the transceiver RO pin, where DMX data arrives.',
     dmxEnablePin: 'GPIO to the transceiver DE/RE pins; held low so the board only listens.',
@@ -2603,21 +2587,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   WebRemoteInput: {
     controls: 'The remote\'s controls, each with a name and a type, edited in the body. Every control becomes an output port.',
     title: 'Heading of the phone page and its browser tab.',
-    wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens. The page is also at this name followed by .local.',
-    useDhcp: 'Lets the router hand out an address. Turn off to type a fixed IP below.',
-    staticIp: 'Fixed IPv4 address for the board, for example 192.168.1.50. Used only when DHCP is off.',
-    staticGateway: 'Router address on the same network, for example 192.168.1.1.',
-    staticSubnet: 'Network mask, almost always 255.255.255.0.',
-    staticDns: 'Name server address; leave empty to use the gateway.',
   },
   DdpInput: {
     udpPort: 'UDP port the local helper and the firmware listen on for DDP packets. 4048 is the protocol\'s port.',
-    wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens.',
-    useDhcp: 'Lets the router hand out an address. Turn off to type a fixed IP below.',
-    staticIp: 'Fixed IPv4 address for the board, for example 192.168.1.50. Used only when DHCP is off.',
-    staticGateway: 'Router address on the same network, for example 192.168.1.1.',
-    staticSubnet: 'Network mask, almost always 255.255.255.0.',
-    staticDns: 'Name server address; leave empty to use the gateway.',
   },
   MidiInput: {
     midiSource: 'Web MIDI reads the browser\'s controller in preview only; DIN (UART) reads a MIDI jack wired to a UART on the board, so the sketch follows it too.',
@@ -3307,6 +3279,17 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     ledDriver: 'Which FastLED driver sends the LEDs. Auto keeps FastLED\'s own choice. A parallel driver sends many outputs at once (LCD_CAM on the ESP32-S3, I2S on the classic ESP32); every output it sends must then share one chipset timing, and it takes a peripheral a HUB75 panel or I2S audio may need. Experimental: built from FastLED\'s documentation and not yet bench-tested. Offered only for the boards that have another driver.',
     milliamps: 'Current the supply can give the LEDs. FastLED dims automatically to stay under it.',
     profileId: 'The exact controller board the sketch is built for, chosen from the hardware shelf. Empty means not chosen yet.',
+    wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens. Every network feature on this board uses it: the Web Remote and the radio station page are at this name followed by .local. Empty uses fastled-board (fastled-board-2 and so on for further boards).',
+    useDhcp: 'Lets the router hand out the board\'s address. Turn off to type a fixed IP below. Applies over Wi-Fi and over a wired Ethernet link alike.',
+    staticIp: 'Fixed IPv4 address for the board, for example 192.168.1.50. Used only when DHCP is off.',
+    staticGateway: 'Router address on the same network, for example 192.168.1.1.',
+    staticSubnet: 'Network mask, almost always 255.255.255.0.',
+    staticDns: 'Name server address; leave empty to use the gateway.',
+  },
+  RtcModule: {
+    partId: 'Which DS3231 breakout this is. Both answer at I2C address 0x68.',
+    sdaPin: 'I2C data pin wired to the module’s SDA pad, shared with every other I2C part. Studio fills it from the selected board’s Wire default.',
+    sclPin: 'I2C clock pin wired to the module’s SCL pad, shared with every other I2C part. Studio fills it from the selected board’s Wire default.',
   },
   MatrixOutput: {
     enabled: 'Blackout for this output. Off shows nothing; a wired Enabled input overrides it.',
@@ -3388,12 +3371,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     host: 'IPv4 address of the device receiving DDP, for example 192.168.1.50.',
     port: 'UDP port the receiver listens on. DDP\'s port is 4048.',
     baud: 'Serial speed for Adalight. The receiver must be set to the same; 115200 suits a few hundred LEDs, faster for more.',
-    wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens.',
-    useDhcp: 'Lets the router hand out an address. Turn off to type a fixed IP below.',
-    staticIp: 'Fixed IPv4 address for the board, for example 192.168.1.50. Used only when DHCP is off.',
-    staticGateway: 'Router address on the same network, for example 192.168.1.1.',
-    staticSubnet: 'Network mask, almost always 255.255.255.0.',
-    staticDns: 'Name server address; leave empty to use the gateway.',
   },
   SegmentDisplay: {
     enabled: 'Off blanks the digits without removing the module from the build. A wired Enabled input overrides it.',
@@ -3519,7 +3496,6 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   PatternMaster: {
     musicSource: 'Music Source',
     bluetoothName: 'Bluetooth Name',
-    wifiHostname: 'Hostname',
     stationPage: 'Phone Station Page',
     stations: 'Stations',
     volume: 'Volume',
@@ -3893,11 +3869,21 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     colorMode: 'color mode',
   },
   Animartrix: { audioAmount: 'audio amount' },
+  RtcModule: {
+    sdaPin: 'SDA pin',
+    sclPin: 'SCL pin',
+  },
   Board: {
     powerLimit: 'power cap',
     frameRate: 'frame rate',
     ledDriver: 'LED driver',
     reportTelemetry: 'telemetry',
+    wifiHostname: 'hostname',
+    useDhcp: 'use DHCP',
+    staticIp: 'static IP',
+    staticGateway: 'gateway',
+    staticSubnet: 'subnet mask',
+    staticDns: 'DNS',
   },
   SliceTiling: {
     bits: 'pattern A',
@@ -4004,12 +3990,6 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   DMXInput: {
     inputMode: 'firmware source',
     udpPort: 'UDP port',
-    wifiHostname: 'hostname',
-    useDhcp: 'use DHCP',
-    staticIp: 'static IP',
-    staticGateway: 'gateway',
-    staticSubnet: 'subnet mask',
-    staticDns: 'DNS',
     dmxPort: 'UART port',
     dmxTxPin: 'TX pin',
     dmxRxPin: 'RX pin',
@@ -4017,37 +3997,17 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   WebRemoteInput: {
     title: 'page title',
-    wifiHostname: 'hostname',
-    useDhcp: 'use DHCP',
-    staticIp: 'static IP',
-    staticGateway: 'gateway',
-    staticSubnet: 'subnet mask',
-    staticDns: 'DNS',
   },
   DdpInput: {
     udpPort: 'UDP port',
-    wifiHostname: 'hostname',
-    useDhcp: 'use DHCP',
-    staticIp: 'static IP',
-    staticGateway: 'gateway',
-    staticSubnet: 'subnet mask',
-    staticDns: 'DNS',
   },
   DMXChannel: {
     activeThreshold: 'active >=',
   },
   RTCInput: {
     timeSource: 'time source',
-    sdaPin: 'SDA pin',
-    sclPin: 'SCL pin',
     ntpServer: 'NTP server',
     timezoneOffsetMinutes: 'UTC offset (min)',
-    wifiHostname: 'hostname',
-    useDhcp: 'use DHCP',
-    staticIp: 'static IP',
-    staticGateway: 'gateway',
-    staticSubnet: 'subnet mask',
-    staticDns: 'DNS',
     startYear: 'year',
     startMonth: 'month',
     startDay: 'day',
@@ -4133,12 +4093,6 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   StreamOutput: {
     streamProtocol: 'protocol',
-    wifiHostname: 'hostname',
-    useDhcp: 'use DHCP',
-    staticIp: 'static IP',
-    staticGateway: 'gateway',
-    staticSubnet: 'subnet mask',
-    staticDns: 'DNS',
   },
   PowerSwitchOutput: {
     loadType: 'load',
@@ -4182,7 +4136,7 @@ const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
   'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput', 'WebRemoteInput',
-  'MidiInput', 'SDCard', 'EthernetModule', 'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
+  'MidiInput', 'SDCard', 'EthernetModule', 'RtcModule', 'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
 ])
 
 /**
@@ -4293,27 +4247,28 @@ export interface PropertyGroup {
  * another variant is chosen.
  */
 export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
+  // The board's one network identity, which every network node on it shares.
+  // Its Wi-Fi name and password sit beside these in the Board's settings, kept
+  // on this machine rather than as properties (networkCredentials.ts).
+  Board: [
+    { key: 'network', label: 'Network', keys: [...BOARD_NETWORK_KEYS] },
+  ],
   DMXInput: [
     { key: 'source', label: 'Firmware Source', keys: ['inputMode', 'universe', 'udpPort'] },
-    { key: 'wifi', label: 'Network', keys: ['wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
     { key: 'dmx512', label: 'DMX512 Wiring', keys: ['dmxPort', 'dmxTxPin', 'dmxRxPin', 'dmxEnablePin'] },
   ],
   DdpInput: [
     { key: 'source', label: 'Listener', keys: ['udpPort'] },
-    { key: 'wifi', label: 'Network', keys: ['wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
   ],
   WebRemoteInput: [
     { key: 'page', label: 'Page', keys: ['title'] },
-    { key: 'wifi', label: 'Network', keys: ['wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
   ],
   StreamOutput: [
     { key: 'target', label: 'Target', keys: ['streamProtocol', 'host', 'port', 'baud'] },
-    { key: 'wifi', label: 'Network', keys: ['wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
   ],
   RTCInput: [
     { key: 'source', label: 'Clock Source', keys: ['timeSource'] },
-    { key: 'wiring', label: 'DS3231 Wiring', keys: ['sdaPin', 'sclPin'] },
-    { key: 'network', label: 'NTP Network', keys: ['ntpServer', 'timezoneOffsetMinutes', 'wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
+    { key: 'network', label: 'NTP', keys: ['ntpServer', 'timezoneOffsetMinutes'] },
     { key: 'manualStart', label: 'Manual Start', keys: ['startYear', 'startMonth', 'startDay', 'startHour', 'startMinute', 'startSecond'] },
   ],
   // Enable and Require Synced Time decide whether the schedule runs at all,
@@ -4477,7 +4432,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'playback', label: 'Playback', keys: ['musicSource', 'bluetoothName', 'volume', 'order', 'sequence'] },
     // Drawn by RadioStationsBody, always present and disabled unless Music
     // Source is Internet Radio, so the stations sit where the source is chosen.
-    { key: 'radio', label: 'Internet Radio', keys: ['stations', 'wifiHostname', 'stationPage'] },
+    { key: 'radio', label: 'Internet Radio', keys: ['stations', 'stationPage'] },
     { key: 'timing', label: 'Timing', keys: ['beatTransitions', 'minTime', 'maxTime', 'transitionSec', 'energyPacing', 'dwellsAndBursts'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
   ],
@@ -4702,7 +4657,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   DFPlayerOutput: new Set(['uartRxPin', 'uartTxPin', 'busyPin']),
   PwmDriverOutput: new Set(['sdaPin', 'sclPin']),
   DarlingtonDriverOutput: new Set(darlingtonPinKeys()),
-  RTCInput: new Set(['sdaPin', 'sclPin']),
+  RtcModule: new Set(['sdaPin', 'sclPin']),
   SegmentDisplay: new Set(['clkPin', 'dioPin', 'dinPin', 'csPin']),
   InfoDisplay: new Set(Object.values(OLED_TRANSPORT_PINS).flat()),
   // The panel node owns every pin; `Display` (the document) has none.
@@ -4743,7 +4698,7 @@ export function gpioRequirementForProperty(
   // below, which returns no GPIO capability for every other distance pin.
   if (nodeType === 'DistanceInput' && key === 'xshutPin') return { capability: 'digitalOutput', pullup: false }
   // An I2C bus pair is not an ordinary digital-output assignment.
-  if (nodeType === 'RTCInput' || nodeType === 'PowerMonitorInput' || nodeType === 'EnvironmentInput'
+  if (nodeType === 'RtcModule' || nodeType === 'PowerMonitorInput' || nodeType === 'EnvironmentInput'
     || nodeType === 'MotionVectorInput' || nodeType === 'TouchPadInput' || nodeType === 'PwmDriverOutput'
     || (nodeType === 'LightInput' && lightSensorTransport(props.partId) === 'i2c')
     || (nodeType === 'DistanceInput' && distanceSensorTransport(props.partId) === 'i2c')) return null
@@ -5258,7 +5213,7 @@ const SLIDESHOW_REACTIVE_TIMING = new Set(['beatTransitions', 'energyPacing', 'd
 const SHOWS_DISABLED_PROPERTIES = new Set(['PatternSlideshow'])
 
 /** The Music Player's Internet Radio group, which its body draws. */
-export const RADIO_GROUP_KEYS: ReadonlySet<string> = new Set(['stations', 'wifiHostname', 'stationPage'])
+export const RADIO_GROUP_KEYS: ReadonlySet<string> = new Set(['stations', 'stationPage'])
 
 export function showsDisabledProperties(nodeType: string): boolean {
   return SHOWS_DISABLED_PROPERTIES.has(nodeType)
@@ -5312,41 +5267,25 @@ export function isPropertyEnabled(
   if (nodeType === 'TransportDisplay' && TFT_PIN_PROPERTIES.has(key)) {
     return transportDisplayPinKeysForProps(properties).includes(key)
   }
-  if (nodeType === 'DdpInput' || nodeType === 'WebRemoteInput') {
-    if (key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') {
-      return properties.useDhcp === false
-    }
-  }
+  // The board's one network identity: a static address only counts with DHCP off.
+  if (nodeType === 'Board' && isBoardStaticAddressKey(key)) return properties.useDhcp === false
   if (nodeType === 'MidiInput' && (key === 'midiUart' || key === 'midiRxPin')) {
     return midiUsesUart(properties)
   }
   if (nodeType === 'StreamOutput') {
     const network = streamUsesNetwork(properties)
-    if (key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') {
-      return network && properties.useDhcp === false
-    }
-    if (key === 'host' || key === 'port' || key === 'wifiHostname' || key === 'useDhcp') return network
+    if (key === 'host' || key === 'port') return network
     if (key === 'baud') return !network
   }
   if (nodeType === 'DMXInput') {
     const network = dmxUsesNetwork(properties)
-    if (key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') {
-      return network && properties.useDhcp === false
-    }
-    if (key === 'wifiHostname' || key === 'useDhcp' || key === 'udpPort') {
-      return network
-    }
+    if (key === 'udpPort') return network
     if (key === 'dmxPort' || key === 'dmxTxPin' || key === 'dmxRxPin' || key === 'dmxEnablePin') {
       return !network
     }
   }
   if (nodeType === 'RTCInput') {
-    if (key === 'sdaPin' || key === 'sclPin') return String(properties.timeSource ?? 'Compile Time') === 'DS3231'
-    if (key === 'ntpServer' || key === 'timezoneOffsetMinutes' || key === 'wifiHostname' || key === 'useDhcp' || key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') {
-      if (String(properties.timeSource ?? 'Compile Time') !== 'NTP') return false
-      if (key === 'staticIp' || key === 'staticGateway' || key === 'staticSubnet' || key === 'staticDns') return properties.useDhcp === false
-      return true
-    }
+    if (key === 'ntpServer' || key === 'timezoneOffsetMinutes') return String(properties.timeSource ?? 'Compile Time') === 'NTP'
     if (key.startsWith('start')) return String(properties.timeSource ?? 'Compile Time') === 'Manual'
   }
   if (nodeType === 'ScheduleTrigger') {

@@ -40,7 +40,8 @@ import { webRemotePageHtml } from '../../state/peripherals/webRemotePage'
 import { DISPLAY_TEXT_ENTRY_MAX_BYTES, displayPickerTone } from '../../state/displays/displayRegistry'
 import type { StudioNode } from '../../state/graphStore'
 import type { ControlInputEmission } from '../controlInputCpp'
-import { networkSketchCpp, networkSourceIn } from './networkCpp'
+import { networkSketchCpp } from './networkCpp'
+import { boardNetworkIdentity, networkBoardIn } from '../../state/peripherals/boardNetwork'
 
 /** How long a held Button may go unrepeated before it reads as released. */
 export const WEB_REMOTE_HOLD_TIMEOUT_MS = 1500
@@ -337,15 +338,15 @@ export function webRemoteControlEmission(
   properties: Record<string, unknown>,
   nodes: readonly StudioNode[],
 ): ControlInputEmission {
-  // The remote is itself a network user, so the source is never missing.
-  const source = networkSourceIn(nodes)
-  const network = source ? networkSketchCpp(nodes, source) : null
-  const firmware = webRemoteFirmware(id, properties, (source?.data.properties as Record<string, unknown> | undefined)?.wifiHostname)
+  // The remote is itself a network user; the connection is the Board's, and
+  // so is the name the page answers to.
+  const network = networkSketchCpp(nodes)
+  const firmware = webRemoteFirmware(id, properties, boardNetworkIdentity(networkBoardIn(nodes)).hostname)
   return {
-    setup: [...(network?.setup ?? []), ...firmware.setup],
+    setup: [...network.setup, ...firmware.setup],
     loop: firmware.loop,
     outputs: firmware.outputs,
-    includes: [...(network ? [network.include] : []), firmware.include],
-    helpers: [...(network ? [network.bootstrap] : []), firmware.globals],
+    includes: [network.include, firmware.include],
+    helpers: [network.bootstrap, firmware.globals],
   }
 }

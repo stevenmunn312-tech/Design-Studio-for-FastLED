@@ -14,7 +14,7 @@ const node = (id: string, nodeType: string, properties: Record<string, unknown>)
 describe('hardware I2C assignment', () => {
   it('allows another I2C device when every general-purpose pin is already occupied', () => {
     const nodes = [
-      node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 8, sclPin: 9 }),
+      node('rtc', 'RtcModule', { sdaPin: 8, sclPin: 9 }),
       ...(board.pinSafety?.safeGeneralPurpose ?? []).filter((pin) => pin !== 8 && pin !== 9)
         .map((pin) => node(`button-${pin}`, 'ButtonInput', { pin })),
     ]

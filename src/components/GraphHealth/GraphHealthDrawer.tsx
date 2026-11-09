@@ -34,6 +34,7 @@ import {
 } from '../../utils/validateGraph'
 import { boardFqbnTargets, buildBoardDiagnostics } from '../../utils/multiBoardValidation'
 import { LED_OUTPUT_NODE_TYPE } from '../Hardware/hardwarePartCatalog'
+import { addRtcModuleToBoard } from '../Hardware/hardwarePartActions'
 import { boardIdOf, boardNodesIn } from '../../build/boardPartition'
 import { boardLinkSettings, getBoardLinkKey } from '../../state/peripherals/boardLinkKey'
 import styles from './GraphHealthDrawer.module.css'
@@ -76,6 +77,7 @@ function actionLabel(action: GraphDiagnosticAction, fix?: Partial<GraphDiagnosti
   if (action === 'open-audio-outputs') return 'Choose a DAC'
   if (action === 'add-audio-node') return 'Add Audio node'
   if (action === 'renew-board-link-key') return 'Make a new key'
+  if (action === 'add-rtc-module') return 'Add a DS3231'
   return 'Open library'
 }
 
@@ -199,7 +201,9 @@ export default function GraphHealthDrawer() {
   }
 
   // Takes the card's lead fix or one of its `moreFixes` alike.
-  const runAction = (issue: Partial<GraphDiagnosticFix>) => {
+  // `issue` is the fix to perform, the card's own or one of its further
+  // fixes; `card` is the card it is on.
+  const runAction = (issue: Partial<GraphDiagnosticFix>, card?: GraphDiagnostic) => {
     if (issue.repair?.kind === 'set-frame-rate') {
       const result = setBoardFrameRate(issue.repair.frameRate, issue.repair.boardId)
       setStatus(result.ok ? `Board frame rate lowered to ${result.frameRate} fps` : result.reason, result.ok ? 'success' : 'info')
@@ -209,6 +213,14 @@ export default function GraphHealthDrawer() {
       const result = setBoardLedDriver(issue.repair.ledDriver, issue.repair.boardId)
       setStatus(result.ok
         ? result.ledDriver === 'auto' ? 'Board back on FastLED’s own LED driver' : `Board LED driver set to ${result.ledDriver}`
+        : result.reason, result.ok ? 'success' : 'info')
+      return
+    }
+    if (issue.repair?.kind === 'add-rtc-module') {
+      // The module, not another Clock: the Clock is already there and set to it.
+      const result = addRtcModuleToBoard(issue.repair.boardId)
+      setStatus(result.ok
+        ? `Added ${result.label}${result.pins.length ? ` on the I2C pins ${result.pins.join(' and ')}` : ''} — the Clock reads it now`
         : result.reason, result.ok ? 'success' : 'info')
       return
     }
@@ -300,8 +312,13 @@ export default function GraphHealthDrawer() {
       return
     }
     if (issue.action === 'open-board-settings') {
+      // A card about one board's settings opens that board's menu.
+      const board = card ? boardOf(card) : null
+      if (board) useUiStore.getState().setActiveBoardId(board.id)
       useUiStore.getState().openHardwareBoardMenu()
-      setStatus('On the Board, tick Enable global power cap and enter your supply’s rating', 'info')
+      setStatus(!card || card.category === 'power'
+        ? 'On the Board, tick Enable global power cap and enter your supply’s rating'
+        : card.fix, 'info')
       return
     }
     if (issue.repair?.kind === 'move-pin') {
@@ -443,9 +460,9 @@ export default function GraphHealthDrawer() {
                       Open screen design
                     </button>
                   )}
-                  {issue.action && <button type="button" title={issue.action === 'move-i2c-pins' ? 'Move I2C items onto SDA and SCL pins.' : undefined} onClick={() => runAction(issue)}>{actionLabel(issue.action, issue)}</button>}
+                  {issue.action && <button type="button" title={issue.action === 'move-i2c-pins' ? 'Move I2C items onto SDA and SCL pins.' : undefined} onClick={() => runAction(issue, issue)}>{actionLabel(issue.action, issue)}</button>}
                   {issue.moreFixes?.map((fix, index) => (
-                    <button key={`${fix.action}-${index}`} type="button" onClick={() => runAction(fix)}>{actionLabel(fix.action, fix)}</button>
+                    <button key={`${fix.action}-${index}`} type="button" onClick={() => runAction(fix, issue)}>{actionLabel(fix.action, fix)}</button>
                   ))}
                 </div>
               </article>

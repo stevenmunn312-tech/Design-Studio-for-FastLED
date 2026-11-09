@@ -45,9 +45,15 @@ The Board owns values that one firmware image can apply only once:
 - `brightness` — global FastLED master brightness;
 - `overclock` — global clockless-chipset timing multiplier;
 - `powerLimit`, `volts`, and `milliamps` — the controller-wide FastLED cap;
-- `psramPolicy` and `psramMode` — render-buffer memory placement; and
+- `psramPolicy` and `psramMode` — render-buffer memory placement;
 - `serialRoute` — Auto, Native USB, or UART bridge where the target supports
-  USB CDC.
+  USB CDC; and
+- the Network group, `wifiHostname`, `useDhcp` and `staticIp` /
+  `staticGateway` / `staticSubnet` / `staticDns` — the board's one network
+  identity, which every network user on it (Art-Net, sACN, DDP, Web Remote,
+  NTP, Frame Stream, internet radio, clock sync) joins with. Its Wi-Fi name
+  and password are kept on this machine under the Board's id, never in the
+  project (`src/state/peripherals/boardNetwork.ts`).
 
 LED-output-local size, mapping, chipset, colour, routing, correction, dithering,
 and supersampling remain on each output.

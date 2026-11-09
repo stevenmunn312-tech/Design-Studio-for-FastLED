@@ -11,6 +11,7 @@ import { NODE_LIBRARY, gpioRequirementForProperty, transportDisplayPinKeysForPro
 import { DEFAULT_BOARD_PROFILE_ID, ROOT_BOARD_NODE_ID } from '../../../build/hardware'
 import { CUSTOM_BOARD_PROFILE_ID } from '../../../build/boards/customBoard'
 import { MIC_MODULES } from '../../../state/peripherals/micModules'
+import { useNetworkCredentialsStore } from '../../../state/peripherals/networkCredentials'
 import { boardI2cDefault } from '../../../build/boards/boardI2cDefaults'
 import { boardProfileById } from '../../../build/boards/boardProfiles'
 
@@ -161,7 +162,7 @@ describe('HardwarePane', () => {
     if (!oledFirst) addOled()
     const bus = boardI2cDefault(DEFAULT_BOARD_PROFILE_ID)!
     const parts = rootGraphNodes(useGraphStore.getState()).filter((part) =>
-      ['RTCInput', 'PowerMonitorInput', 'InfoDisplay'].includes(part.data.nodeType))
+      ['RtcModule', 'PowerMonitorInput', 'InfoDisplay'].includes(part.data.nodeType))
     expect(parts).toHaveLength(3)
     for (const part of parts) expect(part.data.properties).toMatchObject({
       sdaPin: bus.sda.arduinoPin, sclPin: bus.scl.arduinoPin,
@@ -210,21 +211,27 @@ describe('HardwarePane', () => {
 
     // The part lands on the bench, not sealed inside the open group.
     const rootTypes = rootGraphNodes(useGraphStore.getState()).map((entry) => entry.data.nodeType)
+    expect(rootTypes).toContain('RtcModule')
+    // Its Clock lands in the root graph too, beside it.
     expect(rootTypes).toContain('RTCInput')
     expect(useGraphStore.getState().nodes).toHaveLength(0)
   })
 
-  it('adds a DS3231 RTC module as a hardware-owned RTCInput node', () => {
+  it('adds a DS3231 RTC module as the provider of a Clock set to it', () => {
     render(<HardwarePane />)
 
     addPart('Inputs', 'DS3231 RTC module')
 
-    const rtc = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'RTCInput')
-    expect(rtc).toBeTruthy()
-    expect(rtc!.data.properties).toMatchObject({
-      timeSource: 'DS3231',
-      partId: 'ds3231-rtc-module',
-    })
+    // The part carries its identity and pins, hidden from the canvas...
+    const module = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'RtcModule')
+    expect(module).toMatchObject({ hidden: true })
+    expect(module!.data.properties).toMatchObject({ partId: 'ds3231-rtc-module' })
+    expect(module!.data.properties).not.toHaveProperty('timeSource')
+    // ...and the time is the library Clock's, which comes with the first one.
+    const clocks = useGraphStore.getState().nodes.filter((entry) => entry.data.nodeType === 'RTCInput')
+    expect(clocks).toHaveLength(1)
+    expect(clocks[0].data.properties).toMatchObject({ timeSource: 'DS3231' })
+    expect(clocks[0].hidden).toBeFalsy()
     expect(within(document.body).getByText('SCL 22 · SDA 21')).toBeTruthy()
   })
 
@@ -886,17 +893,13 @@ describe('HardwarePane', () => {
     expect(parseFloat(part.style.height) / tileH).toBeCloseTo(rows, 6)
   })
 
-  it('adds a Raspberry Pi RTC clock module as the compact RTCInput option', () => {
+  it('adds a Raspberry Pi RTC clock module as the compact DS3231 option', () => {
     render(<HardwarePane />)
 
     addPart('Inputs', 'DS3231 RTC Clock Module for Raspberry Pi')
 
-    const rtc = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'RTCInput')
-    expect(rtc).toBeTruthy()
-    expect(rtc!.data.properties).toMatchObject({
-      timeSource: 'DS3231',
-      partId: 'jaycar-xc9044-rtc-module',
-    })
+    const module = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'RtcModule')
+    expect(module!.data.properties).toMatchObject({ partId: 'jaycar-xc9044-rtc-module' })
   })
 
   /*
@@ -990,6 +993,8 @@ describe('HardwarePane', () => {
       expect(await within(document.body).findByRole('button', { name: 'Add another controller' })).toBeTruthy()
       expect(within(document.body).queryByRole('button', { name: 'Remove this controller' })).toBeNull()
       expect(within(document.body).queryByLabelText('Keep boards in time')).toBeNull()
+      // One board still has its one network identity.
+      expect(within(document.body).getByRole('region', { name: 'Board network' })).toBeTruthy()
       fireEvent.keyDown(document.body, { key: 'Escape' })
 
       twoBoards()
@@ -999,10 +1004,16 @@ describe('HardwarePane', () => {
 
       const boards = rootGraphNodes(useGraphStore.getState()).filter((entry) => entry.data.nodeType === 'Board')
       expect(boards.map((entry) => entry.data.properties.clockSync)).toEqual(['leader', 'follower'])
-      expect(boards.map((entry) => entry.data.properties.wifiHostname)).toEqual(['fastled-board-1', 'fastled-board-2'])
-      // The primary has no wired link, so it asks for Wi-Fi credentials.
+      // Each board announces a name of its own without one being stamped on.
+      expect(boards.map((entry) => entry.data.properties.wifiHostname)).toEqual([undefined, undefined])
+      // The primary has no wired link, so its Network settings ask for Wi-Fi.
       expect(within(document.body).getByLabelText('Wi-Fi SSID')).toBeTruthy()
-      expect((within(document.body).getByLabelText('Hostname') as HTMLInputElement).value).toBe('fastled-board-1')
+      const hostname = within(document.body).getByLabelText('Hostname') as HTMLInputElement
+      expect(hostname.value).toBe('')
+      expect(hostname.placeholder).toBe('fastled-board')
+      fireEvent.change(within(document.body).getByLabelText('Wi-Fi SSID'), { target: { value: 'bench' } })
+      expect(useNetworkCredentialsStore.getState().byNodeId[ROOT_BOARD_NODE_ID]?.ssid).toBe('bench')
+      useNetworkCredentialsStore.getState().removeCredentials(ROOT_BOARD_NODE_ID)
     })
   })
 })

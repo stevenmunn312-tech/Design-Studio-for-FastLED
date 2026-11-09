@@ -156,7 +156,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 <details>
 <summary><strong>Show all 227 modules by category</strong></summary>
 
-- **Inputs:** Audio, Microphone, Line In, Button, Button Bank, Touch Button, Touch Screen, IR Remote, Web Remote, Potentiometer, Encoder, Motion Sensor, Presence Sensor, Light Sensor, Environment Sensor, Temperature Probe, Distance Sensor, Joystick, Keypad, Touch Pad, Accel & Gyro, Power Monitor, DMX / Art-Net, DDP Input, RTC Clock, MIDI
+- **Inputs:** Audio, Microphone, Line In, Button, Button Bank, Touch Button, Touch Screen, IR Remote, Web Remote, Potentiometer, Encoder, Motion Sensor, Presence Sensor, Light Sensor, Environment Sensor, Temperature Probe, Distance Sensor, Joystick, Keypad, Touch Pad, Accel & Gyro, Power Monitor, DMX / Art-Net, DDP Input, Clock, MIDI
 - **Audio:** FFT Analyzer, Beat Detect, Percussion Detect, Audio Features, Vibe, Song Structure, Pitch Detect, Audio → Hue, Frequency Band, Stereo Levels, Beat Phase
 - **Signals:** Time, Interval, Random, Noise LFO, Envelope, Wave, Tempo Clock, Schedule Trigger, DMX Channel
 - **Math & Logic:** Constant, Math, Clamp, Map Range, Step Value, Ease, Function, Expression, Smooth, Sample & Hold, Switch, Not, Logic, Compare, Trigger, Text Value, Format Number, Format Date/Time
@@ -166,7 +166,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Effects:** Blur 2D, Blend, Mask, Glitter, Frame Transform, Brightness, Hue Shift, Gamma, Saturation, Array, Invert, Mirror, Kaleidoscope, Trails, Frame Warp, Tile Symmetry, Frame Feedback, Frame Switch, Zones
 - **Show:** Music Library, Pattern Collection, Transition Pool, Music Player, Pattern Slideshow, Player Controls, Player Particles, Song Info, Crossfade Cycle, Transition, Performance Generator, SD Card
 - **Output:** 7-Segment Display, Amplifier, Board, Buzzer, Cooling Fan, Darlington Driver, DFPlayer Mini, Frame Stream, LED Matrix, Master Speed, OLED Display, Power Amplifier, Power Switch, PWM Driver, Relay Module, Stereo VU Meter, TFT Display
-- **Hardware:** Ethernet, DC-DC Converter, Battery Pack, Pack Electronics, USB-C PD Trigger
+- **Hardware:** DS3231 RTC, Ethernet, DC-DC Converter, Battery Pack, Pack Electronics, USB-C PD Trigger
 - **Notes:** Comment
 
 </details>

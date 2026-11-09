@@ -1,16 +1,37 @@
-// Hardware node definitions: the portless power and network parts. They
+// Hardware node definitions: the portless power, network and clock parts. They
 // carry no signal, live only in the hardware view and never in the sidebar
 // (see isHardwareLibraryHiddenNodeType), and are found by scanning the graph.
 import type { NodeDefinition } from '../../types'
 import { PD_TRIGGER_PART_ID, pdTriggerSpec } from '../../state/peripherals/pdTrigger'
 import { DEFAULT_POWER_CONVERTER_PART_ID, DEFAULT_SOURCE_VOLTAGE } from '../../state/peripherals/powerConverter'
 import { DEFAULT_BATTERY_CELL_PART_ID } from '../../state/peripherals/battery'
+import { DEFAULT_RTC_MODULE_PART_ID, RTC_MODULE_NODE_TYPE } from '../../state/peripherals/rtcModule'
 
 export const HARDWARE_DEFINITIONS: NodeDefinition[] = [
   {
-    // Wired Ethernet for the sketch's network. It carries no signal: Art-Net
-    // receive and NTP time sync keep their own settings and simply reach the
-    // network through this module instead of Wi-Fi when it is on the bench.
+    // The battery-backed DS3231 real-time clock. It carries no signal: a Clock
+    // set to DS3231 reads it, the way Audio reads a Microphone, so time is read
+    // in one place. Its I2C pins join the board's one Wire bus and come from
+    // the board's default pair. See state/peripherals/rtcModule.ts.
+    //
+    // Config only, like SD Card: no ports, no evaluation, found by scanning.
+    type: RTC_MODULE_NODE_TYPE,
+    label: 'DS3231 RTC',
+    category: 'hardware',
+    inputs: [],
+    outputs: [],
+    defaultProperties: {
+      partId: DEFAULT_RTC_MODULE_PART_ID,
+      // Classic-ESP32 Wire defaults; adding the part and every board change
+      // move it to the selected board's own I2C pair.
+      sdaPin: 21,
+      sclPin: 22,
+    },
+  },
+  {
+    // Wired Ethernet for the sketch's network. It carries no signal: every
+    // network user reaches the network through this module instead of Wi-Fi
+    // when it is on the bench, still as the Board (its hostname and address).
     // See state/peripherals/ethernetModule.ts.
     //
     // Config only, like SD Card: no ports, no evaluation, found by scanning.
@@ -92,6 +113,7 @@ export const HARDWARE_DEFINITIONS: NodeDefinition[] = [
 ]
 
 export const HARDWARE_DESCRIPTIONS: Record<string, string> = {
+  RtcModule: 'Battery-backed DS3231 clock for a Clock set to DS3231; a bench part.',
   EthernetModule: 'Wired Ethernet for the board\'s whole network in place of Wi-Fi; a bench part.',
   PowerConverter: 'Converts a DC source to 5 V for the controller or LED rail.',
   BatteryPack: 'Defines a lithium pack from an exact cell and its series-parallel count.',

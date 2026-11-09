@@ -33,16 +33,15 @@ import {
   writeWebRemoteControl,
 } from '../../../state/peripherals/webRemoteRuntime'
 import { webRemotePageHtml } from '../../../state/peripherals/webRemotePage'
-import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../../state/peripherals/networkCredentials'
-import { wiredNetworkIn, wiredNetworkPhrase } from '../../../state/peripherals/ethernetModule'
-import { networkSourceIn } from '../../../codegen/peripherals/networkCpp'
+import { boardNetworkIdentity } from '../../../state/peripherals/boardNetwork'
+import { useNodeBoardId } from '../../Hardware/boardSelection'
 import { displayWidgetDefinition, isDisplayRgb, TOUCH_CONTROL_ADD_DATA_TYPE, TOUCH_CONTROL_ADD_HANDLE } from '../../../state/displays/displayRegistry'
 import type { DisplayWidgetProperty } from '../../../state/displays/displayDocument'
 import { portColor } from '../../../state/nodeLibrary'
 import { useEscapeLayer } from '../../../hooks/useEscapeLayer'
 import { portHandleStyle } from '../nodeHandleStyle'
 import styles from './WebRemoteBody.module.css'
-import WifiPasswordInput from '../WifiPasswordInput'
+import BoardNetworkNote from './BoardNetworkNote'
 import EditableRange from '../../EditableRange/EditableRange'
 
 function activateHandleFromKeyboard(event: React.KeyboardEvent<HTMLDivElement>) {
@@ -370,18 +369,10 @@ export default function WebRemoteBody({ nodeId }: { nodeId: string }) {
   const portKey = controls.map((control) => control.id).join('|')
   useEffect(() => updateNodeInternals(nodeId), [editing, nodeId, portKey, updateNodeInternals])
 
-  const credentials = useNetworkCredentialsStore((s) => s.byNodeId[nodeId] ?? EMPTY_CREDENTIALS)
-  const setCredentials = useNetworkCredentialsStore((s) => s.setCredentials)
-  const wired = useGraphStore((s) => {
-    const network = wiredNetworkIn(rootGraphNodes(s))
-    return network ? wiredNetworkPhrase(network) : null
-  })
-  // The page answers to the shared connection's hostname, which is this
-  // node's unless another network user comes first.
-  const hostname = useGraphStore((s) => {
-    const source = networkSourceIn(rootGraphNodes(s))
-    return webRemoteMdnsName((source?.data.properties as Record<string, unknown> | undefined)?.wifiHostname ?? props.wifiHostname)
-  })
+  // The page answers to the name of the board it runs on.
+  const boardId = useNodeBoardId(nodeId)
+  const hostname = useGraphStore((s) =>
+    webRemoteMdnsName(boardNetworkIdentity(rootGraphNodes(s).find((node) => node.id === boardId)).hostname))
 
   return (
     <div className={styles.body} aria-label="Web Remote controls">
@@ -470,32 +461,7 @@ export default function WebRemoteBody({ nodeId }: { nodeId: string }) {
           />
         </div>
       )}
-      {wired ? (
-        <div className={styles.note}>Firmware reaches the network through {wired}, so no Wi-Fi credentials are needed.</div>
-      ) : (
-        <>
-          <label className={styles.field}>
-            Wi-Fi SSID
-            <input
-              className={`nodrag ${styles.fieldInput}`}
-              type="text"
-              autoComplete="off"
-              value={credentials.ssid}
-              onChange={(event) => setCredentials(nodeId, { ssid: event.target.value })}
-              placeholder="network name"
-            />
-          </label>
-          <label className={styles.field}>
-            Wi-Fi password
-            <WifiPasswordInput
-              className={`nodrag ${styles.fieldInput}`}
-              value={credentials.password}
-              onChange={(password) => setCredentials(nodeId, { password })}
-            />
-          </label>
-          <div className={styles.note}>Stored in this browser only — never saved in the project file or share links.</div>
-        </>
-      )}
+      <BoardNetworkNote nodeId={nodeId} />
       {previewOpen && (
         <PhonePreview nodeId={nodeId} title={props.title} controls={controls} onClose={() => setPreviewOpen(false)} />
       )}

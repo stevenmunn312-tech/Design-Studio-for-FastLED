@@ -397,6 +397,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       featured: 'FrameSwitch',
       title: 'Daylight until six, starlight after',
       nodes: {
+        ds3231: ['RtcModule'],
         clock: ['RTCInput', { timeSource: 'DS3231' }],
         evening: ['Compare', { b: 64800 }],
         day: ['Sunrise', { mode: 'manual', progress: 1 }],
@@ -404,7 +405,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
         scene: ['FrameSwitch'],
       },
       wires: ['clock.secondsOfDay > evening.a', 'evening.result > scene.sel', 'day.frame > scene.a', 'night.frame > scene.b'],
-      explanation: 'Compare is true once RTC Clock’s seconds-since-midnight pass 64800 — six in the evening. Frame Switch shows a warm daylight Sunrise until then and a slow Starfield after.',
+      explanation: 'Compare is true once Clock’s seconds-since-midnight pass 64800 — six in the evening. Frame Switch shows a warm daylight Sunrise until then and a slow Starfield after.',
       preview: 'The reference time is mid-morning, so the {output} shows warm daylight. After six in the evening it switches to stars.',
     }),
   },

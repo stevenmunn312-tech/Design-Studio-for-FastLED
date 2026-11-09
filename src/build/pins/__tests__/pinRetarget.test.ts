@@ -243,8 +243,8 @@ describe('retargetHardwarePins', () => {
   it('moves board-owned RTC properties to the new board defaults', () => {
     const xiao = boardProfileById('seeed-xiao-esp32s3')!
     const devkit = boardProfileById('esp32-devkit-v1-30pin-esp32d')!
-    const nodes = [part('rtc', 'RTCInput', withAssignedPins(
-      { timeSource: 'DS3231', sdaPin: 5, sclPin: 6 },
+    const nodes = [part('rtc', 'RtcModule', withAssignedPins(
+      { sdaPin: 5, sclPin: 6 },
       { sdaPin: 5, sclPin: 6 },
       xiao.id,
     ))]
@@ -257,7 +257,7 @@ describe('retargetHardwarePins', () => {
     const xiao = boardProfileById('seeed-xiao-esp32s3')!
     const devkit = boardProfileById('esp32-devkit-v1-30pin-esp32d')!
     const nodes = [
-      part('rtc', 'RTCInput', withAssignedPins({ timeSource: 'DS3231' }, { sdaPin: 5, sclPin: 6 }, xiao.id)),
+      part('rtc', 'RtcModule', withAssignedPins({}, { sdaPin: 5, sclPin: 6 }, xiao.id)),
       part('oled', 'InfoDisplay', withAssignedPins({ partId: 'ssd1306-oled-128x64' }, { sdaPin: 5, sclPin: 6 }, xiao.id)),
       part('pwm', 'PwmDriverOutput', withAssignedPins({ i2cAddress: '0x41', pwmHz: 50 }, { sdaPin: 5, sclPin: 6 }, xiao.id)),
     ]

@@ -3,13 +3,28 @@
 // fast-refreshable and a heading or sheet can name a board without rendering
 // the strip. See docs/design/multi-board.md.
 import { useShallow } from 'zustand/react/shallow'
-import { rootGraphNodes, useGraphStore, type StudioNode } from '../../state/graphStore'
-import { boardNodesIn } from '../../build/boardPartition'
+import { rootGraphEdges, rootGraphNodes, useGraphStore, type StudioNode } from '../../state/graphStore'
+import { boardMembership, boardNodesIn } from '../../build/boardPartition'
+import { ROOT_BOARD_NODE_ID } from '../../build/hardware'
 import { resolveBoardSelection } from '../../build/boards/boardProfiles'
 
 /** The project's Board nodes in root order, the primary first. */
 export function useBoardNodes(): StudioNode[] {
   return useGraphStore(useShallow((s) => boardNodesIn(rootGraphNodes(s))))
+}
+
+/**
+ * The board a root node runs on: the first board whose partition holds it,
+ * the primary for a node no board reaches or one inside a pattern group.
+ * What a network node's body names when it says whose network it joins.
+ */
+export function useNodeBoardId(nodeId: string): string {
+  return useGraphStore((s) => {
+    const nodes = rootGraphNodes(s)
+    const boards = boardNodesIn(nodes)
+    const owners = boardMembership(nodes, rootGraphEdges(s)).get(nodeId)
+    return boards.find((board) => owners?.has(board.id))?.id ?? boards[0]?.id ?? ROOT_BOARD_NODE_ID
+  })
 }
 
 /** "Board 2": a board's place in root order, which is how every surface names it. */
@@ -32,9 +47,4 @@ export function boardProfileLabel(board: StudioNode): string {
  */
 export function resolveActiveBoardId(boards: readonly StudioNode[], activeBoardId: string): string {
   return boards.some((board) => board.id === activeBoardId) ? activeBoardId : boards[0]?.id ?? activeBoardId
-}
-
-/** The default hostname a board announces, from its place in root order. */
-export function defaultBoardHostname(ordinal: number): string {
-  return `fastled-board-${ordinal + 1}`
 }

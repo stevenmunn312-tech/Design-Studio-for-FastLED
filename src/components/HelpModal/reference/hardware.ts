@@ -4,6 +4,33 @@ import type { NodeReferenceMap } from './types'
 const NO_PIXELS = 'The LED preview is unchanged: this part changes the wiring plan, power checks or firmware rather than the picture.'
 
 export const HARDWARE_REFERENCE: NodeReferenceMap = {
+  RtcModule: {
+    overview: [
+      'DS3231 RTC is a battery-backed real-time clock on the board’s I2C bus. It keeps the date and time through a power cut, so a schedule or a clock face is right the moment the board starts, with no network.',
+      'It has no outputs of its own: a Clock node set to the DS3231 time source reads it, the way the Audio node reads a microphone, so the time of day is read in one place. Every Clock on the board set to DS3231 shares the one module.',
+    ],
+    steps: [
+      'Add a DS3231 from the Hardware tab’s Clocks shelf. If the graph has no Clock yet, one set to DS3231 comes with it.',
+      'Wire 3V3, GND, SDA and SCL to the pins the Build Diagram shows; it shares SDA and SCL with any other I2C part.',
+      'Upload, then use Set from computer on the Clock to write the date and time to the module once.',
+    ],
+    outcome: 'The clock keeps time through a power cut. In the preview the browser clock stands in for the module.',
+    example: example({
+      featured: 'RtcModule',
+      title: 'A clock that survives a power cut',
+      nodes: {
+        ds3231: ['RtcModule'],
+        clock: ['RTCInput', { timeSource: 'DS3231' }],
+        daylight: ['Expression', { formula: '1800 + 4700*(0.5 - 0.5*cos(a/86400*2*PI))' }],
+        white: ['Temperature'],
+        fill: ['SolidColor'],
+      },
+      wires: ['clock.secondsOfDay > daylight.a', 'daylight.result > white.kelvin', 'white.color > fill.color'],
+      explanation: 'The DS3231 RTC carries no wires: the Clock set to DS3231 reads it. Expression turns the seconds since midnight into a colour temperature, warm at night and daylight-cool at noon, and the time is still right after the power has been off.',
+      preview: 'The {output} is filled with the white for the current time. The preview reads the browser clock in place of the module.',
+    }),
+  },
+
   EthernetModule: {
     overview: [
       'Ethernet adds a W5500 wired network module, so the board reaches the network over an RJ45 cable instead of Wi-Fi. Every network node uses it when it is on the bench: Art-Net and sACN, DDP, the Web Remote, NTP clock sync, Frame Stream and internet radio.',

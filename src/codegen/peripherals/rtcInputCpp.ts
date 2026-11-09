@@ -1,5 +1,6 @@
-// One RTC node's loop, shared by the normal sketch and template control graphs.
-// Compile Time, Manual and DS3231 are local. NTP needs the sketch's network:
+// One Clock node's loop, shared by the normal sketch and template control graphs.
+// Compile Time, Manual and DS3231 are local; DS3231 reads the module on the
+// bench (state/peripherals/rtcModule.ts). NTP needs the sketch's network:
 // the normal sketch starts it beside Art-Net, and a control graph carries the
 // same bootstrap with the clock, so a show or SD player keeps real time too.
 import type { StudioNode } from '../../state/graphStore'
@@ -8,7 +9,8 @@ import { sanitizePin } from '../hardwarePins'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { rtcI2cPinsForProfile } from '../../build/pins/rtcPins'
 import { ds3231HelperCpp, rtcHelperCpp } from './rtcCpp'
-import { networkSketchCpp, networkSourceIn } from './networkCpp'
+import { networkSketchCpp } from './networkCpp'
+import { rtcModuleIn } from '../../state/peripherals/rtcModule'
 import type { ControlInputEmission } from '../controlInputCpp'
 
 export const RTC_CONTROL_OUTPUTS: Record<string, 'bool' | 'float'> = {
@@ -220,8 +222,8 @@ export function rtcInputLoopCpp(id: string, p: Record<string, unknown>, v: (port
  *
  * An NTP clock carries the sketch's network with it: the same headers,
  * bootstrap and setup line the normal sketch emits, built from the whole graph
- * so a wired link on the bench is found, and from the first network user's
- * settings so two NTP clocks share one connection. The caller dedupes those
+ * so a wired link on the bench is found, and from the Board's network
+ * identity so two NTP clocks share one connection. The caller dedupes those
  * blocks, which is why every NTP clock in a graph emits identical ones.
  */
 export function rtcControlEmission(
@@ -238,19 +240,21 @@ export function rtcControlEmission(
   const setup: string[] = []
   const includes: string[] = []
   const helpers = [rtcHelperCpp().join('\n'), ...(ds3231 ? [ds3231HelperCpp().join('\n')] : [])]
-  // This clock is itself a network user, so the source is never missing.
-  const networkSource = source === 'NTP' ? networkSourceIn(nodes) : null
-  if (networkSource) {
-    const network = networkSketchCpp(nodes, networkSource)
+  // This clock is itself a network user; the connection is the Board's.
+  if (source === 'NTP') {
+    const network = networkSketchCpp(nodes)
     includes.push(network.include)
     helpers.push(network.bootstrap)
     setup.push(...network.setup)
   }
   if (ds3231) {
+    // The pins are the DS3231 module's, the provider on the bench; with none
+    // (which validation refuses) the board's own Wire pair stands in.
+    const module = rtcModuleIn(nodes)?.data.properties as Record<string, unknown> | undefined
     const board = selectedPhysicalBoardProfile(nodes)
     const boardPins = rtcI2cPinsForProfile(board ?? undefined)
-    const sda = sanitizePin(properties.sdaPin, boardPins?.sda.arduinoPin ?? 21)
-    const scl = sanitizePin(properties.sclPin, boardPins?.scl.arduinoPin ?? 22)
+    const sda = sanitizePin(module?.sdaPin, boardPins?.sda.arduinoPin ?? 21)
+    const scl = sanitizePin(module?.sclPin, boardPins?.scl.arduinoPin ?? 22)
     const explicit = !board || board.targetFamilies.some((family) => family === 'esp8266' || family.startsWith('esp32'))
     setup.push(explicit
       ? `  Wire.begin(${sda}, ${scl});  // I2C pins from the parts on the bus`

@@ -96,7 +96,11 @@ import { STEP_VALUE_DEFAULTS } from '../nodes/shared/stepValue'
 import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/peripherals/presenceSensor'
 import { buzzerIsPassive } from '../state/peripherals/buzzer'
 import { ETHERNET_NODE_TYPE, ethernetSpiHostForFqbn, wiredNetworkIn } from '../state/peripherals/ethernetModule'
-import { networkSourceIn, usesNetwork } from '../codegen/peripherals/networkCpp'
+import { networkUsedIn, usesNetwork } from '../codegen/peripherals/networkCpp'
+import {
+  boardHostnameProblem, boardNetworkCredentialsIn, boardNetworkIdentity, networkBoardIn,
+} from '../state/peripherals/boardNetwork'
+import { ds3231Clocks, rtcModuleIn } from '../state/peripherals/rtcModule'
 import { bluetoothNameProblem } from '../state/player/bluetoothSink'
 import {
   invalidRadioStations, normalizeRadioStations, radioAccessCodeProblem,
@@ -262,9 +266,10 @@ function findRtcWarnings(nodes: StudioNode[]): string[] {
       })
       return valid ? [] : [`${String(node.data.label ?? node.data.nodeType)} has an invalid manual RTC start date/time`]
     }
-    if (source === 'NTP') {
-      if (!String(props.ntpServer ?? '').trim()) return [`${String(node.data.label ?? node.data.nodeType)} is missing its NTP server`]
-      if (!wiredNetworkIn(nodes) && !getNetworkCredentials(node.id).ssid.trim()) return [`${String(node.data.label ?? node.data.nodeType)} is missing its Wi-Fi SSID for NTP sync`]
+    // The Wi-Fi name NTP joins with is the Board's, asked once by the
+    // network warnings below for every network user.
+    if (source === 'NTP' && !String(props.ntpServer ?? '').trim()) {
+      return [`${String(node.data.label ?? node.data.nodeType)} is missing its NTP server`]
     }
     return []
   })
@@ -282,47 +287,34 @@ function isIpv4(value: unknown): boolean {
   })
 }
 
+/**
+ * The board's one network identity, asked once whatever uses it: the sketch
+ * joins as the Board (state/peripherals/boardNetwork.ts), so a graph with
+ * three network nodes has one Wi-Fi name to supply, not three.
+ */
 function findNetworkConfigWarnings(nodes: StudioNode[]): string[] {
+  if (networkUsers(nodes).length === 0) return []
   const warnings: string[] = []
-  const users = networkUsers(nodes)
-  if (users.length === 0) return warnings
-  // With a cable there are no Wi-Fi credentials to supply or to disagree on;
-  // the addressing settings still apply to the wired interface.
-  const wired = wiredNetworkIn(nodes) !== null
-
-  const signatures = new Set(users.map((node) => {
-    const props = node.data.properties as Record<string, unknown>
-    const credentials = wired ? { ssid: '', password: '' } : getNetworkCredentials(node.id)
-    return JSON.stringify({
-      wifiSsid: credentials.ssid.trim(),
-      wifiPassword: credentials.password,
-      wifiHostname: String(props.wifiHostname ?? '').trim(),
-      useDhcp: props.useDhcp !== false,
-      staticIp: String(props.staticIp ?? '').trim(),
-      staticGateway: String(props.staticGateway ?? '').trim(),
-      staticSubnet: String(props.staticSubnet ?? '').trim(),
-      staticDns: String(props.staticDns ?? '').trim(),
-    })
-  }))
-  if (signatures.size > 1) {
-    warnings.push(wired
-      ? 'Network nodes disagree on network settings — generated firmware shares one Ethernet connection'
-      : 'Network nodes disagree on Wi-Fi settings — generated firmware shares one Wi-Fi connection')
-  }
-
-  for (const node of users) {
-    const props = node.data.properties as Record<string, unknown>
-    const label = String(node.data.label ?? node.data.nodeType)
-    if (!wired && !getNetworkCredentials(node.id).ssid.trim()) warnings.push(`${label} is missing its Wi-Fi SSID`)
-    if (props.useDhcp === false) {
-      if (!isIpv4(props.staticIp)) warnings.push(`${label} has an invalid static IP address`)
-      if (!isIpv4(props.staticGateway)) warnings.push(`${label} has an invalid gateway address`)
-      if (!isIpv4(props.staticSubnet)) warnings.push(`${label} has an invalid subnet mask`)
-      const dns = String(props.staticDns ?? '').trim()
-      if (dns && !isIpv4(dns)) warnings.push(`${label} has an invalid DNS address`)
-    }
+  const board = networkBoardIn(nodes)
+  const label = board ? nodeLabel(board) : 'Board'
+  const identity = boardNetworkIdentity(board)
+  // With a cable there are no Wi-Fi credentials to supply; the addressing
+  // settings still apply to the wired interface.
+  if (!wiredNetworkIn(nodes) && !boardNetworkCredentialsIn(nodes).ssid.trim()) warnings.push(boardMissingSsidMessage(label))
+  const hostnameProblem = boardHostnameProblem(identity.hostname)
+  if (hostnameProblem) warnings.push(`${label}'s hostname ${hostnameProblem}`)
+  if (!identity.useDhcp) {
+    if (!isIpv4(identity.staticIp)) warnings.push(`${label} has an invalid static IP address`)
+    if (!isIpv4(identity.staticGateway)) warnings.push(`${label} has an invalid gateway address`)
+    if (!isIpv4(identity.staticSubnet)) warnings.push(`${label} has an invalid subnet mask`)
+    if (identity.staticDns && !isIpv4(identity.staticDns)) warnings.push(`${label} has an invalid DNS address`)
   }
   return warnings
+}
+
+/** The Board's "no Wi-Fi name" warning, which a syncing board's own error replaces (multiBoardValidation). */
+export function boardMissingSsidMessage(boardLabel: string): string {
+  return `${boardLabel} is missing its Wi-Fi SSID`
 }
 
 /** Schedule problems, each attributed to the node that owns it so the Graph
@@ -339,8 +331,8 @@ function findScheduleIssues(
     if (!incoming.has(`${node.id}:dateTime`)) {
       issues.push({
         nodeId: node.id,
-        message: `${label} should be wired to an RTC Clock's DateTime`,
-        fix: 'Wire an RTC Clock node’s DateTime output into this schedule.',
+        message: `${label} should be wired to a Clock's DateTime`,
+        fix: 'Wire a Clock node’s DateTime output into this schedule.',
       })
     }
     const props = node.data.properties as Record<string, unknown>
@@ -1825,6 +1817,7 @@ export function findDeployBlockingErrors(
     ...findShowRequirementErrors(nodes, edges),
     ...findPatternCountErrors(nodes, edges),
     ...findAudioCapabilityErrors(nodes, edges),
+    ...findRtcModuleErrors(nodes, edges),
     ...findStereoVuMeterErrors(nodes, edges),
     ...findIrRemoteErrors(nodes, edges, selectedFqbn),
     ...findPresenceSensorErrors(nodes, selectedFqbn),
@@ -1892,6 +1885,7 @@ export type GraphDiagnosticAction =
   | 'set-led-driver'
   | 'renew-board-link-key'
   | 'set-panel-layout'
+  | 'add-rtc-module'
 
 /**
  * Everything a repairing action needs to perform what it names.
@@ -1936,6 +1930,8 @@ export type GraphRepair =
   | { kind: 'renew-board-link-key' }
   /** A Display Panel's fixed layout to switch to. */
   | { kind: 'set-panel-layout'; panelId: string; layout: string }
+  /** A DS3231 to put on the board's bench, for the Clocks that read one. */
+  | { kind: 'add-rtc-module'; boardId?: string }
 
 /** One button on a card: what it names, and the repair it performs. */
 export interface GraphDiagnosticFix {
@@ -2197,7 +2193,7 @@ function ethernetValidationIssues(nodes: StudioNode[], selectedFqbn: string): Gr
       id: `${module.id}-ethernet-unused`, severity: 'warning', category: 'board',
       title: 'Nothing uses the Ethernet module',
       message: 'The Ethernet module carries the board\'s network: Art-Net and sACN, DDP, the Web Remote, NTP clock sync, Frame Stream and internet radio. With none of them in the graph, the sketch does not start it.',
-      fix: 'Add a network node, such as DMX / Art-Net in a network mode, DDP Input, Web Remote or an RTC Clock synced by NTP, or remove the Ethernet module.',
+      fix: 'Add a network node, such as DMX / Art-Net in a network mode, DDP Input, Web Remote or a Clock synced by NTP, or remove the Ethernet module.',
       nodeIds: [module.id], nodeLabel: nodeLabel(module),
     })
     return issues
@@ -2239,6 +2235,50 @@ export function findEthernetErrors(nodes: StudioNode[], selectedFqbn = ''): stri
 function findEthernetWarnings(nodes: StudioNode[], selectedFqbn = ''): string[] {
   return ethernetValidationIssues(nodes, selectedFqbn)
     .filter((issue) => issue.severity === 'warning')
+    .map(validationIssueMessage)
+}
+
+/**
+ * A Clock set to DS3231 and the module it reads, judged as one walk for the
+ * deploy gate and Graph Health, as Audio is judged against its Microphone.
+ *
+ * A wired Clock reading a DS3231 with none on the bench is an error whose
+ * repair adds the module: the sketch would read an I2C address nothing
+ * answers. A module that no Clock reads is a warning, like an Ethernet
+ * module nothing uses: the build is right, the part does nothing.
+ */
+function rtcModuleValidationIssues(nodes: StudioNode[], edges: StudioEdge[]): GraphDiagnostic[] {
+  const module = rtcModuleIn(nodes)
+  const readers = ds3231Clocks(nodes)
+  const issues: GraphDiagnostic[] = []
+  if (!module) {
+    // The partition's Board, so the repair adds the module to this board.
+    const boardId = nodes.find((node) => node.data.nodeType === 'Board')?.id
+    for (const clock of readers.filter((node) => edges.some((edge) => edge.source === node.id))) {
+      issues.push({
+        id: `${clock.id}-rtc-module`, severity: 'error', category: 'connection',
+        title: `${nodeLabel(clock)} has no DS3231 to read`,
+        message: 'Its time source is DS3231, and there is no DS3231 module on the bench.',
+        fix: 'Add a DS3231 module, or choose Compile Time, Manual or NTP as the time source.',
+        nodeIds: [clock.id], nodeLabel: nodeLabel(clock), propertyKey: 'timeSource',
+        action: 'add-rtc-module', repair: { kind: 'add-rtc-module', ...(boardId ? { boardId } : {}) },
+      })
+    }
+  } else if (readers.length === 0) {
+    issues.push({
+      id: `${module.id}-rtc-module-unused`, severity: 'warning', category: 'board',
+      title: 'Nothing reads the DS3231',
+      message: 'The DS3231 module is on the bench, but no Clock has DS3231 as its time source, so the sketch never reads it.',
+      fix: 'Set a Clock’s time source to DS3231, or remove the module from the Hardware tab.',
+      nodeIds: [module.id], nodeLabel: nodeLabel(module),
+    })
+  }
+  return issues
+}
+
+export function findRtcModuleErrors(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  return rtcModuleValidationIssues(nodes, edges)
+    .filter((issue) => issue.severity === 'error')
     .map(validationIssueMessage)
 }
 
@@ -2593,7 +2633,7 @@ function bluetoothPlayerValidationIssues(nodes: StudioNode[], edges: StudioEdge[
       nodeIds: [player.id], nodeLabel: label,
     })
   }
-  if (networkSourceIn(nodes)) {
+  if (networkUsedIn(nodes)) {
     issues.push({
       id: `${player.id}-bluetooth-radio`, severity: 'warning', category: 'board',
       title: 'Wi-Fi and Bluetooth music share one radio',
@@ -2610,7 +2650,7 @@ function bluetoothPlayerValidationIssues(nodes: StudioNode[], edges: StudioEdge[
  * A Music Player set to Internet Radio streams over the shared network with
  * ESP32-audioI2S, so it needs an ESP32 with Wi-Fi (or a cable), an I2S stage
  * to play through, and at least one place its stations can come from. The
- * Wi-Fi name and disagreeing network settings are the shared network warnings.
+ * Wi-Fi name and addressing are the Board's, said by the network warnings.
  */
 function radioPlayerValidationIssues(nodes: StudioNode[], edges: StudioEdge[], selectedFqbn: string): GraphDiagnostic[] {
   const player = relevantMusicPlayer(nodes, edges)
@@ -4015,6 +4055,7 @@ export function buildGraphDiagnostics(
   diagnostics.push(...radioPlayerValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...buzzerValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...ethernetValidationIssues(nodes, options.selectedFqbn ?? ''))
+  diagnostics.push(...rtcModuleValidationIssues(nodes, edges))
   diagnostics.push(...webRemoteValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...i2cBusValidationIssues(nodes))
   diagnostics.push(...stepValueValidationIssues(nodes))
@@ -4374,7 +4415,7 @@ export function buildGraphDiagnostics(
       category: 'preview',
       title: `${nodeLabel(node)} has an invalid manual clock start`,
       message: 'The generated firmware clock will stay invalid until the manual year, month, day, hour, minute, and second form a real calendar time.',
-      fix: 'Enter a real local date/time, or switch the RTC Clock node back to Compile Time.',
+      fix: 'Enter a real local date/time, or switch the Clock node back to Compile Time.',
       nodeIds: [node.id],
       nodeLabel: nodeLabel(node),
     })
@@ -4393,7 +4434,7 @@ export function buildGraphDiagnostics(
       category: 'connection',
       title: `${nodeLabel(node)} has no clock wired`,
       message: 'No DateTime source is connected, so preview and generated firmware display “--:--”.',
-      fix: 'Wire an RTC Clock node’s DateTime output into this node, or switch it to Stopwatch/Timer.',
+      fix: 'Wire a Clock node’s DateTime output into this node, or switch it to Stopwatch/Timer.',
       nodeIds: [node.id],
       nodeLabel: nodeLabel(node),
     })
@@ -4401,15 +4442,18 @@ export function buildGraphDiagnostics(
 
   // Keyed by the message, not its index, so two boards' different warnings
   // keep their own cards when the per-board lists are merged by id.
+  const networkBoard = networkBoardIn(nodes)
   findNetworkConfigWarnings(nodes).forEach((message) => {
     diagnostics.push({
       id: `network-config-${message.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
       severity: 'warning',
       category: 'board',
-      title: 'Network configuration needs attention',
+      title: 'Network settings need attention',
       message,
-      fix: 'Use one shared Wi-Fi setup across the network nodes, and complete every required address field.',
-      nodeIds: [],
+      fix: 'Open the Board’s network settings and enter the Wi-Fi name, or correct the name or address.',
+      // The Board: its network settings are where every one of these is set.
+      nodeIds: networkBoard ? [networkBoard.id] : [],
+      action: 'open-board-settings',
     })
   })
 
@@ -5015,6 +5059,8 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findCustomBoardIssues(nodes).warnings)
   warnings.push(...findNetworkConfigWarnings(nodes))
   warnings.push(...findEthernetWarnings(nodes, selectedFqbn))
+  warnings.push(...rtcModuleValidationIssues(nodes, edges)
+    .filter((issue) => issue.severity === 'warning').map(validationIssueMessage))
   warnings.push(...webRemoteValidationIssues(nodes, selectedFqbn)
     .filter((issue) => issue.severity === 'warning').map(validationIssueMessage))
   warnings.push(...findBuzzerWarnings(nodes, selectedFqbn))

@@ -35,9 +35,11 @@ import { boardLinkFindings } from './boardLinkValidation'
 import { fqbnHasWifi } from '../state/peripherals/networkCapability'
 import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { getNetworkCredentials } from '../state/peripherals/networkCredentials'
+import { boardNetworkCredentialsKey } from '../state/peripherals/boardNetwork'
 import { WEB_REMOTE_NODE_TYPE } from '../state/peripherals/webRemote'
-import { networkSourceIn, usesNetwork } from '../codegen/peripherals/networkCpp'
+import { usesNetwork } from '../codegen/peripherals/networkCpp'
 import {
+  boardMissingSsidMessage,
   buildGraphDiagnostics,
   findDeployBlockingErrors,
   validateGraph,
@@ -273,15 +275,15 @@ export function findDeployBlockingErrorsForBoard(
 
 /**
  * With sync on the Board is a network user (`usesNetwork`), so the one-board
- * validators already refuse it a board with no radio and ask it for an SSID,
- * in the Art-Net node's words. The sync findings say the same of the board
- * by name, so those are dropped from a syncing board's run: the network gate
- * only when the Board is its sole cause, the SSID warning always.
+ * validators already refuse it a board with no radio and ask the Board for an
+ * SSID. The sync findings say the same of the board by name, as errors, so
+ * those are dropped from a syncing board's run: the network gate only when the
+ * Board is its sole cause, the SSID warning always.
  */
 function saidOfSyncingBoard(run: BoardRun, finding: string | GraphDiagnostic): boolean {
   if (!run.board || clockSyncOf(run.board) === 'off') return false
   const board = run.board
-  const ssidMessage = `${nodeLabel(board)} is missing its Wi-Fi SSID`
+  const ssidMessage = boardMissingSsidMessage(nodeLabel(board))
   if (typeof finding === 'string') {
     if (finding === ssidMessage) return true
     return finding.startsWith(NETWORK_GATE_PREFIX) && boardIsSoleNetworkUser(run)
@@ -363,20 +365,15 @@ function multiBoardFindings(
         nodeIds: [run.board.id], nodeLabel: boardName,
       })
     } else if (!wired) {
-      // The sketch joins Wi-Fi with the credentials of the partition's
-      // network source (`networkSourceIn`: the Art-Net or NTP node when there
-      // is one, the syncing Board otherwise), so the gate reads that same
-      // owner rather than the Board alone.
-      const owner = networkSourceIn(run.partition.nodes) ?? run.board
-      if (!getNetworkCredentials(owner.id).ssid) {
+      // The sketch joins Wi-Fi with the Board's own credentials, the same
+      // ones every network user on this board shares.
+      if (!getNetworkCredentials(boardNetworkCredentialsKey(run.board)).ssid) {
         issues.push({
           id: `board-sync-credentials-${run.board.id}`, severity: 'error', category: 'board',
           title: `${boardName} has no Wi-Fi credentials for clock sync`,
           message: `Clock sync joins the network over Wi-Fi, and ${boardName} has no network name to join.`,
-          fix: owner === run.board
-            ? "Enter the Wi-Fi name and password in the Hardware tab's board options, or add a wired link."
-            : `Enter the Wi-Fi name and password on ${nodeLabel(owner)}, which owns ${boardName}'s connection, or add a wired link.`,
-          nodeIds: owner === run.board ? [run.board.id] : [run.board.id, owner.id], nodeLabel: boardName,
+          fix: `Enter the Wi-Fi name and password in ${boardName}'s network settings, or add a wired link.`,
+          nodeIds: [run.board.id], nodeLabel: boardName, action: 'open-board-settings',
         })
       }
     }

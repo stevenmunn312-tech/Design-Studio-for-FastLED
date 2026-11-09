@@ -144,11 +144,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Power Monitor example graph](../../public/node-cards/graphs/power-monitor-input.svg)
 
-### RTC Clock
+### Clock
 
-![RTC Clock node](../../public/node-cards/rtc-input.svg)
+![Clock node](../../public/node-cards/rtc-input.svg)
 
-![RTC Clock example graph](../../public/node-cards/graphs/rtc-input.svg)
+![Clock example graph](../../public/node-cards/graphs/rtc-input.svg)
 
 ### MIDI
 
@@ -1353,6 +1353,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Comment example graph](../../public/node-cards/graphs/comment.svg)
 
 ## Hardware
+
+### DS3231 RTC
+
+![DS3231 RTC node](../../public/node-cards/rtc-module.svg)
+
+![DS3231 RTC example graph](../../public/node-cards/graphs/rtc-module.svg)
 
 ### Ethernet
 

@@ -4,16 +4,20 @@
  * Art-Net receive and NTP time sync call `_netEnsureConnected()` and
  * `_netConnected()` and never ask which link answers them. This module decides
  * the link once for a graph: the selected board's own Ethernet port, the W5500
- * module on the bench, or Wi-Fi with the first network user's credentials. The
- * normal sketch, the generative show and the SD player all emit the same three
- * pieces, so an RTC Clock synced by NTP keeps real time in whichever firmware
- * it is built into. See docs/design/wired-ethernet.md and
+ * module on the bench, or Wi-Fi. Whichever it is, the board joins as itself:
+ * hostname, addressing and Wi-Fi credentials are the Board's
+ * (state/peripherals/boardNetwork.ts), never a network node's. The normal
+ * sketch, the generative show and the SD player all emit the same three
+ * pieces, so a Clock synced by NTP keeps real time in whichever firmware it is
+ * built into. See docs/design/wired-ethernet.md and
  * docs/design/dmx-artnet-input.md for the one-connection rule.
  */
 
 import type { StudioNode } from '../../state/graphStore'
 import { libraryDefaults } from '../../state/nodeLibrary'
-import { getNetworkCredentials } from '../../state/peripherals/networkCredentials'
+import {
+  boardNetworkCredentialsIn, boardNetworkIdentity, networkBoardIn,
+} from '../../state/peripherals/boardNetwork'
 import { DEFAULT_ETHERNET_PART_ID, wiredNetworkIn, type WiredNetwork } from '../../state/peripherals/ethernetModule'
 import { dmxUsesNetwork } from '../../state/peripherals/dmxTransceiver'
 import { streamUsesNetwork } from '../../nodes/output/frameStream'
@@ -56,16 +60,12 @@ export function usesNetwork(node: Pick<StudioNode, 'data'>): boolean {
 }
 
 /**
- * The node whose hostname, addressing and Wi-Fi credentials the connection
- * uses: the first network user in the order given. Validation warns when
- * network users disagree rather than silently picking one. A syncing Board
- * is the source only when nothing else uses the network: it carries a
- * hostname and credentials but no addressing, and turning sync on must not
- * take the connection's settings away from the Art-Net or NTP node that
- * already owns them.
+ * Whether the sketch built from `nodes` brings its network up: something in
+ * it uses the network. The settings it comes up with are the Board's, read
+ * from the whole graph by `networkSketchCpp`.
  */
-export function networkSourceIn<T extends Pick<StudioNode, 'data'>>(nodes: readonly T[]): T | null {
-  return nodes.find((node) => usesNetwork(node) && !boardSyncsClock(node)) ?? nodes.find(usesNetwork) ?? null
+export function networkUsedIn(nodes: readonly Pick<StudioNode, 'data'>[]): boolean {
+  return nodes.some(usesNetwork)
 }
 
 export function parseIpv4Literal(value: unknown): [number, number, number, number] | null {
@@ -193,22 +193,25 @@ function wifiBootstrapCpp(wifi: WifiEmit): string {
 }
 
 /**
- * The network for one sketch. `nodes` is the whole graph, because a wired
- * link is a hardware-only part with no ports; `source` is the network user
- * whose settings win (see `networkSourceIn`).
+ * The network for one sketch. `nodes` is the whole graph (one board's
+ * partition), because a wired link is a hardware-only part with no ports and
+ * the identity is the Board's, which has none either. Ask `networkUsedIn`
+ * first: this emits a connection whether or not anything uses it.
  */
-export function networkSketchCpp(nodes: readonly StudioNode[], source: Pick<StudioNode, 'id' | 'data'>): NetworkSketchEmit {
-  const props = source.data.properties as Record<string, unknown>
-  const hostname = cppStringLiteral(props.wifiHostname ?? (source.data.nodeType === 'Board' ? 'fastled-board' : 'fastled-node'))
-  const staticIp = parseIpv4Literal(props.staticIp)
-  const staticGateway = parseIpv4Literal(props.staticGateway)
-  const staticSubnet = parseIpv4Literal(props.staticSubnet)
-  const staticConfig = props.useDhcp === false && staticIp && staticGateway && staticSubnet
+export function networkSketchCpp(nodes: readonly StudioNode[]): NetworkSketchEmit {
+  const identity = boardNetworkIdentity(networkBoardIn(nodes))
+  // Escaped like every user string; validation separately asks for a name
+  // the network can carry (`boardHostnameProblem`).
+  const hostname = cppStringLiteral(identity.hostname)
+  const staticIp = parseIpv4Literal(identity.staticIp)
+  const staticGateway = parseIpv4Literal(identity.staticGateway)
+  const staticSubnet = parseIpv4Literal(identity.staticSubnet)
+  const staticConfig = !identity.useDhcp && staticIp && staticGateway && staticSubnet
     ? {
         ip: ipAddressExpr(staticIp),
         gateway: ipAddressExpr(staticGateway),
         subnet: ipAddressExpr(staticSubnet),
-        dns: ipAddressExpr(parseIpv4Literal(props.staticDns)),
+        dns: ipAddressExpr(parseIpv4Literal(identity.staticDns)),
       }
     : null
   const wired = wiredNetworkIn(nodes)
@@ -242,9 +245,9 @@ export function networkSketchCpp(nodes: readonly StudioNode[], source: Pick<Stud
       setup: ['  _netEnsureConnected();'],
     }
   }
-  // SSID/password are deliberately not node properties (see
-  // networkCredentials.ts), so they are looked up by node id instead of props.
-  const credentials = getNetworkCredentials(source.id)
+  // SSID/password are deliberately not Board properties (see
+  // networkCredentials.ts), so they are looked up by the Board's node id.
+  const credentials = boardNetworkCredentialsIn(nodes)
   return {
     include,
     bootstrap: wifiBootstrapCpp({

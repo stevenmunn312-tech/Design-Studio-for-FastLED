@@ -1,0 +1,75 @@
+/* The Board's Network group in the board menu, between the Board's own
+   controller settings and the several-boards section. Field styling follows
+   BoardFleetControls. */
+.network {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-0) * 1.5);
+  margin-top: var(--space-1);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--divider);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-0) * 0.75);
+}
+
+.header strong {
+  color: var(--text-primary);
+  font-size: var(--fs-ui);
+}
+
+.header span,
+.note {
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1.35;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-0) * 0.75);
+}
+
+.fieldLabel {
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1;
+}
+
+.fieldInput {
+  padding: var(--space-0) calc(var(--space-0) * 1.5);
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  font-family: inherit;
+}
+
+.fieldInput:focus-visible {
+  outline: 2px solid var(--accent-output);
+  outline-offset: 1px;
+}
+
+.fieldInput[aria-invalid='true'] {
+  border-color: color-mix(in srgb, var(--warning) 70%, var(--line));
+}
+
+.problem {
+  color: var(--warning);
+  font-size: var(--fs-caption);
+  line-height: 1.35;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  cursor: pointer;
+}

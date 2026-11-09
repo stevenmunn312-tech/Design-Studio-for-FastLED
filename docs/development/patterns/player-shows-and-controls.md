@@ -267,11 +267,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   beatsin are Wave (a unipolar sawtooth, a unipolar sine at a BPM), which reads
   the control graph's clock like Time does. Schedule Trigger's unwired Enable uses the property and defaults
   on. Other unwired bools are false. Schedule Trigger's DateTime is a
-  `datetime` timed input: the control graph accepts it only from an RTC Clock,
+  `datetime` timed input: the control graph accepts it only from a Clock,
   resolves that clock through one of its scalars so it is emitted first, and
   passes the schedule the clock's `_RtcDateTimeValue` by name. Smooth, Random and DMX Channel stay
   refused.
-- A wired RTC Clock is resolved by `clockFor`, beside `ledStatusFor`. Every
+- A wired Clock is resolved by `clockFor`, beside `ledStatusFor`. Every
   time source emits through `rtcInputCpp.ts`; an NTP clock's emission also
   carries the sketch's network (headers, bootstrap, wired setup line) from
   `networkCpp.ts`, the same emitter the normal sketch uses, so the three

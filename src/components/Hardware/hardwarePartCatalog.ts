@@ -35,6 +35,7 @@ import { COOLING_FAN_PART_ID } from '../../state/peripherals/coolingFan'
 import { DFPLAYER_PART_ID } from '../../state/peripherals/dfPlayer'
 import { DEFAULT_BATTERY_CELL_PART_ID } from '../../state/peripherals/battery'
 import { SR1230_ENCODER_PART_ID } from '../../state/peripherals/encoder'
+import { RTC_MODULE_NODE_TYPE } from '../../state/peripherals/rtcModule'
 
 export const MIC_NODE_TYPE = 'MicInput'
 
@@ -530,36 +531,36 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
     fqbnPrefix: 'esp32:esp32:esp32s3',
   },
   {
-    nodeType: 'RTCInput',
+    nodeType: RTC_MODULE_NODE_TYPE,
     partId: 'rtc',
     label: 'DS3231 RTC module',
     hint: 'Battery-backed clock on the board I2C bus',
     footprint: partDimensionsMm('ds3231-rtc-module', { width: 38, height: 22 }),
-    signalPort: 'secondsOfDay',
-    dataType: 'float',
+    signalPort: 'time',
+    dataType: 'datetime',
     pinRequests: [],
     pinFields: [
       { key: 'sdaPin', label: 'SDA' },
       { key: 'sclPin', label: 'SCL' },
     ],
-    properties: { timeSource: 'DS3231', partId: 'ds3231-rtc-module' },
+    properties: { partId: 'ds3231-rtc-module' },
     connectionSummary: 'Default I2C bus',
     singleton: true,
   },
   {
-    nodeType: 'RTCInput',
+    nodeType: RTC_MODULE_NODE_TYPE,
     partId: 'rtc-xc9044',
     label: 'DS3231 RTC Clock Module for Raspberry Pi',
     hint: 'Compact Pi-header clock on the board I2C bus',
     footprint: partDimensionsMm('jaycar-xc9044-rtc-module', { width: 14, height: 14 }),
-    signalPort: 'secondsOfDay',
-    dataType: 'float',
+    signalPort: 'time',
+    dataType: 'datetime',
     pinRequests: [],
     pinFields: [
       { key: 'sdaPin', label: 'SDA' },
       { key: 'sclPin', label: 'SCL' },
     ],
-    properties: { timeSource: 'DS3231', partId: 'jaycar-xc9044-rtc-module' },
+    properties: { partId: 'jaycar-xc9044-rtc-module' },
     connectionSummary: 'Default I2C bus',
     singleton: true,
   },

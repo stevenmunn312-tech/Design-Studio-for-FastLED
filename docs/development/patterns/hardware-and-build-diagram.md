@@ -76,6 +76,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   on every board in the catalogue, which makes the mistake easy to spot. Read
   a mechanical drawing's dimensions against what they point at, too: the D1
   Mini's 20.4 mm is its mounting holes, and its rails are 22.86 mm apart.
+- A part that only feeds a library node is a provider, not a signal node: the
+  Microphone and Line In for **Audio**, and the DS3231 (`RtcModule`,
+  hardware-only, no ports) for the **Clock** (`RTCInput`) set to DS3231. The
+  library node carries the source choice and the outputs; the part carries
+  only its identity and pins, is hidden on the canvas, and is found by
+  scanning the board's partition (`rtcModuleIn`). Adding the part brings its
+  library node when the graph has none (`ensureRootAudioNode`,
+  `ensureRootClockNode`), and a choice whose part is missing is a validation
+  finding whose repair adds it, never a second set of outputs on the part.
 - Ethernet built into a board is a profile fact (`onboardEthernet`), never an
   `EthernetModule`. Ask `wiredNetworkIn`, not `ethernetModuleIn`, whether a
   cable carries the network: the board's port wins, and a module beside it is

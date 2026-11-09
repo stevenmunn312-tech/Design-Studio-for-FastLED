@@ -1,11 +1,9 @@
 import { useEffect } from 'react'
-import { rootGraphNodes, useGraphStore, useNodeProperties } from '../../../state/graphStore'
+import { useGraphStore, useNodeProperties } from '../../../state/graphStore'
 import { useDmxStore } from '../../../state/peripherals/dmxStore'
-import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../../state/peripherals/networkCredentials'
-import { wiredNetworkIn, wiredNetworkPhrase } from '../../../state/peripherals/ethernetModule'
 import { dmxListenPort, dmxListenUniverse, dmxNetworkProtocol } from '../../../state/peripherals/dmxTransceiver'
 import styles from './DmxInputBody.module.css'
-import WifiPasswordInput from '../WifiPasswordInput'
+import BoardNetworkNote from './BoardNetworkNote'
 
 function statusLabel(helperOnline: boolean, listening: boolean, live: boolean, error: string, protocol: string): string {
   if (!helperOnline) return 'HELPER OFFLINE'
@@ -25,14 +23,6 @@ export default function DmxInputBody({ nodeId }: { nodeId: string }) {
   const configure = useDmxStore((s) => s.configure)
   const stop = useDmxStore((s) => s.stop)
   const trusted = useGraphStore((s) => s.trusted)
-  const credentials = useNetworkCredentialsStore((s) => s.byNodeId[nodeId] ?? EMPTY_CREDENTIALS)
-  const setCredentials = useNetworkCredentialsStore((s) => s.setCredentials)
-  // A cable carries the network instead of Wi-Fi: the board's own Ethernet
-  // port, or an Ethernet module on the bench.
-  const wired = useGraphStore((s) => {
-    const network = wiredNetworkIn(rootGraphNodes(s))
-    return network ? wiredNetworkPhrase(network) : null
-  })
 
   const universe = dmxListenUniverse(props)
   // Art-Net or sACN; null is the wired DMX512 receiver, which the preview
@@ -84,35 +74,7 @@ export default function DmxInputBody({ nodeId }: { nodeId: string }) {
       {!network && (
         <div className={styles.note}>Preview listens for Art-Net or sACN only; firmware uses the selected DMX512 pins.</div>
       )}
-      {network && wired && (
-        <div className={styles.note}>Firmware reaches the network through {wired}, so no Wi-Fi credentials are needed.</div>
-      )}
-      {network && !wired && (
-        <>
-          <div className={styles.field}>
-            <label className={styles.fieldLabel} htmlFor={`${nodeId}-dmx-ssid`}>Wi-Fi SSID</label>
-            <input
-              id={`${nodeId}-dmx-ssid`}
-              className={`nodrag ${styles.fieldInput}`}
-              type="text"
-              autoComplete="off"
-              value={credentials.ssid}
-              onChange={(e) => setCredentials(nodeId, { ssid: e.target.value })}
-              placeholder="network name"
-            />
-          </div>
-          <div className={styles.field}>
-            <label className={styles.fieldLabel} htmlFor={`${nodeId}-dmx-password`}>Wi-Fi password</label>
-            <WifiPasswordInput
-              id={`${nodeId}-dmx-password`}
-              className={`nodrag ${styles.fieldInput}`}
-              value={credentials.password}
-              onChange={(password) => setCredentials(nodeId, { password })}
-            />
-          </div>
-          <div className={styles.note}>Stored in this browser only — never saved in the project file or share links.</div>
-        </>
-      )}
+      {network && <BoardNetworkNote nodeId={nodeId} />}
     </div>
   )
 }

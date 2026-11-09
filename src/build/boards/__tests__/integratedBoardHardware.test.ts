@@ -185,10 +185,10 @@ describe('soldered pins survive the pin walk', () => {
       node('board', 'Board', { profileId: CYD }),
       fitted(),
       node('leds', 'MatrixOutput', { dataPin: 14, chipset: 'WS2812B' }),
-      node('rtc', 'RTCInput', { timeSource: 'DS3231' }),
+      node('rtc', 'RtcModule'),
     ]
     const { nodes } = retargetHardwarePins(before, boardProfileById(CYD), CYD_FQBN, CLASSIC)
-    // The clock takes the board's own I2C bus, which is both pads.
+    // The DS3231 takes the board's own I2C bus, which is both pads.
     const rtc = nodes.find((n) => n.id === 'rtc')!
     expect([rtc.data.properties.sdaPin, rtc.data.properties.sclPin]).toEqual([27, 22])
     // The LED output has nowhere to go and stays where it arrived — reported,

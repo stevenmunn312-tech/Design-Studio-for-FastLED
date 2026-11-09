@@ -55,7 +55,7 @@ const INTENT_TAGS: Record<string, string[]> = {
   MicInput: ['audio', 'hardware'],
   DMXInput: ['dmx', 'art-net', 'lighting console'],
   DMXChannel: ['dmx', 'decoder', 'channel'],
-  RTCInput: ['clock', 'schedule', 'time'],
+  RTCInput: ['clock', 'schedule', 'time', 'rtc', 'ntp', 'ds3231', 'date'],
   ScheduleTrigger: ['schedule', 'time', 'trigger'],
   FFTAnalyzer: ['audio', 'reactive'],
   BeatDetect: ['audio', 'trigger'],

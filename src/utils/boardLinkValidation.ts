@@ -13,10 +13,11 @@ import {
   type BoardPartition,
 } from '../build/boardPartition'
 import { isGeneratorOwnerNodeType, type BoardLinkSlot } from '../build/boardLinks'
-import { networkSourceIn } from '../codegen/peripherals/networkCpp'
+import { networkUsedIn } from '../codegen/peripherals/networkCpp'
 import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { fqbnHasEspNow, fqbnHasWifi } from '../state/peripherals/networkCapability'
 import { getNetworkCredentials } from '../state/peripherals/networkCredentials'
+import { boardNetworkCredentialsKey } from '../state/peripherals/boardNetwork'
 import { boardLinkSettings, getBoardLinkKey } from '../state/peripherals/boardLinkKey'
 import { panelDisplaySourceKind } from '../state/displays/mountedDisplays'
 import { shownDesignId, transportLayoutForKind } from '../state/displays/transportDisplay'
@@ -128,9 +129,9 @@ export function boardLinkFindings(
   // (boardLinkFollowSsid), so it needs no advice here.
   const onWifi = linkedRuns.flatMap((run) => {
     if (radioless.has(run.board.id) || (run.fqbn && !fqbnHasWifi(run.fqbn))) return []
-    if (wiredNetworkIn(run.partition.nodes)) return []
-    const owner = networkSourceIn(run.partition.nodes)
-    return owner ? [{ run, owner, ssid: getNetworkCredentials(owner.id).ssid }] : []
+    if (wiredNetworkIn(run.partition.nodes) || !networkUsedIn(run.partition.nodes)) return []
+    // The board joins with its own network settings, whoever uses them.
+    return [{ run, ssid: getNetworkCredentials(boardNetworkCredentialsKey(run.board)).ssid }]
   })
   // A board with no network name yet has its own SSID warning; it joins
   // nothing to compare.
@@ -144,8 +145,8 @@ export function boardLinkFindings(
       id: `board-link-network-${entry.run.board.id}`, severity: 'error', category: 'board',
       title: `${a} and ${b} are on different Wi-Fi networks`,
       message: `Linked boards must share one radio channel, and a board on Wi-Fi takes its router's. ${a} joins "${reference.ssid}" and ${b} joins "${entry.ssid}", so the two cannot count on hearing each other.`,
-      fix: `Enter the same Wi-Fi network for ${b} as for ${a}.`,
-      nodeIds: [entry.owner.id, reference.owner.id], nodeLabel: nodeLabel(entry.owner),
+      fix: `Enter the same Wi-Fi network in ${b}'s network settings as in ${a}'s.`,
+      nodeIds: [entry.run.board.id, reference.run.board.id], nodeLabel: b,
     })
   }
   // ── What a show or player sketch can receive ───────────────────────────

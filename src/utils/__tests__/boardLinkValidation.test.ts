@@ -118,16 +118,17 @@ describe('board link validation', () => {
     const dmx = (id: string, boardId?: string) =>
       node(id, 'DMXInput', { inputMode: 'Art-Net', universe: 0, ...(boardId ? { boardId } : {}) })
     const { nodes, edges } = linked({ nodes: [dmx('dmx1'), dmx('dmx2', 'board-2')] })
-    useNetworkCredentialsStore.getState().setCredentials('dmx1', { ssid: 'home', password: 'secret-one' })
-    useNetworkCredentialsStore.getState().setCredentials('dmx2', { ssid: 'studio', password: 'secret-two' })
+    useNetworkCredentialsStore.getState().setCredentials('board-root', { ssid: 'home', password: 'secret-one' })
+    useNetworkCredentialsStore.getState().setCredentials('board-2', { ssid: 'studio', password: 'secret-two' })
 
     const diagnostics = buildBoardDiagnostics(nodes, edges, { targets })
     const card = diagnostics.find((issue) => issue.id === 'board-link-network-board-2')
     expect(card).toMatchObject({
       severity: 'error', category: 'board',
       title: 'Board 1 and Board 2 are on different Wi-Fi networks',
-      fix: 'Enter the same Wi-Fi network for Board 2 as for Board 1.',
-      nodeIds: ['dmx2', 'dmx1'],
+      // The Wi-Fi is each Board's, whatever node uses it.
+      fix: "Enter the same Wi-Fi network in Board 2's network settings as in Board 1's.",
+      nodeIds: ['board-2', 'board-root'],
     })
     expect(card?.message).toContain('Board 1 joins "home" and Board 2 joins "studio"')
     // Never a password.
@@ -140,7 +141,7 @@ describe('board link validation', () => {
         .toContainEqual(expect.stringContaining('different Wi-Fi networks'))
     }
 
-    useNetworkCredentialsStore.getState().setCredentials('dmx2', { ssid: 'home', password: 'secret-two' })
+    useNetworkCredentialsStore.getState().setCredentials('board-2', { ssid: 'home', password: 'secret-two' })
     expect(ids(buildBoardDiagnostics(nodes, edges, { targets }))).toEqual([])
   })
 
@@ -149,8 +150,8 @@ describe('board link validation', () => {
     const dmx1 = node('dmx1', 'DMXInput', { inputMode: 'Art-Net', universe: 0 })
     const eth = node('eth', 'EthernetModule', on2)
     const { nodes, edges } = linked({ nodes: [dmx1, dmx2, eth], root: { linkChannel: 6 } })
-    useNetworkCredentialsStore.getState().setCredentials('dmx1', { ssid: 'home', password: 'x' })
-    useNetworkCredentialsStore.getState().setCredentials('dmx2', { ssid: 'studio', password: 'x' })
+    useNetworkCredentialsStore.getState().setCredentials('board-root', { ssid: 'home', password: 'x' })
+    useNetworkCredentialsStore.getState().setCredentials('board-2', { ssid: 'studio', password: 'x' })
 
     const diagnostics = buildBoardDiagnostics(nodes, edges, { targets })
     expect(ids(diagnostics)).not.toContain('board-link-network-board-2')
@@ -160,9 +161,11 @@ describe('board link validation', () => {
   })
 
   it('refuses a clock reading into a board whose sketch is a slideshow', () => {
+    // A Clock reading the DS3231 on Board 1 runs there, so Board 2 receives it.
     const { nodes, edges } = linked({
       nodes: [
-        node('rtc', 'RTCInput', {}, [{ id: 'display', dataType: 'display' }]),
+        node('ds3231', 'RtcModule'),
+        node('rtc', 'RTCInput', { timeSource: 'DS3231' }, [{ id: 'display', dataType: 'display' }]),
         node('show', 'PatternSlideshow'),
         node('out2', 'MatrixOutput', { width: 8, height: 8, dataPin: 6, ...on2 }),
         node('oled', 'InfoDisplay', on2),
@@ -176,7 +179,11 @@ describe('board link validation', () => {
       .some((error) => error.includes('cannot show a screen reading'))).toBe(true)
     // A normal sketch on Board 2 draws it.
     const normal = linked({
-      nodes: [node('rtc', 'RTCInput', {}, [{ id: 'display', dataType: 'display' }]), node('oled', 'InfoDisplay', on2)],
+      nodes: [
+        node('ds3231', 'RtcModule'),
+        node('rtc', 'RTCInput', { timeSource: 'DS3231' }, [{ id: 'display', dataType: 'display' }]),
+        node('oled', 'InfoDisplay', on2),
+      ],
       edges: [edge('rtc', 'display', 'oled', 'display')],
     })
     expect(ids(buildBoardDiagnostics(normal.nodes, normal.edges, { targets }))

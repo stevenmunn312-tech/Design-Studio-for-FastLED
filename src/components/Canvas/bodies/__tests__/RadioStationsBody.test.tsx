@@ -92,33 +92,40 @@ describe('RadioStationsBody', () => {
     expect(view.getByRole('button', { name: 'Remove Jazz' }).matches(':disabled')).toBe(true)
   })
 
-  // The board has one connection; a Web Remote placed first holds its name and
-  // Wi-Fi, so the radio shows that instead of fields the board would ignore.
-  it('names the node that holds the board network instead of its own fields', () => {
+  // The board has one network identity, the Board's: the radio names the
+  // network it joins and keeps no name or Wi-Fi fields of its own.
+  it('streams over the Board network rather than fields of its own', () => {
     const state = useGraphStore.getState()
     useGraphStore.setState({
       nodes: [{
+        id: 'board-root', type: 'studioNode', position: { x: 0, y: 0 }, hidden: true,
+        data: { label: 'Board', nodeType: 'Board', category: 'output', properties: { wifiHostname: 'den-radio' }, inputs: [], outputs: [] },
+      } as never, {
         id: 'remote', type: 'studioNode', position: { x: 0, y: 0 },
-        data: { label: 'Web Remote', nodeType: 'WebRemoteInput', category: 'input', properties: { wifiHostname: 'fastled-remote' }, inputs: [], outputs: [] },
+        data: { label: 'Web Remote', nodeType: 'WebRemoteInput', category: 'input', properties: {}, inputs: [], outputs: [] },
       } as never, ...state.nodes],
     })
+    useNetworkCredentialsStore.getState().setCredentials('board-root', { ssid: 'home' })
     const view = render(<RadioStationsBody nodeId="player" />)
-    expect(view.getByText('via Web Remote')).toBeTruthy()
+    expect(view.getByText('Joins “home” as den-radio.')).toBeTruthy()
+    expect(view.getByRole('button', { name: 'Network settings' })).toBeTruthy()
     expect(view.queryByLabelText('Wi-Fi SSID')).toBeNull()
     expect(view.queryByLabelText('Hostname')).toBeNull()
-    expect(view.getByLabelText('Phone station page').closest('[title]')?.getAttribute('title')).toContain('http://fastled-remote.local:8080')
+    // Beside a Web Remote the page moves off port 80, at the board's name.
+    expect(view.getByLabelText('Phone station page').closest('[title]')?.getAttribute('title')).toContain('http://den-radio.local:8080')
+    useNetworkCredentialsStore.getState().removeCredentials('board-root')
   })
 
-  it('keeps the Wi-Fi details and access code in this browser, not the project', () => {
+  it('keeps the access code in this browser, not the project', () => {
     installPlayer({ stationPage: true, stations: [] })
     const view = render(<RadioStationsBody nodeId="player" />)
-    fireEvent.change(view.getByLabelText('Wi-Fi SSID'), { target: { value: 'home' } })
+    expect(view.getByText('The Board has no Wi-Fi name yet.')).toBeTruthy()
     fireEvent.change(view.getByLabelText('access code'), { target: { value: 'abc' } })
-    expect(useNetworkCredentialsStore.getState().byNodeId.player).toMatchObject({ ssid: 'home', accessCode: 'abc' })
+    expect(useNetworkCredentialsStore.getState().byNodeId.player).toMatchObject({ accessCode: 'abc' })
     expect(view.getByRole('alert').textContent).toMatch(/shorter than 6/)
-    // The page's address is in the tooltip, at this player's own name.
-    expect(view.getByLabelText('Phone station page').closest('[title]')?.getAttribute('title')).toContain('http://fastled-radio.local')
+    // The page's address is in the tooltip, at the board's default name.
+    expect(view.getByLabelText('Phone station page').closest('[title]')?.getAttribute('title')).toContain('http://fastled-board.local')
     const props = useGraphStore.getState().nodes[0].data.properties as Record<string, unknown>
-    expect(JSON.stringify(props)).not.toMatch(/home|abc/)
+    expect(JSON.stringify(props)).not.toMatch(/abc/)
   })
 })

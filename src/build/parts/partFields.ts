@@ -83,6 +83,11 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
   PdTriggerSource: [
     { key: 'requestedVoltage', label: 'Requested V', kind: 'select', options: pdTriggerSpec(PD_TRIGGER_PART_ID).selectableVoltagesV.map(String) },
   ],
+  // The DS3231's own I2C pair, which a Clock set to DS3231 reads through.
+  RtcModule: [
+    { key: 'sdaPin', label: 'SDA', kind: 'pin' },
+    { key: 'sclPin', label: 'SCL', kind: 'pin' },
+  ],
   EthernetModule: [
     { key: 'sckPin', label: 'SCLK', kind: 'pin' },
     { key: 'mosiPin', label: 'MOSI', kind: 'pin' },

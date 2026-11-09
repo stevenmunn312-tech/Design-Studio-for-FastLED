@@ -83,7 +83,7 @@ export const DISPLAY_WAITING_TEXT = 'WAITING FOR A SIGNAL'
 /** The label a source's node carries, for an error that has to name it. */
 export const DISPLAY_SOURCE_LABELS: Record<DisplaySignalKind, string> = {
   powerMonitor: 'Power Monitor',
-  clock: 'RTC Clock',
+  clock: 'Clock',
   player: 'Music Player',
   slideshow: 'Pattern Slideshow',
   ledOutput: 'LED output',

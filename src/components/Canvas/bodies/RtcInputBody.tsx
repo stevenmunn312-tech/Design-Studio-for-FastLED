@@ -3,15 +3,17 @@ import {
   formatRtcDate, formatRtcTime, rtcPreviewSnapshot, rtcTimeSource,
   type RtcPreview,
 } from '../../../state/peripherals/rtc'
-import { rootGraphNodes, useGraphStore } from '../../../state/graphStore'
+import { boardPartitionOf, useGraphStore } from '../../../state/graphStore'
 import { usePreviewStore } from '../../../state/previewStore'
-import { useNetworkCredentialsStore, EMPTY_CREDENTIALS } from '../../../state/peripherals/networkCredentials'
-import { wiredNetworkIn, wiredNetworkPhrase } from '../../../state/peripherals/ethernetModule'
+import { useUiStore } from '../../../state/uiStore'
+import { rtcModuleIn } from '../../../state/peripherals/rtcModule'
+import { useNodeBoardId } from '../../Hardware/boardSelection'
+import { addRtcModuleToBoard } from '../../Hardware/hardwarePartActions'
 import { useUploadStore } from '../../../state/upload/uploadStore'
 import { useStreamStore } from '../../../state/output/streamStore'
 import { setRtcDateTime } from '../../../utils/backendClient'
 import styles from './RtcInputBody.module.css'
-import WifiPasswordInput from '../WifiPasswordInput'
+import BoardNetworkNote from './BoardNetworkNote'
 
 const REFRESH_MS = 250
 
@@ -55,20 +57,19 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
   const publishedPorts = usePreviewStore((s) => s.outputs.get(nodeId))
   const live = useMemo(() => publishedSnapshot(publishedPorts), [publishedPorts])
   const snapshot = live ?? fallback
-  const credentials = useNetworkCredentialsStore((s) => s.byNodeId[nodeId] ?? EMPTY_CREDENTIALS)
-  const setCredentials = useNetworkCredentialsStore((s) => s.setCredentials)
-  // A cable carries the network instead of Wi-Fi: the board's own Ethernet
-  // port, or an Ethernet module on the bench.
-  const wired = useGraphStore((s) => {
-    const network = wiredNetworkIn(rootGraphNodes(s))
-    return network ? wiredNetworkPhrase(network) : null
-  })
   const selectedPort = useUploadStore((s) => s.selectedPort)
   const helperReady = useUploadStore((s) => s.helper?.ok === true)
   const uploadBusy = useUploadStore((s) => s.busy)
   const stopSerial = useUploadStore((s) => s.stopSerial)
   const [setStatus, setSetStatus] = useState<'idle' | 'setting' | 'done' | 'error'>('idle')
   const [setMessage, setSetMessage] = useState('')
+  // The DS3231 this clock reads is the one on its own board's bench.
+  const boardId = useNodeBoardId(nodeId)
+  const hasModule = useGraphStore((s) => rtcModuleIn(boardPartitionOf(s, boardId).nodes) !== null)
+  const addModule = () => {
+    const result = addRtcModuleToBoard(boardId)
+    useUiStore.getState().setStatus(result.ok ? `Added ${result.label} on the board's I2C pins` : result.reason, result.ok ? 'success' : 'info')
+  }
 
   const setFromComputer = async () => {
     if (!selectedPort || !helperReady || uploadBusy || setStatus === 'setting') return
@@ -122,7 +123,20 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
           never starts and every output stays at zero. Fix the Manual Start fields below.
         </div>
       )}
-      {timeSource === 'DS3231' && (
+      {timeSource === 'DS3231' && !hasModule && (
+        <div className={styles.rtcAction}>
+          <button
+            type="button"
+            className={`nodrag ${styles.setButton}`}
+            onClick={addModule}
+            title="Put a DS3231 module on this board's bench, on its I2C pins"
+          >
+            Add DS3231
+          </button>
+          <span>No DS3231 on the bench yet; the preview stands in for one.</span>
+        </div>
+      )}
+      {timeSource === 'DS3231' && hasModule && (
         <>
           <div className={styles.rtcAction}>
             <button
@@ -139,41 +153,13 @@ export default function RtcInputBody({ nodeId }: { nodeId: string }) {
             </span>
           </div>
           <div className={styles.note}>
-            Preview simulates a healthy module with the browser clock. Firmware reads address
-            0x68 over the configured SDA/SCL pins. Set from computer writes the physical module
-            through the selected USB port; it never runs automatically.
+            Preview simulates a healthy module with the browser clock. Firmware reads the DS3231
+            on the bench at address 0x68 over its SDA/SCL pins. Set from computer writes the
+            physical module through the selected USB port; it never runs automatically.
           </div>
         </>
       )}
-      {String(timeSource ?? 'Compile Time') === 'NTP' && wired && (
-        <div className={styles.note}>Firmware reaches the network through {wired}, so no Wi-Fi credentials are needed.</div>
-      )}
-      {String(timeSource ?? 'Compile Time') === 'NTP' && !wired && (
-        <>
-          <div className={styles.field}>
-            <label className={styles.fieldLabel} htmlFor={`${nodeId}-rtc-ssid`}>Wi-Fi SSID</label>
-            <input
-              id={`${nodeId}-rtc-ssid`}
-              className={`nodrag ${styles.fieldInput}`}
-              type="text"
-              autoComplete="off"
-              value={credentials.ssid}
-              onChange={(e) => setCredentials(nodeId, { ssid: e.target.value })}
-              placeholder="network name"
-            />
-          </div>
-          <div className={styles.field}>
-            <label className={styles.fieldLabel} htmlFor={`${nodeId}-rtc-password`}>Wi-Fi password</label>
-            <WifiPasswordInput
-              id={`${nodeId}-rtc-password`}
-              className={`nodrag ${styles.fieldInput}`}
-              value={credentials.password}
-              onChange={(password) => setCredentials(nodeId, { password })}
-            />
-          </div>
-          <div className={styles.note}>Stored in this browser only — never saved in the project file or share links.</div>
-        </>
-      )}
+      {timeSource === 'NTP' && <BoardNetworkNote nodeId={nodeId} />}
     </div>
   )
 }

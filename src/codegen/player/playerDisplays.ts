@@ -324,7 +324,7 @@ export interface TemplateDisplayOptions {
    *
    * Absent, and the panel stays unresolved. A reading accepts `clock` before
    * the kind list and before `sourceIds`. Omitting the provider keeps today's
-   * "RTC Clock" warning.
+   * "Clock" warning.
    */
   clockFor?: (rtcId: string) => string | null
 }

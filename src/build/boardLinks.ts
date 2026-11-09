@@ -154,9 +154,10 @@ export interface BoardLinkContext {
   /** Each sending board's frame table, in index order. */
   frames: Record<string, BoardLinkFrameEntry[]>
   /**
-   * The boards that join Wi-Fi, each with the node whose network it joins (a
-   * network user, and no wired Ethernet). Their radios sit on the router's
-   * channel, so a board that joins none follows that network's channel.
+   * The boards that join Wi-Fi (a network user, and no wired Ethernet), each
+   * with the key its Wi-Fi name is kept under: the Board's own node id. Their
+   * radios sit on the router's channel, so a board that joins none follows
+   * that network's channel.
    */
   wifiByBoard: Record<string, string>
 }

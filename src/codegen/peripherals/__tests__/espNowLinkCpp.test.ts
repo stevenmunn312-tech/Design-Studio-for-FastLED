@@ -415,7 +415,7 @@ describe('board link — a screen design on one board showing another board\'s M
 
 describe('board link — a board off Wi-Fi beside one on it', () => {
   afterEach(() => {
-    useNetworkCredentialsStore.getState().removeCredentials('remote')
+    for (const id of ['board-root', 'board-2']) useNetworkCredentialsStore.getState().removeCredentials(id)
   })
   const remote = (extra: Record<string, unknown> = {}) => node('remote', 'WebRemoteInput', {
     controls: [{ id: 'level', type: 'Slider', label: 'Level', properties: {} }], ...extra,
@@ -423,7 +423,7 @@ describe('board link — a board off Wi-Fi beside one on it', () => {
 
   it('scans for the network the other board joins, and takes its channel', () => {
     // The D-13 bench: Board 2 joins the network, Board 1 joins none.
-    useNetworkCredentialsStore.getState().setCredentials('remote', { ssid: 'Studio "B"', password: 'secret-pass' })
+    useNetworkCredentialsStore.getState().setCredentials('board-2', { ssid: 'Studio "B"', password: 'secret-pass' })
     const nodes = [
       node('board-root', 'Board', { linkId: LINK_ID }), node('board-2', 'Board'),
       node('fill', 'SolidColor'), node('dim', 'BrightnessMod'), node('out', 'MatrixOutput', { width: 8, height: 1 }),
@@ -450,7 +450,7 @@ describe('board link — a board off Wi-Fi beside one on it', () => {
   })
 
   it('looks again now and then from a board that only sends', () => {
-    useNetworkCredentialsStore.getState().setCredentials('remote', { ssid: 'studio', password: 'x' })
+    useNetworkCredentialsStore.getState().setCredentials('board-root', { ssid: 'studio', password: 'x' })
     const { nodes, edges } = controlsGraph({
       nodes: [remote(), node('dim2', 'BrightnessMod')],
       edges: [edge('remote', 'remote:level', 'dim2', 'brightness')],

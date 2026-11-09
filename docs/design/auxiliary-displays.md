@@ -452,7 +452,7 @@ float/bool/string paths, a self-contained colour, and the running engine's
 pattern selection. Interval shares the normal firmware's elapsed-millisecond
 timer and computed presses bypass contact debounce. Clock, Envelope, Noise
 LFO and Schedule Trigger share those emitters and keep wall-clock
-milliseconds. A wired RTC Clock of any source is a control source
+milliseconds. A wired Clock of any source is a control source
 and a Clock layout; an NTP clock starts the sketch's network.
 Smooth, Random, DMX Channel, arbitrary scripts and palette or image
 colours remain outside that template scope.
@@ -463,7 +463,7 @@ time; collected patterns continue to use track position. Neither control path
 changes slideshow dwell or music timing.
 
 `playerDisplays.ts` resolves fixed content envelopes. Every generator can read
-a local RTC Clock. The player also reads its track, and the show reads its
+a local Clock. The player also reads its track, and the show reads its
 slideshow.
 The show song-expression table is intentionally empty because it owns no track.
 Player scalar song readings come through Song Info nodes wired to the active

@@ -179,7 +179,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'ButtonBank',
   'PotInput',
   'EncoderInput',
-  'RTCInput',
+  'RtcModule',
   'SDCard',
   'Amplifier',
   'PowerAmplifier',
@@ -568,10 +568,10 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         }
         break
       // Both join the board's one I2C bus, on the board's own Wire pair
-      // unless the node names another.
+      // unless the node names another. A DS3231 on the bench is wired
+      // whether or not a Clock reads it yet.
       case 'PowerMonitorInput':
-      case 'RTCInput':
-        if (node.data.nodeType === 'RTCInput' && String(props.timeSource ?? 'Compile Time') !== 'DS3231') break
+      case 'RtcModule':
         pushI2c(node, baseLabel, props)
         break
       case 'SDCard':
@@ -886,9 +886,6 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
     if (nodeType === 'DMXInput') return dmxUsesTransceiver(node.data.properties as Record<string, unknown>)
     if (nodeType === 'MidiInput') return midiUsesUart(node.data.properties as Record<string, unknown>)
     if (!isHardwareNodeType(nodeType)) return false
-    if (nodeType === 'RTCInput') {
-      return String((node.data.properties as Record<string, unknown>).timeSource ?? 'Compile Time') === 'DS3231'
-    }
     return true
   })
 
@@ -1554,7 +1551,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           reasons: wired ? undefined : [`${physicalBoard?.label ?? 'The selected board'} does not have a MIDI RX pin configured.`],
         }
       }
-      case 'RTCInput':
+      case 'RtcModule':
         return {
           ...buildPeripheralItem(node, 'rtc-input', 'DS3231 battery-backed I²C clock', pins),
           supported: pins.some((pin) => pin.propertyKey === 'sdaPin')

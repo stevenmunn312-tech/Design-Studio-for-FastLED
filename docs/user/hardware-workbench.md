@@ -17,8 +17,14 @@ The board owns settings that one generated sketch can apply only once:
 - master brightness;
 - clockless-chipset overclock;
 - global FastLED power cap;
-- render-buffer PSRAM policy and interface; and
-- serial routing on supported native-USB ESP32 targets.
+- render-buffer PSRAM policy and interface;
+- serial routing on supported native-USB ESP32 targets; and
+- its **Network**: the hostname it announces, DHCP or a static address, and
+  the Wi-Fi name and password. Every network feature on the board (Art-Net,
+  sACN, DDP, the Web Remote, NTP time, Frame Stream, internet radio and
+  clock sync) joins with these, so they are set once here rather than on each
+  node. The Wi-Fi name and password stay in this browser and never go into
+  the project or a share link. With several boards, each has its own.
 
 `Auto` is the safe default for PSRAM. It enables external render buffers only
 when the exact profile records a PSRAM interface. `Auto` serial routing examines
@@ -56,7 +62,8 @@ categories are:
   Grove capacitive touch sensor, demodulating IR receiver, potentiometer,
   encoder module, bare SR1230 encoder, PIR motion sensor,
   HLK-LD2410C radar presence sensor, ambient-light sensor, INA219 power monitor,
-  and RTC module;
+  and DS3231 RTC module (a Clock set to DS3231 reads it; the first one adds a
+  Clock to the graph if there is none);
 - **Storage** — supported microSD modules;
 - **Amplifiers & DACs** — the I2S stage on the board's pins (a MAX98357A
   speaker amplifier, or a PCM5102A or UDA1334A DAC), and the analog power
@@ -616,9 +623,9 @@ regulator has that to spare. Studio fills in its six signal pins (SCLK, MOSI,
 MISO, SCNn, INTn, RSTn) for you. The module has no pin names printed on it, so
 wire it from the Build Diagram, which names each pad.
 
-With the module on the bench, the DMX / Art-Net and RTC Clock nodes stop asking
-for a Wi-Fi network and password. Their hostname and DHCP or static-address
-settings apply to the cable instead. The module needs an ESP32, ESP32-S2, S3,
+With the module on the bench, the Board's Network settings stop asking for a
+Wi-Fi network and password. Its hostname and DHCP or static-address settings
+apply to the cable instead. The module needs an ESP32, ESP32-S2, S3,
 C3 or C6 board. On a C3 or C6 it shares the one SPI bus with a colour display
 panel, so give both the same SCK and MOSI pins. Wired Ethernet is experimental
 until the support matrix records it on a real board.
@@ -691,8 +698,10 @@ board-appropriate starting pins.
 
 Some components appear in both views because they carry a signal:
 
-- microphone, line-in, and input/sensor parts produce graph data;
-- RTC produces a clock signal; and
+- microphone, line-in, and input/sensor parts produce graph data, the
+  microphone and line-in through the library's Audio node;
+- a DS3231 RTC module is read through the library's Clock node, set to the
+  DS3231 time source; Compile Time, Manual and NTP clocks need no part; and
 - an LED output consumes a frame.
 
 Auxiliary displays also have graph nodes: fixed panels consume display data,
@@ -828,7 +837,7 @@ driver compatible.
 
 For **7-Segment Display**, **OLED Display**, and built-in **TFT Display**
 screens, connect the source's **Display** output to the panel's **Display** input.
-RTC Clock selects a clock, Music Player selects transport information,
+Clock selects a clock, Music Player selects transport information,
 Pattern Slideshow selects its pattern status/browser, and an LED output
 selects **LED Status**. The TFT's presentation setting chooses between
 treatments of its connected source. There are no separate

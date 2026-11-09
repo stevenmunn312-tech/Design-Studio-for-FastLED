@@ -4,7 +4,9 @@ import { withWiredWebRemoteStarts } from '../state/peripherals/webRemoteWiredSta
 import { isHardwareNodeType, ROOT_BOARD_NODE_ID } from './hardware'
 import { boardLinkSettings } from '../state/peripherals/boardLinkKey'
 import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
-import { networkSourceIn } from '../codegen/peripherals/networkCpp'
+import { networkUsedIn } from '../codegen/peripherals/networkCpp'
+import { boardNetworkCredentialsKey } from '../state/peripherals/boardNetwork'
+import { RTC_MODULE_NODE_TYPE, ds3231Clocks } from '../state/peripherals/rtcModule'
 import { displayKindOfSource, displaySlotFields, receiverDisplayFields } from './boardLinkDisplay'
 import { isLinkedControlsSource, touchControlsFields } from './boardLinkControls'
 import {
@@ -230,6 +232,15 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
     if (isBoardAttachedNodeType(type) || isNetworkEndpointNodeType(type)) {
       anchor(node.id, boardIdOf(node, primaryId, boardIds))
     }
+  }
+  // A Clock reading a DS3231 runs on the board that has the module, and a
+  // reading another board shows crosses the link as a datetime. With a module
+  // on several boards each board reads its own, so the Clock stays unanchored.
+  const ds3231Boards = new Set(nodes.filter((node) => nodeTypeOf(node) === RTC_MODULE_NODE_TYPE)
+    .map((node) => boardIdOf(node, primaryId, boardIds)))
+  if (ds3231Boards.size === 1) {
+    const [moduleBoard] = ds3231Boards
+    for (const clock of ds3231Clocks(nodes)) anchor(clock.id, moduleBoard)
   }
   for (const node of nodes) {
     if (!isGeneratorOwnerNodeType(nodeTypeOf(node))) continue
@@ -489,13 +500,13 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
   const hash = slots.length ? boardLinkSchemaHash(slots, boardOrder) : 0
   const settings = boardLinkSettings(boards[0]?.data.properties as Record<string, unknown> | undefined)
   // The same test validation applies: a board's network user brings up Wi-Fi
-  // unless the board is on a cable.
+  // unless the board is on a cable, and it joins with the Board's own
+  // credentials, kept under the Board's id.
   const wifiByBoard: Record<string, string> = {}
   for (const boardId of boardOrder) {
     const members = byBoard.get(boardId)!
     const own = nodes.filter((node) => members.has(node.id))
-    const source = wiredNetworkIn(own) ? null : networkSourceIn(own)
-    if (source) wifiByBoard[boardId] = source.id
+    if (!wiredNetworkIn(own) && networkUsedIn(own)) wifiByBoard[boardId] = boardNetworkCredentialsKey(byId.get(boardId))
   }
   const context: BoardLinkContext = {
     hash, linkId: settings.linkId, channel: settings.channel, boardOrder, frames, wifiByBoard,

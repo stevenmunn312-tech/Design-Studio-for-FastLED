@@ -118,7 +118,7 @@ describe('motion firmware', () => {
 describe('motion wiring and validation', () => {
   it('shares SDA/SCL, rejects an impossible address, and draws the exact pads', () => {
     const imu = node('imu', 'MotionVectorInput', { sdaPin: 21, sclPin: 22 })
-    const rtc = node('rtc', 'RTCInput', { timeSource: 'DS3231', sdaPin: 21, sclPin: 22 })
+    const rtc = node('rtc', 'RtcModule', { sdaPin: 21, sclPin: 22 })
     expect(collectPinUses([imu]).map((use) => [use.propertyKey, use.pin])).toEqual([['sdaPin', 21], ['sclPin', 22]])
     // A DS3231 answers at 0x68, the same as the default MPU-6050: a real collision.
     expect(findPinConflicts([imu, rtc]).join('\n')).toContain('0x68')

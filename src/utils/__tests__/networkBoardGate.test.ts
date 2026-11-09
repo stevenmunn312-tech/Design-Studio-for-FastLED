@@ -65,8 +65,7 @@ const ACCEPTED = ['arduino:renesas_uno:unor4wifi', 'esp32:esp32:esp32', 'esp8266
 
 describe('the network board gate', () => {
   afterEach(() => {
-    useNetworkCredentialsStore.getState().removeCredentials('dmx')
-    useNetworkCredentialsStore.getState().removeCredentials('rtc')
+    useNetworkCredentialsStore.getState().removeCredentials('board-root')
   })
 
   for (const [name, graph] of [['an Art-Net input', artNetGraph()], ['an NTP clock', ntpGraph()]] as const) {
@@ -85,7 +84,7 @@ describe('the network board gate', () => {
 
     it(`accepts ${name} on the ESP cores and the UNO R4 WiFi`, () => {
       const { nodes, edges, user } = graph
-      useNetworkCredentialsStore.getState().setCredentials(user, { ssid: 'studio', password: 'secret' })
+      useNetworkCredentialsStore.getState().setCredentials('board-root', { ssid: 'studio', password: 'secret' })
       for (const fqbn of ACCEPTED) {
         expect(findDeployBlockingErrors(nodes, edges, fqbn).filter((error) => error.startsWith(GATE)), fqbn).toEqual([])
         expect(validateGraph(nodes, edges, fqbn).errors.filter((error) => error.startsWith(GATE)), fqbn).toEqual([])
@@ -112,7 +111,7 @@ describe('the network board gate', () => {
 
   it('generates the UNO R4 WiFi branch of the shared network bootstrap', () => {
     const { nodes, edges } = artNetGraph()
-    useNetworkCredentialsStore.getState().setCredentials('dmx', { ssid: 'studio', password: 'secret' })
+    useNetworkCredentialsStore.getState().setCredentials('board-root', { ssid: 'studio', password: 'secret' })
     const cpp = generateCpp(nodes, edges)
     expect(cpp).toContain('#elif defined(ARDUINO_UNOWIFIR4)\n#include <WiFiS3.h>\n#define FLS_NET_SUPPORTED 1\n')
     expect(cpp).toContain('#if !defined(ARDUINO_UNOWIFIR4)\n    WiFi.mode(WIFI_STA);\n#endif')
@@ -122,7 +121,7 @@ describe('the network board gate', () => {
 
   it('keeps SNTP on the ESP cores and runs the exchange over WiFiUDP on the UNO R4 WiFi', () => {
     const { nodes, edges } = ntpGraph()
-    useNetworkCredentialsStore.getState().setCredentials('rtc', { ssid: 'studio', password: 'secret' })
+    useNetworkCredentialsStore.getState().setCredentials('board-root', { ssid: 'studio', password: 'secret' })
     const cpp = generateCpp(nodes, edges)
     expect(cpp).toContain('#if defined(ESP32)\n#include <WiFi.h>\n#include <WiFiUdp.h>\n#include <time.h>\n#define FLS_NET_SUPPORTED 1\n#define FLS_NET_SNTP 1')
     expect(cpp).toContain('#elif defined(ARDUINO_UNOWIFIR4)\n#include <WiFiS3.h>\n#define FLS_NET_SUPPORTED 1\n#define FLS_NET_SNTP 0')
@@ -139,7 +138,7 @@ describe('the network board gate', () => {
 
   it('folds the network branches to the chosen board', () => {
     const { nodes, edges } = ntpGraph()
-    useNetworkCredentialsStore.getState().setCredentials('rtc', { ssid: 'studio', password: 'secret' })
+    useNetworkCredentialsStore.getState().setCredentials('board-root', { ssid: 'studio', password: 'secret' })
     const r4 = [...nodes, node('board-root', 'Board', { profileId: 'arduino-uno-r4-wifi' })]
     const r4Cpp = generateCpp(r4, edges)
     expect(r4Cpp).toContain('#include <WiFiS3.h>')
