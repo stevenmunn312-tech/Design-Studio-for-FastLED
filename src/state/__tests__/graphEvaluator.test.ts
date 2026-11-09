@@ -65,6 +65,7 @@ import { evaluateGraph as evaluateGraphImpl, evaluateGraphFull as evaluateGraphF
 import type { Frame, RGB } from '../graphEvaluator'
 import { waveSample } from '../../nodes/signal/wave'
 import { blobSpan } from '../../nodes/generative/evaluate'
+import { boidPalettePosition } from '../../nodes/simulations/evaluate'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { samplePalette } from '../palettes/ledColor'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -1947,7 +1948,7 @@ describe('evaluateGraph', () => {
       expect(spread(sepFrame)).toBeGreaterThan(spread(cohFrame))
     })
 
-    it('colours the flock by colorMode (spectrum varies hue per boid)', () => {
+    it('colours the flock by colorMode (palette varies the colour per boid)', () => {
       const distinct = (frame: Frame) =>
         new Set(frame.flat().filter((px) => px.r + px.g + px.b > 0).map((px) => `${px.r},${px.g},${px.b}`)).size
       // Same seed ⇒ identical motion; only the colouring differs.
@@ -1955,11 +1956,24 @@ describe('evaluateGraph', () => {
       const solid = run('cm_s', { count: 16, colorMode: 'solid', r: 255, g: 0, b: 0 }, 5)
       s1.mockRestore()
       const s2 = seedRandom(999)
-      const spectrum = run('cm_p', { count: 16, colorMode: 'spectrum' }, 5)
+      const perBoid = run('cm_p', { count: 16, colorMode: 'palette' }, 5)
       s2.mockRestore()
-      // Solid: one head colour (+ its dim tail). Spectrum: a hue per boid ⇒ many.
+      // Solid: one head colour (+ its dim tail). Palette: a place per boid ⇒ many.
       expect(distinct(solid)).toBeLessThanOrEqual(2)
-      expect(distinct(spectrum)).toBeGreaterThan(distinct(solid))
+      expect(distinct(perBoid)).toBeGreaterThan(distinct(solid))
+    })
+
+    it('reads every colour mode but solid through the palette', () => {
+      // The same seed gives the same flight, so only the colouring can differ.
+      const frameIn = (colorMode: string, palette: string) => JSON.stringify(
+        run(`pal-${colorMode}-${palette}`, { count: 12, seed: 5, colorMode, palette }, 4))
+      for (const colorMode of ['palette', 'heading', 'density', 'position', 'radial', 'cycle']) {
+        expect(frameIn(colorMode, 'ocean'), colorMode).not.toBe(frameIn(colorMode, 'lava'))
+      }
+      expect(frameIn('solid', 'ocean')).toBe(frameIn('solid', 'lava'))
+      // Spectrum is gone; an unknown mode keeps the solid colour, as the sketch does.
+      expect(boidPalettePosition('spectrum', 1, 12, 1, 0, 2, 1, 1, 1, W, H)).toBeNull()
+      expect(boidPalettePosition('heading', 1, 12, -1, 0, 2, 1, 1, 1, W, H)).toBeCloseTo(1)
     })
 
     it('density and position modes render a multi-hue flock', () => {
@@ -2170,6 +2184,16 @@ describe('evaluateGraph', () => {
     const p0 = JSON.stringify(f0[0][0])
     expect(f0.every((r) => r.every((px) => JSON.stringify(px) === p0))).toBe(false)  // varied
     expect(JSON.stringify(at(120))).not.toEqual(JSON.stringify(f0))                   // animates
+  })
+
+  it('Pride 2015 draws its rainbow on FastLED\'s wheel, and colorwaves through a picked palette', () => {
+    const at = (id: string, props: Record<string, unknown>) => {
+      const p = node(id, 'Pride2015', 'pattern', props)
+      const out = node('out', 'MatrixOutput', 'output', {})
+      return JSON.stringify(evaluateGraph([p, out], [edge('e', id, 'frame', 'out', 'frame')], 12, 8, 1)!)
+    }
+    expect(at('pride-none', { palette: 'none' })).not.toBe(at('pride-lava', { palette: 'lava' }))
+    expect(at('pride-lava-a', { palette: 'lava' })).not.toBe(at('pride-ocean', { palette: 'ocean' }))
   })
 
   it('Blobs sizes by the length of a string, so a strip is not left near black', () => {

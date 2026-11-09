@@ -1,5 +1,5 @@
 import { juggleDotCount, JUGGLE_COUNT } from './juggle'
-import { SCANNER_PALETTE_FLOOR, SPIRAL_ARMS } from './limits'
+import { PRIDE_SAT, SCANNER_PALETTE_FLOOR, SPIRAL_ARMS, rainbowAxis, type RainbowAxis } from './limits'
 import { STRING_MAX_ROWS } from '../shared/stringCanvas'
 import {
   BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, breatheCurve, breatheEnvelope, chaseSpacing, wipePalettePosition, wipeReversed,
@@ -11,7 +11,8 @@ import {
   burstFrame, burstPixel, pacificaFrame, sineFieldFrame, sineFieldSum, pacificaPixel, plasmaFrame, spiralFrame, spiralPixel, plasmaIndex, prideFrame, pridePixel, twinkleFrame, twinklePixel, whitecap,
 } from '../shared/integerPatterns'
 import { scale8, scale8Video } from '../shared/lib8tion'
-import { type Frame, hsv, type Palette, samplePalette, samplePaletteClamped, type RGB } from '../../state/palettes/ledColor'
+import { FILL_RAINBOW_SAT, hsv2rgbRainbow } from '../shared/hsvRainbow'
+import { type Frame, type Palette, samplePalette, samplePaletteClamped, type RGB } from '../../state/palettes/ledColor'
 import {
   DEFAULT_W,
   DEFAULT_H,
@@ -43,13 +44,17 @@ import {
 } from '../../state/evaluator/random'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 
-// FastLED fill_rainbow: a scrolling hue sweep across the strip (hue in 0–255
-// units, +deltaHue per LED, animated by `start`). Index order matches the
-// buffer's [y*W+x] layout so the preview lines up with the firmware.
-function evalRainbow(start: number, deltaHue: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
+// FastLED fill_rainbow: a scrolling hue sweep (hue in 0–255 units, +deltaHue
+// per LED from a whole-byte `start`), through FastLED's own rainbow wheel at
+// fill_rainbow's saturation, so the preview's bytes are the sketch's. The
+// `string` axis follows the buffer's [y*W+x] order, as fill_rainbow does;
+// `horizontal` and `vertical` step once per column or row.
+export function evalRainbow(phase: number, deltaHue: number, axis: RainbowAxis, W = DEFAULT_W, H = DEFAULT_H): Frame {
+  const start = Math.floor(((phase % 256) + 256) % 256)
+  const step = Math.trunc(deltaHue)
   return buildFrame(W, H, (x, y) => {
-      const hue = start + (y * W + x) * deltaHue
-      return hsv((((hue % 256) + 256) % 256) / 256 * 360, 1, 1)
+      const i = axis === 'horizontal' ? x : axis === 'vertical' ? y : y * W + x
+      return hsv2rgbRainbow(start + i * step, FILL_RAINBOW_SAT, 255)
     })
 }
 
@@ -78,7 +83,7 @@ function evalPride2015(key: string, speed: number, scale: number, t: number, W =
       if (palette) {
         const c = samplePalette(palette, hue / 256)
         row.push({ r: scale8(c.r, bri), g: scale8(c.g, bri), b: scale8(c.b, bri) })
-      } else row.push(hsv(hue / 256 * 360, 0.9, bri / 255))
+      } else row.push(hsv2rgbRainbow(hue, PRIDE_SAT, bri))
       i++
     }
     out.push(row)
@@ -543,13 +548,14 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   Rainbow({ num, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.3), SPEED_MAX.Rainbow)
     const deltaHue = Math.max(0, Math.min(255, num(id, 'deltaHue', props, 'deltaHue', 6)))
-    return { frame: evalRainbow(speedPhase(stateKey(id), t, speed), deltaHue, W, H) }
+    return { frame: evalRainbow(speedPhase(stateKey(id), t, speed), deltaHue, rainbowAxis(props.axis), W, H) }
   },
-  Pride2015({ input, num, t, W, H, stateKey }, id, props) {
+  Pride2015({ incoming, num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.4), SPEED_MAX.Pride2015)
     const scale = denormRate(num(id, 'scale', props, 'scale', 0.4), SCALE_MAX.Pride2015)
-    const wired = input(id, 'paletteIn', null)
-    const palette = Array.isArray(wired) ? wired as RGB[] : typeof wired === 'string' ? wired : null
+    // 'none' is the rainbow; a palette, set or wired, makes it colorwaves.
+    const palette = incoming.has(`${id}:paletteIn`) || String(props.palette ?? 'none') !== 'none'
+      ? pal(id, 'paletteIn', props, 'palette', 'rainbow') : null
     return { frame: evalPride2015(stateKey(id), speed, scale, t, W, H, palette) }
   },
   Pacifica({ num, pal, t, W, H, stateKey }, id, props) {

@@ -17,6 +17,7 @@ import {
 import { particleRadius } from './particleScale'
 import { FIRE_ALONG_CPP, fireDirection, fireDirectionChoice } from './fireDirection'
 import { particleMode, particlePoolSize } from './particleModes'
+import { BOID_PALETTE_MODES } from './limits'
 import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { REACTION_DIFFUSION_RATES, reactionDiffusionRates } from './reactionDiffusionPresets'
@@ -703,8 +704,9 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const range = `constrain(${f('visualRange', 'visualRange', 4)},${BOIDS_VISUAL_RANGE.min}.0f,${BOIDS_VISUAL_RANGE.max}.0f)`
     const colorMode = String(p.colorMode ?? 'solid')
     if (colorMode === 'cycle') needsT.v = true  // time-cycling hue needs `t`
-    const colorE = channelColor('color', 120, 200, 255)
-    const pal = paletteExpr(node.id, 'paletteIn', p)
+    const solid = !BOID_PALETTE_MODES.has(colorMode)
+    const colorE = solid ? channelColor('color', 120, 200, 255) : ''
+    const pal = solid ? '' : paletteExpr(node.id, 'paletteIn', p)
     const seed = seedProp(p)
     const bx = `_bx_${id}`, by = `_by_${id}`, bvx = `_bvx_${id}`, bvy = `_bvy_${id}`
     const nvx = `_bnx_${id}`, nvy = `_bny_${id}`, nn = `_bnn_${id}`
@@ -724,17 +726,19 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      if(_sc>0){ _stx+=_sx*(${sep})*0.05f; _sty+=_sy*(${sep})*0.05f; }`)
     ln(`      ${nvx}[_i]=${bvx}[_i]+_stx; ${nvy}[_i]=${bvy}[_i]+_sty;${needNN ? ` ${nn}[_i]=_near;` : ''} }`)
     ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
-    if (colorMode === 'solid') ln(`    CRGB _bc0=${colorE};`)
+    if (solid) ln(`    CRGB _bc0=${colorE};`)
     else if (colorMode === 'radial') ln(`    float _bcx=WIDTH/2.0f,_bcy=HEIGHT/2.0f,_bmr=sqrtf(_bcx*_bcx+_bcy*_bcy); if(_bmr<=0)_bmr=1;`)
-    const boidColor =
-      colorMode === 'palette' ? `CRGB _bc=ColorFromPalette(${pal},(uint8_t)(_i/(float)_count*255.0f));`
-      : colorMode === 'heading' ? `CRGB _bc=CHSV((uint8_t)((atan2f(_diry,_dirx)/6.2831853f+0.5f)*255.0f),255,255);`
-      : colorMode === 'spectrum' ? `CRGB _bc=CHSV((uint8_t)(_i/(float)_count*255.0f),255,255);`
-      : colorMode === 'density' ? `CRGB _bc=CHSV((uint8_t)((1.0f-min(1.0f,${nn}[_i]/8.0f))*0.7f*255.0f),255,255);`
-      : colorMode === 'position' ? `CRGB _bc=CHSV((uint8_t)((${bx}[_i]/WIDTH+${by}[_i]/HEIGHT)*0.5f*255.0f),255,255);`
-      : colorMode === 'cycle' ? `CRGB _bc=CHSV((uint8_t)(t*0.1f*255.0f),255,255);`
-      : colorMode === 'radial' ? `CRGB _bc=CHSV((uint8_t)(sqrtf((${bx}[_i]-_bcx)*(${bx}[_i]-_bcx)+(${by}[_i]-_bcy)*(${by}[_i]-_bcy))/_bmr*255.0f),255,255);`
-      : `CRGB _bc=_bc0;`
+    // Every mode but solid reads the palette at boidPalettePosition. A
+    // position that can pass 1 wraps once round, as samplePalette does.
+    const at =
+      colorMode === 'palette' ? `_i/(float)_count`
+      : colorMode === 'heading' ? `(atan2f(_diry,_dirx)/6.2831853f+0.5f)`
+      : colorMode === 'density' ? `((1.0f-min(1.0f,${nn}[_i]/8.0f))*0.7f)`
+      : colorMode === 'position' ? `((${bx}[_i]/WIDTH+${by}[_i]/HEIGHT)*0.5f)`
+      : colorMode === 'cycle' ? `fmodf(t*0.1f,1.0f)`
+      : colorMode === 'radial' ? `(sqrtf((${bx}[_i]-_bcx)*(${bx}[_i]-_bcx)+(${by}[_i]-_bcy)*(${by}[_i]-_bcy))/_bmr)`
+      : null
+    const boidColor = at === null ? `CRGB _bc=_bc0;` : `CRGB _bc=ColorFromPalette(${pal},(uint8_t)(${at}*255.0f));`
     ln(`    for(int _i=0;_i<_count;_i++){`)
     ln(`      float _sp=sqrtf(${nvx}[_i]*${nvx}[_i]+${nvy}[_i]*${nvy}[_i]); if(_sp<=0)_sp=1; float _dirx=${nvx}[_i]/_sp,_diry=${nvy}[_i]/_sp;`)
     ln(`      ${bvx}[_i]=_dirx*_ms; ${bvy}[_i]=_diry*_ms;`)

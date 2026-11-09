@@ -1,5 +1,6 @@
 import { juggleDotCount, JUGGLE_COUNT } from './juggle'
-import { SCANNER_PALETTE_FLOOR, SPIRAL_ARMS } from './limits'
+import { PRIDE_SAT, SCANNER_PALETTE_FLOOR, SPIRAL_ARMS, rainbowAxis } from './limits'
+import { FILL_RAINBOW_SAT } from '../shared/hsvRainbow'
 import { STRING_MAX_ROWS } from '../shared/stringCanvas'
 import { BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, WIPE_PALETTE_STEP, breatheCurve, breatheEnvelopeCpp } from './classics1d'
 import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
@@ -196,24 +197,34 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  Rainbow({ id, ln, f, ownBuf, needsT }) {
+  // fill_rainbow along the string, or one hue step per column or row; either
+  // way through FastLED's rainbow wheel at fill_rainbow's saturation, which
+  // the preview's hsv2rgbRainbow reproduces byte for byte.
+  Rainbow({ id, p, ln, f, ownBuf, needsT }) {
     needsT.v = true
     const ob = ownBuf()
     const deltaHue = `(uint8_t)constrain(${f('deltaHue', 'deltaHue', 6)},0.0f,255.0f)`
     const rate = rateCpp(f('speed', 'speed', 0.3), SPEED_MAX.Rainbow)
+    const axis = rainbowAxis(p.axis)
     ln(`  { float _spd=${rate};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
-    ln(`    fill_rainbow(${ob}, NUM_LEDS, (uint8_t)(${ph}), ${deltaHue}); }`)
+    ln(`    uint8_t _h0=(uint8_t)fmodf(${ph},256.0f), _dh=${deltaHue};`)
+    if (axis === 'string') ln(`    fill_rainbow(${ob}, NUM_LEDS, _h0, _dh); }`)
+    else {
+      ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
+      ln(`      ${ob}[_y*WIDTH+_x]=CHSV((uint8_t)(_h0+${axis === 'horizontal' ? '_x' : '_y'}*_dh),${FILL_RAINBOW_SAT},255); }`)
+    }
   },
   // Homage to Pride2015 (see the evaluator's evalPride2015 comment) —
-  // identical formula on both sides, mapped through CHSV like Plasma.
+  // identical formula on both sides, its rainbow through FastLED's CHSV wheel,
+  // which the preview's hsv2rgbRainbow reproduces.
   Pride2015({ node, id, p, ln, f, ownBuf, incoming, paletteExpr, needsT }) {
     needsT.v = true
     const ob = ownBuf()
     const speed = rateCpp(f('speed', 'speed', 0.4), SPEED_MAX.Pride2015)
     const scale = rateCpp(f('scale', 'scale', 0.4), SCALE_MAX.Pride2015)
-    // Wired to a palette it becomes colorwaves; unwired it is the rainbow it always was.
-    const wired = incoming.has(`${node.id}:paletteIn`)
+    // With a palette, set or wired, it becomes colorwaves; 'none' is the rainbow.
+    const wired = incoming.has(`${node.id}:paletteIn`) || String(p.palette ?? 'none') !== 'none'
     const pal = wired ? paletteExpr(node.id, 'paletteIn', p) : ''
     ln(`  { float _spd=${speed},_sc=${scale}; int _i=0;`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
@@ -221,7 +232,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     for (const line of PRIDE_PIXEL_CPP) ln(`      ${line}`)
     if (wired) ln(`      CRGB _pc=ColorFromPalette(${pal},_hue); _pc.nscale8(_bri); ${ob}[_y*WIDTH+_x]=_pc;`)
-    else ln(`      ${ob}[_y*WIDTH+_x]=CHSV(_hue,230,_bri);`)
+    else ln(`      ${ob}[_y*WIDTH+_x]=CHSV(_hue,${PRIDE_SAT},_bri);`)
     ln(`      _i++; } }`)
   },
   // Homage to the FastLED "Pacifica" ocean-wave demo (see the evaluator's

@@ -372,6 +372,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Rainbow is FastLED’s fill_rainbow: a full hue sweep across the LEDs that scrolls along them.',
       'Delta Hue is the hue step from one LED to the next. Small values spread a single rainbow over the whole build; larger values repeat it many times.',
+      'Axis String runs the hue along the LEDs in order, exactly as fill_rainbow does. On a matrix that makes each row start further round the wheel, a skewed band; Horizontal and Vertical step it once per column or row for a straight gradient.',
     ],
     example: example({
       featured: 'Rainbow',
@@ -390,10 +391,10 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   Pride2015: {
     overview: [
       'Pride 2015 is Mark Kriegsman’s FastLED classic: a shifting rainbow with a slow, breathing brightness wave rolling through it. It never quite repeats.',
-      'Speed sets how fast it moves and Scale how many colour bands fit along the LEDs. Wire a palette to replace the rainbow.',
+      'Speed sets how fast it moves and Scale how many colour bands fit along the LEDs. Pick a palette, or wire one in, to replace the rainbow: that is Kriegsman’s colorwaves.',
     ],
     inputs: {
-      paletteIn: 'A palette to use instead of the rainbow.',
+      paletteIn: 'A palette to use instead of the rainbow; replaces the Palette field.',
     },
     example: example({
       featured: 'Pride2015',
@@ -833,7 +834,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   Boids: {
     overview: [
       'Boids is a flocking simulation: each agent steers away from neighbours that are too close, matches the heading of nearby ones, and drifts toward the group. Together they flock like starlings.',
-      'Separation, Alignment and Cohesion weight those three rules, and Range is how far each one sees. Colour Mode colours them by a fixed colour, the palette, their heading, crowding, position, time or distance from the centre.',
+      'Separation, Alignment and Cohesion weight those three rules, and Range is how far each one sees. Colour Mode gives them one fixed colour, or a place on the palette chosen by each bird’s index, heading, crowding, position, distance from the centre or the time.',
       'Cost grows with the square of Count, so keep the flock modest on small boards.',
     ],
     inputs: {

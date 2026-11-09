@@ -850,26 +850,33 @@ describe('generateCpp', () => {
     expect(cpp).toContain('constrain(n_rg_value,1.0f,8.0f)')
   })
 
-  it('emits CHSV per-boid colouring for the heading and spectrum colour modes', () => {
+  it('reads every Boids colour mode but solid through the palette', () => {
     const mk = (colorMode: string) =>
-      generateCpp([node('bd', 'Boids', 'pattern', { colorMode, count: 10 }), outputNode], [edge('e1', 'bd', 'out', 'frame', 'frame')])
-    expect(mk('heading')).toContain('atan2f(_diry,_dirx)')
-    expect(mk('spectrum')).toContain('_i/(float)_count*255.0f')
+      generateCpp([node('bd', 'Boids', 'pattern', { colorMode, count: 10, palette: 'ocean' }), outputNode], [edge('e1', 'bd', 'out', 'frame', 'frame')])
+    for (const mode of ['palette', 'heading', 'density', 'position', 'radial', 'cycle']) {
+      expect(mk(mode)).toContain('CRGB _bc=ColorFromPalette(paldef_ocean,(uint8_t)(')
+      // The preview's hsv() wheel and FastLED's CHSV wheel disagree; no mode uses either.
+      expect(mk(mode)).not.toContain('CHSV(')
+      expect(mk(mode)).not.toContain('_bc0')
+    }
+    expect(mk('heading')).toContain('(atan2f(_diry,_dirx)/6.2831853f+0.5f)*255.0f')
+    expect(mk('palette')).toContain('(uint8_t)(_i/(float)_count*255.0f)')
     // Density colours by neighbour count — only this mode allocates the _nn array.
     expect(mk('density')).toContain('_bnn_bd[_i]/8.0f')
     expect(mk('density')).toContain('int _bnn_bd[80];')
-    expect(mk('spectrum')).not.toContain('_bnn_bd[80]')
+    expect(mk('palette')).not.toContain('_bnn_bd[80]')
     // Position colours by matrix coordinate.
     expect(mk('position')).toContain('_bx_bd[_i]/WIDTH+_by_bd[_i]/HEIGHT')
-    // Cycle is time-driven, so it pulls in the `t` clock; radial builds a
-    // centre-distance ramp with pre-loop centre/max-radius constants.
-    expect(mk('cycle')).toContain('t*0.1f*255.0f')
+    // Cycle is time-driven, so it pulls in the `t` clock, wrapped before the
+    // byte cast; radial builds a centre-distance ramp with pre-loop constants.
+    expect(mk('cycle')).toContain('fmodf(t*0.1f,1.0f)*255.0f')
     expect(mk('cycle')).toContain('float t = millis()')
     expect(mk('radial')).toContain('float _bcx=WIDTH/2.0f,_bcy=HEIGHT/2.0f')
-    expect(mk('radial')).toContain('/_bmr*255.0f')
-    // Solid keeps the single base-colour path (no per-boid hue maths).
+    expect(mk('radial')).toContain('/_bmr)*255.0f')
+    // Solid keeps the single base-colour path and reads no palette.
     expect(mk('solid')).toContain('_bc=_bc0')
     expect(mk('solid')).not.toContain('atan2f')
+    expect(mk('solid')).not.toContain('paldef_ocean')
   })
 
   it('scales Noise speed per noiseType variant', () => {
@@ -1858,7 +1865,19 @@ describe('generateCpp', () => {
     expect(generateCpp([outputNode], [])).not.toContain('_fluidVelocity')
   })
 
-  it('emits Pride 2015 colorwaves only when a palette is wired', () => {
+  it('emits Rainbow as fill_rainbow along the string, or one hue step per column or row', () => {
+    const rb = (props: Record<string, unknown> = {}) => generateCpp([node('n', 'Rainbow', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    const string = rb()
+    // A whole byte, wrapped before the cast: a float past 255 is undefined to convert.
+    expect(string).toContain('uint8_t _h0=(uint8_t)fmodf(_phase_n,256.0f), _dh=(uint8_t)constrain(6,0.0f,255.0f);')
+    expect(string).toContain('fill_rainbow(buf_n, NUM_LEDS, _h0, _dh); }')
+    const horizontal = rb({ axis: 'horizontal' })
+    expect(horizontal).toContain('buf_n[_y*WIDTH+_x]=CHSV((uint8_t)(_h0+_x*_dh),240,255); }')
+    expect(horizontal).not.toContain('fill_rainbow(')
+    expect(rb({ axis: 'vertical' })).toContain('CHSV((uint8_t)(_h0+_y*_dh),240,255)')
+  })
+
+  it('emits Pride 2015 colorwaves only when a palette is wired or picked', () => {
     const plain = generateCpp([node('n', 'Pride2015', 'pattern', {}), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
     expect(plain).toContain('CHSV(_hue,230,_bri)')
     expect(plain).not.toContain('ColorFromPalette')
@@ -1869,6 +1888,9 @@ describe('generateCpp', () => {
     expect(wave).toContain('CRGB _pc=ColorFromPalette(')
     expect(wave).toContain('_pc.nscale8(_bri)')
     expect(wave).not.toContain('CHSV(_hue,230,_bri)')
+    const picked = generateCpp([node('n', 'Pride2015', 'pattern', { palette: 'lava' }), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    expect(picked).toContain('CRGB _pc=ColorFromPalette(paldef_lava,_hue);')
+    expect(picked).not.toContain('CHSV(')
   })
 
   it('burns Fire and Digital Rain along a string and up or down a matrix by default', () => {

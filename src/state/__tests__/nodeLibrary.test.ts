@@ -239,7 +239,7 @@ describe('nodeLibrary', () => {
   })
 
   it('propertyDescription prefers a per-node override over the generic description', () => {
-    expect(propertyDescription('Fire', 'direction')).toBe('Which way the flame rises.')
+    expect(propertyDescription('Fire', 'direction')).toMatch(/^Which way the flame rises. Auto/)
     expect(propertyDescription('Transition', 'direction')).toBe('Slide direction for the Wipe / Push styles.')
     expect(propertyDescription('SDCard', 'audioOutput')).toBe(PROPERTY_DESCRIPTIONS.audioOutput)
     expect(propertyDescription('DFPlayerOutput', 'audioOutput')).toMatch(/^Speaker uses/)
@@ -760,11 +760,11 @@ describe('nodeLibrary', () => {
   it('Fire keeps the direction/turbulence/paletteMix/mirror/seed controls for every style', () => {
     const n = NODE_LIBRARY.find((nd) => nd.type === 'Fire')
     expect(n?.defaultProperties).toMatchObject({
-      direction: 'up', turbulence: 1, paletteMix: 1, mirror: false, seed: 0,
+      direction: 'auto', turbulence: 1, paletteMix: 1, mirror: false, seed: 0,
     })
     expect(propertyMeta('Fire', 'direction')).toMatchObject({ control: 'select' })
     expect((propertyMeta('Fire', 'direction') as { options?: string[] }).options)
-      .toEqual(['up', 'down', 'left', 'right'])
+      .toEqual(['auto', 'up', 'down', 'left', 'right'])
     expect(propertyMeta('Fire', 'turbulence')).toMatchObject({ control: 'slider', min: 0, max: 2 })
     expect(propertyMeta('Fire', 'paletteMix')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     for (const key of ['direction', 'turbulence', 'paletteMix', 'mirror', 'seed']) {

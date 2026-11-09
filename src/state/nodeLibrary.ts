@@ -37,9 +37,9 @@ import {
   type TftController,
 } from './displays/tftSurface'
 import { JUGGLE_COUNT } from '../nodes/generative/juggle'
-import { SPIRAL_ARMS } from '../nodes/generative/limits'
+import { RAINBOW_AXES, SPIRAL_ARMS } from '../nodes/generative/limits'
 import { KALEIDOSCOPE_SEGMENTS } from '../nodes/composite/kaleidoscope'
-import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
+import { BOID_COLOR_MODES, BOID_PALETTE_MODES, BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
 import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
 import { DECODER_MAX_VOLUME } from '../build/parts/partFields'
@@ -1007,7 +1007,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     worleyMode: { control: 'select', options: [...WORLEY_MODES] },
   },
   Plasma:          { speed: N01 },
-  Rainbow:         { speed: N01 },
+  Rainbow:         { speed: N01, axis: { control: 'select', options: [...RAINBOW_AXES] } },
   RadialBurst:     { speed: N01, arms: { control: 'slider', min: 1, max: 32, step: 1 } },
   Spiral:          { speed: N01, arms: { control: 'slider', min: SPIRAL_ARMS.min, max: SPIRAL_ARMS.max, step: 1 } },
   Kaleidoscope:    { segments: { control: 'slider', min: KALEIDOSCOPE_SEGMENTS.min, max: KALEIDOSCOPE_SEGMENTS.max, step: 1 } },
@@ -1043,7 +1043,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     alignment:   { control: 'slider', min: 0, max: 1, step: 0.01 },
     cohesion:    { control: 'slider', min: 0, max: 1, step: 0.01 },
     visualRange: { control: 'slider', min: BOIDS_VISUAL_RANGE.min, max: BOIDS_VISUAL_RANGE.max, step: 0.5 },
-    colorMode:   { control: 'select', options: ['solid', 'palette', 'heading', 'spectrum', 'density', 'position', 'cycle', 'radial'] },
+    colorMode:   { control: 'select', options: [...BOID_COLOR_MODES] },
   },
   GradientFrame: { mixMode: { control: 'select', options: [...GRADIENT_MIX_MODES] } },
   GradientSampler: { mixMode: { control: 'select', options: [...GRADIENT_MIX_MODES] } },
@@ -1068,7 +1068,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     flowMode: { control: 'select', options: ['angle', 'curl'] },
     count: { control: 'slider', min: FLOW_FIELD_COUNT.min, max: FLOW_FIELD_COUNT.max, step: 1 },
   },
-  Pride2015:       { speed: N01, scale: N01 },
+  Pride2015:       { speed: N01, scale: N01, palette: { control: 'select', options: ['none', ...PALETTES] } },
   Pacifica:        { speed: N01, scale: N01 },
   TwinkleFox:      { speed: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 } },
   Scanner:         {
@@ -2808,10 +2808,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Rainbow: {
     speed: 'How fast the hues scroll along the LEDs, 0 still to 1 fastest.',
     deltaHue: 'Hue step per LED, 0 to 32. Small spreads one rainbow over the strip; large repeats it.',
+    axis: 'String follows the LEDs in order, as FastLED fill_rainbow does. Horizontal and vertical step the hue once per column or row, for a straight gradient on a matrix.',
   },
   Pride2015: {
     speed: 'How fast the rainbow and brightness wave travel, 0 still to 1 fastest.',
     scale: 'How many colour bands fit along the LEDs; higher packs them tighter.',
+    palette: 'None draws the rainbow. A palette here or on the Palette input makes it colorwaves: the same waves in the palette\'s colours.',
   },
   Pacifica: {
     speed: 'How fast the wave layers scroll, 0 still to 1 fastest.',
@@ -2926,8 +2928,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     alignment: 'How strongly boids match their neighbours heading, 0 none to 1 strong.',
     cohesion: 'How strongly boids drift toward the local group, 0 none to 1 strong.',
     visualRange: 'How far a boid sees neighbours, in LEDs.',
-    colorMode: 'What colours each boid: one colour, the palette, heading, density, position, time or radius.',
-    palette: 'Used by the palette colour mode: each boid takes a fixed palette position.',
+    colorMode: 'What colours each boid: one colour (solid), or a place on the palette set by its index (palette), heading, crowding (density), position, distance from the centre (radial) or time (cycle).',
+    palette: 'The colours every mode but solid reads from.',
   },
   GameOfLife: {
     speed: 'Generations per second, 1 to 30.',
@@ -5152,6 +5154,12 @@ export function isPropertyEnabled(
     if (key === 'ringLeds') return properties.track === 'ring'
     if (key === 'bed') return properties.mode === 'meteors'
     if (key === 'trigger') return properties.mode === 'meteors'
+  }
+  // Solid takes the colour; every other colour mode reads the palette.
+  if (nodeType === 'Boids') {
+    const palette = BOID_PALETTE_MODES.has(String(properties.colorMode ?? 'solid'))
+    if (key === 'palette' || key === 'paletteIn') return palette
+    if (key === 'color' || key === 'r' || key === 'g' || key === 'b') return !palette
   }
   if (nodeType === 'Path' && key === 'customPoints') {
     return properties.pathShape === 'custom'

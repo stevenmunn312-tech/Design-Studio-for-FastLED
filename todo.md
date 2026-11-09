@@ -1003,14 +1003,6 @@ freeze, or drop them.
   last `t` in firmware, as `timedFadeCpp` keeps) and its per-frame constants
   rescaled to per-second ones, with bundled values checked by eye. Evidence
   `src/nodes/simulations/evaluate.ts:587`, `:824`.
-- [ ] **Category: Fix HSV wheel parity for Rainbow, Pride 2015 and Boids
-  (Med, S).** FastLED `CHSV`/`fill_rainbow` is the rainbow wheel and the
-  preview `hsv()` is the spectrum wheel, so yellows and oranges differ on
-  hardware. Rainbow (`src/nodes/generative/codegen.ts:205`), Pride 2015 (`:223`, when
-  unwired) and Boids' hue colour modes (`src/nodes/simulations/codegen.ts:717`) still
-  emit `CHSV`. Use `_hsv`/`hsv2rgb_spectrum`, or for Rainbow make the preview
-  emulate `hsv2rgb_rainbow`, since FastLED's look is the intent. Evidence
-  `src/codegen/helpers/hsvHelperCpp.ts:4`.
 - [ ] **Category: Merge the overlapping Noise types and fold the sine family
   into Plasma (Med, M).** Noise has four near-duplicate cloud types (simplex,
   noise3d, fbm, plasma) and the sine family is spread over Plasma and Noise
@@ -1068,14 +1060,6 @@ freeze, or drop them.
 - [ ] **Plasma: Make speed 0 actually still (Low, S).** The palette scrolls on
   bare `t`, but the tooltip says "0 frozen". Scale the scroll by speed or
   reword the tooltip. Evidence `src/nodes/shared/integerPatterns.ts:49`, `src/state/nodeLibrary.ts:2801`.
-- [ ] **Rainbow: Add an `axis` option (Low, S).** On a matrix the hue runs in
-  row-major order, so each row restarts further round the wheel and the result
-  is a skewed band, not a 2-D gradient. Offer along string, horizontal and
-  vertical. Evidence `src/nodes/generative/evaluate.ts:50`.
-- [ ] **Pride 2015: Add a `palette` select with a `none` option (Low, S).**
-  The colorwaves variant currently needs a separate Palette node wired in,
-  because `propertyInputs` has no `palette`. Follow the pattern at
-  `src/state/nodeLibrary.ts:743`. Evidence `src/nodes/generative/definitions.ts:80`.
 - [ ] **Confetti: Rename Speed to "Colour drift" (Med, S).** Speed and Density
   both set spawn count (`density*(0.08+speed*0.3)*sqrt(area)`), and the
   Density tooltip admits it multiplies Speed. Keep Density for amount and
@@ -1148,15 +1132,6 @@ freeze, or drop them.
   (Low, S).** Each star is a single pixel with no streak. Add an optional
   trail through `trailFade`, or reword. Evidence
   `src/nodes/simulations/definitions.ts:295`, `src/nodes/simulations/evaluate.ts:830`.
-- [ ] **Boids: Read every hue colour mode through the palette (Med, S).**
-  Heading, spectrum, density, position, cycle and radial read the HSV wheel,
-  leaving the always-visible palette socket useless in them. Route all through
-  the palette, which also removes the `CHSV` parity gap and makes `spectrum`
-  redundant (drop it). Modes become solid, palette position, heading, density,
-  position, radial, cycle. Evidence `src/nodes/simulations/codegen.ts:717`.
-- [ ] **Boids: Gate property rows by colour mode (Low, S).** `palette` only
-  matters in palette mode, `color`/R/G/B only in solid, and `isPropertyEnabled`
-  has no Boids clause. Evidence `src/state/nodeLibrary.ts:2926`.
 - [ ] **Game of Life: Reseed when only period-2 oscillators remain (Med, S).**
   Stale detection counts only an empty or unchanged board, so a 16x16 torus
   ending in blocks plus blinkers loops forever, against the reseed promise.

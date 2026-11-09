@@ -822,14 +822,28 @@ function evalStarfield(nodeId: string, speed: number, count: number, palette: Pa
 // Velocities update simultaneously (read old, write new), then are renormalised
 // to a constant speed so the swarm stays bounded; positions wrap toroidally.
 // Rendered as a bright head pixel plus a dim one-pixel tail along the heading.
-// `colorMode` tints each boid: 'solid' (the wired/prop colour), 'palette' (a
-// fixed per-boid position across the wired palette), 'heading' (hue from
-// movement direction), 'spectrum' (a fixed per-boid hue across the wheel),
-// 'density' (hue by local neighbour count — warm where the flock clusters),
-// 'position' (a spatial hue gradient the flock moves through), 'cycle' (the whole
-// flock breathing through the wheel over time), or 'radial' (hue by distance from
-// the matrix centre — concentric rings the flock crosses).
+// `colorMode` tints each boid: 'solid' (the wired/prop colour), or a position
+// along the palette taken from 'palette' (a fixed per-boid position),
+// 'heading' (movement direction), 'density' (local neighbour count), 'position'
+// (a spatial gradient the flock moves through), 'cycle' (the whole flock moving
+// along the palette over time) or 'radial' (distance from the matrix centre).
+// Every mode but solid reads the palette, `boidPalettePosition` on both sides.
 // Kept a faithful mirror of the C++ emitter in cppGenerator.ts.
+/** Where on the palette a boid's colour comes from, or null for the solid colour. */
+export function boidPalettePosition(
+  mode: string, i: number, n: number, dirx: number, diry: number, near: number, x: number, y: number, t: number, W: number, H: number,
+): number | null {
+  switch (mode) {
+    case 'palette': return i / n
+    case 'heading': return Math.atan2(diry, dirx) / (Math.PI * 2) + 0.5
+    case 'density': return (1 - Math.min(1, near / 8)) * 0.7
+    case 'position': return (x / W + y / H) * 0.5
+    case 'cycle': return t * 0.1
+    case 'radial': return Math.hypot(x - W / 2, y - H / 2) / (Math.hypot(W / 2, H / 2) || 1)
+    default: return null
+  }
+}
+
 function evalBoids(nodeId: string, speed: number, count: number, sep: number, ali: number, coh: number, range: number, color: RGB, palette: Palette, colorMode: string, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
   const n = Math.max(2, Math.min(80, Math.floor(count)))
   let s = boidState.get(nodeId)
@@ -876,14 +890,8 @@ function evalBoids(nodeId: string, speed: number, count: number, sep: number, al
     const dirx = nvx[i] / sp, diry = nvy[i] / sp
     vx[i] = dirx * maxSpeed; vy[i] = diry * maxSpeed
     x[i] = (x[i] + vx[i] + W) % W; y[i] = (y[i] + vy[i] + H) % H
-    const bc = colorMode === 'palette' ? samplePalette(palette, i / n)
-      : colorMode === 'heading' ? hsv((Math.atan2(diry, dirx) / (Math.PI * 2) + 0.5) * 360, 1, 1)
-      : colorMode === 'spectrum' ? hsv((i / n) * 360, 1, 1)
-      : colorMode === 'density' ? hsv((1 - Math.min(1, nn[i] / 8)) * 0.7 * 360, 1, 1)
-      : colorMode === 'position' ? hsv((x[i] / W + y[i] / H) * 0.5 * 360, 1, 1)
-      : colorMode === 'cycle' ? hsv(t * 0.1 * 360, 1, 1)
-      : colorMode === 'radial' ? hsv(Math.hypot(x[i] - W / 2, y[i] - H / 2) / (Math.hypot(W / 2, H / 2) || 1) * 360, 1, 1)
-      : color
+    const at = boidPalettePosition(colorMode, i, n, dirx, diry, nn[i], x[i], y[i], t, W, H)
+    const bc = at === null ? color : samplePalette(palette, at)
     const tr = bc.r >> 2, tg = bc.g >> 2, tb = bc.b >> 2
     const px = Math.floor(x[i]), py = Math.floor(y[i])
     if (px >= 0 && px < W && py >= 0 && py < H) frame[py][px] = bc

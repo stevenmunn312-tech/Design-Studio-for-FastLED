@@ -50,7 +50,9 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { speed: 0.5, palette: 'rainbow' },
   },
   {
-    // FastLED fill_rainbow — a scrolling hue sweep; `deltaHue` sets the spread per LED.
+    // FastLED fill_rainbow — a scrolling hue sweep; `deltaHue` sets the spread
+    // per LED. `axis` runs it along the string's own order (fill_rainbow
+    // itself), or across the columns or rows of a matrix.
     type: 'Rainbow',
     label: 'Rainbow',
     category: 'pattern',
@@ -61,13 +63,15 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     ],
     propertyInputs: { speed: 'speed', deltaHue: 'deltaHue' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.3, deltaHue: 6 },
+    defaultProperties: { speed: 0.3, deltaHue: 6, axis: 'string' },
   },
   {
     // Homage to Mark Kriegsman's Pride2015 — a shifting full-spectrum rainbow
     // with a breathing brightness wave along the strip. Same evocative-formula
     // approach as Plasma (identical trig on both the preview and firmware
     // side), not a literal port of the original's 16-bit fixed-point math.
+    // `palette` 'none' is the rainbow; a palette, set or wired, makes it
+    // Kriegsman's colorwaves.
     type: 'Pride2015',
     label: 'Pride 2015',
     category: 'pattern',
@@ -77,9 +81,9 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { speed: 'speed', scale: 'scale' },
+    propertyInputs: { speed: 'speed', scale: 'scale', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.4, scale: 0.4 },
+    defaultProperties: { speed: 0.4, scale: 0.4, palette: 'none' },
   },
   {
     // Homage to the FastLED "Pacifica" ocean-wave demo — layered scrolling
