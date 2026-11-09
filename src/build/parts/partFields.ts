@@ -70,14 +70,7 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
     { key: 'i2sBclk', label: 'BCLK', kind: 'pin' },
     { key: 'i2sLrc', label: 'LRC / WS', kind: 'pin' },
     { key: 'i2sDout', label: 'DIN', kind: 'pin' },
-    { key: 'maxVolume', label: 'Volume', kind: 'number', min: 0, max: DECODER_MAX_VOLUME },
-  ],
-  // Volume only: a power amplifier has no GPIO to set. The decoder applies it
-  // only when this part is fed straight from the internal DAC; with a DAC in
-  // the chain, the DAC's volume is the one the board drives, and the panel
-  // hides this one rather than show two answers.
-  PowerAmplifier: [
-    { key: 'maxVolume', label: 'Volume', kind: 'number', min: 0, max: DECODER_MAX_VOLUME },
+    { key: 'maxVolume', label: 'Max volume (0–21)', kind: 'number', min: 0, max: DECODER_MAX_VOLUME },
   ],
   // Labelled as WIZnet prints them in its pinout; the board itself prints none.
   PowerConverter: [

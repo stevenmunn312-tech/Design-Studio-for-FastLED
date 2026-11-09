@@ -1202,10 +1202,6 @@ freeze, or drop them.
   Display, Display Panel and Segment Display stay separate nodes. Relabel them
   with the parts people buy ("OLED Display", "TFT Display", "7-Segment
   Display").
-- [ ] **Category: Say when to use Player Controls vs direct action ports (Low,
-  S).** The engines and the LED output now take Next, Toggle-blackout and
-  Brightness Up/Down directly. Add one help sentence on each engine: one or two
-  buttons, wire them directly; a whole panel, use Player Controls.
 - [ ] **Category: Point the sidebar Output section at the Hardware tab (Low,
   S).** It lists only Master Speed, Frame Stream and Analog RGB Strip because
   everything else is added from the bench. Add a permanent "LED outputs are on
@@ -1222,16 +1218,6 @@ freeze, or drop them.
   30 properties include a nine-row Response group (gain through beat accent)
   few people touch. Start it collapsed, or offer 3-4 presets (Hi-fi, Punchy,
   Smooth).
-- [ ] **Display Panel: List all four modules in help (Low, S).** Help names the
-  1.54-inch and 2.4-inch modules, but the catalogue also has the ILI9341
-  2.8-inch + touch and the XC4630 2.8-inch shield. List all four, or say
-  "choose the module on the Hardware shelf". Evidence `src/components/HelpModal/reference/output.ts:328`,
-  `src/build/parts/partOptions.ts:572`.
-- [ ] **Amplifier: Use one label for max volume (Low, S).** `maxVolume` is the
-  ceiling that player volume 1.0 maps to, but the tooltip, the bench field and
-  help each describe it differently. Use "Max volume (0-21)" with "the level at
-  full player volume". Evidence `src/state/nodeLibrary.ts:3210`,
-  `src/build/parts/partFields.ts:73`.
 - [ ] **Analog RGB Strip: Resolve overlap with Power Switch (Med, M).** The
   YYNMOS-4 and Mosfetti boards Power Switch catalogues are the usual way to
   drive an analog strip, yet the strip leaves the driver as "whatever the bench
@@ -1253,11 +1239,6 @@ freeze, or drop them.
   The name collides with the step editor on the Music Player and Slideshow,
   but this node is a four-slot timed crossfade. Rename it ("Crossfade Cycle" or
   "Look Rotator"). Evidence `src/nodes/show/codegen.ts:335`.
-- [ ] **Transition Pool: Update the description and comment (Low, S).** The
-  sidebar description says "for the Music Player / Performance Generator" and
-  the definition comment names only Performance Generator, but Pattern
-  Slideshow takes it too. Update both. Evidence
-  `src/nodes/show/definitions.ts:381`, `src/nodes/show/definitions.ts:194`.
 - [ ] **Performance Generator: Show in the main preview by default (Low, S).**
   `showInMainPreview` defaults off, so a generator wired to an LED output plays
   only in its small body canvas while that output's main preview stays black.

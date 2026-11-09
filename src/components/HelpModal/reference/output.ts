@@ -42,7 +42,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
     ],
     inputs: {
       frame: 'The picture to show.',
-      controls: 'A Controls bundle: blackout toggle and brightness from Player Controls or a touch screen.',
+      controls: 'A Controls bundle: blackout toggle and brightness from Player Controls or a touch screen. For one or two buttons, wire them straight to the output’s Toggle blackout and Brightness Up/Down inputs; for a whole panel, use Player Controls.',
     },
     outputs: {
       display: 'This output’s name, on/blackout state and level, for a Segment Display, Info Display or Display Panel.',
@@ -327,7 +327,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       'Display Panel is a colour TFT. Wire one Display output in and the source decides the content — a clock, a now-playing screen, show status, LED status or a power meter — while the Layout setting picks how it is drawn.',
       'For your own screen, choose Create screen design on the panel and draw it with widgets. The design belongs to this panel; it keeps its Display wire for widgets to read, and its controls appear as outputs on the companion Touch Screen node.',
       'Show Status names the pattern a Pattern Slideshow is running and its place in the show, and, like Now Playing, pictures what the LEDs are showing, live and for a collection of any size.',
-      'Choose the 1.54-inch 240×240 ST7789 without touch, or the 2.4-inch 240×320 ST7789V with an XPT2046 touch digitiser. Diagnostics shows a self-test and the touch coordinates.',
+      'Choose the module on the Hardware shelf: the 1.54-inch 240×240 ST7789 without touch; the 2.4-inch 240×320 ST7789V or the 2.8-inch 320×240 ILI9341, each with an XPT2046 touch digitiser; or the XC4630 2.8-inch ILI9341 shield, on an 8-bit parallel bus with a resistive touch sheet. Diagnostics shows a self-test and the touch coordinates.',
     ],
     steps: [
       'Add Display Panel from Displays on the Hardware shelf. Choose its exact module and wire it, including the touch header if it has one.',
@@ -408,7 +408,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
   Amplifier: {
     overview: [
       'Amplifier names the I2S amplifier or DAC that the music player feeds, and owns its three I2S pins: BCLK, LRC and DIN. The MAX98357A drives a speaker directly; DACs such as the PCM5102A give line level for a separate power amplifier.',
-      'It carries no wires. A Music Player or a music show needs one: without an audio stage on the bench the build is refused rather than guessed. Max Volume is the level at full player volume.',
+      'It carries no wires. A Music Player or a music show needs one: without an audio stage on the bench the build is refused rather than guessed. Max volume (0–21) is the level at full player volume: the player starts there, and volume controls move below it.',
     ],
     steps: [
       'Add the amplifier from the Hardware tab and choose its exact board.',

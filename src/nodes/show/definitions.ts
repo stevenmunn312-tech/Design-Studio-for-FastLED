@@ -193,10 +193,11 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { patternIds: [], patternSections: {} },
   },
   {
-    // A pool of extra transition styles (toggled via the chip grid, same
-    // catalogue as the Transition node) for a Performance Generator's
-    // `transitions` input — when wired, generateShow mixes these into its
-    // rule-based crossfade/wipe/dissolve picks instead of only ever using those three.
+    // A pool of transition styles (toggled via the chip grid, same catalogue
+    // as the Transition node) for a show engine's `transitions` input. A
+    // Music Player and a Pattern Slideshow pick one of them at each change;
+    // a Performance Generator's generateShow mixes them into its rule-based
+    // crossfade/wipe/dissolve picks instead of only ever using those three.
     type: 'TransitionSet',
     label: 'Transition Pool',
     category: 'show',
@@ -215,9 +216,9 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
      * `isPatternShow` keys on it, so the three generators are told apart by
      * which node is present rather than by which hardware is absent.
      *
-     * Timing is a fixed Interval until Audio Reactive is on, and then it is
-     * the player's: the same Min/Max hold, Beat Transitions, Energy Pacing and
-     * Dwells & Bursts, read by the same resolver. What differs is what a
+     * Timing is the player's: the same Min/Max hold, read by the same
+     * resolver, with Beat Transitions, Energy Pacing and Dwells & Bursts
+     * waiting on Audio Reactive. What differs is what a
      * slideshow actually needs: transitions that default to a fade without
      * requiring a TransitionSet, and reactivity off unless asked for — the
      * point of the mode is slow patterns that do not twitch at room noise.
@@ -381,7 +382,7 @@ export const SHOW_DESCRIPTIONS: Record<string, string> = {
   SongInfo: 'Opens the Music Player’s track report into one wire per field.',
   Sequencer: 'Crossfades through its inputs on a timer.',
   PatternCollection: 'Holds show patterns, each with a weight, energy tags, and restart or resume.',
-  TransitionSet: 'A pool of transition styles for the Music Player / Performance Generator.',
+  TransitionSet: 'Transition styles for a Music Player, Slideshow or Performance Generator.',
   PatternSlideshow: 'Plays a collection on a timer, in order, at random, or from a sequence.',
   PerformanceGenerator: 'Plans a timed show from music. Edit it in lanes, with ramps and locked sections.',
   SDCard: 'SD card on SPI that the music player and shows read; a bench part, not wired.',

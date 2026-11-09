@@ -62,12 +62,11 @@ export { hasAudioOutputStage } from '../upload/buildMode'
 
 /**
  * The part whose software volume the decoder applies: the stage the board
- * drives. With a DAC in the chain that is the DAC, and the power amplifier's
- * own knob is the analog one on the board; with the power amplifier fed
- * straight from the internal DAC, it is the power amplifier.
+ * drives, the I2S amplifier or DAC. A power amplifier after a DAC has only
+ * the analog knob on its board, and one with no DAC is refused.
  */
 export function audioVolumeStage(nodes: readonly StudioNode[]): StudioNode | undefined {
-  return i2sAudioStage(nodes) ?? powerAmplifierStage(nodes)
+  return i2sAudioStage(nodes)
 }
 
 /**

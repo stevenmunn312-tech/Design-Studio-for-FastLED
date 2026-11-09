@@ -83,9 +83,11 @@ describe('powerAmplifierFeed', () => {
 
 describe('audioVolumeStage', () => {
   // One volume per build: the stage the board drives.
-  it('is the DAC when one feeds the power amplifier, else the power amplifier', () => {
+  // A power amplifier has no volume of its own: its only feed that the
+  // decoder drives is a DAC, and the internal-DAC feed is refused.
+  it('is the DAC when one feeds the power amplifier, and nothing without one', () => {
     expect(audioVolumeStage([power(), amp('pcm5102a-i2s-dac')])?.data.nodeType).toBe('Amplifier')
-    expect(audioVolumeStage([power()])?.data.nodeType).toBe('PowerAmplifier')
+    expect(audioVolumeStage([power()])).toBeUndefined()
     expect(audioVolumeStage([sdCard()])).toBeUndefined()
   })
 })

@@ -1305,7 +1305,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   // The I2S decoder's 0–21 volume steps, typed in the part's hardware panel.
   Amplifier: { maxVolume: { control: 'slider', min: 0, max: DECODER_MAX_VOLUME, step: 1, entry: 'number' } },
-  PowerAmplifier: { maxVolume: { control: 'slider', min: 0, max: DECODER_MAX_VOLUME, step: 1, entry: 'number' } },
   PowerConverter: {
     sourceVoltage: { control: 'slider', min: 5, max: 48, step: 0.5 },
   },
@@ -3204,10 +3203,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     i2sBclk: 'I2S bit clock wired to the amp\'s BCLK.',
     i2sLrc: 'I2S word select wired to the amp\'s LRC/WS.',
     i2sDout: 'I2S data from the board to the amp\'s DIN.',
-    maxVolume: 'Starting software volume, 0 to 21. Volume controls move from here.',
-  },
-  PowerAmplifier: {
-    maxVolume: 'Starting software volume, 0 to 21, used only when the board\'s own DAC feeds this amp.',
+    maxVolume: 'Max volume, 0 to 21: the decoder level at full player volume. The player starts there, and volume controls and a wired Volume scale below it.',
   },
   BassPulse: {
     bass: 'Bass level (0–1) when unwired: picks the palette colour and sets brightness.',

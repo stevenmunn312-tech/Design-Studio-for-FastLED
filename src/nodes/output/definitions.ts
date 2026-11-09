@@ -643,10 +643,9 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
     outputs: [],
     defaultProperties: {
       partId: 'pam8403-3w-stereo-amplifier',
-      // The decoder's software volume, used only when this part is fed
-      // straight from the internal DAC. With a DAC in the chain the DAC is the
-      // stage the board drives, and its volume is the one applied.
-      maxVolume: 18,
+      // No volume of its own: the decoder's volume is applied at the DAC that
+      // feeds it, the stage the board drives. It once had one for the
+      // internal-DAC feed, which the pinned audio library cannot drive.
     },
   },
   {

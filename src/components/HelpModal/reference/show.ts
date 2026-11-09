@@ -144,7 +144,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
     propertyNote: 'Values below are factory defaults. Timing values are in seconds. Wired Min Time, Max Time, Transition, and Volume inputs override their matching fields. Beat Transitions starts off, so adding a player does not require a beat source. Music Source can also play from a phone over Bluetooth or stream internet radio over Wi-Fi instead of the card; both are experimental, and their settings below say what each needs.',
     inputs: {
       audio: 'Audio for the collected patterns and, in preview, the default beat signal. Choose the source on an Audio node. Without Audio or a wired Beat signal, beat-driven changes cannot advance in preview; timed changes still work.',
-      controls: 'A Player Controls node or compatible Controls bundle supplies play/pause, previous/next track, volume, LED on/off, brightness, and pattern-selection commands. Without this wire, use the preview transport and the player’s own settings.',
+      controls: 'A Player Controls node or compatible Controls bundle supplies play/pause, previous/next track, volume, LED on/off, brightness, and pattern-selection commands. Without this wire, use the preview transport and the player’s own settings. For one or two buttons, wire them straight to the engine’s own action inputs (Expose input…); for a whole panel, a touch screen or a remote, gather them on Player Controls and wire its Controls here.',
       patternset: 'Connect Pattern Collection’s Patterns output. Collection order defines Sequential playback, and each row’s weight and energy tags change which pattern comes next. No selected patterns produces a black frame; one pattern keeps playing without automatic transitions.',
       transitions: 'Connect a Transition Pool to choose the styles the player picks from, in preview and on the board. An unwired or empty pool uses crossfade.',
       particleFx: 'Connect Player Particles to configure beat-triggered bursts, colour, style, and intensity. Bursts do not wait for the pattern cooldown and do not require Beat Transitions to be enabled. Unwired means no overlay.',
@@ -325,7 +325,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
     propertyNote: 'Values below are factory defaults. Timing values are in seconds. Wired Min Time, Max Time, and Transition inputs override their matching fields.',
     inputs: {
       audio: 'Sound for audio patterns in the collection, Beat Transitions and Energy Pacing, when Audio Reactive is on, and the beat Player Particles bursts on.',
-      controls: 'A Controls bundle for stepping through the patterns.',
+      controls: 'A Controls bundle for stepping through the patterns. For one or two buttons, wire them straight to the engine’s own action inputs (Expose input…); for a whole panel, a touch screen or a remote, gather them on Player Controls and wire its Controls here.',
       patternset: 'The patterns to play, from a Pattern Collection.',
       transitions: 'A Transition Pool to choose blend styles from.',
       particleFx: 'Connect Player Particles for beat-triggered sparks over the patterns, with or without Audio Reactive. Unwired means no overlay.',
@@ -367,7 +367,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       music: 'The analysed songs, from a Music Library.',
       patternset: 'Your patterns to schedule, from a Pattern Collection. Unwired, the built-in patterns are used.',
       transitions: 'Transition styles to choose from, from a Transition Pool.',
-      controls: 'A Controls bundle for the SD player’s transport, volume and lights.',
+      controls: 'A Controls bundle for the SD player’s transport, volume and lights. For one or two buttons, wire them straight to the engine’s own action inputs (Expose input…); for a whole panel, a touch screen or a remote, gather them on Player Controls and wire its Controls here.',
     },
     outputs: {
       frame: 'Names the LED output the show plays on. The board plays the show from the card, not from this wire.',
