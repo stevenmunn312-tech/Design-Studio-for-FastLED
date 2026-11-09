@@ -140,7 +140,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // Draws a line between two points over an optional base frame.
+    // Draws a line between two pixel positions over an optional base frame.
     type: 'Line',
     label: 'Line',
     category: 'pattern',
@@ -152,13 +152,14 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
       { id: 'y1',    label: 'Y1', dataType: 'float' },
       { id: 'x2',    label: 'X2', dataType: 'float' },
       { id: 'y2',    label: 'Y2', dataType: 'float' },
+      { id: 'thickness', label: 'Thickness', dataType: 'float' },
       { id: 'r', label: 'R', dataType: 'float' },
       { id: 'g', label: 'G', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
     ],
-    propertyInputs: { x1: 'x1', y1: 'y1', x2: 'x2', y2: 'y2', r: 'r', g: 'g', b: 'b' },
+    propertyInputs: { x1: 'x1', y1: 'y1', x2: 'x2', y2: 'y2', thickness: 'thickness', r: 'r', g: 'g', b: 'b' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { x1: 0, y1: 0, x2: 'max_x', y2: 'max_y', r: 0, g: 200, b: 255 },
+    defaultProperties: { x1: 0, y1: 0, x2: 'max_x', y2: 'max_y', thickness: 1, r: 0, g: 200, b: 255 },
   },
   {
     // Bundled shape generator: draws a rect / ellipse / regular polygon at

@@ -1560,8 +1560,23 @@ describe('evaluateGraph', () => {
     expect(frame![0][3]).toEqual({ r: 0, g: 0, b: 0 })     // off the diagonal
   })
 
+  it('Line lights each pixel on it once, at its own colour', () => {
+    const l = node('l', 'Line', 'pattern', { x1: 0, y1: 2, x2: 7, y2: 2, r: 0, g: 100, b: 128 })
+    const out = node('out', 'MatrixOutput', 'output', {})
+    const frame = evaluateGraph([l, out], [edge('e', 'l', 'frame', 'out', 'frame')], 0, 8, 5)!
+    // Splatted discs used to sum to about twice the colour on the line.
+    expect(frame[2].every((p) => p.g === 100 && p.b === 128)).toBe(true)
+    expect(frame[1].every((p) => p.g === 0)).toBe(true)
+    const thick = node('t', 'Line', 'pattern', { x1: 0, y1: 2, x2: 7, y2: 2, thickness: 3, r: 0, g: 100, b: 128 })
+    const wide = evaluateGraph([thick, out], [edge('e', 't', 'frame', 'out', 'frame')], 0, 8, 5)!
+    expect(wide[1][3].g).toBe(100)
+    expect(wide[3][3].g).toBe(100)
+    expect(wide[0][3].g).toBe(0)
+  })
+
   it('Line splats fractional coverage across adjacent pixels', () => {
-    const l = node('l', 'Line', 'pattern', { x1: 1, y1: 0, x2: 1, y2: 3, r: 0, g: 255, b: 0 })
+    // Coordinates are pixel centres, so x = 0.5 lies between columns 0 and 1.
+    const l = node('l', 'Line', 'pattern', { x1: 0.5, y1: 0, x2: 0.5, y2: 3, r: 0, g: 255, b: 0 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([l, out], [edge('e', 'l', 'frame', 'out', 'frame')], 0, 4, 4)
     expect(frame![1][0].g).toBeGreaterThan(0)

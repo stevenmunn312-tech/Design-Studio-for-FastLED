@@ -22,6 +22,7 @@ import {
   mixRgb,
   blankFrame,
   scaleRgb,
+  addRgb,
   buildFrame,
   byte,
   solidFrame,
@@ -257,6 +258,30 @@ function evalWrappedShape(
   for (const ox of xOffsets) {
     for (const oy of yOffsets) {
       evalShape(frame, shape, cx + ox, cy + oy, size, aspect, sides, rotation, thickness, filled, fill, edge, W, H)
+    }
+  }
+}
+
+/**
+ * Line's stroke: every pixel near the segment once, covered by its distance to
+ * the segment against a `half`-pixel half-width, and added to the frame.
+ * Coordinates are pixel centres, so (0, 0) is the first pixel and W-1 the
+ * last column. Splatting discs along the segment instead summed about twice
+ * the coverage on the line. The Line emitter writes the same sum.
+ */
+function drawLineSegment(frame: Frame, x0: number, y0: number, x1: number, y1: number, half: number, color: RGB): void {
+  const H = frame.length, W = frame[0]?.length ?? 0
+  const vx = x1 - x0, vy = y1 - y0, len2 = vx * vx + vy * vy
+  const reach = half + 1
+  const xa = Math.max(0, Math.floor(Math.min(x0, x1) - reach)), xb = Math.min(W - 1, Math.ceil(Math.max(x0, x1) + reach))
+  const ya = Math.max(0, Math.floor(Math.min(y0, y1) - reach)), yb = Math.min(H - 1, Math.ceil(Math.max(y0, y1) + reach))
+  for (let y = ya; y <= yb; y++) {
+    for (let x = xa; x <= xb; x++) {
+      const u = len2 > 0 ? clamp01(((x - x0) * vx + (y - y0) * vy) / len2) : 0
+      const dx = x - (x0 + vx * u), dy = y - (y0 + vy * u)
+      const coverage = clamp01(half + 0.5 - Math.sqrt(dx * dx + dy * dy))
+      if (coverage <= 0) continue
+      frame[y][x] = addRgb(frame[y][x], scaleRgb(color, coverage))
     }
   }
 }
@@ -723,12 +748,8 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     }
     const x0 = num(id, 'x1', props, 'x1', 0), y0 = num(id, 'y1', props, 'y1', 0)
     const x1 = num(id, 'x2', props, 'x2', 0), y1 = num(id, 'y2', props, 'y2', 0)
-    const len = Math.hypot(x1 - x0, y1 - y0)
-    const steps = Math.max(1, Math.ceil(len * 2))
-    for (let i = 0; i <= steps; i++) {
-      const u = i / steps
-      splatDisc(frame, x0 + (x1 - x0) * u, y0 + (y1 - y0) * u, 0.5, color)
-    }
+    const thickness = Math.max(0.5, num(id, 'thickness', props, 'thickness', 1))
+    drawLineSegment(frame, x0, y0, x1, y1, thickness * 0.5, color)
     return { frame }
   },
   Shape({ input, num, W, H }, id, props) {

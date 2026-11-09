@@ -134,7 +134,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   Line: {
     overview: [
-      'Line draws a straight anti-aliased line between two points. Coordinates are in pixels from the top left, and accept expressions such as W/2 or max_x so a line can follow the matrix size.',
+      'Line draws a straight anti-aliased line between two points. Coordinates are pixels from the top left, 0 the first pixel and max_x the last, and accept expressions such as center_x or max_x so a line can follow the matrix size. Thickness sets its width in pixels.',
       'Wire signals into the ends to move it: sines for a sweeping arm, sensors for a pointer.',
     ],
     inputs: {
@@ -147,7 +147,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       nodes: {
         armX: ['Wave', { frequency: 0.3, amplitude: 7.5, offset: 7.5 }],
         armY: ['Wave', { frequency: 0.3, amplitude: 7.5, offset: 7.5, phase: 0.25 }],
-        arm: ['Line', { x1: 'W/2', y1: 'H/2', r: 60, g: 255, b: 90 }],
+        arm: ['Line', { x1: 'center_x', y1: 'center_y', r: 60, g: 255, b: 90 }],
         afterglow: ['Trails', { decay: 0.3 }],
       },
       wires: ['armX.result > arm.x2', 'armY.result > arm.y2', 'arm.frame > afterglow.frame'],

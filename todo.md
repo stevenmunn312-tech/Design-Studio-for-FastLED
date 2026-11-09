@@ -851,14 +851,12 @@ freeze, or drop them.
   A transport lives inside a drawing node; anyone wanting only `done` still
   draws digits. Consider a small Timer signal node with Clock Display drawing
   a wired `seconds`.
-- [ ] **Line: Stop over-brightening (Low, S).** Additive 0.5 px discs splatted
-  every 0.5 px sum to about 2x on-line coverage; (0,100,128) shows near
-  (0,200,255) and anti-aliasing is lost. Splat with max (lighten) or compute
-  distance to the segment once. `src/nodes/shapes/evaluate.ts:717`,
-  `src/nodes/shapes/codegen.ts:209`.
-- [ ] **Line: Add thickness and align units (Low, S).** Path and Shape have
-  thickness, Line does not; Line alone uses pixel coordinates while siblings
-  are normalised. Add thickness and a units select or a 0-1 default.
+- [ ] **Line: Align units with its siblings (Low, S).** Thickness is done.
+  Line alone takes pixel coordinates (now pixel centres: 0 is the first
+  pixel, `max_x` the last, matching the `center_x`/`max_x` expressions) while
+  Shape, Text and Clock Display take 0-1. A units select or a 0-1 default
+  is a product choice, and a 0-1 default would move every saved Line and
+  the Help examples that use pixel expressions.
 - [ ] **Fourier Epicycles: Move persistence to half-life trail fade (Med,
   M).** `persistence` is a per-frame share on a 0-1 slider with default 0.995,
   so useful values sit in the top 5% of travel and trail length follows frame

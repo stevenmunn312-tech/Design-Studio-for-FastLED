@@ -2621,12 +2621,13 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _cx=_cxv>1.0f?_cxv:(0.5f-_mx)+_cxv*((WIDTH-1.0f)+2.0f*_mx),_cy=_cyv>1.0f?_cyv:(0.5f-_my)+_cyv*((HEIGHT-1.0f)+2.0f*_my);')
   })
 
-  it('emits a sampled subpixel loop for a Line', () => {
+  it('emits a Line as one distance-to-segment pass', () => {
     const l = node('l', 'Line', 'pattern', { x1: 0, y1: 0, x2: 7, y2: 7, r: 0, g: 200, b: 255 })
     const cpp = generateCpp([l, outputNode], [edge('e', 'l', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('float _len = sqrtf((_x1 - _x0) * (_x1 - _x0) + (_y1 - _y0) * (_y1 - _y0));')
-    expect(cpp).toContain('int _steps = max(1, (int)ceilf(_len * 2.0f));')
-    expect(cpp).toContain('float _cov = constrain(_rad + 0.5f - sqrtf(_dx * _dx + _dy * _dy), 0.0f, 1.0f);')
+    expect(cpp).toContain('_hw = fmaxf(0.5f, 1) * 0.5f;')
+    expect(cpp).toContain('float _u = _l2 > 0.0f ? constrain(((_x - _x0) * _vx + (_y - _y0) * _vy) / _l2, 0.0f, 1.0f) : 0.0f;')
+    expect(cpp).toContain('float _cov = constrain(_hw + 0.5f - sqrtf(_dx * _dx + _dy * _dy), 0.0f, 1.0f);')
+    expect(cpp).not.toContain('_steps')
     expect(cpp).toContain('CRGB(0, 200, 255)')
   })
 

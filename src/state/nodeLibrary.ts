@@ -1436,6 +1436,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     edge: { control: 'slider', min: 0, max: 0.5, step: 0.01 },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
+  Line: { thickness: { control: 'slider', min: 0.5, max: 6, step: 0.1 } },
   // A fraction of half the shorter side: past 1 the point leaves the canvas.
   Path: {
     scale: { control: 'slider', min: 0.1, max: 1, step: 0.01 },
@@ -2748,10 +2749,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     letterSpacing: 'Blank columns between letters, in pixels.',
   },
   Line: {
-    x1: 'Start X in pixels from the left. Accepts expressions such as W/2.',
-    y1: 'Start Y in pixels from the top. Accepts expressions such as H-1.',
-    x2: 'End X in pixels from the left. Accepts expressions such as W-1.',
-    y2: 'End Y in pixels from the top. Accepts expressions such as H-1.',
+    x1: 'Start X in pixels from the left: 0 is the first column, W-1 the last. Accepts expressions such as W/2.',
+    y1: 'Start Y in pixels from the top: 0 is the first row, H-1 the last. Accepts expressions such as H-1.',
+    x2: 'End X in pixels from the left: 0 is the first column, W-1 the last. Accepts expressions such as W-1.',
+    y2: 'End Y in pixels from the top: 0 is the first row, H-1 the last. Accepts expressions such as H-1.',
+    thickness: 'Width of the line in pixels, 0.5 to 6. Edges are anti-aliased.',
   },
   Shape: {
     shape: 'Rectangle, ellipse (a circle at aspect 1), or a regular polygon whose corner count is Sides.',
