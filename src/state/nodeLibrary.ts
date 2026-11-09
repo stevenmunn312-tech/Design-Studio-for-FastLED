@@ -74,6 +74,7 @@ import {
 } from './evaluator/automaton'
 import { FLUID_ITERATIONS_MAX, FLUID_ITERATIONS_MIN } from './evaluator/fluid'
 import { FRAME_TO_FIELD_CONVERSIONS } from './evaluator/frames'
+import { SHAPE_KINDS } from './evaluator/sdf'
 import {
   FRACTAL_ITERATIONS_MAX, FRACTAL_ITERATIONS_MIN, FRACTAL_TYPES, FRACTAL_ZOOM_MAX, FRACTAL_ZOOM_MIN,
 } from './evaluator/fractal'
@@ -1377,9 +1378,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Shape: {
     cx:        N01,
     cy:        N01,
-    // Half-height in pixels (circumradius for a polygon).
+    // Half-height in pixels on a 16-pixel matrix (circumradius for a
+    // polygon); Scale with matrix grows it with the matrix.
     size:      { control: 'slider', min: 0.5, max: 32, step: 0.5 },
-    shape:     { control: 'select', options: ['rect', 'ellipse', 'polygon'] },
+    shape:     { control: 'select', options: [...SHAPE_KINDS] },
     aspect:    { control: 'slider', min: 0.25, max: 4, step: 0.05 },
     // Fractional sides morph the polygon between vertex counts.
     sides:     { control: 'slider', min: 3, max: 10, step: 0.1 },
@@ -1407,7 +1409,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   FieldBlur: { radius: { control: 'slider', min: BLUR_RADIUS.min, max: BLUR_RADIUS.max, step: 1 } },
   ShapeField: {
-    shape: { control: 'select', options: ['circle', 'rect', 'polygon'] },
+    shape: { control: 'select', options: [...SHAPE_KINDS] },
     fieldMode: { control: 'select', options: ['fill', 'distance', 'falloff'] },
     cx: N01,
     cy: N01,
@@ -2194,7 +2196,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     size: 'Radius or half-height as a fraction of the matrix’s shorter side.',
     softness: 'Fill-edge softness as a fraction of the matrix’s shorter side.',
     range: 'As a fraction of the matrix’s shorter side. Distance: how far either side of the outline the field ramps from 1 to 0. Falloff: how far beyond the outline it reaches 1.',
-    shape: 'Circle, rectangle or polygon. Polygon uses Sides; the others use Aspect.',
+    shape: 'Rectangle, ellipse (a circle at aspect 1) or polygon, the same choices as Shape. Polygon uses Sides; the others use Aspect.',
     fieldMode: 'Fill is 1 inside and 0 outside with a soft edge; distance ramps across the outline; falloff is 0 on the shape and rises to 1 at Range beyond it, so a tiny circle gives the distance from a point.',
     cx: 'Centre of the shape, left to right (0 to 1).',
     cy: 'Centre of the shape, top to bottom (0 to 1).',
@@ -2752,7 +2754,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     shape: 'Rectangle, ellipse (a circle at aspect 1), or a regular polygon whose corner count is Sides.',
     cx: 'Centre X, 0 (just off the left edge) to 1 (just off the right). Values above 1 are pixels.',
     cy: 'Centre Y, 0 (just off the top) to 1 (just off the bottom). Values above 1 are pixels.',
-    size: 'Half-height in pixels; for a polygon, the distance from centre to a corner.',
+    size: 'Half-height in pixels; for a polygon, the distance from centre to a corner. With Scale with matrix on, it is pixels on a 16-pixel matrix and grows or shrinks with the matrix.',
+    scaleWithMatrix: 'Grow or shrink Size with the matrix\'s shorter side, tuned against 16 pixels, so the shape keeps its proportion on any panel. Off keeps Size as an exact pixel count.',
     aspect: 'Width as a multiple of height for rectangles and ellipses. 1 is square.',
     sides: 'Corners on the polygon. Fractions morph smoothly, so 3.5 is halfway to a square.',
     rotation: 'Turn the shape, in degrees.',
@@ -3564,6 +3567,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   Shape: {
     cx: 'center X',
     cy: 'center Y',
+    scaleWithMatrix: 'scale with matrix',
   },
   Noise: {
     noiseType: 'type',
@@ -4161,7 +4165,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'playback', label: 'Playback', keys: ['sampling', 'loop', 'playbackRate'] },
   ],
   Shape: [
-    { key: 'position', label: 'Position', keys: ['cx', 'cy', 'size', 'aspect', 'rotation'] },
+    { key: 'position', label: 'Position', keys: ['cx', 'cy', 'size', 'scaleWithMatrix', 'aspect', 'rotation'] },
     { key: 'geometry', label: 'Geometry', keys: ['shape', 'sides', 'thickness', 'wrap', 'filled'] },
     { key: 'color', label: 'Color', keys: ['fill', 'edge'] },
   ],
@@ -5210,7 +5214,7 @@ export function isPropertyEnabled(
     if (key === 'fill')   return properties.filled === true
   }
   if (nodeType === 'ShapeField') {
-    const shape = String(properties.shape ?? 'circle')
+    const shape = String(properties.shape ?? 'ellipse')
     const mode = String(properties.fieldMode ?? 'fill')
     if (key === 'sides') return shape === 'polygon'
     if (key === 'aspect') return shape === 'circle' || shape === 'rect'

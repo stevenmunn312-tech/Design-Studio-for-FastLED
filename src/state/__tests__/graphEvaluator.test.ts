@@ -3995,7 +3995,7 @@ describe('Float Field — Phase 2 (ShapeField falloff / FieldMath / FieldWarp)',
   }
 
   it('a point-sized ShapeField falloff is 0 at the point and grows outward', () => {
-    const df = node('df', 'ShapeField', 'field', { fieldMode: 'falloff', shape: 'circle', size: 0.01, cx: 0, cy: 0, range: 1 })
+    const df = node('df', 'ShapeField', 'field', { fieldMode: 'falloff', shape: 'ellipse', size: 0.01, cx: 0, cy: 0, range: 1 })
     const g = withFieldTail('df', [df], [])
     const fld = fieldOut('df', g.nodes, g.edges)
     expect(fld[0]).toBeCloseTo(0)                 // pixel (0,0) is the point
@@ -4004,7 +4004,7 @@ describe('Float Field — Phase 2 (ShapeField falloff / FieldMath / FieldWarp)',
 
   it('ShapeField falloff range sets the ramp length (a shorter range reaches 1 sooner)', () => {
     const mk = (range: number) => {
-      const df = node('df', 'ShapeField', 'field', { fieldMode: 'falloff', shape: 'circle', size: 0.01, cx: 0, cy: 0, range })
+      const df = node('df', 'ShapeField', 'field', { fieldMode: 'falloff', shape: 'ellipse', size: 0.01, cx: 0, cy: 0, range })
       const g = withFieldTail('df', [df], [])
       return fieldOut('df', g.nodes, g.edges)[H * W - 1]
     }
@@ -4327,7 +4327,7 @@ describe('Pattern node expansion — Phase 0 field helpers', () => {
 
   it('Shape Field emits bounded fill and signed-distance modes', () => {
     const shape = node('shape-field', 'ShapeField', 'field', {
-      shape: 'circle', fieldMode: 'fill', cx: 0.5, cy: 0.5,
+      shape: 'ellipse', fieldMode: 'fill', cx: 0.5, cy: 0.5,
       size: 0.3, rotation: 0, sides: 5, aspect: 1, softness: 0.1, range: 0.5,
     })
     const graph = withFieldTail(shape.id, [shape], [])
@@ -4343,7 +4343,7 @@ describe('Pattern node expansion — Phase 0 field helpers', () => {
 
   it('thresholding a circle-to-square distance lerp keeps one closed region', () => {
     const circle = node('morph-circle', 'ShapeField', 'field', {
-      shape: 'circle', fieldMode: 'distance', cx: 0.5, cy: 0.5,
+      shape: 'ellipse', fieldMode: 'distance', cx: 0.5, cy: 0.5,
       size: 0.3, rotation: 0, sides: 5, aspect: 1, softness: 0.1, range: 0.5,
     })
     const square = node('morph-square', 'ShapeField', 'field', {

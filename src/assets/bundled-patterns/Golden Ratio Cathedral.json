@@ -450,7 +450,7 @@
      "nodeType": "ShapeField",
      "category": "field",
      "properties": {
-      "shape": "circle",
+      "shape": "ellipse",
       "fieldMode": "falloff",
       "cx": 0.5,
       "cy": 0.5,

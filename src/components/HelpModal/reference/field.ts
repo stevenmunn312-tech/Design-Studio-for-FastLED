@@ -313,8 +313,8 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
       title: 'Where two rings cross',
       nodes: {
         drift: ['Wave', { frequency: 0.15, amplitude: 0.25, offset: 0.5 }],
-        still: ['ShapeField', { shape: 'circle', fieldMode: 'distance', size: 0.3, range: 0.25 }],
-        moving: ['ShapeField', { shape: 'circle', fieldMode: 'distance', size: 0.3, range: 0.25 }],
+        still: ['ShapeField', { shape: 'ellipse', fieldMode: 'distance', size: 0.3, range: 0.25 }],
+        moving: ['ShapeField', { shape: 'ellipse', fieldMode: 'distance', size: 0.3, range: 0.25 }],
         cross: ['FieldMath', { fieldOp: 'difference' }],
         paint: ['FieldToFrame', { palette: 'opal' }],
       },
@@ -393,7 +393,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
 
   ShapeField: {
     overview: [
-      'Shape Field draws a circle, rectangle or polygon as a field. Fill gives 1 inside and 0 outside with a soft edge; Distance peaks on the outline and falls away either side; Falloff is 0 on the shape and rises to 1 at Range.',
+      'Shape Field draws an ellipse (a circle at Aspect 1), rectangle or polygon as a field, the same shapes as Shape. Fill gives 1 inside and 0 outside with a soft edge; Distance peaks on the outline and falls away either side; Falloff is 0 on the shape and rises to 1 at Range.',
       'A tiny circle in Falloff mode is the distance from a point — the building block of spotlights, glows and ripples.',
     ],
     outputs: { field: FIELD_OUT },
@@ -403,7 +403,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
       nodes: {
         across: ['Wave', { frequency: 0.13, amplitude: 0.35, offset: 0.5 }],
         down: ['Wave', { frequency: 0.21, amplitude: 0.3, offset: 0.5 }],
-        spot: ['ShapeField', { shape: 'circle', fieldMode: 'fill', size: 0.2, softness: 0.25 }],
+        spot: ['ShapeField', { shape: 'ellipse', fieldMode: 'fill', size: 0.2, softness: 0.25 }],
         paint: ['FieldToFrame', { palette: 'heat' }],
       },
       wires: ['across.result > spot.cx', 'down.result > spot.cy', 'spot.field > paint.field'],

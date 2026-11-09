@@ -379,7 +379,7 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     },
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
     defaultProperties: {
-      shape: 'circle', fieldMode: 'fill',
+      shape: 'ellipse', fieldMode: 'fill',
       cx: 0.5, cy: 0.5, size: 0.3, rotation: 0, sides: 5, aspect: 1,
       softness: 0.1, range: 0.5,
     },
@@ -471,7 +471,7 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = {
   FieldLevels: 'Remaps, thresholds, quantises or inverts a scalar field.',
   GradientField: 'A linear, radial or angular ramp across the matrix, with offset and repeat.',
   FieldBlur: 'Box-blurs a field by a radius in pixels.',
-  ShapeField: 'Circle, rectangle or polygon as a fill, a distance field, or a falloff.',
+  ShapeField: 'Ellipse, rectangle or polygon as a fill, a distance field, or a falloff.',
   FieldWarp: 'Samples a field at coordinates pushed by two offset fields.',
   FieldRotate: 'Rotates a field around its centre (angle + spin over time).',
   FieldTile: 'Tiles/repeats a field across the matrix.',

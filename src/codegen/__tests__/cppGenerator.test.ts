@@ -3111,11 +3111,11 @@ describe('Float Field — Phase 2 codegen', () => {
 
   it('ShapeField falloff writes a normalised distance into its field buffer', () => {
     // A tiny circle in falloff mode is the old DistanceField: distance from a point.
-    const df = node('df', 'ShapeField', 'pattern', { shape: 'circle', fieldMode: 'falloff', size: 0.01, cx: 0.5, cy: 0.5, range: 0.5 })
+    const df = node('df', 'ShapeField', 'pattern', { shape: 'ellipse', fieldMode: 'falloff', size: 0.01, cx: 0.5, cy: 0.5, range: 0.5 })
     const t = tail('df')
     const cpp = generateCpp([df, ...t.nodes], t.edges)
     expect(cpp).toContain('float field_df[NUM_LEDS];')
-    expect(cpp).toContain('/* ShapeField: circle falloff */')
+    expect(cpp).toContain('/* ShapeField: ellipse falloff */')
     expect(cpp).toContain('float _range=0.5f*_short;')
     expect(cpp).toContain('field_df[_y*WIDTH+_x]=constrain(fmaxf(0.0f,_sd)/_range,0.0f,1.0f);')
   })

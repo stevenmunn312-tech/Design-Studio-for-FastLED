@@ -29,7 +29,7 @@ import {
   fourierOutline, fourierTable, fourierTableQ,
 } from './fourierOutline'
 
-// Circle's and ClockDisplay's `radius` were originally tuned as raw pixel
+// Shape's `size` and ClockDisplay's `radius` were tuned as raw pixel
 // counts against a 16x16 matrix (graphEvaluator.ts's DEFAULT_W/DEFAULT_H).
 // scaleWithMatrix (opt-in per node) scales that radius proportionally by the
 // target matrix's shorter side, using the WIDTH/HEIGHT *macro names* (not
@@ -263,7 +263,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ln(`${indent}  CRGB _col=_fill; nblend(_col,_edge,(uint8_t)(_ec*255.0f)); nblend(${ob}[_y*WIDTH+_x],_col,(uint8_t)(_al*255.0f)); }`)
     }
     ln(`  { ${seedFrom('base')}`)
-    ln(`    float _size=max(0.5f,${f('size', 'size', size)}),_aspect=max(0.01f,${f('aspect', 'aspect', aspect)}),_ra=-(${f('rotation', 'rotation', rot)})*0.01745329f,_cr=cosf(_ra),_sr=sinf(_ra);`)
+    ln(`    float _size=${withMatrixScale(`max(0.5f,${f('size', 'size', size)})`, p)},_aspect=max(0.01f,${f('aspect', 'aspect', aspect)}),_ra=-(${f('rotation', 'rotation', rot)})*0.01745329f,_cr=cosf(_ra),_sr=sinf(_ra);`)
     ln(`    CRGB _fill=${fillE},_edge=${edgeE};`)
     ln(`    float _th=max(0.0f,${f('thickness', 'thickness', thick)});`)
     if (shape === 'polygon') {

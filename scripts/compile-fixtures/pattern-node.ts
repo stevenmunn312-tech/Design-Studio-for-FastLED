@@ -32,7 +32,7 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 }
 
 const phase0Nodes = [
-  node('circle', 'ShapeField', { shape: 'circle', fieldMode: 'distance', size: 0.3, range: 0.35 }),
+  node('circle', 'ShapeField', { shape: 'ellipse', fieldMode: 'distance', size: 0.3, range: 0.35 }),
   node('square', 'ShapeField', { shape: 'polygon', fieldMode: 'distance', size: 0.3, sides: 4, rotation: 45, range: 0.35 }),
   node('morph', 'FieldMath', { fieldOp: 'mix', t: 0.5 }),
   node('levels', 'FieldLevels', { low: 0.5, high: 0.5, steps: 1 }),

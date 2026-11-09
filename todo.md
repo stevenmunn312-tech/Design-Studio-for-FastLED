@@ -813,12 +813,6 @@ freeze, or drop them.
   pixels. Migrate the bundled patterns that use the three (Fibonacci Spiral
   Drive, Golden Ratio Cathedral, Lissajous Lattice, audio release sets).
   `src/nodes/field/evaluate.ts:575`, `:590`.
-- [ ] **Category: Give Shape and Shape Field one size unit and one name list
-  (Med, S).** Shape `size` is pixels (default 6 overflows 8x8, tiny on
-  64x64); Shape Field `size` is a fraction of the short side. Shape says
-  `ellipse` where Shape Field says `circle`. Use a fraction (or Clock
-  Display's `scaleWithMatrix`) and one shape-name list for both.
-  `src/state/nodeLibrary.ts:1378`.
 - [ ] **Category: Give Formula Shapes placement or fold it into Shape Field
   (Med, M).** Rose and superformula are shape outlines but always centred at a
   fixed scale, with no cx/cy/size and no fill/distance mode. Either add them
@@ -879,10 +873,6 @@ freeze, or drop them.
 - [ ] **Line: Add thickness and align units (Low, S).** Path and Shape have
   thickness, Line does not; Line alone uses pixel coordinates while siblings
   are normalised. Add thickness and a units select or a 0-1 default.
-- [ ] **Shape: Fix the default size overflow on small panels (Med, S).** The
-  fixed default of 6 px overflows an 8x8 panel. Besides the shared size-unit
-  change (category), make the default a fraction of the short side or add
-  `scaleWithMatrix`. `src/state/nodeLibrary.ts:1378`.
 - [ ] **Fourier Epicycles: Move persistence to half-life trail fade (Med,
   M).** `persistence` is a per-frame share on a 0-1 slider with default 0.995,
   so useful values sit in the top 5% of travel and trail length follows frame

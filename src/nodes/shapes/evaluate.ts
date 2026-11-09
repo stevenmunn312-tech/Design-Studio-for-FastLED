@@ -51,8 +51,8 @@ function normalizedCenterAxis(value: number, size: number, extent: number, wrap:
   return 0.5 - margin + value * (Math.max(0, size - 1) + 2 * margin)
 }
 
-// Circle's and ClockDisplay's `radius` were originally tuned as raw pixel
-// counts against a 16x16 matrix (this module's own DEFAULT_W/DEFAULT_H).
+// Shape's `size` and ClockDisplay's `radius` were tuned as raw pixel counts
+// against a 16x16 matrix (this module's own DEFAULT_W/DEFAULT_H).
 // scaleWithMatrix (opt-in per node, see nodeLibrary.ts) scales that radius
 // proportionally by the target matrix's shorter side, so the same slider
 // value reads as "the same relative size" on any matrix instead of shrinking
@@ -735,7 +735,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const baseIn = input(id, 'base', null) as Frame | null
     const frame = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
     const shape = String(props.shape ?? 'polygon')
-    const size = Math.max(0.5, num(id, 'size', props, 'size', 6))
+    const size = Math.max(0.5, num(id, 'size', props, 'size', 6)) * (props.scaleWithMatrix ? matrixSizeScale(W, H) : 1)
     const aspect = Math.max(0.01, num(id, 'aspect', props, 'aspect', 1))
     const thickness = Math.max(0, num(id, 'thickness', props, 'thickness', 1.5))
     const wrap = Boolean(props.wrap)

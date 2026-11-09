@@ -526,7 +526,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
   ShapeField({ p, ln, f, ownField, needsSdf }) {
     needsSdf.v = true
     const of = ownField()
-    const shape = ['rect', 'polygon'].includes(String(p.shape)) ? String(p.shape) : 'circle'
+    const shape = ['rect', 'polygon'].includes(String(p.shape)) ? String(p.shape) : 'ellipse'
     const mode = ['distance', 'falloff'].includes(String(p.fieldMode)) ? String(p.fieldMode) : 'fill'
     const distance = mode !== 'fill'
     const softness = floatLit(Math.max(0, Number(p.softness ?? 0.1)))

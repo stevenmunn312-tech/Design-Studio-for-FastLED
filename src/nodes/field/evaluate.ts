@@ -942,7 +942,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
   },
   ShapeField({ num, W, H }, id, props) {
     return { field: evalShapeField(
-      String(props.shape ?? 'circle'),
+      String(props.shape ?? 'ellipse'),
       String(props.fieldMode ?? 'fill'),
       num(id, 'cx', props, 'cx', 0.5),
       num(id, 'cy', props, 'cy', 0.5),

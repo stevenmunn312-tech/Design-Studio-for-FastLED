@@ -160,7 +160,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Shape draws a rectangle, an ellipse or a regular polygon, filled or as an outline, with separate fill and edge colours.',
       'Sides accepts fractions and morphs smoothly between counts, so a triangle can grow into an octagon. Size, aspect, rotation and position can all be wired, and Wrap tiles a shape that crosses an edge.',
-      'Position values from 0 to 1 are fractions of the matrix; values above 1 are pixels.',
+      'Position values from 0 to 1 are fractions of the matrix; values above 1 are pixels. Size is in pixels, and with Scale with matrix on (the default) it is pixels on a 16-pixel matrix, so a shape keeps its proportion on a small or a large panel.',
     ],
     inputs: {
       base: BASE_INPUT,

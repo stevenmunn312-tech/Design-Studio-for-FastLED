@@ -193,6 +193,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
       cx: 0.5,
       cy: 0.5,
       size: 6,
+      scaleWithMatrix: true,
       aspect: 1,
       sides: 5,
       rotation: 0,
