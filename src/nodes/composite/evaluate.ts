@@ -27,6 +27,7 @@ import { transformZoom } from './transformZoom'
 import { ARRAY_COPIES } from './limits'
 import { FEEDBACK_BLEND_MODES } from './blendModes'
 import { diagonalFold } from './mirror'
+import { WARP_MOTIONS, warpPush } from './frameWarpMotion'
 import {
   FEEDBACK_TRANSFORMS, arrayCopy, arrayDim, arrayOver, arraySource, blendMix8, div255, feedbackFrame, feedbackSource, sampleFrameQ8, wallpaperFrame,
   wallpaperSourceQ8,
@@ -359,7 +360,7 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
   // Milkdrop-style per-pixel frame displacement. The transform is an inverse
   // read (zoom/rotate about the canvas centre), then dx/dy push that read in
   // source-pixel units. An absent offset field is neutral at 0.5.
-  FrameWarp({ input, num, W, H }, id, props) {
+  FrameWarp({ input, num, t, W, H, stateKey }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
     if (!src) return { frame: null }
     const dx = input(id, 'dx', null) as Field | null
@@ -371,11 +372,19 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     const cx = (W - 1) / 2, cy = (H - 1) / 2
     const edgeMode: FrameEdgeMode = props.edgeMode === 'wrap' || props.edgeMode === 'black' ? props.edgeMode : 'clamp'
     const bilinear = props.sampling !== 'nearest'
+    // With neither field wired, the built-in motion pushes instead.
+    const motion = (WARP_MOTIONS as readonly unknown[]).includes(props.motion) ? String(props.motion) : 'none'
+    const builtIn = !dx && !dy && motion !== 'none'
+    const phase = builtIn ? speedPhase(stateKey(id), t, num(id, 'motionSpeed', props, 'motionSpeed', 0.25)) : 0
+    const reach = Math.max(cx, cy, 1)
     return { frame: buildFrame(W, H, (x, y) => {
       const px = (x - cx) / zoom, py = (y - cy) / zoom
       const i = y * W + x
-      const sx = cx + px * co + py * si + (2 * (dx?.[i] ?? 0.5) - 1) * strength
-      const sy = cy - px * si + py * co + (2 * (dy?.[i] ?? 0.5) - 1) * strength
+      const [pushX, pushY] = builtIn
+        ? warpPush(motion, (x - cx) / reach, (y - cy) / reach, phase)
+        : [2 * (dx?.[i] ?? 0.5) - 1, 2 * (dy?.[i] ?? 0.5) - 1]
+      const sx = cx + px * co + py * si + pushX * strength
+      const sy = cy - px * si + py * co + pushY * strength
       return sampleFrame(src, sx, sy, edgeMode, bilinear)
     }) }
   },

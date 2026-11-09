@@ -276,6 +276,8 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     // Per-pixel frame displacement in the Milkdrop/projectM tradition. Two
     // fields push the source coordinate, while zoom and rotation apply about
     // the canvas centre before one shared nearest/bilinear frame sample.
+    // With neither field wired, `motion` pushes instead (./frameWarpMotion.ts),
+    // animated at `motionSpeed` cycles a second, so a lone node moves.
     type: 'FrameWarp',
     label: 'Frame Warp',
     category: 'composite',
@@ -287,13 +289,16 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
       { id: 'strength', label: 'Strength', dataType: 'float' },
       { id: 'zoom', label: 'Zoom', dataType: 'float' },
       { id: 'rotate', label: 'Rotate', dataType: 'float' },
+      { id: 'motionSpeed', label: 'Motion Speed', dataType: 'float' },
     ],
-    propertyInputs: { strength: 'strength', zoom: 'zoom', rotate: 'rotate' },
+    propertyInputs: { strength: 'strength', zoom: 'zoom', rotate: 'rotate', motionSpeed: 'motionSpeed' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       strength: 2,
       zoom: 1,
       rotate: 0,
+      motion: 'swirl',
+      motionSpeed: 0.25,
       edgeMode: 'clamp',
       sampling: 'bilinear',
     },

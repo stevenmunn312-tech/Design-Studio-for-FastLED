@@ -338,6 +338,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
     overview: [
       'Frame Warp moves every pixel of a frame by two fields: Offset X pushes sideways, Offset Y up and down, with a field value of 0.5 meaning no push. Strength sets how far, and Zoom and Rotate work about the centre.',
       'Smooth, slowly changing fields make a frame look liquid or heat-hazed. Edges decides what happens at the border: hold the edge, wrap round, or fade to black.',
+      'With neither field wired, Motion moves the frame on its own: a swirl about the centre, ripples travelling outward, or layered turbulence, at Motion Speed cycles a second. A Frame Warp on its own is already liquid.',
     ],
     inputs: {
       frame: FRAME_IN,
@@ -350,13 +351,11 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       title: 'Turn noise into a liquid feedback surface',
       nodes: {
         source: ['Noise', { noiseType: 'simplex', speed: 0.2, scale: 0.42, palette: 'synthwave' }],
-        dx: ['FieldFormula', { formula: '0.5 + 0.22*sin(angle*3+t)' }],
-        dy: ['FieldFormula', { formula: '0.5 + 0.22*cos(angle*2-t*0.7)' }],
-        warp: ['FrameWarp', { strength: 2.5, zoom: 1.02, rotate: 2, edgeMode: 'wrap', sampling: 'bilinear' }],
+        warp: ['FrameWarp', { strength: 2.5, zoom: 1.02, rotate: 2, motion: 'turbulence', motionSpeed: 0.2, edgeMode: 'wrap', sampling: 'bilinear' }],
         feedback: ['FrameFeedback', { delayFrames: 2, fade: 0.08, amount: 0.58, blendMode: 'screen' }],
       },
-      wires: ['source.frame > warp.frame', 'dx.field > warp.dx', 'dy.field > warp.dy', 'warp.frame > feedback.frame'],
-      explanation: 'Two Field Formula nodes describe a slowly changing swirl. Frame Warp reads the Noise frame at those displaced positions, then Frame Feedback keeps a faded copy of earlier warped frames, so the surface looks like liquid with glowing trails.',
+      wires: ['source.frame > warp.frame', 'warp.frame > feedback.frame'],
+      explanation: 'Frame Warp’s built-in turbulence pushes the Noise frame about in slow, crossing waves, then Frame Feedback keeps a faded copy of earlier warped frames, so the surface looks like liquid with glowing trails. Wire two fields into Offset X and Y to shape the push yourself.',
       preview: 'The {output} shows noise bending into a smooth, liquid swirl with luminous trails.',
     }),
   },

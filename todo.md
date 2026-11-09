@@ -663,12 +663,6 @@ freeze, or drop them.
   to put Gamma last, just before the LED output; a setting on the output
   would remove a node from most finished graphs. Evidence
   `src/components/HelpModal/reference/composite.ts:171`.
-- [ ] **Frame Warp: Add a built-in displacement source (Med, M).** With
-  defaults it does nothing visible (zoom 1, rotate 0, unwired fields read
-  0.5, meaning no push); seeing an effect needs two hand-written Field
-  Formula nodes. Add a Swirl / Ripple / Turbulence select with a speed,
-  used when dx/dy are unwired. Evidence
-  `src/nodes/composite/evaluate.ts:378`.
 - [ ] **Math Switch: Add a Select property (Med, S).** Frame Switch gained a
   `select` switch as its `sel` port's property input; Math `Switch` has the
   same gap (unwired it always passes A). Left to the Colour and maths list's

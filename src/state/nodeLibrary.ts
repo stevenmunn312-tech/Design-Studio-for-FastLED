@@ -42,6 +42,7 @@ import { KALEIDOSCOPE_SEGMENTS } from '../nodes/composite/kaleidoscope'
 import { ARRAY_COPIES } from '../nodes/composite/limits'
 import { BLEND_NODE_MODES, FEEDBACK_BLEND_MODES } from '../nodes/composite/blendModes'
 import { FEEDBACK_TRANSFORMS } from '../nodes/shared/integerPatterns'
+import { WARP_MOTIONS } from '../nodes/composite/frameWarpMotion'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
 import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
@@ -1362,6 +1363,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     strength: { control: 'slider', min: 0, max: 8, step: 0.1 },
     zoom:     { control: 'slider', min: 0.25, max: 4, step: 0.05 },
     rotate:   { control: 'slider', min: -180, max: 180, step: 1 },
+    motion:   { control: 'select', options: WARP_MOTIONS },
+    // Cycles a second; negative runs the motion backwards.
+    motionSpeed: { control: 'slider', min: -2, max: 2, step: 0.01 },
     edgeMode: { control: 'select', options: ['clamp', 'wrap', 'black'] },
     sampling: { control: 'select', options: ['bilinear', 'nearest'] },
   },
@@ -2346,6 +2350,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   FrameWarp: {
     strength: 'Maximum per-pixel displacement in source pixels. A field value of 0.5 is neutral.',
+    motion: 'Built-in movement used while neither Offset field is wired: a swirl about the centre, ripples travelling outward, or layered turbulence. None leaves the frame still.',
+    motionSpeed: 'Cycles a second of the built-in motion. Negative runs it backwards.',
     zoom: 'Centred source zoom. Values above 1 enlarge the frame; values below 1 reveal more of it.',
     rotate: 'Centred source rotation in degrees.',
     edgeMode: 'How source coordinates outside the frame resolve: hold the edge, wrap around, or fade to black.',
@@ -3490,6 +3496,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   FrameWarp: {
     edgeMode: 'edges',
+    motionSpeed: 'motion speed',
   },
   Symmetry: {
     offsetX: 'offset X',
@@ -4291,6 +4298,11 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   Array: [
     { key: 'position', label: 'Position', keys: ['offsetX', 'offsetY', 'angle', 'scale'] },
     { key: 'repeat', label: 'Repeat', keys: ['count', 'falloff', 'blendMode'] },
+  ],
+  FrameWarp: [
+    { key: 'push', label: 'Push', keys: ['motion', 'motionSpeed', 'strength'] },
+    { key: 'view', label: 'View', keys: ['zoom', 'rotate'] },
+    { key: 'sampling', label: 'Sampling', keys: ['edgeMode', 'sampling'] },
   ],
   FrameFeedback: [
     { key: 'delay', label: 'Delay', keys: ['delayFrames', 'fade'] },
@@ -5338,6 +5350,7 @@ export function isPropertyEnabled(
     if (key === 'smoothing' || key === 'tilt') return !threeBand
     if (key === 'energy' || key === 'speed' || key === 'mirror') return threeBand
   }
+  if (nodeType === 'FrameWarp' && key === 'motionSpeed') return String(properties.motion ?? 'swirl') !== 'none'
   if (nodeType === 'FrameFeedback') {
     const mode = String(properties.feedbackTransform ?? 'none')
     switch (key) {

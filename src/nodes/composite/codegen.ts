@@ -16,6 +16,7 @@ import { transformZoomCpp } from './transformZoom'
 import { ARRAY_COPIES } from './limits'
 import { BLEND_NODE_MODES, FEEDBACK_BLEND_MODES } from './blendModes'
 import { diagonalFoldCpp } from './mirror'
+import { WARP_MOTIONS, warpPushCpp } from './frameWarpMotion'
 
 export const COMPOSITE_EMITTERS: NodeEmitters = {
   // Rounded (+0.5f) as the preview's Math.round: truncating turned a level-1
@@ -90,7 +91,7 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`      if(${src}[_i].b>${ob}[_i].b)${ob}[_i].b=${src}[_i].b;}`)
     ln(`  }`)
   },
-  FrameWarp({ p, ln, f, ownBuf, srcBuf, srcField, needsFrameSample }) {
+  FrameWarp({ id, p, ln, f, ownBuf, srcBuf, srcField, needsFrameSample, needsT }) {
     const ob = ownBuf()
     const src = srcBuf('frame')
     if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // FrameWarp: no input`); return }
@@ -98,15 +99,30 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     const dx = srcField('dx'), dy = srcField('dy')
     const edgeMode = p.edgeMode === 'wrap' ? 1 : p.edgeMode === 'black' ? 2 : 0
     const bilinear = p.sampling !== 'nearest'
-    ln(`  { /* FrameWarp: ${String(p.edgeMode ?? 'clamp')}, ${bilinear ? 'bilinear' : 'nearest'} */`)
+    // With neither field wired, the built-in motion (./frameWarpMotion.ts) pushes.
+    const motion = (WARP_MOTIONS as readonly unknown[]).includes(p.motion) ? String(p.motion) : 'none'
+    const builtIn = !dx && !dy && motion !== 'none'
+    ln(`  { /* FrameWarp: ${String(p.edgeMode ?? 'clamp')}, ${bilinear ? 'bilinear' : 'nearest'}${builtIn ? `, ${motion}` : ''} */`)
     ln(`    float _fw_st=constrain(${f('strength', 'strength', 2)},0.0f,8.0f);`)
     ln(`    float _fw_z=constrain(${f('zoom', 'zoom', 1)},0.25f,4.0f);`)
     ln(`    float _fw_a=constrain(${f('rotate', 'rotate', 0)},-180.0f,180.0f)*0.01745329252f;`)
     ln(`    float _fw_co=cosf(_fw_a),_fw_si=sinf(_fw_a),_fw_cx=(WIDTH-1)*0.5f,_fw_cy=(HEIGHT-1)*0.5f;`)
+    let ph = ''
+    if (builtIn) {
+      needsT.v = true
+      ln(`    float _fw_ms=${f('motionSpeed', 'motionSpeed', 0.25)};`)
+      ph = speedPhaseCpp(ln, phaseTag(id), '_fw_ms')
+      ln(`    float _fw_R=fmaxf(fmaxf(_fw_cx,_fw_cy),1.0f);`)
+    }
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ int _i=_y*WIDTH+_x;`)
     ln(`      float _px=(_x-_fw_cx)/_fw_z,_py=(_y-_fw_cy)/_fw_z;`)
-    ln(`      float _sx=_fw_cx+_px*_fw_co+_py*_fw_si+(2.0f*${dx ? `${dx}[_i]` : '0.5f'}-1.0f)*_fw_st;`)
-    ln(`      float _sy=_fw_cy-_px*_fw_si+_py*_fw_co+(2.0f*${dy ? `${dy}[_i]` : '0.5f'}-1.0f)*_fw_st;`)
+    if (builtIn) {
+      ln(`      float _fu=(_x-_fw_cx)/_fw_R,_fv=(_y-_fw_cy)/_fw_R;`)
+      for (const line of warpPushCpp(motion, ph)) ln(`      ${line}`)
+    }
+    const push = (field: string | null, built: string) => builtIn ? built : `(2.0f*${field ? `${field}[_i]` : '0.5f'}-1.0f)`
+    ln(`      float _sx=_fw_cx+_px*_fw_co+_py*_fw_si+${push(dx, '_pdx')}*_fw_st;`)
+    ln(`      float _sy=_fw_cy-_px*_fw_si+_py*_fw_co+${push(dy, '_pdy')}*_fw_st;`)
     ln(`      ${ob}[_i]=_sampleFrame(${src},_sx,_sy,${edgeMode},${bilinear ? 'true' : 'false'});`)
     ln(`    } }`)
   },
