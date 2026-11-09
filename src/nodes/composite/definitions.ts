@@ -242,7 +242,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // Wedge mirror: folds each pixel's polar angle into one segment and
-    // samples the source there, beside Mirror's axes and Symmetry's lattices.
+    // samples the source there, beside Mirror's axes and Tile Symmetry's lattices.
     type: 'Kaleidoscope',
     label: 'Kaleidoscope',
     category: 'composite',
@@ -302,7 +302,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     // Wallpaper-group repetition for a finished frame. Square and hexagonal
     // groups select their matching lattice automatically.
     type: 'Symmetry',
-    label: 'Symmetry',
+    label: 'Tile Symmetry',
     category: 'composite',
     subcategory: 'Geometry',
     inputs: [

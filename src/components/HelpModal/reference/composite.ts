@@ -363,7 +363,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
 
   Symmetry: {
     overview: [
-      'Symmetry repeats a frame through one of nine wallpaper groups: square groups with plain repeats, half turns, mirrors and quarter turns, and hexagonal groups with three- and six-fold turns.',
+      'Tile Symmetry repeats a frame through one of nine wallpaper groups: square groups with plain repeats, half turns, mirrors and quarter turns, and hexagonal groups with three- and six-fold turns.',
       'Cells sets how many repeats fit across, Rotation and Spin turn the lattice, and Offset scrolls it. Any pattern becomes a tiled design.',
     ],
     inputs: { frame: FRAME_IN },
@@ -377,7 +377,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       },
       wires: ['flames.frame > tiles.frame'],
       output: MATRIX(24, 24),
-      explanation: 'Symmetry repeats the Fire through the p6 group — six-fold rotation on a hexagonal lattice — and spins the lattice slowly, so the flames become a turning mosaic.',
+      explanation: 'Tile Symmetry repeats the Fire through the p6 group — six-fold rotation on a hexagonal lattice — and spins the lattice slowly, so the flames become a turning mosaic.',
       preview: 'The {output} shows flickering fire colours arranged in a six-fold, slowly turning pattern.',
     }),
   },

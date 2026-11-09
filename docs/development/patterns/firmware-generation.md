@@ -42,7 +42,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   guarantee that keeps constant rates bit-identical to the old form.
 
 - Show transitions embed `FRAME_SAMPLE_HELPER_CPP`. When collected patterns
-  also lift that block (Frame Warp or Symmetry), emit it only when transitions
+  also lift that block (Frame Warp or Tile Symmetry), emit it only when transitions
   are disabled; deduplicating the standalone helper list alone cannot remove
   a block embedded in the transition helper. Keep coverage for both modes.
 

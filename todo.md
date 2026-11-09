@@ -643,11 +643,18 @@ freeze, or drop them.
   rotate, scale and offset, each with an optional per-second rate. Keep
   Frame Warp for field-driven displacement only. Evidence
   `src/nodes/composite/definitions.ts`.
-- [ ] **Category: Fold Kaleidoscope into Mirror, rename Symmetry (Med, M).**
-  Mirror, Kaleidoscope and Symmetry all fold a frame. Add a "Radial" axis
-  to Mirror with a Segments control shown only for that axis (Mirror
-  already hides glow controls by mode), share Symmetry's Rotation/Spin so
-  the radial fold can turn, and rename Symmetry "Tile Symmetry". Evidence
+- [ ] **Category: Fold Kaleidoscope into Mirror (Med, M).** Mirror,
+  Kaleidoscope and Tile Symmetry all fold a frame (Symmetry is now labelled
+  Tile Symmetry). Add a "Radial" axis to Mirror with a Segments control
+  shown only for that axis (Mirror already hides glow controls by mode, and
+  glow has no single partner radially, so gate it off), and share Tile
+  Symmetry's Rotation/Spin so the radial fold can turn. Left because it
+  reaches well beyond the Effects nodes: Kaleidoscope is a built-in show
+  pattern (`builtinShowPatterns.ts`, Performance Generator's chorus list,
+  `showUpload.test.ts`), sits in 6 bundled JSON patterns, 10 shelf and
+  featured seeds, `patternRating.ts`, `frameInvariance.ts` (twice) and the
+  Math and Inputs help examples; the turn needs a rotation term in
+  `KALEIDO_SOURCE_CPP`, which the native parity test covers. Evidence
   `src/state/nodeLibrary.ts:5253`.
 - [ ] **Category: Add a scope to Noise LFO and Envelope (Low, M).** Only
   Wave has an on-node scope, but these two are the nodes whose shape is the
