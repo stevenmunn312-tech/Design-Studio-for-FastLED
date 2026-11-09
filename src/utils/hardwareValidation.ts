@@ -265,9 +265,18 @@ export function detectValidationRuntime(userAgent = typeof navigator === 'undefi
   return { hostOs, browser, userAgent: userAgent || 'Unavailable' }
 }
 
+/** A Performance Generator show the SD player runs on this output: the
+ *  generator reaches it and the card is on the bench. SD Card is portless, so
+ *  nothing is wired between the card and the output. */
+function sdShowDrives(nodes: StudioNode[], edges: StudioEdge[], output: StudioNode | undefined): boolean {
+  if (!output || !nodes.some((node) => nodeType(node) === 'SDCard')) return false
+  return nodes.some((node) => nodeType(node) === 'PerformanceGenerator'
+    && engineFrameOutputs(node, nodes, edges).some((reached) => reached.id === output.id))
+}
+
 function defaultAction(nodes: StudioNode[], edges: StudioEdge[]): HardwareValidationAction {
   const output = nodes.find((node) => nodeType(node) === 'MatrixOutput')
-  if (output && edges.some((edge) => edge.target === output.id && edge.targetHandle === 'sdcard')) return 'sd-show'
+  if (sdShowDrives(nodes, edges, output)) return 'sd-show'
   // Either node driving the output runs a collection on the device, which is
   // what this action exercises.
   const engine = nodes.find((node) =>
@@ -318,7 +327,7 @@ function featureList(nodes: StudioNode[], edges: StudioEdge[], matrixProps: Reco
     features.push('Baked song envelopes')
     if (props(performance).useGroupInputs === true) features.push('Group-input modulation')
   }
-  if (output && edges.some((edge) => edge.target === output.id && edge.targetHandle === 'sdcard')) features.push('SD show provisioning/player')
+  if (sdShowDrives(nodes, edges, output)) features.push('SD show provisioning/player')
   return features
 }
 

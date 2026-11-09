@@ -1319,7 +1319,7 @@ export function findRetainedLedDataPinWarnings(
   const profile = selectedBoardProfile(nodes)
   if (!profile) return []
   const connected = new Set(edges
-    .filter((edge) => edge.target && ['frame', 'sdcard'].includes(String(edge.targetHandle ?? '')))
+    .filter((edge) => edge.target && edge.targetHandle === 'frame')
     .map((edge) => String(edge.target)))
   const ledPins = profile.peripheralPins?.fastLedData
   const boardLedPins = new Set([
@@ -3931,23 +3931,24 @@ export function buildGraphDiagnostics(
       nodeIds: [], action: target === 'matrix' ? 'open-led-outputs' : undefined,
     })
   } else {
-    const hasCard = nodes.some((node) => node.data.nodeType === 'SDCard')
+    // An SD Card is a portless bench part, so a card on the bench changes
+    // nothing here: an LED output only ever takes its pixels on Frame.
     for (const candidate of terminals) {
       const connected = target === 'group'
         ? ((candidate.data.inputs as { id: string }[] | undefined)?.length
           ? (candidate.data.inputs as { id: string }[]).some((port) => incoming.has(`${candidate.id}:${port.id}`))
           : incoming.has(`${candidate.id}:frame`))
-        : incoming.has(`${candidate.id}:frame`) || incoming.has(`${candidate.id}:sdcard`)
+        : incoming.has(`${candidate.id}:frame`)
       if (connected) continue
       diagnostics.push({
         id: `${candidate.id}-input`, severity: 'error', category: 'connection',
         title: `${terminalName} has no input`,
         message: target === 'group'
           ? 'Nothing is connected to the group output ports.'
-          : hasCard ? 'Neither a Frame nor an SD Card signal reaches the output.' : 'No Frame signal reaches the output.',
+          : 'No Frame signal reaches the output.',
         fix: target === 'group'
           ? 'Connect a signal to a matching Group Output port.'
-          : hasCard ? 'Connect a Frame output, or wire an SD Card node to the SD Card input.' : 'Connect a pattern’s Frame output to the LED output.',
+          : 'Connect a pattern’s Frame output to the LED output.',
         nodeIds: [candidate.id], nodeLabel: nodeLabel(candidate),
       })
     }

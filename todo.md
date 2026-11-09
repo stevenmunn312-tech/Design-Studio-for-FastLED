@@ -1308,12 +1308,6 @@ freeze, or drop them.
   only in its small body canvas while that output's main preview stays black.
   Default it on. Evidence `src/nodes/show/evaluate.ts:1747`,
   `src/components/Canvas/bodies/PerformanceGeneratorBody.tsx:425`.
-- [ ] **SD Card: Fix the diagnostic that names a removed input (Med, S).** With
-  no Frame on an LED output and an SD Card on the bench, the fix says "wire an
-  SD Card node to the SD Card input", but the LED output has no `sdcard` port
-  and SD Card is portless. Replace with the normal "connect a Frame" fix and
-  remove the dead checks. Evidence `src/utils/validateGraph.ts:3931`,
-  `src/utils/hardwareValidation.ts:321`.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 

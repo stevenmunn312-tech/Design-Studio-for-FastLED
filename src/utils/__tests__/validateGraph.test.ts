@@ -320,6 +320,19 @@ describe('validateGraph', () => {
     }))
   })
 
+  // SD Card is portless and the LED output has no SD Card input, so a card on
+  // the bench must not turn the fix into wiring an input that does not exist.
+  it('asks for a Frame on an unwired LED output, card on the bench or not', () => {
+    const nodes = [node('sd', 'SDCard'), node('out', 'MatrixOutput', { width: 8, height: 8 })]
+    const issue = buildGraphDiagnostics(nodes, [], { selectedFqbn: 'esp32:esp32:esp32s3' })
+      .find((entry) => entry.id === 'out-input')
+    expect(issue).toMatchObject({
+      severity: 'error',
+      message: 'No Frame signal reaches the output.',
+      fix: 'Connect a pattern’s Frame output to the LED output.',
+    })
+  })
+
   it('targets Group Output while editing a group subgraph', () => {
     const nodes = [node('pattern', 'SolidColor'), node('group-out', 'GroupOutput')]
     const diagnostics = buildGraphDiagnostics(nodes, [edge('e1', 'pattern', 'group-out', 'frame')], { target: 'group' })
