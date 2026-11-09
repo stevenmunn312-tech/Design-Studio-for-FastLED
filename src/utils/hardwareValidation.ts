@@ -7,7 +7,7 @@ import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { sdSpiPinsForBoard } from '../build/pins/sdPinDefaults'
 import { micModuleFor, MIC_MODULES } from '../state/peripherals/micModules'
 import { isLinearForm, LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, type LedOutputForm } from '../state/output/ledOutputForm'
-import { renderScaleHalf } from '../state/output/renderScale'
+import { renderScaleHalf, wantsSupersample } from '../state/output/renderScale'
 import { engineFrameOutputs } from '../state/upload/buildMode'
 
 export type HardwareValidationAction =
@@ -308,7 +308,7 @@ function featureList(nodes: StudioNode[], edges: StudioEdge[], matrixProps: Reco
   if (!isLinearForm(form) && layout === 'panels') features.push('Tiled panel layout')
   if (!isLinearForm(form) && layout === 'custom') features.push('Custom XY map')
   if (matrixProps.usePsram === true) features.push(`PSRAM (${String(matrixProps.psramMode ?? 'default')})`)
-  if (!isLinearForm(form) && matrixProps.supersample === true) features.push('2× supersampling')
+  if (!isLinearForm(form) && wantsSupersample(matrixProps)) features.push('2× supersampling')
   if (renderScaleHalf(matrixProps)) features.push('Half-resolution render')
   const micNode = nodes.find((node) => nodeType(node) === 'MicInput')
   if (micNode) features.push(micFeatureLabel((micNode.data.properties as Record<string, unknown>).partId))
@@ -604,7 +604,7 @@ export function buildHardwareValidationProfile(options: {
       tileRotations: !isLinearForm(form) && layout === 'panels' ? String(p.tileRotations ?? '') : null,
       customMap: !isLinearForm(form) && layout === 'custom' ? customMapSummary(p.customXYMap) : null,
       psram: controllerSettingsValue.usePsram ? controllerSettingsValue.psramMode : null,
-      supersample: !isLinearForm(form) && p.supersample === true,
+      supersample: !isLinearForm(form) && wantsSupersample(p),
     },
     peripherals: {
       microphone: mic

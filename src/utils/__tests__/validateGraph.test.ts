@@ -710,7 +710,7 @@ describe('validateGraph', () => {
   })
 
   it('blocks HUB75 supersampling', () => {
-    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75', supersample: true })])).toEqual([
+    expect(findHub75ConfigErrors([node('out', 'MatrixOutput', { form: 'hub75', chipset: 'HUB75', renderResolution: '2x smooth' })])).toEqual([
       expect.stringMatching(/doesn't support supersampling/),
     ])
   })

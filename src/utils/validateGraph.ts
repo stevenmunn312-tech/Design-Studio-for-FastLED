@@ -26,7 +26,7 @@ import { fieldFormulaReadsPrev, isFieldFormulaValid, isNodeFormulaValid, isScala
 import { isValidRtcDateTime } from '../state/peripherals/rtc'
 import { buildXYTable, validateMatrixLayout, tileRotationAt } from '../state/output/xyLayout'
 import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes } from '../state/output/outputRouting'
-import { renderScaleHalf } from '../state/output/renderScale'
+import { renderScaleHalf, wantsSupersample } from '../state/output/renderScale'
 import { closestLedSpacingMm, positionsMmPerUnit, stringPositions, usesPositions } from '../state/output/stringPositions'
 import { asSdVideoClip } from '../state/evaluator/sdVideo'
 import { boardGpioInfo } from '../state/upload/uploadStore'
@@ -894,7 +894,7 @@ export function estimateFirmwareRam(
     if (outputs.length !== 1) return null
     const output = outputs[0]
     const p = output.data.properties as Record<string, unknown>
-    if (outputForm(p) === 'ring' || outputForm(p) === 'corkscrew' || p.supersample === true || renderScaleHalf(p) || usesPositions(p)) return null
+    if (outputForm(p) === 'ring' || outputForm(p) === 'corkscrew' || wantsSupersample(p) || renderScaleHalf(p) || usesPositions(p)) return null
     if (outputForm(p) === 'hub75') return null
     if (buildXYTable(w, h, p)) return null
     const feed = (incomingByTarget.get(output.id) ?? []).find((e) => e.targetHandle === 'frame')
@@ -1626,10 +1626,10 @@ export function findHub75ConfigIssues(nodes: StudioNode[]): Hub75ConfigIssue[] {
       })
       return
     }
-    if (props.supersample === true) {
+    if (wantsSupersample(props)) {
       issues.push({
         nodeId: output.id, label,
-        message: `${label}: a HUB75 panel doesn't support supersampling yet — turn off Supersample, or ${HUB75_REPLACE_PANEL}.`,
+        message: `${label}: a HUB75 panel doesn't support supersampling yet — set Render resolution to Full, or ${HUB75_REPLACE_PANEL}.`,
       })
     }
   })

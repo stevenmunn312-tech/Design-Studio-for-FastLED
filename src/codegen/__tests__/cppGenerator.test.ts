@@ -355,7 +355,7 @@ describe('generateCpp', () => {
   })
 
   it('renders at half resolution and upscales into the panel when renderScale is 1/2', () => {
-    const out = node('out', 'MatrixOutput', 'output', { form: 'matrix', width: 15, height: 9, renderScale: '1/2' })
+    const out = node('out', 'MatrixOutput', 'output', { form: 'matrix', width: 15, height: 9, renderResolution: 'Half' })
     const sc = node('sc', 'SolidColor', 'pattern', {})
     const cpp = generateCpp([sc, out], [edge('e1', 'sc', 'out', 'frame', 'frame')])
     expect(cpp).toContain('#define PANEL_W  15')
@@ -367,17 +367,19 @@ describe('generateCpp', () => {
     expect(cpp).not.toContain('#define SS ')
   })
 
-  it('leaves the sketch unchanged at renderScale 1, and lets supersample win over 1/2', () => {
+  // One Render resolution select replaced a Supersample switch and a Render
+  // scale select that greyed each other out; the choice is exclusive now.
+  it('leaves the sketch unchanged at Full, and keeps Half and 2x smooth apart', () => {
     const base = generateCpp([node('a', 'MatrixOutput', 'output', { width: 16, height: 16 })], [])
-    const explicit = generateCpp([node('a', 'MatrixOutput', 'output', { width: 16, height: 16, renderScale: '1' })], [])
+    const explicit = generateCpp([node('a', 'MatrixOutput', 'output', { width: 16, height: 16, renderResolution: 'Full' })], [])
     expect(explicit).toBe(base)
     const sc = node('sc', 'SolidColor', 'pattern', {})
-    const both = generateCpp(
-      [sc, node('out', 'MatrixOutput', 'output', { width: 16, height: 16, renderScale: '1/2', supersample: true })],
+    const smooth = generateCpp(
+      [sc, node('out', 'MatrixOutput', 'output', { width: 16, height: 16, renderResolution: '2x smooth' })],
       [edge('e1', 'sc', 'out', 'frame', 'frame')],
     )
-    expect(both).toContain('#define SS ')
-    expect(both).not.toContain('_sy = constrain(')
+    expect(smooth).toContain('#define SS ')
+    expect(smooth).not.toContain('_sy = constrain(')
   })
 
   it('bakes a positioned string as a PROGMEM position map read bilinearly', () => {
@@ -1253,7 +1255,7 @@ describe('generateCpp', () => {
   })
 
   it('renders at 2× and downscales into leds when supersample is on', () => {
-    const out = node('out', 'MatrixOutput', 'output', { width: 16, height: 16, supersample: true })
+    const out = node('out', 'MatrixOutput', 'output', { width: 16, height: 16, renderResolution: '2x smooth' })
     const sc = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
     const cpp = generateCpp([sc, out], [edge('e', 'sc', 'out', 'frame', 'frame')])
     // Render buffers are the 2× resolution; the physical strip stays 16×16.
@@ -1270,7 +1272,7 @@ describe('generateCpp', () => {
   })
 
   it('downscales through XY() when supersample and serpentine are both on', () => {
-    const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, supersample: true, serpentine: true })
+    const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, renderResolution: '2x smooth', serpentine: true })
     const sc = node('sc', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
     const cpp = generateCpp([sc, out], [edge('e', 'sc', 'out', 'frame', 'frame')])
     expect(cpp).toContain('const uint16_t _xytable[64] PROGMEM')
@@ -6062,7 +6064,7 @@ describe('show-pipeline nodes in a normal sketch', () => {
     })
 
     it('keeps a real buffer when supersampling downscales into leds', () => {
-      const ssOut = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 5, supersample: true })
+      const ssOut = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 5, renderResolution: '2x smooth' })
       const cpp = generateCpp([node('sc', 'SolidColor', 'pattern'), ssOut],
         [edge('e1', 'sc', 'out', 'frame', 'frame')])
       expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];')

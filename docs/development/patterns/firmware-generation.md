@@ -312,8 +312,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   render scale (`src/state/output/renderScale.ts`, `src/codegen/output/renderScaleCpp.ts`) and
   positioned strings (`src/state/output/stringPositions.ts`) take their source pixels and
   weights from `upscaleTap` / `positionTap`, and `routeFrame` and the emitted C++
-  both use them; change the tap in TypeScript and the C++ together. Render scale
-  is matrix-only and mutually exclusive with supersample (supersample wins). A
+  both use them; change the tap in TypeScript and the C++ together. Half and
+  supersampling are two values of one matrix-only Render resolution select
+  (Half / Full / 2x smooth), so they cannot combine; readers ask
+  `renderScaleHalf` and `wantsSupersample` rather than the property. A
   positioned string bakes only fixed-point (1/256 unit) numbers into PROGMEM;
   the user's text is parsed in TypeScript and never interpolated into C++.
   The ring, corkscrew and position tables and the copy through them are one

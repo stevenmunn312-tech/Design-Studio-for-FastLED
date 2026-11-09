@@ -163,7 +163,7 @@ const CASES: GateCase[] = [
     name: 'HUB75 asked to drive a shape the DMA library cannot',
     nodes: [
       node('sc', 'SolidColor'),
-      node('out', 'MatrixOutput', { form: 'hub75', width: 64, height: 32, chipset: 'HUB75', supersample: true }),
+      node('out', 'MatrixOutput', { form: 'hub75', width: 64, height: 32, chipset: 'HUB75', renderResolution: '2x smooth' }),
     ],
     edges: [edge('e1', 'sc', 'out')],
     fqbn: S3,

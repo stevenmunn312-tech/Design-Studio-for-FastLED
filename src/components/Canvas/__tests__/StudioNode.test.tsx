@@ -1279,7 +1279,7 @@ describe('StudioNode', () => {
 
       expect(keys).toContain('LED count')
       expect(keys).toContain('chipset')
-      for (const dead of ['serpentine', 'supersample', 'custom map', 'tiles X', 'width', 'height', 'hub75R1Pin', 'hub75ClkPin']) {
+      for (const dead of ['serpentine', 'render resolution', 'custom map', 'tiles X', 'width', 'height', 'hub75R1Pin', 'hub75ClkPin']) {
         expect(keys, dead).not.toContain(dead)
       }
       // A string has no grid, so the whole Layout group goes with it.

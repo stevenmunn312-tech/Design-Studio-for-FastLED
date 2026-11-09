@@ -205,13 +205,11 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       routeMode: 'native',
       routeX: 0,
       routeY: 0,
-      // Render the graph at 2× the matrix resolution and average each 2×2 block
-      // down to one physical LED (FastLED-style downscale) — antialiases moving
-      // shapes on small panels at ~4× the render cost. Preview + normal sketch.
-      supersample: false,
-      // Render at half the panel resolution and upscale bilinearly into the
-      // LEDs ('1' = full resolution). Matrix panels only; excludes supersample.
-      renderScale: '1',
+      // 'Half' renders at half the panel resolution and upscales bilinearly
+      // into the LEDs; '2x smooth' renders at 2x and averages each 2x2 block
+      // down to one LED (supersampling, ~4x the render cost). Matrix panels
+      // only. See state/output/renderScale.ts.
+      renderResolution: 'Full',
       // FastLED.setCorrection colour-correction profile ('none' = uncorrected).
       correction: 'none',
       // FastLED.setTemperature white point ('none' = uncorrected).

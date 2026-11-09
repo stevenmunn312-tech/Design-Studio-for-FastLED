@@ -1207,13 +1207,6 @@ freeze, or drop them.
   though one 5 m reel at 144/m is 720. Raise the chain cap toward the matrix
   total (data lanes already split long chains), or document why it is 300.
   Evidence `src/state/output/ledOutputForm.ts:42`.
-- [ ] **LED output: Merge supersample and render scale (Low, S).** The two
-  controls grey each other out. Replace them with one "Render resolution: Half
-  / Full / 2x smooth" select. Evidence `src/state/nodeLibrary.ts:5235`.
-- [ ] **Stereo VU Meter: Collapse or preset the Response group (Low, S).** Its
-  30 properties include a nine-row Response group (gain through beat accent)
-  few people touch. Start it collapsed, or offer 3-4 presets (Hi-fi, Punchy,
-  Smooth).
 - [ ] **Analog RGB Strip: Resolve overlap with Power Switch (Med, M).** The
   YYNMOS-4 and Mosfetti boards Power Switch catalogues are the usual way to
   drive an analog strip, yet the strip leaves the driver as "whatever the bench

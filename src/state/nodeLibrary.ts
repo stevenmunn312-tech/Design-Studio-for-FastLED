@@ -49,7 +49,7 @@ import { PARTICLE_REST_SEC_MAX, PARTICLE_VOLLEY_BURSTS_MAX } from './player/play
 import { PARTICLE_STYLES } from './player/particleStyles'
 import { WIREFRAME_MODEL_OPTIONS } from '../nodes/shapes/wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './output/ledOutputForm'
-import { RENDER_SCALE_OPTIONS } from './output/renderScale'
+import { RENDER_RESOLUTIONS } from './output/renderScale'
 import { POSITION_PRESETS, POSITIONS_MM_PER_UNIT_MAX, STRIP_LAYOUTS, usesNetwork, usesPositions } from './output/stringPositions'
 import { NETWORK_LEDS_PER_EDGE, NETWORK_MAX_NODES, NETWORK_PRESETS } from './output/segmentNetwork'
 import { RIPPLE_BEHAVIOURS, RIPPLE_LIFETIME_SEC, RIPPLE_WIDTH } from '../nodes/shared/rippleNetwork'
@@ -474,7 +474,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   colorOrder: { control: 'select', options: COLOR_ORDER_OPTIONS },
   correction: { control: 'select', options: CORRECTION_OPTIONS },
   whitePoint: { control: 'select', options: WHITE_POINT_OPTIONS },
-  renderScale: { control: 'select', options: RENDER_SCALE_OPTIONS },
+  renderResolution: { control: 'select', options: RENDER_RESOLUTIONS },
   overclock:  { control: 'slider', min: 1, max: 1.7, step: 0.05 },
   hub75R1Pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   hub75G1Pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -1734,7 +1734,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   network: 'A custom network as JSON: {"nodes": [[x, y], …], "edges": [[from, to], …]} with positions in canvas pixels and edges as node indices in wiring order, from to to. Up to 64 nodes and 128 edges. An unreadable network shows the hexagons instead.',
   ledsPerEdge: 'LEDs along each edge of the network. The string has this many times the number of edges, capped at 300 LEDs in all.',
   positions: 'One x,y pair per LED in wire order, in canvas pixels, for example 2,3 4.5,3.5 7,4. Separate with commas, spaces or new lines. Needs a pair for every LED, otherwise the LEDs fall back to a straight row across the middle.',
-  renderScale: 'Render the graph at half the panel resolution and upscale it smoothly onto the LEDs. It quarters the render cost and memory on a large panel, and the picture is softer. Turn off Supersample first: the two cannot combine.',
+  renderResolution: 'The resolution the graph renders at. Full renders one pixel per LED. Half renders at half the panel resolution and upscales smoothly onto the LEDs: a quarter of the render cost and memory on a large panel, and a softer picture. 2x smooth renders at twice the size and averages 2x2 blocks per LED for smoother motion, at about 4x the cost.',
   whitePoint: "The colour temperature the LEDs treat as white (FastLED.setTemperature), for example Tungsten100W for a warmer white. It scales the red, green and blue channels, so it lowers brightness, and it doesn't change the live preview. Dimming stays linear in light output.",
   dither: 'FastLED temporal dithering for smoother low-brightness gradients. Off is steadier under a camera but can band on the LEDs themselves.',
   correction: "Colour-temperature compensation for the physical LEDs (FastLED.setCorrection) — doesn't change the live preview.",
@@ -3117,7 +3117,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     routeMode: 'Native renders the graph at this output\'s own size. Fit scales and Crop cuts the shared canvas to it.',
     routeX: 'Left edge of the crop window on the shared canvas, in LEDs.',
     routeY: 'Top edge of the crop window on the shared canvas, in LEDs.',
-    supersample: 'Render at twice the size and average 2x2 blocks per LED for smoother motion, at about 4x the cost.',
     hub75R1Pin: 'Red data for the top half of the panel (R1 on the ribbon).',
     hub75G1Pin: 'Green data for the top half of the panel (G1 on the ribbon).',
     hub75B1Pin: 'Blue data for the top half of the panel (B1 on the ribbon).',
@@ -3724,7 +3723,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     tileSerpentine: 'tile serpentine',
     tileRotations: 'tile turns',
     customXYMap: 'custom map',
-    renderScale: 'render scale',
+    renderResolution: 'render resolution',
     whitePoint: 'white point',
     hub75WideScan: 'wide scan',
     hub75ColorDepthBits: 'color depth',
@@ -4101,7 +4100,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     ] },
     { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
     { key: 'positions', label: 'String Layout', keys: ['stripLayout', 'positionsPreset', 'networkPreset', 'ledsPerEdge', 'positionsWidth', 'positionsHeight', 'positionsMmPerUnit', 'positions', 'network'] },
-    { key: 'rendering', label: 'Rendering', keys: ['supersample', 'renderScale', 'correction', 'whitePoint', 'dither'] },
+    { key: 'rendering', label: 'Rendering', keys: ['renderResolution', 'correction', 'whitePoint', 'dither'] },
     // The least-used group last: a crop offset into a larger frame.
     { key: 'routing', label: 'Frame Route', keys: ['routeMode', 'routeX', 'routeY'] },
     // No 'brightness' or power group here: master brightness, the power cap
@@ -5224,12 +5223,9 @@ export function isPropertyEnabled(
       if (key === 'hub75EPin') return hub75 && properties.hub75WideScan === true
       return hub75
     }
-    // Supersampling averages an SS x SS block down to one LED, and panel/custom
-    // wiring orders describe a grid — neither means anything on a single chain.
-    if (key === 'supersample') return !linear && properties.renderScale !== '1/2'
-    // Half-resolution render is a matrix-panel feature: a chain has no second
-    // axis, HUB75 does not resample, and it cannot combine with supersample.
-    if (key === 'renderScale') return form === 'matrix' && properties.supersample !== true
+    // Render resolution is a matrix-panel choice: a chain has no 2 x 2 block to
+    // average down or second axis to save on, and HUB75 resamples neither way.
+    if (key === 'renderResolution') return form === 'matrix'
     if (key === 'layout') return !linear
     if (key === 'tilesX' || key === 'tilesY' || key === 'tileSerpentine' || key === 'tileRotations')
       return !linear && properties.layout === 'panels'

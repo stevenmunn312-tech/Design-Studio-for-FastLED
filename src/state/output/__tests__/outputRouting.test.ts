@@ -37,7 +37,7 @@ describe('multi-output routing', () => {
   })
 
   it('uses the largest supersampled route as the composition canvas', () => {
-    const nodes = [output('a', { width: 8, height: 16 }), output('b', { width: 16, height: 8, supersample: true })]
+    const nodes = [output('a', { width: 8, height: 16 }), output('b', { width: 16, height: 8, renderResolution: '2x smooth' })]
     expect(compositionDims(nodes)).toEqual({ w: 32, h: 16 })
   })
 
@@ -229,26 +229,28 @@ describe('routing per LED output form', () => {
   })
 
   it('renders a half-resolution matrix on a canvas halved and rounded up', () => {
-    const nodes = [output('a', { form: 'matrix', width: 15, height: 9, renderScale: '1/2' })]
+    const nodes = [output('a', { form: 'matrix', width: 15, height: 9, renderResolution: 'Half' })]
     const [route] = outputRoutes(nodes)
     expect(route.renderScale).toBe(0.5)
     expect(compositionDims(nodes)).toEqual({ w: 8, h: 5 })
     expect(outputRenderPasses(nodes, [{ source: 'p', target: 'a', targetHandle: 'frame' }])[0].key).toBe('8x5')
   })
 
-  it('ignores render scale on a chain, on HUB75, on a shared canvas, and next to supersample', () => {
+  it('ignores Half on a chain, on HUB75 and on a shared canvas, and 2x smooth is never half', () => {
     const scale = (props: Record<string, unknown>) =>
-      outputRoutes([output('a', { width: 16, height: 16, renderScale: '1/2', ...props })])[0].renderScale
+      outputRoutes([output('a', { width: 16, height: 16, renderResolution: 'Half', ...props })])[0].renderScale
     expect(scale({ form: 'strip', ledCount: 30 })).toBe(1)
     expect(scale({ form: 'ring', ledCount: 24 })).toBe(1)
     expect(scale({ form: 'hub75' })).toBe(1)
     expect(scale({ routeMode: 'fit' })).toBe(1)
-    expect(scale({ supersample: true })).toBe(1)
-    expect(outputRoutes([output('a', { width: 16, height: 16, renderScale: '1/2', supersample: true })])[0].supersample).toBe(2)
+    expect(scale({ renderResolution: '2x smooth' })).toBe(1)
+    const [smooth] = outputRoutes([output('a', { width: 16, height: 16, renderResolution: '2x smooth' })])
+    expect(smooth.supersample).toBe(2)
+    expect(smooth.renderScale).toBe(1)
   })
 
   it('upscales a half-resolution frame bilinearly and keeps flat colour, corners and order', () => {
-    const [route] = outputRoutes([output('a', { form: 'matrix', width: 8, height: 4, renderScale: '1/2' })])
+    const [route] = outputRoutes([output('a', { form: 'matrix', width: 8, height: 4, renderResolution: 'Half' })])
     const px = (r: number) => ({ r, g: r, b: r })
     const flat = [[px(90), px(90), px(90), px(90)], [px(90), px(90), px(90), px(90)]]
     const flatOut = routeFrame(flat, route, 4, 2)!
@@ -268,7 +270,7 @@ describe('routing per LED output form', () => {
 
   it('ignores supersampling on a chain but honours an explicit shared-canvas crop', () => {
     const route = outputRoutes([output('s', {
-      form: 'strip', ledCount: 30, supersample: true, routeMode: 'crop', routeX: 5,
+      form: 'strip', ledCount: 30, renderResolution: '2x smooth', routeMode: 'crop', routeX: 5,
     })])[0]
     expect(route.supersample).toBe(1)
     expect(route.routeMode).toBe('crop')

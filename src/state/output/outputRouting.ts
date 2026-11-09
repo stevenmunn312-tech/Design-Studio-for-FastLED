@@ -19,7 +19,7 @@ import {
   type CorkscrewDirection,
   type RingDirection,
 } from './ledOutputForm'
-import { halfDim, renderScaleHalf, upscaleTap } from './renderScale'
+import { halfDim, renderScaleHalf, upscaleTap, wantsSupersample } from './renderScale'
 import { positionsFixedFor, positionTap, stringPositions, type StringPositions } from './stringPositions'
 
 export type OutputRouteMode = 'native' | 'fit' | 'crop'
@@ -158,7 +158,7 @@ export function outputRoutes(nodes: StudioNode[]): OutputRoute[] {
         // A chain has no 2 x 2 block to average down. It still renders natively
         // by default; explicit fit/crop opt it into a shared composition.
         dataPin: int(props.dataPin, 5, 0, 255),
-        supersample: linear ? 1 : props.supersample === true ? 2 : 1,
+        supersample: linear ? 1 : wantsSupersample(props) ? 2 : 1,
         routeMode,
         renderScale: routeMode === 'native' && renderScaleHalf(props) ? 0.5 : 1,
         positions: stringPositions(props),
