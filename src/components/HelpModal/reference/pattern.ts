@@ -81,9 +81,10 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Text draws words in a bitmap font, still or scrolling. Type the text on the node, or wire text in from Text Value, Format Number or Format Date/Time.',
       'X and Y place it, with the alignment choosing which part of the text sits there. Scroll moves it in pixels per second along either axis, and Wrap repeats it across the opposite edge so a scrolling line never leaves a gap.',
-      'A new line in the typed text starts a second row. Wired text is drawn at run time in the built-in font.',
+      'A new line in the typed text starts a second row. Wired text is drawn at run time in the built-in font. Base draws the text over another frame; unwired, the background is black.',
     ],
     inputs: {
+      base: 'A frame to draw the text over. The letters cover it in solid colour.',
       text: 'Text to draw. Replaces the typed text.',
       color: 'Text colour. Replaces the R, G and B fields.',
     },
@@ -91,13 +92,12 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'Text',
       title: 'A birthday banner',
       nodes: {
-        banner: ['Text', { text: 'HAPPY BIRTHDAY SAM!', scroll: 9, wrap: true, r: 255, g: 120, b: 210, letterSpacing: 1 }],
         confetti: ['Confetti', { palette: 'party', speed: 0.3, fade: 0.7 }],
-        layer: ['Blend', { blendMode: 'screen', amount: 0.6 }],
+        banner: ['Text', { text: 'HAPPY BIRTHDAY SAM!', scroll: 9, wrap: true, r: 255, g: 120, b: 210, letterSpacing: 1 }],
         output: ['MatrixOutput', { form: 'matrix', width: 32, height: 8 }],
       },
-      wires: ['banner.frame > layer.a', 'confetti.frame > layer.b'],
-      explanation: 'Text scrolls the greeting in pink, wrapping so it loops without a gap, and Blend screens a light shower of Confetti over it.',
+      wires: ['confetti.frame > banner.base'],
+      explanation: 'Confetti falls in the background, and Text draws the greeting over it in solid pink, scrolling and wrapping so it loops without a gap.',
       preview: 'The {output} scrolls HAPPY BIRTHDAY SAM! across a long, thin matrix, sprinkled with confetti.',
     }),
   },

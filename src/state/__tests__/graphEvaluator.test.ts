@@ -1645,13 +1645,13 @@ describe('evaluateGraph', () => {
     expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
-  it('Text uses a custom font from props.font', () => {
-    const font = { w: 1, h: 1, glyphs: { X: [1] } }   // a single lit pixel
-    const txt = node('t', 'Text', 'pattern', { text: 'X', x: 0.5, y: 0.5, scroll: 0, r: 255, g: 0, b: 0, font })
+  it('Text draws its letters over a wired base frame', () => {
+    const base = node('bg', 'SolidColor', 'pattern', { r: 0, g: 0, b: 90 })
+    const txt = node('t', 'Text', 'pattern', { text: 'I', x: 0.5, y: 0.5, scroll: 0, r: 0, g: 255, b: 0 })
     const out = node('out', 'MatrixOutput', 'output', {})
-    const frame = evaluateGraph([txt, out], [edge('e', 't', 'frame', 'out', 'frame')], 0, 8, 8)
-    expect(frame![3][3]).toEqual({ r: 255, g: 0, b: 0 })   // the glyph pixel
-    expect(frame![3][4]).toEqual({ r: 0, g: 0, b: 0 })     // trailing spacing column
+    const frame = evaluateGraph([base, txt, out], [edge('b', 'bg', 'frame', 't', 'base'), edge('e', 't', 'frame', 'out', 'frame')], 0, 8, 8)
+    expect(frame![1][2]).toEqual({ r: 0, g: 255, b: 0 })   // a letter pixel, opaque
+    expect(frame![0][0]).toEqual({ r: 0, g: 0, b: 90 })    // the base shows round it
   })
 
   it('Text renders multiline blocks with vertical spacing', () => {

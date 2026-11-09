@@ -860,18 +860,9 @@ freeze, or drop them.
   Raise the default and add bilinear sampling. If merged into the transform
   node, apply there. `src/nodes/field/definitions.ts:399`,
   `src/nodes/field/evaluate.ts:555`.
-- [ ] **Text: Add a `base` input (Med, S).** Every other drawing node draws
-  over a base; Text alone renders on black (`fill_solid(...Black)`), so its
-  Help example needs a Blend in screen mode, which cannot draw opaque text.
-  Add `base`. `src/nodes/shapes/definitions.ts:69`,
-  `src/nodes/shapes/codegen.ts:475`.
 - [ ] **Text: Add an integer size (Med, M).** The only font is 3x5, tiny on
   32x32 or 64x32 HUB75 panels. Add an integer `size` (pixel scale 1-4),
   shared with Clock Display's digits. `src/nodes/shared/font.ts:10`.
-- [ ] **Text: Expose or remove `props.font` (Low, S).** Both sides read it but
-  nothing writes it (hidden in `src/components/Canvas/studioNodeChrome.ts:145`). Expose a font
-  choice or delete the dead property. `src/nodes/shapes/evaluate.ts:558`,
-  `src/nodes/shapes/codegen.ts:463`.
 - [ ] **Clock Display: Gate `scaleWithMatrix` with radius (Low, S).** It only
   affects the analogue radius but is always shown. Gate it with `radius` in
   `isPropertyEnabled`. `src/state/nodeLibrary.ts:5194`,

@@ -2703,11 +2703,17 @@ describe('generateCpp', () => {
     expect(cpp).not.toContain('millis()')   // static text → no time variable
   })
 
-  it('Text codegen uses a custom font height', () => {
-    const font = { w: 3, h: 7, glyphs: { A: [1, 1, 1, 1, 1, 1, 1] } }
-    const txt = node('t', 'Text', 'pattern', { text: 'A', x: 0.5, y: 0.5, scroll: 0, font })
-    const cpp = generateCpp([txt, outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('_r < 7;')
+  it('Text draws over a wired base frame, and on black without one', () => {
+    const solo = generateCpp([node('t', 'Text', 'pattern', { text: 'A' }), outputNode], [edge('e', 't', 'out', 'frame', 'frame')])
+    expect(solo).toContain('fill_solid(buf_t, NUM_LEDS, CRGB::Black);')
+    const base = node('bg', 'SolidColor', 'pattern', {})
+    const over = generateCpp([base, node('t', 'Text', 'pattern', { text: 'A' }), outputNode],
+      [edge('b', 'bg', 't', 'frame', 'base'), edge('e', 't', 'out', 'frame', 'frame')])
+    // Text starts from the base (here the two share one buffer) and never
+    // clears it to black.
+    expect(over).not.toContain('fill_solid(buf_t, NUM_LEDS, CRGB::Black);')
+    expect(over.indexOf('fill_solid(buf_bg, NUM_LEDS,')).toBeGreaterThan(-1)
+    expect(over.indexOf('fill_solid(buf_bg, NUM_LEDS,')).toBeLessThan(over.indexOf('// Text "A"'))
   })
 
   it('emits one bitmap array per multiline Text row', () => {

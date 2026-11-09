@@ -1,5 +1,4 @@
 import {
-  asFont,
   textBlockLayout,
   textAlignMode,
   TEXT_LINE_GAP,
@@ -425,7 +424,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     for (const line of wireframeEdgeCpp(ob, `_edg_${id}`, edgeCount, depthShade)) ln(`    ${line}`)
     ln(`  }`)
   },
-  Text({ node, id, p, ln, f, channelColor, ownBuf, incoming, needsT, globalLines }) {
+  Text({ node, id, p, ln, f, channelColor, ownBuf, incoming, needsT, globalLines, seedFrom }) {
     const ob = ownBuf()
     const letterSpacing = Math.max(0, Math.round(Number(p.letterSpacing ?? 1)))
     const hAlign = textAlignMode(p.hAlign ?? 'center', 'left', 'right')
@@ -442,7 +441,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       const dynamic = !!incoming.get(`${node.id}:scroll`) || Number(p.scroll ?? 0) !== 0
       ln(`  { // Text (wired)`)
       ln(`    const char* _ts = n_${safeId(textUp.srcId)}_${safeId(textUp.srcPort)}; int _tl = 0; while (_ts[_tl] && _tl < ${WIRED_TEXT_MAX}) _tl++; int _tn = _tl * ${stride};`)
-      ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+      ln(`    ${seedFrom('base')}`)
       if (dynamic) {
         needsT.v = true
         ln(`    float _scr = ${f('scroll', 'scroll', 0)};`)
@@ -474,7 +473,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       return
     }
     const text = String(p.text ?? 'HELLO')
-    const font = asFont(p.font)
+    const font = DEFAULT_FONT
     const layout = textBlockLayout(text, font, letterSpacing)
     const renderableLines = layout.lines
       .map((line, index) => ({ ...line, index }))
@@ -486,7 +485,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ln(`    static const uint8_t _txt_${id}_${line.index}[] = {${line.cols.join(',')}};`)
       ln(`    const int _tn_${id}_${line.index} = ${line.cols.length};`)
     }
-    ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
+    ln(`    ${seedFrom('base')}`)
     if (dynamic) {
       needsT.v = true
       ln(`    float _scr = ${f('scroll', 'scroll', 0)};`)

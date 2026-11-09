@@ -58,14 +58,15 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { speed: 1, loop: true },
   },
   {
-    // Renders text with the built-in 3×5 font; scroll > 0 scrolls it left.
-    // X/Y are normalised 0..1 around the text's visual centre; `wrap` tiles it
-    // across the opposite edges.
+    // Renders text with the built-in 3×5 font over an optional base frame;
+    // scroll > 0 scrolls it left. X/Y are normalised 0..1 around the text's
+    // visual centre; `wrap` tiles it across the opposite edges.
     type: 'Text',
     label: 'Text',
     category: 'pattern',
     subcategory: 'Shapes & Text',
     inputs: [
+      { id: 'base',   label: 'Base',   dataType: 'frame' },
       // A wired string (Text Value, Format Number, Format Date/Time) replaces
       // the typed text and is drawn at run time in the built-in font.
       { id: 'text',   label: 'Text',   dataType: 'string' },

@@ -69,16 +69,6 @@ export function textAlignMode(value: unknown, startLabel: string, endLabel: stri
   return 'center'
 }
 
-/** A value is a usable custom font if it has positive dims and a glyph map. */
-export function asFont(value: unknown): BitmapFont {
-  const f = value as Partial<BitmapFont> | undefined
-  if (f && typeof f.w === 'number' && f.w > 0 && typeof f.h === 'number' && f.h > 0 &&
-      f.glyphs && typeof f.glyphs === 'object') {
-    return f as BitmapFont
-  }
-  return DEFAULT_FONT
-}
-
 /**
  * Convert a string into a flat list of vertical column bitmaps (`letterSpacing`
  * trailing blank columns per glyph, default 1). Each column's bit `r` (0 = top)

@@ -136,7 +136,9 @@ where it is needed.
   shared by evaluator + codegen) and can scroll; the font is plain data so a
   custom font drops in without other changes — and a `Text` node can now load a
   **custom font** by uploading a `{ w, h, glyphs }` JSON in the Inspector
-  (stored per-node, flowing through evaluator and codegen). `Shape` (including
+  (stored per-node, flowing through evaluator and codegen; the upload later
+  left the Inspector, and the unread `font` property was removed in 2026-11).
+  `Shape` (including
   circle and rectangle modes) and `Line` (Bresenham) form the shape family,
   each painting over an optional base frame. Phase 4 complete.
 

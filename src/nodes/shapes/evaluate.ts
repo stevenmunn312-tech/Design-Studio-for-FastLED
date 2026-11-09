@@ -1,5 +1,5 @@
 import type { RtcPreview } from '../../state/peripherals/rtc'
-import { type BitmapFont, DEFAULT_FONT, textBlockLayout, TEXT_LINE_GAP, asFont, textAlignMode } from '../shared/font'
+import { type BitmapFont, DEFAULT_FONT, textBlockLayout, TEXT_LINE_GAP, textAlignMode } from '../shared/font'
 import { asAnimatedImage, type ImageData, animatedImageFrame, asImage, sampleImageToFrame } from '../shared/image'
 import type { ImagePaletteSource } from '../../state/palettes/imagePalette'
 import { hexToRgb } from '../../state/palettes/polinePalette'
@@ -275,9 +275,9 @@ function renderTextInto(frame: Frame, cols: number[], color: RGB, startX: number
   }
 }
 
-// Render `text` onto a blank frame at (startX, startY), optionally scrolling
-// over time (scroll = cells/second) along either axis. Shares textColumns()
-// with codegen.
+// Render `text` over `base` (black when unwired) at (startX, startY),
+// optionally scrolling over time (scroll = cells/second) along either axis.
+// Shares textColumns() with codegen.
 function renderText(
   key: string,
   text: string,
@@ -292,8 +292,9 @@ function renderText(
   H = DEFAULT_H,
   wrap = false,
   letterSpacing = 1,
+  base: Frame | null = null,
 ): Frame {
-  const frame = blankFrame(W, H)
+  const frame = base ? cloneFrame(base) : blankFrame(W, H)
   const layout = textBlockLayout(text, font, letterSpacing)
   if (layout.lines.length === 0) return frame
   const vertical = scrollAxis === 'vertical'
@@ -558,11 +559,11 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     return { frame: solidFrame(color, W, H) }
   },
   Text({ input, num, t, W, H, stateKey }, id, props) {
-    // A wired string replaces the typed text, in the built-in font: the
-    // sketch draws a wire's text at run time from that font's glyph table.
+    // A wired string replaces the typed text; both draw in the built-in font,
+    // which the sketch carries as a glyph table for a wire's text.
     const wired = input(id, 'text', null)
     const text = typeof wired === 'string' ? wired : String(props.text ?? 'HELLO')
-    const font = typeof wired === 'string' ? DEFAULT_FONT : asFont(props.font)
+    const font = DEFAULT_FONT
     const letterSpacing = Math.max(0, Math.round(Number(props.letterSpacing ?? 1)))
     const layout = textBlockLayout(text, font, letterSpacing)
     const wrap = Boolean(props.wrap)
@@ -580,7 +581,8 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const sx = layout.lines.map((line) => textAlignedStart(x, W, line.cols.length, hAlign, wrap))
     const sy = textAlignedStart(y, H, layout.height, vAlign, wrap)
     const scroll = num(id, 'scroll', props, 'scroll', 0)
-    return { frame: renderText(stateKey(id), text, color, sx, sy, scroll, scrollAxis, t, font, W, H, wrap, letterSpacing) }
+    const base = input(id, 'base', null) as Frame | null
+    return { frame: renderText(stateKey(id), text, color, sx, sy, scroll, scrollAxis, t, font, W, H, wrap, letterSpacing, base) }
   },
   ClockDisplay({ input, num, elapsedT: t, W, H, stateKey }, id, props) {
     const mode = String(props.displayMode ?? 'Digital HH:MM')
