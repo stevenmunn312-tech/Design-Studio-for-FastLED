@@ -72,6 +72,26 @@ describe('playerSketchGenerator', () => {
     expect(single).toContain('compositeTransition(4, leds, showA, showB, tp);')
   })
 
+  // The slideshow honoured Seed on the board and the Music Player did not; a
+  // nonzero Seed now fixes both random generators at boot instead of entropy.
+  it('fixes the random generators to a nonzero Seed, and seeds from entropy at 0', () => {
+    const renderers = {
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms) { (void)ms; }', 'void render_p1(uint32_t ms) { (void)ms; }'],
+      count: 2, params: [],
+    }
+    const free = generatePlayerSketch({}, renderers, { genericPlayer: true, transitionIds: [1, 3] })
+    const freeSetup = free.slice(free.indexOf('void setup() {'))
+    expect(freeSetup).toContain('random16_add_entropy(esp_random());')
+    expect(freeSetup).toContain('randomSeed(esp_random());')
+
+    const seeded = generatePlayerSketch({}, renderers, { genericPlayer: true, transitionIds: [1, 3], seed: 42 })
+    const setup = seeded.slice(seeded.indexOf('void setup() {'))
+    expect(setup).toContain('random16_set_seed(42u);')
+    expect(setup).toContain('randomSeed(42u);')
+    expect(seeded).not.toContain('esp_random')
+  })
+
   // A show file can put the playing pattern on both sides of a transition, and
   // rendering it as both would step its state twice a frame. A Music Player's
   // rotation only ever starts a transition to a different pattern.

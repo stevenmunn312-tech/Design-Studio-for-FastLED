@@ -1,6 +1,7 @@
 import { playerControlGraph } from '../codegen/player/playerControlGraph'
 import { cppCode } from '../codegen/cppReachability'
 import { musicPlayerTiming } from '../state/player/musicPlayerTiming'
+import { normalizedSeed } from '../state/evaluator/random'
 import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import type { CustomDisplayAssets } from '../codegen/displays/customDisplayShowCpp'
 
@@ -196,6 +197,9 @@ export function buildShowPlayer(
     preferredTrack: opts.preferredTrack,
     genericPlayer: opts.genericPlayer,
     patternOrder: order,
+    // A timed Performance show plays its own schedule; only the Music Player
+    // draws its picks from the random generators a Seed fixes.
+    seed: opts.genericPlayer ? normalizedSeed(pgProps.seed) : 0,
     patternProfiles: patternSet.length > 1 ? {
       weights: patternSet.map((id) => profiles.weights[profiles.ids.indexOf(id)] ?? 1),
       energy: patternSet.map((id) => profiles.energyTags[profiles.ids.indexOf(id)] ?? []),

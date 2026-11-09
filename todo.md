@@ -1268,18 +1268,6 @@ freeze, or drop them.
   0-16 slider although the 17 styles have names (rain, explode, fireworks,
   swirl, twinkle, ring and so on). Replace it with a named select. Evidence
   `src/state/nodeLibrary.ts:1491`, `src/nodes/show/evaluate.ts:800`.
-- [ ] **Music Player: Remove the stale "SD player only crossfades" claim (Med,
-  S).** Help and the `transitionSec` tooltip say the SD player uses crossfade,
-  but it now compiles the wired Transition Pool, so users are told to skip a
-  working feature. Evidence `src/components/HelpModal/reference/show.ts:151`, `src/state/nodeLibrary.ts:1797`.
-- [ ] **Music Player: Honour or grey out `seed` on SD builds (Low, S).** `seed`
-  is preview-only on the SD player; the slideshow honours it. Either honour it
-  in `src/codegen/playerSketchGenerator.ts` or grey it out for SD, Bluetooth and Radio
-  builds. Evidence `src/state/nodeLibrary.ts:1806`, `src/codegen/showGenerator.ts:1777`.
-- [ ] **Music Player: Trim the help overview (Low, S).** The overview is eight
-  paragraphs covering every source. Move the Bluetooth and Radio paragraphs
-  into the `musicSource` tooltip and a propertyNote so the overview teaches the
-  common SD/timed path. Evidence `src/components/HelpModal/reference/show.ts:131`.
 - [ ] **Sequencer: Rename to avoid the engines' "Sequence" order (Low, S).**
   The name collides with the step editor on the Music Player and Slideshow,
   but this node is a four-slot timed crossfade. Rename it ("Crossfade Cycle" or
