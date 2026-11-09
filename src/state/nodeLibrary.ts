@@ -744,6 +744,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   DanceFlash: {
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
+    // DANCE_FLASH_GAPS in nodes/audioReactive/danceFlash.ts; a test holds the two equal.
+    gap: { control: 'select', options: ['30 s', '1–2 min', '2–5 min'] },
   },
   FFTAnalyzer:       {
     bands:     { control: 'slider', min: 8, max: 32, step: 1 },
@@ -2513,6 +2515,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     flashMode: 'Lighten lifts the base toward the flash colour and never darkens it; Add sums them and clips sooner; Replace shows only the flash while it is lit.',
     colorSource: 'Solid flashes the R, G, B colour; Palette sweeps through the palette as the flash fades. A wired palette always sweeps.',
     palette: 'Palette the flash sweeps through as it fades, when Color is Palette.',
+  },
+  DanceFlash: {
+    gap: 'Quiet time between flashes: about 30 s (20–40 s), 1–2 min, or 2–5 min. The first flash comes a few seconds after start whichever you pick.',
   },
   KickShock: {
     speed: 'Ring travel rate (0–1); reactivity multiplies it. Kick rings are slow and wide, snare fast and thin.',

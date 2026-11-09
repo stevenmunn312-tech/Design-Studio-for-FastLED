@@ -287,6 +287,8 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: {
       // 1 is repeatable in preview and firmware. 0 draws freely on each side.
       seed: 1,
+      // Quiet time between flashes (DANCE_FLASH_GAPS in danceFlash.ts).
+      gap: '2–5 min',
       r: 255, g: 255, b: 255,
     },
   },

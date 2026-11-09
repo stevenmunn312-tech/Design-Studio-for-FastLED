@@ -1120,7 +1120,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   DanceFlash: {
     overview: [
       'Dance Flash briefly stamps a silhouette over the frame you give it: a DJ at the decks, a man dancing, a woman dancing, or the two of them together. The pictures are drawn at 16×16 and scaled to the largest square the matrix holds, centred, so a wide or tall panel shows the same pose without squashing it.',
-      'It stays quiet for two to five minutes, then flashes for a fraction of a second. Each flash picks one of the four poses and may mirror it left to right. Leave Beat unwired and the flashes keep their own time. Wire a beat and a due flash waits for the next one, so it lands in the music.',
+      'It stays quiet for the Gap, about 30 seconds, one to two minutes, or two to five minutes (the default), then flashes for a fraction of a second. Each flash picks one of the four poses and may mirror it left to right. Leave Beat unwired and the flashes keep their own time. Wire a beat and a due flash waits for the next one, so it lands in the music.',
     ],
     inputs: {
       frame: 'The picture the silhouette flashes over. Unwired, it flashes on black.',

@@ -310,10 +310,6 @@ freeze, or drop them.
   are raw spectrum thirds × gain, so bars jitter next to every other style.
   Apply the smoothing, or make Three Band its own node. Evidence
   `src/nodes/audioReactive/evaluate.ts:1158`.
-- [ ] **Dance Flash: Add a Gap select (Med, S).** The 2–5 minute gap
-  between flashes is hard-coded. Add a Gap select (for example 30 s, 1–2
-  min, 2–5 min); keep the first flash at 2.5–6 s. Evidence
-  `src/nodes/audioReactive/danceFlash.ts:14`.
 - [ ] **Gravity Well: Replace R/G/B ports with a palette (Med, S).** It is
   the only band pattern with no palette; a Color port overrides three R/G/B
   float ports. Swap the R/G/B ports for a palette and keep the optional

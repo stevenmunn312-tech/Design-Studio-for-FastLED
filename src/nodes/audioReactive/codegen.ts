@@ -23,7 +23,7 @@ import { demoDrumsCpp } from './demoDrums'
 import { envelopeDtCpp, keepOverCpp } from '../shared/envelopeClock'
 import {
   DANCE_FIGURE_COUNT, DANCE_FLASH_BEAT_WAIT_MS, DANCE_FLASH_FIRST_MIN_MS, DANCE_FLASH_FIRST_SPAN_MS,
-  DANCE_FLASH_GAP_MIN_MS, DANCE_FLASH_GAP_SPAN_MS, DANCE_FLASH_HOLD_MS, DANCE_LCG_A, DANCE_LCG_C,
+  DANCE_FLASH_HOLD_MS, danceFlashGap, DANCE_LCG_A, DANCE_LCG_C,
   DANCE_SIZE, danceRowsLiteral,
 } from './danceFlash'
 
@@ -414,6 +414,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const beatWired = incoming.has(`${node.id}:beat`)
     const beat = boolExpr(node.id, 'beat')
     const color = channelColor(null, 255, 255, 255)
+    // The Gap select's range, baked: it sizes the wait, nothing reads it live.
+    const gap = danceFlashGap(p.gap)
     const lcg = `_dfRng_${id}=_dfRng_${id}*${DANCE_LCG_A}u+${DANCE_LCG_C}u;`
     ln(`  { ${seedFrom('frame')} // Dance Flash`)
     ln(`    static const uint16_t _dfGlyph[4][16]={${danceRowsLiteral()}};`)
@@ -442,11 +444,11 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     if (seed) {
       ln(`      ${lcg} _dfFig_${id}=(uint8_t)(_dfRng_${id}%${DANCE_FIGURE_COUNT}u);`)
       ln(`      ${lcg} _dfMir_${id}=(_dfRng_${id}&1u)!=0u;`)
-      ln(`      ${lcg} float _dfGap_${id}=(${DANCE_FLASH_GAP_MIN_MS}u+(_dfRng_${id}%${DANCE_FLASH_GAP_SPAN_MS}u))/1000.0f;`)
+      ln(`      ${lcg} float _dfGap_${id}=(${gap.minMs}u+(_dfRng_${id}%${gap.spanMs}u))/1000.0f;`)
     } else {
       ln(`      _dfFig_${id}=random8()%${DANCE_FIGURE_COUNT}; _dfMir_${id}=(random8()&1u)!=0u;`)
       // The span is wider than random16's range, so scale rather than mod.
-      ln(`      float _dfGap_${id}=(${DANCE_FLASH_GAP_MIN_MS}u+(uint32_t)(((uint64_t)random16()*${DANCE_FLASH_GAP_SPAN_MS}u)>>16))/1000.0f;`)
+      ln(`      float _dfGap_${id}=(${gap.minMs}u+(uint32_t)(((uint64_t)random16()*${gap.spanMs}u)>>16))/1000.0f;`)
     }
     ln(`      _dfUntil_${id}=t+${DANCE_FLASH_HOLD_MS}/1000.0f; _dfNext_${id}=_dfUntil_${id}+_dfGap_${id}; _dfOn_${id}=true;`)
     if (beatWired) ln(`      }`)

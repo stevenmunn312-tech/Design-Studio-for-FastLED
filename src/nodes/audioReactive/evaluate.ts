@@ -1294,7 +1294,7 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
       danceClocks.set(key, slot)
     }
     slot.lastT = t
-    const showing = danceFlashAdvance(slot.clock, t, beat, beatWired)
+    const showing = danceFlashAdvance(slot.clock, t, beat, beatWired, Math.random, props.gap)
     if (!showing) return { frame: base ?? blankFrame(W, H) }
     const color = {
       r: byte(num(id, 'r', props, 'r', 255) / 255),

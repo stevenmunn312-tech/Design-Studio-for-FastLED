@@ -3,9 +3,9 @@ import { generateCpp } from '../../../codegen/cppGenerator'
 import { evaluateGraph as evaluateGraphImpl, resetEvaluatorState } from '../../../state/graphEvaluator'
 import type { Frame } from '../../../state/palettes/ledColor'
 import type { StudioEdge, StudioNode } from '../../../state/graphStore'
-import { NODE_LIBRARY } from '../../../state/nodeLibrary'
+import { NODE_LIBRARY, propertyMeta } from '../../../state/nodeLibrary'
 import {
-  DANCE_FIGURE_COUNT, DANCE_FIGURES, DANCE_FLASH_BEAT_WAIT_MS, DANCE_FLASH_HOLD_MS, DANCE_ROWS, DANCE_SIZE,
+  DANCE_FLASH_GAPS, DANCE_FIGURE_COUNT, DANCE_FIGURES, DANCE_FLASH_BEAT_WAIT_MS, DANCE_FLASH_HOLD_MS, DANCE_ROWS, DANCE_SIZE,
   danceFit, danceFlashAdvance, danceFlashStart, danceLit, danceSource,
 } from '../danceFlash'
 
@@ -208,5 +208,24 @@ describe('Dance Flash without a seed property', () => {
     const cpp = generateCpp([dance, output], [edge('e1', 'dance', 'frame', 'out', 'frame')])
     expect(cpp).toContain('static uint32_t _dfRng_dance=1u;')
     expect(cpp).not.toContain('random16()%3500')
+  })
+})
+
+describe('Dance Flash Gap', () => {
+  it('offers every gap the clock knows, in the select', () => {
+    expect(propertyMeta('DanceFlash', 'gap')).toMatchObject({ control: 'select', options: Object.keys(DANCE_FLASH_GAPS) })
+  })
+
+  it('waits the chosen gap after a flash, on both sides', () => {
+    for (const [name, { minMs, spanMs }] of Object.entries(DANCE_FLASH_GAPS)) {
+      const clock = danceFlashStart(7)
+      expect(danceFlashAdvance(clock, clock.nextAt, false, false, Math.random, name)).toBe(true)
+      const wait = (clock.nextAt - clock.until) * 1000
+      expect(wait, name).toBeGreaterThanOrEqual(minMs - 1e-6)
+      expect(wait, name).toBeLessThan(minMs + spanMs)
+      const cpp = generateCpp([node('dance', 'DanceFlash', 'pattern', { seed: 7, gap: name }), node('out', 'MatrixOutput', 'output', { width: 16, height: 16 })],
+        [edge('e1', 'dance', 'frame', 'out', 'frame')])
+      expect(cpp, name).toContain(`_dfGap_dance=(${minMs}u+(_dfRng_dance%${spanMs}u))/1000.0f;`)
+    }
   })
 })
