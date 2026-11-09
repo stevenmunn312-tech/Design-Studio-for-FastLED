@@ -148,7 +148,7 @@ display displays it.
 
 ```
 Encoder ─┐
-Buttons ─┼─► Player Controls ──playercontrols──► Music Player ──display──► Info Display
+Buttons ─┼─► Player Controls ──playercontrols──► Music Player ──display──► OLED Display
          ┘                                            │
                                                     frame
                                                       ▼
@@ -179,7 +179,7 @@ display's private state. (It first shipped as a separate `Pattern Select`
 output; that port was folded into the envelope because every reader already
 had the `display` wire.)
 
-**Info Display** loses `Patterns`, `Select` and `Confirm` and reads the
+**OLED Display** loses `Patterns`, `Select` and `Confirm` and reads the
 selection from its one `display` input. The panel stops deciding anything. It also stops
 needing its own wire to the collection: the selection names the player, and the
 player already has the patterns, so the thumbnails bake against that collection

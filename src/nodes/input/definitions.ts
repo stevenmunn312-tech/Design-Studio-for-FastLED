@@ -575,7 +575,7 @@ export const INPUT_DESCRIPTIONS: Record<string, string> = {
   // hardware
   ButtonInput: 'Reads a hardware button as a boolean.',
   TouchButtonInput: 'Reads a capacitive touch button as a boolean.',
-  TouchInput: 'The touch surface of a Display Panel, as controls.',
+  TouchInput: 'The touch surface of a TFT Display, as controls.',
   ButtonBank: 'Grows named hardware-button outputs as you connect them.',
   IRRemoteInput: 'Reads learned handheld-remote keys as boolean events.',
   WebRemoteInput: 'A phone control page served over Wi-Fi: buttons, sliders, colours and text.',

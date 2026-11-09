@@ -165,7 +165,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Fields:** Field Formula, Field Noise, Slice Tiling, Truchet Tiles, Formula Shapes, Wave Sim, Automaton, Fractal Field, Fluid, Turing Field, Gradient Field, Shape Field, Frame → Field, Float → Field, Field Math, Field Levels, Field Blur, Field Warp, Field Rotate, Field Tile, Field Symmetry, Field → Frame
 - **Effects:** Blur 2D, Blend, Mask, Glitter, Frame Transform, Brightness, Hue Shift, Gamma, Saturation, Color Boost, Transform, Array, Invert, Mirror, Kaleidoscope, Trails, Frame Warp, Symmetry, Frame Feedback, Frame Switch, Zones
 - **Show:** Music Library, Pattern Collection, Transition Pool, Music Player, Pattern Slideshow, Player Controls, Player Particles, Song Info, Crossfade Cycle, Transition, Performance Generator, SD Card
-- **Output:** Amplifier, Analog RGB Strip, Board, Buzzer, Cooling Fan, Darlington Driver, DFPlayer Mini, Display Panel, Frame Stream, Info Display, LED Matrix, Master Speed, Power Amplifier, Power Switch, PWM Driver, Relay Module, Segment Display, Stereo VU Meter
+- **Output:** 7-Segment Display, Amplifier, Analog RGB Strip, Board, Buzzer, Cooling Fan, Darlington Driver, DFPlayer Mini, Frame Stream, LED Matrix, Master Speed, OLED Display, Power Amplifier, Power Switch, PWM Driver, Relay Module, Stereo VU Meter, TFT Display
 - **Hardware:** Ethernet, DC-DC Converter, Battery Pack, Pack Electronics, USB-C PD Trigger
 - **Notes:** Comment
 

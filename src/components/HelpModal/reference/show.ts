@@ -184,7 +184,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
   SongInfo: {
     overview: [
       'Song Info opens a Music Player’s report into one wire per field: title, artist, album, genre, year, status, whether it is playing, elapsed, duration, remaining, progress, volume and bitrate.',
-      'You rarely need it for a display — a Display Panel reads the player’s Display wire directly. Use Song Info when one field must travel on its own cable: a title scrolling across the LEDs, a progress bar, a light that turns on only while music plays.',
+      'You rarely need it for a display — a TFT Display reads the player’s Display wire directly. Use Song Info when one field must travel on its own cable: a title scrolling across the LEDs, a progress bar, a light that turns on only while music plays.',
     ],
     inputs: {
       display: 'A Music Player’s or Performance Generator’s Display output.',

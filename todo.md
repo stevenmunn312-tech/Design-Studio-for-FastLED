@@ -1193,10 +1193,6 @@ freeze, or drop them.
 
 #### Outputs and shows
 
-- [ ] **Category: Rename display nodes after the hardware (Low, S).** Info
-  Display, Display Panel and Segment Display stay separate nodes. Relabel them
-  with the parts people buy ("OLED Display", "TFT Display", "7-Segment
-  Display").
 - [ ] **LED output: Lift the 300-LED cap on strings, rings and corkscrews
   (Med, M).** `MAX_LED_RUN` stops them at 300 while a matrix may reach 4096,
   though one 5 m reel at 144/m is 720. Raise the chain cap toward the matrix

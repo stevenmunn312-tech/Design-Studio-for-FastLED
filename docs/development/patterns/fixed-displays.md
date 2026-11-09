@@ -34,7 +34,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   the property name — the same pin is exclusive on one controller and a shared
   bus line on another — so `collectPinUses` attaches the resolved `bus` to the
   pin use and `findPinCollisions` prefers it. One node can also cover two *transports*:
-  the Info Display's SH1106 now spans both — 7-pin SPI (`sh1106-oled-128x64`)
+  the OLED Display's SH1106 now spans both — 7-pin SPI (`sh1106-oled-128x64`)
   and 4-pin I²C (`sh1106-oled-128x64-i2c`, same SH1106G silicon and 2-column RAM
   offset, different bus) — and its SSD1306 is 4-pin I²C too, so the node carries
   both headers and every registry above asks `oledTransportForProps` which one

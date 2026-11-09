@@ -192,7 +192,7 @@ export const NODE_DESCRIPTIONS: Record<string, string> = {
   ...OUTPUT_DESCRIPTIONS,
   ...HARDWARE_DESCRIPTIONS,
   ...GRAPH_DESCRIPTIONS,
-  Display: 'A screen drawn widget by widget, owned by the Display Panel it was created for.',
+  Display: 'A screen drawn widget by widget, owned by the TFT Display it was created for.',
 }
 
 // Single source of truth for category display order, labels, and accent colors.
@@ -373,7 +373,7 @@ export const STEREO_VU_CLOCK_PIN_KEYS = ['leftClockPin', 'rightClockPin'] as con
  * The GPIO properties a Stereo VU Meter actually drives: both rails' data
  * pins, plus both clock pins only when the chipset is clocked. The bench, the
  * manifest and pin retargeting all read this, so a clockless fixture never
- * reserves or shows a clock line it does not wire — the way the Info Display
+ * reserves or shows a clock line it does not wire — the way the OLED Display
  * reserves only the wires its module has.
  */
 export function stereoVuPinKeys(properties: Record<string, unknown>): readonly string[] {
@@ -1632,7 +1632,7 @@ export const INTERNAL_PROPERTY_KEYS: ReadonlySet<string> = new Set([
   // Which widgets read the panel's own source rather than a cable. Projected
   // from the screen design on every edit, never typed.
   'widgetSources',
-  // Which Display Panel a Touch node is the glass of. The two are one physical
+  // Which TFT Display a Touch node is the glass of. The two are one physical
   // module and are added together; the node says which panel in words.
   'panelId',
   // Which Board a part, LED output or network endpoint is attached to, chosen

@@ -847,8 +847,8 @@ describe('displayWidgetWires', () => {
       { id: 'out-b', source: 'touch-2', sourceHandle: 'widget:toggle:out', target: 'juggle', targetHandle: 'count' },
     ] as never)
     expect(wires.map((wire) => [wire.edge.id, wire.direction, wire.otherEnd])).toEqual([
-      ['out', 'out', 'Display Panel · Juggle · Count'],
-      ['out-b', 'out', 'Display Panel · Juggle · Count'],
+      ['out', 'out', 'TFT Display · Juggle · Count'],
+      ['out-b', 'out', 'TFT Display · Juggle · Count'],
     ])
   })
 })

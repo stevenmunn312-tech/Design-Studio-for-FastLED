@@ -1350,17 +1350,17 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![DFPlayer Mini example graph](../../public/node-cards/graphs/df-player-output.svg)
 
-### Info Display
+### OLED Display
 
-![Info Display node](../../public/node-cards/info-display.svg)
+![OLED Display node](../../public/node-cards/info-display.svg)
 
-![Info Display example graph](../../public/node-cards/graphs/info-display.svg)
+![OLED Display example graph](../../public/node-cards/graphs/info-display.svg)
 
-### Display Panel
+### TFT Display
 
-![Display Panel node](../../public/node-cards/transport-display.svg)
+![TFT Display node](../../public/node-cards/transport-display.svg)
 
-![Display Panel example graph](../../public/node-cards/graphs/transport-display.svg)
+![TFT Display example graph](../../public/node-cards/graphs/transport-display.svg)
 
 ### Master Speed
 
@@ -1368,11 +1368,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Master Speed example graph](../../public/node-cards/graphs/master-speed.svg)
 
-### Segment Display
+### 7-Segment Display
 
-![Segment Display node](../../public/node-cards/segment-display.svg)
+![7-Segment Display node](../../public/node-cards/segment-display.svg)
 
-![Segment Display example graph](../../public/node-cards/graphs/segment-display.svg)
+![7-Segment Display example graph](../../public/node-cards/graphs/segment-display.svg)
 
 ### Amplifier
 

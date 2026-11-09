@@ -10,7 +10,7 @@ direct-controls work is compilation and bench, recorded in that note.
 
 ## One physical panel, its own screen design
 
-`TransportDisplay` (label **Display Panel**) owns exact part identity,
+`TransportDisplay` (label **TFT Display**) owns exact part identity,
 SPI/touch pins, calibration, rotation, Enabled, and the screen drawn on
 it. The design is named by the panel's `displayId` property and stored
 in `graphStore.displayDocuments`. Widget input sockets stay on the

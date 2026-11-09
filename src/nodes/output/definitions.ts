@@ -447,7 +447,8 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
     // and a panel wired to nothing says so rather than sitting blank.
     // See docs/design/simple-displays.md.
     type: 'InfoDisplay',
-    label: 'Info Display',
+    // Labelled after the part people buy; the type id stays, so saves load.
+    label: 'OLED Display',
     category: 'output',
     propertyInputs: { enabled: 'enabled' },
     defaultExposedInputs: ['enabled'],
@@ -479,7 +480,7 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
     // control bundle through the linked TouchInput node; the panel itself is
     // an output-category terminal with no outputs.
     type: 'TransportDisplay',
-    label: 'Display Panel',
+    label: 'TFT Display',
     category: 'output',
     propertyInputs: { enabled: 'enabled' },
     defaultExposedInputs: ['enabled'],
@@ -575,7 +576,7 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
     // from anywhere in the graph is a custom-UI capability, not this.
     // See docs/design/simple-displays.md.
     type: 'SegmentDisplay',
-    label: 'Segment Display',
+    label: '7-Segment Display',
     category: 'output',
     propertyInputs: { enabled: 'enabled' },
     defaultExposedInputs: ['enabled'],

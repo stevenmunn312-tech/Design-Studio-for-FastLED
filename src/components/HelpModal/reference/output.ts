@@ -45,7 +45,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       controls: 'A Controls bundle: blackout toggle and brightness from Player Controls or a touch screen. For one or two buttons, wire them straight to the output’s Toggle blackout and Brightness Up/Down inputs; for a whole panel, use Player Controls.',
     },
     outputs: {
-      display: 'This output’s name, on/blackout state and level, for a Segment Display, Info Display or Display Panel.',
+      display: 'This output’s name, on/blackout state and level, for a 7-Segment Display, OLED Display or TFT Display.',
     },
     propertyNote: 'Only the fields for the chosen form and layout are used. Correction, white point and dithering change the LEDs, not the preview. A HUB75 chain of two or more panels is assumed to start top-left and run down each column (zig-zag when Serpentine is on); that order comes from the driver library’s documentation and has not been checked on real multi-panel hardware, so confirm it against the first frame.',
     example: example({
@@ -294,13 +294,13 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
 
   InfoDisplay: {
     overview: [
-      'Info Display is a small 128×64 OLED that reports on one source. Wire a Display output in and the source picks the screen: RTC Clock gives a clock, Music Player a now-playing screen, Pattern Slideshow a pattern browser, Power Monitor a meter, and an LED output its status.',
+      'OLED Display is a small 128×64 monochrome screen that reports on one source. Wire a Display output in and the source picks the screen: RTC Clock gives a clock, Music Player a now-playing screen, Pattern Slideshow a pattern browser, Power Monitor a meter, and an LED output its status.',
       'There is no layout to choose. With nothing wired it says it is unwired rather than sitting blank.',
       'Choose the exact SH1106 or SSD1306 module in Hardware. The SH1106 comes in SPI and I2C versions; the SSD1306 uses I2C.',
     ],
     steps: [
       'Add the OLED from Displays on the Hardware shelf and choose its exact module. Set its pins, and its address for I2C.',
-      'Wire the source’s Display output into Info Display.',
+      'Wire the source’s Display output into OLED Display.',
       'Choose the rotation to match how it is mounted.',
     ],
     inputs: {
@@ -317,20 +317,20 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       },
       wires: ['meter.display > screen.display'],
       output: STRIP(60),
-      explanation: 'Power Monitor measures the LED supply, and its Display output gives Info Display everything it needs on one wire: volts, amps and watts. The LED string runs a rainbow as the load being measured.',
-      preview: 'The {output} shows a rainbow, while the Info Display node shows the measured volts, amps and watts.',
+      explanation: 'Power Monitor measures the LED supply, and its Display output gives OLED Display everything it needs on one wire: volts, amps and watts. The LED string runs a rainbow as the load being measured.',
+      preview: 'The {output} shows a rainbow, while the OLED Display node shows the measured volts, amps and watts.',
     }),
   },
 
   TransportDisplay: {
     overview: [
-      'Display Panel is a colour TFT. Wire one Display output in and the source decides the content — a clock, a now-playing screen, show status, LED status or a power meter — while the Layout setting picks how it is drawn.',
+      'TFT Display is a colour screen. Wire one Display output in and the source decides the content — a clock, a now-playing screen, show status, LED status or a power meter — while the Layout setting picks how it is drawn.',
       'For your own screen, choose Create screen design on the panel and draw it with widgets. The design belongs to this panel; it keeps its Display wire for widgets to read, and its controls appear as outputs on the companion Touch Screen node.',
       'Show Status names the pattern a Pattern Slideshow is running and its place in the show, and, like Now Playing, pictures what the LEDs are showing, live and for a collection of any size.',
       'Choose the module on the Hardware shelf: the 1.54-inch 240×240 ST7789 without touch; the 2.4-inch 240×320 ST7789V or the 2.8-inch 320×240 ILI9341, each with an XPT2046 touch digitiser; or the XC4630 2.8-inch ILI9341 shield, on an 8-bit parallel bus with a resistive touch sheet. Diagnostics shows a self-test and the touch coordinates.',
     ],
     steps: [
-      'Add Display Panel from Displays on the Hardware shelf. Choose its exact module and wire it, including the touch header if it has one.',
+      'Add TFT Display from Displays on the Hardware shelf. Choose its exact module and wire it, including the touch header if it has one.',
       'Wire a source’s Display output into the panel and choose a layout, or press Create screen design.',
       'For touch, wire the Touch Screen node’s outputs to what they should control, and run Calibrate touch after uploading.',
     ],
@@ -350,7 +350,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
         amp: ['Amplifier'],
       },
       wires: ['patterns.patternset > player.patternset', 'player.display > panel.display'],
-      explanation: 'The Music Player’s Display output carries its whole report — title, artist, elapsed time, the pattern playing — and the Display Panel draws it as the Now Playing screen.',
+      explanation: 'The Music Player’s Display output carries its whole report — title, artist, elapsed time, the pattern playing — and the TFT Display draws it as the Now Playing screen.',
       preview: 'Once the collection holds patterns, the {output} plays them while the panel shows what is playing.',
       workflow: true,
     }),
@@ -378,13 +378,13 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
 
   SegmentDisplay: {
     overview: [
-      'Segment Display is a separate 7-segment readout: a TM1637 with four digits and a colon, or a MAX7219 with eight digits. Wire a Display output in and the source decides the digits.',
+      '7-Segment Display is a separate numeric readout: a TM1637 with four digits and a colon, or a MAX7219 with eight digits. Wire a Display output in and the source decides the digits.',
       'RTC Clock shows the time, Music Player the elapsed time, Pattern Slideshow the pattern number, an LED output its brightness in percent, and Power Monitor the amps (or amps and watts on eight digits). Unwired, it shows dashes.',
     ],
     steps: [
       'Add the module from Displays on the Hardware shelf and choose the TM1637 or the MAX7219.',
       'Wire its pins as shown. The TM1637 is not I2C and cannot share its two pins.',
-      'Wire the source’s Display output into Segment Display.',
+      'Wire the source’s Display output into 7-Segment Display.',
     ],
     inputs: {
       display: DISPLAY_IN,
@@ -400,8 +400,8 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       },
       wires: ['rtc.display > digits.display'],
       output: RING(24),
-      explanation: 'RTC Clock reads a DS3231, and its Display output gives the Segment Display the time over one wire, colon blinking each second. The LED ring glows with a slow sunset plasma beside it.',
-      preview: 'The {output} shows a warm sunset plasma; the Segment Display node shows the time, such as 10:04.',
+      explanation: 'RTC Clock reads a DS3231, and its Display output gives the 7-Segment Display the time over one wire, colon blinking each second. The LED ring glows with a slow sunset plasma beside it.',
+      preview: 'The {output} shows a warm sunset plasma; the 7-Segment Display node shows the time, such as 10:04.',
     }),
   },
 

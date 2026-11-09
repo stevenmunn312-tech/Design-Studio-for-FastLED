@@ -786,7 +786,7 @@ connections, and build limitations. An unlisted controller, resolution, or
 touch module is unsupported; choosing a similar-looking part does not make its
 driver compatible.
 
-For **Segment Display**, **Info Display**, and built-in **Display Panel**
+For **7-Segment Display**, **OLED Display**, and built-in **TFT Display**
 screens, connect the source's **Display** output to the panel's **Display** input.
 RTC Clock selects a clock, Music Player selects transport information,
 Pattern Slideshow selects its pattern status/browser, and an LED output

@@ -243,7 +243,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   the bench pad row (`useBenchParts`), retargeting's `keysFor`, and the
   property-panel visibility rule. Reading `GPIO_PIN_PROPERTIES` or the
   catalogue's `pinFields` directly reserves and draws two clock lines a
-  WS2812B fixture never drives — the same trap the Info Display's transport
+  WS2812B fixture never drives — the same trap the OLED Display's transport
   pins avoid with `oledTransportForProps`. The fixture's rails are independent
   lengths (`stereoVuRailCounts`), the Build Diagram item for each rail carries
   its data pin first and its clock pin second (the physical sheet draws an

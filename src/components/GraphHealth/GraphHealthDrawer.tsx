@@ -214,7 +214,7 @@ export default function GraphHealthDrawer() {
     }
     if (issue.repair?.kind === 'set-panel-layout') {
       const done = setPanelLayout(issue.repair.panelId, issue.repair.layout)
-      setStatus(done ? `Display Panel switched to ${issue.repair.layout}` : 'That panel has already changed', done ? 'success' : 'info')
+      setStatus(done ? `TFT Display switched to ${issue.repair.layout}` : 'That panel has already changed', done ? 'success' : 'info')
       return
     }
     if (issue.repair?.kind === 'set-data-rate') {

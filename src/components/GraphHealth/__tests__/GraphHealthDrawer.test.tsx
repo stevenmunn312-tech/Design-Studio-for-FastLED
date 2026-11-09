@@ -64,7 +64,7 @@ describe('GraphHealthDrawer', () => {
     const { getByText, queryByText } = render(<GraphHealthDrawer />)
     const card = getByText('I2C parts are on more than one bus').closest('article')!
     expect(within(card).queryByRole('button', { name: /Locate.*node/ })).toBeNull()
-    for (const [id, label] of [['rtc', 'RTC Clock'], ['oled', 'Info Display']]) {
+    for (const [id, label] of [['rtc', 'RTC Clock'], ['oled', 'OLED Display']]) {
       fireEvent.click(within(card).getByRole('button', { name: `Show ${label} hardware` }))
       expect(useUiStore.getState().workspaceMode).toBe('hardware')
       expect(useUiStore.getState().hardwareInspectorNodeId).toBe(id)

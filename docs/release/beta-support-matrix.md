@@ -40,8 +40,8 @@ These are the only fully recorded public-beta support rows today.
 
 ## Auxiliary display hardware validation
 
-Separate from the LED-output combos above: auxiliary displays (Segment Display,
-Info Display, Display Panel, the `Display` (Screen Design) node) are a distinct
+Separate from the LED-output combos above: auxiliary displays (7-Segment Display,
+OLED Display, TFT Display, the `Display` (Screen Design) node) are a distinct
 peripheral class with their own bus/driver/pin concerns. The same
 supported/experimental framework applies, scoped to display hardware.
 

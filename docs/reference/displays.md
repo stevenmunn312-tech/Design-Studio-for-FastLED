@@ -10,17 +10,17 @@ describes the current flow; in-app Help describes the same ownership.
 
 | Graph node | Available module | Screen and interface |
 | --- | --- | --- |
-| Segment Display | TM1637 4-digit | Four digits, centre colon, dedicated CLK/DIO pair |
-| Segment Display | MAX7219 8-digit | Eight digits, no colon, SPI clock/data plus dedicated load line |
-| Info Display | SH1106 1.3-inch | 128×64 OLED, seven-pin SPI module |
-| Info Display | SH1106 0.96-inch | 128×64 OLED, seven-pin SPI module |
-| Info Display | SH1106 1.3-inch (I²C) | 128×64 OLED, four-pin I²C module, 0x3C or 0x3D |
-| Info Display | SSD1306 0.96-inch | 128×64 OLED, four-pin I²C module, address 0x3C or 0x3D |
-| Info Display | SSD1306 0.96-inch (Adafruit) | 128×64 OLED, STEMMA QT I²C breakout, address 0x3C or 0x3D |
-| Display Panel | ST7789 1.54-inch | 240×240 colour TFT, SPI, no touch |
-| Display Panel | XC4630 2.8-inch shield + touch | 320×240 ILI9341 TFT, 8-bit parallel, resistive touch sharing panel lines |
-| Display Panel | ST7789V 2.4-inch + touch | 240×320 colour TFT, SPI, XPT2046 touch with its own header |
-| Display Panel | ILI9341 2.8-inch + touch (DFR0665) | 320×240 colour TFT, SPI, XPT2046 touch and microSD |
+| 7-Segment Display | TM1637 4-digit | Four digits, centre colon, dedicated CLK/DIO pair |
+| 7-Segment Display | MAX7219 8-digit | Eight digits, no colon, SPI clock/data plus dedicated load line |
+| OLED Display | SH1106 1.3-inch | 128×64 OLED, seven-pin SPI module |
+| OLED Display | SH1106 0.96-inch | 128×64 OLED, seven-pin SPI module |
+| OLED Display | SH1106 1.3-inch (I²C) | 128×64 OLED, four-pin I²C module, 0x3C or 0x3D |
+| OLED Display | SSD1306 0.96-inch | 128×64 OLED, four-pin I²C module, address 0x3C or 0x3D |
+| OLED Display | SSD1306 0.96-inch (Adafruit) | 128×64 OLED, STEMMA QT I²C breakout, address 0x3C or 0x3D |
+| TFT Display | ST7789 1.54-inch | 240×240 colour TFT, SPI, no touch |
+| TFT Display | XC4630 2.8-inch shield + touch | 320×240 ILI9341 TFT, 8-bit parallel, resistive touch sharing panel lines |
+| TFT Display | ST7789V 2.4-inch + touch | 240×320 colour TFT, SPI, XPT2046 touch with its own header |
+| TFT Display | ILI9341 2.8-inch + touch (DFR0665) | 320×240 colour TFT, SPI, XPT2046 touch and microSD |
 
 These are implemented catalogue choices, not a list of physically validated
 combinations. Unlisted controllers, panel sizes, interfaces, and touch modules
@@ -28,7 +28,7 @@ are unsupported. The [beta support matrix](../release/beta-support-matrix.md)
 is the authority for recorded hardware support. A successful build for one
 ESP32-S3 does not establish support for every board or display combination.
 
-## Segment Display
+## 7-Segment Display
 
 Connect one **Display** wire from RTC Clock, Music Player, Pattern Slideshow,
 or an LED output. It shows the time, elapsed playback position, pattern
@@ -42,7 +42,7 @@ TM1637's two wires are not I²C and cannot be shared between modules. MAX7219 ca
 share SPI clock and data with compatible devices while retaining its own load
 line.
 
-## Info Display
+## OLED Display
 
 Connect the source's **Display** output to the OLED's **Display** input. RTC
 Clock supplies the clock screen, Music Player supplies now-playing information,
@@ -62,7 +62,7 @@ Select the actual OLED module before assigning pins. The SH1106 SPI module is
 not interchangeable with the SSD1306 I²C module. For SSD1306, match its address
 and use the same SDA/SCL pair as the other I²C parts in the sketch.
 
-## Display Panel
+## TFT Display
 
 Connect **Display** from RTC Clock, Music Player, Pattern Slideshow or
 an LED output for Clock, Now Playing/Fixed Transport, Show Status or
@@ -135,7 +135,7 @@ cannot calibrate the physical controller.
 
 ## Touch Screen
 
-A touch-capable panel arrives as two nodes: the **Display Panel** and a
+A touch-capable panel arrives as two nodes: the **TFT Display** and a
 **Touch Screen** node beside it, added together by taking the module off the shelf and
 linked from that moment. The digitiser is a separate chip from the display
 controller, which is why it is a separate node; its five lines are still pins on
