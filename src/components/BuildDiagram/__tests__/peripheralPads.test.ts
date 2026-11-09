@@ -65,18 +65,6 @@ describe('module pads come from the part, not the category', () => {
     expect(peripheralSignalPadIndex(ldr, 0)).toBe(0)
   })
 
-  // A MOSFET board's gates are driven by the GPIOs; the strip has its own
-  // 12 V. Drawing a supply wire to it would put the controller's rail on a
-  // board that wants none.
-  it('draws an analog strip driver with gate pads and no controller supply', () => {
-    const strip = item('analog-strip-output', '')
-    expect(pads(strip)).toEqual(['GND', 'R', 'G', 'B'])
-    expect(peripheralPowerPadIndex(strip)).toBeNull()
-    expect(peripheralPowerNet(strip)).toBeNull()
-    expect(peripheralGroundPadIndex(strip)).toBe(0)
-    expect([0, 1, 2].map((index) => peripheralSignalPadIndex(strip, index))).toEqual([1, 2, 3])
-  })
-
   it('finds supply and ground by name on every catalogued module', () => {
     const cases: Array<[HardwareManifestItem['kind'], string]> = [
       ['info-display', 'sh1106-oled-128x64'],

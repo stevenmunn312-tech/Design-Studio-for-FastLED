@@ -594,10 +594,6 @@ const UNCATALOGUED_PADS: Record<string, string[]> = {
   'ir-input': ['OUT', 'GND', 'VCC'],
   'pot-input': ['VCC', 'SIG', 'GND'],
   'encoder-input': ['VCC', 'A', 'B', 'SW', 'GND'],
-  // A generic three-channel MOSFET board's logic header: a ground and one
-  // gate input per colour. The strip and its 12 V land on its load side,
-  // which is not controller wiring.
-  'analog-strip-output': ['GND', 'R', 'G', 'B'],
 }
 
 function peripheralPads(item: HardwareManifestItem): string[] {
@@ -717,8 +713,6 @@ export function peripheralPowerPadIndex(item: HardwareManifestItem): number | nu
   if (item.kind === 'buzzer-output') return null
   // The ULN2803A has no controller supply: its COM pin is the load supply's clamp return.
   if (item.kind === 'darlington-driver-output') return null
-  // MOSFET gates are driven by the GPIOs themselves; the strip has its own 12 V.
-  if (item.kind === 'analog-strip-output') return null
   // A bare encoder is three switch contacts and no electronics: no supply pad.
   // The module it shares a kind with prints VCC, so only a part without one is
   // left unpowered.
@@ -854,7 +848,6 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'cooling-fan-output': [['PWM'], ['RPM', 'TACH', 'TACHO']],
   'pwm-driver-output': [['SDA'], ['SCL']],
   'darlington-driver-output': ['1B', '2B', '3B', '4B', '5B', '6B', '7B', '8B'].map((name) => [name]),
-  'analog-strip-output': [['R'], ['G'], ['B']],
   'power-monitor-input': [['SDA'], ['SCL']],
   'environment-input': [['SDI'], ['SCK']],
   'temperature-input': [['DATA']],
@@ -1489,9 +1482,18 @@ export function peripheralTitleBoxes(layout: ItemLayout): PartTitleBox[] {
 
 function peripheralHasCaption(item: HardwareManifestItem): boolean {
   if (item.kind === 'dmx-input') return true
+  if (powerSwitchStripLeads(item) !== null) return true
   if (item.facts.stage === 'power' && (item.facts.feed === 'dac' || item.facts.feed === 'dfPlayer')) return true
   const partId = item.facts.partId
   return typeof partId === 'string' && sharedPadsAcrossBoards(partId).length > 0
+}
+
+/**
+ * Where an RGB strip's colour leads land on a power switch carrying one, as
+ * the manifest names them (R → OUT1- · G → OUT2- · B → OUT3-), or null.
+ */
+export function powerSwitchStripLeads(item: HardwareManifestItem): string | null {
+  return item.kind === 'power-switch-output' && typeof item.facts.stripLeads === 'string' ? item.facts.stripLeads : null
 }
 
 /** How far a peripheral's title ink reaches above its picture. */

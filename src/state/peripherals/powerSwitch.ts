@@ -1,6 +1,7 @@
 import type { NodePort } from '../../types'
 import { mosfetChannelPinKey, partById } from '../../build/parts/partCatalogue'
 import type { PartMosfetSpec } from '../../build/parts/partCatalogue'
+import { hexToRgb, type RGB } from '../palettes/customPalette'
 
 /**
  * A DC power switch: MOSFET channels turning loads on and off from boolean
@@ -87,39 +88,156 @@ function channelPorts(channel: PowerSwitchChannel): NodePort[] {
   ]
 }
 
-/** The ports the selected board has: On and Level per channel, in board order. */
-export function powerSwitchInputs(partId: unknown): NodePort[] {
-  return powerSwitchChannels(partId).flatMap(channelPorts)
+/*
+ * An RGB strip load: a plain (non-addressable) strip whose common positive
+ * goes to the load supply and whose red, green and blue leads go to the first
+ * three channels' switched outputs, so one colour drives three PWM levels.
+ * Any further channel stays an independent load (a white strip on the 4th).
+ *
+ * It is a choice on the node rather than "whatever Color is wired to": the
+ * colour field has to light the strip with nothing in Color, the channels it
+ * takes lose their own On and Level ports, and the Build Diagram has to know
+ * the load without reading the wiring.
+ */
+export const POWER_SWITCH_LOAD_TYPES = ['channels', 'rgb'] as const
+export type PowerSwitchLoadType = typeof POWER_SWITCH_LOAD_TYPES[number]
+export const POWER_SWITCH_LOAD_TYPE_LABELS: Readonly<Record<PowerSwitchLoadType, string>> = {
+  channels: 'Channels',
+  rgb: 'RGB strip',
 }
 
-/** Ports beyond the first channel's that some board can add, numbered rather than lettered. */
-export const POWER_SWITCH_VARIANT_INPUTS: readonly NodePort[] =
-  ALL_POWER_SWITCH_CHANNELS.slice(1).flatMap(channelPorts)
+/** The strip's colour while Color is unwired: the warm amber of a cove light. */
+export const POWER_SWITCH_RGB_COLOR_DEFAULT = '#ff6000'
+/** What an unwired Brightness means: the colour at full. */
+export const POWER_SWITCH_RGB_BRIGHTNESS_DEFAULT = 1
+
+/** The colour each of the strip's three channels carries, in channel order. */
+export const POWER_SWITCH_RGB_COMPONENTS = ['r', 'g', 'b'] as const
+
+/** The strip's own ports: one gate, the colour, and a dimmer over all three channels. */
+export const POWER_SWITCH_RGB_PORTS: readonly NodePort[] = [
+  { id: 'on', label: 'On', dataType: 'bool' },
+  { id: 'color', label: 'Color', dataType: 'color' },
+  { id: 'brightness', label: 'Brightness', dataType: 'float' },
+]
+
+/**
+ * Whether the board can carry an RGB strip: three channels at least, each
+ * dimmable, since a colour is three PWM levels rather than three switches.
+ */
+export function powerSwitchOffersRgb(partId: unknown): boolean {
+  return powerSwitchChannelCount(partId) >= POWER_SWITCH_RGB_COMPONENTS.length && powerSwitchPwmHz(partId) !== null
+}
+
+/**
+ * Whether this node drives an RGB strip on its first three channels. A board
+ * that cannot carry one reads as channels, so swapping a YYNMOS-4 for an
+ * LR7843 on the bench leaves a plain switch rather than a broken strip.
+ */
+export function powerSwitchRgb(properties: Record<string, unknown>): boolean {
+  return properties.loadType === 'rgb' && powerSwitchOffersRgb(properties.partId)
+}
+
+/** Whether a channel is one of the strip's three on this node. */
+export function powerSwitchChannelInStrip(properties: Record<string, unknown>, channel: PowerSwitchChannel): boolean {
+  return powerSwitchRgb(properties) && channel.index < POWER_SWITCH_RGB_COMPONENTS.length
+}
+
+/** The channels that stay separate loads: every one, or those after the strip's three. */
+export function powerSwitchSeparateChannels(properties: Record<string, unknown>): PowerSwitchChannel[] {
+  return powerSwitchChannels(properties.partId).filter((channel) => !powerSwitchChannelInStrip(properties, channel))
+}
+
+/**
+ * The ports the selected board has: On and Level per channel, in board order,
+ * or the strip's On, Color and Brightness followed by the channels it leaves.
+ */
+export function powerSwitchInputs(partId: unknown, properties: Record<string, unknown> = {}): NodePort[] {
+  const effective = { ...properties, partId }
+  if (!powerSwitchRgb(effective)) return powerSwitchChannels(partId).flatMap(channelPorts)
+  return [...POWER_SWITCH_RGB_PORTS, ...powerSwitchSeparateChannels(effective).flatMap(channelPorts)]
+}
+
+/** Ports beyond the first channel's that some board or load can add, numbered rather than lettered. */
+export const POWER_SWITCH_VARIANT_INPUTS: readonly NodePort[] = [
+  ...ALL_POWER_SWITCH_CHANNELS.slice(1).flatMap(channelPorts),
+  ...POWER_SWITCH_RGB_PORTS.filter((port) => port.id !== 'on'),
+]
+
+/** The strip's colour field as the preview and the sketch both read it: black for anything that is not a colour. */
+export function powerSwitchRgbColor(value: unknown): RGB {
+  return hexToRgb(String(value ?? POWER_SWITCH_RGB_COLOR_DEFAULT))
+}
+
+/**
+ * Each strip channel's 0-1 level: its colour component scaled by Brightness,
+ * or nothing while the gate is shut. The sketch writes the same product
+ * through `flsPwmDuty`, which rounds it to the 8-bit duty, so the strip shows
+ * the colour's own bytes at full brightness. No gamma: the addressable LEDs
+ * beside it take their bytes as linear PWM too, so one colour wired to both
+ * looks the same on each.
+ */
+export function powerSwitchRgbLevels(color: RGB, brightness: unknown, gate: boolean): [number, number, number] {
+  if (!gate) return [0, 0, 0]
+  const scale = powerSwitchDuty(brightness)
+  return POWER_SWITCH_RGB_COMPONENTS.map((component) => powerSwitchDuty((color[component] / 255) * scale)) as [number, number, number]
+}
+
+/** The colour the strip shows at those levels, as the 8-bit duties the sketch writes. */
+export function powerSwitchRgbShown(levels: readonly [number, number, number]): RGB {
+  const [r, g, b] = levels.map((level) => Math.round(powerSwitchDuty(level) * 255))
+  return { r, g, b }
+}
+
+/**
+ * Where the strip's three colour leads land: each channel's switched
+ * terminal as the board prints it (OUT1- on the YYNMOS-4, A- on the
+ * Mosfetti). The strip's common positive goes to the load supply's positive,
+ * not through a channel.
+ */
+export function powerSwitchRgbLeads(partId: unknown): string[] {
+  const terminals = powerSwitchSpec(partId)?.loadTerminals ?? []
+  return powerSwitchChannels(partId).slice(0, POWER_SWITCH_RGB_COMPONENTS.length).map((channel) => {
+    const name = channel.label ?? channel.input
+    return terminals.find((terminal) => terminal === `${name}-` || terminal === `OUT${name}-`) ?? `${channel.input} output`
+  })
+}
 
 export function powerSwitchPinKeys(partId: unknown): string[] {
   return powerSwitchChannels(partId).map((channel) => channel.pinKey)
 }
 
 /**
- * Whether a channel-numbered property belongs to a channel this board has.
- * Properties that are not per-channel are always enabled.
+ * Whether a property applies to this node. A channel-numbered one needs a
+ * channel this board has, and a strip channel keeps its pin but has no Level
+ * of its own; the load choice needs a board that can carry a strip, and the
+ * strip's colour and brightness need the strip.
  */
-export function powerSwitchChannelPropertyEnabled(key: string, partId: unknown): boolean {
+export function powerSwitchPropertyEnabled(key: string, properties: Record<string, unknown>): boolean {
+  if (key === 'loadType') return powerSwitchOffersRgb(properties.partId)
+  if (key === 'color' || key === 'brightness') return powerSwitchRgb(properties)
   const channel = ALL_POWER_SWITCH_CHANNELS.find((candidate) =>
     candidate.pinKey === key || candidate.level === key)
-  return channel === undefined || channel.index < powerSwitchChannelCount(partId)
+  if (channel === undefined) return true
+  if (channel.index >= powerSwitchChannelCount(properties.partId)) return false
+  return channel.pinKey === key || !powerSwitchChannelInStrip(properties, channel)
 }
 
 /**
  * A channel property's label on this board: the pin is named by its input
- * terminal (PWM1 on the YYNMOS-4), the level by its channel ("level B" on the
- * Mosfetti, "level" on the LR7843).
+ * terminal (PWM1 on the YYNMOS-4), followed by its colour while it carries a
+ * strip, and the level by its channel ("level B" on the Mosfetti, "level" on
+ * the LR7843).
  */
-export function powerSwitchPropertyLabel(key: string, partId: unknown): string | null {
-  const channel = powerSwitchChannels(partId).find((candidate) =>
+export function powerSwitchPropertyLabel(key: string, properties: Record<string, unknown>): string | null {
+  const channel = powerSwitchChannels(properties.partId).find((candidate) =>
     candidate.pinKey === key || candidate.level === key)
   if (!channel) return null
-  if (channel.pinKey === key) return channel.input
+  if (channel.pinKey === key) {
+    return powerSwitchChannelInStrip(properties, channel)
+      ? `${channel.input} (${POWER_SWITCH_RGB_COMPONENTS[channel.index].toUpperCase()})`
+      : channel.input
+  }
   return channel.label === null ? 'level' : `level ${channel.label}`
 }
 
@@ -179,3 +297,30 @@ export function powerSwitchLoad(gate: boolean, dims: boolean, level: unknown): n
   if (!gate) return 0
   return dims ? powerSwitchDuty(level) : 1
 }
+
+/**
+ * Whether firmware drives this channel with PWM. A strip channel always is:
+ * a colour is a level, never a switch. Every other channel follows
+ * `powerSwitchDims`. `wired` answers whether an input port has a wire.
+ */
+export function powerSwitchChannelDims(
+  properties: Record<string, unknown>,
+  channel: PowerSwitchChannel,
+  wired: (port: string) => boolean,
+): boolean {
+  if (powerSwitchChannelInStrip(properties, channel)) return true
+  return powerSwitchDims(properties.partId, properties[channel.level], wired(channel.level))
+}
+
+/**
+ * Whether the strip may light, by the channels' own gate rule: a wire on On
+ * decides; with On unwired, a wire on Color or Brightness runs it by itself;
+ * the colour and brightness fields alone never do, so a strip, like any
+ * load, stays off until a signal says otherwise.
+ */
+export function powerSwitchRgbGate(on: { wired: boolean; value: boolean }, signalWired: boolean): boolean {
+  return powerSwitchGate(on, signalWired, true)
+}
+
+/** The strip's inputs that, wired, run it with On unwired. */
+export const POWER_SWITCH_RGB_SIGNAL_PORTS = ['color', 'brightness'] as const

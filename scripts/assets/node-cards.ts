@@ -1092,7 +1092,7 @@ function nodePorts(
   connected: ReadonlySet<string>,
   wiredOutputs: ReadonlySet<string>,
 ): { inputs: NodePort[]; outputs: NodePort[]; rowCount: number } {
-  const declared = (partDerivedInputs(def.type, props.partId) ?? def.inputs) as NodePort[]
+  const declared = (partDerivedInputs(def.type, props.partId, props) ?? def.inputs) as NodePort[]
   const unfolded = ((def.type === 'ButtonBank' ? buttonBankOutputs(props.buttons)
     : def.type === 'WebRemoteInput' ? webRemoteOutputs(props.controls) : def.outputs) as Array<NodePort & { carriedByControls?: boolean }>)
     .filter((port) => !port.carriedByControls || wiredOutputs.has(port.id))

@@ -296,7 +296,7 @@ describe('DDP Input', () => {
   })
 })
 
-describe('Frame Stream, Analog RGB Strip and DIN MIDI', () => {
+describe('Frame Stream and DIN MIDI', () => {
   it('streams the wired frame by DDP packets or Adalight on the serial', () => {
     const source = node('b', 'Breathe')
     const ddp = node('s', 'StreamOutput', { host: '10.0.0.7', port: 4048 })
@@ -311,40 +311,6 @@ describe('Frame Stream, Analog RGB Strip and DIN MIDI', () => {
     expect(serial).toContain('Serial.begin(500000);')
     expect(serial).toContain("{'A','d','a',_hi,_lo,(uint8_t)(_hi^_lo^0x55)}")
     expect(generateCpp([node('u', 'StreamOutput')], [])).toContain('// Frame Stream: nothing wired in')
-  })
-
-  // The preview draws no frame for the strip, so the evaluator publishes the
-  // one colour the firmware writes, for the node body to paint: a wired Color
-  // replaces the fields, and Brightness scales it.
-  it('previews an Analog RGB Strip as its one dimmed colour', () => {
-    const fields = node('p', 'AnalogStripOutput', { r: 200, g: 100, b: 0, brightness: 0.5 })
-    expect(outputsOf([fields], []).get('p')?.color).toEqual({ r: 100, g: 50, b: 0 })
-
-    const wired = [node('c', 'Color', { color: '#0000ff' }), node('p', 'AnalogStripOutput', { r: 200, brightness: 1 })]
-    expect(outputsOf(wired, [edge('c', 'color', 'p', 'color')]).get('p')?.color).toEqual({ r: 0, g: 0, b: 255 })
-  })
-
-  it('drives three PWM pins for one colour, inverted for a common-anode strip', () => {
-    const strip = node('p', 'AnalogStripOutput', { rPin: 12, gPin: 13, bPin: 14, pwmHz: 2000, commonAnode: true })
-    const cpp = generateCpp([strip], [])
-    expect(cpp).toContain('ledcAttach(12, 2000, 8); ledcAttach(13, 2000, 8); ledcAttach(14, 2000, 8);')
-    expect(cpp).toContain('_r=255-_r; _g=255-_g; _b=255-_b;')
-    expect(cpp).toContain('ledcWrite(12, _r); ledcWrite(13, _g); ledcWrite(14, _b);')
-    expect(cpp).toContain('analogWrite(12, _r);')
-    expect(generateCpp([node('q', 'AnalogStripOutput')], [])).not.toContain('_r=255-_r')
-  })
-
-  // ESP32 core 2 needs an LEDC channel per pin; fixed 13-15 made two strips
-  // show whichever colour was written last, and could land on a fan's channel.
-  it('gives each strip its own core-2 LEDC channels from the shared plan', () => {
-    const cpp = generateCpp([
-      node('s1', 'AnalogStripOutput', { rPin: 12, gPin: 13, bPin: 14, pwmHz: 2000 }),
-      node('s2', 'AnalogStripOutput', { rPin: 25, gPin: 26, bPin: 27, pwmHz: 2000 }),
-      node('fan', 'CoolingFanOutput'),
-    ], [])
-    const channels = [...cpp.matchAll(/ledcAttachPin\((\d+), (\d+)\)/g)].map((m) => Number(m[2]))
-    expect(channels).toHaveLength(7)
-    expect(new Set(channels).size).toBe(7)
   })
 
   it('applies the Channel filter in the preview as the sketch does', () => {

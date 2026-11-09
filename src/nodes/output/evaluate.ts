@@ -58,7 +58,10 @@ import {
 } from '../../state/displays/transportDisplay'
 import { TFT_CONTROLLERS, asTftRotation, tftLine } from '../../state/displays/tftSurface'
 import { displayHasTouch, partById } from '../../build/parts/partCatalogue'
-import { powerSwitchChannels, powerSwitchDims, powerSwitchGate, powerSwitchLoad } from '../../state/peripherals/powerSwitch'
+import {
+  POWER_SWITCH_RGB_SIGNAL_PORTS, powerSwitchChannels, powerSwitchDims, powerSwitchGate, powerSwitchLoad, powerSwitchRgb,
+  powerSwitchRgbColor, powerSwitchRgbGate, powerSwitchRgbLevels, powerSwitchRgbShown, powerSwitchSeparateChannels,
+} from '../../state/peripherals/powerSwitch'
 import { relayEnergisedKey, relayInputs } from '../../state/peripherals/relayModule'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { isDisplaySignal, type DisplaySignal } from '../../state/displays/displaySignal'
@@ -67,7 +70,7 @@ import type { Frame, RGB } from '../../state/palettes/ledColor'
 import { resolveStereoLevels } from '../../audio/stereoLevels'
 import { type StereoVuState, stereoVuSettings, renderStereoVu } from '../../state/audio/stereoVuMeter'
 import type { NodeEvaluators, NodeEvaluator, PortValue } from '../../state/evaluator/types'
-import { byte, clamp01 } from '../../state/evaluator/frames'
+import { clamp01 } from '../../state/evaluator/frames'
 import { isAudioSignal, isPlayerControls, playerControlsState, toggleTapPress } from '../../state/evaluator/signals'
 import { instanceState } from '../../state/evaluator/memory'
 import { coolingFanPreviewRpm } from '../../state/peripherals/coolingFan'
@@ -540,13 +543,28 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
     // exactly, so it is published for the node body to show: `load` for the
     // first channel, `load2` and on for the rest. These are not ports; they
     // are read back the way the display sinks' surfaces are.
-    return Object.fromEntries(powerSwitchChannels(props.partId).map((channel) => {
+    const loads: Record<string, PortValue> = Object.fromEntries(powerSwitchSeparateChannels(props).map((channel) => {
       const levelWired = incoming.has(`${id}:${channel.level}`)
       const level = num(id, channel.level, props, channel.level, 1)
       const dims = powerSwitchDims(props.partId, level, levelWired)
       const on = { wired: incoming.has(`${id}:${channel.on}`), value: input(id, channel.on, false) === true }
       return [channel.load, powerSwitchLoad(powerSwitchGate(on, levelWired, dims), dims, level)]
     }))
+    if (!powerSwitchRgb(props)) return loads
+    // An RGB strip on the first three channels: each channel's load is its
+    // colour component's level, and `stripColor` is the colour those duties
+    // light, for the node body's swatch. A wired Color replaces the field.
+    const colorIn = input(id, 'color', null) as RGB | null
+    const brightness = num(id, 'brightness', props, 'brightness', 1)
+    const on = { wired: incoming.has(`${id}:on`), value: input(id, 'on', false) === true }
+    const signalWired = POWER_SWITCH_RGB_SIGNAL_PORTS.some((port) => incoming.has(`${id}:${port}`))
+    const levels = powerSwitchRgbLevels(colorIn ?? powerSwitchRgbColor(props.color), brightness, powerSwitchRgbGate(on, signalWired))
+    const strip = powerSwitchChannels(props.partId).slice(0, levels.length)
+    return {
+      ...loads,
+      ...Object.fromEntries(strip.map((channel, index) => [channel.load, levels[index]])),
+      stripColor: powerSwitchRgbShown(levels),
+    }
   },
   RelayOutput({ input }, id, props) {
     // No contact load to simulate, but whether each coil is energised is
@@ -573,22 +591,6 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
   PwmDriverOutput: physicalSink,
   // A physical sink too: the browser switches no load, but the booleans are still evaluated.
   DarlingtonDriverOutput: physicalSink,
-  // One colour for the whole strip, as the firmware writes it to the three
-  // PWM pins: a wired Color replaces the R, G and B fields, and Brightness
-  // scales it. Published for the node body to paint, the way the Power
-  // Switch publishes its load — there is no frame, so nothing else reads it.
-  AnalogStripOutput({ input, num }, id, props) {
-    const colorIn = input(id, 'color', null) as RGB | null
-    const color = colorIn ?? {
-      r: byte(num(id, 'r', props, 'r', 255) / 255),
-      g: byte(num(id, 'g', props, 'g', 96) / 255),
-      b: byte(num(id, 'b', props, 'b', 0) / 255),
-    }
-    const brightness = clamp01(num(id, 'brightness', props, 'brightness', 1))
-    return {
-      color: { r: byte(color.r / 255 * brightness), g: byte(color.g / 255 * brightness), b: byte(color.b / 255 * brightness) },
-    }
-  },
   MatrixOutput({ inputSourceType, input, t, stateKey, incoming, nodeMap }, id, props, node, type) {
     // Blackout and dimming, applied here rather than at the preview so the
     // main matrix, every per-output preview, an offline recording and the

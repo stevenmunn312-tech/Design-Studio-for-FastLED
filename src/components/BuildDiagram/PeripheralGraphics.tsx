@@ -24,6 +24,7 @@ import {
   dataPullUp,
   peripheralSignalPadIndex,
   peripheralPowerNet,
+  powerSwitchStripLeads,
   peripheralPadRadius,
   PERIPHERAL_RENDER_W,
   PART_CAPTION_GAP,
@@ -94,6 +95,7 @@ export function InputGraphic({ layout, connections, selected }: { layout: ItemLa
     : undefined
   const powerNet = peripheralPowerNet(item)
   const sharedPads = sharedPadsAcrossBoards(String(item.facts.partId ?? ''))
+  const stripLeads = powerSwitchStripLeads(item)
   // The photographed modules already draw each plated ring; colour only the
   // drilled hole inside it, at this part's own measured hole size.
   const padRadius = peripheralPadRadius(item)
@@ -126,6 +128,14 @@ export function InputGraphic({ layout, connections, selected }: { layout: ItemLa
       {item.kind === 'dmx-input' && (
         <text data-dmx-cable="true" x={x + (PERIPHERAL_RENDER_W / 2)} y={captionY} textAnchor="middle" className={styles.physicalMetaLabel}>
           XLR 1 → GND · 2 → B · 3 → A
+        </text>
+      )}
+      {/* An RGB strip load sits on the board's output terminals, which no
+          controller wire reaches. Say which channel takes each colour lead;
+          the strip's + goes to the load supply, as the item's facts say. */}
+      {stripLeads !== null && (
+        <text data-rgb-strip-leads={stripLeads} x={x + (PERIPHERAL_RENDER_W / 2)} y={captionY} textAnchor="middle" className={styles.physicalMetaLabel}>
+          {`STRIP ${stripLeads}`}
         </text>
       )}
       {divider && ([

@@ -4,7 +4,7 @@
 
 Design Studio for FastLED is a live, node-based creative environment for LED strings, matrices, rings, corkscrew installations, and tiled panels. Connect patterns, palettes, signals, effects, audio analysis, and hardware output; watch the result move instantly; then generate or upload the same design as FastLED C++.
 
-**Public beta · 230 modules · included patterns · Windows, macOS, and Linux packaging · MIT core**
+**Public beta · 229 modules · included patterns · Windows, macOS, and Linux packaging · MIT core**
 
 [Check beta releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-the-beta)
 
@@ -19,7 +19,7 @@ Design Studio for FastLED is a live, node-based creative environment for LED str
 What makes the Studio useful:
 
 - **Immediate visual feedback.** Adjust a speed, palette, blend, field, or particle control and see the result now.
-- **A deep creative toolbox.** Choose from 230 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
+- **A deep creative toolbox.** Choose from 229 modules spanning patterns, simulations, color, fields, effects, audio, logic, show control, hardware input, and output.
 - **Preview-to-firmware parity.** The graph evaluator and C++ generator are designed together so the hardware result follows what you authored.
 - **Reusable creative building blocks.** Turn any patch into a Group, save it to the Pattern Library, organize it into shelves, and reuse it in future shows.
 - **A real performance workflow.** Focus and Stage views, the Control Deck, music transport, spectrum views, transitions, and beat-driven particles turn patches into playable visuals.
@@ -154,7 +154,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 ## Feature map
 
 <details>
-<summary><strong>Show all 230 modules by category</strong></summary>
+<summary><strong>Show all 229 modules by category</strong></summary>
 
 - **Inputs:** Audio, Microphone, Line In, Button, Button Bank, Touch Button, Touch Screen, IR Remote, Web Remote, Potentiometer, Encoder, Motion Sensor, Presence Sensor, Light Sensor, Environment Sensor, Temperature Probe, Distance Sensor, Joystick, Keypad, Touch Pad, Accel & Gyro, Power Monitor, DMX / Art-Net, DDP Input, RTC Clock, MIDI
 - **Audio:** FFT Analyzer, Beat Detect, Percussion Detect, Audio Features, Vibe, Song Structure, Pitch Detect, Audio → Hue, Frequency Band, Stereo Levels, Beat Phase
@@ -165,7 +165,7 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 - **Fields:** Field Formula, Field Noise, Slice Tiling, Truchet Tiles, Formula Shapes, Wave Sim, Automaton, Fractal Field, Fluid, Turing Field, Gradient Field, Shape Field, Frame → Field, Field Math, Field Levels, Field Blur, Field Warp, Field Rotate, Field Tile, Field Symmetry, Field → Frame
 - **Effects:** Blur 2D, Blend, Mask, Glitter, Frame Transform, Brightness, Hue Shift, Gamma, Saturation, Transform, Array, Invert, Mirror, Kaleidoscope, Trails, Frame Warp, Tile Symmetry, Frame Feedback, Frame Switch, Zones
 - **Show:** Music Library, Pattern Collection, Transition Pool, Music Player, Pattern Slideshow, Player Controls, Player Particles, Song Info, Crossfade Cycle, Transition, Performance Generator, SD Card
-- **Output:** 7-Segment Display, Amplifier, Analog RGB Strip, Board, Buzzer, Cooling Fan, Darlington Driver, DFPlayer Mini, Frame Stream, LED Matrix, Master Speed, OLED Display, Power Amplifier, Power Switch, PWM Driver, Relay Module, Stereo VU Meter, TFT Display
+- **Output:** 7-Segment Display, Amplifier, Board, Buzzer, Cooling Fan, Darlington Driver, DFPlayer Mini, Frame Stream, LED Matrix, Master Speed, OLED Display, Power Amplifier, Power Switch, PWM Driver, Relay Module, Stereo VU Meter, TFT Display
 - **Hardware:** Ethernet, DC-DC Converter, Battery Pack, Pack Electronics, USB-C PD Trigger
 - **Notes:** Comment
 

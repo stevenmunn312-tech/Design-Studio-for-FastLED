@@ -1362,12 +1362,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Frame Stream example graph](../../public/node-cards/graphs/stream-output.svg)
 
-### Analog RGB Strip
-
-![Analog RGB Strip node](../../public/node-cards/analog-strip-output.svg)
-
-![Analog RGB Strip example graph](../../public/node-cards/graphs/analog-strip-output.svg)
-
 ## Notes
 
 ### Comment

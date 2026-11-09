@@ -9,7 +9,10 @@ import {
 } from '../../state/peripherals/buzzer'
 import { DARLINGTON_PART_ID, DARLINGTON_PIN_FALLBACKS, darlingtonInputs, darlingtonPinKeys } from '../../state/peripherals/darlingtonDriver'
 import { DIRECT_PIXEL_DATA_LINK } from '../../state/peripherals/pixelDataExtender'
-import { ALL_POWER_SWITCH_CHANNELS, DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_LEVEL_DEFAULT, POWER_SWITCH_PIN_FALLBACKS, POWER_SWITCH_VARIANT_INPUTS, powerSwitchInputs } from '../../state/peripherals/powerSwitch'
+import {
+  ALL_POWER_SWITCH_CHANNELS, DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_LEVEL_DEFAULT, POWER_SWITCH_PIN_FALLBACKS,
+  POWER_SWITCH_RGB_BRIGHTNESS_DEFAULT, POWER_SWITCH_RGB_COLOR_DEFAULT, POWER_SWITCH_VARIANT_INPUTS, powerSwitchInputs,
+} from '../../state/peripherals/powerSwitch'
 import { PCA9685_PART_ID, formatPwmDriverAddress, pwmDriverInputs, pwmDriverSpec } from '../../state/peripherals/pwmDriver'
 import { DEFAULT_RELAY_PART_ID, relayInputs } from '../../state/peripherals/relayModule'
 import { MASTER_SPEED_DEFAULT } from '../../state/player/masterSpeed'
@@ -335,16 +338,24 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
     // with PWM on a module that can be dimmed; at 1 and unwired it is a plain
     // switch (state/peripherals/powerSwitch.ts has the rule both implementations share).
     // The selected board decides how many On/Level pairs there are, as it
-    // does for a relay; `inputs` are the default one-channel board's.
+    // does for a relay; `inputs` are the default one-channel board's. On a
+    // board with three dimmable channels or more, Load can make the first
+    // three one RGB strip: On, Color and Brightness replace their ports.
     type: 'PowerSwitchOutput',
     label: 'Power Switch',
     category: 'output',
     inputs: powerSwitchInputs(DEFAULT_POWER_SWITCH_PART_ID),
     variantInputs: POWER_SWITCH_VARIANT_INPUTS,
-    propertyInputs: Object.fromEntries(ALL_POWER_SWITCH_CHANNELS.map((channel) => [channel.level, channel.level])),
+    propertyInputs: {
+      ...Object.fromEntries(ALL_POWER_SWITCH_CHANNELS.map((channel) => [channel.level, channel.level])),
+      brightness: 'brightness',
+    },
     outputs: [],
     defaultProperties: {
       partId: DEFAULT_POWER_SWITCH_PART_ID,
+      loadType: 'channels',
+      color: POWER_SWITCH_RGB_COLOR_DEFAULT,
+      brightness: POWER_SWITCH_RGB_BRIGHTNESS_DEFAULT,
       ...Object.fromEntries(ALL_POWER_SWITCH_CHANNELS.flatMap((channel) => [
         [channel.pinKey, POWER_SWITCH_PIN_FALLBACKS[channel.index]],
         [channel.level, POWER_SWITCH_LEVEL_DEFAULT],
@@ -670,38 +681,16 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       staticDns: '',
     },
   },
-  {
-    // A non-addressable 12 V RGB strip on three PWM pins through MOSFETs:
-    // one colour for the whole strip, from a wired Color or the channels.
-    // Pins only — the driver board is whatever the bench has.
-    type: 'AnalogStripOutput',
-    label: 'Analog RGB Strip',
-    category: 'output',
-    inputs: [
-      { id: 'color', label: 'Color', dataType: 'color' },
-      { id: 'r', label: 'R', dataType: 'float' },
-      { id: 'g', label: 'G', dataType: 'float' },
-      { id: 'b', label: 'B', dataType: 'float' },
-      { id: 'brightness', label: 'Brightness', dataType: 'float' },
-    ],
-    propertyInputs: { r: 'r', g: 'g', b: 'b', brightness: 'brightness' },
-    outputs: [],
-    // Not 25 and 26: those are the Amplifier's LRC and BCLK, so a music build
-    // that added the strip used to start with a pin conflict. The strip is a
-    // library node, not a bench part, so nothing reassigns its pins on add.
-    defaultProperties: { r: 255, g: 96, b: 0, brightness: 1, rPin: 32, gPin: 33, bPin: 27, pwmHz: 5000, commonAnode: false },
-  },
 ]
 
 export const OUTPUT_DESCRIPTIONS: Record<string, string> = {
   StreamOutput: 'Sends the frame to another device by DDP over the network or Adalight serial.',
-  AnalogStripOutput: 'Drives a 12 V non-addressable RGB strip on three PWM pins.',
   // output
   Board: 'The controller board — exact model, its pins, and what it supports.',
   MatrixOutput: 'An LED output for strings, matrices, rings, corkscrews, and HUB75 panels.',
   StereoVuMeter: 'Two independent addressable VU rails, left and right, from one Audio wire.',
   RelayOutput: 'Switches one to eight relay channels from boolean signals.',
-  PowerSwitchOutput: 'Switches or dims DC loads through one to eight MOSFET channels.',
+  PowerSwitchOutput: 'Switches or dims DC loads, or drives a plain RGB strip, on MOSFET channels.',
   PwmDriverOutput: 'Sets up to sixteen PWM levels on a PCA9685 over I2C.',
   DarlingtonDriverOutput: 'Switches up to eight loads to ground from boolean signals through a ULN2803A.',
   BuzzerOutput: 'Sounds a buzzer while its input is true; a passive one plays your Pitch.',

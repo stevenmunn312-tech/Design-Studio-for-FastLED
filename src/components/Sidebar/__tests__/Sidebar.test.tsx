@@ -93,9 +93,9 @@ describe('Sidebar equipment rack', () => {
     expect(useUiStore.getState().hardwareShelfTarget).toBe('ButtonInput')
   })
 
-  // Everything physical is added from the bench, so the Output section held
-  // only Master Speed, Frame Stream and Analog RGB Strip and a new user went
-  // looking for the LED output there.
+  // Everything physical is added from the bench, so the Output section holds
+  // only Master Speed and Frame Stream and a new user went looking for the
+  // LED output there.
   it('points the Output section at the Hardware tab for LED outputs', () => {
     const { getByRole, getByText } = render(<Sidebar />)
     fireEvent.click(getByRole('button', { name: /^Output▾/ }))

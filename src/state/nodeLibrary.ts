@@ -65,7 +65,7 @@ import { NETWORK_LEDS_PER_EDGE, NETWORK_MAX_NODES, NETWORK_PRESETS } from './out
 import { RIPPLE_BEHAVIOURS, RIPPLE_LIFETIME_SEC, RIPPLE_WIDTH } from '../nodes/shared/rippleNetwork'
 import { DIRECT_PIXEL_DATA_LINK, PIXEL_DATA_LINK_OPTIONS } from './peripherals/pixelDataExtender'
 import { relayChannelPropertyEnabled, relayPinKeys } from './peripherals/relayModule'
-import { ALL_POWER_SWITCH_CHANNELS, powerSwitchChannelPropertyEnabled, powerSwitchPropertyLabel } from './peripherals/powerSwitch'
+import { ALL_POWER_SWITCH_CHANNELS, POWER_SWITCH_LOAD_TYPES, POWER_SWITCH_LOAD_TYPE_LABELS, powerSwitchPropertyEnabled, powerSwitchPropertyLabel } from './peripherals/powerSwitch'
 import { PRESENCE_RX_PIN_KEY } from './peripherals/presenceSensor'
 import { BUZZER_PITCH_MAX_HZ, BUZZER_PITCH_MIN_HZ, buzzerIsPassive } from './peripherals/buzzer'
 import { darlingtonPinKeys } from './peripherals/darlingtonDriver'
@@ -92,7 +92,7 @@ import {
 import { GAUGE_DIRECTIONS, GAUGE_SEGMENTS_MAX, GAUGE_STYLES } from './evaluator/gauge'
 import { SDV_MAX_SPEED } from './evaluator/sdVideo'
 import { FIRE_STYLES } from './evaluator/fireSmoke'
-import { PARTICLE_MODES, particleModeUsesDecay, particleModeUsesRate } from '../nodes/simulations/particleModes'
+import { PARTICLE_MODES, particleMode, particleModeUsesDecay, particleModeUsesRate } from '../nodes/simulations/particleModes'
 import { FUNCTION_OPS } from '../nodes/math/mathIdentity'
 import { LOGIC_OPS } from '../nodes/math/logic'
 import { WALLPAPER_GROUP_LABELS, WALLPAPER_GROUPS } from './evaluator/symmetry'
@@ -122,7 +122,7 @@ import { BAND_HZ, BAND_PRESETS } from '../audio/frequencyBand'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM } from '../audio/beatPhase'
 import { FRAME_RATE } from '../build/controllerSettings'
 import { DMX_INPUT_MODES, dmxUsesNetwork } from './peripherals/dmxTransceiver'
-import { ADALIGHT_BAUDS, ANALOG_PWM_HZ, STREAM_PROTOCOLS, streamUsesNetwork } from '../nodes/output/frameStream'
+import { ADALIGHT_BAUDS, STREAM_PROTOCOLS, streamUsesNetwork } from '../nodes/output/frameStream'
 import { MIDI_SOURCES, midiUsesUart } from './peripherals/midiSource'
 import { ENCODER_LEVEL_MAX_CLICKS, encoderUsesPullup } from './peripherals/encoder'
 
@@ -683,13 +683,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     streamProtocol: { control: 'select', options: [...STREAM_PROTOCOLS] },
     port: { control: 'slider', min: 1, max: 65535, step: 1, entry: 'number' },
     baud: { control: 'select', options: ADALIGHT_BAUDS.map(String) },
-  },
-  AnalogStripOutput: {
-    brightness: N01,
-    rPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
-    gPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
-    bPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
-    pwmHz: { control: 'slider', min: ANALOG_PWM_HZ.min, max: ANALOG_PWM_HZ.max, step: 100, entry: 'number' },
   },
   SegmentDisplay: {
     clkPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -1299,10 +1292,14 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
       control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1,
     }]),
   ),
-  PowerSwitchOutput: Object.fromEntries(ALL_POWER_SWITCH_CHANNELS.flatMap((channel) => [
-    [channel.pinKey, { control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1 }],
-    [channel.level, { control: 'slider' as const, min: 0, max: 1, step: 0.01 }],
-  ])),
+  PowerSwitchOutput: {
+    loadType: { control: 'select', options: [...POWER_SWITCH_LOAD_TYPES], labels: POWER_SWITCH_LOAD_TYPE_LABELS },
+    brightness: N01,
+    ...Object.fromEntries(ALL_POWER_SWITCH_CHANNELS.flatMap((channel) => [
+      [channel.pinKey, { control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1 }],
+      [channel.level, { control: 'slider' as const, min: 0, max: 1, step: 0.01 }],
+    ])),
+  },
   BuzzerOutput: {
     sigPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     pitchHz: { control: 'slider', min: BUZZER_PITCH_MIN_HZ, max: BUZZER_PITCH_MAX_HZ, step: 10 },
@@ -3308,6 +3305,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     in8Pin: 'The GPIO wired to IN8.',
   },
   PowerSwitchOutput: {
+    loadType: 'Channels drives each channel as its own load. RGB strip drives a plain RGB strip on channels 1 to 3 from one colour; any later channel stays its own.',
+    color: 'The strip\'s colour while nothing is wired into Color.',
+    brightness: 'Dims the whole strip, 0 off to 1 the colour at full.',
     signalPin: 'The GPIO wired to the module\'s PWM/SIG input for channel 1. High turns the load on.',
     signal2Pin: 'The GPIO wired to IN2.',
     signal5Pin: 'The GPIO wired to IN5.',
@@ -3348,15 +3348,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     staticGateway: 'Router address on the same network, for example 192.168.1.1.',
     staticSubnet: 'Network mask, almost always 255.255.255.0.',
     staticDns: 'Name server address; leave empty to use the gateway.',
-  },
-  AnalogStripOutput: {
-    color: 'The strip\'s colour. A wired Color input replaces the channels below.',
-    brightness: 'Dims the whole strip, 0 off to 1 full.',
-    rPin: 'GPIO driving the red channel\'s MOSFET gate.',
-    gPin: 'GPIO driving the green channel\'s MOSFET gate.',
-    bPin: 'GPIO driving the blue channel\'s MOSFET gate.',
-    pwmHz: 'PWM frequency on the three pins. Higher avoids flicker on camera; 5000 suits most MOSFET boards.',
-    commonAnode: 'On for a strip whose +12 V is shared and each colour sinks to ground; the PWM is inverted.',
   },
   SegmentDisplay: {
     enabled: 'Off blanks the digits without removing the module from the build. A wired Enabled input overrides it.',
@@ -4097,12 +4088,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     staticSubnet: 'subnet mask',
     staticDns: 'DNS',
   },
-  AnalogStripOutput: {
-    rPin: 'red pin',
-    gPin: 'green pin',
-    bPin: 'blue pin',
-    pwmHz: 'PWM Hz',
-    commonAnode: 'common anode',
+  PowerSwitchOutput: {
+    loadType: 'load',
   },
   MidiInput: {
     midiSource: 'source',
@@ -4129,7 +4116,7 @@ export function propertyLabel(nodeType: string, key: string, properties?: Record
     return mode === 'scale' ? 'rate (%/s)' : mode === 'translate' ? 'rate (px/s)' : 'rate (°/s)'
   }
   if (nodeType === 'PowerSwitchOutput' && properties) {
-    const channelLabel = powerSwitchPropertyLabel(key, properties.partId)
+    const channelLabel = powerSwitchPropertyLabel(key, properties)
     if (channelLabel) return channelLabel
   }
   // The KY-012 prints SIG beside its signal pin, the KY-006 only S.
@@ -4274,10 +4261,6 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   StreamOutput: [
     { key: 'target', label: 'Target', keys: ['streamProtocol', 'host', 'port', 'baud'] },
     { key: 'wifi', label: 'Network', keys: ['wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
-  ],
-  AnalogStripOutput: [
-    { key: 'color', label: 'Color', keys: ['r', 'g', 'b', 'brightness'] },
-    { key: 'wiring', label: 'Wiring', keys: ['rPin', 'gPin', 'bPin', 'pwmHz', 'commonAnode'] },
   ],
   RTCInput: [
     { key: 'source', label: 'Clock Source', keys: ['timeSource'] },
@@ -4630,7 +4613,6 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   MicInput: new Set(['i2sWs', 'i2sSck', 'i2sSd']),
   LineInput: new Set(['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout']),
   DMXInput: new Set(['dmxTxPin', 'dmxRxPin', 'dmxEnablePin']),
-  AnalogStripOutput: new Set(['rPin', 'gPin', 'bPin']),
   MidiInput: new Set(['midiRxPin']),
   ButtonInput: new Set(['pin']),
   TouchButtonInput: new Set(['pin']),
@@ -4926,8 +4908,8 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
     labels: {
       fountain: 'Fountain', drops: 'Drops', fireworks: 'Fireworks', sparkle: 'Sparkle Rain',
       comet: 'Comet', snow: 'Snow', rain: 'Rain', embers: 'Embers',
-      bubbles: 'Bubbles', vortex: 'Vortex', orbit: 'Orbit', confetti: 'Confetti',
-      fireflies: 'Fireflies', meteor: 'Meteor', tornado: 'Tornado', pinwheel: 'Pinwheel',
+      bubbles: 'Bubbles', vortex: 'Vortex', fireflies: 'Fireflies',
+      meteor: 'Meteor', tornado: 'Tornado', pinwheel: 'Pinwheel',
       bounce: 'Bounce', chase: 'Chase', waterfall: 'Waterfall', luminova: 'Luminova',
     },
   },
@@ -4978,8 +4960,8 @@ export function nodeDisplayLabel(nodeType: string, properties: Record<string, un
 // controls (isPropertyEnabled below) — keep in sync with the matching mode
 // bodies in graphEvaluator.ts's evalParticles and cppGenerator.ts's `Particles`
 // case, which are the ones that actually read each property.
-const PARTICLE_COUNT_MODES = new Set(['orbit', 'bounce', 'fireflies', 'luminova'])
-const PARTICLE_SPREAD_MODES = new Set(['fountain', 'drops', 'sparkle', 'rain', 'confetti', 'snow', 'waterfall'])
+const PARTICLE_COUNT_MODES = new Set(['bounce', 'fireflies', 'luminova'])
+const PARTICLE_SPREAD_MODES = new Set(['fountain', 'drops', 'sparkle', 'rain', 'snow', 'waterfall'])
 const PARTICLE_GRAVITY_MODES = new Set(['fountain', 'drops', 'fireworks', 'waterfall'])
 const PARTICLE_BOUNCE_MODES = new Set(['drops', 'waterfall'])
 
@@ -5231,7 +5213,8 @@ export function isPropertyEnabled(
   if (nodeType === 'PatternMaster' && key === 'bluetoothName') return properties.musicSource === 'Bluetooth'
   if (nodeType === 'PatternMaster' && RADIO_GROUP_KEYS.has(key)) return properties.musicSource === 'Internet Radio'
   // A channel the selected board does not have has no pin to wire and no load to dim.
-  if (nodeType === 'PowerSwitchOutput') return powerSwitchChannelPropertyEnabled(key, properties.partId)
+  // The load choice needs a board that can carry a strip; a strip channel keeps its pin but not its Level.
+  if (nodeType === 'PowerSwitchOutput') return powerSwitchPropertyEnabled(key, properties)
   if (nodeType === 'RelayOutput') return relayChannelPropertyEnabled(key, properties.partId)
   // Only a passive buzzer has a pitch to set; an active one's is its own.
   if (nodeType === 'BuzzerOutput' && key === 'pitchHz') return buzzerIsPassive(properties.partId)
@@ -5571,7 +5554,8 @@ export function isPropertyEnabled(
     }
   }
   if (nodeType === 'Particles') {
-    const pt = String(properties.particleType ?? 'fountain')
+    // A removed mode (orbit, confetti) runs as fountain, so it gates as one.
+    const pt = particleMode(properties.particleType)
     switch (key) {
       // Fixed-population modes size their pool directly from `count`,
       // decoupled from spawn `rate`.

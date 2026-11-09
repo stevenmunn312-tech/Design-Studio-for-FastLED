@@ -194,10 +194,11 @@ def board_link_legs() -> list[Leg]:
 
 def power_switch_legs() -> list[Leg]:
     folder = ROOT / "backend" / "sketches" / "power-switch-fixtures"
-    targets = {name: CLASSIC for name in ("plain", "level-field", "level-wired", "gated", "mosfetti", "mixed", "yynmos4")}
+    targets = {name: CLASSIC for name in ("plain", "level-field", "level-wired", "gated", "mosfetti", "mixed", "yynmos4",
+                                                  "yynmos4-rgb")}
     targets |= {"gated-esp8266": ESP8266, "mixed-esp8266": ESP8266,
                 "gated-rp2040": "rp2040:rp2040:rpipico", "mixed-rp2040": "rp2040:rp2040:rpipico",
-                "gated-avr": UNO, "mosfetti-avr": UNO, "mixed-teensy": "teensy:avr:teensy41"}
+                "gated-avr": UNO, "mosfetti-avr": UNO, "mosfetti-rgb-avr": UNO, "mixed-teensy": "teensy:avr:teensy41"}
     tags = {CLASSIC: "esp32", ESP8266: "esp8266", "rp2040:rp2040:rpipico": "rp2040", UNO: "avr",
             "teensy:avr:teensy41": "teensy"}
     return [Leg("power-switch", "compile-presence-smoke.py", folder / f"{name}.ino", fqbn, tags[fqbn], "power-switch")

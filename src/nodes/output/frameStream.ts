@@ -1,6 +1,5 @@
 /**
- * Frame Stream and Analog RGB Strip rules the library, the emitter and
- * validation share.
+ * Frame Stream rules the library, the emitter and validation share.
  */
 
 export const STREAM_PROTOCOLS = ['ddp', 'adalight'] as const
@@ -26,12 +25,4 @@ export const ADALIGHT_BAUDS = [115200, 230400, 500000, 921600, 1000000, 2000000]
 export function adalightBaud(value: unknown): number {
   const n = Math.round(Number(value))
   return (ADALIGHT_BAUDS as readonly number[]).includes(n) ? n : 115200
-}
-
-/** PWM frequency range for an analog strip's three channels. */
-export const ANALOG_PWM_HZ = { min: 100, max: 40000, default: 5000 } as const
-
-/** The strip's PWM frequency as the firmware uses it: the field clamped to the LEDC range, or the default. */
-export function analogStripPwmHz(properties: Record<string, unknown>): number {
-  return Math.max(ANALOG_PWM_HZ.min, Math.min(ANALOG_PWM_HZ.max, Math.round(Number(properties.pwmHz) || ANALOG_PWM_HZ.default)))
 }

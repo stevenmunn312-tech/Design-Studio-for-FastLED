@@ -758,7 +758,8 @@ describe('nodeLibrary', () => {
     expect(isPropertyEnabled('Particles', 'size', { particleType: 'fireflies' })).toBe(true)
 
     expect(isPropertyEnabled('Particles', 'count', { particleType: 'fireflies' })).toBe(true)
-    expect(isPropertyEnabled('Particles', 'count', { particleType: 'orbit' })).toBe(true)
+    expect(isPropertyEnabled('Particles', 'count', { particleType: 'bounce' })).toBe(true)
+    expect(isPropertyEnabled('Particles', 'count', { particleType: 'luminova' })).toBe(true)
     expect(isPropertyEnabled('Particles', 'count', { particleType: 'fountain' })).toBe(false)
 
     expect(isPropertyEnabled('Particles', 'spread', { particleType: 'fountain' })).toBe(true)
@@ -772,12 +773,18 @@ describe('nodeLibrary', () => {
 
     // Rate drives the spawning displays only; Decay only the ones that fade.
     expect(isPropertyEnabled('Particles', 'rate', { particleType: 'fountain' })).toBe(true)
-    for (const mode of ['orbit', 'bounce', 'fireflies', 'luminova', 'comet', 'meteor']) {
+    for (const mode of ['bounce', 'fireflies', 'luminova', 'comet', 'meteor']) {
       expect(isPropertyEnabled('Particles', 'rate', { particleType: mode }), mode).toBe(false)
     }
     expect(isPropertyEnabled('Particles', 'decay', { particleType: 'luminova' })).toBe(true)
-    for (const mode of ['snow', 'bubbles', 'orbit', 'fireflies', 'bounce']) {
+    for (const mode of ['snow', 'bubbles', 'fireflies', 'bounce']) {
       expect(isPropertyEnabled('Particles', 'decay', { particleType: mode }), mode).toBe(false)
+    }
+    // A removed mode runs as fountain on both sides, so it gates as fountain does.
+    for (const mode of ['orbit', 'confetti']) {
+      expect(isPropertyEnabled('Particles', 'count', { particleType: mode }), mode).toBe(false)
+      expect(isPropertyEnabled('Particles', 'rate', { particleType: mode }), mode).toBe(true)
+      expect(isPropertyEnabled('Particles', 'gravity', { particleType: mode }), mode).toBe(true)
     }
   })
 

@@ -68,7 +68,9 @@ import { sanitizePin } from '../../codegen/hardwarePins'
 import { type TransportTouchAction, TRANSPORT_TOUCH_ACTION_TYPES, emittedTouchBounds } from '../../state/displays/transportTouch'
 import { relayActiveHigh, relayPinKeys } from '../../state/peripherals/relayModule'
 import {
-  POWER_SWITCH_PIN_FALLBACKS, powerSwitchActiveHigh, powerSwitchChannels, powerSwitchDims, powerSwitchPwmHz,
+  POWER_SWITCH_PIN_FALLBACKS, POWER_SWITCH_RGB_COMPONENTS, POWER_SWITCH_RGB_SIGNAL_PORTS, powerSwitchActiveHigh,
+  powerSwitchChannelDims, powerSwitchChannels, powerSwitchPwmHz, powerSwitchRgb, powerSwitchRgbColor,
+  powerSwitchSeparateChannels, type PowerSwitchChannel,
 } from '../../state/peripherals/powerSwitch'
 import {
   type DimmedPowerSwitchChannel, powerSwitchPwmHelperCpp, powerSwitchPwmLoopCpp, powerSwitchPwmPlan, powerSwitchPwmSetupCpp,
@@ -86,7 +88,7 @@ import {
 } from '../../state/peripherals/coolingFan'
 import { dfPlayerGlobalCpp, dfPlayerLoopCpp, dfPlayerSetupCpp, DFPLAYER_HELPER_CPP } from '../../codegen/peripherals/dfPlayerCpp'
 import { parseIpv4Literal } from '../../codegen/peripherals/networkCpp'
-import { DDP_CHUNK_PIXELS, DDP_DATA_TYPE_RGB8, DDP_PORT, adalightBaud, analogStripPwmHz, streamProtocol } from './frameStream'
+import { DDP_CHUNK_PIXELS, DDP_DATA_TYPE_RGB8, DDP_PORT, adalightBaud, streamProtocol } from './frameStream'
 import {
   DFPLAYER_BUSY_PIN_FALLBACK,
   DFPLAYER_RX_PIN_FALLBACK,
@@ -95,8 +97,9 @@ import {
 
 /**
  * Every dimmed Power Switch channel in the sketch, in node then channel
- * order. The PWM plan needs all of them at once: channels share LEDC timers on
- * ESP32 core 2, and one frequency on ESP8266 and RP2040.
+ * order, an RGB strip's three among them. The PWM plan needs all of them at
+ * once: channels share LEDC timers on ESP32 core 2, and one frequency on
+ * ESP8266 and RP2040.
  */
 function dimmedPowerSwitchChannels(
   nodes: readonly StudioNode[],
@@ -108,12 +111,10 @@ function dimmedPowerSwitchChannels(
     const hz = powerSwitchPwmHz(q.partId)
     if (hz === null) return []
     return powerSwitchChannels(q.partId)
-      .filter((channel) => powerSwitchDims(q.partId, q[channel.level], incoming.has(`${candidate.id}:${channel.level}`)))
+      .filter((channel) => powerSwitchChannelDims(q, channel, (port) => incoming.has(`${candidate.id}:${port}`)))
       .map((channel) => ({ key: `${candidate.id}:${channel.index}`, hz }))
   })
 }
-
-const ANALOG_STRIP_CHANNELS = ['r', 'g', 'b'] as const
 
 /** Every ESP32 core-2 LEDC user, allocated together to avoid channel clashes. */
 function esp32PwmChannels(
@@ -127,8 +128,6 @@ function esp32PwmChannels(
       key: `${candidate.id}:fan`,
       hz: coolingFanSpec(props(candidate).partId).pwmHz,
     })),
-    ...nodes.filter((candidate) => candidate.data.nodeType === 'AnalogStripOutput').flatMap((candidate) =>
-      ANALOG_STRIP_CHANNELS.map((channel) => ({ key: `${candidate.id}:${channel}`, hz: analogStripPwmHz(props(candidate)) }))),
   ]
 }
 
@@ -278,38 +277,60 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       ln(`  digitalWrite(${pin}, ${boolExpr(node.id, `channel${index + 1}`)} ? ${energised} : ${idle});`)
     }
   },
-  PowerSwitchOutput({ node, id, p, ln, f, boolExpr, pinSetupLines, incoming, nodes, props, globalLines }) {
+  PowerSwitchOutput({ node, id, p, ln, f, boolExpr, colorExpr, pinSetupLines, incoming, nodes, props, globalLines }) {
     // Every channel is active-high: a HIGH pin turns its MOSFET on, through
     // the LR7843's optocoupler or straight into the Mosfetti's gate. Latch the
     // off level before enabling each output so no load pulses on during setup.
     const activeHigh = powerSwitchActiveHigh(p.partId)
     const [on, off] = activeHigh ? ['HIGH', 'LOW'] : ['LOW', 'HIGH']
     const hz = powerSwitchPwmHz(p.partId)
-    for (const channel of powerSwitchChannels(p.partId)) {
-      const pin = sanitizePin(p[channel.pinKey], POWER_SWITCH_PIN_FALLBACKS[channel.index])
-      const levelWired = incoming.has(`${node.id}:${channel.level}`)
-      if (hz === null || !powerSwitchDims(p.partId, p[channel.level], levelWired)) {
-        pinSetupLines.add(`  digitalWrite(${pin}, ${off});`)
-        pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
-        ln(`  digitalWrite(${pin}, ${boolExpr(node.id, channel.on)} ? ${on} : ${off});`)
-        continue
-      }
-      // Dimmed: the same gate and level rule as the preview (powerSwitchGate,
-      // powerSwitchLoad), carried by PWM at the part's frequency.
+    const wired = (port: string) => incoming.has(`${node.id}:${port}`)
+    const pinOf = (channel: PowerSwitchChannel) => sanitizePin(p[channel.pinKey], POWER_SWITCH_PIN_FALLBACKS[channel.index])
+    // Dimmed: the same gate and level rule as the preview (powerSwitchGate,
+    // powerSwitchLoad), carried by PWM at the part's frequency.
+    const pwm = (channel: PowerSwitchChannel, pwmHz: number, gateExpr: string, levelExpr: string) => {
       const plan = powerSwitchPwmPlan(esp32PwmChannels(nodes, incoming, props))
       const helper = powerSwitchPwmHelperCpp(plan.sharedHz)
       if (!globalLines.includes(helper)) globalLines.push(helper)
       const emit = {
         id: channel.index === 0 ? id : `${id}_${channel.index + 1}`,
-        pin,
+        pin: pinOf(channel),
         channel: plan.ledcChannels.get(`${node.id}:${channel.index}`) ?? 0,
-        hz,
+        hz: pwmHz,
         activeHigh,
-        gateExpr: incoming.has(`${node.id}:${channel.on}`) ? boolExpr(node.id, channel.on) : String(levelWired),
-        levelExpr: f(channel.level, channel.level, 1),
+        gateExpr,
+        levelExpr,
       }
       for (const line of powerSwitchPwmSetupCpp(emit)) pinSetupLines.add(line)
-      for (const line of powerSwitchPwmLoopCpp(emit)) ln(line)
+      return powerSwitchPwmLoopCpp(emit)
+    }
+    // An RGB strip on the first three channels: one gate, and each channel's
+    // level is its colour component scaled by Brightness (powerSwitchRgbLevels).
+    // The colour is read once a frame; a strip that can never light reads none.
+    if (hz !== null && powerSwitchRgb(p)) {
+      const gateExpr = wired('on') ? boolExpr(node.id, 'on') : String(POWER_SWITCH_RGB_SIGNAL_PORTS.some(wired))
+      const strip = powerSwitchChannels(p.partId).slice(0, POWER_SWITCH_RGB_COMPONENTS.length)
+      const field = powerSwitchRgbColor(p.color)
+      ln(`  { // Power Switch: RGB strip`)
+      if (gateExpr !== 'false') {
+        ln(`    CRGB _c=${colorExpr(node.id, 'color', `CRGB(${field.r}, ${field.g}, ${field.b})`)}; float _br=constrain(${f('brightness', 'brightness', 1)},0.0f,1.0f);`)
+      }
+      for (const [index, channel] of strip.entries()) {
+        for (const line of pwm(channel, hz, gateExpr, `_c.${POWER_SWITCH_RGB_COMPONENTS[index]}/255.0f*_br`)) ln(`  ${line}`)
+      }
+      ln(`  }`)
+    }
+    for (const channel of powerSwitchSeparateChannels(p)) {
+      const pin = pinOf(channel)
+      const levelWired = wired(channel.level)
+      if (hz === null || !powerSwitchChannelDims(p, channel, wired)) {
+        pinSetupLines.add(`  digitalWrite(${pin}, ${off});`)
+        pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
+        ln(`  digitalWrite(${pin}, ${boolExpr(node.id, channel.on)} ? ${on} : ${off});`)
+        continue
+      }
+      const gateExpr = wired(channel.on) ? boolExpr(node.id, channel.on) : String(levelWired)
+      for (const line of pwm(channel, hz, gateExpr, f(channel.level, channel.level, 1))) ln(line)
     }
   },
   InfoDisplay({ node, id, p, ln, ledStatusEmit, bootTitle, bootDevice, incoming, nodeMap, intProp, boolExpr, setupLines, infoDisplays, boardLink }) {
@@ -989,35 +1010,6 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     ln(`    _seq_${id}=(uint8_t)(_seq_${id}%15+1);`)
     ln(`  }`)
     ln(`#endif`)
-  },
-  // Three PWM channels for one colour, through the ESP32's LEDC on either
-  // core generation or analogWrite elsewhere; a common-anode strip is
-  // driven inverted. On core 2 its LEDC channels come from the sketch-wide
-  // plan, so two strips, a Power Switch and a Cooling Fan never share one.
-  AnalogStripOutput({ node, p, ln, f, channelColor, pinSetupLines, setupLines, nodes, incoming, props }) {
-    const rPin = sanitizePin(p.rPin, 25), gPin = sanitizePin(p.gPin, 26), bPin = sanitizePin(p.bPin, 27)
-    const hz = analogStripPwmHz(p)
-    const plan = powerSwitchPwmPlan(esp32PwmChannels(nodes, incoming, props))
-    const [rCh, gCh, bCh] = ANALOG_STRIP_CHANNELS.map((channel) => plan.ledcChannels.get(`${node.id}:${channel}`) ?? 0)
-    const invert = Boolean(p.commonAnode)
-    for (const pin of [rPin, gPin, bPin]) pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
-    setupLines.push(`#if defined(ESP32) && defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3`)
-    setupLines.push(`  ledcAttach(${rPin}, ${hz}, 8); ledcAttach(${gPin}, ${hz}, 8); ledcAttach(${bPin}, ${hz}, 8);`)
-    setupLines.push(`#elif defined(ESP32)`)
-    setupLines.push(`  ledcSetup(${rCh}, ${hz}, 8); ledcAttachPin(${rPin}, ${rCh}); ledcSetup(${gCh}, ${hz}, 8); ledcAttachPin(${gPin}, ${gCh}); ledcSetup(${bCh}, ${hz}, 8); ledcAttachPin(${bPin}, ${bCh});`)
-    setupLines.push(`#endif`)
-    ln(`  { // Analog RGB Strip`)
-    ln(`    CRGB _c=${channelColor('color', 255, 96, 0)}; float _br=constrain(${f('brightness', 'brightness', 1)},0.0f,1.0f);`)
-    ln(`    uint8_t _r=(uint8_t)(_c.r*_br),_g=(uint8_t)(_c.g*_br),_b=(uint8_t)(_c.b*_br);`)
-    if (invert) ln(`    _r=255-_r; _g=255-_g; _b=255-_b;`)
-    ln(`#if defined(ESP32) && defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3`)
-    ln(`    ledcWrite(${rPin}, _r); ledcWrite(${gPin}, _g); ledcWrite(${bPin}, _b);`)
-    ln(`#elif defined(ESP32)`)
-    ln(`    ledcWrite(${rCh}, _r); ledcWrite(${gCh}, _g); ledcWrite(${bCh}, _b);`)
-    ln(`#else`)
-    ln(`    analogWrite(${rPin}, _r); analogWrite(${gPin}, _g); analogWrite(${bPin}, _b);`)
-    ln(`#endif`)
-    ln(`  }`)
   },
   MasterSpeed() {
     // Emitted by the loop's clock, not here: it changes what `t` is rather

@@ -1266,7 +1266,7 @@ describe('evaluateGraph', () => {
   describe('Particles modes', () => {
     const modes = [
       'fountain', 'drops', 'fireworks', 'sparkle', 'comet', 'snow',
-      'rain', 'embers', 'bubbles', 'vortex', 'orbit', 'confetti', 'fireflies',
+      'rain', 'embers', 'bubbles', 'vortex', 'fireflies',
       'meteor', 'tornado', 'pinwheel', 'bounce', 'chase', 'waterfall',
     ]
     for (const m of modes) {

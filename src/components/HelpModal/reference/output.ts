@@ -125,27 +125,33 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'Power Switch turns DC loads on and off, or dims them, through MOSFET channels: 12 V lamps, plain LED tape, fans, valves. On switches a channel and Level dims it with PWM.',
       'Choose the board on the bench. The single LR7843 module is opto-isolated and switches 6–28 V; the MonkMakes Mosfetti has four smaller channels with flyback diodes; the YYNMOS-4 has four opto-isolated 5 A channels but needs a 7–28 V supply. Motors and coils need a flyback diode where the board has none.',
+      'On a four-channel board, set Load to RGB strip to drive an ordinary non-addressable RGB strip from one colour. Channels 1 to 3 (A to C on the Mosfetti) become its red, green and blue, and the node trades their ports for On, Color and Brightness; channel 4 stays a load of its own, such as a white strip. The strip runs at the board’s own PWM rate, and its colour is the same bytes the LED output shows, so one colour wired to both matches. Use a strip with a shared + lead (common anode), which is nearly all of them.',
       'The sketch holds every channel off until setup has configured its pin, so nothing pulses on at boot.',
     ],
     steps: [
       'Add the MOSFET board from the Hardware tab.',
       'Wire each signal pin to the GPIO shown. Wire the load between its supply and the board’s output, and follow the Build Diagram for grounds.',
+      'For an RGB strip, set Load to RGB strip. Wire the strip’s + lead to the load supply’s + and its R, G and B leads to channels 1 to 3; the Build Diagram names the terminals. Then wire a colour into Color, or pick one and wire On.',
     ],
     inputs: {
-      on: 'True turns channel 1 on.',
+      on: 'True turns channel 1 on, or the whole strip when Load is RGB strip.',
     },
+    propertyNote: 'Nothing wired keeps a load off. With On unwired, a wire into Level runs a channel by itself, and a wire into Color or Brightness runs the strip. A field alone never turns a load on.',
     example: example({
       featured: 'PowerSwitchOutput',
-      title: 'Dim a 12 V string of fairy lights beside the matrix',
+      title: 'A 12 V RGB cove light that follows the matrix',
       nodes: {
-        button: ['ButtonInput'],
+        hue: ['HueCycle', { rate: 0.05 }],
         knob: ['PotInput'],
-        mosfet: ['PowerSwitchOutput', { signalPin: 25 }],
-        twinkle: ['TwinkleFox', { palette: 'emberglow', density: 0.5 }],
+        cove: ['PowerSwitchOutput', {
+          partId: 'yynmos-4-lr7843-mosfet-module', loadType: 'rgb',
+          signalPin: 32, signal2Pin: 33, signal3Pin: 27, signal4Pin: 13,
+        }],
+        fill: ['SolidColor'],
       },
-      wires: ['button.pressed > mosfet.on', 'knob.value > mosfet.level'],
-      explanation: 'Power Switch drives a plain 12 V fairy-light string on one MOSFET channel: the Button switches it on while held and the Potentiometer dims it. The matrix shows matching warm twinkles.',
-      preview: 'The {output} shows warm twinkles. Hold the Button node and turn the knob: the Power Switch node’s Load bar shows how much power the fairy lights get.',
+      wires: ['hue.color > cove.color', 'knob.value > cove.level4', 'hue.color > fill.color'],
+      explanation: 'Power Switch on a YYNMOS-4 with Load set to RGB strip drives a plain 12 V RGB cove light on channels 1 to 3 from the same Hue Cycle colour that fills the LED matrix through Solid Color, so the room and the panel cycle in step. Channel 4 stays its own: the Potentiometer dims a white strip on it.',
+      preview: 'The {output} slowly cycles through the rainbow. The Power Switch node’s Strip swatch shows the colour the cove light gets, and its 4 bar follows the knob.',
     }),
   },
 
@@ -479,32 +485,6 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       show: 'wave',
       explanation: 'Frame Stream is a second terminal beside the LED output: the same Pacifica frame lights the local matrix and leaves the board as DDP packets for a WLED controller at 192.168.1.50. Switch the protocol to Adalight to send it over USB serial instead.',
       preview: 'The {output} shows Pacifica as usual; the stream is invisible in the preview and only runs on the board.',
-    }),
-  },
-
-  AnalogStripOutput: {
-    overview: [
-      'Analog RGB Strip drives an ordinary, non-addressable 12 V RGB strip on three PWM pins, one per colour. The whole strip shows one colour.',
-      'Each pin drives a MOSFET gate that switches that colour’s line. Tick Common Anode for strips whose +12 V is shared and whose colours sink to ground; the PWM is inverted to match.',
-    ],
-    steps: [
-      'Wire each GPIO to a MOSFET gate, and each MOSFET to its colour line. Power the strip from its own 12 V supply and join the grounds.',
-      'Wire a colour into Color, or set the R, G and B fields.',
-    ],
-    inputs: {
-      color: 'The strip’s colour. Replaces the R, G and B fields.',
-    },
-    example: example({
-      featured: 'AnalogStripOutput',
-      title: 'A 12 V cove light that follows the matrix',
-      nodes: {
-        hue: ['HueCycle', { rate: 0.05 }],
-        cove: ['AnalogStripOutput', { rPin: 32, gPin: 33, bPin: 27 }],
-        fill: ['SolidColor'],
-      },
-      wires: ['hue.color > cove.color', 'hue.color > fill.color'],
-      explanation: 'One Hue Cycle colour drives both the LED matrix, through Solid Color, and Analog RGB Strip, so a plain 12 V cove light round the room slowly cycles in step with the panel.',
-      preview: 'The {output} slowly cycles through the rainbow; the analog strip shows the same colour on the board.',
     }),
   },
 }

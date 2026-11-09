@@ -95,9 +95,9 @@ describe('power switch channels', () => {
     expect(propertyLabel('PowerSwitchOutput', 'signalPin', { partId: LR7843 })).toBe('PWM')
   })
 
-  it('registers every channel Level as a property input the board can drive', () => {
+  it('registers every channel Level, and an RGB strip\'s Brightness, as property inputs the board can drive', () => {
     const levels = propertyInputsFor('PowerSwitchOutput').map((input) => input.propertyKey)
-    expect(levels).toEqual(['level', 'level2', 'level3', 'level4', 'level5', 'level6', 'level7', 'level8'])
+    expect(levels).toEqual(['level', 'level2', 'level3', 'level4', 'level5', 'level6', 'level7', 'level8', 'brightness'])
   })
 
   it('enables and labels only the channels the board has', () => {

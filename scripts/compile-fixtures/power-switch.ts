@@ -19,7 +19,7 @@ function node(id: string, nodeType: string, properties: Record<string, unknown> 
       nodeType,
       category: definition?.category ?? 'output',
       properties: merged,
-      inputs: partDerivedInputs(nodeType, merged.partId) ?? definition?.inputs ?? [],
+      inputs: partDerivedInputs(nodeType, merged.partId, merged) ?? definition?.inputs ?? [],
       outputs: definition?.outputs ?? [],
     },
   } as StudioNode
@@ -173,6 +173,31 @@ const fixtures: Record<string, { source: string; pwm: number }> = {
       edge('c', 'btn', 'pressed', 'yy', 'on3'),
     ]),
     pwm: 2,
+  },
+  // An RGB strip on the YYNMOS-4's channels 1-3 (classic ESP32 pins 16-18):
+  // Hue Cycle into Color, the pot into Brightness, gated by the button; channel
+  // 4 on pin 19 stays its own load, dimmed from its Level field while held.
+  'yynmos4-rgb': {
+    source: sketch([button(), pot(), node('hue', 'HueCycle', { rate: 0.05 }), node('yy', 'PowerSwitchOutput', {
+      ...YYNMOS4, loadType: 'rgb', signalPin: 16, signal2Pin: 17, signal3Pin: 18, signal4Pin: 19, level4: 0.4,
+    })], [
+      edge('rgb', 'hue', 'color', 'yy', 'color'),
+      edge('dim', 'pot', 'value', 'yy', 'brightness'),
+      edge('on', 'btn', 'pressed', 'yy', 'on'),
+      edge('on4', 'btn', 'pressed', 'yy', 'on4'),
+    ]),
+    pwm: 4,
+  },
+  // Uno: an RGB strip on the Mosfetti's A to C (D3, D5, D6) from its colour
+  // field, switched by the button; D (D10) unwired and held off.
+  'mosfetti-rgb-avr': {
+    source: sketch([
+      node('btn', 'ButtonInput', { pin: 2 }),
+      mosfetti([3, 5, 6, 10], { loadType: 'rgb', color: '#ff6000', brightness: 0.8 }),
+    ], [
+      edge('on', 'btn', 'pressed', 'mf', 'on'),
+    ], 7),
+    pwm: 3,
   },
   // Uno: the Mosfetti on D3, D5, D6 and D10, the PWM pins MonkMakes' Uno
   // example uses; LEDs move to D7. A switched, B dimmed.
