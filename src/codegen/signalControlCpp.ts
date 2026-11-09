@@ -5,14 +5,15 @@
 // Master Speed does not scale them and a player's track position stays its own
 // clock.
 import { seedProp, floatLit } from './cppLiterals'
-import { scheduleTimeOfDay } from '../nodes/signal/evaluate'
+import { SCHEDULE_DEFAULT_END, SCHEDULE_DEFAULT_START, scheduleTimeSeconds } from '../nodes/signal/schedule'
 import { rateCpp, SPEED_MAX } from '../nodes/shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../nodes/shared/speedClockCpp'
 import { seedOffset } from '../state/evaluator/random'
 import type { ControlDataType } from './scalarControlCpp'
 
 export interface TimedControlInput {
-  type: 'float' | 'bool'
+  /** `datetime` is an RTC Clock's `_RtcDateTimeValue`, passed by name. */
+  type: 'float' | 'bool' | 'datetime'
   /** Property fallback. Bool ports ignore it and read false, except Enable. */
   fallback: number
 }
@@ -34,13 +35,7 @@ export const TIMED_CONTROL_NODES: Record<string, TimedControlSpec> = {
   ScheduleTrigger: {
     outputs: { active: 'bool', start: 'bool', end: 'bool', progress: 'float' },
     inputs: {
-      valid: { type: 'bool', fallback: 0 },
-      synced: { type: 'bool', fallback: 0 },
-      secondsOfDay: { type: 'float', fallback: 0 },
-      weekday: { type: 'float', fallback: 0 },
-      day: { type: 'float', fallback: 1 },
-      month: { type: 'float', fallback: 1 },
-      year: { type: 'float', fallback: 1970 },
+      dateTime: { type: 'datetime', fallback: 0 },
       enable: { type: 'bool', fallback: 1 },
     },
   },
@@ -110,63 +105,64 @@ export function noiseSignalCpp(id: string, v: Value, expr: Expr, props: Record<s
   return lines
 }
 
-/** A 0→1 ramp at `rate` cycles a second, integrated over `time` as the
- *  preview's `speedPhase` is. The control graph passes the wall clock. */
+/**
+ * Schedule Trigger on an RTC Clock's `_RtcDateTimeValue`. `expr.dateTime` is
+ * the struct's name, or empty when nothing is wired: then the clock is never
+ * valid, so the outputs are constants and nothing else is emitted. Each field
+ * is read only by the rule that needs it (Synced by Require Synced Time, the
+ * weekday by a day rule, the date by Trigger mode's once-a-day key).
+ */
 export function scheduleTriggerCpp(id: string, v: Value, expr: Expr, props: Record<string, unknown>): string[] {
-  const mode = String(props.scheduleMode ?? 'Window')
-  const dayMode = String(props.dayMode ?? 'Every day')
-  const requireSync = props.requireSync === true
-  const startSec = scheduleTimeOfDay(props.startHour, props.startMinute, props.startSecond)
-  const endSec = scheduleTimeOfDay(props.endHour, props.endMinute, props.endSecond)
-  const sunday = props.sunday !== false
-  const monday = props.monday !== false
-  const tuesday = props.tuesday !== false
-  const wednesday = props.wednesday !== false
-  const thursday = props.thursday !== false
-  const friday = props.friday !== false
-  const saturday = props.saturday !== false
-  const lines = [
-    `  static bool _schedulePrevActive_${id} = false;`,
-    `  static int32_t _scheduleLastPulseDay_${id} = -1;`,
-    `  static float _schedulePrevSeconds_${id} = -1.0f;`,
-    `  static int32_t _schedulePrevDay_${id} = -1;`,
-    `  bool _scheduleValid_${id} = ${expr.valid};`,
-    `  bool _scheduleSynced_${id} = ${expr.synced};`,
-    `  bool _scheduleEnabled_${id} = ${expr.enable};`,
-    `  int _scheduleWeekday_${id} = constrain((int)roundf(${expr.weekday}), 0, 6);`,
-    `  float _scheduleSeconds_${id} = constrain(${expr.secondsOfDay}, 0.0f, 86399.999f);`,
-    `  int _scheduleDay_${id} = constrain((int)roundf(${expr.day}), 1, 31);`,
-    `  int _scheduleMonth_${id} = constrain((int)roundf(${expr.month}), 1, 12);`,
-    `  int _scheduleYear_${id} = max(1970, (int)roundf(${expr.year}));`,
-    `  bool _scheduleDayAllowed_${id} = true;`,
-  ]
-  if (dayMode === 'Weekdays') {
-    lines.push(`  _scheduleDayAllowed_${id} = _scheduleWeekday_${id} >= 1 && _scheduleWeekday_${id} <= 5;`)
-  } else if (dayMode === 'Weekends') {
-    lines.push(`  _scheduleDayAllowed_${id} = _scheduleWeekday_${id} == 0 || _scheduleWeekday_${id} == 6;`)
-  } else if (dayMode === 'Custom') {
-    lines.push(
-      `  switch (_scheduleWeekday_${id}) {`,
-      `    case 0: _scheduleDayAllowed_${id} = ${sunday ? 'true' : 'false'}; break;`,
-      `    case 1: _scheduleDayAllowed_${id} = ${monday ? 'true' : 'false'}; break;`,
-      `    case 2: _scheduleDayAllowed_${id} = ${tuesday ? 'true' : 'false'}; break;`,
-      `    case 3: _scheduleDayAllowed_${id} = ${wednesday ? 'true' : 'false'}; break;`,
-      `    case 4: _scheduleDayAllowed_${id} = ${thursday ? 'true' : 'false'}; break;`,
-      `    case 5: _scheduleDayAllowed_${id} = ${friday ? 'true' : 'false'}; break;`,
-      `    default: _scheduleDayAllowed_${id} = ${saturday ? 'true' : 'false'}; break;`,
-      `  }`,
-    )
-  }
-  lines.push(
-    `  bool _scheduleTimeReady_${id} = _scheduleValid_${id} && ${requireSync ? '_scheduleSynced_' + id : 'true'};`,
-    `  int32_t _scheduleDayKey_${id} = _scheduleYear_${id} * 10000 + _scheduleMonth_${id} * 100 + _scheduleDay_${id};`,
+  const outputs = [
     `  bool ${v('active')} = false;`,
     `  bool ${v('start')} = false;`,
     `  bool ${v('end')} = false;`,
     `  float ${v('progress')} = 0.0f;`,
-    `  if (_scheduleEnabled_${id} && _scheduleTimeReady_${id} && _scheduleDayAllowed_${id}) {`,
+  ]
+  const clock = expr.dateTime
+  if (!clock) return outputs
+  const mode = String(props.scheduleMode ?? 'Window')
+  const dayMode = String(props.dayMode ?? 'Every day')
+  const requireSync = props.requireSync === true
+  const startSec = scheduleTimeSeconds(props.start, SCHEDULE_DEFAULT_START)
+  const endSec = scheduleTimeSeconds(props.end, SCHEDULE_DEFAULT_END)
+  const trigger = mode === 'Trigger'
+  const lines = [
+    ...(trigger ? [
+      `  static int32_t _scheduleLastPulseDay_${id} = -1;`,
+      `  static float _schedulePrevSeconds_${id} = -1.0f;`,
+      `  static int32_t _schedulePrevDay_${id} = -1;`,
+    ] : [`  static bool _schedulePrevActive_${id} = false;`]),
+    `  bool _scheduleEnabled_${id} = ${expr.enable};`,
+    `  float _scheduleSeconds_${id} = constrain(${clock}.secondsOfDay, 0.0f, 86399.999f);`,
+    `  bool _scheduleTimeReady_${id} = ${clock}.valid${requireSync ? ` && ${clock}.synced` : ''};`,
+  ]
+  let dayAllowed = 'true'
+  if (dayMode === 'Weekdays' || dayMode === 'Weekends' || dayMode === 'Custom') {
+    lines.push(`  int _scheduleWeekday_${id} = constrain((int)roundf(${clock}.weekday), 0, 6);`)
+    dayAllowed = `_scheduleDayAllowed_${id}`
+  }
+  if (dayMode === 'Weekdays') {
+    lines.push(`  bool ${dayAllowed} = _scheduleWeekday_${id} >= 1 && _scheduleWeekday_${id} <= 5;`)
+  } else if (dayMode === 'Weekends') {
+    lines.push(`  bool ${dayAllowed} = _scheduleWeekday_${id} == 0 || _scheduleWeekday_${id} == 6;`)
+  } else if (dayMode === 'Custom') {
+    // Bit n is weekday n (0 = Sunday), as the preview's tick boxes.
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+    const mask = days.reduce((bits, day, index) => props[day] !== false ? bits | (1 << index) : bits, 0)
+    lines.push(`  bool ${dayAllowed} = (${mask}u >> _scheduleWeekday_${id}) & 1u;`)
+  }
+  if (trigger) {
+    lines.push(
+      `  int32_t _scheduleDayKey_${id} = max(1970, (int)roundf(${clock}.year)) * 10000`,
+      `    + constrain((int)roundf(${clock}.month), 1, 12) * 100 + constrain((int)roundf(${clock}.day), 1, 31);`,
+    )
+  }
+  lines.push(
+    ...outputs,
+    `  if (_scheduleEnabled_${id} && _scheduleTimeReady_${id}${dayAllowed === 'true' ? '' : ` && ${dayAllowed}`}) {`,
   )
-  if (mode === 'Trigger') {
+  if (trigger) {
     lines.push(
       `    float _scheduleSince_${id} = _schedulePrevDay_${id} < 0 ? -2.0f`,
       `      : (_schedulePrevDay_${id} == _scheduleDayKey_${id} ? _schedulePrevSeconds_${id} : -1.0f);`,
@@ -193,14 +189,22 @@ export function scheduleTriggerCpp(id: string, v: Value, expr: Expr, props: Reco
       )
     }
   }
-  lines.push(
-    `  }`,
-    `  if (${v('active')} && !_schedulePrevActive_${id}) ${v('start')} = true;`,
-    `  if (!${v('active')} && _schedulePrevActive_${id}) ${v('end')} = true;`,
-    `  _schedulePrevActive_${id} = ${v('active')};`,
-    `  _schedulePrevSeconds_${id} = _scheduleTimeReady_${id} ? _scheduleSeconds_${id} : -1.0f;`,
-    `  _schedulePrevDay_${id} = _scheduleTimeReady_${id} ? _scheduleDayKey_${id} : -1;`,
-  )
+  lines.push(`  }`)
+  if (trigger) {
+    // Only a sample the clock vouched for is remembered, so the first frame
+    // after a sync is a fresh start rather than a giant jump.
+    lines.push(
+      `  _schedulePrevSeconds_${id} = _scheduleTimeReady_${id} ? _scheduleSeconds_${id} : -1.0f;`,
+      `  _schedulePrevDay_${id} = _scheduleTimeReady_${id} ? _scheduleDayKey_${id} : -1;`,
+    )
+  } else {
+    // Active never rises in Trigger mode, so only a window has edges to pulse.
+    lines.push(
+      `  if (${v('active')} && !_schedulePrevActive_${id}) ${v('start')} = true;`,
+      `  if (!${v('active')} && _schedulePrevActive_${id}) ${v('end')} = true;`,
+      `  _schedulePrevActive_${id} = ${v('active')};`,
+    )
+  }
   return lines
 }
 

@@ -414,6 +414,8 @@ export type PropertyControl =
   // `numeric` stores the chosen option as a number rather than its text.
   | { control: 'select'; options: readonly string[]; numeric?: true }
   | { control: 'slider'; min: number; max: number; step: number; entry?: 'number' }
+  // A 24-hour time of day, stored as "HH:MM" or "HH:MM:SS" text.
+  | { control: 'time' }
 
 export const PROPERTY_META: Record<string, PropertyControl> = {
   // Enumerated options → dropdown
@@ -706,12 +708,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   ScheduleTrigger: {
     scheduleMode: { control: 'select', options: ['Window', 'Trigger'] },
     dayMode: { control: 'select', options: ['Every day', 'Weekdays', 'Weekends', 'Custom'] },
-    startHour: { control: 'slider', min: 0, max: 23, step: 1 },
-    startMinute: { control: 'slider', min: 0, max: 59, step: 1 },
-    startSecond: { control: 'slider', min: 0, max: 59, step: 1 },
-    endHour: { control: 'slider', min: 0, max: 23, step: 1 },
-    endMinute: { control: 'slider', min: 0, max: 59, step: 1 },
-    endSecond: { control: 'slider', min: 0, max: 59, step: 1 },
+    start: { control: 'time' },
+    end: { control: 'time' },
   },
   PaletteFromImage: {
     count: { control: 'slider', min: 2, max: 8, step: 1 },
@@ -2596,12 +2594,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   ScheduleTrigger: {
     scheduleMode: 'Window keeps Active on between start and end. Trigger pulses Start once at the start time.',
     dayMode: 'Which days the schedule runs. Custom reveals a tick box per weekday.',
-    startHour: 'Hour (0–23) the window opens or the trigger fires.',
-    startMinute: 'Minute (0–59) of the start time.',
-    startSecond: 'Second (0–59) of the start time.',
-    endHour: 'Hour (0–23) the window closes. An end before the start wraps past midnight.',
-    endMinute: 'Minute (0–59) of the end time.',
-    endSecond: 'Second (0–59) of the end time.',
+    start: 'Time of day (24-hour) the window opens or the trigger fires. Seconds are optional.',
+    end: 'Time of day (24-hour) the window closes. An end before the start wraps past midnight.',
     monday: 'Run on Mondays (Custom days only).',
     tuesday: 'Run on Tuesdays (Custom days only).',
     wednesday: 'Run on Wednesdays (Custom days only).',
@@ -3849,12 +3843,6 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   ScheduleTrigger: {
     scheduleMode: 'mode',
     dayMode: 'days',
-    startHour: 'start hour',
-    startMinute: 'start minute',
-    startSecond: 'start second',
-    endHour: 'end hour',
-    endMinute: 'end minute',
-    endSecond: 'end second',
     requireSync: 'require synced time',
   },
   PaletteFromImage: {
@@ -4091,9 +4079,11 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'network', label: 'NTP Network', keys: ['ntpServer', 'timezoneOffsetMinutes', 'wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns'] },
     { key: 'manualStart', label: 'Manual Start', keys: ['startYear', 'startMonth', 'startDay', 'startHour', 'startMinute', 'startSecond'] },
   ],
+  // Enable and Require Synced Time decide whether the schedule runs at all,
+  // so they lead the Timing group rather than sitting among the day rules.
   ScheduleTrigger: [
-    { key: 'timing', label: 'Timing', keys: ['scheduleMode', 'startHour', 'startMinute', 'startSecond', 'endHour', 'endMinute', 'endSecond'] },
-    { key: 'days', label: 'Day Rules', keys: ['dayMode', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'requireSync', 'enable'] },
+    { key: 'timing', label: 'Timing', keys: ['enable', 'scheduleMode', 'start', 'end', 'requireSync'] },
+    { key: 'days', label: 'Day Rules', keys: ['dayMode', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] },
   ],
   MatrixOutput: [
     { key: 'output', label: 'Output', keys: ['enabled', 'outputBrightness'] },
@@ -5097,9 +5087,7 @@ export function isPropertyEnabled(
     if (key.startsWith('start')) return String(properties.timeSource ?? 'Compile Time') === 'Manual'
   }
   if (nodeType === 'ScheduleTrigger') {
-    if (key === 'endHour' || key === 'endMinute' || key === 'endSecond') {
-      return String(properties.scheduleMode ?? 'Window') === 'Window'
-    }
+    if (key === 'end') return String(properties.scheduleMode ?? 'Window') === 'Window'
     if (key === 'monday' || key === 'tuesday' || key === 'wednesday' || key === 'thursday' || key === 'friday' || key === 'saturday' || key === 'sunday') {
       return String(properties.dayMode ?? 'Every day') === 'Custom'
     }

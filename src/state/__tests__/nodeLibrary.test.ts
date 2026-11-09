@@ -637,9 +637,12 @@ describe('nodeLibrary', () => {
     const sched = NODE_LIBRARY.find((n) => n.type === 'ScheduleTrigger')
     expect(sched?.category).toBe('signal')
     expect(sched?.outputs.map((port) => port.id)).toEqual(['active', 'start', 'end', 'progress'])
-    // End-of-window fields only make sense for the Window mode.
-    expect(isPropertyEnabled('ScheduleTrigger', 'endHour', { scheduleMode: 'Window' })).toBe(true)
-    expect(isPropertyEnabled('ScheduleTrigger', 'endHour', { scheduleMode: 'Trigger' })).toBe(false)
+    // One clock wire, plus the switch that pauses the schedule.
+    expect(sched?.inputs.map((port) => port.id)).toEqual(['dateTime', 'enable'])
+    expect(propertyMeta('ScheduleTrigger', 'start')).toEqual({ control: 'time' })
+    // The end of a window only makes sense for the Window mode.
+    expect(isPropertyEnabled('ScheduleTrigger', 'end', { scheduleMode: 'Window' })).toBe(true)
+    expect(isPropertyEnabled('ScheduleTrigger', 'end', { scheduleMode: 'Trigger' })).toBe(false)
   })
 
   it('Trigger shows initial state only for the Toggle variant', () => {

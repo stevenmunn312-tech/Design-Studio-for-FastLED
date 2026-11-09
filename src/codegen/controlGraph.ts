@@ -12,7 +12,7 @@ import { TIME_CONTROL_OUTPUTS, timeNodeCpp } from './signalTimeCpp'
 import { MAP_FLOAT_CPP, SCALAR_CONTROL_NODES, scalarControlCpp, scalarControlInputDefaults, scalarControlInputType, type ControlDataType } from './scalarControlCpp'
 import { COLOR_CONTROL_NODES, colorControlCpp } from './colorControlCpp'
 import { TIMED_CONTROL_NODES, timedControlCpp } from './signalControlCpp'
-import { RTC_CONTROL_OUTPUTS, rtcControlEmission, rtcTimeSource } from './peripherals/rtcInputCpp'
+import { RTC_CONTROL_OUTPUTS, rtcControlEmission, rtcDateTimeSymbol, rtcTimeSource } from './peripherals/rtcInputCpp'
 import { RTC_CPP_FORWARD } from './peripherals/rtcCpp'
 import { webRemoteControlEmission } from './peripherals/webRemoteCpp'
 import { boardLinkControlEmission, boardLinkPlan, type BoardLinkPlan } from './peripherals/espNowLinkCpp'
@@ -174,6 +174,18 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
       let attackWired = false
       for (const [inputPort, spec] of Object.entries(timed.inputs)) {
         const edge = incoming.get(`${nodeId}:${inputPort}`)
+        if (spec.type === 'datetime') {
+          // A clock is the RTC's struct, written when the RTC is emitted, so
+          // resolving one of its scalars schedules that. Unwired stays empty.
+          if (!edge) { inputs[inputPort] = ''; continue }
+          if (byId.get(edge.source)?.data.nodeType !== 'RTCInput') {
+            visiting.delete(nodeId)
+            return fail(`${label(nodeId)}.${inputPort}: control graph reads a clock only from an RTC Clock's DateTime.`)
+          }
+          if (!resolve(edge.source, 'valid', 'bool')) { visiting.delete(nodeId); return null }
+          inputs[inputPort] = rtcDateTimeSymbol(safeId(edge.source))
+          continue
+        }
         if (edge) {
           const upstream = resolve(edge.source, edge.sourceHandle ?? '', spec.type)
           if (!upstream) { visiting.delete(nodeId); return null }

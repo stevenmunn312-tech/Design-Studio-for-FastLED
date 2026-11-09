@@ -68,6 +68,17 @@ function renderNode(n: StudioNodeT, options?: { board?: boolean }) {
 }
 
 describe('StudioNode', () => {
+  it('edits a Schedule Trigger time with a time picker', () => {
+    const { container } = renderNode(makeNode('ScheduleTrigger', { ...libraryDefaults('ScheduleTrigger'), start: '7:05' }))
+    openAllGroups(container)
+    const start = container.querySelector('input[aria-label="start value"]') as HTMLInputElement
+    expect(start.type).toBe('time')
+    // A hand-edited one-digit hour still reaches the picker, which needs two.
+    expect(start.value).toBe('07:05')
+    fireEvent.change(start, { target: { value: '21:30:15' } })
+    expect(useGraphStore.getState().nodes.find((node) => node.id === 'n1')!.data.properties.start).toBe('21:30:15')
+  })
+
   it('adds Beat Transitions to the timing controls of an existing Music Player', () => {
     const { container } = renderNode(makeNode('PatternMaster', { minTime: 4, maxTime: 12 }))
     const header = within(container).getByRole('button', { name: /timing/i })

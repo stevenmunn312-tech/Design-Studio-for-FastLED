@@ -2,6 +2,7 @@
 // placement and Help descriptions. src/state/nodeLibrary.ts merges every
 // category's definitions into NODE_LIBRARY in sidebar order.
 import type { NodeDefinition } from '../../types'
+import { SCHEDULE_DEFAULT_END, SCHEDULE_DEFAULT_START } from './schedule'
 
 export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
   {
@@ -93,21 +94,16 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { speed: 0.25, min: 0, max: 1, octaves: 1, seed: 0 },
   },
   {
-    // Scheduled trigger/window logic driven by RTCInput's clock/date fields.
+    // Scheduled trigger/window logic driven by RTCInput's one DateTime wire.
     // `active` stays high while the schedule is in-range; `start`/`end` pulse
     // once on the transitions. Trigger mode collapses the window to a single
-    // moment-of-day pulse on matching days.
+    // moment-of-day pulse on matching days. `start` and `end` are 24-hour
+    // "HH:MM" (or "HH:MM:SS") times; see ./schedule.ts.
     type: 'ScheduleTrigger',
     label: 'Schedule Trigger',
     category: 'signal',
     inputs: [
-      { id: 'valid', label: 'Valid', dataType: 'bool' },
-      { id: 'synced', label: 'Synced', dataType: 'bool' },
-      { id: 'secondsOfDay', label: 'Seconds Today', dataType: 'float' },
-      { id: 'weekday', label: 'Weekday', dataType: 'float' },
-      { id: 'day', label: 'Day', dataType: 'float' },
-      { id: 'month', label: 'Month', dataType: 'float' },
-      { id: 'year', label: 'Year', dataType: 'float' },
+      { id: 'dateTime', label: 'DateTime', dataType: 'datetime' },
       { id: 'enable', label: 'Enable', dataType: 'bool' },
     ],
     outputs: [
@@ -123,12 +119,8 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: {
       scheduleMode: 'Window',
       dayMode: 'Every day',
-      startHour: 18,
-      startMinute: 0,
-      startSecond: 0,
-      endHour: 23,
-      endMinute: 0,
-      endSecond: 0,
+      start: SCHEDULE_DEFAULT_START,
+      end: SCHEDULE_DEFAULT_END,
       monday: true,
       tuesday: true,
       wednesday: true,
@@ -197,7 +189,7 @@ export const SIGNAL_DESCRIPTIONS: Record<string, string> = {
   TimeNode: 'Elapsed time in seconds, plus a frame delta.',
   Random: 'Random value in a range.',
   NoiseSignal: 'Smooth random value drifting between min and max: a noise-driven LFO.',
-  ScheduleTrigger: 'Time-of-day window/trigger driven by RTCInput clock and calendar fields.',
+  ScheduleTrigger: 'Time-of-day window or trigger driven by an RTC Clock’s DateTime.',
   Clock: 'BPM clock — phase/beat/bar/subdivision pulses; tap tempo, sync, and reset.',
   DMXChannel: 'Reads one channel from a raw DMX/Art-Net universe buffer.',
 }

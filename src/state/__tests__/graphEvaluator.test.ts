@@ -5658,10 +5658,8 @@ describe('ScheduleTrigger', () => {
   ) {
     const rtc = node(ids.rtc, 'RTCInput', 'input', { timeSource: 'Manual', ...seed })
     const sched = node(ids.sched, 'ScheduleTrigger', 'signal', scheduleProps)
-    const wires = ['valid', 'synced', 'secondsOfDay', 'weekday', 'day', 'month', 'year'].map(
-      (port, i) => edge(`e${i}`, ids.rtc, port, ids.sched, port),
-    )
-    return { nodes: [rtc, sched], edges: wires }
+    // One wire carries the whole reading.
+    return { nodes: [rtc, sched], edges: [edge('e-clock', ids.rtc, 'dateTime', ids.sched, 'dateTime')] }
   }
 
   // Monday 2026-01-05.
@@ -5671,7 +5669,7 @@ describe('ScheduleTrigger', () => {
     const { nodes, edges } = scheduleGraph(
       { rtc: 'rtc-win', sched: 'sched-win' },
       { ...MONDAY, startHour: 18, startMinute: 0, startSecond: 0 },
-      { scheduleMode: 'Window', startHour: 18, endHour: 20, endMinute: 0, endSecond: 0 },
+      { scheduleMode: 'Window', start: '18:00', end: '20:00' },
     )
     const at = (tick: number) => evaluateGraphFull(nodes, edges, tick, W, H).outputs.get('sched-win')
 
@@ -5688,7 +5686,7 @@ describe('ScheduleTrigger', () => {
     const { nodes, edges } = scheduleGraph(
       { rtc: 'rtc-wrap', sched: 'sched-wrap' },
       { ...MONDAY, startHour: 23, startMinute: 0, startSecond: 0 },
-      { scheduleMode: 'Window', startHour: 22, endHour: 2, endMinute: 0, endSecond: 0 },
+      { scheduleMode: 'Window', start: '22:00', end: '02:00' },
     )
     const at = (tick: number) => evaluateGraphFull(nodes, edges, tick, W, H).outputs.get('sched-wrap')
     // 23:00 is one hour into a four-hour 22:00→02:00 window.
@@ -5702,7 +5700,7 @@ describe('ScheduleTrigger', () => {
     const { nodes, edges } = scheduleGraph(
       { rtc: 'rtc-cross', sched: 'sched-cross' },
       { ...MONDAY, startHour: 17, startMinute: 59, startSecond: 59 },
-      { scheduleMode: 'Trigger', startHour: 18, startMinute: 0, startSecond: 0 },
+      { scheduleMode: 'Trigger', start: '18:00' },
     )
     const at = (tick: number) => evaluateGraphFull(nodes, edges, tick, W, H).outputs.get('sched-cross')
 
@@ -5720,7 +5718,7 @@ describe('ScheduleTrigger', () => {
     const { nodes, edges } = scheduleGraph(
       { rtc: 'rtc-jump', sched: 'sched-jump' },
       { ...MONDAY, startHour: 17, startMinute: 59, startSecond: 0 },
-      { scheduleMode: 'Trigger', startHour: 18, startMinute: 0, startSecond: 0 },
+      { scheduleMode: 'Trigger', start: '18:00' },
     )
     const at = (tick: number) => evaluateGraphFull(nodes, edges, tick, W, H).outputs.get('sched-jump')
     expect(at(0)).toMatchObject({ start: false })
@@ -5732,7 +5730,7 @@ describe('ScheduleTrigger', () => {
     const { nodes, edges } = scheduleGraph(
       { rtc: 'rtc-late', sched: 'sched-late' },
       { ...MONDAY, startHour: 20, startMinute: 0, startSecond: 0 },
-      { scheduleMode: 'Trigger', startHour: 18, startMinute: 0, startSecond: 0 },
+      { scheduleMode: 'Trigger', start: '18:00' },
     )
     const at = (tick: number) => evaluateGraphFull(nodes, edges, tick, W, H).outputs.get('sched-late')
     expect(at(0)).toMatchObject({ start: false })
@@ -5745,7 +5743,7 @@ describe('ScheduleTrigger', () => {
     const { nodes, edges } = scheduleGraph(
       { rtc: 'rtc-day', sched: 'sched-day' },
       { startYear: 2026, startMonth: 1, startDay: 4, startHour: 19, startMinute: 0, startSecond: 0 },
-      { scheduleMode: 'Window', dayMode: 'Weekdays', startHour: 18, endHour: 20 },
+      { scheduleMode: 'Window', dayMode: 'Weekdays', start: '18:00', end: '20:00' },
     )
     expect(evaluateGraphFull(nodes, edges, 0, W, H).outputs.get('sched-day')).toMatchObject({
       active: false, progress: 0,
@@ -5754,7 +5752,7 @@ describe('ScheduleTrigger', () => {
     const off = scheduleGraph(
       { rtc: 'rtc-off', sched: 'sched-off' },
       { ...MONDAY, startHour: 19, startMinute: 0, startSecond: 0 },
-      { scheduleMode: 'Window', startHour: 18, endHour: 20, enable: false },
+      { scheduleMode: 'Window', start: '18:00', end: '20:00', enable: false },
     )
     expect(evaluateGraphFull(off.nodes, off.edges, 0, W, H).outputs.get('sched-off')).toMatchObject({
       active: false,
@@ -5762,26 +5760,37 @@ describe('ScheduleTrigger', () => {
   })
 
   it('stays shut until the clock reports a real sync when requireSync is on', () => {
-    // NTP firmware runs the build-stamp clock (valid, but not synced) before it
-    // reaches the network; requireSync is how a schedule opts out of trusting
-    // that. Same graph either way — only the `synced` wire differs.
-    const props = { scheduleMode: 'Window', startHour: 18, endHour: 20, requireSync: true }
-    const seed = { ...MONDAY, startHour: 19, startMinute: 0, startSecond: 0 }
-
-    const unsynced = scheduleGraph({ rtc: 'rtc-ns', sched: 'sched-ns' }, seed, props)
-    unsynced.edges = unsynced.edges.filter((e) => e.targetHandle !== 'synced')
+    // A Manual seed is valid but never synced; NTP is synced. requireSync is
+    // how a schedule opts out of trusting a clock nothing has corrected.
+    const props = { scheduleMode: 'Window', start: '18:00', end: '20:00', requireSync: true }
+    const unsynced = scheduleGraph({ rtc: 'rtc-ns', sched: 'sched-ns' }, { ...MONDAY, startHour: 19, startMinute: 0, startSecond: 0 }, props)
     expect(evaluateGraphFull(unsynced.nodes, unsynced.edges, 0, W, H).outputs.get('sched-ns')).toMatchObject({
       active: false,
     })
 
-    const synced = scheduleGraph({ rtc: 'rtc-sy', sched: 'sched-sy' }, seed, props)
-    const trueNode = node('sync-true', 'Not', 'math', {})
-    synced.nodes.push(trueNode)
-    synced.edges = synced.edges.filter((e) => e.targetHandle !== 'synced')
-    synced.edges.push(edge('sync-edge', 'sync-true', 'result', 'sched-sy', 'synced'))
-    expect(evaluateGraphFull(synced.nodes, synced.edges, 0, W, H).outputs.get('sched-sy')).toMatchObject({
-      active: true,
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(Date.UTC(2026, 0, 5, 19, 0, 0)))
+    try {
+      const synced = scheduleGraph({ rtc: 'rtc-sy', sched: 'sched-sy' }, { timeSource: 'NTP', timezoneOffsetMinutes: 0 }, props)
+      expect(evaluateGraphFull(synced.nodes, synced.edges, 0, W, H).outputs.get('sched-sy')).toMatchObject({
+        active: true,
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('stays low with no clock wired, and reads a one-digit hour', () => {
+    const lone = node('sched-lone', 'ScheduleTrigger', 'signal', { scheduleMode: 'Window', start: '0:00', end: '23:59:59' })
+    expect(evaluateGraphFull([lone], [], 0, W, H).outputs.get('sched-lone')).toMatchObject({
+      active: false, start: false, end: false, progress: 0,
     })
+    const { nodes, edges } = scheduleGraph(
+      { rtc: 'rtc-digit', sched: 'sched-digit' },
+      { ...MONDAY, startHour: 9, startMinute: 30, startSecond: 0 },
+      { scheduleMode: 'Window', start: '9:00', end: '10:00' },
+    )
+    expect(evaluateGraphFull(nodes, edges, 0, W, H).outputs.get('sched-digit')?.progress).toBeCloseTo(0.5, 5)
   })
 })
 

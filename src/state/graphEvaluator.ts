@@ -30,7 +30,6 @@ export { compositeTransition, getPatternShowSelection, getMusicPlayerControls, P
 export type { PatternShowSelection } from '../nodes/show/evaluate'
 export { GOLDEN_RATIO, LISSAJOUS_FIELD_SAMPLES } from '../nodes/field/evaluate'
 export type { FormulaFieldParams } from '../nodes/field/evaluate'
-export { scheduleTimeOfDay, scheduleWindowProgress } from '../nodes/signal/evaluate'
 export { audioHueWeight } from '../nodes/audio/evaluate'
 
 export type { RGB, Palette, Frame }

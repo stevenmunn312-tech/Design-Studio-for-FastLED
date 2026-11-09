@@ -5612,59 +5612,61 @@ describe('RTCInput (codegen)', () => {
 })
 
 describe('ScheduleTrigger (codegen)', () => {
+  const clocked = (props: Record<string, unknown>) => generateCpp(
+    [node('rtc', 'RTCInput', 'input', {}), node('sch', 'ScheduleTrigger', 'signal', props)],
+    [edge('dt', 'rtc', 'sch', 'dateTime', 'dateTime')],
+  )
+
   // The firmware trigger has to fire on the crossing, not while inside a
   // one-second band, or a coarse clock or slow frame drops the day's pulse.
   it('fires a trigger on the crossing and remembers the previous sample', () => {
-    const rtc = node('rtc', 'RTCInput', 'input', {})
-    const sched = node('sch', 'ScheduleTrigger', 'signal', {
-      scheduleMode: 'Trigger', startHour: 18, startMinute: 0, startSecond: 0,
-    })
-    const cpp = generateCpp([rtc, sched], [
-      edge('e1', 'rtc', 'sch', 'valid', 'valid'),
-      edge('e2', 'rtc', 'sch', 'secondsOfDay', 'secondsOfDay'),
-    ])
+    const cpp = clocked({ scheduleMode: 'Trigger', start: '18:00' })
     expect(cpp).toContain('static float _schedulePrevSeconds_sch = -1.0f;')
     expect(cpp).toContain('static int32_t _schedulePrevDay_sch = -1;')
+    expect(cpp).toContain('float _scheduleSeconds_sch = constrain(n_rtc_dateTime.secondsOfDay, 0.0f, 86399.999f);')
     expect(cpp).toContain('_scheduleSince_sch < 64800.0f && _scheduleSeconds_sch >= 64800.0f')
     expect(cpp).toContain('_schedulePrevSeconds_sch = _scheduleTimeReady_sch ? _scheduleSeconds_sch : -1.0f;')
+    // Both sides clamp the calendar date, so the one-pulse-per-day key matches.
+    expect(cpp).toContain('constrain((int)roundf(n_rtc_dateTime.day), 1, 31)')
+    // Active never rises in Trigger mode, so there are no window edges to track.
+    expect(cpp).not.toContain('_schedulePrevActive_sch')
   })
 
-  it('emits window progress with the span baked in', () => {
-    const sched = node('sch', 'ScheduleTrigger', 'signal', {
-      scheduleMode: 'Window', startHour: 18, endHour: 20,
-    })
-    const cpp = generateCpp([sched], [])
+  it('emits window progress with the span baked in, and no trigger state', () => {
+    const cpp = clocked({ scheduleMode: 'Window', start: '18:00', end: '20:00' })
     expect(cpp).toContain('float n_sch_progress = 0.0f;')
     // 18:00 → 20:00 is a 7200 s span starting at 64800 s.
     expect(cpp).toContain('n_sch_progress = constrain(_scheduleElapsed_sch / 7200.0f, 0.0f, 1.0f);')
+    expect(cpp).toContain('bool _scheduleTimeReady_sch = n_rtc_dateTime.valid;')
+    expect(cpp).not.toContain('_scheduleDayKey_sch')
+    expect(cpp).not.toContain('_scheduleWeekday_sch')
   })
 
   it('measures a midnight-wrapping window across the wrap', () => {
-    const sched = node('sch', 'ScheduleTrigger', 'signal', {
-      scheduleMode: 'Window', startHour: 22, endHour: 2,
-    })
-    const cpp = generateCpp([sched], [])
+    const cpp = clocked({ scheduleMode: 'Window', start: '22:00', end: '02:00' })
     // 22:00 → 02:00 is four hours, and the pre-midnight part is 7200 s long.
     expect(cpp).toContain('n_sch_progress = constrain(_scheduleElapsed_sch / 14400.0f, 0.0f, 1.0f);')
     expect(cpp).toContain('? _scheduleSeconds_sch - 79200.0f : 7200.0f + _scheduleSeconds_sch;')
   })
 
-  // Both sides clamp the calendar day, so the one-pulse-per-day key matches.
-  it('clamps the day of month the same way the evaluator does', () => {
-    const sched = node('sch', 'ScheduleTrigger', 'signal', { scheduleMode: 'Trigger' })
-    expect(generateCpp([sched], [])).toContain(
-      'int _scheduleDay_sch = constrain((int)roundf(1), 1, 31);',
-    )
+  it('reads Synced and the weekday only when a rule needs them', () => {
+    const cpp = clocked({ scheduleMode: 'Window', start: '09:00:30', end: '17:30', requireSync: true, dayMode: 'Custom', saturday: false, sunday: false })
+    expect(cpp).toContain('bool _scheduleTimeReady_sch = n_rtc_dateTime.valid && n_rtc_dateTime.synced;')
+    expect(cpp).toContain('int _scheduleWeekday_sch = constrain((int)roundf(n_rtc_dateTime.weekday), 0, 6);')
+    // Monday to Friday: bits 1-5.
+    expect(cpp).toContain('bool _scheduleDayAllowed_sch = (62u >> _scheduleWeekday_sch) & 1u;')
+    expect(cpp).toContain('_scheduleSeconds_sch >= 32430.0f')
   })
 
-  // Summing before clamping mapped an out-of-range saved hour to a different
-  // instant than the evaluator reached.
-  it('clamps each time field before summing', () => {
-    const sched = node('sch', 'ScheduleTrigger', 'signal', {
-      scheduleMode: 'Window', startHour: 30, startMinute: 0, startSecond: 0, endHour: 23, endMinute: 59, endSecond: 59,
-    })
-    // Hour clamps to 23, not a total clamped to 86399.
-    expect(generateCpp([sched], [])).toContain('_scheduleSeconds_sch >= 82800.0f')
+  it('emits only low outputs when no clock is wired', () => {
+    const cpp = generateCpp([node('sch', 'ScheduleTrigger', 'signal', { scheduleMode: 'Window' })], [])
+    expect(cpp).toContain('bool n_sch_active = false;')
+    expect(cpp).not.toContain('_schedule')
+  })
+
+  // An unreadable time falls back to the field's default on both sides.
+  it('falls back to the default time for an unreadable field', () => {
+    expect(clocked({ scheduleMode: 'Window', start: '25:00', end: '23:00' })).toContain('_scheduleSeconds_sch >= 64800.0f')
   })
 })
 

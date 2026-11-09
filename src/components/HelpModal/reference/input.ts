@@ -790,7 +790,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     ],
     steps: [
       'Choose a time source. For NTP, set the network and UTC offset. For a DS3231, add the module from the Hardware tab and wire it to the I2C pins.',
-      'Wire DateTime to Clock Display or Format Date/Time, Display to a panel, or the separate fields to a Schedule Trigger.',
+      'Wire DateTime to Clock Display, Format Date/Time or a Schedule Trigger, and Display to a panel.',
     ],
     outputs: {
       display: 'The time for a Segment Display, Info Display or Display Panel, which then shows a clock.',

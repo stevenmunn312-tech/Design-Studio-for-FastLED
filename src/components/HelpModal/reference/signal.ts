@@ -149,23 +149,18 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
 
   ScheduleTrigger: {
     overview: [
-      'Schedule Trigger watches an RTC Clock and switches on a timetable. In Window mode Active stays true between the start and end times; in Trigger mode Start pulses once at the start time.',
-      'Start and End pulse on the edges of a window too, and Progress runs from 0 to 1 across it — enough to fade in at opening time or run a slow sunset across an evening. An end before the start wraps past midnight.',
+      'Schedule Trigger watches an RTC Clock and switches on a timetable. In Window mode Active stays true between the start and end times; in Trigger mode Start pulses once a day at the start time.',
+      'Start and End pulse on the edges of a window too, and Progress runs from 0 to 1 across it — enough to fade in at opening time or run a slow sunset across an evening. Times are 24-hour, seconds optional, and an end before the start wraps past midnight.',
       'Days limits it to weekdays, weekends, or the days you tick. Require Synced Time keeps it off until the clock has a real NTP sync, so a board that lost power never runs the schedule at the wrong hour.',
     ],
     steps: [
       'Add an RTC Clock and choose a reliable time source: NTP or a DS3231.',
-      'Wire the clock’s Valid, Synced, Seconds Today and Weekday outputs into the matching inputs.',
-      'Set the window and days, then wire Active, Start or Progress to what should follow the schedule.',
+      'Wire the clock’s DateTime output into the schedule’s DateTime input.',
+      'Set the times and days, then wire Active, Start or Progress to what should follow the schedule.',
     ],
     inputs: {
-      valid: 'The clock’s Valid output. Nothing fires until the time is real.',
-      synced: 'The clock’s Synced output, used by Require Synced Time.',
-      secondsOfDay: 'The clock’s Seconds Today output: the time of day the schedule is compared with.',
-      weekday: 'The clock’s Weekday output, for the day rules.',
-      day: 'Day of the month, from the clock. With Month and Year it lets Trigger mode fire once per calendar day.',
-      month: 'Month, from the clock.',
-      year: 'Year, from the clock.',
+      dateTime: 'The clock’s DateTime output: the time of day, weekday and date the schedule follows. Nothing fires until the time is real.',
+      enable: 'Off holds every output low. Wire a switch here to pause the schedule.',
     },
     outputs: {
       active: 'True while inside the window on an allowed day.',
@@ -178,15 +173,12 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
       title: 'A shop sign that keeps opening hours',
       nodes: {
         clock: ['RTCInput', { timeSource: 'DS3231' }],
-        hours: ['ScheduleTrigger', { scheduleMode: 'Window', dayMode: 'Weekdays', startHour: 9, startMinute: 0, endHour: 17, endMinute: 30 }],
+        hours: ['ScheduleTrigger', { scheduleMode: 'Window', dayMode: 'Weekdays', start: '09:00', end: '17:30' }],
         sign: ['TheaterChase', { palette: 'citrus', spacing: 3, speed: 0.4 }],
         output: ['MatrixOutput', STRIP(60)],
       },
       wires: [
-        'clock.valid > hours.valid',
-        'clock.synced > hours.synced',
-        'clock.secondsOfDay > hours.secondsOfDay',
-        'clock.weekday > hours.weekday',
+        'clock.dateTime > hours.dateTime',
         'hours.active > output.enabled',
         'sign.frame > output.frame',
       ],

@@ -13,6 +13,7 @@ import { useUploadStore, boardGpioInfo } from '../../state/upload/uploadStore'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../../nodes/shared/scalarExpression'
 import { nodeFormulaError, scalarFormulaError } from '../../nodes/shared/formulaLang'
 import { waveHz, waveNodeSamples } from '../../nodes/signal/wave'
+import { formatScheduleTime, parseScheduleTime } from '../../nodes/signal/schedule'
 import WaveScope from './WaveScope'
 import NodePreview, { type PreviewKind } from './NodePreview'
 import HardwareLedPreview from '../Hardware/HardwareLedPreview'
@@ -737,6 +738,17 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 step={meta.step}
                 disabled={disabled}
                 onChange={(value) => writeValue(value)}
+              />
+            ) : meta?.control === 'time' ? (
+              <input
+                className={`nodrag ${styles.propInput}`}
+                type="time"
+                step={1}
+                disabled={disabled}
+                // The picker needs two-digit hours; a hand-edited "9:00" still reads.
+                value={(() => { const s = parseScheduleTime(val); return s === null ? '' : formatScheduleTime(s) })()}
+                aria-label={`${controlLabel} value`}
+                onChange={(e) => { if (e.target.value) writeValue(e.target.value) }}
               />
             ) : typeof val === 'boolean' ? (
               <input

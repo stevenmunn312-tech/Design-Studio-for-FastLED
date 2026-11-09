@@ -768,20 +768,6 @@ freeze, or drop them.
   beat". Add an optional `trigger` bool input that draws only on a rising
   edge, and make Min and Max wireable property inputs. Evidence
   `src/nodes/signal/definitions.ts:74`.
-- [ ] **Schedule Trigger: Replace seven clock inputs with one dateTime
-  (High, M).** Day/Month/Year left unwired freeze the day key, so Trigger
-  mode fires on the first day only, and unwired Weekday reads Sunday so
-  Weekdays mode never runs. Help asks for four wires and Graph Health
-  checks only two. Take one `dateTime` input from RTC Clock's DateTime
-  output (already used by Clock Display) and keep Enable as the only other
-  input. Evidence `src/nodes/signal/evaluate.ts:157`,
-  `src/nodes/signal/definitions.ts:104`.
-- [ ] **Schedule Trigger: Replace six time sliders with two time fields
-  (Med, M).** Start and end take hour/minute/second sliders. Use two HH:MM
-  fields with optional seconds. Evidence `src/state/nodeLibrary.ts:702`.
-- [ ] **Schedule Trigger: Move Enable out of "Day Rules" (Low, S).** It
-  belongs with Timing or on its own. Evidence
-  `src/state/nodeLibrary.ts:4092`.
 - [ ] **Clock: Rename to avoid RTC Clock and Clock Display (Med, S).**
   Searching for time of day finds a BPM metronome. Rename it "Tempo Clock"
   or "BPM Clock". Evidence `src/nodes/input/definitions.ts:487`,

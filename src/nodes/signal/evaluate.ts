@@ -5,6 +5,8 @@ import { normalizedSeed, seededRandom, seedOffset, _snoise2 } from '../../state/
 import { denormRate, SPEED_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
 import { instanceState } from '../../state/evaluator/memory'
+import type { RtcPreview } from '../../state/peripherals/rtc'
+import { SCHEDULE_DEFAULT_END, SCHEDULE_DEFAULT_START, scheduleTimeSeconds, scheduleWindowProgress } from './schedule'
 
 // Time node — the previous pass's `t`, for a measured `dt`.
 const timePrev = instanceState('timePrev', new Map<string, number>())
@@ -54,27 +56,6 @@ function scheduleDayEnabled(
   if (mode === 'Weekends') return weekday === 0 || weekday === 6
   const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
   return props[dayKeys[Math.max(0, Math.min(6, Math.round(weekday)))] ?? 'sunday'] !== false
-}
-
-/** A ScheduleTrigger hour/minute/second triple as seconds-of-day. Each field is
- *  clamped to its own range first (matching the C++ generator's `intProp`), so
- *  an out-of-range saved value resolves to the same instant in both. */
-export function scheduleTimeOfDay(hour: unknown, minute: unknown, second: unknown): number {
-  const part = (value: unknown, max: number) => {
-    const n = Math.round(Number(value ?? 0))
-    return Number.isFinite(n) ? Math.max(0, Math.min(max, n)) : 0
-  }
-  return part(hour, 23) * 3600 + part(minute, 59) * 60 + part(second, 59)
-}
-
-/** How far through an active window `seconds` sits, 0→1. Windows that wrap past
- *  midnight (start > end) measure across the wrap. Shared shape with the C++
- *  generator, which bakes the constants at generation time. */
-export function scheduleWindowProgress(seconds: number, startSec: number, endSec: number): number {
-  const span = endSec >= startSec ? endSec - startSec : 86400 - startSec + endSec
-  if (span <= 0) return 0
-  const elapsed = seconds >= startSec ? seconds - startSec : 86400 - startSec + seconds
-  return Math.max(0, Math.min(1, elapsed / span))
 }
 
 export const SIGNAL_EVALUATORS: NodeEvaluators = {
@@ -136,24 +117,25 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
       : 1 - (age - attack) / decay
     return { result: Math.max(0, Math.min(1, value)) }
   },
+  // One DateTime wire carries the whole reading: health, time of day, weekday
+  // and the calendar date Trigger mode keys its once-a-day pulse on. Unwired,
+  // the clock is not valid and every output stays low, as on the board.
   ScheduleTrigger({ input, stateKey }, id, props) {
     const key = stateKey(id)
     const mode = String(props.scheduleMode ?? 'Window')
     const dayMode = String(props.dayMode ?? 'Every day')
-    const valid = Boolean(input(id, 'valid', false))
-    const synced = Boolean(input(id, 'synced', false))
+    const clock = input(id, 'dateTime', null) as Partial<RtcPreview> | null
+    const valid = clock?.valid === true
+    const synced = clock?.synced === true
     const enabled = Boolean(input(id, 'enable', props.enable !== false))
-    const weekday = Math.max(0, Math.min(6, Math.round(Number(input(id, 'weekday', 0)))))
-    const secondsOfDay = Math.max(0, Math.min(86399.999, Number(input(id, 'secondsOfDay', 0))))
-    const day = Math.max(1, Math.min(31, Math.round(Number(input(id, 'day', 1)))))
-    const month = Math.max(1, Math.min(12, Math.round(Number(input(id, 'month', 1)))))
-    const year = Math.max(1970, Math.round(Number(input(id, 'year', 1970))))
+    const weekday = Math.max(0, Math.min(6, Math.round(Number(clock?.weekday ?? 0))))
+    const secondsOfDay = Math.max(0, Math.min(86399.999, Number(clock?.secondsOfDay ?? 0)))
+    const day = Math.max(1, Math.min(31, Math.round(Number(clock?.day ?? 1))))
+    const month = Math.max(1, Math.min(12, Math.round(Number(clock?.month ?? 1))))
+    const year = Math.max(1970, Math.round(Number(clock?.year ?? 1970)))
     const requireSync = props.requireSync === true
-    // Clamp each field to its own slider range before summing, exactly like
-    // the C++ generator's intProp — summing first and clamping the total
-    // maps an out-of-range saved value to a different time than firmware.
-    const startSec = scheduleTimeOfDay(props.startHour, props.startMinute, props.startSecond)
-    const endSec = scheduleTimeOfDay(props.endHour, props.endMinute, props.endSecond)
+    const startSec = scheduleTimeSeconds(props.start, SCHEDULE_DEFAULT_START)
+    const endSec = scheduleTimeSeconds(props.end, SCHEDULE_DEFAULT_END)
     const dayKey = year * 10_000 + month * 100 + day
     const prev = scheduleState.get(key)
       ?? { prevActive: false, lastPulseDay: -1, prevSeconds: null, prevDayKey: -1 }

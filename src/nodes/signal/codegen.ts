@@ -38,17 +38,13 @@ export const SIGNAL_EMITTERS: NodeEmitters = {
     ln(`  _dmxSeen_${id} = true;`)
     ln(`  _dmxPrev_${id} = _dmxByte_${id};`)
   },
-  ScheduleTrigger({ node, id, p, ln, v, incoming, floatExpr, boolExpr }) {
-    const enabledDefault = p.enable !== false
+  // The DateTime wire names the source's `_RtcDateTimeValue`, as Clock
+  // Display and Format Date/Time read it.
+  ScheduleTrigger({ node, id, p, ln, v, incoming, boolExpr }) {
+    const clockUp = incoming.get(`${node.id}:dateTime`)
     scheduleTriggerCpp(id, v, {
-      valid: boolExpr(node.id, 'valid'),
-      synced: boolExpr(node.id, 'synced'),
-      enable: incoming.has(`${node.id}:enable`) ? boolExpr(node.id, 'enable') : enabledDefault ? 'true' : 'false',
-      weekday: floatExpr(node.id, 'weekday', p, 'weekday', 0),
-      secondsOfDay: floatExpr(node.id, 'secondsOfDay', p, 'secondsOfDay', 0),
-      day: floatExpr(node.id, 'day', p, 'day', 1),
-      month: floatExpr(node.id, 'month', p, 'month', 1),
-      year: floatExpr(node.id, 'year', p, 'year', 1970),
+      dateTime: clockUp ? `n_${safeId(clockUp.srcId)}_${safeId(clockUp.srcPort)}` : '',
+      enable: incoming.has(`${node.id}:enable`) ? boolExpr(node.id, 'enable') : p.enable !== false ? 'true' : 'false',
     }, p).forEach(ln)
   },
   Random({ id, p, ln, v }) {
