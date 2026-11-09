@@ -4376,9 +4376,9 @@ describe('generateCpp — INMP441 audio engine', () => {
       return { ...entry, data: { ...entry.data, inputs: definition.inputs, outputs: definition.outputs } } as StudioNode
     }
     const level = withPorts(node('lvl', 'Math', 'math', { mathOp: 'add', a: 0.3, b: 0 }))
-    const gate = withPorts(node('gt', 'Gate', 'math', { value: 1, fallback: 0 }))
-    const cpp = generateCpp([level, gate], [edge('e1', 'lvl', 'gt', 'result', 'gate')])
-    expect(cpp).toContain('float n_gt_result = ((n_lvl_result >= 0.5f)) ? (1) : 0;')
+    const gate = withPorts(node('gt', 'Switch', 'math', { a: 0, b: 1 }))
+    const cpp = generateCpp([level, gate], [edge('e1', 'lvl', 'gt', 'result', 'sel')])
+    expect(cpp).toContain('float n_gt_result = ((n_lvl_result >= 0.5f)) ? (1) : (0);')
   })
 
   it('keeps the tunable BeatDetect envelope for external baked SD audio', () => {
@@ -5034,10 +5034,21 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     const cpp = generateCpp([node('sm', 'Smooth', 'math', { value: 0.5, response: 0.25 }), ...t.nodes], t.edges)
     expect(cpp).toContain('static float n_sm_result')
     expect(cpp).toContain('expf(')
-    expect(cpp).toContain('float _smResp = fmaxf(0.0001f, fmaxf(0.0f,0.25));')
+    expect(cpp).toContain('float _smResp = fmaxf(0.0f, 0.25);')
     // The EMA step is the seeding branch's `else`; anything emitted between
     // them orphans it and the sketch stops compiling.
-    expect(cpp).toMatch(/if \(!_smI_sm\) \{[^\n]*\}\n\s*else n_sm_result \+=/)
+    expect(cpp).toMatch(/if \(!_smI_sm\) \{[^\n]*\}\n\s*else if \(_smResp > 0\.01f\) n_sm_result \+=/)
+    // No Fall set: nothing about one is emitted.
+    expect(cpp).not.toContain('_smFall')
+  })
+
+  it('Smooth with a Fall time eases a falling value on its own time constant', () => {
+    const t = tail('sm', 'result')
+    const cpp = generateCpp([node('sm', 'Smooth', 'math', { value: 0.5, response: 0, fall: 0.8 }), ...t.nodes], t.edges)
+    // A Response of 0 alone would be a passthrough; Fall keeps the state.
+    expect(cpp).toContain('static float n_sm_result')
+    expect(cpp).toContain('float _smFall = fmaxf(0.0f, 0.8);')
+    expect(cpp).toContain('if (_smI_sm && _in < n_sm_result && _smFall > 0.0f) _smResp = _smFall;')
   })
 
   it('Smooth with ~0 response is a passthrough', () => {

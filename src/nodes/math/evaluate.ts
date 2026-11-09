@@ -9,6 +9,8 @@ import {
 import { applyEase } from './easing'
 import { applyFunction, mathOperandIdentity } from './mathIdentity'
 import { applyLogic } from './logic'
+import { mapRangeValue } from './mapRange'
+import { applyCompare, compareHysteresis, compareOp } from './compare'
 import { makeShims, SHIM_NAMES } from '../shared/fastledShims'
 import { compileScalarFormula } from '../shared/formulaLang'
 import { compileFormula, scalarFormulaCache } from '../../state/evaluator/formula'
@@ -22,6 +24,8 @@ const smoothState = instanceState('smoothState', new Map<string, { v: number; t:
 const holdState = instanceState('holdState', new Map<string, { v: number; prev: boolean }>())
 // Step Value — a bounded numeric latch with independent rising-edge inputs.
 const stepValueState = instanceState('stepValueState', new Map<string, StepValueState>())
+// Compare with hysteresis — whether the output was on last pass.
+const compareState = instanceState('compareState', new Map<string, boolean>())
 
 // Trigger node (bundled Debounce/Toggle/One Shot/Pulse Divider/Trigger Delay) —
 // one combined state bag; only the fields the active variant needs are touched.
@@ -90,12 +94,6 @@ export const MATH_EVALUATORS: NodeEvaluators = {
     const b = input(id, 'b', false) as boolean
     return { result: applyLogic(props.logicOp, a, b) }
   },
-  Lerp({ num }, id, props) {
-    const a  = num(id, 'a', props, 'a', 0)
-    const b  = num(id, 'b', props, 'b', 1)
-    const tt = num(id, 't', props, 't', 0.5)
-    return { result: a + (b - a) * tt }
-  },
   Clamp({ num }, id, props) {
     const val = num(id, 'value', props, 'value', 0)
     const lo  = num(id, 'min',   props, 'min',   0)
@@ -108,8 +106,7 @@ export const MATH_EVALUATORS: NodeEvaluators = {
     const inHi  = num(id, 'inMax', props, 'inMax', 1)
     const outLo = num(id, 'outMin', props, 'outMin', 0)
     const outHi = num(id, 'outMax', props, 'outMax', 1)
-    const t2 = inHi === inLo ? 0 : (val - inLo) / (inHi - inLo)
-    return { result: outLo + t2 * (outHi - outLo) }
+    return { result: mapRangeValue(val, inLo, inHi, outLo, outHi, props.clampOutput === true) }
   },
   StepValue({ input, stateKey }, id, props) {
     const key = stateKey(id)
@@ -121,23 +118,21 @@ export const MATH_EVALUATORS: NodeEvaluators = {
     stepValueState.set(key, next)
     return { value: next.value }
   },
-  Gate({ input, num }, id, props) {
-    const val = num(id, 'value', props, 'value', 0)
-    const gate = input(id, 'gate', false) as boolean
-    return { result: gate ? val : Number(props.fallback ?? 0) }
-  },
   // Low-pass smoothing — EMA toward the input with time constant `response`
-  // (seconds to ~63% of a step; ≤0.01 = passthrough). dt comes from the
-  // wall-clock t so smoothing speed is framerate-independent, mirroring the
-  // millis()-based version the C++ generator emits.
+  // (seconds to ~63% of a step; ≤0.01 = passthrough), or `fall` while the
+  // value is dropping when Fall is above 0. dt comes from the wall-clock t so
+  // smoothing speed is framerate-independent, mirroring the millis()-based
+  // version the C++ generator emits.
   Smooth({ num, elapsedT: t, stateKey }, id, props) {
     const value = num(id, 'value', props, 'value', 0)
     const response = Math.max(0, num(id, 'response', props, 'response', 0.25))
+    const fall = Math.max(0, num(id, 'fall', props, 'fall', 0))
     const key = stateKey(id)
     const prev = smoothState.get(key)
     let v = value
-    if (prev && t >= prev.t && response > 0.01) {
-      const alpha = 1 - Math.exp(-(t - prev.t) / response)
+    const tau = prev && value < prev.v && fall > 0 ? fall : response
+    if (prev && t >= prev.t && tau > 0.01) {
+      const alpha = 1 - Math.exp(-(t - prev.t) / tau)
       v = prev.v + (value - prev.v) * alpha
     }
     smoothState.set(key, { v, t })
@@ -154,8 +149,7 @@ export const MATH_EVALUATORS: NodeEvaluators = {
     holdState.set(key, { v: held, prev: trig })
     return { result: held }
   },
-  // A/B selector — unlike Gate (value vs. constant fallback), both sides
-  // are live inputs.
+  // A/B selector — both sides are live inputs, so A doubles as a gate's fallback.
   Switch({ input, num }, id, props) {
     const a = num(id, 'a', props, 'a', 0)
     const b = num(id, 'b', props, 'b', 1)
@@ -237,10 +231,18 @@ export const MATH_EVALUATORS: NodeEvaluators = {
     const x = input(id, 'x', false) as boolean
     return { result: !x }
   },
-  Compare({ num }, id, props) {
+  // The operation and its hysteresis live in compare.ts beside their C++.
+  // With hysteresis the output remembers its last state, seeded off.
+  Compare({ num, stateKey }, id, props) {
     const a = num(id, 'a', props, 'a', 0)
     const b = num(id, 'b', props, 'b', 0.5)
-    return { result: a > b }
+    const op = compareOp(props.compareOp)
+    const hysteresis = compareHysteresis(props.hysteresis)
+    if (hysteresis <= 0) return { result: applyCompare(op, a, b, 0, false) }
+    const key = stateKey(id)
+    const result = applyCompare(op, a, b, hysteresis, compareState.get(key) ?? false)
+    compareState.set(key, result)
+    return { result }
   },
   // Every string these produce goes through state/displays/displayText.ts, which
   // the C++ generator imports too. Formatting decided in two places is

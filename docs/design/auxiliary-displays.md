@@ -444,7 +444,7 @@ Enabled, unmounted/shared documents and fixed-control diagnostics.
 Normal sketches evaluate general graph expressions. Show and SD-player
 templates share a bounded scalar IR in `controlGraph.ts`, with GPIO sampling,
 typed sources, dependency ordering, cycle/type/id checks and a 256-node limit.
-`scalarControlCpp.ts` supplies Math, Lerp, Clamp, MapRange, Sin, Cos, Compare,
+`scalarControlCpp.ts` supplies Math, Clamp, MapRange, Sin, Cos, Compare,
 Trigger, StepValue, Interval, Wave, TextValue and FormatNumber to both the IR
 and normal sketches. Time's two outputs share `signalTimeCpp.ts`. Custom controls
 provide float/bool pre-pass samples; template widget inputs accept supported

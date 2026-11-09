@@ -51,25 +51,30 @@ export const MATH_EMITTERS: NodeEmitters = {
     const input = `(uint8_t)(constrain(${f('t', 't', 0)}, 0.0f, 1.0f) * 255)`
     ln(`  float ${v('result')} = ${fn ? `${fn}(${input})` : input} / 255.0f;`)
   },
-  Gate({ node, p, ln, v, f, boolExpr }) {
-    const val = f('value', 'value', 0), gate = boolExpr(node.id, 'gate')
-    ln(`  float ${v('result')} = (${gate}) ? (${val}) : ${Number(p.fallback ?? 0)};`)
-  },
   // Low-pass smoothing — millis()-based EMA with time constant `response`
-  // seconds, seeded from the first sample. Mirrors the evaluator's Smooth.
+  // seconds (or `fall` while the value drops, when Fall is above 0), seeded
+  // from the first sample. Mirrors the evaluator's Smooth, passthrough at
+  // 0.01 s or less included.
   Smooth({ node, id, p, ln, v, f, incoming }) {
     const resp = Math.max(0, Number(p.response ?? 0.25))
+    const fall = Math.max(0, Number(p.fall ?? 0))
     const respWired = incoming.has(`${node.id}:response`)
-    const respE = `fmaxf(0.0f,${f('response', 'response', resp)})`
+    const fallWired = incoming.has(`${node.id}:fall`)
     const val = f('value', 'value', 0)
-    // A response at rest is a passthrough, and the generator can only pick
-    // that arm while the knob cannot move.
-    if (resp <= 0.01 && !respWired) { ln(`  float ${v('result')} = ${val};`); return }
+    // Both directions at rest are a passthrough (a Fall of 0 is Response),
+    // and the generator can only pick that arm while neither knob can move.
+    if (resp <= 0.01 && !respWired && fall <= 0.01 && !fallWired) { ln(`  float ${v('result')} = ${val};`); return }
+    const usesFall = fallWired || fall > 0
     ln(`  static float ${v('result')} = 0; static uint32_t _smT_${id} = 0; static bool _smI_${id} = false;`)
     ln(`  { float _in = ${val}; uint32_t _now = millis();`)
-    ln(`    float _smResp = fmaxf(0.0001f, ${respE});`)
+    ln(`    float _smResp = fmaxf(0.0f, ${f('response', 'response', resp)});`)
+    if (usesFall) {
+      ln(`    float _smFall = fmaxf(0.0f, ${f('fall', 'fall', 0)});`)
+      ln(`    if (_smI_${id} && _in < ${v('result')} && _smFall > 0.0f) _smResp = _smFall;`)
+    }
     ln(`    if (!_smI_${id}) { ${v('result')} = _in; _smI_${id} = true; }`)
-    ln(`    else ${v('result')} += (_in - ${v('result')}) * (1.0f - expf(-(float)(_now - _smT_${id}) / 1000.0f / _smResp));`)
+    ln(`    else if (_smResp > 0.01f) ${v('result')} += (_in - ${v('result')}) * (1.0f - expf(-(float)(_now - _smT_${id}) / 1000.0f / _smResp));`)
+    ln(`    else ${v('result')} = _in;`)
     ln(`    _smT_${id} = _now; }`)
   },
   // Sample & hold — latch `value` on a rising edge of `trigger` (seeded

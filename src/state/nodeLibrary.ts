@@ -23,7 +23,9 @@ import { MIC_MAX_GAIN, MIC_MAX_NOISE_GATE } from '../audio/micAnalysis'
 import { ANIMARTRIX_EFFECTS } from '../animartrix/catalog'
 import { MAX_PIN_NUMBER, NO_PIN, type GpioCapability } from '../build/boards/boardGpio'
 import { CLOCKED_DATA_RATES_MHZ, dataRateOptionsMhz } from '../build/ledDrivers'
-import { EASE_TYPES } from '../nodes/math/easing'
+import { EASE_PICKER_TYPES } from '../nodes/math/easing'
+import { STEP_VALUE_ABS_LIMIT } from '../nodes/shared/stepValue'
+import { COMPARE_LABELS, COMPARE_OPS } from '../nodes/math/compare'
 import { WAVE_RATE_UNITS } from '../nodes/signal/wave'
 import { DATE_TIME_TEXT_MODES } from './displays/displayText'
 import { CUSTOM_DESIGN_LAYOUT, TRANSPORT_DISPLAY_LAYOUTS } from './displays/transportDisplay'
@@ -444,6 +446,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   mathOp:         { control: 'select', options: ['add', 'subtract', 'multiply', 'divide', 'modulo', 'average', 'min', 'max'] },
   fn:             { control: 'select', options: [...FUNCTION_OPS] },
   logicOp:        { control: 'select', options: [...LOGIC_OPS] },
+  compareOp:      { control: 'select', options: COMPARE_OPS },
   transitionType: { control: 'select', options: [
     'crossfade', 'wipe', 'dissolve', 'iris', 'clockwipe', 'push', 'checkerboard',
     'diagonal', 'fadeblack', 'fadewhite', 'blinds', 'ripple', 'spiral', 'curtain',
@@ -452,7 +455,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   blendMode:      { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference'] },
   mirrorMode:     { control: 'select', options: ['horizontal', 'vertical', 'quad', 'diagonal'] },
   glowAmount:     { control: 'slider', min: 0, max: 1, step: 0.01 },
-  easeType:       { control: 'select', options: [...EASE_TYPES] },
+  easeType:       { control: 'select', options: EASE_PICKER_TYPES },
   easing:         { control: 'select', options: ['linear', 'sine', 'quad', 'cubic'] },
   triggerOp:      { control: 'select', options: ['debounce', 'changed', 'toggle', 'oneShot', 'pulseDivider', 'delay'] },
   feedbackTransform: { control: 'select', options: ['none', 'translate', 'rotate', 'scale'] },
@@ -528,8 +531,10 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   feed:     { control: 'slider', min: 0, max: 0.1, step: 0.0005 },
   kill:     { control: 'slider', min: 0, max: 0.1, step: 0.0005 },
   interval: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
-  // Smooth's time constant (seconds to ~63% of a step; 0 = passthrough).
+  // Smooth's time constant (seconds to ~63% of a step; 0 = passthrough), and
+  // its optional separate one for a falling value (0 = the same as Response).
   response: { control: 'slider', min: 0, max: 2, step: 0.01 },
+  fall:     { control: 'slider', min: 0, max: 2, step: 0.01 },
   warmth:   { control: 'slider', min: 0, max: 1, step: 0.01 },
   // HeatColor input, Rainbow spread, Gamma exponent, and the power cap.
   heat:     { control: 'slider', min: 0, max: 1, step: 0.01 },
@@ -624,11 +629,13 @@ const DERIVED_COLOR_CHANNEL_META: Record<string, Record<string, PropertyControl>
 // via speedRange.ts); the simulation patterns use a steps-per-second rate, and
 // `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
+  // Typed rather than dragged, over the whole range the normaliser accepts, so
+  // a 0–255 brightness or a 60–180 BPM counter can be set.
   StepValue: {
-    initial: { control: 'slider', min: -100, max: 100, step: 0.01 },
-    minimum: { control: 'slider', min: -100, max: 100, step: 0.01 },
-    maximum: { control: 'slider', min: -100, max: 100, step: 0.01 },
-    step: { control: 'slider', min: 0.01, max: 100, step: 0.01 },
+    initial: { control: 'slider', min: -STEP_VALUE_ABS_LIMIT, max: STEP_VALUE_ABS_LIMIT, step: 0.01, entry: 'number' },
+    minimum: { control: 'slider', min: -STEP_VALUE_ABS_LIMIT, max: STEP_VALUE_ABS_LIMIT, step: 0.01, entry: 'number' },
+    maximum: { control: 'slider', min: -STEP_VALUE_ABS_LIMIT, max: STEP_VALUE_ABS_LIMIT, step: 0.01, entry: 'number' },
+    step: { control: 'slider', min: 0.01, max: STEP_VALUE_ABS_LIMIT, step: 0.01, entry: 'number' },
   },
   TransportDisplay: {
     // The canvas narrows this to what the wired source can show
@@ -1690,6 +1697,10 @@ export function propertyOptions(
       ? ['hexArcs']
       : meta.options.filter((option) => option !== 'hexArcs')
   }
+  // A curve the picker no longer offers still shows on a node saved with it.
+  if (nodeType === 'Ease' && key === 'easeType' && properties.easeType === 'inOutApprox') {
+    return [...meta.options, 'inOutApprox']
+  }
   return meta.options
 }
 
@@ -2631,33 +2642,28 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     value: 'Number to remap when nothing is wired into Value.',
     inMin: 'Input value that becomes Out Min.',
     inMax: 'Input value that becomes Out Max.',
-    outMin: 'Output when the input equals In Min. Values beyond the range keep extrapolating.',
+    outMin: 'Output when the input equals In Min. Values beyond the range keep extrapolating unless Clamp output is on.',
     outMax: 'Output when the input equals In Max.',
-  },
-  Lerp: {
-    a: 'Value when T is 0.',
-    b: 'Value when T is 1.',
-    t: 'Blend position 0–1 between A and B.',
+    clampOutput: 'Holds the result between Out Min and Out Max, so an input past the In range stops at the end instead of running on.',
   },
   Ease: {
     easeType: 'Curve shape applied to T. In/Out curves slow one end; Wave shapes rise and fall.',
     t: 'Position 0–1 along the curve when nothing is wired into T.',
   },
-  Gate: {
-    value: 'Number passed through while Gate is true, when nothing is wired into Value.',
-    fallback: 'Number output while Gate is false.',
-  },
   Smooth: {
     value: 'Number to smooth when nothing is wired into Value.',
-    response: 'Seconds to catch up most of the way (63%) to a change. 0 passes the value straight through.',
+    response: 'Seconds to catch up most of the way (63%) to a change, and to a fall too while Fall is 0. 0 passes the value straight through.',
+    fall: 'Seconds to sink most of the way (63%) when the value drops. Set it above Response for a level that jumps up and falls back slowly, like a VU meter. 0 uses Response.',
   },
   Switch: {
     a: 'Output while Select is false.',
     b: 'Output while Select is true.',
   },
   Compare: {
+    compareOp: 'The test: A greater than B, less than B, at least B or at most B.',
     a: 'Left side of the comparison when nothing is wired into A.',
-    b: 'Right side; the output is true while A is greater than B.',
+    b: 'Right side, the threshold A is tested against, when nothing is wired into B.',
+    hysteresis: 'A band round B, in the same units, that a level must cross to change the answer: on past B plus this, off past B minus this. Stops a level hovering at B from flickering. 0 is a plain comparison.',
   },
   Trigger: {
     triggerOp: 'What to do with the pulse: clean it, detect change, toggle, stretch, count, or delay it.',
@@ -3640,11 +3646,13 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   Math: { mathOp: 'operation' },
   Function: { fn: 'function' },
   Logic: { logicOp: 'operation' },
+  Compare: { compareOp: 'operation' },
   MapRange: {
     inMin: 'in min',
     inMax: 'in max',
     outMin: 'out min',
     outMax: 'out max',
+    clampOutput: 'clamp output',
   },
   Ease: { easeType: 'curve' },
   Trigger: {
@@ -4668,6 +4676,7 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
     prop: 'logicOp',
     labels: { and: 'And', or: 'Or', xor: 'Xor', nand: 'Nand', nor: 'Nor' },
   },
+  Compare: { prop: 'compareOp', labels: COMPARE_LABELS },
   Transition: {
     prop: 'transitionType',
     labels: {
@@ -4735,10 +4744,10 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
   Ease: {
     prop: 'easeType',
     labels: {
-      inOutCubic: 'Ease · Cubic',
-      inOutQuad: 'Ease · Quad',
+      inOutCubic: 'Ease In/Out · Cubic',
+      inOutQuad: 'Ease In/Out · Quad',
       linear: 'Linear',
-      inOutApprox: 'Ease · Fast Approx',
+      inOutApprox: 'Ease In/Out · Fast Approx',
       inQuad: 'Ease In · Quad',
       outQuad: 'Ease Out · Quad',
       inCubic: 'Ease In · Cubic',

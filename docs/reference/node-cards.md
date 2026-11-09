@@ -324,12 +324,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Step Value example graph](../../public/node-cards/graphs/step-value.svg)
 
-### Lerp
-
-![Lerp node](../../public/node-cards/lerp.svg)
-
-![Lerp example graph](../../public/node-cards/graphs/lerp.svg)
-
 ### Ease
 
 ![Ease node](../../public/node-cards/ease.svg)
@@ -359,12 +353,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Sample & Hold node](../../public/node-cards/sample-hold.svg)
 
 ![Sample & Hold example graph](../../public/node-cards/graphs/sample-hold.svg)
-
-### Gate
-
-![Gate node](../../public/node-cards/gate.svg)
-
-![Gate example graph](../../public/node-cards/graphs/gate.svg)
 
 ### Switch
 

@@ -408,11 +408,11 @@ describe('evaluateGraph', () => {
   })
 
   it('reads a float wired into a bool port as true from 0.5', () => {
-    const gate = node('gate-bool', 'Gate', 'math', { value: 1, fallback: 0 })
+    const gate = node('gate-bool', 'Switch', 'math', { a: 0, b: 1 })
     for (const [level, open] of [[0.3, false], [0.5, true], [0.9, true]] as const) {
       const source = node(`level-${level}`, 'Math', 'math', { mathOp: 'add', a: level, b: 0 })
       const outputs = evaluateGraphFull([source, gate], [
-        edge('bool-gate', source.id, 'result', 'gate-bool', 'gate'),
+        edge('bool-gate', source.id, 'result', 'gate-bool', 'sel'),
       ], 0, W, H).outputs.get('gate-bool')!
       expect(outputs.result).toBe(open ? 1 : 0)
     }

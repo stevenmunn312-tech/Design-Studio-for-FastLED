@@ -3,6 +3,8 @@ import { displayString, normalizeNumberFormat } from '../state/displays/displayT
 import { normalizeStepValueSettings, STEP_VALUE_SCALE } from '../nodes/shared/stepValue'
 import { functionCpp, mathOperandIdentity } from '../nodes/math/mathIdentity'
 import { logicCpp } from '../nodes/math/logic'
+import { mapRangeCpp } from '../nodes/math/mapRange'
+import { compareCpp, compareHysteresis, compareOp } from '../nodes/math/compare'
 import { toggleCpp } from './toggleCpp'
 import { intervalCpp } from './intervalCpp'
 import { waveCpp, waveHzCpp } from './signalTimeCpp'
@@ -14,7 +16,6 @@ export const SCALAR_CONTROL_NODES: Record<string, { port: string; type: ControlD
   Constant: { port: 'value', type: 'float' },
   Math: { port: 'result', type: 'float' },
   Logic: { port: 'result', type: 'bool' },
-  Lerp: { port: 'result', type: 'float' },
   Clamp: { port: 'result', type: 'float' },
   MapRange: { port: 'result', type: 'float' },
   StepValue: { port: 'value', type: 'float' },
@@ -34,7 +35,6 @@ export function scalarControlInputDefaults(type: string, props: Record<string, u
       const identity = mathOperandIdentity(props.mathOp)
       return { a: identity, b: identity }
     }
-    case 'Lerp': return { a: 0, b: 1, t: 0.5 }
     case 'Clamp': return { value: 0, min: 0, max: 1 }
     case 'MapRange': return { value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1 }
     case 'StepValue': return { increase: 0, decrease: 0, reset: 0 }
@@ -87,11 +87,10 @@ export function scalarControlCpp(
         default: expression = `(${f.a}) + (${f.b})`
       }
       break
-    case 'Lerp': expression = `(${f.a}) + ((${f.b}) - (${f.a})) * (${f.t})`; break
     // The preview's max(min, min(max, value)): with min above max it is min,
     // where Arduino's constrain answers min or max depending on the value.
     case 'Clamp': expression = `fmaxf(${f.min}, fminf(${f.max}, ${f.value}))`; break
-    case 'MapRange': expression = `mapFloat(${f.value}, ${f.inMin}, ${f.inMax}, ${f.outMin}, ${f.outMax})`; break
+    case 'MapRange': expression = mapRangeCpp(f.value, f.inMin, f.inMax, f.outMin, f.outMax, props.clampOutput === true); break
     case 'StepValue': {
       const settings = normalizeStepValueSettings(props)
       const lit = (value: number) => `${Number.isInteger(value) ? value.toFixed(1) : String(value)}f`
@@ -124,7 +123,17 @@ export function scalarControlCpp(
       break
     }
     case 'Logic': expression = logicCpp(props.logicOp, f.a, f.b); break
-    case 'Compare': expression = `(${f.a}) > (${f.b})`; break
+    case 'Compare': {
+      const op = compareOp(props.compareOp)
+      const hysteresis = compareHysteresis(props.hysteresis)
+      if (hysteresis <= 0) { expression = compareCpp(op, f.a, f.b, 0); break }
+      // The previous pass's answer is what the hysteresis band hangs on.
+      loop = [
+        `  static bool ${output} = false;`,
+        `  ${output} = ${compareCpp(op, f.a, f.b, hysteresis, output)};`,
+      ]
+      break
+    }
     case 'Interval': loop = intervalCpp(id, output, f.interval); break
     case 'Wave': loop = waveCpp(output, String(props.waveform ?? 'sine'), f.amplitude, waveHzCpp(props.rateUnit, () => f.frequency, () => f.bpm), f.phase, time, { unipolar: props.unipolar === true, offset: f.offset }); break
     case 'Trigger': {

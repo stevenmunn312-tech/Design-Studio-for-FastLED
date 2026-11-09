@@ -589,49 +589,6 @@ freeze, or drop them.
   can join a bank; Custom, Poline, Image and Harmony palettes cannot. Add
   wired palette slots to make it the general palette switcher. Evidence
   `src/nodes/color/codegen.ts:181`.
-- [ ] **Map Range: Add a Clamp output toggle (High, S).** Help tells users to
-  follow Map Range with Clamp, and it is the standard normaliser for
-  un-normalised inputs. One checkbox removes a node from the commonest chain
-  and stops extrapolated values from breaking effects. Evidence
-  `src/components/HelpModal/reference/math.ts:89`.
-- [ ] **Map Range: Expose only Value by default (Low, S).** All five sockets
-  are exposed, but the ranges are nearly always typed. Expose only Value
-  (hidden sockets stay drop targets); do the same for Clamp's Min/Max.
-  Evidence `src/nodes/math/definitions.ts:68`.
-- [ ] **Step Value: Lift the ±100 slider caps (Med, S).** Initial/Min/Max/Step
-  are capped at ±100 and `EditableRange` rejects typed values outside it, so a
-  0–255 brightness or 60–180 BPM counter cannot be set, though the normaliser
-  allows ±1,000,000. Switch to `entry: 'number'`. Evidence
-  `src/state/nodeLibrary.ts:626`, `src/nodes/shared/stepValue.ts:30`.
-- [ ] **Step Value: Declare action inputs for Touch (Med, S).** Increase,
-  Decrease and Reset are not `actionInputs`, so Touch controls cannot be
-  minted on them, which is the use its comment names. Declare them as Palette
-  Bank does. Evidence `src/state/propertyInputs.ts:35`, `src/nodes/color/definitions.ts:273`.
-- [ ] **Lerp: Remove it in favour of Map Range (Med, S).** Same maths as Map
-  Range with In 0–1, and "Lerp" is jargon. Remove it (one bundled use) now
-  that Map Range gains a clamp, or at minimum rename it "Mix Numbers" and
-  label T "(0–1)". Evidence `src/nodes/math/evaluate.ts:93`.
-- [ ] **Ease: Clean up the dropdown (Med, S).** Fourteen camelCase options are
-  shown. Drop `inOutApprox` ("Fast Approx") from the picker, as it is a CPU
-  detail with no visible difference, but keep the id for saved graphs.
-  Evidence `src/state/nodeLibrary.ts` `BUNDLED_TITLES.Ease`.
-- [ ] **Ease: Make header labels consistent (Low, S).** In-out curves read
-  `Ease · Cubic`/`Ease · Quad` while others read `Ease In/Out · Sine`. Use
-  "Ease In/Out · Cubic" etc. Evidence `src/state/nodeLibrary.ts` `BUNDLED_TITLES.Ease`.
-- [ ] **Gate: Remove it in favour of Switch (Med, S).** Gate is exactly Switch
-  with A = fallback, and Switch can also wire the fallback. It has no bundled
-  uses; remove it and move its "roam only while held" Help example to Switch.
-  Evidence `src/nodes/math/evaluate.ts:124`.
-- [ ] **Smooth: Add a separate Fall time (Med, S).** Fast attack with slow
-  release is the standard way to tame audio levels and VU readouts, and
-  neither Smooth nor Envelope can do it. Add an optional Fall time (rise =
-  Response): one extra `alpha` branch on each side. Evidence
-  `src/nodes/math/evaluate.ts:139`, `src/nodes/math/codegen.ts:72`.
-- [ ] **Compare: Add an operation select and hysteresis (Med, S).** Only
-  `A > B` exists. Add >, <, ≥, ≤ and a Hysteresis amount (on above B + h, off
-  below B − h), so flicker near a threshold is fixed in the level domain
-  rather than with a following Trigger/Debounce. Evidence
-  `src/components/HelpModal/reference/math.ts:423`.
 
 #### Effects and signals
 

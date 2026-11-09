@@ -72,7 +72,10 @@ describe('property input exposure', () => {
       }
     }
     expect(undeclared).toEqual([])
-    expect(normalizeExposedInputs('Clamp', undefined)).toEqual(['value', 'min', 'max'])
+    // Clamp's bounds are nearly always typed, so only Value is drawn until asked
+    // for; the others are still declared, so their hidden sockets take a drop.
+    expect(normalizeExposedInputs('Clamp', undefined)).toEqual(['value'])
+    expect(exposableInputsFor('Clamp').map((port) => port.id)).toEqual(['value', 'min', 'max'])
   })
 
   it('bounds imported visibility data and reveals wired ports without mutating the graph', () => {

@@ -4,6 +4,7 @@ import { NODE_LIBRARY, NODE_DESCRIPTIONS, PORT_COLORS, portColor, propertyMeta, 
 import { MATH_FUNCTION_NAMES } from '../../nodes/shared/formulaLang'
 import { SHIM_NAMES } from '../../nodes/shared/fastledShims'
 import { EASE_TYPES } from '../../nodes/math/easing'
+import { STEP_VALUE_ABS_LIMIT } from '../../nodes/shared/stepValue'
 import { SPIRAL_ARMS } from '../../nodes/generative/limits'
 import { KALEIDOSCOPE_SEGMENTS } from '../../nodes/composite/kaleidoscope'
 import { FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../../nodes/simulations/limits'
@@ -925,26 +926,44 @@ describe('nodeLibrary', () => {
     const defaults = (type: string) => NODE_LIBRARY.find((n) => n.type === type)?.defaultProperties ?? {}
     expect(defaults('Math')).toEqual({ mathOp: 'add', a: 0, b: 0 })
     expect(defaults('Clamp')).toMatchObject({ value: 0, min: 0, max: 1 })
-    expect(defaults('MapRange')).toMatchObject({ value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1 })
+    expect(defaults('MapRange')).toMatchObject({ value: 0, inMin: 0, inMax: 1, outMin: 0, outMax: 1, clampOutput: false })
     expect(NODE_LIBRARY.find((n) => n.type === 'MapRange')?.inputs.map((port) => port.id)).toEqual([
       'value', 'inMin', 'inMax', 'outMin', 'outMax',
     ])
-    expect(defaults('Lerp')).toMatchObject({ a: 0, b: 1, t: 0.5 })
+    // The ranges are nearly always typed: only Value is drawn until asked for.
+    expect(NODE_LIBRARY.find((n) => n.type === 'MapRange')?.defaultExposedInputs).toEqual(['value'])
+    expect(NODE_LIBRARY.find((n) => n.type === 'Clamp')?.defaultExposedInputs).toEqual(['value'])
     expect(defaults('Ease')).toMatchObject({ easeType: 'inOutCubic', t: 0 })
     expect(defaults('Function')).toEqual({ fn: 'sin', x: 0 })
-    expect(defaults('Gate')).toMatchObject({ value: 0, fallback: 0 })
     expect(defaults('Smooth')).toMatchObject({ value: 0, response: 0.25 })
     expect(defaults('SampleHold')).toMatchObject({ value: 0 })
     expect(defaults('Compare')).toMatchObject({ a: 0, b: 0.5 })
   })
 
+  it('lets Step Value be typed across the range its normaliser accepts', () => {
+    // A 0–255 brightness or a 60–180 BPM counter once could not be set: the
+    // ±100 sliders refused anything outside them.
+    for (const key of ['initial', 'minimum', 'maximum']) {
+      expect(propertyMeta('StepValue', key), key).toMatchObject({ min: -STEP_VALUE_ABS_LIMIT, max: STEP_VALUE_ABS_LIMIT, entry: 'number' })
+    }
+    expect(propertyMeta('StepValue', 'step')).toMatchObject({ max: STEP_VALUE_ABS_LIMIT, entry: 'number' })
+  })
+
   it('exposes every Ease variant with a descriptive bundled title', () => {
+    // Fast Approx is a CPU detail with no visible difference: not offered,
+    // but a node saved with it still shows and runs it.
     expect(propertyMeta('Ease', 'easeType')).toEqual({
       control: 'select',
-      options: [...EASE_TYPES],
+      options: EASE_TYPES.filter((type) => type !== 'inOutApprox'),
     })
+    expect(propertyOptions('Ease', 'easeType', {})).not.toContain('inOutApprox')
+    expect(propertyOptions('Ease', 'easeType', { easeType: 'inOutApprox' })).toContain('inOutApprox')
     for (const easeType of EASE_TYPES) {
       expect(nodeDisplayLabel('Ease', { easeType }, 'Ease'), easeType).not.toBe('Ease')
+    }
+    // Every two-ended curve says so in the same words.
+    for (const easeType of EASE_TYPES.filter((type) => type.startsWith('inOut'))) {
+      expect(nodeDisplayLabel('Ease', { easeType }, 'Ease'), easeType).toMatch(/^Ease In\/Out · /)
     }
     expect(nodeDisplayLabel('Ease', { easeType: 'unknown' }, 'Ease')).toBe('Ease')
   })

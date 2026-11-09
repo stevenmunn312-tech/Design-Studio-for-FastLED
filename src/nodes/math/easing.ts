@@ -21,6 +21,14 @@ export const EASE_TYPES = [
 
 export type EaseType = typeof EASE_TYPES[number]
 
+/**
+ * The curves the Ease picker offers. `inOutApprox` is FastLED's cheaper
+ * stand-in for the in-out cubic, a CPU detail with no visible difference, so
+ * it is not offered; a saved graph that names it still runs it, and the
+ * picker shows it on that node alone (`propertyOptions`).
+ */
+export const EASE_PICKER_TYPES: readonly EaseType[] = EASE_TYPES.filter((type) => type !== 'inOutApprox')
+
 function clamp01(x: number): number {
   return Math.max(0, Math.min(1, x))
 }

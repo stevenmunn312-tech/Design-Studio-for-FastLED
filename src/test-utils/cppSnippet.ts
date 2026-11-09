@@ -68,6 +68,9 @@ const RUNTIME = {
   sinf: Math.sin, cosf: Math.cos, sin: Math.sin, cos: Math.cos, sqrtf: Math.sqrt,
   powf: Math.pow, fabsf: Math.abs, floorf: Math.floor, expf: Math.exp, atan2f: Math.atan2,
   roundf: (x: number) => Math.sign(x) * Math.round(Math.abs(x)),
+  // MAP_FLOAT_CPP in codegen/scalarControlCpp.ts, the helper Map Range calls.
+  mapFloat: (x: number, inMin: number, inMax: number, outMin: number, outMax: number) =>
+    inMax === inMin ? outMin : outMin + (x - inMin) * (outMax - outMin) / (inMax - inMin),
   __int: Math.trunc,
   TWO_PI: Math.PI * 2,
 }

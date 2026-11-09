@@ -583,7 +583,16 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   and an emitter whose value needs a different block delegates to its own
   function (`fire2012Cpp`, `threeBandCpp`) before destructuring the context.
   Bundled content is converted, not migrated: pre-1.0, a save holding a
-  removed type shows it as unknown.
+  removed type shows it as unknown. A node that another already computes
+  exactly is removed rather than merged: Lerp was Map Range with In 0–1 (its
+  one bundled use now wires the old A into Out Min and T into Value), and
+  Gate was Switch with A as the fallback.
+- An operation set or remap both sides run lives beside its C++ in one
+  module, as Function's and Logic's do: Map Range's optional output clamp in
+  `math/mapRange.ts`, Compare's operations and hysteresis in
+  `math/compare.ts`. Compare's hysteresis is a Schmitt band in the level
+  domain; at 0 it is the plain stateless test, so a node that never sets it
+  emits no state at all.
 - Loop pacing is one helper, `loopPacingCpp` (`codegen/loopPacing.ts`),
   fed by the Board's `frameRate` through `controllerSettings`: the normal
   sketch, the show controller and the player all end their loop with it, and
