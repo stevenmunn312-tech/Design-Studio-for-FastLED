@@ -165,9 +165,9 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       studioNode('pal', 'Poline', -880, -180, {
         anchorA: '#1a0730', anchorB: '#ff2f86', anchorC: '#ffe36b', points: 7,
       }),
-      studioNode('rate', 'Math', -880, 80, { mathOp: 'add', b: 0.22 }),
+      studioNode('rate', 'Math', -880, 80, { mathOp: 'add', b: 0.21 }),
       studioNode('confetti', 'Confetti', -520, -40, {
-        speed: 0.5, density: 0.62, trail: 0.39, palette: 'party', seed: 41,
+        speed: 0.5, density: 0.4, trail: 0.39, palette: 'party', seed: 41,
       }),
       studioNode('sparks', 'TrebleSparks', -520, 220, { density: 0.7, palette: 'citrus' }),
       studioNode('mix', 'Blend', -180, 80, { blendMode: 'screen', amount: 0.48 }),
@@ -178,7 +178,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       ...listen.filter((item) => item.id !== 'in-beat'),
       edge('e-pal', 'pal', 'palette', 'confetti', 'paletteIn'),
       edge('e-sn', 'perc', 'snare', 'rate', 'a'),
-      edge('e-rt', 'rate', 'result', 'confetti', 'speed'),
+      edge('e-rt', 'rate', 'result', 'confetti', 'density'),
       edge('e-tr', 'fft', 'treble', 'sparks', 'treble'),
       edge('e-en', 'feat', 'energy', 'sparks', 'density'),
       edge('e-a', 'confetti', 'frame', 'mix', 'a'),

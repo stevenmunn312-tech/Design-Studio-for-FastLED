@@ -1,5 +1,5 @@
 import { juggleDotCount, JUGGLE_COUNT } from './juggle'
-import { PRIDE_SAT, SCANNER_PALETTE_FLOOR, SPIRAL_ARMS, rainbowAxis, type RainbowAxis } from './limits'
+import { CONFETTI_SPAWN, PRIDE_SAT, SCANNER_PALETTE_FLOOR, SPIRAL_ARMS, rainbowAxis, type RainbowAxis } from './limits'
 import { STRING_MAX_ROWS } from '../shared/stringCanvas'
 import {
   BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, breatheCurve, breatheEnvelope, chaseSpacing, wipePalettePosition, wipeReversed,
@@ -188,10 +188,10 @@ function evalConfetti(
 
   const area = W * H
   const amount = clamp01(density)
-  const motion = Math.max(0, speed)
-  let spawnCount = Math.round(amount * (0.08 + motion * 0.3) * Math.max(1, Math.sqrt(area)))
-  if (spawnCount < 1 && amount * motion > 0.08) spawnCount = 1
-  const hueDrift = speedPhase(nodeId, t, motion) * 0.08
+  let spawnCount = Math.round(amount * CONFETTI_SPAWN * Math.max(1, Math.sqrt(area)))
+  if (spawnCount < 1 && amount > 0.08) spawnCount = 1
+  // Speed is the colour drift: how fast the speckles' colours wander the palette.
+  const hueDrift = speedPhase(nodeId, t, Math.max(0, speed)) * 0.08
 
   const rnd = () => seededRandom(`${nodeId}:confetti`, seed)
   for (let i = 0; i < spawnCount; i++) {

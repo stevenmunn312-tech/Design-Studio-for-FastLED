@@ -2851,8 +2851,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     palette: 'Colour across the breath: the palette start when empty, its end at the peak.',
   },
   Confetti: {
-    speed: 'How many speckles appear per frame, 0 none to 1 most.',
-    density: 'Extra speckles per frame; multiplies Speed.',
+    speed: 'How fast the speckles\' colours drift through the palette, 0 fixed to 1 fastest.',
+    density: 'How many speckles appear each frame, 0 none to 1 most.',
     trail: 'How long old speckles linger: 0 clears them at once, 1 halves them about every 2 s, and each step along the slider lengthens them by the same ratio.',
     palette: 'Colours the speckles are drawn from, drifting with time.',
   },
@@ -3556,6 +3556,9 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   Lightning: {
     rate: 'strikes/min',
+  },
+  Confetti: {
+    speed: 'color drift',
   },
   GameOfLife: {
     speed: 'generations/s',

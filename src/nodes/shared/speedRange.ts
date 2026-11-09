@@ -35,7 +35,7 @@ export const SPEED_MAX: Record<string, number> = {
   TheaterChase: 12,
   // ColorWipe — full wipes per second.
   ColorWipe: 1.5,
-  // Confetti — spawn-rate multiplier for random speckles.
+  // Confetti — colour drift through the palette; Density alone sets the spawn count.
   Confetti: 1.4,
   // Juggle — sweep rate for the dot phases.
   Juggle: 1.2,

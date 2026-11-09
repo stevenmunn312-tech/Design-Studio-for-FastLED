@@ -12,6 +12,12 @@ export function rainbowAxis(value: unknown): RainbowAxis {
   return (RAINBOW_AXES as readonly string[]).includes(String(value)) ? value as RainbowAxis : 'string'
 }
 
+/**
+ * Confetti speckles a frame per unit of Density, times the square root of
+ * the LED count. Density alone sets the amount; Speed only drifts the colours.
+ */
+export const CONFETTI_SPAWN = 0.5
+
 /** Pride 2015's rainbow saturation, the `CHSV(_hue, 230, _bri)` the sketch converts. */
 export const PRIDE_SAT = 230
 

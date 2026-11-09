@@ -5411,6 +5411,18 @@ describe('Pride2015 and Pacifica', () => {
     expect(party).not.toEqual(fire)
   })
 
+  it('Confetti spawns by Density alone; Speed only drifts the colours', () => {
+    const litAt = (id: string, props: Record<string, unknown>) => {
+      const { nodes, edges } = withOutput(node(id, 'Confetti', 'pattern', { trail: 0, seed: 4, ...props }))
+      const frame = evaluateGraph(nodes, edges, 30, 16, 16)!
+      return frame.flat().map((px) => px.r + px.g + px.b > 0)
+    }
+    // Same seed, same Density: the same speckles land whatever the Speed.
+    expect(litAt('cf-slow', { density: 0.5, speed: 0 })).toEqual(litAt('cf-fast', { density: 0.5, speed: 1 }))
+    const count = (lit: boolean[]) => lit.filter(Boolean).length
+    expect(count(litAt('cf-dense', { density: 1 }))).toBeGreaterThan(count(litAt('cf-sparse', { density: 0.2 })))
+  })
+
   it('Confetti with a short trail clears the persistent buffer faster', () => {
     const litCount = (id: string, props: Record<string, unknown>) => {
       const gen = node(id, 'Confetti', 'pattern', props)

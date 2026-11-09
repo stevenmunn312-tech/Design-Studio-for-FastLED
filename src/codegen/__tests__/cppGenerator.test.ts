@@ -5451,10 +5451,10 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('_tr=0.35;')
     expect(cpp).toContain('static float _trail_cfT = -1.0f, _trail_cfOwed = 0.0f;')
     expect(cpp).toContain('fadeToBlackBy(buf_cf, NUM_LEDS, _by);')
-    // The preview's own coefficients on the already-denormalised rate: a spawn
-    // term of 0.3 per unit of speed and a hue drift of 0.08 turns (20.4 of 255),
-    // rounded as Math.round is. Pre-dividing by SPEED_MAX here halved both.
-    expect(cpp).toContain('int _spawns=(int)roundf(_den * (0.08f + _spd * 0.3f) * sqrtf((float)NUM_LEDS));')
+    // Density alone sets the spawn count; the denormalised Speed is the hue
+    // drift of 0.08 turns (20.4 of 255), rounded as Math.round is.
+    expect(cpp).toContain('int _spawns=(int)roundf(_den * 0.5f * sqrtf((float)NUM_LEDS));')
+    expect(cpp).toContain('if(_spawns<1 && _den > 0.08f) _spawns=1;')
     expect(cpp).toContain('uint8_t _drift=(uint8_t)(_phase_cf * 20.4f);')
     expect(cpp).toContain('buf_cf[_i] += ColorFromPalette(paldef_party, random8() + _drift);')
   })

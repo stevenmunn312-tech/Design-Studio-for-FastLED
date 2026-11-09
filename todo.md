@@ -1026,11 +1026,6 @@ freeze, or drop them.
   Help example uses 4. For String Particles, a ring form gives the ring track
   and LED count and a strip form gives row. Evidence `src/state/nodeLibrary.ts:2244`,
   `:2261`.
-- [ ] **Confetti: Rename Speed to "Colour drift" (Med, S).** Speed and Density
-  both set spawn count (`density*(0.08+speed*0.3)*sqrt(area)`), and the
-  Density tooltip admits it multiplies Speed. Keep Density for amount and
-  rename Speed after its only other effect. Evidence
-  `src/nodes/generative/evaluate.ts:166`, `:168`.
 - [ ] **Sunrise: Add a `trigger` input that restarts the timed ramp (Med, S).**
   Timed mode only counts from power-on, so a real wake-up light needs
   Progress fed from a schedule through several nodes. A rising edge on

@@ -218,7 +218,7 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
       title: 'Strobe the party at 128 BPM, no microphone needed',
       nodes: {
         clock: ['Clock', { bpm: 128, beatsPerBar: 4, subdivision: 2 }],
-        party: ['Confetti', { palette: 'party', speed: 0.55, trail: 0.37 }],
+        party: ['Confetti', { palette: 'party', speed: 0.55, density: 0.28, trail: 0.37 }],
         strobe: ['BeatFlash', { intensity: 0.8, decay: 0.75, palette: 'party' }],
       },
       wires: ['clock.beat > strobe.beat', 'party.frame > strobe.frame'],

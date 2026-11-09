@@ -190,20 +190,21 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // FastLED DemoReel-style confetti — random palette speckles sprinkled onto
-    // a persistent buffer that fades toward black each frame.
+    // a persistent buffer that fades toward black each frame. Density sets how
+    // many; `speed` is the colour drift through the palette.
     type: 'Confetti',
     label: 'Confetti',
     category: 'pattern',
     subcategory: 'Generative',
     inputs: [
-      { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'speed', label: 'Color Drift', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'density', label: 'Density', dataType: 'float' },
       { id: 'trail', label: 'Trail', dataType: 'float' },
     ],
     propertyInputs: { density: 'density', trail: 'trail', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.45, density: 0.45, trail: 0.35, palette: 'party', seed: 0 },
+    defaultProperties: { speed: 0.45, density: 0.25, trail: 0.35, palette: 'party', seed: 0 },
   },
   {
     // Candle — warm flame flicker on one shared value or on every pixel.

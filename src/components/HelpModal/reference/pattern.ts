@@ -92,7 +92,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       title: 'A birthday banner',
       nodes: {
         banner: ['Text', { text: 'HAPPY BIRTHDAY SAM!', scroll: 9, wrap: true, r: 255, g: 120, b: 210, letterSpacing: 1 }],
-        confetti: ['Confetti', { palette: 'party', speed: 0.3, trail: 0.3 }],
+        confetti: ['Confetti', { palette: 'party', speed: 0.3, density: 0.19, trail: 0.3 }],
         layer: ['Blend', { blendMode: 'screen', amount: 0.6 }],
         output: ['MatrixOutput', { form: 'matrix', width: 32, height: 8 }],
       },
@@ -512,14 +512,14 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   Confetti: {
     overview: [
-      'Confetti scatters random coloured speckles that fade away, from FastLED’s DemoReel100. Speed and Density set how many appear, Trail how long they linger.',
-      'The colours drift through the palette over time, so a long-running confetti changes mood slowly.',
+      'Confetti scatters random coloured speckles that fade away, from FastLED’s DemoReel100. Density sets how many appear, Trail how long they linger.',
+      'The colours drift through the palette over time at the Color Drift rate, so a long-running confetti changes mood slowly.',
     ],
     example: example({
       featured: 'Confetti',
       title: 'Confetti in a mirror',
       nodes: {
-        speckles: ['Confetti', { palette: 'cottoncandy', speed: 0.5, density: 0.5, trail: 0.37 }],
+        speckles: ['Confetti', { palette: 'cottoncandy', speed: 0.5, density: 0.29, trail: 0.37 }],
         mirror: ['Mirror', { mirrorMode: 'quad' }],
       },
       wires: ['speckles.frame > mirror.frame'],
