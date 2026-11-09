@@ -1016,15 +1016,15 @@ describe('evaluateGraph', () => {
     expect(evaluateScalar([wa, wb, cw], edges, 'cw', 'result', 40)).toBeCloseTo(expected, 6)
   })
 
-  it('Transform translates a frame and is identity at rate 0', () => {
-    // A blue top row, then a Transform. Grid 16×4.
-    const run = (transform: string, rate: number, angle: number, tick: number) => {
+  it('Frame Transform moves a frame by its rates and is the identity at rest', () => {
+    // A blue top row, then a Frame Transform. Grid 16×4.
+    const run = (properties: Record<string, unknown>, tick: number) => {
       // A crisp blue top row: a Shape rect covering exactly row 0 across the width.
       const sp = node('sp', 'Shape', 'pattern', {
         shape: 'rect', cx: 0.5, cy: 0.25, size: 0.5, aspect: 16,
         rotation: 0, thickness: 0, filled: true, fill: '#0000ff', edge: '#0000ff',
       })
-      const tr = node('tr', 'Transform', 'composite', { transform, rate, angle })
+      const tr = node('tr', 'FrameTransform', 'composite', properties)
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph(
         [sp, tr, out],
@@ -1032,24 +1032,25 @@ describe('evaluateGraph', () => {
         tick, 16, 4,
       )!
     }
-    // translate down by 2 rows (angle 90°, 2 px/s at t=1): row 0 → row 2.
-    const t = run('translate', 2, 90, 60)
+    // Slide down 2 rows a second: at t=1, row 0 → row 2.
+    const t = run({ offsetYRate: 2 }, 60)
     expect(t[2][5]).toEqual({ r: 0, g: 0, b: 255 })
     expect(t[0][5]).toEqual({ r: 0, g: 0, b: 0 })
-    // rate 0 is the identity transform for every mode.
-    expect(run('rotate', 0, 0, 60)[0][5]).toEqual({ r: 0, g: 0, b: 255 })
-    expect(run('scale', 0, 0, 60)[0][5]).toEqual({ r: 0, g: 0, b: 255 })
-    expect(run('rotate', 0, 0, 60)[2][5]).toEqual({ r: 0, g: 0, b: 0 })
-    // A negative rate runs the other way. Each case starts from a fresh phase,
-    // because the rate integrates per node. Translate up by one row wraps row
-    // 0 to row 3 of four; scale shrinks to half, so the one-pixel top row
-    // falls between samples and leaves the edge dark.
+    // Every rate at 0 is the identity in both modes. The rates integrate per
+    // node, so each case starts from a fresh phase.
     resetEvaluatorState()
-    const up = run('translate', -1, 90, 60)
+    expect(run({ mode: 'exact' }, 60)[0][5]).toEqual({ r: 0, g: 0, b: 255 })
+    expect(run({ mode: 'smooth' }, 60)[0][5]).toEqual({ r: 0, g: 0, b: 255 })
+    expect(run({ mode: 'smooth' }, 60)[2][5]).toEqual({ r: 0, g: 0, b: 0 })
+    // A negative rate runs the other way. Sliding up by one row wraps row 0
+    // to row 3 of four; the scale rate shrinks the frame, so the one-pixel
+    // top row falls between nearest samples and leaves the edge dark.
+    resetEvaluatorState()
+    const up = run({ offsetYRate: -1 }, 60)
     expect(up[3][5]).toEqual({ r: 0, g: 0, b: 255 })
     expect(up[0][5]).toEqual({ r: 0, g: 0, b: 0 })
     resetEvaluatorState()
-    const shrunk = run('scale', -50, 0, 60)
+    const shrunk = run({ mode: 'smooth', scaleRate: -50, sampling: 'nearest' }, 60)
     expect(shrunk[0][5]).toEqual({ r: 0, g: 0, b: 0 })
   })
 
@@ -4345,8 +4346,8 @@ describe('Pattern node expansion — Phase 2 Frame Warp', () => {
     return evaluateGraph(nodes, edges, 0, W, H)!
   }
 
-  it('is an exact identity with neutral transform and no offset fields', () => {
-    const frame = render({ strength: 2, zoom: 1, rotate: 0, edgeMode: 'clamp', sampling: 'bilinear' })
+  it('is an exact identity with no offset fields and no built-in motion', () => {
+    const frame = render({ strength: 2, motion: 'none', edgeMode: 'clamp', sampling: 'bilinear' })
     expect(frame[0].map((px) => px.r)).toEqual([0, 85, 170, 255])
   })
 
@@ -4725,7 +4726,7 @@ describe('Pattern node expansion — Phase 1 Slice Tiling', () => {
   })
 })
 
-describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
+describe('Float Field — Phase 3 (Field Transform turn and tiles)', () => {
   function fieldOut(nodeId: string, nodes: StudioNode[], edges: StudioEdge[], tick = 0): Float32Array {
     const { outputs } = evaluateGraphFull(nodes, edges, tick, W, H)
     return outputs.get(nodeId)!.field as Float32Array
@@ -4739,20 +4740,20 @@ describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
     }
   }
 
-  it('FieldRotate by 0° returns the source unchanged', () => {
+  it('Field Transform at 0° with no spin returns the source unchanged', () => {
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
-    const fr = node('fr', 'FieldRotate', 'composite', { angle: 0, spin: 0 })
+    const fr = node('fr', 'FieldWarp', 'composite', { angle: 0, spin: 0 })
     const g = withFieldTail('fr', [src, fr], [edge('e1', 'src', 'field', 'fr', 'field')])
     const ref = fieldOut('src', g.nodes, g.edges)
     const rot = fieldOut('fr', g.nodes, g.edges)
     expect([...rot]).toEqual([...ref])
   })
 
-  it('FieldRotate by 90° turns an x-ramp into a y-ramp', () => {
-    // x-ramp: value depends only on column. After a 90° rotation it should vary
+  it('Field Transform at 90° turns an x-ramp into a y-ramp', () => {
+    // x-ramp: value depends only on column. After a 90° turn it should vary
     // by row instead — i.e. each row becomes (near) constant across columns.
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
-    const fr = node('fr', 'FieldRotate', 'composite', { angle: 90, spin: 0 })
+    const fr = node('fr', 'FieldWarp', 'composite', { angle: 90 })
     const g = withFieldTail('fr', [src, fr], [edge('e1', 'src', 'field', 'fr', 'field')])
     const rot = fieldOut('fr', g.nodes, g.edges)
     for (let y = 0; y < H; y++) {
@@ -4761,30 +4762,28 @@ describe('Float Field — Phase 3 (FieldRotate / FieldTile)', () => {
     }
   })
 
-  it('FieldRotate spin advances with time', () => {
+  it('Field Transform spin advances with time', () => {
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
-    const fr = node('fr', 'FieldRotate', 'composite', { angle: 0, spin: 90 })
+    const fr = node('fr', 'FieldWarp', 'composite', { angle: 0, spin: 90 })
     const g = withFieldTail('fr', [src, fr], [edge('e1', 'src', 'field', 'fr', 'field')])
     const at0 = fieldOut('fr', g.nodes, g.edges, 0)
     const at1s = fieldOut('fr', g.nodes, g.edges, 60)  // tick/60 = 1s → 90° spin
     expect([...at1s]).not.toEqual([...at0])
   })
 
-  it('FieldTile 2×1 repeats the field horizontally', () => {
+  it('Field Transform tiles 2×1 repeat the field horizontally, each pixel averaging the two it squeezes', () => {
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
-    const ft = node('ft', 'FieldTile', 'composite', { tilesX: 2, tilesY: 1 })
+    const ft = node('ft', 'FieldWarp', 'composite', { tilesX: 2, tilesY: 1, edgeMode: 'wrap' })
     const g = withFieldTail('ft', [src, ft], [edge('e1', 'src', 'field', 'ft', 'field')])
     const ref = fieldOut('src', g.nodes, g.edges)
     const tiled = fieldOut('ft', g.nodes, g.edges)
-    // Column 0 of each horizontal tile samples source column 0.
-    expect(tiled[0]).toBeCloseTo(ref[0])
-    // tile mapping: out col x → src col (x*2)%W
-    for (let x = 0; x < W; x++) expect(tiled[x]).toBeCloseTo(ref[(x * 2) % W])
+    // Out column x covers source columns 2x and 2x+1, wrapped.
+    for (let x = 0; x < W; x++) expect(tiled[x]).toBeCloseTo((ref[(2 * x) % W] + ref[(2 * x + 1) % W]) / 2, 6)
   })
 
-  it('FieldTile clamps tile counts to ≥1', () => {
+  it('Field Transform holds tile counts below 1 at one copy', () => {
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
-    const ft = node('ft', 'FieldTile', 'composite', { tilesX: 0, tilesY: 0 })
+    const ft = node('ft', 'FieldWarp', 'composite', { tilesX: 0, tilesY: 0 })
     const g = withFieldTail('ft', [src, ft], [edge('e1', 'src', 'field', 'ft', 'field')])
     const ref = fieldOut('src', g.nodes, g.edges)
     const tiled = fieldOut('ft', g.nodes, g.edges)

@@ -52,7 +52,7 @@ describe("Frame Warp's built-in motion", () => {
     const swirl = cpp({ motion: 'swirl', motionSpeed: 0.5 }, false)
     expect(swirl).toContain('/* FrameWarp: clamp, bilinear, swirl */')
     expect(swirl).toContain('float _fw_ms=0.5;')
-    expect(swirl).toContain('float _sx=_fw_cx+_px*_fw_co+_py*_fw_si+_pdx*_fw_st;')
+    expect(swirl).toContain('float _sx=_x+_pdx*_fw_st,_sy=_y+_pdy*_fw_st;')
     expect(cpp({ motion: 'swirl' }, true)).not.toContain('_pdx')
     expect(cpp({ motion: 'none' }, false)).not.toContain('_pdx')
   })

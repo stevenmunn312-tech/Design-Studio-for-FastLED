@@ -41,7 +41,7 @@ function copperCircuitTide(): AudioReleaseSeed {
   b.map('traceWidth', 'band', 'level', 0.055, 0.17)
   b.map('drift', 'energy', 'result', 0.025, 0.65)
   b.node('warpNoise', 'FieldNoise', { speed: 0.1, scale: 0.2, octaves: 2, seed: 47 })
-  // Field Warp uses pixel offsets, not a normalised amount. Cross a whole
+  // Field Transform pushes in pixels, not a normalised amount. Cross a whole
   // sample during the build so the bend survives small LED resolutions.
   b.map('tension', 'buildup', 'result', 0.08, 3.8)
   b.node('bend', 'FieldWarp')
@@ -154,7 +154,7 @@ function abyssalJuliaBloom(): AudioReleaseSeed {
   // and the drop envelope is how far along the way to Out Max the depth sits.
   b.map('dive', 'buildup', 'result', 0.07, 1.46)
   b.node('pullback', 'MapRange', { outMax: -0.36 })
-  b.node('turn', 'FieldRotate')
+  b.node('turn', 'FieldWarp', { edgeMode: 'wrap' })
   b.map('current', 'energy', 'result', 1.2, 14)
   b.node('colour', 'PaletteTransform')
   b.map('mood', 'song', 'valence', -0.08, 0.12)

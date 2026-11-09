@@ -14,6 +14,7 @@ import { noiseShape, noiseShapeCpp } from '../../state/evaluator/noiseShape'
 import { GOLDEN_RATIO, LISSAJOUS_FIELD_SAMPLES } from './evaluate'
 import { resolveSlicePattern } from './sliceTiling'
 import { BLUR_RADIUS, GRADIENT_REPEAT, gradientRepeat, gradientType, gradientWraps } from './gradientField'
+import { FIELD_ZOOM, fieldEdgeMode, fieldSamples, fieldTiles, fieldTransformCpp } from './fieldTransform'
 import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/symmetry'
 import { truchetLattice, truchetMotif, truchetMotifIndex, truchetOrientationCount } from '../../state/evaluator/truchet'
 import {
@@ -577,53 +578,45 @@ export const FIELD_EMITTERS: NodeEmitters = {
       ln(`      ${of}[_y*WIDTH+_x]=_v*_v*(3.0f-2.0f*_v); } }`)
     }
   },
-  FieldWarp({ p, ln, f, ownField, srcField }) {
+  // Field Transform (./fieldTransform.ts). A step the graph can never move is
+  // left out: no push without an offset field, no turn while Angle and Spin
+  // are unwired at 0, no zoom at an unwired 1, no tiles at an unwired 1 × 1,
+  // and the read count is fixed here unless Tiles or Zoom is wired.
+  FieldWarp({ node, id, p, ln, f, ownField, srcField, incoming, needsT }) {
     const of = ownField()
-    const st = f('strength', 'strength', 2)
-    const src = srcField('field'), sdx = srcField('dx'), sdy = srcField('dy')
-    if (!src) { ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=0.0f; // FieldWarp: no input`); return }
-    const oxE = sdx ? `(2.0f*${sdx}[_y*WIDTH+_x]-1.0f)*_st` : '0.0f'
-    const oyE = sdy ? `(2.0f*${sdy}[_y*WIDTH+_x]-1.0f)*_st` : '0.0f'
+    const src = srcField('field'), dx = srcField('dx'), dy = srcField('dy')
+    if (!src) { ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=0.0f; // Field Transform: no input`); return }
+    const wired = (port: string) => incoming.has(`${node.id}:${port}`)
+    const value = (port: string, rest: number) => !wired(port) && Number(p[port] ?? rest) === rest ? null : f(port, port, rest)
+    const edge = fieldEdgeMode(p.edgeMode)
     const bilinear = p.sampling !== 'nearest'
-    ln(`  { /* FieldWarp${bilinear ? '' : ': nearest'} */ float _st=${st};`)
-    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _ox=${oxE},_oy=${oyE};`)
-    if (bilinear) {
-      // sampleFieldBilinear's sum, edges clamped.
-      ln(`      float _fx=constrain(_x+_ox,0.0f,(float)(WIDTH-1)),_fy=constrain(_y+_oy,0.0f,(float)(HEIGHT-1));`)
-      ln(`      int _x0=(int)_fx,_y0=(int)_fy,_x1=min(_x0+1,WIDTH-1),_y1=min(_y0+1,HEIGHT-1); float _ax=_fx-_x0,_ay=_fy-_y0;`)
-      ln(`      float _top=${src}[_y0*WIDTH+_x0]*(1.0f-_ax)+${src}[_y0*WIDTH+_x1]*_ax,_bot=${src}[_y1*WIDTH+_x0]*(1.0f-_ax)+${src}[_y1*WIDTH+_x1]*_ax;`)
-      ln(`      ${of}[_y*WIDTH+_x]=_top*(1.0f-_ay)+_bot*_ay;}}`)
-    } else {
-      ln(`      int _sx=(int)roundf(_x+_ox); if(_sx<0)_sx=0; if(_sx>WIDTH-1)_sx=WIDTH-1;`)
-      ln(`      int _sy=(int)roundf(_y+_oy); if(_sy<0)_sy=0; if(_sy>HEIGHT-1)_sy=HEIGHT-1;`)
-      ln(`      ${of}[_y*WIDTH+_x]=${src}[_sy*WIDTH+_sx];}}`)
+    const angle = value('angle', 0)
+    const spinning = value('spin', 0) !== null
+    const zoom = value('zoom', 1)
+    const tilesX = value('tilesX', 1), tilesY = value('tilesY', 1)
+    // Unwired, the read count is the preview's for these same values.
+    const fixed = !wired('zoom') && !wired('tilesX') && !wired('tilesY')
+    const samples = fixed
+      ? fieldSamples(fieldTiles(Number(p.tilesX ?? 1)), fieldTiles(Number(p.tilesY ?? 1)), Math.max(FIELD_ZOOM.min, Math.min(FIELD_ZOOM.max, Number(p.zoom ?? 1))))
+      : null
+    if (!dx && !dy && angle === null && !spinning && zoom === null && tilesX === null && tilesY === null) {
+      ln(`  memcpy(${of}, ${src}, sizeof(float) * NUM_LEDS); // Field Transform: no change`)
+      return
     }
-  },
-  FieldRotate({ id, ln, f, ownField, srcField, needsT }) {
-    needsT.v = true
-    const of = ownField()
-    const angle = f('angle', 'angle', 0), spin = f('spin', 'spin', 30)
-    const src = srcField('field')
-    ln(`  { /* FieldRotate */ float _spin=${spin};`)
-    const ph = speedPhaseCpp(ln, phaseTag(id), '_spin')
-    ln(`    float _ang=((${angle})+${ph})*0.01745329f;`)
-    ln(`    float _ca=cosf(-_ang),_sa=sinf(-_ang),_cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f;`)
-    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      float _dx=_x-_cx,_dy=_y-_cy;`)
-    ln(`      int _sx=(((int)roundf(_dx*_ca-_dy*_sa+_cx))%WIDTH+WIDTH)%WIDTH;`)
-    ln(`      int _sy=(((int)roundf(_dx*_sa+_dy*_ca+_cy))%HEIGHT+HEIGHT)%HEIGHT;`)
-    ln(`      ${of}[_y*WIDTH+_x]=${src ? `${src}[_sy*WIDTH+_sx]` : '0.0f'};}}`)
-  },
-  FieldTile({ ln, f, ownField, srcField }) {
-    const of = ownField()
-    const tx = f('tilesX', 'tilesX', 2)
-    const ty = f('tilesY', 'tilesY', 2)
-    const src = srcField('field')
-    ln(`  { /* FieldTile */`)
-    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      int _tx=max(1,(int)roundf(${tx})),_ty=max(1,(int)roundf(${ty})); int _sx=(_x*_tx)%WIDTH,_sy=(_y*_ty)%HEIGHT;`)
-    ln(`      ${of}[_y*WIDTH+_x]=${src ? `${src}[_sy*WIDTH+_sx]` : '0.0f'};}}`)
+    ln(`  { /* Field Transform: ${edge}, ${bilinear ? 'bilinear' : 'nearest'} */`)
+    let degrees = angle
+    if (spinning) {
+      needsT.v = true
+      ln(`    float _ftSpin=${f('spin', 'spin', 0)};`)
+      const ph = speedPhaseCpp(ln, phaseTag(id), '_ftSpin')
+      degrees = angle === null ? ph : `(${angle})+${ph}`
+    }
+    const kernel = fieldTransformCpp({
+      src, out: of, dx, dy, strength: f('strength', 'strength', 2), degrees, zoom, tilesX, tilesY, samples, edge, bilinear,
+    })
+    for (const line of kernel.frame) ln(`    ${line}`)
+    for (const line of kernel.loop) ln(`    ${line}`)
+    ln('  }')
   },
   FieldSymmetry({ id, p, ln, f, ownField, srcField, needsT, needsSymmetry, needsAtan16, needsLatticeQ }) {
     needsT.v = true

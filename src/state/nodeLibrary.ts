@@ -116,8 +116,11 @@ import { MPR121_PART_ID, touchPadAddressOptions } from './peripherals/touchPad'
 import { MPU6050_PART_ID, motionVectorAddressOptions } from './peripherals/motionVector'
 import { BREATHE_BPM, BREATHE_CURVES, CHASE_DIRECTIONS, CHASE_SPACING, WIPE_DIRECTIONS } from '../nodes/generative/classics1d'
 import { GLITTER_MODES } from '../nodes/composite/glitter'
-import { FRAME_OFFSET, FRAME_ROTATIONS } from '../nodes/composite/frameTransform'
+import {
+  FRAME_OFFSET, FRAME_SCALE, FRAME_TRANSFORM_EDGES, FRAME_TRANSFORM_MODES, TRANSFORM_RATE, frameTransformMode,
+} from '../nodes/composite/frameTransform'
 import { BLUR_RADIUS, GRADIENT_REPEAT, GRADIENT_TYPES } from '../nodes/field/gradientField'
+import { FIELD_EDGE_MODES, FIELD_STRENGTH, FIELD_TILES, FIELD_ZOOM } from '../nodes/field/fieldTransform'
 import { METER_ORIGINS, METER_PEAK_HOLD } from '../nodes/audioReactive/levelMeter'
 import { BAND_HZ, BAND_PRESETS } from '../audio/frequencyBand'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM } from '../audio/beatPhase'
@@ -250,7 +253,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldWarp', 'FieldRotate', 'FieldTile', 'FieldSymmetry', 'FieldToFrame'],
+  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldWarp', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -456,7 +459,6 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   mode:       { control: 'select', options: ['cycle', 'beat'] },
   waveform:   { control: 'select', options: ['sine', 'triangle', 'square', 'sawtooth'] },
   pathShape:  { control: 'select', options: [...PATH_SHAPES] },
-  transform:  { control: 'select', options: ['rotate', 'scale', 'translate'] },
   // Bundled-node selectors — each picks a variant; keep in sync with the
   // matching case in graphEvaluator.ts and cppGenerator.ts.
   noiseType:      { control: 'select', options: ['fbm', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma', 'sine', 'field', 'gabor'] },
@@ -649,7 +651,7 @@ const DERIVED_COLOR_CHANNEL_META: Record<string, Record<string, PropertyControl>
 // Per-node overrides for property names that collide across nodes with a
 // different meaning or range. Most `speed`/`scale` sliders are 0–1 (normalised
 // via speedRange.ts); the simulation patterns use a steps-per-second rate, and
-// `rate` is a 0–1 emission rate for Particles but a degrees/sec spin for Transform.
+// `rate` is a 0–1 emission rate for Particles but strikes a minute for Lightning.
 export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyControl>> = {
   // Typed rather than dragged, over the whole range the normaliser accepts, so
   // a 0–255 brightness or a 60–180 BPM counter can be set.
@@ -1130,10 +1132,21 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     glitterMode: { control: 'select', options: [...GLITTER_MODES] },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
+  // Negative turns counter-clockwise, shrinks first, or slides the other way.
+  // Fine rate steps, because a slow slide wants fractions of a pixel a second;
+  // the rows' labels name each unit.
   FrameTransform:  {
-    rotate: { control: 'select', options: [...FRAME_ROTATIONS] },
-    offsetX: { control: 'slider', min: FRAME_OFFSET.min, max: FRAME_OFFSET.max, step: 1 },
-    offsetY: { control: 'slider', min: FRAME_OFFSET.min, max: FRAME_OFFSET.max, step: 1 },
+    mode: { control: 'select', options: [...FRAME_TRANSFORM_MODES] },
+    rotate: { control: 'slider', min: -180, max: 180, step: 1 },
+    rotateRate: { control: 'slider', min: TRANSFORM_RATE.min, max: TRANSFORM_RATE.max, step: 0.1 },
+    scale: { control: 'slider', min: FRAME_SCALE.min, max: FRAME_SCALE.max, step: 0.05 },
+    scaleRate: { control: 'slider', min: TRANSFORM_RATE.min, max: TRANSFORM_RATE.max, step: 0.1 },
+    offsetX: { control: 'slider', min: FRAME_OFFSET.min, max: FRAME_OFFSET.max, step: 0.1 },
+    offsetY: { control: 'slider', min: FRAME_OFFSET.min, max: FRAME_OFFSET.max, step: 0.1 },
+    offsetXRate: { control: 'slider', min: TRANSFORM_RATE.min, max: TRANSFORM_RATE.max, step: 0.1 },
+    offsetYRate: { control: 'slider', min: TRANSFORM_RATE.min, max: TRANSFORM_RATE.max, step: 0.1 },
+    edgeMode: { control: 'select', options: [...FRAME_TRANSFORM_EDGES] },
+    sampling: { control: 'select', options: ['bilinear', 'nearest'] },
   },
   Candle:          { flicker: N01, warmth: N01, mode: { control: 'select', options: [...CANDLE_MODES] } },
   Lightning:       { rate: { control: 'slider', min: 0.5, max: 60, step: 0.5 }, intensity: N01 },
@@ -1188,10 +1201,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     // attractor
     preset: { control: 'select', options: ['classic', 'swirl', 'web'] },
   },
-  // Negative turns counter-clockwise, shrinks first, or slides the other way.
-  // Fine steps, because translate wants fractions of a pixel a second; the
-  // row's label names the unit the mode reads (propertyLabel).
-  Transform:         { rate:  { control: 'slider', min: -360, max: 360, step: 0.1 } },
   // Blinds, checkerboard and spiral divisions across the frame, not the
   // shared 1-200 particle count: past a few dozen they are a pixel wide.
   Transition: {
@@ -1394,8 +1403,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   FrameWarp: {
     strength: { control: 'slider', min: 0, max: 8, step: 0.1 },
-    zoom:     { control: 'slider', min: 0.25, max: 4, step: 0.05 },
-    rotate:   { control: 'slider', min: -180, max: 180, step: 1 },
     motion:   { control: 'select', options: WARP_MOTIONS },
     // Cycles a second; negative runs the motion backwards.
     motionSpeed: { control: 'slider', min: -2, max: 2, step: 0.01 },
@@ -1403,6 +1410,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     sampling: { control: 'select', options: ['bilinear', 'nearest'] },
   },
   FieldWarp: {
+    strength: { control: 'slider', min: FIELD_STRENGTH.min, max: FIELD_STRENGTH.max, step: 0.1 },
+    angle: { control: 'slider', min: -180, max: 180, step: 1 },
+    spin: { control: 'slider', min: -360, max: 360, step: 1 },
+    zoom: { control: 'slider', min: FIELD_ZOOM.min, max: FIELD_ZOOM.max, step: 0.05 },
+    tilesX: { control: 'slider', min: FIELD_TILES.min, max: FIELD_TILES.max, step: 1 },
+    tilesY: { control: 'slider', min: FIELD_TILES.min, max: FIELD_TILES.max, step: 1 },
+    edgeMode: { control: 'select', options: [...FIELD_EDGE_MODES] },
     sampling: { control: 'select', options: ['bilinear', 'nearest'] },
   },
   FieldSymmetry: {
@@ -2498,8 +2512,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     strength: 'Maximum per-pixel displacement in source pixels. A field value of 0.5 is neutral.',
     motion: 'Built-in movement used while neither Offset field is wired: a swirl about the centre, ripples travelling outward, or layered turbulence. None leaves the frame still.',
     motionSpeed: 'Cycles a second of the built-in motion. Negative runs it backwards.',
-    zoom: 'Centred source zoom. Values above 1 enlarge the frame; values below 1 reveal more of it.',
-    rotate: 'Centred source rotation in degrees.',
     edgeMode: 'How source coordinates outside the frame resolve: hold the edge, wrap around, or fade to black.',
     sampling: 'Bilinear is smoother in motion; nearest keeps hard pixel edges.',
   },
@@ -3145,16 +3157,16 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     t: 'Mix only: crossfade between A and B. 0 shows only A, 1 only B. Wire a signal to animate it.',
   },
   FieldWarp: {
-    strength: 'How far the dX and dY fields can push each pixel, in pixels. A field value of 0.5 is no push.',
-    sampling: 'Bilinear blends the pixels between, so a warp flows smoothly; nearest keeps hard steps, for a field that must stay crisp.',
-  },
-  FieldRotate: {
-    angle: 'Fixed turn of the field about the centre, in degrees. Pixels wrap round at the edges.',
-    spin: 'Keeps the field turning, in degrees per second. 0 holds still.',
-  },
-  FieldTile: {
-    tilesX: 'Copies across the width. The field is shrunk by skipping pixels, then repeated.',
-    tilesY: 'Copies down the height. The field is shrunk by skipping pixels, then repeated.',
+    dx: 'A field that pushes each pixel sideways. 0.5 is no push.',
+    dy: 'A field that pushes each pixel up or down. 0.5 is no push.',
+    strength: 'How far the Offset X and Y fields can push each pixel, in pixels. A field value of 0.5 is no push.',
+    angle: 'Fixed turn of the field about the centre, in degrees.',
+    spin: 'Keeps the field turning, in degrees a second. Negative turns the other way; 0 holds still.',
+    zoom: 'Size about the centre. Above 1 enlarges the field; below 1 shrinks it and shows what lies past its edges.',
+    tilesX: 'Copies across the width, from the left edge. Each copy blends the pixels it shrinks rather than skipping them.',
+    tilesY: 'Copies down the height, from the top edge. Each copy blends the pixels it shrinks rather than skipping them.',
+    edgeMode: 'What lies past the field\'s edges once it is turned, shrunk or tiled: the edge held, the field repeated, or the field mirrored so every other copy is reflected.',
+    sampling: 'Bilinear blends the pixels between, so a warp or turn flows smoothly; nearest keeps hard steps, for a field that must stay crisp.',
   },
   Blur2D: {
     amount: 'How far colour bleeds into neighbours. 0 is sharp; 1 is a heavy smear.',
@@ -3165,11 +3177,19 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     color: 'Sparkle colour. A wired Color input replaces the channels below.',
   },
   FrameTransform: {
-    rotate: 'Quarter turns clockwise. On a non-square matrix the turned picture is stretched to fit.',
-    flipX: 'Mirror left to right, after the rotation.',
-    flipY: 'Mirror top to bottom, after the rotation.',
-    offsetX: 'Slide right by this many LEDs (negative slides left). Pixels wrap round to the other edge.',
-    offsetY: 'Slide down by this many LEDs (negative slides up). Pixels wrap round to the other edge.',
+    mode: 'Exact keeps whole pixels: quarter turns, flips and a slide that wraps round the edges, nothing resampled. Smooth turns by any angle, scales, and slides by fractions of a pixel, reading the frame between pixels.',
+    rotate: 'Turn clockwise in degrees. Exact snaps it to the nearest quarter turn and stretches a turned picture to fit a non-square matrix.',
+    rotateRate: 'Keeps the frame turning, in degrees a second. Negative turns counter-clockwise; 0 holds still.',
+    scale: 'Smooth only: size about the centre. Above 1 enlarges the frame; below 1 shrinks it and shows the edges.',
+    scaleRate: 'Smooth only: keeps the size breathing between double and half the Scale and back, in percent of a doubling a second, so 100 doubles in one second. Negative shrinks first; 0 holds still.',
+    flipX: 'Mirror left to right, after the turn.',
+    flipY: 'Mirror top to bottom, after the turn.',
+    offsetX: 'Slide right by this many LEDs (negative slides left). Exact rounds to whole LEDs and wraps round to the other edge.',
+    offsetY: 'Slide down by this many LEDs (negative slides up). Exact rounds to whole LEDs and wraps round to the other edge.',
+    offsetXRate: 'Keeps the frame sliding sideways, in LEDs a second. Negative slides left; 0 holds still.',
+    offsetYRate: 'Keeps the frame sliding up or down, in LEDs a second. Negative slides up; 0 holds still.',
+    edgeMode: 'Smooth only: what shows where the frame has moved away from an edge: black, the edge held, or the frame wrapped round.',
+    sampling: 'Smooth only: bilinear blends neighbouring pixels so a turn or zoom moves smoothly; nearest keeps hard pixel edges.',
   },
   Blend: {
     blendMode: 'How B blends over A: normal replaces, multiply darkens, screen and add brighten, overlay adds contrast, difference shows change, lighten keeps the brighter channel.',
@@ -3188,11 +3208,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Saturation: {
     amount: 'Scales colour intensity. 0 is greyscale, 1 unchanged, 2 doubles it (clipped).',
     keepBrightness: 'Push colours away from grey without making the frame lighter or darker. Suits washed-out or pastel patterns.',
-  },
-  Transform: {
-    transform: 'What moves: rotate spins, scale zooms in and out, translate slides along Angle.',
-    rate: 'How fast it moves: degrees a second to rotate, pixels a second to translate, and to scale, percent of a doubling a second as the zoom swings between double and half size. Negative turns counter-clockwise, shrinks first, or slides backwards.',
-    angle: 'Direction of travel for translate, in degrees. Ignored by rotate and scale.',
   },
   Array: {
     count: 'How many copies to draw, including the original.',
@@ -3619,17 +3634,17 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     value: 'B value',
     t: 'mix',
   },
-  FieldTile: {
-    tilesX: 'tiles X',
-    tilesY: 'tiles Y',
-  },
   FieldSymmetry: {
     offsetX: 'offset X',
     offsetY: 'offset Y',
     spin: 'spin (°/s)',
   },
-  FieldRotate: {
+  FieldWarp: {
+    angle: 'angle (°)',
     spin: 'spin (°/s)',
+    tilesX: 'tiles X',
+    tilesY: 'tiles Y',
+    edgeMode: 'edges',
   },
   Blend: {
     blendMode: 'mode',
@@ -3639,16 +3654,20 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     glitterMode: 'mode',
   },
   FrameTransform: {
+    rotate: 'rotate (°)',
+    rotateRate: 'rate (°/s)',
+    scale: 'scale (×)',
+    scaleRate: 'rate (%/s)',
     flipX: 'flip X',
     flipY: 'flip Y',
-    offsetX: 'offset X',
-    offsetY: 'offset Y',
+    offsetX: 'offset X (px)',
+    offsetY: 'offset Y (px)',
+    offsetXRate: 'X rate (px/s)',
+    offsetYRate: 'Y rate (px/s)',
+    edgeMode: 'edges',
   },
   Breathe: {
     minLevel: 'min level',
-  },
-  Transform: {
-    transform: 'mode',
   },
   Saturation: {
     keepBrightness: 'keep brightness',
@@ -4143,11 +4162,6 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = Object.fr
  */
 export function propertyLabel(nodeType: string, key: string, properties?: Record<string, unknown>): string {
   if (nodeType === 'Trigger' && key === 'initialState') return 'Start on'
-  // One Rate serves three units; the row names the one its mode reads.
-  if (nodeType === 'Transform' && key === 'rate' && properties) {
-    const mode = String(properties.transform ?? 'rotate')
-    return mode === 'scale' ? 'rate (%/s)' : mode === 'translate' ? 'rate (px/s)' : 'rate (°/s)'
-  }
   if (nodeType === 'PowerSwitchOutput' && properties) {
     const channelLabel = powerSwitchPropertyLabel(key, properties)
     if (channelLabel) return channelLabel
@@ -4488,9 +4502,25 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'position', label: 'Position', keys: ['offsetX', 'offsetY', 'angle', 'scale'] },
     { key: 'repeat', label: 'Repeat', keys: ['count', 'falloff', 'blendMode'] },
   ],
+  // Field Transform mirrors Frame Warp's push and sampling, with the turn,
+  // zoom and tiles between them.
+  FieldWarp: [
+    { key: 'push', label: 'Push', keys: ['strength'] },
+    { key: 'turn', label: 'Turn', keys: ['angle', 'spin'] },
+    { key: 'scale', label: 'Zoom & Tiles', keys: ['zoom', 'tilesX', 'tilesY'] },
+    { key: 'sampling', label: 'Sampling', keys: ['edgeMode', 'sampling'] },
+  ],
   FrameWarp: [
     { key: 'push', label: 'Push', keys: ['motion', 'motionSpeed', 'strength'] },
-    { key: 'view', label: 'View', keys: ['zoom', 'rotate'] },
+    { key: 'sampling', label: 'Sampling', keys: ['edgeMode', 'sampling'] },
+  ],
+  // Each move pairs its value with its rate; Exact drops Scale and Sampling.
+  FrameTransform: [
+    { key: 'mode', label: 'Mode', keys: ['mode'] },
+    { key: 'rotate', label: 'Rotate', keys: ['rotate', 'rotateRate'] },
+    { key: 'scale', label: 'Scale', keys: ['scale', 'scaleRate'] },
+    { key: 'offset', label: 'Offset', keys: ['offsetX', 'offsetY', 'offsetXRate', 'offsetYRate'] },
+    { key: 'flip', label: 'Flip', keys: ['flipX', 'flipY'] },
     { key: 'sampling', label: 'Sampling', keys: ['edgeMode', 'sampling'] },
   ],
   FrameFeedback: [
@@ -4815,7 +4845,7 @@ export function bypassPort(outputs: { id: string; dataType?: string }[], inputs:
  *
  * The rule is *declaration order*, with `spliceInput` as the override. That
  * works because the library declares a node's primary input first — Mask takes
- * `frame` before `mask`, Clamp `value` before `min`, Field Warp `field` before
+ * `frame` before `mask`, Clamp `value` before `min`, Field Transform `field` before
  * `dx` — so the first compatible input is nearly always the pass-through one.
  * Blend is the exception the override exists for: `a` and `b` are peers, and
  * only one of them is the layer underneath.
@@ -5332,8 +5362,9 @@ export function isPropertyEnabled(
   if (nodeType === 'FourierEpicycles' && key === 'maxHarmonics') {
     return !wiredInputs || wiredInputs.has('harmonics')
   }
-  if (nodeType === 'Transform' && key === 'angle') {
-    return (properties.transform ?? 'rotate') === 'translate'
+  // Exact copies whole pixels: it has no scale and samples nothing.
+  if (nodeType === 'FrameTransform' && (key === 'scale' || key === 'scaleRate' || key === 'edgeMode' || key === 'sampling')) {
+    return frameTransformMode(properties.mode) === 'smooth'
   }
   if (nodeType === 'Wave' && (key === 'frequency' || key === 'bpm')) {
     return (key === 'bpm') === (properties.rateUnit === 'BPM')

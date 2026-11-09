@@ -350,13 +350,23 @@
           "y": 80
         },
         "data": {
-          "label": "Transform",
-          "nodeType": "Transform",
+          "label": "Frame Transform",
+          "nodeType": "FrameTransform",
           "category": "composite",
           "properties": {
-            "transform": "translate",
-            "rate": 90,
-            "angle": 0
+            "mode": "exact",
+            "rotate": 0,
+            "rotateRate": 0,
+            "scale": 1,
+            "scaleRate": 0,
+            "flipX": false,
+            "flipY": false,
+            "offsetX": 0,
+            "offsetY": 0,
+            "offsetXRate": 90,
+            "offsetYRate": 0,
+            "edgeMode": "black",
+            "sampling": "bilinear"
           },
           "inputs": [
             {
@@ -365,8 +375,43 @@
               "dataType": "frame"
             },
             {
-              "id": "rate",
-              "label": "Rate",
+              "id": "rotate",
+              "label": "Rotate (\u00b0)",
+              "dataType": "float"
+            },
+            {
+              "id": "rotateRate",
+              "label": "Rate (\u00b0/s)",
+              "dataType": "float"
+            },
+            {
+              "id": "scale",
+              "label": "Scale (\u00d7)",
+              "dataType": "float"
+            },
+            {
+              "id": "scaleRate",
+              "label": "Rate (%/s)",
+              "dataType": "float"
+            },
+            {
+              "id": "offsetX",
+              "label": "Offset X (px)",
+              "dataType": "float"
+            },
+            {
+              "id": "offsetY",
+              "label": "Offset Y (px)",
+              "dataType": "float"
+            },
+            {
+              "id": "offsetXRate",
+              "label": "X Rate (px/s)",
+              "dataType": "float"
+            },
+            {
+              "id": "offsetYRate",
+              "label": "Y Rate (px/s)",
               "dataType": "float"
             }
           ],
@@ -636,7 +681,7 @@
         "source": "p9-rate",
         "sourceHandle": "result",
         "target": "p9-transform",
-        "targetHandle": "rate",
+        "targetHandle": "offsetXRate",
         "type": "glowEdge",
         "reconnectable": "target"
       },

@@ -286,13 +286,23 @@
           "y": 1740
         },
         "data": {
-          "label": "Transform",
-          "nodeType": "Transform",
+          "label": "Frame Transform",
+          "nodeType": "FrameTransform",
           "category": "composite",
           "properties": {
-            "transform": "rotate",
-            "rate": 130,
-            "angle": 0
+            "mode": "smooth",
+            "rotate": 0,
+            "rotateRate": 130,
+            "scale": 1,
+            "scaleRate": 0,
+            "flipX": false,
+            "flipY": false,
+            "offsetX": 0,
+            "offsetY": 0,
+            "offsetXRate": 0,
+            "offsetYRate": 0,
+            "edgeMode": "black",
+            "sampling": "nearest"
           },
           "inputs": [
             {
@@ -301,13 +311,43 @@
               "dataType": "frame"
             },
             {
-              "id": "rate",
-              "label": "Rate",
+              "id": "rotate",
+              "label": "Rotate (\u00b0)",
               "dataType": "float"
             },
             {
-              "id": "angle",
-              "label": "Angle",
+              "id": "rotateRate",
+              "label": "Rate (\u00b0/s)",
+              "dataType": "float"
+            },
+            {
+              "id": "scale",
+              "label": "Scale (\u00d7)",
+              "dataType": "float"
+            },
+            {
+              "id": "scaleRate",
+              "label": "Rate (%/s)",
+              "dataType": "float"
+            },
+            {
+              "id": "offsetX",
+              "label": "Offset X (px)",
+              "dataType": "float"
+            },
+            {
+              "id": "offsetY",
+              "label": "Offset Y (px)",
+              "dataType": "float"
+            },
+            {
+              "id": "offsetXRate",
+              "label": "X Rate (px/s)",
+              "dataType": "float"
+            },
+            {
+              "id": "offsetYRate",
+              "label": "Y Rate (px/s)",
               "dataType": "float"
             }
           ],
@@ -744,12 +784,12 @@
         "source": "Math-1784602564188",
         "sourceHandle": "result",
         "target": "Transform-1784601732031",
-        "targetHandle": "rate",
+        "targetHandle": "rotateRate",
         "reconnectable": "target",
         "style": {
           "stroke": "#9aa0a6"
         },
-        "id": "xy-edge__Math-1784602564188result-Transform-1784601732031rate"
+        "id": "xy-edge__Math-1784602564188result-Transform-1784601732031rotateRate"
       },
       {
         "type": "glowEdge",

@@ -806,11 +806,21 @@ describe('nodeLibrary', () => {
     expect(isPropertyEnabled('Fire', 'intensity', { fireStyle: 'fire2012' })).toBe(false)
   })
 
-  it('Transform runs both ways and reads Angle only when translating', () => {
-    expect(propertyMeta('Transform', 'rate')).toMatchObject({ control: 'slider', min: -360, max: 360 })
-    expect(isPropertyEnabled('Transform', 'angle', { transform: 'translate' })).toBe(true)
-    expect(isPropertyEnabled('Transform', 'angle', { transform: 'rotate' })).toBe(false)
-    expect(isPropertyEnabled('Transform', 'angle', { transform: 'scale' })).toBe(false)
+  it('Frame Transform runs its rates both ways and shows Scale and Sampling only when Smooth', () => {
+    for (const rate of ['rotateRate', 'scaleRate', 'offsetXRate', 'offsetYRate']) {
+      expect(propertyMeta('FrameTransform', rate), rate).toMatchObject({ control: 'slider', min: -360, max: 360 })
+    }
+    for (const key of ['scale', 'scaleRate', 'edgeMode', 'sampling']) {
+      expect(isPropertyEnabled('FrameTransform', key, { mode: 'smooth' }), key).toBe(true)
+      expect(isPropertyEnabled('FrameTransform', key, { mode: 'exact' }), key).toBe(false)
+    }
+    for (const key of ['rotate', 'rotateRate', 'offsetX', 'offsetYRate', 'flipX']) {
+      expect(isPropertyEnabled('FrameTransform', key, { mode: 'exact' }), key).toBe(true)
+    }
+    // Each rate names its unit.
+    expect(propertyLabel('FrameTransform', 'rotateRate')).toBe('rate (°/s)')
+    expect(propertyLabel('FrameTransform', 'scaleRate')).toBe('rate (%/s)')
+    expect(propertyLabel('FrameTransform', 'offsetXRate')).toBe('X rate (px/s)')
   })
 
   it('Comment has no ports and a text + color default', () => {

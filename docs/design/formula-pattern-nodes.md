@@ -72,7 +72,7 @@ a home, which `todo.md`'s Formula Shapes entry leaves open.
 Per-pixel closed-form expression selected by a curated dropdown instead of
 free text, output as a `field` (0–1) so it composes with the rest of the
 float-field pipeline — chain a `FieldToFrame` for palette mapping, or feed
-it into `FieldWarp`/`FieldMath`/`FieldRotate` first.
+it into Field Transform (`FieldWarp`) or `FieldMath` first.
 
 **Ports:** none — as built, there is no `phase` input. The externally-driven
 `phase` port originally sketched here was cut for the smallest-first
@@ -214,8 +214,8 @@ the generated sketch, so the same expression compiles unchanged on-device.
 - **`FieldFormula`/`FieldNoise`** — `FormulaField` is a third raw-field
   generator beside them: curated/parametric instead of free-text
   (`FieldFormula`) or fBm-noise-based (`FieldNoise`). All three feed the
-  same downstream `FieldToFrame`/`FieldMath`/`FieldWarp`/`FieldRotate`/
-  `FieldTile` pipeline unmodified.
+  same downstream `FieldToFrame`/`FieldMath`/`FieldWarp` (Field Transform)
+  pipeline unmodified.
 - **`Particles`/`Trails`/`ColorTrails`** — `FormulaPoints` is a curated,
   closed-form-math sibling: `Particles` is procedural/randomized motion,
   `Trails` is a generic feedback wrapper around *any* wired frame,

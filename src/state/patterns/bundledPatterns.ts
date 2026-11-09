@@ -749,7 +749,7 @@ const STANDARD_PATTERN_SEEDS: BundledSeed[] = [
       studioNode('dx', 'FieldNoise', -760, 260, { speed: 0.12, scale: 0.05, octaves: 1, seed: 11 }),
       studioNode('dy', 'FieldNoise', -760, 460, { speed: 0.1, scale: 0.05, octaves: 1, seed: 29 }),
       studioNode('warp', 'FrameWarp', -440, 140, {
-        strength: 4, zoom: 1.04, rotate: 3, edgeMode: 'wrap', sampling: 'bilinear',
+        strength: 4, edgeMode: 'wrap', sampling: 'bilinear',
       }),
       studioNode('feedback', 'FrameFeedback', -140, 140, { delayFrames: 2, fade: 0.08, amount: 0.6, blendMode: 'normal' }),
       studioNode('sat', 'Saturation', 140, 140, { amount: 1.1 }),

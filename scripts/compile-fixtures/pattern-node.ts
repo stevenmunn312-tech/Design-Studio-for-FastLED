@@ -93,7 +93,7 @@ const phase2Nodes = [
   node('noise', 'Noise', { noiseType: 'simplex', speed: 0.2, scale: 0.42, palette: 'synthwave' }),
   node('dx', 'FieldFormula', { formula: '0.5 + 0.22*sin(angle*3+t)' }),
   node('dy', 'FieldFormula', { formula: '0.5 + 0.22*cos(angle*2-t*0.7)' }),
-  node('warp', 'FrameWarp', { strength: 2.5, zoom: 1.02, rotate: 2, edgeMode: 'wrap', sampling: 'bilinear' }),
+  node('warp', 'FrameWarp', { strength: 2.5, edgeMode: 'wrap', sampling: 'bilinear' }),
   node('feedback', 'FrameFeedback', { delayFrames: 2, fade: 0.08, amount: 0.58, blendMode: 'screen' }),
   node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),
 ]

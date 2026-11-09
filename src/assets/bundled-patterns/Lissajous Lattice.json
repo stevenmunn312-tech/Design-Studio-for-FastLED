@@ -230,18 +230,54 @@
      "y": -200
     },
     "data": {
-     "label": "Field Tile",
-     "nodeType": "FieldTile",
+     "label": "Field Transform",
+     "nodeType": "FieldWarp",
      "category": "field",
      "properties": {
+      "strength": 2,
+      "angle": 0,
+      "spin": 24,
+      "zoom": 1,
       "tilesX": 2,
-      "tilesY": 2
+      "tilesY": 2,
+      "edgeMode": "wrap",
+      "sampling": "bilinear"
      },
      "inputs": [
       {
        "id": "field",
        "label": "Field",
        "dataType": "field"
+      },
+      {
+       "id": "dx",
+       "label": "Offset X",
+       "dataType": "field"
+      },
+      {
+       "id": "dy",
+       "label": "Offset Y",
+       "dataType": "field"
+      },
+      {
+       "id": "strength",
+       "label": "Strength",
+       "dataType": "float"
+      },
+      {
+       "id": "angle",
+       "label": "Angle (°)",
+       "dataType": "float"
+      },
+      {
+       "id": "spin",
+       "label": "Spin (°/s)",
+       "dataType": "float"
+      },
+      {
+       "id": "zoom",
+       "label": "Zoom",
+       "dataType": "float"
       },
       {
        "id": "tilesX",
@@ -313,47 +349,6 @@
        "id": "result",
        "label": "Result",
        "dataType": "float"
-      }
-     ]
-    }
-   },
-   {
-    "id": "rot",
-    "type": "studioNode",
-    "position": {
-     "x": -340,
-     "y": -200
-    },
-    "data": {
-     "label": "Field Rotate",
-     "nodeType": "FieldRotate",
-     "category": "field",
-     "properties": {
-      "angle": 0,
-      "spin": 24
-     },
-     "inputs": [
-      {
-       "id": "field",
-       "label": "Field",
-       "dataType": "field"
-      },
-      {
-       "id": "angle",
-       "label": "Angle",
-       "dataType": "float"
-      },
-      {
-       "id": "spin",
-       "label": "Spin",
-       "dataType": "float"
-      }
-     ],
-     "outputs": [
-      {
-       "id": "field",
-       "label": "Field",
-       "dataType": "field"
       }
      ]
     }
@@ -706,15 +701,6 @@
     "reconnectable": "target"
    },
    {
-    "id": "e6",
-    "source": "tile",
-    "sourceHandle": "field",
-    "target": "rot",
-    "targetHandle": "field",
-    "type": "glowEdge",
-    "reconnectable": "target"
-   },
-   {
     "id": "e7",
     "source": "fft",
     "sourceHandle": "mids",
@@ -727,14 +713,14 @@
     "id": "e8",
     "source": "spin",
     "sourceHandle": "result",
-    "target": "rot",
+    "target": "tile",
     "targetHandle": "spin",
     "type": "glowEdge",
     "reconnectable": "target"
    },
    {
     "id": "e9",
-    "source": "rot",
+    "source": "tile",
     "sourceHandle": "field",
     "target": "f2f",
     "targetHandle": "field",

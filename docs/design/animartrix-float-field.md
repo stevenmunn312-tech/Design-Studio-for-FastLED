@@ -240,12 +240,15 @@ preview/firmware architecture are in the
 
 ---
 
-### `FieldWarp` (category: `composite`)
+### `FieldWarp` — Field Transform (category: `field`)
 
-Samples an input `field` at coordinates shifted by two offset fields.
+Samples an input `field` at coordinates shifted by two offset fields, then
+turned, zoomed and tiled. The current contract, including the turn, zoom,
+tiles and edge modes it took over from Field Rotate and Field Tile, is in
+[Frame Warp and the transform nodes](frame-warp.md#field-transform).
 
 - **Inputs:** `field` (field to sample), `dx` (field — per-pixel X offset), `dy` (field — per-pixel Y offset)
-- **Property:** `strength` (0–4 slider — scales the offset magnitude in pixels)
+- **Property:** `strength` (0–8 slider — scales the offset magnitude in pixels)
 - **Output:** `field`
 
 Two `FieldFormula` nodes computing `sin8(y*8 + t*40)/255` and
@@ -343,11 +346,13 @@ that spin or mirror the field.
   inverse-rotated coordinate, wrapping at the matrix edges.
 - `FieldTile` (composite) — tiles/repeats a field `tilesX`×`tilesY` times.
 
-**Resolved (open question):** these ship as **standalone nodes**, not `FieldWarp`
-presets. `FieldWarp` adds *per-pixel offset fields* to the sample coordinate;
-rotate/tile apply a *whole-field coordinate transform* from scalar/integer
-params — a different operation that doesn't map onto an additive offset field.
-7 tests added.
+**Resolved (open question):** these first shipped as **standalone nodes**, not
+`FieldWarp` presets, because rotate and tile are a *whole-field coordinate
+transform* rather than an additive offset field. That was later reversed:
+both merged into `FieldWarp` as Field Transform, which applies the offset push
+and then the whole-field turn, zoom and tiles in one read, and fixes Field
+Rotate's forced wrap and Field Tile's skipped pixels. See
+[Frame Warp and the transform nodes](frame-warp.md#field-transform).
 
 ---
 

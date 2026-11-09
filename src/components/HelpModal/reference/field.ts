@@ -415,8 +415,9 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
 
   FieldWarp: {
     overview: [
-      'Field Warp moves each pixel of a field by two other fields: dX pushes sideways, dY up and down, with 0.5 meaning no push. Strength sets how far, in pixels.',
-      'Warping by smooth noise makes anything look liquid — stripes ripple like a flag, rings wobble like jelly. Sampling blends between pixels by default so the motion is smooth; Nearest keeps hard steps.',
+      'Field Transform moves a field around before it is painted. Two other fields push each pixel: Offset X sideways, Offset Y up and down, with 0.5 meaning no push, and Strength sets how far, in pixels. Warping by smooth noise makes anything look liquid — stripes ripple like a flag, rings wobble like jelly.',
+      'Angle turns the field about the centre and Spin keeps it turning, in degrees a second. Zoom enlarges it above 1 and shrinks it below, and Tiles X and Y repeat it across the canvas from the top-left corner. A shrunk or tiled field blends the pixels it squeezes together, so fine detail softens rather than dropping out.',
+      'Edges decides what lies past the field once it is turned, shrunk or tiled: Clamp holds the edge, Wrap repeats the field and Mirror reflects every other copy, which tiles without seams. Sampling blends between pixels by default so motion is smooth; Nearest keeps hard steps.',
     ],
     inputs: {
       field: FIELD_IN,
@@ -435,55 +436,8 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
         paint: ['FieldToFrame', { palette: 'party' }],
       },
       wires: ['stripes.field > flutter.field', 'windX.field > flutter.dx', 'windY.field > flutter.dy', 'flutter.field > paint.field'],
-      explanation: 'Gradient Field makes three upright stripes. Field Warp lets two Field Noise fields push them sideways and up and down by up to three pixels, so the stripes ripple like a flag in the wind.',
+      explanation: 'Gradient Field makes three upright stripes. Field Transform lets two Field Noise fields push them sideways and up and down by up to three pixels, so the stripes ripple like a flag in the wind.',
       preview: 'The {output} shows colourful vertical stripes rippling and waving.',
-    }),
-  },
-
-  FieldRotate: {
-    overview: [
-      'Field Rotate turns a field about the centre: Angle sets a fixed turn and Spin keeps it turning. Pixels that leave one edge come back on the other.',
-    ],
-    inputs: {
-      field: FIELD_IN,
-    },
-    outputs: { field: FIELD_OUT },
-    example: example({
-      featured: 'FieldRotate',
-      title: 'A spinning pinwheel',
-      nodes: {
-        spokes: ['GradientField', { gradientType: 'angular', repeat: 6 }],
-        spin: ['FieldRotate', { spin: 45 }],
-        paint: ['FieldToFrame', { palette: 'party' }],
-      },
-      wires: ['spokes.field > spin.field', 'spin.field > paint.field'],
-      output: RING(24),
-      explanation: 'Gradient Field in angular mode, repeated six times, makes six spokes. Field Rotate spins them at 45° a second, and on an LED ring the spokes become colours racing round.',
-      preview: 'The {output} shows six repeats of the party palette chasing round it.',
-    }),
-  },
-
-  FieldTile: {
-    overview: [
-      'Field Tile shrinks a field and repeats it across the canvas, Tiles X by Tiles Y times — a wallpaper from any field.',
-      'The field is shrunk by skipping pixels, so fine detail can drop out; a broad, simple field tiles best. For mirrored or rotated repeats, use Field Symmetry.',
-    ],
-    inputs: {
-      field: FIELD_IN,
-    },
-    outputs: { field: FIELD_OUT },
-    example: example({
-      featured: 'FieldTile',
-      title: 'A wallpaper of stars',
-      nodes: {
-        star: ['ShapeField', { shape: 'polygon', sides: 5, size: 0.35, softness: 0.05, rotation: 18 }],
-        repeat: ['FieldTile', { tilesX: 3, tilesY: 3 }],
-        paint: ['FieldToFrame', { palette: 'citrus' }],
-      },
-      wires: ['star.field > repeat.field', 'repeat.field > paint.field'],
-      output: MATRIX(24, 24),
-      explanation: 'Shape Field draws one pentagon, and Field Tile repeats it three across and three down, like a printed wallpaper.',
-      preview: 'The {output} shows a 3×3 grid of citrus pentagons.',
     }),
   },
 

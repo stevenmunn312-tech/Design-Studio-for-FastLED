@@ -331,7 +331,7 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     // A plain ramp across the matrix: linear along Angle, radial from the
     // centre, or angular round it. `offset` slides the ramp and `repeat`
     // folds it, so one node makes stripes, rings or a pinwheel for Field →
-    // Frame, Field Math or a Field Warp to shape. It measures in pixels, one
+    // Frame, Field Math or a Field Transform to shape. It measures in pixels, one
     // unit on both axes, so rings stay round and angles true on any panel.
     type: 'GradientField',
     label: 'Gradient Field',
@@ -398,48 +398,29 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
+    // Field Transform (./fieldTransform.ts), the field twin of Frame Warp: two
+    // fields push each read, then a turn (Angle plus Spin), a zoom and tiles
+    // about the canvas, read bilinear at an edge mode. It keeps the FieldWarp
+    // type id and took over Field Rotate and Field Tile.
     type: 'FieldWarp',
-    label: 'Field Warp',
+    label: 'Field Transform',
     category: 'field',
     inputs: [
       { id: 'field', label: 'Field', dataType: 'field' },
-      { id: 'dx', label: 'dX', dataType: 'field' },
-      { id: 'dy', label: 'dY', dataType: 'field' },
+      { id: 'dx', label: 'Offset X', dataType: 'field' },
+      { id: 'dy', label: 'Offset Y', dataType: 'field' },
       { id: 'strength', label: 'Strength', dataType: 'float' },
-    ],
-    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    propertyInputs: { strength: 'strength' },
-    defaultExposedInputs: ['strength'],
-    defaultProperties: { strength: 2, sampling: 'bilinear' },
-  },
-  // Phase 3 coordinate-space transforms (resample a field at remapped coords).
-  {
-    type: 'FieldRotate',
-    label: 'Field Rotate',
-    category: 'field',
-    inputs: [
-      { id: 'field', label: 'Field', dataType: 'field' },
-      { id: 'angle', label: 'Angle', dataType: 'float' },
+      { id: 'angle', label: 'Angle (°)', dataType: 'float' },
       { id: 'spin', label: 'Spin (°/s)', dataType: 'float' },
-    ],
-    outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    propertyInputs: { angle: 'angle', spin: 'spin' },
-    defaultExposedInputs: ['angle', 'spin'],
-    defaultProperties: { angle: 0, spin: 30 },
-  },
-  {
-    type: 'FieldTile',
-    label: 'Field Tile',
-    category: 'field',
-    inputs: [
-      { id: 'field', label: 'Field', dataType: 'field' },
+      { id: 'zoom', label: 'Zoom', dataType: 'float' },
       { id: 'tilesX', label: 'Tiles X', dataType: 'float' },
       { id: 'tilesY', label: 'Tiles Y', dataType: 'float' },
     ],
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    propertyInputs: { tilesX: 'tilesX', tilesY: 'tilesY' },
-    defaultExposedInputs: ['tilesX', 'tilesY'],
-    defaultProperties: { tilesX: 2, tilesY: 2 },
+    propertyInputs: { strength: 'strength', angle: 'angle', spin: 'spin', zoom: 'zoom', tilesX: 'tilesX', tilesY: 'tilesY' },
+    defaultProperties: {
+      strength: 2, angle: 0, spin: 0, zoom: 1, tilesX: 1, tilesY: 1, edgeMode: 'clamp', sampling: 'bilinear',
+    },
   },
 
   {
@@ -485,8 +466,6 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = {
   GradientField: 'A linear, radial or angular ramp across the matrix, with offset and repeat.',
   FieldBlur: 'Box-blurs a field by a radius in pixels.',
   ShapeField: 'Ellipse, rectangle, polygon, rose or superformula as a fill, glow or falloff.',
-  FieldWarp: 'Samples a field at coordinates pushed by two offset fields.',
-  FieldRotate: 'Rotates a field around its centre (angle + spin over time).',
-  FieldTile: 'Tiles/repeats a field across the matrix.',
+  FieldWarp: 'Pushes, turns, zooms and tiles a field, read smoothly between pixels.',
   FieldSymmetry: 'Repeats a field through a square or hexagonal wallpaper symmetry group.',
 }

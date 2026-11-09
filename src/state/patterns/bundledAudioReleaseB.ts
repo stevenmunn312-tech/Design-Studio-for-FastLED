@@ -33,7 +33,7 @@ function resonantVelvet(): AudioReleaseSeed {
   b.wire(mode, 'result', 'plate', 'a').wire(tension, 'result', 'plate', 'b')
   const spin = b.map('spin', 'energy', 'result', 2, 18)
   const impact = b.map('impact', 'dropEnvelope', 'result', 0, 45)
-  b.node('turn', 'FieldRotate', { spin: 2 })
+  b.node('turn', 'FieldWarp', { spin: 2, edgeMode: 'wrap' })
   b.wire('plate', 'field', 'turn', 'field').wire(spin, 'result', 'turn', 'spin').wire(impact, 'result', 'turn', 'angle')
   b.node('contours', 'FieldLevels', { low: 0.12, high: 0.88, steps: 4 })
   b.wire('turn', 'field', 'contours', 'field')
@@ -54,8 +54,8 @@ function silkAttractor(): AudioReleaseSeed {
   // The drop opens the woven attractor rather than replacing it with a white flash.
   const zoom = b.map('open', 'dropEnvelope', 'result', 1, 1.42)
   const tilt = b.map('tilt', 'stereo', 'balance', -8, 8)
-  b.node('opening', 'FrameWarp', { strength: 0, edgeMode: 'wrap', sampling: 'bilinear' })
-  b.wire('filaments', 'frame', 'opening', 'frame').wire(zoom, 'result', 'opening', 'zoom')
+  b.node('opening', 'FrameTransform', { mode: 'smooth', edgeMode: 'wrap', sampling: 'bilinear' })
+  b.wire('filaments', 'frame', 'opening', 'frame').wire(zoom, 'result', 'opening', 'scale')
   b.wire(tilt, 'result', 'opening', 'rotate')
   return b.finish('opening')
 }
@@ -74,8 +74,8 @@ function moonflowerRelease(): AudioReleaseSeed {
   b.wire('flower', 'field', 'texture', 'a').wire('radial', 'field', 'texture', 'b')
   const frame = shade(b, 'texture')
   const zoom = b.map('bloom', 'dropEnvelope', 'result', 1, 1.5)
-  b.node('blooming', 'FrameWarp', { strength: 0, edgeMode: 'clamp', sampling: 'bilinear' })
-  b.wire(frame, 'frame', 'blooming', 'frame').wire(zoom, 'result', 'blooming', 'zoom')
+  b.node('blooming', 'FrameTransform', { mode: 'smooth', edgeMode: 'clamp', sampling: 'bilinear' })
+  b.wire(frame, 'frame', 'blooming', 'frame').wire(zoom, 'result', 'blooming', 'scale')
   return b.finish('blooming')
 }
 
@@ -91,7 +91,7 @@ function interferenceLoom(): AudioReleaseSeed {
   b.node('integerMode', 'Function', { fn: 'round' })
   b.wire(frequency, 'result', 'integerMode', 'x').wire('integerMode', 'result', 'weave', 'freqA')
   const tilt = b.map('dropTurn', 'dropEnvelope', 'result', 0, 60)
-  b.node('rotateWeave', 'FieldRotate', { spin: 0 })
+  b.node('rotateWeave', 'FieldWarp', { edgeMode: 'wrap' })
   b.wire('weave', 'field', 'rotateWeave', 'field').wire(tilt, 'result', 'rotateWeave', 'angle')
   const frame = shade(b, 'rotateWeave')
   b.node('silkTrails', 'Trails', { decay: 0.34 })

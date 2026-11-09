@@ -2,7 +2,9 @@ import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/symmetry'
 import { GLITTER_PER_LED, glitterMode } from './glitter'
-import { FRAME_OFFSET, frameQuarterTurns } from './frameTransform'
+import {
+  FRAME_SCALE, FRAME_TRANSFORM_EDGES, exactTransformCpp, frameQuarterTurns, frameTransformEdge, frameTransformMode, smoothTransformCpp,
+} from './frameTransform'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { timedFadeCpp } from '../shared/trailFadeCpp'
 import { TRAIL_MIN_STEP } from '../shared/trailFade'
@@ -104,25 +106,20 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     const builtIn = !dx && !dy && motion !== 'none'
     ln(`  { /* FrameWarp: ${String(p.edgeMode ?? 'clamp')}, ${bilinear ? 'bilinear' : 'nearest'}${builtIn ? `, ${motion}` : ''} */`)
     ln(`    float _fw_st=constrain(${f('strength', 'strength', 2)},0.0f,8.0f);`)
-    ln(`    float _fw_z=constrain(${f('zoom', 'zoom', 1)},0.25f,4.0f);`)
-    ln(`    float _fw_a=constrain(${f('rotate', 'rotate', 0)},-180.0f,180.0f)*0.01745329252f;`)
-    ln(`    float _fw_co=cosf(_fw_a),_fw_si=sinf(_fw_a),_fw_cx=(WIDTH-1)*0.5f,_fw_cy=(HEIGHT-1)*0.5f;`)
     let ph = ''
     if (builtIn) {
       needsT.v = true
       ln(`    float _fw_ms=${f('motionSpeed', 'motionSpeed', 0.25)};`)
       ph = speedPhaseCpp(ln, phaseTag(id), '_fw_ms')
-      ln(`    float _fw_R=fmaxf(fmaxf(_fw_cx,_fw_cy),1.0f);`)
+      ln(`    float _fw_cx=(WIDTH-1)*0.5f,_fw_cy=(HEIGHT-1)*0.5f,_fw_R=fmaxf(fmaxf(_fw_cx,_fw_cy),1.0f);`)
     }
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ int _i=_y*WIDTH+_x;`)
-    ln(`      float _px=(_x-_fw_cx)/_fw_z,_py=(_y-_fw_cy)/_fw_z;`)
     if (builtIn) {
       ln(`      float _fu=(_x-_fw_cx)/_fw_R,_fv=(_y-_fw_cy)/_fw_R;`)
       for (const line of warpPushCpp(motion, ph)) ln(`      ${line}`)
     }
     const push = (field: string | null, built: string) => builtIn ? built : `(2.0f*${field ? `${field}[_i]` : '0.5f'}-1.0f)`
-    ln(`      float _sx=_fw_cx+_px*_fw_co+_py*_fw_si+${push(dx, '_pdx')}*_fw_st;`)
-    ln(`      float _sy=_fw_cy-_px*_fw_si+_py*_fw_co+${push(dy, '_pdy')}*_fw_st;`)
+    ln(`      float _sx=_x+${push(dx, '_pdx')}*_fw_st,_sy=_y+${push(dy, '_pdy')}*_fw_st;`)
     ln(`      ${ob}[_i]=_sampleFrame(${src},_sx,_sy,${edgeMode},${bilinear ? 'true' : 'false'});`)
     ln(`    } }`)
   },
@@ -209,24 +206,61 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     ln(`    CRGB _gc=${channelColor('color', 255, 255, 255)};`)
     ln(`    for(int _s=0;_s<_cnt;_s++){ int _i=${rnd16}%NUM_LEDS; ${replace ? `${ob}[_i]=_gc;` : `${ob}[_i]+=_gc;`} } }`)
   },
-  // Keep in lockstep with the `FrameTransform` evaluator: undo the slide,
-  // the flips, then the quarter turns, on normalised coordinates.
-  FrameTransform({ p, ln, f, ownBuf, srcBuf }) {
+  // Keep in lockstep with the `FrameTransform` evaluator (./frameTransform.ts).
+  // A step the graph can never move is left out: an unwired value at rest and
+  // an unwired rate of 0 emit nothing, and a fixed turn in Exact is unrolled.
+  FrameTransform({ node, id, p, ln, f, ownBuf, srcBuf, incoming, needsT, needsFrameSample }) {
     const ob = ownBuf()
     const src = srcBuf('frame')
     if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Frame Transform: no input`); return }
-    const turns = frameQuarterTurns(p.rotate)
+    const smooth = frameTransformMode(p.mode) === 'smooth'
     const flipX = Boolean(p.flipX), flipY = Boolean(p.flipY)
-    ln(`  { // Frame Transform`)
-    ln(`    int _ox=(int)constrain(roundf(${f('offsetX', 'offsetX', 0)}),${FRAME_OFFSET.min}.0f,${FRAME_OFFSET.max}.0f),_oy=(int)constrain(roundf(${f('offsetY', 'offsetY', 0)}),${FRAME_OFFSET.min}.0f,${FRAME_OFFSET.max}.0f);`)
+    const wired = (port: string) => incoming.has(`${node.id}:${port}`)
+    // A value's expression, or null while it is unwired and at rest.
+    const value = (port: string, rest: number) => !wired(port) && Number(p[port] ?? rest) === rest ? null : f(port, port, rest)
+    const lines: string[] = []
+    // A rate's integrated phase, or null while it is unwired and 0.
+    const phase = (port: string, term: string, local: string) => {
+      if (value(port, 0) === null) return null
+      needsT.v = true
+      lines.push(`    float ${local}=${f(port, port, 0)};`)
+      return speedPhaseCpp((line) => lines.push(line), phaseTag(id, term), local)
+    }
+    const sum = (a: string | null, b: string | null) => a !== null && b !== null ? `(${a})+${b}` : a ?? b
+    const turnValue = value('rotate', 0)
+    const turn = sum(turnValue, phase('rotateRate', 'rotate', '_ftRr'))
+    const offsetX = sum(value('offsetX', 0), phase('offsetXRate', 'x', '_ftXr'))
+    const offsetY = sum(value('offsetY', 0), phase('offsetYRate', 'y', '_ftYr'))
+    // Only Smooth reads the scale: its value held to the slider's range, times
+    // the breathing of its rate.
+    const zoom = smooth ? phase('scaleRate', 'scale', '_ftSr') : null
+    if (zoom !== null) lines.push(`    ${transformZoomCpp(zoom)}`)
+    const scale = !smooth || (value('scale', 1) === null && zoom === null) ? null
+      : `constrain(${f('scale', 'scale', 1)},${floatLit(FRAME_SCALE.min)},${floatLit(FRAME_SCALE.max)})${zoom !== null ? '*_s' : ''}`
+    if (turn === null && scale === null && offsetX === null && offsetY === null && !flipX && !flipY) {
+      ln(`  ::memmove(${ob}, ${src}, sizeof(CRGB) * NUM_LEDS); // Frame Transform: no change`)
+      return
+    }
+    const edge = frameTransformEdge(p.edgeMode)
+    const bilinear = p.sampling !== 'nearest'
+    // A turn only a property sets is a fixed count of quarter turns in Exact.
+    const kernel = smooth
+      ? smoothTransformCpp({ degrees: turn, scale, flipX, flipY, offsetX, offsetY })
+      : exactTransformCpp({
+        turns: turn === null ? 0 : turn === turnValue && !wired('rotate') ? frameQuarterTurns(p.rotate) : turn,
+        flipX, flipY, offsetX, offsetY,
+      })
+    ln(`  { // Frame Transform: ${smooth ? `smooth, ${edge}, ${bilinear ? 'bilinear' : 'nearest'}` : 'exact'}`)
+    for (const line of lines) ln(line)
+    for (const line of kernel.frame) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    ln(`      int _px=(((_x-_ox)%WIDTH)+WIDTH)%WIDTH,_py=(((_y-_oy)%HEIGHT)+HEIGHT)%HEIGHT;`)
-    ln(`      float _u=WIDTH>1?(float)_px/(WIDTH-1):0.0f,_v=HEIGHT>1?(float)_py/(HEIGHT-1):0.0f;`)
-    if (flipX) ln(`      _u=1.0f-_u;`)
-    if (flipY) ln(`      _v=1.0f-_v;`)
-    for (let k = 0; k < turns; k++) ln(`      { float _nu=_v; _v=1.0f-_u; _u=_nu; }`)
-    ln(`      int _sx=(int)floorf(_u*(WIDTH-1)+0.5f),_sy=(int)floorf(_v*(HEIGHT-1)+0.5f);`)
-    ln(`      ${ob}[_y*WIDTH+_x]=${src}[_sy*WIDTH+_sx]; } }`)
+    for (const line of kernel.pixel) ln(`      ${line}`)
+    if (smooth) {
+      needsFrameSample.v = true
+      ln(`      ${ob}[_y*WIDTH+_x]=_sampleFrame(${src},_sx,_sy,${FRAME_TRANSFORM_EDGES.indexOf(edge)},${bilinear}); } }`)
+    } else {
+      ln(`      ${ob}[_y*WIDTH+_x]=${src}[_sy*WIDTH+_sx]; } }`)
+    }
   },
   Mask({ ln, ownBuf, srcBuf, seedFrom }) {
     const ob = ownBuf()
@@ -262,33 +296,6 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     const ob = ownBuf()
     const g = f('gamma', 'gamma', 2.2)
     ln(`  { ${seedFrom('frame')} napplyGamma_video(${ob}, NUM_LEDS, max(0.1f, ${g})); }`)
-  },
-  Transform({ id, p, ln, f, ownBuf, srcBuf, needsT }) {
-    needsT.v = true
-    const ob = ownBuf()
-    const src = srcBuf('frame')
-    if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Transform: no input`); return }
-    const mode = String(p.transform ?? 'rotate')
-    const rate = f('rate', 'rate', 90)
-    const angle = f('angle', 'angle', 0)
-    ln(`  { float _cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f,_rate=${rate};`)
-    const ph = speedPhaseCpp(ln, phaseTag(id), '_rate')
-    if (mode === 'translate') {
-      ln(`    float _a=${angle}*0.01745329f,_dx=cos(_a)*${ph},_dy=sin(_a)*${ph};`)
-      ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-      ln(`      int _sx=(((int)floorf(_x-_dx+0.5f))%WIDTH+WIDTH)%WIDTH, _sy=(((int)floorf(_y-_dy+0.5f))%HEIGHT+HEIGHT)%HEIGHT;`)
-      ln(`      ${ob}[_y*WIDTH+_x]=${src}[_sy*WIDTH+_sx];}}`)
-    } else if (mode === 'scale') {
-      ln(`    ${transformZoomCpp(ph)}`)
-      ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-      ln(`      int _sx=(int)floorf(_cx+(_x-_cx)/_s+0.5f), _sy=(int)floorf(_cy+(_y-_cy)/_s+0.5f);`)
-      ln(`      ${ob}[_y*WIDTH+_x]=(_sx>=0&&_sx<WIDTH&&_sy>=0&&_sy<HEIGHT)?${src}[_sy*WIDTH+_sx]:CRGB::Black;}}`)
-    } else {
-      ln(`    float _a=${ph}*0.01745329f,_co=cos(_a),_si=sin(_a);`)
-      ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-      ln(`      float _rx=_x-_cx,_ry=_y-_cy; int _sx=(int)floorf(_cx+_rx*_co+_ry*_si+0.5f), _sy=(int)floorf(_cy-_rx*_si+_ry*_co+0.5f);`)
-      ln(`      ${ob}[_y*WIDTH+_x]=(_sx>=0&&_sx<WIDTH&&_sy>=0&&_sy<HEIGHT)?${src}[_sy*WIDTH+_sx]:CRGB::Black;}}`)
-    }
   },
   // Blender-style array: composite `count` copies of the input, each offset/
   // rotated/scaled by an accumulating step about the matrix centre, dimmed by

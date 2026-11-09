@@ -3,7 +3,7 @@ import { transformZoom, transformZoomCpp } from '../transformZoom'
 import { compileCppSnippet } from '../../../test-utils/cppSnippet'
 import { propertyLabel } from '../../../state/nodeLibrary'
 
-describe("Transform's scale mode", () => {
+describe("Frame Transform's scale rate", () => {
   it('breathes between double and half size instead of freezing at a clamp', () => {
     // 100 units of phase is one doubling: in, back, out, back.
     expect(transformZoom(0)).toBeCloseTo(1, 12)
@@ -26,9 +26,10 @@ describe("Transform's scale mode", () => {
     }
   })
 
-  it("names the rate's unit for the mode", () => {
-    expect(propertyLabel('Transform', 'rate', { transform: 'rotate' })).toBe('rate (°/s)')
-    expect(propertyLabel('Transform', 'rate', { transform: 'scale' })).toBe('rate (%/s)')
-    expect(propertyLabel('Transform', 'rate', { transform: 'translate' })).toBe('rate (px/s)')
+  it("names each rate's unit", () => {
+    expect(propertyLabel('FrameTransform', 'rotateRate')).toBe('rate (°/s)')
+    expect(propertyLabel('FrameTransform', 'scaleRate')).toBe('rate (%/s)')
+    expect(propertyLabel('FrameTransform', 'offsetXRate')).toBe('X rate (px/s)')
+    expect(propertyLabel('FrameTransform', 'offsetYRate')).toBe('Y rate (px/s)')
   })
 })

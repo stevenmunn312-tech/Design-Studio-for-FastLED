@@ -1199,25 +1199,27 @@ describe('generateCpp', () => {
     expect(cpp).not.toContain('::memmove(buf_cd, buf_sc,')
   })
 
-  it('emits a Transform that resamples from the source buffer per mode', () => {
-    const mk = (transform: string, extra: Record<string, unknown> = {}) => {
+  it('emits a Frame Transform that resamples from the source buffer per mode', () => {
+    const mk = (properties: Record<string, unknown>) => {
       const sc = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
-      const tr = node('tr', 'Transform', 'composite', { transform, rate: 90, angle: 45, ...extra })
+      const tr = node('tr', 'FrameTransform', 'composite', properties)
       return generateCpp([sc, tr, outputNode], [
         edge('e1', 'sc', 'tr', 'frame', 'frame'),
         edge('e2', 'tr', 'out', 'frame', 'frame'),
       ])
     }
-    expect(mk('rotate')).toContain('_co=cos(_a)')
-    expect(mk('rotate')).toContain('buf_sc[')               // gathers from the source buffer
-    expect(mk('translate')).toContain('%WIDTH+WIDTH)%WIDTH') // toroidal wrap
-    expect(mk('scale')).toContain('float _s=powf(2.0f,_w<1.0f?_w:2.0f-_w);')
+    const spin = mk({ mode: 'smooth', rotateRate: 90 })
+    expect(spin).toContain('// Frame Transform: smooth, black, bilinear')
+    expect(spin).toContain('_ftCo=cosf(_ftA)')
+    expect(spin).toMatch(/_sampleFrame\(buf_sc, ?_sx, ?_sy/) // gathers from the source buffer
+    expect(mk({ offsetXRate: 6 })).toContain('(_x-_ftOx+WIDTH)%WIDTH') // whole pixels, wrapped
+    expect(mk({ mode: 'smooth', scaleRate: 90 })).toContain('float _s=powf(2.0f,_w<1.0f?_w:2.0f-_w);')
   })
 
-  it('emits a blank Transform when its frame input is unconnected', () => {
-    const tr = node('tr', 'Transform', 'composite', { transform: 'rotate', rate: 90 })
+  it('emits a blank Frame Transform when its frame input is unconnected', () => {
+    const tr = node('tr', 'FrameTransform', 'composite', { mode: 'smooth', rotateRate: 90 })
     const cpp = generateCpp([tr, outputNode], [edge('e', 'tr', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('Transform: no input')
+    expect(cpp).toContain('Frame Transform: no input')
   })
 
   it('emits an Array loop that composites accumulating copies from the source', () => {
@@ -3293,18 +3295,18 @@ describe('Float Field — Phase 2 codegen', () => {
       edge('e2', 'dx', 'fw', 'field', 'dx'),
       ...t.edges,
     ])
-    expect(cpp).toContain('/* FieldWarp */')
-    expect(cpp).toContain('(2.0f*field_dx[_y*WIDTH+_x]-1.0f)*_st')
-    expect(cpp).toContain('float _fx=constrain(_x+_ox,0.0f,(float)(WIDTH-1))')
-    expect(cpp).toContain('field_fw[_y*WIDTH+_x]=_top*(1.0f-_ay)+_bot*_ay;')
+    expect(cpp).toContain('/* Field Transform: clamp, bilinear */')
+    expect(cpp).toContain('float _ox=(2.0f*field_dx[_i]-1.0f)*_ftSt;')
+    expect(cpp).toContain('_x0=_x0<0?0:(_x0>WIDTH-1?WIDTH-1:_x0);')
+    expect(cpp).toContain('field_fw[_i]=_val;')
     const nearest = generateCpp([src, dx, { ...fw, data: { ...fw.data, properties: { strength: 2, sampling: 'nearest' } } }, ...t.nodes], [
       edge('e1', 'src', 'fw', 'field', 'field'),
       edge('e2', 'dx', 'fw', 'field', 'dx'),
       ...t.edges,
     ])
-    expect(nearest).toContain('/* FieldWarp: nearest */')
-    expect(nearest).toContain('field_fw[_y*WIDTH+_x]=field_src[_sy*WIDTH+_sx]')
-    expect(nearest).toContain('if(_sx>WIDTH-1)_sx=WIDTH-1')
+    expect(nearest).toContain('/* Field Transform: clamp, nearest */')
+    expect(nearest).toContain('float _val=field_src[_sy*WIDTH+_sx];')
+    expect(nearest).toContain('_sx=_sx<0?0:(_sx>WIDTH-1?WIDTH-1:_sx);')
   })
 })
 
@@ -3782,30 +3784,32 @@ describe('Float Field — Phase 3 codegen', () => {
     }
   }
 
-  it('FieldRotate emits a time-driven rotation sampling the source field', () => {
+  it('Field Transform emits a time-driven turn sampling the source field', () => {
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'x' })
-    const fr = node('fr', 'FieldRotate', 'composite', { angle: 0, spin: 45 })
+    const fr = node('fr', 'FieldWarp', 'composite', { angle: 0, spin: 45 })
     const t = tail('fr')
     const cpp = generateCpp([src, fr, ...t.nodes], [
       edge('e1', 'src', 'fr', 'field', 'field'),
       ...t.edges,
     ])
-    expect(cpp).toContain('/* FieldRotate */')
-    expect(cpp).toContain('float _spin=45;')     // spin baked in, integrated into _phase_fr
+    expect(cpp).toContain('/* Field Transform: clamp, bilinear */')
+    expect(cpp).toContain('float _ftSpin=45;')     // spin baked in, integrated into _phase_fr
     expect(cpp).toContain('float t = millis()')   // needsT triggered
-    expect(cpp).toContain('field_fr[_y*WIDTH+_x]=field_src[_sy*WIDTH+_sx]')
+    expect(cpp).toContain('field_fr[_i]=_val;')
   })
 
-  it('FieldTile bakes the tile counts into the C++', () => {
+  it('Field Transform bakes fixed tile counts and averages the pixels each copy squeezes', () => {
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'x' })
-    const ft = node('ft', 'FieldTile', 'composite', { tilesX: 3, tilesY: 2 })
+    const ft = node('ft', 'FieldWarp', 'composite', { tilesX: 3, tilesY: 2, edgeMode: 'wrap' })
     const t = tail('ft')
     const cpp = generateCpp([src, ft, ...t.nodes], [
       edge('e1', 'src', 'ft', 'field', 'field'),
       ...t.edges,
     ])
-    expect(cpp).toContain('/* FieldTile */')
-    expect(cpp).toContain('int _tx=max(1,(int)roundf(3)),_ty=max(1,(int)roundf(2)); int _sx=(_x*_tx)%WIDTH,_sy=(_y*_ty)%HEIGHT;')
+    expect(cpp).toContain('/* Field Transform: wrap, bilinear */')
+    expect(cpp).toContain('float _ftTx=constrain((int)floorf((3)+0.5f),1,8),_ftTy=constrain((int)floorf((2)+0.5f),1,8);')
+    expect(cpp).toContain('int _ftN=3;')
+    expect(cpp).toContain('field_ft[_i]=_sum/(float)(_ftN*_ftN);')
   })
 })
 
@@ -6042,7 +6046,7 @@ describe('bypassed nodes (codegen)', () => {
   it('a bypassed field node memcpys its input field buffer', () => {
     const fn = node('fn', 'FieldNoise', 'pattern', { speed: 0.4, scale: 0.3, octaves: 3 })
     const fw = withPorts(
-      node('fw', 'FieldRotate', 'composite', { spin: 10, bypassed: true }),
+      node('fw', 'FieldWarp', 'composite', { spin: 10, bypassed: true }),
       [{ id: 'field', dataType: 'field' }, { id: 'angle', dataType: 'float' }],
       [{ id: 'field', dataType: 'field' }],
     )

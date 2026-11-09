@@ -38,7 +38,7 @@ Feature contracts and rationale live here. Task ordering belongs in
 - [Code node](design/code-node.md)
 - [Formula-driven pattern nodes](design/formula-pattern-nodes.md)
 - [Fourier Epicycles](design/fourier-epicycles.md)
-- [Frame Warp](design/frame-warp.md)
+- [Frame Warp, Frame Transform and Field Transform](design/frame-warp.md)
 - [SD Video](design/sd-video.md)
 - [Simulations, fractals and classics](design/simulation-fields.md)
 - [Slice Tiling](design/slice-tiling.md)

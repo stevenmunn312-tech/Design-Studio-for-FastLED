@@ -77,21 +77,41 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { density: 0.3, glitterMode: 'add', r: 255, g: 255, b: 255, seed: 0 },
   },
   {
-    // Static geometry: a quarter-turn rotation, a flip on either axis and a
-    // slide in whole pixels that wraps. Transform animates; this one fixes a
-    // panel that was mounted sideways, or shifts a pattern across a tiled wall.
+    // Turn, scale, flip and slide a frame (./frameTransform.ts). Exact keeps
+    // whole pixels: quarter turns, flips and a wrapping slide, nothing
+    // resampled, which fixes a panel mounted sideways or scrolls a pattern.
+    // Smooth turns by any angle, scales and slides by fractions of a pixel
+    // through the shared frame sampler. Turn, scale and slide each take a
+    // per-second rate, so one node also keeps a frame moving.
     type: 'FrameTransform',
     label: 'Frame Transform',
     category: 'composite',
     subcategory: 'Geometry',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
-      { id: 'offsetX', label: 'Offset X', dataType: 'float' },
-      { id: 'offsetY', label: 'Offset Y', dataType: 'float' },
+      // Each socket sits on its property row, so it reads as the row does.
+      { id: 'rotate', label: 'Rotate (°)', dataType: 'float' },
+      { id: 'rotateRate', label: 'Rate (°/s)', dataType: 'float' },
+      { id: 'scale', label: 'Scale (×)', dataType: 'float' },
+      { id: 'scaleRate', label: 'Rate (%/s)', dataType: 'float' },
+      { id: 'offsetX', label: 'Offset X (px)', dataType: 'float' },
+      { id: 'offsetY', label: 'Offset Y (px)', dataType: 'float' },
+      { id: 'offsetXRate', label: 'X Rate (px/s)', dataType: 'float' },
+      { id: 'offsetYRate', label: 'Y Rate (px/s)', dataType: 'float' },
     ],
-    propertyInputs: { offsetX: 'offsetX', offsetY: 'offsetY' },
+    propertyInputs: {
+      rotate: 'rotate', rotateRate: 'rotateRate', scale: 'scale', scaleRate: 'scaleRate',
+      offsetX: 'offsetX', offsetY: 'offsetY', offsetXRate: 'offsetXRate', offsetYRate: 'offsetYRate',
+    },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { rotate: '0', flipX: false, flipY: false, offsetX: 0, offsetY: 0 },
+    defaultProperties: {
+      mode: 'exact',
+      rotate: 0, rotateRate: 0,
+      scale: 1, scaleRate: 0,
+      flipX: false, flipY: false,
+      offsetX: 0, offsetY: 0, offsetXRate: 0, offsetYRate: 0,
+      edgeMode: 'black', sampling: 'bilinear',
+    },
   },
 
   {
@@ -152,21 +172,6 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     propertyInputs: { amount: 'amount' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { amount: 1, keepBrightness: false },
-  },
-  {
-    // Animated geometric transform of a frame (rotate / scale / translate).
-    type: 'Transform',
-    label: 'Transform',
-    category: 'composite',
-    subcategory: 'Geometry',
-    inputs: [
-      { id: 'frame', label: 'Frame', dataType: 'frame' },
-      { id: 'rate', label: 'Rate', dataType: 'float' },
-      { id: 'angle', label: 'Angle', dataType: 'float' },
-    ],
-    propertyInputs: { rate: 'rate', angle: 'angle' },
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { transform: 'rotate', rate: 90, angle: 0 },
   },
   {
     // Blender-style array modifier: repeat the input frame `count` times, each
@@ -274,8 +279,8 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // Per-pixel frame displacement in the Milkdrop/projectM tradition. Two
-    // fields push the source coordinate, while zoom and rotation apply about
-    // the canvas centre before one shared nearest/bilinear frame sample.
+    // fields push the source coordinate before one shared nearest/bilinear
+    // frame sample; a whole-frame turn or zoom is Frame Transform's.
     // With neither field wired, `motion` pushes instead (./frameWarpMotion.ts),
     // animated at `motionSpeed` cycles a second, so a lone node moves.
     type: 'FrameWarp',
@@ -287,16 +292,12 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
       { id: 'dx', label: 'Offset X', dataType: 'field' },
       { id: 'dy', label: 'Offset Y', dataType: 'field' },
       { id: 'strength', label: 'Strength', dataType: 'float' },
-      { id: 'zoom', label: 'Zoom', dataType: 'float' },
-      { id: 'rotate', label: 'Rotate', dataType: 'float' },
       { id: 'motionSpeed', label: 'Motion Speed', dataType: 'float' },
     ],
-    propertyInputs: { strength: 'strength', zoom: 'zoom', rotate: 'rotate', motionSpeed: 'motionSpeed' },
+    propertyInputs: { strength: 'strength', motionSpeed: 'motionSpeed' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       strength: 2,
-      zoom: 1,
-      rotate: 0,
       motion: 'swirl',
       motionSpeed: 0.25,
       edgeMode: 'clamp',
@@ -417,18 +418,17 @@ export const COMPOSITE_DESCRIPTIONS: Record<string, string> = {
   Blend: 'Blends B over A — normal, multiply, screen, overlay, add, difference or lighten.',
   Mask: 'Masks a frame by another frame’s brightness.',
   Glitter: 'Sprinkles random sparkles of one colour over a frame each frame.',
-  FrameTransform: 'Rotates a frame by quarter turns, flips it, and slides it by whole pixels.',
+  FrameTransform: 'Turns, scales, flips and slides a frame, held still or kept moving.',
   BrightnessMod: 'Dims or amplifies a frame with saturated 0–3× scaling.',
   HueShift: 'Rotates all hues.',
   Gamma: 'Perceptual gamma correction so gradients look right on the LEDs.',
   Saturation: 'Scales color saturation (0 = greyscale), optionally keeping brightness.',
-  Transform: 'Animated rotate, scale or translate of a frame.',
   Array: 'Repeats a frame N times with an accumulating offset/rotate/scale, composited.',
   Invert: 'Inverts colors.',
   Mirror: 'Mirrors a frame into symmetry (4 axes) with an optional tinted glow bloom.',
   Kaleidoscope: 'Mirrors a frame into kaleidoscope symmetry.',
   Trails: 'Fades the previous frame and re-lightens where the input is brighter.',
-  FrameWarp: 'Displaces a frame per pixel with two fields, plus centred zoom and rotation.',
+  FrameWarp: 'Displaces each pixel by two fields or a built-in swirl, ripple or turbulence.',
   Symmetry: 'Repeats a frame through a square or hexagonal wallpaper symmetry group.',
   FrameFeedback: 'Recursive delay — blend a faded prior output over the live input.',
   FrameSwitch: 'Shows frame A or B, selected by a boolean.',

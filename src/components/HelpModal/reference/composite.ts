@@ -103,8 +103,9 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
 
   FrameTransform: {
     overview: [
-      'Frame Transform turns a frame by quarter turns, flips it, and slides it by whole pixels, wrapping round the edges.',
-      'Use it to fix a panel mounted the wrong way, to point a fire sideways, or — with a ramp on Offset — to scroll a pattern endlessly.',
+      'Frame Transform turns, scales, flips and slides a frame. Each of Rotate, Scale and Offset has a Rate beside it, in degrees, percent or LEDs a second, so the same node also keeps a frame spinning, breathing or scrolling. Negative rates run the other way.',
+      'Exact keeps whole pixels: Rotate snaps to quarter turns, the slide rounds to whole LEDs and wraps round the edges, and nothing is blurred. Use it to fix a panel mounted the wrong way, to point a fire sideways, or to scroll a pattern endlessly.',
+      'Smooth turns by any angle, scales about the centre and slides by fractions of an LED, reading the frame between pixels. Its Scale rate breathes: it zooms in to double size, back out through the original to half size, and round again; at 100 it covers one doubling a second. Edges decides what fills the space the frame leaves: black, the edge held, or the frame wrapped round.',
     ],
     inputs: { frame: FRAME_IN },
     outputs: { frame: FRAME_OUT },
@@ -207,27 +208,6 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  Transform: {
-    overview: [
-      'Transform keeps a frame moving: Rotate spins it, Scale zooms it, and Translate slides it along an angle. Rate sets the speed in degrees, percent or pixels per second, and negative values reverse it.',
-      'Scale breathes: it zooms in to double size, back out through the original to half size, and round again, so it never stops. At a Rate of 100 it covers one doubling a second. For a fixed quarter turn or flip use Frame Transform.',
-    ],
-    inputs: { frame: FRAME_IN },
-    outputs: { frame: FRAME_OUT },
-    example: example({
-      featured: 'Transform',
-      title: 'Clouds sailing past',
-      nodes: {
-        clouds: ['Noise', { noiseType: 'fbm', palette: 'ice', speed: 0.1, scale: 0.35 }],
-        sail: ['Transform', { transform: 'translate', rate: 6, angle: 200 }],
-      },
-      wires: ['clouds.frame > sail.frame'],
-      output: MATRIX(24, 12),
-      explanation: 'Noise draws slowly changing clouds, and Transform in translate mode slides the whole sky six pixels a second along its angle, so the clouds sail steadily past the window.',
-      preview: 'The {output} shows soft icy blue and white clouds drifting across it.',
-    }),
-  },
-
   Array: {
     overview: [
       'Array draws several copies of a frame, each offset, turned and scaled a little more than the last, and stacks them up. Falloff dims each copy further.',
@@ -241,10 +221,10 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       nodes: {
         star: ['Shape', { shape: 'polygon', sides: 5, size: 6, filled: false, edge: '#ffd040', thickness: 1 }],
         steps: ['Array', { count: 7, offsetX: 0, offsetY: 0, angle: 24, scale: 0.82, falloff: 0.78, blendMode: 'lighten' }],
-        spin: ['Transform', { transform: 'rotate', rate: 30 }],
+        spin: ['FrameTransform', { mode: 'smooth', rotateRate: 30, edgeMode: 'black', sampling: 'nearest' }],
       },
       wires: ['star.frame > steps.frame', 'steps.frame > spin.frame'],
-      explanation: 'Shape draws one golden star outline. Array repeats it seven times, each turned 24° more, 18% smaller and a little dimmer, so the copies wind inward like a spiral staircase. Transform slowly turns the whole stack.',
+      explanation: 'Shape draws one golden star outline. Array repeats it seven times, each turned 24° more, 18% smaller and a little dimmer, so the copies wind inward like a spiral staircase. Frame Transform slowly turns the whole stack.',
       preview: 'The {output} shows golden star outlines spiralling into the centre, each smaller and dimmer than the last.',
     }),
   },
@@ -336,7 +316,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
 
   FrameWarp: {
     overview: [
-      'Frame Warp moves every pixel of a frame by two fields: Offset X pushes sideways, Offset Y up and down, with a field value of 0.5 meaning no push. Strength sets how far, and Zoom and Rotate work about the centre.',
+      'Frame Warp moves every pixel of a frame by two fields: Offset X pushes sideways, Offset Y up and down, with a field value of 0.5 meaning no push. Strength sets how far. To turn or zoom the whole frame, use Frame Transform.',
       'Smooth, slowly changing fields make a frame look liquid or heat-hazed. Edges decides what happens at the border: hold the edge, wrap round, or fade to black.',
       'With neither field wired, Motion moves the frame on its own: a swirl about the centre, ripples travelling outward, or layered turbulence, at Motion Speed cycles a second. A Frame Warp on its own is already liquid.',
     ],
@@ -351,7 +331,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       title: 'Turn noise into a liquid feedback surface',
       nodes: {
         source: ['Noise', { noiseType: 'simplex', speed: 0.2, scale: 0.42, palette: 'synthwave' }],
-        warp: ['FrameWarp', { strength: 2.5, zoom: 1.02, rotate: 2, motion: 'turbulence', motionSpeed: 0.2, edgeMode: 'wrap', sampling: 'bilinear' }],
+        warp: ['FrameWarp', { strength: 2.5, motion: 'turbulence', motionSpeed: 0.2, edgeMode: 'wrap', sampling: 'bilinear' }],
         feedback: ['FrameFeedback', { delayFrames: 2, fade: 0.08, amount: 0.58, blendMode: 'screen' }],
       },
       wires: ['source.frame > warp.frame', 'warp.frame > feedback.frame'],
