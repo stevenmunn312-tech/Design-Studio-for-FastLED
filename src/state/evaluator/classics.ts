@@ -45,23 +45,6 @@ export function candleColor(t: number, salt: number, flicker: number, warmth: nu
   return { r: Math.floor(255 * v), g: Math.floor(g * v), b: Math.floor(b * v) }
 }
 
-// ── Heartbeat ──────────────────────────────────────────────────────────────
-export const HEARTBEAT_BPM_MIN = 20
-export const HEARTBEAT_BPM_MAX = 240
-
-/** The lub-dub envelope at `phase` in [0, 1): a strong beat, then a softer one. */
-export function heartbeatEnvelope(phase: number): number {
-  const lub = Math.exp(-(((phase - 0.05) / 0.04) ** 2))
-  const dub = 0.7 * Math.exp(-(((phase - 0.3) / 0.05) ** 2))
-  return Math.min(1, lub + dub)
-}
-
-export function heartbeatPhase(t: number, bpm: number): number {
-  const b = Math.max(HEARTBEAT_BPM_MIN, Math.min(HEARTBEAT_BPM_MAX, Number.isFinite(bpm) ? bpm : 72))
-  const period = 60 / b
-  return (((t % period) + period) % period) / period
-}
-
 // ── Sunrise ────────────────────────────────────────────────────────────────
 export const SUNRISE_MODES = ['timed', 'manual'] as const
 export const sunriseMode = (v: unknown): 'timed' | 'manual' => (v === 'manual' ? 'manual' : 'timed')

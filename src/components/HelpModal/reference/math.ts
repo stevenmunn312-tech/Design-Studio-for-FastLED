@@ -156,10 +156,10 @@ export const MATH_REFERENCE: NodeReferenceMap = {
       nodes: {
         nerves: ['NoiseSignal', { speed: 0.2, min: 0, max: 1 }],
         rate: ['Lerp', { a: 50, b: 160 }],
-        heart: ['Heartbeat', { palette: 'cottoncandy', strength: 0.5 }],
+        heart: ['Breathe', { curve: 'heartbeat', palette: 'cottoncandy', minLevel: 0.5 }],
       },
       wires: ['nerves.value > rate.t', 'rate.result > heart.bpm'],
-      explanation: 'Lerp holds two heart rates: a resting 50 and a racing 160. Noise LFO wanders between 0 and 1 and picks a point between them, so the Heartbeat slowly speeds up and calms down on its own.',
+      explanation: 'Lerp holds two heart rates: a resting 50 and a racing 160. Noise LFO wanders between 0 and 1 and picks a point between them, so the heartbeat slowly speeds up and calms down on its own.',
       preview: 'The {output} pulses lub-dub from sky blue to pink, sometimes slow and relaxed, sometimes quick and anxious.',
     }),
   },

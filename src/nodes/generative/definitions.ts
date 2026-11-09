@@ -172,7 +172,8 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // Breathe — one colour swelling and fading at a breaths-per-minute rate,
-    // on a natural (exponential) or sine curve, never below `minLevel`.
+    // on a natural (exponential), sine, triangle or heartbeat (lub-dub)
+    // curve, never below `minLevel`.
     type: 'Breathe',
     label: 'Breathe',
     category: 'pattern',
@@ -231,21 +232,6 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     propertyInputs: { rate: 'rate', intensity: 'intensity' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { rate: 6, intensity: 1, color: '#cfe0ff' },
-  },
-  {
-    // Heartbeat — the lub-dub double pulse as a brightness and palette envelope.
-    type: 'Heartbeat',
-    label: 'Heartbeat',
-    category: 'pattern',
-    subcategory: 'Generative',
-    inputs: [
-      { id: 'bpm', label: 'BPM', dataType: 'float' },
-      { id: 'strength', label: 'Strength', dataType: 'float' },
-      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
-    ],
-    propertyInputs: { bpm: 'bpm', strength: 'strength', palette: 'paletteIn' },
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { bpm: 72, strength: 0.8, palette: 'lava' },
   },
   {
     // Sunrise — night blue to warm white, on a timer or from a 0–1 progress input.
@@ -371,11 +357,10 @@ export const GENERATIVE_DESCRIPTIONS: Record<string, string> = {
   Scanner: 'Larson scanner / Cylon eye — a palette beam sweeping back and forth with a tail.',
   TheaterChase: 'Marquee chase — every Nth LED lit, stepping along the strip in palette colours.',
   ColorWipe: 'The next palette colour sweeps in from one end, wipe after wipe.',
-  Breathe: 'One colour swelling and fading at a breaths-per-minute rate.',
+  Breathe: 'One colour swelling and fading at a set rate: a breath, or a heart\'s lub-dub.',
   Confetti: 'Random fading palette speckles on a persistent frame buffer.',
   Candle: 'Warm flame flicker, one flame or one per pixel.',
   Lightning: 'Storm flashes: random strikes of two to five flickers, or one on each trigger.',
-  Heartbeat: 'A lub-dub double pulse at a set heart rate.',
   Sunrise: 'A dawn ramp from night blue to warm white, on a timer or a progress input.',
   DigitalRain: 'Falling streams of light with bright heads and fading tails, in any direction.',
   TVSimulator: 'Flickering television light: quick scene cuts between coloured blocks.',

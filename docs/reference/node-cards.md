@@ -682,12 +682,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Lightning example graph](../../public/node-cards/graphs/lightning.svg)
 
-### Heartbeat
-
-![Heartbeat node](../../public/node-cards/heartbeat.svg)
-
-![Heartbeat example graph](../../public/node-cards/graphs/heartbeat.svg)
-
 ### Sunrise
 
 ![Sunrise node](../../public/node-cards/sunrise.svg)

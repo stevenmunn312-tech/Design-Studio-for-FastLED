@@ -35,26 +35,28 @@ export function wipeReversed(direction: unknown, n: number): boolean {
   return false
 }
 
-export const BREATHE_CURVES = ['natural', 'sine', 'triangle'] as const
+export const BREATHE_CURVES = ['natural', 'sine', 'triangle', 'heartbeat'] as const
 export type BreatheCurve = typeof BREATHE_CURVES[number]
 
 export function breatheCurve(value: unknown): BreatheCurve {
   return (BREATHE_CURVES as readonly string[]).includes(String(value)) ? value as BreatheCurve : 'natural'
 }
 
-/** Breaths per minute the slider, preview and sketch all allow. */
-export const BREATHE_BPM = { min: 1, max: 120, default: 12 } as const
+/** Breaths (or heartbeats) per minute the slider, preview and sketch all allow. */
+export const BREATHE_BPM = { min: 1, max: 240, default: 12 } as const
 
 const E = Math.E
 const E_INV = 1 / Math.E
 
 /** 0–1 envelope at `phase` (0–1, one breath) — rises then falls. The natural
- *  curve is the exp(sin) breathing function (Sean Voisen's), normalised. */
+ *  curve is the exp(sin) breathing function (Sean Voisen's), normalised; the
+ *  heartbeat is a heart's lub-dub, a strong beat then a softer one. */
 export function breatheEnvelope(curve: BreatheCurve, phase: number): number {
   const p = ((phase % 1) + 1) % 1
   switch (curve) {
     case 'sine': return 0.5 - 0.5 * Math.cos(p * Math.PI * 2)
     case 'triangle': return p < 0.5 ? p * 2 : 2 - p * 2
+    case 'heartbeat': return Math.min(1, Math.exp(-(((p - 0.05) / 0.04) ** 2)) + 0.7 * Math.exp(-(((p - 0.3) / 0.05) ** 2)))
     case 'natural':
     default: return (Math.exp(Math.sin(p * Math.PI * 2 - Math.PI / 2)) - E_INV) / (E - E_INV)
   }
@@ -65,6 +67,10 @@ export function breatheEnvelopeCpp(curve: BreatheCurve, phase: string): string {
   switch (curve) {
     case 'sine': return `(0.5f-0.5f*cosf((${phase})*6.283185307f))`
     case 'triangle': return `((${phase})<0.5f?(${phase})*2.0f:2.0f-(${phase})*2.0f)`
+    case 'heartbeat': {
+      const lub = `(((${phase})-0.05f)/0.04f)`, dub = `(((${phase})-0.3f)/0.05f)`
+      return `min(1.0f,expf(-${lub}*${lub})+0.7f*expf(-${dub}*${dub}))`
+    }
     case 'natural':
     default: return `((expf(sinf((${phase})*6.283185307f-1.570796327f))-${E_INV.toFixed(7)}f)/${(E - E_INV).toFixed(7)}f)`
   }

@@ -495,7 +495,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   Breathe: {
     overview: [
       'Breathe swells one colour up and down at a rate given in breaths per minute — 12 is a resting adult, 6 is a sleepy calm.',
-      'The natural curve copies how breathing actually feels, with a quick rise and a long, relaxed fall; sine and triangle are more mechanical. Min Level stops it going fully dark.',
+      'The natural curve copies how breathing actually feels, with a quick rise and a long, relaxed fall; sine and triangle are more mechanical. The heartbeat curve is a heart’s lub-dub double pulse: at 60 to 80 BPM it is a resting heart, and BPM runs to 240. Min Level stops it going fully dark.',
       'The colour moves along the palette with each breath, from its start when empty to its end at the peak.',
     ],
     example: example({
@@ -565,23 +565,6 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       wires: ['storm.frame > within.frame', 'clouds.frame > within.mask', 'clouds.frame > sky.a', 'within.frame > sky.b'],
       explanation: 'Mask lets each Lightning flash through only where the Noise clouds are bright, and Blend screens the result over the clouds — so strikes light the clouds from within instead of flooding the whole sky.',
       preview: 'The {output} shows dark grey clouds drifting, lighting up from inside with each strike.',
-    }),
-  },
-
-  Heartbeat: {
-    overview: [
-      'Heartbeat pulses with the lub-dub double beat of a heart. BPM sets the heart rate and Strength how far the light dims between beats.',
-      'The colour follows the palette: its start at rest, its end at the peak of each beat.',
-    ],
-    example: example({
-      featured: 'Heartbeat',
-      title: 'A resting heart on a ring',
-      nodes: {
-        heart: ['Heartbeat', { bpm: 60, strength: 0.35, palette: 'party' }],
-      },
-      output: RING(16),
-      explanation: 'Heartbeat at a resting 60 beats a minute on a small LED ring, glowing pink at rest and flushing gold on each beat with the party palette.',
-      preview: 'The {output} glows pink and pulses gold twice in quick succession every second.',
     }),
   },
 

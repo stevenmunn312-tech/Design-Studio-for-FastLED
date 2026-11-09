@@ -118,7 +118,7 @@ const standard: Recipe[] = [
   { name: 'String Candle Garland', colors: ember, base: { type: 'Candle', props: { mode: 'perPixel', flicker: 0.38, warmth: 0.82 } } },
   { name: 'String Lavender Plasma', colors: violet, base: { type: 'Plasma', props: { speed: 0.17 } } },
   { name: 'String Moss Marble', colors: forest, base: { type: 'Noise', props: { speed: 0.14, scale: 0.36, seed: 107 } } },
-  { name: 'String Rose Heartbeat', colors: candy, base: { type: 'Heartbeat', props: { bpm: 58, strength: 0.72 } } },
+  { name: 'String Rose Heartbeat', colors: candy, base: { type: 'Breathe', props: { curve: 'heartbeat', bpm: 58, minLevel: 0.28 } } },
   { name: 'String Whitecap Stars', colors: ocean, base: { type: 'Pacifica', props: { speed: 0.26 } }, overlay: { type: 'TwinkleFox', props: { speed: 0.45, density: 0.16, seed: 108 } }, amount: 0.5 },
   { name: 'String Lantern Chase', colors: ember, base: { type: 'Candle', props: { mode: 'perPixel', warmth: 0.9 } }, overlay: { type: 'Scanner', props: { width: 2, speed: 0.32, trail: 0.56 } }, amount: 0.65 },
   { name: 'String Neon Duet', colors: violet, base: { type: 'Scanner', props: { speed: 0.23, width: 2 } }, overlay: { type: 'Juggle', props: { count: 2, speed: 0.55, trail: 0.5, seed: 109 } }, amount: 0.8 },

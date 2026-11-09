@@ -66,7 +66,7 @@ import { HARMONY_KINDS } from './palettes/harmonyPalette'
 import { GRADIENT_MIX_MODES, HUE_UNITS } from './palettes/hueMix'
 import { NOISE_SHAPES, WORLEY_MODES } from './evaluator/noiseShape'
 import { MAX_STRING_PARTICLES, RING_TRACK_MAX, RING_TRACK_MIN, STRING_PARTICLE_MODES, STRING_TRACKS } from './evaluator/stringTrack'
-import { CANDLE_MODES, HEARTBEAT_BPM_MAX, HEARTBEAT_BPM_MIN, SUNRISE_MODES } from './evaluator/classics'
+import { CANDLE_MODES, SUNRISE_MODES } from './evaluator/classics'
 import { RAIN_DIRECTIONS } from './evaluator/digitalRain'
 import { FIRE_DIRECTIONS } from '../nodes/simulations/fireDirection'
 import {
@@ -1098,7 +1098,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   Candle:          { flicker: N01, warmth: N01, mode: { control: 'select', options: [...CANDLE_MODES] } },
   Lightning:       { rate: { control: 'slider', min: 0.5, max: 60, step: 0.5 }, intensity: N01 },
-  Heartbeat:       { bpm: { control: 'slider', min: HEARTBEAT_BPM_MIN, max: HEARTBEAT_BPM_MAX, step: 1 }, strength: N01 },
   Sunrise:         {
     mode: { control: 'select', options: [...SUNRISE_MODES] },
     progress: N01,
@@ -2846,9 +2845,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     palette: 'Each wipe takes the next colour a fifth of the way round this palette.',
   },
   Breathe: {
-    bpm: 'Breaths per minute, 1 to 120. 12 is a resting adult.',
+    bpm: 'Breaths or beats per minute, 1 to 240. 12 is a resting adult\'s breath, 60 to 80 a resting heart.',
     minLevel: 'Brightness at the bottom of each breath, 0 fully dark to 1 never dimming.',
-    curve: 'Natural is the exponential breathing curve, sine is symmetric, triangle is linear.',
+    curve: 'Natural is the exponential breathing curve, sine is symmetric, triangle is linear, heartbeat is a heart\'s lub-dub double pulse.',
     palette: 'Colour across the breath: the palette start when empty, its end at the peak.',
   },
   Confetti: {
@@ -2861,11 +2860,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     mode: 'One flame lights every LED the same; every pixel gives each LED its own flicker.',
     flicker: 'How much the brightness wavers, 0 steady to 1 guttering.',
     warmth: 'Flame colour, 0 deep orange to 1 pale yellow.',
-  },
-  Heartbeat: {
-    bpm: 'Beats per minute, 20 to 240.',
-    strength: 'How far the lights dim between beats, 0 none to 1 fully dark.',
-    palette: 'Colour across the beat: the palette start at rest, its end at the peak.',
   },
   Juggle: {
     speed: 'How fast the dots sweep back and forth, 0 still to 1 fastest.',

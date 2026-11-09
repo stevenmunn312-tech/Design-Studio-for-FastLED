@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { evaluateGraph } from '../../graphEvaluator'
 import { NODE_LIBRARY } from '../../nodeLibrary'
 import {
-  candleColor, classicHash, heartbeatEnvelope, heartbeatPhase, lightningLevel, stepLightning, sunriseColor, sunriseProgress,
+  candleColor, classicHash, lightningLevel, stepLightning, sunriseColor, sunriseProgress,
   tvLayout, type LightningState,
 } from '../classics'
 import type { StudioNode, StudioEdge } from '../../graphStore'
+import { breatheEnvelope } from '../../../nodes/generative/classics1d'
 
 function node(id: string, nodeType: string, category: string, props: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((n) => n.type === nodeType)
@@ -50,18 +51,18 @@ describe('Candle', () => {
   })
 })
 
-describe('Heartbeat', () => {
-  it('peaks at the lub, dips between beats, and follows the rate', () => {
-    expect(heartbeatEnvelope(0.05)).toBeGreaterThan(0.95)
-    expect(heartbeatEnvelope(0.3)).toBeGreaterThan(0.6)
-    expect(heartbeatEnvelope(0.7)).toBeLessThan(0.01)
-    expect(heartbeatPhase(1, 60)).toBeCloseTo(0, 9)
-    expect(heartbeatPhase(0.5, 120)).toBeCloseTo(0, 9)
+describe('Breathe heartbeat curve', () => {
+  it('peaks at the lub, dips between beats', () => {
+    expect(breatheEnvelope('heartbeat', 0.05)).toBeGreaterThan(0.95)
+    expect(breatheEnvelope('heartbeat', 0.3)).toBeGreaterThan(0.6)
+    expect(breatheEnvelope('heartbeat', 0.7)).toBeLessThan(0.01)
+    expect(breatheEnvelope('heartbeat', 1.05)).toBeCloseTo(breatheEnvelope('heartbeat', 0.05), 9)
   })
-  it('strength 0 keeps the level flat; strength 1 goes dark between beats', () => {
+  it('min level 1 keeps the level flat; min level 0 goes dark between beats', () => {
     const period = 60 / 60
-    expect(total(frame('Heartbeat', { bpm: 60, strength: 1 }, 0.7 * period))).toBeLessThan(total(frame('Heartbeat', { bpm: 60, strength: 1 }, 0.05 * period)))
-    expect(total(frame('Heartbeat', { bpm: 60, strength: 1 }, 0.7 * period))).toBe(0)
+    const beat = (minLevel: number, at: number) => total(frame('Breathe', { curve: 'heartbeat', bpm: 60, minLevel }, at * period))
+    expect(beat(0, 0.7)).toBeLessThan(beat(0, 0.05))
+    expect(beat(0, 0.7)).toBe(0)
   })
 })
 

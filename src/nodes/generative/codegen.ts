@@ -16,7 +16,7 @@ import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { seedOffset } from '../../state/evaluator/random'
 import { wrapXBlockLines } from '../../codegen/helpers/wrapXHelperCpp'
 import {
-  CLASSIC_HASH_CPP, CLASSIC_VALUE_NOISE_CPP, HEARTBEAT_BPM_MAX, HEARTBEAT_BPM_MIN, LIGHTNING_AFTERGLOW, LIGHTNING_AFTERGLOW_TAU,
+  CLASSIC_HASH_CPP, CLASSIC_VALUE_NOISE_CPP, LIGHTNING_AFTERGLOW, LIGHTNING_AFTERGLOW_TAU,
   LIGHTNING_FLASH_LEN, SUNRISE_GAMMA, SUNRISE_STOPS, candleMode, sunriseMode,
 } from '../../state/evaluator/classics'
 import { noiseShape, noiseShapeCpp, worleyMode, worleyValueCpp } from '../../state/evaluator/noiseShape'
@@ -464,7 +464,7 @@ const hexCrgb = (hex: unknown, def: number) => {
   return `CRGB(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
 }
 
-// Candle, Lightning, Heartbeat, Sunrise and TV Simulator: the C++ twins of
+// Candle, Lightning, Sunrise and TV Simulator: the C++ twins of
 // GENERATIVE classics in state/evaluator/classics.ts. Same integer hash, same
 // constants, so the preview and the sketch flicker together.
 const CLASSIC_EMITTERS: NodeEmitters = {
@@ -503,17 +503,6 @@ const CLASSIC_EMITTERS: NodeEmitters = {
     ln(`      if(_lvl<=0.0f&&_dt>=_le) _lvl=${lit(LIGHTNING_AFTERGLOW)}*expf(-(_dt-_le)/${lit(LIGHTNING_AFTERGLOW_TAU)}); }`)
     ln(`    float _v=constrain(${f('intensity', 'intensity', 1)},0.0f,1.0f)*_lvl; CRGB _c=${hexCrgb(p.color, 0xcfe0ff)};`)
     ln(`    _c.r=(uint8_t)(_c.r*_v); _c.g=(uint8_t)(_c.g*_v); _c.b=(uint8_t)(_c.b*_v); fill_solid(${ob},NUM_LEDS,_c); }`)
-  },
-  Heartbeat({ node, p, ln, f, ownBuf, paletteExpr, needsT }) {
-    needsT.v = true
-    const ob = ownBuf()
-    const pal = paletteExpr(node.id, 'paletteIn', p)
-    ln(`  { // Heartbeat`)
-    ln(`    float _b=constrain(${f('bpm', 'bpm', 72)},${lit(HEARTBEAT_BPM_MIN)},${lit(HEARTBEAT_BPM_MAX)}),_pd=60.0f/_b,_ph=fmodf(t,_pd); if(_ph<0) _ph+=_pd; _ph/=_pd;`)
-    ln(`    float _lb=(_ph-0.05f)/0.04f,_db=(_ph-0.3f)/0.05f,_env=min(1.0f,expf(-_lb*_lb)+0.7f*expf(-_db*_db));`)
-    ln(`    float _st=constrain(${f('strength', 'strength', 0.8)},0.0f,1.0f),_v=1.0f-_st*(1.0f-_env);`)
-    ln(`    CRGB _c=ColorFromPalette(${pal},(uint8_t)(_env*255.0f)); _c.r=(uint8_t)(_c.r*_v); _c.g=(uint8_t)(_c.g*_v); _c.b=(uint8_t)(_c.b*_v);`)
-    ln(`    fill_solid(${ob},NUM_LEDS,_c); }`)
   },
   Sunrise({ p, ln, f, ownBuf, needsT }) {
     const ob = ownBuf()
@@ -562,13 +551,14 @@ const CLASSIC_EMITTERS: NodeEmitters = {
     ln(`        float _b=1.0f-_d/${A}l[_l],_v=_b*(1.0f-_fk*_h((uint32_t)(_l*131+_ps*17)+_bk*7U));`)
     ln(`        CRGB _c=ColorFromPalette(${pal},(uint8_t)(_b*255.0f)); ${ob}[${rainIndexCpp(dir, '_l', '_ps')}]=CRGB((uint8_t)(_c.r*_v),(uint8_t)(_c.g*_v),(uint8_t)(_c.b*_v)); } } }`)
   },
-  TVSimulator({ ln, f, ownBuf, needsT }) {
+  TVSimulator({ id, ln, f, ownBuf, needsT }) {
     needsT.v = true
     const ob = ownBuf()
     ln(`  { // TV Simulator`)
     ln(`    ${CLASSIC_HASH_CPP}`)
     ln(`    float _cr=fmaxf(0.05f,${f('cutRate', 'cutRate', 0.5)}),_br=constrain(${f('brightness', 'brightness', 0.8)},0.0f,1.0f);`)
-    ln(`    uint32_t _sl=(uint32_t)floorf(t*_cr);`)
+    const ph = speedPhaseCpp(ln, phaseTag(id), '_cr')
+    ln(`    uint32_t _sl=(uint32_t)floorf(${ph});`)
     ln(`    int _co=1+(int)floorf(_h(_sl*131U+1U)*3.0f),_ro=1+(int)floorf(_h(_sl*131U+2U)*2.0f);`)
     ln(`    float _dr=0.92f+0.08f*sinf(t*0.8f+(float)_sl);`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)

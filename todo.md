@@ -1012,12 +1012,6 @@ freeze, or drop them.
   own speed and scale range, so nine types means nine slider calibrations.
   Evidence `src/nodes/generative/evaluate.ts:299`,
   `src/nodes/shared/speedRange.ts:52`.
-- [ ] **Category: Fold Heartbeat into Breathe (Med, S).** Both sample the
-  palette at an envelope and dim by the same formula (Heartbeat
-  `1 - strength*(1-env)` equals Breathe with `minLevel = 1 - strength`). Add
-  `curve: 'heartbeat'` to Breathe (or call the merged node Pulse), widen the
-  BPM range to 1-240, and remove Heartbeat. Evidence
-  `src/nodes/generative/evaluate.ts:584`, `:688`.
 - [ ] **Category: Default Ripple and String Particles to the LED output's
   network (Med, M).** Ripple needs the output's network preset, JSON and LEDs
   per edge, and String Particles needs the ring LED count, all copied by hand
@@ -1040,10 +1034,6 @@ freeze, or drop them.
   `count` is unwired (Low, S).** Both always declare the maximum pool (300 x
   12 B = 3.6 KB; 400 x 8 B = 3.2 KB) because `count` is wireable. Evidence
   `src/nodes/simulations/codegen.ts:674`, `:500`.
-- [ ] **Category: Integrate Heartbeat `bpm` and TV Simulator `cutRate` phase
-  (Low, S).** Both are wireable but take phase from raw `t`, so a live BPM
-  (a pulse sensor) makes the phase jump. Use `speedPhase`. Evidence
-  `src/state/evaluator/classics.ts:59`, `src/nodes/generative/evaluate.ts:709`.
 - [ ] **Noise: Default `noiseType` to `fbm` (Med, S).** The default `field` is
   `sin16(x)+sin16(y)`, a moving plaid labelled "Noise Field". Default to
   `fbm`, and rename `field` to "Sine Grid" if it stays. Simplex, noise3d,

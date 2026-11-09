@@ -29,7 +29,7 @@ import { allocField, instanceState } from '../../state/evaluator/memory'
 import { RAIN_FLICKER_HZ, RAIN_SPAWN, RAIN_STEP, rainDirection, rainGeometry, rainIndex } from '../../state/evaluator/digitalRain'
 import { hexToRgb } from '../../state/palettes/customPalette'
 import {
-  candleColor, candleMode, classicHash, heartbeatEnvelope, heartbeatPhase, stepLightning, sunriseColor, sunriseMode, sunriseProgress,
+  candleColor, candleMode, classicHash, stepLightning, sunriseColor, sunriseMode, sunriseProgress,
   tvColor, tvLayout, type LightningState,
 } from '../../state/evaluator/classics'
 import { wrapXBlend } from '../../state/evaluator/wrapX'
@@ -655,7 +655,7 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   },
 }
 
-// ── Classics: Candle, Lightning, Heartbeat, Sunrise, TV Simulator ─────────────
+// ── Classics: Candle, Lightning, Sunrise, TV Simulator ─────────────────────────
 const lightningState = instanceState('lightningState', new Map<string, LightningState>())
 interface RainState { w: number; h: number; dir: string; seed: number; head: Float32Array; spd: Float32Array; len: Float32Array }
 const rainState = instanceState('rainState', new Map<string, RainState>())
@@ -717,12 +717,6 @@ const CLASSIC_EVALUATORS: NodeEvaluators = {
     const c = scaled(hexToRgb(String(props.color ?? '#cfe0ff')), v)
     return { frame: buildFrame(W, H, () => c) }
   },
-  Heartbeat({ num, pal, t, W, H }, id, props) {
-    const env = heartbeatEnvelope(heartbeatPhase(t, num(id, 'bpm', props, 'bpm', 72)))
-    const strength = Math.max(0, Math.min(1, num(id, 'strength', props, 'strength', 0.8)))
-    const c = scaled(samplePalette(pal(id, 'paletteIn', props, 'palette', 'lava'), env), 1 - strength * (1 - env))
-    return { frame: buildFrame(W, H, () => c) }
-  },
   Sunrise({ num, t, W, H }, id, props) {
     const mode = sunriseMode(props.mode)
     const p = sunriseProgress(mode, t, num(id, 'start', props, 'start', 0), num(id, 'duration', props, 'duration', 30), num(id, 'progress', props, 'progress', 0))
@@ -738,10 +732,11 @@ const CLASSIC_EVALUATORS: NodeEvaluators = {
       ),
     }
   },
-  TVSimulator({ num, t, W, H }, id, props) {
+  TVSimulator({ num, t, W, H, stateKey }, id, props) {
     const cutRate = Math.max(0.05, num(id, 'cutRate', props, 'cutRate', 0.5))
     const brightness = num(id, 'brightness', props, 'brightness', 0.8)
-    const slot = Math.floor(t * cutRate)
+    // Integrated, so a live Cut Rate moves the next cut rather than jumping scenes.
+    const slot = Math.floor(speedPhase(stateKey(id), t, cutRate))
     const { cols, rows } = tvLayout(slot)
     return {
       frame: buildFrame(W, H, (x, y) => {

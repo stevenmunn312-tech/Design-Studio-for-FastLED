@@ -1739,17 +1739,20 @@ describe('generateCpp', () => {
     expect(bolt).toContain('CRGB(16, 32, 48)')
     expect(bolt).not.toContain('_lt_npv')
     expect(gen('Lightning', {}, true)).toContain('(_tr&&!_lt_npv)')
-    const beat = gen('Heartbeat')
-    expect(beat).toContain('constrain(72,20.0f,240.0f)')
-    expect(beat).toContain('expf(-_lb*_lb)+0.7f*expf(-_db*_db)')
+    // Heartbeat is Breathe's lub-dub curve, on Breathe's integrated phase.
+    const beat = gen('Breathe', { curve: 'heartbeat', bpm: 72 })
+    expect(beat).toContain('constrain(72,1.0f,240.0f)/60.0f')
+    expect(beat).toContain('min(1.0f,expf(-(((_p)-0.05f)/0.04f)*(((_p)-0.05f)/0.04f))+0.7f*expf(-(((_p)-0.3f)/0.05f)*(((_p)-0.3f)/0.05f)))')
+    expect(beat).toContain('_phase_n')
     const timed = gen('Sunrise')
     expect(timed).toContain('(t-0)/fmaxf(0.001f,30)')
     expect(timed).toContain('powf(_p,1.6f)')
     expect(gen('Sunrise', { mode: 'manual', progress: 0.5 })).not.toContain('(t-')
     const tv = gen('TVSimulator')
-    expect(tv).toContain('(uint32_t)floorf(t*_cr)')
+    // Cuts count on an integrated phase, so a live Cut Rate never jumps.
+    expect(tv).toContain('uint32_t _sl=(uint32_t)floorf(_phase_n);')
     expect(tv).toContain('sinf(t*0.8f+(float)_sl)')
-    expect(gen('Heartbeat')).not.toContain(hash)
+    expect(gen('Breathe', { curve: 'heartbeat' })).not.toContain(hash)
   })
 
   it('emits Digital Rain lanes and cell mapping per direction', () => {
