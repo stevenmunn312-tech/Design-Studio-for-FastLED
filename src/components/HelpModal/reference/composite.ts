@@ -210,7 +210,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
   Transform: {
     overview: [
       'Transform keeps a frame moving: Rotate spins it, Scale zooms it, and Translate slides it along an angle. Rate sets the speed in degrees, percent or pixels per second, and negative values reverse it.',
-      'Scale stops at one-twentieth and twenty times. For a fixed quarter turn or flip use Frame Transform.',
+      'Scale breathes: it zooms in to double size, back out through the original to half size, and round again, so it never stops. At a Rate of 100 it covers one doubling a second. For a fixed quarter turn or flip use Frame Transform.',
     ],
     inputs: { frame: FRAME_IN },
     outputs: { frame: FRAME_OUT },

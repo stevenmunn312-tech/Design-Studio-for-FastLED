@@ -11,6 +11,7 @@ import {
   sampleFrameQ8Cpp, wallpaperFrameCpp,
 } from '../shared/integerPatterns'
 import { KALEIDOSCOPE_SEGMENTS } from './kaleidoscope'
+import { transformZoomCpp } from './transformZoom'
 
 export const COMPOSITE_EMITTERS: NodeEmitters = {
   BrightnessMod({ ln, f, ownBuf, seedFrom }) {
@@ -239,7 +240,7 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
       ln(`      int _sx=(((int)floorf(_x-_dx+0.5f))%WIDTH+WIDTH)%WIDTH, _sy=(((int)floorf(_y-_dy+0.5f))%HEIGHT+HEIGHT)%HEIGHT;`)
       ln(`      ${ob}[_y*WIDTH+_x]=${src}[_sy*WIDTH+_sx];}}`)
     } else if (mode === 'scale') {
-      ln(`    float _s=1.0f+${ph}/100.0f; _s=constrain(_s,0.05f,20.0f);`)
+      ln(`    ${transformZoomCpp(ph)}`)
       ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
       ln(`      int _sx=(int)floorf(_cx+(_x-_cx)/_s+0.5f), _sy=(int)floorf(_cy+(_y-_cy)/_s+0.5f);`)
       ln(`      ${ob}[_y*WIDTH+_x]=(_sx>=0&&_sx<WIDTH&&_sy>=0&&_sy<HEIGHT)?${src}[_sy*WIDTH+_sx]:CRGB::Black;}}`)

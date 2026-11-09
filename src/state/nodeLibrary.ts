@@ -1148,8 +1148,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     // attractor
     preset: { control: 'select', options: ['classic', 'swirl', 'web'] },
   },
-  // Negative turns counter-clockwise, shrinks, or slides the other way.
-  Transform:         { rate:  { control: 'slider', min: -360, max: 360, step: 1 } },
+  // Negative turns counter-clockwise, shrinks first, or slides the other way.
+  // Fine steps, because translate wants fractions of a pixel a second; the
+  // row's label names the unit the mode reads (propertyLabel).
+  Transform:         { rate:  { control: 'slider', min: -360, max: 360, step: 0.1 } },
   Blend: {
     blendMode: { control: 'select', options: ['normal', 'multiply', 'screen', 'overlay', 'add', 'difference', 'lighten'] },
   },
@@ -3001,8 +3003,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     keepBrightness: 'Push colours away from grey without making the frame lighter or darker. Suits washed-out or pastel patterns.',
   },
   Transform: {
-    transform: 'What moves: rotate spins, scale zooms, translate slides along Angle.',
-    rate: 'How fast it moves: degrees, percent or pixels per second by mode. Negative turns counter-clockwise, shrinks, or slides backwards. Scale stops at 1/20× and 20×.',
+    transform: 'What moves: rotate spins, scale zooms in and out, translate slides along Angle.',
+    rate: 'How fast it moves: degrees a second to rotate, pixels a second to translate, and to scale, percent of a doubling a second as the zoom swings between double and half size. Negative turns counter-clockwise, shrinks first, or slides backwards.',
     angle: 'Direction of travel for translate, in degrees. Ignored by rotate and scale.',
   },
   Array: {
@@ -3920,6 +3922,11 @@ export const PROPERTY_LABELS: Record<string, Record<string, string>> = Object.fr
  */
 export function propertyLabel(nodeType: string, key: string, properties?: Record<string, unknown>): string {
   if (nodeType === 'Trigger' && key === 'initialState') return 'Start on'
+  // One Rate serves three units; the row names the one its mode reads.
+  if (nodeType === 'Transform' && key === 'rate' && properties) {
+    const mode = String(properties.transform ?? 'rotate')
+    return mode === 'scale' ? 'rate (%/s)' : mode === 'translate' ? 'rate (px/s)' : 'rate (°/s)'
+  }
   if (nodeType === 'PowerSwitchOutput' && properties) {
     const channelLabel = powerSwitchPropertyLabel(key, properties.partId)
     if (channelLabel) return channelLabel

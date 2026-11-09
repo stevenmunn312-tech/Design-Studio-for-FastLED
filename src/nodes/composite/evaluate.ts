@@ -23,6 +23,7 @@ import { fadeFrameToBlackBy, timedFadeAmount } from '../shared/trailFade'
 import { TRAILS_REFERENCE_FPS } from './trails'
 import { evalKaleidoscope } from './kaleidoscope'
 import { gammaVideoTable } from './gamma'
+import { transformZoom } from './transformZoom'
 import {
   arrayCopy, arrayDim, arrayOver, arraySource, blendMix8, div255, feedbackFrame, feedbackSource, sampleFrameQ8, wallpaperFrame,
   wallpaperSourceQ8,
@@ -62,7 +63,8 @@ function blendPixel(mode: string, a: RGB, b: RGB, opacity: number): RGB {
 
 // Animated geometric transform of a frame, resampled nearest-neighbour about
 // the matrix centre. `rotate` spins by rate°/s, `scale` zooms by rate%/s
-// (clamped), `translate` shifts by rate px/s along `angle°` (toroidal wrap).
+// between double and half size and back (./transformZoom.ts), `translate`
+// shifts by rate px/s along `angle°` (toroidal wrap).
 function evalTransform(key: string, src: Frame, mode: string, rate: number, angle: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const cx = (W - 1) / 2, cy = (H - 1) / 2
   const phase = speedPhase(key, t, rate)
@@ -81,7 +83,7 @@ function evalTransform(key: string, src: Frame, mode: string, rate: number, angl
       })
   }
   if (mode === 'scale') {
-    const s = Math.max(0.05, Math.min(20, 1 + phase / 100))
+    const s = transformZoom(phase)
     return buildFrame(W, H, (x, y) => sample(cx + (x - cx) / s, cy + (y - cy) / s))
   }
   // rotate: sample the source under the inverse rotation

@@ -1181,7 +1181,7 @@ describe('generateCpp', () => {
     expect(mk('rotate')).toContain('_co=cos(_a)')
     expect(mk('rotate')).toContain('buf_sc[')               // gathers from the source buffer
     expect(mk('translate')).toContain('%WIDTH+WIDTH)%WIDTH') // toroidal wrap
-    expect(mk('scale')).toContain('constrain(_s,0.05f,20.0f)')
+    expect(mk('scale')).toContain('float _s=powf(2.0f,_w<1.0f?_w:2.0f-_w);')
   })
 
   it('emits a blank Transform when its frame input is unconnected', () => {
