@@ -1227,12 +1227,6 @@ freeze, or drop them.
 - [ ] **LED output: Merge supersample and render scale (Low, S).** The two
   controls grey each other out. Replace them with one "Render resolution: Half
   / Full / 2x smooth" select. Evidence `src/state/nodeLibrary.ts:5235`.
-- [ ] **Stereo VU Meter: Remove the unenforced power cap (High, S).** The node
-  defaults to `powerLimit: true, milliamps: 1800` and help promises a shared
-  rail cap, but no generator emits it (only the Board cap) and
-  `src/codegen/audio/stereoVuMeterCpp.ts` never reads either property. The Build Diagram reports
-  a limit the sketch never applies. Remove both properties as was done for LED
-  outputs. Evidence `src/nodes/output/definitions.ts:292`, `src/codegen/cppGenerator.ts:468`.
 - [ ] **Stereo VU Meter: Collapse or preset the Response group (Low, S).** Its
   30 properties include a nine-row Response group (gain through beat accent)
   few people touch. Start it collapsed, or offer 3-4 presets (Hi-fi, Punchy,

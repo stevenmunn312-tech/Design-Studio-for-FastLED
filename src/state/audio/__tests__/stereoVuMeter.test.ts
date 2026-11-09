@@ -55,6 +55,9 @@ describe('Stereo VU Meter hardware contract', () => {
         enabled: true,
       },
     })
+    // No cap of its own: no generator emitted one, so the Board's covers the rails.
+    expect(definition?.defaultProperties).not.toHaveProperty('powerLimit')
+    expect(definition?.defaultProperties).not.toHaveProperty('milliamps')
     expect(isHardwareManagedSignalNodeType('StereoVuMeter')).toBe(true)
     expect(isHardwareLibraryHiddenNodeType('StereoVuMeter')).toBe(true)
     expect(propertyLabel('StereoVuMeter', 'visualizationPolicy')).toBe('mode')
@@ -160,14 +163,22 @@ describe('Stereo VU Meter hardware contract', () => {
   })
 
   it('exports left and right as separate Build Diagram LED routes', () => {
-    const manifest = buildHardwareManifest([meter({
+    // The meter has no cap of its own: each rail takes its share of the
+    // Board's one global FastLED cap, by LED count.
+    const board = {
+      id: 'board', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: 'Board', nodeType: 'Board', category: 'output',
+        properties: { powerLimit: true, milliamps: 1600 }, inputs: [], outputs: [],
+      },
+    } as StudioNode
+    const manifest = buildHardwareManifest([board, meter({
       leftLedCount: 48,
       rightLedCount: 48,
       leftDataPin: 12,
       rightDataPin: 13,
       leftDirection: 'Bottom',
       rightDirection: 'Top',
-      milliamps: 1600,
     })], [], S3_FQBN)
     const rails = manifest.primaryItems.filter((item) => item.sourceNodeType === 'StereoVuMeter')
     expect(rails.map((item) => item.title)).toEqual([

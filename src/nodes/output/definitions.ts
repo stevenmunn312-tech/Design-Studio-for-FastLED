@@ -288,9 +288,9 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       swapChannels: false,
       chipset: 'WS2812B',
       colorOrder: 'GRB',
+      // No power cap of its own: FastLED applies one global cap, the Board's,
+      // and that already covers both rails.
       brightness: 0.65,
-      powerLimit: true,
-      milliamps: 1800,
       visualizationPolicy: 'Shuffle',
       visualizationMode: 'Classic Ladder',
       cycleInterval: 20,

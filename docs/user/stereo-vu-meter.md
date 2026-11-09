@@ -119,10 +119,11 @@ guidance for the combined LED count and physical run.
 
 The fixture brightness is applied to VU pixels first. Board/global FastLED
 brightness is applied at output second, so the two controls combine
-multiplicatively. Player brightness controls modify that global stage, and the
-configured current cap is enforced by FastLED at final output. The pair current
-cap covers both strings together. Treat the worst case as every LED on both
-rails displaying white; decorative animations are not a power budget.
+multiplicatively. Player brightness controls modify that global stage. The
+meter has no current cap of its own: the Board's power cap is one global
+FastLED limit, applied at final output to the rails and the LED outputs
+together. Treat the worst case as every LED on both rails displaying white;
+decorative animations are not a power budget.
 
 ## Live Stream behavior
 

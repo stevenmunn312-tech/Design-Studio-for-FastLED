@@ -850,7 +850,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     peakFall: { control: 'slider', min: 0.1, max: 4, step: 0.05 },
     trailAmount: { control: 'slider', min: 0, max: 1, step: 0.01 },
     beatAccent: { control: 'slider', min: 0, max: 1, step: 0.01 },
-    milliamps: { control: 'slider', min: 100, max: 20000, step: 100 },
   },
   // Saturation's amount is 0–2 (1 = unchanged), not the shared 0–1 opacity.
   Saturation: {
@@ -1933,7 +1932,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     leftDirection: 'Where the left string data enters. The renderer keeps visual left on screen-left and reverses physical LED order as needed.',
     rightDirection: 'Where the right string data enters. The renderer keeps visual right on screen-right and reverses physical LED order as needed.',
     swapChannels: 'Swaps audio channels without swapping the physical left/right rail placement.',
-    milliamps: 'Current cap shared by both side strings.',
     leftLedCount: 'LEDs on the left rail. Each rail renders at its own length, so the two need not match.',
     rightLedCount: 'LEDs on the right rail. Each rail renders at its own length, so the two need not match.',
     leftDataPin: 'The GPIO wired to the left rail\'s data-in.',
@@ -1941,7 +1939,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     leftClockPin: 'Clocked chipsets only — the GPIO wired to the left rail\'s clock-in.',
     rightClockPin: 'Clocked chipsets only — the GPIO wired to the right rail\'s clock-in.',
     brightness: 'Overall level of both rails, 0 to 1, under the Board\'s master level.',
-    powerLimit: 'Cap the current of both rails together so a loud track cannot brown out the supply.',
     enabled: 'Off darkens both rails without removing the part from the build.',
     visualizationPolicy: 'Manual keeps one look. Timed cycle and Beat cycle step through looks; Shuffle cycles in a random order.',
     visualizationMode: 'The look drawn on the rails when the mode is Manual, or the starting look when cycling.',
@@ -3761,9 +3758,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     peakFall: 'peak fall',
     trailAmount: 'trail amount',
     beatAccent: 'beat accent',
-    milliamps: 'pair current cap (mA)',
     colorOrder: 'color order',
-    powerLimit: 'power cap',
   },
   DMXInput: {
     inputMode: 'firmware source',
@@ -4128,7 +4123,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
       'gain', 'noiseGate', 'responseCurve', 'attackMs', 'releaseMs', 'peakHoldMs', 'peakFall',
       'trailAmount', 'beatAccent',
     ] },
-    { key: 'power', label: 'Power', keys: ['brightness', 'powerLimit', 'milliamps', 'enabled'] },
+    { key: 'power', label: 'Power', keys: ['brightness', 'enabled'] },
   ],
   Image: [
     { key: 'transform', label: 'Transform', keys: ['fit', 'positionX', 'positionY', 'rotation', 'flipX', 'flipY', 'zoom', 'cropX', 'cropY'] },
@@ -5163,7 +5158,6 @@ export function isPropertyEnabled(
   }
   if (nodeType === 'StereoVuMeter') {
     if (key === 'cycleInterval') return properties.visualizationPolicy !== 'Manual'
-    if (key === 'milliamps') return properties.powerLimit === true
     // A clock line only exists on an SPI chipset, as on the LED output.
     if (key === 'leftClockPin' || key === 'rightClockPin') return SPI_CHIPSETS.has(String(properties.chipset ?? 'WS2812B'))
   }
