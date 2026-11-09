@@ -131,6 +131,26 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { r: 0, g: 0, b: 0 },
   },
   {
+    // One colour with its hue turned and its saturation and brightness
+    // scaled (adjustColor.ts): the RGB → HSV, Math, HSV → RGB chain in one
+    // node. r/g/b are the colour it adjusts while Color is unwired, drawn as
+    // a swatch; the three knobs are wireable.
+    type: 'AdjustColor',
+    label: 'Adjust Color',
+    category: 'color',
+    subcategory: 'Colors',
+    inputs: [
+      { id: 'color', label: 'Color', dataType: 'color' },
+      { id: 'hueShift', label: 'Hue Shift (°)', dataType: 'float' },
+      { id: 'saturation', label: 'Saturation (×)', dataType: 'float' },
+      { id: 'brightness', label: 'Brightness (×)', dataType: 'float' },
+    ],
+    outputs: [{ id: 'color', label: 'Color', dataType: 'color' }],
+    propertyInputs: { hueShift: 'hueShift', saturation: 'saturation', brightness: 'brightness' },
+    defaultExposedInputs: ['hueShift', 'saturation', 'brightness'],
+    defaultProperties: { r: 255, g: 48, b: 128, hueShift: 0, saturation: 1, brightness: 1 },
+  },
+  {
     // Black-body white point from a colour temperature in Kelvin, 1800–9000
     // (COLOR_TEMPERATURE_K): lower is warmer, as on a bulb's box.
     type: 'Temperature',
@@ -317,6 +337,7 @@ export const COLOR_DESCRIPTIONS: Record<string, string> = {
   HueCycle: 'Cycles around the hue wheel at a rate measured in cycles per second.',
   HSVToRGB: 'Builds a colour from hue, saturation and brightness; hue in ° or 0–255.',
   RGBToHSV: 'Splits a colour into hue, saturation and brightness.',
+  AdjustColor: 'Turns the hue of one colour and scales its saturation and brightness.',
   Temperature: 'White point from a colour temperature: 1800 K candle to 9000 K sky.',
   HeatColor: 'FastLED HeatColor — a 0–1 heat value to a fire-ramp colour.',
   PaletteSelector: 'Outputs a named preset palette.',

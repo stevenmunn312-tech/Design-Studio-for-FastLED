@@ -30,6 +30,7 @@ import { applyEase } from '../math/easing'
 import { paletteEnds, sweepLeg, sweepMotion } from './paletteMotion'
 import { clampColorTemperature } from './colorTemperature'
 import { applyBlackPoint, blackPointByte } from './paletteBlackPoint'
+import { ADJUST_COLOR_DEFAULT, adjustColor } from './adjustColor'
 import { byte, heatColor } from '../../state/evaluator/frames'
 import { toggleTapPress } from '../../state/evaluator/signals'
 import { instanceState } from '../../state/evaluator/memory'
@@ -94,6 +95,15 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
     }
     const s = max > 0 ? d / max : 0
     return { h: (h + 360) % 360, s, v: max }
+  },
+  AdjustColor({ input, num }, id, props) {
+    const channel = (key: string, fallback: number) => byte(Number(props[key] ?? fallback) / 255)
+    const source = (input(id, 'color', null) as RGB | null)
+      ?? { r: channel('r', ADJUST_COLOR_DEFAULT.r), g: channel('g', ADJUST_COLOR_DEFAULT.g), b: channel('b', ADJUST_COLOR_DEFAULT.b) }
+    return { color: adjustColor(source,
+      num(id, 'hueShift', props, 'hueShift', 0),
+      num(id, 'saturation', props, 'saturation', 1),
+      num(id, 'brightness', props, 'brightness', 1)) }
   },
   Temperature({ num }, id, props) {
     return { color: kelvinToRgb(clampColorTemperature(num(id, 'kelvin', props, 'kelvin', 4000))) }

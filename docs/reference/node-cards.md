@@ -428,6 +428,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![RGB → HSV example graph](../../public/node-cards/graphs/rgb-to-hsv.svg)
 
+### Adjust Color
+
+![Adjust Color node](../../public/node-cards/adjust-color.svg)
+
+![Adjust Color example graph](../../public/node-cards/graphs/adjust-color.svg)
+
 ### Color Temperature
 
 ![Color Temperature node](../../public/node-cards/temperature.svg)

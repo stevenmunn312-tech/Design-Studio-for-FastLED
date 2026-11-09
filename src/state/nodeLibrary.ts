@@ -725,6 +725,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Temperature: {
     kelvin: { control: 'slider', min: COLOR_TEMPERATURE_K.min, max: COLOR_TEMPERATURE_K.max, step: 50 },
   },
+  AdjustColor: {
+    hueShift: { control: 'slider', min: -180, max: 180, step: 1 },
+    saturation: { control: 'slider', min: 0, max: 2, step: 0.01 },
+    brightness: { control: 'slider', min: 0, max: 2, step: 0.01 },
+  },
   HueCycle: {
     rate: { control: 'slider', min: 0, max: 4, step: 0.01 },
   },
@@ -2784,6 +2789,14 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     s: 'Colour strength, 0 (white) to 1 (pure hue).',
     v: 'Brightness, 0 (off) to 1 (full).',
   },
+  AdjustColor: {
+    r: 'Red of the colour to adjust, 0 to 255, drawn as a swatch with Green and Blue. Ignored while the Color port is wired.',
+    g: 'Green of the colour to adjust, 0 to 255. Ignored while the Color port is wired.',
+    b: 'Blue of the colour to adjust, 0 to 255. Ignored while the Color port is wired.',
+    hueShift: 'Degrees to turn the hue round the colour wheel: 180 gives the complement, ±30 a neighbour. Wire a signal to make the colour drift.',
+    saturation: 'Multiplies the colour strength: 0 is grey, 1 unchanged, above 1 richer, up to pure colour.',
+    brightness: 'Multiplies the brightness: 0 is off, 1 unchanged, above 1 brighter, up to full.',
+  },
   Temperature: {
     kelvin: 'Colour temperature of the white in kelvin, as LEDs are sold: lower is warmer. 1800 K is candlelight, 2700 K a warm-white bulb, 4000 K neutral, 6500 K daylight and 9000 K blue sky. A wired value is held to the same range.',
   },
@@ -3619,6 +3632,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     mixMode: 'mix',
   },
   Temperature: { kelvin: 'temperature (K)' },
+  AdjustColor: { hueShift: 'hue shift (°)', saturation: 'saturation (×)', brightness: 'brightness (×)' },
   // Hue, saturation and brightness read the same on every HSV node; "value"
   // and single letters are jargon.
   HSVToRGB: { hueUnits: 'hue units', h: 'hue', s: 'saturation', v: 'brightness' },

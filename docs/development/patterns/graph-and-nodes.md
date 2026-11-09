@@ -623,7 +623,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `math/mapRange.ts`, Compare's operations and hysteresis in
   `math/compare.ts`. Compare's hysteresis is a Schmitt band in the level
   domain; at 0 it is the plain stateless test, so a node that never sets it
-  emits no state at all.
+  emits no state at all. Adjust Color's steps live in `color/adjustColor.ts`,
+  whose `adjustColorCpp` both the normal sketch and the control graph
+  (`colorControlCpp.ts`) emit, so the two print identical lines.
 - Loop pacing is one helper, `loopPacingCpp` (`codegen/loopPacing.ts`),
   fed by the Board's `frameRate` through `controllerSettings`: the normal
   sketch, the show controller and the player all end their loop with it, and

@@ -169,7 +169,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
   RGBToHSV: {
     overview: [
       'RGB → HSV takes a colour apart into hue (0 to 360), saturation (0 to 1) and brightness (0 to 1, the V of HSV).',
-      'Once a colour is in parts you can change one without the others: rotate the hue to find a complement, lower saturation for a pastel, scale brightness to dim it, then rebuild it with HSV → RGB.',
+      'Once a colour is in parts you can change one without the others: rotate the hue to find a complement, lower saturation for a pastel, scale brightness to dim it, then rebuild it with HSV → RGB. For those everyday changes to one colour, Adjust Color does it in a single node.',
     ],
     inputs: {
       rgb: 'The colour to take apart. Replaces the R, G and B fields.',
@@ -200,6 +200,37 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
       ],
       explanation: 'RGB → HSV splits the pink into hue, saturation and brightness. Math adds 180° to the hue only, and HSV → RGB rebuilds the colour with the original saturation and brightness — its exact complement. Gradient Frame fades from one to the other.',
       preview: 'The {output} shows a gradient from hot pink on the left to its complementary green on the right.',
+    }),
+  },
+
+  AdjustColor: {
+    overview: [
+      'Adjust Color changes one colour without taking it apart: Hue Shift turns it round the colour wheel, Saturation scales how strong it is, and Brightness scales how bright.',
+      'It is the quick way to a darker, paler or neighbouring version of a colour — a dimmed accent, a complement at 180°, a hue that drifts with a wire — where it once took RGB → HSV, Math and HSV → RGB.',
+      'Wire a colour into Color, or pick one on the node’s swatch. Saturation and Brightness are multipliers: 1 leaves the colour alone, and the result never goes past pure colour or full brightness.',
+    ],
+    inputs: {
+      color: 'The colour to adjust. Replaces the swatch.',
+      hueShift: 'Degrees to turn the hue; 180 is the complement.',
+      saturation: 'Multiplier for colour strength; 0 is grey, 1 unchanged.',
+      brightness: 'Multiplier for brightness; 0 is off, 1 unchanged.',
+    },
+    outputs: {
+      color: 'The adjusted colour.',
+    },
+    example: example({
+      featured: 'AdjustColor',
+      title: 'An orange that sways toward red and gold',
+      nodes: {
+        base: ['Color', { color: '#ff7a1a' }],
+        sway: ['Wave', { frequency: 0.15, amplitude: 25 }],
+        tint: ['AdjustColor', { saturation: 0.9, brightness: 0.8 }],
+        lamp: ['SolidColor'],
+        output: ['MatrixOutput', STRIP(60)],
+      },
+      wires: ['base.color > tint.color', 'sway.result > tint.hueShift', 'tint.color > lamp.color'],
+      explanation: 'Color holds one orange. A slow Wave swings Adjust Color’s Hue Shift 25° each way, so the colour leans toward red and then toward gold, a little softer and dimmer than the original. Solid Color fills the string with it.',
+      preview: 'The {output} glows orange, drifting slowly between a deep red-orange and a warm gold.',
     }),
   },
 

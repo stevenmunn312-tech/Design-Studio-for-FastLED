@@ -19,6 +19,7 @@ import { easeByteCpp } from '../math/easing'
 import { paletteEnds, sweepMotion } from './paletteMotion'
 import { colorTemperatureCpp } from './colorTemperature'
 import { BLACK_POINT_LAMBDA_CPP, blackPointByteCpp } from './paletteBlackPoint'
+import { ADJUST_COLOR_DEFAULT, adjustColorCpp } from './adjustColor'
 
 export const COLOR_EMITTERS: NodeEmitters = {
   HueCycle({ id, ln, v, f, needsT, needsHsv }) {
@@ -45,6 +46,13 @@ export const COLOR_EMITTERS: NodeEmitters = {
     ln(`  float ${v('h')} = _rgbHue(_hsv_${id});`)
     ln(`  float ${v('s')} = _rgbSat(_hsv_${id});`)
     ln(`  float ${v('v')} = _rgbVal(_hsv_${id});`)
+  },
+  // The same lines the control graph emits (adjustColorCpp).
+  AdjustColor({ id, ln, v, f, channelColor, needsHsv }) {
+    needsHsv.v = true
+    const { r, g, b } = ADJUST_COLOR_DEFAULT
+    for (const line of adjustColorCpp(id, v('color'), channelColor('color', r, g, b),
+      f('hueShift', 'hueShift', 0), f('saturation', 'saturation', 1), f('brightness', 'brightness', 1))) ln(line)
   },
   Temperature({ ln, v, f, needsKelvin }) {
     needsKelvin.v = true

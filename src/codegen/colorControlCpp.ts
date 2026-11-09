@@ -9,6 +9,7 @@
 import { gradientMixMode, hueUnits } from '../state/palettes/hueMix'
 import { hexToRgb } from '../state/palettes/polinePalette'
 import { colorTemperatureCpp } from '../nodes/color/colorTemperature'
+import { ADJUST_COLOR_DEFAULT, adjustColorCpp } from '../nodes/color/adjustColor'
 
 /** HSV → RGB's Hue in degrees for `_hsv`, which wraps it, from the node's units. */
 export function hsvDegreesCpp(units: unknown, hue: string): string {
@@ -62,6 +63,10 @@ export const COLOR_CONTROL_NODES: Readonly<Record<string, ColorControlSpec>> = {
   RGBToHSV: {
     outputs: { h: 'float', s: 'float', v: 'float' }, floats: {},
     colors: [{ port: 'rgb', channels: ['r', 'g', 'b'], defaults: [0, 0, 0] }],
+  },
+  AdjustColor: {
+    outputs: { color: 'color' }, floats: { hueShift: 0, saturation: 1, brightness: 1 },
+    colors: [{ port: 'color', channels: ['r', 'g', 'b'], defaults: [ADJUST_COLOR_DEFAULT.r, ADJUST_COLOR_DEFAULT.g, ADJUST_COLOR_DEFAULT.b] }],
   },
 }
 
@@ -126,6 +131,10 @@ export function colorControlCpp(
       }
       break
     }
+    case 'AdjustColor':
+      loop = adjustColorCpp(id, color, colors.color, floats.hueShift, floats.saturation, floats.brightness)
+      needsHsv = true
+      break
     case 'RGBToHSV':
       loop = [
         `  CRGB _hsv_${id} = ${colors.rgb};`,

@@ -472,11 +472,6 @@ freeze, or drop them.
 
 #### Colour and maths
 
-- [ ] **Category: Add an Adjust Color node (Med, M).** Dimming, hue-rotating or
-  desaturating one colour takes RGB to HSV, Math, HSV to RGB (the RGB to HSV
-  help example is that chain). Add a colour node with hue offset, saturation
-  scale and brightness scale, built on the existing `_rgbHue`/`_hsv` helpers.
-  Evidence `src/components/HelpModal/reference/color.ts`.
 - [ ] **Palette Bank: Accept wired palettes (Low, L).** Only catalogue presets
   can join a bank; Custom, Poline, Image and Harmony palettes cannot. Add
   wired palette slots to make it the general palette switcher. Evidence
