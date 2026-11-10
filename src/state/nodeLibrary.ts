@@ -2265,8 +2265,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   AudioFeatures: {
     gate: 'How loud the sound must be before Silence turns off, on the Loudness scale (0–1). Raise it if room noise keeps the patch awake between songs. It also trims weak vocal readings.',
-    sensitivity: 'Scales the energy and vocal estimates (0–1). Raise it on quiet sources.',
-    smoothing: 'Share kept every 60th of a second (0–0.95), at any frame rate. Higher gives calmer vocals, energy and silence, slower response.',
+    sensitivity: 'Scales the energy and vocal estimates, and sets Level\'s gain on Loudness: 0 passes it through, 0.5 multiplies it by 6.4, 1 by about 41. Raise it on quiet sources.',
+    smoothing: 'Share kept every 60th of a second (0–0.95), at any frame rate. Higher gives calmer vocals, energy and silence, slower response. Level has its own fixed easing.',
   },
   Vibe: {
     gain: 'Scales the three relative levels and their smoothed copies. Spikes compare the two, so gain never changes them.',

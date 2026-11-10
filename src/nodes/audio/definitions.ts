@@ -91,6 +91,10 @@ export const AUDIO_DEFINITIONS: NodeDefinition[] = [
       // quiet verse reads quiet however loud the chorus before it was.
       { id: 'loudness', label: 'Loudness', dataType: 'float' },
       { id: 'silence', label: 'Silence', dataType: 'bool' },
+      // Level is Loudness ready for a 0–1 input: Sensitivity's gain, about
+      // 0.15 s of easing and a 0–1 clamp (audioLevel.ts). Declared last so
+      // the ports before it keep their places.
+      { id: 'level', label: 'Level', dataType: 'float' },
     ],
     defaultProperties: { sensitivity: 0.5, gate: 0.12, smoothing: 0.8 },
   },
@@ -267,7 +271,7 @@ export const AUDIO_DESCRIPTIONS: Record<string, string> = {
   FFTAnalyzer: 'Splits mic audio into bass/mids/treble; tilt boosts weak treble.',
   BeatDetect: 'Emits a beat pulse and estimated BPM from audio.',
   PercussionDetect: 'Heuristic kick, snare, and hi-hat envelopes from audio.',
-  AudioFeatures: 'Heuristic vocals, energy, absolute loudness, and silence from audio.',
+  AudioFeatures: 'Heuristic vocals and energy, absolute loudness, a 0–1 level, and silence.',
   Vibe: 'MilkDrop-style bass/mid/treble relative to the song average (1.0), plus spikes.',
   SongStructure: 'Downbeats, beat number, buildups, drops, tempo stability and mood from audio.',
   PitchDetect: 'Pitch in Hz, MIDI note, note-on pulse and musical key from audio.',

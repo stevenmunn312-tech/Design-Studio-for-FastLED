@@ -37,7 +37,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   stage's ranges are sized to a laptop microphone at gain 1 hearing music in
   the room (median frame near 0.09, peaks near 0.34), which is far below the
   meter's line-level full scale, so a line input or the player just holds
-  the stage open. Audio Features' Silence reads the same loudness, eased by
+  the stage open. That is why the stage keeps raw Loudness and its own Smooth
+  while Audio Features' Level output (`nodes/audio/audioLevel.ts`) is what
+  a 0–1 input should take: Loudness times a Sensitivity gain set on a room
+  recording, eased over 0.15 s, then clamped. Moving the stage onto Level
+  would change its tuned ranges and stack a second smoother on its own.
+  Audio Features' Silence reads the same loudness, eased by
   its Smoothing, against a Gate on that scale (`AUDIO_SILENCE`), and the
   release builder's silence gate rides on it; a test payload without channel
   meters therefore reads as silence, so rating and release fixtures carry

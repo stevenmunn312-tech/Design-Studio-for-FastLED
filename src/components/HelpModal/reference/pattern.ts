@@ -1155,7 +1155,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   VocalAurora: {
     overview: [
       'Vocal Aurora hangs curtains of light like the northern lights, which brighten and move faster with the vocals and fade to black in silence.',
-      'Wire Audio Features: Vocals shapes the curtains and Silence dims the frame. Reactivity sets how strongly the vocals move them; leave it on its setting, or wire Loudness if a quiet verse should calm the curtains. Energy adapts to the recent peak, so it would keep them fully reactive through a quiet verse.',
+      'Wire Audio Features: Vocals shapes the curtains and Silence dims the frame. Reactivity sets how strongly the vocals move them; leave it on its setting, or wire Level if a quiet verse should calm the curtains. Energy adapts to the recent peak, so it would keep them fully reactive through a quiet verse.',
     ],
     inputs: {
       silence: 'True dims the frame to black, usually from Audio Features.',
