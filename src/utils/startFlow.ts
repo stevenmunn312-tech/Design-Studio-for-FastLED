@@ -1,7 +1,11 @@
 import { rootGraphNodes, useGraphStore } from '../state/graphStore'
 import { useAudioStore } from '../state/audio/audioStore'
 import { STARTER_TEMPLATES, buildBoardAwareStarter, type StarterTemplate } from '../state/patterns/starterTemplates'
-import { BUNDLED_PATTERNS } from '../state/patterns/bundledPatterns'
+import { starterShowPatterns } from '../state/patterns/starterShowPatterns'
+import { useMusicStore } from '../state/player/musicStore'
+import { waitForMusicLibraryRestore } from '../state/player/musicLibraryPersistence'
+import { DEMO_TRACK_FILE, fetchDemoTrack } from '../state/player/demoTrack'
+import { performanceOptionsFromProperties } from '../codegen/performanceGenerator'
 import { useUiStore, BLANK_BENCH_SHELF_CATEGORY } from '../state/uiStore'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { micSupportedForBoardProfile } from '../build/pins/micPinDefaults'
@@ -87,17 +91,64 @@ export function landOnStartingWorkspace() {
 }
 
 /**
- * A show starter's or example's Pattern Collection opens holding a bundled
- * shelf. Pattern Master runs on the wall clock until a track plays, so this
+ * A show starter's or example's Pattern Collection opens holding the starter
+ * show. Pattern Master runs on the wall clock until a track plays, so this
  * is what the LED output shows the moment the project lands; an empty
- * collection opened black.
+ * collection opened black. Through `addPatternsToCollection`, as the picker
+ * adds them, so each is a copy that remembers its library pattern and Update
+ * from library still works.
  */
-function seedCollection(shelf: string | undefined) {
-  if (!shelf) return
+function seedCollection(wanted: boolean | undefined) {
+  if (!wanted) return
   const graph = useGraphStore.getState()
   const collection = graph.nodes.find((node) => node.data.nodeType === 'PatternCollection')
   if (!collection) return
-  graph.addPatternsToCollection(collection.id, BUNDLED_PATTERNS.filter((pattern) => pattern.categoryId === shelf))
+  graph.addPatternsToCollection(collection.id, starterShowPatterns())
+}
+
+/**
+ * A show starter's or example's Music Library opens holding the bundled demo
+ * track, analysed: what dropping that file on the library does, done for the
+ * user, so the Performance Generator has a show to play from the first look.
+ *
+ * It fetches a file and decodes it, so it runs only for a trusted workspace,
+ * and only for the project and start choice that asked: by the time the
+ * track arrives the user may have opened something else. A track that cannot
+ * be fetched leaves the library empty, with its own drop zone to say what to
+ * do next.
+ */
+async function scanDemoTrack(wanted: boolean | undefined, generation: number) {
+  if (!wanted || !useGraphStore.getState().trusted) return
+  const projectId = useProjectStore.getState().currentProjectId
+  const stillWanted = () => {
+    const graph = useGraphStore.getState()
+    return generation === startFlowGeneration
+      && projectId === useProjectStore.getState().currentProjectId
+      && graph.trusted
+      && rootGraphNodes(graph).some((node) => node.data.nodeType === 'MusicLibrary')
+  }
+  let track: Blob
+  try {
+    track = await fetchDemoTrack()
+  } catch {
+    if (stillWanted()) {
+      useUiStore.getState().setStatus('The demo track could not be loaded. Drop your own songs into the Music Library.', 'info')
+    }
+    return
+  }
+  // A new project's library is restored (to empty) asynchronously, and a
+  // track added before that settles would be wiped by it.
+  await waitForMusicLibraryRestore()
+  if (!stillWanted()) return
+  const music = useMusicStore.getState()
+  if (music.entries.some((entry) => entry.file.name === DEMO_TRACK_FILE)) return
+  // Analysed with the generator's own settings, as the library's drop zone does.
+  const generator = rootGraphNodes(useGraphStore.getState())
+    .find((node) => node.data.nodeType === 'PerformanceGenerator')
+  music.addFiles(
+    [new File([track], DEMO_TRACK_FILE, { type: 'audio/mpeg' })],
+    performanceOptionsFromProperties(generator?.data.properties ?? {}),
+  )
 }
 
 export function startTemplate(template: StarterTemplate, options?: StartFlowOptions) {
@@ -109,7 +160,7 @@ export function startTemplate(template: StarterTemplate, options?: StartFlowOpti
     useUploadStore.getState().selectedFqbn,
   )
   useGraphStore.getState().loadGraph(nodes, edges)
-  seedCollection(template.collectionShelf)
+  seedCollection(template.showPatterns)
   finishStartFlow(
     template.id,
     `Loaded "${template.name}" starter`,
@@ -117,6 +168,7 @@ export function startTemplate(template: StarterTemplate, options?: StartFlowOpti
     options,
   )
   tidyLoadedTemplate(generation)
+  void scanDemoTrack(template.demoTrack, generation)
   if (template.activateMicrophone) {
     const ui = useUiStore.getState()
     if (ui.testSignal) ui.toggleTestSignal()
@@ -227,7 +279,7 @@ export async function openExampleProject(example: LiveExampleSpec, projectName: 
   const graph = useGraphStore.getState()
   graph.loadGraph([], [])
   const result = insertLiveExample(example, { x: 0, y: 0 })
-  seedCollection(example.collectionShelf)
+  seedCollection(example.showPatterns)
   // As a starter is: every part, the LED output included, takes the board's
   // pins. Through the store action the wired LED output would count as a
   // fixture and keep its library default, which an SD Card's chip select then
@@ -240,6 +292,7 @@ export async function openExampleProject(example: LiveExampleSpec, projectName: 
   const { name } = useProjectStore.getState().projects.find((project) => project.id === useProjectStore.getState().currentProjectId) ?? { name: projectName }
   finishStartFlow(null, `Opened "${name}"`, result.addedNodeIds)
   tidyLoadedTemplate(generation)
+  void scanDemoTrack(example.demoTrack, generation)
   return result
 }
 

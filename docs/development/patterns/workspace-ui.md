@@ -399,8 +399,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - The empty canvas is a ghost patch: a 40 % Juggle → LED Output pair that is
   the "Start with Juggle" button, one line of copy, and text links for the
   other starts. No card, no hero copy.
-- A show starter or live example names `collectionShelf` (a bundled
-  `categoryId`) and `seedCollection` in `startFlow.ts` copies that shelf into
-  its Pattern Collection, so the output is lit on open; the Music Player
-  starter and example take the audio-reactive shelf. Pattern Master runs on
-  the wall clock until a track plays.
+- A show starter or live example sets `showPatterns`, and `seedCollection` in
+  `startFlow.ts` fills its Pattern Collection with `starterShowPatterns()`, so
+  the output is lit on open; Pattern Master runs on the wall clock until a
+  track plays. The starter show is the head (`STARTER_SHOW_SIZE`) of the
+  checked-in Exceptional list in `bundledExceptionalAudio.ts`, less patterns
+  tagged for a string alone. Studio Scores are per machine and are not
+  shipped, so that list is generated (`npm run gen:exceptional-audio`, at
+  16x16) and committed; regenerate it when bundled audio patterns change.
+  One with a Music Library also sets `demoTrack`: `scanDemoTrack` fetches the
+  bundled track and hands it to `addFiles`, the drop zone's own path. It is
+  skipped for an untrusted workspace, and dropped if the project or start
+  choice changed while it loaded.

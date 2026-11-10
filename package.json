@@ -22,6 +22,7 @@
     "gen:node-cards": "node scripts/run-ts.mjs scripts/assets/node-cards.ts",
     "gen:compile-fixtures": "node scripts/compile-fixtures/run.mjs",
     "gen:display-sheets": "node scripts/run-ts.mjs scripts/assets/display-sheets.ts",
+    "gen:exceptional-audio": "node scripts/run-ts.mjs scripts/assets/exceptional-audio-patterns.ts",
     "helper": "python -m uvicorn app:app --reload --port 8008 --app-dir backend"
   },
   "dependencies": {

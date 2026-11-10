@@ -1,6 +1,5 @@
 import { FIRST_BUTTON_HANDLE } from '../../../state/player/buttonBank'
 import { example, MATRIX } from './example'
-import { AUDIO_REACTIVE_CATEGORY_ID } from '../../../state/patterns/bundledPatterns'
 import type { NodeReferenceMap } from './types'
 
 const SHOW_OUTCOME = 'Add saved patterns to the Pattern Collection to see the show play.'
@@ -24,7 +23,8 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         songs: ['MusicLibrary'],
         shows: ['PerformanceGenerator', { paletteMode: 'mood' }],
       },
-      explanation: 'Music Library analyses the songs you drop into it, and Performance Generator plans a show for each, with no wire between them: patterns on the sections, flashes on the beats, palettes from the mood. The generator’s Show goes to the LED output that will play it.',
+      demoTrack: true,
+      explanation: 'Music Library opens with the demo track already analysed. It analyses the songs you drop into it, and Performance Generator plans a show for each, with no wire between them: patterns on the sections, flashes on the beats, palettes from the mood. The generator’s Show goes to the LED output that will play it.',
       preview: 'The {output} plays the generated show once songs are analysed; press play in the Performance Generator body to watch it.',
       workflow: true,
     }),
@@ -166,7 +166,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         card: ['SDCard'],
         amp: ['Amplifier'],
       },
-      collectionShelf: AUDIO_REACTIVE_CATEGORY_ID,
+      showPatterns: true,
       wires: [
         'patterns.patternset > target.patternset',
         'mic.audio > target.audio',
@@ -176,8 +176,8 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         'controls.controls > target.controls',
         'particles.particleFx > target.particleFx',
       ],
-      explanation: 'Pattern Collection opens holding the built-in audio-reactive patterns; add your own beside them. Audio feeds the player and Beat Detect; Beat Detect supplies the explicit Beat trigger. Enable Beat Transitions on Music Player to wait for a fresh beat after the Min Time–Max Time cooldown. Transition Pool chooses the transition styles, Player Controls carries transport and lighting commands, and Player Particles configures independent beat bursts. The SD Card and the Amplifier go on the bench: the player needs both to play music on the board.',
-      preview: 'The collection opens with the built-in audio-reactive patterns, so the {output} is lit at once. With Beat Transitions off, patterns change on the random timer. With it on, early beats are ignored and the next beat after the cooldown starts the change.',
+      explanation: 'Pattern Collection opens holding a set of the best built-in audio-reactive patterns; add your own beside them. Audio feeds the player and Beat Detect; Beat Detect supplies the explicit Beat trigger. Enable Beat Transitions on Music Player to wait for a fresh beat after the Min Time–Max Time cooldown. Transition Pool chooses the transition styles, Player Controls carries transport and lighting commands, and Player Particles configures independent beat bursts. The SD Card and the Amplifier go on the bench: the player needs both to play music on the board.',
+      preview: 'The collection opens with a set of built-in audio-reactive patterns, so the {output} is lit at once. With Beat Transitions off, patterns change on the random timer. With it on, early beats are ignored and the next beat after the cooldown starts the change.',
       workflow: true,
     }),
   },
@@ -380,8 +380,10 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         generator: ['PerformanceGenerator', { paletteMode: 'mood', minTime: 8 }],
       },
       wires: ['patterns.patternset > generator.patternset', 'transitions.transitions > generator.transitions'],
-      explanation: 'Performance Generator plans a show for every song in the Music Library, choosing among your collected patterns for each section, holding each for at least eight seconds, and moving between them with styles from the Transition Pool.',
-      preview: 'Once songs are analysed and patterns collected, the generator’s player shows what the {output} will do for each track.',
+      showPatterns: true,
+      demoTrack: true,
+      explanation: 'The example opens with the demo track analysed and a set of the best built-in audio-reactive patterns collected. Performance Generator plans a show for every song in the Music Library, choosing among the collected patterns for each section, holding each for at least eight seconds, and moving between them with styles from the Transition Pool.',
+      preview: 'Press play under the LED preview to watch what the {output} will do for the demo track; each song you add gets a show of its own.',
       workflow: true,
     }),
   },

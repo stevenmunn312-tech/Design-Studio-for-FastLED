@@ -30,10 +30,12 @@ export interface LiveExampleSpec {
   title: string
   nodes: LiveExampleNodeSpec[]
   edges: LiveExampleEdgeSpec[]
-  /** A bundled shelf (`categoryId` in bundledPatterns.ts) copied into the
-   *  example's Pattern Collection when it opens as a project, so a show
-   *  example is lit from its first frame. */
-  collectionShelf?: string
+  /** Fill the example's Pattern Collection with the starter show when it
+   *  opens as a project, so a show example is lit from its first frame. */
+  showPatterns?: boolean
+  /** Analyse the bundled demo track into the example's Music Library when it
+   *  opens as a project, so its Performance Generator has a show to play. */
+  demoTrack?: boolean
 }
 
 export interface LiveExampleResult {

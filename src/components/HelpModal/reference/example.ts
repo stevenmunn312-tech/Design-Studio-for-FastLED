@@ -170,8 +170,10 @@ export interface ExampleSpec {
   preview: string
   /** A show or hardware workflow whose outcome is not a picture. */
   workflow?: boolean
-  /** Bundled shelf to fill the example's Pattern Collection with on open. */
-  collectionShelf?: string
+  /** Fill the example's Pattern Collection with the starter show on open. */
+  showPatterns?: boolean
+  /** Analyse the bundled demo track into the example's Music Library on open. */
+  demoTrack?: boolean
 }
 
 function parseEnd(end: string): { key: string; handle: string } {
@@ -237,7 +239,8 @@ export function example(spec: ExampleSpec): ReferenceLiveExample {
     previewMode: spec.workflow ? 'workflow' : 'led',
     previewTarget: { node: output.key, handle: 'frame' },
     path: graphPath(tidied),
-    ...(spec.collectionShelf ? { collectionShelf: spec.collectionShelf } : {}),
+    ...(spec.showPatterns ? { showPatterns: true } : {}),
+    ...(spec.demoTrack ? { demoTrack: true } : {}),
   }
 }
 

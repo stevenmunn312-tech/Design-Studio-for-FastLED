@@ -1,5 +1,4 @@
 import { NODE_LIBRARY, portColor } from '../nodeLibrary'
-import { AUDIO_REACTIVE_CATEGORY_ID } from './bundledPatterns'
 import { resolveDefaultProperties } from '../nodeDefaults'
 import { LED_OUTPUT_FORM_LABELS, outputForm } from '../output/ledOutputForm'
 import { isHardwareOnlyNodeType } from '../../build/hardware'
@@ -24,10 +23,14 @@ export interface StarterTemplate {
   guide: StarterGuide
   /** Whether loading this starter should request the live microphone. */
   activateMicrophone?: boolean
-  /** A bundled shelf (`categoryId` in bundledPatterns.ts) copied into the
-   *  starter's Pattern Collection on load, so a show starter opens with
-   *  something lit rather than an empty collection and a black output. */
-  collectionShelf?: string
+  /** Fill the starter's Pattern Collection on load with the starter show
+   *  (`starterShowPatterns`: the Exceptional audio-reactive patterns), so a
+   *  show starter opens with something lit rather than an empty collection
+   *  and a black output. */
+  showPatterns?: boolean
+  /** Add the bundled demo track to the starter's Music Library on load and
+   *  analyse it, so its Performance Generator opens with a show to play. */
+  demoTrack?: boolean
   preview: {
     nodes: Array<{ id: string; label: string; category: string; col: number; row: number }>
     edges: Array<{ source: string; sourceHandle: string; target: string; targetHandle: string; color: string }>
@@ -108,7 +111,7 @@ function tutorialNote(
 }
 
 function template(
-  options: Pick<StarterTemplate, 'id' | 'name' | 'description' | 'completionSteps' | 'recommended' | 'activateMicrophone' | 'collectionShelf'> & {
+  options: Pick<StarterTemplate, 'id' | 'name' | 'description' | 'completionSteps' | 'recommended' | 'activateMicrophone' | 'showPatterns' | 'demoTrack'> & {
     nodeSpecs: NodeSpec[]
     edgeSpecs: EdgeSpec[]
     level: StarterLevel
@@ -122,7 +125,8 @@ function template(
     description: options.description,
     completionSteps: options.completionSteps,
     ...(options.recommended ? { recommended: true } : {}),
-    ...(options.collectionShelf ? { collectionShelf: options.collectionShelf } : {}),
+    ...(options.showPatterns ? { showPatterns: true } : {}),
+    ...(options.demoTrack ? { demoTrack: true } : {}),
     guide: {
       level: options.level,
       preview: options.preview,
@@ -419,14 +423,14 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     before: ['MP3 files to play, copied to a microSD card for the board'],
     name: 'Music Player',
     description: 'Build a live, audio-reactive show from reusable pattern groups, then configure its controls and hardware.',
-    // The built-in audio-reactive shelf, so the output is lit and answering
-    // the music the moment the starter opens; the collection is the user's to
-    // grow or replace.
-    collectionShelf: AUDIO_REACTIVE_CATEGORY_ID,
+    // The Exceptional audio-reactive patterns, so the output is lit and
+    // answering the music the moment the starter opens; the collection is the
+    // user's to grow or replace.
+    showPatterns: true,
     completionSteps: [
       'Specify your board, audio source, and music player hardware on the Hardware tab.',
-      'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
-      'Add at least two pattern groups, then tune the Music Player timing and controls.',
+      'Play the demo track under the preview and watch the collected patterns answer it.',
+      'Add, remove or reorder patterns in Pattern Collection, then tune the Music Player timing and controls.',
       'Check the hardware GPIOs and capacity before uploading the sketch from the LED output.',
     ],
     nodeSpecs: [
@@ -444,7 +448,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'amp', type: 'Amplifier', col: 3, row: 1 },
       tutorialNote(
         'guide', -1, 0,
-        'BUILD A SHOW \nSpecify your board, audio source and music player hardware on the Hardware tab, then add some patterns into the Pattern Collection.\nCheck that you have the correct GPIO\'s for your hardware then use the capacity checker to ensure the sketch will fit on your board and upload.',
+        'BUILD A SHOW \nSpecify your board, audio source and music player hardware on the Hardware tab, then make the Pattern Collection your own.\nCheck that you have the correct GPIO\'s for your hardware then use the capacity checker to ensure the sketch will fit on your board and upload.',
         TRY_COLOR,
       ),
     ],
@@ -458,14 +462,18 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
   template({
     id: 'music-sync-sd-show',
     level: 'Advanced',
-    preview: 'Analyse songs and preview the show in the browser.',
+    preview: 'Opens with a demo track analysed into a show, ready to play in the browser.',
     before: ['MP3 songs to analyse', 'A microSD card, and a card reader or USB cable to copy the show onto it'],
     name: 'Music-synced SD Show',
     description: 'Analyze songs, preview a timed performance, and package the music and show files for SD-card playback.',
+    // Opens ready to play: the Exceptional audio-reactive patterns in the
+    // collection, and the demo track analysed into a show written against them.
+    showPatterns: true,
+    demoTrack: true,
     completionSteps: [
-      'Drop songs into Music Library and run analysis to create timed show files.',
-      'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
-      'Preview a song in Performance Generator and adjust its energy, hold, palette, and transition settings.',
+      'Press play under the LED preview to watch the show planned for the demo track.',
+      'Drop your own songs into Music Library; each is analysed into a timed show as it lands.',
+      'Add, remove or reorder patterns in Pattern Collection, then adjust the Performance Generator\'s energy, hold, palette, and transition settings.',
       'Check the SD Card and Amplifier pins on the Hardware tab — swap the MAX98357A for your own module if it differs — then upload the show from the Upload tab.',
     ],
     nodeSpecs: [
@@ -474,8 +482,8 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       // schedules patterns by *position* in this collection, so the collection
       // is what the generated .show file is written against — an analysed song
       // with nothing wired here produces a show of built-in patterns rather
-      // than of the user's own. Empty to begin with, which Graph Health says
-      // in words; the same node the Music Player starter opens with.
+      // than of the user's own. Filled on load (`showPatterns` above), as the
+      // Music Player starter's is.
       { id: 'collection', type: 'PatternCollection', col: 0, row: 1 },
       { id: 'perf', type: 'PerformanceGenerator', col: 1, row: 0 },
       // The show plays on LEDs, and the edge into this output is what says so.
@@ -493,7 +501,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
 
       tutorialNote(
         'guide', 0, -1,
-        'OFFLINE SHOW\nImport and analyse music, add your patterns to the collection, then preview the timeline.\nSD Card packages it; the LED output uploads it.',
+        'OFFLINE SHOW\nPlay the demo show, then drop in your own music and make the collection yours.\nSD Card packages it; the LED output uploads it.',
         TRY_COLOR,
       ),
     ],
