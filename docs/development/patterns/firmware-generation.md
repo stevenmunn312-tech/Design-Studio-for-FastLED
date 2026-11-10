@@ -168,6 +168,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   dialect and a fused operation rounds once. A native `g++` test
   (`turingNativeParity.test.ts`) holds the two bit-exact; copy it for the
   next such node.
+- Never size a function-local array by the canvas (`WIDTH`, `HEIGHT`,
+  `NUM_LEDS` or their `RENDER_` forms). A string's canvas is its length by 1,
+  up to `MAX_LED_RUN` (4096), and the ESP32 loop task has 8 KB of stack.
+  Carry a value across the loop, reuse a node's static scratch, or declare
+  the array `static` and price it in `estimateFirmwareRam`. The long-string
+  sweep in `showGenerator.test.ts` derives the rule over every pattern node
+  and select variant.
+
 - Never `sizeof` a render buffer. `buf_<id>` and `field_<id>` are arrays
   normally, but `usePsram` turns them into pointers allocated in `setup()`,
   and `sizeof` then copies four bytes. Copy with `NUM_LEDS*sizeof(float)` or

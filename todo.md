@@ -102,6 +102,14 @@ identity (`ethernet` static, `control-graph` show-ntp, player-ntp and
 show-ethernet, the `board-links` runs) and a DS3231 Clock reading its
 module (no fixture yet).
 
+Also from 2026-11-10, uncompiled: the Clock's time zone (`configTzTime` on
+an ESP32 and `configTime(tz, server)` on an ESP8266, through `control-graph`
+show-ntp and player-ntp, now on Europe/Paris; `_rtcTzOffset` on an UNO R4
+WiFi NTP clock, no fixture yet) and long strings (a 720- and a 4096-LED
+string with Waveform's line style and an elementary Automaton, which lost
+their stack arrays, no fixture yet) before a long chain is trusted on
+hardware.
+
 #### Inputs, hardware, graph and code
 
 - [ ] **Category: Move DMX512 and DIN MIDI hardware to bench parts (Med, M).**
@@ -280,26 +288,6 @@ module (no fixture yet).
   noise4d and plasma-fractal still wrap their value (`wrap01`), cutting seams
   through non-cyclic palettes such as lava; fbm clamps. Evidence
   `src/nodes/generative/evaluate.ts:299`, `src/nodes/shared/speedRange.ts:52`.
-#### Outputs and shows
-
-- [ ] **LED output: Lift the 300-LED cap on strings, rings and corkscrews
-  (Med, M).** `MAX_LED_RUN` stops them at 300 while a matrix may reach 4096,
-  though one 5 m reel at 144/m is 720. Raise the chain cap toward the matrix
-  total (data lanes already split long chains), or document why it is 300.
-  Evidence `src/state/output/ledOutputForm.ts:42`. Not a constant change: a
-  string's canvas is `ledCount` x 1, so `WIDTH` grows with the cap, and some
-  emitted pattern code sizes per-column arrays by `WIDTH` on the loop stack
-  (Spectrum Visualizer's wave `_wvV[WIDTH], _wvY[WIDTH]` floats in
-  `src/nodes/audioReactive/codegen.ts:199`, 8 bytes per LED; the 1-D
-  automaton's `_row[WIDTH]` in `src/nodes/field/codegen.ts:394`) or as static
-  columns (`_svLevel` and friends, 16 bytes per column). At 720 LEDs the
-  stack arrays alone pass 5 KB of an 8 KB loop task. Move those to static or
-  heap storage (or cap them by a column count), raise `MAX_LED_RUN`, make
-  `ledCount` a typed number (`entry: 'number'`, a 1-4096 slider cannot be
-  dragged), and confirm with compiles of a long string through the sweep in
-  `showGenerator.test.ts` before trusting it on hardware.
-  `NETWORK_MAX_LEDS` and the positioned-string `MAX_LEDS` are separate 300
-  caps.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 
