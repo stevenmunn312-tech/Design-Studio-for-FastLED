@@ -1199,7 +1199,6 @@ export function generateShowSketch(
     ? { ...clockless[0].hardware, overclock: Math.max(...clockless.map((route) => route.hardware.overclock)) }
     : hw
   for (const d of overclockDefineCpp(sharedHw)) L.push(d)
-  if (audio) L.push(...audio.preInclude)
   const fastLedIncludeAt = L.length
   L.push('#include <FastLED.h>')
   if (isHub75) L.push(...hub75IncludesCpp(hub75Hw!))

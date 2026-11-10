@@ -1234,7 +1234,6 @@ export function generateCpp(
     ? { ...clocklessRoutes[0].hardware, overclock: Math.max(...clocklessRoutes.map((route) => route.hardware.overclock)) }
     : hw
   lines.push(...overclockDefineCpp(overclockHw))
-  if (audio) lines.push(...audio.preInclude)
   lines.push(FASTLED_INCLUDE)
   lines.push(...irEmission.includes)
   if (isHub75) lines.push(...hub75IncludesCpp(hub75Hw!))

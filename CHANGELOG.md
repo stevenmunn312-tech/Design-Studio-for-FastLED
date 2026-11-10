@@ -379,6 +379,10 @@ versioning (`0.y.z`) until the first stable release.
 - Firmware builds against FastLED 3.10.9 (3.10.8 before) and fbuild 2.5.51
   (2.5.45 before). 3.10.9 builds ESP32-C3 and C6 as released, so the
   helper no longer passes them `-DFL_NO_EXCEPT=`.
+  It also builds SAMD51 as released: the helper no longer patches the
+  library, and a SAMD51 microphone sketch no longer forces software SPI.
+  The helper's LVGL archive retry for fbuild on Windows is gone, fixed in
+  fbuild 2.5.44.
 - Serial parts' UARTs are allocated automatically: the radar and DFPlayer
   keep their fixed ports, then the DMX transceiver and the MIDI interface
   each take the lowest free UART. Graph Health names who holds a port when a
@@ -985,6 +989,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- A SAMD51 microphone sketch failed to compile with
+  "'_failed' was not declared": firmware cleanup removed a member of the
+  capture class.
+- A SAMD51 microphone sketch built with Arduino CLI now installs the
+  Adafruit Zero I2S and Zero DMA libraries it needs.
+- The wire-time estimate for SM16824E LEDs uses FastLED's corrected 1.2 µs
+  bit, not 1.3 µs.
 - Live Stream maps a panel layout and a custom XY map the way a flashed
   sketch does. It had streamed both as one plain matrix, so tiled and
   custom-wired outputs showed a scrambled picture.

@@ -14,20 +14,16 @@ an internal record.
   [#1673](https://github.com/FastLED/fbuild/issues/1673).
 - **Current repository pin:** 2.5.51 (`backend/requirements.txt` and
   `backend/constraints.txt`), moved from 2.5.45 on 2026-11-10 with FastLED
-  3.10.9, which asks for 2.5.49 or newer. No leg has run on 2.5.51 yet, and
-  everything below describes 2.5.45 until the next full run. 2.5.45 (pinned
-  2026-10-27) added
-  [#1721](https://github.com/FastLED/fbuild/pull/1721) (RP2040 TinyUSB,
+  3.10.9, which asks for 2.5.49 or newer. The full run on 2.5.51 passed 65 of
+  66 legs on 2026-11-10; the failure is a library fault on both engines
+  ([record](#fastled-3109-and-fbuild-2551-run-10-november-2026)). 2.5.45
+  added [#1721](https://github.com/FastLED/fbuild/pull/1721) (RP2040 TinyUSB,
   #1719), [#1723](https://github.com/FastLED/fbuild/pull/1723) (no console
   window per compile, #1722, §13) and the ESP8266 `deploy` and bootable-image
-  fixes (#1729, #1733, for #1657, §7). The 2026-10-27 run (66 legs, laptop
-  plus the `Compile matrix` workflow on GitHub) passed 65, RP2040 and
-  ESP8266 included. The Arduino Nano ESP32 fails in the core, from flags
-  fbuild takes from the board (escaped `USB_PRODUCT` strings, and
-  `BOARD_HAS_PIN_REMAP` without `ARDUINO_CORE_BUILD`), reproduced with a
-  blank project that PlatformIO builds; reported as
-  [#1760](https://github.com/FastLED/fbuild/issues/1760) on 2026-10-28. ESP32-H2
-  is built on Arduino CLI only, since 2.5.45 has no `esp32-h2-devkitc-1`.
+  fixes (#1729, #1733, for #1657, §7). The Arduino Nano ESP32
+  ([#1760](https://github.com/FastLED/fbuild/issues/1760)) builds on
+  2.5.51. ESP32-H2 is built on Arduino CLI only: 2.5.45 had no
+  `esp32-h2-devkitc-1`, not rechecked since.
 - **ESP32 platform pin:** `_FBUILD_ESP32_PLATFORM` in `backend/toolchain.py`,
   pioarduino 55.03.312-1 (Arduino core 3.3.12, ESP-IDF 5.5.5), the release the
   helper pins Arduino CLI to (`_PINNED_CORES`), since 2026-10-27. A bare
@@ -45,9 +41,7 @@ an internal record.
   library, reported as [#1719](https://github.com/FastLED/fbuild/issues/1719)
   (fixed on `main` 2026-10-24 by #1721, not yet released)
   ([IR record](../reports/compile/ir-compile-checks.md#fbuild-2544-recheck-24-october-2026)).
-  The rest of the fbuild legs have not run on 2.5.44; every workaround below
-  stays until `scripts/compile-fixtures/compile-matrix.py --engine fbuild`
-  shows it can go.
+  The rest of the legs first ran on 2.5.45 and 2.5.51.
 - **Mind which fbuild actually ran.** The pin is not the only fbuild on this host, and
   a measurement is only about the version that produced it. On 2026-09-10 the pin was
   2.5.21 (moved to 2.5.22 the following day), `backend/.venv` held **2.5.0**, and
@@ -88,7 +82,7 @@ an internal record.
 | 9 | ESP32 no-op build costs 181.5s (AVR, ESP8266, STM32: 0.4s) | **2.5.21** | None — measured, not worked around | **No — our [#1411](https://github.com/FastLED/fbuild/issues/1411), closed 2026-09-03; re-measured on 2.5.26, see below** |
 | 10 | Every directory in `lib/` is compiled, used or not | **2.5.26** | Hide unused libraries for the run | **No — fixed upstream in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1410](https://github.com/FastLED/fbuild/issues/1410)); workaround removed 2026-10-08 |
 | 11 | A build over the board's limits reports success | **2.5.26** | Refuse it on the measured percentage | **Partly fixed in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1409](https://github.com/FastLED/fbuild/issues/1409)): oversize flash now fails, and RAM overflow fails only on AVR. Keep the refusal for ESP32 RAM |
-| 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.26** | Re-archive with a response file, then continue | **Fixed in 2.5.44** ([#1656](https://github.com/FastLED/fbuild/issues/1656)): `display/normal` rebuilt `liblvgl.a` on 2026-10-24 without the recovery firing. Recovery code still in place; remove it after the full fbuild rerun |
+| 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.26** | Re-archive with a response file, then continue | **No — fixed in 2.5.44** ([#1656](https://github.com/FastLED/fbuild/issues/1656)); no leg of the 2.5.51 run needed it, workaround removed 2026-11-10 |
 | 13 | Windows: every daemon compile opens a visible console window that takes focus | **2.5.44** (also 2.5.37) | None possible: zccache is fbuild's only compile backend | Until the next release — [#1722](https://github.com/FastLED/fbuild/issues/1722), filed and fixed on `main` 2026-10-24 by #1723 (zccache 1.15.6): the embedded zccache 1.14.14 spawns through running-process 4.10.14, which omits `CREATE_NO_WINDOW` ([running-process#1214](https://github.com/zackees/running-process/issues/1214), fixed in 4.10.16 / zccache 1.15.6) |
 
 ---
@@ -133,10 +127,11 @@ Flash: 3.60KB / 31.50KB (11.4%)
 build succeeded in 26.0s
 ```
 
-**Workaround kept anyway, for one reason.** We do not merely fetch FastLED, we *patch*
-it: `_patch_fastled_samd51_build` edits up to six vendored headers to fix SAMD51 compile
-errors upstream has not landed yet. A registry-resolved library is not ours to edit, so
-FastLED stays vendored until those patches are unnecessary.
+**Workaround kept until 2026-11-10 for one reason, now gone.** The helper patched
+the vendored FastLED (`_patch_fastled_samd51_build`) for SAMD51 compile errors.
+FastLED 3.10.9 builds on SAMD51 as released, so the patches are removed and
+nothing ties FastLED to `lib/` any more. It stays vendored at its pinned tag
+until a pinned `lib_deps` entry is tried in its place.
 
 **Four registry alternatives were tested on 2.5.37 (2026-10-12).** Each was tried
 as a pinned `lib_deps` entry in a throwaway project:
@@ -799,6 +794,55 @@ registry. Reported upstream as a documentation request,
 
 ---
 
+## FastLED 3.10.9 and fbuild 2.5.51 run (10 November 2026)
+
+The whole matrix ran on GitHub ([run 42864153200](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/42864153200), 20 Windows runners,
+commit `f3b91e4`): 189 legs, Arduino CLI 1.5.1 with 123 and fbuild 2.5.51 with
+66, FastLED 3.10.9 and Arduino core 3.3.12 on both. **187 passed.**
+
+- **The one failing sketch is `dead-code/normal-DmxTransceiver`, on both
+  engines, and it is not an fbuild fault.** esp_dmx reads
+  `uart_periph_signal[n].module`, which ESP-IDF 5.5 removed
+  (`uart.c:330: 'uart_signal_conn_t' has no member named 'module'`); on
+  Arduino CLI the helper never installs the library. Root todo, section 3.
+- **ESP32-C3 and C6 pass on both engines** without `-DFL_NO_EXCEPT=`.
+- **Arduino Nano ESP32 passes on fbuild**
+  ([#1760](https://github.com/FastLED/fbuild/issues/1760), fixed by #1764),
+  as do RP2040 ([#1719](https://github.com/FastLED/fbuild/issues/1719)),
+  Renesas and SAMD21.
+- **No leg needed the LVGL archive recovery (§12).** Every runner started with
+  an empty build tree, so each display and custom-screen leg archived LVGL
+  cold. The recovery, its tests and the matrix note for it were removed the
+  same day.
+- **SAMD51 builds FastLED as released** ([run 42875384967](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/42875384967),
+  `samd51/mic@samd51`, Feather M4 with the ZeroI2S microphone): 105,724 bytes
+  of flash on Arduino CLI; 99,072 and 6,769 of RAM on fbuild.
+  `_patch_fastled_samd51_build` is gone, the fbuild SAMD51 environments keep
+  only `-D__SAMD51__` and the MCU define, and the sketch no longer aliases
+  `PORT_PMUX_PMUXO_A`/`EIC_IRQn` or forces software SPI. The first attempt
+  failed in the app's own code: the cleanup pass removed a member of a
+  `final` class, fixed in `recordBodies`.
+
+Sizes against the 27 October run (FastLED 3.10.8, same cores), for legs whose
+generated source is byte-identical:
+
+| Board | Flash | Static RAM |
+|---|---:|---:|
+| Classic ESP32 | −4.2 to −6.0 KB (IR debug and player legs +1.5 KB) | −110 to −420 bytes |
+| ESP32-S3 | 0 to −19.0 KB | 0 to −660 bytes |
+| ESP32-C6, ESP32-H2 (Arduino CLI) | −29.7 KB, −28.1 KB | −708, −616 bytes |
+| ESP8266 | −2.6 to −2.8 KB | −72 bytes |
+| AVR, megaAVR, Renesas, SAMD21, STM32, RP2040, Teensy | within 180 bytes | within 90 bytes |
+
+Both engines agree to within a few hundred bytes on each change. The C6 and
+H2 figures include dropping `-DFL_NO_EXCEPT=`.
+
+Not covered by a headless run: the console-window check (§13) and an ESP8266
+`deploy` on hardware (§7). `backend/.venv` and the Espressif Python on the
+laptop still hold 2.5.45.
+
+---
+
 ## Upgrade record to 2.5.37
 
 The pin moved from 2.5.26 to 2.5.37 on 2026-10-07, from a review of the
@@ -1001,6 +1045,11 @@ private-cache read and the linker-message parsing in §5.
 ---
 
 ## 12. Archiving LVGL on Windows exceeds the command-length limit
+
+**Fixed in 2.5.44; workaround removed 2026-11-10.** The 2.5.51 run archived
+LVGL cold on fresh Windows runners in every display and custom-screen leg
+without the failure. What follows is the record of the workaround; its code
+is in Git history.
 
 **Reported upstream 2026-10-07 as [#1656](https://github.com/FastLED/fbuild/issues/1656).**
 Confirmed through 2.5.26, most recently 2026-09-22; the archive code is unchanged on

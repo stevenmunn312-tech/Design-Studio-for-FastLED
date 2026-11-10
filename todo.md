@@ -14,9 +14,9 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
   through the [hardware expansion roadmap](docs/plans/hardware-expansion-roadmap.md),
   each experimental until its bench row in section 4.
 - **Engineering items close on software**, plus a compile where the item
-  changes firmware. They do not wait for hardware. Compiles run on Arduino CLI
-  alone until fbuild upkeep (section 5) resumes. Run fixture compiles one at a time;
-  overlapping runs corrupt the arduino-cli cache.
+  changes firmware. They do not wait for hardware. The full matrix runs on
+  GitHub (`Compile matrix` workflow, both engines); a local fixture compile
+  uses Arduino CLI, one at a time, since overlapping runs corrupt its cache.
 - **Hardware nobody here owns is not a blocker.** A feature ships marked
   **experimental** in the [support matrix](docs/release/beta-support-matrix.md)
   and graduates when a dated bench row lands, from the maintainer or from
@@ -35,46 +35,15 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 HW-32 (frame performance) is under [Completed](#completed); its bench rows are
 in section 4.
 
-- [ ] **FastLED upgrade to 3.10.9 (M).** Both engines pin
-  `_FASTLED_VERSION`, **3.10.9** since 2026-11-10 (3.10.8 from 2026-10-27,
-  3.10.5 before), with fbuild moved to 2.5.51 the same day (3.10.9 asks for
-  2.5.49 or newer). 3.10.9 carries the ESP32-C3/C6 `FL_NO_EXCEPT` fix
-  (`528a6fdbe`, #4831), so the helper's `-DFL_NO_EXCEPT=` RISC-V flag is
-  gone. **Nothing has compiled on 3.10.9 yet**: the C3 and C6 legs of the
-  next run are what prove the flag was safe to drop. New in 3.10.9 and to
-  watch on the bench: on Arduino core 3.3.2–3.3.12 FastLED replaces the
-  core's `app_main`/`loopTask` so `Serial0` is not linked (every ESP32 build
-  here, core pin 3.3.12); `-DFL_ESP32_STOCK_ARDUINO_MAIN=1` in
-  `_FASTLED_BUILD_FLAGS` restores the stock startup if boot, USB serial or
-  the loop watchdog misbehave. `FastLED.h` also no longer includes
-  `Arduino.h` on ESP32. The 3.10.8→3.10.9 source diff leaves the preview
-  ports, `fl::Bus`, the channel API, both `bus_traits.h` paths,
-  `idf5_clockless.h` and the ESP32 I2S slot values unchanged, and RMT5 stays
-  the backend on IDF 5. Source diffs 3.10.5→3.10.8 already clear the preview ports:
-  2-D/3-D `inoise8`/`inoise16`, `ColorFromPalette`, `blur1d`/`blur2d`,
-  `hsv2rgb_rainbow` and the lib8tion math are unchanged in effect, and
-  `nblendPaletteTowardPalette` only gained an early return for a budget of 0,
-  which codegen never passes (a blend of 0 is a straight cut). On the upgrade:
-  - Arduino CLI compile of every family on the new release (the first
-    compile installs it), ESP32-C3 and C6 included, and record the ESP32
-    flash and RAM drop 3.10.7 promises.
-  - Recheck what is not pure source: `FastLED.delay` and `show()` pacing
-    ([loopPacing.ts](src/codegen/loopPacing.ts)), the ESP32 I2S microphone
-    format and the SAMD ISR naming
-    ([audioEngineCpp.ts](src/codegen/audio/audioEngineCpp.ts)), the ESP32
-    microphone profiles ([micModules.ts](src/state/peripherals/micModules.ts))
-    and `chipsetSendMicros` ([wireTime.ts](src/utils/wireTime.ts)). Then move
-    their "FastLED 3.10.5" comments and test names to the new release. Default
-    buses and driver choices are done (2026-10-27): 3.10.8 selects parallel
-    engines as `Bus::FLEX_IO` plus an instance, and the classic ESP32 has no
-    parallel clockless driver until upstream declares one, so its I2S choice
-    is gone ([board capabilities](docs/architecture/board-capabilities.md#choosing-the-driver)).
-  - SAMD51: 3.10.6 fixed the compile break from 3.10.4, hardware SPI and the
-    I2S clash upstream. Try a SAMD51 build without
-    `_patch_fastled_samd51_build` and the audio workaround; drop each part the
-    build no longer needs.
-  - ESP8266 on the bench: `addLeds()` on GPIO12 no longer hangs, and the
-    `D1`-style pin constants work.
+- [ ] **DMX512 firmware does not compile on the pinned ESP32 core (M).**
+  Found by the 2026-11-10 matrix: `dead-code/normal-DmxTransceiver` fails on
+  both engines. esp_dmx (4.1.0, its default branch and `dev`) reads
+  `uart_periph_signal[n].module`, which ESP-IDF 5.5 removed, so a DMX512
+  input cannot build on Arduino core 3.3.12. On Arduino CLI the helper also
+  never installs esp_dmx (`esp_dmx.h: No such file or directory` on a clean
+  machine). Choose between a pinned, patched esp_dmx, another DMX library or
+  the app's own UART receiver, then install it for both engines and rebuild
+  that leg. Art-Net input is unaffected.
 
 ### Node review follow-ups
 
@@ -241,6 +210,15 @@ chooses the supported combinations from whatever is on record at release.
 
 ### Firmware and show matrix
 
+- **FastLED 3.10.9 on real boards:** it compiles on every family
+  ([record](docs/runbooks/fbuild-workarounds.md#fastled-3109-and-fbuild-2551-run-10-november-2026)),
+  and nothing has run on it yet. On an ESP32 with Arduino core 3.3.2 to
+  3.3.12 FastLED replaces the core's `app_main`/`loopTask`, so watch boot,
+  USB serial and the loop watchdog; `-DFL_ESP32_STOCK_ARDUINO_MAIN=1` in
+  `_FASTLED_BUILD_FLAGS` restores the stock startup. On an ESP8266, check
+  that `addLeds()` on GPIO12 no longer hangs and the `D1`-style pin
+  constants work. On a SAMD51, the microphone and LEDs now build with
+  hardware SPI enabled and no library patch, unproven on a board.
 - **HW-13 firmware/bench matrix:**
   - classic-ESP32 SD provisioning and player, following the
     [SD-show run](docs/release/beta-hardware-validation.md#sd-show-validation-run);
@@ -462,62 +440,34 @@ chooses the supported combinations from whatever is on record at release.
 
 ## 5. Release track (in order)
 
-- [ ] **fbuild upkeep (M)** ([runbook](docs/runbooks/fbuild-workarounds.md)).
-  Pulled into v1 on 2026-10-21: v1 ships with fbuild verified. Development
-  compiles on Arduino CLI alone until the repository matures; then rerun every
-  fbuild leg and pick these up:
-  - The pin moved to 2.5.44 on 2026-10-23, to 2.5.45 on 2026-10-27 and to
-    2.5.51 on 2026-11-10 (with FastLED 3.10.9, untested);
-    `backend/.venv` and the Espressif Python still hold 2.5.45, so install
-    the pin before the next local fbuild run. On 2026-10-24 the fix legs ran: the LVGL archive (§12),
-    Renesas and SAMD21 now build; RP2040 passes boot2 and stops on the Pico
-    core's TinyUSB library, reported as
-    [FastLED/fbuild#1719](https://github.com/FastLED/fbuild/issues/1719)
-    ([IR record](docs/reports/compile/ir-compile-checks.md#fbuild-2544-recheck-24-october-2026)).
-    Still to do: the full fbuild run (`scripts/compile-fixtures/run-fbuild.cmd`,
-    then `--retry-failed` after fixing what it reports), then
-    remove the §12 recovery and retry SAMD51 without its `_PIO_BOARDS`
-    `-DARDUINO_ARCH_SAMD`/`EIC_IRQn` flags. #1658 (§5) and #1673 have no
-    fixture of their own.
-  - **Release blocker for fbuild on Windows:** every daemon compile opens a
-    visible, focus-taking console window (§13,
-    [#1722](https://github.com/FastLED/fbuild/issues/1722)); app users hit it
-    too. Fixed upstream by #1723 (zccache 1.15.6), with #1719 (#1721)
-    alongside; both ship in 2.5.45, pinned 2026-10-27. Still to do: check
-    with a short build that no window opens.
-  - **fbuild `main` run, 2026-10-24** (local build of `710790b2`, FastLED
-    3.10.5): 45 of 46 legs pass with no console windows, RP2040 included;
-    C6, RP2350 and SAMD51 build; an overflow now prints region sizes (§5);
-    an ESP32 no-op rebuild takes 0.1 s. Open, drafted locally and not
-    posted (`tmp/fbuild-main/drafts/`): RP2040/RP2350 flash counts the
-    `.heap` reservation, and SAMD21 fails on FastLED 3.10.5 because fbuild
-    does not select the core's `SPI` library for an include behind `#if`
-    (both SAMD21 legs are expected failures until then). Also open: fbuild
-    ESP32 images carry about 255 KB more `.eh_frame` than Arduino CLI's,
-    cause not yet found.
-  - Every known fbuild problem has an upstream issue: RP2040 TinyUSB
-    ([#1719](https://github.com/FastLED/fbuild/issues/1719)), §12 LVGL archive
-    length ([#1656](https://github.com/FastLED/fbuild/issues/1656)), §7
-    ESP8266 `deploy` ([#1657](https://github.com/FastLED/fbuild/issues/1657)),
-    §5 no size summary on a link overflow
-    ([#1658](https://github.com/FastLED/fbuild/issues/1658)), the RP2040,
-    Renesas and SAMD21 build failures
-    ([#1670](https://github.com/FastLED/fbuild/issues/1670),
-    [#1671](https://github.com/FastLED/fbuild/issues/1671),
-    [#1672](https://github.com/FastLED/fbuild/issues/1672)) and Windows long
-    paths ([#1673](https://github.com/FastLED/fbuild/issues/1673)). Drop each
-    workaround as its fix lands.
-  - Arduino Nano ESP32 ([#1760](https://github.com/FastLED/fbuild/issues/1760)):
-    fixed on fbuild `main` by #1764 (merged 2026-10-27 19:29 UTC, after
-    v2.5.47). When a release contains `40868957`, move the pin to it and
-    rebuild `nano-esp32/nano-esp32@nano-esp32` with the `Compile matrix`
-    workflow (`-f engine=fbuild -f only=nano-esp32/nano-esp32@nano-esp32`).
-  - Recompile the RP2040 IR fbuild leg on that release (#1719 fixed on
-    `main` by #1721).
+- [ ] **fbuild upkeep (S)** ([runbook](docs/runbooks/fbuild-workarounds.md)).
+  The full run on fbuild 2.5.51 passed 65 of 66 legs on 2026-11-10, the one
+  failure being the DMX library on both engines (section 3)
+  ([record](docs/runbooks/fbuild-workarounds.md#fastled-3109-and-fbuild-2551-run-10-november-2026)).
+  The LVGL archive recovery (§12), the SAMD51 FastLED patches and the SAMD51
+  `-DARDUINO_ARCH_SAMD`/`EIC_IRQn`/software-SPI flags are removed. Left:
+  - **Release blocker for fbuild on Windows:** check with a short build on a
+    desktop that no console window opens per compile (§13,
+    [#1722](https://github.com/FastLED/fbuild/issues/1722), fixed by #1723 in
+    2.5.45). A headless runner cannot show it. `backend/.venv` and the
+    Espressif Python still hold 2.5.45, so install the 2.5.51 pin first.
+  - ESP8266 `deploy` (§7, [#1657](https://github.com/FastLED/fbuild/issues/1657)):
+    2.5.45 added a deployer; flash a board through fbuild, then drop the
+    Arduino CLI fallback.
+  - ESP32-H2 is still built on Arduino CLI alone (`ARDUINO_CLI_ONLY` in
+    `compile-matrix.py`); recheck whether 2.5.51 has `esp32-h2-devkitc-1`.
+  - The SAMD51 environments still repeat `-D__SAMD51__` and the MCU define
+    for library sources; try one build without them.
+  - §5 ([#1658](https://github.com/FastLED/fbuild/issues/1658)) and
+    [#1673](https://github.com/FastLED/fbuild/issues/1673) have no fixture of
+    their own. Open and not posted (`tmp/fbuild-main/drafts/`): RP2040/RP2350
+    flash counts the `.heap` reservation, and fbuild ESP32 images carry about
+    255 KB more `.eh_frame` than Arduino CLI's, cause not yet found.
   - The four unpatched vendored libraries stay in `lib/`: on 2.5.37 a GitHub
     `lib_deps` ignores its `#ref`, the HUB75 pin is ignored, esp_dmx 4.1.0
     does not build on IDF 5.5, and every `lib_deps` library is compiled
-    whether used or not (§1). Report them upstream, then revisit.
+    whether used or not (§1). Recheck on 2.5.51, report upstream, then
+    revisit. FastLED itself no longer needs vendoring for patches.
 - [ ] **HW-17 · Distribution smoke tests (M).** Clean-profile offline-PWA
   relaunch and clean end-user-machine desktop runs; platform signing and
   notarization before publishing: Authenticode for the Windows launcher and
@@ -604,6 +554,12 @@ and an Upload information shelf in
 Outcomes are recorded where linked; the per-item narratives up to 2026-09-24
 are in the [archived backlog](docs/archive/hardware-todo-to-2026-09-24.md).
 
+- **FastLED 3.10.9 and fbuild 2.5.51**: every board family compiles on both
+  engines, ESP32-C3 and C6 without the `FL_NO_EXCEPT` flag and SAMD51 with
+  FastLED as released; the pacing, microphone and wire-time notes were
+  reread against 3.10.9, which corrected the SM16824E bit time
+  ([record](docs/runbooks/fbuild-workarounds.md#fastled-3109-and-fbuild-2551-run-10-november-2026)).
+  Bench checks are in section 4.
 - **D-13 · Board links over ESP-NOW**: controls and readings between the
   boards of one project over authenticated ESP-NOW, with channel following
   for a board off Wi-Fi, held hand-set values through a sender restart, and

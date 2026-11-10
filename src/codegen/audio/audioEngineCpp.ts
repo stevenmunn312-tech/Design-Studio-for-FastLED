@@ -835,7 +835,7 @@ export function audioEngineForGraph(
   capabilityNodes: StudioNode[] = nodes,
   groups: GroupRegistry = {},
   edges: readonly StudioEdge[] = [],
-): { preInclude: string[]; include: string; code: string[]; fqbn: string; backend: MicFirmwareBackend } | null {
+): { include: string; code: string[]; fqbn: string; backend: MicFirmwareBackend } | null {
   const capabilitySource = nodes
     .filter((node) => node.data.nodeType === 'Audio')
     .map((node) => resolveAudioCapabilitySource(capabilityNodes, (node.data.properties as Record<string, unknown>).sourceId)?.node)
@@ -870,7 +870,6 @@ export function audioEngineForGraph(
       ? 'Both'
       : 'Left'
   return {
-    preInclude: [],
     include: [
       `// ${lineInput ? 'PCM1802 line-in' : micModule.label} capture feeds the same FastLED Processor contract as preview.`,
       ...(lineInput || micModule.capture === 'sph0645-classic-esp32' ? [
