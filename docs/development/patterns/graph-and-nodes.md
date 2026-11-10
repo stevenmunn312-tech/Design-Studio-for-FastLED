@@ -375,8 +375,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Fourier Epicycles and Scale with matrix size by `sizingSide`
   (`SIZING_SIDE_CPP`), the strip's length where the shorter side is one
   pixel. Two rows and up keep the matrix formulas exactly, so no matrix
-  render moves. A strip is the slice through the middle of the 2D pattern:
-  a circle Path lights where its curve crosses that row.
+  render moves. A field on a strip is the slice through the middle of the
+  2D pattern (a Shape Field circle is a lit span, a Lissajous Field crosses
+  the row several times a frame). A moving point is not: on that slice a
+  circle Path lit only where it crossed the row. So one row runs a point
+  flat (`flatPathRow`, `FLAT_PATH_ROW_CPP`): Path and Fourier Epicycles
+  drop the y reach and their point (and Fourier's trail) sweeps the strip
+  on the row's middle, and Fourier draws no guide circles there, which a
+  row shows only as pairs of stray points. Only `H === 1` counts, so a
+  single column and every matrix keep the 2D path. The sketch passes the
+  flat flag as `(HEIGHT==1)?true:false`; on a single canvas it folds to a
+  literal and `foldConstants` specialises `_fePen`/`_feTrail` down to the
+  one arm that canvas takes, so neither sketch carries the other's branch.
 - A trail is one knob, `trail`, with one meaning: 0 leaves none and 1 the
   longest. It is a half-life on a log scale, applied by the time that has
   passed, not a share taken off each frame. Confetti, Juggle, Scanner, Flow

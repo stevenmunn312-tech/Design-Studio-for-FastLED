@@ -31,3 +31,19 @@ export function sizingSide(W: number, H: number): number {
 
 /** `sizingSide` as a C++ constant expression over the render size. */
 export const SIZING_SIDE_CPP = '(min(WIDTH,HEIGHT)==1?max(WIDTH,HEIGHT):min(WIDTH,HEIGHT))'
+
+/**
+ * Whether a point moving round a 2-D path runs flat. A canvas one row tall
+ * has no vertical reach to give it: the middle slice of a circle lit only
+ * where the curve crossed the row. Path and Fourier Epicycles hold their
+ * point (and so their trail) on the row instead, so it sweeps along the
+ * strip with the path's horizontal motion. Only an exact single row counts:
+ * every canvas two rows and up, a single column included, keeps the full
+ * path, so no matrix render moves.
+ */
+export function flatPathRow(H: number): boolean {
+  return H === 1
+}
+
+/** `flatPathRow` as a C++ constant expression over the render size. */
+export const FLAT_PATH_ROW_CPP = '(HEIGHT==1)'

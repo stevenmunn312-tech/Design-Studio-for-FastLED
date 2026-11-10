@@ -3581,10 +3581,11 @@ describe('Pattern node expansion - Phase 6 Fourier Epicycles codegen', () => {
 
   it('draws the circles and pen only when asked', () => {
     const both = generateEpicycles({ outline: 'heart' })
-    expect(both).toContain('_fePen(_fe_fe,9,_hw,_hfr,_turn,_ext,_cx,_cy,buf_fe,WIDTH,HEIGHT,_col,&_penX,&_penY);')
+    // The flat-row flag (a matrix here) specialises out of the call.
+    expect(both).toContain('_fePen(_fe_fe, 9, _hw, _hfr, _turn, _ext, _cx, _cy, buf_fe, WIDTH, HEIGHT, _col, &_penX, &_penY);')
     expect(both).toContain('_feDisc(buf_fe,WIDTH,HEIGHT,_penX,_penY,_rad8+128,_col,false);')
     const neither = generateEpicycles({ outline: 'heart', showCircles: false, showPen: false })
-    expect(neither).toContain('_fePen(_fe_fe,9,_hw,_hfr,_turn,_ext,_cx,_cy,0,WIDTH,HEIGHT,_col,&_penX,&_penY);')
+    expect(neither).toContain('_fePen(_fe_fe, 9, _hw, _hfr, _turn, _ext, _cx, _cy, 0, WIDTH, HEIGHT, _col, &_penX, &_penY);')
     expect(neither).not.toContain('_rad8+128,_col,false);')
   })
 

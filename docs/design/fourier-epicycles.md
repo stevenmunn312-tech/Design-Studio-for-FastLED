@@ -85,6 +85,13 @@ Per frame, with `turn = speed · t` wrapped to 0..1:
    restart or a seek, and draws only the new point.
 5. Add the trail to the output, then the pen head when `showPen` is on.
 
+A canvas one row tall (an LED strip) runs the pen flat (`flatPathRow`): its
+chain keeps only the horizontal sum, so the pen and its trail sweep the
+strip on the row's middle, and no guide circle is drawn, whatever
+`showCircles` says, because a row would show each circle only as the two
+points where it crosses. The scale is half the strip's length there
+(`sizingSide`). Every canvas two rows and up draws the full outline.
+
 ## Parity
 
 The byte arithmetic is written out on both sides rather than left to
@@ -92,7 +99,8 @@ The byte arithmetic is written out on both sides rather than left to
 truncating float-to-byte casts, and saturating adds. The preview copies it
 exactly. `src/codegen/__tests__/fourierNativeParity.test.ts` compiles the
 emitted block against a small CRGB stand-in with the host `g++` and compares
-it with the preview after 120 to 300 frames on three outlines. With glibc the
+it with the preview after 120 to 300 frames on three outlines and a 60×1
+strip. With glibc the
 frames match byte for byte; the test allows 1% of the canvas to differ,
 because another maths library may round a sine differently. It is skipped
 where no `g++` is installed.

@@ -53,9 +53,11 @@ static void _feRing(CRGB* buf,int W,int H,int32_t cx,int32_t cy,int32_t radius,C
 
 // fourierPenQ8's twin over a PROGMEM {frequency, amplitude, phase} word
 // table. With a ring buffer it also draws each guide circle before adding
-// its arm.
+// its arm. A flat pen (a one-row canvas, flatPathRow) keeps only its
+// horizontal motion; the caller passes no ring buffer there. The flag is a
+// constant on a single canvas, so the sketch keeps only the arm it takes.
 static void _fePen(const uint16_t (*table)[3],int count,int whole,int frac,uint16_t theta,int32_t extent,
-                   int32_t cx,int32_t cy,CRGB* rings,int W,int H,CRGB color,int32_t* penX,int32_t* penY) {
+                   int32_t cx,int32_t cy,bool flat,CRGB* rings,int W,int H,CRGB color,int32_t* penX,int32_t* penY) {
   int32_t x=0,y=0;
   for(int k=0;k<count;k++){
     int32_t w=k<whole?256:(k==whole?frac:0); if(w<=0)break;
@@ -64,14 +66,14 @@ static void _fePen(const uint16_t (*table)[3],int count,int whole,int frac,uint1
     uint16_t a=(uint16_t)((int32_t)(int16_t)pgm_read_word(&table[k][0])*(int32_t)theta+(int32_t)pgm_read_word(&table[k][2]));
     x+=(r*sin16((uint16_t)(a+16384)))>>15; y+=(r*sin16(a))>>15;
   }
-  *penX=cx+x; *penY=cy-y;
+  *penX=cx+x; if(flat)*penY=cy; else *penY=cy-y;
 }
 
 // Draw the pen's path since last frame along the outline into the trail
 // (faded beforehand by the node's trailFadeCpp block). More than a quarter
 // turn since last frame draws only the new point.
 static void _feTrail(CRGB* trail,int W,int H,const uint16_t (*table)[3],int count,
-                     int whole,int frac,uint16_t turn,int32_t extent,int32_t cx,int32_t cy,int32_t penX,int32_t penY,
+                     int whole,int frac,uint16_t turn,int32_t extent,int32_t cx,int32_t cy,bool flat,int32_t penX,int32_t penY,
                      int32_t radius,CRGB color,uint16_t* lastTurn,int32_t* lastX,int32_t* lastY,bool* has) {
   int32_t delta=(int16_t)(uint16_t)(turn-*lastTurn);
   if(!*has||abs(delta)>${FOURIER_TRAIL_JUMP_A16}){ _feDisc(trail,W,H,penX,penY,radius,color,true); }
@@ -81,7 +83,7 @@ static void _feTrail(CRGB* trail,int W,int H,const uint16_t (*table)[3],int coun
     if(dx<32768&&dy<32768) steps=max(1,min(${FOURIER_TRAIL_STEPS_MAX},(int)((_feIsqrt((uint32_t)(dx*dx+dy*dy))*2+255)>>8)));
     for(int i=1;i<=steps;i++){
       int32_t x=penX,y=penY;
-      if(i<steps)_fePen(table,count,whole,frac,(uint16_t)(*lastTurn+delta*i/steps),extent,cx,cy,0,W,H,color,&x,&y);
+      if(i<steps)_fePen(table,count,whole,frac,(uint16_t)(*lastTurn+delta*i/steps),extent,cx,cy,flat,0,W,H,color,&x,&y);
       _feDisc(trail,W,H,x,y,radius,color,true);
     }
   }
