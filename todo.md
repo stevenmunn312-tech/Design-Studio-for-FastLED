@@ -179,17 +179,6 @@ module (no fixture yet).
   (Solid, Palette) replaced the `'none'` sentinel and gates R/G/B. Dance
   Flash and Ember Pulse remain (the HeatColor ramp is a look choice), and
   Gravity Well is blocked as below.
-- [ ] **Audio Features: Apply Sensitivity and smoothing to Loudness (Med,
-  S).** Loudness is the raw meter and real music sits at 0.02–0.2 of its
-  scale, so wired into a 0–1 input it barely moves and the help tells users
-  to add a Smooth node. Apply Sensitivity as a gain plus about 0.15 s of
-  smoothing. Evidence `src/nodes/audio/evaluate.ts:294`. Left open: the
-  shared energy stage (`energyDynamics.ts`) reads each pattern's own Audio
-  Features Loudness, whose Sensitivity varies 0.5–0.65 across the bundled
-  patterns, through its own 0.15 s Smooth, with ranges set by ear for the
-  raw meter. A gain would retune 86 patterns and a second smoother would
-  stack lag (the 0.6 s delay Steve heard). Needs a decision: a separate
-  eased output, or moving the stage onto it and retuning by ear.
 - [ ] **Gravity Well: Replace R/G/B ports with a palette (Med, S).** It is
   the only band pattern with no palette; a Color port overrides three R/G/B
   float ports. Swap the R/G/B ports for a palette and keep the optional
@@ -199,16 +188,6 @@ module (no fixture yet).
   80/160/255, so dropping R/G/B recolours it; a Solid/Palette select like
   Beat Flash's would keep it, but a saved node without the key would read
   differently from a new one. Needs a decision on that graph.
-- [ ] **Color Trails: Cut the tuning knobs (Med, M).** Twelve knobs over 15
-  inputs, with separate X and Y speed, amplitude and frequency, and a
-  Persistence slider (0.9–0.9999, step 0.0001) the help explains in
-  minutes. Link X and Y by default (one Flow speed, strength and scale plus
-  an "independent axes" toggle), and replace Persistence with a Trail
-  length in seconds. Evidence `src/state/nodeLibrary.ts:899`. Left open:
-  all four bundled Color Trails tune X and Y differently (often opposite
-  signs), so each would need the independent toggle and a conversion of
-  Persistence (0.9988–0.99935 per frame) into seconds; the trail-length
-  curve wants a by-ear check.
 
 #### Effects and signals
 
