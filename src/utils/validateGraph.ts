@@ -3706,7 +3706,7 @@ interface InertControlIssue {
  *
  * The third inert cause — wired to a property the node currently ignores —
  * is deliberately **not** reported here. It is already said on the wire, it is
- * one dropdown away from being live, and a Formula Field with a knob belonging
+ * one dropdown away from being live, and a Geometry Field with a knob belonging
  * to another variant is a correct graph; a warning that fires on one of those
  * teaches people to stop reading the drawer.
  */

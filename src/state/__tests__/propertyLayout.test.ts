@@ -96,13 +96,13 @@ describe('property groups', () => {
     expect(PROPERTY_GROUPS.ColorTrails[0].keys).toEqual(['bass', 'mids', 'treble'])
   })
 
-  it('gives Formula Field one group per formula so the unused ones drop out', () => {
-    const def = NODE_LIBRARY.find((n) => n.type === 'FormulaField')!
-    const rose = new Set(editableProperties('FormulaField', { ...def.defaultProperties, formulaType: 'rose' }).map(([k]) => k))
-    const shown = PROPERTY_GROUPS.FormulaField
-      .filter((group) => group.keys.some((key) => rose.has(key)))
+  it('gives Geometry Field one group per field so the unused ones drop out', () => {
+    const def = NODE_LIBRARY.find((n) => n.type === 'GeometryField')!
+    const spiral = new Set(editableProperties('GeometryField', { ...def.defaultProperties, formulaType: 'fibonacciSpiral' }).map(([k]) => k))
+    const shown = PROPERTY_GROUPS.GeometryField
+      .filter((group) => group.keys.some((key) => spiral.has(key)))
       .map((group) => group.label)
-    expect(shown).toEqual(['Formula', 'Rose'])
+    expect(shown).toEqual(['Geometry', 'Spiral'])
   })
 })
 

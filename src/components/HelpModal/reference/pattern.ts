@@ -1423,7 +1423,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Formula Pattern colours every pixel from a formula you write. It knows x and y (0 to 1), cx and cy (centred), r and angle (polar), t (time), W and H, two inputs a and b, the usual maths, and FastLED’s helpers such as sin8 and beatsin8.',
       'The formula’s result, 0 to 1 and wrapping, is looked up in the palette. One line can make ripples, spirals, interference patterns and checkerboards. Wire a pot, a Web Remote slider or an audio level into A or B to steer it.',
-      'It is one of four nodes that share this formula language: Expression makes a number, Field Formula a field and Formula Shapes a shape. To combine a formula with other fields before it is coloured, build it as a Field Formula and finish with Field → Frame.',
+      'It is one of three nodes that share this formula language: Expression makes a number and Field Formula a field. To combine a formula with other fields before it is coloured, build it as a Field Formula and finish with Field → Frame.',
       'Formulas run only once you have answered Run it on the bar above the canvas; until then a project from another computer shows black.',
     ],
     example: example({

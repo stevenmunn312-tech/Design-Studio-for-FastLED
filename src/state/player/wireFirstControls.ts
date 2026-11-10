@@ -503,7 +503,7 @@ export function controlDestination(
   return { node, property: inputLabel(nodeType, input) }
 }
 
-/** Both halves, for somewhere with room for both: "Formula Field · Petals". */
+/** Both halves, for somewhere with room for both: "Geometry Field · Turns". */
 export function controlDestinationLabel(
   edge: StudioEdge,
   nodes: readonly StudioNode[],

@@ -92,16 +92,16 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // Curated closed-form fields, selected by a dropdown instead of typing a
-    // FieldFormula expression — a third raw-field generator beside
-    // FieldFormula (free-text) and FieldNoise (fBm). See
-    // docs/design/formula-pattern-nodes.md.
-    type: 'FormulaField',
-    label: 'Formula Shapes',
+    // Three closed-form geometry fields — a Fibonacci spiral, golden-ratio
+    // rings and a Lissajous curve — picked from a dropdown instead of typed
+    // as a FieldFormula expression. The rose and the superformula it used to
+    // draw are Shape Field kinds. See docs/design/formula-pattern-nodes.md.
+    type: 'GeometryField',
+    label: 'Geometry Field',
     category: 'field',
     /*
      * Every knob is a property input, so a touch control or an LFO can drive
-     * the shape live. Ports are named after their property, the convention the
+     * the field live. Ports are named after their property, the convention the
      * rest of `propertyInputs` follows.
      *
      * Only the knobs `isPropertyEnabled` allows for the chosen `formulaType`
@@ -113,14 +113,6 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
      */
     inputs: [
       { id: 'speed', label: 'Speed', dataType: 'float' },
-      { id: 'petals', label: 'Petals', dataType: 'float' },
-      { id: 'offset', label: 'Angle Offset', dataType: 'float' },
-      { id: 'symmetry', label: 'Lobes', dataType: 'float' },
-      { id: 'n1', label: 'N1', dataType: 'float' },
-      { id: 'n2', label: 'N2', dataType: 'float' },
-      { id: 'n3', label: 'N3', dataType: 'float' },
-      { id: 'a', label: 'A', dataType: 'float' },
-      { id: 'b', label: 'B', dataType: 'float' },
       { id: 'turns', label: 'Turns', dataType: 'float' },
       { id: 'tightness', label: 'Tightness', dataType: 'float' },
       { id: 'bandWidth', label: 'Band Width', dataType: 'float' },
@@ -131,26 +123,15 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
       { id: 'thickness', label: 'Thickness', dataType: 'float' },
     ],
     propertyInputs: {
-      speed: 'speed', petals: 'petals', offset: 'offset',
-      symmetry: 'symmetry', n1: 'n1', n2: 'n2', n3: 'n3', a: 'a', b: 'b',
+      speed: 'speed',
       turns: 'turns', tightness: 'tightness', bandWidth: 'bandWidth',
       density: 'density', phase: 'phase',
       freqA: 'freqA', freqB: 'freqB', thickness: 'thickness',
     },
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
     defaultProperties: {
-      formulaType: 'rose',
+      formulaType: 'fibonacciSpiral',
       speed: 0.3,
-      // rose
-      petals: 5,
-      offset: 0,
-      // superformula
-      symmetry: 6,
-      n1: 0.3,
-      n2: 0.3,
-      n3: 0.3,
-      a: 1,
-      b: 1,
       // fibonacciSpiral
       turns: 3,
       tightness: 0.15,
@@ -453,7 +434,7 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = {
   FieldNoise: 'Organic fBm noise as a scalar field (same construction as Fractal Noise).',
   SliceTiling: 'Recursive fan slices on hex, square or triangle lattices, plus a per-cell value.',
   Truchet: 'Joins hash-oriented arcs and lines across a square or hexagonal tile lattice.',
-  FormulaField: 'Curated closed-form field: rose, superformula, spiral, tiling, Lissajous.',
+  GeometryField: 'Spiral, golden rings or Lissajous curve. Shape Field has rose and superformula.',
   WaveSim: 'Damped 2D ripple simulation as a scalar field, with triggerable splashes.',
   FluidSim: 'Smoke-like fluid: dye and the flow that carries it, as fields.',
   FractalField: 'Julia, Mandelbrot, Newton or Burning Ship fractal as a field.',

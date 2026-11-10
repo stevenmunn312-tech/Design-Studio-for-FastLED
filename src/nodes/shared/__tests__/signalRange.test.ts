@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { formatSignalRange, isNormalizedOutput, NORMALIZED_OUTPUTS, outputSignalRange, signalRangeMismatch } from '../signalRange'
 import { inputClampRange, NODE_LIBRARY } from '../../../state/nodeLibrary'
 import {
-  FORMULA_FIELD_SPEED_MAX,
   FORMULA_POINTS_SPEED_MAX,
+  GEOMETRY_FIELD_SPEED_MAX,
   NOISE_SCALE_MAX,
   NOISE_SPEED_MAX,
   SCALE_MAX,
@@ -44,8 +44,8 @@ describe('signalRange', () => {
     expect(signalRangeMismatch('Noise', 'scale')).toBeNull()
     expect(Object.keys(FORMULA_POINTS_SPEED_MAX).length).toBeGreaterThan(0)
     expect(signalRangeMismatch('FormulaPoints', 'speed')).toBeNull()
-    expect(Object.keys(FORMULA_FIELD_SPEED_MAX).length).toBeGreaterThan(0)
-    expect(signalRangeMismatch('FormulaField', 'speed')).toBeNull()
+    expect(Object.keys(GEOMETRY_FIELD_SPEED_MAX).length).toBeGreaterThan(0)
+    expect(signalRangeMismatch('GeometryField', 'speed')).toBeNull()
     // AudioFlow mirrors the same normalisation through audioFlowRange.ts.
     expect(signalRangeMismatch('AudioFlow', 'speed')).toBeNull()
   })

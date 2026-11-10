@@ -129,7 +129,7 @@ describe('colour channels', () => {
   })
 
   it('leaves a lone operand that happens to be named b alone', () => {
-    // Formula Field and Custom Formula carry `a` and `b` as superformula
+    // Shape Field and Custom Formula carry `a` and `b` as superformula
     // operands. An incomplete triple is not a colour, and giving one a byte
     // range would silently restate its domain.
     for (const def of NODE_LIBRARY) {
@@ -139,7 +139,7 @@ describe('colour channels', () => {
       expect(propertyMeta(def.type, 'b'), `${def.type}.b`)
         .not.toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
     }
-    expect(propertyMeta('FormulaField', 'b')).toEqual({ control: 'slider', min: 0.2, max: 3, step: 0.05 })
+    expect(propertyMeta('ShapeField', 'b')).toEqual({ control: 'slider', min: 0.2, max: 3, step: 0.05 })
   })
 
   it('never lets a channel range reach a node that declares none', () => {

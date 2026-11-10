@@ -2348,19 +2348,19 @@ describe('inert touch controls', () => {
   it('stays quiet about a wire into a property the node is currently ignoring', () => {
     /*
      * The third inert cause is deliberately left to the wire, which already
-     * draws it dark. A Formula Field knob belonging to another variant is a
+     * draws it dark. A Geometry Field knob belonging to another variant is a
      * correct graph, and a warning that fires on one of those teaches people to
      * stop reading the drawer.
      */
-    const formula = libraryNode('ff', 'FormulaField', {
-      ...libraryDefaults('FormulaField'), formulaType: 'superformula',
+    const formula = libraryNode('ff', 'GeometryField', {
+      ...libraryDefaults('GeometryField'), formulaType: 'goldenTiling',
     })
-    const petals = [{
+    const turns = [{
       id: 'w', source: 'touch', sourceHandle: 'widget:slider:out',
-      target: 'ff', targetHandle: 'petals',
+      target: 'ff', targetHandle: 'turns',
     }] as unknown as StudioEdge[]
 
-    expect(buildGraphDiagnostics([panel, touch, formula], petals, {
+    expect(buildGraphDiagnostics([panel, touch, formula], turns, {
       displayDocuments: documents(slider({ x: 0, y: 0, width: 96, height: 48 })),
     }).filter((issue) => issue.id.startsWith('inert-control'))).toEqual([])
   })

@@ -254,7 +254,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'FormulaField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldWarp', 'FieldSymmetry', 'FieldToFrame'],
+  field:  ['FieldFormula', 'GeometryField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldWarp', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
@@ -486,7 +486,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   divideBy:       { control: 'slider', min: 2, max: 16, step: 1 },
   delayTime:      { control: 'slider', min: 0.05, max: 5, step: 0.05 },
   fieldOp:        { control: 'select', options: ['add', 'subtract', 'multiply', 'mix', 'min', 'max', 'difference'] },
-  formulaType:    { control: 'select', options: ['rose', 'superformula', 'fibonacciSpiral', 'goldenTiling', 'lissajousField'] },
+  formulaType:    { control: 'select', options: ['fibonacciSpiral', 'goldenTiling', 'lissajousField'] },
   particleType:   { control: 'select', options: [...PARTICLE_MODES] },
   channel:        { control: 'select', options: ['Left', 'Right'] },
   audioOutput:    { control: 'select', options: ['i2s', 'internalDac'] },
@@ -622,7 +622,7 @@ const TOUCH_CALIBRATION_META: Record<string, PropertyControl> = {
 /*
  * Colour channels are 0-255 bytes, but the property names that carry them
  * collide: `b` is a blue channel on Solid Color and a superformula operand on
- * Formula Field, so a global `b` slider would put a 0-255 range on a knob whose
+ * Shape Field, so a global `b` slider would put a 0-255 range on a knob whose
  * domain is nothing of the sort. They are therefore derived per node type from
  * the one fact that distinguishes them — a colour triple is *complete*. A node
  * declaring all of r/g/b (or all of rA/gA/bA, or rB/gB/bB) means the channels;
@@ -1179,9 +1179,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   FormulaPoints: {
     // `formulaType` is scoped here rather than the generic PROPERTY_META map
-    // because FormulaField (field category) uses the same property name for
+    // because GeometryField (field category) uses the same property name for
     // its own, different variant list — an override always wins over the
-    // generic map, so this stays correct regardless of what FormulaField's
+    // generic map, so this stays correct regardless of what GeometryField's
     // entry ends up looking like.
     formulaType: { control: 'select', options: ['phyllotaxis', 'lissajousPath', 'rosePath', 'logisticMap', 'attractor'] },
     speed: N01,
@@ -1637,18 +1637,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
     noiseShape: { control: 'select', options: [...NOISE_SHAPES] },
   },
-  FormulaField: {
+  GeometryField: {
     speed: N01,
-    // rose
-    petals: { control: 'slider', min: 1, max: 12, step: 1 },
-    offset: { control: 'slider', min: 0, max: 360, step: 1 },
-    // superformula (Gielis)
-    symmetry: { control: 'slider', min: 1, max: 20, step: 1 },
-    n1: { control: 'slider', min: 0.05, max: 5, step: 0.05 },
-    n2: { control: 'slider', min: 0.05, max: 5, step: 0.05 },
-    n3: { control: 'slider', min: 0.05, max: 5, step: 0.05 },
-    a:  { control: 'slider', min: 0.2, max: 3, step: 0.05 },
-    b:  { control: 'slider', min: 0.2, max: 3, step: 0.05 },
     // fibonacciSpiral (turns reuses the shared 1–6 `turns` slider below)
     tightness: { control: 'slider', min: 0.02, max: 0.5, step: 0.01 },
     bandWidth: { control: 'slider', min: 0.02, max: 0.6, step: 0.01 },
@@ -3094,17 +3084,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     trail: 'How long dead cells glow as they cool: 0 they go out at once, 1 they halve about every 2 s.',
     palette: 'Live cells take the palette end; fading cells cool toward its start.',
   },
-  FormulaField: {
-    formulaType: 'Which closed-form shape to draw. Only the knobs for the chosen shape do anything.',
-    speed: 'How fast the shape rotates or drifts. 0 freezes it.',
-    petals: 'Number of petals on the rose. Odd counts give that many; even counts double.',
-    offset: 'Turns the rose by this many degrees before it starts spinning.',
-    symmetry: 'Number of lobes around the superformula outline.',
-    n1: 'Overall roundness exponent. Small values give spiky stars; large values give rounder blobs.',
-    n2: 'Shapes the cosine lobes. Raise it to pinch them.',
-    n3: 'Shapes the sine lobes. Raise it to pinch them.',
-    a: 'Stretches the outline along one axis. 1 is unstretched.',
-    b: 'Stretches the outline along the other axis. 1 is unstretched.',
+  GeometryField: {
+    formulaType: 'Which field to draw: a Fibonacci spiral, golden-ratio rings or a Lissajous curve. Only the knobs for the chosen field do anything.',
+    speed: 'How fast the field rotates or drifts. 0 freezes it.',
     turns: 'How many spiral arms wind out from the centre.',
     tightness: 'How quickly the arms open out. Small values coil tightly.',
     bandWidth: 'Width of each bright spiral arm as a fraction of the gap between arms.',
@@ -3578,10 +3560,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     wrapX: 'wrap X',
     noiseShape: 'shape',
   },
-  FormulaField: {
-    formulaType: 'formula',
-    offset: 'angle offset',
-    symmetry: 'lobes',
+  GeometryField: {
+    formulaType: 'geometry',
     bandWidth: 'band width',
     freqA: 'freq A',
     freqB: 'freq B',
@@ -4243,7 +4223,7 @@ export interface PropertyGroup {
  * master controls (the player's volume, the LED output's enable switch) lead
  * in a group of their own rather than trailing the sections ungrouped. A row
  * the node's current mode does not use is hidden, not listed disabled, so a
- * per-variant group (Formula Field's five formulas) drops out whole while
+ * per-variant group (Geometry Field's three fields) drops out whole while
  * another variant is chosen.
  */
 export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
@@ -4570,12 +4550,10 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'number', label: 'Number', keys: ['value', 'decimals', 'padWidth', 'maxIntegerDigits', 'showSign'] },
     { key: 'text', label: 'Text', keys: ['prefix', 'suffix'] },
   ],
-  // One group per formula; the chosen formula's rows are the only ones shown,
+  // One group per field; the chosen field's rows are the only ones shown,
   // so the others' groups drop out whole.
-  FormulaField: [
-    { key: 'formula', label: 'Formula', keys: ['formulaType', 'speed'] },
-    { key: 'rose', label: 'Rose', keys: ['petals', 'offset'] },
-    { key: 'superformula', label: 'Superformula', keys: ['symmetry', 'n1', 'n2', 'n3', 'a', 'b'] },
+  GeometryField: [
+    { key: 'geometry', label: 'Geometry', keys: ['formulaType', 'speed'] },
     { key: 'spiral', label: 'Spiral', keys: ['turns', 'tightness', 'bandWidth'] },
     { key: 'golden', label: 'Golden Tiling', keys: ['density', 'phase'] },
     { key: 'lissajous', label: 'Lissajous', keys: ['freqA', 'freqB', 'thickness'] },
@@ -4912,14 +4890,12 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
     prop: 'fieldOp',
     labels: { add: 'Field Add', subtract: 'Field Subtract', multiply: 'Field Multiply', mix: 'Field Mix', min: 'Field Min', max: 'Field Max', difference: 'Field Difference' },
   },
-  FormulaField: {
+  GeometryField: {
     prop: 'formulaType',
     labels: {
-      rose: 'Formula · Rose',
-      superformula: 'Formula · Superformula',
-      fibonacciSpiral: 'Formula · Fibonacci Spiral',
-      goldenTiling: 'Formula · Golden Tiling',
-      lissajousField: 'Formula · Lissajous',
+      fibonacciSpiral: 'Geometry · Fibonacci Spiral',
+      goldenTiling: 'Geometry · Golden Tiling',
+      lissajousField: 'Geometry · Lissajous',
     },
   },
   Particles: {
@@ -5474,19 +5450,9 @@ export function isPropertyEnabled(
       case 'delayTime':  return op === 'delay'
     }
   }
-  if (nodeType === 'FormulaField') {
-    const ft = String(properties.formulaType ?? 'rose')
+  if (nodeType === 'GeometryField') {
+    const ft = String(properties.formulaType ?? 'fibonacciSpiral')
     switch (key) {
-      case 'petals':
-      case 'offset':
-        return ft === 'rose'
-      case 'symmetry':
-      case 'n1':
-      case 'n2':
-      case 'n3':
-      case 'a':
-      case 'b':
-        return ft === 'superformula'
       case 'turns':
       case 'tightness':
       case 'bandWidth':

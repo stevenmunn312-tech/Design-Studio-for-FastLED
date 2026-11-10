@@ -177,7 +177,7 @@ its slider, used by the evaluator's `clampInputs` toggle and by
 `src/nodes/shared/speedRange.ts` maps the 0–1 slider onto each node's internal
 animation rate. `SPEED_MAX` and `SCALE_MAX` tables are the single source for
 both the evaluator (`denormRate`) and codegen (`rateCpp`). Bundled nodes
-(`Noise`, `FormulaPoints`, `FormulaField`) key their maps by variant.
+(`Noise`, `FormulaPoints`, `GeometryField`) key their maps by variant.
 
 #### Integer rounding
 

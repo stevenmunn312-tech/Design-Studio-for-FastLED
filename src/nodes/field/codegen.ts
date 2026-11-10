@@ -1,7 +1,7 @@
-import { rateCpp, SPEED_MAX, SCALE_MAX, FORMULA_FIELD_SPEED_MAX } from '../shared/speedRange'
+import { rateCpp, SPEED_MAX, SCALE_MAX, GEOMETRY_FIELD_SPEED_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import {
-  NOISE_FIELD_PIXEL_CPP, ROSE_PIXEL_CPP, noiseFieldFrameCpp, roseFrameCpp, truchetFrameCpp, truchetPixelCpp, wallpaperFrameCpp,
+  NOISE_FIELD_PIXEL_CPP, noiseFieldFrameCpp, truchetFrameCpp, truchetPixelCpp, wallpaperFrameCpp,
 } from '../shared/integerPatterns'
 import { usesShims } from '../shared/fastledShims'
 import { fieldFormulaCpp, fieldFormulaReadsPrev } from '../shared/formulaLang'
@@ -157,15 +157,15 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`      int32_t _d=_truchetDistanceQ12(${latticeId},${motifId},_lx,_ly,_orientation);`)
     ln(`      ${of}[_y*WIDTH+_x]=_truchetLineQ16(_d,_trW)*(1.0f/65536.0f); } }`)
   },
-  // Curated closed-form fields — exact same math as evalFormulaField in
-  // graphEvaluator.ts (no approximation gap, unlike inoise8-backed fields),
+  // Closed-form geometry fields — exact same math as evalGeometryField in
+  // ./evaluate.ts (no approximation gap, unlike inoise8-backed fields),
   // one dedicated block per formulaType baked at generation time (the
   // variant isn't wired, so there's nothing to branch on at runtime). See
   // docs/design/formula-pattern-nodes.md.
-  FormulaField({ id, p, ln, f, ownField, needsT, needsAtan16 }) {
+  GeometryField({ id, p, ln, f, ownField, needsT }) {
     needsT.v = true
     const of = ownField()
-    const formulaType = String(p.formulaType ?? 'rose')
+    const formulaType = String(p.formulaType ?? 'fibonacciSpiral')
     /*
      * Each knob is hoisted to a `float` local once per frame, not baked as
      * a literal, because they are property inputs now and a wired one is
@@ -176,52 +176,19 @@ export const FIELD_EMITTERS: NodeEmitters = {
      *
      * Hoisted above the pixel loops rather than inlined: the inner
      * expressions read a local instead of a constant, which costs the same
-     * per pixel, and the derived ones (1/n1, the spiral period) are
-     * computed once a frame instead of once a pixel.
+     * per pixel, and the derived ones (the spiral period) are computed
+     * once a frame instead of once a pixel.
      */
-    const speedMax = floatLit(FORMULA_FIELD_SPEED_MAX[formulaType] ?? 1)
+    const speedMax = floatLit(GEOMETRY_FIELD_SPEED_MAX[formulaType] ?? 1)
     const emitSpd = () => {
       ln(`  float _spd=constrain(${f('speed', 'speed', 0.3)},0.0f,1.0f)*${speedMax};`)
       const ph = speedPhaseCpp(ln, phaseTag(id), '_spd', '  ')
       ln(`  float _rot=${ph};`)
     }
     switch (formulaType) {
-      case 'superformula': {
-        ln(`  { /* Formula Field: superformula */`)
-        emitSpd()
-        ln(`    float _m=fmaxf(1.0f,${f('symmetry', 'symmetry', 6)});`)
-        ln(`    float _invN1=1.0f/fmaxf(0.05f,${f('n1', 'n1', 0.3)});`)
-        ln(`    float _n2=fmaxf(0.05f,${f('n2', 'n2', 0.3)}),_n3=fmaxf(0.05f,${f('n3', 'n3', 0.3)});`)
-        ln(`    float _sfA=fmaxf(0.05f,${f('a', 'a', 1)}),_sfB=fmaxf(0.05f,${f('b', 'b', 1)});`)
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
-        ln(`      float _r=sqrtf(_cx*_cx+_cy*_cy),_theta=atan2f(_cy,_cx)+_rot;`)
-        ln(`      float _t1=fabsf(cosf(_m*_theta/4.0f)/_sfA),_t2=fabsf(sinf(_m*_theta/4.0f)/_sfB);`)
-        ln(`      float _raux=powf(powf(_t1,_n2)+powf(_t2,_n3),-_invN1);`)
-        ln(`      ${of}[_y*WIDTH+_x]=constrain(1.0f-(_r-_raux)/0.06f,0.0f,1.0f);}}`)
-        break
-      }
-      case 'fibonacciSpiral': {
-        const lnPhiLit = floatLit(Math.log(GOLDEN_RATIO))
-        ln(`  { /* Formula Field: fibonacciSpiral */`)
-        emitSpd()
-        ln(`    float _turns=fmaxf(1.0f,${f('turns', 'turns', 3)});`)
-        ln(`    float _period=6.2831853f/_turns;`)
-        ln(`    float _aSp=fmaxf(0.02f,${f('tightness', 'tightness', 0.15)});`)
-        ln(`    float _bw=fmaxf(0.02f,${f('bandWidth', 'bandWidth', 0.25)});`)
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
-        ln(`      float _r=sqrtf(_cx*_cx+_cy*_cy); if(_r<1e-4f)_r=1e-4f;`)
-        ln(`      float _ang=atan2f(_cy,_cx);`)
-        ln(`      float _phaseAtR=(3.14159265f/2.0f)*logf(_r/_aSp)/${lnPhiLit};`)
-        ln(`      float _delta=fmodf(_ang+_rot-_phaseAtR,_period); if(_delta<0.0f)_delta+=_period;`)
-        ln(`      if(_delta>_period/2.0f)_delta=_period-_delta;`)
-        ln(`      ${of}[_y*WIDTH+_x]=constrain(1.0f-_delta/_bw,0.0f,1.0f);}}`)
-        break
-      }
       case 'goldenTiling': {
         const invPhi = floatLit(1 / GOLDEN_RATIO)
-        ln(`  { /* Formula Field: goldenTiling */`)
+        ln(`  { /* Geometry Field: goldenTiling */`)
         emitSpd()
         ln(`    float _dens=fmaxf(1.0f,${f('density', 'density', 12)}),_phase=${f('phase', 'phase', 0)};`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
@@ -233,7 +200,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
         break
       }
       case 'lissajousField': {
-        ln(`  { /* Formula Field: lissajousField */`)
+        ln(`  { /* Geometry Field: lissajousField */`)
         emitSpd()
         ln(`    float _fa=fmaxf(1.0f,${f('freqA', 'freqA', 3)}),_fb=fmaxf(1.0f,${f('freqB', 'freqB', 2)});`)
         ln(`    float _thick=fmaxf(0.02f,${f('thickness', 'thickness', 0.1)});`)
@@ -248,16 +215,23 @@ export const FIELD_EMITTERS: NodeEmitters = {
         ln(`      ${of}[_y*WIDTH+_x]=constrain(1.0f-sqrtf(_minDSq)/_thick,0.0f,1.0f);}}`)
         break
       }
-      case 'rose':
+      case 'fibonacciSpiral':
       default: {
-        ln(`  { /* Formula Field: rose */`)
+        const lnPhiLit = floatLit(Math.log(GOLDEN_RATIO))
+        ln(`  { /* Geometry Field: fibonacciSpiral */`)
         emitSpd()
-        needsAtan16.v = true
-        // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
-        for (const line of roseFrameCpp(`fmaxf(1.0f,${f('petals', 'petals', 5)})`, `(${f('offset', 'offset', 0)})*0.0174532925f`, '_rot')) ln(`    ${line}`)
+        ln(`    float _turns=fmaxf(1.0f,${f('turns', 'turns', 3)});`)
+        ln(`    float _period=6.2831853f/_turns;`)
+        ln(`    float _aSp=fmaxf(0.02f,${f('tightness', 'tightness', 0.15)});`)
+        ln(`    float _bw=fmaxf(0.02f,${f('bandWidth', 'bandWidth', 0.25)});`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        for (const line of ROSE_PIXEL_CPP) ln(`      ${line}`)
-        ln(`      ${of}[_y*WIDTH+_x]=constrain(_roV*(1.0f/16777216.0f),0.0f,1.0f);}}`)
+        ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
+        ln(`      float _r=sqrtf(_cx*_cx+_cy*_cy); if(_r<1e-4f)_r=1e-4f;`)
+        ln(`      float _ang=atan2f(_cy,_cx);`)
+        ln(`      float _phaseAtR=(3.14159265f/2.0f)*logf(_r/_aSp)/${lnPhiLit};`)
+        ln(`      float _delta=fmodf(_ang+_rot-_phaseAtR,_period); if(_delta<0.0f)_delta+=_period;`)
+        ln(`      if(_delta>_period/2.0f)_delta=_period-_delta;`)
+        ln(`      ${of}[_y*WIDTH+_x]=constrain(1.0f-_delta/_bw,0.0f,1.0f);}}`)
         break
       }
     }

@@ -60,7 +60,7 @@ holds the two together.
 | Voronoi cells | `Noise` with `noiseType: 'worley'` |
 | Rotational mirror | `Kaleidoscope`; four-axis `Mirror` |
 | Circular spectrum | `SpectrumVisualizer`, `style: 'Orbit'` |
-| Morphing superformula | `FormulaField` with an LFO wired into `n1`/`n2`/`n3`/`symmetry` |
+| Morphing superformula | `ShapeField` (`shape: 'superformula'`) with an LFO wired into `n1`/`n2`/`n3`/`symmetry` |
 | Fractional polygon morph | `Shape.sides` is continuous already |
 | Supersampling (FastLED downscale) | the LED output's `supersample` |
 | Power limit, overclock, dither, correction | LED output properties, emitted already |

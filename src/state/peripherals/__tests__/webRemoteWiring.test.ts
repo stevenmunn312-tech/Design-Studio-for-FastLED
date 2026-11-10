@@ -48,7 +48,7 @@ describe('Web Remote wire-first controls', () => {
       graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } },
       graphData: {},
     } as never)
-    const nodes = [node('remote', 'WebRemoteInput'), node('ff', 'FormulaField', { formulaType: 'rose' }), node('fill', 'SolidColor', { r: 0, g: 255, b: 0 })]
+    const nodes = [node('remote', 'WebRemoteInput'), node('ff', 'GeometryField', { formulaType: 'goldenTiling' }), node('fill', 'SolidColor', { r: 0, g: 255, b: 0 })]
     useGraphStore.getState().loadGraph(nodes, [], { nodes, edges: [], displayDocuments: {} } as never)
     vi.advanceTimersByTime(400)
     useGraphStore.temporal.getState().clear()
@@ -64,30 +64,30 @@ describe('Web Remote wire-first controls', () => {
   })
 
   it('mints a ranged control and its wire in one step, starting at the property value', () => {
-    const outcome = connectWireFirstControl('remote', 'ff', 'petals')
+    const outcome = connectWireFirstControl('remote', 'ff', 'density')
     expect(outcome).toMatchObject({ ok: true, remote: true, placed: false })
     const [control] = controls()
-    expect(control).toMatchObject({ id: 'slider', type: 'Slider', label: 'Petals', properties: { min: 1, max: 12, step: 1 } })
+    expect(control).toMatchObject({ id: 'slider', type: 'Slider', label: 'Density', properties: { min: 2, max: 40, step: 1 } })
     expect(useGraphStore.getState().edges.at(-1)).toMatchObject({
-      source: 'remote', sourceHandle: 'remote:slider', target: 'ff', targetHandle: 'petals',
+      source: 'remote', sourceHandle: 'remote:slider', target: 'ff', targetHandle: 'density',
     })
-    expect((remoteNode().data.outputs as { id: string; dataType: string }[])[0]).toEqual({ id: 'remote:slider', label: 'Petals', dataType: 'float' })
-    expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'ff')!.data.exposedInputs).toContain('petals')
-    expect(readWebRemoteControl('remote', 'slider', 0)).toBe(5)
+    expect((remoteNode().data.outputs as { id: string; dataType: string }[])[0]).toEqual({ id: 'remote:slider', label: 'Density', dataType: 'float' })
+    expect(useGraphStore.getState().nodes.find((entry) => entry.id === 'ff')!.data.exposedInputs).toContain('density')
+    expect(readWebRemoteControl('remote', 'slider', 0)).toBe(12)
     // Kept as the control's own start, which the firmware, the page and a
     // board link read: the preview's value alone left a board starting at 1.
-    expect(control.properties.initial).toBe(5)
+    expect(control.properties.initial).toBe(12)
   })
 
   it('starts a control wired by hand where the property is, and keeps a start already chosen', () => {
     addWebRemoteControl('remote', 'Slider')
     updateWebRemoteControl('remote', 'slider', { properties: { min: 1, max: 12, step: 1 } })
-    useGraphStore.getState().onConnect({ source: 'remote', sourceHandle: 'remote:slider', target: 'ff', targetHandle: 'petals' })
-    expect(controls()[0].properties.initial).toBe(5)
+    useGraphStore.getState().onConnect({ source: 'remote', sourceHandle: 'remote:slider', target: 'ff', targetHandle: 'density' })
+    expect(controls()[0].properties.initial).toBe(12)
 
     const second = addWebRemoteControl('remote', 'Slider')!
     updateWebRemoteControl('remote', second, { properties: { min: 1, max: 12, step: 1, initial: 9 } })
-    useGraphStore.getState().onConnect({ source: 'remote', sourceHandle: `remote:${second}`, target: 'ff', targetHandle: 'petals' })
+    useGraphStore.getState().onConnect({ source: 'remote', sourceHandle: `remote:${second}`, target: 'ff', targetHandle: 'density' })
     expect(controls()[1].properties.initial).toBe(9)
   })
 
@@ -100,7 +100,7 @@ describe('Web Remote wire-first controls', () => {
   })
 
   it('takes one undo to remove the control and its wire', () => {
-    connectWireFirstControl('remote', 'ff', 'petals')
+    connectWireFirstControl('remote', 'ff', 'density')
     vi.advanceTimersByTime(400)
     useGraphStore.temporal.getState().undo()
     expect(useGraphStore.getState().edges).toHaveLength(0)
@@ -108,18 +108,18 @@ describe('Web Remote wire-first controls', () => {
   })
 
   it('keeps the property row a remote for the control driving it', () => {
-    connectWireFirstControl('remote', 'ff', 'petals')
+    connectWireFirstControl('remote', 'ff', 'density')
     expect(isControlDriverPort('remote:slider')).toBe(true)
     expect(isControlDriverPort('value')).toBe(false)
-    writeControlDriverValue({ srcId: 'remote', srcPort: 'remote:slider' }, useGraphStore.getState().nodes, 40)
-    expect(readWebRemoteControl('remote', 'slider', 0)).toBe(12)
+    writeControlDriverValue({ srcId: 'remote', srcPort: 'remote:slider' }, useGraphStore.getState().nodes, 99)
+    expect(readWebRemoteControl('remote', 'slider', 0)).toBe(40)
   })
 
   it('adds, renames and removes controls with their wires', () => {
     expect(addWebRemoteControl('remote', 'Toggle')).toBe('toggle')
     updateWebRemoteControl('remote', 'toggle', { label: 'Power', properties: { onLabel: 'LIT' } })
     expect(controls()[0]).toMatchObject({ id: 'toggle', label: 'Power', properties: { onLabel: 'LIT' } })
-    connectWireFirstControl('remote', 'ff', 'petals')
+    connectWireFirstControl('remote', 'ff', 'density')
     removeWebRemoteControl('remote', 'slider')
     expect(controls().map((control) => control.id)).toEqual(['toggle'])
     expect(useGraphStore.getState().edges).toHaveLength(0)

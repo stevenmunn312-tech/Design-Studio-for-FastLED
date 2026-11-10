@@ -345,36 +345,36 @@ describe('StudioNode', () => {
   })
 
   /*
-   * Formula Shapes' knobs became property inputs, and the row renderer is
+   * Geometry Field's knobs became property inputs, and the row renderer is
    * generic — it reads the registry rather than a list of node types — so this
    * asserts the registry change reaches the canvas, and that a knob belonging
    * to another formulaType is still a drop target (the wire is allowed; it
    * just draws dark until the variant changes).
    */
-  it('offers the chosen formula\'s knobs as drop targets and hides the other formulas\' rows', () => {
-    const n = makeNode('FormulaField', { formulaType: 'rose', petals: 5, symmetry: 6 })
+  it('offers the chosen field\'s knobs as drop targets and hides the other fields\' rows', () => {
+    const n = makeNode('GeometryField', { formulaType: 'fibonacciSpiral', turns: 3, density: 12 })
     useGraphStore.setState({ nodes: [n], edges: [] })
     const view = renderNode(n)
     openAllGroups(view.container)
-    for (const key of ['petals', 'offset', 'speed']) {
+    for (const key of ['turns', 'tightness', 'speed']) {
       expect(view.container.querySelector(`[data-property-input="${n.id}|${key}"]`), key).toBeTruthy()
     }
-    // A row the chosen formula does not read is hidden rather than greyed, and
+    // A row the chosen field does not read is hidden rather than greyed, and
     // its group goes with it.
-    for (const key of ['symmetry', 'freqA', 'thickness']) {
+    for (const key of ['density', 'freqA', 'thickness']) {
       expect(view.container.querySelector(`[data-property-input="${n.id}|${key}"]`), key).toBeNull()
     }
-    // No group header for another formula (the formula picker names them all).
-    expect(view.queryByRole('button', { name: /Superformula/ })).toBeNull()
+    // No group header for another field (the geometry picker names them all).
+    expect(view.queryByRole('button', { name: /Golden Tiling/ })).toBeNull()
     expect(view.queryByRole('button', { name: /Lissajous/ })).toBeNull()
     view.unmount()
 
     // Exposing the socket keeps its row, disabled, so a wire has a handle.
-    n.data.exposedInputs = ['symmetry']
+    n.data.exposedInputs = ['density']
     const exposed = renderNode(n)
     openAllGroups(exposed.container)
-    expect(exposed.container.querySelector(`[data-property-input="${n.id}|symmetry"]`)).toBeTruthy()
-    expect((exposed.getByLabelText('lobes value') as HTMLInputElement).disabled).toBe(true)
+    expect(exposed.container.querySelector(`[data-property-input="${n.id}|density"]`)).toBeTruthy()
+    expect((exposed.getByLabelText('density value') as HTMLInputElement).disabled).toBe(true)
   })
 
   it('warns on normalized float sources that need Map Range for a wider property target', () => {
@@ -425,9 +425,9 @@ describe('StudioNode', () => {
   it('keeps a touch-driven property adjustable from the graph', () => {
     // A pot on Count is read-only because the wire is the only source. A
     // Touch widget is a control that also lives in this app, so the slider
-    // stays a remote for it — otherwise wiring Petals leaves no way to set it
+    // stays a remote for it — otherwise wiring Density leaves no way to set it
     // without opening the screen designer and switching to Run.
-    const formula = { ...makeNode('FormulaField', { formulaType: 'rose', petals: 5 }), id: 'ff' }
+    const formula = { ...makeNode('GeometryField', { formulaType: 'goldenTiling', density: 12 }), id: 'ff' }
     const panel = { ...makeNode('TransportDisplay', { tftLayout: 'Custom design', displayId: 'screen' }), id: 'panel' }
     const touch = { ...makeNode('TouchInput', { panelId: 'panel' }), id: 'touch' }
     useGraphStore.getState().loadGraph([panel, touch, formula], [], {
@@ -435,19 +435,19 @@ describe('StudioNode', () => {
       edges: [],
       displayDocuments: { screen: createDisplayDocument('screen', 240, 320) },
     } as never)
-    connectTouchControl('touch', 'ff', 'petals')
+    connectTouchControl('touch', 'ff', 'density')
     const current = useGraphStore.getState().nodes.find((node) => node.id === 'ff')!
     function ConnectedNode() {
       const node = useGraphStore((s) => s.nodes.find((entry) => entry.id === 'ff') ?? current)
       return <StudioNode {...({ id: node.id, data: node.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>)} />
     }
     const view = render(<ConnectedNode />)
-    const slider = view.getByLabelText('petals value') as HTMLInputElement
+    const slider = view.getByLabelText('density value') as HTMLInputElement
     expect(slider.disabled).toBe(false)
     fireEvent.change(slider, { target: { value: '8' } })
     const widgetId = useGraphStore.getState().displayDocuments.screen.widgets[0].id
     expect(useDisplayRuntimeStore.getState().sampleDisplayWidgetOutput('screen', widgetId, 1)).toBe(8)
-    expect(useGraphStore.getState().nodes.find((node) => node.id === 'ff')?.data.properties.petals).toBe(8)
+    expect(useGraphStore.getState().nodes.find((node) => node.id === 'ff')?.data.properties.density).toBe(8)
   })
 
   it('offers the place-on-screen shortcut only where it would do something', () => {
@@ -455,7 +455,7 @@ describe('StudioNode', () => {
     // guess at, so it is named while the noodle is in the air — and only when
     // the drag's own panel is the one the live overlay is showing, since
     // advertising it anywhere else would promise a placement the gate refuses.
-    const formula = { ...makeNode('FormulaField', { formulaType: 'rose', petals: 5 }), id: 'ff' }
+    const formula = { ...makeNode('GeometryField', { formulaType: 'goldenTiling', density: 12 }), id: 'ff' }
     const panel = { ...makeNode('TransportDisplay', { tftLayout: 'Custom design', displayId: 'screen' }), id: 'panel' }
     const touch = { ...makeNode('TouchInput', { panelId: 'panel' }), id: 'touch' }
     useGraphStore.getState().loadGraph([panel, touch, formula], [], {
@@ -475,15 +475,15 @@ describe('StudioNode', () => {
     useUiStore.setState({ connectionDrag: { ...drag, canPlaceOnVisibleScreen: true } })
     const view = render(<StudioNode {...props} />)
     openAllGroups(view.container)
-    const row = () => view.container.querySelector('[data-property-input="ff|petals"]') as HTMLElement
-    expect(row().title).toContain('Creates a Slider for Petals')
+    const row = () => view.container.querySelector('[data-property-input="ff|density"]') as HTMLElement
+    expect(row().title).toContain('Creates a Slider for Density')
     expect(row().title).toContain('Hold Ctrl')
 
     // Same drop, no visible glass of its own: the control still gets made, so
     // the hint still says what it will make — it just stops promising more.
     useUiStore.setState({ connectionDrag: { ...drag, canPlaceOnVisibleScreen: false } })
     view.rerender(<StudioNode {...props} />)
-    expect(row().title).toContain('Creates a Slider for Petals')
+    expect(row().title).toContain('Creates a Slider for Density')
     expect(row().title).not.toContain('Hold Ctrl')
     useUiStore.setState({ connectionDrag: null })
   })

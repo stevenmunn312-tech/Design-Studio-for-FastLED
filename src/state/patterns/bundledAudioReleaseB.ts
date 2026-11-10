@@ -62,8 +62,14 @@ function silkAttractor(): AudioReleaseSeed {
 
 function moonflowerRelease(): AudioReleaseSeed {
   const b = new AudioReleaseBuilder('Moonflower Release', ['matrix', 'ring'], ['#12091d', '#9857cc', '#ffd4b0'])
-  b.node('flower', 'FormulaField', { formulaType: 'superformula', symmetry: 8, n1: 0.55, n2: 1.35, n3: 1.35, a: 0.82, b: 0.82 })
-  b.wire('motion', 'result', 'flower', 'speed')
+  // At size 0.5 a lobe reaches the matrix edge at A and B of 1. The flower
+  // turns anticlockwise at 1.5 rad/s (85.94 degrees/s) per unit of motion.
+  b.node('flower', 'ShapeField', {
+    shape: 'superformula', size: 0.5, softness: 0.015,
+    symmetry: 8, n1: 0.55, n2: 1.35, n3: 1.35, a: 0.82, b: 0.82,
+  })
+  b.node('flowerSpin', 'Math', { mathOp: 'multiply', b: -85.94 })
+  b.wire('motion', 'result', 'flowerSpin', 'a').wire('flowerSpin', 'result', 'flower', 'spin')
   const opening = b.map('petalOpening', 'buildup', 'result', 0.4, 1.2)
   const breath = b.map('petalBreath', 'fft', 'bass', 0.72, 1.06)
   b.wire(opening, 'result', 'flower', 'n1').wire(breath, 'result', 'flower', 'a').wire(breath, 'result', 'flower', 'b')
@@ -81,7 +87,7 @@ function moonflowerRelease(): AudioReleaseSeed {
 
 function interferenceLoom(): AudioReleaseSeed {
   const b = new AudioReleaseBuilder('Interference Loom', ['matrix'], ['#050e1f', '#1d8dcc', '#f29dca'])
-  b.node('weave', 'FormulaField', { formulaType: 'lissajousField', freqA: 3, freqB: 2, thickness: 0.14 })
+  b.node('weave', 'GeometryField', { formulaType: 'lissajousField', freqA: 3, freqB: 2, thickness: 0.14 })
   b.wire('motion', 'result', 'weave', 'speed')
   const width = b.map('weaveWidth', 'buildup', 'result', 0.14, 0.24)
   b.wire(width, 'result', 'weave', 'thickness')

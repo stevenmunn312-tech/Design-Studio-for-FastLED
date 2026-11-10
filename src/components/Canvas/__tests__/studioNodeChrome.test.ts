@@ -36,9 +36,9 @@ describe('editableProperties', () => {
   })
 
   it('keeps a hidden row whose socket is exposed, so its wire keeps a handle', () => {
-    const props = { ...libraryDefaults('FormulaField'), formulaType: 'rose' }
-    expect(editableProperties('FormulaField', props).map(([key]) => key)).not.toContain('symmetry')
-    expect(editableProperties('FormulaField', props, new Set(['symmetry'])).map(([key]) => key)).toContain('symmetry')
+    const props = { ...libraryDefaults('GeometryField'), formulaType: 'fibonacciSpiral' }
+    expect(editableProperties('GeometryField', props).map(([key]) => key)).not.toContain('density')
+    expect(editableProperties('GeometryField', props, new Set(['density'])).map(([key]) => key)).toContain('density')
   })
 
   it('keeps a Player Particles overlay\'s settings visible while it is off', () => {

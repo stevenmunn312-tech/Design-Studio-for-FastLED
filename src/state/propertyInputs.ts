@@ -124,7 +124,7 @@ export function propertyInputsFor(nodeType: string): readonly PropertyInput[] {
 /**
  * Is this wire landing on a property its own node is currently ignoring?
  *
- * A node may disable a property from its other properties — a Formula Field
+ * A node may disable a property from its other properties — a Geometry Field
  * knob belongs to one `formulaType` and is dead under the others — and a wire
  * into it is then real but doing nothing. Worth saying rather than refusing:
  * the edge is still correct and a dropdown away from being live again, and

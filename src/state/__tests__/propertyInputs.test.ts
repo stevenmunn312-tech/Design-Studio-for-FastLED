@@ -160,22 +160,22 @@ describe('property input exposure', () => {
 
 describe('wiredPropertyIsInert', () => {
   /*
-   * A Formula Field knob belongs to one variant. Wiring a control to `petals`
-   * and then switching to superformula leaves a real edge that does nothing,
+   * A Geometry Field knob belongs to one variant. Wiring a control to `turns`
+   * and then switching to golden tiling leaves a real edge that does nothing,
    * and the canvas draws it dark rather than removing it — the variant is a
    * dropdown away from making it live again.
    */
   it('reports a wire into a property the chosen variant does not use', () => {
-    expect(wiredPropertyIsInert('FormulaField', 'petals', { formulaType: 'rose' })).toBe(false)
-    expect(wiredPropertyIsInert('FormulaField', 'petals', { formulaType: 'superformula' })).toBe(true)
-    expect(wiredPropertyIsInert('FormulaField', 'symmetry', { formulaType: 'superformula' })).toBe(false)
+    expect(wiredPropertyIsInert('GeometryField', 'turns', { formulaType: 'fibonacciSpiral' })).toBe(false)
+    expect(wiredPropertyIsInert('GeometryField', 'turns', { formulaType: 'goldenTiling' })).toBe(true)
+    expect(wiredPropertyIsInert('GeometryField', 'density', { formulaType: 'goldenTiling' })).toBe(false)
   })
 
   it('says nothing about a port that is not a property input', () => {
     // Speed is live under every variant; a non-property port and a missing
     // handle are both simply not this rule's business.
-    expect(wiredPropertyIsInert('FormulaField', 'speed', { formulaType: 'goldenTiling' })).toBe(false)
-    expect(wiredPropertyIsInert('FormulaField', 'field', { formulaType: 'rose' })).toBe(false)
-    expect(wiredPropertyIsInert('FormulaField', null, { formulaType: 'rose' })).toBe(false)
+    expect(wiredPropertyIsInert('GeometryField', 'speed', { formulaType: 'goldenTiling' })).toBe(false)
+    expect(wiredPropertyIsInert('GeometryField', 'field', { formulaType: 'fibonacciSpiral' })).toBe(false)
+    expect(wiredPropertyIsInert('GeometryField', null, { formulaType: 'fibonacciSpiral' })).toBe(false)
   })
 })

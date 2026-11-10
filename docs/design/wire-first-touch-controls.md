@@ -27,9 +27,9 @@ only thing that knows all five facts a control needs: its **type**, **range**,
 designer until you place it.
 
 ```text
-Touch: (drag) --------------------> Formula Field: Petals   (drop on the row)
+Touch: (drag) --------------------> Geometry Field: Density   (drop on the row)
          |
-         +-- mints a Slider, 1..12 step 1, labelled "Petals", unplaced
+         +-- mints a Slider, 2..40 step 1, labelled "Density", unplaced
                     |
   Screen designer:  +-- "Connected" group -- drag onto the screen -- live
 ```
@@ -119,7 +119,7 @@ Instead there is **one inert state with three causes**:
 
 The third already exists: `wiredPropertyIsInert` in `propertyInputs.ts` asks
 `isPropertyEnabled` through the port's property key, and `GlowEdge` draws that
-edge dark with its packets dropped. A Formula Field knob belonging to another
+edge dark with its packets dropped. A Geometry Field knob belonging to another
 `formulaType` is the worked example. The other two causes should read the same
 way, on the wire and on the widget, through one predicate rather than three
 that drift.
@@ -177,7 +177,7 @@ either: a control drawn before its wire, or wired before it is composed onto
 the screen, is an ordinary half-finished state.
 
 The third cause is deliberately **not** reported here. It is already drawn on
-the wire, it is one dropdown away from being live, and a Formula Field with a
+the wire, it is one dropdown away from being live, and a Geometry Field with a
 knob belonging to another variant is a correct graph — a warning that fires on
 one of those teaches people to stop reading the drawer, which this codebase has
 said before about pattern tags and signal ranges.

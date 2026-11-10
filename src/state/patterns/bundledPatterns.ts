@@ -26,8 +26,8 @@ import spiralusPercussionShrine from '../../assets/bundled-patterns/Spiralus Per
 import tidalGlassMeditation from '../../assets/bundled-patterns/Tidal Glass Meditation.json'
 
 // Shelf two — a second audio-reactive set built on nodes the first shelf
-// predates or never used: the wave simulator, the formula field/point
-// generators, the 3-D wireframe, reaction-diffusion, Game of Life, and the
+// predates or never used: the wave simulator, the geometry field and formula
+// point generators, the 3-D wireframe, reaction-diffusion, Game of Life, and the
 // Shape/Array pair driven as live geometry.
 import bassFurnace from '../../assets/bundled-patterns/Bass Furnace.json'
 import beatTemple from '../../assets/bundled-patterns/Beat Temple.json'

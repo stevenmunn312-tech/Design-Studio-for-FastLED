@@ -25,7 +25,6 @@ import {
   KALEIDO_SOURCE_CPP, kaleidoSource,
   NOISE_FIELD_PIXEL_CPP, noiseFieldFrame, noiseFieldSum,
   sineFieldFrame, sineFieldSum, SINE_FIELD_VALUE_CPP,
-  ROSE_PIXEL_CPP, roseFrame, rosePixel,
   ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, arrayCopy, arrayOver, arraySource,
   blendMix8, blendMix8Cpp, feedbackFrame, feedbackSource, feedbackSourceCpp,
   WALLPAPER_HELPER_CPP, sampleFrameQ8, sampleFrameQ8Cpp, wallpaperFrame, wallpaperSourceQ8,
@@ -360,13 +359,6 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
       const sum = SINE_FIELD_VALUE_CPP.replace('*(1.0f/131072.0f)', '')
       const native = runNative(W, H, [`int32_t _nfK=${f.step},_nfPx=${f.px},_nfPy=${f.py};`], [`int32_t _sum=${sum};`], '"%d ",_sum')
       expect(grid(W, H, (x, y) => [sineFieldSum(x, y, f)])).toEqual(native)
-    }
-  }, 60_000)
-
-  it.each(SIZES)('FormulaField (rose) matches on %ix%i', (W, H) => {
-    for (const f of [roseFrame(W, H, 5, 0, 0), roseFrame(W, H, 7.5, 1.2, -88.1)]) {
-      const native = runNative(W, H, [`int32_t _roIx=${f.invX},_roIy=${f.invY},_roK=${f.petals},_roT=${f.turn};`], ROSE_PIXEL_CPP, '"%d ",_roV')
-      expect(grid(W, H, (x, y) => [rosePixel(x, y, W, H, f)])).toEqual(native)
     }
   }, 60_000)
 

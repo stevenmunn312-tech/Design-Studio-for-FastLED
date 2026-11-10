@@ -135,20 +135,12 @@
      "y": -200
     },
     "data": {
-     "label": "Formula Field",
-     "nodeType": "FormulaField",
+     "label": "Geometry Field",
+     "nodeType": "GeometryField",
      "category": "field",
      "properties": {
       "formulaType": "goldenTiling",
       "speed": 0.18,
-      "petals": 5,
-      "offset": 0,
-      "symmetry": 6,
-      "n1": 0.3,
-      "n2": 0.3,
-      "n3": 0.3,
-      "a": 1,
-      "b": 1,
       "turns": 3,
       "tightness": 0.15,
       "bandWidth": 0.34,

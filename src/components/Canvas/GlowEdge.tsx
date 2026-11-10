@@ -50,7 +50,7 @@ function GlowEdge({
    * A wire into a property the destination is currently ignoring is drawn
    * dark: the connection is real, it is just not doing anything under the
    * node's present settings. Read from the target rather than stored on the
-   * edge, so changing a Formula Field's variant re-lights its knobs' wires
+   * edge, so changing a Geometry Field's variant re-lights its knobs' wires
    * with nothing to keep in step.
    */
   const targetNode = getNode(target)

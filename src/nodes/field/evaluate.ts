@@ -1,8 +1,8 @@
 import { makeShims, SHIM_NAMES } from '../shared/fastledShims'
 import { compileFieldFormula, fieldFormulaReadsPrev } from '../shared/formulaLang'
-import { FORMULA_FIELD_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { GEOMETRY_FIELD_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
-import { noiseFieldFrame, noiseFieldSum, roseFrame, rosePixel, truchetFrame, truchetPixel, wallpaperFrame, wallpaperSourceQ8 } from '../shared/integerPatterns'
+import { noiseFieldFrame, noiseFieldSum, truchetFrame, truchetPixel, wallpaperFrame, wallpaperSourceQ8 } from '../shared/integerPatterns'
 import type { Frame } from '../../state/palettes/ledColor'
 import { compileFormula, fieldFormulaCache, centeredX, centeredY } from '../../state/evaluator/formula'
 import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame, fieldRange, frameToFieldConversion, pixelToField } from '../../state/evaluator/frames'
@@ -182,14 +182,14 @@ function evalFieldFormula(key: string, formula: string, a: number, b: number, fi
   return out
 }
 
-// ── Formula Field (curated closed-form fields — see
+// ── Geometry Field (closed-form spiral, rings and Lissajous — see
 // docs/design/formula-pattern-nodes.md) ────────────────────────
 // Each `formulaType` is exact closed-form math, so the evaluator and codegen
 // share the identical formula with no approximation gap (unlike inoise8-backed
 // fields) — the same property FieldFormula's shim table and Pride2015/Pacifica/
 // TwinkleFox already rely on.
 export const GOLDEN_RATIO = 1.618033988749895
-// FormulaField's lissajousField variant samples the curve at this many points
+// GeometryField's lissajousField variant samples the curve at this many points
 // per pixel to approximate distance-to-curve (no closed form exists for an
 // arbitrary Lissajous curve) — comparable per-frame cost to WaveSim's
 // up-to-12 full-grid convolution passes, not a new order of magnitude for
@@ -197,17 +197,9 @@ export const GOLDEN_RATIO = 1.618033988749895
 // same sample count (no evaluator/firmware divergence).
 export const LISSAJOUS_FIELD_SAMPLES = 48
 
-export interface FormulaFieldParams {
+export interface GeometryFieldParams {
   formulaType: string
   speed: number
-  petals: number
-  offset: number
-  symmetry: number
-  n1: number
-  n2: number
-  n3: number
-  a: number
-  b: number
   turns: number
   tightness: number
   bandWidth: number
@@ -218,53 +210,11 @@ export interface FormulaFieldParams {
   thickness: number
 }
 
-function evalFormulaField(key: string, p: FormulaFieldParams, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+function evalGeometryField(key: string, p: GeometryFieldParams, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
   const out = allocField(W * H)
-  const rot = speedPhase(key, t, p.speed * (FORMULA_FIELD_SPEED_MAX[p.formulaType] ?? 1))
+  const rot = speedPhase(key, t, p.speed * (GEOMETRY_FIELD_SPEED_MAX[p.formulaType] ?? 1))
 
   switch (p.formulaType) {
-    case 'superformula': {
-      const theta0 = rot
-      const m = Math.max(1, p.symmetry)
-      const invN1 = 1 / Math.max(0.05, p.n1)
-      const n2 = Math.max(0.05, p.n2), n3 = Math.max(0.05, p.n3)
-      const sfA = Math.max(0.05, p.a), sfB = Math.max(0.05, p.b)
-      const edge = 0.06
-      for (let yi = 0; yi < H; yi++) {
-        for (let xi = 0; xi < W; xi++) {
-          const cx = centeredX(xi, W), cy = centeredY(yi, H)
-          const r = Math.sqrt(cx * cx + cy * cy)
-          const theta = Math.atan2(cy, cx) + theta0
-          const t1 = Math.abs(Math.cos(m * theta / 4) / sfA)
-          const t2 = Math.abs(Math.sin(m * theta / 4) / sfB)
-          const raux = Math.pow(Math.pow(t1, n2) + Math.pow(t2, n3), -invN1)
-          out[yi * W + xi] = clamp01(1 - (r - raux) / edge)
-        }
-      }
-      break
-    }
-
-    case 'fibonacciSpiral': {
-      const nTurns = Math.max(1, p.turns)
-      const aSp = Math.max(0.02, p.tightness)
-      const bw = Math.max(0.02, p.bandWidth)
-      const period = (2 * Math.PI) / nTurns
-      const lnPhi = Math.log(GOLDEN_RATIO)
-      for (let yi = 0; yi < H; yi++) {
-        for (let xi = 0; xi < W; xi++) {
-          const cx = centeredX(xi, W), cy = centeredY(yi, H)
-          const r = Math.max(Math.sqrt(cx * cx + cy * cy), 1e-4)
-          const angle = Math.atan2(cy, cx)
-          const phaseAtR = (Math.PI / 2) * Math.log(r / aSp) / lnPhi
-          let delta = (angle + rot - phaseAtR) % period
-          if (delta < 0) delta += period
-          if (delta > period / 2) delta = period - delta
-          out[yi * W + xi] = clamp01(1 - delta / bw)
-        }
-      }
-      break
-    }
-
     case 'goldenTiling': {
       const dens = Math.max(1, p.density)
       for (let yi = 0; yi < H; yi++) {
@@ -299,12 +249,24 @@ function evalFormulaField(key: string, p: FormulaFieldParams, t: number, W = DEF
       break
     }
 
-    case 'rose':
+    case 'fibonacciSpiral':
     default: {
-      // The sketch's integer kernel (shared/integerPatterns.ts).
-      const frame = roseFrame(W, H, p.petals, (p.offset * Math.PI) / 180, rot)
+      const nTurns = Math.max(1, p.turns)
+      const aSp = Math.max(0.02, p.tightness)
+      const bw = Math.max(0.02, p.bandWidth)
+      const period = (2 * Math.PI) / nTurns
+      const lnPhi = Math.log(GOLDEN_RATIO)
       for (let yi = 0; yi < H; yi++) {
-        for (let xi = 0; xi < W; xi++) out[yi * W + xi] = clamp01(rosePixel(xi, yi, W, H, frame) / 16777216)
+        for (let xi = 0; xi < W; xi++) {
+          const cx = centeredX(xi, W), cy = centeredY(yi, H)
+          const r = Math.max(Math.sqrt(cx * cx + cy * cy), 1e-4)
+          const angle = Math.atan2(cy, cx)
+          const phaseAtR = (Math.PI / 2) * Math.log(r / aSp) / lnPhi
+          let delta = (angle + rot - phaseAtR) % period
+          if (delta < 0) delta += period
+          if (delta > period / 2) delta = period - delta
+          out[yi * W + xi] = clamp01(1 - delta / bw)
+        }
       }
       break
     }
@@ -727,24 +689,16 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
       t, W, H,
     ) }
   },
-  // Curated closed-form fields (rose/superformula/spiral/tiling/lissajous)
-  // selected by a dropdown instead of free text — see
+  // Closed-form geometry fields (spiral/tiling/lissajous) selected by a
+  // dropdown instead of free text — see
   // docs/design/formula-pattern-nodes.md. Every knob is a
   // property input; only the chosen variant's are read, so a wire into a
   // knob another formulaType owns is inert rather than wrong.
-  FormulaField({ num, t, W, H, stateKey }, id, props) {
-    const fp: FormulaFieldParams = {
-      formulaType: String(props.formulaType ?? 'rose'),
+  GeometryField({ num, t, W, H, stateKey }, id, props) {
+    const fp: GeometryFieldParams = {
+      formulaType: String(props.formulaType ?? 'fibonacciSpiral'),
       // Bounded as the generator bounds it, so a wired LFO runs at one rate.
       speed: clamp01(num(id, 'speed', props, 'speed', 0.3)),
-      petals: num(id, 'petals', props, 'petals', 5),
-      offset: num(id, 'offset', props, 'offset', 0),
-      symmetry: num(id, 'symmetry', props, 'symmetry', 6),
-      n1: num(id, 'n1', props, 'n1', 0.3),
-      n2: num(id, 'n2', props, 'n2', 0.3),
-      n3: num(id, 'n3', props, 'n3', 0.3),
-      a: num(id, 'a', props, 'a', 1),
-      b: num(id, 'b', props, 'b', 1),
       turns: num(id, 'turns', props, 'turns', 3),
       tightness: num(id, 'tightness', props, 'tightness', 0.15),
       bandWidth: num(id, 'bandWidth', props, 'bandWidth', 0.25),
@@ -754,7 +708,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
       freqB: num(id, 'freqB', props, 'freqB', 2),
       thickness: num(id, 'thickness', props, 'thickness', 0.1),
     }
-    return { field: evalFormulaField(stateKey(id), fp, t, W, H) }
+    return { field: evalGeometryField(stateKey(id), fp, t, W, H) }
   },
   TuringField({ input, num, W, H, stateKey }, id, props) {
     return { field: evalTuringField(

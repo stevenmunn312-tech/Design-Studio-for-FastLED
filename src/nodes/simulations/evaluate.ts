@@ -392,10 +392,10 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
 // ── Formula Points (curated stateful point/trajectory generators — see
 // docs/design/formula-pattern-nodes.md) ────────────────────────
 // The pattern-category, self-contained-frame-generator sibling of
-// FormulaField: unlike Particles' procedural spawn/decay pools, each variant
+// GeometryField: unlike Particles' procedural spawn/decay pools, each variant
 // is exact closed-form/iterated math shared identically by evaluator and
-// codegen (same "no algorithm drift" property FormulaField's rose/
-// superformula/etc. already rely on).
+// codegen (same "no algorithm drift" property GeometryField's spiral,
+// rings and Lissajous curve already rely on).
 // de Jong attractor coefficients (x' = sin(a·y) − cos(b·x), y' = sin(c·x) −
 // cos(d·y)) — unconditionally bounded to [-2,2] regardless of (a,b,c,d) since
 // sin/cos never exceed 1, so every preset is stable with no escape/clamp

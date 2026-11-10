@@ -479,8 +479,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   exposables out of the port rows without that drew action sockets only on a
   minimized node, leaving the Palette Bank with no input sockets at all while
   the canvas's accessible input count still announced two of them.
-  Declaring one can cost more than a registry row: `FormulaField`'s
-  seventeen knobs were *baked as float literals* by `cppGenerator.ts` ("the
+  Declaring one can cost more than a registry row: `GeometryField`'s knobs
+  (seventeen, before its rose and superformula moved to Shape Field) were
+  *baked as float literals* by `cppGenerator.ts` ("the
   variant isn't wired, so there's nothing to branch on at runtime"), so making
   them property inputs meant hoisting each to a per-frame `float` local fed by
   `floatExpr` — an unwired one still folds to its literal in the local's
@@ -531,7 +532,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   than refusing it: `wiredPropertyIsInert` (same module) asks
   `isPropertyEnabled` through the port's property key, and `GlowEdge` draws that
   edge dark with its packets dropped — read from the *target* each render, so
-  changing a Formula Field's variant re-lights its knobs' wires with nothing to
+  changing a Geometry Field's variant re-lights its knobs' wires with nothing to
   keep in step. Dark rather than hidden because the edge is one dropdown away
   from being live again. A wired property's inline editor is normally read-only,
   since the wire is the value's only source, but a Touch widget is not merely a
@@ -569,9 +570,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `{control:'slider',min:0,max:255,step:1}` shape to any node whose
   `defaultProperties` carry a *complete* r/g/b (or rA/gA/bA, rB/gB/bB) triple,
   because the names collide across nodes with a different meaning — `b` is blue
-  on a colour node but a superformula operand on Formula Field — so only
+  on a colour node but a superformula operand on Shape Field — so only
   completeness of the triple can tell them apart; `propertyMeta` resolves
-  override → derived → global, so a node with its own stated range (Formula
+  override → derived → global, so a node with its own stated range (Shape
   Field's `b`) still wins over the derived one. A declared colour *input*
   carries the same trap as a knob, and the gradient nodes sat in it for real:
   the evaluator resolving a colour port proves nothing about the generator,

@@ -942,11 +942,11 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Field Formula example graph](../../public/node-cards/graphs/field-formula.svg)
 
-### Formula Shapes
+### Geometry Field
 
-![Formula Shapes node](../../public/node-cards/formula-field.svg)
+![Geometry Field node](../../public/node-cards/geometry-field.svg)
 
-![Formula Shapes example graph](../../public/node-cards/graphs/formula-field.svg)
+![Geometry Field example graph](../../public/node-cards/graphs/geometry-field.svg)
 
 ### Field Noise
 

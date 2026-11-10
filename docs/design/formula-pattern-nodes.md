@@ -1,7 +1,8 @@
 # Formula-driven pattern nodes — design note
 
-Status: `FormulaField` and `FormulaPoints` both implemented (2026-08-12) ·
-Owner: app · Date: 2026-08-10
+Status: `FormulaField` and `FormulaPoints` both implemented (2026-08-12);
+`FormulaField` narrowed to three fields and renamed `GeometryField`
+(2026-11-10) · Owner: app · Date: 2026-08-10
 
 ## Problem
 
@@ -50,24 +51,32 @@ particle/path rendering like `Particles`/`Trails`. Cramming both into one
 node means either faking a field as a static point set or faking a moving
 point as a per-pixel field. Splitting avoids that:
 
-- **`FormulaField`** (field category) — stateless, sits beside
-  `FieldFormula`/`FieldNoise`/`DistanceField` in the float-field pipeline
+- **`FormulaField`**, now **`GeometryField`** (field category) — stateless,
+  sits beside `FieldFormula`/`FieldNoise`/`DistanceField` in the float-field
+  pipeline
   (`docs/design/animartrix-float-field.md`).
 - **`FormulaPoints`** (pattern category) — stateful, sits beside
   `Particles`/`Trails`/`ColorTrails` as a self-contained `frame` generator.
 
-Each stays a reasonable size (5–6 variants), and neither has to fake the
+Each stays a reasonable size (3–5 variants), and neither has to fake the
 other's rendering model.
 
 ---
 
-## `FormulaField` (category: `field`) — implemented
+## `GeometryField` (category: `field`) — implemented
 
-**Being folded into Shape Field (2026-11-10).** Rose and superformula are now
-Shape Field kinds, with its position, size, fill, distance and falloff and a
+**Narrowed and renamed (2026-11-10).** The node shipped as `FormulaField`
+(Formula Shapes) with five variants. Its `rose` and `superformula` became
+Shape Field kinds, with position, size, fill, distance and falloff and a
 Spin; see the [float field note](animartrix-float-field.md#shapefield-category-field).
-The node is to go once its spiral, golden tiling and Lissajous variants have
-a home, which `todo.md`'s Formula Shapes entry leaves open.
+The three variants that are not shapes stayed, as **Geometry Field**
+(`GeometryField`), with no migration for saves that used the old id or
+variants. The old `rose` was an angular glow over the whole matrix rather
+than an outline, so a Shape Field rose in Distance mode is the nearest look.
+The old `superformula` maps to Shape Field at `size` 0.5 (a lobe reaches
+half the width at `a` = `b` = 1 on a square matrix) and Spin at minus
+speed × 1.5 rad/s in degrees; Shape Field centres it on the matrix, half a
+pixel from where the old field did.
 
 Per-pixel closed-form expression selected by a curated dropdown instead of
 free text, output as a `field` (0–1) so it composes with the rest of the
@@ -84,45 +93,41 @@ shows up.
 
 | `formulaType` | Formula | Per-variant properties |
 |---|---|---|
-| `rose` | filled `v = (cos(k·angle)+1)/2`, radius-faded | `petals` (k), `offset` (deg) |
-| `superformula` | Gielis superformula, filled silhouette + soft edge | `symmetry` (m), `n1`, `n2`, `n3`, `a`, `b` |
 | `fibonacciSpiral` | distance-to-nearest golden-pitch log-spiral arm | `turns`, `tightness`, `bandWidth` |
 | `goldenTiling` | `frac(n/φ)` low-discrepancy concentric rings | `density`, `phase` |
 | `lissajousField` | nearest-sample distance to a Lissajous curve | `freqA`, `freqB`, `thickness` |
 
-(`offset`/`phase` replaced the originally-sketched shared "phase" property
-name to avoid ambiguity with the cut phase *port* above — `offset` is a
-static rotation for `rose`, `phase` is a static ring-index offset for
-`goldenTiling`.)
+(`phase` is a static ring-index offset for `goldenTiling`, not the cut
+phase *port* above.)
 
 Each variant's params are gated via `isPropertyEnabled` (the `Transition`
 convention — shown-but-disabled outside the relevant variant). `speed`
-(0–1, denormalized per-variant via `FORMULA_FIELD_SPEED_MAX` in
+(0–1, denormalized per-variant via `GEOMETRY_FIELD_SPEED_MAX` in
 `speedRange.ts`, the same convention as `Noise`'s `NOISE_SPEED_MAX`)
 advances a shared rotation/drift term for every variant.
 
-**Evaluator:** `evalFormulaField()` in `graphEvaluator.ts`, one `switch`
-branch per variant, dispatched by the `case 'FormulaField':` in `evalNode()`,
+**Evaluator:** `evalGeometryField()` in `src/nodes/field/evaluate.ts`, one
+`switch` branch per variant (an unknown `formulaType` draws the spiral),
 writing into a `Float32Array` like `FieldFormula`. No approximation gap to
 document — unlike `inoise8`-backed nodes, these are exact closed-form math,
 so JS and C++ share the identical formula (the same "no algorithm drift"
 property `Pride2015`/`Pacifica`/`TwinkleFox` already lean on). The one
 exception is `lissajousField`, which has no closed-form point-to-curve
 distance — it samples the curve at `LISSAJOUS_FIELD_SAMPLES = 48` points per
-pixel (exported from `graphEvaluator.ts` so codegen uses the identical
-count), a per-frame cost comparable to `WaveSim`'s up-to-12 full-grid
+pixel (exported from `src/nodes/field/evaluate.ts` so codegen uses the
+identical count), a per-frame cost comparable to `WaveSim`'s up-to-12 full-grid
 convolution passes rather than a new order of magnitude for this codebase.
 
-**Codegen:** the `case 'FormulaField':` in `cppGenerator.ts`'s `emit()`
+**Codegen:** the `GeometryField` emitter in `src/nodes/field/codegen.ts`
 bakes one dedicated C++ block for the *selected* variant only (the variant
 is a property, never wired, so there's nothing to branch on at runtime) —
 same `field_<id>[NUM_LEDS]` buffer convention `FieldFormula` uses. `GOLDEN_RATIO`
-is exported from `graphEvaluator.ts` so both sides reference the identical
-literal.
+is exported from `src/nodes/field/evaluate.ts` so both sides reference the
+identical literal.
 
-**Tests:** `graphEvaluator.test.ts` ("Formula Field") covers range bounds,
-determinism, per-parameter variation, and time-driven animation for all five
-variants; `cppGenerator.test.ts` ("Formula Field codegen") asserts the exact
+**Tests:** `graphEvaluator.test.ts` ("Geometry Field") covers range bounds,
+determinism, per-parameter variation, and time-driven animation for all three
+variants; `cppGenerator.test.ts` ("Geometry Field codegen") asserts the exact
 baked C++ per variant.
 
 ---
@@ -211,7 +216,7 @@ the generated sketch, so the same expression compiles unchanged on-device.
 
 ## Relationship to existing nodes
 
-- **`FieldFormula`/`FieldNoise`** — `FormulaField` is a third raw-field
+- **`FieldFormula`/`FieldNoise`** — `GeometryField` is a third raw-field
   generator beside them: curated/parametric instead of free-text
   (`FieldFormula`) or fBm-noise-based (`FieldNoise`). All three feed the
   same downstream `FieldToFrame`/`FieldMath`/`FieldWarp` (Field Transform)
@@ -224,9 +229,9 @@ the generated sketch, so the same expression compiles unchanged on-device.
 
 ## Open questions
 
-- **Naming.** Kept `FormulaField`/`FormulaPoints` as shipped — no strong
-  reason surfaced during implementation to rename to `PatternFormula`/
-  `PatternPath`.
+- **Naming.** Resolved: `FormulaField` became `GeometryField` (Geometry
+  Field) when it lost its two shapes, which also ended its easy confusion
+  with `FieldFormula`. `FormulaPoints` keeps its name.
 - **Attractor coefficient exposure.** Resolved: shipped as three named
   presets (`classic`/`swirl`/`web`, each a fixed de Jong coefficient
   tuple) rather than exposing raw a/b/c/d sliders, matching how
@@ -237,7 +242,7 @@ the generated sketch, so the same expression compiles unchanged on-device.
   divergence-guard logic was needed anywhere.
 - **Sidebar subcategory fit.** Resolved: `FormulaPoints` shipped in
   `pattern`'s *Simulations* subcategory alongside `Particles`/`FlowField`/
-  `Starfield`. (`FormulaField`'s field-category placement had no subcategory
+  `Starfield`. (`GeometryField`'s field-category placement had no subcategory
   question to resolve.)
 - **Hardware validation.** Per this repo's convention, neither node is
   marked hardware-validated until a real compile/flash pass confirms
@@ -247,13 +252,14 @@ the generated sketch, so the same expression compiles unchanged on-device.
 ## Suggested build order
 
 1. ~~Add `PHI` to `formulaLang.ts`~~ — done.
-2. ~~`FormulaField`~~ — done (2026-08-12): all five variants, evaluator,
-   codegen, `isPropertyEnabled` gating, `PROPERTY_META_OVERRIDES`,
+2. ~~`FormulaField`~~ (now `GeometryField`) — done (2026-08-12): all five
+   variants, evaluator, codegen, `isPropertyEnabled` gating,
+   `PROPERTY_META_OVERRIDES`,
    `BUNDLED_TITLES` header text, and tests. Not yet hardware-validated —
    like every new node, needs a real compile/flash pass confirming firmware
    output matches preview before it can be marked validated.
 3. ~~`FormulaPoints`~~ — done (2026-08-12): all five variants, evaluator,
    codegen, `isPropertyEnabled` gating, `PROPERTY_META_OVERRIDES` (scoped
    locally since `formulaType` collides in name, not meaning, with
-   `FormulaField`'s), `BUNDLED_TITLES` header text, and tests. Not yet
+   `GeometryField`'s), `BUNDLED_TITLES` header text, and tests. Not yet
    hardware-validated.

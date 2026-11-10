@@ -80,7 +80,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
   {
     // Curated stateful point/trajectory generators, selected by a dropdown —
     // the pattern-category, self-contained-frame-generator sibling of
-    // FormulaField (field category). See
+    // GeometryField (field category). See
     // docs/design/formula-pattern-nodes.md.
     type: 'FormulaPoints',
     label: 'Formula Points',
@@ -88,7 +88,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Simulations',
     /*
      * Every numeric knob is a property input, so a touch control or an LFO can
-     * drive the shape live — the same treatment FormulaField has, and for the
+     * drive the shape live — the same treatment GeometryField has, and for the
      * same reason: these are all values that mean something at runtime.
      *
      * The two selects stay properties. `formulaType` picks which block the

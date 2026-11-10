@@ -3813,7 +3813,7 @@ describe('Float Field — Phase 3 codegen', () => {
   })
 })
 
-describe('Formula Field codegen', () => {
+describe('Geometry Field codegen', () => {
   const tail = (srcId: string) => {
     const f2f = node('f2f', 'FieldToFrame', 'pattern', {})
     return {
@@ -3831,15 +3831,22 @@ describe('Formula Field codegen', () => {
    * did; the test below wires one and checks it reads the upstream instead.
    */
   it('emits a dedicated block per formulaType, with its knobs as frame locals', () => {
-    const ff = node('ff', 'FormulaField', 'field', { formulaType: 'rose', petals: 4, speed: 0.5 })
+    const ff = node('ff', 'GeometryField', 'field', { formulaType: 'fibonacciSpiral', turns: 4, speed: 0.5 })
     const t = tail('ff')
     const cpp = generateCpp([ff, ...t.nodes], t.edges)
     expect(cpp).toContain('float field_ff[NUM_LEDS];')
-    expect(cpp).toContain('/* Formula Field: rose */')
-    expect(cpp).toContain('_roK=(int32_t)(fmaxf(1.0f,4)*256.0f)')
-    expect(cpp).toContain('_atan2_16(_rcy,_rcx)')
-    expect(cpp).toContain('field_ff[_y*WIDTH+_x]=constrain(_roV*(1.0f/16777216.0f),0.0f,1.0f);')
+    expect(cpp).toContain('/* Geometry Field: fibonacciSpiral */')
+    expect(cpp).toContain('float _turns=fmaxf(1.0f,4);')
+    expect(cpp).toContain('field_ff[_y*WIDTH+_x]=constrain(1.0f-_delta/_bw,0.0f,1.0f);}}')
     expect(cpp).toContain('float t = millis()')   // needsT triggered
+  })
+
+  it('draws the spiral for a formulaType it does not know, as the preview does', () => {
+    const ff = node('ff', 'GeometryField', 'field', { formulaType: 'rose', speed: 0 })
+    const t = tail('ff')
+    const cpp = generateCpp([ff, ...t.nodes], t.edges)
+    expect(cpp).toContain('/* Geometry Field: fibonacciSpiral */')
+    expect(cpp).not.toContain('_atan2_16(')
   })
 
   it('reads a wired knob from the graph rather than baking the slider', () => {
@@ -3847,32 +3854,21 @@ describe('Formula Field codegen', () => {
     // wire. A baked literal here would be the parity break the registry's own
     // comment warns about — the preview moving while the board does not.
     const wave = node('w', 'Wave', 'signal', { amplitude: 1, frequency: 1, phase: 0 })
-    const ff = node('ff', 'FormulaField', 'field', { formulaType: 'rose', petals: 4 })
+    const ff = node('ff', 'GeometryField', 'field', { formulaType: 'fibonacciSpiral', turns: 4 })
     const t = tail('ff')
     const cpp = generateCpp([wave, ff, ...t.nodes],
-      [edge('wp', 'w', 'ff', 'result', 'petals'), ...t.edges])
-    expect(cpp).toContain('_roK=(int32_t)(fmaxf(1.0f,n_w_result)*256.0f)')
+      [edge('wt', 'w', 'ff', 'result', 'turns'), ...t.edges])
+    expect(cpp).toContain('float _turns=fmaxf(1.0f,n_w_result);')
     expect(cpp).not.toContain('fmaxf(1.0f,4)')
   })
 
-  it('superformula hoists its Gielis parameters', () => {
-    const ff = node('ff', 'FormulaField', 'field', {
-      formulaType: 'superformula', symmetry: 8, n1: 1, n2: 1, n3: 1, a: 1, b: 1, speed: 0,
-    })
-    const t = tail('ff')
-    const cpp = generateCpp([ff, ...t.nodes], t.edges)
-    expect(cpp).toContain('/* Formula Field: superformula */')
-    expect(cpp).toContain('float _invN1=1.0f/fmaxf(0.05f,1);')
-    expect(cpp).toContain('powf(powf(_t1,_n2)+powf(_t2,_n3),-_invN1)')
-  })
-
   it('fibonacciSpiral derives the angular period from turns', () => {
-    const ff = node('ff', 'FormulaField', 'field', {
+    const ff = node('ff', 'GeometryField', 'field', {
       formulaType: 'fibonacciSpiral', turns: 4, tightness: 0.15, bandWidth: 0.25, speed: 0,
     })
     const t = tail('ff')
     const cpp = generateCpp([ff, ...t.nodes], t.edges)
-    expect(cpp).toContain('/* Formula Field: fibonacciSpiral */')
+    expect(cpp).toContain('/* Geometry Field: fibonacciSpiral */')
     // period = 2π/turns, now divided once a frame rather than at generation.
     expect(cpp).toContain('float _turns=fmaxf(1.0f,4);')
     expect(cpp).toContain('float _period=6.2831853f/_turns;')
@@ -3880,19 +3876,19 @@ describe('Formula Field codegen', () => {
   })
 
   it('goldenTiling hoists density and phase', () => {
-    const ff = node('ff', 'FormulaField', 'field', { formulaType: 'goldenTiling', density: 20, phase: 0.25, speed: 0 })
+    const ff = node('ff', 'GeometryField', 'field', { formulaType: 'goldenTiling', density: 20, phase: 0.25, speed: 0 })
     const t = tail('ff')
     const cpp = generateCpp([ff, ...t.nodes], t.edges)
-    expect(cpp).toContain('/* Formula Field: goldenTiling */')
+    expect(cpp).toContain('/* Geometry Field: goldenTiling */')
     expect(cpp).toContain('float _dens=fmaxf(1.0f,20),_phase=0.25;')
     expect(cpp).toContain('_r*_dens+_rot+_phase')
   })
 
   it('lissajousField bakes the sample count and hoists the frequencies', () => {
-    const ff = node('ff', 'FormulaField', 'field', { formulaType: 'lissajousField', freqA: 5, freqB: 4, thickness: 0.1, speed: 0 })
+    const ff = node('ff', 'GeometryField', 'field', { formulaType: 'lissajousField', freqA: 5, freqB: 4, thickness: 0.1, speed: 0 })
     const t = tail('ff')
     const cpp = generateCpp([ff, ...t.nodes], t.edges)
-    expect(cpp).toContain('/* Formula Field: lissajousField */')
+    expect(cpp).toContain('/* Geometry Field: lissajousField */')
     expect(cpp).toContain('for(int _s=0;_s<48;_s++)')
     expect(cpp).toContain('float _fa=fmaxf(1.0f,5),_fb=fmaxf(1.0f,4);')
     expect(cpp).toContain('sinf(_fa*_sp+_rot),_ly=sinf(_fb*_sp)')

@@ -29,7 +29,7 @@ export type { FireDirection, ParticleOpts, FormulaPointsParams } from '../nodes/
 export { compositeTransition, getPatternShowSelection, getMusicPlayerControls, PARTICLE_LIFE_MS, PARTICLE_COUNT, renderParticleBurst } from '../nodes/show/evaluate'
 export type { PatternShowSelection } from '../nodes/show/evaluate'
 export { GOLDEN_RATIO, LISSAJOUS_FIELD_SAMPLES } from '../nodes/field/evaluate'
-export type { FormulaFieldParams } from '../nodes/field/evaluate'
+export type { GeometryFieldParams } from '../nodes/field/evaluate'
 export { audioHueWeight } from '../nodes/audio/evaluate'
 
 export type { RGB, Palette, Frame }

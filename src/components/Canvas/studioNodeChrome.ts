@@ -226,8 +226,7 @@ export function editableProperties(
       // A property the current mode does not use is hidden, not shown
       // disabled. Disabled rows read as context on a five-property node like
       // Transition, but the LED output has forty-six, so a string was showing
-      // thirty-three dead rows against thirteen live ones, and Formula Field
-      // showed fourteen dead rows for four live ones. At that ratio the
+      // thirty-three dead rows against thirteen live ones. At that ratio the
       // greyed rows stop being context and start being the thing you have to
       // read past, so every node hides them and its groups drop out when
       // emptied. A row whose socket is exposed or wired stays, disabled, so

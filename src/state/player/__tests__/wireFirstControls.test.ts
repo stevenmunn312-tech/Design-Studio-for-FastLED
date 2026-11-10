@@ -53,14 +53,14 @@ function node(id: string, nodeType: string, properties: Record<string, unknown> 
 
 describe('touchControlPlan', () => {
   it('reads a slider straight off the property it will drive', () => {
-    // Formula Field's petals is 1..12 step 1. A control created for it should
+    // Geometry Field's density is 2..40 step 1. A control created for it should
     // arrive with that range rather than the widget default of 0..1.
-    const plan = touchControlPlan('FormulaField', 'petals', { formulaType: 'rose' })
+    const plan = touchControlPlan('GeometryField', 'density', { formulaType: 'goldenTiling' })
     expect(plan.ok).toBe(true)
     if (!plan.ok) return
     expect(plan.spec.type).toBe('Slider')
-    expect(plan.spec.label).toBe('Petals')
-    expect(plan.spec.properties).toMatchObject({ min: 1, max: 12, step: 1 })
+    expect(plan.spec.label).toBe('Density')
+    expect(plan.spec.properties).toMatchObject({ min: 2, max: 40, step: 1 })
   })
 
   it('gives a boolean property a Toggle and an action a Button', () => {
@@ -74,7 +74,7 @@ describe('touchControlPlan', () => {
   })
 
   it('refuses a second control rather than inventing a precedence', () => {
-    const plan = touchControlPlan('FormulaField', 'petals', { formulaType: 'rose' }, true)
+    const plan = touchControlPlan('GeometryField', 'density', { formulaType: 'goldenTiling' }, true)
     expect(plan.ok).toBe(false)
     if (plan.ok) return
     expect(plan.refusal.code).toBe('already-driven')
@@ -82,16 +82,16 @@ describe('touchControlPlan', () => {
   })
 
   it('refuses a property the node is currently ignoring', () => {
-    // petals belongs to the rose variant. Creating a control that does nothing
+    // density belongs to golden tiling. Creating a control that does nothing
     // from the moment it exists is worse than a sentence saying why.
-    const plan = touchControlPlan('FormulaField', 'petals', { formulaType: 'superformula' })
+    const plan = touchControlPlan('GeometryField', 'density', { formulaType: 'fibonacciSpiral' })
     expect(plan.ok).toBe(false)
     if (plan.ok) return
     expect(plan.refusal.code).toBe('disabled')
   })
 
   it('refuses an input that is not controllable at all', () => {
-    const plan = touchControlPlan('FormulaField', 'field', {})
+    const plan = touchControlPlan('GeometryField', 'field', {})
     expect(plan.ok).toBe(false)
     if (plan.ok) return
     expect(plan.refusal.code).toBe('not-a-property-input')
@@ -297,7 +297,7 @@ describe('connectTouchControl', () => {
     vi.useFakeTimers()
     const panel = node('panel', 'TransportDisplay', { displayId: 'screen' })
     const touch = node('touch', 'TouchInput', { panelId: 'panel' })
-    const formula = node('ff', 'FormulaField', { formulaType: 'rose' })
+    const formula = node('ff', 'GeometryField', { formulaType: 'goldenTiling' })
     useGraphStore.setState({
       activeGraphId: ROOT_GRAPH_ID,
       graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } },
@@ -333,12 +333,12 @@ describe('connectTouchControl', () => {
   })
 
   it('mints a connected widget with no bounds and wires it in one step', () => {
-    const plan = connectTouchControl('touch', 'ff', 'petals')
+    const plan = connectTouchControl('touch', 'ff', 'density')
     expect(plan.ok).toBe(true)
 
     const widget = document().widgets.at(-1)!
     expect(widget.type).toBe('Slider')
-    expect(widget.properties).toMatchObject({ min: 1, max: 12, step: 1 })
+    expect(widget.properties).toMatchObject({ min: 2, max: 40, step: 1 })
     // Connected, not placed: it waits in the designer's Connected group.
     expect(widget.bounds).toBeUndefined()
     expect(placedWidgets(document())).toEqual([])
@@ -348,24 +348,24 @@ describe('connectTouchControl', () => {
     const edge = useGraphStore.getState().edges.at(-1)!
     expect(edge.sourceHandle).toBe(`widget:${widget.id}:out`)
     expect(edge.target).toBe('ff')
-    expect(edge.targetHandle).toBe('petals')
+    expect(edge.targetHandle).toBe('density')
     expect((touchNode().data.outputs as { id: string }[]).map((port) => port.id))
       .toContain(`widget:${widget.id}:out`)
 
     // And the socket it lands on is drawn, not left as a field with a hidden
     // wire into it.
     const target = useGraphStore.getState().nodes.find((entry) => entry.id === 'ff')!
-    expect(target.data.exposedInputs).toContain('petals')
+    expect(target.data.exposedInputs).toContain('density')
 
     // Wiring must not jump the effect to the slider's min. The widget starts
-    // at the value petals already had (library default 5).
+    // at the value density already had (library default 12).
     expect(useDisplayRuntimeStore.getState().sampleDisplayWidgetOutput(
       'screen', widget.id, 1,
-    )).toBe(5)
+    )).toBe(12)
   })
 
   it('names the screen widget a Touch output is', () => {
-    connectTouchControl('touch', 'ff', 'petals')
+    connectTouchControl('touch', 'ff', 'density')
     const edge = useGraphStore.getState().edges.at(-1)!
     const driver = touchControlDriver(
       { srcId: edge.source, srcPort: edge.sourceHandle ?? '' },
@@ -388,7 +388,7 @@ describe('connectTouchControl', () => {
   it('takes one undo to remove, wire and widget together', () => {
     // The push is debounced 400 ms after the last write in a burst, which is
     // what makes the widget and its wire one entry rather than two.
-    connectTouchControl('touch', 'ff', 'petals')
+    connectTouchControl('touch', 'ff', 'density')
     expect(document().widgets).toHaveLength(1)
     vi.advanceTimersByTime(400)
 
@@ -407,7 +407,7 @@ describe('connectTouchControl', () => {
    * one's value, with nothing on screen to explain it.
    */
   it('does not hand a new widget the reading of the deleted one whose id it reuses', () => {
-    connectTouchControl('touch', 'ff', 'petals')
+    connectTouchControl('touch', 'ff', 'density')
     const first = document().widgets.at(-1)!
     const runtime = useDisplayRuntimeStore.getState()
     runtime.touchDisplayWidget('screen', first.id, 9)
@@ -421,17 +421,17 @@ describe('connectTouchControl', () => {
     expect(runtime.readDisplayWidget('screen', first.id)).toBeUndefined()
 
     // The stem is free again, so the replacement is handed the same id.
-    connectTouchControl('touch', 'ff', 'petals')
+    connectTouchControl('touch', 'ff', 'density')
     const second = document().widgets.at(-1)!
     expect(second.id).toBe(first.id)
-    expect(runtime.sampleDisplayWidgetOutput('screen', second.id, 5)).toBe(5)
+    expect(runtime.sampleDisplayWidgetOutput('screen', second.id, 5)).toBe(12)
   })
 
   /* Undo and a workspace load never call setDisplayDocument — they replace
    * the registry wholesale — so the reconciliation hangs off the registry's
    * own identity rather than off that one writer. */
   it('clears a widget that undo removed, and a whole display that a load dropped', () => {
-    connectTouchControl('touch', 'ff', 'petals')
+    connectTouchControl('touch', 'ff', 'density')
     const widget = document().widgets.at(-1)!
     vi.advanceTimersByTime(400)
     const runtime = useDisplayRuntimeStore.getState()
@@ -463,7 +463,7 @@ describe('connectTouchControl', () => {
 
     it('places the control when the modifier is held and this screen is the one being watched', () => {
       useUiStore.getState().openLiveTouchScreen('screen')
-      const plan = connectTouchControl('touch', 'ff', 'petals', { placeOnVisibleScreen: true })
+      const plan = connectTouchControl('touch', 'ff', 'density', { placeOnVisibleScreen: true })
 
       expect(plan.ok).toBe(true)
       if (!plan.ok) return
@@ -472,12 +472,12 @@ describe('connectTouchControl', () => {
       expect(widget.bounds).toBeDefined()
       expect(placedWidgets(document())).toHaveLength(1)
       // Placement does not cost it the range it was born with.
-      expect(widget.properties).toMatchObject({ min: 1, max: 12, step: 1 })
+      expect(widget.properties).toMatchObject({ min: 2, max: 40, step: 1 })
     })
 
     it('leaves it in the Connected group when no modifier was held', () => {
       useUiStore.getState().openLiveTouchScreen('screen')
-      const plan = connectTouchControl('touch', 'ff', 'petals')
+      const plan = connectTouchControl('touch', 'ff', 'density')
 
       expect(plan.ok).toBe(true)
       if (!plan.ok) return
@@ -489,7 +489,7 @@ describe('connectTouchControl', () => {
       // The overlay is showing a different screen, so this drop has no visible
       // destination of its own and falls back to waiting.
       useUiStore.getState().openLiveTouchScreen('other-screen')
-      const plan = connectTouchControl('touch', 'ff', 'petals', { placeOnVisibleScreen: true })
+      const plan = connectTouchControl('touch', 'ff', 'density', { placeOnVisibleScreen: true })
 
       expect(plan.ok).toBe(true)
       if (!plan.ok) return
@@ -503,7 +503,7 @@ describe('connectTouchControl', () => {
       // has to ask the second.
       useUiStore.getState().openLiveTouchScreen('screen')
       useUiStore.getState().setWorkspaceMode('hardware')
-      const plan = connectTouchControl('touch', 'ff', 'petals', { placeOnVisibleScreen: true })
+      const plan = connectTouchControl('touch', 'ff', 'density', { placeOnVisibleScreen: true })
 
       expect(plan.ok).toBe(true)
       if (!plan.ok) return
@@ -514,7 +514,7 @@ describe('connectTouchControl', () => {
 
     it('still takes one undo to remove, bounds and wire together', () => {
       useUiStore.getState().openLiveTouchScreen('screen')
-      connectTouchControl('touch', 'ff', 'petals', { placeOnVisibleScreen: true })
+      connectTouchControl('touch', 'ff', 'density', { placeOnVisibleScreen: true })
       expect(placedWidgets(document())).toHaveLength(1)
       vi.advanceTimersByTime(400)
 
@@ -526,12 +526,12 @@ describe('connectTouchControl', () => {
   })
 
   it('refuses the second control on one property and changes nothing', () => {
-    expect(connectTouchControl('touch', 'ff', 'petals').ok).toBe(true)
+    expect(connectTouchControl('touch', 'ff', 'density').ok).toBe(true)
     const before = useGraphStore.getState()
     const widgets = before.displayDocuments.screen.widgets.length
     const edges = before.edges.length
 
-    const second = connectTouchControl('touch', 'ff', 'petals')
+    const second = connectTouchControl('touch', 'ff', 'density')
     expect(second.ok).toBe(false)
     if (second.ok) return
     expect(second.refusal.code).toBe('already-driven')
@@ -543,15 +543,15 @@ describe('connectTouchControl', () => {
     // The hint the canvas shows while dragging reads from the same plan the
     // drop performs, so the reason a row refuses is visible in the air rather
     // than only in a status line afterwards.
-    const offered = touchControlPlan('FormulaField', 'petals', { formulaType: 'rose' })
+    const offered = touchControlPlan('GeometryField', 'density', { formulaType: 'goldenTiling' })
     expect(offered.ok && offered.spec.type).toBe('Slider')
 
-    connectTouchControl('touch', 'ff', 'petals')
+    connectTouchControl('touch', 'ff', 'density')
     const target = useGraphStore.getState().nodes.find((entry) => entry.id === 'ff')!
     const driven = useGraphStore.getState().edges
-      .some((edge) => edge.target === 'ff' && edge.targetHandle === 'petals')
+      .some((edge) => edge.target === 'ff' && edge.targetHandle === 'density')
     const second = touchControlPlan(
-      target.data.nodeType, 'petals', target.data.properties as Record<string, unknown>, driven)
+      target.data.nodeType, 'density', target.data.properties as Record<string, unknown>, driven)
     expect(second.ok).toBe(false)
   })
 
@@ -561,7 +561,7 @@ describe('connectTouchControl', () => {
    * place differently.
    */
   it('places a connected control from outside the designer, once', () => {
-    connectTouchControl('touch', 'ff', 'petals')
+    connectTouchControl('touch', 'ff', 'density')
     const widgetId = document().widgets.at(-1)!.id
 
     const placed = placeTouchControl('screen', widgetId)
@@ -659,29 +659,29 @@ describe('displayControlEdges', () => {
  */
 describe('displayControlInertReason', () => {
   const slider = (bounds?: { x: number; y: number; width: number; height: number }) => ({
-    id: 'slider', type: 'Slider' as const, label: 'Petals',
+    id: 'slider', type: 'Slider' as const, label: 'Density',
     ...(bounds ? { bounds } : {}),
-    properties: { min: 1, max: 12, step: 1, orientation: 'horizontal' },
+    properties: { min: 2, max: 40, step: 1, orientation: 'horizontal' },
   })
   const placed = { x: 0, y: 0, width: 96, height: 48 }
-  const formula = (formulaType: string) => node('ff', 'FormulaField', { formulaType })
-  const wire = { target: 'ff', targetHandle: 'petals' }
+  const formula = (formulaType: string) => node('ff', 'GeometryField', { formulaType })
+  const wire = { target: 'ff', targetHandle: 'density' }
 
   it('names each of the three causes', () => {
     expect(displayControlInertReason(slider(), undefined, [])).toBe('unplaced')
     expect(displayControlInertReason(slider(placed), undefined, [])).toBe('unconnected')
-    expect(displayControlInertReason(slider(placed), wire, [formula('superformula')]))
+    expect(displayControlInertReason(slider(placed), wire, [formula('fibonacciSpiral')]))
       .toBe('target-disabled')
   })
 
   it('says nothing about a control that is placed and driving a live property', () => {
-    expect(displayControlInertReason(slider(placed), wire, [formula('rose')])).toBeNull()
+    expect(displayControlInertReason(slider(placed), wire, [formula('goldenTiling')])).toBeNull()
   })
 
   it('reports unplaced ahead of a disabled target, since that is the one to act on', () => {
     // Both are true. The author is looking at a screen designer, and the thing
     // they can do from there is place it.
-    expect(displayControlInertReason(slider(), wire, [formula('superformula')])).toBe('unplaced')
+    expect(displayControlInertReason(slider(), wire, [formula('fibonacciSpiral')])).toBe('unplaced')
   })
 
   it('is silent about every widget that is not a control', () => {
@@ -698,27 +698,27 @@ describe('displayControlInertReason', () => {
 describe('touchControlWireInert', () => {
   const panel = node('panel', 'TransportDisplay', { displayId: 'screen' })
   const touch = node('touch', 'TouchInput', { panelId: 'panel' })
-  const unplaced = { id: 'slider', type: 'Slider' as const, label: 'Petals', properties: {} }
-  const state = (widget: typeof unplaced, nodeType = 'rose') => ({
-    nodes: [panel, touch, node('ff', 'FormulaField', { formulaType: nodeType })],
+  const unplaced = { id: 'slider', type: 'Slider' as const, label: 'Density', properties: {} }
+  const state = (widget: typeof unplaced, nodeType = 'goldenTiling') => ({
+    nodes: [panel, touch, node('ff', 'GeometryField', { formulaType: nodeType })],
     displayDocuments: { screen: { widgets: [widget] } },
   } as never)
 
   it('dims the wire out of a control nobody has placed yet', () => {
-    expect(touchControlWireInert(state(unplaced), 'touch', 'widget:slider:out', 'ff', 'petals'))
+    expect(touchControlWireInert(state(unplaced), 'touch', 'widget:slider:out', 'ff', 'density'))
       .toBe(true)
     expect(touchControlWireInert(
       state({ ...unplaced, bounds: { x: 0, y: 0, width: 96, height: 48 } } as never),
-      'touch', 'widget:slider:out', 'ff', 'petals',
+      'touch', 'widget:slider:out', 'ff', 'density',
     )).toBe(false)
   })
 
   it('answers null for a wire that is not a control wire, rather than calling it live', () => {
     // Null sends the caller back to the ordinary target-side rule; answering
     // false would quietly stop dimming every other inert property wire.
-    expect(touchControlWireInert(state(unplaced), 'touch', 'controls', 'ff', 'petals')).toBeNull()
-    expect(touchControlWireInert(state(unplaced), 'ff', 'widget:slider:out', 'ff', 'petals')).toBeNull()
-    expect(touchControlWireInert(state(unplaced), 'touch', 'widget:gone:out', 'ff', 'petals')).toBeNull()
+    expect(touchControlWireInert(state(unplaced), 'touch', 'controls', 'ff', 'density')).toBeNull()
+    expect(touchControlWireInert(state(unplaced), 'ff', 'widget:slider:out', 'ff', 'density')).toBeNull()
+    expect(touchControlWireInert(state(unplaced), 'touch', 'widget:gone:out', 'ff', 'density')).toBeNull()
   })
 })
 

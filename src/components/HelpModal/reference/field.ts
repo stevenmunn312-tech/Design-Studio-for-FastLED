@@ -99,23 +99,23 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  FormulaField: {
+  GeometryField: {
     overview: [
-      'Formula Shapes draws one of a set of famous closed-form shapes as a field: a rose curve, Gielis’s superformula, a Fibonacci spiral, golden-ratio rings, or a Lissajous curve.',
-      'Only the knobs for the chosen shape do anything. The superformula alone makes stars, flowers, rounded squares and organic blobs from its three exponents.',
-      'On the canvas the node takes the name of the shape chosen.',
+      'Geometry Field draws one of three closed-form geometry fields: a Fibonacci spiral whose arms open out by the golden ratio, concentric rings whose brightness steps by the golden ratio, or the glowing line of a Lissajous curve.',
+      'Only the knobs for the chosen field do anything. Speed turns the spiral and the Lissajous curve, and drifts the rings inward. On the canvas the node takes the name of the field chosen.',
+      'For a rose or Gielis’s superformula, use Shape Field, which draws both as a fill, a glow or a falloff at any position and size.',
     ],
     outputs: { field: FIELD_OUT },
     example: example({
-      featured: 'FormulaField',
-      title: 'A starfish from the superformula',
+      featured: 'GeometryField',
+      title: 'Golden-ratio rings',
       nodes: {
-        star: ['FormulaField', { formulaType: 'superformula', symmetry: 5, n1: 0.35, n2: 0.9, n3: 0.9, speed: 0.2 }],
-        paint: ['FieldToFrame', { palette: 'coralreef' }],
+        rings: ['GeometryField', { formulaType: 'goldenTiling', density: 8, speed: 0.3 }],
+        paint: ['FieldToFrame', { palette: 'honeycomb' }],
       },
-      wires: ['star.field > paint.field'],
-      explanation: 'Formula Shapes set to the superformula with five lobes and these exponents makes a plump five-armed starfish, turning slowly. Field → Frame colours it with the coral-reef palette.',
-      preview: 'The {output} shows a coral and turquoise five-armed starfish shape, slowly rotating.',
+      wires: ['rings.field > paint.field'],
+      explanation: 'Geometry Field set to golden tiling draws eight rings from the centre to each edge, each as bright as the fractional part of its ring number divided by the golden ratio, so neighbouring rings never match. Speed drifts them slowly inward, and Field → Frame colours them with the honeycomb palette.',
+      preview: 'The {output} shows concentric amber and gold rings of uneven brightness, flowing slowly toward the centre.',
     }),
   },
 
@@ -400,16 +400,14 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
     outputs: { field: FIELD_OUT },
     example: example({
       featured: 'ShapeField',
-      title: 'A spotlight roaming the stage',
+      title: 'A starfish from the superformula',
       nodes: {
-        across: ['Wave', { frequency: 0.13, amplitude: 0.35, offset: 0.5, unipolar: false }],
-        down: ['Wave', { frequency: 0.21, amplitude: 0.3, offset: 0.5, unipolar: false }],
-        spot: ['ShapeField', { shape: 'ellipse', fieldMode: 'fill', size: 0.2, softness: 0.25 }],
-        paint: ['FieldToFrame', { palette: 'heat' }],
+        star: ['ShapeField', { shape: 'superformula', symmetry: 5, n1: 0.35, n2: 0.9, n3: 0.9, size: 0.5, softness: 0.015, spin: -17.19 }],
+        paint: ['FieldToFrame', { palette: 'coralreef' }],
       },
-      wires: ['across.result > spot.cx', 'down.result > spot.cy', 'spot.field > paint.field'],
-      explanation: 'Shape Field draws a soft-edged circle, and two Waves at unrelated speeds move it across and down, so it wanders the matrix like a follow spot. Field → Frame paints it with heat colours, white-hot in the middle.',
-      preview: 'The {output} shows a glowing spot with a hot centre drifting around the dark matrix.',
+      wires: ['star.field > paint.field'],
+      explanation: 'Shape Field set to the superformula with five lobes and these exponents makes a plump five-armed starfish reaching the edges of the matrix, and a Spin of about −17 degrees a second turns it slowly anticlockwise. Field → Frame colours it with the coral-reef palette.',
+      preview: 'The {output} shows a coral and turquoise five-armed starfish shape, slowly rotating.',
     }),
   },
 
