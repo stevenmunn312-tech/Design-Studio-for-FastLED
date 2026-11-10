@@ -366,7 +366,7 @@
           "category": "pattern",
           "properties": {
             "reactivity": 0.7,
-            "speed": 1,
+            "speed": 0.5,
             "palette": "laguna",
             "count": 8,
             "decay": 1,

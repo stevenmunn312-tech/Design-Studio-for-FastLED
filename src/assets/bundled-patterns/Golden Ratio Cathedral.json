@@ -749,7 +749,7 @@
      "category": "pattern",
      "properties": {
       "reactivity": 0.6,
-      "speed": 0.8,
+      "speed": 0.4,
       "palette": "opal"
      },
      "inputs": [

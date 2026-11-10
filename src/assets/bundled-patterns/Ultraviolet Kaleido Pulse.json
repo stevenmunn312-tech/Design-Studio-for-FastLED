@@ -339,7 +339,7 @@
           "properties": {
             "hue": 0,
             "reactivity": 0.75,
-            "speed": 1,
+            "speed": 0.5,
             "palette": "ultraviolet"
           },
           "inputs": [

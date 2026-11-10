@@ -2655,7 +2655,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     gap: 'Quiet time between flashes: about 30 s (20–40 s), 1–2 min, or 2–5 min. The first flash comes a few seconds after start whichever you pick.',
   },
   KickShock: {
-    speed: 'Ring travel rate (0–1); reactivity multiplies it. Kick rings are slow and wide, snare fast and thin.',
+    speed: 'Ring travel rate (0–1; 0.5 is the default pace, 1 twice as fast); reactivity multiplies it. Kick rings are slow and wide, snare fast and thin.',
     tiles: 'Repeats the shockwave in an N×N grid of cells (1–8).',
     count: 'Most rings alive at once (2–16); older rings are recycled. Fixed at build time.',
     decay: 'Ring lifetime multiplier (0.3–3); above 1 lingers, travel distance stays the same.',
@@ -2664,10 +2664,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   BeatKaleidoscope: {
     hue: 'Palette start offset in degrees (0–360); wire an audio hue into Hue to colour-shift with the music.',
-    speed: 'Rotation rate (0–1); each beat adds wedges and a spin kick that decays.',
+    speed: 'Rotation rate (0–1; 0.5 is the default pace, 1 twice as fast); each beat adds wedges and a spin kick that decays.',
   },
   SpectraMosaic: {
-    speed: 'Diagonal sweep rate (0–1); reactivity multiplies it.',
+    speed: 'Diagonal sweep rate (0–1; 0.5 is the default pace, 1 twice as fast); reactivity multiplies it.',
     tiles: 'Grid size N×N (2–8). Bass lights the top-left cells, treble the bottom-right, mids all.',
   },
   PercussionBlobs: {
@@ -2677,7 +2677,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     blendMode: 'Add merges overlapping blobs into one field; Max keeps them separate.',
   },
   RainRipples: {
-    speed: 'Ripple expansion rate (0–1); faster ripples also live shorter.',
+    speed: 'Ripple expansion rate (0–1; 0.5 is the default pace, 1 twice as fast); faster ripples also live shorter.',
     count: 'Most ripples alive at once (2–16); each Trigger pulse starts one. Fixed at build time.',
     decay: 'Ripple lifetime multiplier (0.3–3).',
     thickness: 'Ripple band width multiplier (0.25–3).',
@@ -3371,37 +3371,37 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     bass: 'Bass level (0–1) when unwired: picks the palette colour and sets brightness.',
   },
   BassRings: {
-    speed: 'Base ring travel rate (0–1); bass and reactivity multiply it.',
+    speed: 'Base ring travel rate (0–1; 0.5 is the default pace, 1 twice as fast); bass and reactivity multiply it.',
   },
   MidrangeWaves: {
-    speed: 'Base wave motion rate (0–1); mids and reactivity multiply it.',
+    speed: 'Base wave motion rate (0–1; 0.5 is the default pace, 1 twice as fast); mids and reactivity multiply it.',
   },
   MidrangeBloom: {
-    speed: 'Base bloom rotation rate (0–1); mids and reactivity multiply it.',
+    speed: 'Base bloom rotation rate (0–1; 0.5 is the default pace, 1 twice as fast); mids and reactivity multiply it.',
   },
   TrebleSparks: {
     density: 'How many sparks spawn per frame as a share of the matrix (0–1); treble multiplies it.',
   },
   TreblePrism: {
-    speed: 'Base shard motion rate (0–1); treble and reactivity multiply it.',
+    speed: 'Base shard motion rate (0–1; 0.5 is the default pace, 1 twice as fast); treble and reactivity multiply it.',
   },
   AudioCascade: {
-    speed: 'Base ribbon flow rate (0–1); all three bands and reactivity multiply it.',
+    speed: 'Base ribbon flow rate (0–1; 0.5 is the default pace, 1 twice as fast); all three bands and reactivity multiply it.',
   },
   VocalAurora: {
-    speed: 'Curtain drift rate (0–1); vocal level speeds it up. Silence input dims the frame to black.',
+    speed: 'Curtain drift rate (0–1; 0.5 is the default pace, 1 twice as fast); vocal level speeds it up. Silence input dims the frame to black.',
   },
   EmberPulse: {
-    speed: 'Flicker rate (0–1). Bass heats the centre columns, treble the edges; each beat bursts.',
+    speed: 'Flicker rate (0–1; 0.5 is the default pace, 1 twice as fast). Bass heats the centre columns, treble the edges; each beat bursts.',
   },
   TurbulentBloom: {
-    speed: 'Base turbulence rate (0–1); treble drives fast jitter, mids slow drift, bass pulses brightness.',
+    speed: 'Base turbulence rate (0–1; 0.5 is the default pace, 1 twice as fast); treble drives fast jitter, mids slow drift, bass pulses brightness.',
   },
   GravityWell: {
-    speed: 'Well orbit and ring wave rate (0–1); bass packs more rings toward the well.',
+    speed: 'Well orbit and ring wave rate (0–1; 0.5 is the default pace, 1 twice as fast); bass packs more rings toward the well.',
   },
   PrismStorm: {
-    speed: 'Shard drift rate (0–1); mids speed it up, treble sharpens the grain, each hi-hat hit snaps the angle.',
+    speed: 'Shard drift rate (0–1; 0.5 is the default pace, 1 twice as fast); mids speed it up, treble sharpens the grain, each hi-hat hit snaps the angle.',
   },
   SampleHold: {
     value: 'Number latched on each Trigger pulse, when nothing is wired into Value.',

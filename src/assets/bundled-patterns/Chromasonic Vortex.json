@@ -320,7 +320,7 @@
           "category": "pattern",
           "properties": {
             "reactivity": 0.74,
-            "speed": 0.82,
+            "speed": 0.41,
             "r": 255,
             "g": 60,
             "b": 190

@@ -140,7 +140,7 @@
      "category": "pattern",
      "properties": {
       "reactivity": 0.85,
-      "speed": 0.85,
+      "speed": 0.425,
       "palette": "peacock"
      },
      "inputs": [
@@ -197,7 +197,7 @@
      "category": "pattern",
      "properties": {
       "reactivity": 0.8,
-      "speed": 0.85,
+      "speed": 0.425,
       "palette": "laguna"
      },
      "inputs": [

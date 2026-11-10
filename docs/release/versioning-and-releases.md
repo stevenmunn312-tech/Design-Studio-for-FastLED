@@ -88,6 +88,13 @@ the format/support freeze after the control and display workflow stabilizes.
   wire. The show file's `SET_ENERGY` command keeps its name: it carries the
   song section's energy, which now drives the `reactivity` role. Bundled
   patterns, the promoted saved graphs and the Help examples were converted.
+- 2026-11-10: remapped Speed on fourteen audio patterns (Bass Rings through
+  Hi-Hat Shards) so the internal rate is twice the slider: the old default of
+  1 is now 0.5, and 1 runs twice as fast. With no migration, a saved pattern
+  that is not converted plays twice as fast. Bundled patterns, the promoted
+  saved graphs, shelf seeds and Help examples were converted (saved values
+  halved, wired ranges halved or a Math ×0.5 added), and render the same
+  frames as before.
 
 ## Version scheme
 

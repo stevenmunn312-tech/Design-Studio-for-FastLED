@@ -39,7 +39,7 @@
           "category": "pattern",
           "properties": {
             "reactivity": 0.7,
-            "speed": 1,
+            "speed": 0.5,
             "palette": "amethyst"
           },
           "inputs": [
@@ -388,7 +388,7 @@
           "category": "math",
           "properties": {
             "mathOp": "multiply",
-            "a": 1,
+            "a": 0.5,
             "b": 1
           },
           "inputs": [

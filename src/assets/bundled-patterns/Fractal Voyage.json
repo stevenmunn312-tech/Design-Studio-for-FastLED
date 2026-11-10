@@ -729,7 +729,7 @@
           "properties": {
             "hue": 0,
             "reactivity": 0.7,
-            "speed": 1,
+            "speed": 0.5,
             "palette": "ultraviolet"
           },
           "inputs": [
@@ -1398,7 +1398,7 @@
           "category": "math",
           "properties": {
             "mathOp": "multiply",
-            "a": 1,
+            "a": 0.5,
             "b": 1
           },
           "inputs": [

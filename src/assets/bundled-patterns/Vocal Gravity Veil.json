@@ -228,7 +228,7 @@
      "category": "pattern",
      "properties": {
       "reactivity": 0.9,
-      "speed": 0.9,
+      "speed": 0.45,
       "r": 255,
       "g": 90,
       "b": 220
@@ -277,7 +277,7 @@
      "category": "pattern",
      "properties": {
       "reactivity": 0.9,
-      "speed": 0.7,
+      "speed": 0.35,
       "palette": "aurora"
      },
      "inputs": [

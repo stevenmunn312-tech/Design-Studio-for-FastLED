@@ -217,7 +217,7 @@
           "category": "pattern",
           "properties": {
             "reactivity": 0.9,
-            "speed": 0.92,
+            "speed": 0.46,
             "r": 200,
             "g": 120,
             "b": 255
@@ -538,6 +538,43 @@
           ]
         },
         "selected": false
+      },
+      {
+        "id": "p9-prism-speed-half",
+        "type": "studioNode",
+        "position": {
+          "x": -340,
+          "y": 340
+        },
+        "data": {
+          "label": "Math",
+          "nodeType": "Math",
+          "category": "math",
+          "properties": {
+            "mathOp": "multiply",
+            "a": 0,
+            "b": 0.5
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "float"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
       }
     ],
     "edges": [
@@ -617,8 +654,8 @@
         "id": "p9-e10",
         "source": "smooth-p9-fft-mids",
         "sourceHandle": "result",
-        "target": "p9-prism",
-        "targetHandle": "speed",
+        "target": "p9-prism-speed-half",
+        "targetHandle": "a",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -727,6 +764,15 @@
         "sourceHandle": "frame",
         "target": "p9-out",
         "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e-p9-prism-speed-half",
+        "source": "p9-prism-speed-half",
+        "sourceHandle": "result",
+        "target": "p9-prism",
+        "targetHandle": "speed",
         "type": "glowEdge",
         "reconnectable": "target"
       }

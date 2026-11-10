@@ -200,7 +200,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
         particleType: 'fireflies', rate: 0.28, decay: 0.94, palette: 'aurora',
         size: 1.35, count: 36, spread: 1, seed: 77,
       }),
-      studioNode('veil', 'VocalAurora', -520, 240, { speed: 0.55, palette: 'aurora' }),
+      studioNode('veil', 'VocalAurora', -520, 240, { speed: 0.275, palette: 'aurora' }),
       studioNode('mix', 'Blend', -180, 80, { blendMode: 'screen', amount: 0.38 }),
       studioNode('sat', 'Saturation', 420, 80, { amount: 1.28 }),
       groupOutput('out', 700, 80),
@@ -229,7 +229,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
         anchorA: '#050b18', anchorB: '#2f7bff', anchorC: '#7cffef', points: 6,
       }),
       studioNode('mosaic', 'SpectraMosaic', -520, 40, {
-        reactivity: 0.85, speed: 0.7, palette: 'peacock', tiles: 5,
+        reactivity: 0.85, speed: 0.35, palette: 'peacock', tiles: 5,
       }),
       studioNode('boost', 'Saturation', -180, 40, { amount: 1.72, keepBrightness: true }),
       studioNode('blur', 'Blur2D', 420, 40, { amount: 0.05 }),
@@ -260,7 +260,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       }),
       studioNode('hue', 'AudioHue', -880, 160, { mode: 'weighted', bassWeight: 0.2, midsWeight: 0.55, trebleWeight: 0.25 }),
       studioNode('shift', 'MapRange', -880, 340, { inMin: 0, inMax: 360, outMin: 0, outMax: 1 }),
-      studioNode('bloom', 'MidrangeBloom', -520, 40, { reactivity: 0.85, speed: 0.62, palette: 'amethyst' }),
+      studioNode('bloom', 'MidrangeBloom', -520, 40, { reactivity: 0.85, speed: 0.31, palette: 'amethyst' }),
       studioNode('kale', 'Kaleidoscope', -220, 40, { segments: 6 }),
       studioNode('tint', 'HueShift', 360, 40),
       studioNode('sat', 'Saturation', 640, 40, { amount: 1.45 }),
@@ -293,7 +293,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       }),
       studioNode('pop', 'MapRange', -880, 80, { inMin: 0.08, inMax: 0.9, outMin: 18, outMax: 44 }),
       studioNode('shock', 'KickShock', -520, 240, {
-        reactivity: 0.9, speed: 0.85, tiles: 1, palette: 'citrus',
+        reactivity: 0.9, speed: 0.425, tiles: 1, palette: 'citrus',
         count: 7, decay: 0.88, thickness: 1.05, spawnSpread: 0.35, blendMode: 'add',
       }),
       studioNode('flock', 'Boids', -520, -20, {
@@ -331,7 +331,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       studioNode('rings', 'MapRange', -880, 80, { inMin: 0.05, inMax: 0.95, outMin: 5, outMax: 16 }),
       studioNode('burst', 'RadialBurst', -520, -40, { speed: 0.7, rings: 8, palette: 'volcano' }),
       studioNode('shock', 'KickShock', -520, 220, {
-        reactivity: 0.92, speed: 0.9, tiles: 1, palette: 'volcano',
+        reactivity: 0.92, speed: 0.45, tiles: 1, palette: 'volcano',
         count: 9, decay: 0.86, thickness: 1.2, spawnSpread: 0.2, blendMode: 'add',
       }),
       studioNode('mix', 'Blend', -180, 80, { blendMode: 'add', amount: 0.52 }),

@@ -171,6 +171,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   (`t*spd*0.8` → `phase*0.8`); terms not multiplied by a rate (a palette
   scroll on bare `t`, particle ages) stay on `t`. A new node with a `speed` or
   level-modulated rate uses the helper on both sides from the start.
+- The audio patterns in `AUDIO_SPEED_NODE_TYPES`
+  (`nodes/audioReactive/audioSpeed.ts`) run at twice their Speed slider,
+  through `audioSpeedRate` and `audioSpeedRateCpp`, so the rate of 1 they were
+  tuned at sits at 0.5 and 1 runs twice as fast. Doubling is exact in binary,
+  so content converts losslessly: a saved value is halved; a wired one by
+  halving what sets it (a Map Range's Out Min and Out Max, the constant of a
+  group's `groupmul` Math), or by a Math ×0.5 on the wire when the source also
+  feeds something else. Unwired, the sketch folds the doubled literal, so it
+  emits the same number as before.
 - Most numeric node inputs are **not** normalised: `num()` in
   `graphEvaluator.ts` passes a wired value straight through, so a raw 0–1 signal
   (an audio band, say) wired into Fire's `sparking` (0–255),

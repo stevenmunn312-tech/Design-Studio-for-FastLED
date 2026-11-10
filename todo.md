@@ -137,16 +137,6 @@ module (no fixture yet).
 
 #### Audio and audio-reactive
 
-- [ ] **Category: Remap Speed so the current look sits mid-slider (Med, M).**
-  BassRings, MidrangeWaves, MidrangeBloom, TreblePrism, AudioCascade,
-  KickShock, VocalAurora, BeatKaleidoscope, SpectraMosaic, EmberPulse,
-  TurbulentBloom, GravityWell, RainRipples and PrismStorm default `speed`
-  to 1.0 on a 0–1 slider, leaving no room to go faster. Remap so the
-  current look is 0.5 (internal rate = 2 × slider) and update saved values
-  and bundled patterns. Evidence `src/state/nodeLibrary.ts:583`. Left open:
-  many bundled patterns wire Map Range or audio levels into these speeds,
-  and the promoted graphs cannot be edited, so a remap changes tuned looks
-  unless every wired range is halved too; needs a by-ear check.
 - [ ] **Category: Add an optional Audio input to the band patterns (Med,
   M).** Every band pattern needs Mic → FFT Analyzer → pattern. Spectrum
   Visualizer's Three Band style already falls back to the spectrum thirds

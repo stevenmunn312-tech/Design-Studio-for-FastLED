@@ -323,7 +323,7 @@
      "category": "pattern",
      "properties": {
       "reactivity": 0.95,
-      "speed": 0.95,
+      "speed": 0.475,
       "tiles": 3,
       "palette": "citrus",
       "count": 12,

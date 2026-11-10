@@ -194,8 +194,8 @@
           "properties": {
             "inMin": 0,
             "inMax": 1,
-            "outMin": 0.4,
-            "outMax": 1
+            "outMin": 0.2,
+            "outMax": 0.5
           },
           "inputs": [
             {
@@ -287,7 +287,7 @@
           "category": "pattern",
           "properties": {
             "reactivity": 0.74,
-            "speed": 0.74,
+            "speed": 0.37,
             "r": 100,
             "g": 200,
             "b": 255

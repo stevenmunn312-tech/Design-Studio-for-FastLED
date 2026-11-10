@@ -211,7 +211,7 @@
           "category": "pattern",
           "properties": {
             "reactivity": 0.75,
-            "speed": 1,
+            "speed": 0.5,
             "r": 80,
             "g": 160,
             "b": 255

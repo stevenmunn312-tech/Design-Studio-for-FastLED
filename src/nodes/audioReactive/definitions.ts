@@ -123,7 +123,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       bass: 0.5,
-      reactivity: 0.7, speed: 1.0, palette: 'lava',
+      reactivity: 0.7, speed: 0.5, palette: 'lava',
     },
   },
   {
@@ -144,7 +144,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       mids: 0.5,
-      reactivity: 0.7, speed: 1.0, palette: 'ocean',
+      reactivity: 0.7, speed: 0.5, palette: 'ocean',
     },
   },
   {
@@ -165,7 +165,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       mids: 0.5,
-      reactivity: 0.7, speed: 1.0, palette: 'party',
+      reactivity: 0.7, speed: 0.5, palette: 'party',
     },
   },
   {
@@ -206,7 +206,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       treble: 0.5,
-      reactivity: 0.7, speed: 1.0, palette: 'amethyst',
+      reactivity: 0.7, speed: 0.5, palette: 'amethyst',
     },
   },
   {
@@ -229,7 +229,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       bass: 0.5, mids: 0.5, treble: 0.5,
-      reactivity: 0.7, speed: 1.0, palette: 'rainbow',
+      reactivity: 0.7, speed: 0.5, palette: 'rainbow',
     },
   },
   {
@@ -317,7 +317,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       hihat: 0, kick: 0, snare: 0,
-      reactivity: 0.7, speed: 1.0, tiles: 1, palette: 'volcano',
+      reactivity: 0.7, speed: 0.5, tiles: 1, palette: 'volcano',
       count: 8, decay: 1, thickness: 1, spawnSpread: 0, blendMode: 'add',
     },
   },
@@ -341,7 +341,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       vocals: 0,
-      reactivity: 0.7, speed: 1.0, palette: 'aurora',
+      reactivity: 0.7, speed: 0.5, palette: 'aurora',
     },
   },
   {
@@ -359,7 +359,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     ],
     propertyInputs: { hue: 'hue', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { hue: 0, reactivity: 0.7, speed: 1.0, palette: 'ultraviolet' },
+    defaultProperties: { hue: 0, reactivity: 0.7, speed: 0.5, palette: 'ultraviolet' },
   },
   {
     // Tiled VU mosaic — bass/mids/treble sweep diagonally across the grid cells.
@@ -383,7 +383,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       bass: 0.5, mids: 0.5, treble: 0.5,
-      reactivity: 0.7, speed: 1.0, palette: 'peacock', tiles: 4,
+      reactivity: 0.7, speed: 0.5, palette: 'peacock', tiles: 4,
     },
   },
   {
@@ -433,7 +433,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       bass: 0.5, mids: 0.5, treble: 0.5,
-      reactivity: 0.7, speed: 1.0,
+      reactivity: 0.7, speed: 0.5,
     },
   },
   {
@@ -457,7 +457,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       bass: 0.5, mids: 0.5, treble: 0.5,
-      reactivity: 0.7, speed: 1.0, palette: 'deepsea',
+      reactivity: 0.7, speed: 0.5, palette: 'deepsea',
     },
   },
   {
@@ -482,7 +482,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       bass: 0.5,
-      reactivity: 0.7, speed: 1.0, r: 80, g: 160, b: 255,
+      reactivity: 0.7, speed: 0.5, r: 80, g: 160, b: 255,
     },
   },
   {
@@ -503,7 +503,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     propertyInputs: { decay: 'decay', thickness: 'thickness', spawnSpread: 'spawnSpread', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
-      reactivity: 0.7, speed: 1.0, palette: 'laguna',
+      reactivity: 0.7, speed: 0.5, palette: 'laguna',
       count: 8, decay: 1, thickness: 1, spawnSpread: 1, blendMode: 'max',
     },
   },
@@ -530,7 +530,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       hihat: 0, mids: 0.5, treble: 0.5,
-      reactivity: 0.7, speed: 1.0, palette: 'amethyst',
+      reactivity: 0.7, speed: 0.5, palette: 'amethyst',
     },
   },
   {

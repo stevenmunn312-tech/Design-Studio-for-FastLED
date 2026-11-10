@@ -497,7 +497,7 @@
      "category": "pattern",
      "properties": {
       "reactivity": 0.65,
-      "speed": 0.9,
+      "speed": 0.45,
       "palette": "amethyst"
      },
      "inputs": [

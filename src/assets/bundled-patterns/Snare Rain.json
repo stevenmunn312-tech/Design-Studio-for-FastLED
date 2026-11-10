@@ -218,7 +218,7 @@
      "category": "pattern",
      "properties": {
       "reactivity": 0.8,
-      "speed": 0.75,
+      "speed": 0.375,
       "palette": "ice",
       "count": 8,
       "decay": 0.85,
@@ -270,7 +270,7 @@
      "category": "pattern",
      "properties": {
       "reactivity": 0.85,
-      "speed": 0.9,
+      "speed": 0.45,
       "tiles": 1,
       "palette": "citrus",
       "count": 5,
