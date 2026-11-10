@@ -191,6 +191,32 @@ ESP32 pin. They also hold the driver on until the firmware takes the enable
 pin. The part stays experimental until a bench row confirms it
 ([support matrix](../release/beta-support-matrix.md)).
 
+## The DMX512 receiver
+
+The sketch reads the line itself (`src/codegen/peripherals/dmxReceiverCpp.ts`),
+with no library, since 2026-11-11. `esp_dmx`, used before, does not build on
+ESP-IDF 5.5 and has had no release since June 2024.
+
+A packet starts at a break, and a desk may send the next break straight after
+the last slot. ESP-IDF's UART driver queues the break event ahead of the bytes
+still in the hardware FIFO, so it cannot say where a packet ends. The sketch
+therefore lets the public driver configure the port and reads the FIFO in its
+own interrupt, through the `uart_ll` accessors the Arduino core itself uses:
+
+- a break ends the packet being received (the UART stores the break as one
+  null byte, which is dropped) and starts the next;
+- an idle line publishes a packet that is already whole, so a desk that pauses
+  between packets is not read a packet late;
+- a packet is published only with a null start code, and only when it is as
+  long as the packet before it. That costs one packet at start-up and rejects
+  one cut short by a late interrupt.
+
+The driver-enable pin is held low and TX is not driven: the sketch only
+listens. `dmxReceiverNative.test.ts` runs the emitted interrupt code against a
+model of the UART on the host. The `dmx` compile fixture builds it for the
+classic ESP32, S3, C3 and C6 on both engines ([run 42921529587](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/42921529587),
+2026-11-11, 8 of 8). No board has received a real line with it yet.
+
 ## Validation
 
 `validateGraph.ts` blocks upload for: DMX512 on a non-ESP32 target (the receiver

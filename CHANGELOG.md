@@ -989,6 +989,9 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- A DMX512 input compiles again. Its library does not build on the current
+  ESP32 core, so the sketch now reads the DMX line itself; there is no
+  library to install on either build engine.
 - A SAMD51 microphone sketch failed to compile with
   "'_failed' was not declared": firmware cleanup removed a member of the
   capture class.

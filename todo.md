@@ -35,16 +35,6 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 HW-32 (frame performance) is under [Completed](#completed); its bench rows are
 in section 4.
 
-- [ ] **DMX512 firmware does not compile on the pinned ESP32 core (M).**
-  Found by the 2026-11-10 matrix: `dead-code/normal-DmxTransceiver` fails on
-  both engines. esp_dmx (4.1.0, its default branch and `dev`) reads
-  `uart_periph_signal[n].module`, which ESP-IDF 5.5 removed, so a DMX512
-  input cannot build on Arduino core 3.3.12. On Arduino CLI the helper also
-  never installs esp_dmx (`esp_dmx.h: No such file or directory` on a clean
-  machine). Choose between a pinned, patched esp_dmx, another DMX library or
-  the app's own UART receiver, then install it for both engines and rebuild
-  that leg. Art-Net input is unaffected.
-
 ### Node review follow-ups
 
 From the 2026-11-09 review of every library node (235). The ten bugs it
@@ -432,7 +422,9 @@ chooses the supported combinations from whatever is on record at release.
   static addressing, Art-Net over the cable, NTP sync, and cable pull/replug
   recovery; the row's requirements are in the support matrix.
 - **D-05 DMX transceiver:** the C25B MAX485 module on 5 V, with its RO divider,
-  receiving a real DMX512 line; the row's requirements are in the support
+  receiving a real DMX512 line through the sketch's own receiver (2026-11-11,
+  compiled and host-tested only: check channel 1 lands on channel 1, a desk
+  with no gap between packets, and a short universe); the row's requirements are in the support
   matrix.
 - **D-05 pixel data extender:** the NLED TX/RX pair driving a WS2812B run over
   a long twisted A/B/ground cable, with the length recorded, powered from
@@ -442,7 +434,8 @@ chooses the supported combinations from whatever is on record at release.
 
 - [ ] **fbuild upkeep (S)** ([runbook](docs/runbooks/fbuild-workarounds.md)).
   The full run on fbuild 2.5.51 passed 65 of 66 legs on 2026-11-10, the one
-  failure being the DMX library on both engines (section 3)
+  failure being the DMX library on both engines, since replaced by the
+  sketch's own receiver
   ([record](docs/runbooks/fbuild-workarounds.md#fastled-3109-and-fbuild-2551-run-10-november-2026)).
   The LVGL archive recovery (§12), the SAMD51 FastLED patches and the SAMD51
   `-DARDUINO_ARCH_SAMD`/`EIC_IRQn`/software-SPI flags are removed. Left:
@@ -463,11 +456,11 @@ chooses the supported combinations from whatever is on record at release.
     their own. Open and not posted (`tmp/fbuild-main/drafts/`): RP2040/RP2350
     flash counts the `.heap` reservation, and fbuild ESP32 images carry about
     255 KB more `.eh_frame` than Arduino CLI's, cause not yet found.
-  - The four unpatched vendored libraries stay in `lib/`: on 2.5.37 a GitHub
+  - The three unpatched vendored libraries stay in `lib/`: on 2.5.37 a GitHub
     `lib_deps` ignores its `#ref`, the HUB75 pin is ignored, esp_dmx 4.1.0
-    does not build on IDF 5.5, and every `lib_deps` library is compiled
-    whether used or not (§1). Recheck on 2.5.51, report upstream, then
-    revisit. FastLED itself no longer needs vendoring for patches.
+    is no longer used, and every `lib_deps` library is compiled whether used
+    or not (§1). Recheck on 2.5.51, report upstream, then revisit. FastLED
+    itself no longer needs vendoring for patches.
 - [ ] **HW-17 · Distribution smoke tests (M).** Clean-profile offline-PWA
   relaunch and clean end-user-machine desktop runs; platform signing and
   notarization before publishing: Authenticode for the Windows launcher and
