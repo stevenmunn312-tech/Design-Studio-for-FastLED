@@ -364,11 +364,11 @@ export function playerControlsFromGraph(
       const source = edge ? byId.get(edge.source) : undefined
       if (!edge || !source) continue
       const props = source.data.properties
-      if (source.data.nodeType === 'ButtonInput' && edge.sourceHandle === 'pressed') {
-        result[action] = { kind: 'button', pin: sanitizePin(props.pin, 0), pullup: props.pullup !== false }
-      } else if (source.data.nodeType === 'ButtonBank') {
+      if (source.data.nodeType === 'ButtonBank') {
         const button = buttonBankEntryForHandle(props.buttons, edge.sourceHandle)
-        if (button) result[action] = { kind: 'button', pin: sanitizePin(button.pin, 0), pullup: button.pullup }
+        // A row with no GPIO yet (-1) is never pressed, as in the normal
+        // sketch; sanitised, it would have read GPIO0, a strapping pin.
+        if (button && button.pin >= 0) result[action] = { kind: 'button', pin: sanitizePin(button.pin, 0), pullup: button.pullup }
       } else if (source.data.nodeType === 'PotInput' && edge.sourceHandle === 'value') {
         result[action] = { kind: 'pot', pin: sanitizePin(props.pin, 4) }
       } else if (source.data.nodeType === 'EncoderInput' && edge.sourceHandle === 'pressed') {

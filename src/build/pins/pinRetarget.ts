@@ -203,7 +203,6 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
       capability: 'digitalOutput',
     })),
   },
-  ButtonInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
   TouchButtonInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
   PotInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'analogInput' }] },
   MotionInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
@@ -571,7 +570,22 @@ function connectedMatrixOutputIds(edges: readonly StudioEdge[] | undefined): Set
     .map((edge) => String(edge.target)))
 }
 
-/** Button Bank pins live in stable rows rather than top-level properties. */
+/**
+ * Pins a Button's rows keep on `boardKey` whatever else moves: the ones the
+ * user chose for that board on an earlier visit. Every other row is placed
+ * afresh by `retargetButtonBankPins`.
+ */
+function heldButtonRowPins(nodes: readonly StudioNode[], boardKey: string): number[] {
+  return nodes
+    .filter((node) => node.data.nodeType === 'ButtonBank')
+    .flatMap((node) => normalizeButtonBankEntries((node.data.properties as Record<string, unknown>).buttons))
+    .flatMap((entry) => {
+      const pin = entry.userPinsByBoard?.[boardKey]
+      return pin === undefined ? [] : [pin]
+    })
+}
+
+/** A Button's pins live in stable rows rather than top-level properties. */
 function retargetButtonBankPins(
   inputNodes: StudioNode[],
   profile: PhysicalBoardProfile | undefined,
@@ -650,7 +664,8 @@ function retargetButtonBankPins(
  * the next through `claimed`. Peripheral pins resolve before the general pool,
  * because an I2S trio is a fixed function of the pads while a button can sit
  * anywhere. Pins the user owns are claimed but never moved, so a retargeted
- * part routes around their wiring instead of landing on top of it.
+ * part routes around their wiring instead of landing on top of it. A Button's
+ * rows go last of all, onto whatever the rest left free.
  */
 export function retargetHardwarePins(
   inputNodes: StudioNode[],
@@ -668,8 +683,19 @@ export function retargetHardwarePins(
   previousBoard?: string,
   options: RetargetOptions = {},
 ): RetargetResult {
-  const bankResult = retargetButtonBankPins(inputNodes, profile, fqbn, previousBoard)
-  const nodes = bankResult.nodes
+  const parts = retargetPartPins(inputNodes, profile, fqbn, previousBoard, options)
+  const buttons = retargetButtonBankPins(parts.nodes, profile, fqbn, previousBoard)
+  return { nodes: buttons.nodes, moved: parts.moved + buttons.moved }
+}
+
+/** Every part with a pin plan; a Button's rows are `retargetButtonBankPins`'. */
+function retargetPartPins(
+  nodes: StudioNode[],
+  profile: PhysicalBoardProfile | undefined,
+  fqbn: string,
+  previousBoard: string | undefined,
+  options: RetargetOptions,
+): RetargetResult {
   /*
    * Memory is keyed on the *profile*, not the FQBN.
    *
@@ -756,6 +782,13 @@ export function retargetHardwarePins(
   for (const node of nodes) {
     for (const pin of Object.values(ownedNow(node))) claimed.add(pin)
   }
+  /*
+   * A Button's rows are placed after every part here, so a row cannot take a
+   * pin the board fixes for a card or an I2S trio. Until then a row holds a
+   * pin only where the user chose one for this board; its other rows are
+   * about to move, so their current pins are not claimed.
+   */
+  for (const pin of heldButtonRowPins(nodes, boardKey)) claimed.add(pin)
 
   /*
    * Parts on fixed pins go first, so the pool the rest allocate from already
@@ -828,7 +861,8 @@ export function retargetHardwarePins(
         // would shuffle parts that had no reason to move. Nor the stale pins
         // of a part already answered for: `claimed` is what it actually holds.
         [
-          ...nodes.filter((other) => other.id !== node.id && !resolvedIds.has(other.id)),
+          ...nodes.filter((other) => other.id !== node.id && !resolvedIds.has(other.id)
+            && other.data.nodeType !== 'ButtonBank'),
           ...claimedAsNodes(claimed),
         ],
         (planRequests(plan, properties) ?? []).filter((request) => movable.includes(request.key)),
@@ -855,11 +889,11 @@ export function retargetHardwarePins(
     })
   }
 
-  if (updates.size === 0) return { nodes, moved: bankResult.moved }
+  if (updates.size === 0) return { nodes, moved: 0 }
   return {
     // A part whose only change was recording what the user chose has not
     // moved, and saying so would be a status line about nothing.
-    moved: bankResult.moved + [...updates.values()].filter((update) => Object.keys(update.pins).length > 0).length,
+    moved: [...updates.values()].filter((update) => Object.keys(update.pins).length > 0).length,
     nodes: nodes.map((node) => {
       const update = updates.get(node.id)
       if (!update) return node
@@ -892,7 +926,7 @@ function claimedAsNodes(claimed: Set<number>): StudioNode[] {
     type: 'studioNode',
     position: { x: 0, y: 0 },
     data: {
-      label: 'claimed', nodeType: 'ButtonInput', category: 'input',
+      label: 'claimed', nodeType: 'TouchButtonInput', category: 'input',
       properties: { pin }, inputs: [], outputs: [],
     },
   } as unknown as StudioNode))

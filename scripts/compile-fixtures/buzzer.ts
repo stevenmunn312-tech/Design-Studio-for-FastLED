@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import { generateCpp } from '../../src/codegen/cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../src/state/nodeLibrary'
 import type { StudioEdge, StudioNode } from '../../src/state/graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../src/state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -23,12 +24,12 @@ const edge = (id: string, source: string, sourceHandle: string, target: string, 
 
 // A button held down sounds the buzzer; a solid colour keeps the LED output alive.
 const buzzer = generateCpp([
-  node('btn', 'ButtonInput', { pin: 4 }),
+  node('btn', 'ButtonBank', { buttons: singleButtonRow(4) }),
   node('buzz', 'BuzzerOutput', { partId: 'ky-012-active-buzzer-module', sigPin: 26 }),
   node('fill', 'SolidColor', { r: 255, g: 200, b: 60 }),
   node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
 ], [
-  edge('sound', 'btn', 'pressed', 'buzz', 'on'),
+  edge('sound', 'btn', FIRST_BUTTON_HANDLE, 'buzz', 'on'),
   edge('frame', 'fill', 'frame', 'out', 'frame'),
 ])
 
@@ -36,7 +37,7 @@ const buzzer = generateCpp([
 // 200 Hz to 4 kHz through a Map Range.
 function passiveBuzzer(pins: { button: number; pot: number; buzzer: number; led: number }, extra: StudioNode[] = [], extraEdges: StudioEdge[] = []) {
   return generateCpp([
-    node('btn', 'ButtonInput', { pin: pins.button }),
+    node('btn', 'ButtonBank', { buttons: singleButtonRow(pins.button) }),
     node('pot', 'PotInput', { pin: pins.pot }),
     node('map', 'MapRange', { inMin: 0, inMax: 1, outMin: 200, outMax: 4000 }),
     node('buzz', 'BuzzerOutput', { partId: 'ky-006-passive-buzzer-module', sigPin: pins.buzzer }),
@@ -44,7 +45,7 @@ function passiveBuzzer(pins: { button: number; pot: number; buzzer: number; led:
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: pins.led }),
     ...extra,
   ], [
-    edge('sound', 'btn', 'pressed', 'buzz', 'on'),
+    edge('sound', 'btn', FIRST_BUTTON_HANDLE, 'buzz', 'on'),
     edge('knob', 'pot', 'value', 'map', 'value'),
     edge('pitch', 'map', 'result', 'buzz', 'pitch'),
     edge('frame', 'fill', 'frame', 'out', 'frame'),

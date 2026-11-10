@@ -23,14 +23,14 @@ import { unpluggedPreviewKey } from '../../../state/peripherals/sensorPreview'
 import { ENCODER_COUNTS_PER_STEP } from '../../../state/patterns/patternSelection'
 import styles from './HardwareInputBody.module.css'
 
-// Live preview widgets for the ButtonInput/PotInput/EncoderInput stub nodes —
+// Live preview widgets for the Touch Button/PotInput/EncoderInput stub nodes —
 // a pressable button, a draggable slider, and a spin-to-turn dial — so a
 // design can be played with in the browser the same way MicInput reads a
 // real microphone. Writes go straight into hardwareInputStore (transient
 // run-state, not a saved node property) and graphEvaluator reads them back
 // via getState() on the next frame.
 
-function ButtonInputWidget({ nodeId, idleLabel = 'press', activeLabel = 'PRESSED' }: {
+function PressInputWidget({ nodeId, idleLabel = 'press', activeLabel = 'PRESSED' }: {
   nodeId: string
   idleLabel?: string
   activeLabel?: string
@@ -288,7 +288,7 @@ function JoystickInputWidget({ nodeId, deadzone }: { nodeId: string; deadzone: u
       readout={(fraction) => `${which.toUpperCase()} ${joystickAxis(fraction, deadzone).toFixed(2)}`}
     />
   )
-  return <>{axis('x')}{axis('y')}<ButtonInputWidget nodeId={nodeId} idleLabel="push" /></>
+  return <>{axis('x')}{axis('y')}<PressInputWidget nodeId={nodeId} idleLabel="push" /></>
 }
 
 function DistanceInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
@@ -374,8 +374,7 @@ export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = fal
   if (nodeType === 'TemperatureInput') return <TemperatureInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'EnvironmentInput') return <EnvironmentInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'PresenceInput') return <PresenceInputWidget nodeId={nodeId} partId={partId} />
-  if (nodeType === 'ButtonInput') return <ButtonInputWidget nodeId={nodeId} />
-  if (nodeType === 'TouchButtonInput') return <ButtonInputWidget nodeId={nodeId} idleLabel="touch" activeLabel="TOUCHED" />
+  if (nodeType === 'TouchButtonInput') return <PressInputWidget nodeId={nodeId} idleLabel="touch" activeLabel="TOUCHED" />
   if (nodeType === 'PotInput') return <PotInputWidget nodeId={nodeId} />
   // Same two widgets, same two run-state maps — see the evaluator's note.
   if (nodeType === 'MotionInput') return <ToggleInputWidget nodeId={nodeId} label="motion" />

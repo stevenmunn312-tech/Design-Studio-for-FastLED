@@ -228,17 +228,26 @@ describe('HardwarePartBody', () => {
     expect(queryByText('Also assigned to LED Matrix.')).toBeNull()
   })
 
-  it("sets a button's pull-up here, beside its pin, as a Button Bank button does", () => {
-    for (const nodeType of ['ButtonInput', 'EncoderInput']) {
-      setPart(nodeType)
-      const { getByLabelText, unmount } = render(<HardwarePartBody nodeId="part" nodeType={nodeType} />)
-      const pullup = getByLabelText('Internal pull-up') as HTMLInputElement
-      expect(pullup.checked).toBe(true)
-      expect(pullup.closest('label')?.getAttribute('title')).toMatch(/INPUT_PULLUP/)
-      fireEvent.click(pullup)
-      expect(useGraphStore.getState().nodes[0].data.properties.pullup).toBe(false)
-      unmount()
-    }
+  it("sets an encoder's pull-up here, beside its pin, as each Button row does", () => {
+    setPart('EncoderInput')
+    const { getByLabelText, unmount } = render(<HardwarePartBody nodeId="part" nodeType="EncoderInput" />)
+    const pullup = getByLabelText('Internal pull-up') as HTMLInputElement
+    expect(pullup.checked).toBe(true)
+    expect(pullup.closest('label')?.getAttribute('title')).toMatch(/INPUT_PULLUP/)
+    fireEvent.click(pullup)
+    expect(useGraphStore.getState().nodes[0].data.properties.pullup).toBe(false)
+    unmount()
+  })
+
+  it('starts a Button with one row whose name, pin and pull-up are edited here', () => {
+    setPart('ButtonBank')
+    const { getByLabelText } = render(<HardwarePartBody nodeId="part" nodeType="ButtonBank" />)
+    expect(getByLabelText('Button 1 name')).toBeTruthy()
+    const pullup = getByLabelText('Internal pull-up') as HTMLInputElement
+    expect(pullup.checked).toBe(true)
+    fireEvent.click(pullup)
+    const buttons = useGraphStore.getState().nodes[0].data.properties.buttons as Array<{ id: string; pullup: boolean }>
+    expect(buttons).toEqual([expect.objectContaining({ id: '1', pullup: false })])
   })
 
   it("holds a typed volume to the decoder's 0-21 steps", () => {

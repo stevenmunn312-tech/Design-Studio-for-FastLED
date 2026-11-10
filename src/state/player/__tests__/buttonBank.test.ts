@@ -14,7 +14,7 @@ describe('buttonBank', () => {
 
     expect(buttonBankOutputs(buttons)).toEqual([
       { id: 'button-playPause', label: 'Transport', dataType: 'bool' },
-      { id: BUTTON_BANK_ADD_HANDLE, label: 'Connect button…', dataType: 'bool' },
+      { id: BUTTON_BANK_ADD_HANDLE, label: 'Add button…', dataType: 'bool' },
     ])
   })
 

@@ -6,6 +6,7 @@ import {
 } from '../validateGraph'
 import { STARTER_TEMPLATES, buildBoardAwareStarter } from '../../state/patterns/starterTemplates'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 
 /**
  * The deploy-gate sign-off, as a test rather than a checklist.
@@ -74,13 +75,13 @@ const CASES: GateCase[] = [
     name: 'two hardware roles assigned the same GPIO',
     nodes: [
       node('sc', 'SolidColor'),
-      node('btn', 'ButtonInput', { pin: 5 }),
+      node('btn', 'ButtonBank', { buttons: singleButtonRow(5) }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
     ],
     edges: [edge('e1', 'sc', 'out')],
     fqbn: S3,
     blocks: /GPIO 5 is assigned to more than one pin/,
-    names: ['GPIO 5', 'ButtonInput', 'LED Matrix'],
+    names: ['GPIO 5', 'Button 1', 'LED Matrix'],
     diagnostic: 'pin-5',
   },
   {
@@ -275,20 +276,20 @@ const CASES: GateCase[] = [
     name: 'one action source reaches a destination directly and through Player Controls',
     nodes: [
       node('sc', 'SolidColor'),
-      node('btn', 'ButtonInput', { pin: 12 }),
+      node('btn', 'ButtonBank', { buttons: singleButtonRow(12) }),
       node('controls', 'ControlMap', { controls: ['ledToggle'] }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
     ],
     edges: [
       edge('frame', 'sc', 'out'),
-      { id: 'mapped', source: 'btn', sourceHandle: 'pressed', target: 'controls', targetHandle: 'ledToggle' } as unknown as StudioEdge,
+      { id: 'mapped', source: 'btn', sourceHandle: FIRST_BUTTON_HANDLE, target: 'controls', targetHandle: 'ledToggle' } as unknown as StudioEdge,
       { id: 'bundle', source: 'controls', sourceHandle: 'controls', target: 'out', targetHandle: 'controls' } as unknown as StudioEdge,
-      { id: 'direct', source: 'btn', sourceHandle: 'pressed', target: 'out', targetHandle: 'ledToggle' } as unknown as StudioEdge,
+      { id: 'direct', source: 'btn', sourceHandle: FIRST_BUTTON_HANDLE, target: 'out', targetHandle: 'ledToggle' } as unknown as StudioEdge,
     ],
     fqbn: S3,
     blocks: /LED On \/ Off reaches MatrixOutput twice/,
     names: ['LED On / Off', 'MatrixOutput', 'Player Controls route'],
-    diagnostic: 'direct-control-collision-out-ledToggle-btn-pressed',
+    diagnostic: 'direct-control-collision-out-ledToggle-btn-button-1',
   },
   {
     name: 'more than one IR receiver using the library global decoder',

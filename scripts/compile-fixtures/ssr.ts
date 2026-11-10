@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import { generateCpp } from '../../src/codegen/cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../src/state/nodeLibrary'
 import type { StudioEdge, StudioNode } from '../../src/state/graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../src/state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -22,14 +23,14 @@ const edge = (id: string, source: string, sourceHandle: string, target: string, 
   ({ id, source, sourceHandle, target, targetHandle }) as StudioEdge
 
 const source = generateCpp([
-  node('btn', 'ButtonInput', { pin: 4 }),
+  node('btn', 'ButtonBank', { buttons: singleButtonRow(4) }),
   node('relay', 'RelayOutput', {
     partId: 'seeed-grove-2ch-ssr', in1Pin: 5, in2Pin: 16,
   }),
   node('color', 'SolidColor', { r: 20, g: 40, b: 90 }),
   node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 18 }),
 ], [
-  edge('channel', 'btn', 'pressed', 'relay', 'channel1'),
+  edge('channel', 'btn', FIRST_BUTTON_HANDLE, 'relay', 'channel1'),
   edge('frame', 'color', 'frame', 'out', 'frame'),
 ])
 
@@ -38,7 +39,7 @@ for (const expected of [
   'pinMode(5, OUTPUT);',
   'digitalWrite(16, LOW);',
   'pinMode(16, OUTPUT);',
-  'digitalWrite(5, n_btn_pressed ? HIGH : LOW);',
+  'digitalWrite(5, n_btn_button_1 ? HIGH : LOW);',
 ]) {
   if (!source.includes(expected)) throw new Error(`ssr: missing ${expected}`)
 }

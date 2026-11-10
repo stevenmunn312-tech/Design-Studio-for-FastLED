@@ -565,14 +565,16 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
     singleton: true,
   },
   {
-    nodeType: 'ButtonInput',
+    // One row on a pin the board's plan hands out (`firstButtonBankRow`);
+    // Add button on the node grows the rest without rewiring the first.
+    nodeType: 'ButtonBank',
     partId: 'button',
     label: 'Button',
-    hint: 'A momentary push button',
+    hint: 'A momentary push button; Add button on the node grows more',
     footprint: BUTTON_MODULE_FOOTPRINT_MM,
-    signalPort: 'pressed',
-    pinRequests: [{ key: 'pin' }],
-    pinFields: [{ key: 'pin', label: 'GPIO' }],
+    signalPort: 'add-button',
+    pinRequests: [],
+    pinFields: [],
   },
   {
     nodeType: 'TouchButtonInput',
@@ -585,16 +587,6 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
     pinRequests: [{ key: 'pin' }],
     pinFields: [{ key: 'pin', label: 'SIG' }],
     properties: { partId: 'seeed-grove-touch-sensor' },
-  },
-  {
-    nodeType: 'ButtonBank',
-    partId: 'button-bank',
-    label: 'Button bank',
-    hint: 'Starts with one button; connect outputs to add and name more',
-    footprint: BUTTON_MODULE_FOOTPRINT_MM,
-    signalPort: 'add-button',
-    pinRequests: [],
-    pinFields: [],
   },
   {
     nodeType: 'PotInput',

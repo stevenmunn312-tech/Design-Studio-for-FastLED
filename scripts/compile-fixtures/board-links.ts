@@ -24,6 +24,7 @@ import { useBoardLinkKeyStore } from '../../src/state/peripherals/boardLinkKey'
 import { useNetworkCredentialsStore } from '../../src/state/peripherals/networkCredentials'
 import { webRemoteOutputs } from '../../src/state/peripherals/webRemote'
 import { buildShowPlayer } from '../../src/utils/showUpload'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../src/state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -157,11 +158,11 @@ const run5 = {
     node('fill', 'SolidColor'), node('dim', 'BrightnessMod'), node('dim2', 'BrightnessMod'),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 27 }),
     node('remote5', 'WebRemoteInput', { controls: [{ id: 'level', type: 'Slider', label: 'Level', properties: {} }] }),
-    node('button', 'ButtonInput', { ...on2, pin: 5 }),
+    node('button', 'ButtonBank', { ...on2, buttons: singleButtonRow(5) }),
   ],
   edges: [
     edge('fill', 'frame', 'dim', 'frame'), edge('dim', 'frame', 'dim2', 'frame'), edge('dim2', 'frame', 'out', 'frame'),
-    edge('remote5', 'remote:level', 'dim', 'brightness'), edge('button', 'pressed', 'dim2', 'brightness'),
+    edge('remote5', 'remote:level', 'dim', 'brightness'), edge('button', FIRST_BUTTON_HANDLE, 'dim2', 'brightness'),
   ],
 }
 

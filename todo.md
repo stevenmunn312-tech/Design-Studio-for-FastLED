@@ -122,16 +122,6 @@ hardware.
   (and verified renders) for the MAX485 board and the MIDI FeatherWing, and a
   UART allocator. Meanwhile `midiUartValidationIssues` refuses a DIN UART the
   radar, DMX512, the DFPlayer or a second jack already reads.
-- [ ] **Button: Make Button a one-row Button Bank (Med, M).** Button Bank is a
-  strict superset (per-row name, pin, pull-up, identical `pinMode` and
-  `digitalRead` code). Make Button a bank that starts with one row and offers
-  "Add button", so one node and one shelf entry cover both and a single
-  button grows without rewiring. Evidence `src/state/player/buttonBank.ts:7`,
-  `src/codegen/controlInputCpp.ts:56`. Still open: retiring `ButtonInput`
-  reaches about 36 source files (player and show firmware bindings, pin
-  retargeting, board links, templates, the deck) and 59 test files. The bench
-  now adds a Button Bank with its first row on a pin
-  (`firstButtonBankRow`), which the merged Button would reuse.
 
 #### Effects and signals
 

@@ -15,6 +15,7 @@ import { playerDisplaysFromGraph } from '../player/playerDisplays'
 import { playerControlGraph, PLAYER_SELECTION_STEM } from '../player/playerControlGraph'
 import { playerControlsFromGraph } from '../playerSketchGenerator'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {
@@ -52,7 +53,7 @@ function performanceShow() {
       partId: 'st7789-tft-240x240', tftLayout: 'Now Playing',
       csPin: 5, dcPin: 16, resetPin: 17, sckPin: 18, mosiPin: 23, backlightPin: 4,
     }),
-    node('button', 'ButtonInput', { pin: 12, pullup: true }),
+    node('button', 'ButtonBank', { buttons: singleButtonRow(12, { pullup: true }) }),
     node('controls', 'ControlMap', { controls: ['playPause'] }),
   ]
   const edges = [
@@ -60,7 +61,7 @@ function performanceShow() {
     edge('e3', 'perf', 'frame', 'out', 'frame'),
     edge('e4', 'perf', 'display', 'oled', 'display'),
     edge('e4b', 'perf', 'display', 'tft', 'display'),
-    edge('e5', 'button', 'pressed', 'controls', 'playPause'),
+    edge('e5', 'button', FIRST_BUTTON_HANDLE, 'controls', 'playPause'),
     edge('e6', 'controls', 'controls', 'perf', 'controls'),
   ]
   return { nodes, edges }
@@ -107,9 +108,9 @@ describe('a performance show is an SD player', () => {
       ...base.nodes.map((entry) => entry.id === 'controls'
         ? node('controls', 'ControlMap', { controls: ['playPause', 'patternNext'] })
         : entry),
-      node('next', 'ButtonInput', { pin: 13, pullup: true }),
+      node('next', 'ButtonBank', { buttons: singleButtonRow(13, { pullup: true }) }),
     ]
-    const edges = [...base.edges, edge('e7', 'next', 'pressed', 'controls', 'patternNext')]
+    const edges = [...base.edges, edge('e7', 'next', FIRST_BUTTON_HANDLE, 'controls', 'patternNext')]
     const build = resolveBuildMode(nodes, edges)
     const sketch = buildShowPlayer(nodes, edges, GROUPS, {
       patternSet: ['grp-a', 'grp-b'], bakedAudio: true, preferredTrack: '',

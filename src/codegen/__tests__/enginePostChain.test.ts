@@ -5,6 +5,7 @@ import { buildShowPlayer } from '../../utils/showUpload'
 import { resolveBuildMode } from '../../state/upload/buildMode'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 
 /*
  * Frame nodes between a show engine and its LEDs (codegen/enginePostChain.ts).
@@ -124,14 +125,14 @@ describe('the LED output\'s own inputs on a Music Player build', () => {
       ...edges.filter((entry) => !entry.id.includes('dim') && !entry.id.includes('blur') && entry.id !== 'pot-value-dim-brightness'),
       edge('master', 'frame', 'out', 'frame'),
       edge('pot', 'value', 'out', 'brightness'),
-      edge('btn', 'pressed', 'out', 'enabled'),
+      edge('btn', FIRST_BUTTON_HANDLE, 'out', 'enabled'),
     ]
-    const ino = buildShowPlayer([...nodes, node('btn', 'ButtonInput', { pin: 6 })], direct, groups, {
+    const ino = buildShowPlayer([...nodes, node('btn', 'ButtonBank', { buttons: singleButtonRow(6) })], direct, groups, {
       patternSet: ['pattern'], bakedAudio: false, genericPlayer: true, preferredTrack: '',
     })
     const loop = ino.slice(ino.indexOf('void loop() {'))
     expect(loop).toContain('{ // LED output run-time controls')
-    expect(loop).toMatch(/if \(!\(n_btn_pressed\)\) \{/)
+    expect(loop).toMatch(/if \(!\(n_btn_button_1\)\) \{/)
     expect(loop).toMatch(/uint8_t _outLevel_out = \(uint8_t\)lroundf\(constrain\(n_pot_value, 0\.0f, 1\.0f\) \* 255\.0f\);/)
     expect(loop.indexOf('{ // LED output run-time controls')).toBeLessThan(loop.indexOf('FastLED.show();'))
   })

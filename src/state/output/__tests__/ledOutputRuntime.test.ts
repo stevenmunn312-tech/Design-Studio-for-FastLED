@@ -12,6 +12,7 @@ import { findOutputRuntimeIssues, selectedGenerator } from '../../../utils/valid
 import { generateCpp } from '../../../codegen/cppGenerator'
 import type { Frame } from '../../palettes/ledColor'
 import type { StudioNode, StudioEdge } from '../../graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow, buttonPressKey } from '../../player/buttonBank'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -156,10 +157,10 @@ describe('the preview reads the same wires', () => {
   })
 
   it('blacks out from a wired false', () => {
-    const off = node('b', 'ButtonInput', { pin: 4, pullup: true })
+    const off = node('b', 'ButtonBank', { buttons: singleButtonRow(4, { pullup: true }) })
     const frame = renderedFrame(
       [white, off, output()],
-      [frameEdge, edge('ee', 'b', 'pressed', 'out', 'enabled')],
+      [frameEdge, edge('ee', 'b', FIRST_BUTTON_HANDLE, 'out', 'enabled')],
     )
     expect(frame?.[0][0]).toEqual({ r: 0, g: 0, b: 0 })
   })
@@ -170,10 +171,10 @@ describe('the preview reads the same wires', () => {
     const second = node('out2', 'MatrixOutput', {
       form: 'matrix', width: 4, height: 4, chipset: 'WS2812B', colorOrder: 'GRB', dataPin: 6,
     })
-    const off = node('b', 'ButtonInput', { pin: 4, pullup: true })
+    const off = node('b', 'ButtonBank', { buttons: singleButtonRow(4, { pullup: true }) })
     const { outputs } = evaluateGraphFull(
       [white, off, output(), second],
-      [frameEdge, edge('e2', 'c', 'frame', 'out2', 'frame'), edge('ee', 'b', 'pressed', 'out', 'enabled')],
+      [frameEdge, edge('e2', 'c', 'frame', 'out2', 'frame'), edge('ee', 'b', FIRST_BUTTON_HANDLE, 'out', 'enabled')],
       0, 4, 4,
     )
     expect((outputs.get('out')?.frame as Frame)[0][0]).toEqual({ r: 0, g: 0, b: 0 })
@@ -212,8 +213,8 @@ describe('the emitted sketch', () => {
   })
 
   it('blacks the strip out on a wired enable', () => {
-    const off = node('b', 'ButtonInput', { pin: 4 })
-    const src = generateCpp([white, off, output()], [frameEdge, edge('ee', 'b', 'pressed', 'out', 'enabled')])
+    const off = node('b', 'ButtonBank', { buttons: singleButtonRow(4) })
+    const src = generateCpp([white, off, output()], [frameEdge, edge('ee', 'b', FIRST_BUTTON_HANDLE, 'out', 'enabled')])
     expect(src).toContain('fill_solid(leds,')
     expect(src).toMatch(/if \(!\(.+\)\) fill_solid\(leds, NUM_LEDS, CRGB::Black\);/)
   })
@@ -254,11 +255,11 @@ describe('what a show or player build cannot honour', () => {
   const master = node('master', 'PatternMaster')
   const collection = node('coll', 'PatternCollection', { patternIds: ['a'] })
   const showGraph = () => ({
-    nodes: [slideshow, collection, output(), node('b', 'ButtonInput', { pin: 4 })],
+    nodes: [slideshow, collection, output(), node('b', 'ButtonBank', { buttons: singleButtonRow(4) })],
     edges: [
       edge('e1', 'coll', 'patternset', 'master', 'patternset'),
       edge('e2', 'master', 'frame', 'out', 'frame'),
-      edge('ee', 'b', 'pressed', 'out', 'enabled'),
+      edge('ee', 'b', FIRST_BUTTON_HANDLE, 'out', 'enabled'),
     ],
   })
 
@@ -418,10 +419,10 @@ describe('a button reaching the output through Player Controls', () => {
   const controls = node('ctl', 'ControlMap', {
     debounceMs: 0, brightnessStep: 0.05, repeatDelayMs: 400, repeatIntervalMs: 120,
   })
-  const button = node('b', 'ButtonInput', { pin: 4, pullup: true })
+  const button = node('b', 'ButtonBank', { buttons: singleButtonRow(4, { pullup: true }) })
   const wires = [
     frameEdge,
-    edge('e1', 'b', 'pressed', 'ctl', 'ledToggle'),
+    edge('e1', 'b', FIRST_BUTTON_HANDLE, 'ctl', 'ledToggle'),
     edge('e2', 'ctl', 'controls', 'out', 'controls'),
   ]
 
@@ -495,11 +496,11 @@ describe('a button reaching the output through Player Controls', () => {
   it('toggles blackout from a direct action input once per held press', () => {
     resetEvaluatorState()
     useHardwareInputStore.setState({ button: new Map(), pot: new Map(), encoder: new Map() })
-    const button = node('b', 'ButtonInput', { pin: 4, pullup: true })
-    const wires = [frameEdge, edge('e1', 'b', 'pressed', 'out', 'ledToggle')]
+    const button = node('b', 'ButtonBank', { buttons: singleButtonRow(4, { pullup: true }) })
+    const wires = [frameEdge, edge('e1', 'b', FIRST_BUTTON_HANDLE, 'out', 'ledToggle')]
     expect(pass([white, button, output()], wires, 0)?.[0][0])
       .toEqual({ r: 255, g: 255, b: 255 })
-    useHardwareInputStore.getState().setButton('b', true)
+    useHardwareInputStore.getState().setButton(buttonPressKey('b'), true)
     expect(pass([white, button, output()], wires, 1)?.[0][0])
       .toEqual({ r: 255, g: 255, b: 255 })
     expect(pass([white, button, output()], wires, 3)?.[0][0])
@@ -511,10 +512,10 @@ describe('a button reaching the output through Player Controls', () => {
 
 describe('the emitted sketch, for a bundle', () => {
   const controls = node('ctl', 'ControlMap', {})
-  const button = node('b', 'ButtonInput', { pin: 12, pullup: true })
+  const button = node('b', 'ButtonBank', { buttons: singleButtonRow(12, { pullup: true }) })
   const wires = [
     frameEdge,
-    edge('e1', 'b', 'pressed', 'ctl', 'ledToggle'),
+    edge('e1', 'b', FIRST_BUTTON_HANDLE, 'ctl', 'ledToggle'),
     edge('e2', 'ctl', 'controls', 'out', 'controls'),
   ]
 
@@ -530,7 +531,7 @@ describe('the emitted sketch, for a bundle', () => {
   it('emits a direct LED action through the output latch without a Player Controls node', () => {
     const src = generateCpp(
       [white, button, output()],
-      [frameEdge, edge('e1', 'b', 'pressed', 'out', 'ledToggle')],
+      [frameEdge, edge('e1', 'b', FIRST_BUTTON_HANDLE, 'out', 'ledToggle')],
     )
     expect(src).toContain('PlayerControlsValue n_out_direct_controls;')
     expect(src).toContain('static CtlEdge _pcE_out_direct_ledToggle;')
@@ -543,7 +544,7 @@ describe('the emitted sketch, for a bundle', () => {
       [white, button, trigger, output()],
       [
         frameEdge,
-        edge('e1', 'b', 'pressed', 'trg', 'trigger'),
+        edge('e1', 'b', FIRST_BUTTON_HANDLE, 'trg', 'trigger'),
         edge('e2', 'trg', 'out', 'out', 'ledToggle'),
       ],
     )
@@ -578,10 +579,10 @@ describe('the emitted sketch, for a bundle', () => {
   // Repeat where the evaluator repeats: an adjustment ramps while held, an
   // action fires once per press. Backwards, a blackout button strobes.
   it('repeats an adjustment button and not an action', () => {
-    const up = node('u', 'ButtonInput', { pin: 13, pullup: true })
+    const up = node('u', 'ButtonBank', { buttons: singleButtonRow(13, { pullup: true }) })
     const src = generateCpp(
       [white, button, up, controls, output()],
-      [...wires, edge('e3', 'u', 'pressed', 'ctl', 'brightnessUp')],
+      [...wires, edge('e3', 'u', FIRST_BUTTON_HANDLE, 'ctl', 'brightnessUp')],
     )
     expect(src).toMatch(/_pcE_ctl_ledToggle\.update\([^)]*, false,/)
     expect(src).toMatch(/_pcE_ctl_brightnessUp\.update\([^)]*, true,/)

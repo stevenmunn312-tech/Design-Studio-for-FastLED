@@ -7,6 +7,7 @@ import {
 } from '../showUpload'
 import type { MusicEntry } from '../../state/player/musicStore'
 import type { ShowFile } from '../../types/showFile'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 
 function node(
   id: string,
@@ -97,7 +98,7 @@ describe('buildShowPlayer', () => {
     const nodes = [
       node('player', 'PatternMaster'),
       node('fx', 'PlayerParticles', { enabled: false, style: 'swirl', intensity: 0.85 }),
-      node('sparks', 'ButtonInput', { pin: 12 }),
+      node('sparks', 'ButtonBank', { buttons: singleButtonRow(12) }),
       node('gold', 'Color', { color: '#ffb020' }),
       node('sd', 'SDCard'), node('amp', 'Amplifier'),
       node('led', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
@@ -105,7 +106,7 @@ describe('buildShowPlayer', () => {
     const edges = [
       { id: 'leds', source: 'player', sourceHandle: 'frame', target: 'led', targetHandle: 'frame' },
       { id: 'fx', source: 'fx', sourceHandle: 'particleFx', target: 'player', targetHandle: 'particleFx' },
-      { id: 'en', source: 'sparks', sourceHandle: 'pressed', target: 'fx', targetHandle: 'enabled' },
+      { id: 'en', source: 'sparks', sourceHandle: FIRST_BUTTON_HANDLE, target: 'fx', targetHandle: 'enabled' },
       { id: 'co', source: 'gold', sourceHandle: 'color', target: 'fx', targetHandle: 'color' },
     ] as Edge[]
     const groups = Object.fromEntries(['a', 'b'].map((id) => [id, {
@@ -115,12 +116,12 @@ describe('buildShowPlayer', () => {
     const sketch = buildShowPlayer(nodes, edges, groups, {
       patternSet: ['a', 'b'], bakedAudio: false, preferredTrack: '', genericPlayer: true,
     })
-    expect(sketch).toContain('if (_audioBeat && (n_sparks_pressed)) {')
+    expect(sketch).toContain('if (_audioBeat && (n_sparks_button_1)) {')
     expect(sketch).toContain('burstColor = n_gold_color;')
-    expect(sketch).toContain('if ((n_sparks_pressed) && burstIntensity > 0.01f && (float)(posMs - burstStart) < PARTICLE_LIFE_MS) {')
+    expect(sketch).toContain('if ((n_sparks_button_1) && burstIntensity > 0.01f && (float)(posMs - burstStart) < PARTICLE_LIFE_MS) {')
     // The button and colour are read before the burst that uses them.
-    expect(sketch.indexOf('n_sparks_pressed =')).toBeGreaterThan(-1)
-    expect(sketch.indexOf('n_sparks_pressed =')).toBeLessThan(sketch.indexOf('if (_audioBeat && (n_sparks_pressed)) {'))
+    expect(sketch.indexOf('n_sparks_button_1 =')).toBeGreaterThan(-1)
+    expect(sketch.indexOf('n_sparks_button_1 =')).toBeLessThan(sketch.indexOf('if (_audioBeat && (n_sparks_button_1)) {'))
   })
 
   it('generates from the selected engine in a mixed graph, not the first engine in node order', () => {
@@ -178,18 +179,18 @@ describe('buildShowPlayer', () => {
     const nodes = [
       node('stray-player', 'PatternMaster'),
       node('stray-controls', 'ControlMap', { controls: ['playPause'] }),
-      node('stray-button', 'ButtonInput', { pin: 12, pullup: false }),
+      node('stray-button', 'ButtonBank', { buttons: singleButtonRow(12, { pullup: false }) }),
       node('selected-player', 'PatternMaster'),
       node('selected-controls', 'ControlMap', { controls: ['playPause'] }),
-      node('selected-button', 'ButtonInput', { pin: 13, pullup: false }),
+      node('selected-button', 'ButtonBank', { buttons: singleButtonRow(13, { pullup: false }) }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 17 }),
       node('sd', 'SDCard'),
       node('amp', 'Amplifier'),
     ]
     const edges = [
-      { id: 'stray-button-controls', source: 'stray-button', sourceHandle: 'pressed', target: 'stray-controls', targetHandle: 'playPause' },
+      { id: 'stray-button-controls', source: 'stray-button', sourceHandle: FIRST_BUTTON_HANDLE, target: 'stray-controls', targetHandle: 'playPause' },
       { id: 'stray-controls-player', source: 'stray-controls', sourceHandle: 'controls', target: 'stray-player', targetHandle: 'controls' },
-      { id: 'selected-button-controls', source: 'selected-button', sourceHandle: 'pressed', target: 'selected-controls', targetHandle: 'playPause' },
+      { id: 'selected-button-controls', source: 'selected-button', sourceHandle: FIRST_BUTTON_HANDLE, target: 'selected-controls', targetHandle: 'playPause' },
       { id: 'selected-controls-player', source: 'selected-controls', sourceHandle: 'controls', target: 'selected-player', targetHandle: 'controls' },
       { id: 'selected-frame', source: 'selected-player', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
     ] as Edge[]
@@ -208,11 +209,11 @@ describe('buildShowPlayer', () => {
         debounceMs: 55, volumeStep: 0.06, brightnessStep: 0.07,
         repeatDelayMs: 475, repeatIntervalMs: 135,
       }),
-      node('pause', 'ButtonInput', { pin: 12, pullup: false }),
+      node('pause', 'ButtonBank', { buttons: singleButtonRow(12, { pullup: false }) }),
     ]
     const edges = [
       { id: 'controls-player', source: 'controls', sourceHandle: 'controls', target: 'player', targetHandle: 'controls' },
-      { id: 'pause-controls', source: 'pause', sourceHandle: 'pressed', target: 'controls', targetHandle: 'playPause' },
+      { id: 'pause-controls', source: 'pause', sourceHandle: FIRST_BUTTON_HANDLE, target: 'controls', targetHandle: 'playPause' },
     ] as Edge[]
 
     const sketch = buildShowPlayer(nodes, edges, {}, {
@@ -221,7 +222,7 @@ describe('buildShowPlayer', () => {
 
     expect(sketch).toContain('pinMode(12, INPUT);')
     expect(sketch).toContain('digitalRead(12) == HIGH')
-    expect(sketch).toContain('.update(n_pause_pressed, _pcNow_controls, false, 55u, 475u, 135u)')
+    expect(sketch).toContain('.update(n_pause_button_1, _pcNow_controls, false, 55u, 475u, 135u)')
     expect(sketch).toContain('audio.pauseResume()')
   })
 

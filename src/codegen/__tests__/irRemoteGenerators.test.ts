@@ -19,6 +19,7 @@ import { generateShowSketch } from '../showGenerator'
 import { playerControlGraph } from '../player/playerControlGraph'
 import { buildShowPlayer } from '../../utils/showUpload'
 import { IR_RMT_RECEIVER_CPP } from '../peripherals/irRmtReceiverCpp'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -174,14 +175,14 @@ describe('IR polling in the three generators', () => {
       node('fill', 'SolidColor'),
       node('step', 'StepValue', { initial: 0.25, minimum: 0, maximum: 1, step: 0.25 }),
       node('ir', 'IRRemoteInput', keys),
-      node('btn', 'ButtonInput', { pin: 12 }),
+      node('btn', 'ButtonBank', { buttons: singleButtonRow(12) }),
       ...controlNodes,
     ]
     const edges = [
       edge('fill', 'frame', 'out', 'frame'),
       edge('ir', 'button-power', 'step', 'increase'),
       edge('step', 'value', 'fill', 'r'),
-      edge('btn', 'pressed', 'tft', 'enabled'),
+      edge('btn', FIRST_BUTTON_HANDLE, 'tft', 'enabled'),
       edge('tft-touch', 'widget:toggle:out', 'out', 'enabled'),
       ...controlEdges,
     ]
@@ -201,14 +202,14 @@ describe('IR polling in the three generators', () => {
       node('show', 'PatternSlideshow'),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 27 }),
       node('ir', 'IRRemoteInput', keys),
-      node('btn', 'ButtonInput', { pin: 12 }),
+      node('btn', 'ButtonBank', { buttons: singleButtonRow(12) }),
       ...controlNodes,
     ]
     const edges = [
       edge('collection', 'patternset', 'show', 'patternset'),
       edge('show', 'frame', 'out', 'frame'),
       edge('ir', 'button-power', 'show', 'patternNext'),
-      edge('btn', 'pressed', 'tft', 'enabled'),
+      edge('btn', FIRST_BUTTON_HANDLE, 'tft', 'enabled'),
       edge('tft-touch', 'widget:toggle:out', 'out', 'enabled'),
       ...controlEdges,
     ]
@@ -224,13 +225,13 @@ describe('IR polling in the three generators', () => {
       node('sd', 'SDCard'),
       node('amp', 'Amplifier', { maxVolume: 6 }),
       node('ir', 'IRRemoteInput', keys),
-      node('btn', 'ButtonInput', { pin: 12 }),
+      node('btn', 'ButtonBank', { buttons: singleButtonRow(12) }),
       ...controlNodes,
     ]
     const edges = [
       edge('player', 'frame', 'out', 'frame'),
       edge('ir', 'button-power', 'player', 'next'),
-      edge('btn', 'pressed', 'tft', 'enabled'),
+      edge('btn', FIRST_BUTTON_HANDLE, 'tft', 'enabled'),
       ...controlEdges,
     ]
     const source = buildShowPlayer(nodes, edges, groups, {

@@ -32,14 +32,14 @@ const ESP32_S3 = 'esp32:esp32:esp32s3'
 describe('pin ownership', () => {
   it('treats a pin still holding the assigned value as the app\'s', () => {
     const properties = withAssignedPins({}, { pin: 4 })
-    expect(isPinAppOwned('ButtonInput', properties, 'pin')).toBe(true)
+    expect(isPinAppOwned('TouchButtonInput', properties, 'pin')).toBe(true)
   })
 
   it('treats a pin the user has changed as theirs', () => {
     // The whole rule: a board someone has wired differently is a fact about
     // their bench, not a preference to correct.
     const properties = { ...withAssignedPins({}, { pin: 4 }), pin: 12 }
-    expect(isPinAppOwned('ButtonInput', properties, 'pin')).toBe(false)
+    expect(isPinAppOwned('TouchButtonInput', properties, 'pin')).toBe(false)
   })
 
   it('records the assignment without losing earlier ones', () => {
@@ -53,8 +53,8 @@ describe('pin ownership', () => {
     // Holding a part to it on a board that may not even expose that pin would
     // be worse than moving it — the same reason mic defaults are kept per FQBN.
     const properties = { ...withAssignedPins({}, { pin: 4 }, 'esp32:esp32:esp32'), pin: 12 }
-    expect(isPinAppOwned('ButtonInput', properties, 'pin', 'esp32:esp32:esp32')).toBe(false)
-    expect(isPinAppOwned('ButtonInput', properties, 'pin', ESP32_S3)).toBe(true)
+    expect(isPinAppOwned('TouchButtonInput', properties, 'pin', 'esp32:esp32:esp32')).toBe(false)
+    expect(isPinAppOwned('TouchButtonInput', properties, 'pin', ESP32_S3)).toBe(true)
   })
 
   it('starts a fresh record when the board changes', () => {
@@ -106,7 +106,7 @@ describe('retargetHardwarePins', () => {
       { dataPin: 21 },
       first.id,
     ))
-    const button = part('button', 'ButtonInput', withAssignedPins({ label: 'Next' }, { pin: 4 }, first.id))
+    const button = part('button', 'TouchButtonInput', withAssignedPins({ label: 'Next' }, { pin: 4 }, first.id))
 
     const result = retargetHardwarePins([output, button], second, ESP32_S3, first.id, {
       edges: [frameWire('out')],
@@ -167,8 +167,8 @@ describe('retargetHardwarePins', () => {
     const nodes = [
       part('amp', 'Amplifier', { i2sBclk: 12, i2sLrc: 13, i2sDout: 14 }),
       part('enc', 'EncoderInput', { pinA: 2, pinB: 4, pinSW: 5 }),
-      part('one', 'ButtonInput', { pin: 15 }),
-      part('two', 'ButtonInput', { pin: 16 }),
+      part('one', 'TouchButtonInput', { pin: 15 }),
+      part('two', 'TouchButtonInput', { pin: 16 }),
     ]
 
     const result = retargetHardwarePins(nodes, board, ESP32_S3)
@@ -204,6 +204,51 @@ describe('retargetHardwarePins', () => {
       expect(amp, `OLED pin ${pin} against the amplifier`).not.toContain(pin)
     }
     expect(new Set(screen).size).toBe(screen.length)
+  })
+
+  /*
+   * A single Button is a one-row Button now, and its row used to be placed
+   * before every other part: it took the first free pin of the new board
+   * while the card still sat on its old pins, and the card's board-fixed
+   * SPI pins then landed on top of it. Rows go last, onto what is left.
+   */
+  it('places a Button row after the parts whose pins the board fixes', () => {
+    const board = boardProfileById('esp32-generic-devkit-38pin')!
+    // The card arrives on the first four pins of this board's pool, so the
+    // first one free is 18: its own SPI clock on this board.
+    const nodes = [
+      part('button', 'ButtonBank', { buttons: [{ id: '1', label: 'Button 1', pin: -1, pullup: true }] }),
+      part('sd', 'SDCard', { sdCsPin: 13, sdSckPin: 14, sdMisoPin: 16, sdMosiPin: 17 }),
+    ]
+
+    const result = retargetHardwarePins(nodes, board, 'esp32:esp32:esp32')
+    const properties = (id: string) => result.nodes.find((node) => node.id === id)!.data.properties as Record<string, number>
+    const fixed = ['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin'].map((key) => properties('sd')[key])
+    expect(fixed).toContain(18)
+    const row = (properties('button').buttons as unknown as Array<{ pin: number }>)[0].pin
+
+    expect(row).toBeGreaterThanOrEqual(0)
+    expect(fixed, `button row on ${row}`).not.toContain(row)
+  })
+
+  it('keeps a Button row on the pin the user chose for the board it returns to', () => {
+    const first = profile([2, 4], undefined, 'first-board')
+    const second = profile([21, 33], undefined, 'second-board')
+    // The pot is placed before the row; it must not be handed the row's pin.
+    const nodes = [
+      part('pot', 'PotInput', withAssignedPins({}, { pin: 2 }, second.id)),
+      part('button', 'ButtonBank', {
+        buttons: [{
+          id: '1', label: 'Button 1', pin: 21, pullup: true,
+          assignedPin: 21, assignedBoard: second.id, userPinsByBoard: { [first.id]: 2 },
+        }],
+      }),
+    ]
+
+    const result = retargetHardwarePins(nodes, first, ESP32_S3, second.id)
+    const pin = (id: string, key: string) => Number((result.nodes.find((node) => node.id === id)!.data.properties as Record<string, unknown>)[key])
+    expect((result.nodes.find((node) => node.id === 'button')!.data.properties.buttons as Array<{ pin: number }>)[0].pin).toBe(2)
+    expect(pin('pot', 'pin')).toBe(4)
   })
 
   it('retargets every app-assigned Button Bank row without collisions', () => {
@@ -302,14 +347,14 @@ describe('retargetHardwarePins', () => {
   })
 
   it('moves a part the app placed', () => {
-    const nodes = [part('b', 'ButtonInput', withAssignedPins({}, { pin: 4 }))]
+    const nodes = [part('b', 'TouchButtonInput', withAssignedPins({}, { pin: 4 }))]
     const result = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3)
     expect(result.moved).toBe(1)
     expect(result.nodes[0].data.properties.pin).toBe(21)
   })
 
   it('leaves a part the user wired', () => {
-    const nodes = [part('b', 'ButtonInput', { ...withAssignedPins({}, { pin: 4 }), pin: 12 })]
+    const nodes = [part('b', 'TouchButtonInput', { ...withAssignedPins({}, { pin: 4 }), pin: 12 })]
     const result = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3)
     expect(result.moved).toBe(0)
     expect(result.nodes[0].data.properties.pin).toBe(12)
@@ -319,8 +364,8 @@ describe('retargetHardwarePins', () => {
     // The user's button sits on 21. The app's button must not be handed 21
     // just because the board offers it first.
     const nodes = [
-      part('mine', 'ButtonInput', { ...withAssignedPins({}, { pin: 4 }), pin: 21 }),
-      part('theirs', 'ButtonInput', withAssignedPins({}, { pin: 5 })),
+      part('mine', 'TouchButtonInput', { ...withAssignedPins({}, { pin: 4 }), pin: 21 }),
+      part('theirs', 'TouchButtonInput', withAssignedPins({}, { pin: 5 })),
     ]
     const result = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3)
     expect(result.nodes.find((n) => n.id === 'mine')!.data.properties.pin).toBe(21)
@@ -329,8 +374,8 @@ describe('retargetHardwarePins', () => {
 
   it('does not put two app-placed parts on the same pin', () => {
     const nodes = [
-      part('a', 'ButtonInput', withAssignedPins({}, { pin: 4 })),
-      part('b', 'ButtonInput', withAssignedPins({}, { pin: 5 })),
+      part('a', 'TouchButtonInput', withAssignedPins({}, { pin: 4 })),
+      part('b', 'TouchButtonInput', withAssignedPins({}, { pin: 5 })),
     ]
     const result = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3)
     const pins = result.nodes.map((n) => Number(n.data.properties.pin))
@@ -418,16 +463,16 @@ describe('retargetHardwarePins', () => {
   })
 
   it('re-stamps what it moved, so the next board change still knows', () => {
-    const nodes = [part('b', 'ButtonInput', withAssignedPins({}, { pin: 4 }))]
+    const nodes = [part('b', 'TouchButtonInput', withAssignedPins({}, { pin: 4 }))]
     const once = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3)
     expect(once.nodes[0].data.properties.assignedPins).toMatchObject({ pin: 21 })
     // Still the app's, so a second board change can move it again.
-    expect(isPinAppOwned('ButtonInput', once.nodes[0].data.properties, 'pin')).toBe(true)
+    expect(isPinAppOwned('TouchButtonInput', once.nodes[0].data.properties, 'pin')).toBe(true)
   })
 
   it('reports nothing moved when the board already agrees', () => {
     // No-op rather than an empty undo step.
-    const nodes = [part('b', 'ButtonInput', withAssignedPins({}, { pin: 21 }))]
+    const nodes = [part('b', 'TouchButtonInput', withAssignedPins({}, { pin: 21 }))]
     const result = retargetHardwarePins(nodes, profile([21, 33]), ESP32_S3)
     expect(result.moved).toBe(0)
     expect(result.nodes).toBe(nodes)
@@ -442,7 +487,7 @@ describe('retargetHardwarePins', () => {
      */
     const nodemcu = profile([2, 4], undefined, 'esp8266-nodemcu-v3')
     const s3 = profile([21, 33], undefined, 'esp32-s3-devkitc-1')
-    const wired = part('b', 'ButtonInput', {
+    const wired = part('b', 'TouchButtonInput', {
       ...withAssignedPins({}, { pin: 2 }, nodemcu.id),
       pin: 13,
     })
@@ -457,7 +502,7 @@ describe('retargetHardwarePins', () => {
   it('keeps a returned pin theirs, so it survives the next trip too', () => {
     const nodemcu = profile([2, 4], undefined, 'esp8266-nodemcu-v3')
     const s3 = profile([21, 33], undefined, 'esp32-s3-devkitc-1')
-    let nodes = [part('b', 'ButtonInput', {
+    let nodes = [part('b', 'TouchButtonInput', {
       ...withAssignedPins({}, { pin: 2 }, nodemcu.id),
       pin: 13,
     })]
@@ -471,13 +516,13 @@ describe('retargetHardwarePins', () => {
   it('remembers each board separately', () => {
     const nodemcu = profile([2, 4], undefined, 'esp8266-nodemcu-v3')
     const s3 = profile([21, 33], undefined, 'esp32-s3-devkitc-1')
-    let nodes = [part('b', 'ButtonInput', {
+    let nodes = [part('b', 'TouchButtonInput', {
       ...withAssignedPins({}, { pin: 2 }, nodemcu.id),
       pin: 13,
     })]
     // Move to the S3 and hand-wire it differently there.
     nodes = retargetHardwarePins(nodes, s3, ESP32_S3).nodes
-    nodes = [part('b', 'ButtonInput', { ...nodes[0].data.properties, pin: 7 })]
+    nodes = [part('b', 'TouchButtonInput', { ...nodes[0].data.properties, pin: 7 })]
 
     nodes = retargetHardwarePins(nodes, nodemcu, 'esp8266:esp8266:nodemcuv2').nodes
     expect(nodes[0].data.properties.pin).toBe(13)
@@ -487,7 +532,7 @@ describe('retargetHardwarePins', () => {
 
   it('does not report a move when it only recorded a choice', () => {
     const s3 = profile([21, 33], undefined, 'esp32-s3-devkitc-1')
-    const nodes = [part('b', 'ButtonInput', {
+    const nodes = [part('b', 'TouchButtonInput', {
       ...withAssignedPins({}, { pin: 13 }, 'esp8266-nodemcu-v3'),
       // Already on the pin this board remembers, so nothing shifts.
       userPinsByBoard: { [s3.id]: { pin: 13 } },
@@ -508,7 +553,7 @@ describe('retargetHardwarePins', () => {
     const thirtyEight = profile([21, 33], undefined, 'esp32-generic-devkit-38pin')
     const shared = 'esp32:esp32:esp32'
 
-    let nodes = [part('b', 'ButtonInput', withAssignedPins({}, { pin: 2 }, thirtyPin.id))]
+    let nodes = [part('b', 'TouchButtonInput', withAssignedPins({}, { pin: 2 }, thirtyPin.id))]
     nodes = retargetHardwarePins(nodes, thirtyEight, shared).nodes
     expect(nodes[0].data.properties.pin).toBe(21)
   })
@@ -519,7 +564,7 @@ describe('retargetHardwarePins', () => {
     const shared = 'esp32:esp32:esp32'
 
     // Hand-wired on the 30-pin, then away to the 38-pin and back.
-    let nodes = [part('b', 'ButtonInput', {
+    let nodes = [part('b', 'TouchButtonInput', {
       ...withAssignedPins({}, { pin: 2 }, thirtyPin.id),
       pin: 15,
     })]

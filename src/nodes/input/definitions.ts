@@ -7,6 +7,7 @@ import { NO_PIN } from '../../build/boards/boardGpio'
 import { HCSR04_PART_ID, VL53L0X_PART_ID, distanceSensorSpec, formatDistanceSensorAddress } from '../../state/peripherals/distanceSensor'
 import { BME280_DEFAULT_ADDRESS, BME280_PART_ID, formatEnvironmentAddress } from '../../state/peripherals/environmentSensor'
 import { IR_REMOTE_LEARN_HANDLE } from '../../state/peripherals/irRemote'
+import { BUTTON_BANK_ADD_HANDLE, BUTTON_BANK_ADD_LABEL, firstButtonBankRow } from '../../state/player/buttonBank'
 import { TOUCH_CONTROL_ADD_DATA_TYPE, TOUCH_CONTROL_ADD_HANDLE, TOUCH_CONTROL_ADD_LABEL } from '../../state/displays/displayRegistry'
 import { JOYSTICK_DEFAULT_DEADZONE, KY023_PART_ID } from '../../state/peripherals/joystick'
 import { KEYPAD_KEY_COUNT, KEYPAD_LEGENDS, KEYPAD_PART_ID, keypadKeyPort } from '../../state/peripherals/keypad'
@@ -79,16 +80,25 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
 
   // ── Inputs ─────────────────────────────────────────────────────────────
   {
-    type: 'ButtonInput',
+    /*
+     * Push buttons, one row each: a name, a GPIO and a pull-up, and an output
+     * per row. A single button is a one-row Button, so one node covers both
+     * and a button grows a second without rewiring the first. The outputs are
+     * derived from `buttons`; this trailing port is the invitation, and
+     * completing a connection turns it into a named button wired to that
+     * input and grows another empty socket beneath it. The type id is the one
+     * it had while a separate one-button node existed beside it.
+     */
+    type: 'ButtonBank',
     label: 'Button',
     category: 'input',
     inputs: [],
-    outputs: [{ id: 'pressed', label: 'Pressed', dataType: 'bool' }],
-    defaultProperties: { pin: 0, pullup: true },
+    outputs: [{ id: BUTTON_BANK_ADD_HANDLE, label: BUTTON_BANK_ADD_LABEL, dataType: 'bool' }],
+    defaultProperties: { buttons: firstButtonBankRow(undefined) },
   },
   {
     // A TTP223 module actively drives its output HIGH on touch. It therefore
-    // uses plain INPUT and cannot share ButtonInput's pulled-up, active-low
+    // uses plain INPUT and cannot share Button's pulled-up, active-low
     // contact contract.
     type: 'TouchButtonInput',
     label: 'Touch Button',
@@ -137,22 +147,11 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    type: 'ButtonBank',
-    label: 'Button Bank',
-    category: 'input',
-    inputs: [],
-    // The real outputs are derived from `buttons`. This trailing port is the
-    // invitation: completing a connection turns it into a named button and
-    // immediately grows another empty socket beneath it.
-    outputs: [{ id: 'add-button', label: 'Connect button…', dataType: 'bool' }],
-    defaultProperties: { buttons: [] },
-  },
-  {
     /*
      * A three-pin demodulating IR receiver, one per bench.
      *
      * Its outputs are the buttons someone has learned off a handheld remote,
-     * derived from `buttons` the way a Button Bank derives its own — an IR key
+     * derived from `buttons` the way a Button derives its own — an IR key
      * is an identity in a saved mapping, not a pin, so the node grows a port
      * per learned key and claims exactly one GPIO however many keys it has.
      * The trailing socket invites the next one.
@@ -413,7 +412,7 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // Rotary encoder (e.g. KY-040) — polling quadrature decode (no interrupts,
-    // matching ButtonInput/PotInput's plain digitalRead/analogRead approach).
+    // matching Button's and PotInput's plain digitalRead/analogRead approach).
     // `position` is an unbounded running count of clicks; wire through
     // MapRange/Mod to wrap it. `level` is the same turning held to 0-1 as it is counted
     // (state/peripherals/encoder.ts), for a volume or a brightness.
@@ -565,10 +564,9 @@ export const INPUT_DESCRIPTIONS: Record<string, string> = {
   MicInput: 'I2S MEMS microphone Hardware provider selected through the Audio node.',
   LineInput: 'PCM1802 Hardware provider selected through the Audio node.',
   // hardware
-  ButtonInput: 'Reads a hardware button as a boolean.',
+  ButtonBank: 'Reads push buttons as booleans, one named output each; Add button grows another.',
   TouchButtonInput: 'Reads a capacitive touch button as a boolean.',
   TouchInput: 'The touch surface of a TFT Display, as controls.',
-  ButtonBank: 'Grows named hardware-button outputs as you connect them.',
   IRRemoteInput: 'Reads learned handheld-remote keys as boolean events.',
   WebRemoteInput: 'A phone control page served over Wi-Fi: buttons, sliders, colours and text.',
   MotionInput: 'Reads a PIR motion sensor as a boolean.',

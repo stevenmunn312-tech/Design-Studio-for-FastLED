@@ -85,12 +85,12 @@ describe('Sidebar equipment rack', () => {
     fireEvent.change(getByPlaceholderText('Search nodes…'), { target: { value: 'button' } })
 
     expect(getByText('On the Hardware tab')).toBeTruthy()
-    // Both Button and Button Bank live on the bench; take the first.
+    // Button and Touch Button both live on the bench; take the first.
     const shelf = getByText('On the Hardware tab').parentElement!
     fireEvent.click(shelf.querySelectorAll('button')[0])
     expect(useUiStore.getState().workspaceMode).toBe('hardware')
     expect(useUiStore.getState().sidebarOpen).toBe(true)
-    expect(useUiStore.getState().hardwareShelfTarget).toBe('ButtonInput')
+    expect(useUiStore.getState().hardwareShelfTarget).toBe('ButtonBank')
   })
 
   // Everything physical is added from the bench, so the Output section holds

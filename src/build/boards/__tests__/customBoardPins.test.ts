@@ -15,6 +15,7 @@ import {
   buildGraphDiagnostics,
   validateGraph,
 } from '../../../utils/validateGraph'
+import { singleButtonRow } from '../../../state/player/buttonBank'
 
 const CLASSIC_FQBN = 'esp32:esp32:esp32'
 let nextId = 0
@@ -64,7 +65,7 @@ describe('custom board pin allocation', () => {
     expect(boardSparePins(empty, new Set())).toEqual([])
     expect(nextFreeLedDataPin(empty, [])).toBeNull()
     const full = customProfile(definition())
-    const taken = [16, 17, 21, 22, 32].map((pin, index) => node(`b${index}`, 'ButtonInput', { pin }))
+    const taken = [16, 17, 21, 22, 32].map((pin, index) => node(`b${index}`, 'TouchButtonInput', { pin }))
     expect(boardSparePins(full, new Set([16, 17, 21, 22, 32]))).toEqual([])
     expect(assignPartPins(full, CLASSIC_FQBN, taken, [{ key: 'pin' }]).ok).toBe(false)
     // A stock profile without safety data keeps its "unknown" meaning.
@@ -100,7 +101,7 @@ describe('custom board pin allocation', () => {
     const chosen = node('env', 'EnvironmentInput', {
       ...withAssignedPins({}, { sdaPin: 21, sclPin: 22 }, before.id), sdaPin: 32, sclPin: 22,
     })
-    const unrelated = node('button', 'ButtonInput', withAssignedPins({}, { pin: 4 }, before.id))
+    const unrelated = node('button', 'TouchButtonInput', withAssignedPins({}, { pin: 4 }, before.id))
     const result = retargetDefaultI2c([appPlaced, chosen, unrelated], after)
     expect(result.moved).toBe(2)
     const props = (id: string) => result.nodes.find((entry) => entry.id === id)!.data.properties
@@ -115,16 +116,16 @@ describe('custom board pin allocation', () => {
 describe('custom board diagnostics', () => {
   it('blocks a part left on a removed GPIO and keeps its assignment', () => {
     const value = definition({ leftPins: [gpio(16), ground()] })
-    const nodes = [board(value), node('button', 'ButtonInput', { pin: 17 })]
+    const nodes = [board(value), node('button', 'ButtonBank', { buttons: singleButtonRow(17) })]
     const exact = findExactBoardPinIssues(nodes)
     expect(exact.errors).toEqual([expect.stringContaining('Not exposed by the custom board')])
     expect(findDeployBlockingErrors(nodes, [], CLASSIC_FQBN)).toEqual(expect.arrayContaining(exact.errors))
-    expect(nodes[1].data.properties.pin).toBe(17)
+    expect((nodes[1].data.properties.buttons as Array<{ pin: number }>)[0].pin).toBe(17)
   })
 
   it('blocks firmware for an unresolved definition in the gate and Graph Health alike', () => {
     // A part beside the Board, so Graph Health reports more than an empty graph.
-    const nodes = [board({ version: 1, id: 'x' }), node('button', 'ButtonInput', { pin: 16 })]
+    const nodes = [board({ version: 1, id: 'x' }), node('button', 'ButtonBank', { buttons: singleButtonRow(16) })]
     const custom = findCustomBoardIssues(nodes)
     expect(custom.errors.length).toBeGreaterThan(0)
     const gate = findDeployBlockingErrors(nodes, [], CLASSIC_FQBN)

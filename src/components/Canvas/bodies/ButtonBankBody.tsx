@@ -4,8 +4,10 @@ import { rootGraphNodes, useGraphStore } from '../../../state/graphStore'
 import { useHardwareInputStore } from '../../../state/peripherals/hardwareInputStore'
 import {
   BUTTON_BANK_ADD_HANDLE,
+  BUTTON_BANK_ADD_LABEL,
   MAX_BUTTON_BANK_ENTRIES,
   buttonBankHandle,
+  buttonPressKey,
   normalizeButtonBankEntries,
 } from '../../../state/player/buttonBank'
 import { portColor } from '../../../state/nodeLibrary'
@@ -36,10 +38,10 @@ export default function ButtonBankBody({ nodeId }: { nodeId: string }) {
   const release = (key: string) => setButton(key, false)
 
   return (
-    <div className={styles.bank} aria-label="Button bank controls">
+    <div className={styles.bank} aria-label="Button controls">
       {entries.map((entry) => {
         const handle = buttonBankHandle(entry.id)
-        const stateKey = `${nodeId}:${entry.id}`
+        const stateKey = buttonPressKey(nodeId, entry.id)
         const isPressed = pressed.get(stateKey) ?? false
         return (
           <div className={styles.row} key={entry.id}>
@@ -74,7 +76,7 @@ export default function ButtonBankBody({ nodeId }: { nodeId: string }) {
               title={`${entry.label} · bool`}
               role="button"
               tabIndex={0}
-              aria-label={`Connect from Button Bank ${entry.label} output, bool. Press Enter or Space to choose a destination port.`}
+              aria-label={`Connect from Button ${entry.label} output, bool. Press Enter or Space to choose a destination port.`}
               onKeyDown={activateHandleFromKeyboard}
               style={{ ...portHandleStyle('bool', BOOL_COLOR), top: '50%', right: -8 }}
             />
@@ -84,7 +86,7 @@ export default function ButtonBankBody({ nodeId }: { nodeId: string }) {
       {entries.length < MAX_BUTTON_BANK_ENTRIES && (
         <div className={`${styles.row} ${styles.addRow}`}>
           <span className={styles.addGlyph}>+</span>
-          <span className={styles.addLabel}>Connect button…</span>
+          <span className={styles.addLabel}>{BUTTON_BANK_ADD_LABEL}</span>
           <Handle
             type="source"
             position={Position.Right}
@@ -92,7 +94,7 @@ export default function ButtonBankBody({ nodeId }: { nodeId: string }) {
             title="Connect to create and name a button"
             role="button"
             tabIndex={0}
-            aria-label="Connect from Button Bank empty output to create a named button."
+            aria-label="Connect from Button Add button output to add a named button wired to that input."
             onKeyDown={activateHandleFromKeyboard}
             style={{ ...portHandleStyle('bool', BOOL_COLOR), top: '50%', right: -8 }}
           />

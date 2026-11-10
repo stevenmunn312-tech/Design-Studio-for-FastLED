@@ -28,6 +28,7 @@ import { NODE_LIBRARY, libraryDefaults } from '../nodeLibrary'
 import { buildGraphDiagnostics, findDisplayGeneratorIssues } from '../../utils/validateGraph'
 import { controlPhaseViolation } from '../player/controlPhases'
 import type { StudioEdge, StudioNode } from '../graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow, buttonPressKey } from '../player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}, label?: string): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -56,7 +57,7 @@ function workflow(): { nodes: StudioNode[]; edges: StudioEdge[] } {
       node('out', 'MatrixOutput', { form: 'strip', ledCount: 144, dataPin: 27 }, 'Stage Wash'),
       node('speed', 'PotInput', { pin: 4 }, 'Speed Knob'),
       node('dim', 'PotInput', { pin: 5 }, 'Dimmer'),
-      node('wake', 'ButtonInput', { pin: 12 }, 'Panel Wake'),
+      node('wake', 'ButtonBank', { buttons: singleButtonRow(12) }, 'Panel Wake'),
       node('oled', 'InfoDisplay', {
         partId: 'ssd1306-oled-128x64', sdaPin: 21, sclPin: 22, i2cAddress: '0x3C',
       }, 'Status'),
@@ -66,7 +67,7 @@ function workflow(): { nodes: StudioNode[]; edges: StudioEdge[] } {
       edge('speed', 'speed', 'value', 'juggle', 'speed'),
       edge('dim', 'dim', 'value', 'out', 'brightness'),
       edge('status', 'out', 'display', 'oled', 'display'),
-      edge('wake', 'wake', 'pressed', 'oled', 'enabled'),
+      edge('wake', 'wake', FIRST_BUTTON_HANDLE, 'oled', 'enabled'),
     ],
   }
 }
@@ -141,7 +142,7 @@ describe('the direct-control workflow, end to end', () => {
     expect(loop).toContain('"LED String"')
     expect(loop).toContain('"144 LEDS"')
     // ...its Enabled follows the button, held rather than latched...
-    expect(loop).toContain('bool _oledOn_oled = n_wake_pressed;')
+    expect(loop).toContain('bool _oledOn_oled = n_wake_button_1;')
     // ...and Juggle's speed comes off the other knob rather than its field.
     expect(loop).toContain('n_speed_value')
 
@@ -161,7 +162,7 @@ describe('the direct-control workflow, end to end', () => {
     const { nodes, edges } = workflow()
     const lit = () => evaluateGraphFull(nodes, edges, 1, 16, 16, {}, true).outputs.get('oled')!.lit
     const press = (down: boolean) => {
-      useHardwareInputStore.getState().setButton('wake', down)
+      useHardwareInputStore.getState().setButton(buttonPressKey('wake'), down)
     }
 
     press(false)
@@ -228,12 +229,12 @@ describe('direct controls on the show engines', () => {
     node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
     node('show', 'PatternSlideshow'),
     node('out', 'MatrixOutput', { form: 'strip', ledCount: 60, dataPin: 27 }),
-    node('next', 'ButtonInput', { pin: 12 }),
+    node('next', 'ButtonBank', { buttons: singleButtonRow(12) }),
   ]
   const wires = () => [
     edge('set', 'collection', 'patternset', 'show', 'patternset'),
     edge('frame', 'show', 'frame', 'out', 'frame'),
-    edge('step', 'next', 'pressed', 'show', 'patternNext'),
+    edge('step', 'next', FIRST_BUTTON_HANDLE, 'show', 'patternNext'),
   ]
 
   it('accepts a button wired straight to a slideshow pattern step', () => {
@@ -252,7 +253,7 @@ describe('direct controls on the show engines', () => {
     const nodes = [...collection(), node('map', 'ControlMap', { controls: ['patternNext'] })]
     const edges = [
       ...wires(),
-      edge('into', 'next', 'pressed', 'map', 'patternNext'),
+      edge('into', 'next', FIRST_BUTTON_HANDLE, 'map', 'patternNext'),
       edge('bundle', 'map', 'controls', 'show', 'controls'),
     ]
     const blocking = buildGraphDiagnostics(nodes, edges).filter((entry) => entry.severity === 'error')

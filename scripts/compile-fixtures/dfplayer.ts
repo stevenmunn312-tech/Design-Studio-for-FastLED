@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import { generateCpp } from '../../src/codegen/cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../src/state/nodeLibrary'
 import type { StudioEdge, StudioNode } from '../../src/state/graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../src/state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -29,14 +30,14 @@ function output(): StudioNode {
 }
 
 const source = generateCpp([
-  node('button', 'ButtonInput', { pin: 4 }),
+  node('button', 'ButtonBank', { buttons: singleButtonRow(4) }),
   node('player', 'DFPlayerOutput', {
     partId: 'dfplayer-mini', uartRxPin: 16, uartTxPin: 17, busyPin: 27, track: 1, volume: 0.7,
   }),
   node('color', 'SolidColor', { r: 20, g: 40, b: 90 }),
   output(),
 ], [
-  edge('play', 'button', 'pressed', 'player', 'play'),
+  edge('play', 'button', FIRST_BUTTON_HANDLE, 'player', 'play'),
   edge('playing', 'player', 'playing', 'out', 'enabled'),
   edge('frame', 'color', 'frame', 'out', 'frame'),
 ])

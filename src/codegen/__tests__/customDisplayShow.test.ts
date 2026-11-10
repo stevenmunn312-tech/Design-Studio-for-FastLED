@@ -9,6 +9,7 @@ import { generateShowSketch } from '../showGenerator'
 import { showControlRouting } from '../player/showControlRouting'
 import { buildGraphDiagnostics, findOutputRuntimeIssues, findDisplayGeneratorIssues } from '../../utils/validateGraph'
 import { assertWireable } from '../../test-utils/assertWireable'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
@@ -146,8 +147,8 @@ describe('custom displays in generative shows', () => {
   // this template used to refuse it outright while a normal sketch honoured it.
   it('takes a wired Enabled as the panel gate', () => {
     const cpp = generate(
-      [panel('tft'), node('toggle', 'ButtonInput', { pin: 12 })],
-      [edge('toggle', 'pressed', 'tft', 'enabled')],
+      [panel('tft'), node('toggle', 'ButtonBank', { buttons: singleButtonRow(12) })],
+      [edge('toggle', FIRST_BUTTON_HANDLE, 'tft', 'enabled')],
       { screen: document() },
     )
     expect(cpp).toContain('_cdPanelOn_tft = _cdOn_tft;')

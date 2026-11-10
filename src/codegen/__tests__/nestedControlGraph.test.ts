@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { FIRST_BUTTON_HANDLE } from '../../state/player/buttonBank'
 import { nestedControlFixture } from '../../test-utils/intervalControlFixture'
 import { assertWireable } from '../../test-utils/assertWireable'
 import { generateCpp } from '../cppGenerator'
@@ -26,7 +27,7 @@ describe('nested typed controls', () => {
         : buildShowPlayer(nodes, edges, groups, { patternSet: ['pattern'], bakedAudio: false, genericPlayer: true, preferredTrack: '' })
     expect(source.match(/static uint32_t _iv_nested__timed__timer =/g)).toHaveLength(1)
     expect(source).toContain('_pcE_controls_ledToggle.update(n_nested__timed__timer_pulse, _pcNow_controls, false, 0u,')
-    expect(source).toContain('_pcE_controls_brightnessDown.update(n_button_pressed, _pcNow_controls, true, 30u,')
+    expect(source).toContain('_pcE_controls_brightnessDown.update(n_button_button_1, _pcNow_controls, true, 30u,')
     expect(source).toContain('n_controls_controls.brightness = constrain(n_nested__timed__level_result, 0.0f, 1.0f);')
     expect(source).toContain('LED Matrix')
     expect(source).toContain('64 LEDS')
@@ -52,7 +53,7 @@ describe('nested typed controls', () => {
     ])
     expect(samples[1][3]).toMatchObject({ ledToggle: true })
     expect(samples[2][3]).toMatchObject({ ledToggle: false })
-    expect(groupSourceType(nodes, edges, groups)('controls', 'brightnessDown')).toBe('ButtonInput')
+    expect(groupSourceType(nodes, edges, groups)('controls', 'brightnessDown')).toBe('ButtonBank')
     expect(groupSourceType(nodes, edges, groups)('controls', 'ledToggle')).toBe('Interval')
   })
 
@@ -98,11 +99,11 @@ describe('nested typed controls', () => {
     const producer = nodes.find((node) => node.id === 'button')!
     const consumer = nodes.find((node) => node.id === 'controls')!
     const passthrough = [instance, { ...instance, id: 'second' }, producer, consumer]
-    const edges = [wire('button', 'pressed', 'nested', 'contact'), wire('nested', 'contact', 'second', 'contact'),
+    const edges = [wire('button', FIRST_BUTTON_HANDLE, 'nested', 'contact'), wire('nested', 'contact', 'second', 'contact'),
       wire('second', 'contact', 'controls', 'brightnessDown')]
-    expect(groupSourceType(passthrough, edges, groups)('controls', 'brightnessDown')).toBe('ButtonInput')
+    expect(groupSourceType(passthrough, edges, groups)('controls', 'brightnessDown')).toBe('ButtonBank')
     expect(expandGroups(passthrough, edges, groups).edges).toContainEqual(expect.objectContaining({
-      source: 'button', sourceHandle: 'pressed', target: 'controls', targetHandle: 'brightnessDown',
+      source: 'button', sourceHandle: FIRST_BUTTON_HANDLE, target: 'controls', targetHandle: 'brightnessDown',
     }))
     edges[0] = wire('second', 'contact', 'nested', 'contact')
     expect(groupSourceType(passthrough, edges, groups)('controls', 'brightnessDown')).toBeUndefined()

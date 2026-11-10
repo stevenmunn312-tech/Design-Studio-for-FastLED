@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { FIRST_BUTTON_HANDLE } from '../../state/player/buttonBank'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { useGraphStore } from '../../state/graphStore'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
@@ -29,13 +30,13 @@ const example: LiveExampleSpec = {
 const buttonExample: LiveExampleSpec = {
   title: 'Button beat flash',
   nodes: [
-    { key: 'button', type: 'ButtonInput', dx: -650, dy: -120 },
+    { key: 'button', type: 'ButtonBank', dx: -650, dy: -120 },
     { key: 'noise', type: 'Noise', dx: -355, dy: 110, properties: { noiseType: 'field' } },
     { key: 'flash', type: 'BeatFlash', dx: -35, dy: -55 },
     { key: 'out', type: 'MatrixOutput', dx: 340, dy: -215 },
   ],
   edges: [
-    { source: 'button', sourceHandle: 'pressed', target: 'flash', targetHandle: 'beat' },
+    { source: 'button', sourceHandle: FIRST_BUTTON_HANDLE, target: 'flash', targetHandle: 'beat' },
     { source: 'noise', sourceHandle: 'frame', target: 'flash', targetHandle: 'frame' },
     { source: 'flash', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],

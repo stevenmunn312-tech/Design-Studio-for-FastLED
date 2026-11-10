@@ -41,7 +41,7 @@ describe('bus assignment', () => {
   })
 
   it('treats an unknown pin property as an exclusive claim', () => {
-    expect(busAssignmentFor('ButtonInput', 'pin')).toEqual({ kind: 'none', role: 'exclusive' })
+    expect(busAssignmentFor('TouchButtonInput', 'pin')).toEqual({ kind: 'none', role: 'exclusive' })
     expect(busAssignmentFor('SomeFuturePart', 'resetPin')).toEqual({ kind: 'none', role: 'exclusive' })
   })
 
@@ -160,14 +160,14 @@ describe('findPinCollisions', () => {
 
   it('reports collisions in ascending pin order', () => {
     const uses = [
-      pinUse('x', 'ButtonInput', 'pin', 9), pinUse('y', 'ButtonInput', 'pin', 9),
-      pinUse('p', 'ButtonInput', 'pin', 4), pinUse('q', 'ButtonInput', 'pin', 4),
+      pinUse('x', 'TouchButtonInput', 'pin', 9), pinUse('y', 'TouchButtonInput', 'pin', 9),
+      pinUse('p', 'TouchButtonInput', 'pin', 4), pinUse('q', 'TouchButtonInput', 'pin', 4),
     ]
     expect(findPinCollisions(uses).map((c) => c.pin)).toEqual([4, 9])
   })
 
   it('leaves a single use on a pin alone', () => {
-    expect(findPinCollisions([pinUse('a', 'ButtonInput', 'pin', 4)])).toEqual([])
+    expect(findPinCollisions([pinUse('a', 'TouchButtonInput', 'pin', 4)])).toEqual([])
   })
 })
 
@@ -181,7 +181,7 @@ describe('findI2cAddressCollisions', () => {
 
   it('knows the fixed address of a part that has one', () => {
     expect(i2cAddressFor('RtcModule', {})).toBe(0x68)
-    expect(i2cAddressFor('ButtonInput', {})).toBeNull()
+    expect(i2cAddressFor('TouchButtonInput', {})).toBeNull()
   })
 
   it('prefers a strappable address over the fixed one', () => {
@@ -205,7 +205,7 @@ describe('findI2cAddressCollisions', () => {
   })
 
   it('ignores a device with no address of its own', () => {
-    const anonymous = { nodeId: 'x', nodeType: 'ButtonInput', props: {}, uses: [] }
+    const anonymous = { nodeId: 'x', nodeType: 'TouchButtonInput', props: {}, uses: [] }
     expect(findI2cAddressCollisions([device('rtc-a', 21, 22), anonymous])).toEqual([])
   })
 

@@ -146,7 +146,7 @@ function inputsOf(type: string, properties: Record<string, unknown> | undefined)
 
 function outputsOf(type: string, properties: Record<string, unknown> | undefined) {
   if (type === 'IRRemoteInput') return irRemoteOutputs(properties?.buttons)
-  if (type === 'ButtonBank') return buttonBankOutputs(properties?.buttons, false)
+  if (type === 'ButtonBank') return buttonBankOutputs({ ...libraryDefaults(type), ...properties }.buttons, false)
   if (type === 'WebRemoteInput') return webRemoteOutputs(properties?.controls, false)
   return definition(type).outputs
 }

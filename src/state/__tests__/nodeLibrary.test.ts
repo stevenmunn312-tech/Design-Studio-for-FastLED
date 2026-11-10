@@ -862,7 +862,7 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('MicInput', 'i2sWs')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
     expect(propertyMeta('MicInput', 'i2sSck')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
     expect(propertyMeta('MicInput', 'i2sSd')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
-    expect(propertyMeta('ButtonInput', 'pin')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
+    expect(propertyMeta('ButtonBank', 'pin')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
     expect(propertyMeta('PotInput', 'pin')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
     expect(propertyMeta('EncoderInput', 'pinA')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
     expect(propertyMeta('EncoderInput', 'pinB')).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
@@ -879,7 +879,7 @@ describe('nodeLibrary', () => {
     expect(isGpioPinProperty('MicInput', 'i2sSck')).toBe(true)
     expect(isGpioPinProperty('MicInput', 'i2sSd')).toBe(true)
     expect(isGpioPinProperty('MicInput', 'gain')).toBe(false)
-    expect(isGpioPinProperty('ButtonInput', 'pin')).toBe(true)
+    expect(isGpioPinProperty('ButtonBank', 'pin')).toBe(true)
     expect(isGpioPinProperty('PotInput', 'pin')).toBe(true)
     expect(isGpioPinProperty('EncoderInput', 'pinA')).toBe(true)
     expect(isGpioPinProperty('EncoderInput', 'pinB')).toBe(true)
@@ -904,7 +904,7 @@ describe('nodeLibrary', () => {
       capability: 'analogInput',
       pullup: false,
     })
-    expect(gpioRequirementForProperty('ButtonInput', 'pin', { pullup: true })).toEqual({
+    expect(gpioRequirementForProperty('ButtonBank', 'pin', { pullup: true })).toEqual({
       capability: 'digitalInput',
       pullup: true,
     })
@@ -1094,7 +1094,6 @@ describe('nodeLibrary', () => {
 
   it('has tooltips for serialDebug and pullup', () => {
     expect(propertyDescription('MicInput', 'serialDebug')).toMatch(/serial monitor/i)
-    expect(propertyDescription('ButtonInput', 'pullup')).toMatch(/INPUT_PULLUP/)
     expect(propertyDescription('EncoderInput', 'pullup')).toMatch(/INPUT_PULLUP/)
   })
 })

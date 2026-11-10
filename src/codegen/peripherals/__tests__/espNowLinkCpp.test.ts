@@ -6,6 +6,7 @@ import { playerControlGraph } from '../../player/playerControlGraph'
 import { specializeCpp } from '../../cppSpecialize'
 import { boardPartition } from '../../../build/boardPartition'
 import { NODE_LIBRARY, libraryDefaults } from '../../../state/nodeLibrary'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../../state/player/buttonBank'
 import { useBoardLinkKeyStore } from '../../../state/peripherals/boardLinkKey'
 import { useNetworkCredentialsStore } from '../../../state/peripherals/networkCredentials'
 import { webRemoteOutputs } from '../../../state/peripherals/webRemote'
@@ -108,11 +109,11 @@ describe('board link — the normal sketch', () => {
 
   it('counts presses only where a slot is a press', () => {
     const { one, two } = sketches(controlsGraph({
-      nodes: [node('btn', 'ButtonInput', on2)],
-      edges: [edge('btn', 'pressed', 'out', 'enabled')],
+      nodes: [node('btn', 'ButtonBank', { ...on2, buttons: singleButtonRow(0) })],
+      edges: [edge('btn', FIRST_BUTTON_HANDLE, 'out', 'enabled')],
     }))
     expect(two).toContain('_lnkStagePress(')
-    expect(one).toMatch(/bool n_board_link_in_btn_pressed_value = _lnkPO1\[0\];/)
+    expect(one).toMatch(/bool n_board_link_in_btn_button_1_value = _lnkPO1\[0\];/)
     // One true pass per counted press, and presses made while the link was down are not replayed.
     expect(one).toContain('_lnkPQ1[i]--; _lnkPO1[i] = true;')
     expect(one).toContain('if (fresh || !_lnkUp1)')
@@ -262,13 +263,13 @@ describe('board link — a slideshow on one board, its screen on another', () =>
     node('board-root', 'Board', { linkId: LINK_ID }), node('board-2', 'Board'),
     node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
     node('show', 'PatternSlideshow'), output,
-    tftPanel('tft', 'Show Status', on2), node('btn', 'ButtonInput', on2), node('controls', 'ControlMap'),
+    tftPanel('tft', 'Show Status', on2), node('btn', 'ButtonBank', { ...on2, buttons: singleButtonRow(0) }), node('controls', 'ControlMap'),
   ]
   const edges = [
     edge('collection', 'patternset', 'show', 'patternset'),
     edge('show', 'frame', 'out', 'frame'),
     edge('show', 'display', 'tft', 'display'),
-    edge('btn', 'pressed', 'controls', 'patternNext'),
+    edge('btn', FIRST_BUTTON_HANDLE, 'controls', 'patternNext'),
     edge('controls', 'controls', 'show', 'controls'),
   ]
 
@@ -277,7 +278,7 @@ describe('board link — a slideshow on one board, its screen on another', () =>
     const src = generateShowSketch(one.nodes, one.edges, patternGroups, { patternNames: { show: ['Aurora'] } })
     expect(src).toContain('_lnkStageText(0, 0, _patNameStr_show(_sel_show.active));')
     expect(src).toContain('_lnkStageWord(1, 0, _lnkBits(((float)(showPatternIndex + 1))));')
-    expect(src).toContain('bool n_board_link_in_btn_pressed_value = _lnkPO1[0];')
+    expect(src).toContain('bool n_board_link_in_btn_button_1_value = _lnkPO1[0];')
     const loop = src.slice(src.indexOf('void loop() {'))
     expect(loop.indexOf('_lnkReceive();')).toBeLessThan(loop.indexOf('_lnkPO1[0]'))
     expect(loop.indexOf('_lnkTransmit();')).toBeGreaterThan(loop.indexOf('FastLED.show();'))
