@@ -525,7 +525,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
       )}
       {isGroupInput && (() => {
         // Group-input role: tag this input so a Performance Generator show
-        // drives it (energy/speed/palette). Sets `paramId` to the role name
+        // drives it (reactivity/speed/palette). Sets `paramId` to the role name
         // — the same value the evaluator/codegen key off — so no manual
         // rename is needed. "— input —" is an ordinary (untagged) input.
         const cur = String(props.paramId ?? '')
@@ -1022,7 +1022,7 @@ const CORKSCREW_PREVIEW_H = 150
 // Group-input "roles" a Performance Generator show can drive (see the collection
 // -driven-performance design note). Setting a GroupInput's paramId to one of
 // these tags it for that show signal; keep in sync with the generator/codegen.
-const GROUP_INPUT_ROLES = ['energy', 'speed', 'palette']
+const GROUP_INPUT_ROLES = ['reactivity', 'speed', 'palette']
 
 type StudioNodeProps = NodeProps<Node<StudioNodeData>>
 

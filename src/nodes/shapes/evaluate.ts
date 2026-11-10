@@ -1,5 +1,5 @@
 import type { RtcPreview } from '../../state/peripherals/rtc'
-import { type BitmapFont, DEFAULT_FONT, textBlockLayout, TEXT_LINE_GAP, textAlignMode } from '../shared/font'
+import { type BitmapFont, DEFAULT_FONT, TEXT_SIZE, textBlockLayout, TEXT_LINE_GAP, textAlignMode, textSize } from '../shared/font'
 import { asAnimatedImage, type ImageData, animatedImageFrame, asImage, sampleImageToFrame } from '../shared/image'
 import type { ImagePaletteSource } from '../../state/palettes/imagePalette'
 import { hexToRgb } from '../../state/palettes/polinePalette'
@@ -43,6 +43,7 @@ import { gradientMixMode, mixGradientColors, type GradientMixMode } from '../../
 import { polarRepeat } from '../../state/evaluator/polar'
 import { polarFrame, polarPixel, wireVertexQ8, wireframeEdgeQ8 } from '../shared/integerPatterns'
 import { isqrt32 } from '../shared/lib8tion'
+import { sizingSide } from '../shared/stringCanvas'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 import { CLOCK_TIMER_MAX_SEC } from './clockTimer'
 import { type PositionUnits, centerAxis, clockCenterAxis, lineAxis, positionUnits, textAxisStart } from './positionUnits'
@@ -50,13 +51,13 @@ import { type PositionUnits, centerAxis, clockCenterAxis, lineAxis, positionUnit
 // Shape's `size` and ClockDisplay's `radius` were tuned as raw pixel counts
 // against a 16x16 matrix (this module's own DEFAULT_W/DEFAULT_H).
 // scaleWithMatrix (opt-in per node, see nodeLibrary.ts) scales that radius
-// proportionally by the target matrix's shorter side, so the same slider
-// value reads as "the same relative size" on any matrix instead of shrinking
-// to a speck on a large panel or overflowing a small strip. Mirrored by
-// cppGenerator.ts's own matrix-scale expression — keep the reference size in
-// sync between the two.
+// proportionally by the target matrix's shorter side, or a one-row strip's
+// length (`sizingSide`), so the same slider value reads as "the same relative
+// size" on any matrix instead of shrinking to a speck on a large panel or on
+// a strip. Mirrored by codegen.ts's withMatrixScale — keep the reference size
+// in sync between the two.
 function matrixSizeScale(W: number, H: number): number {
-  return Math.min(W, H) / Math.min(DEFAULT_W, DEFAULT_H)
+  return sizingSide(W, H) / Math.min(DEFAULT_W, DEFAULT_H)
 }
 
 interface ClockDisplayState {
@@ -160,7 +161,7 @@ export function evalFourierEpicycles(
   const table = fourierTableQ(fourierTable(p.outline, p.customPoints, p.maxHarmonics))
   const scale = Math.max(FOURIER_SCALE_MIN, Math.min(1, p.scale))
   const radiusF = Math.max(FOURIER_THICKNESS_MIN, Math.min(FOURIER_THICKNESS_MAX, p.thickness)) * 0.5
-  const extent = Math.trunc(Math.max(0, Math.min(W, H) * 0.5 * scale - radiusF) * 256)
+  const extent = Math.trunc(Math.max(0, sizingSide(W, H) * 0.5 * scale - radiusF) * 256)
   const radius = Math.trunc(radiusF * 256)
   const cx = W * 128, cy = H * 128
   const h = Math.max(1, Math.min(table.length, p.harmonics))
@@ -286,13 +287,17 @@ function drawLineSegment(frame: Frame, x0: number, y0: number, x1: number, y1: n
   }
 }
 
-function renderTextInto(frame: Frame, cols: number[], color: RGB, startX: number, startY: number, font: BitmapFont, W: number, H: number, offset: number): void {
+// One line's size-1 columns, each font pixel drawn `scale` pixels square.
+// Column `ci` of the drawn line reads font column ci / scale, and row `r`
+// reads font row r / scale, as the sketch's integer division does.
+function renderTextInto(frame: Frame, cols: number[], color: RGB, startX: number, startY: number, font: BitmapFont, W: number, H: number, offset: number, scale = 1): void {
+  const width = cols.length * scale
   for (let x = 0; x < W; x++) {
     const ci = x - startX + offset
-    if (ci < 0 || ci >= cols.length) continue
-    const col = cols[ci]
-    for (let r = 0; r < font.h; r++) {
-      if (col & (1 << r)) {
+    if (ci < 0 || ci >= width) continue
+    const col = cols[Math.floor(ci / scale)]
+    for (let r = 0; r < font.h * scale; r++) {
+      if (col & (1 << Math.floor(r / scale))) {
         const y = startY + r
         if (y >= 0 && y < H) frame[y][x] = { ...color }
       }
@@ -302,7 +307,7 @@ function renderTextInto(frame: Frame, cols: number[], color: RGB, startX: number
 
 // Render `text` over `base` (black when unwired) at (startX, startY),
 // optionally scrolling over time (scroll = cells/second) along either axis.
-// Shares textColumns() with codegen.
+// Shares textColumns() with codegen; `scale` is the Size (font.ts textSize).
 function renderText(
   key: string,
   text: string,
@@ -318,9 +323,10 @@ function renderText(
   wrap = false,
   letterSpacing = 1,
   base: Frame | null = null,
+  scale = 1,
 ): Frame {
   const frame = base ? cloneFrame(base) : blankFrame(W, H)
-  const layout = textBlockLayout(text, font, letterSpacing)
+  const layout = textBlockLayout(text, font, letterSpacing, TEXT_LINE_GAP, scale)
   if (layout.lines.length === 0) return frame
   const vertical = scrollAxis === 'vertical'
   const totalX = layout.width + W
@@ -334,8 +340,8 @@ function renderText(
     for (const oy of yOffsets) {
       for (let i = 0; i < layout.lines.length; i++) {
         const line = layout.lines[i]
-        const lineY = startY + i * (font.h + TEXT_LINE_GAP) + oy - offsetY
-        renderTextInto(frame, line.cols, color, startX[i] + ox, lineY, font, W, H, offsetX)
+        const lineY = startY + i * layout.lineStep + oy - offsetY
+        renderTextInto(frame, line.cols, color, startX[i] + ox, lineY, font, W, H, offsetX, scale)
       }
     }
   }
@@ -426,10 +432,11 @@ function blitText(
   letterSpacing = 0,
   xUnits: PositionUnits = 'normalized',
   yUnits: PositionUnits = xUnits,
+  scale = 1,
 ): void {
-  const layout = textBlockLayout(text, font, letterSpacing)
+  const layout = textBlockLayout(text, font, letterSpacing, TEXT_LINE_GAP, scale)
   if (layout.lines.length === 0) return
-  const sx = layout.lines.map((line) => textAxisStart(x, xUnits, W, line.cols.length, hAlign, wrap))
+  const sx = layout.lines.map((line) => textAxisStart(x, xUnits, W, line.width, hAlign, wrap))
   const sy = textAxisStart(y, yUnits, H, layout.height, vAlign, wrap)
   const xOffsets = wrap ? [-W, 0, W] : [0]
   const yOffsets = wrap ? [-H, 0, H] : [0]
@@ -437,14 +444,14 @@ function blitText(
     for (const oy of yOffsets) {
       for (let i = 0; i < layout.lines.length; i++) {
         const line = layout.lines[i]
-        const lineY = sy + i * (font.h + TEXT_LINE_GAP) + oy
+        const lineY = sy + i * layout.lineStep + oy
         const startX = sx[i] + ox
         for (let xx = 0; xx < W; xx++) {
           const ci = xx - startX
-          if (ci < 0 || ci >= line.cols.length) continue
-          const col = line.cols[ci]
-          for (let r = 0; r < font.h; r++) {
-            if (col & (1 << r)) drawPixelLighten(frame, xx, lineY + r, color, W, H)
+          if (ci < 0 || ci >= line.width) continue
+          const col = line.cols[Math.floor(ci / scale)]
+          for (let r = 0; r < font.h * scale; r++) {
+            if (col & (1 << Math.floor(r / scale))) drawPixelLighten(frame, xx, lineY + r, color, W, H)
           }
         }
       }
@@ -578,7 +585,8 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const text = typeof wired === 'string' ? wired : String(props.text ?? 'HELLO')
     const font = DEFAULT_FONT
     const letterSpacing = Math.max(0, Math.round(Number(props.letterSpacing ?? 1)))
-    const layout = textBlockLayout(text, font, letterSpacing)
+    const size = textSize(props.size ?? TEXT_SIZE.default)
+    const layout = textBlockLayout(text, font, letterSpacing, TEXT_LINE_GAP, size)
     const wrap = Boolean(props.wrap)
     const hAlign = textAlignMode(props.hAlign ?? 'center', 'left', 'right')
     const vAlign = textAlignMode(props.vAlign ?? 'middle', 'top', 'bottom')
@@ -592,11 +600,11 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const x = num(id, 'x', props, 'x', 0.5)
     const y = num(id, 'y', props, 'y', 0.5)
     const units = positionUnits(props.units)
-    const sx = layout.lines.map((line) => textAxisStart(x, units, W, line.cols.length, hAlign, wrap))
+    const sx = layout.lines.map((line) => textAxisStart(x, units, W, line.width, hAlign, wrap))
     const sy = textAxisStart(y, units, H, layout.height, vAlign, wrap)
     const scroll = num(id, 'scroll', props, 'scroll', 0)
     const base = input(id, 'base', null) as Frame | null
-    return { frame: renderText(stateKey(id), text, color, sx, sy, scroll, scrollAxis, t, font, W, H, wrap, letterSpacing, base) }
+    return { frame: renderText(stateKey(id), text, color, sx, sy, scroll, scrollAxis, t, font, W, H, wrap, letterSpacing, base, size) }
   },
   ClockDisplay({ input, num, elapsedT: t, W, H, stateKey }, id, props) {
     const mode = String(props.displayMode ?? 'Digital HH:MM')
@@ -618,6 +626,8 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const x = num(id, 'x', props, 'x', 0.5)
     const y = num(id, 'y', props, 'y', 0.5)
     const units = positionUnits(props.units)
+    // The digits' pixel scale (font.ts textSize), shared with Text.
+    const size = textSize(props.size ?? TEXT_SIZE.default)
     const radiusScale = props.scaleWithMatrix ? matrixSizeScale(W, H) : 1
     const radius = Math.max(2, num(id, 'radius', props, 'radius', 6) * radiusScale)
     const baseIn = input(id, 'base', null) as Frame | null
@@ -669,6 +679,8 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
         false,
         0,
         units,
+        units,
+        size,
       )
       // A Timer reads "done" the instant it reaches zero; a Stopwatch has
       // no end, so it never fires.
@@ -690,7 +702,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       if (mode === 'Analog + Date') {
         // The date starts on the row below the face, floor(cy + radius + 1),
         // as the sketch draws it: a pixel row whatever the units.
-        blitText(frame, valid ? clockDateText(day, month) : '--.--', scaleRgb(color, 0.9), x, cy + radius + 0.5, DEFAULT_FONT, W, H, 'center', 'start', false, 0, units, 'pixels')
+        blitText(frame, valid ? clockDateText(day, month) : '--.--', scaleRgb(color, 0.9), x, cy + radius + 0.5, DEFAULT_FONT, W, H, 'center', 'start', false, 0, units, 'pixels', size)
       }
       return { frame, ...clockOut }
     }
@@ -728,6 +740,8 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       false,
       0,
       units,
+      units,
+      size,
     )
     return { frame, ...clockOut }
   },
@@ -799,7 +813,9 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const p = table ? customPathPoint(table, tt) : pathPoint(shape, tt)
     const cx = (W - 1) / 2, cy = (H - 1) / 2
     const radius = thickness * 0.5
-    const extent = Math.max(0, Math.min(W, H) * 0.5 * scale - radius)
+    // Half the shorter side, or of a strip's length, where the shorter side
+    // is one pixel and left the point no room to move.
+    const extent = Math.max(0, sizingSide(W, H) * 0.5 * scale - radius)
     splatDisc(frame, cx + p.x * extent, cy - p.y * extent, radius, color)
     return { frame }
   },

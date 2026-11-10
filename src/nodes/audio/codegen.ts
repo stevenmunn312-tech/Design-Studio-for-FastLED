@@ -5,6 +5,7 @@ import { floatLit } from '../../codegen/cppLiterals'
 import { spectrumThirdBounds } from '../../state/evaluator/signals'
 import { AUDIO_HUE, AUDIO_SILENCE, FFT_ANALYSIS_BANDS, audioHueMode, audioHueSpan, audioHueStart, audioHueWeight } from './evaluate'
 import { envelopeDtCpp, keepOverCpp } from '../shared/envelopeClock'
+import { audioLevelCpp } from './audioLevel'
 import { BAND_HZ, EQ_BIN_CENTRES_HZ, SPECTRUM_SLOTS, bandPresetRange } from '../../audio/frequencyBand'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, BEAT_PHASE_SYNC, beatPhaseBeatsPerBar } from '../../audio/beatPhase'
 
@@ -235,10 +236,14 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       // Silence eases the loudness for itself, so the smoother runs only while
       // something reads Silence: no dead state in the sketch.
       const silenceRead = edges.some((edge) => edge.source === node.id && edge.sourceHandle === 'silence')
+      // Level likewise keeps its follower only while something reads it.
+      const levelRead = edges.some((edge) => edge.source === node.id && edge.sourceHandle === 'level')
+      const levelState = `${prefix}_level`
       const silenceThreshold = `(${floatLit(AUDIO_SILENCE.floor)}+${gate}*${floatLit(AUDIO_SILENCE.span)})`
       ln(`  static float ${prefix}_prevSpectrum[32]; static bool ${prefix}_ready = false;`)
       ln(`  static float ${v('vocals')} = 0.0f, ${v('energy')} = 0.0f;`)
       if (silenceRead) ln(`  static float ${quiet} = -1.0f;`)
+      if (levelRead) ln(`  static float ${levelState} = -1.0f;`)
       // The host's absolute channel meter (audioEngineCpp / the player sketch),
       // mirroring audioLoudness() in audio/stereoLevels.ts.
       ln(`  float ${v('loudness')} = constrain(_audioLoudness, 0.0f, 1.0f);`)
@@ -266,12 +271,15 @@ export const AUDIO_EMITTERS: NodeEmitters = {
       ln(`    ${v('vocals')} = ${v('vocals')} * ${smoothing} + _vocalsTarget * (1.0f-${smoothing});`)
       // Silence reads the absolute loudness, eased by Smoothing (AUDIO_SILENCE).
       if (silenceRead) ln(`    ${quiet} = ${quiet} < 0.0f ? ${v('loudness')} : ${quiet} * ${smoothing} + ${v('loudness')} * (1.0f-${smoothing});`)
+      // Level: Loudness times Sensitivity's gain, eased on its own clock (audioLevel.ts).
+      if (levelRead) ln(`    ${audioLevelCpp(levelState, v('loudness'), sensitivity, `_af${id}Dt`)}`)
       ln(`    ${prefix}_ready = true;`)
       ln(`  }`)
       if (silenceRead) ln(`  bool ${v('silence')} = ${quiet} < ${silenceThreshold};`)
+      if (levelRead) ln(`  float ${v('level')} = constrain(${levelState}, 0.0f, 1.0f);`)
     } else {
       ln(`  // AudioFeatures — connect an Audio source for on-device audio feature extraction`)
-      ln(`  float ${v('vocals')} = 0.0f, ${v('energy')} = 0.0f, ${v('loudness')} = 0.0f; bool ${v('silence')} = true;`)
+      ln(`  float ${v('vocals')} = 0.0f, ${v('energy')} = 0.0f, ${v('loudness')} = 0.0f, ${v('level')} = 0.0f; bool ${v('silence')} = true;`)
     }
   },
   // Keep in lockstep with the `Vibe` evaluator (vibeLevel).

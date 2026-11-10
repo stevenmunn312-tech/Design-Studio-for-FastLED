@@ -14,6 +14,7 @@ import { instanceState } from '../../state/evaluator/memory'
 import { envelopeDt, keepOver } from '../shared/envelopeClock'
 import { bandLevel, bandPresetRange, clampBandHz } from '../../audio/frequencyBand'
 import { audioLoudness, resolveStereoLevels } from '../../audio/stereoLevels'
+import { audioLevelEase, audioLevelGain, audioLevelOutput } from './audioLevel'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM, beatPhaseBeatsPerBar, beatPhaseStep, type BeatPhaseState } from '../../audio/beatPhase'
 
 /**
@@ -41,6 +42,8 @@ type AudioFeatureState = {
   /** Loudness eased by the node's Smoothing, which Silence compares. */
   quiet: number
   silence: boolean
+  /** Audio Features' Level before its clamp (audioLevel.ts); unset until its first pass. */
+  level?: number
 }
 
 /**
@@ -393,36 +396,41 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
       const energyTarget = clamp01((total * 0.7 + low * 0.2 + presence * 0.1) * (0.8 + sensitivity * 0.6))
       const vocalsTarget = clamp01((presence * 1.35 + presenceFlux * 2.1 - low * 0.3 - air * 0.12) * (0.75 + sensitivity * 0.7) - gate * 0.35)
       // Smoothing is the share kept per 60th of a second (envelopeClock.ts).
-      const keep = keepOver(smoothing, envelopeDt(held?.lastT, elapsedT))
+      const dt = envelopeDt(held?.lastT, elapsedT)
+      const keep = keepOver(smoothing, dt)
       const energy = prev.energy * keep + energyTarget * (1 - keep)
       const vocals = prev.vocals * keep + vocalsTarget * (1 - keep)
       const quiet = prev.quiet * keep + loudness * (1 - keep)
       const silence = quiet < audioSilenceThreshold(gate)
-      const next = { ...prev, prevSpectrum: spectrum, lastT: elapsedT, vocals, energy, quiet, silence }
+      // Level eases on its own clock, not Smoothing (audioLevel.ts).
+      const level = audioLevelEase(held?.level, loudness * audioLevelGain(sensitivity), dt)
+      const next = { ...prev, prevSpectrum: spectrum, lastT: elapsedT, vocals, energy, quiet, silence, level }
       audioFeatureLevels.set(key, next)
-      out = { vocals, energy, loudness, silence }
+      out = { vocals, energy, loudness, silence, level: audioLevelOutput(level) }
     } else if (useUiStore.getState().testSignal) {
       audioFeatureLevels.delete(key)
       const energy = clamp01((Math.sin(t * 0.8) + 1) / 2)
-      out = { vocals: clamp01((Math.sin(t * 1.6 + 0.8) + 1) / 2), energy, loudness: energy, silence: energy < 0.2 }
+      out = { vocals: clamp01((Math.sin(t * 1.6 + 0.8) + 1) / 2), energy, loudness: energy, silence: energy < 0.2, level: energy }
     } else {
       // Audio just dropped out — decay through the node's own `smoothing`
       // curve instead of snapping straight to zero, so a momentary mic
       // hiccup fades rather than cuts. Self-clears once imperceptible.
       const prev = audioFeatureLevels.get(key)
       if (prev) {
-        const keep = keepOver(smoothing, envelopeDt(prev.lastT, elapsedT))
+        const dt = envelopeDt(prev.lastT, elapsedT)
+        const keep = keepOver(smoothing, dt)
         const vocals = prev.vocals * keep
         const energy = prev.energy * keep
-        if (vocals < 0.002 && energy < 0.002) {
+        const level = audioLevelEase(prev.level, loudness * audioLevelGain(sensitivity), dt)
+        if (vocals < 0.002 && energy < 0.002 && level < 0.002) {
           audioFeatureLevels.delete(key)
-          out = { vocals: 0, energy: 0, loudness: 0, silence: true }
+          out = { vocals: 0, energy: 0, loudness: 0, silence: true, level: 0 }
         } else {
-          audioFeatureLevels.set(key, { ...prev, lastT: elapsedT, vocals, energy, silence: true })
-          out = { vocals, energy, loudness, silence: true }
+          audioFeatureLevels.set(key, { ...prev, lastT: elapsedT, vocals, energy, silence: true, level })
+          out = { vocals, energy, loudness, silence: true, level: audioLevelOutput(level) }
         }
       } else {
-        out = { vocals: 0, energy: 0, loudness, silence: true }
+        out = { vocals: 0, energy: 0, loudness, silence: true, level: audioLevelOutput(loudness * audioLevelGain(sensitivity)) }
       }
     }
     return out

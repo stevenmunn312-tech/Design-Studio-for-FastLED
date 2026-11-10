@@ -362,24 +362,24 @@ describe('generatePlayerSketch', () => {
     expect(ino).toContain('patternId  = 0;')          // index default
   })
 
-  it('threads the energy role param into render_pN and the event dispatcher', () => {
+  it('threads the reactivity role param into render_pN and the event dispatcher', () => {
     const renderers = {
       buffers: [],
       helpers: [],
-      functions: ['void render_p0(uint32_t ms, float energy) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
+      functions: ['void render_p0(uint32_t ms, float reactivity) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
       count: 1,
-      params: ['energy'],
+      params: ['reactivity'],
     }
     const ino = generatePlayerSketch({}, renderers)
-    expect(ino).toContain('float      energy')                    // global
+    expect(ino).toContain('float      reactivity')                    // global
     expect(ino).toContain('#define CMD_SET_ENERGY     6')
-    expect(ino).toContain('case CMD_SET_ENERGY:     energy = ev.params[0]; break;')
+    expect(ino).toContain('case CMD_SET_ENERGY:     reactivity = ev.params[0]; break;')
     // One pattern needs no dispatch; the role still reaches it.
-    expect(ino).toContain('render_p0((uint32_t)(t * 1000.0f), energy);')
+    expect(ino).toContain('render_p0((uint32_t)(t * 1000.0f), reactivity);')
     expect(ino).not.toContain('renderPattern(')
   })
 
-  it('omits the energy plumbing when no role params are threaded', () => {
+  it('omits the reactivity plumbing when no role params are threaded', () => {
     const renderers = {
       buffers: [], helpers: [],
       functions: ['void render_p0(uint32_t ms) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
@@ -394,21 +394,21 @@ describe('generatePlayerSketch', () => {
     const renderers = {
       buffers: [],
       helpers: [],
-      functions: ['void render_p0(uint32_t ms, float energy, float speed) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
+      functions: ['void render_p0(uint32_t ms, float reactivity, float speed) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
       count: 1,
-      params: ['energy', 'speed'],
+      params: ['reactivity', 'speed'],
     }
     const ino = generatePlayerSketch({}, renderers)
     expect(ino).toContain('float      speed     = 0.5f;')            // role global
     expect(ino).toContain('case CMD_SET_SPEED:      speed = constrain(ev.params[0] * 0.5f, 0.0f, 1.0f); break;')
-    expect(ino).toContain('render_p0((uint32_t)(t * 1000.0f), energy, speed);')
+    expect(ino).toContain('render_p0((uint32_t)(t * 1000.0f), reactivity, speed);')
   })
 
   it('does not touch the speed global when speed is not a threaded role', () => {
     const renderers = {
       buffers: [], helpers: [],
-      functions: ['void render_p0(uint32_t ms, float energy) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
-      count: 1, params: ['energy'],
+      functions: ['void render_p0(uint32_t ms, float reactivity) { fill_solid(leds, NUM_LEDS, CRGB::Blue); }'],
+      count: 1, params: ['reactivity'],
     }
     const ino = generatePlayerSketch({}, renderers)
     expect(ino).not.toContain('float      speed')

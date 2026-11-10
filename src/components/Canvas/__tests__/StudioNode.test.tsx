@@ -1824,15 +1824,15 @@ describe('StudioNode', () => {
     expect(container.querySelector('input[type="text"]')).toBeNull()   // no raw paramId field
     const select = container.querySelector('select') as HTMLSelectElement
     expect(select.value).toBe('')   // param0 isn't a role → "— input —"
-    expect(Array.from(select.options).map((o) => o.value)).toEqual(['', 'energy', 'speed', 'palette'])
+    expect(Array.from(select.options).map((o) => o.value)).toEqual(['', 'reactivity', 'speed', 'palette'])
     fireEvent.change(select, { target: { value: 'speed' } })
     expect(useGraphStore.getState().nodes[0].data.properties.paramId).toBe('speed')
   })
 
   it('reflects an existing role and reverts to a plain input id', () => {
-    const { container } = renderNode(groupInput('energy'))
+    const { container } = renderNode(groupInput('reactivity'))
     const select = container.querySelector('select') as HTMLSelectElement
-    expect(select.value).toBe('energy')
+    expect(select.value).toBe('reactivity')
     fireEvent.change(select, { target: { value: '' } })   // back to a plain input
     expect(useGraphStore.getState().nodes[0].data.properties.paramId).toBe('param0')
   })

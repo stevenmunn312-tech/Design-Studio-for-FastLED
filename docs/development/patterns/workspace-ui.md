@@ -148,9 +148,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 ## Layout and input traps
 
 - A node's property rows are declared, not improvised, in `nodeLibrary.ts`:
-  `PROPERTY_LABELS` names every camelCase key the swept categories draw (the
-  audio-reactive patterns' shared `energy` → `reactivity` is merged in, so a
-  node's own entries never replace it), `PROPERTY_GROUPS` folds every node
+  `PROPERTY_LABELS` names every camelCase key the swept categories draw (a
+  plain one-word key such as the audio patterns' `reactivity` shows as
+  itself), `PROPERTY_GROUPS` folds every node
   that draws more than six rows at its defaults, and
   `NODE_WIDTH_OVERRIDES` (`studioNodeChrome.ts`) widens the few nodes whose
   labels cannot be shortened to the 84 px a 240 px node leaves beside a

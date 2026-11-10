@@ -172,7 +172,7 @@ const RECIPE_CARDS: RecipeCard[] = [
       { key: 'mic-hardware', type: 'MicInput', dx: -420, dy: -80 },
       { key: 'mic', type: 'Audio', dx: -420, dy: -80, props: { sourceId: '$mic-hardware' } },
       { key: 'percussion', type: 'PercussionDetect', dx: -200, dy: -80, props: { sensitivity: 0.62, decay: 0.55, separation: 0.7 } },
-      { key: 'shock', type: 'KickShock', dx: 60, dy: -20, props: { palette: 'volcano', energy: 0.85, thickness: 1.25, spawnSpread: 0.25 } },
+      { key: 'shock', type: 'KickShock', dx: 60, dy: -20, props: { palette: 'volcano', reactivity: 0.85, thickness: 1.25, spawnSpread: 0.25 } },
       { key: 'trails', type: 'Trails', dx: 300, dy: -20, props: { decay: 0.36 } },
       { key: 'out', type: 'MatrixOutput', dx: 520, dy: -20 },
       {

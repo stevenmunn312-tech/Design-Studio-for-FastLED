@@ -127,7 +127,7 @@ export function buildShowPlayer(
   // compile those subgraphs into render_pN() so the player draws the user's own
   // patterns instead of the built-in enum set. "Use group inputs" threads the
   // section energy, (normalised) speed, and palette into each pattern's
-  // `energy`/`speed`/`palette` roles.
+  // `reactivity`/`speed`/`palette` roles.
   const build = resolveBuildMode(nodes, edges)
   const selectedEngine = build.mode === 'player' ? build.engine : null
   const pgProps = (selectedEngine?.data as StudioNodeData | undefined)?.properties
@@ -144,7 +144,7 @@ export function buildShowPlayer(
   for (const show of opts.shows ?? []) {
     for (const name of show.params ?? []) if (!showParams.includes(name)) showParams.push(name)
   }
-  const roleParams = pgProps.useGroupInputs ? ['energy', 'speed', 'palette'] : []
+  const roleParams = pgProps.useGroupInputs ? ['reactivity', 'speed', 'palette'] : []
   for (const name of showParams) {
     if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && !roleParams.includes(name)) roleParams.push(name)
   }
@@ -408,7 +408,7 @@ export function buildShowPayload(
   // compile those subgraphs into render_pN() so the player draws the user's own
   // patterns instead of the built-in enum set. "Use group inputs" threads the
   // section energy, (normalised) speed, and palette into each pattern's
-  // `energy`/`speed`/`palette` roles.
+  // `reactivity`/`speed`/`palette` roles.
   // Name the track the player should open. Without it the sketch scans /music
   // and takes whatever sorts first, which on a card carrying files from an
   // earlier session is somebody else's song — and its show, so the result

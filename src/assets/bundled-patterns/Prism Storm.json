@@ -38,8 +38,8 @@
           "nodeType": "PrismStorm",
           "category": "pattern",
           "properties": {
-            "energy": 0.7,
-            "speed": 1,
+            "reactivity": 0.7,
+            "speed": 0.5,
             "palette": "amethyst"
           },
           "inputs": [
@@ -59,7 +59,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -388,7 +388,7 @@
           "category": "math",
           "properties": {
             "mathOp": "multiply",
-            "a": 1,
+            "a": 0.5,
             "b": 1
           },
           "inputs": [
@@ -597,7 +597,7 @@
         "source": "smooth-help-1784222066107-energy",
         "sourceHandle": "result",
         "target": "help-1784222066107-target",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {

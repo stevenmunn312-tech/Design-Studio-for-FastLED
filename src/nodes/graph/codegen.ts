@@ -6,13 +6,13 @@ import { playerControlsServiceCpp } from '../../codegen/player/playerControlsCpp
 
 export const GRAPH_EMITTERS: NodeEmitters = {
   // A role-tagged group input kept by buildPattern (collection-show codegen)
-  // resolves to the matching render_pN parameter. Float roles (energy/speed)
+  // resolves to the matching render_pN parameter. Float roles (reactivity/speed)
   // become `float n_<id>_out = <role>;`; the palette role copies the param
   // into `pal_<id>` so paletteExpr can reference it. Normal graphs flatten
   // GroupInputs away via expandGroups, so this case is only reached for the
   // patterns the show player drives.
   GroupInput({ node, id, p, ln, v, opts }) {
-    const role = String(p.paramId ?? 'energy')
+    const role = String(p.paramId ?? 'reactivity')
     const outputType = ((node.data.outputs as { dataType?: string }[] | undefined)?.[0]?.dataType ?? '')
     if (outputType === 'audio') ln(`  // Audio GroupInput — its cable selects the host audio globals used downstream.`)
     else if (role === 'palette') ln(`  CRGBPalette16 pal_${id} = palette;`)
