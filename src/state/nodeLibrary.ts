@@ -54,6 +54,7 @@ import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
 import { TEXT_SIZE } from '../nodes/shared/font'
 import { PATH_SHAPES } from '../nodes/shapes/customPath'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
+import { TIME_ZONE_LABELS, TIME_ZONE_OPTIONS, isKnownTimeZone } from './peripherals/timeZones'
 import { DECODER_MAX_VOLUME } from '../build/parts/partFields'
 import { MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './player/masterSpeed'
 import { MUSIC_PLAYER_MIN_HOLD_SEC } from './player/musicPlayerTiming'
@@ -63,6 +64,7 @@ import { WIREFRAME_MODEL_OPTIONS } from '../nodes/shapes/wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './output/ledOutputForm'
 import { LED_OUTPUT_GAMMA } from './output/ledOutputRuntime'
 import { RENDER_RESOLUTIONS } from './output/renderScale'
+import { MAX_STEREO_VU_RAIL_LEDS } from './audio/stereoVuSizing'
 import { POSITION_PRESETS, POSITIONS_MM_PER_UNIT_MAX, STRIP_LAYOUTS, usesNetwork, usesPositions } from './output/stringPositions'
 import { NETWORK_LEDS_PER_EDGE, NETWORK_MAX_NODES, NETWORK_PRESETS } from './output/segmentNetwork'
 import { RIPPLE_BEHAVIOURS, RIPPLE_LIFETIME_SEC, RIPPLE_WIDTH } from '../nodes/shared/rippleNetwork'
@@ -721,7 +723,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   RTCInput: {
     timeSource: { control: 'select', options: ['Compile Time', 'Manual', 'NTP', 'DS3231'] },
-    timezoneOffsetMinutes: { control: 'slider', min: -720, max: 840, step: 15 },
+    timeZone: { control: 'select', options: TIME_ZONE_OPTIONS, labels: TIME_ZONE_LABELS },
     startMonth: { control: 'slider', min: 1, max: 12, step: 1 },
     startDay: { control: 'slider', min: 1, max: 31, step: 1 },
     startHour: { control: 'slider', min: 0, max: 23, step: 1 },
@@ -844,7 +846,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
       numeric: true,
       options: [...new Set(Object.values(CLOCKED_DATA_RATES_MHZ).flat())].sort((a, b) => a - b).map(String),
     },
-    ledCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
+    // Up to the largest matrix's LED count, too wide a range to drag.
+    ledCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1, entry: 'number' },
     // A full turn either way, so a ring can be rotated to wherever its data-in
     // pad physically ended up without reaching for a negative number.
     ringStartAngle: { control: 'slider', min: 0, max: 359, step: 1 },
@@ -871,8 +874,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     tilesY: { control: 'slider', min: 1, max: 16, step: 1 },
   },
   StereoVuMeter: {
-    leftLedCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
-    rightLedCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
+    // A rail is its own length, not an LED output's (state/audio/stereoVuSizing.ts).
+    leftLedCount: { control: 'slider', min: 1, max: MAX_STEREO_VU_RAIL_LEDS, step: 1, entry: 'number' },
+    rightLedCount: { control: 'slider', min: 1, max: MAX_STEREO_VU_RAIL_LEDS, step: 1, entry: 'number' },
     leftDataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     rightDataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     leftClockPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -1087,7 +1091,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     speed: N01, spawn: N01, trail: N01, bed: N01,
     seed:     { control: 'slider', min: 0, max: 9999, step: 1 },
     count:    { control: 'slider', min: 1, max: MAX_STRING_PARTICLES, step: 1 },
-    ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1 },
+    ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1, entry: 'number' },
     track:    { control: 'select', options: [...STRING_TRACKS] },
     mode:     { control: 'select', options: [...STRING_PARTICLE_MODES] },
   },
@@ -1626,7 +1630,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     thickness: N01,
     arcStart: { control: 'slider', min: 0, max: 359, step: 1 },
     arcSweep: { control: 'slider', min: 10, max: 360, step: 1 },
-    ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1 },
+    ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1, entry: 'number' },
   },
   Automaton: {
     automatonType: { control: 'select', options: [...AUTOMATON_TYPES] },
@@ -1867,6 +1871,12 @@ export function propertyOptions(
   if (nodeType === 'Ease' && key === 'easeType' && properties.easeType === 'inOutApprox') {
     return [...meta.options, 'inOutApprox']
   }
+  // A saved offset the list does not name (the old slider took any quarter
+  // hour) still reads, and shows, as itself.
+  if (nodeType === 'RTCInput' && key === 'timeZone' && isKnownTimeZone(properties.timeZone)
+    && !meta.options.includes(String(properties.timeZone))) {
+    return [...meta.options, String(properties.timeZone)]
+  }
   return meta.options
 }
 
@@ -1882,7 +1892,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   seed: '0 runs free (Math.random each time); any other value reproduces the exact same result on every run.',
   clampInputs: "Clamps a wired float input to this node's slider range, so an unbounded upstream signal can't exceed it.",
   reactivity: 'How strongly the audio changes the picture: 0 = calm base motion, 1 = fully reactive.',
-  timezoneOffsetMinutes: 'Fixed local offset from UTC for NTP-synced firmware time. Preview still reads the browser clock.',
+  timeZone: 'Where the board keeps NTP time. A city zone follows its daylight-saving dates, on the board and in the preview; a fixed UTC offset never changes.',
   dmxPort: 'ESP32 UART used by esp_dmx for DMX512 receive.',
   requireSync: 'Keeps the schedule inactive until the upstream Clock reports a real NTP sync.',
   dateTimeFormat: 'Which part of the clock reading the text shows. An invalid clock shows dashes, never a plausible time.',
@@ -4010,7 +4020,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   RTCInput: {
     timeSource: 'time source',
     ntpServer: 'NTP server',
-    timezoneOffsetMinutes: 'UTC offset (min)',
+    timeZone: 'time zone',
     startYear: 'year',
     startMonth: 'month',
     startDay: 'day',
@@ -4269,7 +4279,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   RTCInput: [
     { key: 'source', label: 'Clock Source', keys: ['timeSource'] },
-    { key: 'network', label: 'NTP', keys: ['ntpServer', 'timezoneOffsetMinutes'] },
+    { key: 'network', label: 'NTP', keys: ['ntpServer', 'timeZone'] },
     { key: 'manualStart', label: 'Manual Start', keys: ['startYear', 'startMonth', 'startDay', 'startHour', 'startMinute', 'startSecond'] },
   ],
   // Enable and Require Synced Time decide whether the schedule runs at all,
@@ -5286,7 +5296,7 @@ export function isPropertyEnabled(
     }
   }
   if (nodeType === 'RTCInput') {
-    if (key === 'ntpServer' || key === 'timezoneOffsetMinutes') return String(properties.timeSource ?? 'Compile Time') === 'NTP'
+    if (key === 'ntpServer' || key === 'timeZone') return String(properties.timeSource ?? 'Compile Time') === 'NTP'
     if (key.startsWith('start')) return String(properties.timeSource ?? 'Compile Time') === 'Manual'
   }
   if (nodeType === 'ScheduleTrigger') {

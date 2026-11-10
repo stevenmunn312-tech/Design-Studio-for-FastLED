@@ -217,10 +217,13 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
         : style === 'mirror'
           ? 'fabsf(_y-_yc)<=fmaxf(fabsf(_yc-_lo),fabsf(_yc-_hi))+0.5f'
           : '_y>=_lo-_wvTh*0.5f&&_y<=_hi+_wvTh*0.5f'
-      ln(`    float _yc=(HEIGHT-1)*0.5f,_wvV[WIDTH],_wvY[WIDTH];`)
-      ln(`    for(int _x=0;_x<WIDTH;_x++){ _wvV[_x]=_wvAt(WIDTH<=1?0.0f:_x/(float)(WIDTH-1)*${N - 1}.0f,false); _wvY[_x]=_yc-_wvV[_x]*_yc; }`)
-      ln(`    for(int _x=0;_x<WIDTH;_x++){ int _nx=min(WIDTH-1,_x+1); float _lo=fminf(_wvY[_x],_wvY[_nx]),_hi=fmaxf(_wvY[_x],_wvY[_nx]);`)
-      ln(`      for(int _y=0;_y<HEIGHT;_y++){ if(${cond})_wvPaint(_x,_y,fabsf(_wvV[_x])); } }`)
+      // Each column joins its sample to the next one's, carried forward
+      // rather than kept in a column array: a string's WIDTH is its length,
+      // and two floats a column on the loop stack outgrew the task's stack.
+      ln(`    float _yc=(HEIGHT-1)*0.5f; auto _wvCol=[&](int _x)->float{ return _wvAt(WIDTH<=1?0.0f:_x/(float)(WIDTH-1)*${N - 1}.0f,false); };`)
+      ln(`    float _wvV=_wvCol(0);`)
+      ln(`    for(int _x=0;_x<WIDTH;_x++){ int _nx=min(WIDTH-1,_x+1); float _wvVn=_nx==_x?_wvV:_wvCol(_nx); float _y0=_yc-_wvV*_yc,_y1=_yc-_wvVn*_yc; float _lo=fminf(_y0,_y1),_hi=fmaxf(_y0,_y1);`)
+      ln(`      for(int _y=0;_y<HEIGHT;_y++){ if(${cond})_wvPaint(_x,_y,fabsf(_wvV)); } _wvV=_wvVn; }`)
     }
     if (!live) ln(`    // Connect an Audio source to draw the waveform on-device.`)
     ln(`  }`)

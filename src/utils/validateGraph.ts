@@ -24,9 +24,10 @@ import { stereoVuTotalLeds } from '../state/audio/stereoVuSizing'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../nodes/shared/scalarExpression'
 import { fieldFormulaReadsPrev, isFieldFormulaValid, isNodeFormulaValid, isScalarFormulaValid } from '../nodes/shared/formulaLang'
 import { isValidRtcDateTime } from '../state/peripherals/rtc'
+import { clockTimeZone, isKnownTimeZone } from '../state/peripherals/timeZones'
 import { parseScheduleTime } from '../nodes/signal/schedule'
 import { buildXYTable, validateMatrixLayout, tileRotationAt } from '../state/output/xyLayout'
-import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes } from '../state/output/outputRouting'
+import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes, renderBufferDims } from '../state/output/outputRouting'
 import { renderScaleHalf, wantsSupersample } from '../state/output/renderScale'
 import { closestLedSpacingMm, positionsMmPerUnit, stringPositions, usesPositions } from '../state/output/stringPositions'
 import { asSdVideoClip } from '../state/evaluator/sdVideo'
@@ -251,10 +252,11 @@ export function findStereoVuMeterErrors(nodes: StudioNode[], edges: StudioEdge[]
 }
 
 function findRtcWarnings(nodes: StudioNode[]): string[] {
-  return nodes.flatMap((node) => {
+  const warnings = nodes.flatMap((node) => {
     if (node.data.nodeType !== 'RTCInput') return []
     const props = node.data.properties as Record<string, unknown>
     const source = String(props.timeSource ?? 'Compile Time')
+    const label = String(node.data.label ?? node.data.nodeType)
     if (source === 'Manual') {
       const valid = isValidRtcDateTime({
         year: Number(props.startYear ?? 0),
@@ -264,15 +266,31 @@ function findRtcWarnings(nodes: StudioNode[]): string[] {
         minute: Number(props.startMinute ?? 0),
         second: Number(props.startSecond ?? 0),
       })
-      return valid ? [] : [`${String(node.data.label ?? node.data.nodeType)} has an invalid manual RTC start date/time`]
+      return valid ? [] : [`${label} has an invalid manual RTC start date/time`]
     }
+    if (source !== 'NTP') return []
+    const found: string[] = []
     // The Wi-Fi name NTP joins with is the Board's, asked once by the
     // network warnings below for every network user.
-    if (source === 'NTP' && !String(props.ntpServer ?? '').trim()) {
-      return [`${String(node.data.label ?? node.data.nodeType)} is missing its NTP server`]
+    if (!String(props.ntpServer ?? '').trim()) found.push(`${label} is missing its NTP server`)
+    // Preview and firmware both run an unreadable zone as UTC.
+    if (props.timeZone !== undefined && !isKnownTimeZone(props.timeZone)) {
+      found.push(`${label} has a time zone this version does not know, so it keeps UTC; choose its zone again`)
     }
-    return []
+    return found
   })
+  // The ESP cores hold one zone for the whole chip (`configTzTime` sets the
+  // process's TZ), so the last clock configured would set it for every clock.
+  const zones = new Set(nodes
+    .filter((node) => node.data.nodeType === 'RTCInput'
+      && String((node.data.properties as Record<string, unknown>).timeSource ?? 'Compile Time') === 'NTP')
+    .map((node) => clockTimeZone(node.data.properties as Record<string, unknown>)))
+  const board = selectedPhysicalBoardProfile(nodes)
+  const espCore = !board || board.targetFamilies.some((family) => family === 'esp8266' || family.startsWith('esp32'))
+  if (zones.size > 1 && espCore) {
+    warnings.push('NTP clocks on one ESP board share one time zone, so clocks set to different zones would all read the last one; set them to the same zone')
+  }
+  return warnings
 }
 
 function isIpv4(value: unknown): boolean {
@@ -633,6 +651,9 @@ const STATEFUL_EXTRA_BYTES_PER_LED: Record<string, number> = {
   WaveSim: 12,            // 3 float arrays (p, c, n) beyond its own field buffer
   TuringField: 8,         // float state a plus a (W+1)(H+1) summed-area table
   FourierEpicycles: 3,    // CRGB trail, kept apart from the output it is added to
+  FlowField: 4,           // float trail per LED beside its particle pool
+  FieldBlur: 4,           // float separable-blur scratch
+  StringParticles: 3,     // CRGB trail per track cell (a ring track is shorter)
 }
 // Particles uses a fixed-size pool independent of matrix size (see the
 // `Particles` case in cppGenerator.ts): 6 floats per slot; particles are
@@ -842,7 +863,10 @@ export function estimateFirmwareRam(
   const outputs = ledDrivingOutputs(nodes)
   const stereoVuMeters = emittedStereoVuMeters(nodes, edges)
   if (outputs.length === 0 && stereoVuMeters.length === 0) return null
-  const { w, h } = compositionDims(nodes, edges)
+  // The canvas the sketch sizes its buffers by. With a long string beside a
+  // matrix, the all-native composition (widest by tallest) would price
+  // buffers no pass allocates and refuse a graph that fits.
+  const { w, h } = renderBufferDims(nodes, edges)
   // Runs wired in parallel off one pin share a single `leds` array, so RAM
   // counts them once — unlike power, which counts every physical run because
   // each one is a real panel on the PSU.

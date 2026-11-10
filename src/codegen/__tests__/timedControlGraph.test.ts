@@ -115,7 +115,7 @@ describe('time-dependent control sources', () => {
     const loop = compiled.loop.join('\n')
     expect(loop).toContain('_rtcNtpConfigured_rtc')
     expect(loop).toContain('#if FLS_NET_SUPPORTED && FLS_NET_SNTP')
-    expect(loop).toContain('configTime(0, 0, "time.nist.gov");')
+    expect(loop).toContain('configTzTime("UTC0", "time.nist.gov");')
     expect(loop).toContain('if (_netConnected() && !_rtcNtpConfigured_second)')
     // A core with the socket but no SNTP client (WiFiS3) runs the exchange itself.
     expect(loop).toContain('#elif FLS_NET_SUPPORTED')

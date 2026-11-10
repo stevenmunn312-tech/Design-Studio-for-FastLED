@@ -1820,7 +1820,10 @@ describe('generateCpp', () => {
     expect(elem).toContain('_am_now+=_sp*(float)(_now-_am_nt)*0.001f; _am_nt=_now;')
     expect(elem).toContain('if(_am_now>=0.999999f){ _am_now=fminf(1.0f,_am_now-1.0f); _am_nk++;')
     expect(elem).toContain('_am_nc[WIDTH/2]=1;')
-    expect(elem).toContain('_row[_x]=(_rule>>(')
+    // The new row goes through the `n` scratch, not a WIDTH array on the stack.
+    expect(elem).toContain('_am_nn[_x]=(_rule>>(')
+    expect(elem).toContain('memcpy(_am_nc,_am_nn,WIDTH); }')
+    expect(elem).not.toContain('_row[WIDTH]')
     expect(elem).not.toContain('_dy')
     expect(am({ seed: 5 })).toContain('_am_nc[_x]=random8()<128?1:0;')
     const cyc = am({ automatonType: 'cyclic', states: 6, threshold: 2 })
@@ -4794,7 +4797,11 @@ describe('generateCpp — INMP441 audio engine', () => {
       expect(cpp).toContain('_audioWave[_i]')
       expect(cpp).toContain('float _wvGain=constrain(3,0.25f,8.0f);')
       if (style === 'ring') expect(cpp).toContain('atan2f(_dy,_dx)/TWO_PI')
-      else expect(cpp).toContain('_wvY[_x]=_yc-_wvV[_x]*_yc;')
+      else {
+        // Each column's sample is carried to the next, never held per column.
+        expect(cpp).toContain('float _y0=_yc-_wvV*_yc,_y1=_yc-_wvVn*_yc;')
+        expect(cpp).not.toMatch(/_wv\w*\[WIDTH\]/)
+      }
     }
   })
 

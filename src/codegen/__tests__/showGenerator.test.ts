@@ -1037,6 +1037,95 @@ describe('show sketch output geometry', () => {
     expect(cpp).toContain('#define HEIGHT   1')
   })
 
+  // A 5 m reel at 144/m is 720 LEDs, and a chain may reach the matrix total.
+  it('takes a long string its whole length, up to the matrix total', () => {
+    for (const ledCount of [720, 4096]) {
+      const cpp = show({ form: 'strip', ledCount, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' })
+      expect(cpp).toContain(`#define WIDTH    ${ledCount}`)
+      expect(cpp).toContain('#define HEIGHT   1')
+      expect(cpp).toContain('#define NUM_LEDS (WIDTH * HEIGHT)')
+    }
+    // Past it, the run stops at the cap rather than at 300.
+    expect(show({ form: 'strip', ledCount: 9000, dataPin: 5 })).toContain('#define WIDTH    4096')
+  })
+
+  /*
+   * A string's WIDTH is its length, so an array a pattern sizes by WIDTH or
+   * NUM_LEDS on the loop stack grows with the chain: at 720 LEDs Waveform's
+   * two float columns alone took 5.6 KB of the ESP32's 8 KB loop task. Every
+   * pattern, field and composite node, at each option of the selects that
+   * pick what it emits, is collected into a show on a 4096-LED string, and no
+   * function-local declaration may size an array by the canvas. A `static`
+   * one is counted by the RAM estimate instead.
+   */
+  it('puts no canvas-sized array on the loop stack of any collected pattern', () => {
+    // A statement that starts with a type declares; each declarator split at
+    // top-level commas is checked for a size naming the canvas.
+    const declares = /^(?:const\s+)?(?:float|double|int|unsigned|long|short|char|bool|CRGB|CHSV|u?int(?:8|16|32|64)_t)\s+(.*)$/s
+    const sizedByCanvas = /^\w+\s*\[[^\]]*\b(?:WIDTH|HEIGHT|NUM_LEDS|RENDER_WIDTH|RENDER_HEIGHT|RENDER_LEDS)\b/
+    const declarators = (text: string) => {
+      const parts: string[] = []
+      let depth = 0, start = 0
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i]
+        if (ch === '(' || ch === '[' || ch === '{') depth++
+        else if (ch === ')' || ch === ']' || ch === '}') depth--
+        else if (ch === ',' && depth === 0) { parts.push(text.slice(start, i)); start = i + 1 }
+      }
+      return [...parts, text.slice(start)].map((part) => part.trim())
+    }
+    const stackArrays = (cpp: string) => cpp.split('\n')
+      .filter((line) => /^\s/.test(line))
+      .flatMap((line) => line.split(/[;{}]/))
+      .flatMap((statement) => {
+        const match = declares.exec(statement.trim())
+        return match ? declarators(match[1]).filter((part) => sizedByCanvas.test(part)) : []
+      })
+    // The check itself, on the shapes it has to catch and the one it must not.
+    expect(stackArrays('  float _yc=(HEIGHT-1)*0.5f,_wvV[WIDTH],_wvY[WIDTH];')).toEqual(['_wvV[WIDTH]', '_wvY[WIDTH]'])
+    expect(stackArrays('      uint8_t _rule=(uint8_t)constrain((int)floorf(x),0,255), _row[WIDTH];')).toEqual(['_row[WIDTH]'])
+    expect(stackArrays('static float g[NUM_LEDS];')).toEqual([])
+    expect(stackArrays('  { static float _a[NUM_LEDS]; float _v = _a[WIDTH-1];')).toEqual([])
+
+    const libNode = (id: string, nodeType: string, properties: Record<string, unknown> = {}) => {
+      const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)
+      return node(id, nodeType, { ...libraryDefaults(nodeType), ...properties }, def?.inputs ?? [], def?.outputs ?? [])
+    }
+    const offenders: string[] = []
+    let cases = 0
+    for (const def of NODE_LIBRARY) {
+      if (!['pattern', 'composite', 'field'].includes(def.category)) continue
+      const port = def.outputs.find((output) => output.dataType === 'frame' || output.dataType === 'field')
+      if (!port) continue
+      const variants: Record<string, unknown>[] = [{}]
+      for (const key of Object.keys(libraryDefaults(def.type))) {
+        const meta = propertyMeta(def.type, key)
+        if (meta?.control === 'select' && !/palette/i.test(key)) variants.push(...meta.options.map((option) => ({ [key]: option })))
+      }
+      for (const variant of variants) {
+        cases++
+        const nodes = [libNode('n', def.type, variant)]
+        const edges: StudioEdge[] = []
+        let frame = ['n', port.id]
+        if (port.dataType === 'field') {
+          nodes.push(libNode('paint', 'FieldToFrame'))
+          edges.push(edge('paint', 'n', port.id, 'paint', 'field'))
+          frame = ['paint', 'frame']
+        }
+        const groups = { p: { nodes: [...nodes, node('go', 'GroupOutput')], edges: [...edges, edge('go', frame[0], frame[1], 'go', 'frame')] } }
+        const cpp = generateShowSketch([
+          node('pc', 'PatternCollection', { patternIds: ['p'] }),
+          node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 0 }),
+          node('out', 'MatrixOutput', { form: 'strip', ledCount: 4096, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
+        ], [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')], groups as unknown as GroupRegistry)
+        const found = stackArrays(cpp)
+        if (found.length) offenders.push(`${def.type} ${JSON.stringify(variant)}: ${found.join(' | ')}`)
+      }
+    }
+    expect(cases).toBeGreaterThan(200)
+    expect(offenders).toEqual([])
+  }, 60_000)
+
   it('still takes a matrix its grid', () => {
     const cpp = show({ form: 'matrix', width: 32, height: 8, dataPin: 5 })
     expect(cpp).toContain('#define WIDTH    32')

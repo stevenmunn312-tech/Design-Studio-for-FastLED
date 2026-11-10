@@ -77,7 +77,8 @@ function withLocalClock<T extends { nodes: StudioNode[]; edges: StudioEdge[] }>(
       // free (the player's SD card and amplifier sit on 10-16).
       ...(ethernet ? [node('eth', 'EthernetModule', { sckPin: 12, mosiPin: 11, misoPin: 13, csPin: 10, intPin: 14, resetPin: 15 })] : []),
       node('rtc', 'RTCInput', timeSource === 'NTP'
-        ? { timeSource, ntpServer: 'pool.ntp.org', timezoneOffsetMinutes: 60 }
+        // A zone with daylight saving, so the build carries its rule.
+        ? { timeSource, ntpServer: 'pool.ntp.org', timeZone: 'Europe/Paris' }
         : { timeSource }),
       node('clk', 'Clock'),
       node('sched', 'ScheduleTrigger'),

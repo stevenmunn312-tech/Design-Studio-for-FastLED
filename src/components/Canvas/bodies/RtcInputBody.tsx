@@ -25,7 +25,7 @@ function localDateTimeCommandValue(now: Date): string {
 function sourceLabel(timeSource: string): string {
   switch (timeSource) {
     case 'Manual': return 'MANUAL SEED'
-    case 'NTP': return 'NTP / UTC OFFSET'
+    case 'NTP': return 'NTP / TIME ZONE'
     case 'DS3231': return 'DS3231 / I2C'
     default: return 'COMPILE TIME'
   }

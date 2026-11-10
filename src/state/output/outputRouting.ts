@@ -327,6 +327,27 @@ export function outputRenderPasses(
 }
 
 /**
+ * The canvas a normal sketch sizes its render buffers by (`NUM_LEDS`), as
+ * `generateCpp` chooses it: the composition, except that several outputs
+ * with a native route render in passes, sized for the largest one. The
+ * all-native `compositionDims` is the widest width by the tallest height,
+ * which beside a long string is far larger than either: a 720-LED string and
+ * a 16 x 16 matrix render on 720 x 1 and 16 x 16, never 720 x 16.
+ */
+export function renderBufferDims(nodes: StudioNode[], edges: readonly FrameFeedEdge[] = []): { w: number; h: number } {
+  // A mirror shows its leader's array, so it is not an output of its own.
+  const leaders = new Set(leadingOutputRoutes(nodes, edges).map((route) => route.id))
+  const passes = outputRenderPasses(nodes, edges)
+    .map((pass) => ({ ...pass, routes: pass.routes.filter((route) => leaders.has(route.id)) }))
+    .filter((pass) => pass.routes.length > 0)
+  const native = leaders.size > 1
+    && passes.some((pass) => pass.routes.some((route) => route.routeMode === 'native'))
+  if (!native || passes.length === 0) return compositionDims(nodes, [...edges])
+  const largest = passes.reduce((best, pass) => pass.width * pass.height > best.width * best.height ? pass : best)
+  return { w: largest.width, h: largest.height }
+}
+
+/**
  * Evaluation passes for the live workbench preview.
  *
  * A graph made only from auxiliary hardware (for example Clock wired to a

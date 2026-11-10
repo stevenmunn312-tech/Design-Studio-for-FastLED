@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRenderPasses, outputRoutes, previewRenderPasses, routeFrame } from '../outputRouting'
+import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRenderPasses, outputRoutes, previewRenderPasses, renderBufferDims, routeFrame } from '../outputRouting'
 import type { StudioNode } from '../../graphStore'
 
 function output(id: string, properties: Record<string, unknown>): StudioNode {
@@ -34,6 +34,25 @@ describe('multi-output routing', () => {
       ['60x1', ['strip']],
       ['16x16', ['matrix-a', 'matrix-b']],
     ])
+  })
+
+  it('sizes render buffers as the sketch does: the largest native pass, not widest by tallest', () => {
+    const nodes = [
+      output('strip', { form: 'strip', ledCount: 720, dataPin: 5 }),
+      output('matrix', { form: 'matrix', width: 16, height: 16, dataPin: 6 }),
+    ]
+    const edges = [
+      { source: 'pattern', target: 'strip', targetHandle: 'frame' },
+      { source: 'pattern', target: 'matrix', targetHandle: 'frame' },
+    ]
+    // The representative canvas is 720 x 16; no pass renders it.
+    expect(compositionDims(nodes, edges)).toEqual({ w: 720, h: 16 })
+    expect(renderBufferDims(nodes, edges)).toEqual({ w: 720, h: 1 })
+    // Shared (fit) routes do render the composition.
+    const fit = nodes.map((node) => output(node.id, { ...node.data.properties, routeMode: 'fit' }))
+    expect(renderBufferDims(fit, edges)).toEqual({ w: 720, h: 16 })
+    // One output is its own canvas either way.
+    expect(renderBufferDims(nodes.slice(0, 1), edges.slice(0, 1))).toEqual({ w: 720, h: 1 })
   })
 
   it('uses the largest supersampled route as the composition canvas', () => {

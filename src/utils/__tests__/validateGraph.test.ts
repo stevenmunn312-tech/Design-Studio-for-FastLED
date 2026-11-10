@@ -1508,6 +1508,28 @@ describe('validateGraph', () => {
       expect(estimateFirmwareRam([node('sc', 'SolidColor')], [])).toBeNull()
     })
 
+    // Strings may run to 4096 LEDs now; whether a board holds one is this
+    // estimate's call. Spectrum Visualizer keeps 16 bytes a column, and a
+    // string's columns are its LEDs.
+    it('refuses a string too long for the board and passes a long one that fits', () => {
+      const graph = (ledCount: number) => ({
+        nodes: [
+          node('board', 'Board', { profileId: 'esp32-generic-devkit-38pin' }),
+          node('a', 'SpectrumVisualizer'), node('b', 'SpectrumVisualizer'), node('mix', 'Blend'),
+          node('out', 'MatrixOutput', { form: 'strip', ledCount, dataPin: 5 }),
+        ],
+        edges: [edge('ea', 'a', 'mix', 'a'), edge('eb', 'b', 'mix', 'b'), edge('eo', 'mix', 'out', 'frame')],
+      })
+      const long = graph(4096)
+      const ram = estimateFirmwareRam(long.nodes, long.edges)!
+      expect(ram.ledCount).toBe(4096)
+      expect(ram.statefulBytes).toBe(2 * 4096 * 16)
+      expect(findFirmwareRamBudgetIssue(long.nodes, long.edges)?.message).toContain('simulation state')
+      const reel = graph(720)
+      expect(estimateFirmwareRam(reel.nodes, reel.edges)!.ledCount).toBe(720)
+      expect(findFirmwareRamBudgetIssue(reel.nodes, reel.edges)).toBeNull()
+    })
+
     it('budgets both Stereo VU rails and their history state without a MatrixOutput', () => {
       const meter = node('vu', 'StereoVuMeter', {
         enabled: true, leftLedCount: 16, rightLedCount: 16, leftDataPin: 5, rightDataPin: 6, palette: 'rainbow',
@@ -2492,6 +2514,26 @@ describe('a wired network stands in for the radio', () => {
       .some((d) => d.id === 'rtc-board-network')
     expect(card(nodes)).toBe(false)
     expect(card(nodes.slice(1))).toBe(true)
+  })
+})
+
+describe('an NTP Clock\'s time zone', () => {
+  const clock = (id: string, timeZone: string) => node(id, 'RTCInput', { timeSource: 'NTP', ntpServer: 'pool.ntp.org', timeZone })
+  const shared = (warnings: string[]) => warnings.some((warning) => warning.includes('share one time zone'))
+
+  it('warns about a zone this version cannot read', () => {
+    const { warnings } = validateGraph([clock('rtc', 'Mars/Olympus_Mons')], [])
+    expect(warnings.some((warning) => warning.includes('time zone this version does not know'))).toBe(true)
+    expect(validateGraph([clock('rtc', 'UTC+05:45')], []).warnings.join('\n')).not.toContain('time zone')
+  })
+
+  it('warns when an ESP board\'s clocks name different zones, which its one TZ cannot hold', () => {
+    const esp = node('board', 'Board', { profileId: 'esp32-generic-devkit-38pin' })
+    expect(shared(validateGraph([esp, clock('a', 'Europe/London'), clock('b', 'Europe/Paris')], []).warnings)).toBe(true)
+    expect(shared(validateGraph([esp, clock('a', 'Europe/London'), clock('b', 'Europe/London')], []).warnings)).toBe(false)
+    // The UNO R4 WiFi applies each clock's rule itself.
+    const r4 = node('board', 'Board', { profileId: 'arduino-uno-r4-wifi' })
+    expect(shared(validateGraph([r4, clock('a', 'Europe/London'), clock('b', 'Europe/Paris')], []).warnings)).toBe(false)
   })
 })
 

@@ -541,7 +541,7 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
     // seed becomes active, then runs forward using preview time as the
     // stand-in for millis(). Changing any Manual field therefore shows the
     // newly-entered instant immediately instead of adding all the time the
-    // preview had already been open. NTP shows UTC + the configured offset.
+    // preview had already been open. NTP shows the time in the Clock's zone.
     const source = String(props.timeSource ?? 'Compile Time')
     let elapsed = t
     const rtcKey = stateKey(id)

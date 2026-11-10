@@ -1,4 +1,4 @@
-import { ringSampleMap } from '../output/ledOutputForm'
+import { MAX_LED_RUN, ringSampleMap } from '../output/ledOutputForm'
 
 /**
  * The 1-D track a string-first node draws along. `row` is the canvas's middle
@@ -13,7 +13,8 @@ export const STRING_TRACKS = ['row', 'column', 'ring'] as const
 export type StringTrack = typeof STRING_TRACKS[number]
 
 export const RING_TRACK_MIN = 3
-export const RING_TRACK_MAX = 300
+/** As long as an LED Ring may be, so the track can match any ring's count. */
+export const RING_TRACK_MAX = MAX_LED_RUN
 export const RING_TRACK_DEFAULT = 60
 
 export function stringTrack(value: unknown): StringTrack {

@@ -105,7 +105,7 @@ export const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
   },
   RTCInput: {
     text: 'preview follows the configured source; only sync state is simulated',
-    title: 'The preview clock matches the configured source: a Manual seed runs forward from when the preview started, NTP shows UTC plus the configured offset, and Compile Time stands in for the build stamp using the browser clock. Preview cannot know real network state, so it always reports synced.',
+    title: 'The preview clock matches the configured source: a Manual seed runs forward from when the preview started, NTP shows the time in the chosen zone, daylight saving included, and Compile Time stands in for the build stamp using the browser clock. Preview cannot know real network state, so it always reports synced.',
   },
   MidiInput: {
     text: 'preview-only — no embedded MIDI equivalent',

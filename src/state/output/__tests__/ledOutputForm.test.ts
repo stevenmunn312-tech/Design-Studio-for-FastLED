@@ -5,6 +5,7 @@ import {
   corkscrewSampleMap,
   corkscrewSampleMapForProps,
   isLinearForm,
+  MAX_LED_RUN,
   outputCanvasDims,
   outputForm,
   outputGridDims,
@@ -51,7 +52,22 @@ describe('output dimensions per form', () => {
     // Every other layer clamps a matrix side to 64, so an estimate that counted
     // 100x100 was pricing a design no generator would emit.
     expect(outputLedTotal({ form: 'matrix', width: 100, height: 100 })).toBe(64 * 64)
-    expect(outputLedTotal({ form: 'strip', ledCount: 5000 })).toBe(300)
+    // A chain reaches the matrix total, whatever its layout or form.
+    expect(MAX_LED_RUN).toBe(64 * 64)
+    expect(outputLedTotal({ form: 'strip', ledCount: 5000 })).toBe(MAX_LED_RUN)
+    expect(outputLedTotal({ form: 'strip', ledCount: 720 })).toBe(720)
+    expect(outputLedTotal({ form: 'ring', ledCount: 720 })).toBe(720)
+    expect(outputLedTotal({ form: 'corkscrew', ledCount: 4096 })).toBe(4096)
+    expect(outputLedTotal({ form: 'strip', stripLayout: 'positions', positionsPreset: 'catenary', ledCount: 720 })).toBe(720)
+    expect(outputGridDims({ form: 'strip', ledCount: 720 })).toEqual({ width: 720, height: 1 })
+    // A ring's and a corkscrew's canvas stay within the matrix sides.
+    expect(outputCanvasDims({ form: 'ring', ledCount: 4096 })).toEqual({ width: 64, height: 64 })
+    const corkscrew = outputCanvasDims({ form: 'corkscrew', ledCount: 4096 })
+    expect(corkscrew.width).toBeLessThanOrEqual(64)
+    expect(corkscrew.height).toBeLessThanOrEqual(64)
+    // A segment network keeps its own ceiling: its per-edge clamp is silent,
+    // so a higher one would re-lay a saved network.
+    expect(outputLedTotal({ form: 'strip', stripLayout: 'network', networkPreset: 'hexagons', ledsPerEdge: 100 })).toBeLessThanOrEqual(300)
   })
 
   it('gives every physical chain a 1 x N output grid', () => {
