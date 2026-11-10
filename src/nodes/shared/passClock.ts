@@ -11,13 +11,24 @@ import { instanceState } from '../../state/evaluator/memory'
  *
  * A step written as a per-frame factor follows the same clock by its kind:
  * a velocity or a count is multiplied by the frames, a share kept (drag, a
- * life's decay) is raised to them (`keepOver`), a chance becomes the chance
- * of coming up at least once in them (`passChance`), and a whole number of
- * iterations carries its fraction to the next pass (`passSteps`). Each gives
+ * life's decay) is raised to them (`keepOver`), and a whole number of
+ * iterations carries its fraction to the next pass (`passSteps`). A per-frame
+ * chance is tried once in each whole frame owed (`passSteps` at one a frame),
+ * so a pass that spans two frames can spawn twice, as two frames could. A
+ * simulation whose whole step only works a frame at a time (Fire's heat,
+ * Boids' steering, Reaction Diffusion's updates) repeats it once per whole
+ * frame owed, at most `MAX_STEP_FRAMES` a pass (`passStepFrames`). Each gives
  * back the per-frame value unchanged at one frame.
  */
 export const PASS_FPS = 60
 export const MAX_PASS_SEC = 0.25
+/**
+ * The most whole steps a repeated-step simulation catches up in one pass: full
+ * pace down to 15 fps. Below that it slows, rather than spending up to the
+ * fifteen frames' work `MAX_PASS_SEC` would allow on a board already too slow,
+ * which only makes the next pass slower still.
+ */
+export const MAX_STEP_FRAMES = 4
 
 /** A pass this close to a whole number of 60ths is that number: 1/60 s in floating point reads 0.9999999999999964. */
 const WHOLE_FRAME_SNAP = 1e-9
@@ -39,11 +50,6 @@ export function keepOver(keep: number, frames: number): number {
   return Math.pow(keep, frames)
 }
 
-/** The chance a per-frame chance `p` comes up at least once in `frames`: `p` itself at one frame. */
-export function passChance(p: number, frames: number): number {
-  return frames === 1 ? p : 1 - Math.pow(1 - p, frames)
-}
-
 /** Slack that keeps a run of passes a hair under a 60th each from dropping a step. */
 const STEP_SLACK = 1e-3
 
@@ -59,4 +65,13 @@ export function passSteps(key: string, perFrame: number, frames: number): number
   const steps = Math.floor(owed + STEP_SLACK)
   stepCarry.set(key, owed - steps)
   return steps
+}
+
+/**
+ * Whole frames owed this pass for a simulation that repeats its per-frame
+ * step, at most `MAX_STEP_FRAMES`: one a pass at 60 fps, two at 30, none on
+ * alternate passes at 120. Frames past the cap are dropped, not carried.
+ */
+export function passStepFrames(key: string, frames: number): number {
+  return Math.min(MAX_STEP_FRAMES, passSteps(key, 1, frames))
 }

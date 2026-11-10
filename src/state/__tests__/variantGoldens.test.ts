@@ -47,16 +47,21 @@ describe('variant defaults are unchanged', () => {
     expect(hash(after('gold-pride', 'Pride2015', {}, 20))).toBe('23bc425')
   })
   it('Fire in its default style, and with the style named', () => {
-    expect(hash(after('gold-fire', 'Fire', { seed: 7 }, 25))).toBe('e8f544')
-    expect(hash(after('gold-fire-named', 'Fire', { seed: 7, fireStyle: 'classic' }, 25))).toBe('e8f544')
+    // Retaken when Fire's heat moved onto the clock (passStepFrames): these
+    // ticks are 3 s apart, so each pass now runs its capped four heat steps
+    // instead of one. At 60 fps the frames are unchanged (simulationClock.test.ts).
+    expect(hash(after('gold-fire', 'Fire', { seed: 7 }, 25))).toBe('3389ef10')
+    expect(hash(after('gold-fire-named', 'Fire', { seed: 7, fireStyle: 'classic' }, 25))).toBe('3389ef10')
   })
   it('Particles fountain', () => {
     // Retaken when Particles moved onto the clock (passFrames): these ticks are
     // 3 s apart, so each pass now owes its capped number of frames instead of
-    // one. At 60 fps the frames are unchanged (simulationClock.test.ts).
+    // one. Retaken again when a Rate spawn became a try in each frame owed
+    // rather than one chance a pass. At 60 fps the frames are unchanged
+    // (simulationClock.test.ts).
     const frame = after('gold-part', 'Particles', { seed: 7, particleType: 'fountain' }, 25)
     expect(lit(frame)).toBeGreaterThan(0)
-    expect(hash(frame)).toBe('2a8d85ac')
+    expect(hash(frame)).toBe('865c8101')
   })
 })
 

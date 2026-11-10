@@ -2411,7 +2411,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     rdPreset: 'A named feed/kill pair. Custom uses the Feed and Kill knobs; any other preset ignores them and their wires.',
     feed: 'Rate chemical U is replenished. Used only by the Custom preset.',
     kill: 'Rate chemical V is removed. Used only by the Custom preset.',
-    steps: 'Simulation steps per frame, 1 to 20. More evolves faster but costs CPU on big panels.',
+    steps: 'Simulation steps each 60th of a second, 1 to 20. More evolves faster but costs CPU on big panels; a board below 60 fps runs more a frame to keep pace.',
     palette: 'Colour by chemical V: empty cells take the palette start, full cells its end.',
   },
   PaletteBank: {
