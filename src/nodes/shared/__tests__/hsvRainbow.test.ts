@@ -3,7 +3,7 @@ import { FILL_RAINBOW_SAT, hsv2rgbRainbow } from '../hsvRainbow'
 import { evalRainbow } from '../../generative/evaluate'
 
 describe('hsv2rgbRainbow', () => {
-  // Values worked through FastLED 3.10.8's hsv2rgb_rainbow by hand.
+  // Values worked through FastLED 3.10.9's hsv2rgb_rainbow by hand.
   it('lands the wheel where FastLED does, with its widened yellow', () => {
     expect(hsv2rgbRainbow(0, 255, 255)).toEqual({ r: 255, g: 0, b: 0 })
     expect(hsv2rgbRainbow(32, 255, 255)).toEqual({ r: 171, g: 85, b: 0 })

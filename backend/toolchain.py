@@ -227,30 +227,12 @@ _FBUILD_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "FastLED"
 # Both engines build against this exact FastLED release. Codegen, the preview's
 # integer ports and the driver tables are read from it, so neither engine may
 # float to the registry's latest or to `main`.
-_FASTLED_VERSION = "3.10.8"
+_FASTLED_VERSION = "3.10.9"
 # Compiler flags every build passes to the sketch and FastLED's own translation
-# units (`_fastled_build_flags`). FastLED enables FL_DBG whenever RELEASE is
+# units. FastLED enables FL_DBG whenever RELEASE is
 # undefined, so without this its audio detectors print debug lines to serial
 # between the sketch's own output.
 _FASTLED_BUILD_FLAGS = "-DFASTLED_DISABLE_DBG=1"
-# FL_NO_EXCEPT is `noexcept` on ESP and empty everywhere else. 3.10.8 declares
-# some functions in its ESP32 RISC-V code with it and defines them without it
-# (the interrupt and SPI ISR units, at least), a hard GCC error on C3 and C6.
-# Upstream fixed each site on master (528a6fdbe, #4831), unreleased as of
-# 3.10.8. Defining it empty there, as FastLED does off ESP, makes every
-# declaration match. Only the RISC-V chips get it: on Xtensa the specifier
-# keeps about 140 KB of unwind tables out of every image.
-_FASTLED_RISCV_FLAGS = "-DFL_NO_EXCEPT="
-_RISCV_ESP32_BOARD = re.compile(r"(?i)(?:esp32|_)(?:c3|c5|c6|h2|p4)(?:_|$)")
-
-
-def _fastled_build_flags(fqbn: str) -> str:
-    """The FastLED flags for this board: `_FASTLED_BUILD_FLAGS`, plus `_FASTLED_RISCV_FLAGS` on ESP32 RISC-V."""
-    vendor, _, rest = fqbn.partition(":")
-    board = rest.partition(":")[2].partition(":")[0]
-    if vendor == "esp32" and _RISCV_ESP32_BOARD.search(board):
-        return f"{_FASTLED_BUILD_FLAGS} {_FASTLED_RISCV_FLAGS}"
-    return _FASTLED_BUILD_FLAGS
 # The music-sync Player sketch (playerSketchGenerator.ts) additionally needs
 # ESP32-audioI2S. Vendored the same way as FastLED, but lazily — only the
 # Player build path needs it, so it's not fetched for every ordinary compile.
@@ -951,7 +933,7 @@ def _write_fbuild_ini() -> None:
         # builds (this static ini is written once for every env, not per
         # request) — the macro is inert for every sketch that doesn't include the
         # HUB75 header.
-        base_flags = [*meta.get("build_flags", []), _fastled_build_flags(base_fqbn)]
+        base_flags = [*meta.get("build_flags", []), _FASTLED_BUILD_FLAGS]
         if meta["platform"] == "espressif32":
             base_flags.extend(("-DCORE_DEBUG_LEVEL=0", "-DNO_GFX=1"))
         # The stock dual-OTA `default.csv` partition table caps each app slot at

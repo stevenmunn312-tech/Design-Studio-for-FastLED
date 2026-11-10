@@ -1,5 +1,5 @@
 /**
- * FastLED 3.10.8's `applyGamma_video` (fl/gfx/colorutils.cpp.hpp), byte for
+ * FastLED 3.10.9's `applyGamma_video` (fl/gfx/colorutils.cpp.hpp), byte for
  * byte, so the Gamma node's preview shows what `napplyGamma_video` sends to
  * the LEDs. FastLED raises in s16.16 fixed point (`s16x16::pow`, a minimax
  * log2 and exp2 in fl/math/fixed_point/s16x16.h) rather than calling libm,

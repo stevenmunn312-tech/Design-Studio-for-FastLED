@@ -3,7 +3,7 @@ import { scale8, scale8Video } from './lib8tion'
 
 /*
  * FastLED's `hsv2rgb_rainbow`, the conversion a `CHSV` assigned to a `CRGB`
- * and `fill_rainbow` use, ported byte for byte from FastLED 3.10.8
+ * and `fill_rainbow` use, ported byte for byte from FastLED 3.10.9
  * (src/hsv2rgb.cpp.hpp, with its defaults Y1 = 1, Y2 = 0, G2 = 0, Gscale = 0
  * and FASTLED_SCALE8_FIXED). Its wheel is not the preview's `hsv()`: it widens
  * yellow (hue 64 is a deep yellow, not the spectrum's 90°), so a node whose

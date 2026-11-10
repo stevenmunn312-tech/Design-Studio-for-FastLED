@@ -12,8 +12,11 @@ an internal record.
   [#1671](https://github.com/FastLED/fbuild/issues/1671),
   [#1672](https://github.com/FastLED/fbuild/issues/1672) and
   [#1673](https://github.com/FastLED/fbuild/issues/1673).
-- **Current repository pin:** 2.5.45 (`backend/requirements.txt` and
-  `backend/constraints.txt`), moved from 2.5.44 on 2026-10-27. 2.5.45 adds
+- **Current repository pin:** 2.5.51 (`backend/requirements.txt` and
+  `backend/constraints.txt`), moved from 2.5.45 on 2026-11-10 with FastLED
+  3.10.9, which asks for 2.5.49 or newer. No leg has run on 2.5.51 yet, and
+  everything below describes 2.5.45 until the next full run. 2.5.45 (pinned
+  2026-10-27) added
   [#1721](https://github.com/FastLED/fbuild/pull/1721) (RP2040 TinyUSB,
   #1719), [#1723](https://github.com/FastLED/fbuild/pull/1723) (no console
   window per compile, #1722, §13) and the ESP8266 `deploy` and bootable-image
@@ -53,7 +56,7 @@ an internal record.
   Espressif Python. The upstream latest was **2.5.23**. Four versions, one bench. Every
   build report the script writes records `toolchain.engine_version`; read that rather
   than assuming the pin, and say which version a result is about. Both the active
-  Espressif Python and `backend/.venv` hold 2.5.45 since 2026-10-27.
+  Espressif Python and `backend/.venv` hold 2.5.45 since 2026-10-27, behind the 2.5.51 pin.
 - **Host:** Windows 11. Some issues below are Windows-specific and are marked as such.
 - **How we drive fbuild:** a persistent scaffold at `backend/.fbuild-project/` with one
   `[env:X]` per supported board, built with `fbuild build -e <env> -v --no-timestamp`

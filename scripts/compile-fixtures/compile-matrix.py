@@ -309,7 +309,7 @@ def install_arduino_cores(legs: list[Leg], say) -> bool:
 
 # Boards built on arduino-cli alone, though the fbuild scaffold declares them.
 ARDUINO_CLI_ONLY = {
-    "esp32:esp32:esp32h2": "fbuild 2.5.45 has no esp32-h2-devkitc-1 board definition",
+    "esp32:esp32:esp32h2": "fbuild had no esp32-h2-devkitc-1 board definition at 2.5.45; not rechecked on 2.5.51",
 }
 
 
@@ -517,7 +517,7 @@ def toolchain_fingerprint(leg: Leg, header: dict) -> str:
     reaches and a sketch change rebuilds that sketch alone."""
     engine = (f"{header['fbuild']} | {toolchain._FBUILD_ESP32_PLATFORM}" if leg.engine == "fbuild"
               else f"{header['arduino_cli']} | {header['arduino_cores']}")
-    parts = [leg.engine, engine, toolchain._fastled_build_flags(leg.board), toolchain._FASTLED_VERSION,
+    parts = [leg.engine, engine, toolchain._FASTLED_BUILD_FLAGS, toolchain._FASTLED_VERSION,
              toolchain._LVGL_VERSION, toolchain._PLAYER_AUDIO_VERSION, toolchain._IRREMOTE_VERSION,
              toolchain._VL53L0X_VERSION, toolchain._VL53L1X_VERSION]
     return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()

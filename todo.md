@@ -35,16 +35,22 @@ ids are unchanged, so links to "root todo, HW-nn" still name the same work.
 HW-32 (frame performance) is under [Completed](#completed); its bench rows are
 in section 4.
 
-- [ ] **FastLED upgrade to 3.10.8 (M).** Both engines pin
-  `_FASTLED_VERSION`, **3.10.8** since 2026-10-27 (3.10.5 before). As
-  released, 3.10.7 and 3.10.8 cannot build ESP32-C3/C6:
-  `platforms/esp/32/interrupts/riscv.hpp` declares its functions
-  `FL_NO_EXCEPT` (`noexcept` on ESP) and `riscv.cpp.hpp` defines them without
-  it, a hard GCC error on both engines (fbuild `ethernet/c3@esp32c3`,
-  2026-10-24). FastLED fixed it on `master` (`528a6fdbe`, #4831); the helper
-  applies that fix to both engines' copies (`_patch_fastled_riscv_noexcept`).
-  Drop the patch at the first release that has it. Nothing has compiled on
-  3.10.8 with the patch yet; the steps below are still to do. Source diffs 3.10.5→3.10.8 already clear the preview ports:
+- [ ] **FastLED upgrade to 3.10.9 (M).** Both engines pin
+  `_FASTLED_VERSION`, **3.10.9** since 2026-11-10 (3.10.8 from 2026-10-27,
+  3.10.5 before), with fbuild moved to 2.5.51 the same day (3.10.9 asks for
+  2.5.49 or newer). 3.10.9 carries the ESP32-C3/C6 `FL_NO_EXCEPT` fix
+  (`528a6fdbe`, #4831), so the helper's `-DFL_NO_EXCEPT=` RISC-V flag is
+  gone. **Nothing has compiled on 3.10.9 yet**: the C3 and C6 legs of the
+  next run are what prove the flag was safe to drop. New in 3.10.9 and to
+  watch on the bench: on Arduino core 3.3.2–3.3.12 FastLED replaces the
+  core's `app_main`/`loopTask` so `Serial0` is not linked (every ESP32 build
+  here, core pin 3.3.12); `-DFL_ESP32_STOCK_ARDUINO_MAIN=1` in
+  `_FASTLED_BUILD_FLAGS` restores the stock startup if boot, USB serial or
+  the loop watchdog misbehave. `FastLED.h` also no longer includes
+  `Arduino.h` on ESP32. The 3.10.8→3.10.9 source diff leaves the preview
+  ports, `fl::Bus`, the channel API, both `bus_traits.h` paths,
+  `idf5_clockless.h` and the ESP32 I2S slot values unchanged, and RMT5 stays
+  the backend on IDF 5. Source diffs 3.10.5→3.10.8 already clear the preview ports:
   2-D/3-D `inoise8`/`inoise16`, `ColorFromPalette`, `blur1d`/`blur2d`,
   `hsv2rgb_rainbow` and the lib8tion math are unchanged in effect, and
   `nblendPaletteTowardPalette` only gained an early return for a budget of 0,
@@ -440,8 +446,10 @@ chooses the supported combinations from whatever is on record at release.
   Pulled into v1 on 2026-10-21: v1 ships with fbuild verified. Development
   compiles on Arduino CLI alone until the repository matures; then rerun every
   fbuild leg and pick these up:
-  - The pin moved to 2.5.44 on 2026-10-23 and to 2.5.45 on 2026-10-27;
-    `backend/.venv` and the Espressif Python hold 2.5.45. On 2026-10-24 the fix legs ran: the LVGL archive (§12),
+  - The pin moved to 2.5.44 on 2026-10-23, to 2.5.45 on 2026-10-27 and to
+    2.5.51 on 2026-11-10 (with FastLED 3.10.9, untested);
+    `backend/.venv` and the Espressif Python still hold 2.5.45, so install
+    the pin before the next local fbuild run. On 2026-10-24 the fix legs ran: the LVGL archive (§12),
     Renesas and SAMD21 now build; RP2040 passes boot2 and stops on the Pico
     core's TinyUSB library, reported as
     [FastLED/fbuild#1719](https://github.com/FastLED/fbuild/issues/1719)

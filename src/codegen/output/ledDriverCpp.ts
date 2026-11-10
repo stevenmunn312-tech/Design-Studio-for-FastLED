@@ -6,7 +6,7 @@
  * and `fastledSetupCpp` keeps emitting plain `addLeds` lines for everyone.
  * `auto` (a null driver) leaves the sketch byte for byte as it was.
  *
- * What a choice emits, read from the pinned FastLED 3.10.8: the header that
+ * What a choice emits, read from the pinned FastLED 3.10.9: the header that
  * defines its `BusTraits` after the FastLED include (`fl/channels/README.md`,
  * "Single-driver override"), then `FastLED.setExclusiveDriver<fl::Bus::B, N>()`
  * before the first output (`FastLED.h`: "Must be called before `addLeds<>`").

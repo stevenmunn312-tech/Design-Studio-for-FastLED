@@ -1,6 +1,6 @@
 /**
  * What each board family's LED drivers can do, read from the pinned FastLED
- * 3.10.8 rather than from taste. The wire-time estimate, Graph Health and
+ * 3.10.9 rather than from taste. The wire-time estimate, Graph Health and
  * code generation all read these facts, so a driver claim is made once.
  *
  * Sources, all under the installed library's `src/`:
@@ -237,7 +237,7 @@ export function chipsetSendMicros(chipset: string, leds: number, dataRateHz?: nu
 // ── Drivers the Board can choose ─────────────────────────────────────────
 //
 // The Board's `ledDriver` property names one of these by its driver name, or
-// `auto` for FastLED's own choice above. Read from the same pinned 3.10.8:
+// `auto` for FastLED's own choice above. Read from the same pinned 3.10.9:
 // - `fl/channels/bus.h`: `enum class Bus` keeps only portable selectors.
 //   Each chip's parallel engines sit behind `Bus::FLEX_IO` with an instance
 //   index (`BusTraits<Bus::FLEX_IO, N>`), and `busDriverName` names them;
@@ -248,7 +248,7 @@ export function chipsetSendMicros(chipset: string, leds: number, dataRateHz?: nu
 // - `platforms/esp/32/feature_flags/enabled.h` for which chip builds which
 //   (`FASTLED_ESP32_HAS_LCD_SPI` on the S3 only, RMT5 on every chip with RMT).
 //
-// The classic ESP32 has no parallel clockless driver in 3.10.8: it removed
+// The classic ESP32 has no parallel clockless driver in 3.10.9: it removed
 // `FASTLED_ESP32_I2S` (the define only warns, and the LEDs stay on RMT), and
 // its I2S `FLEX_IO` slots declare `BusSupports` for SPI chipsets only, the
 // clockless engine being "ready for the swap" upstream

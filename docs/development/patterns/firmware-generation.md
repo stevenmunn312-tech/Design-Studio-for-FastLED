@@ -611,7 +611,7 @@ sketch still carries only what the graph reaches.
   division change sign together. Axis *swap* (raw X onto screen Y) is
   deliberately not handled, only reversal.
 - `FastLED.setExclusiveDriver<fl::Bus::B, N>()` does not move a legacy
-  `addLeds<WS2812B, PIN>` output: FastLED 3.10.8's `ClocklessIdf5` binds RMT
+  `addLeds<WS2812B, PIN>` output: FastLED 3.10.9's `ClocklessIdf5` binds RMT
   through its `SlimBridgeController` base, and a bound channel never consults
   the manager, so the call only links and registers the driver. The Board's LED driver therefore goes through `withLedDriver`
   (`src/codegen/output/ledDriverCpp.ts`), a text pass every generator runs last
@@ -619,7 +619,7 @@ sketch still carries only what the graph reaches.
   the exclusive call before the first `addLeds`, and rebuilds each recognised
   clockless `addLeds` line (named controller, offset form, RGBW tail) as a
   `TypedChannel<B, ClocklessChipset, N>` with `ChannelOptions::mBus` and
-  `mBusWhich`. 3.10.8's `fl::Bus` holds only portable selectors, so a
+  `mBusWhich`. 3.10.9's `fl::Bus` holds only portable selectors, so a
   parallel engine is `FLEX_IO` plus an instance, never its own name. A new
   `addLeds` shape in `fastledSetupCpp` must still match its `ADD_LEDS`
   pattern, or that output silently stays on the default driver

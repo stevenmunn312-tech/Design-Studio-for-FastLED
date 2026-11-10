@@ -113,7 +113,7 @@ PAGE = "<title>Design Studio for FastLED</title>"
 
 def test_smoke_passes_whichever_engine_the_host_prefers():
     for engine in ("fbuild", "arduino-cli"):
-        health = {"fbuild": True, "fbuildVersion": "fbuild 2.5.45", "engine": engine}
+        health = {"fbuild": True, "fbuildVersion": "fbuild 2.5.51", "engine": engine}
         assert build.smoke_failures(GOOD_STATUS, PAGE, GOOD_HEADERS, health, "0.7.0") == []
 
 

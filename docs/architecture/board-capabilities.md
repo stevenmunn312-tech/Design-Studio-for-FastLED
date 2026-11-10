@@ -226,7 +226,7 @@ The Board/profile model currently provides enough authority for:
 ## LED drivers
 
 `src/build/ledDrivers.ts` records what each `BuildTargetFamily`'s LED
-drivers can do, read from the pinned FastLED 3.10.8 sources it names. The
+drivers can do, read from the pinned FastLED 3.10.9 sources it names. The
 wire-time estimate, Graph Health and code generation read it; do not restate
 these figures elsewhere. `ledDriverFacts(family, fqbn)` refines a family by
 FQBN where one family covers different chips (Teensy 3.x versus 4.x, RP2040
@@ -282,7 +282,7 @@ it (`withLedDriverNormalized`). Each driver name belongs to one family, so a
 name a new board accepts is the driver it named before. Experimental: built
 from the FastLED sources, not bench-tested.
 
-FastLED 3.10.8 keeps only portable `fl::Bus` selectors: each chip's parallel
+FastLED 3.10.9 keeps only portable `fl::Bus` selectors: each chip's parallel
 engines sit behind `Bus::FLEX_IO` with an instance index, so the Board stores
 the driver's name and `SelectableLedDriver` carries its `channelBus` and
 `which`.
@@ -292,7 +292,7 @@ the driver's name and `SelectableLedDriver` carries its `channelBus` and
 | ESP32-S3 | LCD_CLOCKLESS | `FLEX_IO, 0` | 16 | LCD_CAM | `lcd_spi/bus_traits.h` |
 | ESP32-C6 / H2 | RMT (instead of PARLIO) | `RMT, 0` | 2 | RMT | `rmt/rmt_5/bus_traits.h` |
 
-The classic ESP32 has no parallel clockless driver in 3.10.8: it removed
+The classic ESP32 has no parallel clockless driver in 3.10.9: it removed
 `FASTLED_ESP32_I2S`, which now only warns and leaves the LEDs on RMT, and its
 I2S `FLEX_IO` slots declare `BusSupports` for SPI chipsets only (the clockless
 engine is "ready for the swap" upstream). The S3's older I2S LCD_CAM driver is

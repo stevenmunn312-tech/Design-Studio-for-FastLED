@@ -303,6 +303,9 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- Firmware builds against FastLED 3.10.9 (3.10.8 before) and fbuild 2.5.51
+  (2.5.45 before). 3.10.9 builds ESP32-C3 and C6 as released, so the
+  helper no longer passes them `-DFL_NO_EXCEPT=`.
 - Serial parts' UARTs are allocated automatically: the radar and DFPlayer
   keep their fixed ports, then the DMX transceiver and the MIDI interface
   each take the lowest free UART. Graph Health names who holds a port when a
