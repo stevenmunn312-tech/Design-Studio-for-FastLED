@@ -4967,6 +4967,18 @@ export function connectShowOutput(engineId: string, outputId: string): boolean {
     edge.source === engineId && edge.target === outputId && edge.targetHandle === 'frame')
 }
 
+/** Wire an Audio node into a node's empty Audio input, in the open graph —
+ *  the repair for a Stereo VU Meter left unwired beside an Audio node. */
+export function connectAudioInput(audioId: string, targetId: string): boolean {
+  const state = useGraphStore.getState()
+  const has = (id: string) => state.nodes.some((node) => node.id === id)
+  const taken = state.edges.some((edge) => edge.target === targetId && edge.targetHandle === 'audio')
+  if (!has(audioId) || !has(targetId) || taken) return false
+  state.onConnect({ source: audioId, sourceHandle: 'audio', target: targetId, targetHandle: 'audio' })
+  return useGraphStore.getState().edges.some((edge) =>
+    edge.source === audioId && edge.target === targetId && edge.targetHandle === 'audio')
+}
+
 /** The three show players a Pattern Collection can feed. */
 export type CollectionPlayerType = 'PatternSlideshow' | 'PatternMaster' | 'PerformanceGenerator'
 

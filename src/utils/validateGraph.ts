@@ -1896,6 +1896,7 @@ export type GraphDiagnosticAction =
   | 'open-led-outputs'
   | 'open-audio-outputs'
   | 'add-audio-node'
+  | 'connect-audio'
   | 'choose-board'
   | 'insert-map-range'
   | 'place-touch-control'
@@ -1938,6 +1939,8 @@ export type GraphRepair =
   | { kind: 'move-i2c-pins'; boardId?: string }
   /** The show engine to wire into the only LED output there is. */
   | { kind: 'connect-show-output'; engineId: string; outputId: string }
+  /** The Audio node on the canvas to wire into a node's empty Audio input. */
+  | { kind: 'connect-audio'; audioId: string; targetId: string }
   /** The Music Player to give a new, wired Pattern Collection. */
   | { kind: 'add-pattern-collection'; playerId: string }
   /** A Controls wire into an LED output to move onto the player engine's own
@@ -4179,12 +4182,18 @@ export function buildGraphDiagnostics(
     const props = meter.data.properties as Record<string, unknown>
     if (props.enabled === false) continue
     if (!incoming.has(`${meter.id}:audio`)) {
+      // With an Audio node already on the canvas the card can wire it itself.
+      const audio = nodes.find((node) => node.data.nodeType === 'Audio')
       diagnostics.push({
         id: `${meter.id}-audio`, severity: 'error', category: 'connection',
         title: 'Stereo VU Meter has no Audio input',
         message: 'The paired side strings stay black until an Audio node is connected.',
         fix: 'Connect Audio to the meter’s Audio socket, or disable the fixture.',
         nodeIds: [meter.id], nodeLabel: nodeLabel(meter),
+        ...(audio ? {
+          action: 'connect-audio' as const,
+          repair: { kind: 'connect-audio' as const, audioId: audio.id, targetId: meter.id },
+        } : {}),
       })
     }
     for (const [key, side] of [['leftDataPin', 'left'], ['rightDataPin', 'right']] as const) {
@@ -5109,6 +5118,10 @@ export function buildGraphDiagnostics(
       capabilityProviderIds.has(node.id) ||
       edges.some((edge) => edge.source === node.id || edge.target === node.id)
     ) continue
+    // An enabled meter with no wires already has its "no Audio input" card,
+    // which names the one wire it needs; a second card would say it again.
+    if (node.data.nodeType === 'StereoVuMeter'
+      && (node.data.properties as Record<string, unknown>).enabled !== false) continue
     // A microphone is hidden on the canvas and reaches the graph through an
     // Audio node, so with none there is nothing to locate or wire — say what to add.
     if ((node.data.nodeType === 'MicInput' || node.data.nodeType === 'LineInput')

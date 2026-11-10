@@ -941,6 +941,10 @@ const BUNDLED_BEST_ON: Record<string, PatternFormTag[]> = {
   'Breathing Rosette': ['matrix', 'ring'],
   'Liquid Mirage': ['matrix'],
   'Truchet Beat Maze': ['matrix'],
+
+  // Promoted library patterns. Psydance arrays a rotating shape over
+  // AnimARTrix; on one row neither the tiling nor the turn survives.
+  'Psydance': ['matrix'],
 }
 
 /** Every name in the table above, so a test can prove each one still matches a

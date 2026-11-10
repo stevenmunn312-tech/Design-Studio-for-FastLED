@@ -168,6 +168,56 @@ Fourier on a 60x1 strip (`FLAT_PATH_ROW_CPP`), and radial Mirror on a strip.
   to 11px before it is cut. Sixteen longer titles, mostly variant names
   such as "Mirror · Horizontal", are still cut at that size.
 
+### Requested 2026-11-10
+
+Each of these adds a property or changes a starter, so land them before the
+HW-18 format freeze.
+
+- [ ] **Bitmap fonts for LED text: Font select on Text and Clock Display
+  (M).** LED matrix, OLED and fixed TFT text all draw one 3x5 uppercase font
+  ([font.ts](src/nodes/shared/font.ts)). Add two or three more `BitmapFont`
+  tables, 5x8 first, with lowercase, and a Font property on Text and Clock
+  Display. FastLED 3.10.9 ships console fonts (4x6, 5x8, 5x12, 6x8, 7x9)
+  under `src/fl/font/`, marked beta with advice to copy them, so copy the
+  glyph data into TypeScript rather than including the headers: preview and
+  firmware then read one table. Check the fonts' licence first (raster-fonts
+  by way of WLED). Needed with it: upper-casing becomes a per-font flag
+  (`textColumns` forces it today), [fontCpp.ts](src/nodes/shared/fontCpp.ts)
+  emits only the fonts and glyphs a graph uses, and the row packing is
+  checked for glyphs wider than three columns.
+- [ ] **Bitmap fonts on OLED and fixed TFT displays (S).** The same Font
+  select on the fixed-display text layouts; `oledSurface.ts` and
+  `tftSurface.ts` already take a `font` argument. Follows the item above.
+- [ ] **Pattern Collection: offer to rate unrated patterns (S).** When
+  patterns are added to a Pattern Collection and some have no Studio Score,
+  ask whether Studio should run Pattern Insights on them.
+- [ ] **Pattern Insights: performance and memory cost per pattern (M).**
+  Show what each library pattern costs, so a heavy pattern can be avoided
+  when memory or frame rate is tight: estimated render time per frame and
+  firmware RAM (state buffers, lookup tables) and flash, by matrix size.
+  Decide the source first: an estimate from the node list, a timed preview
+  render, or figures taken from compiled fixtures. Sortable and filterable
+  in the Pattern Collection picker.
+- [ ] **LED matrix: start corner and wiring direction (M).** Let the user
+  say where LED 0 sits and which way the first row runs, for example
+  Serpentine (back and forth), Bottom-Left, Horizontal. Today the matrix
+  layout has only the `serpentine` switch. Preview mapping, the generated
+  XY function and the Build Diagram must agree.
+- [ ] **SD reader dropped on Hardware adds an Audio node (S).** Dropping an
+  SD card reader on the bench adds an Audio node to the root graph, set to
+  Audio decoder, when the graph has none.
+- [ ] **Performance Generator plays only in the main preview (S).** Remove
+  the node's own "Show in main LED preview" checkbox, the "Playing in the
+  main LED preview" line and the "Controls in the player under the LED
+  preview" line; the main preview is the only place it plays.
+- [ ] **Performance Generator and Music Player starters arrive populated
+  (M).** Opening the Performance Generator starter fills its Pattern
+  Collection with the audio-reactive patterns rated Exceptional and scans
+  the built-in MP3 in the Music Library node. The Music Player starter adds
+  only the Exceptional patterns too. Open question: bundled patterns carry
+  no shipped Studio Score (ratings are computed per machine and matrix
+  size), so either ship a curated list or rate on first open.
+
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 
@@ -541,6 +591,19 @@ and an Upload information shelf in
   SD-player generators is an open question, because a show already owns its
   LEDs: take the LEDs over while packets arrive, or act only as remote control.
   NTP in those generators shipped with D-03.
+- [ ] **User font import for LED text (M).** Import a bitmap font (BDF, or a
+  pasted glyph sheet) as a `BitmapFont` saved with the project, validated
+  before any glyph byte reaches generated C++. Follows the built-in Font
+  select in section 3. Proportional widths and kerning are a separate
+  decision: every layout helper assumes a fixed advance today.
+- [ ] **More typefaces on custom screens (M).** LVGL screens use Montserrat
+  only, at even sizes 8 to 48. Extra faces, built in or imported, need an
+  `lv_font_conv` step in the build helper and a flash budget per face and
+  size.
+- [ ] **TrueType text on LED matrices (L).** FastLED 3.10.9 carries
+  `fl::TrueType` (stb_truetype). Not planned: the preview would need the
+  same rasteriser in TypeScript, and the flash and RAM cost is unmeasured.
+  Revisit only if large panels make the bitmap fonts look coarse.
 
 - [ ] **Node review: Category: Grow field nodes so pattern/field twins are not subsets
   (Low, M).** Noise has 9 algorithms vs Field Noise's fBm only; Game of Life

@@ -2,6 +2,7 @@ import { useGroupRegistry } from '../../hooks/useGroupRegistry'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   addPatternCollectionTo,
+  connectAudioInput,
   connectShowOutput,
   connectTemplateControls,
   insertMapRangeOnEdge,
@@ -77,6 +78,7 @@ function actionLabel(action: GraphDiagnosticAction, fix?: Partial<GraphDiagnosti
   if (action === 'open-led-outputs') return 'Show LED outputs'
   if (action === 'open-audio-outputs') return 'Choose a DAC'
   if (action === 'add-audio-node') return 'Add Audio node'
+  if (action === 'connect-audio') return 'Connect Audio'
   if (action === 'renew-board-link-key') return 'Make a new key'
   if (action === 'add-rtc-module') return 'Add a DS3231'
   if (action === 'add-bench-part') return 'Add the part'
@@ -351,6 +353,11 @@ export default function GraphHealthDrawer() {
     if (issue.repair?.kind === 'connect-show-output') {
       const done = connectShowOutput(issue.repair.engineId, issue.repair.outputId)
       setStatus(done ? 'Show connected to its LED output' : 'That output is no longer free', done ? 'success' : 'info')
+      return
+    }
+    if (issue.repair?.kind === 'connect-audio') {
+      const done = connectAudioInput(issue.repair.audioId, issue.repair.targetId)
+      setStatus(done ? 'Audio connected' : 'That Audio input has already changed', done ? 'success' : 'info')
       return
     }
     if (issue.repair?.kind === 'add-pattern-collection') {

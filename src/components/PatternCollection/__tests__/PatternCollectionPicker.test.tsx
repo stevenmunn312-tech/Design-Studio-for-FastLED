@@ -115,7 +115,7 @@ describe('PatternCollectionPicker', () => {
       .toEqual(['Ambient', 'Showpiece', 'Accent / Sparkle', 'Utility'])
   })
 
-  it('treats Rating as one choice between All, Strong and Exceptional', () => {
+  it('lets Strong and Exceptional be pressed together, and All clear both', () => {
     usePatternRatingStore.setState({
       ratingsByPatternId: {
         'pat-juggle': { patternId: 'pat-juggle', intent: 'ambient', overall: 80, failed: false, skipped: false },
@@ -131,10 +131,16 @@ describe('PatternCollectionPicker', () => {
     expect(rowNames()).toEqual(['Juggle'])
     expect(pressed(/^All/)).toBe('false')
     fireEvent.click(screen.getByRole('button', { name: /^Exceptional/ }))
+    // Both pressed: 75 and up, and each chip still counts its own band.
+    expect(rowNames().sort()).toEqual(['Juggle', 'Spectrum Bars'])
+    expect(screen.getByText(`2 / ${LIBRARY.length} available`)).toBeTruthy()
+    expect(pressed(/^Strong/)).toBe('true')
+    expect(pressed(/^Exceptional/)).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: /^Strong/ }))
     expect(rowNames()).toEqual(['Spectrum Bars'])
-    expect(screen.getByText(`1 / ${LIBRARY.length} available`)).toBeTruthy()
     expect(pressed(/^Strong/)).toBe('false')
     fireEvent.click(screen.getByRole('button', { name: /^All/ }))
+    expect(pressed(/^Exceptional/)).toBe('false')
     expect(rowNames()).toContain('Scanner')
   })
 

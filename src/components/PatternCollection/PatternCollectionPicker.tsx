@@ -47,8 +47,9 @@ const AUDIO_KINDS: { id: AudioKind; label: string; title: string }[] = [
  *  because it is a property of the graph, not a judgement about it. */
 const INTENT_CHIPS = PATTERN_INTENTS.filter((intent) => intent.id !== 'audio-reactive')
 
-/** Rating is one choice of verdict band, so Strong (75–89) and Exceptional
- *  (90+) never overlap. Names and bands both come from verdictForScore. */
+/** Rating chips are verdict bands, so Strong (75–89) and Exceptional (90+)
+ *  never overlap; pressing both lists 75 and up. Names and bands both come
+ *  from verdictForScore. */
 const RATING_CHIPS: { verdict: PatternVerdict; label: string; title: string }[] = [
   { verdict: 'strong', label: verdictForScore(75).label, title: 'Studio Score of 75 to 89.' },
   { verdict: 'exceptional', label: verdictForScore(90).label, title: 'Studio Score of 90 or better.' },
@@ -96,7 +97,7 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
   const [sort, setSort] = useState<SortMode>('name')
   const [intents, setIntents] = useState<Set<PatternIntent>>(new Set())
   const [audioKinds, setAudioKinds] = useState<Set<AudioKind>>(new Set())
-  const [verdict, setVerdict] = useState<PatternVerdict | null>(null)
+  const [verdicts, setVerdicts] = useState<Set<PatternVerdict>>(new Set())
   const [showPoor, setShowPoor] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const dialogRef = useModalFocus<HTMLDivElement>(onClose)
@@ -156,9 +157,10 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
     if (needle && !`${row.pattern.name} ${row.shelf}`.toLocaleLowerCase().includes(needle)) return false
     if (skip !== 'intent' && intents.size > 0 && (!row.rating || !intents.has(row.rating.intent))) return false
     if (skip !== 'audio' && audioKinds.size > 0 && !audioKinds.has(row.audio)) return false
-    if (skip !== 'score' && verdict && !hasVerdict(row.rating, verdict)) return false
+    if (skip !== 'score' && verdicts.size > 0
+      && ![...verdicts].some((wanted) => hasVerdict(row.rating, wanted))) return false
     return true
-  }, [audioKinds, intents, query, verdict])
+  }, [audioKinds, intents, query, verdicts])
 
   /**
    * How a pattern suits the selected outputs: best if it is best on any of
@@ -363,18 +365,18 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
             <Chip
               label="All"
               title="Every pattern, scored or not."
-              on={verdict === null}
+              on={verdicts.size === 0}
               count={allRows.filter((row) => matches(row, 'score')).length}
-              onClick={() => setVerdict(null)}
+              onClick={() => setVerdicts(new Set())}
             />
             {RATING_CHIPS.map((chip) => (
               <Chip
                 key={chip.verdict}
                 label={chip.label}
                 title={chip.title}
-                on={verdict === chip.verdict}
+                on={verdicts.has(chip.verdict)}
                 count={allRows.filter((row) => matches(row, 'score') && hasVerdict(row.rating, chip.verdict)).length}
-                onClick={() => setVerdict(chip.verdict)}
+                onClick={() => toggleSetValue(verdicts, setVerdicts, chip.verdict)}
               />
             ))}
           </div>

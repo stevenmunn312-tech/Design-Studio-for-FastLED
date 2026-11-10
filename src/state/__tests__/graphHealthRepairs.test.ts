@@ -6,6 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   addPatternCollectionTo,
+  connectAudioInput,
   connectShowOutput,
   disconnectTouchControls,
   movePartPinToFree,
@@ -142,6 +143,26 @@ describe('Connect it', () => {
     expect(card?.repair).toEqual({ kind: 'connect-show-output', engineId: 'gen', outputId: 'out' })
     expect(connectShowOutput('gen', 'out')).toBe(true)
     expect(diagnostics().some((d) => d.title === 'The show is not going anywhere')).toBe(false)
+  })
+})
+
+describe('Connect Audio', () => {
+  const cards = () => diagnostics().filter((d) => d.nodeIds.includes('vu'))
+
+  it('says an unwired meter once, and offers no repair without an Audio node', () => {
+    useGraphStore.getState().loadGraph([node('vu', 'StereoVuMeter')], [])
+    expect(cards().map((d) => d.title)).toEqual(['Stereo VU Meter has no Audio input'])
+    expect(cards()[0].repair).toBeUndefined()
+  })
+
+  it('wires the Audio node on the canvas into the meter, and the card goes', () => {
+    useGraphStore.getState().loadGraph([node('audio', 'Audio'), node('vu', 'StereoVuMeter')], [])
+    const card = cards().find((d) => d.title === 'Stereo VU Meter has no Audio input')
+    expect(card?.repair).toEqual({ kind: 'connect-audio', audioId: 'audio', targetId: 'vu' })
+    expect(connectAudioInput('audio', 'vu')).toBe(true)
+    expect(cards().some((d) => d.title === 'Stereo VU Meter has no Audio input')).toBe(false)
+    // Read again after the fix: nothing left to do, and it says so.
+    expect(connectAudioInput('audio', 'vu')).toBe(false)
   })
 })
 

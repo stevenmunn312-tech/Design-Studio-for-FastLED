@@ -427,7 +427,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
           * word. But the display-budget bench does — four runs and an hour's
           * soak read this switch and nothing else — and an instrument that
           * cannot be switched on is not an instrument. It stays a bench
-          * control: off by default, and the note below says to leave it off.
+          * control: off by default, and its tooltip says to leave it off.
           */}
         <div className={styles.psramBlock}>
           {telemetrySupported ? (
@@ -439,12 +439,6 @@ export default function BoardNodeBody({ nodeId }: Props) {
           ) : (
             <p className={styles.pending}>Telemetry needs an ESP32 or ESP8266 target.</p>
           )}
-          <small className={styles.benchNote}>
-            A bench instrument: prints heap, frame rate, touch response and the
-            draw buffer to Serial, for the Upload tab’s telemetry card. Upload
-            after changing it, and leave it off for a finished build. Touch
-            calibration does not need it — that wizard flashes its own sketch.
-          </small>
         </div>
       </div>
     </div>
