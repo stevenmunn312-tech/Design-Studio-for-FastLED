@@ -90,8 +90,9 @@ The run takes several minutes and ends with a pass or fail line; the XML
 report lists each test. Delete an old report first, because the kit will not
 overwrite one.
 
-Expect an overall **WARNING**, because the optional **Blocked executables**
-test fails. It flags every binary that can start a process or contains a string
+Expect an overall **PASS** with 23 tests passed and one optional test failed.
+The kit does not count optional tests towards the overall result. The failure
+is **Blocked executables**, which flags every binary that can start a process or contains a string
 such as `cmd`, `reg` or `powershell`, and starting compilers, `esptool` and
 `fbuild` is what the helper does. Many hits are only text matches (`BASH` in
 `unicodedata.pyd`, for example). The `runFullTrust` justification below
