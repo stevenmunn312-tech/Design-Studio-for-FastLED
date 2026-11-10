@@ -1,8 +1,9 @@
-import { rateCpp, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { FORMULA_POINTS_SPEED_MAX, rateCpp, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
-import { trailFadeCpp, trailKeepCpp } from '../shared/trailFadeCpp'
-import { keepOverCpp, passChanceCpp, passFramesCpp, passStepsCpp } from '../shared/passClockCpp'
+import { survivesCpp, trailFadeCpp, trailKeepCpp } from '../shared/trailFadeCpp'
+import { keepOverCpp, passFramesCpp, passStepFramesCpp, passStepsCpp } from '../shared/passClockCpp'
+import { PASS_FPS } from '../shared/passClock'
 import { CURL_EPS, CURL_GAIN } from '../../state/evaluator/curl'
 import {
   FIRE_SMOKE_DEPTH, FIRE_SMOKE_SCALE_ACROSS, FIRE_SMOKE_SCALE_ALONG, FIRE_SMOKE_SPEED, INOISE_UNIT, fireStyle,
@@ -23,6 +24,9 @@ import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { REACTION_DIFFUSION_RATES, reactionDiffusionRates } from './reactionDiffusionPresets'
 import { angle16Cpp, phyllotaxisPointCpp, splatDiscQ8Cpp } from '../shared/integerPatterns'
+
+/** One 60th of a second, the frame a trail deposit stands for. */
+const ONE_FRAME_CPP = `(1.0f/${floatLit(PASS_FPS)})`
 
 // Fire's styles share these direction/turbulence/mirror/seed
 // controls — mirrors graphEvaluator.ts's firePrimaryLen/fireSecondaryLen/
@@ -86,7 +90,9 @@ function poolCpp(
 
 /** Fire's `fire2012` style: FastLED's Fire2012 heat algorithm. */
 function fire2012Cpp(ctx: EmitContext): void {
-  const { node, id, p, ln, f, ownBuf, paletteExpr } = ctx
+  const { node, id, p, ln, f, ownBuf, paletteExpr, needsT } = ctx
+  // The heat steps once for each whole 60th of a second since the last frame.
+  needsT.v = true
   const ob = ownBuf()
   const cooling = f('cooling', 'cooling', 55), sparking = f('sparking', 'sparking', 120)
   const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -107,6 +113,8 @@ function fire2012Cpp(ctx: EmitContext): void {
   ln(spreadDecl)
   ln(`    static uint8_t ${HB}[${P}][${S}] = {};`)
   if (useLcg) ln(`    static uint32_t _fireLcg_${id} = ${seedP}u;`)
+  const steps = passStepFramesCpp(ln, `${phaseTag(id)}_heat`, passFramesCpp(ln, phaseTag(id)))
+  ln(`    for(int _fs=0;_fs<${steps};_fs++){`)
   ln(`    for(int _p=0;_p<${P};_p++) for(int _s=0;_s<${S};_s++)`)
   ln(`      ${HB}[_p][_s]=qsub8(${HB}[_p][_s],(uint8_t)(${rnd01}*((${cooling}*10.0f/(${P}))+2)));`)
   // Classic two-row lookahead: row _p from the single row _p-1 (closer to
@@ -116,6 +124,7 @@ function fire2012Cpp(ctx: EmitContext): void {
   ln(`      int _sum=${HB}[_p-1][_s]; for (int _ds=-${spread}; _ds<=${spread}; _ds++) _sum += ${HB}[_p-2][max(0,min((${S})-1,_s+_ds))];`)
   ln(`      ${HB}[_p][_s]=_sum/(${spread}*2+2); }`)
   ln(`    for(int _s=0;_s<${S};_s++) if(${rnd01}*255 < ${sparking}) ${HB}[0][_s]=qadd8(${HB}[0][_s],(uint8_t)(${rnd01}*95+160));`)
+  ln(`    }`)
   ln(`    for (int _p = 0; _p < ${P}; _p++) for (int _s = 0; _s < ${S}; _s++) {`)
   const { x: fx, y: fy } = fireXYExpr(direction, '_p', '_s')
   ln(`      ${ob}[(${fy})*WIDTH+(${fx})] = ColorFromPalette(${pal}, ${HB}[_p][_s]);`)
@@ -135,7 +144,9 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const direction = fireDirectionCpp(ctx)
     const smoke = fireStyle(p.fireStyle) === 'smoke'
-    if (smoke) needsT.v = true
+    // The heat steps once for each whole 60th of a second since the last
+    // frame, and the smoke drifts with `t`.
+    needsT.v = true
     // The diffusion window is a loop bound and a divisor, not an array
     // size, so both become runtime reads of one local.
     const spread = `_fireSpread_${id}`
@@ -157,6 +168,9 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     // cooling*0.18. Sparks land at 0.75..1 there, 191..255 here.
     ln(`    float _cool=max(0.0f,min(255.0f,${cooling}))*0.18f;`)
     ln(`    float _spark=min(1.0f,max(0.0f,(max(0.0f,min(255.0f,${sparking}))/255.0f)*(0.35f+min(1.0f,max(0.0f,${intensity}))*0.65f)));`)
+    // Cool, rise a row and spark once for each whole frame owed, as evalFire does.
+    const steps = passStepFramesCpp(ln, `${phaseTag(id)}_heat`, passFramesCpp(ln, phaseTag(id)))
+    ln(`    for (int _fs = 0; _fs < ${steps}; _fs++) {`)
     ln(`    for (int _p = 0; _p < ${P}; _p++) for (int _s = 0; _s < ${S}; _s++)`)
     ln(`      ${HB}[_p][_s] = qsub8(${HB}[_p][_s], (uint8_t)((1.0f+${rnd01})*_cool));`)
     // Propagate from _p-1 (closer to the flame base) into _p, averaging a
@@ -167,6 +181,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      ${HB}[_p][_s] = (${HB}[_p][_s] + _sum) / (${spread}*2+2); }`)
     ln(`    for (int _s = 0; _s < ${S}; _s++)`)
     ln(`      if (${rnd01} < _spark) ${HB}[0][_s] = (uint8_t)(191.25f + ${rnd01}*63.75f);`)
+    ln(`    }`)
     ln(`    for (int _p = 0; _p < ${P}; _p++) for (int _s = 0; _s < ${S}; _s++) {`)
     const { x: fx, y: fy } = fireXYExpr(direction, '_p', '_s')
     if (smoke) {
@@ -210,7 +225,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     if (seed) ln(`    static bool ${A}seeded=false; if(!${A}seeded){ random16_set_seed(${seed}u); ${A}seeded=true; }`)
     // Each step below was written per frame and runs on the clock, as the
     // preview's does: velocities and counts times the frames, drag and decay
-    // kept over them, a spawn's chance the chance of one in them.
+    // kept over them, and a spawn's chance tried once in each whole frame owed.
     const pf = passFramesCpp(ln, phaseTag(id))
     const lifeKept = `${decayL}${(PARTICLE_DECAY_SCALE[mode] ?? 1) === 1 ? '' : `*${floatLit(PARTICLE_DECAY_SCALE[mode] ?? 1)}`}`
 
@@ -228,6 +243,14 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     {
       const ln = (line: string) => { variantLines.push(line) }
       ln(`    if(!${A}init){ for(int i=0;i<_PN;i++) ${A}l[i]=0; ${A}init=true; }`)
+      // The whole frames this frame spans, as the preview's `owed`: declared
+      // the first time a branch reads it, ahead of the line that does.
+      let owedVar = ''
+      const owed = () => owedVar || (owedVar = passStepsCpp(ln, `${phaseTag(id)}_dots`, '1.0f', pf))
+      const tryEach = (chance: string) => `for(int _try=0;_try<${owed()};_try++) if(random8()<(uint8_t)(${chance}*255))`
+      // A spawn tried for a later frame starts with the life it would have
+      // lost to the frames before it, as the preview's `younger` does.
+      const born = () => `powf(_paLife,(float)(${owed()}-_try)-${pf})`
 
       // ── spawn ──
       // Width-spawning modes centre their random x on WIDTH/2 and scale the
@@ -238,35 +261,34 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
       const bounceF = '_paBounce'
       const spawnX = `(WIDTH*0.5f+(random8()/255.0f-0.5f)*WIDTH*${spreadF})`
       if (mode === 'fountain')
-        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=HEIGHT-1; ${A}vx[i]=(random8()/255.0f-0.5f)*0.6f*${spreadF}; ${A}vy[i]=-(random8()/255.0f*0.5f+0.1f); ${A}l[i]=1; break; } }`)
+        ln(`    ${tryEach('_rate')}{ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=HEIGHT-1; ${A}vx[i]=(random8()/255.0f-0.5f)*0.6f*${spreadF}; ${A}vy[i]=-(random8()/255.0f*0.5f+0.1f); ${A}l[i]=${born()}; break; } }`)
       else if (mode === 'drops')
-        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.4f*${spreadF}; ${A}vy[i]=random8()/255.0f*0.2f; ${A}l[i]=1; break; } }`)
+        ln(`    ${tryEach('_rate')}{ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.4f*${spreadF}; ${A}vy[i]=random8()/255.0f*0.2f; ${A}l[i]=${born()}; break; } }`)
       else if (mode === 'fireworks') {
-        ln(`    if(random8()<(uint8_t)(_paBurst*255)){ int _n=14+random8()/32; float _cx=random8()/255.0f*WIDTH, _cy=random8()/255.0f*HEIGHT*0.5f+HEIGHT*0.1f;`)
-        ln(`      for(int k=0;k<_n;k++) for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ float _a=(k/(float)_n)*6.2831f+random8()/255.0f*0.3f, _sp=random8()/255.0f*0.5f+0.35f; ${A}x[i]=_cx; ${A}y[i]=_cy; ${A}vx[i]=cos(_a)*_sp; ${A}vy[i]=sin(_a)*_sp; ${A}l[i]=1; break; } }`)
+        ln(`    ${tryEach('_rate*0.12f')}{ int _n=14+random8()/32; float _cx=random8()/255.0f*WIDTH, _cy=random8()/255.0f*HEIGHT*0.5f+HEIGHT*0.1f;`)
+        ln(`      for(int k=0;k<_n;k++) for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ float _a=(k/(float)_n)*6.2831f+random8()/255.0f*0.3f, _sp=random8()/255.0f*0.5f+0.35f; ${A}x[i]=_cx; ${A}y[i]=_cy; ${A}vx[i]=cos(_a)*_sp; ${A}vy[i]=sin(_a)*_sp; ${A}l[i]=${born()}; break; } }`)
       } else if (mode === 'sparkle')
-        ln(`    { int _sp=max(1,(int)floorf(_rate*WIDTH*0.8f+0.5f)); for(int k=0;k<_sp;k++) if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=random8()/255.0f*HEIGHT*0.3f; ${A}vx[i]=0; ${A}vy[i]=random8()/255.0f*0.25f+0.05f; ${A}l[i]=1; break; } } }`)
+        ln(`    { int _sp=max(1,(int)floorf(_rate*WIDTH*0.8f+0.5f)); for(int _try=0;_try<${owed()};_try++) for(int k=0;k<_sp;k++) if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=random8()/255.0f*HEIGHT*0.3f; ${A}vx[i]=0; ${A}vy[i]=random8()/255.0f*0.25f+0.05f; ${A}l[i]=${born()}; break; } } }`)
       else if (mode === 'comet' || mode === 'meteor') {
         ln(`    for(int i=0;i<_PN;i++) if(${A}l[i]>0.04f) ${A}l[i]*=_paKeep;`)
-        const dots = passStepsCpp(ln, `${phaseTag(id)}_dots`, '1.0f', pf)
-        ln(`    for(int _age=${dots}-1;_age>=0;_age--){ float _at=t-_age/60.0f;`)
+        ln(`    for(int _age=${owed()}-1;_age>=0;_age--){ float _at=t-_age/60.0f;`)
         if (mode === 'comet') ln(`      float _hx=(WIDTH-1)*(0.5f+0.45f*sin(_at*0.9f)), _hy=(HEIGHT-1)*(0.5f+0.45f*sin(_at*0.6f+1.3f));`)
         else ln(`      float _span=max(1.0f,max(WIDTH,HEIGHT)-1.0f),_phase=fmodf(_at*max(2.0f,WIDTH*0.45f),_span), _hx=_phase*(WIDTH-1)/_span, _hy=_phase*(HEIGHT-1)/_span;`)
         ln(`      for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=_hx; ${A}y[i]=_hy; ${A}vx[i]=0; ${A}vy[i]=0; ${A}l[i]=powf(_paLife,_age+1.0f); break; } }`)
       }
       else if (mode === 'snow')
-        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vy[i]=random8()/255.0f*0.12f+0.05f; ${A}l[i]=0.7f+random8()/255.0f*0.3f; ${A}s[i]=random8()/255.0f*6.28f; break; } }`)
+        ln(`    ${tryEach('_rate')}{ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vy[i]=random8()/255.0f*0.12f+0.05f; ${A}l[i]=0.7f+random8()/255.0f*0.3f; ${A}s[i]=random8()/255.0f*6.28f; break; } }`)
       else if (mode === 'rain')
-        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.18f; ${A}vy[i]=random8()/255.0f*0.45f+0.35f; ${A}l[i]=1; break; } }`)
+        ln(`    ${tryEach('_rate')}{ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.18f; ${A}vy[i]=random8()/255.0f*0.45f+0.35f; ${A}l[i]=${born()}; break; } }`)
       else if (mode === 'embers')
-        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=HEIGHT-1; ${A}vx[i]=(random8()/255.0f-0.5f)*0.12f; ${A}vy[i]=-(random8()/255.0f*0.18f+0.04f); ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; break; } }`)
+        ln(`    ${tryEach('_rate')}{ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=HEIGHT-1; ${A}vx[i]=(random8()/255.0f-0.5f)*0.12f; ${A}vy[i]=-(random8()/255.0f*0.18f+0.04f); ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=${born()}; break; } }`)
       else if (mode === 'bubbles')
-        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=HEIGHT-1; ${A}vy[i]=-(random8()/255.0f*0.16f+0.06f); ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; break; } }`)
+        ln(`    ${tryEach('_rate')}{ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=HEIGHT-1; ${A}vy[i]=-(random8()/255.0f*0.16f+0.06f); ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; break; } }`)
       else if (mode === 'vortex')
-        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}l[i]=1; break; } }`)
+        ln(`    ${tryEach('_rate')}{ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}l[i]=${born()}; break; } }`)
       else if (mode === 'luminova') {
         const N = luminovaEmitters(countP)
-        const steps = passStepsCpp(ln, `${phaseTag(id)}_dots`, '1.0f', pf)
+        const steps = owed()
         ln(`    { static bool ${A}em[${LUMINOVA_MAX}];`)
         ln(`      for(int i=${N};i<${LUMINOVA_MAX};i++) if(${A}em[i]){ ${A}em[i]=false; ${A}l[i]=0; }`)
         ln(`      for(int i=0;i<${N};i++) if(!${A}em[i]){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; ${A}em[i]=true; }`)
@@ -280,15 +302,15 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
       } else if (mode === 'fireflies')
         ln(`    { int _target=${countP}; for(int i=0;i<_target;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.12f; ${A}vy[i]=(random8()/255.0f-0.5f)*0.12f; ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; } for(int i=_target;i<_PN;i++) ${A}l[i]=0; }`)
       else if (mode === 'tornado')
-        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=WIDTH/2.0f; ${A}y[i]=HEIGHT-1; ${A}vy[i]=-(random8()/255.0f*0.16f+0.06f); ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; break; } }`)
+        ln(`    ${tryEach('_rate')}{ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=WIDTH/2.0f; ${A}y[i]=HEIGHT-1; ${A}vy[i]=-(random8()/255.0f*0.16f+0.06f); ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=${born()}; break; } }`)
       else if (mode === 'pinwheel')
-        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ float _a=random8()/255.0f*6.2831f; ${A}x[i]=WIDTH/2.0f; ${A}y[i]=HEIGHT/2.0f; ${A}vx[i]=cos(_a)*0.18f; ${A}vy[i]=sin(_a)*0.18f; ${A}l[i]=1; break; } }`)
+        ln(`    ${tryEach('_rate')}{ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ float _a=random8()/255.0f*6.2831f; ${A}x[i]=WIDTH/2.0f; ${A}y[i]=HEIGHT/2.0f; ${A}vx[i]=cos(_a)*0.18f; ${A}vy[i]=sin(_a)*0.18f; ${A}l[i]=${born()}; break; } }`)
       else if (mode === 'bounce')
         ln(`    { int _target=${countP}; for(int i=0;i<_target;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.5f; ${A}vy[i]=(random8()/255.0f-0.5f)*0.5f; ${A}l[i]=1; } for(int i=_target;i<_PN;i++) ${A}l[i]=0; }`)
       else if (mode === 'chase')
-        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.1f; ${A}vy[i]=(random8()/255.0f-0.5f)*0.1f; ${A}l[i]=1; break; } }`)
+        ln(`    ${tryEach('_rate')}{ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.1f; ${A}vy[i]=(random8()/255.0f-0.5f)*0.1f; ${A}l[i]=${born()}; break; } }`)
       else if (mode === 'waterfall')
-        ln(`    { int _sp=max(1,(int)floorf(_rate*3+0.5f)); for(int k=0;k<_sp;k++) if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=WIDTH*0.5f+(random8()/255.0f-0.5f)*0.3f*WIDTH*${spreadF}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.08f; ${A}vy[i]=random8()/255.0f*0.2f+0.12f; ${A}l[i]=1; break; } } }`)
+        ln(`    { int _sp=max(1,(int)floorf(_rate*3+0.5f)); for(int _try=0;_try<${owed()};_try++) for(int k=0;k<_sp;k++) if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=WIDTH*0.5f+(random8()/255.0f-0.5f)*0.3f*WIDTH*${spreadF}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.08f; ${A}vy[i]=random8()/255.0f*0.2f+0.12f; ${A}l[i]=${born()}; break; } } }`)
 
       // ── update ──
       if (mode === 'fireworks') ln(`    float _paDrag=${keepOverCpp('0.965f', pf)};`)
@@ -332,8 +354,6 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
 
     for (const [name, expr] of [
       ['_rate', rate],
-      ['_paChance', passChanceCpp(rate, pf)],
-      ['_paBurst', passChanceCpp(`${rate}*0.12f`, pf)],
       ['_paLife', lifeKept],
       ['_paKeep', keepOverCpp(lifeKept, pf)],
       ['_paSpread', `constrain(${f('spread', 'spread', 1)},0.0f,2.0f)`],
@@ -460,29 +480,32 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
         break
       }
 
-      case 'lissajousPath': {
-        const freqA = `fmaxf(1.0f, ${f('freqA', 'freqA', 3)})`
-        const freqB = `fmaxf(1.0f, ${f('freqB', 'freqB', 2)})`
-        ln(`  { // Formula Points: lissajousPath`)
-        trailFadeCpp(ln, phaseTag(id), trailVar, ob)
-        // FORMULA_POINTS_SPEED_MAX.lissajousPath
-        ln(`    float _phase=${speedPhaseCpp(ln, phaseTag(id), speedVar)}*2.0f;`)
-        ln(`    float _cx=sinf(${freqA}*_phase), _cy=sinf(${freqB}*_phase);`)
-        ln(`    float _hue=fmodf(_phase/6.2831853f,1.0f); if(_hue<0.0f)_hue+=1.0f;`)
-        splat(`(_cx+1.0f)/2.0f*(WIDTH-1)`, `(_cy+1.0f)/2.0f*(HEIGHT-1)`, `ColorFromPalette(${pal},(uint8_t)(_hue*255.0f))`, ob)
-        ln(`  }`)
-        break
-      }
-
+      case 'lissajousPath':
       case 'rosePath': {
-        ln(`  { // Formula Points: rosePath`)
-        trailFadeCpp(ln, phaseTag(id), trailVar, ob)
-        // FORMULA_POINTS_SPEED_MAX.rosePath
-        ln(`    float _phase=${speedPhaseCpp(ln, phaseTag(id), speedVar)}*2.0f;`)
-        ln(`    float _rr=cosf(fmaxf(1.0f, ${f('petals', 'petals', 5)})*_phase);`)
-        ln(`    float _cx=_rr*cosf(_phase), _cy=_rr*sinf(_phase);`)
+        const rose = formulaType === 'rosePath'
+        ln(`  { // Formula Points: ${formulaType}`)
+        const spin = speedPhaseCpp(ln, phaseTag(id), speedVar)
+        // One dot for each whole frame owed, the oldest first, where the
+        // curve was then and faded for the frames since; a frame owing none
+        // leaves the trail as it stands, as evalFormulaPoints does.
+        const owed = passStepsCpp(ln, `${phaseTag(id)}_dots`, '1.0f', passFramesCpp(ln, phaseTag(id)))
+        ln(`    if(${owed}>0){`)
+        trailFadeCpp(ln, phaseTag(id), trailVar, ob, '      ')
+        ln(`    }`)
+        ln(`    float _dk=${owed}>1?${survivesCpp(trailVar, ONE_FRAME_CPP)}:1.0f;`)
+        ln(`    for(int _age=${owed}-1;_age>=0;_age--){`)
+        const max = floatLit(FORMULA_POINTS_SPEED_MAX[formulaType] ?? 1)
+        ln(`    float _phase=(_age==0?${spin}:${spin}-${speedVar}*((float)_age/${floatLit(PASS_FPS)}))*${max};`)
+        if (rose) {
+          ln(`    float _rr=cosf(fmaxf(1.0f, ${f('petals', 'petals', 5)})*_phase);`)
+          ln(`    float _cx=_rr*cosf(_phase), _cy=_rr*sinf(_phase);`)
+        } else {
+          ln(`    float _cx=sinf(fmaxf(1.0f, ${f('freqA', 'freqA', 3)})*_phase), _cy=sinf(fmaxf(1.0f, ${f('freqB', 'freqB', 2)})*_phase);`)
+        }
         ln(`    float _hue=fmodf(_phase/6.2831853f,1.0f); if(_hue<0.0f)_hue+=1.0f;`)
-        splat(`(_cx+1.0f)/2.0f*(WIDTH-1)`, `(_cy+1.0f)/2.0f*(HEIGHT-1)`, `ColorFromPalette(${pal},(uint8_t)(_hue*255.0f))`, ob)
+        ln(`    CRGB _dc=ColorFromPalette(${pal},(uint8_t)(_hue*255.0f)); if(_age>0) _dc.nscale8((uint8_t)(powf(_dk,(float)_age)*255.0f));`)
+        splat(`(_cx+1.0f)/2.0f*(WIDTH-1)`, `(_cy+1.0f)/2.0f*(HEIGHT-1)`, '_dc', ob)
+        ln(`    }`)
         ln(`  }`)
         break
       }
@@ -650,34 +673,44 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      ${A}init=true; }`)
     ln(`    float _step=max(0.0f,${speed})*0.6f,_sp=constrain(${f('spawn', 'spawn', 0.5)},0.0f,1.0f);`)
     ln(`    float _tl=${f('trail', 'trail', 0.46)};`)
-    trailFadeCpp(ln, phaseTag(id), '_tl', `${A}tr`, '    ', '_len')
-    // Moves, spawn chances and life run on the 60ths of a second since the
-    // last frame, as the preview's do.
+    // Moves and life run on the 60ths of a second since the last frame, and a
+    // spawn chance is tried, and a deposit laid, once in each whole frame
+    // owed, as the preview's are. A frame owing none leaves the trail unfaded.
     const pf = passFramesCpp(ln, phaseTag(id))
+    const owed = passStepsCpp(ln, `${phaseTag(id)}_dots`, '1.0f', pf)
+    ln(`    if(${owed}>0){`)
+    trailFadeCpp(ln, phaseTag(id), '_tl', `${A}tr`, '      ', '_len')
+    ln(`    }`)
+    // What a deposit laid a frame ago has kept of its light since.
+    ln(`    float _dk=${owed}>1?${survivesCpp('_tl', ONE_FRAME_CPP)}:1.0f;`)
     ln(`    auto _rnd=[]()->float{ return random16()/65535.0f; };`)
     ln(`    auto _dir=[&]()->float{ return _rnd()<0.5f?-1.0f:1.0f; };`)
     ln(`    auto _free=[&]()->int{ for(int _i=0;_i<_n;_i++) if(${A}l[_i]<=0) return _i; return -1; };`)
     ln(`    auto _place=[&](int _i,uint8_t _kd,float _pp,float _vv,float _ll,float _hh){ ${A}k[_i]=_kd; ${A}p[_i]=_pp; ${A}v[_i]=_vv; ${A}l[_i]=_ll; ${A}h[_i]=_hh; };`)
     if (meteors) {
-      ln(`    if(_rnd()<${passChanceCpp('_sp*0.3f', pf)}){ int _i=_free(); if(_i>=0){ float _pp=_rnd()*_len,_vv=_dir()*0.3f,_hh=_rnd(); _place(_i,1,_pp,_vv,0.6f,_hh); } }`)
+      ln(`    for(int _try=0;_try<${owed};_try++) if(_rnd()<_sp*0.3f){ int _i=_free(); if(_i>=0){ float _pp=_rnd()*_len,_vv=_dir()*0.3f,_hh=_rnd(); _place(_i,1,_pp,_vv,0.6f,_hh); } }`)
       ln(`    if(_tr&&!${A}prev){ int _i=_free(); if(_i>=0){ float _pp=_rnd()*_len,_vv=_dir()*(1.0f+_step*2.0f),_hh=_rnd(); _place(_i,2,_pp,_vv,1.0f,_hh);`)
       ln(`      for(int _d=0;_d<3;_d++){ int _j=_free(); if(_j>=0){ float _rr=_rnd(); _place(_j,3,_pp,-_vv*(0.2f+_rr*0.4f),0.7f,_hh); } } } }`)
     } else {
-      ln(`    float _spc=${passChanceCpp('_sp', pf)};`)
-      ln(`    for(int _i=0;_i<_n;_i++){ if(${A}l[_i]<=0&&_rnd()<_spc){ float _pp=_rnd()*_len,_vv=_dir(),_hh=_rnd(); _place(_i,0,_pp,_vv,1.0f,_hh); } }`)
+      ln(`    for(int _try=0;_try<${owed};_try++) for(int _i=0;_i<_n;_i++){ if(${A}l[_i]<=0&&_rnd()<_sp){ float _pp=_rnd()*_len,_vv=_dir(),_hh=_rnd(); _place(_i,0,_pp,_vv,1.0f,_hh); } }`)
     }
     ln(`    ${A}prev=_tr;`)
     ln(`    float _drag=${keepOverCpp('0.92f', pf)};`)
     ln(`    for(int _i=0;_i<_n;_i++){ if(${A}l[_i]<=0) continue;`)
-    ln(`      if(${A}k[_i]==0) ${A}p[_i]=fmodf(fmodf(${A}p[_i]+${A}v[_i]*_step*${A}l[_i]*${pf},(float)_len)+_len,(float)_len);`)
-    ln(`      else { ${A}p[_i]=fmodf(fmodf(${A}p[_i]+${A}v[_i]*${pf},(float)_len)+_len,(float)_len); if(${A}k[_i]==3) ${A}v[_i]*=_drag; }`)
-    ln(`      ${A}l[_i]-=${A}dec[${A}k[_i]]*${pf}; if(${A}l[_i]<=0){ ${A}l[_i]=0; continue; }`)
+    ln(`      float _mv=${A}k[_i]==0?${A}v[_i]*_step*${A}l[_i]*${pf}:${A}v[_i]*${pf};`)
+    ln(`      ${A}p[_i]=fmodf(fmodf(${A}p[_i]+_mv,(float)_len)+_len,(float)_len); if(${A}k[_i]==3) ${A}v[_i]*=_drag;`)
+    ln(`      float _dc=${A}dec[${A}k[_i]]; ${A}l[_i]-=_dc*${pf};`)
     ln(`      CRGB _b=ColorFromPalette(${pal},(uint8_t)(constrain(${A}h[_i],0.0f,1.0f)*255.0f));`)
-    ln(`      uint8_t _wq=(uint8_t)((1.0f-${A}l[_i])*0.5f*255.0f), _lq=(uint8_t)(${A}l[_i]*255.0f);`)
-    ln(`      uint8_t _c[3]={ scale8(_b.r+scale8(255-_b.r,_wq),_lq), scale8(_b.g+scale8(255-_b.g,_wq),_lq), scale8(_b.b+scale8(255-_b.b,_wq),_lq) };`)
-    ln(`      float _pw=fmodf(fmodf(${A}p[_i],(float)_len)+_len,(float)_len); int _a=min(_len-1,(int)floorf(_pw)); float _fr=_pw-_a;`)
-    ln(`      int _cell[2]={_a,(_a+1)%_len}; float _cv[2]={1.0f-_fr,_fr};`)
-    ln(`      for(int _j=0;_j<2;_j++){ uint8_t _q=(uint8_t)(constrain(_cv[_j],0.0f,1.0f)*255.0f); ${A}tr[_cell[_j]].r=qadd8(${A}tr[_cell[_j]].r,scale8(_c[0],_q)); ${A}tr[_cell[_j]].g=qadd8(${A}tr[_cell[_j]].g,scale8(_c[1],_q)); ${A}tr[_cell[_j]].b=qadd8(${A}tr[_cell[_j]].b,scale8(_c[2],_q)); } }`)
+    // A deposit for each frame owed, the oldest first, back along this
+    // frame's move at the life it had then, faded for the frames since.
+    ln(`      for(int _age=${owed}-1;_age>=0;_age--){ float _ago=fminf((float)_age,${pf}), _ll=_age==0?${A}l[_i]:${A}l[_i]+_dc*_ago; if(_ll<=0) continue;`)
+    ln(`        float _at=_age==0?${A}p[_i]:${A}p[_i]-_mv*(${pf}>0.0f?_ago/${pf}:0.0f);`)
+    ln(`        uint8_t _wq=(uint8_t)((1.0f-_ll)*0.5f*255.0f), _lq=(uint8_t)((_age==0?_ll:_ll*powf(_dk,(float)_age))*255.0f);`)
+    ln(`        uint8_t _c[3]={ scale8(_b.r+scale8(255-_b.r,_wq),_lq), scale8(_b.g+scale8(255-_b.g,_wq),_lq), scale8(_b.b+scale8(255-_b.b,_wq),_lq) };`)
+    ln(`        float _pw=fmodf(fmodf(_at,(float)_len)+_len,(float)_len); int _a=min(_len-1,(int)floorf(_pw)); float _fr=_pw-_a;`)
+    ln(`        int _cell[2]={_a,(_a+1)%_len}; float _cv[2]={1.0f-_fr,_fr};`)
+    ln(`        for(int _j=0;_j<2;_j++){ uint8_t _q=(uint8_t)(constrain(_cv[_j],0.0f,1.0f)*255.0f); ${A}tr[_cell[_j]].r=qadd8(${A}tr[_cell[_j]].r,scale8(_c[0],_q)); ${A}tr[_cell[_j]].g=qadd8(${A}tr[_cell[_j]].g,scale8(_c[1],_q)); ${A}tr[_cell[_j]].b=qadd8(${A}tr[_cell[_j]].b,scale8(_c[2],_q)); } }`)
+    ln(`      if(${A}l[_i]<=0) ${A}l[_i]=0; }`)
     ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
     ln(`    for(int _k=0;_k<_len;_k++){ uint8_t _r=${A}tr[_k].r,_g=${A}tr[_k].g,_bl=${A}tr[_k].b;`)
     if (meteors && bedLevel > 0) {
@@ -713,7 +746,9 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const coh = unit(f('cohesion', 'cohesion', 0.4))
     const range = `constrain(${f('visualRange', 'visualRange', 4)},${BOIDS_VISUAL_RANGE.min}.0f,${BOIDS_VISUAL_RANGE.max}.0f)`
     const colorMode = String(p.colorMode ?? 'solid')
-    if (colorMode === 'cycle') needsT.v = true  // time-cycling hue needs `t`
+    // The flock steps once for each whole 60th of a second since the last
+    // frame; the cycle mode's hue reads `t` too.
+    needsT.v = true
     const solid = !BOID_PALETTE_MODES.has(colorMode)
     const colorE = solid ? channelColor('color', 120, 200, 255) : ''
     const pal = solid ? '' : paletteExpr(node.id, 'paletteIn', p)
@@ -725,8 +760,14 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`  { // Boids (Reynolds flocking)`)
     ln(`    const int _count=max(2,min(80,(int)floorf(${f('count', 'count', 24)}))); static float ${bx}[80], ${by}[80], ${bvx}[80], ${bvy}[80]; static bool _bi_${id}=false;`)
     if (seed) ln(`    static bool _bs_${id}=false; if(!_bs_${id}){ random16_set_seed(${seed}u); _bs_${id}=true; }`)
-    ln(`    if(!_bi_${id}){ for(int _i=0;_i<80;_i++){ ${bx}[_i]=(random8()/255.0f)*WIDTH; ${by}[_i]=(random8()/255.0f)*HEIGHT; float _a=(random8()/255.0f)*6.2831f; ${bvx}[_i]=cosf(_a); ${bvy}[_i]=sinf(_a); } _bi_${id}=true; }`)
-    ln(`    float _ms=${speed}; if(_ms<0.1f)_ms=0.1f; float ${nvx}[80], ${nvy}[80];${needNN ? ` int ${nn}[80];` : ''}`)
+    // The velocities the last step steered to (and its neighbour counts)
+    // persist, so a frame owing no whole step draws the flock unmoved.
+    ln(`    static float ${nvx}[80], ${nvy}[80];${needNN ? ` static int ${nn}[80];` : ''}`)
+    ln(`    if(!_bi_${id}){ for(int _i=0;_i<80;_i++){ ${bx}[_i]=(random8()/255.0f)*WIDTH; ${by}[_i]=(random8()/255.0f)*HEIGHT; float _a=(random8()/255.0f)*6.2831f; ${bvx}[_i]=cosf(_a); ${bvy}[_i]=sinf(_a); ${nvx}[_i]=${bvx}[_i]; ${nvy}[_i]=${bvy}[_i];${needNN ? ` ${nn}[_i]=0;` : ''} } _bi_${id}=true; }`)
+    ln(`    float _ms=${speed}; if(_ms<0.1f)_ms=0.1f;`)
+    // Steer and move once for each whole frame owed, as evalBoids does.
+    const steps = passStepFramesCpp(ln, `${phaseTag(id)}_steps`, passFramesCpp(ln, phaseTag(id)))
+    ln(`    for(int _st=0;_st<${steps};_st++){`)
     ln(`    for(int _i=0;_i<_count;_i++){`)
     ln(`      float _sx=0,_sy=0,_avx=0,_avy=0,_cx=0,_cy=0; int _near=0,_sc=0;`)
     ln(`      for(int _j=0;_j<_count;_j++){ if(_j==_i)continue; float _dx=${bx}[_j]-${bx}[_i],_dy=${by}[_j]-${by}[_i]; float _d2=_dx*_dx+_dy*_dy;`)
@@ -735,6 +776,10 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      if(_near>0){ _stx+=(_avx/_near-${bvx}[_i])*(${ali})*0.08f; _sty+=(_avy/_near-${bvy}[_i])*(${ali})*0.08f; _stx+=(_cx/_near-${bx}[_i])*(${coh})*0.005f; _sty+=(_cy/_near-${by}[_i])*(${coh})*0.005f; }`)
     ln(`      if(_sc>0){ _stx+=_sx*(${sep})*0.05f; _sty+=_sy*(${sep})*0.05f; }`)
     ln(`      ${nvx}[_i]=${bvx}[_i]+_stx; ${nvy}[_i]=${bvy}[_i]+_sty;${needNN ? ` ${nn}[_i]=_near;` : ''} }`)
+    ln(`    for(int _i=0;_i<_count;_i++){`)
+    ln(`      float _sp=sqrtf(${nvx}[_i]*${nvx}[_i]+${nvy}[_i]*${nvy}[_i]); if(_sp<=0)_sp=1;`)
+    ln(`      ${bvx}[_i]=${nvx}[_i]/_sp*_ms; ${bvy}[_i]=${nvy}[_i]/_sp*_ms;`)
+    ln(`      ${bx}[_i]=fmodf(${bx}[_i]+${bvx}[_i]+WIDTH,WIDTH); ${by}[_i]=fmodf(${by}[_i]+${bvy}[_i]+HEIGHT,HEIGHT); } }`)
     ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
     if (solid) ln(`    CRGB _bc0=${colorE};`)
     else if (colorMode === 'radial') ln(`    float _bcx=WIDTH/2.0f,_bcy=HEIGHT/2.0f,_bmr=sqrtf(_bcx*_bcx+_bcy*_bcy); if(_bmr<=0)_bmr=1;`)
@@ -751,14 +796,14 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const boidColor = at === null ? `CRGB _bc=_bc0;` : `CRGB _bc=ColorFromPalette(${pal},(uint8_t)(${at}*255.0f));`
     ln(`    for(int _i=0;_i<_count;_i++){`)
     ln(`      float _sp=sqrtf(${nvx}[_i]*${nvx}[_i]+${nvy}[_i]*${nvy}[_i]); if(_sp<=0)_sp=1; float _dirx=${nvx}[_i]/_sp,_diry=${nvy}[_i]/_sp;`)
-    ln(`      ${bvx}[_i]=_dirx*_ms; ${bvy}[_i]=_diry*_ms;`)
-    ln(`      ${bx}[_i]=fmodf(${bx}[_i]+${bvx}[_i]+WIDTH,WIDTH); ${by}[_i]=fmodf(${by}[_i]+${bvy}[_i]+HEIGHT,HEIGHT);`)
     ln(`      ${boidColor} CRGB _bt=_bc; _bt.nscale8(64);`)
     ln(`      int _px=(int)${bx}[_i],_py=(int)${by}[_i]; if(_px>=0&&_px<WIDTH&&_py>=0&&_py<HEIGHT) ${ob}[_py*WIDTH+_px]=_bc;`)
     ln(`      int _tx=(int)fmodf(${bx}[_i]-_dirx+WIDTH,WIDTH),_ty=(int)fmodf(${by}[_i]-_diry+HEIGHT,HEIGHT);`)
     ln(`      if(_tx>=0&&_tx<WIDTH&&_ty>=0&&_ty<HEIGHT){ int _ti=_ty*WIDTH+_tx; ${ob}[_ti].r=max(${ob}[_ti].r,_bt.r); ${ob}[_ti].g=max(${ob}[_ti].g,_bt.g); ${ob}[_ti].b=max(${ob}[_ti].b,_bt.b); } } }`)
   },
-  ReactionDiffusion({ node, id, p, ln, f, ownBuf, ownField, paletteExpr, needsWorley }) {
+  ReactionDiffusion({ node, id, p, ln, f, ownBuf, ownField, paletteExpr, needsWorley, needsT }) {
+    // Steps updates run for each whole 60th of a second since the last frame.
+    needsT.v = true
     const ob = ownBuf()
     // A named preset bakes its pair and ignores wires, as the preview does.
     const rates = reactionDiffusionRates(p.rdPreset)
@@ -781,7 +826,10 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`      for (int _y = HEIGHT/2-2; _y <= HEIGHT/2+1; _y++) for (int _x = WIDTH/2-2; _x <= WIDTH/2+1; _x++)`)
     ln(`        if (_x>=0&&_x<WIDTH&&_y>=0&&_y<HEIGHT) { ${u}[_y*WIDTH+_x]=0.5f; ${v}[_y*WIDTH+_x]=0.25f+_worleyHash(_x,_y,${seed}u)*0.5f; } _rd_${id}=true; }`)
     ln(`    float _f=${feed}, _k=${kill};`)
-    ln(`    for (int _it=0, _iters=max(1,min(${REACTION_DIFFUSION_MAX_STEPS},(int)floorf(${f('steps', 'steps', 8)}))); _it<_iters; _it++) {`)
+    // Steps is a count a frame: a 30 fps frame runs twice as many, as
+    // evalReactionDiffusion does, up to MAX_STEP_FRAMES frames' worth.
+    const frames = passStepFramesCpp(ln, `${phaseTag(id)}_steps`, passFramesCpp(ln, phaseTag(id)))
+    ln(`    for (int _it=0, _iters=max(1,min(${REACTION_DIFFUSION_MAX_STEPS},(int)floorf(${f('steps', 'steps', 8)})))*${frames}; _it<_iters; _it++) {`)
     ln(`      for (int _y=0; _y<HEIGHT; _y++) { int _ym=((_y-1+HEIGHT)%HEIGHT)*WIDTH,_yp=((_y+1)%HEIGHT)*WIDTH,_yr=_y*WIDTH;`)
     ln(`        for (int _x=0; _x<WIDTH; _x++) { int _xm=(_x-1+WIDTH)%WIDTH,_xp=(_x+1)%WIDTH,_i=_yr+_x;`)
     ln(`          float _lu=(${u}[_ym+_x]+${u}[_yp+_x]+${u}[_yr+_xm]+${u}[_yr+_xp])*0.2f+(${u}[_ym+_xm]+${u}[_ym+_xp]+${u}[_yp+_xm]+${u}[_yp+_xp])*0.05f-${u}[_i];`)

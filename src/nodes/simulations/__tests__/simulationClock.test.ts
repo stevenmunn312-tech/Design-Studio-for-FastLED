@@ -5,10 +5,11 @@ import { resetEvaluatorState } from '../../../state/evaluator/memory'
 import type { EvalContext } from '../../../state/evaluator/types'
 
 /*
- * Particles, String Particles and Formula Points' logistic map and attractor
- * were written a step per frame. They now run on the 60ths of a second each
- * pass spans (shared/passClock.ts): at 60 fps every step is the one it was,
- * and at 30 fps a pass covers two frames' motion, decay and iterations.
+ * Particles, String Particles, Boids, Fire, Reaction Diffusion and Formula
+ * Points were written a step per frame. They now run on the 60ths of a second
+ * each pass spans (shared/passClock.ts): at 60 fps every step is the one it
+ * was, and at 30 fps a pass covers two frames' motion, decay, spawns, trail
+ * deposits and iterations.
  */
 type Frame = { r: number; g: number; b: number }[][]
 
@@ -79,6 +80,55 @@ describe('simulations at 60 fps', () => {
   it('draws Formula Points\' logistic map and attractor as they did', () => {
     expect(sixty('FormulaPoints', { formulaType: 'logisticMap', count: 40, chaos: 3.7 }, 16, 16)).toBe('36f8b1e2')
     expect(sixty('FormulaPoints', { formulaType: 'attractor', count: 80, preset: 'swirl', trail: 0.5 }, 16, 16)).toBe('96bbbea7')
+  })
+
+  /*
+   * Recorded from the per-pass code before String Particles' deposits, Boids,
+   * Fire, Reaction Diffusion and Formula Points' Lissajous and rose dot moved
+   * onto the clock, 120 passes each.
+   */
+  it('draws the rest of String Particles as it did', () => {
+    expect([
+      sixty('StringParticles', { mode: 'drift', spawn: 0.7, count: 24, seed: 9, track: 'column', trail: 0.8, speed: 0.9 }, 6, 24),
+      sixty('StringParticles', { mode: 'drift', spawn: 0.2, count: 8, seed: 2, track: 'ring', ringLeds: 24, trail: 0.3 }, 12, 12),
+      sixty('StringParticles', { mode: 'meteors', spawn: 0.9, count: 40, seed: 6, track: 'row', bed: 0.4, trail: 0.7 }, 40, 1, (k) => k % 30 < 2),
+    ]).toEqual(['dc7ccae9', 'f281eb41', '72f81b49'])
+  })
+
+  it.each([
+    ['solid', { colorMode: 'solid', r: 200, g: 90, b: 40 }],
+    ['heading', { colorMode: 'heading' }],
+    ['density', { colorMode: 'density', count: 40, visualRange: 6 }],
+    ['cycle', { colorMode: 'cycle', separation: 1, alignment: 0.2, cohesion: 0.9 }],
+  ] as const)('draws Boids %s as it did', (name, props) => {
+    const RECORDED: Record<string, string> = { solid: '2ebde1bb', heading: '31ed7c8c', density: '2aceb103', cycle: '93718368' }
+    expect(sixty('Boids', { count: 24, seed: 5, speed: 0.6, ...props }, 16, 16)).toBe(RECORDED[name])
+  })
+
+  it.each([
+    ['classic', { fireStyle: 'classic' }],
+    ['smoke', { fireStyle: 'smoke', intensity: 0.4 }],
+    ['fire2012', { fireStyle: 'fire2012', cooling: 70, sparking: 150 }],
+    ['sideways', { fireStyle: 'classic', direction: 'left', turbulence: 2, mirror: true }],
+    ['sideways2012', { fireStyle: 'fire2012', direction: 'down', turbulence: 0, mirror: true }],
+  ] as const)('draws Fire %s as it did', (name, props) => {
+    const RECORDED: Record<string, string> = { classic: 'a71f63f3', smoke: 'e26d35ec', fire2012: '4a2d2b29', sideways: '4140aee5', sideways2012: '4a3007cb' }
+    expect(sixty('Fire', { seed: 7, ...props }, 12, 16)).toBe(RECORDED[name])
+  })
+
+  it('draws Reaction Diffusion as it did', () => {
+    expect([
+      sixty('ReactionDiffusion', { seed: 3 }, 16, 16),
+      sixty('ReactionDiffusion', { seed: 8, rdPreset: 'custom', feed: 0.03, kill: 0.057, steps: 13 }, 12, 10),
+    ]).toEqual(['b1393dc7', 'e64bb879'])
+  })
+
+  it('draws Formula Points\' Lissajous and rose as they did', () => {
+    expect([
+      sixty('FormulaPoints', { formulaType: 'lissajousPath', speed: 0.7, freqA: 5, freqB: 4, trail: 0.6 }, 16, 16),
+      sixty('FormulaPoints', { formulaType: 'rosePath', speed: 0.4, petals: 7, trail: 0.9, dotSize: 1.6 }, 16, 16),
+      sixty('FormulaPoints', { formulaType: 'lissajousPath', speed: 1, trail: 0 }, 16, 16),
+    ]).toEqual(['6259bc67', '278293f2', '47952979'])
   })
 })
 
@@ -175,5 +225,114 @@ describe('simulations at 30 fps keep the pace of 60', () => {
       return frame.flat().filter((px) => px.r + px.g + px.b > 0).length
     }
     expect(dots(30)).toBeGreaterThan(dots(60) * 1.4)
+  })
+
+  /** The frame at `seconds`, stepped at `fps`, with `trigger` per pass time. */
+  function at(type: string, props: Record<string, unknown>, W: number, H: number, fps: number, seconds: number, trigger: (t: number) => boolean = () => false): Frame {
+    const step = runner(type, W, H)
+    let frame: Frame = []
+    for (let i = 0; i <= fps * seconds; i++) frame = step(props, i / fps, trigger(i / fps))
+    return frame
+  }
+
+  /** Light summed over the frames sampled every 30th of a second for `seconds`. */
+  function lightOver(type: string, props: Record<string, unknown>, W: number, H: number, fps: number, seconds: number, trigger?: (t: number) => boolean) {
+    const step = runner(type, W, H)
+    let sum = 0, lit = 0
+    for (let i = 0; i <= fps * seconds; i++) {
+      const frame = step(props, i / fps, trigger?.(i / fps) ?? false)
+      if (i % (fps / 30) !== 0) continue
+      for (const px of frame.flat()) { sum += px.r + px.g + px.b; if (px.r + px.g + px.b > 0) lit++ }
+    }
+    return { sum, lit }
+  }
+
+  it('spawns as many Rate particles a second', () => {
+    // Bubbles never fade and rise until they leave, so the light on show is
+    // the spawn rate times their stay. A chance a pass gave 30 fps about 15%
+    // fewer at Rate 0.3; each frame owed now has its own try.
+    for (const [mode, rate] of [['bubbles', 0.3], ['rain', 0.6], ['sparkle', 0.2]] as const) {
+      const props = { particleType: mode, rate, decay: 0.97, seed: 4 }
+      const at60 = lightOver('Particles', props, 32, 32, 60, 8), at30 = lightOver('Particles', props, 32, 32, 30, 8)
+      expect(at30.sum / at60.sum, mode).toBeGreaterThan(0.95)
+      expect(at30.sum / at60.sum, mode).toBeLessThan(1.05)
+    }
+  })
+
+  it('lays a String Particles deposit for every frame, so the trail is as bright and unbroken', () => {
+    // Long trails on a long strip: half the deposits at 30 fps had left the
+    // trail about half as bright, with a dark LED between each pair.
+    const drift = { mode: 'drift', spawn: 0.5, count: 6, seed: 4, track: 'row', trail: 0.8, speed: 1 }
+    const meteors = { mode: 'meteors', spawn: 0.4, count: 24, seed: 2, track: 'row', trail: 0.85, speed: 1, bed: 0 }
+    for (const [name, props, trigger] of [
+      ['drift', drift, undefined],
+      ['meteors', meteors, (t: number) => (t % 0.7) < 0.1],
+    ] as const) {
+      const at60 = lightOver('StringParticles', props, 120, 1, 60, 3, trigger), at30 = lightOver('StringParticles', props, 120, 1, 30, 3, trigger)
+      expect(at60.sum, name).toBeGreaterThan(0)
+      expect(at30.sum / at60.sum, name).toBeGreaterThan(0.9)
+      expect(at30.sum / at60.sum, name).toBeLessThan(1.1)
+      expect(at30.lit / at60.lit, name).toBeGreaterThan(0.95)
+      expect(at30.lit / at60.lit, name).toBeLessThan(1.05)
+    }
+  })
+
+  it('steps Boids, Fire and Reaction Diffusion once a frame owed: 30 fps shows the 60 fps frame', () => {
+    // None of them draws a random number but at a step (Fire's seeded LCG
+    // draws the same ones in the same order), so two steps a pass land on
+    // exactly the state two 60 fps passes reach.
+    for (const [type, props, W, H] of [
+      ['Boids', { count: 30, seed: 3, speed: 0.7, colorMode: 'cycle' }, 16, 16],
+      ['Boids', { count: 20, seed: 8, colorMode: 'density' }, 12, 20],
+      ['Fire', { seed: 5 }, 12, 16],
+      ['Fire', { seed: 5, fireStyle: 'smoke', direction: 'left' }, 16, 12],
+      ['Fire', { seed: 9, fireStyle: 'fire2012', mirror: true }, 12, 16],
+      ['ReactionDiffusion', { seed: 2, steps: 11 }, 16, 16],
+    ] as const) {
+      const at60 = at(type, props, W, H, 60, 1.5), at30 = at(type, props, W, H, 30, 1.5)
+      expect(at30, `${type} ${JSON.stringify(props)}`).toEqual(at60)
+      // And not by standing still: the 60 fps frame moved since a second in.
+      expect(at(type, props, W, H, 60, 1), type).not.toEqual(at60)
+    }
+  })
+
+  it('grows Reaction Diffusion as far a second at 30 fps, up to four frames a pass', () => {
+    // Each pass owes its whole frames' updates; at 10 fps it runs the four a
+    // pass MAX_STEP_FRAMES allows, 40 a second, and falls behind.
+    const light = (fps: number) => at('ReactionDiffusion', { seed: 6, steps: 4 }, 16, 16, fps, 2).flat()
+      .reduce((s, px) => s + px.r + px.g + px.b, 0)
+    expect(light(30)).toBe(light(60))
+    expect(light(15)).toBe(light(60))
+    expect(light(10)).not.toBe(light(60))
+  })
+
+  it('lays every Lissajous and rose dot at 30 fps, at its own moment', () => {
+    // Half the dots at 30 fps had left a dotted line half as bright. A short
+    // trail still reads up to 8% brighter at 30 fps: the byte fade floors once
+    // a pass, and 60 fps pays that floor twice as often (trailFade.ts).
+    for (const props of [
+      { formulaType: 'lissajousPath', speed: 0.8, freqA: 3, freqB: 2, trail: 0.85 },
+      { formulaType: 'rosePath', speed: 0.6, petals: 5, trail: 0.85 },
+    ]) {
+      const at60 = lightOver('FormulaPoints', props, 32, 32, 60, 2), at30 = lightOver('FormulaPoints', props, 32, 32, 30, 2)
+      expect(at30.sum / at60.sum, props.formulaType).toBeGreaterThan(0.93)
+      expect(at30.sum / at60.sum, props.formulaType).toBeLessThan(1.07)
+      expect(at30.lit / at60.lit, props.formulaType).toBeGreaterThan(0.95)
+      expect(at30.lit / at60.lit, props.formulaType).toBeLessThan(1.05)
+    }
+  })
+
+  it('holds a String Particles or Lissajous trail unchanged on a pass that owes no frame', () => {
+    // At 120 fps every other pass owes nothing: the trail neither fades nor
+    // gains a dot, so its head never blinks out, even with no trail at all.
+    for (const [type, props, W, H] of [
+      ['FormulaPoints', { formulaType: 'lissajousPath', speed: 1, trail: 0 }, 16, 16],
+      ['StringParticles', { mode: 'drift', spawn: 1, count: 4, seed: 1, track: 'row', trail: 0 }, 30, 1],
+    ] as const) {
+      const step = runner(type, W, H)
+      const lit: number[] = []
+      for (let i = 0; i <= 24; i++) lit.push(step(props, i / 120).flat().filter((px) => px.r + px.g + px.b > 0).length)
+      expect(Math.min(...lit), type).toBeGreaterThan(0)
+    }
   })
 })

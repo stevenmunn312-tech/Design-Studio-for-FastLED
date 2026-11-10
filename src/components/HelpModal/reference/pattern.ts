@@ -846,7 +846,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   ReactionDiffusion: {
     overview: [
       'Reaction Diffusion simulates two chemicals reacting and spreading — the Gray-Scott model — growing organic spots, stripes, worms, coral and dividing cells.',
-      'The presets set the feed and kill rates that produce each look; Custom uses the Feed and Kill knobs, where tiny changes give very different patterns. Steps runs more simulation steps per frame.',
+      'The presets set the feed and kill rates that produce each look; Custom uses the Feed and Kill knobs, where tiny changes give very different patterns. Steps runs more simulation steps each 60th of a second, whatever the frame rate.',
       'Its Field output carries the chemical concentration for field nodes.',
     ],
     outputs: {
