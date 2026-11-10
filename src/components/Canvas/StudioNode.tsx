@@ -1291,14 +1291,15 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   }, [d.nodeType, paletteEditorLive, palettePreviewProps])
   const hasRGB = hasRgbProperties(props)
   // Mirror's r/g/b is only the glow tint, so hide its swatch until glow is on;
-  // Boids only uses its r/g/b in the 'solid' colour mode; BeatFlash's solid
-  // color is unused while its Color is Palette — hide it then.
+  // Boids only uses its r/g/b in the 'solid' colour mode; the solid colour of
+  // Beat Flash, Dance Flash and Gravity Well is unused while Color is
+  // Palette — hide it then.
   // (The editable filter below still uses hasRGB, so r/g/b never leak into the
   // generic field list while the swatch is hidden.)
   const showRGB = hasRGB
     && (d.nodeType !== 'Mirror' || props.glow === true)
     && (d.nodeType !== 'Boids' || props.colorMode === 'solid')
-    && (d.nodeType !== 'BeatFlash' || props.colorSource !== 'palette')
+    && (!['BeatFlash', 'DanceFlash', 'GravityWell'].includes(d.nodeType) || isPropertyEnabled(d.nodeType, 'r', props))
   // A gradient's A and B colours get a swatch each alongside, whatever showRGB says.
   const swatches = useMemo(
     () => rgbSwatches(d.nodeType, props).filter((swatch) => swatch.keys[0] !== 'r' || showRGB),

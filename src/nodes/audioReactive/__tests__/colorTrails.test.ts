@@ -44,6 +44,7 @@ function render(props: Record<string, unknown>, frames = 40, W = 12, H = 10): Fr
     const ctx = {
       t: i / 60, W, H,
       stateKey: (id: string) => `trails:${id}`,
+      incoming: new Map(),
       input: () => undefined,
       num: (_id: string, _key: string, p: Record<string, unknown>, prop: string, fallback: number) => Number(p[prop] ?? fallback),
       pal: () => 'rainbow',

@@ -133,39 +133,6 @@ hardware.
   now adds a Button Bank with its first row on a pin
   (`firstButtonBankRow`), which the merged Button would reuse.
 
-#### Audio and audio-reactive
-
-- [ ] **Category: Add an optional Audio input to the band patterns (Med,
-  M).** Every band pattern needs Mic → FFT Analyzer → pattern. Spectrum
-  Visualizer's Three Band style already falls back to the spectrum thirds
-  when its band ports are unwired. Give the band patterns an optional Audio
-  input with the same fallback so a first patch is one wire; keep FFT
-  Analyzer for gain, smoothing and tilt. Evidence
-  `src/nodes/audioReactive/evaluate.ts:1158`. Left open (size): about
-  fourteen evaluators and emitters. Three Band now eases its unwired thirds
-  (keepOver in `nodes/shared/envelopeClock.ts`) and FFT Analyzer analyses at
-  a fixed 24-bin split (`FFT_ANALYSIS_BANDS`); a shared helper doing both
-  with per-node state, the port declared last so splicing is unchanged, and
-  `dropConnections` auto-wiring it would make a first patch one wire.
-- [ ] **Category: Standardise colour inputs on Palette plus optional Color
-  (Low, M).** Gravity Well uses a Color port plus R/G/B and no palette,
-  Beat Flash uses a `'none'` palette sentinel plus R/G/B, Dance Flash is
-  R/G/B only, and Ember Pulse is a fixed HeatColor ramp. Move all four to a
-  Palette port plus an optional Color port. Evidence
-  `src/state/nodeLibrary.ts:740`. Beat Flash is done: a Color select
-  (Solid, Palette) replaced the `'none'` sentinel and gates R/G/B. Dance
-  Flash and Ember Pulse remain (the HeatColor ramp is a look choice), and
-  Gravity Well is blocked as below.
-- [ ] **Gravity Well: Replace R/G/B ports with a palette (Med, S).** It is
-  the only band pattern with no palette; a Color port overrides three R/G/B
-  float ports. Swap the R/G/B ports for a palette and keep the optional
-  Color port, or fold it into Bass Rings as a "lensing" style. Evidence
-  `src/nodes/audioReactive/definitions.ts:457`. Left open: the promoted
-  Event Horizon graph (byte for byte) colours its well with unwired R/G/B
-  80/160/255, so dropping R/G/B recolours it; a Solid/Palette select like
-  Beat Flash's would keep it, but a saved node without the key would read
-  differently from a new one. Needs a decision on that graph.
-
 #### Effects and signals
 
 - [ ] **Category: Fold Kaleidoscope into Mirror (Med, M).** Mirror,

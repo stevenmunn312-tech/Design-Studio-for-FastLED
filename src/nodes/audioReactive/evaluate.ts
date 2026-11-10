@@ -28,18 +28,19 @@ import { audioSpeedRate } from './audioSpeed'
 import {
   auroraPixel, auroraRow, bloomFrame, bloomPixel, cascadeFrame, emberFrame, emberPixel, kaleidoFrame, kaleidoPixel, mosaicCell,
   trailColumnPass, trailFade15, trailRowPass, trailShift8, wavesFrame, wavesPixel, ringsFrame, ringsPixel, shockFrame, shockPixel,
-  turbulentFrame, turbulentPixel, wellFrame, wellPixel, cascadePixel, prismFrame, prismPixel, stormFrame, stormPixel } from '../shared/integerPatterns'
+  turbulentFrame, turbulentPixel, wellFrame, wellIndex, wellPixel, cascadePixel, prismFrame, prismPixel, stormFrame, stormPixel } from '../shared/integerPatterns'
 import { inoise8, scale8 } from '../shared/lib8tion'
 import { samplePaletteClamped } from '../../state/palettes/ledColor'
 import { METER_PEAK_FALL, METER_PEAK_HOLD, meterDistance, meterFill, meterOrigin } from './levelMeter'
 import { trebleSparksFadeBy } from './trebleSparks'
 import { fadeFrameToBlackBy } from '../shared/trailFade'
 import {
-  danceFlashAdvance, danceFlashStart, stampDanceFlash, type DanceFlashClock,
+  danceFlashAdvance, danceFlashPaletteIndex, danceFlashStart, stampDanceFlash, type DanceFlashClock,
 } from './danceFlash'
 import { demoDrums, demoDrumsActive } from './demoDrums'
 import { colorTrailsIndependent, colorTrailsKeep } from './colorTrails'
 import { envelopeDt, keepOver } from '../shared/envelopeClock'
+import { audioBands } from './audioBands'
 
 const levelMeterPeaks = instanceState('levelMeterPeaks', new Map<string, { peak: number; since: number; lastT: number }>())
 const danceClocks = instanceState('danceFlash', new Map<string, { seed: number; clock: DanceFlashClock; lastT: number }>())
@@ -520,6 +521,31 @@ export function beatFlashUsesPalette(props: Record<string, unknown>, paletteWire
   return paletteWired || props.colorSource === 'palette'
 }
 
+/** Dance Flash colours its silhouette from the palette like Beat Flash: a
+ *  wired palette, or Color set to Palette; Solid (the default) is R, G, B. */
+export const danceFlashUsesPalette = beatFlashUsesPalette
+
+/**
+ * Ember Pulse's Color: Heat (the default) is FastLED's HeatColor ramp, the
+ * look it has always had; Palette, or a wired palette, reads the heat byte
+ * through the palette as an amount, so the hottest pixel takes its last colour.
+ */
+export const EMBER_COLOR_SOURCES = ['heat', 'palette'] as const
+export function emberUsesPalette(props: Record<string, unknown>, paletteWired: boolean): boolean {
+  return paletteWired || props.colorSource === 'palette'
+}
+
+/**
+ * Gravity Well's Color: Palette (the default for a new node) colours the
+ * rings by their distance from the well; Solid is R, G, B. A wired palette
+ * always colours, and a wired Color port wins over both. A node saved
+ * without the key reads the library default, as the canvas shows it; every
+ * bundled use names Solid.
+ */
+export function gravityWellUsesPalette(props: Record<string, unknown>, paletteWired: boolean): boolean {
+  return paletteWired || (props.colorSource ?? 'palette') === 'palette'
+}
+
 function updateBeatFlashLevel(key: string, beat: boolean, attack: number, decay: number, now: number): number {
   const state = flashLevel.get(key) ?? { level: 0, rising: false, prevBeat: false, lastT: undefined }
   const dt = envelopeDt(state.lastT, now)
@@ -759,7 +785,7 @@ function evalPercussionBlobs(
 // treble shape which columns run hot, with a beat-triggered ember burst.
 function evalEmberPulse(
   key: string, bass: number, mids: number, treble: number, beat: boolean, energy: number,
-  speed: number, t: number, W = DEFAULT_W, H = DEFAULT_H, now = t,
+  speed: number, t: number, W = DEFAULT_W, H = DEFAULT_H, now = t, palette: Palette | null = null,
 ): Frame {
   // A rising beat edge adds a burst; it keeps 0.9 of itself every 60th of a second.
   const held = emberBurst.get(key)
@@ -773,6 +799,9 @@ function evalEmberPulse(
 
   // The sketch's integer kernel (shared/integerPatterns.ts).
   const frame = emberFrame(W, H, bass, mids, treble, strength, flicker, burst)
+  // Heat colours through HeatColor, or through a palette as an amount
+  // (LINEARBLEND_NOWRAP in the sketch), so the hottest pixel is its last colour.
+  if (palette) return buildFrame(W, H, (x, y) => samplePaletteClamped(palette, emberPixel(x, y, H, frame) / 255))
   return buildFrame(W, H, (x, y) => heatColor(emberPixel(x, y, H, frame)))
 }
 
@@ -807,7 +836,7 @@ function evalTurbulentBloom(
 // well instead of BassRings' evenly-spaced sine rings.
 function evalGravityWell(
   key: string, bass: number, energy: number, speed: number, color: RGB, t: number,
-  W = DEFAULT_W, H = DEFAULT_H,
+  W = DEFAULT_W, H = DEFAULT_H, palette: Palette | null = null,
 ): Frame {
   const level = clamp01(bass), strength = clamp01(energy)
   const cx0 = (W - 1) / 2, cy0 = (H - 1) / 2
@@ -823,7 +852,9 @@ function evalGravityWell(
   const frame = wellFrame(wellX, wellY, maxD, k, phase, 0.03 + level * 0.08 * strength, 0.15 + level * 0.85 * strength)
   return buildFrame(W, H, (x, y) => {
     const v = wellPixel(x, y, frame)
-    return { r: scale8(color.r, v), g: scale8(color.g, v), b: scale8(color.b, v) }
+    // Palette: colour by distance from the well, as Bass Rings does from the centre.
+    const c = palette ? samplePalette(palette, wellIndex(x, y, frame) / 256) : color
+    return { r: scale8(c.r, v), g: scale8(c.g, v), b: scale8(c.b, v) }
   })
 }
 
@@ -1236,49 +1267,63 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     }, pal(id, 'paletteIn', props, 'palette', 'citrus'), t, W, H)
     return { frame }
   },
-  BassPulse({ num, pal, W, H }, id, props) {
-    const bass = num(id, 'bass', props, 'bass', 0.5)
+  BassPulse(ctx, id, props) {
+    const { pal, W, H } = ctx
+    const bands = audioBands(ctx, id)
+    const bass = bands.num(id, 'bass', props, 'bass', 0.5)
     const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
     return { frame: evalBassPulse(bass, palette, W, H) }
   },
-  BassRings({ num, pal, t, W, H, stateKey }, id, props) {
-    const bass = num(id, 'bass', props, 'bass', 0.5)
+  BassRings(ctx, id, props) {
+    const { num, pal, t, W, H, stateKey } = ctx
+    const bands = audioBands(ctx, id)
+    const bass = bands.num(id, 'bass', props, 'bass', 0.5)
     const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
     const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
     return { frame: evalBassRings(stateKey(id), bass, energy, speed, palette, t, W, H) }
   },
-  MidrangeWaves({ num, pal, t, W, H, stateKey }, id, props) {
-    const mids = num(id, 'mids', props, 'mids', 0.5)
+  MidrangeWaves(ctx, id, props) {
+    const { num, pal, t, W, H, stateKey } = ctx
+    const bands = audioBands(ctx, id)
+    const mids = bands.num(id, 'mids', props, 'mids', 0.5)
     const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
     const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
     return { frame: evalMidrangeWaves(stateKey(id), mids, energy, speed, t, palette, W, H) }
   },
-  MidrangeBloom({ num, pal, t, W, H, stateKey }, id, props) {
-    const mids = num(id, 'mids', props, 'mids', 0.5)
+  MidrangeBloom(ctx, id, props) {
+    const { num, pal, t, W, H, stateKey } = ctx
+    const bands = audioBands(ctx, id)
+    const mids = bands.num(id, 'mids', props, 'mids', 0.5)
     const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
     const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'party')
     return { frame: evalMidrangeBloom(stateKey(id), mids, energy, speed, t, palette, W, H) }
   },
-  TrebleSparks({ num, pal, W, H, stateKey }, id, props) {
-    const treble = num(id, 'treble', props, 'treble', 0.5)
+  TrebleSparks(ctx, id, props) {
+    const { num, pal, W, H, stateKey } = ctx
+    const bands = audioBands(ctx, id)
+    const treble = bands.num(id, 'treble', props, 'treble', 0.5)
     const density = num(id, 'density', props, 'density', 0.5)
     const palette = pal(id, 'paletteIn', props, 'palette', 'ice')
     return { frame: evalTrebleSparks(stateKey(id), treble, density, palette, W, H) }
   },
-  TreblePrism({ num, pal, t, W, H, stateKey }, id, props) {
-    const treble = num(id, 'treble', props, 'treble', 0.5)
+  TreblePrism(ctx, id, props) {
+    const { num, pal, t, W, H, stateKey } = ctx
+    const bands = audioBands(ctx, id)
+    const treble = bands.num(id, 'treble', props, 'treble', 0.5)
     const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
     const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'amethyst')
     return { frame: evalTreblePrism(stateKey(id), treble, energy, speed, palette, t, W, H) }
   },
-  AudioCascade({ num, pal, t, W, H, stateKey }, id, props) {
-    const bass = num(id, 'bass', props, 'bass', 0.5)
-    const mids = num(id, 'mids', props, 'mids', 0.5)
-    const treble = num(id, 'treble', props, 'treble', 0.5)
+  AudioCascade(ctx, id, props) {
+    const { num, pal, t, W, H, stateKey } = ctx
+    const bands = audioBands(ctx, id)
+    const bass = bands.num(id, 'bass', props, 'bass', 0.5)
+    const mids = bands.num(id, 'mids', props, 'mids', 0.5)
+    const treble = bands.num(id, 'treble', props, 'treble', 0.5)
     const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
     const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
@@ -1306,7 +1351,7 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
   },
   // Keep in lockstep with the `DanceFlash` emitter: same 16×16 art, same
   // centred square fit, same millisecond schedule (danceFlash.ts).
-  DanceFlash({ input, num, W, H, stateKey, incoming, t }, id, props) {
+  DanceFlash({ input, num, pal, W, H, stateKey, incoming, t }, id, props) {
     const base = input(id, 'frame', null) as Frame | null
     const beatWired = incoming.has(`${id}:beat`)
     const beat = beatWired && input(id, 'beat', false) === true
@@ -1320,7 +1365,11 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     slot.lastT = t
     const showing = danceFlashAdvance(slot.clock, t, beat, beatWired, Math.random, props.gap)
     if (!showing) return { frame: base ?? blankFrame(W, H) }
-    const color = {
+    // A wired palette, or Color set to Palette, runs down the figure.
+    const palette = danceFlashUsesPalette(props, incoming.has(`${id}:paletteIn`))
+      ? pal(id, 'paletteIn', props, 'palette', 'rainbow')
+      : null
+    const color = palette ? (row: number) => samplePaletteClamped(palette, danceFlashPaletteIndex(row) / 255) : {
       r: byte(num(id, 'r', props, 'r', 255) / 255),
       g: byte(num(id, 'g', props, 'g', 255) / 255),
       b: byte(num(id, 'b', props, 'b', 255) / 255),
@@ -1363,10 +1412,12 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'ultraviolet')
     return { frame: evalBeatKaleidoscope(stateKey(id), beatVal, hue, energy, speed, t, palette, W, H, elapsedT) }
   },
-  SpectraMosaic({ num, pal, t, W, H, stateKey }, id, props) {
-    const bass = num(id, 'bass', props, 'bass', 0.5)
-    const mids = num(id, 'mids', props, 'mids', 0.5)
-    const treble = num(id, 'treble', props, 'treble', 0.5)
+  SpectraMosaic(ctx, id, props) {
+    const { num, pal, t, W, H, stateKey } = ctx
+    const bands = audioBands(ctx, id)
+    const bass = bands.num(id, 'bass', props, 'bass', 0.5)
+    const mids = bands.num(id, 'mids', props, 'mids', 0.5)
+    const treble = bands.num(id, 'treble', props, 'treble', 0.5)
     const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
     const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const tiles = num(id, 'tiles', props, 'tiles', 4)
@@ -1389,26 +1440,35 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const blendMode = String(props.blendMode ?? 'add') === 'max' ? 'max' : 'add'
     return { frame: evalPercussionBlobs(stateKey(id), kick, snare, hihat, t, palette, W, H, count, size, decay, spawnSpread, blendMode) }
   },
-  EmberPulse({ input, num, t, W, H, stateKey, elapsedT }, id, props) {
-    const bass = num(id, 'bass', props, 'bass', 0.5)
-    const mids = num(id, 'mids', props, 'mids', 0.5)
-    const treble = num(id, 'treble', props, 'treble', 0.5)
+  EmberPulse(ctx, id, props) {
+    const { input, num, t, W, H, stateKey, elapsedT } = ctx
+    const bands = audioBands(ctx, id)
+    const bass = bands.num(id, 'bass', props, 'bass', 0.5)
+    const mids = bands.num(id, 'mids', props, 'mids', 0.5)
+    const treble = bands.num(id, 'treble', props, 'treble', 0.5)
     const beatVal = input(id, 'beat', false) as boolean
     const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
     const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
-    return { frame: evalEmberPulse(stateKey(id), bass, mids, treble, beatVal, energy, speed, t, W, H, elapsedT) }
+    const palette = emberUsesPalette(props, ctx.incoming.has(`${id}:paletteIn`))
+      ? ctx.pal(id, 'paletteIn', props, 'palette', 'heat')
+      : null
+    return { frame: evalEmberPulse(stateKey(id), bass, mids, treble, beatVal, energy, speed, t, W, H, elapsedT, palette) }
   },
-  TurbulentBloom({ num, pal, t, W, H, stateKey }, id, props) {
-    const bass = num(id, 'bass', props, 'bass', 0.5)
-    const mids = num(id, 'mids', props, 'mids', 0.5)
-    const treble = num(id, 'treble', props, 'treble', 0.5)
+  TurbulentBloom(ctx, id, props) {
+    const { num, pal, t, W, H, stateKey } = ctx
+    const bands = audioBands(ctx, id)
+    const bass = bands.num(id, 'bass', props, 'bass', 0.5)
+    const mids = bands.num(id, 'mids', props, 'mids', 0.5)
+    const treble = bands.num(id, 'treble', props, 'treble', 0.5)
     const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
     const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'deepsea')
     return { frame: evalTurbulentBloom(stateKey(id), bass, mids, treble, energy, speed, t, palette, W, H) }
   },
-  GravityWell({ input, num, t, W, H, stateKey }, id, props) {
-    const bass = num(id, 'bass', props, 'bass', 0.5)
+  GravityWell(ctx, id, props) {
+    const { input, num, t, W, H, stateKey } = ctx
+    const bands = audioBands(ctx, id)
+    const bass = bands.num(id, 'bass', props, 'bass', 0.5)
     const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
     const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const colorIn = input(id, 'color', null) as RGB | null
@@ -1417,7 +1477,11 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
       g: byte(num(id, 'g', props, 'g', 160) / 255),
       b: byte(num(id, 'b', props, 'b', 255) / 255),
     }
-    return { frame: evalGravityWell(stateKey(id), bass, energy, speed, color, t, W, H) }
+    // A wired Color wins; otherwise Color chooses R, G, B or the palette.
+    const palette = !colorIn && gravityWellUsesPalette(props, ctx.incoming.has(`${id}:paletteIn`))
+      ? ctx.pal(id, 'paletteIn', props, 'palette', 'ocean')
+      : null
+    return { frame: evalGravityWell(stateKey(id), bass, energy, speed, color, t, W, H, palette) }
   },
   RainRipples({ input, num, pal, t, W, H, stateKey }, id, props) {
     const trigger = input(id, 'trigger', false) as boolean
@@ -1433,26 +1497,32 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const blendMode = String(props.blendMode ?? 'max') === 'add' ? 'add' : 'max'
     return { frame: evalRainRipples(stateKey(id), trigger, energy, speed, t, palette, W, H, count, decay, thickness, spawnSpread, blendMode) }
   },
-  PrismStorm({ num, pal, t, W, H, stateKey }, id, props) {
-    const treble = num(id, 'treble', props, 'treble', 0.5)
-    const mids = num(id, 'mids', props, 'mids', 0.5)
+  PrismStorm(ctx, id, props) {
+    const { num, pal, t, W, H, stateKey } = ctx
+    const bands = audioBands(ctx, id)
+    const treble = bands.num(id, 'treble', props, 'treble', 0.5)
+    const mids = bands.num(id, 'mids', props, 'mids', 0.5)
     const hihat = num(id, 'hihat', props, 'hihat', 0)
     const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
     const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'amethyst')
     return { frame: evalPrismStorm(stateKey(id), treble, mids, hihat, energy, speed, t, palette, W, H) }
   },
-  AudioFlow({ num, pal, t, W, H, stateKey }, id, props) {
-    const bass = num(id, 'bass', props, 'bass', 0.5)
-    const mids = num(id, 'mids', props, 'mids', 0.5)
-    const treble = num(id, 'treble', props, 'treble', 0.3)
+  AudioFlow(ctx, id, props) {
+    const { num, pal, t, W, H, stateKey } = ctx
+    const bands = audioBands(ctx, id)
+    const bass = bands.num(id, 'bass', props, 'bass', 0.5)
+    const mids = bands.num(id, 'mids', props, 'mids', 0.5)
+    const treble = bands.num(id, 'treble', props, 'treble', 0.3)
     const speed = denormalizeAudioFlowParam('speed', num(id, 'speed', props, 'speed', 0.5))
     const scale = denormalizeAudioFlowParam('scale', num(id, 'scale', props, 'scale', 0.5))
     // The library default, which the sketch also falls back to.
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     return { frame: evalAudioFlow(stateKey(id), bass, mids, treble, speed, scale, t, palette, W, H) }
   },
-  ColorTrails({ input, num, pal, t, W, H, stateKey }, id, props) {
+  ColorTrails(ctx, id, props) {
+    const { input, num, pal, t, W, H, stateKey } = ctx
+    const bands = audioBands(ctx, id)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     // Linked, the one Flow set drives both axes; Independent axes reads X and Y apart.
     const axes = colorTrailsIndependent(props)
@@ -1473,9 +1543,9 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     return { frame: evalColorTrails(stateKey(id), {
       injectionMode: String(props.injectionMode ?? 'Moving Line'),
       flowMode: String(props.flowMode ?? 'Scrolling'),
-      bass: num(id, 'bass', props, 'bass', 0),
-      mids: num(id, 'mids', props, 'mids', 0),
-      treble: num(id, 'treble', props, 'treble', 0),
+      bass: bands.num(id, 'bass', props, 'bass', 0),
+      mids: bands.num(id, 'mids', props, 'mids', 0),
+      treble: bands.num(id, 'treble', props, 'treble', 0),
       beat: Boolean(input(id, 'beat', false)),
       ...axes,
       displacement: num(id, 'displacement', props, 'displacement', 1.8),
@@ -1485,14 +1555,16 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
       seed: normalizedSeed(props.seed ?? 42),
     }, t, palette, W, H) }
   },
-  Animartrix({ input, num, t, W, H, stateKey }, id, props) {
+  Animartrix(ctx, id, props) {
+    const { input, num, t, W, H, stateKey } = ctx
+    const bands = audioBands(ctx, id)
     return { frame: evalAnimartrix(stateKey(id), {
       effect: String(props.effect ?? 'Water'),
       speed: num(id, 'speed', props, 'speed', 0.65),
       audioAmount: num(id, 'audioAmount', props, 'audioAmount', 1),
-      bass: num(id, 'bass', props, 'bass', 0),
-      mids: num(id, 'mids', props, 'mids', 0),
-      treble: num(id, 'treble', props, 'treble', 0),
+      bass: bands.num(id, 'bass', props, 'bass', 0),
+      mids: bands.num(id, 'mids', props, 'mids', 0),
+      treble: bands.num(id, 'treble', props, 'treble', 0),
       kick: num(id, 'kick', props, 'kick', 0),
       snare: num(id, 'snare', props, 'snare', 0),
       hihat: num(id, 'hihat', props, 'hihat', 0),

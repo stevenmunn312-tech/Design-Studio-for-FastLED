@@ -1,12 +1,18 @@
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { previewAudioCapabilityKind } from '../../state/audio/audioCapabilities'
+import { NODE_LIBRARY } from '../../state/nodeLibrary'
 
 interface PortLike {
   id?: string
   dataType?: string
 }
 
-const AUDIO_REACTIVE_TYPES = new Set(['FFTAnalyzer', 'BeatDetect', 'PercussionDetect', 'AudioFeatures', 'Vibe', 'SongStructure', 'PitchDetect', 'PatternMaster', 'PatternSlideshow', 'SpectrumVisualizer', 'Waveform'])
+const AUDIO_REACTIVE_TYPES = new Set(['FFTAnalyzer', 'BeatDetect', 'PercussionDetect', 'AudioFeatures', 'Vibe', 'SongStructure', 'PitchDetect', 'PatternMaster', 'PatternSlideshow', 'SpectrumVisualizer', 'Waveform',
+  // The band patterns, whose optional Audio input stands in for unwired bands.
+  ...NODE_LIBRARY
+    .filter((definition) => definition.category === 'pattern'
+      && definition.inputs.some((port) => port.id === 'audio' && port.dataType === 'audio'))
+    .map((definition) => definition.type)])
 
 function outputReachableNodeIds(nodes: StudioNode[], edges: StudioEdge[]): Set<string> {
   const reachable = new Set<string>()
