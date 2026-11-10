@@ -5,6 +5,7 @@
 import { getGroupRegistry, matrixDims, rootGraphEdges, rootGraphNodes, useGraphStore } from '../graphStore'
 import { renderBufferDims } from '../output/outputRouting'
 import type { GroupRegistry } from '../graphEvaluator'
+import { patternRamBudget, type PatternRamBudget } from '../../utils/validateGraph'
 
 /** Longest side of the grid a pattern is rendered on to be judged. */
 const RATING_GRID_CAP = 32
@@ -34,4 +35,13 @@ export function currentFirmwareDims(): { w: number; h: number } {
   const state = useGraphStore.getState()
   const { w, h } = renderBufferDims(rootGraphNodes(state), rootGraphEdges(state))
   return { w: Math.max(1, w), h: Math.max(1, h) }
+}
+
+/**
+ * The chosen board's internal-RAM budget, which a pattern's RAM estimate is
+ * weighed against. Undefined when the project has no board or the board
+ * declares no budget; the estimate is then banded per LED.
+ */
+export function currentRamBudget(): PatternRamBudget | undefined {
+  return patternRamBudget(rootGraphNodes(useGraphStore.getState()))
 }

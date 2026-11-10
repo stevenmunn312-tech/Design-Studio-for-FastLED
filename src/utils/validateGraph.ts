@@ -819,6 +819,9 @@ export interface PatternFirmwareRam {
   scratchBytes: number
   /** Both together: the pattern running alone in a sketch. */
   totalBytes: number
+  /** What stays in internal RAM on a board that keeps render buffers in
+   *  PSRAM: simulation state and palette tables. */
+  internalWithPsramBytes: number
 }
 
 /**
@@ -839,7 +842,29 @@ export function estimatePatternFirmwareRam(
     + (pattern.namedPalettes.size + pattern.builderPalettes) * PALETTE_BYTES
   const scratchBytes = (pattern.frameBufferBytes - pattern.persistentFrameBytes)
     + (pattern.fieldBufferBytes - pattern.persistentFieldBytes)
-  return { keptBytes, scratchBytes, totalBytes: keptBytes + scratchBytes }
+  const internalWithPsramBytes = pattern.statefulBytes
+    + (pattern.namedPalettes.size + pattern.builderPalettes) * PALETTE_BYTES
+  return { keptBytes, scratchBytes, totalBytes: keptBytes + scratchBytes, internalWithPsramBytes }
+}
+
+/** The internal-RAM budget a pattern is weighed against: the selected board's
+ *  declared graph-allocation budget, the one the deploy gate enforces. */
+export interface PatternRamBudget {
+  budgetBytes: number
+  boardLabel: string
+  /** Render buffers go to PSRAM on this build, so they are not in the budget. */
+  usesPsram: boolean
+}
+
+/** Undefined when no board is chosen or its budget is not declared. */
+export function patternRamBudget(nodes: StudioNode[]): PatternRamBudget | undefined {
+  const profile = selectedBoardProfile(nodes)
+  if (!profile || profile.internalRamBudgetBytes === undefined) return undefined
+  return {
+    budgetBytes: profile.internalRamBudgetBytes,
+    boardLabel: profile.label,
+    usesPsram: controllerSettings(nodes).usePsram,
+  }
 }
 
 /**

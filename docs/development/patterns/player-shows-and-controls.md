@@ -472,7 +472,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   release their evaluator namespace when they end. A script that rates in
   Node must also call `resetEvaluatorState()` between patterns: the frame
   pool is only advanced by the live preview, and without it a library pass
-  runs out of memory. It is a browser timing for ranking patterns, never microcontroller
+  runs out of memory. RAM is banded against the chosen board's `internalRamBudgetBytes`
+  (`patternRamBudget`, the figure the deploy gate enforces) and per LED only
+  when the board declares none; on a PSRAM build only state and palettes
+  count. Flash is `patternFlashEstimate`: generated pattern code, comments
+  and spacing removed, times `FLASH_BYTES_PER_CODE_CHAR`, a ratio fitted to
+  the `pattern-collections` compile fixtures and refitted by compiling them
+  again. Render weight is a browser timing for ranking patterns, never microcontroller
   frame time, and the copy says so wherever it appears. Changing what a
   rating stores means bumping `ANALYSIS_VERSION` in `patternRating.ts`; the
   version is in every cache key, so old ratings are rescanned. The popup and

@@ -19,12 +19,14 @@ import {
   formatRamBytes,
   formatRenderWeight,
   patternRamEstimate,
+  ramBudgetText,
   ramBand,
   ramBreakdownText,
   renderWeightBand,
   type PatternRamEstimate,
 } from '../../state/patterns/patternCost'
-import { currentFirmwareDims, currentRatingContext } from '../../state/patterns/patternRatingContext'
+import { currentFirmwareDims, currentRamBudget, currentRatingContext } from '../../state/patterns/patternRatingContext'
+import { FLASH_TITLE, patternFlashEstimate, type PatternFlashEstimate } from '../../state/patterns/patternFlash'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import PatternTagChips from '../PatternTags/PatternTagChips'
 import { patternFormTags, type PatternFormTag } from '../../state/patterns/patternTags'
@@ -108,7 +110,7 @@ const RENDER_WEIGHT_TITLE = 'How long Studio’s preview took to draw this patte
 
 /** What the pattern costs to run. Both figures are estimates and say so: the
  *  render weight is a browser timing, the RAM is the deploy check's model. */
-function CostLine({ rating, ram }: { rating: PatternRating; ram: PatternRamEstimate }) {
+function CostLine({ rating, ram, flash }: { rating: PatternRating; ram: PatternRamEstimate; flash: PatternFlashEstimate }) {
   const render = rating.renderCost
   const ramWeight = ramBand(ram)
   return (
@@ -127,7 +129,11 @@ function CostLine({ rating, ram }: { rating: PatternRating; ram: PatternRamEstim
       </span>
       <span className={styles.costItem} title={ramBreakdownText(ram)}>
         RAM <strong>~{formatRamBytes(ram.totalBytes)}</strong> at {ram.w}×{ram.h}
+        {ram.budget ? `, ${ramBudgetText(ram)}` : ''}
         <span className={`${styles.costBand} ${styles[`cost_${ramWeight}`]}`}>{COST_BAND_LABEL[ramWeight]}</span>
+      </span>
+      <span className={styles.costItem} title={FLASH_TITLE}>
+        Flash <strong>~{formatRamBytes(flash.bytes)}</strong>
       </span>
       <span className={styles.costNote}>For comparing patterns. Not measured on a board.</span>
     </div>
@@ -138,6 +144,7 @@ interface RatingCardProps {
   pattern: SavedPattern
   rating: PatternRating
   ram: PatternRamEstimate
+  flash: PatternFlashEstimate
   checked: boolean
   userRating: number
   rescanning: boolean
@@ -148,7 +155,7 @@ interface RatingCardProps {
 }
 
 function RatingCard({
-  pattern, rating, ram, checked, userRating, rescanning,
+  pattern, rating, ram, flash, checked, userRating, rescanning,
   onToggle, onUserRating, onIntentChange, onTagChange,
 }: RatingCardProps) {
   const tier = ratingTier(rating.overall)
@@ -213,7 +220,7 @@ function RatingCard({
               />
             </div>
 
-            <CostLine rating={rating} ram={ram} />
+            <CostLine rating={rating} ram={ram} flash={flash} />
 
             <div className={styles.notesGrid}>
               <div>
@@ -260,9 +267,10 @@ export default function PatternRatingsPopup() {
   // RAM is priced at the canvas the firmware would really allocate, not the
   // capped grid the critic renders on.
   const firmwareDims = useMemo(() => currentFirmwareDims(), [])
+  const ramBudget = useMemo(() => currentRamBudget(), [])
   const ramByPatternId = useMemo(
-    () => new Map(patterns.map((pattern) => [pattern.id, patternRamEstimate(pattern, firmwareDims)])),
-    [firmwareDims, patterns],
+    () => new Map(patterns.map((pattern) => [pattern.id, patternRamEstimate(pattern, firmwareDims, ramBudget)])),
+    [firmwareDims, patterns, ramBudget],
   )
   const [ratings, setRatings] = useState<PatternRating[]>(() => patterns.flatMap((pattern) => {
     const rating = storedRatings[pattern.id]
@@ -378,7 +386,8 @@ export default function PatternRatingsPopup() {
                 key={pattern.id}
                 pattern={pattern}
                 rating={rating}
-                ram={ramByPatternId.get(pattern.id) ?? patternRamEstimate(pattern, firmwareDims)}
+                ram={ramByPatternId.get(pattern.id) ?? patternRamEstimate(pattern, firmwareDims, ramBudget)}
+                flash={patternFlashEstimate(pattern, context.groups)}
                 checked={selected.has(pattern.id)}
                 userRating={userRatings[pattern.id] ?? 0}
                 rescanning={rescanningId === pattern.id}

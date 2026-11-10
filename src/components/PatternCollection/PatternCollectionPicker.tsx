@@ -29,10 +29,12 @@ import {
   formatRenderWeight,
   patternCostBand,
   patternRamEstimate,
+  ramBudgetText,
   type CostBand,
   type PatternRamEstimate,
 } from '../../state/patterns/patternCost'
-import { currentFirmwareDims, currentRatingContext } from '../../state/patterns/patternRatingContext'
+import { currentFirmwareDims, currentRamBudget, currentRatingContext } from '../../state/patterns/patternRatingContext'
+import { patternFlashEstimate } from '../../state/patterns/patternFlash'
 import { useUiStore } from '../../state/uiStore'
 import { useModalFocus } from '../../hooks/useModalFocus'
 import styles from './PatternCollectionPicker.module.css'
@@ -145,6 +147,8 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
   }, [])
   // RAM is stated for the canvas this project's firmware would allocate.
   const firmwareDims = useMemo(() => currentFirmwareDims(), [])
+  const ramBudget = useMemo(() => currentRamBudget(), [])
+  const flashGroups = useMemo(() => currentRatingContext().groups, [])
 
   const collection = useGraphStore((state) => state.nodes.find((node) => node.id === collectionNodeId))
   const graphs = useGraphStore((state) => state.graphs)
@@ -173,13 +177,13 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
   )
 
   const ramByPatternId = useMemo(
-    () => new Map(patterns.map((pattern) => [pattern.id, patternRamEstimate(pattern, firmwareDims)])),
-    [firmwareDims, patterns],
+    () => new Map(patterns.map((pattern) => [pattern.id, patternRamEstimate(pattern, firmwareDims, ramBudget)])),
+    [firmwareDims, patterns, ramBudget],
   )
 
   const allRows = useMemo<Row[]>(() => patterns.map((pattern) => {
     const rating = ratingsByPatternId[pattern.id]
-    const ram = ramByPatternId.get(pattern.id) ?? patternRamEstimate(pattern, firmwareDims)
+    const ram = ramByPatternId.get(pattern.id) ?? patternRamEstimate(pattern, firmwareDims, ramBudget)
     return {
       pattern,
       rating,
@@ -193,7 +197,7 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
       // saved pattern answers this chip without ever having been scanned.
       audio: isAudioReactiveSubgraph(pattern.subgraph.nodes) ? 'reactive' : 'standard',
     }
-  }), [categoryNames, firmwareDims, patterns, ramByPatternId, ratingsByPatternId, userRatingsByPatternId])
+  }), [categoryNames, firmwareDims, patterns, ramBudget, ramByPatternId, ratingsByPatternId, userRatingsByPatternId])
 
   const hasVerdict = (rating: PatternRating | undefined, wanted: PatternVerdict): boolean =>
     !!rating && !rating.failed && !rating.skipped && verdictForScore(rating.overall).id === wanted
@@ -358,7 +362,9 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
     const costTitle = `Estimated cost. ${render
       ? `Render weight ${formatRenderWeight(render.relative)} a plain Plasma pattern in this browser`
       : 'Render weight is measured when Pattern Insights judges the pattern'}; `
-      + `about ${formatRamBytes(ram.totalBytes)} of firmware RAM on a ${ram.w}×${ram.h} canvas. For comparing patterns, not measured on a board.`
+      + `about ${formatRamBytes(ram.totalBytes)} of firmware RAM on a ${ram.w}×${ram.h} canvas`
+      + `${ram.budget ? `, ${ramBudgetText(ram)}` : ''}; `
+      + `about ${formatRamBytes(patternFlashEstimate(pattern, flashGroups).bytes)} of flash. For comparing patterns, not measured on a board.`
     return (
       <label
         key={pattern.id}

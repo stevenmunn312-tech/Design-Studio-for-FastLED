@@ -8,7 +8,10 @@ import {
   formatRenderWeight,
   patternCostBand,
   patternRamEstimate,
+  RAM_HEAVY_BUDGET_SHARE,
+  RAM_MEDIUM_BUDGET_SHARE,
   ramBand,
+  ramBudgetText,
   renderCostFromBlocks,
   renderWeightBand,
   steadyFrameMs,
@@ -40,7 +43,7 @@ function chain(id: string, nodes: StudioNode[]): SavedPattern {
 }
 
 const ram = (bytesPerLed: number): PatternRamEstimate =>
-  ({ keptBytes: 0, scratchBytes: bytesPerLed * 256, totalBytes: bytesPerLed * 256, w: 16, h: 16, bytesPerLed })
+  ({ keptBytes: 0, scratchBytes: bytesPerLed * 256, totalBytes: bytesPerLed * 256, internalWithPsramBytes: 0, w: 16, h: 16, bytesPerLed })
 const render = (relative: number): PatternRenderCost => ({ usPerFrame: relative * 100, relative })
 
 describe('render timing', () => {
@@ -83,6 +86,51 @@ describe('cost bands', () => {
     expect(ramBand(ram(RAM_HEAVY_BYTES_PER_LED + 1))).toBe('heavy')
     const fluid = chain('fluid', [node('fs', 'FluidSim')])
     expect(ramBand(patternRamEstimate(fluid, { w: 8, h: 8 }))).toBe(ramBand(patternRamEstimate(fluid, { w: 32, h: 32 })))
+  })
+
+  describe('against the chosen board', () => {
+    const board = (budgetBytes: number, usesPsram = false) => ({ budgetBytes, boardLabel: 'ESP32 DevKit', usesPsram })
+    const fluid = chain('fluid', [node('fs', 'FluidSim')])
+
+    it('states the share of the board budget the pattern takes', () => {
+      const dims = { w: 16, h: 16 }
+      const plain = patternRamEstimate(fluid, dims)
+      expect(plain.budget).toBeUndefined()
+      const weighed = patternRamEstimate(fluid, dims, board(plain.totalBytes * 4))
+      expect(weighed.budget).toMatchObject({ bytes: plain.totalBytes, share: 0.25, boardLabel: 'ESP32 DevKit' })
+    })
+
+    it('bands on that share, so the same pattern is heavier on a smaller board', () => {
+      const dims = { w: 16, h: 16 }
+      const bytes = patternRamEstimate(fluid, dims).totalBytes
+      const share = (s: number) => patternRamEstimate(fluid, dims, board(bytes / s))
+      expect(ramBand(share(RAM_MEDIUM_BUDGET_SHARE / 2))).toBe('light')
+      expect(ramBand(share(RAM_MEDIUM_BUDGET_SHARE * 1.01))).toBe('medium')
+      expect(ramBand(share(RAM_HEAVY_BUDGET_SHARE * 1.01))).toBe('heavy')
+    })
+
+    it('follows the canvas, unlike the per-LED band', () => {
+      const budget = board(96 * 1024)
+      const small = patternRamEstimate(fluid, { w: 8, h: 8 }, budget)
+      const large = patternRamEstimate(fluid, { w: 32, h: 32 }, budget)
+      expect(large.budget!.share).toBeGreaterThan(small.budget!.share)
+    })
+
+    it('counts only what stays internal when render buffers go to PSRAM', () => {
+      const dims = { w: 16, h: 16 }
+      const internal = patternRamEstimate(fluid, dims, board(96 * 1024))
+      const psram = patternRamEstimate(fluid, dims, board(96 * 1024, true))
+      expect(psram.budget!.bytes).toBe(psram.internalWithPsramBytes)
+      expect(psram.budget!.bytes).toBeLessThanOrEqual(internal.budget!.bytes)
+    })
+
+    it('says the share in words, and nothing without a budget', () => {
+      const at = (share: number) => ramBudgetText({ budget: { bytes: 1, share, boardLabel: 'ESP32 DevKit', usesPsram: false } })
+      expect(at(0.253)).toBe('25% of the ESP32 DevKit budget')
+      expect(at(0.0312)).toBe('3.1% of the ESP32 DevKit budget')
+      expect(at(0.004)).toBe('<1% of the ESP32 DevKit budget')
+      expect(ramBudgetText({})).toBe('')
+    })
   })
 
   it('takes the heavier of the two, and RAM alone before a pattern is judged', () => {

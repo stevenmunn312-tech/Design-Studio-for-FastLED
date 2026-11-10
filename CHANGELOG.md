@@ -27,6 +27,16 @@ versioning (`0.y.z`) until the first stable release.
   measurements from a board. The Pattern Collection picker shows the cost,
   sorts by render weight or estimated RAM, and has a Hide heavy chip.
   Existing scores are rescanned to pick up the render weight.
+- Pattern Insights and the Add patterns picker weigh a pattern's RAM against
+  the chosen board: the estimate is stated as a share of that board's
+  internal-RAM budget, and Light, Medium and Heavy follow the share, so the
+  same pattern reads heavier on a smaller board or a larger canvas. A build
+  that keeps render buffers in PSRAM counts only what stays internal. With no
+  board budget the band stays per LED.
+- Pattern Insights shows an estimated flash size for each pattern, taken from
+  the firmware it generates and fitted to four compiled show sketches. It is
+  the pattern alone; a collection shares helper code and takes less than the
+  sum.
 - A pattern's render weight is now one number whatever the project: Pattern
   Insights times it in a short pass of its own on a fixed 32x32 grid and
   keeps the fastest of six blocks. It moves about 5% between scans, where

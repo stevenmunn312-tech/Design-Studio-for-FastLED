@@ -1872,8 +1872,8 @@ describe('validateGraph', () => {
           expect(priced.internalBytes - bare.internalBytes).toBe(alone.totalBytes + 2 * 48)
         }
         // Trails keeps its own frame and borrows one; the ring is all kept.
-        expect(estimatePatternFirmwareRam(groups.trails, { w: 4, h: 4 })).toEqual({ keptBytes: 48, scratchBytes: 48, totalBytes: 96 })
-        expect(estimatePatternFirmwareRam(groups.feedback, { w: 4, h: 4 })).toEqual({ keptBytes: 4 * 48, scratchBytes: 2 * 48, totalBytes: 6 * 48 })
+        expect(estimatePatternFirmwareRam(groups.trails, { w: 4, h: 4 })).toMatchObject({ keptBytes: 48, scratchBytes: 48, totalBytes: 96 })
+        expect(estimatePatternFirmwareRam(groups.feedback, { w: 4, h: 4 })).toMatchObject({ keptBytes: 4 * 48, scratchBytes: 2 * 48, totalBytes: 6 * 48 })
       })
 
       it('keeps a Field Formula that reads prev per pattern and pools the fields that do not', () => {

@@ -12,7 +12,7 @@
 //
 // This module is pure: no stores, so the picker, the popup and tests share it.
 
-import { estimatePatternFirmwareRam, type PatternFirmwareRam } from '../../utils/validateGraph'
+import { estimatePatternFirmwareRam, type PatternFirmwareRam, type PatternRamBudget } from '../../utils/validateGraph'
 import type { SavedPattern } from './patternLibrary'
 
 export type CostBand = 'light' | 'medium' | 'heavy'
@@ -79,15 +79,40 @@ export interface PatternRamEstimate extends PatternFirmwareRam {
   w: number
   h: number
   bytesPerLed: number
+  /** The pattern against the chosen board's internal-RAM budget. Absent when
+   *  no board is chosen or the board declares no budget. */
+  budget?: {
+    /** Bytes of the budget the pattern takes, alone in a sketch. */
+    bytes: number
+    /** `bytes` over the budget, 0 to 1 and beyond. */
+    share: number
+    boardLabel: string
+    usesPsram: boolean
+  }
 }
 
-/** Estimated firmware RAM of one pattern on a `w` by `h` canvas. */
-export function patternRamEstimate(pattern: SavedPattern, dims: { w: number; h: number }): PatternRamEstimate {
+/**
+ * Estimated firmware RAM of one pattern on a `w` by `h` canvas, and, given
+ * the chosen board's budget, how much of that budget it takes. On a build that
+ * keeps render buffers in PSRAM only the pattern's state and palettes count
+ * against the budget, as in the deploy gate.
+ */
+export function patternRamEstimate(
+  pattern: SavedPattern, dims: { w: number; h: number }, budget?: PatternRamBudget,
+): PatternRamEstimate {
   const ram = estimatePatternFirmwareRam(pattern.subgraph, dims)
-  return { ...ram, w: dims.w, h: dims.h, bytesPerLed: ram.totalBytes / Math.max(1, dims.w * dims.h) }
+  const estimate: PatternRamEstimate = {
+    ...ram, w: dims.w, h: dims.h, bytesPerLed: ram.totalBytes / Math.max(1, dims.w * dims.h),
+  }
+  if (budget && budget.budgetBytes > 0) {
+    const bytes = budget.usesPsram ? ram.internalWithPsramBytes : ram.totalBytes
+    estimate.budget = { bytes, share: bytes / budget.budgetBytes, boardLabel: budget.boardLabel, usesPsram: budget.usesPsram }
+  }
+  return estimate
 }
 
-// Band edges in bytes per LED, so the band does not change with the canvas: a
+// Band edges in bytes per LED, for a project with no board budget to weigh
+// against. Per LED so the band does not change with the canvas: a
 // CRGB frame buffer is 3 bytes per LED and a float field 4. Up to four frame
 // buffers is light; past ten frames' worth (a fluid or reaction-diffusion
 // simulation, a long Frame Feedback history) is heavy. In the bundled library
@@ -95,8 +120,27 @@ export function patternRamEstimate(pattern: SavedPattern, dims: { w: number; h: 
 export const RAM_MEDIUM_BYTES_PER_LED = 12
 export const RAM_HEAVY_BYTES_PER_LED = 30
 
-export function ramBand(ram: Pick<PatternRamEstimate, 'bytesPerLed'>): CostBand {
+// Band edges as a share of the chosen board's internal-RAM budget, used
+// whenever the board declares one. One pattern taking a fifth of everything
+// the graph may allocate is heavy: a collection adds each pattern's kept
+// bytes together, and the LEDs, displays and radio share the same budget.
+export const RAM_MEDIUM_BUDGET_SHARE = 0.08
+export const RAM_HEAVY_BUDGET_SHARE = 0.2
+
+/** Banded against the board's budget when there is one, else per LED. */
+export function ramBand(ram: Pick<PatternRamEstimate, 'bytesPerLed' | 'budget'>): CostBand {
+  if (ram.budget) {
+    return ram.budget.share >= RAM_HEAVY_BUDGET_SHARE ? 'heavy' : ram.budget.share >= RAM_MEDIUM_BUDGET_SHARE ? 'medium' : 'light'
+  }
   return ram.bytesPerLed > RAM_HEAVY_BYTES_PER_LED ? 'heavy' : ram.bytesPerLed > RAM_MEDIUM_BYTES_PER_LED ? 'medium' : 'light'
+}
+
+/** "3% of the ESP32 DevKit budget", or '' when there is no budget to state. */
+export function ramBudgetText(ram: Pick<PatternRamEstimate, 'budget'>): string {
+  if (!ram.budget) return ''
+  const percent = ram.budget.share * 100
+  const shown = percent >= 10 ? Math.round(percent) : percent >= 1 ? Math.round(percent * 10) / 10 : '<1'
+  return `${shown}% of the ${ram.budget.boardLabel} budget`
 }
 
 /** The heavier of the two bands. A pattern that has not been judged yet has
@@ -121,7 +165,10 @@ export function formatRamBytes(bytes: number): string {
 
 /** One sentence for a tooltip: where the RAM figure goes in a show. */
 export function ramBreakdownText(ram: PatternRamEstimate): string {
+  const budget = ram.budget
+    ? ` That is ${ramBudgetText(ram)}${ram.budget.usesPsram ? ', counting only what stays out of PSRAM' : ''}, the internal RAM Studio lets a graph allocate on that board.`
+    : ''
   return `About ${formatRamBytes(ram.totalBytes)} on a ${ram.w}×${ram.h} canvas: `
     + `${formatRamBytes(ram.keptBytes)} it keeps for as long as it is in the sketch, `
-    + `and ${formatRamBytes(ram.scratchBytes)} of render buffers a Pattern Collection shares between its patterns.`
+    + `and ${formatRamBytes(ram.scratchBytes)} of render buffers a Pattern Collection shares between its patterns.${budget}`
 }
