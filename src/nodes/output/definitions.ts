@@ -3,7 +3,7 @@
 // category's definitions into NODE_LIBRARY in sidebar order.
 import type { NodeDefinition } from '../../types'
 import { DEFAULT_OLED_I2C_ADDRESS, oledAddressLabel } from '../../state/displays/oledSurface'
-import { LED_OUTPUT_ACTION_PORTS, LED_OUTPUT_RUNTIME_PORTS } from '../../state/output/ledOutputRuntime'
+import { LED_OUTPUT_ACTION_PORTS, LED_OUTPUT_GAMMA_OFF, LED_OUTPUT_RUNTIME_PORTS } from '../../state/output/ledOutputRuntime'
 import {
   BUZZER_PART_ID, BUZZER_PIN_FALLBACK, BUZZER_PITCH_DEFAULT_HZ, BUZZER_VARIANT_INPUTS, buzzerInputs,
 } from '../../state/peripherals/buzzer'
@@ -129,6 +129,9 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       // while this one is a fixture-local 0-1 multiplier.
       enabled: true,
       outputBrightness: 1,
+      // Gamma correction on everything this output sends, 1 for off, so a
+      // finished graph needs no trailing Gamma node (ledOutputRuntime.ts).
+      outputGamma: LED_OUTPUT_GAMMA_OFF,
       width: 16,
       height: 16,
       // String, ring, and corkscrew forms are one chain of `ledCount` LEDs;

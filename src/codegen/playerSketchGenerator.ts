@@ -44,8 +44,8 @@ import { PALETTE_IDS, STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppR
 import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, psramBufferDecl, PSRAM_ALLOC_CPP } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { ledSupplyVolts } from '../build/controllerSettings'
-import { ledOutputManualExprs, ledOutputRuntimeCpp } from './output/ledOutputRuntimeCpp'
-import { ledOutputManualRuntime } from '../state/output/ledOutputRuntime'
+import { ledOutputGammaExpr, ledOutputManualExprs, ledOutputRuntimeCpp } from './output/ledOutputRuntimeCpp'
+import { LED_OUTPUT_GAMMA_OFF, ledOutputGamma, ledOutputManualRuntime } from '../state/output/ledOutputRuntime'
 import { vuNormalizedLevelCpp } from './audio/stereoLevelCpp'
 import {
   audioFeatureGlobalsCpp, audioFeatureHelpersCpp, audioFeatureResetCpp, audioFeatureSetupCpp,
@@ -171,6 +171,8 @@ export interface PlayerConfig {
    *  player's, which its transport already owns. */
   outputEnabled: boolean
   outputBrightness: number
+  /** The LED output's Gamma field (`ledOutputGamma`); 1 is off. */
+  outputGamma: number
 }
 
 const DEFAULTS: PlayerConfig = {
@@ -191,6 +193,7 @@ const DEFAULTS: PlayerConfig = {
   hub75Props: {},
   outputEnabled: true,
   outputBrightness: 1,
+  outputGamma: LED_OUTPUT_GAMMA_OFF,
 }
 
 function sanitizeVolume(value: unknown, fallback = DEFAULTS.maxVolume): number {
@@ -281,9 +284,9 @@ export function playerConfigFromGraph(
   }
 }
 
-function outputFields(props: Record<string, unknown> | undefined): Pick<PlayerConfig, 'outputEnabled' | 'outputBrightness'> {
+function outputFields(props: Record<string, unknown> | undefined): Pick<PlayerConfig, 'outputEnabled' | 'outputBrightness' | 'outputGamma'> {
   const manual = ledOutputManualRuntime(props)
-  return { outputEnabled: manual.enabled, outputBrightness: manual.brightness }
+  return { outputEnabled: manual.enabled, outputBrightness: manual.brightness, outputGamma: ledOutputGamma(props) }
 }
 
 export type PlayerControlAction =
@@ -502,7 +505,12 @@ export function generatePlayerSketch(
   // fixtures and the HUB75 blit (which reads this same array), so they dim
   // this output alone. `leds` is redrawn every pass, as the audio fade below
   // already relies on, so scaling it in place does not compound.
-  const outputFieldLines = c.hasPrimaryLedOutput
+  // With the Gamma field on, all three run later instead, on the array the
+  // strip shows (outputGammaLines): the curve goes after the audio fade and
+  // the chain behind the player, as it does at the output in the preview,
+  // and before the dimmer.
+  const outputGammaExpr = ledOutputGammaExpr({ outputGamma: c.outputGamma })
+  const outputFieldLines = c.hasPrimaryLedOutput && !outputGammaExpr
     ? ledOutputRuntimeCpp({
       id: 'player', array: 'leds', count: 'NUM_LEDS',
       ...ledOutputManualExprs({ enabled: c.outputEnabled, outputBrightness: c.outputBrightness }),
@@ -863,6 +871,13 @@ export function generatePlayerSketch(
   // The LED output's wired Enabled and Brightness, on the array the strip
   // shows, as a normal sketch applies them (ledOutputRuntimeCpp).
   const outputRuntime = graphRouting?.outputRuntime
+  const outputGammaLines = outputGammaExpr && c.hasPrimaryLedOutput
+    ? ledOutputRuntimeCpp({
+        id: 'player', array: isHub75 ? 'leds' : physical.array, count: isHub75 ? 'NUM_LEDS' : physical.count,
+        gammaExpr: outputGammaExpr,
+        ...ledOutputManualExprs({ enabled: c.outputEnabled, outputBrightness: c.outputBrightness }),
+      }).map((line) => line + '\n').join('')
+    : ''
   const outputRuntimeLines = outputRuntime && c.hasPrimaryLedOutput
     ? ledOutputRuntimeCpp({
         id: outputRuntime.id, array: isHub75 ? 'leds' : physical.array, count: isHub75 ? 'NUM_LEDS' : physical.count,
@@ -3043,7 +3058,7 @@ ${transitions ? `    float patternFade = tp < 1.0f
     }
   }
 ` : ''}
-${postFrame ? postFrameCallCpp(postFrame, 'millis()') + '\n' : ''}${physicalCopyLines.map((line) => line + '\n').join('')}${outputRuntimeLines}
+${postFrame ? postFrameCallCpp(postFrame, 'millis()') + '\n' : ''}${physicalCopyLines.map((line) => line + '\n').join('')}${outputGammaLines}${outputRuntimeLines}
 ${stereoVuMeters.map(stereoVuLoopCpp).join('\n')}
   ${isHub75 ? hub75BlitRowsCpp(hub75Hw!).map((line) => line.replace(/^ {2}/, '')).join('\n  ') : ''}
   ${!isHub75 || hasStereoVu ? 'FastLED.show();' : ''}

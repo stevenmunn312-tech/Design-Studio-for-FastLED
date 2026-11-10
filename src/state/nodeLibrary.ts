@@ -59,6 +59,7 @@ import { PARTICLE_REST_SEC_MAX, PARTICLE_VOLLEY_BURSTS_MAX } from './player/play
 import { PARTICLE_STYLES } from './player/particleStyles'
 import { WIREFRAME_MODEL_OPTIONS } from '../nodes/shapes/wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './output/ledOutputForm'
+import { LED_OUTPUT_GAMMA } from './output/ledOutputRuntime'
 import { RENDER_RESOLUTIONS } from './output/renderScale'
 import { POSITION_PRESETS, POSITIONS_MM_PER_UNIT_MAX, STRIP_LAYOUTS, usesNetwork, usesPositions } from './output/stringPositions'
 import { NETWORK_LEDS_PER_EDGE, NETWORK_MAX_NODES, NETWORK_PRESETS } from './output/segmentNetwork'
@@ -826,6 +827,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     form: { control: 'select', options: LED_OUTPUT_FORMS },
     dataLink: { control: 'select', options: [...PIXEL_DATA_LINK_OPTIONS] },
     outputBrightness: { control: 'slider', min: 0, max: 1, step: 0.01 },
+    outputGamma: { control: 'slider', min: LED_OUTPUT_GAMMA.min, max: LED_OUTPUT_GAMMA.max, step: 0.1 },
     dataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     clockPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     // Every rate any clocked chipset offers; `propertyOptions` narrows it to
@@ -3277,6 +3279,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   MatrixOutput: {
     enabled: 'Blackout for this output. Off shows nothing; a wired Enabled input overrides it.',
     outputBrightness: 'This output\'s own dimmer, 0 to 1, on top of the Board\'s master level. A wired Brightness input overrides it.',
+    outputGamma: 'Gamma correction for everything this output sends, so mid-tones look right on the LEDs: 1 is off, 2.2 to 2.8 suits most strips. It replaces a Gamma node at the end of the graph; use one or the other, not both.',
     width: 'LEDs across the matrix.',
     height: 'LEDs down the matrix.',
     serpentine: 'On for panels whose rows zig-zag (most flexible panels). Off if every row runs the same way.',
@@ -3906,6 +3909,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   MatrixOutput: {
     outputBrightness: 'brightness',
+    outputGamma: 'gamma',
     dataLink: 'data link',
     colorOrder: 'color order',
     dataRateMhz: 'data rate (MHz)',
@@ -4273,7 +4277,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     ] },
     { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
     { key: 'positions', label: 'String Layout', keys: ['stripLayout', 'positionsPreset', 'networkPreset', 'ledsPerEdge', 'positionsWidth', 'positionsHeight', 'positionsMmPerUnit', 'positions', 'network'] },
-    { key: 'rendering', label: 'Rendering', keys: ['renderResolution', 'correction', 'whitePoint', 'dither'] },
+    { key: 'rendering', label: 'Rendering', keys: ['renderResolution', 'correction', 'whitePoint', 'outputGamma', 'dither'] },
     // The least-used group last: a crop offset into a larger frame.
     { key: 'routing', label: 'Frame Route', keys: ['routeMode', 'routeX', 'routeY'] },
     // No 'brightness' or power group here: master brightness, the power cap
@@ -5424,6 +5428,8 @@ export function isPropertyEnabled(
     // Render resolution is a matrix-panel choice: a chain has no 2 x 2 block to
     // average down or second axis to save on, and HUB75 resamples neither way.
     if (key === 'renderResolution') return form === 'matrix'
+    // A HUB75 driver brightens through a curve of its own (ledOutputGamma).
+    if (key === 'outputGamma') return !hub75
     if (key === 'layout') return !linear
     if (key === 'tilesX' || key === 'tilesY' || key === 'tileSerpentine' || key === 'tileRotations')
       return !linear && properties.layout === 'panels'

@@ -34,6 +34,7 @@ import {
   composeLedOutputRuntime,
   ledOutputStatus,
   applyLedOutputRuntime,
+  ledOutputGamma,
 } from '../../state/output/ledOutputRuntime'
 import { clampMasterSpeed, MASTER_SPEED_DEFAULT } from '../../state/player/masterSpeed'
 import { infoLayoutForKind, type InfoDisplayData, blankInfoData, renderInfoDisplay } from '../../state/displays/infoDisplay'
@@ -663,7 +664,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
         nodeDisplayLabel(type, props, String(node.data.label ?? 'LED output')), props, runtime,
       ),
     }
-    return { frame: frame ? applyLedOutputRuntime(frame, runtime) : null, display: status }
+    return { frame: frame ? applyLedOutputRuntime(frame, runtime, ledOutputGamma(props)) : null, display: status }
   },
   // Published rather than applied here: the clock this would scale is the
   // one this pass is already running on, so the value is read by whatever

@@ -169,7 +169,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
   Gamma: {
     overview: [
       'Gamma applies a curve that darkens the mid-tones, so gradients and fades look even on LEDs. LEDs respond linearly while our eyes do not, which makes uncorrected patterns look washed out and pale.',
-      '2.2 to 2.8 suits most strips. Put it last, just before the LED output.',
+      '2.2 to 2.8 suits most strips. To correct a whole graph, set the LED output’s Gamma instead: it applies the same curve to everything that output sends and replaces a Gamma node at the end. Keep this node to correct one branch, such as one side of a comparison.',
     ],
     inputs: { frame: FRAME_IN },
     outputs: { frame: FRAME_OUT },
