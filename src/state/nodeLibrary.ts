@@ -62,6 +62,7 @@ import { PARTICLE_REST_SEC_MAX, PARTICLE_VOLLEY_BURSTS_MAX } from './player/play
 import { PARTICLE_STYLES } from './player/particleStyles'
 import { WIREFRAME_MODEL_OPTIONS } from '../nodes/shapes/wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './output/ledOutputForm'
+import { matrixWiringApplies } from './output/xyLayout'
 import { LED_OUTPUT_GAMMA } from './output/ledOutputRuntime'
 import { RENDER_RESOLUTIONS } from './output/renderScale'
 import { MAX_STEREO_VU_RAIL_LEDS } from './audio/stereoVuSizing'
@@ -872,6 +873,16 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     corkscrewHeightMm: { control: 'slider', min: 10, max: 4000, step: 10 },
     // 'strip' is gone: a run of tape is a `form` now, not a wiring order.
     layout: { control: 'select', options: ['matrix', 'panels', 'custom'] },
+    startCorner: {
+      control: 'select',
+      options: ['top-left', 'top-right', 'bottom-left', 'bottom-right'],
+      labels: { 'top-left': 'Top-left', 'top-right': 'Top-right', 'bottom-left': 'Bottom-left', 'bottom-right': 'Bottom-right' },
+    },
+    firstRun: {
+      control: 'select',
+      options: ['horizontal', 'vertical'],
+      labels: { horizontal: 'Horizontal (rows)', vertical: 'Vertical (columns)' },
+    },
     stripLayout: { control: 'select', options: STRIP_LAYOUTS },
     positionsPreset: { control: 'select', options: POSITION_PRESETS },
     positionsWidth: { control: 'slider', min: 2, max: MAX_MATRIX_SIDE, step: 1 },
@@ -3337,6 +3348,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     width: 'LEDs across the matrix.',
     height: 'LEDs down the matrix.',
     serpentine: 'On for panels whose rows zig-zag (most flexible panels). Off if every row runs the same way.',
+    startCorner: 'The corner the first LED sits in, looking at the front of the matrix. It is the corner the data-in wire goes to. With tiled panels it describes each panel before it is turned.',
+    firstRun: 'Which way the LEDs run from the first one: Horizontal fills a row and then moves to the next row, Vertical fills a column and then moves to the next column.',
     dataPin: 'The GPIO wired to the strip\'s data-in.',
     dataLanes: 'How many equal lanes the chain is split into, each fed from its own data pin so the lanes are sent at once where the board can. Only counts that cut on whole rows or panels are offered.',
     lanePins: 'The data pins of lanes 2 onward, in chain order. Lane 1 stays on the data pin.',
@@ -3995,6 +4008,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     tilesX: 'tiles X',
     tilesY: 'tiles Y',
     tileSerpentine: 'tile serpentine',
+    startCorner: 'start corner',
+    firstRun: 'first run',
     tileRotations: 'tile turns',
     customXYMap: 'custom map',
     renderResolution: 'render resolution',
@@ -4335,7 +4350,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
       'hub75APin', 'hub75BPin', 'hub75CPin', 'hub75DPin', 'hub75WideScan', 'hub75EPin',
       'hub75ClkPin', 'hub75LatPin', 'hub75OePin', 'hub75ColorDepthBits',
     ] },
-    { key: 'layout', label: 'Layout', keys: ['layout', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
+    { key: 'layout', label: 'Layout', keys: ['layout', 'startCorner', 'firstRun', 'tilesX', 'tilesY', 'tileSerpentine', 'tileRotations', 'customXYMap'] },
     { key: 'positions', label: 'String Layout', keys: ['stripLayout', 'positionsPreset', 'networkPreset', 'ledsPerEdge', 'positionsWidth', 'positionsHeight', 'positionsMmPerUnit', 'positions', 'network'] },
     { key: 'rendering', label: 'Rendering', keys: ['renderResolution', 'correction', 'whitePoint', 'outputGamma', 'dither'] },
     // The least-used group last: a crop offset into a larger frame.
@@ -5480,6 +5495,9 @@ export function isPropertyEnabled(
     if (key === 'dataLink') return (!hub75 && !spi) || String(properties.dataLink ?? DIRECT_PIXEL_DATA_LINK) !== DIRECT_PIXEL_DATA_LINK
     // Serpentine zig-zags alternate *rows*, which a one-row form does not have.
     if (key === 'serpentine') return !hub75 && !linear
+    // Only an LED matrix has a corner and a direction to choose, and a custom
+    // map states every LED outright.
+    if (key === 'startCorner' || key === 'firstRun') return matrixWiringApplies(properties)
     // The clock pin and its rate only exist on SPI chipsets.
     if (key === 'clockPin' || key === 'dataRateMhz') return spi
     if (key.startsWith('hub75')) {

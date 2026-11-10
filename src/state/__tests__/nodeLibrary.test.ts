@@ -961,6 +961,21 @@ describe('nodeLibrary', () => {
     expect(isPropertyEnabled('MatrixOutput', 'dataPin', ws2812)).toBe(true)
   })
 
+  it('offers Start corner and First run only on an LED matrix that is not custom-mapped', () => {
+    for (const key of ['startCorner', 'firstRun']) {
+      expect(isPropertyEnabled('MatrixOutput', key, { form: 'matrix', layout: 'matrix' })).toBe(true)
+      expect(isPropertyEnabled('MatrixOutput', key, { form: 'matrix', layout: 'panels' })).toBe(true)
+      expect(isPropertyEnabled('MatrixOutput', key, { form: 'matrix', layout: 'custom' })).toBe(false)
+      for (const form of ['hub75', 'strip', 'ring', 'corkscrew']) {
+        expect(isPropertyEnabled('MatrixOutput', key, { form })).toBe(false)
+      }
+    }
+    expect(NODE_LIBRARY.find((definition) => definition.type === 'MatrixOutput')?.defaultProperties)
+      .toMatchObject({ startCorner: 'top-left', firstRun: 'horizontal' })
+    expect(selectOptionLabel('MatrixOutput', 'startCorner', 'bottom-left')).toBe('Bottom-left')
+    expect(selectOptionLabel('MatrixOutput', 'firstRun', 'vertical')).toBe('Vertical (columns)')
+  })
+
   it('gates MatrixOutput hub75EPin on hub75WideScan', () => {
     expect(isPropertyEnabled('MatrixOutput', 'hub75EPin', { form: 'hub75', chipset: 'HUB75', hub75WideScan: true })).toBe(true)
     expect(isPropertyEnabled('MatrixOutput', 'hub75EPin', { form: 'hub75', chipset: 'HUB75', hub75WideScan: false })).toBe(false)

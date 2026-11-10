@@ -46,7 +46,8 @@ The contract, owned by `src/state/output/dataLanes.ts`:
 - `dataLanes` is a whole number of lanes, default 1; `lanePins` lists the data
   pins of lanes 2..N in chain order, and lane 1 keeps `dataPin`.
 - Lanes are equal, and a lane boundary falls on a whole row (matrix or custom
-  layout), a whole panel (panels layout), or anywhere on a single chain
+  layout; a whole column on a matrix whose first run is vertical), a whole
+  panel (panels layout), or anywhere on a single chain
   (string, ring, corkscrew). `offeredDataLaneCounts` lists the counts up to
   `MAX_DATA_LANES` (8) that satisfy this; every UI and fix offers only those.
 - Clockless chipsets only. A clocked (SPI) chipset would need a clock line per

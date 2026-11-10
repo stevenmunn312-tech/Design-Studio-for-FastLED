@@ -8,6 +8,7 @@ import { sdSpiPinsForBoard } from '../build/pins/sdPinDefaults'
 import { micModuleFor, MIC_MODULES } from '../state/peripherals/micModules'
 import { isLinearForm, LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, type LedOutputForm } from '../state/output/ledOutputForm'
 import { renderScaleHalf, wantsSupersample } from '../state/output/renderScale'
+import { matrixWiringApplies, matrixWiringFromProps, type MatrixFirstRun, type MatrixStartCorner } from '../state/output/xyLayout'
 import { engineFrameOutputs } from '../state/upload/buildMode'
 
 export type HardwareValidationAction =
@@ -61,6 +62,10 @@ export interface HardwareValidationProfile {
     height: number
     layout: string
     serpentine: boolean
+    /** Present only when not the top-left / horizontal default, so the
+     *  configuration key of every output saved before they existed holds. */
+    startCorner?: MatrixStartCorner
+    firstRun?: MatrixFirstRun
     dataPin: number
     clockPin: number | null
     brightness: number
@@ -420,6 +425,9 @@ function matchingRecordedTargets(profile: Omit<HardwareValidationProfile, 'gaps'
     && m.height === record.height
     && m.layout === record.layout
     && m.serpentine === record.serpentine
+    // Every recorded bench target was wired top-left by rows.
+    && m.startCorner === undefined
+    && m.firstRun === undefined
     && m.psram === record.psram
   )
 }
@@ -539,6 +547,8 @@ export function buildHardwareValidationProfile(options: {
   const layout = String(p.layout ?? 'matrix')
   const form = outputForm(p)
   const grid = outputGridDims(p)
+  const wiring = matrixWiringFromProps(p)
+  const wiringChosen = matrixWiringApplies(p)
   const engine = helper?.engine ?? 'unknown'
   const engineVersion = engine === 'fbuild' ? helper?.fbuildVersion : helper?.version
   const action = options.action ?? defaultAction(nodes, edges)
@@ -586,6 +596,8 @@ export function buildHardwareValidationProfile(options: {
       height: grid.height,
       layout,
       serpentine: !isLinearForm(form) && p.serpentine === true,
+      ...(wiringChosen && wiring.startCorner !== 'top-left' ? { startCorner: wiring.startCorner } : {}),
+      ...(wiringChosen && wiring.firstRun !== 'horizontal' ? { firstRun: wiring.firstRun } : {}),
       dataPin: Math.round(n(p.dataPin, 5)),
       clockPin: CLOCKED_CHIPSETS.has(chipset) ? Math.round(n(p.clockPin, 6)) : null,
       brightness: controllerSettingsValue.brightness,
@@ -665,7 +677,7 @@ export function formatHardwareValidationReport(submission: HardwareValidationSub
     ['Board', `${profile.controller.board} (${profile.controller.fqbn})`],
     ['Build engine', `${profile.controller.engine} ${profile.controller.engineVersion}`],
     ['LED target', `${LED_OUTPUT_FORM_LABELS[m.form]} · ${m.chipset} · ${m.colorOrder} · ${m.width}×${m.height}`],
-    ['Layout', `${m.layout} · pixel serpentine: ${m.serpentine ? 'yes' : 'no'}`],
+    ['Layout', `${m.layout} · pixel serpentine: ${m.serpentine ? 'yes' : 'no'}${m.startCorner === undefined && m.firstRun === undefined ? '' : ` · LED 0 ${m.startCorner ?? 'top-left'} · first run ${m.firstRun ?? 'horizontal'}`}`],
     ['Pins', `data ${m.dataPin}${m.clockPin == null ? '' : ` · clock ${m.clockPin}`}`],
     ['Output settings', `brightness ${m.brightness} · correction ${m.correction}${m.whitePoint === undefined ? '' : ` · white point ${m.whitePoint}`} · dither ${m.dither ? 'on' : 'off'} · overclock ${m.overclock}×`],
     ['Power cap', m.powerLimit ? `${m.volts} V / ${m.milliamps} mA` : 'disabled'],

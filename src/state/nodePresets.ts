@@ -93,6 +93,8 @@ const BLOCKED_KEYS = new Set([
   'positionsWidth',
   'psramPolicy',
   'renderResolution',
+  'startCorner',
+  'firstRun',
   'stripLayout',
   'pullup',
   'sdCsPin',

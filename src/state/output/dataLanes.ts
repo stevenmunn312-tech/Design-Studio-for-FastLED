@@ -14,8 +14,9 @@
  * - `dataLanes` is a whole number of lanes, 1 by default;
  * - `lanePins` holds the data pins of lanes 2..N in order; lane 1 keeps
  *   `dataPin`;
- * - lanes are equal, and every lane boundary falls on a whole row (a matrix or
- *   custom layout), a whole panel (a panels layout) or anywhere on a single
+ * - lanes are equal, and every lane boundary falls on a whole run (a row of a
+ *   matrix or custom layout, or a column of a matrix whose first run is
+ *   vertical), a whole panel (a panels layout) or anywhere on a single
  *   chain, so the existing XY map, preview, RAM and power figures are untouched;
  * - only one-wire clockless chipsets split. A clocked chipset would need a
  *   clock line per lane, and HUB75 has its own ribbon.
@@ -24,6 +25,7 @@
  */
 import { HUB75_CHIPSET, SPI_CHIPSETS } from '../nodeLibrary'
 import { isLinearForm, outputForm, outputGridDims, outputLedTotal } from './ledOutputForm'
+import { matrixWiringApplies, matrixWiringFromProps } from './xyLayout'
 
 /** The most lanes one output offers: the classic ESP32's eight RMT channels. */
 export const MAX_DATA_LANES = 8
@@ -56,8 +58,8 @@ export function outputCanSplitLanes(props: Record<string, unknown>): boolean {
 
 /**
  * The run of LEDs a lane must be a whole number of: one LED on a single
- * chain, a row on a matrix or custom map, a panel on a panels layout. Null
- * when the output cannot be split.
+ * chain, a row on a matrix or custom map (a column on a matrix wired by
+ * columns), a panel on a panels layout. Null when the output cannot be split.
  */
 export function dataLaneUnit(props: Record<string, unknown>): number | null {
   if (!outputCanSplitLanes(props)) return null
@@ -68,7 +70,13 @@ export function dataLaneUnit(props: Record<string, unknown>): number | null {
     const tilesY = whole(props.tilesY, 1, 1, 16)
     if (width % tilesX === 0 && height % tilesY === 0) return (width / tilesX) * (height / tilesY)
   }
-  return width
+  return dataLaneRunsAreColumns(props) ? height : width
+}
+
+/** Whether a lane is cut on whole columns: a plain matrix whose first run is
+ *  vertical. A custom map keeps rows, as it ignores the first run. */
+export function dataLaneRunsAreColumns(props: Record<string, unknown>): boolean {
+  return props.layout !== 'panels' && matrixWiringApplies(props) && matrixWiringFromProps(props).firstRun === 'vertical'
 }
 
 /**
@@ -152,7 +160,7 @@ export function findDataLaneIssues(props: Record<string, unknown>, label = 'LED 
   }
   const offered = offeredDataLaneCounts(props)
   if (!offered.includes(lanes)) {
-    const unit = dataLaneUnit(props) === 1 ? 'equal lanes' : props.layout === 'panels' ? 'whole panels' : 'whole rows'
+    const unit = dataLaneUnit(props) === 1 ? 'equal lanes' : props.layout === 'panels' ? 'whole panels' : dataLaneRunsAreColumns(props) ? 'whole columns' : 'whole rows'
     const choices = offered.filter((count) => count > 1)
     return [`${label} cannot split ${outputLedTotal(props)} LEDs into ${lanes} ${unit}. ${choices.length > 0 ? `Choose ${choices.join(', ')} lanes, or 1.` : 'Set Data lanes to 1.'}`]
   }

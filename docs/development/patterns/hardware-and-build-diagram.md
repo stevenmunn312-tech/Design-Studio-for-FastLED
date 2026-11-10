@@ -986,6 +986,44 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   since that surface is pan/zoom-transformed and an in-place tooltip would
   shrink with zoom and clip at the viewport edge.
 
+## Matrix wiring order
+
+- One rule says which LED a grid cell is: `matrixLedIndex(x, y, width, height,
+  { serpentine, startCorner, firstRun })` in `src/state/output/xyLayout.ts`.
+  LED 0 sits in `startCorner`, the first run leaves it along a row
+  (`horizontal`) or a column (`vertical`), runs stack away from that corner,
+  and `serpentine` turns every odd run round. Top-left by rows is the order
+  every output had before the two properties existed, so their defaults need
+  no migration and a graph at defaults generates the same C++ byte for byte
+  (`matrixWiringCodegen.test.ts`).
+- Read the properties only through `matrixWiringFromProps`, and ask
+  `matrixWiringApplies` whether the output chooses a corner at all. The two
+  properties belong to the LED matrix form in its `matrix` and `panels`
+  layouts. In `panels` they describe each panel's own wiring and are applied
+  after `tileRotations`, exactly as `serpentine` is, so they describe the
+  panel as bought and rotation describes how it was mounted. A `custom` map,
+  a HUB75 panel, a string, a ring and a corkscrew ignore them, and their
+  controls are hidden there (`isPropertyEnabled`).
+- Firmware never gets a formula. `buildXYTable` bakes the rule into the
+  `_xytable` PROGMEM table the graph sketch, show sketch, player sketch and
+  wiring diagnostic already index through `XY()`, so a new order costs no new
+  C++ and leaves no branch for a combination the graph does not use. Only
+  plain row-major returns `null` and keeps the memmove path. The live-stream
+  packet builder (`src/utils/adalight.ts`) calls `matrixLedIndex` directly,
+  because the receiver sketch has no `XY()`.
+- The Build Diagram does not restate the rule either. `chainEntry` reads the
+  finished table back for the cell holding the first LED of a stretch of the
+  chain and the step to the next one, and the manifest stores it as the
+  `dataIn` fact (one per lane on a split chain). `MatrixDataEntry` in
+  `PeripheralGraphics.tsx` rings that LED on the card's sample grid and draws
+  the first run from it, so a rotated first panel or a custom map is pictured
+  where it really starts. A plain matrix also gets its whole order traced
+  through the four-by-four sample by `matrixLedIndex`. The DIN terminal stays
+  on the card's left edge: it is where the wire meets the card, not where the
+  pad is on the panel.
+- Data lanes are cut on whole runs: rows, or columns when the first run is
+  vertical (`dataLaneRunsAreColumns` in `dataLanes.ts`).
+
 ## Positioned strings on the output card
 
 - A positioned string (`stripLayout: 'positions'`) reaches the Build Diagram

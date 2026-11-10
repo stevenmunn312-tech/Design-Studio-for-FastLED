@@ -3,7 +3,8 @@ import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75Hardwar
 import { sanitizePin } from '../hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../../state/nodeLibrary'
 import { ledPropsWithController } from '../../build/controllerSettings'
-import { isLinearForm, outputForm, outputGridDims } from '../../state/output/ledOutputForm'
+import { outputForm, outputGridDims } from '../../state/output/ledOutputForm'
+import { matrixWiringFromProps, type MatrixFirstRun, type MatrixStartCorner } from '../../state/output/xyLayout'
 import { amplifierIdleCpp } from '../audio/amplifierIdle'
 import { standaloneDisplaysCpp } from '../displays/standaloneDisplayCpp'
 
@@ -21,6 +22,11 @@ export interface StreamLayout {
   width: number
   height: number
   serpentine: boolean
+  /** Where LED 0 sits and which way its first run goes, for the packet
+   *  builder's remap (`matrixLedIndex`). The receiver sketch never reads them.
+   *  Absent means top-left by rows, the order before either could be chosen. */
+  startCorner?: MatrixStartCorner
+  firstRun?: MatrixFirstRun
   baud: number
 }
 
@@ -49,6 +55,10 @@ export function streamLayoutForGraph(nodes: StudioNode[], outputNodeId?: string)
   const p = outputNode.data.properties as Record<string, unknown>
   const grid = outputGridDims(p)
   const form = outputForm(p)
+  // One reader for the panel wiring, so the stream and the firmware table
+  // cannot differ. It already drops a serpentine flag left on a single chain
+  // and a corner or direction left on anything but an LED matrix.
+  const wiring = matrixWiringFromProps(p)
   return {
     outputId: outputNode.id,
     width: grid.width,
@@ -57,7 +67,11 @@ export function streamLayoutForGraph(nodes: StudioNode[], outputNodeId?: string)
     // no such physical wiring order (the DMA library addresses (x, y)
     // directly), so a stale serpentine flag left over from switching a node
     // from an addressable chipset to HUB75 must not remap the stream.
-    serpentine: form === 'hub75' || isLinearForm(form) ? false : p.serpentine === true,
+    serpentine: form === 'hub75' ? false : wiring.serpentine,
+    // Named only when chosen, so a layout at the defaults is the object it
+    // always was.
+    ...(wiring.startCorner !== 'top-left' ? { startCorner: wiring.startCorner } : {}),
+    ...(wiring.firstRun !== 'horizontal' ? { firstRun: wiring.firstRun } : {}),
     // A generous fixed baud for the receiver — independent of the show/upload
     // path's rate, chosen high enough that a 32×32 frame (~3 KB) clears well
     // under one frame interval.

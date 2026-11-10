@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
 import { boardByFqbn, engineReady, useUploadStore } from '../../state/upload/uploadStore'
 import { SPI_CHIPSETS } from '../../state/nodeLibrary'
-import { validateMatrixLayout } from '../../state/output/xyLayout'
+import { matrixWiringApplies, matrixWiringFromProps, validateMatrixLayout } from '../../state/output/xyLayout'
 import { generateWiringDiagnosticSketch } from '../../codegen/sketches/wiringDiagnosticGenerator'
 import { estimatePowerLoad, findHub75TopologyDiagnosticErrors } from '../../utils/validateGraph'
 import { useModalFocus } from '../../hooks/useModalFocus'
@@ -272,6 +272,9 @@ export default function MatrixOutputSetupWizard() {
               <div className={styles.wizardSummaryRow}><span>Size</span><strong>{outputSizeLabel(props)}</strong></div>
               {!linear && (
                 <div className={styles.wizardSummaryRow}><span>Layout</span><strong>{layout}{props.serpentine === true ? ' · serpentine' : ''}{layout === 'panels' ? ` · ${tilesX} × ${tilesY} panels` : ''}</strong></div>
+              )}
+              {matrixWiringApplies(props) && (
+                <div className={styles.wizardSummaryRow}><span>LED 0</span><strong>{matrixWiringFromProps(props).startCorner} · first run {matrixWiringFromProps(props).firstRun}</strong></div>
               )}
               {form === 'ring' && (
                 <div className={styles.wizardSummaryRow}><span>LED 0</span><strong>{Number(props.ringStartAngle ?? 0)}° · {props.ringDirection === 'ccw' ? 'counter-clockwise' : 'clockwise'}</strong></div>
