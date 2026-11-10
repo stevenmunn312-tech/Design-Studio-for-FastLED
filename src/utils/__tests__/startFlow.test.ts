@@ -132,7 +132,12 @@ describe('startFlow', () => {
     const demoNames = () => useMusicStore.getState().entries.map((entry) => entry.file.name)
     let release: (response: Response) => void
     const settle = async () => { for (let i = 0; i < 8; i++) await Promise.resolve() }
-    const mp3 = () => new Response(new Blob([new Uint8Array([0xff, 0xfb, 0x90, 0x00])], { type: 'audio/mpeg' }))
+    // A stand-in rather than `new Response(blob)`: the test's Blob is jsdom's,
+    // and Node 22's Response (the CI runtime) rejects a Blob with no stream().
+    const mp3 = () => ({
+      ok: true, status: 200,
+      blob: async () => new Blob([new Uint8Array([0xff, 0xfb, 0x90, 0x00])], { type: 'audio/mpeg' }),
+    }) as Response
 
     beforeEach(() => {
       useMusicStore.setState({ entries: [] })
