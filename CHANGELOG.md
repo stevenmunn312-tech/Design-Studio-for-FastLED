@@ -9,6 +9,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Checks offers Connect Audio on a Stereo VU Meter with no Audio input when
+  an Audio node is on the canvas, and no longer adds a second "is
+  disconnected" card for the same missing wire.
+- The Pattern Collection picker's Rating chips can be pressed together, so
+  Strong and Exceptional list every pattern scored 75 or better.
+- Psydance is tagged best on an LED matrix. The Board settings no longer
+  repeat the Report telemetry tooltip as a note under the switch.
 - The MAX485 DMX transceiver and the Adafruit MIDI FeatherWing are bench
   parts on a new DMX & MIDI shelf, with pins assigned automatically and
   renders rebuilt from new 3-D models. A DMX node set to DMX512 and MIDI
