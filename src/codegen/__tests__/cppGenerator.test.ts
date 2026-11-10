@@ -3490,7 +3490,7 @@ describe('Pattern node expansion - Phase 6 Fourier Epicycles codegen', () => {
   it('fades the trail by a half-life on the clock, before the pen draws', () => {
     const cpp = generateEpicycles({ persistence: 0.4 })
     expect(cpp).toContain('_trail_fe')
-    expect(cpp).toContain('constrain((0.4), 0.0f, 1.0f)')
+    expect(cpp).toContain('constrain((double)(0.4), 0.0, 1.0)')
     expect(cpp).toContain('fadeToBlackBy(_fe_fetrail, NUM_LEDS, _by);')
     expect(cpp.indexOf('fadeToBlackBy(_fe_fetrail')).toBeLessThan(cpp.indexOf('_feTrail(_fe_fetrail,'))
     expect(cpp).not.toMatch(/_feTrail\([^)]*0\.4/)
@@ -4152,7 +4152,7 @@ describe('Formula Points codegen', () => {
   it('attractor and the trail variants fade the persistent buffer on the trail clock', () => {
     const cpp = gen('attractor', { trail: 0.53 })
     expect(cpp).toContain('float _fp_fpT=0.53;')
-    expect(cpp).toContain('static float _trail_fpT = -1.0f, _trail_fpOwed = 0.0f;')
+    expect(cpp).toContain('static double _trail_fpT = -1.0, _trail_fpOwed = 0.0;')
     expect(cpp).toContain('fadeToBlackBy(buf_fp, NUM_LEDS, _by);')
     // The fade needs the clock even where nothing else in the variant does.
     expect(cpp).toMatch(/float t = /)
@@ -5481,8 +5481,8 @@ describe('Trails (feedback/persistence)', () => {
     // Persistent, so never `leds`: the output dims that in place every frame.
     expect(cpp).toContain('CRGB buf_tr[NUM_LEDS];   // keeps its pixels between frames')
     expect(cpp).toContain('::memmove(leds, buf_tr, sizeof(CRGB) * NUM_LEDS);')
-    expect(cpp).toContain('float _decay = constrain(0.4,0.0f,1.0f); float _keep60 = 1.0f - _decay*_decay*_decay;')
-    expect(cpp).toContain('float _keep = powf(_keep60, _dt * 60.0f);')
+    expect(cpp).toContain('double _decay = constrain(0.4,0.0,1.0); double _keep60 = 1.0 - _decay*_decay*_decay;')
+    expect(cpp).toContain('double _keep = pow(_keep60, _dt * 60.0);')
     expect(cpp).toContain('fadeToBlackBy(buf_tr, NUM_LEDS, _by);')
     expect(cpp).toContain('if(buf_sc[_i].r>buf_tr[_i].r)buf_tr[_i].r=buf_sc[_i].r;')
     // No memmove/fill_solid seeding buf_tr from buf_sc — it must persist across frames.
@@ -5601,7 +5601,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     const cpp = generateCpp([sc, outputNode], [edge('e1', 'sc', 'out', 'frame', 'frame')])
     // The tail is the buffer fading on the trail clock, so it persists.
     expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];   // keeps its pixels between frames')
-    expect(cpp).toContain('static float _trail_scT = -1.0f, _trail_scOwed = 0.0f;')
+    expect(cpp).toContain('static double _trail_scT = -1.0, _trail_scOwed = 0.0;')
     expect(cpp).toContain('fadeToBlackBy(buf_sc, NUM_LEDS, _by);')
     expect(cpp).toContain('float _travel=_ph<=1.0f?_ph:2.0f-_ph;')
     // The beam lights the whole span it crossed since the last frame.
@@ -5617,7 +5617,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     const cpp = generateCpp([cf, outputNode], [edge('e1', 'cf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGB buf_cf[NUM_LEDS];   // keeps its pixels between frames')
     expect(cpp).toContain('_tr=0.35;')
-    expect(cpp).toContain('static float _trail_cfT = -1.0f, _trail_cfOwed = 0.0f;')
+    expect(cpp).toContain('static double _trail_cfT = -1.0, _trail_cfOwed = 0.0;')
     expect(cpp).toContain('fadeToBlackBy(buf_cf, NUM_LEDS, _by);')
     // Density alone sets the spawn count; the denormalised Speed is the hue
     // drift of 0.08 turns (20.4 of 255), rounded as Math.round is.
@@ -5633,7 +5633,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('CRGB buf_jg[NUM_LEDS];   // keeps its pixels between frames')
     expect(cpp).toContain('const int _dots=1;')
     expect(cpp).toContain('_tr=0.39;')
-    expect(cpp).toContain('static float _trail_jgT = -1.0f, _trail_jgOwed = 0.0f;')
+    expect(cpp).toContain('static double _trail_jgT = -1.0, _trail_jgOwed = 0.0;')
     expect(cpp).toContain('fadeToBlackBy(buf_jg, NUM_LEDS, _by);')
     expect(cpp).toContain('float _phase=0.0f;')
     expect(cpp).toContain('float _travel=sinf(_phase_jg*(2.5f+_d*0.35f)+_d*0.9f+_phase)*0.5f+0.5f;')
@@ -5655,7 +5655,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('isfinite(_count) ? (int)roundf(constrain(_count,1.0f,8.0f)) : 4')
     expect(cpp).toContain('n_speed_result')
     expect(cpp).toContain('_tr=n_trail_result;')
-    expect(cpp).toContain('constrain((_tr), 0.0f, 1.0f)')
+    expect(cpp).toContain('constrain((double)(_tr), 0.0, 1.0)')
     expect(cpp.indexOf('float n_count_result')).toBeLessThan(cpp.indexOf('const float _count='))
     expect(cpp).not.toContain('const int _dots=1;')
   })

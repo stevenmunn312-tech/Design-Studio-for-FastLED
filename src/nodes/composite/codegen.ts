@@ -85,8 +85,8 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     // 1 - decay^3 survives each 60th of a second, spent by elapsed time and
     // saved up into whole fadeToBlackBy bytes, as the preview does.
     ln(`  { // Trails: keep 1-decay^3 per 60th of a second, then re-lighten from the input (per-channel max)`)
-    ln(`    float _decay = constrain(${decay},0.0f,1.0f); float _keep60 = 1.0f - _decay*_decay*_decay;`)
-    timedFadeCpp(ln, phaseTag(id), `powf(_keep60, _dt * ${floatLit(TRAILS_REFERENCE_FPS)})`, ob)
+    ln(`    double _decay = constrain(${decay},0.0,1.0); double _keep60 = 1.0 - _decay*_decay*_decay;`)
+    timedFadeCpp(ln, phaseTag(id), `pow(_keep60, _dt * ${TRAILS_REFERENCE_FPS}.0)`, ob)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++){`)
     ln(`      if(${src}[_i].r>${ob}[_i].r)${ob}[_i].r=${src}[_i].r;`)
     ln(`      if(${src}[_i].g>${ob}[_i].g)${ob}[_i].g=${src}[_i].g;`)

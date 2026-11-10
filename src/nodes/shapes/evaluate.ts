@@ -4,7 +4,7 @@ import { asAnimatedImage, type ImageData, animatedImageFrame, asImage, sampleIma
 import type { ImagePaletteSource } from '../../state/palettes/imagePalette'
 import { hexToRgb } from '../../state/palettes/polinePalette'
 import { denormRate, SPEED_MAX } from '../shared/speedRange'
-import { speedPhase } from '../shared/speedClock'
+import { speedPhase, speedPhaseFloat } from '../shared/speedClock'
 import { trailFadeAmount } from '../shared/trailFade'
 import { type Frame, type RGB, type Palette, samplePalette } from '../../state/palettes/ledColor'
 import { resolveWireframeMesh, projectWireframeVertices } from './wireframeModel'
@@ -165,7 +165,9 @@ export function evalFourierEpicycles(
   const cx = W * 128, cy = H * 128
   const h = Math.max(1, Math.min(table.length, p.harmonics))
   const whole = Math.floor(h), frac = Math.trunc((h - whole) * 256)
-  let turnF = speedPhase(nodeId, t, Math.max(-FOURIER_SPEED_MAX, Math.min(FOURIER_SPEED_MAX, p.speed)))
+  // In single precision like the sketch's phase, so the turn lands on the
+  // same sixteen-bit step frame after frame.
+  let turnF = speedPhaseFloat(nodeId, t, Math.max(-FOURIER_SPEED_MAX, Math.min(FOURIER_SPEED_MAX, p.speed)))
   turnF -= Math.floor(turnF)
   const turn = Math.trunc(turnF * 65536) & 0xffff
   const pen = fourierPenQ8(table, whole, frac, turn, extent, (x, y, r) => {

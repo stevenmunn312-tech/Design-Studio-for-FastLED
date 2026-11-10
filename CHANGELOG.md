@@ -262,6 +262,9 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- Formula Shapes is now Geometry Field: a Fibonacci spiral, golden-ratio rings
+  or a Lissajous curve as a field. Saved projects that use it need the node
+  added again.
 - The RTC Clock is now Clock, a library node. Compile Time, Manual and NTP
   need no part, and NTP uses the Board's network.
 - The Web Remote and radio station pages answer at the Board's hostname
@@ -801,6 +804,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Fourier Epicycles and the other saved-up trail fades (Juggle, Confetti,
+  Scanner, Trails and the rest) now step on the same frames on the board as in
+  the preview. The sketch kept the saved-up fade in single precision, and a
+  rounding difference now and then moved a step by a frame, after which the
+  two drifted apart.
 - Network settings on every network node after the first were ignored by the
   firmware, and clock sync and board-link checks read the wrong node's Wi-Fi.
 - Frame Stream had no way to set Wi-Fi.
@@ -1214,6 +1222,9 @@ versioning (`0.y.z`) until the first stable release.
 - Saved projects are not migrated for the node removals, renames and property
   changes below (pre-1.0); every bundled pattern, Help example and starter
   template was converted.
+- Geometry Field's Rose and Superformula variants; use Shape Field's Rose and
+  Superformula shapes. Moonflower Release and the Help starfish now draw with
+  Shape Field.
 - Per-node Wi-Fi, hostname and addressing fields on DMX / Art-Net, DDP Input,
   Web Remote, Clock, Frame Stream and the Music Player radio, and the "network
   nodes disagree" warning. Older saves drop these fields, and the Clock's

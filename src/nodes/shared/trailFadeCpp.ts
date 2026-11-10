@@ -11,7 +11,7 @@ import { TRAIL_HALF_LIFE, TRAIL_MIN_STEP } from './trailFade'
 export function trailFadeCpp(
   ln: (line: string) => void, tag: string, trailExpr: string, buf: string, indent = '    ', count = 'NUM_LEDS',
 ): void {
-  timedFadeCpp(ln, tag, survivesCpp(trailExpr, '_dt'), buf, indent, count)
+  timedFadeCpp(ln, tag, survivesDoubleCpp(trailExpr, '_dt'), buf, indent, count)
 }
 
 /** The share kept over `dtExpr` seconds at `trailExpr`, as `trailSurvives` computes it. */
@@ -20,6 +20,18 @@ function survivesCpp(trailExpr: string, dtExpr: string): string {
   const ratio = floatLit(TRAIL_HALF_LIFE.shortest / TRAIL_HALF_LIFE.longest, 8)
   const halfLife = `(${longest} * powf(${ratio}, 1.0f - constrain((${trailExpr}), 0.0f, 1.0f)))`
   return `((${trailExpr}) <= 0.0f ? 0.0f : exp2f(-(${dtExpr}) / ${halfLife}))`
+}
+
+/**
+ * The same share in double precision, as `trailSurvives` computes it, for the
+ * saved-up byte fade (`timedFadeCpp`), whose steps must land on the frames
+ * the preview's do.
+ */
+function survivesDoubleCpp(trailExpr: string, dtExpr: string): string {
+  const longest = TRAIL_HALF_LIFE.longest.toFixed(1)
+  const ratio = (TRAIL_HALF_LIFE.shortest / TRAIL_HALF_LIFE.longest).toPrecision(17)
+  const halfLife = `(${longest} * pow(${ratio}, 1.0 - constrain((double)(${trailExpr}), 0.0, 1.0)))`
+  return `((${trailExpr}) <= 0.0f ? 0.0 : pow(2.0, -(${dtExpr}) / ${halfLife}))`
 }
 
 /**
@@ -43,20 +55,24 @@ export function trailKeepCpp(
 /**
  * Firmware twin of `timedFadeAmount`: `keepExpr` is the share of light that
  * survives `_dt` seconds, which the emitted block declares before reading it.
+ * The clock and the saved-up fade are doubles, as in the preview: a step
+ * lands on the frame the owed total crosses `TRAIL_MIN_STEP`, and in floats
+ * an ulp of rounding moved that crossing by a frame now and then, after which
+ * the board and the preview fade apart. (On AVR a double is a float.)
  */
 export function timedFadeCpp(
   ln: (line: string) => void, tag: string, keepExpr: string, buf: string, indent = '    ', count = 'NUM_LEDS',
 ): void {
   const v = `_trail_${tag}`
-  ln(`${indent}static float ${v}T = -1.0f, ${v}Owed = 0.0f;`)
+  ln(`${indent}static double ${v}T = -1.0, ${v}Owed = 0.0;`)
   ln(`${indent}{`)
-  ln(`${indent}  float _dt = ${v}T < 0.0f ? 0.0f : fmaxf(0.0f, t - ${v}T); ${v}T = t;`)
-  ln(`${indent}  float _keep = ${keepExpr};`)
-  ln(`${indent}  if (!(_keep >= 0.0f)) _keep = 1.0f;`)
-  ln(`${indent}  ${v}Owed += (1.0f - _keep) * 256.0f;`)
-  ln(`${indent}  if (${v}Owed >= ${floatLit(TRAIL_MIN_STEP)}) {`)
-  ln(`${indent}    uint8_t _by = ${v}Owed >= 255.0f ? 255 : (uint8_t)${v}Owed;`)
-  ln(`${indent}    ${v}Owed = _by == 255 ? 0.0f : ${v}Owed - _by;`)
+  ln(`${indent}  double _dt = ${v}T < 0.0 ? 0.0 : fmax(0.0, t - ${v}T); ${v}T = t;`)
+  ln(`${indent}  double _keep = ${keepExpr};`)
+  ln(`${indent}  if (!(_keep >= 0.0)) _keep = 1.0;`)
+  ln(`${indent}  ${v}Owed += (1.0 - _keep) * 256.0;`)
+  ln(`${indent}  if (${v}Owed >= ${TRAIL_MIN_STEP}.0) {`)
+  ln(`${indent}    uint8_t _by = ${v}Owed >= 255.0 ? 255 : (uint8_t)${v}Owed;`)
+  ln(`${indent}    ${v}Owed = _by == 255 ? 0.0 : ${v}Owed - _by;`)
   ln(`${indent}    fadeToBlackBy(${buf}, ${count}, _by);`)
   ln(`${indent}  }`)
   ln(`${indent}}`)

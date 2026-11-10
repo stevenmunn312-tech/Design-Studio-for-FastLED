@@ -106,10 +106,10 @@ describe('trail fade', () => {
     const lines: string[] = []
     trailFadeCpp((line) => lines.push(line), 'j1', '_fd', 'buf_j1')
     const cpp = lines.join('\n')
-    expect(cpp).toContain('static float _trail_j1T = -1.0f, _trail_j1Owed = 0.0f;')
-    expect(cpp).toContain('float _keep = ((_fd) <= 0.0f ? 0.0f : exp2f(-(_dt) / (2.0f * powf(0.00208333f, 1.0f - constrain((_fd), 0.0f, 1.0f)))));')
-    expect(cpp).toContain('_trail_j1Owed += (1.0f - _keep) * 256.0f;')
-    expect(cpp).toContain('if (_trail_j1Owed >= 8.0f) {')
+    expect(cpp).toContain('static double _trail_j1T = -1.0, _trail_j1Owed = 0.0;')
+    expect(cpp).toContain('double _keep = ((_fd) <= 0.0f ? 0.0 : pow(2.0, -(_dt) / (2.0 * pow(0.0020833333333333333, 1.0 - constrain((double)(_fd), 0.0, 1.0)))));')
+    expect(cpp).toContain('_trail_j1Owed += (1.0 - _keep) * 256.0;')
+    expect(cpp).toContain('if (_trail_j1Owed >= 8.0) {')
     expect(cpp).toContain('fadeToBlackBy(buf_j1, NUM_LEDS, _by);')
     const short: string[] = []
     trailFadeCpp((line) => short.push(line), 's1', '_tr', 'trk', '    ', '_len')

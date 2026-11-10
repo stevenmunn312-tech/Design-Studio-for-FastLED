@@ -37,3 +37,25 @@ export function speedPhase(key: string, t: number, rate: number, term = ''): num
   entry.lastT = t
   return entry.phase
 }
+
+/**
+ * `speedPhase` rounded to single precision step for step, as the sketch's
+ * `float` accumulator runs it, for a node whose frames match the sketch
+ * byte for byte (Fourier Epicycles). In doubles the two phases drift apart by
+ * an ulp now and then, enough to move a pen by a sixteen-bit turn.
+ */
+export function speedPhaseFloat(key: string, t: number, rate: number, term = ''): number {
+  const f = Math.fround
+  const now = f(t), r = f(rate)
+  let terms = speedClocks.get(key)
+  if (!terms) speedClocks.set(key, (terms = new Map()))
+  const entry = terms.get(term)
+  if (!entry) {
+    const phase = f(now * r)
+    terms.set(term, { phase, lastT: now })
+    return phase
+  }
+  entry.phase = f(entry.phase + f(f(now - entry.lastT) * r))
+  entry.lastT = now
+  return entry.phase
+}
