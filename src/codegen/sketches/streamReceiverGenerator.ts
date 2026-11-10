@@ -4,7 +4,7 @@ import { sanitizePin } from '../hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../../state/nodeLibrary'
 import { ledPropsWithController } from '../../build/controllerSettings'
 import { outputForm, outputGridDims } from '../../state/output/ledOutputForm'
-import { matrixWiringFromProps, type MatrixFirstRun, type MatrixStartCorner } from '../../state/output/xyLayout'
+import { buildXYTable } from '../../state/output/xyLayout'
 import { amplifierIdleCpp } from '../audio/amplifierIdle'
 import { standaloneDisplaysCpp } from '../displays/standaloneDisplayCpp'
 
@@ -14,19 +14,18 @@ import { standaloneDisplaysCpp } from '../displays/standaloneDisplayCpp'
 // skipping the usual compile+flash cycle on every tweak. Unlike the normal
 // generated sketch this has no pattern logic at all: it just waits for the
 // classic "Ada" + hi/lo + checksum header, then reads NUM_LEDS RGB triples and
-// shows them. The frontend already resolves serpentine wiring into physical
+// shows them. The frontend already resolves the output's wiring into physical
 // strip order before sending, so the receiver writes bytes straight into
 // `leds[]` with no XY() remap of its own.
 export interface StreamLayout {
   outputId: string
   width: number
   height: number
-  serpentine: boolean
-  /** Where LED 0 sits and which way its first run goes, for the packet
-   *  builder's remap (`matrixLedIndex`). The receiver sketch never reads them.
-   *  Absent means top-left by rows, the order before either could be chosen. */
-  startCorner?: MatrixStartCorner
-  firstRun?: MatrixFirstRun
+  /** Grid cell (row-major) to physical LED index, for the packet builder's
+   *  remap: the table `buildXYTable` gives the firmware, so serpentine, start
+   *  corner, first run, panels and custom maps all stream as they flash. The
+   *  receiver sketch never reads it. Absent means plain row-major. */
+  xyTable?: number[]
   baud: number
 }
 
@@ -54,24 +53,23 @@ export function streamLayoutForGraph(nodes: StudioNode[], outputNodeId?: string)
   if (!outputNode) return null
   const p = outputNode.data.properties as Record<string, unknown>
   const grid = outputGridDims(p)
-  const form = outputForm(p)
-  // One reader for the panel wiring, so the stream and the firmware table
+  // The firmware's own table builder, so the stream and a flashed sketch
   // cannot differ. It already drops a serpentine flag left on a single chain
   // and a corner or direction left on anything but an LED matrix.
-  const wiring = matrixWiringFromProps(p)
+  //
+  // Per-pixel wiring is an addressable-strip concept — HUB75 has no such
+  // physical order (the DMA library addresses (x, y) directly, and the
+  // receiver's blit handles its panel chain), so serpentine, panels or a
+  // custom map left over from an addressable chipset must not remap the
+  // stream.
+  const xyTable = outputForm(p) === 'hub75' ? null : buildXYTable(grid.width, grid.height, p)
   return {
     outputId: outputNode.id,
     width: grid.width,
     height: grid.height,
-    // Per-pixel serpentine wiring is an addressable-strip concept — HUB75 has
-    // no such physical wiring order (the DMA library addresses (x, y)
-    // directly), so a stale serpentine flag left over from switching a node
-    // from an addressable chipset to HUB75 must not remap the stream.
-    serpentine: form === 'hub75' ? false : wiring.serpentine,
-    // Named only when chosen, so a layout at the defaults is the object it
-    // always was.
-    ...(wiring.startCorner !== 'top-left' ? { startCorner: wiring.startCorner } : {}),
-    ...(wiring.firstRun !== 'horizontal' ? { firstRun: wiring.firstRun } : {}),
+    // Named only when a remap is needed, so a row-major layout is the object
+    // it always was.
+    ...(xyTable ? { xyTable } : {}),
     // A generous fixed baud for the receiver — independent of the show/upload
     // path's rate, chosen high enough that a 32×32 frame (~3 KB) clears well
     // under one frame interval.
@@ -180,8 +178,8 @@ export function generateStreamReceiverSketch(nodes: StudioNode[], outputNodeId?:
   lines.push('    leds[i] = CRGB(r, g, bl);')
   lines.push('  }')
   if (isHub75) {
-    // The sender resolves serpentine/layout wiring client-side before
-    // transmission (streamLayoutForGraph forces plain row-major for HUB75),
+    // The sender resolves layout wiring client-side before transmission
+    // (streamLayoutForGraph names no table, so plain row-major, for HUB75),
     // so leds[i] is already in (x, y) = (i % WIDTH, i / WIDTH) order here —
     // the full virtual grid's logical coordinates, which is exactly what
     // the display object (base or virtual-grid wrapper) expects.

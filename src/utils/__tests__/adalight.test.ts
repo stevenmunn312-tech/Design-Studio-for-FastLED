@@ -8,12 +8,12 @@ function solidFrame(w: number, h: number, color: RGB): Frame {
 
 describe('buildAdalightPacket', () => {
   it('starts with the "Ada" magic word', () => {
-    const packet = buildAdalightPacket(solidFrame(2, 2, { r: 1, g: 2, b: 3 }), { width: 2, height: 2, serpentine: false })
+    const packet = buildAdalightPacket(solidFrame(2, 2, { r: 1, g: 2, b: 3 }), { width: 2, height: 2 })
     expect([...packet.slice(0, 3)]).toEqual([0x41, 0x64, 0x61])
   })
 
   it('encodes numLeds-1 as hi/lo with a matching xor checksum', () => {
-    const packet = buildAdalightPacket(solidFrame(4, 4, { r: 0, g: 0, b: 0 }), { width: 4, height: 4, serpentine: false })
+    const packet = buildAdalightPacket(solidFrame(4, 4, { r: 0, g: 0, b: 0 }), { width: 4, height: 4 })
     const numLeds = 16
     const hi = ((numLeds - 1) >> 8) & 0xff
     const lo = (numLeds - 1) & 0xff
@@ -23,33 +23,33 @@ describe('buildAdalightPacket', () => {
   })
 
   it('has a 6-byte header plus 3 bytes per LED', () => {
-    const packet = buildAdalightPacket(solidFrame(3, 5, { r: 0, g: 0, b: 0 }), { width: 3, height: 5, serpentine: false })
+    const packet = buildAdalightPacket(solidFrame(3, 5, { r: 0, g: 0, b: 0 }), { width: 3, height: 5 })
     expect(packet.length).toBe(6 + 3 * 5 * 3)
   })
 
-  it('writes RGB triples in row-major order when not serpentine', () => {
+  it('writes RGB triples in row-major order with no table', () => {
     const frame: Frame = [
       [{ r: 1, g: 0, b: 0 }, { r: 2, g: 0, b: 0 }],
       [{ r: 3, g: 0, b: 0 }, { r: 4, g: 0, b: 0 }],
     ]
-    const packet = buildAdalightPacket(frame, { width: 2, height: 2, serpentine: false })
+    const packet = buildAdalightPacket(frame, { width: 2, height: 2 })
     const reds = [0, 1, 2, 3].map((i) => packet[6 + i * 3])
     expect(reds).toEqual([1, 2, 3, 4])
   })
 
-  it('reverses odd rows for serpentine wiring, matching the C++ XY() formula', () => {
+  it('places each cell on the LED its table names', () => {
     const frame: Frame = [
       [{ r: 1, g: 0, b: 0 }, { r: 2, g: 0, b: 0 }],
       [{ r: 3, g: 0, b: 0 }, { r: 4, g: 0, b: 0 }],
     ]
-    const packet = buildAdalightPacket(frame, { width: 2, height: 2, serpentine: true })
-    // Row 0 (even) stays left-to-right: 1, 2. Row 1 (odd) reverses: 4, 3.
+    const packet = buildAdalightPacket(frame, { width: 2, height: 2, xyTable: [0, 1, 3, 2] })
+    // A row zig-zag: row 0 stays left-to-right (1, 2), row 1 reverses (4, 3).
     const reds = [0, 1, 2, 3].map((i) => packet[6 + i * 3])
     expect(reds).toEqual([1, 2, 4, 3])
   })
 
   it('defaults missing pixels to black rather than throwing', () => {
-    const packet = buildAdalightPacket([], { width: 2, height: 2, serpentine: false })
+    const packet = buildAdalightPacket([], { width: 2, height: 2 })
     expect([...packet.slice(6)]).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
   })
 })
@@ -68,20 +68,34 @@ describe('buildAdalightPacketFromRgb', () => {
   // The live-stream path switched to the packed form so it never holds a
   // pooled evaluator frame; it must stay byte-identical to the Frame form.
   it.each([
-    ['row-major', false],
-    ['serpentine', true],
-  ])('matches the Frame overload byte for byte (%s)', (_label, serpentine) => {
+    ['row-major', undefined],
+    ['a table', [0, 1, 2, 5, 4, 3]],
+  ])('matches the Frame overload byte for byte (%s)', (_label, xyTable) => {
     const frame: Frame = [
       [{ r: 1, g: 2, b: 3 }, { r: 4, g: 5, b: 6 }, { r: 7, g: 8, b: 9 }],
       [{ r: 10, g: 11, b: 12 }, { r: 13, g: 14, b: 15 }, { r: 16, g: 17, b: 18 }],
     ]
-    const layout = { width: 3, height: 2, serpentine }
+    const layout = { width: 3, height: 2, xyTable }
     expect([...buildAdalightPacketFromRgb(packed(frame, 3, 2), layout)])
       .toEqual([...buildAdalightPacket(frame, layout)])
   })
 
+  it('streams row-major rather than trust a table of the wrong length', () => {
+    const rgb = new Uint8ClampedArray([1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0])
+    const packet = buildAdalightPacketFromRgb(rgb, { width: 2, height: 2, xyTable: [0, 9] })
+    expect(packet.length).toBe(6 + 12)
+    expect([0, 1, 2, 3].map((i) => packet[6 + i * 3])).toEqual([1, 2, 3, 4])
+  })
+
+  it('streams row-major rather than trust a table of the wrong length', () => {
+    const rgb = new Uint8ClampedArray([1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0])
+    const packet = buildAdalightPacketFromRgb(rgb, { width: 2, height: 2, xyTable: [0, 9] })
+    expect(packet.length).toBe(6 + 12)
+    expect([0, 1, 2, 3].map((i) => packet[6 + i * 3])).toEqual([1, 2, 3, 4])
+  })
+
   it('zero-fills when the buffer is shorter than the layout', () => {
-    const packet = buildAdalightPacketFromRgb(new Uint8ClampedArray(0), { width: 2, height: 2, serpentine: false })
+    const packet = buildAdalightPacketFromRgb(new Uint8ClampedArray(0), { width: 2, height: 2 })
     expect([...packet.slice(6)]).toEqual(new Array(12).fill(0))
   })
 })

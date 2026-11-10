@@ -18,23 +18,33 @@ describe('streamLayoutForGraph', () => {
     expect(streamLayoutForGraph([])).toBeNull()
   })
 
-  it('resolves width/height/serpentine from MatrixOutput', () => {
+  it('resolves width/height from MatrixOutput, with no table for row-major', () => {
     const layout = streamLayoutForGraph([outputNode])
-    expect(layout).toEqual({ outputId: 'out', width: 8, height: 12, serpentine: false, baud: 921600 })
+    expect(layout).toEqual({ outputId: 'out', width: 8, height: 12, baud: 921600 })
   })
 
-  it('picks up serpentine when set', () => {
-    const out = node('out', 'MatrixOutput', 'output', { width: 4, height: 4, serpentine: true })
-    expect(streamLayoutForGraph([out])?.serpentine).toBe(true)
+  it('carries the zig-zag table when serpentine is set', () => {
+    const out = node('out', 'MatrixOutput', 'output', { width: 3, height: 2, serpentine: true })
+    expect(streamLayoutForGraph([out])?.xyTable).toEqual([0, 1, 2, 5, 4, 3])
   })
 
-  it('forces serpentine off for HUB75 even if a stale flag is set', () => {
+  it('carries the panel table of a tiled layout', () => {
+    const out = node('out', 'MatrixOutput', 'output', { width: 4, height: 4, layout: 'panels', tilesX: 2, tilesY: 2 })
+    expect(streamLayoutForGraph([out])?.xyTable).toEqual([0, 1, 4, 5, 2, 3, 6, 7, 8, 9, 12, 13, 10, 11, 14, 15])
+  })
+
+  it('carries a custom XY map as written', () => {
+    const out = node('out', 'MatrixOutput', 'output', { width: 2, height: 2, layout: 'custom', customXYMap: '[3,1,0,2]' })
+    expect(streamLayoutForGraph([out])?.xyTable).toEqual([3, 1, 0, 2])
+  })
+
+  it('names no table for HUB75 even if stale wiring is set', () => {
     // Regression: serpentine is an addressable-strip wiring concept the HUB75
     // property editor hides, but switching a node's chipset from an
     // addressable one to HUB75 leaves the old stored value in place. Both the
     // sender (buildAdalightPacket) and receiver must agree it's a no-op here.
-    const out = node('out', 'MatrixOutput', 'output', { form: 'hub75', width: 4, height: 4, chipset: 'HUB75', serpentine: true })
-    expect(streamLayoutForGraph([out])?.serpentine).toBe(false)
+    const out = node('out', 'MatrixOutput', 'output', { form: 'hub75', width: 4, height: 4, chipset: 'HUB75', serpentine: true, layout: 'panels', tilesX: 2, tilesY: 2 })
+    expect(streamLayoutForGraph([out])?.xyTable).toBeUndefined()
   })
 
   it.each(['strip', 'ring', 'corkscrew'])('streams a %s as its physical N-LED chain', (form) => {
@@ -42,7 +52,7 @@ describe('streamLayoutForGraph', () => {
       form, ledCount: 120, width: 16, height: 16, serpentine: true,
     })
     expect(streamLayoutForGraph([out])).toEqual({
-      outputId: 'out', width: 120, height: 1, serpentine: false, baud: 921600,
+      outputId: 'out', width: 120, height: 1, baud: 921600,
     })
   })
 
@@ -52,7 +62,7 @@ describe('streamLayoutForGraph', () => {
     })
 
     expect(streamLayoutForGraph([outputNode, second], 'ice-output')).toEqual({
-      outputId: 'ice-output', width: 24, height: 1, serpentine: false, baud: 921600,
+      outputId: 'ice-output', width: 24, height: 1, baud: 921600,
     })
     expect(streamLayoutForGraph([outputNode, second], 'missing-output')).toBeNull()
   })
