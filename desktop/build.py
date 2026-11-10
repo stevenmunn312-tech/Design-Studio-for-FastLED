@@ -34,14 +34,46 @@ def require_executable(name: str) -> str:
     return executable
 
 
+def runtime_packages() -> dict[str, tuple[str, str]]:
+    """The distributions the frozen bundle ships: name -> (license, source)."""
+    packages = {
+        "fastapi": ("MIT", "https://github.com/fastapi/fastapi"),
+        "uvicorn": ("BSD-3-Clause", "https://github.com/encode/uvicorn"),
+        "python-multipart": ("Apache-2.0", "https://github.com/Kludex/python-multipart"),
+        "pyserial": ("BSD-3-Clause", "https://github.com/pyserial/pyserial"),
+        "fbuild": ("BSD-3-Clause", "https://github.com/FastLED/fbuild"),
+        "esptool": ("GPL-2.0-or-later", "https://github.com/espressif/esptool"),
+        "pyinstaller": ("GPL-2.0-or-later with bootloader exception", "https://pyinstaller.org"),
+    }
+    if os.name == "nt":
+        packages.update({
+            "pywebview": ("BSD-3-Clause", "https://github.com/r0x0r/pywebview"),
+            "pythonnet": ("MIT", "https://github.com/pythonnet/pythonnet"),
+            "clr_loader": ("MIT", "https://github.com/pythonnet/clr-loader"),
+            "bottle": ("MIT", "https://github.com/bottlepy/bottle"),
+            "proxy_tools": ("MIT", "https://github.com/jtushman/proxy_tools"),
+        })
+    return packages
+
+
 def require_packager() -> None:
-    try:
-        import PyInstaller  # noqa: F401
-    except ImportError as exc:
+    """Stop before the minutes-long freeze when this Python cannot package.
+
+    PyInstaller freezes whichever interpreter runs this script, so a `python`
+    from another toolchain on PATH would otherwise fail at the license step.
+    """
+    missing = []
+    for package in runtime_packages():
+        try:
+            importlib.metadata.distribution(package)
+        except importlib.metadata.PackageNotFoundError:
+            missing.append(package)
+    if missing:
         raise SystemExit(
-            "PyInstaller is not installed. Run: "
+            f"{sys.executable} is missing packaging dependencies: {', '.join(missing)}. "
+            "Use the environment that has them, or run: "
             "python -m pip install -r backend/requirements-packaging.txt -c backend/constraints.txt"
-        ) from exc
+        )
 
 
 def executable_name(name: str) -> str:
@@ -143,25 +175,8 @@ def install_dependency_notices(app_dir: Path) -> None:
     """Copy the runtime license files supplied by the frozen dependencies."""
     notice_dir = app_dir / "third-party-licenses"
     notice_dir.mkdir(parents=True, exist_ok=True)
-    packages = {
-        "fastapi": ("MIT", "https://github.com/fastapi/fastapi"),
-        "uvicorn": ("BSD-3-Clause", "https://github.com/encode/uvicorn"),
-        "python-multipart": ("Apache-2.0", "https://github.com/Kludex/python-multipart"),
-        "pyserial": ("BSD-3-Clause", "https://github.com/pyserial/pyserial"),
-        "fbuild": ("BSD-3-Clause", "https://github.com/FastLED/fbuild"),
-        "esptool": ("GPL-2.0-or-later", "https://github.com/espressif/esptool"),
-        "pyinstaller": ("GPL-2.0-or-later with bootloader exception", "https://pyinstaller.org"),
-    }
-    if os.name == "nt":
-        packages.update({
-            "pywebview": ("BSD-3-Clause", "https://github.com/r0x0r/pywebview"),
-            "pythonnet": ("MIT", "https://github.com/pythonnet/pythonnet"),
-            "clr_loader": ("MIT", "https://github.com/pythonnet/clr-loader"),
-            "bottle": ("MIT", "https://github.com/bottlepy/bottle"),
-            "proxy_tools": ("MIT", "https://github.com/jtushman/proxy_tools"),
-        })
     manifest = ["Runtime dependency licenses", "===========================", ""]
-    for package, (license_name, source_url) in packages.items():
+    for package, (license_name, source_url) in runtime_packages().items():
         dist = importlib.metadata.distribution(package)
         manifest.append(f"{package} {dist.version} — {license_name} — {source_url}")
         for item in dist.files or ():

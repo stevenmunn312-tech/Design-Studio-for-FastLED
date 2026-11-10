@@ -26,6 +26,25 @@ def test_require_executable_reports_missing_command(monkeypatch):
         build.require_executable("npm")
 
 
+def test_require_packager_names_every_missing_package_before_freezing(monkeypatch):
+    def distribution(name: str):
+        if name in ("pywebview", "bottle"):
+            raise build.importlib.metadata.PackageNotFoundError(name)
+        return object()
+
+    monkeypatch.setattr(build.os, "name", "nt")
+    monkeypatch.setattr(build.importlib.metadata, "distribution", distribution)
+
+    with pytest.raises(SystemExit, match="missing packaging dependencies: pywebview, bottle"):
+        build.require_packager()
+
+
+def test_require_packager_passes_when_every_package_is_installed(monkeypatch):
+    monkeypatch.setattr(build.importlib.metadata, "distribution", lambda _name: object())
+
+    build.require_packager()
+
+
 def test_build_frontend_uses_resolved_npm_command(monkeypatch, tmp_path):
     commands: list[list[str]] = []
     (tmp_path / "dist").mkdir()
