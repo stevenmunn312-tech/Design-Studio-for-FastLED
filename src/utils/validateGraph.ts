@@ -27,7 +27,7 @@ import { isValidRtcDateTime } from '../state/peripherals/rtc'
 import { clockTimeZone, isKnownTimeZone } from '../state/peripherals/timeZones'
 import { parseScheduleTime } from '../nodes/signal/schedule'
 import { buildXYTable, validateMatrixLayout, tileRotationAt } from '../state/output/xyLayout'
-import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes } from '../state/output/outputRouting'
+import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes, renderBufferDims } from '../state/output/outputRouting'
 import { renderScaleHalf, wantsSupersample } from '../state/output/renderScale'
 import { closestLedSpacingMm, positionsMmPerUnit, stringPositions, usesPositions } from '../state/output/stringPositions'
 import { asSdVideoClip } from '../state/evaluator/sdVideo'
@@ -651,6 +651,9 @@ const STATEFUL_EXTRA_BYTES_PER_LED: Record<string, number> = {
   WaveSim: 12,            // 3 float arrays (p, c, n) beyond its own field buffer
   TuringField: 8,         // float state a plus a (W+1)(H+1) summed-area table
   FourierEpicycles: 3,    // CRGB trail, kept apart from the output it is added to
+  FlowField: 4,           // float trail per LED beside its particle pool
+  FieldBlur: 4,           // float separable-blur scratch
+  StringParticles: 3,     // CRGB trail per track cell (a ring track is shorter)
 }
 // Particles uses a fixed-size pool independent of matrix size (see the
 // `Particles` case in cppGenerator.ts): 6 floats per slot; particles are
@@ -860,7 +863,10 @@ export function estimateFirmwareRam(
   const outputs = ledDrivingOutputs(nodes)
   const stereoVuMeters = emittedStereoVuMeters(nodes, edges)
   if (outputs.length === 0 && stereoVuMeters.length === 0) return null
-  const { w, h } = compositionDims(nodes, edges)
+  // The canvas the sketch sizes its buffers by. With a long string beside a
+  // matrix, the all-native composition (widest by tallest) would price
+  // buffers no pass allocates and refuse a graph that fits.
+  const { w, h } = renderBufferDims(nodes, edges)
   // Runs wired in parallel off one pin share a single `leds` array, so RAM
   // counts them once — unlike power, which counts every physical run because
   // each one is a real panel on the PSU.

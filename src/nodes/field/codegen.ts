@@ -379,10 +379,12 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    uint32_t _now=millis(); ${A}ow+=_sp*(float)(_now-${A}t)*0.001f; ${A}t=_now;`)
     ln(`    if(${A}ow>=${floatLit(AUTOMATON_STEP_DUE, 6)}){ ${A}ow=fminf(1.0f,${A}ow-1.0f); ${A}k++;`)
     if (type === 'elementary') {
-      ln(`      uint8_t _rule=(uint8_t)constrain((int)floorf(${f('rule', 'rule', 90)}),0,255), _row[WIDTH];`)
-      ln(`      for(int _x=0;_x<WIDTH;_x++) _row[_x]=(_rule>>(${A}c[(_x-1+WIDTH)%WIDTH]*4+${A}c[_x]*2+${A}c[(_x+1)%WIDTH]))&1;`)
+      // The new row is built in the `n` scratch the other rules step into,
+      // not a WIDTH array on the loop stack: a string's WIDTH is its length.
+      ln(`      uint8_t _rule=(uint8_t)constrain((int)floorf(${f('rule', 'rule', 90)}),0,255);`)
+      ln(`      for(int _x=0;_x<WIDTH;_x++) ${A}n[_x]=(_rule>>(${A}c[(_x-1+WIDTH)%WIDTH]*4+${A}c[_x]*2+${A}c[(_x+1)%WIDTH]))&1;`)
       ln(`      for(int _y=HEIGHT-1;_y>0;_y--) memmove(&${A}c[_y*WIDTH],&${A}c[(_y-1)*WIDTH],WIDTH);`)
-      ln(`      memcpy(${A}c,_row,WIDTH); }`)
+      ln(`      memcpy(${A}c,${A}n,WIDTH); }`)
     } else if (type === 'cyclic') {
       ln(`      for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ uint8_t _s=${A}c[_y*WIDTH+_x],_w=(_s+1)%${states}; ${count('_w')}`)
       ln(`        ${A}n[_y*WIDTH+_x]=_nb>=${threshold}?_w:_s; }`)

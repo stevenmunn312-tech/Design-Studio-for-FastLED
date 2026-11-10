@@ -100,7 +100,10 @@ the Build Diagram (through Part 1) all reuse the positioned-string path
 unchanged. `stringPositions()` learns to build its points from a network, and
 nothing downstream learns a new layout.
 
-Limits: 64 nodes, 128 edges, 300 LEDs, the positioned-string ceiling.
+Limits: 64 nodes, 128 edges, 300 LEDs (`NETWORK_MAX_LEDS`). Other strings
+reach `MAX_LED_RUN` (4096) since 2026-11-10; a network kept 300 because
+`ledsPerEdge` is clamped silently, so a higher ceiling would re-lay a saved
+network that asks for more per edge than it gets, on a build already wired.
 
 ### Layout editor
 

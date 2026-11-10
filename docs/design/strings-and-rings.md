@@ -18,7 +18,7 @@ will use it too.
 | --- | --- | --- |
 | `row` | `WIDTH` | the middle row, `(HEIGHT/2)*WIDTH + k` |
 | `column` | `HEIGHT` | the middle column, `k*WIDTH + WIDTH/2` |
-| `ring` | `ringLeds` (3–300) | `ringSampleMap(ringLeds, 0, 'cw', W, H)[k]` |
+| `ring` | `ringLeds` (3–4096, `MAX_LED_RUN`) | `ringSampleMap(ringLeds, 0, 'cw', W, H)[k]` |
 
 - The ring track is the inscribed circle through pixel centres that an LED
   Ring's output reads. Set `ringLeds` to the output's LED count and every

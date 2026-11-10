@@ -25,7 +25,13 @@ export type PositionPreset = (typeof POSITION_PRESETS)[number]
 
 export const POSITION_CANVAS_DEFAULT = { width: 32, height: 16 }
 const MAX_SIDE = 64
-const MAX_LEDS = 300
+/**
+ * Every string's LED ceiling, `MAX_LED_RUN` (which cannot be imported here),
+ * the positioned string's too: its canvas stays within `MAX_SIDE` and each
+ * LED costs only its four bytes of PROGMEM position. A segment network keeps
+ * its own lower ceiling (`NETWORK_MAX_LEDS`).
+ */
+const MAX_LEDS = MAX_SIDE * MAX_SIDE
 
 /** Fixed-point scale of the baked table: 8 fractional bits per canvas unit. */
 export const POSITION_FIXED_SCALE = 256

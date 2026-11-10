@@ -61,6 +61,7 @@ import { PARTICLE_STYLES } from './player/particleStyles'
 import { WIREFRAME_MODEL_OPTIONS } from '../nodes/shapes/wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './output/ledOutputForm'
 import { RENDER_RESOLUTIONS } from './output/renderScale'
+import { MAX_STEREO_VU_RAIL_LEDS } from './audio/stereoVuSizing'
 import { POSITION_PRESETS, POSITIONS_MM_PER_UNIT_MAX, STRIP_LAYOUTS, usesNetwork, usesPositions } from './output/stringPositions'
 import { NETWORK_LEDS_PER_EDGE, NETWORK_MAX_NODES, NETWORK_PRESETS } from './output/segmentNetwork'
 import { RIPPLE_BEHAVIOURS, RIPPLE_LIFETIME_SEC, RIPPLE_WIDTH } from '../nodes/shared/rippleNetwork'
@@ -836,7 +837,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
       numeric: true,
       options: [...new Set(Object.values(CLOCKED_DATA_RATES_MHZ).flat())].sort((a, b) => a - b).map(String),
     },
-    ledCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
+    // Up to the largest matrix's LED count, too wide a range to drag.
+    ledCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1, entry: 'number' },
     // A full turn either way, so a ring can be rotated to wherever its data-in
     // pad physically ended up without reaching for a negative number.
     ringStartAngle: { control: 'slider', min: 0, max: 359, step: 1 },
@@ -863,8 +865,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     tilesY: { control: 'slider', min: 1, max: 16, step: 1 },
   },
   StereoVuMeter: {
-    leftLedCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
-    rightLedCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
+    // A rail is its own length, not an LED output's (state/audio/stereoVuSizing.ts).
+    leftLedCount: { control: 'slider', min: 1, max: MAX_STEREO_VU_RAIL_LEDS, step: 1, entry: 'number' },
+    rightLedCount: { control: 'slider', min: 1, max: MAX_STEREO_VU_RAIL_LEDS, step: 1, entry: 'number' },
     leftDataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     rightDataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     leftClockPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -1071,7 +1074,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     speed: N01, spawn: N01, trail: N01, bed: N01,
     seed:     { control: 'slider', min: 0, max: 9999, step: 1 },
     count:    { control: 'slider', min: 1, max: MAX_STRING_PARTICLES, step: 1 },
-    ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1 },
+    ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1, entry: 'number' },
     track:    { control: 'select', options: [...STRING_TRACKS] },
     mode:     { control: 'select', options: [...STRING_PARTICLE_MODES] },
   },
@@ -1609,7 +1612,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     thickness: N01,
     arcStart: { control: 'slider', min: 0, max: 359, step: 1 },
     arcSweep: { control: 'slider', min: 10, max: 360, step: 1 },
-    ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1 },
+    ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1, entry: 'number' },
   },
   Automaton: {
     automatonType: { control: 'select', options: [...AUTOMATON_TYPES] },
