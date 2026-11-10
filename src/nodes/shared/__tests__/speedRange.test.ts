@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { denormRate, rateCpp, SPEED_MAX, SCALE_MAX } from '../speedRange'
+import { denormRate, rateCpp, PLASMA_SPEED_MAX, SCALE_MAX } from '../speedRange'
 
 describe('speedRange', () => {
   it('denormRate maps a 0–1 slider onto [0, max] and clamps out-of-range input', () => {
@@ -17,7 +17,7 @@ describe('speedRange', () => {
 
   it('a preserved-default slider reproduces the legacy rate', () => {
     // Plasma's old default speed 1.0 → new 0.5, which denormalizes back to 1.0.
-    expect(denormRate(0.5, SPEED_MAX.Plasma)).toBe(1)
+    expect(denormRate(0.5, PLASMA_SPEED_MAX.classic)).toBe(1)
     // Blobs old scale default 0.22 → new 0.44, denormalizing to ~0.22.
     expect(denormRate(0.44, SCALE_MAX.Blobs)).toBeCloseTo(0.22, 5)
   })

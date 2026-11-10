@@ -276,20 +276,6 @@ module (no fixture yet).
   `Math.pow(k, frames)` rather than a multiply, and each mode wants checking
   by eye. Evidence `src/nodes/simulations/evaluate.ts` (evalParticles,
   evalStringParticles, evalFormulaPoints).
-- [ ] **Category: Merge the overlapping Noise types and fold the sine family
-  into Plasma (Med, M).** Noise has four near-duplicate cloud types (simplex,
-  noise3d, fbm, plasma) and the sine family is spread over Plasma and Noise
-  `field`, `sine`, `plasma`. Keep fbm (octaves), noise4d (looping), worley,
-  gabor and plasma-fractal in Noise; make simplex and noise3d fbm presets; fold
-  `field` and `sine` into Plasma, which gains `scale`. Each type also has its
-  own speed and scale range, so nine types means nine slider calibrations.
-  Done so far: Noise defaults to fbm, `field` reads "Sine Grid", and Plasma
-  has `scale` (0.5 is the classic size). Left: the merge itself, which moves
-  saved `field`/`sine`/`simplex`/`noise3d` graphs onto other nodes or presets
-  and needs a choice of preset values by eye. While there, simplex, noise3d,
-  noise4d and plasma-fractal still wrap their value (`wrap01`), cutting seams
-  through non-cyclic palettes such as lava; fbm clamps. Evidence
-  `src/nodes/generative/evaluate.ts:299`, `src/nodes/shared/speedRange.ts:52`.
 #### Outputs and shows
 
 - [ ] **LED output: Lift the 300-LED cap on strings, rings and corkscrews

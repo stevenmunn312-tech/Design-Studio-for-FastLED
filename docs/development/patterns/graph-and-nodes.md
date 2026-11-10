@@ -698,6 +698,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   unit label went with the mode. A knob only one value reads is gated by `isPropertyEnabled`,
   and an emitter whose value needs a different block delegates to its own
   function (`fire2012Cpp`, `threeBandCpp`) before destructuring the context.
+  A select value that only approximated another becomes a built-in preset
+  instead (`BUILT_IN_PRESETS` in `nodePresets.ts`, listed first in the node
+  menu's Load preset): Noise's Simplex and Noise 3D are fbm settings
+  (`NOISE_PRESETS`), matched by rendering before and after for spread,
+  feature size and pace, with the Contrast knob fbm needed because it
+  normalises its octaves. Its sine types moved to Plasma's Style, each with
+  the speed and scale range it had, so a converted graph moves as it did.
+  A removed value reads as the node's default (`noiseType()` gives fbm).
   Bundled content is converted, not migrated: pre-1.0, a save holding a
   removed type shows it as unknown. A node that another already computes
   exactly is removed rather than merged: Lerp was Map Range with In 0–1 (its

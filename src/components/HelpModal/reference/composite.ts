@@ -330,7 +330,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       featured: 'FrameWarp',
       title: 'Turn noise into a liquid feedback surface',
       nodes: {
-        source: ['Noise', { noiseType: 'simplex', speed: 0.2, scale: 0.42, palette: 'synthwave' }],
+        source: ['Noise', { noiseType: 'fbm', octaves: 4, contrast: 1.85, speed: 0.5, scale: 0.42, palette: 'synthwave' }],
         warp: ['FrameWarp', { strength: 2.5, motion: 'turbulence', motionSpeed: 0.2, edgeMode: 'wrap', sampling: 'bilinear' }],
         feedback: ['FrameFeedback', { delayFrames: 2, fade: 0.08, amount: 0.58, blendMode: 'screen' }],
       },

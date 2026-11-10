@@ -358,7 +358,7 @@ describe('showGenerator', () => {
           node('extract', 'PaletteFromImage', { count: 2 }, [
             { id: 'image', dataType: 'image' },
           ], [{ id: 'palette', dataType: 'palette' }]),
-          node('noise', 'Noise', { noiseType: 'simplex' }, [
+          node('noise', 'Noise', { noiseType: 'fbm' }, [
             { id: 'paletteIn', dataType: 'palette' },
           ], [{ id: 'frame', dataType: 'frame' }]),
           node('go', 'GroupOutput'),
@@ -388,8 +388,8 @@ describe('showGenerator', () => {
           ]),
           node('palA', 'PaletteFromImage', { count: 2 }, paletteInput, paletteOutput),
           node('palB', 'PaletteFromImage', { count: 4 }, paletteInput, paletteOutput),
-          node('noiseA', 'Noise', { noiseType: 'simplex' }, [{ id: 'paletteIn', dataType: 'palette' }], [{ id: 'frame', dataType: 'frame' }]),
-          node('noiseB', 'Noise', { noiseType: 'simplex' }, [{ id: 'paletteIn', dataType: 'palette' }], [{ id: 'frame', dataType: 'frame' }]),
+          node('noiseA', 'Noise', { noiseType: 'fbm' }, [{ id: 'paletteIn', dataType: 'palette' }], [{ id: 'frame', dataType: 'frame' }]),
+          node('noiseB', 'Noise', { noiseType: 'fbm' }, [{ id: 'paletteIn', dataType: 'palette' }], [{ id: 'frame', dataType: 'frame' }]),
           node('mix', 'Blend', {}, [{ id: 'a', dataType: 'frame' }, { id: 'b', dataType: 'frame' }], [{ id: 'frame', dataType: 'frame' }]),
           node('go', 'GroupOutput'),
         ],
@@ -873,7 +873,7 @@ describe('showGenerator', () => {
     const paletteGroups = {
       gp: {
         nodes: [
-          node('noise', 'Noise', { noiseType: 'field', palette: 'rainbow' }, [{ id: 'paletteIn', dataType: 'palette' }], [{ id: 'frame', dataType: 'frame' }]),
+          node('noise', 'Noise', { noiseType: 'fbm', palette: 'rainbow' }, [{ id: 'paletteIn', dataType: 'palette' }], [{ id: 'frame', dataType: 'frame' }]),
           node('gi', 'GroupInput', { paramId: 'palette' }, [], [{ id: 'out', dataType: 'palette' }]),
           node('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
         ],

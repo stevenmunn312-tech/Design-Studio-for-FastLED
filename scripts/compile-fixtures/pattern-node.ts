@@ -90,7 +90,7 @@ if ((phase1.match(/static inline _LatticeCell _squareCell/g)?.length ?? 0) !== 1
 }
 
 const phase2Nodes = [
-  node('noise', 'Noise', { noiseType: 'simplex', speed: 0.2, scale: 0.42, palette: 'synthwave' }),
+  node('noise', 'Noise', { noiseType: 'fbm', octaves: 4, contrast: 1.85, speed: 0.5, scale: 0.42, palette: 'synthwave' }),
   node('dx', 'FieldFormula', { formula: '0.5 + 0.22*sin(angle*3+t)' }),
   node('dy', 'FieldFormula', { formula: '0.5 + 0.22*cos(angle*2-t*0.7)' }),
   node('warp', 'FrameWarp', { strength: 2.5, edgeMode: 'wrap', sampling: 'bilinear' }),

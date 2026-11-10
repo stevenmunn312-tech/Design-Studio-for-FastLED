@@ -30,7 +30,7 @@ const buttonExample: LiveExampleSpec = {
   title: 'Button beat flash',
   nodes: [
     { key: 'button', type: 'ButtonInput', dx: -650, dy: -120 },
-    { key: 'noise', type: 'Noise', dx: -355, dy: 110, properties: { noiseType: 'field' } },
+    { key: 'noise', type: 'Noise', dx: -355, dy: 110, properties: { noiseType: 'worley' } },
     { key: 'flash', type: 'BeatFlash', dx: -35, dy: -55 },
     { key: 'out', type: 'MatrixOutput', dx: 340, dy: -215 },
   ],
@@ -45,7 +45,7 @@ const potentiometerExample: LiveExampleSpec = {
   title: 'Potentiometer brightness',
   nodes: [
     { key: 'pot', type: 'PotInput', dx: -650, dy: -120 },
-    { key: 'noise', type: 'Noise', dx: -355, dy: 110, properties: { noiseType: 'field' } },
+    { key: 'noise', type: 'Noise', dx: -355, dy: 110, properties: { noiseType: 'worley' } },
     { key: 'brightness', type: 'BrightnessMod', dx: -35, dy: -55 },
     { key: 'out', type: 'MatrixOutput', dx: 340, dy: -215 },
   ],
@@ -60,7 +60,7 @@ const encoderExample: LiveExampleSpec = {
   title: 'Encoder hue flash',
   nodes: [
     { key: 'encoder', type: 'EncoderInput', dx: -700, dy: -135 },
-    { key: 'noise', type: 'Noise', dx: -405, dy: 115, properties: { noiseType: 'field' } },
+    { key: 'noise', type: 'Noise', dx: -405, dy: 115, properties: { noiseType: 'worley' } },
     { key: 'hue', type: 'HueShift', dx: -115, dy: 60 },
     { key: 'flash', type: 'BeatFlash', dx: 195, dy: -45 },
     { key: 'out', type: 'MatrixOutput', dx: 540, dy: -225 },
@@ -78,7 +78,7 @@ const midiExample: LiveExampleSpec = {
   title: 'MIDI color switch',
   nodes: [
     { key: 'midi', type: 'MidiInput', dx: -760, dy: -165, properties: { note: 60, cc: 1 } },
-    { key: 'noise', type: 'Noise', dx: -470, dy: 110, properties: { noiseType: 'field' } },
+    { key: 'noise', type: 'Noise', dx: -470, dy: 110, properties: { noiseType: 'worley' } },
     { key: 'hue', type: 'HueShift', dx: -190, dy: 60 },
     { key: 'switch', type: 'FrameSwitch', dx: 115, dy: -20 },
     { key: 'brightness', type: 'BrightnessMod', dx: 420, dy: 30 },
@@ -118,7 +118,7 @@ const beatDetectExample: LiveExampleSpec = {
   nodes: [
     { key: 'mic', type: 'MicInput', dx: -700, dy: -220 },
     { key: 'beat', type: 'BeatDetect', dx: -410, dy: -155 },
-    { key: 'noise', type: 'Noise', dx: -410, dy: 120, properties: { noiseType: 'field' } },
+    { key: 'noise', type: 'Noise', dx: -410, dy: 120, properties: { noiseType: 'worley' } },
     { key: 'flash', type: 'BeatFlash', dx: -80, dy: -35 },
     { key: 'out', type: 'MatrixOutput', dx: 275, dy: -220 },
   ],
@@ -278,7 +278,7 @@ describe('insertLiveExample', () => {
     expect(state.edges).toHaveLength(3)
     expect(result.reusedNodeTypes).toEqual([])
     expect(result.addedNodeIds).toHaveLength(4)
-    expect(noise?.data.properties.noiseType).toBe('field')
+    expect(noise?.data.properties.noiseType).toBe('worley')
   })
 
   it('adds the potentiometer brightness example with the expected control path', () => {
@@ -338,7 +338,7 @@ describe('insertLiveExample', () => {
     expect(state.nodes).toHaveLength(5)
     expect(state.edges).toHaveLength(4)
     expect(result.skippedConnections).toEqual([])
-    expect(noise?.data.properties.noiseType).toBe('field')
+    expect(noise?.data.properties.noiseType).toBe('worley')
     expect(edgePaths(state.edges)).toContain('beat->beat')
   })
 

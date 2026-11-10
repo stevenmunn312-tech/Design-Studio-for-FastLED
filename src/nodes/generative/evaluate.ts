@@ -4,7 +4,8 @@ import { STRING_MAX_ROWS } from '../shared/stringCanvas'
 import {
   BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, breatheCurve, breatheEnvelope, chaseSpacing, wipePalettePosition, wipeReversed,
 } from './classics1d'
-import { denormRate, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { denormRate, NOISE_SPEED_MAX, NOISE_SCALE_MAX, PLASMA_SCALE_MAX, PLASMA_SPEED_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { noiseType as noiseTypeOf, plasmaStyle, type NoiseType } from './noiseTypes'
 import { speedPhase } from '../shared/speedClock'
 import { passFrames } from '../shared/passClock'
 import { fadeFrameToBlackBy, trailFadeAmount } from '../shared/trailFade'
@@ -34,7 +35,7 @@ import {
   tvColor, tvLayout, type LightningState,
 } from '../../state/evaluator/classics'
 import { wrapXBlend } from '../../state/evaluator/wrapX'
-import { noiseShape, shapeNoise, worleyMode, worleyValue, type WorleyMode } from '../../state/evaluator/noiseShape'
+import { noiseContrast, noiseContrastOf, noiseShape, shapeNoise, worleyMode, worleyValue, type WorleyMode } from '../../state/evaluator/noiseShape'
 import {
   seededRandom,
   seededRngState,
@@ -250,18 +251,32 @@ function evalJuggle(
   return frame
 }
 
-function evalSineField(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
+// Plasma's Sine 2D: three octaves of sine-times-cosine interference. The sum
+// is held at the palette's ends, where it once wrapped and cut seams through
+// a palette such as lava.
+function evalSine2DField(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
   const ph = speedPhase(key, t, speed)
   const out = allocField(W * H)
   for (let y = 0; y < H; y++) {
-    for (let x = xo; x < W + xo; x++) {
+    for (let x = 0; x < W; x++) {
       let v = 0, amp = 1, freq = scale
       for (let oct = 0; oct < 3; oct++) {
         v += amp * Math.sin(x * freq + ph + oct * 1.7) * Math.cos(y * freq * 1.3 + ph * 0.8 + oct * 2.3)
         amp *= 0.5; freq *= 2.1
       }
-      out[y * W + x - xo] = wrap01(v * 0.5 + 0.5)
+      out[y * W + x] = clamp01(v * 0.5 + 0.5)
     }
+  }
+  return out
+}
+
+// Plasma's Sine Grid: two crossed sine waves, through the sketch's integer
+// kernel (shared/integerPatterns.ts).
+function evalSineGridField(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H): Field {
+  const frame = sineFieldFrame(scale, speedPhase(key, t, speed))
+  const out = allocField(W * H)
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) out[y * W + x] = sineFieldSum(x, y, frame) / 131072
   }
   return out
 }
@@ -287,18 +302,16 @@ function evalSpiral(key: string, speed: number, arms: number, palette: Palette, 
     })
 }
 
-function wrap01(v: number): number {
-  return ((v % 1) + 1) % 1
-}
-
 // Dispatch for the bundled `Noise` node — `noiseType` picks the algorithm.
 // All variants share the (speed, scale)→field signature, then the node maps
 // that field through a palette for its normal `frame` output. Keep the cases
-// in sync with PROPERTY_META.noiseType and cppGenerator's `Noise` case.
+// in sync with NOISE_TYPES (noiseTypes.ts) and the `Noise` emitter. Every
+// type holds its value at 0 and 1 rather than wrapping it round, which cut
+// seams through palettes that do not join end to end, such as lava.
 /** The knobs only some noise types read. */
 interface NoiseVariantOpts { worley: WorleyMode; octaves: number; frequency: number; orientation: number }
 
-function evalNoiseFieldByType(key: string, noiseType: string, speed: number, scale: number, t: number, W: number, H: number, seed: number, wrapX: boolean, opts: NoiseVariantOpts): Field {
+function evalNoiseFieldByType(key: string, noiseType: NoiseType, speed: number, scale: number, t: number, W: number, H: number, seed: number, wrapX: boolean, opts: NoiseVariantOpts): Field {
   if (!wrapX) return evalNoiseFieldVariant(key, noiseType, speed, scale, t, W, H, seed, 0, opts)
   // Seamless left/right join: the plain field blended with itself shifted a
   // canvas width (see state/evaluator/wrapX.ts).
@@ -306,66 +319,16 @@ function evalNoiseFieldByType(key: string, noiseType: string, speed: number, sca
   return wrapXBlend(plain, evalNoiseFieldVariant(key, noiseType, speed, scale, t, W, H, seed, W, opts), W, H)
 }
 
-function evalNoiseFieldVariant(key: string, noiseType: string, speed: number, scale: number, t: number, W: number, H: number, seed: number, xo: number, opts: NoiseVariantOpts): Field {
+function evalNoiseFieldVariant(key: string, noiseType: NoiseType, speed: number, scale: number, t: number, W: number, H: number, seed: number, xo: number, opts: NoiseVariantOpts): Field {
   const ts = t + seedOffset(seed, 0)
   switch (noiseType) {
     // Gabor's seed reshuffles its cells rather than shifting time.
     case 'gabor':   return evalGaborField(key, speed, scale, opts.frequency, opts.orientation, t, W, H, seed, xo)
-    case 'simplex': return evalSimplex2DField(key, speed, scale, ts, W, H, xo)
-    case 'noise3d': return evalNoise3DField(key, speed, scale, ts, W, H, xo)
     case 'noise4d': return evalNoise4DField(key, speed, scale, ts, W, H, xo)
     case 'worley':  return evalWorleyField(key, speed, scale, ts, W, H, xo, opts.worley)
     case 'plasma':  return evalPlasmaFractalField(key, speed, scale, ts, W, H, xo)
-    case 'sine':    return evalSineField(key, speed, scale, ts, W, H, xo)
-    case 'field':   return evalNoiseFieldRaw(key, speed, scale, ts, W, H, xo)
-    case 'fbm':
-    default:        return evalFbmField(key, speed, scale, opts.octaves, ts, W, H, xo)
+    case 'fbm':     return evalFbmField(key, speed, scale, opts.octaves, ts, W, H, xo)
   }
-}
-
-function evalNoiseFieldRaw(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
-  // The sketch's integer kernel (shared/integerPatterns.ts).
-  const frame = sineFieldFrame(scale, speedPhase(key, t, speed))
-  const out = allocField(W * H)
-  for (let y = 0; y < H; y++) {
-    for (let x = xo; x < W + xo; x++) out[y * W + x - xo] = sineFieldSum(x, y, frame) / 131072
-  }
-  return out
-}
-
-function evalSimplex2DField(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
-  const ph = speedPhase(key, t, speed)
-  const out = allocField(W * H)
-  for (let y = 0; y < H; y++) {
-    for (let x = xo; x < W + xo; x++) {
-      let v = 0, amp = 1, freq = scale
-      for (let oct = 0; oct < 4; oct++) {
-        v += amp * _snoise2(x * freq + ph * 0.13, y * freq + ph * 0.1)
-        amp *= 0.5; freq *= 2
-      }
-      out[y * W + x - xo] = wrap01(v * 0.5 + 0.5)
-    }
-  }
-  return out
-}
-
-function evalNoise3DField(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
-  // 3D via two orthogonal 2D slices animated along the z (time) axis
-  const ph = speedPhase(key, t, speed)
-  const out = allocField(W * H)
-  for (let y = 0; y < H; y++) {
-    for (let x = xo; x < W + xo; x++) {
-      const z = ph * 0.08
-      let v = 0, amp = 1, freq = scale
-      for (let oct = 0; oct < 3; oct++) {
-        v += amp * (_snoise2(x * freq + z * 0.37, y * freq) * 0.6 +
-                    _snoise2(x * freq * 0.9, y * freq + z * 0.61) * 0.4)
-        amp *= 0.5; freq *= 2.1
-      }
-      out[y * W + x - xo] = wrap01(v * 0.5 + 0.5)
-    }
-  }
-  return out
 }
 
 // Looping "4D" noise: animate around a circle in two hidden dimensions so the
@@ -385,7 +348,7 @@ function evalNoise4DField(key: string, speed: number, scale: number, t: number, 
         v += amp * (a * 0.65 + b * 0.35)
         amp *= 0.5; freq *= 2
       }
-      out[y * W + x - xo] = wrap01(v * 0.5 + 0.5)
+      out[y * W + x - xo] = clamp01(v * 0.5 + 0.5)
     }
   }
   return out
@@ -505,6 +468,8 @@ function evalBlobs(key: string, speed: number, scale: number, count: number, t: 
 }
 
 // Plasma blended with fractal (simplex) noise for an organic flowing field.
+// The sum averages 0, so it is centred on the palette's middle and held at
+// its ends: wrapped from 0, as it once was, every zero crossing cut a seam.
 function evalPlasmaFractalField(key: string, speed: number, scale: number, t: number, W = DEFAULT_W, H = DEFAULT_H, xo = 0): Field {
   const ph = speedPhase(key, t, speed)
   const out = allocField(W * H)
@@ -514,22 +479,21 @@ function evalPlasmaFractalField(key: string, speed: number, scale: number, t: nu
       let amp = 1, freq = scale, fn = 0
       for (let o = 0; o < 3; o++) { fn += amp * _snoise2(x * freq + ph * 0.1, y * freq); amp *= 0.5; freq *= 2 }
       v += fn * 2.5
-      out[y * W + x - xo] = wrap01(v * 0.15)
+      out[y * W + x - xo] = clamp01(v * 0.15 + 0.5)
     }
   }
   return out
 }
 
 const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
-  // Bundled noise generators (NoiseField / Simplex2D / Noise3D / Noise4D /
-  // Worley / PlasmaFractal / Sine 2D / fBm / Gabor). All share the same scalar-field core; the
-  // node exposes that raw `field` output and also maps it through a palette
-  // to its normal `frame` output. Keep in sync with PROPERTY_META.noiseType
-  // and the `Noise` case in cppGenerator.ts.
+  // Bundled noise generators (fBm / Noise4D / Worley / Plasma Fractal /
+  // Gabor). All share the same scalar-field core; the node exposes that raw
+  // `field` output and also maps it through a palette to its normal `frame`
+  // output. Keep in sync with NOISE_TYPES and the `Noise` emitter.
   Noise({ num, pal, t, W, H, stateKey }, id, props) {
-    const noiseType = String(props.noiseType ?? 'fbm')
-    const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
-    const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
+    const noiseType = noiseTypeOf(props.noiseType)
+    const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), NOISE_SPEED_MAX[noiseType])
+    const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), NOISE_SCALE_MAX[noiseType])
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     const field = evalNoiseFieldByType(stateKey(id), noiseType, speed, scale, t, W, H, normalizedSeed(props.seed), props.wrapX === true, {
       worley: worleyMode(props.worleyMode),
@@ -537,15 +501,27 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
       frequency: num(id, 'frequency', props, 'frequency', 1.2),
       orientation: num(id, 'orientation', props, 'orientation', 45),
     })
+    // Contrast, then shape: both fold about the field's middle.
+    const contrast = noiseContrastOf(props.contrast)
     const shape = noiseShape(props.noiseShape)
-    if (shape !== 'plain') for (let i = 0; i < field.length; i++) field[i] = shapeNoise(field[i], shape)
+    if (contrast !== 1 || shape !== 'plain') {
+      for (let i = 0; i < field.length; i++) field[i] = shapeNoise(noiseContrast(field[i], contrast), shape)
+    }
     return { field, frame: evalFieldToFrame(field, palette, 1, W, H) }
   },
+  // The classic plasma, or the two sine styles that were Noise types. Each
+  // style keeps its own speed and scale range (PLASMA_SPEED_MAX), and the
+  // sine styles map their 0–1 value through the palette as Noise did.
   Plasma({ num, pal, t, W, H, stateKey }, id, props) {
-    const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Plasma)
-    const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), SCALE_MAX.Plasma)
+    const style = plasmaStyle(props.plasmaStyle)
+    const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), PLASMA_SPEED_MAX[style])
+    const scale = denormRate(num(id, 'scale', props, 'scale', 0.5), PLASMA_SCALE_MAX[style])
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    return { frame: evalPlasma(stateKey(id), speed, scale, t, palette, W, H) }
+    if (style === 'classic') return { frame: evalPlasma(stateKey(id), speed, scale, t, palette, W, H) }
+    const field = style === 'sineGrid'
+      ? evalSineGridField(stateKey(id), speed, scale, t, W, H)
+      : evalSine2DField(stateKey(id), speed, scale, t, W, H)
+    return { frame: evalFieldToFrame(field, palette, 1, W, H) }
   },
   Rainbow({ num, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.3), SPEED_MAX.Rainbow)

@@ -75,7 +75,8 @@ import { DEFAULT_POWER_MONITOR_PART_ID, powerMonitorAddressOptions } from './per
 import { SLICE_PRESET_NAMES } from '../nodes/field/sliceTiling'
 import { HARMONY_KINDS } from './palettes/harmonyPalette'
 import { GRADIENT_MIX_MODES, HUE_UNITS, hueUnits } from './palettes/hueMix'
-import { NOISE_SHAPES, WORLEY_MODES } from './evaluator/noiseShape'
+import { NOISE_CONTRAST, NOISE_SHAPES, WORLEY_MODES } from './evaluator/noiseShape'
+import { NOISE_TYPES, PLASMA_STYLES } from '../nodes/generative/noiseTypes'
 import { MAX_STRING_PARTICLES, RING_TRACK_MAX, RING_TRACK_MIN, STRING_PARTICLE_MODES, STRING_TRACKS } from './evaluator/stringTrack'
 import { CANDLE_MODES, SUNRISE_MODES } from './evaluator/classics'
 import { RAIN_DIRECTIONS } from './evaluator/digitalRain'
@@ -462,7 +463,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   pathShape:  { control: 'select', options: [...PATH_SHAPES] },
   // Bundled-node selectors — each picks a variant; keep in sync with the
   // matching case in graphEvaluator.ts and cppGenerator.ts.
-  noiseType:      { control: 'select', options: ['fbm', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma', 'sine', 'field', 'gabor'] },
+  noiseType:      { control: 'select', options: [...NOISE_TYPES] },
   mathOp:         { control: 'select', options: ['add', 'subtract', 'multiply', 'divide', 'modulo', 'average', 'min', 'max'] },
   fn:             { control: 'select', options: [...FUNCTION_OPS] },
   logicOp:        { control: 'select', options: [...LOGIC_OPS] },
@@ -1044,8 +1045,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     speed: N01, scale: N01, seed: { control: 'slider', min: 0, max: 9999, step: 1 },
     noiseShape: { control: 'select', options: [...NOISE_SHAPES] },
     worleyMode: { control: 'select', options: [...WORLEY_MODES] },
+    contrast: { control: 'slider', min: NOISE_CONTRAST.min, max: NOISE_CONTRAST.max, step: 0.05 },
   },
-  Plasma:          { speed: N01, scale: N01 },
+  Plasma:          { speed: N01, scale: N01, plasmaStyle: { control: 'select', options: [...PLASMA_STYLES] } },
   Rainbow:         { speed: N01, axis: { control: 'select', options: [...RAINBOW_AXES] } },
   RadialBurst:     { speed: N01, rings: { control: 'slider', min: 1, max: 32, step: 1 } },
   Spiral:          { speed: N01, arms: { control: 'slider', min: SPIRAL_ARMS.min, max: SPIRAL_ARMS.max, step: 1 } },
@@ -2029,7 +2031,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     noiseShape: 'Fold the noise about its midline: ridged gives bright sharp crests, billow gives rounded lumps with dark creases.',
     worleyMode: 'What Worley draws: the distance to the nearest point (f1), the gap to the second nearest (f2f1), or thin bright lines on the cell borders (edges).',
     wrapX: 'Join the left and right edges without a seam, for a ring or corkscrew canvas. Costs a second noise pass per pixel and softens fine detail mid-canvas.',
-    noiseType: 'Which noise algorithm draws the field. fbm, the default, sums octaves into clouds; field is a grid of two crossed sine waves; gabor draws oriented bands. The controller draws the same noise as the preview.',
+    noiseType: 'Which noise algorithm draws the field. fbm, the default, sums octaves into clouds; noise4d loops back to where it started; worley draws cells; plasma blends sine waves with fractal noise; gabor draws oriented bands. The controller draws the same noise as the preview. The Simplex and Noise 3D presets set fbm to look like those old types.',
+    contrast: 'Spreads the field about its middle: 1 leaves it as drawn, higher pushes it toward both ends of the palette (held there), lower flattens it toward the middle colour.',
     octaves: 'Noise layers summed by fbm, 1 smooth to 6 detailed. More costs CPU on the controller.',
     frequency: 'Gabor only: stripes per cell inside each kernel; higher gives finer bands.',
     orientation: 'Gabor only: direction of the bands in degrees, 0 horizontal to 360.',
@@ -2954,7 +2957,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     loop: 'Start the animation again after its last frame. Off holds the last frame.',
   },
   Plasma: {
-    speed: 'How fast the interference bands move and the colours scroll, 0 frozen to 1 fastest.',
+    plasmaStyle: 'What draws the bands: the classic plasma, whose colours scroll round the palette; a Sine Grid of two crossed waves; or Sine 2D, three layered octaves of sine waves. The sine styles hold the ends of the palette.',
+    speed: 'How fast the bands move, 0 frozen to 1 fastest for this style.',
     scale: 'Size of the bands: low gives broad slow swirls, high fine ripples. 0.5 is the classic plasma.',
     palette: 'Colour sweep applied to the plasma; rainbow gives the classic look.',
   },
@@ -3721,6 +3725,9 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     cy: 'center Y',
     scaleWithMatrix: 'scale with matrix',
   },
+  Plasma: {
+    plasmaStyle: 'style',
+  },
   Noise: {
     noiseType: 'type',
     noiseShape: 'shape',
@@ -4485,7 +4492,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'level', label: 'Level', keys: ['amplitude', 'offset'] },
   ],
   Noise: [
-    { key: 'noise', label: 'Noise', keys: ['noiseType', 'noiseShape', 'worleyMode', 'octaves', 'frequency', 'orientation', 'seed', 'wrapX'] },
+    { key: 'noise', label: 'Noise', keys: ['noiseType', 'noiseShape', 'contrast', 'worleyMode', 'octaves', 'frequency', 'orientation', 'seed', 'wrapX'] },
     { key: 'motion', label: 'Motion', keys: ['speed', 'scale'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
@@ -4826,7 +4833,11 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
   },
   Noise: {
     prop: 'noiseType',
-    labels: { field: 'Sine Grid', simplex: 'Simplex', noise3d: 'Noise 3D', noise4d: 'Noise 4D', worley: 'Worley', plasma: 'Plasma Fractal', sine: 'Sine 2D', fbm: 'Fractal Noise', gabor: 'Gabor Noise' },
+    labels: { noise4d: 'Noise 4D', worley: 'Worley', plasma: 'Plasma Fractal', fbm: 'Fractal Noise', gabor: 'Gabor Noise' },
+  },
+  Plasma: {
+    prop: 'plasmaStyle',
+    labels: { classic: 'Plasma', sineGrid: 'Sine Grid', sine2d: 'Sine 2D' },
   },
   Path: {
     prop: 'pathShape',

@@ -1,5 +1,6 @@
 /**
- * Post-shaping for a 0–1 noise value, and the Worley cell-distance modes.
+ * Post-shaping for a 0–1 noise value (contrast, then shape), and the Worley
+ * cell-distance modes.
  * Preview and firmware share these constants; `noiseShapeCpp` and
  * `worleyValueCpp` write the same arithmetic for the sketch.
  */
@@ -24,6 +25,25 @@ export function noiseShapeCpp(shape: NoiseShape, expr: string): string {
   if (shape === 'plain') return expr
   const folded = `fabsf(2.0f*constrain(${expr},0.0f,1.0f)-1.0f)`
   return shape === 'ridged' ? `(1.0f-${folded})` : folded
+}
+
+/** Contrast's slider: 1 leaves the field as drawn. */
+export const NOISE_CONTRAST = { min: 0.5, max: 3, default: 1 } as const
+
+/** The contrast a node applies: its property, bounded to the slider. */
+export function noiseContrastOf(value: unknown): number {
+  const k = Number(value ?? NOISE_CONTRAST.default)
+  return Number.isFinite(k) ? Math.max(NOISE_CONTRAST.min, Math.min(NOISE_CONTRAST.max, k)) : NOISE_CONTRAST.default
+}
+
+/** Spreads a 0–1 noise value about 0.5 by `contrast`, holding it at the ends. */
+export function noiseContrast(n: number, contrast: number): number {
+  return Math.max(0, Math.min(1, (n - 0.5) * contrast + 0.5))
+}
+
+/** C++ float expression for `noiseContrast` of `expr` by the literal `contrast`. */
+export function noiseContrastCpp(expr: string, contrast: number): string {
+  return `constrain((${expr}-0.5f)*${contrast.toFixed(3)}f+0.5f,0.0f,1.0f)`
 }
 
 export const WORLEY_MODES = ['f1', 'f2f1', 'edges'] as const

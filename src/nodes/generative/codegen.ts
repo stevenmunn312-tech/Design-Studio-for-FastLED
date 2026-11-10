@@ -3,7 +3,8 @@ import { CONFETTI_SPAWN, PRIDE_SAT, SCANNER_PALETTE_FLOOR, SPIRAL_ARMS, rainbowA
 import { FILL_RAINBOW_SAT } from '../shared/hsvRainbow'
 import { STRING_MAX_ROWS } from '../shared/stringCanvas'
 import { BREATHE_BPM, CHASE_DRIFT, CHASE_SPACING, WIPE_PALETTE_STEP, breatheCurve, breatheEnvelopeCpp } from './classics1d'
-import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { rateCpp, NOISE_SPEED_MAX, NOISE_SCALE_MAX, PLASMA_SCALE_MAX, PLASMA_SPEED_MAX, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { noiseType as noiseTypeOf, plasmaStyle } from './noiseTypes'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { trailFadeCpp } from '../shared/trailFadeCpp'
 import { passFramesCpp } from '../shared/passClockCpp'
@@ -20,13 +21,13 @@ import {
   CLASSIC_HASH_CPP, CLASSIC_VALUE_NOISE_CPP, LIGHTNING_AFTERGLOW, LIGHTNING_AFTERGLOW_TAU,
   LIGHTNING_FLASH_LEN, SUNRISE_GAMMA, SUNRISE_STOPS, candleMode, sunriseMode,
 } from '../../state/evaluator/classics'
-import { noiseShape, noiseShapeCpp, worleyMode, worleyValueCpp } from '../../state/evaluator/noiseShape'
+import { noiseContrastCpp, noiseContrastOf, noiseShape, noiseShapeCpp, worleyMode, worleyValueCpp } from '../../state/evaluator/noiseShape'
 
 const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
   // Bundled noise node — `noiseType` picks the algorithm. Each variant
-  // writes a raw scalar field, then the node maps that field through its
-  // palette for the normal frame output. Keep the cases in sync with
-  // PROPERTY_META.noiseType and the `Noise` case in graphEvaluator.
+  // writes a raw scalar field, held at 0 and 1, then the node maps that field
+  // through its palette for the normal frame output. Keep the cases in sync
+  // with NOISE_TYPES (noiseTypes.ts) and the `Noise` evaluator.
   Noise({ node, id, p, ln: emitLine, f, ownBuf, ownField, paletteExpr, needsWorley, needsSimplex, needsT, needsWrapX }) {
     needsT.v = true
     // The variant is written as one block, then repeated shifted and blended
@@ -35,10 +36,10 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     const ln = (line: string) => { block.push(line) }
     const ob = ownBuf()
     const of = ownField()
-    const noiseType = String(p.noiseType ?? 'fbm')
+    const noiseType = noiseTypeOf(p.noiseType)
     const wMode = worleyMode(p.worleyMode)
-    const speed = rateCpp(f('speed', 'speed', 0.5), NOISE_SPEED_MAX[noiseType] ?? 1)
-    const scale = rateCpp(f('scale', 'scale', 0.5), NOISE_SCALE_MAX[noiseType] ?? 1)
+    const speed = rateCpp(f('speed', 'speed', 0.5), NOISE_SPEED_MAX[noiseType])
+    const scale = rateCpp(f('scale', 'scale', 0.5), NOISE_SCALE_MAX[noiseType])
     const seed = seedProp(p)
     // The preview runs every type but Gabor on `t + seedOffset(seed)`; the
     // offset seeds the phase, as speedPhase(key, t + offset) does.
@@ -53,29 +54,6 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     }
     const pal = paletteExpr(node.id, 'paletteIn', p)
     switch (noiseType) {
-      case 'simplex': {
-        ln(`  { // Simplex2D`)
-        ln(`    float _spd=${speed},_sc=${scale};`)
-        const tp = phase()
-        simplexPixels([
-          `float _v=0.0f,_amp=1.0f,_fr=_sc;`,
-          `for(int _o=0;_o<4;_o++){ _v+=_amp*_snoise2(_x*_fr+${tp}*0.13f,_y*_fr+${tp}*0.1f); _amp*=0.5f; _fr*=2.0f; }`,
-          `_v=_v*0.5f+0.5f;`,
-        ], '_v-floorf(_v)')
-        break
-      }
-      case 'noise3d': {
-        ln(`  { // Noise3D`)
-        ln(`    float _spd=${speed},_sc=${scale};`)
-        const tp = phase()
-        ln(`    float _z=${tp}*0.08f;`)
-        simplexPixels([
-          `float _v=0.0f,_amp=1.0f,_fr=_sc;`,
-          `for(int _o=0;_o<3;_o++){ _v+=_amp*(_snoise2(_x*_fr+_z*0.37f,_y*_fr)*0.6f+_snoise2(_x*_fr*0.9f,_y*_fr+_z*0.61f)*0.4f); _amp*=0.5f; _fr*=2.1f; }`,
-          `_v=_v*0.5f+0.5f;`,
-        ], '_v-floorf(_v)')
-        break
-      }
       case 'noise4d': {
         ln(`  { // Noise4D (looping path through two hidden dimensions)`)
         ln(`    float _spd=${speed},_sc=${scale};`)
@@ -85,8 +63,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
           `float _v=0.0f,_amp=1.0f,_fr=_sc;`,
           `for(int _o=0;_o<3;_o++){ float _ox=cosf(_ang+_o*0.9f)*0.8f,_oy=sinf(_ang+_o*1.1f)*0.8f;`,
           `  _v+=_amp*(_snoise2(_x*_fr+_ox,_y*_fr+_oy)*0.65f+_snoise2(_x*_fr+_oy*0.7f+11.3f,_y*_fr+_ox*0.7f-7.1f)*0.35f); _amp*=0.5f; _fr*=2.0f; }`,
-          `_v=_v*0.5f+0.5f;`,
-        ], '_v-floorf(_v)')
+        ], 'constrain(_v*0.5f+0.5f,0.0f,1.0f)')
         break
       }
       case 'worley': {
@@ -111,35 +88,10 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
         simplexPixels([
           `float _v=sin(_x*0.2f+${tp})+sin(_y*0.25f+${tp}*0.8f)+sin((_x+_y)*0.15f+${tp}*0.6f);`,
           `float _amp=1.0f,_fr=_sc,_fn=0.0f; for(int _o=0;_o<3;_o++){ _fn+=_amp*_snoise2(_x*_fr+${tp}*0.1f,_y*_fr); _amp*=0.5f; _fr*=2.0f; }`,
-          `_v=(_v+_fn*2.5f)*0.15f;`,
-        ], '_v-floorf(_v)')
+        ], 'constrain((_v+_fn*2.5f)*0.15f+0.5f,0.0f,1.0f)')
         break
       }
-      case 'sine': {
-        ln(`  { // Sine 2D — layered sine/cosine interference`)
-        ln(`    float _spd=${speed},_sc=${scale};`)
-        const tp = phase()
-        ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _v=0,_amp=1,_fr=_sc;`)
-        ln(`      for(int _o=0;_o<3;_o++){ _v+=_amp*sin(_x*_fr+${tp}+_o*1.7f)*cos(_y*_fr*1.3f+${tp}*0.8f+_o*2.3f); _amp*=0.5f; _fr*=2.1f; }`)
-        ln(`      float _nf=fmodf(_v*0.5f+0.5f,1.0f); if(_nf<0)_nf+=1.0f;`)
-        ln(`      ${of}[_y*WIDTH+_x]=_nf;}}`)
-        break
-      }
-      case 'field': {
-        ln(`  {`)
-        ln(`    float _spd = ${speed}, _scl = ${scale};`)
-        const tp = phase()
-        // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
-        for (const line of sineFieldFrameCpp('_scl', tp)) ln(`    ${line}`)
-        ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-        ln(`      ${of}[_y * WIDTH + _x] = ${SINE_FIELD_VALUE_CPP};`)
-        ln(`    }`)
-        ln(`  }`)
-        break
-      }
-      case 'fbm':
-      default: {
+      case 'fbm': {
         ln(`  { // Fractal noise (fBm of simplex octaves)`)
         ln(`    float _spd=${speed},_sc=${scale};`)
         const tp = phase()
@@ -176,26 +128,50 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     } else {
       for (const line of block) emitLine(line)
     }
+    // Contrast, then shape, as the preview applies them; neither is emitted at rest.
+    const contrast = noiseContrastOf(p.contrast)
     const shape = noiseShape(p.noiseShape)
-    if (shape !== 'plain') emitLine(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=${noiseShapeCpp(shape, `${of}[_i]`)};`)
+    if (contrast !== 1 || shape !== 'plain') {
+      const value = contrast !== 1 ? noiseContrastCpp(`${of}[_i]`, contrast) : `${of}[_i]`
+      emitLine(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=${noiseShapeCpp(shape, value)};`)
+    }
     // Mapped as Field → Frame maps it (the preview shares evalFieldToFrame):
     // held at the top, so the field's highest values keep the last colour.
     emitLine(`  for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]=ColorFromPalette(${pal},(uint8_t)(constrain(${of}[_i],0.0f,1.0f)*255.0f),255,LINEARBLEND_NOWRAP);`)
   },
+  // The classic plasma, or Sine Grid and Sine 2D, the two sine styles that
+  // were Noise types; each keeps its own speed and scale range. The sine
+  // styles map their 0–1 value through the palette with its ends held, as
+  // Noise's frame did.
   Plasma({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
     needsT.v = true
     const ob = ownBuf()
-    const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Plasma)
-    const scale = rateCpp(f('scale', 'scale', 0.5), SCALE_MAX.Plasma)
+    const style = plasmaStyle(p.plasmaStyle)
+    const speed = rateCpp(f('speed', 'speed', 0.5), PLASMA_SPEED_MAX[style])
+    const scale = rateCpp(f('scale', 'scale', 0.5), PLASMA_SCALE_MAX[style])
     const pal = paletteExpr(node.id, 'paletteIn', p)
+    const fieldColour = (value: string) =>
+      `${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, (uint8_t)(constrain(${value}, 0.0f, 1.0f) * 255.0f), 255, LINEARBLEND_NOWRAP);`
     ln(`  {`)
     ln(`    float _spd = ${speed}, _sc = ${scale};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
-    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
-    for (const line of plasmaFrameCpp(ph, '_sc')) ln(`    ${line}`)
-    ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
-    for (const line of PLASMA_PIXEL_CPP) ln(`      ${line}`)
-    ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, _idx);`)
+    if (style === 'sineGrid') {
+      // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+      for (const line of sineFieldFrameCpp('_sc', ph)) ln(`    ${line}`)
+      ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
+      ln(`      ${fieldColour(SINE_FIELD_VALUE_CPP)}`)
+    } else if (style === 'sine2d') {
+      ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
+      ln(`      float _v = 0.0f, _amp = 1.0f, _fr = _sc;`)
+      ln(`      for (int _o = 0; _o < 3; _o++) { _v += _amp * sin(_x * _fr + ${ph} + _o * 1.7f) * cos(_y * _fr * 1.3f + ${ph} * 0.8f + _o * 2.3f); _amp *= 0.5f; _fr *= 2.1f; }`)
+      ln(`      ${fieldColour('_v * 0.5f + 0.5f')}`)
+    } else {
+      // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+      for (const line of plasmaFrameCpp(ph, '_sc')) ln(`    ${line}`)
+      ln(`    for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) {`)
+      for (const line of PLASMA_PIXEL_CPP) ln(`      ${line}`)
+      ln(`      ${ob}[_y * WIDTH + _x] = ColorFromPalette(${pal}, _idx);`)
+    }
     ln(`    }`)
     ln(`  }`)
   },

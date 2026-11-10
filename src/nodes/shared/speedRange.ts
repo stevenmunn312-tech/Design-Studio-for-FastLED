@@ -5,14 +5,14 @@
 // AudioFlow node) and is the single source of truth shared by both consumers —
 // keep the two in lockstep.
 //
-// The bundled `Noise` node tunes per `noiseType` variant, so its maps are keyed
-// by variant rather than node type.
+// The bundled `Noise` and `Plasma` nodes tune per variant (`noiseType`,
+// `plasmaStyle`), so their maps are keyed by variant rather than node type.
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 
 /** speed `1.0` (slider max) maps to this internal rate, per node type. */
 export const SPEED_MAX: Record<string, number> = {
-  Plasma: 2, RadialBurst: 2, Spiral: 2, FlowField: 1.5, Starfield: 3,
+  RadialBurst: 2, Spiral: 2, FlowField: 1.5, Starfield: 3,
   // Boids — constant flock speed in px/tick (floored at 0.1 in the evaluator).
   Boids: 0.7,
   // StringParticles — track cells a full-power drift particle moves per frame, before the 0.6 step.
@@ -45,19 +45,30 @@ export const SPEED_MAX: Record<string, number> = {
 export const SCALE_MAX: Record<string, number> = {
   // FlowField — past about 0.3 every pixel has its own eddy, so 0.25 tops the slider.
   FlowField: 0.25, Blobs: 0.5, FieldNoise: 0.5,
-  // Plasma — multiplies its spatial frequencies; the default 0.5 is the classic 1.
-  Plasma: 2,
   Pride2015: 1.5, Pacifica: 1,
 }
 
 /** Bundled Noise node — speed `1.0` per `noiseType` variant. */
 export const NOISE_SPEED_MAX: Record<string, number> = {
-  field: 5, simplex: 3, noise3d: 5, noise4d: 2, worley: 5, plasma: 5, sine: 1, fbm: 1.2, gabor: 1.5,
+  noise4d: 2, worley: 5, plasma: 5, fbm: 1.2, gabor: 1.5,
 }
 
 /** Bundled Noise node — scale `1.0` per `noiseType` variant. */
 export const NOISE_SCALE_MAX: Record<string, number> = {
-  field: 2, simplex: 0.5, noise3d: 0.5, noise4d: 0.5, worley: 0.3, plasma: 0.2, sine: 1, fbm: 0.5, gabor: 0.5,
+  noise4d: 0.5, worley: 0.3, plasma: 0.2, fbm: 0.5, gabor: 0.5,
+}
+
+/**
+ * Plasma — speed `1.0` per `plasmaStyle`. Sine Grid and Sine 2D keep the
+ * ranges they had as Noise types, so a converted graph moves as it did.
+ */
+export const PLASMA_SPEED_MAX: Record<string, number> = {
+  classic: 2, sineGrid: 5, sine2d: 1,
+}
+
+/** Plasma — scale `1.0` per `plasmaStyle`; the classic default 0.5 is its old fixed size. */
+export const PLASMA_SCALE_MAX: Record<string, number> = {
+  classic: 2, sineGrid: 2, sine2d: 1,
 }
 
 /** Bundled FormulaPoints node — speed `1.0` (radians/sec) per `formulaType`

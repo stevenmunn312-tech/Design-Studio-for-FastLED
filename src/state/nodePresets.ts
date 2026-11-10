@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { NodeDefinition } from '../types'
 import { NODE_LIBRARY, propertyMeta } from './nodeLibrary'
+import { NOISE_PRESETS, type BuiltInPreset } from '../nodes/generative/noiseTypes'
 
 const KEY = 'design-studio-for-fastled.node-presets.v1'
 
@@ -11,6 +12,28 @@ export interface NodePreset {
   properties: Record<string, unknown>
   createdAt: number
   updatedAt: number
+  /** Shipped with the app: listed with the user's own, never saved or deleted. */
+  builtIn?: boolean
+}
+
+/**
+ * Presets the app ships, per node type. Noise's stand in for the types its
+ * merge removed, so a user who reached for Simplex still finds it by name.
+ */
+const BUILT_IN_PRESETS: Readonly<Record<string, readonly BuiltInPreset[]>> = {
+  Noise: NOISE_PRESETS,
+}
+
+export function builtInPresets(nodeType: string): NodePreset[] {
+  return (BUILT_IN_PRESETS[nodeType] ?? []).map((preset) => ({
+    id: `builtin-${nodeType}-${preset.name}`,
+    name: preset.name,
+    nodeType,
+    properties: { ...preset.properties },
+    createdAt: 0,
+    updatedAt: 0,
+    builtIn: true,
+  }))
 }
 
 interface NodePresetState {
@@ -143,10 +166,12 @@ export function presettableProperties(nodeType: string, properties: Record<strin
   return out
 }
 
+/** The app's presets for a node type, then the user's own, each by name. */
 export function presetsForNodeType(nodeType: string, presets = useNodePresets.getState().presets): NodePreset[] {
-  return presets
+  const own = presets
     .filter((preset) => preset.nodeType === nodeType)
     .sort((a, b) => a.name.localeCompare(b.name))
+  return [...builtInPresets(nodeType).sort((a, b) => a.name.localeCompare(b.name)), ...own]
 }
 
 export function defaultPropertiesForNodeType(nodeType: string): Record<string, unknown> {
