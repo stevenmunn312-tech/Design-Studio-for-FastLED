@@ -22,7 +22,20 @@ export function compileFormula(
   return cache.get(formula) ?? null
 }
 
-// Centred / polar coordinate helpers, shared by CustomFormula and FieldFormula.
-// cx,cy range -1..1; r is 0 at centre (~1.41 at the corners); angle is -π..π.
-export function centeredX(xi: number, W: number): number { return (xi - W / 2) / (W / 2 || 1) }
-export function centeredY(yi: number, H: number): number { return (yi - H / 2) / (H / 2 || 1) }
+// Centred / polar coordinate helpers, shared by Custom Formula, Field Formula
+// and Geometry Field. cx,cy range -1..1; r is 0 at centre (~1.41 at the
+// corners); angle is -π..π. An axis one pixel across is its own centre, 0, so
+// a strip, ring or corkscrew (one row) reads the middle of a centred field
+// rather than its bottom edge (-1). Any axis wider than one pixel keeps the
+// matrix formula exactly.
+export function centeredX(xi: number, W: number): number { return W === 1 ? 0 : (xi - W / 2) / (W / 2 || 1) }
+export function centeredY(yi: number, H: number): number { return H === 1 ? 0 : (yi - H / 2) / (H / 2 || 1) }
+
+/**
+ * The sketch's twin of `centeredX`/`centeredY`: declares the floats `cx` and
+ * `cy` for the pixel loop's `_x` and `_y`. WIDTH and HEIGHT are constants, so
+ * the one-pixel test folds away at compile time.
+ */
+export function centeredCpp(cx: string, cy: string): string {
+  return `float ${cx}=(WIDTH==1?0.0f:((float)_x-WIDTH/2.0f)/(WIDTH/2.0f)),${cy}=(HEIGHT==1?0.0f:((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f));`
+}

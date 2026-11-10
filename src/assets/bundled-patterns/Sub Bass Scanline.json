@@ -187,7 +187,7 @@
       "peakGravity": 1.8,
       "waterfallSpeed": 10,
       "palette": "citrus",
-      "energy": 0.8,
+      "reactivity": 0.8,
       "speed": 0.6,
       "mirror": true
      },
@@ -248,7 +248,7 @@
        "dataType": "float"
       },
       {
-       "id": "energy",
+       "id": "reactivity",
        "label": "Reactivity",
        "dataType": "float"
       },
@@ -468,7 +468,7 @@
     "source": "feat",
     "sourceHandle": "energy",
     "target": "bars",
-    "targetHandle": "energy",
+    "targetHandle": "reactivity",
     "type": "glowEdge",
     "reconnectable": "target"
    },

@@ -44,7 +44,7 @@ describe('Ember Pulse colour', () => {
   }
 
   it('keeps the HeatColor ramp by default and on a node saved before Color existed', () => {
-    const before = alone({ energy: 0.7, speed: 1, bass: 0.5, mids: 0.5, treble: 0.5 }, false)
+    const before = alone({ reactivity: 0.7, speed: 0.5, bass: 0.5, mids: 0.5, treble: 0.5 }, false)
     const now = alone({})
     const old = frameOf(before.nodes, before.edges)
     expect(frameOf(now.nodes, now.edges)).toEqual(old)

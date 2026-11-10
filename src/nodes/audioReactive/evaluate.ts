@@ -24,6 +24,7 @@ import { instanceState, onInstanceDisposed } from '../../state/evaluator/memory'
 import { cloneFrame } from '../../state/evaluator/frames'
 import { createWaveformState, drawWaveform, type WaveformState } from '../../state/evaluator/waveform'
 import { speedPhase } from '../shared/speedClock'
+import { audioSpeedRate } from './audioSpeed'
 import {
   auroraPixel, auroraRow, bloomFrame, bloomPixel, cascadeFrame, emberFrame, emberPixel, kaleidoFrame, kaleidoPixel, mosaicCell,
   trailColumnPass, trailFade15, trailRowPass, trailShift8, wavesFrame, wavesPixel, ringsFrame, ringsPixel, shockFrame, shockPixel,
@@ -37,6 +38,7 @@ import {
   danceFlashAdvance, danceFlashPaletteIndex, danceFlashStart, stampDanceFlash, type DanceFlashClock,
 } from './danceFlash'
 import { demoDrums, demoDrumsActive } from './demoDrums'
+import { colorTrailsIndependent, colorTrailsKeep } from './colorTrails'
 import { envelopeDt, keepOver } from '../shared/envelopeClock'
 import { audioBands } from './audioBands'
 
@@ -374,7 +376,7 @@ function evalBassRings(key: string, bass: number, intensity: number, speed: numb
   const cx = W / 2
   const cy = H / 2
   const maxD = Math.max(1e-6, Math.hypot(cx, cy))
-  const motion = Math.max(0, Math.min(1, speed)) * (0.75 + level * 1.75 * strength)
+  const motion = Math.max(0, Math.min(2, speed)) * (0.75 + level * 1.75 * strength)
   const phase = speedPhase(key, t, 1.2 + motion * 4.8)
   const ringCount = 4 + level * 8 * strength
   const floor = 0.04 + level * 0.1 * strength
@@ -406,7 +408,7 @@ function evalMidrangeWaves(key: string, mids: number, intensity: number, speed: 
 function evalMidrangeBloom(key: string, mids: number, intensity: number, speed: number, t: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const level = Math.max(0, Math.min(1, mids))
   const strength = Math.max(0, Math.min(1, intensity))
-  const motion = Math.max(0, Math.min(1, speed)) * (0.8 + level * 2.2 * strength)
+  const motion = Math.max(0, Math.min(2, speed)) * (0.8 + level * 2.2 * strength)
   const phase = speedPhase(key, t, motion)
   // The sketch's integer kernel (shared/integerPatterns.ts).
   const frame = bloomFrame(W, H, phase, level, strength)
@@ -471,7 +473,7 @@ function evalTrebleSparks(nodeId: string, treble: number, density: number, palet
 function evalTreblePrism(key: string, treble: number, intensity: number, speed: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H): Frame {
   const level = Math.max(0, Math.min(1, treble))
   const strength = Math.max(0, Math.min(1, intensity))
-  const motion = Math.max(0, Math.min(1, speed)) * (1.2 + level * 3.2 * strength)
+  const motion = Math.max(0, Math.min(2, speed)) * (1.2 + level * 3.2 * strength)
   // The sketch's integer kernel (shared/integerPatterns.ts).
   const frame = prismFrame(speedPhase(key, t, motion), level, strength)
   return buildFrame(W, H, (x, y) => {
@@ -487,7 +489,7 @@ function evalAudioCascade(key: string, bass: number, mids: number, treble: numbe
   const m = Math.max(0, Math.min(1, mids))
   const tr = Math.max(0, Math.min(1, treble))
   const strength = Math.max(0, Math.min(1, intensity))
-  const motion = Math.max(0, Math.min(1, speed)) * (0.8 + (b + m + tr) * 1.4 * strength)
+  const motion = Math.max(0, Math.min(2, speed)) * (0.8 + (b + m + tr) * 1.4 * strength)
   const ribbonPhase = speedPhase(key, t, motion * (2 + m * 3 * strength), 'ribbon')
   const sweepPhase = speedPhase(key, t, motion * (1.4 + b * 2.2 * strength), 'sweep')
   const shimmerPhase = speedPhase(key, t, motion * (4 + tr * 8 * strength), 'shimmer')
@@ -938,15 +940,16 @@ interface ColorTrailsParams {
   injectionMode: string
   flowMode: string
   xSpeed: number
-  xAmplitude: number
-  xFrequency: number
+  xStrength: number
+  xScale: number
   ySpeed: number
-  yAmplitude: number
-  yFrequency: number
+  yStrength: number
+  yScale: number
   displacement: number
   endpointSpeed: number
   colorSpeed: number
-  persistence: number
+  /** Half-life in seconds (colorTrails.ts). */
+  trailLength: number
   bass: number
   mids: number
   treble: number
@@ -1116,23 +1119,23 @@ function evalColorTrails(
 
   // Pass 1: horizontal subpixel shift per row from the Y profile.
   for (let y = 0; y < H; y++) {
-    const spatial = y * 0.23 * p.yFrequency
+    const spatial = y * 0.23 * p.yScale
     const noise = p.flowMode === 'Morphing 2D'
       ? colorTrailsNoise2(spatial, yPhase, seedY)
       : colorTrailsNoise1(spatial + yPhase, seedY)
-    const profile = noise * p.yAmplitude
+    const profile = noise * p.yStrength
     trailRowPass(s.frame, s.tmp, y, trailShift8(Math.max(-1, Math.min(1, profile * displacement))), W)
   }
 
   // Pass 2: vertical subpixel shift per column from the reversed X profile,
-  // then apply the long feedback fade.
-  const fade15 = trailFade15(Math.pow(Math.max(0, Math.min(0.99999, p.persistence)), dtFrames))
+  // then apply the long feedback fade: Trail length is its half-life.
+  const fade15 = trailFade15(colorTrailsKeep(p.trailLength, dtFrames))
   for (let x = 0; x < W; x++) {
-    const spatial = (W - 1 - x) * 0.23 * p.xFrequency
+    const spatial = (W - 1 - x) * 0.23 * p.xScale
     const noise = p.flowMode === 'Morphing 2D'
       ? colorTrailsNoise2(spatial, xPhase, seedX)
       : colorTrailsNoise1(spatial + xPhase, seedX)
-    const profile = noise * p.xAmplitude
+    const profile = noise * p.xStrength
     trailColumnPass(s.tmp, s.frame, x, trailShift8(Math.max(-1, Math.min(1, profile * displacement))), fade15, H)
   }
   return s.frame
@@ -1224,7 +1227,7 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
       threeBandLevels.set(key, { levels: thirds, lastT: elapsedT })
       const [bass, mids, treble] = thirds.map((third, i) =>
         num(id, ['bass', 'mids', 'treble'][i], props, ['bass', 'mids', 'treble'][i], third))
-      const energy = num(id, 'energy', props, 'energy', 0.7)
+      const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
       const speed = num(id, 'speed', props, 'speed', 0.6)
       return { frame: evalThreeBand(stateKey(id), bass, mids, treble, energy, speed, t, palette, props.mirror !== false, W, H) }
     }
@@ -1275,8 +1278,8 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const { num, pal, t, W, H, stateKey } = ctx
     const bands = audioBands(ctx, id)
     const bass = bands.num(id, 'bass', props, 'bass', 0.5)
-    const energy = num(id, 'energy', props, 'energy', 0.7)
-    const speed = num(id, 'speed', props, 'speed', 1)
+    const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
+    const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'lava')
     return { frame: evalBassRings(stateKey(id), bass, energy, speed, palette, t, W, H) }
   },
@@ -1284,8 +1287,8 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const { num, pal, t, W, H, stateKey } = ctx
     const bands = audioBands(ctx, id)
     const mids = bands.num(id, 'mids', props, 'mids', 0.5)
-    const energy = num(id, 'energy', props, 'energy', 0.7)
-    const speed = num(id, 'speed', props, 'speed', 1)
+    const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
+    const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
     return { frame: evalMidrangeWaves(stateKey(id), mids, energy, speed, t, palette, W, H) }
   },
@@ -1293,8 +1296,8 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const { num, pal, t, W, H, stateKey } = ctx
     const bands = audioBands(ctx, id)
     const mids = bands.num(id, 'mids', props, 'mids', 0.5)
-    const energy = num(id, 'energy', props, 'energy', 0.7)
-    const speed = num(id, 'speed', props, 'speed', 1)
+    const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
+    const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'party')
     return { frame: evalMidrangeBloom(stateKey(id), mids, energy, speed, t, palette, W, H) }
   },
@@ -1310,8 +1313,8 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const { num, pal, t, W, H, stateKey } = ctx
     const bands = audioBands(ctx, id)
     const treble = bands.num(id, 'treble', props, 'treble', 0.5)
-    const energy = num(id, 'energy', props, 'energy', 0.7)
-    const speed = num(id, 'speed', props, 'speed', 1)
+    const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
+    const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'amethyst')
     return { frame: evalTreblePrism(stateKey(id), treble, energy, speed, palette, t, W, H) }
   },
@@ -1321,8 +1324,8 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const bass = bands.num(id, 'bass', props, 'bass', 0.5)
     const mids = bands.num(id, 'mids', props, 'mids', 0.5)
     const treble = bands.num(id, 'treble', props, 'treble', 0.5)
-    const energy = num(id, 'energy', props, 'energy', 0.7)
-    const speed = num(id, 'speed', props, 'speed', 1)
+    const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
+    const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     return { frame: evalAudioCascade(stateKey(id), bass, mids, treble, energy, speed, t, palette, W, H) }
   },
@@ -1379,9 +1382,9 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const kick = demo?.kick ? 1 : num(id, 'kick', props, 'kick', 0)
     const snare = demo?.snare ? 1 : num(id, 'snare', props, 'snare', 0)
     const hihat = num(id, 'hihat', props, 'hihat', 0)
-    const energy = num(id, 'energy', props, 'energy', 0.7)
+    const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
     // 0–1 like its slider, as the sketch bounds it.
-    const speed = clamp01(num(id, 'speed', props, 'speed', 1))
+    const speed = audioSpeedRate(clamp01(num(id, 'speed', props, 'speed', 0.5)))
     const palette = pal(id, 'paletteIn', props, 'palette', 'volcano')
     // `count` sizes the firmware's static shock pool, so it stays a
     // property; the multipliers are read wire-then-property.
@@ -1395,17 +1398,17 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
   },
   VocalAurora({ input, num, pal, t, W, H, stateKey }, id, props) {
     const vocals = num(id, 'vocals', props, 'vocals', 0)
-    const energy = num(id, 'energy', props, 'energy', 0.7)
+    const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
     const silence = input(id, 'silence', false) as boolean
-    const speed = num(id, 'speed', props, 'speed', 1)
+    const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'aurora')
     return { frame: evalVocalAurora(stateKey(id), vocals, energy, silence, speed, t, palette, W, H) }
   },
   BeatKaleidoscope({ input, num, pal, t, W, H, stateKey, elapsedT }, id, props) {
     const beatVal = input(id, 'beat', false) as boolean
     const hue = num(id, 'hue', props, 'hue', 0)
-    const energy = num(id, 'energy', props, 'energy', 0.7)
-    const speed = num(id, 'speed', props, 'speed', 1)
+    const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
+    const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'ultraviolet')
     return { frame: evalBeatKaleidoscope(stateKey(id), beatVal, hue, energy, speed, t, palette, W, H, elapsedT) }
   },
@@ -1415,8 +1418,8 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const bass = bands.num(id, 'bass', props, 'bass', 0.5)
     const mids = bands.num(id, 'mids', props, 'mids', 0.5)
     const treble = bands.num(id, 'treble', props, 'treble', 0.5)
-    const energy = num(id, 'energy', props, 'energy', 0.7)
-    const speed = num(id, 'speed', props, 'speed', 1)
+    const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
+    const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const tiles = num(id, 'tiles', props, 'tiles', 4)
     const palette = pal(id, 'paletteIn', props, 'palette', 'peacock')
     return { frame: evalSpectraMosaic(stateKey(id), bass, mids, treble, energy, speed, tiles, t, palette, W, H) }
@@ -1444,8 +1447,8 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const mids = bands.num(id, 'mids', props, 'mids', 0.5)
     const treble = bands.num(id, 'treble', props, 'treble', 0.5)
     const beatVal = input(id, 'beat', false) as boolean
-    const energy = num(id, 'energy', props, 'energy', 0.7)
-    const speed = num(id, 'speed', props, 'speed', 1)
+    const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
+    const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = emberUsesPalette(props, ctx.incoming.has(`${id}:paletteIn`))
       ? ctx.pal(id, 'paletteIn', props, 'palette', 'heat')
       : null
@@ -1457,8 +1460,8 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const bass = bands.num(id, 'bass', props, 'bass', 0.5)
     const mids = bands.num(id, 'mids', props, 'mids', 0.5)
     const treble = bands.num(id, 'treble', props, 'treble', 0.5)
-    const energy = num(id, 'energy', props, 'energy', 0.7)
-    const speed = num(id, 'speed', props, 'speed', 1)
+    const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
+    const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'deepsea')
     return { frame: evalTurbulentBloom(stateKey(id), bass, mids, treble, energy, speed, t, palette, W, H) }
   },
@@ -1466,8 +1469,8 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const { input, num, t, W, H, stateKey } = ctx
     const bands = audioBands(ctx, id)
     const bass = bands.num(id, 'bass', props, 'bass', 0.5)
-    const energy = num(id, 'energy', props, 'energy', 0.7)
-    const speed = num(id, 'speed', props, 'speed', 1)
+    const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
+    const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const colorIn = input(id, 'color', null) as RGB | null
     const color = colorIn ?? {
       r: byte(num(id, 'r', props, 'r', 80) / 255),
@@ -1482,8 +1485,8 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
   },
   RainRipples({ input, num, pal, t, W, H, stateKey }, id, props) {
     const trigger = input(id, 'trigger', false) as boolean
-    const energy = num(id, 'energy', props, 'energy', 0.7)
-    const speed = num(id, 'speed', props, 'speed', 1)
+    const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
+    const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'laguna')
     // `count` sizes the firmware's static ripple arrays, so it stays a
     // property; the three multipliers are read wire-then-property.
@@ -1500,8 +1503,8 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const treble = bands.num(id, 'treble', props, 'treble', 0.5)
     const mids = bands.num(id, 'mids', props, 'mids', 0.5)
     const hihat = num(id, 'hihat', props, 'hihat', 0)
-    const energy = num(id, 'energy', props, 'energy', 0.7)
-    const speed = num(id, 'speed', props, 'speed', 1)
+    const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
+    const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'amethyst')
     return { frame: evalPrismStorm(stateKey(id), treble, mids, hihat, energy, speed, t, palette, W, H) }
   },
@@ -1521,6 +1524,22 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const { input, num, pal, t, W, H, stateKey } = ctx
     const bands = audioBands(ctx, id)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+    // Linked, the one Flow set drives both axes; Independent axes reads X and Y apart.
+    const axes = colorTrailsIndependent(props)
+      ? {
+        xSpeed: num(id, 'xSpeed', props, 'xSpeed', 0.1),
+        xStrength: num(id, 'xStrength', props, 'xStrength', 1),
+        xScale: num(id, 'xScale', props, 'xScale', 0.33),
+        ySpeed: num(id, 'ySpeed', props, 'ySpeed', 0.1),
+        yStrength: num(id, 'yStrength', props, 'yStrength', 1),
+        yScale: num(id, 'yScale', props, 'yScale', 0.32),
+      }
+      : (() => {
+        const speed = num(id, 'flowSpeed', props, 'flowSpeed', 0.1)
+        const strength = num(id, 'flowStrength', props, 'flowStrength', 1)
+        const scale = num(id, 'flowScale', props, 'flowScale', 0.33)
+        return { xSpeed: speed, xStrength: strength, xScale: scale, ySpeed: speed, yStrength: strength, yScale: scale }
+      })()
     return { frame: evalColorTrails(stateKey(id), {
       injectionMode: String(props.injectionMode ?? 'Moving Line'),
       flowMode: String(props.flowMode ?? 'Scrolling'),
@@ -1528,16 +1547,11 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
       mids: bands.num(id, 'mids', props, 'mids', 0),
       treble: bands.num(id, 'treble', props, 'treble', 0),
       beat: Boolean(input(id, 'beat', false)),
-      xSpeed: num(id, 'xSpeed', props, 'xSpeed', 0.1),
-      xAmplitude: num(id, 'xAmplitude', props, 'xAmplitude', 1),
-      xFrequency: num(id, 'xFrequency', props, 'xFrequency', 0.33),
-      ySpeed: num(id, 'ySpeed', props, 'ySpeed', 0.1),
-      yAmplitude: num(id, 'yAmplitude', props, 'yAmplitude', 1),
-      yFrequency: num(id, 'yFrequency', props, 'yFrequency', 0.32),
+      ...axes,
       displacement: num(id, 'displacement', props, 'displacement', 1.8),
       endpointSpeed: num(id, 'endpointSpeed', props, 'endpointSpeed', 0.35),
       colorSpeed: num(id, 'colorSpeed', props, 'colorSpeed', 0.1),
-      persistence: num(id, 'persistence', props, 'persistence', 0.9992),
+      trailLength: num(id, 'trailLength', props, 'trailLength', 14.4),
       seed: normalizedSeed(props.seed ?? 42),
     }, t, palette, W, H) }
   },

@@ -303,7 +303,7 @@
             "peakGravity": 1.8,
             "waterfallSpeed": 10,
             "palette": "rainbow",
-            "energy": 0.86,
+            "reactivity": 0.86,
             "speed": 0.7,
             "mirror": true
           },
@@ -364,7 +364,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Reactivity",
               "dataType": "float"
             },
@@ -399,8 +399,8 @@
           "nodeType": "TreblePrism",
           "category": "pattern",
           "properties": {
-            "energy": 0.94,
-            "speed": 0.86,
+            "reactivity": 0.94,
+            "speed": 0.43,
             "r": 120,
             "g": 220,
             "b": 255
@@ -412,7 +412,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -649,6 +649,43 @@
           "width": 240,
           "height": 431
         }
+      },
+      {
+        "id": "a-prism-speed-half",
+        "type": "studioNode",
+        "position": {
+          "x": 540,
+          "y": -100
+        },
+        "data": {
+          "label": "Math",
+          "nodeType": "Math",
+          "category": "math",
+          "properties": {
+            "mathOp": "multiply",
+            "a": 0,
+            "b": 0.5
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "float"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
       }
     ],
     "edges": [
@@ -747,7 +784,7 @@
         "source": "smooth-a-fft-bass",
         "sourceHandle": "result",
         "target": "a-bars",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -783,7 +820,7 @@
         "source": "smooth-a-fft-bass",
         "sourceHandle": "result",
         "target": "a-prism",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -791,8 +828,8 @@
         "id": "a-e18",
         "source": "smooth-a-fft-mids",
         "sourceHandle": "result",
-        "target": "a-prism",
-        "targetHandle": "speed",
+        "target": "a-prism-speed-half",
+        "targetHandle": "a",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -895,6 +932,15 @@
         "sourceHandle": "frame",
         "target": "a-out",
         "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e-a-prism-speed-half",
+        "source": "a-prism-speed-half",
+        "sourceHandle": "result",
+        "target": "a-prism",
+        "targetHandle": "speed",
         "type": "glowEdge",
         "reconnectable": "target"
       }

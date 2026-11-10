@@ -230,8 +230,8 @@
           "nodeType": "SpectraMosaic",
           "category": "pattern",
           "properties": {
-            "energy": 0.75,
-            "speed": 1,
+            "reactivity": 0.75,
+            "speed": 0.5,
             "palette": "peacock",
             "tiles": 4
           },
@@ -252,7 +252,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -288,8 +288,8 @@
           "nodeType": "MidrangeWaves",
           "category": "pattern",
           "properties": {
-            "energy": 0.7,
-            "speed": 0.6,
+            "reactivity": 0.7,
+            "speed": 0.3,
             "palette": "opal"
           },
           "inputs": [
@@ -299,7 +299,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -625,7 +625,7 @@
         "source": "feat",
         "sourceHandle": "energy",
         "target": "mosaic",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {
@@ -649,7 +649,7 @@
         "source": "feat",
         "sourceHandle": "energy",
         "target": "waves",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {

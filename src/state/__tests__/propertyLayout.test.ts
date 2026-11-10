@@ -35,12 +35,11 @@ describe('property labels', () => {
     expect(raw).toEqual([])
   })
 
-  it('keeps the shared reactivity label beside a node\'s own labels', () => {
-    // Kick Shock's own entries used to replace the audio-reactive map's, so
-    // `energy` fell back to its key on the nodes that had the most labels.
-    expect(PROPERTY_LABELS.KickShock.energy).toBe('reactivity')
+  it('names the audio patterns\' reactivity by its own key, beside a node\'s own labels', () => {
+    // The property was stored as `energy` and relabelled; now the key is the label.
+    expect(propertyLabel('KickShock', 'reactivity')).toBe('reactivity')
     expect(PROPERTY_LABELS.KickShock.decay).toBe('lifetime ×')
-    expect(PROPERTY_LABELS.RainRipples.energy).toBe('reactivity')
+    expect(propertyLabel('RainRipples', 'reactivity')).toBe('reactivity')
   })
 
   // One name per concept on all three show engines, labelled like the port

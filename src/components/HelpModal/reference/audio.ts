@@ -2,7 +2,7 @@ import { example, RING } from './example'
 import type { NodeReferenceMap } from './types'
 
 // Four nodes report how loud the sound is, against four different references.
-const WHICH_LEVEL = 'Which level to use: Audio Features Loudness is absolute, so a quiet verse stays quiet; use it for brightness. Audio Features Energy is relative to the last few seconds’ peak; use it for motion. Vibe Volume is relative to the song’s own average. Stereo Levels are absolute on a line input but follow the recent peak on a microphone.'
+const WHICH_LEVEL = 'Which level to use: Audio Features Loudness is absolute, so a quiet verse stays quiet; use it for brightness, through its Level output for a 0–1 input. Audio Features Energy is relative to the last few seconds’ peak; use it for motion. Vibe Volume is relative to the song’s own average. Stereo Levels are absolute on a line input but follow the recent peak on a microphone.'
 
 const LIVE_ONLY = 'It reads FastLED’s own detector, so it needs live sound from a microphone, line input or the decoder. With no live source, or a recording made before the detector existed, every output reads zero or false.'
 
@@ -112,8 +112,8 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
   AudioFeatures: {
     overview: [
       'Audio Features listens for the shape of the music rather than individual hits. Vocals estimates how much voice-like midrange there is, Energy tracks how busy the sound is against the last few seconds, Loudness is how loud it actually is, and Silence goes true when the sound drops below the gate.',
-      'Loudness is the master intensity for a whole patch: it rests low in a quiet verse and climbs through the chorus, and the gain on the Audio node sets how loud counts as full. Energy adapts to the recent peak, so it stays lively through a quiet passage; use it for movement rather than brightness. Vocals can bring in a melodic layer when the singer comes in. Silence is the switch for between songs: dim, pause, or swap to a calm idle look.',
-      'Sensitivity scales Energy and Vocals, Silence Gate sets how quiet counts as silence, and Smoothing keeps the outputs from twitching.',
+      'Loudness is the master intensity for a whole patch: it rests low in a quiet verse and climbs through the chorus, and the gain on the Audio node sets how loud counts as full. It is the raw meter, though, and music heard by a microphone in a room uses only the bottom fifth of it, so for a 0–1 input such as brightness, a mix or a level use Level instead: the same loudness lifted by Sensitivity and eased over about 0.15 s. Energy adapts to the recent peak, so it stays lively through a quiet passage; use it for movement rather than brightness. Vocals can bring in a melodic layer when the singer comes in. Silence is the switch for between songs: dim, pause, or swap to a calm idle look.',
+      'Sensitivity scales Energy and Vocals and sets how far Level lifts Loudness, Silence Gate sets how quiet counts as silence, and Smoothing keeps the other outputs from twitching.',
       WHICH_LEVEL,
     ],
     inputs: {
@@ -122,10 +122,11 @@ export const AUDIO_REFERENCE: NodeReferenceMap = {
     outputs: {
       vocals: 'How voice-like the midrange is, 0 to 1. A heuristic, not a singer detector.',
       energy: 'How busy the sound is relative to the last few seconds, 0 to 1, smoothed.',
-      loudness: 'How loud the sound is, 0 to 1, from its level rather than its shape. Not smoothed; add a Smooth node to ease it.',
+      loudness: 'How loud the sound is, 0 to 1, from its level rather than its shape. The raw meter: not smoothed or lifted, so room music reads about 0.02 to 0.2. For a 0–1 input use Level.',
       silence: 'True while the loudness, eased by Smoothing, is below the Silence Gate.',
+      level: 'Loudness ready for a 0–1 input: lifted by Sensitivity, eased over about 0.15 s and held to 0–1. At the default Sensitivity, room music fills most of the range. Sensitivity 0 passes Loudness through, for a line input.',
     },
-    propertyNote: 'Silence follows the same absolute loudness as the Loudness output, so a quiet verse never counts as silence just because the chorus before it was loud. The Audio node’s gain sets how loud the sound reads.',
+    propertyNote: 'Silence follows the same absolute loudness as the Loudness output, so a quiet verse never counts as silence just because the chorus before it was loud. The Audio node’s gain sets how loud the sound reads, and Sensitivity how far Level lifts it.',
     example: example({
       featured: 'AudioFeatures',
       title: 'Settle into a calm breath between songs',

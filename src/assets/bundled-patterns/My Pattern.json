@@ -81,8 +81,8 @@
           "nodeType": "TurbulentBloom",
           "category": "pattern",
           "properties": {
-            "energy": 0.7,
-            "speed": 1,
+            "reactivity": 0.7,
+            "speed": 0.5,
             "palette": "party"
           },
           "inputs": [
@@ -102,7 +102,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -371,7 +371,7 @@
           "category": "math",
           "properties": {
             "mathOp": "multiply",
-            "a": 1,
+            "a": 0.5,
             "b": 1
           },
           "inputs": [
@@ -407,7 +407,7 @@
           "nodeType": "GroupInput",
           "category": "composite",
           "properties": {
-            "paramId": "energy"
+            "paramId": "reactivity"
           },
           "inputs": [],
           "outputs": [
@@ -604,7 +604,7 @@
         "source": "groupmul-group-1784766451037-energy-0",
         "sourceHandle": "result",
         "target": "TurbulentBloom-1784766182037",
-        "targetHandle": "energy"
+        "targetHandle": "reactivity"
       },
       {
         "id": "e-group-1784766451037-out",

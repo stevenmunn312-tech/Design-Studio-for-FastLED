@@ -810,12 +810,12 @@ describe('showGenerator', () => {
   })
 
   describe('buildPatternRenderers — group-input roles', () => {
-    // A group whose brightness is driven by an `energy` GroupInput.
-    const energyGroups = {
+    // A group whose brightness is driven by a `reactivity` GroupInput.
+    const reactivityGroups = {
       ge: {
         nodes: [
           node('white', 'SolidColor', { r: 255, g: 255, b: 255 }, [], [{ id: 'frame', dataType: 'frame' }]),
-          node('gi', 'GroupInput', { paramId: 'energy' }, [], [{ id: 'out', dataType: 'float' }]),
+          node('gi', 'GroupInput', { paramId: 'reactivity' }, [], [{ id: 'out', dataType: 'float' }]),
           node('bm', 'BrightnessMod', {}, [{ id: 'frame', dataType: 'frame' }, { id: 'brightness', dataType: 'float' }], [{ id: 'frame', dataType: 'frame' }]),
           node('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
         ],
@@ -828,19 +828,19 @@ describe('showGenerator', () => {
     } as unknown as GroupRegistry
 
     it('threads role params into render_pN and resolves the GroupInput to the param', () => {
-      const r = buildPatternRenderers(['ge'], energyGroups, ['energy'])
-      expect(r.params).toEqual(['energy'])
-      expect(r.functions[0]).toContain('void render_p0(uint32_t ms, float energy)')
-      expect(r.functions[0]).toContain('= energy;')   // GroupInput → param
-      const withAudio = buildPatternRenderers(['ge'], energyGroups, ['energy'], true)
-      expect(withAudio.functions[0]).toContain('= energy;') // explicit show role wins over audio alias
+      const r = buildPatternRenderers(['ge'], reactivityGroups, ['reactivity'])
+      expect(r.params).toEqual(['reactivity'])
+      expect(r.functions[0]).toContain('void render_p0(uint32_t ms, float reactivity)')
+      expect(r.functions[0]).toContain('= reactivity;')   // GroupInput → param
+      const withAudio = buildPatternRenderers(['ge'], reactivityGroups, ['reactivity'], true)
+      expect(withAudio.functions[0]).toContain('= reactivity;') // explicit show role wins over audio alias
     })
 
     it('strips group inputs and keeps the bare signature when roles are off', () => {
-      const r = buildPatternRenderers(['ge'], energyGroups)
+      const r = buildPatternRenderers(['ge'], reactivityGroups)
       expect(r.params).toEqual([])
       expect(r.functions[0]).toContain('void render_p0(uint32_t ms)')
-      expect(r.functions[0]).not.toContain('float energy')
+      expect(r.functions[0]).not.toContain('float reactivity')
       expect(r.functions[0]).not.toContain('n_gi_out')
     })
 
@@ -861,9 +861,9 @@ describe('showGenerator', () => {
       },
     } as unknown as GroupRegistry
 
-    it('threads energy + speed in order and resolves a speed GroupInput to the param', () => {
-      const r = buildPatternRenderers(['gs'], speedGroups, ['energy', 'speed'])
-      // No pattern reads energy, so only speed is threaded.
+    it('threads reactivity + speed in order and resolves a speed GroupInput to the param', () => {
+      const r = buildPatternRenderers(['gs'], speedGroups, ['reactivity', 'speed'])
+      // No pattern reads reactivity, so only speed is threaded.
       expect(r.params).toEqual(['speed'])
       expect(r.functions[0]).toContain('void render_p0(uint32_t ms, float speed)')
       expect(r.functions[0]).toContain('= speed;')   // GroupInput → speed param
@@ -963,11 +963,11 @@ describe('showGenerator', () => {
       expect(cpp).toContain('_sum += 0.0f;')              // no invented hardware signal
     })
 
-    it('follows host audio with an undriven energy role and binds no retired band names', () => {
+    it('follows host audio with an undriven reactivity role and binds no retired band names', () => {
       const inputGroups = {
         gi: {
           nodes: [
-            node('in', 'GroupInput', { paramId: 'energy' }, [], [{ id: 'out', dataType: 'float' }]),
+            node('in', 'GroupInput', { paramId: 'reactivity' }, [], [{ id: 'out', dataType: 'float' }]),
             node('old', 'GroupInput', { paramId: 'bass' }, [], [{ id: 'out', dataType: 'float' }]),
             node('bp', 'BassPulse', {}, [{ id: 'bass', dataType: 'float' }], [{ id: 'frame', dataType: 'frame' }]),
             node('go', 'GroupOutput'),

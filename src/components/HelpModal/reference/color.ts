@@ -100,7 +100,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
       title: 'Choose the colour of a gravity well',
       nodes: {
         swatch: ['Color', { color: '#ff7a1a' }],
-        well: ['GravityWell', { speed: 0.6, colorSource: 'solid' }],
+        well: ['GravityWell', { speed: 0.3, colorSource: 'solid' }],
       },
       wires: ['swatch.color > well.color'],
       explanation: 'Color supplies a single orange, and Gravity Well paints its bunching rings with it. Click the swatch on Color and pick another colour: the rings change at once.',

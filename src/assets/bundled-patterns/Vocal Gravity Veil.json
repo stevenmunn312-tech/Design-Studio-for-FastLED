@@ -227,8 +227,8 @@
      "nodeType": "GravityWell",
      "category": "pattern",
      "properties": {
-      "energy": 0.9,
-      "speed": 0.9,
+      "reactivity": 0.9,
+      "speed": 0.45,
       "r": 255,
       "g": 90,
       "b": 220,
@@ -241,7 +241,7 @@
        "dataType": "float"
       },
       {
-       "id": "energy",
+       "id": "reactivity",
        "label": "Energy",
        "dataType": "float"
       },
@@ -277,8 +277,8 @@
      "nodeType": "VocalAurora",
      "category": "pattern",
      "properties": {
-      "energy": 0.9,
-      "speed": 0.7,
+      "reactivity": 0.9,
+      "speed": 0.35,
       "palette": "aurora"
      },
      "inputs": [
@@ -288,7 +288,7 @@
        "dataType": "float"
       },
       {
-       "id": "energy",
+       "id": "reactivity",
        "label": "Energy",
        "dataType": "float"
       },
@@ -796,7 +796,7 @@
     "source": "feat",
     "sourceHandle": "energy",
     "target": "well",
-    "targetHandle": "energy",
+    "targetHandle": "reactivity",
     "type": "glowEdge",
     "reconnectable": "target"
    },
@@ -814,7 +814,7 @@
     "source": "feat",
     "sourceHandle": "energy",
     "target": "aur",
-    "targetHandle": "energy",
+    "targetHandle": "reactivity",
     "type": "glowEdge",
     "reconnectable": "target"
    },

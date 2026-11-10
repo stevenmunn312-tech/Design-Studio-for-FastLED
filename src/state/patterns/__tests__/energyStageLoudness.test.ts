@@ -83,7 +83,7 @@ function brightnessTrace(saved: SavedPattern, pcm: Float32Array): { t: number; b
     const total = spectrum.reduce((a, b) => a + b, 0) / spectrum.length
     const boundInputs: Record<string, PortValue> = {
       bass: r.bass, mids: r.mids, treble: r.treble, kick: r.bass, snare: r.mids, hihat: r.treble, vocals: r.mids,
-      energy: total, beat: r.beat, silence: total < 0.02,
+      reactivity: total, beat: r.beat, silence: total < 0.02,
     }
     for (const n of saved.subgraph.nodes) {
       if (String((n.data as { nodeType?: unknown }).nodeType) !== 'GroupInput' || !groupInputIsAudioTyped(n)) continue
