@@ -592,81 +592,6 @@ def _drain_compile(gen):
         return lines, stop.value
 
 
-def _fbuild_lvgl_archive_command(lines, env, toolchain_root=None):
-    """Recognize only fbuild's Windows LVGL archiver spawn failure.
-
-    fbuild through 2.5.26 passes every object on the command line (library_compiler.rs,
-    archive_objects), exceeding CreateProcess's limit for LVGL 9.5.0. Restrict
-    recovery to existing objects in this environment and an installed fbuild
-    toolchain; compiler diagnostics must never become arbitrary commands.
-    """
-    root = toolchain._FBUILD_PROJECT_DIR.resolve()
-    library = (root / ".fbuild" / "build" / env / "release" / "lib" / "lvgl").resolve()
-    if not library.is_relative_to(root):
-        return None
-    cache = (toolchain_root or Path.home() / ".fbuild").resolve()
-    marker = "local library 'lvgl' failed to compile: failed to spawn "
-    for line in lines:
-        if marker not in line or "os error 206" not in line:
-            continue
-        try:
-            args, _ = json.JSONDecoder().raw_decode(line.split(marker, 1)[1])
-            if not isinstance(args, list) or len(args) < 4 or not all(isinstance(arg, str) for arg in args):
-                continue
-            ar = Path(args[0]).resolve()
-            if not ar.is_relative_to(cache) or "toolchains" not in ar.parts or not ar.is_file():
-                continue
-            if not re.fullmatch(r"[a-zA-Z0-9_-]+-ar\.exe", ar.name) or args[1] != "rcs":
-                continue
-            archive = (root / args[2]).resolve()
-            objects = [(root / arg).resolve() for arg in args[3:]]
-            if archive != library / "liblvgl.a" or not objects:
-                continue
-            if any(obj.parent != library / "obj" or obj.suffix != ".o" or not obj.is_file() for obj in objects):
-                continue
-            return ar, archive, objects
-        except (ValueError, OSError, TypeError):
-            continue
-    return None
-
-
-def _recover_fbuild_lvgl_archive(lines, env):
-    if platform.system() != "Windows":
-        return False
-    command = _fbuild_lvgl_archive_command(lines, env)
-    if command is None:
-        return False
-    ar, archive, objects = command
-    response = archive.parent / "lvgl-objects.rsp"
-    # GCC response files accept quoted forward-slash paths, including spaces.
-    response.write_text("\n".join(f'"{obj.as_posix()}"' for obj in objects) + "\n", encoding="utf-8")
-    yield "\n  [build] Archiving LVGL with a response file for the Windows command-length limit.\n"
-    rc = yield from toolchain._run_phase("archive LVGL", [str(ar), "rcs", str(archive), f"@{response}"], cwd=toolchain._FBUILD_PROJECT_DIR)
-    return rc == 0
-
-
-def _run_fbuild_compile(label, env, sink):
-    """Stream compilation, deferring its failure status until recovery is tried.
-
-    The upload UI treats any nonzero phase-exit marker as a final error. Keep
-    the diagnostics visible but don't report a recoverable archive attempt as
-    the outcome of the whole upload.
-    """
-    phase_label = f"{label} · compile"
-    phase = toolchain._run_phase(phase_label, [toolchain._FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"],
-                       sink=sink, cwd=toolchain._FBUILD_PROJECT_DIR)
-    deferred = []
-    try:
-        while True:
-            line = next(phase)
-            if line.startswith(f"[{phase_label} exit code:") and not line.startswith(f"[{phase_label} exit code: 0 "):
-                deferred.append(line)
-            else:
-                yield line
-    except StopIteration as stop:
-        return stop.value, deferred
-
-
 @toolchain._reports_total_time
 def _compile_upload_fbuild(
     label, ino, fqbn, port, flash_mb=None, usb_cdc=False, reuse_compiled: bool = False,
@@ -759,16 +684,10 @@ def _compile_upload_fbuild(
                 toolchain._write_fbuild_main(ino, files)
             else:
                 toolchain._write_fbuild_main(ino)
-            rc, deferred = yield from _run_fbuild_compile(label, env, compile_lines)
-            if rc != 0 and not toolchain._build_was_cancelled() and (yield from _recover_fbuild_lvgl_archive(compile_lines, env)):
-                # fbuild reuses the now-current archive and completes its own
-                # link, capacity report and binary generation. Retry once only.
-                rc = yield from toolchain._run_phase(
-                    f"{label} · compile", [toolchain._FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"],
-                    sink=compile_lines, cwd=toolchain._FBUILD_PROJECT_DIR,
-                )
-            else:
-                yield from deferred
+            rc = yield from toolchain._run_phase(
+                f"{label} · compile", [toolchain._FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"],
+                sink=compile_lines, cwd=toolchain._FBUILD_PROJECT_DIR,
+            )
             if rc != 0:
                 if _looks_like_overflow(compile_lines):
                     yield _overflow_message(fqbn, compile_lines)

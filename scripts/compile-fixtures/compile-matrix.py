@@ -850,9 +850,6 @@ def main() -> int:
             if not passed:
                 failures += 1
                 note = first_error(build_log) or first_error(runner_log)
-            if leg.engine == "fbuild" and "response file for the Windows command-length limit" in (
-                    build_log.read_text(encoding="utf-8", errors="replace") if build_log.exists() else ""):
-                note = (note + "; " if note else "") + "LVGL archive needed the §12 response-file recovery"
             flash, ram = sizes(report)
             old_flash, old_ram = sizes(baseline)
             rows.append({
