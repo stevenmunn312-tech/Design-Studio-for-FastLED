@@ -191,7 +191,7 @@ as on one board.
   last value, so a Board 2 reset does not change the LEDs. Momentary levels
   fall to false, the Web Remote's rule for a held phone button. A linked
   display signal becomes absent, so the panel draws its existing
-  "WAITING FOR A SIGNAL" screen, which is how the user sees the other board is
+  "WAITING FOR SIGNAL" screen, which is how the user sees the other board is
   gone.
 
 ## The protocol

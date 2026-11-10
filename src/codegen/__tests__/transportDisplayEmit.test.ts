@@ -116,7 +116,7 @@ describe('what the loop draws', () => {
       const src = build({ tftLayout })
       const g = transportWaitingGeometry(240, 240)
       expect(src).toContain(`${g.message.y}, ${g.message.w}, ${g.message.h}, ${g.message.scale},`)
-      expect(src).toContain('"WAITING FOR A SIGNAL"')
+      expect(src).toContain('"WAITING FOR SIGNAL"')
     },
   )
 

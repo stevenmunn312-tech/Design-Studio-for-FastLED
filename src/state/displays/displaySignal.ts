@@ -78,7 +78,13 @@ export function isDisplaySignal(value: unknown): value is DisplaySignal {
  * render words, so it says the same thing in the vocabulary it has — dashes,
  * which is already how it reports a reading it does not trust.
  */
-export const DISPLAY_WAITING_TEXT = 'WAITING FOR A SIGNAL'
+export const DISPLAY_WAITING_TEXT = 'WAITING FOR SIGNAL'
+
+/**
+ * The row under it: what to do about it. Short enough for a 128-pixel OLED
+ * row, which holds 20 characters.
+ */
+export const DISPLAY_WAITING_HINT = 'WIRE DISPLAY INPUT'
 
 /** The label a source's node carries, for an error that has to name it. */
 export const DISPLAY_SOURCE_LABELS: Record<DisplaySignalKind, string> = {

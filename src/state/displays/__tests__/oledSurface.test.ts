@@ -104,24 +104,24 @@ describe('surface', () => {
 
 describe('text', () => {
   it('measures with the shared font metrics', () => {
-    // 3px glyphs with 1px spacing: n*4 - 1.
-    expect(oledTextWidth('A')).toBe(3)
-    expect(oledTextWidth('AB')).toBe(7)
+    // 5px glyphs with 1px spacing: n*6 - 1.
+    expect(oledTextWidth('A')).toBe(5)
+    expect(oledTextWidth('AB')).toBe(11)
     expect(oledTextWidth('')).toBe(0)
   })
 
   it('reports how many characters fit a width', () => {
-    expect(oledTextCapacity(3)).toBe(1)
-    expect(oledTextCapacity(7)).toBe(2)
-    expect(oledTextCapacity(2)).toBe(0)
-    // A 128px row at 4px per character.
-    expect(oledTextCapacity(124)).toBe(31)
+    expect(oledTextCapacity(5)).toBe(1)
+    expect(oledTextCapacity(11)).toBe(2)
+    expect(oledTextCapacity(4)).toBe(0)
+    // A 128px row at 6px per character.
+    expect(oledTextCapacity(124)).toBe(20)
   })
 
   it('draws text and reports the width it used', () => {
     const surface = createOledSurface(sh1106)
     const width = drawOledText(surface, 0, 0, 'A')
-    expect(width).toBe(3)
+    expect(width).toBe(5)
     expect(litCount(surface)).toBeGreaterThan(0)
   })
 
@@ -144,8 +144,9 @@ describe('text', () => {
   })
 
   it('folds to the glyphs the shared font can draw', () => {
-    // Lower case folds up; '@' has no glyph and becomes the fallback.
-    expect(fitOledText('ab@', 124)).toBe('AB?')
+    // Lower case is the font's own and is kept; a character with no glyph
+    // becomes the fallback.
+    expect(fitOledText('ab\u00e9', 124)).toBe('ab?')
   })
 
   it('keeps the separator an elapsed/duration row needs', () => {

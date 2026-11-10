@@ -29,7 +29,7 @@ import {
   type TftRotation,
 } from '../../state/displays/tftSurface'
 import { TELEMETRY_TOUCH_INTERVAL_MS } from '../../state/upload/deviceTelemetry'
-import { FONT_W, FONT_H } from '../../nodes/shared/font'
+import { DISPLAY_FONT } from '../../state/displays/displayFont'
 import { emittedTouchBounds } from '../../state/displays/transportTouch'
 import { telemetryTouchSampleCpp } from '../deviceTelemetryCpp'
 import {
@@ -73,13 +73,15 @@ export interface TouchCalibrationSketchTarget {
  *  small enough that its centre is near the extreme being measured. */
 const TARGET = 28
 
+const { w: FONT_W, h: FONT_H } = DISPLAY_FONT
+
 /** Half-width of the dot left where a press landed. */
 const MARK = 2
 
 /**
  * Text metrics, from the same constants the emitted `_tftTextWidth` uses.
  *
- * The 3x5 font at scale 1 is five pixels tall on a panel 320 pixels high —
+ * The display font at scale 1 is eight pixels tall on a panel 320 pixels high —
  * legible in a screenshot and not at arm's length, which is where this is
  * read from. So the instruction is sized to the glass rather than left at the
  * default the fixed layouts use for fields that must fit a stranger's title.

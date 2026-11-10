@@ -35,7 +35,9 @@ import {
   type TftRotation,
   type TftSurface,
 } from '../tftSurface'
-import { FONT_H, FONT_W } from '../../../nodes/shared/font'
+import { DISPLAY_FONT } from '../displayFont'
+
+const { w: FONT_W, h: FONT_H } = DISPLAY_FONT
 
 const st7789 = TFT_CONTROLLERS.ST7789
 const st7789v = TFT_CONTROLLERS.ST7789V
@@ -305,7 +307,8 @@ describe('text metrics', () => {
   // ID3 tag looks the same on every panel in the build.
   it('folds a character the shared font cannot draw', () => {
     expect(fitTftText('AéB', 1000, 1)).toBe('A?B')
-    expect(fitTftText('abc', 1000, 1)).toBe('ABC')
+    // Lower case is the font's own, so it is kept rather than folded up.
+    expect(fitTftText('abc', 1000, 1)).toBe('abc')
   })
 })
 
@@ -343,13 +346,13 @@ describe('fields', () => {
   // leave the tail of a longer string behind and nothing would notice.
   it('erases its whole cell before drawing', () => {
     const surface = createTftSurface(100, 20)
-    drawTftField(surface, cell('left'), 'LONGER TEXT', WHITE, 0)
+    drawTftField(surface, cell('left'), 'HHHH', WHITE, 0)
     const before = litCount(surface)
     expect(before).toBeGreaterThan(0)
-    drawTftField(surface, cell('left'), 'HI', WHITE, 0)
+    drawTftField(surface, cell('left'), 'I', WHITE, 0)
     expect(litCount(surface)).toBeLessThan(before)
     // Nothing of the first string survives past the second one's glyphs.
-    expect(getTftPixel(surface, 10 + tftTextWidth('HI', 2) + 8, 8)).toBe(0)
+    expect(getTftPixel(surface, 10 + tftTextWidth('I', 2) + 8, 8)).toBe(0)
   })
 
   it('paints the background even when there is nothing to say', () => {

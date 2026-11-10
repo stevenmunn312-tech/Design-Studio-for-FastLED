@@ -1382,7 +1382,7 @@ describe('displays in a show controller', () => {
     expect(cpp).toContain('_oledBeginSpi(_oled_oled,')
     expect(cpp).toContain('_segBegin(_seg_seg,')
     expect(cpp).toContain('_tftBegin(_tft_tft,')
-    expect(cpp).toContain('"Design Studio for FastLED"')
+    expect(cpp).toContain('"Design Studio"')
     expect(cpp).toContain('"STARTING 3/6"')
     expect(cpp).toContain('"FASTLED"')
     expect(cpp).toContain('"READY 6/6"')

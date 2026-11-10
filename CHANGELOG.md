@@ -27,6 +27,14 @@ versioning (`0.y.z`) until the first stable release.
   measurements from a board. The Pattern Collection picker shows the cost,
   sorts by render weight or estimated RAM, and has a Hide heavy chip.
   Existing scores are rescanned to pick up the render weight.
+- OLED and colour TFT fixed layouts draw in a 5x8 font with lower case, so a
+  track title or pattern name reads as it was written. There is no Font
+  property: the layouts were re-measured for the one font. An OLED row now
+  holds 20 characters rather than 31, the boot card is titled "Design
+  Studio", and an unwired panel reads "WAITING FOR SIGNAL / WIRE DISPLAY
+  INPUT". On a colour TFT every row of words is 16 pixels tall, and the
+  clock time and an LED output's level are larger. Not yet compiled or seen
+  on a panel.
 - The Add patterns picker on a Pattern Collection suggests running Pattern
   Insights when the library holds patterns with no current Studio Score. The
   suggestion is a strip in the picker: it can be dismissed, the scan can be

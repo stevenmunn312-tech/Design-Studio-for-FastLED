@@ -11,7 +11,10 @@ import {
   type TftDisplayEmit,
 } from '../tftDisplayCpp'
 import { cppStringLiteral } from '../../../state/displays/displayText'
-import { DEFAULT_FONT, FONT_H, FONT_W } from '../../../nodes/shared/font'
+import { DISPLAY_FONT } from '../../../state/displays/displayFont'
+
+const { w: FONT_W, h: FONT_H } = DISPLAY_FONT
+const DEFAULT_FONT = DISPLAY_FONT
 import {
   TFT_CONTROLLERS, TFT_ROTATIONS, tftMadctl, tftRotatedSize, tftWindowOrigin,
   type TftRotation,
@@ -139,7 +142,11 @@ describe('the emitted driver', () => {
   // Generated C++ lives inside a TypeScript template literal, where a backtick
   // in a comment terminates the template. It has cost this repo a build twice.
   it('contains no backtick that would terminate its own template', () => {
-    expect(helpers).not.toContain('`')
+    // The glyph list is the one place a backtick belongs: it is a character
+    // the font draws, and it arrives by interpolation, not in the template.
+    const withoutGlyphList = helpers.split('\n')
+      .filter((line) => !line.startsWith('static const char _tftChars[]')).join('\n')
+    expect(withoutGlyphList).not.toContain('`')
   })
 
   // Fixed buffers and snprintf in generated loop code, never an Arduino String

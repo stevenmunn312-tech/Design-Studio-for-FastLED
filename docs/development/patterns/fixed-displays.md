@@ -463,6 +463,21 @@ and touch transaction boundaries; physical coexistence still needs a bench run.
 
 ## Layout invariants and golden tests
 
+- **One font, no Font property.** Every fixed layout, OLED and colour TFT,
+  draws in `DISPLAY_FONT` (`src/state/displays/displayFont.ts`, 5x8 with lower
+  case), and both drivers emit their glyph table from it through
+  `displayFontTableCpp`. A fixed layout is measured against its font, so a
+  second font means measuring every layout again: a panel that wants a choice
+  mounts a screen design. The numbers that follow from it: an OLED row is 6
+  pixels a character, so 128 pixels hold 20, and a fixed string longer than
+  that is cut on the glass (`INFO_BOOT_TITLE` and `DISPLAY_WAITING_HINT` are
+  the short forms for that reason). On a TFT `bodyScale` and `headingScale`
+  are both 2: at 1 the type is 8 pixels tall and at 3 a title is cut to 12
+  characters, so a heading is told apart by colour and position.
+  `numeralScale` 3 is only for a short reading of known length. Fixed words
+  stay in capitals; text from a source keeps its case, and
+  `displayGlyphFoldCpp` is what stops the firmware folding it. The font may be
+  at most eight rows tall, a byte a column.
 - A fixed display layout is frozen with golden-vector tests the same way the VU
   meter's cross-language twin is (see
   [audio levels](player-shows-and-controls.md#audio-levels)), extended from one

@@ -11,46 +11,20 @@ import { POWER_MONITOR_FIELDS, POWER_MONITOR_UNITS } from '../../state/periphera
 // typed twice is a margin that disagrees, and the whole point of the shared
 // layout module is that the panel matches its preview.
 
-import { DEFAULT_FONT, FONT_H, FONT_W } from '../../nodes/shared/font'
+import { DISPLAY_FONT } from '../../state/displays/displayFont'
+import { displayFontTableCpp, displayGlyphFoldCpp } from './displayFontCpp'
 import {
   INFO_BOOT_STAGE_MIN_MS, INFO_BOOT_TITLE, bootStatusGeometry,
   powerMonitorGeometry, browserGeometry, clockGeometry, ledStatusGeometry, nowPlayingGeometry, waitingGeometry,
   type InfoDisplayLayout,
 } from '../../state/displays/infoDisplay'
 import { ledStatusCountText } from '../../state/output/ledOutputRuntime'
-import { DISPLAY_WAITING_TEXT } from '../../state/displays/displaySignal'
+import { DISPLAY_WAITING_HINT, DISPLAY_WAITING_TEXT } from '../../state/displays/displaySignal'
 import {
   OLED_LETTER_SPACING, OLED_PAGE_HEIGHT,
   type OledController, type OledTransport,
 } from '../../state/displays/oledSurface'
 import { cppStringLiteral } from '../../state/displays/displayText'
-
-/**
- * The shared bitmap font as a flat column table.
- *
- * Generated from the same `FONT` the preview draws with, so a glyph cannot
- * differ between the two. Characters outside the table render as the fallback,
- * exactly as `coerceGlyphs` does in the browser.
- */
-function fontTableCpp(): { chars: string; table: string; count: number } {
-  const glyphs = Object.keys(DEFAULT_FONT.glyphs).filter((ch) => ch.length === 1).sort()
-  const columns: number[] = []
-  for (const ch of glyphs) {
-    const rows = DEFAULT_FONT.glyphs[ch]
-    for (let c = 0; c < FONT_W; c++) {
-      let column = 0
-      for (let r = 0; r < FONT_H; r++) {
-        if ((rows[r] ?? 0) & (1 << (FONT_W - 1 - c))) column |= 1 << r
-      }
-      columns.push(column)
-    }
-  }
-  return {
-    chars: cppStringLiteral(glyphs.join('')),
-    table: columns.map((c) => `0x${c.toString(16).padStart(2, '0')}`).join(', '),
-    count: glyphs.length,
-  }
-}
 
 /** Driver, primitives and the glyph table, emitted once per sketch. */
 /**
@@ -111,7 +85,7 @@ export const OLED_PANEL_RAM_BYTES =
 
 
 export function infoDisplayHelpersCpp(): string {
-  const font = fontTableCpp()
+  const font = displayFontTableCpp()
   return `// ── 1-bit OLED (SH1106 / SSD1306) ───────────────────────────────────────────
 // Mirrors src/state/displays/oledSurface.ts and src/state/displays/infoDisplay.ts so the panel
 // draws what the preview drew.
@@ -121,8 +95,8 @@ export function infoDisplayHelpersCpp(): string {
 #define OLED_MAX_H    ${OLED_MAX_HEIGHT}
 #define OLED_PAGE_H   ${OLED_PAGE_HEIGHT}
 #define OLED_MAX_PAGES (OLED_MAX_H / OLED_PAGE_H)
-#define OLED_FONT_W   ${FONT_W}
-#define OLED_FONT_H   ${FONT_H}
+#define OLED_FONT_W   ${DISPLAY_FONT.w}
+#define OLED_FONT_H   ${DISPLAY_FONT.h}
 #define OLED_SPACING  ${OLED_LETTER_SPACING}
 // Longest gap between pushes when nothing changed, so a panel that was
 // unplugged and returned redraws itself without the loop polling it.
@@ -321,8 +295,7 @@ static void _oledPixel(OledPanel &p, int x, int y) {
 }
 
 static int _oledGlyphIndex(char c) {
-  if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
-  for (int i = 0; _oledChars[i] != 0; i++) if (_oledChars[i] == c) return i;
+${displayGlyphFoldCpp()}  for (int i = 0; _oledChars[i] != 0; i++) if (_oledChars[i] == c) return i;
   return -1;
 }
 
@@ -499,9 +472,7 @@ function infoBootDrawCpp(
     `      _oledFit(${buf}, sizeof(${buf}), ${value}, ${field.w});`,
     `      _oledText(${p}, max(${field.x}, (${display.width} - _oledTextWidth(${buf})) / 2), ${field.y}, ${buf});`,
   ]
-  const lines = [
-    ...centred(g.title, cppStringLiteral(INFO_BOOT_TITLE)),
-  ]
+  const lines = g.title ? centred(g.title, cppStringLiteral(INFO_BOOT_TITLE)) : []
   if (g.subtitle && g.subtitle.y !== g.state.y) {
     lines.push(...centred(g.subtitle, cppStringLiteral(display.boot.project)))
   }
@@ -736,7 +707,7 @@ export function infoDisplayLoopCpp(display: InfoDisplayEmit): string[] {
       `        snprintf(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "%u/%u", ` +
         `(unsigned)(_oledSel_${display.id} + 1), (unsigned)${count});`,
       `        _oledText(${p}, ${g.ordinal.x}, ${g.ordinal.y}, _oledBuf_${display.id});`,
-      // A word, not a glyph: the shared 3x5 font has no tick or triangle.
+      // A word, not a glyph: the display font has no tick or triangle.
       `        _oledText(${p}, ${g.status.x}, ${g.status.y}, "PLAYING");`,
       `      }`,
     )
@@ -792,7 +763,7 @@ function infoWaitingLines(display: InfoDisplayEmit): string[] {
     `      _oledText(${p}, max(${g.message.x}, (${width} - _oledTextWidth(_oledBuf_${display.id})) / 2), ${g.message.y}, _oledBuf_${display.id});`,
   ]
   if (g.hint) lines.push(
-    `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), "WIRE A SOURCE TO DISPLAY", ${g.hint.w});`,
+    `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), ${cppStringLiteral(DISPLAY_WAITING_HINT)}, ${g.hint.w});`,
     `      _oledText(${p}, max(${g.hint.x}, (${width} - _oledTextWidth(_oledBuf_${display.id})) / 2), ${g.hint.y}, _oledBuf_${display.id});`,
   )
   return lines

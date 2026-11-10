@@ -28,7 +28,7 @@ import {
 import { formatTransportTime } from '../player/transportBridge'
 import { displayString } from './displayText'
 import { ledStatusCountText, ledStatusLevelText } from '../output/ledOutputRuntime'
-import { DISPLAY_WAITING_TEXT, type DisplaySignalKind } from './displaySignal'
+import { DISPLAY_WAITING_HINT, DISPLAY_WAITING_TEXT, type DisplaySignalKind } from './displaySignal'
 
 export const TRANSPORT_DISPLAY_LAYOUTS = [
   'Waiting', 'Clock', 'Now Playing', 'Fixed Transport', 'Show Status', 'LED Status', 'Power Monitor', 'Diagnostics',
@@ -122,17 +122,22 @@ export function transportLayoutForKind(
 /**
  * The pixel vocabulary both layouts are built from.
  *
- * Text scales are integer repeats of the shared 3x5 font: 2 is a readable
- * body row at arm's length on a 240-pixel panel and 3 is a heading. Anything
- * finer would need a second font in flash and a second glyph table to keep in
- * step with the LED matrix.
+ * Text scales are integer repeats of the display font (`displayFont.ts`), 5x8
+ * with lower case. At 2 a row is 16 pixels tall and a 240-pixel panel holds 18
+ * characters, which is the size every row of words uses: at 1 the font is 8
+ * pixels tall, too small to read at arm's length, and at 3 a title is cut to
+ * 12 characters. A heading is therefore told apart by colour and position,
+ * not by size. `numeralScale` is for a short reading of known length, the
+ * clock's time and a fixture's level, which can afford to be the largest
+ * thing on the glass.
  */
 export const TRANSPORT_METRICS = {
   margin: 8,
   /** Vertical gap between stacked rows. */
   rowGap: 6,
   bodyScale: 2,
-  headingScale: 3,
+  headingScale: 2,
+  numeralScale: 3,
   barHeight: 12,
   /** Space between the picture and the text under it. */
   artGap: 12,
@@ -302,7 +307,7 @@ export function drawTransportWaiting(surface: TftSurface): void {
   const g = transportWaitingGeometry(surface.width, surface.height)
   const c = TRANSPORT_COLORS
   drawTftField(surface, g.message, DISPLAY_WAITING_TEXT, c.text, c.background)
-  if (g.hint) drawTftField(surface, g.hint, 'WIRE A SOURCE TO DISPLAY', c.dim, c.background)
+  if (g.hint) drawTftField(surface, g.hint, DISPLAY_WAITING_HINT, c.dim, c.background)
 }
 
 // ── Now Playing ─────────────────────────────────────────────────────────────
@@ -363,12 +368,18 @@ export function nowPlayingGeometry(width: number, height: number): NowPlayingGeo
   const progressY = timesY - M.rowGap - M.barHeight
 
   // The picture and its three text rows, centred in the space that remains.
-  const groupH = TRANSPORT_PICTURE_H + M.artGap + headingH + M.rowGap + bodyH + M.rowGap + bodyH
+  // A panel 240 pixels tall has no slack for the group at its preferred
+  // spacing, so the gap under the picture closes first: the rows of words
+  // keep their pitch and the last one stays a row gap clear of the bar.
   const region = progressY - M.margin
-  const topY = M.margin + Math.max(0, Math.floor((region - groupH) / 2))
+  const rows = headingH + M.rowGap + bodyH + M.rowGap + bodyH
+  const short = Math.max(0, TRANSPORT_PICTURE_H + M.artGap + rows + M.rowGap - region)
+  const artGap = Math.max(M.rowGap, M.artGap - short)
+  const groupH = TRANSPORT_PICTURE_H + artGap + rows
+  const topY = M.margin + Math.max(0, Math.floor((region - groupH - M.rowGap) / 2))
 
   const artX = M.margin + Math.max(0, Math.floor((inner - TRANSPORT_PICTURE_W) / 2))
-  const titleY = topY + TRANSPORT_PICTURE_H + M.artGap
+  const titleY = topY + TRANSPORT_PICTURE_H + artGap
   const artistY = titleY + headingH + M.rowGap
   const patternY = artistY + bodyH + M.rowGap
 
@@ -376,7 +387,9 @@ export function nowPlayingGeometry(width: number, height: number): NowPlayingGeo
   // whatever is left. Sized from the widest word so PLAY and PAUSE do not
   // move the volume bar under them.
   const stateW = Math.max(...STATE_WORDS.map((word) => tftTextWidth(word, M.bodyScale)))
-  const volumeLabelX = M.margin + stateW + M.rowGap
+  // A space of the row's own type between the two words, so PAUSE and VOL
+  // read as two words rather than one.
+  const volumeLabelX = M.margin + stateW + tftTextWidth(' ', M.bodyScale)
   const volumeLabelW = tftTextWidth(VOLUME_LABEL, M.bodyScale)
   const volumeX = volumeLabelX + volumeLabelW + M.rowGap
 
@@ -703,14 +716,14 @@ export function ledStatusGeometry(width: number, height: number): LedStatusGeome
 
   const nameY = M.margin
   const fixtureY = nameY + headingH + M.rowGap
-  const levelY = height - M.margin - headingH
+  const levelY = height - M.margin - tftTextHeight(M.numeralScale)
   const stateY = levelY - M.rowGap - bodyH
 
   return {
     name: field(M.margin, nameY, inner, M.headingScale, 'left'),
     fixture: field(M.margin, fixtureY, inner, M.bodyScale, 'left'),
     state: field(M.margin, stateY, inner, M.bodyScale, 'left'),
-    level: field(M.margin, levelY, inner, M.headingScale, 'left'),
+    level: field(M.margin, levelY, inner, M.numeralScale, 'left'),
   }
 }
 
@@ -841,13 +854,13 @@ export interface ClockGeometry {
  */
 export function transportClockGeometry(width: number, height: number): ClockGeometry {
   const inner = width - (M.margin * 2)
-  const timeH = tftTextHeight(M.headingScale)
+  const timeH = tftTextHeight(M.numeralScale)
   const dateH = tftTextHeight(M.bodyScale)
   const statusH = tftTextHeight(M.bodyScale)
   const blockH = timeH + M.rowGap + dateH + M.rowGap + statusH
   const top = Math.max(M.margin, Math.floor((height - blockH) / 2))
   return {
-    time: field(M.margin, top, inner, M.headingScale, 'center'),
+    time: field(M.margin, top, inner, M.numeralScale, 'center'),
     date: field(M.margin, top + timeH + M.rowGap, inner, M.bodyScale, 'center'),
     status: field(M.margin, top + timeH + M.rowGap + dateH + M.rowGap, inner, M.bodyScale, 'center'),
   }

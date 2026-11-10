@@ -64,7 +64,7 @@ describe('displays in the player sketch', () => {
       bootLabel: 'Aurora Wall',
       deviceLabel: 'XIAO ESP32S3',
     })
-    expect(sketch).toContain('"Design Studio for FastLED"')
+    expect(sketch).toContain('"Design Studio"')
     expect(sketch).toContain('"Aurora Wall"')
     expect(sketch).toContain('"XIAO ESP32S3"')
     expect(sketch).toContain('"STARTING 3/6"')

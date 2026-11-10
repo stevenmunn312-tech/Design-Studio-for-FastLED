@@ -180,12 +180,12 @@ Generator playing only in the main preview, and the Music Player and
 Music-synced SD Show starters opening with twenty Exceptional patterns and
 the demo track analysed. What is left:
 
-- [ ] **Bitmap fonts on OLED and fixed TFT displays (M).** Not a select
-  away: the OLED row pitch (`infoDisplay.ts`), the TFT body and heading
-  scales (`transportDisplay.ts`), the single `OLED_FONT_W`/`TFT_FONT_W`
-  constants and the capitals-only draw routine all assume the 3x5 font.
-  Needs the fixed layouts re-measured per font. `oledSurface.ts` and
-  `tftSurface.ts` already take a font and handle lower case.
+- [ ] **See the 5x8 fixed-display font on glass (S).** Landed 2026-11-11
+  with no Font property: every OLED and colour TFT fixed layout now draws
+  in 5x8 with lower case (`displayFont.ts`). Judged on
+  `npm run gen:display-sheets` only. Check on a 128x64 OLED and a 240x320
+  TFT that 16-pixel rows read well, and that a 20-character OLED row is
+  enough for track titles.
 - [ ] **Look at the new fonts on LEDs (S).** The 4x6, 5x8 and 6x8 glyphs
   were judged as text renders only. In 4x6, `0` and `O` share a drawing and
   `m` and `w` are compromises.

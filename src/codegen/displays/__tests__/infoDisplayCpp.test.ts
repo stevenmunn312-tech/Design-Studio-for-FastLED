@@ -5,7 +5,10 @@ import { infoDisplayHelpersCpp } from '../infoDisplayCpp'
 import { cppStringLiteral } from '../../../state/displays/displayText'
 import { INFO_LAYOUT, clockGeometry } from '../../../state/displays/infoDisplay'
 import { OLED_CONTROLLERS } from '../../../state/displays/oledSurface'
-import { FONT_W, FONT_H, DEFAULT_FONT } from '../../../nodes/shared/font'
+import { DISPLAY_FONT } from '../../../state/displays/displayFont'
+
+const { w: FONT_W, h: FONT_H } = DISPLAY_FONT
+const DEFAULT_FONT = DISPLAY_FONT
 
 function node(id: string, nodeType: string, category: string, props: Record<string, unknown> = {}): StudioNode {
   return {
@@ -89,7 +92,7 @@ describe('generateCpp with an OLED', () => {
     const src = generateCpp([board, outputNode, oled()], [], {}, { bootLabel: 'Aurora "Wall"' })
     expect(src).toContain('"Aurora \\"Wall\\""')
     expect(src).toContain('"Seeed Studio XIAO ESP32S3"')
-    expect(src).toContain('"Design Studio for FastLED"')
+    expect(src).toContain('"Design Studio"')
     expect(src).toContain('"STARTING 1/6"')
     expect(src).toContain('"STARTING 3/6"')
     expect(src).toContain('"READY 6/6"')
@@ -163,7 +166,7 @@ describe('generateCpp with an OLED', () => {
     expect(generateCpp(clock, [edge('e', 'rtc', 'oled', 'display', 'display')])).toContain('"NO CLOCK"')
 
     const waiting = generateCpp([outputNode, oled()], [])
-    expect(waiting).toContain('"WAITING FOR A SIGNAL"')
+    expect(waiting).toContain('"WAITING FOR SIGNAL"')
     expect(waiting).not.toContain('"NO CLOCK"')
   })
 

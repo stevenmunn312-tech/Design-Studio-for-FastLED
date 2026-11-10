@@ -3,616 +3,616 @@
     "width": 240,
     "height": 240,
     "colors": 3,
-    "coverage": 2.63,
-    "hash": "76709085"
+    "coverage": 3.27,
+    "hash": "cf6a7631"
   },
   "tft/240x240/Clock/synced": {
     "width": 240,
     "height": 240,
     "colors": 4,
-    "coverage": 1.95,
-    "hash": "732eb581"
+    "coverage": 3.09,
+    "hash": "5ee05488"
   },
   "tft/240x240/Clock/free-running": {
     "width": 240,
     "height": 240,
     "colors": 4,
-    "coverage": 2.17,
-    "hash": "f8d3c0d1"
+    "coverage": 3.4,
+    "hash": "528c1588"
   },
   "tft/240x240/Clock/at-rest": {
     "width": 240,
     "height": 240,
     "colors": 3,
-    "coverage": 0.82,
-    "hash": "c2b628b5"
+    "coverage": 1.41,
+    "hash": "d7e31f5d"
   },
   "tft/240x240/Now Playing/playing": {
     "width": 240,
     "height": 240,
     "colors": 247,
-    "coverage": 24.07,
-    "hash": "776f82bc"
+    "coverage": 24.44,
+    "hash": "09ad99d5"
   },
   "tft/240x240/Now Playing/paused": {
     "width": 240,
     "height": 240,
     "colors": 247,
-    "coverage": 24.2,
-    "hash": "d066ed2c"
+    "coverage": 24.63,
+    "hash": "1a616b7d"
   },
   "tft/240x240/Now Playing/no-picture": {
     "width": 240,
     "height": 240,
     "colors": 7,
-    "coverage": 12.96,
-    "hash": "09bf2a7c"
+    "coverage": 13.33,
+    "hash": "5951ea15"
   },
   "tft/240x240/Now Playing/at-rest": {
     "width": 240,
     "height": 240,
     "colors": 6,
-    "coverage": 9.06,
-    "hash": "a280f85d"
+    "coverage": 10.29,
+    "hash": "ff8865e5"
   },
   "tft/240x240/Fixed Transport/playing": {
     "width": 240,
     "height": 240,
     "colors": 6,
-    "coverage": 30.54,
-    "hash": "2a6b54f0"
+    "coverage": 29.28,
+    "hash": "99e90519"
   },
   "tft/240x240/Fixed Transport/paused": {
     "width": 240,
     "height": 240,
     "colors": 6,
-    "coverage": 30.91,
-    "hash": "2865a058"
+    "coverage": 29.85,
+    "hash": "6accf205"
   },
   "tft/240x240/Fixed Transport/muted": {
     "width": 240,
     "height": 240,
     "colors": 6,
-    "coverage": 30.54,
-    "hash": "abed3dd8"
+    "coverage": 29.28,
+    "hash": "e2fd21f9"
   },
   "tft/240x240/Fixed Transport/at-rest": {
     "width": 240,
     "height": 240,
     "colors": 5,
-    "coverage": 27.83,
-    "hash": "ea883d1d"
+    "coverage": 27.67,
+    "hash": "10b99c95"
   },
   "tft/240x240/Show Status/running": {
     "width": 240,
     "height": 240,
     "colors": 3,
-    "coverage": 2.49,
-    "hash": "df21ffea"
+    "coverage": 1.84,
+    "hash": "6a232e4d"
   },
   "tft/240x240/Show Status/picture": {
     "width": 240,
     "height": 240,
     "colors": 244,
-    "coverage": 14.26,
-    "hash": "7493b442"
+    "coverage": 13.61,
+    "hash": "2fda2c35"
   },
   "tft/240x240/Show Status/at-rest": {
     "width": 240,
     "height": 240,
     "colors": 2,
-    "coverage": 0.74,
-    "hash": "45ee0f65"
+    "coverage": 1.08,
+    "hash": "d7a13c85"
   },
   "tft/240x240/LED Status/lit": {
     "width": 240,
     "height": 240,
     "colors": 4,
-    "coverage": 2.38,
-    "hash": "26b0b76c"
+    "coverage": 2.32,
+    "hash": "1d616c4d"
   },
   "tft/240x240/LED Status/blackout": {
     "width": 240,
     "height": 240,
     "colors": 4,
-    "coverage": 2.74,
-    "hash": "bd17db45"
+    "coverage": 2.91,
+    "hash": "74364ad9"
   },
   "tft/240x240/LED Status/full": {
     "width": 240,
     "height": 240,
     "colors": 4,
-    "coverage": 2.6,
-    "hash": "c6f7042c"
+    "coverage": 2.68,
+    "hash": "9d249760"
   },
   "tft/240x240/LED Status/at-rest": {
     "width": 240,
     "height": 240,
     "colors": 3,
-    "coverage": 0.82,
-    "hash": "dab6604b"
+    "coverage": 1.32,
+    "hash": "588f0b25"
   },
   "tft/240x240/Power Monitor/nominal": {
     "width": 240,
     "height": 240,
     "colors": 2,
-    "coverage": 2.38,
-    "hash": "eb9c25ff"
+    "coverage": 1.57,
+    "hash": "ea89272d"
   },
   "tft/240x240/Power Monitor/at-rest": {
     "width": 240,
     "height": 240,
     "colors": 2,
-    "coverage": 0.8,
-    "hash": "d257db18"
+    "coverage": 0.54,
+    "hash": "d4f5d13d"
   },
   "tft/240x240/Diagnostics/untouched": {
     "width": 240,
     "height": 240,
     "colors": 8,
-    "coverage": 21.9,
-    "hash": "a5e76402"
+    "coverage": 21.8,
+    "hash": "cef21db5"
   },
   "tft/240x240/Diagnostics/pressed": {
     "width": 240,
     "height": 240,
     "colors": 8,
-    "coverage": 21.88,
-    "hash": "92d9ec40"
+    "coverage": 21.56,
+    "hash": "6d42d7c5"
   },
   "tft/240x240/Diagnostics/at-rest": {
     "width": 240,
     "height": 240,
     "colors": 8,
-    "coverage": 21.93,
-    "hash": "63b3a7ae"
+    "coverage": 22.03,
+    "hash": "6c6c5635"
   },
   "tft/240x320/Waiting/unwired": {
     "width": 240,
     "height": 320,
     "colors": 3,
-    "coverage": 1.97,
-    "hash": "daacc485"
+    "coverage": 2.45,
+    "hash": "f1cec231"
   },
   "tft/240x320/Clock/synced": {
     "width": 240,
     "height": 320,
     "colors": 4,
-    "coverage": 1.46,
-    "hash": "32fea181"
+    "coverage": 2.32,
+    "hash": "48c93e88"
   },
   "tft/240x320/Clock/free-running": {
     "width": 240,
     "height": 320,
     "colors": 4,
-    "coverage": 1.63,
-    "hash": "d6674cd1"
+    "coverage": 2.55,
+    "hash": "9186ff88"
   },
   "tft/240x320/Clock/at-rest": {
     "width": 240,
     "height": 320,
     "colors": 3,
-    "coverage": 0.61,
-    "hash": "adedbcb5"
+    "coverage": 1.06,
+    "hash": "f76e835d"
   },
   "tft/240x320/Now Playing/playing": {
     "width": 240,
     "height": 320,
     "colors": 247,
-    "coverage": 18.05,
-    "hash": "25a8bcbc"
+    "coverage": 18.33,
+    "hash": "31141cd5"
   },
   "tft/240x320/Now Playing/paused": {
     "width": 240,
     "height": 320,
     "colors": 247,
-    "coverage": 18.15,
-    "hash": "7ea0272c"
+    "coverage": 18.47,
+    "hash": "41c7ee7d"
   },
   "tft/240x320/Now Playing/no-picture": {
     "width": 240,
     "height": 320,
     "colors": 7,
-    "coverage": 9.72,
-    "hash": "a71be47c"
+    "coverage": 10,
+    "hash": "057f6f15"
   },
   "tft/240x320/Now Playing/at-rest": {
     "width": 240,
     "height": 320,
     "colors": 6,
-    "coverage": 6.8,
-    "hash": "a4577c5d"
+    "coverage": 7.72,
+    "hash": "814923e5"
   },
   "tft/240x320/Fixed Transport/playing": {
     "width": 240,
     "height": 320,
     "colors": 6,
-    "coverage": 22.9,
-    "hash": "6613f4f0"
+    "coverage": 21.96,
+    "hash": "d26c4119"
   },
   "tft/240x320/Fixed Transport/paused": {
     "width": 240,
     "height": 320,
     "colors": 6,
-    "coverage": 23.18,
-    "hash": "5172d058"
+    "coverage": 22.39,
+    "hash": "bac4e605"
   },
   "tft/240x320/Fixed Transport/muted": {
     "width": 240,
     "height": 320,
     "colors": 6,
-    "coverage": 22.9,
-    "hash": "e795ddd8"
+    "coverage": 21.96,
+    "hash": "1b805df9"
   },
   "tft/240x320/Fixed Transport/at-rest": {
     "width": 240,
     "height": 320,
     "colors": 5,
-    "coverage": 20.88,
-    "hash": "97e1011d"
+    "coverage": 20.75,
+    "hash": "2d8b9095"
   },
   "tft/240x320/Show Status/running": {
     "width": 240,
     "height": 320,
     "colors": 3,
-    "coverage": 1.87,
-    "hash": "8384e7ea"
+    "coverage": 1.38,
+    "hash": "1b41024d"
   },
   "tft/240x320/Show Status/picture": {
     "width": 240,
     "height": 320,
     "colors": 244,
-    "coverage": 10.69,
-    "hash": "ed28cc42"
+    "coverage": 10.21,
+    "hash": "dcae5035"
   },
   "tft/240x320/Show Status/at-rest": {
     "width": 240,
     "height": 320,
     "colors": 2,
-    "coverage": 0.56,
-    "hash": "925b4365"
+    "coverage": 0.81,
+    "hash": "a246f085"
   },
   "tft/240x320/LED Status/lit": {
     "width": 240,
     "height": 320,
     "colors": 4,
-    "coverage": 1.79,
-    "hash": "f63d036c"
+    "coverage": 1.74,
+    "hash": "0f5ff04d"
   },
   "tft/240x320/LED Status/blackout": {
     "width": 240,
     "height": 320,
     "colors": 4,
-    "coverage": 2.05,
-    "hash": "8ca42745"
+    "coverage": 2.18,
+    "hash": "6634ced9"
   },
   "tft/240x320/LED Status/full": {
     "width": 240,
     "height": 320,
     "colors": 4,
-    "coverage": 1.95,
-    "hash": "9683502c"
+    "coverage": 2.01,
+    "hash": "8f231b60"
   },
   "tft/240x320/LED Status/at-rest": {
     "width": 240,
     "height": 320,
     "colors": 3,
-    "coverage": 0.62,
-    "hash": "afb9144b"
+    "coverage": 0.99,
+    "hash": "2d91bf25"
   },
   "tft/240x320/Power Monitor/nominal": {
     "width": 240,
     "height": 320,
     "colors": 2,
-    "coverage": 1.78,
-    "hash": "4f43dd7f"
+    "coverage": 1.18,
+    "hash": "f9c1282d"
   },
   "tft/240x320/Power Monitor/at-rest": {
     "width": 240,
     "height": 320,
     "colors": 2,
-    "coverage": 0.6,
-    "hash": "64721918"
+    "coverage": 0.41,
+    "hash": "b295dd3d"
   },
   "tft/240x320/Diagnostics/untouched": {
     "width": 240,
     "height": 320,
     "colors": 8,
-    "coverage": 20.68,
-    "hash": "a2a3a912"
+    "coverage": 20.6,
+    "hash": "078b33f5"
   },
   "tft/240x320/Diagnostics/pressed": {
     "width": 240,
     "height": 320,
     "colors": 8,
-    "coverage": 20.67,
-    "hash": "db179630"
+    "coverage": 20.42,
+    "hash": "80191305"
   },
   "tft/240x320/Diagnostics/at-rest": {
     "width": 240,
     "height": 320,
     "colors": 8,
-    "coverage": 20.71,
-    "hash": "4d83fbfe"
+    "coverage": 20.78,
+    "hash": "ccf7c975"
   },
   "tft/320x240/Waiting/unwired": {
     "width": 320,
     "height": 240,
     "colors": 3,
-    "coverage": 3.12,
-    "hash": "6354cc2b"
+    "coverage": 2.45,
+    "hash": "59c73931"
   },
   "tft/320x240/Clock/synced": {
     "width": 320,
     "height": 240,
     "colors": 4,
-    "coverage": 1.46,
-    "hash": "70a2a401"
+    "coverage": 2.32,
+    "hash": "3e2dc3a8"
   },
   "tft/320x240/Clock/free-running": {
     "width": 320,
     "height": 240,
     "colors": 4,
-    "coverage": 1.63,
-    "hash": "b889ec51"
+    "coverage": 2.55,
+    "hash": "392f30a8"
   },
   "tft/320x240/Clock/at-rest": {
     "width": 320,
     "height": 240,
     "colors": 3,
-    "coverage": 0.61,
-    "hash": "428e79b5"
+    "coverage": 1.06,
+    "hash": "bfb65a5d"
   },
   "tft/320x240/Now Playing/playing": {
     "width": 320,
     "height": 240,
     "colors": 247,
-    "coverage": 20.92,
-    "hash": "055d58a3"
+    "coverage": 21.61,
+    "hash": "11dbd0b9"
   },
   "tft/320x240/Now Playing/paused": {
     "width": 320,
     "height": 240,
     "colors": 247,
-    "coverage": 21.01,
-    "hash": "0d35440b"
+    "coverage": 21.75,
+    "hash": "7bf7a5a1"
   },
   "tft/320x240/Now Playing/no-picture": {
     "width": 320,
     "height": 240,
     "colors": 7,
-    "coverage": 12.59,
-    "hash": "d5506163"
+    "coverage": 13.28,
+    "hash": "32698279"
   },
   "tft/320x240/Now Playing/at-rest": {
     "width": 320,
     "height": 240,
     "colors": 6,
-    "coverage": 9.09,
-    "hash": "7f4c635d"
+    "coverage": 10.64,
+    "hash": "0662f4e5"
   },
   "tft/320x240/Fixed Transport/playing": {
     "width": 320,
     "height": 240,
     "colors": 6,
-    "coverage": 31.39,
-    "hash": "a223b96f"
+    "coverage": 30.24,
+    "hash": "41ccd431"
   },
   "tft/320x240/Fixed Transport/paused": {
     "width": 320,
     "height": 240,
     "colors": 6,
-    "coverage": 31.67,
-    "hash": "fd3b016f"
+    "coverage": 30.67,
+    "hash": "d249377d"
   },
   "tft/320x240/Fixed Transport/muted": {
     "width": 320,
     "height": 240,
     "colors": 6,
-    "coverage": 31.39,
-    "hash": "4975ea27"
+    "coverage": 30.24,
+    "hash": "405cb189"
   },
   "tft/320x240/Fixed Transport/at-rest": {
     "width": 320,
     "height": 240,
     "colors": 5,
-    "coverage": 28.79,
-    "hash": "43b14405"
+    "coverage": 28.67,
+    "hash": "dbf39e3d"
   },
   "tft/320x240/Show Status/running": {
     "width": 320,
     "height": 240,
     "colors": 3,
-    "coverage": 1.87,
-    "hash": "371300aa"
+    "coverage": 1.38,
+    "hash": "c74b7a4d"
   },
   "tft/320x240/Show Status/picture": {
     "width": 320,
     "height": 240,
     "colors": 244,
-    "coverage": 10.69,
-    "hash": "f69b8602"
+    "coverage": 10.21,
+    "hash": "01328db5"
   },
   "tft/320x240/Show Status/at-rest": {
     "width": 320,
     "height": 240,
     "colors": 2,
-    "coverage": 0.56,
-    "hash": "0aba5865"
+    "coverage": 0.81,
+    "hash": "4bad1485"
   },
   "tft/320x240/LED Status/lit": {
     "width": 320,
     "height": 240,
     "colors": 4,
-    "coverage": 1.79,
-    "hash": "16ed602c"
+    "coverage": 1.74,
+    "hash": "77d49ccd"
   },
   "tft/320x240/LED Status/blackout": {
     "width": 320,
     "height": 240,
     "colors": 4,
-    "coverage": 2.05,
-    "hash": "df3a4705"
+    "coverage": 2.18,
+    "hash": "ff582c59"
   },
   "tft/320x240/LED Status/full": {
     "width": 320,
     "height": 240,
     "colors": 4,
-    "coverage": 1.95,
-    "hash": "902498ac"
+    "coverage": 2.01,
+    "hash": "f04faee0"
   },
   "tft/320x240/LED Status/at-rest": {
     "width": 320,
     "height": 240,
     "colors": 3,
-    "coverage": 0.62,
-    "hash": "50c8dd4b"
+    "coverage": 0.99,
+    "hash": "eeb66925"
   },
   "tft/320x240/Power Monitor/nominal": {
     "width": 320,
     "height": 240,
     "colors": 2,
-    "coverage": 1.78,
-    "hash": "d8ab12ff"
+    "coverage": 1.18,
+    "hash": "7a5bcc2d"
   },
   "tft/320x240/Power Monitor/at-rest": {
     "width": 320,
     "height": 240,
     "colors": 2,
-    "coverage": 0.6,
-    "hash": "f7ae8398"
+    "coverage": 0.41,
+    "hash": "3addea3d"
   },
   "tft/320x240/Diagnostics/untouched": {
     "width": 320,
     "height": 240,
     "colors": 8,
-    "coverage": 21.43,
-    "hash": "13bf8392"
+    "coverage": 21.35,
+    "hash": "81943fd5"
   },
   "tft/320x240/Diagnostics/pressed": {
     "width": 320,
     "height": 240,
     "colors": 8,
-    "coverage": 21.42,
-    "hash": "87504ff0"
+    "coverage": 21.17,
+    "hash": "170172e5"
   },
   "tft/320x240/Diagnostics/at-rest": {
     "width": 320,
     "height": 240,
     "colors": 8,
-    "coverage": 21.46,
-    "hash": "2798087e"
+    "coverage": 21.53,
+    "hash": "0bc4ca55"
   },
   "oled/128x64/Waiting/unwired": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 4.63,
-    "hash": "0a56d8aa"
+    "coverage": 5.75,
+    "hash": "a9c5b468"
   },
   "oled/128x64/Clock/synced": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 3.69,
-    "hash": "1b3da1a7"
+    "coverage": 4.87,
+    "hash": "7c7b9650"
   },
   "oled/128x64/Clock/free-running": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 4.08,
-    "hash": "fcdbf167"
+    "coverage": 5.41,
+    "hash": "95dcabe0"
   },
   "oled/128x64/Clock/at-rest": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 2.51,
-    "hash": "12b7057b"
+    "coverage": 3.08,
+    "hash": "5393caf3"
   },
   "oled/128x64/Now Playing/playing": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 10.69,
-    "hash": "01bb5ca3"
+    "coverage": 11.01,
+    "hash": "149ff26b"
   },
   "oled/128x64/Now Playing/paused": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 10.91,
-    "hash": "2c5da4e5"
+    "coverage": 11.33,
+    "hash": "2a142ff3"
   },
   "oled/128x64/Now Playing/at-rest": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 5.29,
-    "hash": "7476d1c8"
+    "coverage": 6.51,
+    "hash": "60ecc1e0"
   },
   "oled/128x64/Pattern Browser/playing": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 6.05,
-    "hash": "75072017"
+    "coverage": 6.7,
+    "hash": "2c7ab8ae"
   },
   "oled/128x64/Pattern Browser/no-thumbnail": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 4.19,
-    "hash": "0bd3b550"
+    "coverage": 5.18,
+    "hash": "d772dccf"
   },
   "oled/128x64/Pattern Browser/at-rest": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 1.31,
-    "hash": "963cc75e"
+    "coverage": 1.9,
+    "hash": "477a11b7"
   },
   "oled/128x64/LED Status/lit": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 10.99,
-    "hash": "b0e6213b"
+    "coverage": 12.01,
+    "hash": "39e7e4fd"
   },
   "oled/128x64/LED Status/blackout": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 11.61,
-    "hash": "ab3ccb46"
+    "coverage": 13.05,
+    "hash": "8f813076"
   },
   "oled/128x64/LED Status/full": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 13.23,
-    "hash": "63af0a29"
+    "coverage": 14.37,
+    "hash": "d4022c08"
   },
   "oled/128x64/LED Status/at-rest": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 4.31,
-    "hash": "f159274a"
+    "coverage": 4.98,
+    "hash": "cedcd1d9"
   },
   "oled/128x64/Power Monitor/nominal": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 1.86,
-    "hash": "3928bd53"
+    "coverage": 2.76,
+    "hash": "34eb1bef"
   },
   "oled/128x64/Power Monitor/at-rest": {
     "width": 128,
     "height": 64,
     "colors": 2,
-    "coverage": 0.62,
-    "hash": "475e8756"
+    "coverage": 0.95,
+    "hash": "6068d675"
   }
 }

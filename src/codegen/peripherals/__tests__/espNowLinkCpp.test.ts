@@ -251,7 +251,7 @@ describe('board link — a Music Player on one board, its screen on another', ()
     const cpp = generateCpp(two.nodes, two.edges)
     expect(cpp).toContain('bool _tftAbsent_tft = !_lnkUp0;')
     expect(cpp).toContain('const char *_tftTitle_tft = (_lnkUp0 ? (const char *)_lnkT0[0] : "");')
-    expect(cpp).toContain('WAITING FOR A SIGNAL')
+    expect(cpp).toContain('WAITING FOR SIGNAL')
     // The press it sends; the picture it never does.
     expect(cpp).toContain('_lnkStagePress(0, 0, n_enc_pressed);')
     expect(cpp.slice(cpp.indexOf('void loop() {'))).not.toContain('_tftPicture(')

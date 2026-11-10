@@ -20,10 +20,8 @@
  * readouts. A template carries no values yet, so what has to be judged there
  * is where things sit and how much room a finger has, not what they say.
  *
- * Labels are drawn with the panel's own bitmap font rather than a system one,
- * so a sheet needs no fonts, no browser and no dependency beyond zlib — and
- * the label text is legible at exactly the size the panel's text is, which is
- * itself a useful thing to see.
+ * Labels are drawn with a bitmap font rather than a system one, so a sheet
+ * needs no fonts, no browser and no dependency beyond zlib.
  */
 import { deflateSync } from 'node:zlib'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -35,6 +33,7 @@ import {
 import {
   displaySurfaceCases, type DisplaySurfaceCase, type RenderedSurface,
 } from '../../src/state/displays/__tests__/displaySurfaceCases'
+import { DEFAULT_FONT } from '../../src/nodes/shared/font'
 import { DISPLAY_TEMPLATES, applyDisplayTemplate } from '../../src/state/displays/displayTemplates'
 import { createDisplayDocument } from '../../src/state/displays/displayEditor'
 import { isDisplayTouchTarget } from '../../src/state/displays/displayRegistry'
@@ -118,7 +117,9 @@ function blit(sheet: TftSurface, surface: RenderedSurface, atX: number, atY: num
 }
 
 function label(sheet: TftSurface, x: number, y: number, text: string, color: number): void {
-  drawTftText(sheet, x, y, text, color, LABEL_SCALE)
+  // The small capitals font, not the panels' own: a caption has to fit over
+  // a tile 128 pixels wide.
+  drawTftText(sheet, x, y, text, color, LABEL_SCALE, DEFAULT_FONT)
 }
 
 interface Sheet { name: string; width: number; height: number; rgb: Uint32Array }

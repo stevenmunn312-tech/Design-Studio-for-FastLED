@@ -257,9 +257,9 @@ describe('geometry across every mounted size', () => {
       const { x, y } = showStatusGeometry(w, h).picture
       return [x, y]
     }
-    expect(at(240, 240)).toEqual([72, 95])
-    expect(at(240, 320)).toEqual([72, 135])
-    expect(at(320, 240)).toEqual([112, 95])
+    expect(at(240, 240)).toEqual([72, 102])
+    expect(at(240, 320)).toEqual([72, 142])
+    expect(at(320, 240)).toEqual([112, 102])
   })
 
   it('gives the extra height of a taller panel to the picture block', () => {

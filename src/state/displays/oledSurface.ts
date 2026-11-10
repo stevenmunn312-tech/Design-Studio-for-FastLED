@@ -17,7 +17,8 @@
 // character that renders in the preview is a character the firmware has a glyph
 // for. See `textColumns` in nodes/shared/font.ts.
 
-import { DEFAULT_FONT, textColumns, type BitmapFont } from '../../nodes/shared/font'
+import { textColumns, type BitmapFont } from '../../nodes/shared/font'
+import { DISPLAY_FONT } from './displayFont'
 import { coerceGlyphs, truncateUtf8 } from './displayText'
 
 /** Rows of pixels packed into one byte of controller RAM. */
@@ -212,14 +213,14 @@ export function getPixel(surface: OledSurface, x: number, y: number): boolean {
 export const OLED_LETTER_SPACING = 1
 
 /** Width in pixels the shared font needs for `text`. */
-export function oledTextWidth(text: string, font: BitmapFont = DEFAULT_FONT): number {
+export function oledTextWidth(text: string, font: BitmapFont = DISPLAY_FONT): number {
   const glyphs = text.length
   if (glyphs === 0) return 0
   return (glyphs * (font.w + OLED_LETTER_SPACING)) - OLED_LETTER_SPACING
 }
 
 /** Characters that fit in `pixels`, for truncating before drawing. */
-export function oledTextCapacity(pixels: number, font: BitmapFont = DEFAULT_FONT): number {
+export function oledTextCapacity(pixels: number, font: BitmapFont = DISPLAY_FONT): number {
   const stride = font.w + OLED_LETTER_SPACING
   if (pixels < font.w) return 0
   return Math.floor((pixels + OLED_LETTER_SPACING) / stride)
@@ -232,7 +233,7 @@ export function oledTextCapacity(pixels: number, font: BitmapFont = DEFAULT_FONT
  * clipping pixels, so a cut word ends at a glyph boundary and the marker is
  * visible instead of being the first casualty of the clip.
  */
-export function fitOledText(text: string, pixels: number, font: BitmapFont = DEFAULT_FONT): string {
+export function fitOledText(text: string, pixels: number, font: BitmapFont = DISPLAY_FONT): string {
   const folded = coerceGlyphs(text, font)
   const capacity = oledTextCapacity(pixels, font)
   if (capacity <= 0) return ''
@@ -253,7 +254,7 @@ export function drawOledText(
   x: number,
   y: number,
   text: string,
-  font: BitmapFont = DEFAULT_FONT,
+  font: BitmapFont = DISPLAY_FONT,
 ): number {
   const columns = textColumns(coerceGlyphs(text, font), font, OLED_LETTER_SPACING)
   for (let c = 0; c < columns.length; c++) {

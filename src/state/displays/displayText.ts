@@ -16,8 +16,8 @@ import { FONT, type BitmapFont, DEFAULT_FONT, fontCase } from '../../nodes/share
 /**
  * Bytes a generated string may occupy, terminator excluded.
  *
- * Sized from the widest planned fixed layout: a 128 px OLED row at the shared
- * 3x5 font plus one column of spacing fits 32 characters, and 63 leaves room
+ * Sized well past the widest fixed layout: a 128 px OLED row in the display
+ * font holds 20 characters and a 320 px colour row 26, and 63 leaves room
  * for multi-byte input to be measured and truncated honestly rather than
  * arriving pre-clipped. It is deliberately small enough to sit on the stack of
  * an ESP32 loop without thought.

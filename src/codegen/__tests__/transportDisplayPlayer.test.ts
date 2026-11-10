@@ -162,7 +162,7 @@ describe('the emitted player sketch', () => {
   // treatment property cannot conjure content out of a socket with no cable.
   it('draws the waiting screen for a panel with nothing plugged in', () => {
     const status = sketch([node('tft', 'TransportDisplay', { partId: PLAIN, tftLayout: 'Show Status' })])
-    expect(status).toContain('"WAITING FOR A SIGNAL"')
+    expect(status).toContain('"WAITING FOR SIGNAL"')
     // The player's own song helpers are always in the sketch; what matters is
     // that the panel's loop reads none of them.
     expect(status).not.toContain('_tftTitle_tft')

@@ -31,7 +31,8 @@ import { POWER_MONITOR_FIELDS, POWER_MONITOR_UNITS } from '../../state/periphera
 // closed around every burst so touch and an SD card can share the bus, which
 // is exactly how the 2.4-inch module is wired.
 
-import { DEFAULT_FONT, FONT_H, FONT_W } from '../../nodes/shared/font'
+import { DISPLAY_FONT } from '../../state/displays/displayFont'
+import { displayFontTableCpp, displayGlyphFoldCpp } from './displayFontCpp'
 import { tftInitStreamCpp } from './tftInitSequence'
 import { cppStringLiteral, DISPLAY_TEXT_BUFFER_BYTES } from '../../state/displays/displayText'
 import {
@@ -45,7 +46,7 @@ import {
   type TransportDisplayLayout,
 } from '../../state/displays/transportDisplay'
 import { ledStatusCountText } from '../../state/output/ledOutputRuntime'
-import { DISPLAY_WAITING_TEXT } from '../../state/displays/displaySignal'
+import { DISPLAY_WAITING_HINT, DISPLAY_WAITING_TEXT } from '../../state/displays/displaySignal'
 import { SPI_BUS_CPP } from '../helpers/spiBusCpp'
 
 /**
@@ -265,35 +266,6 @@ export const TFT_PANEL_RAM_BYTES = (() => {
   return alignTo4(pinsAndTransport + flags + dims + cache + scratch) + values + clocks
 })()
 
-/**
- * The shared bitmap font as a flat column table.
- *
- * Generated from the same `FONT` the preview draws with, so a glyph cannot
- * differ between the two. Symbols are prefixed for this driver rather than
- * shared with the OLED's table because a sketch can carry both panels, and two
- * definitions of one name is a build failure — the data behind them is the one
- * font either way, so there is nothing here to drift.
- */
-function fontTableCpp(): { chars: string; table: string; count: number } {
-  const glyphs = Object.keys(DEFAULT_FONT.glyphs).filter((ch) => ch.length === 1).sort()
-  const columns: number[] = []
-  for (const ch of glyphs) {
-    const rows = DEFAULT_FONT.glyphs[ch]
-    for (let c = 0; c < FONT_W; c++) {
-      let column = 0
-      for (let r = 0; r < FONT_H; r++) {
-        if ((rows[r] ?? 0) & (1 << (FONT_W - 1 - c))) column |= 1 << r
-      }
-      columns.push(column)
-    }
-  }
-  return {
-    chars: cppStringLiteral(glyphs.join('')),
-    table: columns.map((c) => `0x${c.toString(16).padStart(2, '0')}`).join(', '),
-    count: glyphs.length,
-  }
-}
-
 /** A packed colour as the emitted source spells it. */
 function hex16(value: number): string {
   return `0x${(value & 0xffff).toString(16).padStart(4, '0').toUpperCase()}`
@@ -306,7 +278,7 @@ const ALIGN_CPP: Record<TftField['align'], number> = { left: 0, center: 1, right
 export function tftDisplayHelpersCpp(
   profile: TftDisplayHelperProfile = FULL_TFT_HELPER_PROFILE,
 ): string {
-  const font = fontTableCpp()
+  const font = displayFontTableCpp()
   const c = TRANSPORT_COLORS
   const mixedTransport = profile.spi && profile.parallel
   const spiGlobals = profile.spi
@@ -484,8 +456,8 @@ static void _tftPicture(TftPanel &p, int x, int y, int w, int h, const CRGB *src
   return `// ── Colour TFT (ST7789 / ST7789V) ───────────────────────────────────────────
 // Mirrors src/state/displays/tftSurface.ts and src/state/displays/transportDisplay.ts so the
 // panel draws what the preview drew.
-#define TFT_FONT_W    ${FONT_W}
-#define TFT_FONT_H    ${FONT_H}
+#define TFT_FONT_W    ${DISPLAY_FONT.w}
+#define TFT_FONT_H    ${DISPLAY_FONT.h}
 #define TFT_SPACING   ${TFT_LETTER_SPACING}
 #define TFT_SLOT_CHARS ${TFT_SLOT_CHARS}
 #define TFT_TEXT_SLOTS ${profile.textSlots}
@@ -743,8 +715,7 @@ ${valueDirtyHelper}
 // ── Drawing ─────────────────────────────────────────────────────────────────
 
 static int _tftGlyphIndex(char c) {
-  if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
-  for (int i = 0; _tftChars[i] != 0; i++) if (_tftChars[i] == c) return i;
+${displayGlyphFoldCpp()}  for (int i = 0; _tftChars[i] != 0; i++) if (_tftChars[i] == c) return i;
   return -1;
 }
 
@@ -754,7 +725,7 @@ static int _tftTextWidth(const char *text, int scale) {
 }
 
 // One filled square per lit font pixel. Integer scaling only: a fractional
-// scale would need filtering, and a filtered 3x5 bitmap is mud.
+// scale would need filtering, and a filtered bitmap font is mud.
 static void _tftText(TftPanel &p, int x, int y, const char *text, uint16_t color, int scale) {
   int cursor = x;
   for (int i = 0; text[i] != 0; i++) {
@@ -1044,7 +1015,7 @@ function nowPlayingLoop(display: TftDisplayEmit, width: number, height: number):
   )
 
   lines.push(
-    // A word, not a glyph: the shared 3x5 font has no triangle, and inventing
+    // A word, not a glyph: the display font has no triangle, and inventing
     // one here would be a glyph the preview does not have.
     `      const char *_tftState_${id} = (${display.playingExpr}) ? "PLAY" : "PAUSE";`,
     `      if (_tftTextDirty(${p}, ${s.state}, _tftState_${id}) || _tftFull_${id}) `
@@ -1267,7 +1238,7 @@ function waitingLoop(display: TftDisplayEmit, width: number, height: number): st
   if (g.hint) {
     lines.push(
       `      if (_tftFull_${id}) _tftField(${p}, ${fieldArgs(g.hint)}, `
-        + `"WIRE A SOURCE TO DISPLAY", TFT_C_DIM, TFT_C_BG);`,
+        + `${cppStringLiteral(DISPLAY_WAITING_HINT)}, TFT_C_DIM, TFT_C_BG);`,
     )
   }
   return lines

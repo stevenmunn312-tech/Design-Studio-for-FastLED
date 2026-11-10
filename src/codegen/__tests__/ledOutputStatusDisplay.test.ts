@@ -13,7 +13,7 @@
  * generator emits for it. A layout that previews and cannot be generated is
  * the failure the display plan rules out, and it is exactly what this wire
  * produced before the generators learned it — the preview drew LED Status
- * while the device said WAITING FOR A SIGNAL, with nothing reporting the gap.
+ * while the device said WAITING FOR SIGNAL, with nothing reporting the gap.
  */
 
 import { describe, expect, it } from 'vitest'
@@ -106,7 +106,7 @@ describe('an LED output reporting itself', () => {
     expect(loop).toContain('"144 LEDS"')
     // The live reading, and it is the same expression the fixture is dimmed by.
     expect(loop).toContain('float _oledLvl_oled = constrain((float)(n_knob_value), 0.0f, 1.0f);')
-    expect(loop).toContain('_oledBar(_oled_oled, 2, 26, _oledLvl_oled);')
+    expect(loop).toContain('_oledBar(_oled_oled, 2, 32, _oledLvl_oled);')
     // Nothing switches this output off, so its state is the constant "ON".
     expect(loop).toContain('"ON"')
     expect(loop).not.toContain('"BLACKOUT"')
@@ -183,7 +183,7 @@ describe('an LED output reporting itself', () => {
   it('draws its waiting screen when the Display socket is unwired', () => {
     const nodes = [output(), fill, oled]
     const loop = loopOf(generateCpp(nodes, [edge('fill', 'frame', 'out', 'frame')]))
-    expect(loop).toContain('WAITING FOR A SIGNAL')
+    expect(loop).toContain('WAITING FOR SIGNAL')
     expect(loop).not.toContain('"144 LEDS"')
   })
 })

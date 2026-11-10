@@ -19,8 +19,8 @@ import {
   drawBitmap, drawRect, fitOledText, oledTextWidth,
   type OledController, type OledSurface,
 } from './oledSurface'
-import { DISPLAY_WAITING_TEXT, type DisplaySignalKind } from './displaySignal'
-import { FONT_H } from '../../nodes/shared/font'
+import { DISPLAY_WAITING_HINT, DISPLAY_WAITING_TEXT, type DisplaySignalKind } from './displaySignal'
+import { DISPLAY_FONT } from './displayFont'
 import { ledStatusCountText, ledStatusLevelText } from '../output/ledOutputRuntime'
 import { formatTransportTime } from '../player/transportBridge'
 import { THUMBNAIL_W, THUMBNAIL_H, type PatternThumbnail } from '../patterns/patternThumbnail'
@@ -57,10 +57,12 @@ export function infoLayoutForKind(kind: DisplaySignalKind): InfoDisplayLayout {
  * generator resolves the same numbers rather than restating them — a margin
  * typed twice is a margin that disagrees.
  */
+const FONT_H = DISPLAY_FONT.h
+
 export const INFO_LAYOUT = {
   margin: 2,
-  /** Baseline pitch: glyph height plus a row of breathing space. */
-  lineHeight: FONT_H + 3,
+  /** Baseline pitch: glyph height plus two rows of air. */
+  lineHeight: FONT_H + 2,
   barHeight: 7,
 } as const
 
@@ -120,8 +122,11 @@ export interface ClockData {
   synced: boolean
 }
 
-/** Fixed product identity at the top of every lifecycle card. */
-export const INFO_BOOT_TITLE = 'Design Studio for FastLED'
+/**
+ * Fixed product identity at the top of every lifecycle card. The short form:
+ * a 128-pixel row holds 20 characters, and the full name is 25.
+ */
+export const INFO_BOOT_TITLE = 'Design Studio'
 
 /** Minimum time each generated setup milestone remains readable. */
 export const INFO_BOOT_STAGE_MIN_MS = 500
@@ -140,7 +145,8 @@ export interface InfoBootStatusData {
 }
 
 export interface BootStatusGeometry {
-  title: InfoField
+  /** Dropped on a panel with one row, which the state takes. */
+  title: InfoField | null
   subtitle: InfoField | null
   rule: InfoRect | null
   state: InfoField
@@ -162,16 +168,15 @@ export function bootStatusGeometry(width: number, height: number): BootStatusGeo
   const row = (index: number) => margin + (index * pitch)
   const field = (index: number): InfoField | null =>
     fits(row(index), height) ? { x: margin, y: row(index), w: inner } : null
+  // The state takes the lowest of rows 3, 1 and 0 that is on the glass, so a
+  // panel with two rows loses the device identity and a panel with one row
+  // loses the product name as well. The 64-row panels get the full ordering.
+  const stateRow = fits(row(3), height) ? 3 : fits(row(1), height) ? 1 : 0
   return {
-    title: { x: margin, y: row(0), w: inner },
+    title: stateRow === 0 ? null : { x: margin, y: row(0), w: inner },
     subtitle: field(1),
     rule: fits(row(2), height, 1) ? { x: margin, y: row(2), w: inner, h: 1 } : null,
-    // A 16-row display has room for rows 0 and 1 only. Put the state in that
-    // second surviving row and let the device identity be the first detail to
-    // go; the 32/64-row panels still get the full ordering below.
-    state: height < row(3) + FONT_H
-      ? { x: margin, y: row(1), w: inner }
-      : { x: margin, y: row(3), w: inner },
+    state: { x: margin, y: row(stateRow), w: inner },
     detail: field(4),
     meta: field(5),
   }
@@ -185,7 +190,7 @@ export function drawBootStatus(surface: OledSurface, data: InfoBootStatusData): 
     const x = Math.max(field.x, ((surface.width - oledTextWidth(fitted)) / 2) | 0)
     drawOledText(surface, x, field.y, fitted)
   }
-  centred(g.title, INFO_BOOT_TITLE)
+  if (g.title) centred(g.title, INFO_BOOT_TITLE)
   if (g.subtitle && g.subtitle.y !== g.state.y) centred(g.subtitle, data.subtitle)
   if (g.rule) drawHLine(surface, g.rule.x, g.rule.y, g.rule.w)
   centred(g.state, data.state)
@@ -242,7 +247,7 @@ export function drawWaiting(surface: OledSurface): void {
     drawOledText(surface, x, field.y, fitted)
   }
   centred(g.message, DISPLAY_WAITING_TEXT)
-  if (g.hint) centred(g.hint, 'WIRE A SOURCE TO DISPLAY')
+  if (g.hint) centred(g.hint, DISPLAY_WAITING_HINT)
 }
 
 export interface NowPlayingGeometry {
@@ -285,7 +290,7 @@ export function drawNowPlaying(surface: OledSurface, data: NowPlayingData): void
 
   drawOledText(surface, g.title.x, g.title.y, fitOledText(data.title, g.title.w))
 
-  // Play state as a word rather than a glyph: the shared 3x5 font has no
+  // Play state as a word rather than a glyph: the display font has no
   // triangle, and inventing one here would be a glyph the firmware lacks.
   drawOledText(surface, g.state.x, g.state.y, data.playing ? 'PLAY' : 'PAUSE')
 
@@ -378,7 +383,7 @@ export function drawPatternBrowser(surface: OledSurface, data: PatternBrowserDat
   const ordinal = `${data.ordinal}/${data.count}`
   drawOledText(surface, g.ordinal.x, g.ordinal.y, fitOledText(ordinal, g.ordinal.w))
 
-  // A word, not a glyph: the shared 3x5 font has no tick or triangle, and
+  // A word, not a glyph: the display font has no tick or triangle, and
   // inventing one here would be a glyph the firmware does not have.
   drawOledText(surface, g.status.x, g.status.y, 'PLAYING')
 }

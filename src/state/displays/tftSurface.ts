@@ -26,7 +26,8 @@
 // character that renders in the preview is a character the firmware has a
 // glyph for. See `textColumns` in nodes/shared/font.ts.
 
-import { DEFAULT_FONT, textColumns, type BitmapFont } from '../../nodes/shared/font'
+import { textColumns, type BitmapFont } from '../../nodes/shared/font'
+import { DISPLAY_FONT } from './displayFont'
 import { coerceGlyphs, truncateUtf8 } from './displayText'
 
 /**
@@ -484,27 +485,27 @@ export const TFT_LETTER_SPACING = 1
 /**
  * How many times each font pixel is repeated on each axis.
  *
- * The shared font is three pixels wide. Drawn 1:1 on a 240-pixel panel it is a
- * smear, so every layout picks a scale and the geometry carries it. Integer
- * scaling only: a fractional scale would need filtering, and a filtered 3x5
- * bitmap is mud.
+ * The display font is five pixels wide. Drawn 1:1 on a 240-pixel panel it is
+ * too small to read at arm's length, so every layout picks a scale and the
+ * geometry carries it. Integer scaling only: a fractional scale would need
+ * filtering, and a filtered bitmap font is mud.
  */
 export type TftTextScale = number
 
 /** Width in pixels the shared font needs for `text` at `scale`. */
-export function tftTextWidth(text: string, scale: TftTextScale, font: BitmapFont = DEFAULT_FONT): number {
+export function tftTextWidth(text: string, scale: TftTextScale, font: BitmapFont = DISPLAY_FONT): number {
   const glyphs = text.length
   if (glyphs === 0) return 0
   return ((glyphs * (font.w + TFT_LETTER_SPACING)) - TFT_LETTER_SPACING) * Math.max(1, Math.round(scale))
 }
 
 /** Height in pixels of one row of text at `scale`. */
-export function tftTextHeight(scale: TftTextScale, font: BitmapFont = DEFAULT_FONT): number {
+export function tftTextHeight(scale: TftTextScale, font: BitmapFont = DISPLAY_FONT): number {
   return font.h * Math.max(1, Math.round(scale))
 }
 
 /** Characters that fit in `pixels` at `scale`, for truncating before drawing. */
-export function tftTextCapacity(pixels: number, scale: TftTextScale, font: BitmapFont = DEFAULT_FONT): number {
+export function tftTextCapacity(pixels: number, scale: TftTextScale, font: BitmapFont = DISPLAY_FONT): number {
   const s = Math.max(1, Math.round(scale))
   const stride = (font.w + TFT_LETTER_SPACING) * s
   if (pixels < font.w * s) return 0
@@ -521,7 +522,7 @@ export function tftTextCapacity(pixels: number, scale: TftTextScale, font: Bitma
  * stranger's ID3 tag looks like.
  */
 export function fitTftText(
-  text: string, pixels: number, scale: TftTextScale, font: BitmapFont = DEFAULT_FONT,
+  text: string, pixels: number, scale: TftTextScale, font: BitmapFont = DISPLAY_FONT,
 ): string {
   const folded = coerceGlyphs(text, font)
   const capacity = tftTextCapacity(pixels, scale, font)
@@ -547,7 +548,7 @@ export function drawTftText(
   text: string,
   color: number,
   scale: TftTextScale = 1,
-  font: BitmapFont = DEFAULT_FONT,
+  font: BitmapFont = DISPLAY_FONT,
 ): number {
   const s = Math.max(1, Math.round(scale))
   const columns = textColumns(coerceGlyphs(text, font), font, TFT_LETTER_SPACING)
@@ -578,7 +579,7 @@ export interface TftField extends TftRect {
 }
 
 /** X where `text` starts inside `field`. */
-export function tftFieldTextX(field: TftField, text: string, font: BitmapFont = DEFAULT_FONT): number {
+export function tftFieldTextX(field: TftField, text: string, font: BitmapFont = DISPLAY_FONT): number {
   const width = tftTextWidth(text, field.scale, font)
   if (field.align === 'right') return field.x + field.w - width
   if (field.align === 'center') return field.x + Math.floor((field.w - width) / 2)
@@ -598,7 +599,7 @@ export function drawTftField(
   text: string,
   color: number,
   background: number | null,
-  font: BitmapFont = DEFAULT_FONT,
+  font: BitmapFont = DISPLAY_FONT,
 ): void {
   if (background !== null) fillTftRect(surface, field.x, field.y, field.w, field.h, background)
   const fitted = fitTftText(text, field.w, field.scale, font)

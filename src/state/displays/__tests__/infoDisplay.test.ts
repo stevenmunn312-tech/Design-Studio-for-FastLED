@@ -17,7 +17,9 @@ import {
   type PatternBrowserData,
 } from '../infoDisplay'
 import { THUMBNAIL_W, THUMBNAIL_H } from '../../patterns/patternThumbnail'
-import { FONT_H } from '../../../nodes/shared/font'
+import { DISPLAY_FONT } from '../displayFont'
+
+const FONT_H = DISPLAY_FONT.h
 import { OLED_CONTROLLERS, getPixel, oledSurfaceRows, type OledSurface } from '../oledSurface'
 
 const sh1106 = OLED_CONTROLLERS.SH1106
@@ -93,7 +95,9 @@ describe('rows resolved from the panel', () => {
   it.each([
     ['now playing', (w: number, h: number) => {
       const g = nowPlayingGeometry(w, h)
-      return [g.title.y, g.state.y, g.bar.y + g.bar.h, g.volume?.y]
+      // The bar is a box, not a row of type: its bottom edge is what has to
+      // be on the glass.
+      return [g.title.y, g.state.y, g.bar.y + g.bar.h - FONT_H, g.volume?.y]
     }],
     ['clock', (w: number, h: number) => {
       const g = clockGeometry(w, h)
@@ -109,7 +113,7 @@ describe('rows resolved from the panel', () => {
     }],
     ['boot status', (w: number, h: number) => {
       const g = bootStatusGeometry(w, h)
-      return [g.title.y, g.subtitle?.y, g.rule?.y, g.state.y, g.detail?.y, g.meta?.y]
+      return [g.title?.y, g.subtitle?.y, g.rule?.y, g.state.y, g.detail?.y, g.meta?.y]
     }],
   ] as const)('keeps every %s row on the glass, at either height', (_name, rows) => {
     for (const height of [64, SHORT]) {
@@ -129,7 +133,9 @@ describe('rows resolved from the panel', () => {
     expect(nowPlayingGeometry(128, 16).volume).toBeNull()
     expect(waitingGeometry(128, 16).hint).toBeNull()
     // And keeps them where there is room.
-    expect(nowPlayingGeometry(128, SHORT).volume).not.toBeNull()
+    // A half-height module holds the title, the state row and the bar, and
+    // has no fourth row for the volume.
+    expect(nowPlayingGeometry(128, SHORT).volume).toBeNull()
     expect(nowPlayingGeometry(128, 64).volume).not.toBeNull()
   })
 
