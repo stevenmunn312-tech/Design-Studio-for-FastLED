@@ -823,7 +823,14 @@ describe('colour channels are wireable', () => {
           expect(definition.inputs.map((port) => port.id), `${definition.type}.${key}`).toContain(key)
           expect(definition.propertyInputs?.[key], `${definition.type}.${key}`).toBe(key)
 
-          const plan = touchControlPlan(definition.type, key, defaults, false)
+          // A node that starts on its palette (Gravity Well) switches its
+          // channels off until Color is Solid, and refuses a control until then.
+          const atDefaults = touchControlPlan(definition.type, key, defaults, false)
+          const solid = { ...defaults, colorSource: 'solid' }
+          if (!atDefaults.ok && defaults.colorSource !== undefined && defaults.colorSource !== 'solid') {
+            expect(atDefaults.refusal.code, `${definition.type}.${key}`).toBe('disabled')
+          }
+          const plan = atDefaults.ok ? atDefaults : touchControlPlan(definition.type, key, solid, false)
           expect(plan.ok, `${definition.type}.${key}`).toBe(true)
           if (!plan.ok) continue
           expect(plan.spec.type, `${definition.type}.${key}`).toBe('Slider')

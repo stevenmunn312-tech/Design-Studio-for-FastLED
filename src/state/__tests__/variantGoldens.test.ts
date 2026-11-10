@@ -51,7 +51,12 @@ describe('variant defaults are unchanged', () => {
     expect(hash(after('gold-fire-named', 'Fire', { seed: 7, fireStyle: 'classic' }, 25))).toBe('e8f544')
   })
   it('Particles fountain', () => {
-    expect(hash(after('gold-part', 'Particles', { seed: 7, particleType: 'fountain' }, 25))).toBe('a08a69ca')
+    // Retaken when Particles moved onto the clock (passFrames): these ticks are
+    // 3 s apart, so each pass now owes its capped number of frames instead of
+    // one. At 60 fps the frames are unchanged (simulationClock.test.ts).
+    const frame = after('gold-part', 'Particles', { seed: 7, particleType: 'fountain' }, 25)
+    expect(lit(frame)).toBeGreaterThan(0)
+    expect(hash(frame)).toBe('2a8d85ac')
   })
 })
 
