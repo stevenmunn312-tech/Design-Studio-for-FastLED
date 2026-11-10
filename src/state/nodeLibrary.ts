@@ -50,6 +50,7 @@ import { FEEDBACK_TRANSFORMS } from '../nodes/shared/integerPatterns'
 import { WARP_MOTIONS } from '../nodes/composite/frameWarpMotion'
 import { BOID_COLOR_MODES, BOID_PALETTE_MODES, BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
 import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
+import { TEXT_SIZE } from '../nodes/shared/font'
 import { PATH_SHAPES } from '../nodes/shapes/customPath'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
 import { DECODER_MAX_VOLUME } from '../build/parts/partFields'
@@ -612,6 +613,8 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
 const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 // Shape, Text, Clock Display and Line: positions as 0–1 or pixels (positionUnits.ts).
 const POSITION_UNITS_META: PropertyControl = { control: 'select', options: POSITION_UNITS, labels: POSITION_UNIT_LABELS }
+// Text and Clock Display: whole pixels per font pixel (font.ts textSize).
+const TEXT_SIZE_META: PropertyControl = { control: 'slider', min: TEXT_SIZE.min, max: TEXT_SIZE.max, step: 1 }
 const TOUCH_CALIBRATION_META: Record<string, PropertyControl> = {
   touchXMin: { control: 'slider', min: 0, max: 4095, step: 1 },
   touchXMax: { control: 'slider', min: 0, max: 4095, step: 1 },
@@ -764,11 +767,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     y: N01,
     // Cells a second; negative scrolls the other way.
     scroll: { control: 'slider', min: -20, max: 20, step: 0.5 },
+    size: TEXT_SIZE_META,
   },
   ClockDisplay: {
     units: POSITION_UNITS_META,
     x: N01,
     y: N01,
+    size: TEXT_SIZE_META,
     radius: { control: 'slider', min: 2, max: 16, step: 0.5 },
     durationSec: { control: 'slider', min: 0, max: CLOCK_TIMER_MAX_SEC, step: 1, entry: 'number' },
   },
@@ -2523,6 +2528,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     y: 'Vertical position of the clock: 0 (just off the top) to 1 (just off the bottom), or a pixel row when Units is Pixels.',
     hAlign: 'Which part of the digits sits at X: left edge, centre or right edge. Digital modes only.',
     vAlign: 'Which part of the digits sits at Y: top, middle or bottom. Digital modes only.',
+    size: 'Pixel scale of the digits, 1 to 4, as Text\'s Size: each pixel of the 3×5 font is drawn this many pixels square. Every mode with digits, and the date under an analogue face.',
   },
   MicInput: {
     gain: 'Multiplies the microphone signal before analysis; 1 is unity, raise it for a quiet room.',
@@ -2881,7 +2887,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     hAlign: 'Which part of the text sits at X: its left edge, centre or right edge.',
     vAlign: 'Which part of the text sits at Y: its top, middle or bottom.',
     scrollAxis: 'Scroll sideways or up and down.',
-    letterSpacing: 'Blank columns between letters, in pixels.',
+    letterSpacing: 'Blank columns between letters, in font pixels: Size makes the gap grow with the letters.',
+    size: 'Pixel scale, 1 to 4: each pixel of the 3×5 font is drawn this many pixels square, so 2 is 6×10 letters for a 32-row panel. Gaps and line spacing grow with it.',
   },
   Line: {
     units: 'How the ends are read: 0–1, where 0 is the first pixel and 1 the last, or Pixels, which take expressions such as center_x or max_x.',
@@ -4363,7 +4370,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'threeBand', label: 'Three Band', keys: ['energy', 'speed', 'mirror'] },
   ],
   ClockDisplay: [
-    { key: 'display', label: 'Display', keys: ['displayMode', 'units', 'x', 'y', 'hAlign', 'vAlign', 'radius', 'scaleWithMatrix'] },
+    { key: 'display', label: 'Display', keys: ['displayMode', 'units', 'x', 'y', 'hAlign', 'vAlign', 'size', 'radius', 'scaleWithMatrix'] },
     { key: 'transport', label: 'Transport', keys: ['run', 'reset', 'durationSec'] },
   ],
   ColorTrails: [
@@ -4476,7 +4483,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   Text: [
-    { key: 'text', label: 'Text', keys: ['text', 'letterSpacing', 'wrap'] },
+    { key: 'text', label: 'Text', keys: ['text', 'size', 'letterSpacing', 'wrap'] },
     { key: 'position', label: 'Position', keys: ['units', 'x', 'y', 'hAlign', 'vAlign'] },
     { key: 'scroll', label: 'Scroll', keys: ['scroll', 'scrollAxis'] },
   ],
@@ -5388,6 +5395,8 @@ export function isPropertyEnabled(
     // Scale with matrix sizes the analogue face, so it goes with Radius.
     if (key === 'radius' || key === 'scaleWithMatrix') return analog
     if (key === 'hAlign' || key === 'vAlign') return !analog
+    // Plain Analog draws no digits; Analog + Date draws the date at Size.
+    if (key === 'size') return mode !== 'Analog'
     if (key === 'durationSec') return mode === 'Timer'
     if (key === 'run' || key === 'reset') return transport
   }

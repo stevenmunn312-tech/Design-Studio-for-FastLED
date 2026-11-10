@@ -240,15 +240,6 @@ module (no fixture yet).
   owner, which is also folding Gate into Switch. Evidence
   `src/nodes/composite/definitions.ts:365`.
 
-#### Fields and shapes
-
-- [ ] **Text: Add an integer size (Med, M).** The only font is 3x5, tiny on
-  32x32 or 64x32 HUB75 panels. Add an integer `size` (pixel scale 1-4),
-  shared with Clock Display's digits. `src/nodes/shared/font.ts:10`.
-  Touches `textBlockLayout` widths and heights, `renderTextInto` and the
-  scroll totals in the preview, and both sketch paths (the baked column
-  arrays and the wired `_fontCol` loop, each with wrap and scroll), plus
-  Clock Display's `blitText` and its clock glyph table.
 #### Generative and simulations
 
 - [ ] **Category: Move the rest of simulation motion onto the clock (Med, M).**
