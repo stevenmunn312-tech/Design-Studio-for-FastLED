@@ -980,7 +980,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       nodes: {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.6 }],
-        rings: ['BassRings', { palette: 'synthwave', energy: 0.8 }],
+        rings: ['BassRings', { palette: 'synthwave', reactivity: 0.8 }],
       },
       wires: ['mic.audio > fft.audio', 'fft.bass > rings.bass'],
       explanation: 'FFT Analyzer feeds the bass level to Bass Rings, whose rings push outward and brighten like a speaker cone on each kick.',
@@ -999,7 +999,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       nodes: {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.7 }],
-        waves: ['MidrangeWaves', { palette: 'ocean', energy: 0.75 }],
+        waves: ['MidrangeWaves', { palette: 'ocean', reactivity: 0.75 }],
       },
       wires: ['mic.audio > fft.audio', 'fft.mids > waves.mids'],
       explanation: 'FFT Analyzer’s mids drive Midrange Waves, so the ocean-coloured waves swell when the singer or the guitars come in.',
@@ -1018,7 +1018,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       nodes: {
         mic: ['MicInput'],
         voice: ['FrequencyBand', { lowHz: 250, highHz: 2500, gain: 1.4 }],
-        bloom: ['MidrangeBloom', { palette: 'rosegold', energy: 0.8 }],
+        bloom: ['MidrangeBloom', { palette: 'rosegold', reactivity: 0.8 }],
       },
       wires: ['mic.audio > voice.audio', 'voice.level > bloom.mids'],
       output: RING(24),
@@ -1057,7 +1057,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       nodes: {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.5, tilt: 0.5 }],
-        prism: ['TreblePrism', { palette: 'amethyst', energy: 0.8 }],
+        prism: ['TreblePrism', { palette: 'amethyst', reactivity: 0.8 }],
       },
       wires: ['mic.audio > fft.audio', 'fft.treble > prism.treble'],
       explanation: 'FFT Analyzer’s treble drives Treble Prism, so its amethyst shards flicker and slide with the high end of the music.',
@@ -1076,7 +1076,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       nodes: {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.65 }],
-        cascade: ['AudioCascade', { palette: 'rainbow', energy: 0.75 }],
+        cascade: ['AudioCascade', { palette: 'rainbow', reactivity: 0.75 }],
       },
       wires: ['mic.audio > fft.audio', 'fft.bass > cascade.bass', 'fft.mids > cascade.mids', 'fft.treble > cascade.treble'],
       explanation: 'FFT Analyzer feeds each band to its own input on Audio Cascade, which glows with the bass, flows with the mids and shimmers with the treble.',
@@ -1192,7 +1192,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
         beat: ['BeatDetect'],
         fft: ['FFTAnalyzer', { smoothing: 0.75 }],
         hue: ['AudioHue'],
-        scope: ['BeatKaleidoscope', { palette: 'ultraviolet', energy: 0.8 }],
+        scope: ['BeatKaleidoscope', { palette: 'ultraviolet', reactivity: 0.8 }],
       },
       wires: [
         'mic.audio > beat.audio',
@@ -1261,7 +1261,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.6 }],
         beat: ['BeatDetect'],
-        embers: ['EmberPulse', { energy: 0.8 }],
+        embers: ['EmberPulse', { reactivity: 0.8 }],
       },
       wires: ['mic.audio > fft.audio', 'mic.audio > beat.audio', 'fft.bass > embers.bass', 'fft.mids > embers.mids', 'fft.treble > embers.treble', 'beat.beat > embers.beat'],
       explanation: 'FFT Analyzer’s bands heat Ember Pulse’s columns — bass in the middle, treble at the sides — and Beat Detect sends a burst of flame up on every beat.',
@@ -1302,7 +1302,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       nodes: {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.6 }],
-        well: ['GravityWell', { r: 160, g: 120, b: 255, energy: 0.8 }],
+        well: ['GravityWell', { r: 160, g: 120, b: 255, reactivity: 0.8 }],
       },
       wires: ['mic.audio > fft.audio', 'fft.bass > well.bass'],
       explanation: 'FFT Analyzer’s bass drives Gravity Well, so the violet rings crowd tighter round the drifting well on every kick, like spacetime bending.',

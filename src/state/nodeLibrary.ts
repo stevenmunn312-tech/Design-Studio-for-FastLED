@@ -584,8 +584,9 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   separation: { control: 'slider', min: 0, max: 1, step: 0.01 },
   gate:       { control: 'slider', min: 0, max: 1, step: 0.01 },
   density:    { control: 'slider', min: 0, max: 1, step: 0.01 },
-  // Audio-reactivity amount on the spectral pattern nodes (was `intensity`).
-  energy:     { control: 'slider', min: 0, max: 1, step: 0.01 },
+  // How strongly the audio moves an audio-reactive pattern (was `intensity`,
+  // then `energy`, which read as Audio Features' Energy output).
+  reactivity: { control: 'slider', min: 0, max: 1, step: 0.01 },
   brightness: { control: 'slider', min: 0, max: 1, step: 0.01 },
   boost:      { control: 'slider', min: 0, max: 1, step: 0.01 },
   // Beat Flash overdrive — 1 = the pre-existing flash brightness, up to 2x hotter.
@@ -1873,7 +1874,7 @@ export function propertyOptions(
 export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   seed: '0 runs free (Math.random each time); any other value reproduces the exact same result on every run.',
   clampInputs: "Clamps a wired float input to this node's slider range, so an unbounded upstream signal can't exceed it.",
-  energy: 'How strongly the audio changes the picture: 0 = calm base motion, 1 = fully reactive.',
+  reactivity: 'How strongly the audio changes the picture: 0 = calm base motion, 1 = fully reactive.',
   timezoneOffsetMinutes: 'Fixed local offset from UTC for NTP-synced firmware time. Preview still reads the browser clock.',
   dmxPort: 'ESP32 UART used by esp_dmx for DMX512 receive.',
   requireSync: 'Keeps the schedule inactive until the upstream Clock reports a real NTP sync.',
@@ -2665,7 +2666,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     gap: 'Quiet time between flashes: about 30 s (20–40 s), 1–2 min, or 2–5 min. The first flash comes a few seconds after start whichever you pick.',
   },
   KickShock: {
-    speed: 'Ring travel rate (0–1); reactivity multiplies it. Kick rings are slow and wide, snare fast and thin.',
+    speed: 'Ring travel rate (0–1; 0.5 is the default pace, 1 twice as fast); reactivity multiplies it. Kick rings are slow and wide, snare fast and thin.',
     tiles: 'Repeats the shockwave in an N×N grid of cells (1–8).',
     count: 'Most rings alive at once (2–16); older rings are recycled. Fixed at build time.',
     decay: 'Ring lifetime multiplier (0.3–3); above 1 lingers, travel distance stays the same.',
@@ -2674,10 +2675,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   BeatKaleidoscope: {
     hue: 'Palette start offset in degrees (0–360); wire an audio hue into Hue to colour-shift with the music.',
-    speed: 'Rotation rate (0–1); each beat adds wedges and a spin kick that decays.',
+    speed: 'Rotation rate (0–1; 0.5 is the default pace, 1 twice as fast); each beat adds wedges and a spin kick that decays.',
   },
   SpectraMosaic: {
-    speed: 'Diagonal sweep rate (0–1); reactivity multiplies it.',
+    speed: 'Diagonal sweep rate (0–1; 0.5 is the default pace, 1 twice as fast); reactivity multiplies it.',
     tiles: 'Grid size N×N (2–8). Bass lights the top-left cells, treble the bottom-right, mids all.',
   },
   PercussionBlobs: {
@@ -2687,7 +2688,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     blendMode: 'Add merges overlapping blobs into one field; Max keeps them separate.',
   },
   RainRipples: {
-    speed: 'Ripple expansion rate (0–1); faster ripples also live shorter.',
+    speed: 'Ripple expansion rate (0–1; 0.5 is the default pace, 1 twice as fast); faster ripples also live shorter.',
     count: 'Most ripples alive at once (2–16); each Trigger pulse starts one. Fixed at build time.',
     decay: 'Ripple lifetime multiplier (0.3–3).',
     thickness: 'Ripple band width multiplier (0.25–3).',
@@ -3262,7 +3263,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     minTime: 'Minimum seconds a pattern stays before the show may switch on a beat.',
     paletteMode: 'Mood picks a palette per song section, Cycle rotates palettes, Fixed keeps one palette.',
     fixedPalette: 'The palette used for the whole show when Palette Mode is Fixed.',
-    useGroupInputs: 'Feed each pattern\'s energy, speed and palette inputs from the music so patterns follow the song. Any other Group Input with a plain name gets its own lane in Edit lanes.',
+    useGroupInputs: 'Feed each pattern\'s reactivity, speed and palette inputs from the music so patterns follow the song. Any other Group Input with a plain name gets its own lane in Edit lanes.',
     showInMainPreview: 'Also draw the running show in the main preview. Off keeps the main preview on the graph while the body plays.',
   },
   SDCard: {
@@ -3386,37 +3387,37 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     bass: 'Bass level (0–1) when unwired: picks the palette colour and sets brightness.',
   },
   BassRings: {
-    speed: 'Base ring travel rate (0–1); bass and reactivity multiply it.',
+    speed: 'Base ring travel rate (0–1; 0.5 is the default pace, 1 twice as fast); bass and reactivity multiply it.',
   },
   MidrangeWaves: {
-    speed: 'Base wave motion rate (0–1); mids and reactivity multiply it.',
+    speed: 'Base wave motion rate (0–1; 0.5 is the default pace, 1 twice as fast); mids and reactivity multiply it.',
   },
   MidrangeBloom: {
-    speed: 'Base bloom rotation rate (0–1); mids and reactivity multiply it.',
+    speed: 'Base bloom rotation rate (0–1; 0.5 is the default pace, 1 twice as fast); mids and reactivity multiply it.',
   },
   TrebleSparks: {
     density: 'How many sparks spawn per frame as a share of the matrix (0–1); treble multiplies it.',
   },
   TreblePrism: {
-    speed: 'Base shard motion rate (0–1); treble and reactivity multiply it.',
+    speed: 'Base shard motion rate (0–1; 0.5 is the default pace, 1 twice as fast); treble and reactivity multiply it.',
   },
   AudioCascade: {
-    speed: 'Base ribbon flow rate (0–1); all three bands and reactivity multiply it.',
+    speed: 'Base ribbon flow rate (0–1; 0.5 is the default pace, 1 twice as fast); all three bands and reactivity multiply it.',
   },
   VocalAurora: {
-    speed: 'Curtain drift rate (0–1); vocal level speeds it up. Silence input dims the frame to black.',
+    speed: 'Curtain drift rate (0–1; 0.5 is the default pace, 1 twice as fast); vocal level speeds it up. Silence input dims the frame to black.',
   },
   EmberPulse: {
-    speed: 'Flicker rate (0–1). Bass heats the centre columns, treble the edges; each beat bursts.',
+    speed: 'Flicker rate (0–1; 0.5 is the default pace, 1 twice as fast). Bass heats the centre columns, treble the edges; each beat bursts.',
   },
   TurbulentBloom: {
-    speed: 'Base turbulence rate (0–1); treble drives fast jitter, mids slow drift, bass pulses brightness.',
+    speed: 'Base turbulence rate (0–1; 0.5 is the default pace, 1 twice as fast); treble drives fast jitter, mids slow drift, bass pulses brightness.',
   },
   GravityWell: {
-    speed: 'Well orbit and ring wave rate (0–1); bass packs more rings toward the well.',
+    speed: 'Well orbit and ring wave rate (0–1; 0.5 is the default pace, 1 twice as fast); bass packs more rings toward the well.',
   },
   PrismStorm: {
-    speed: 'Shard drift rate (0–1); mids speed it up, treble sharpens the grain, each hi-hat hit snaps the angle.',
+    speed: 'Shard drift rate (0–1; 0.5 is the default pace, 1 twice as fast); mids speed it up, treble sharpens the grain, each hi-hat hit snaps the angle.',
   },
   SampleHold: {
     value: 'Number latched on each Trigger pulse, when nothing is wired into Value.',
@@ -3461,15 +3462,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
 export function propertyDescription(nodeType: string, key: string): string | undefined {
   return PROPERTY_DESCRIPTIONS_OVERRIDES[nodeType]?.[key] ?? PROPERTY_DESCRIPTIONS[key]
 }
-
-/*
- * On an audio-reactive pattern `energy` is how strongly the audio moves the
- * picture, not a loudness level like Audio Features' Energy output, so it is
- * shown as reactivity. Every pattern that carries the property reads it so.
- */
-const REACTIVITY_LABELS = Object.fromEntries(AUDIO_REACTIVE_DEFINITIONS
-  .filter((definition) => definition.defaultProperties?.energy !== undefined)
-  .map((definition) => [definition.type, { energy: 'reactivity' }]))
 
 /** The two colour triples of a gradient or blend node, named by channel and end. */
 const COLOR_PAIR_LABELS: Record<string, string> = {
@@ -4106,9 +4098,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
 }
 
 /** Per-node overrides for a property's displayed label (defaults to the raw key). */
-export const PROPERTY_LABELS: Record<string, Record<string, string>> = Object.fromEntries(
-  [...new Set([...Object.keys(REACTIVITY_LABELS), ...Object.keys(EXPLICIT_PROPERTY_LABELS)])]
-    .map((type) => [type, { ...REACTIVITY_LABELS[type], ...EXPLICIT_PROPERTY_LABELS[type] }]))
+export const PROPERTY_LABELS: Record<string, Record<string, string>> = EXPLICIT_PROPERTY_LABELS
 
 /**
  * Display text for a node's property row (StudioNode's inline editors).
@@ -4380,7 +4370,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'response', label: 'Response', keys: ['gain', 'smoothing', 'tilt'] },
     { key: 'peaks', label: 'Peak Dots', keys: ['peakHold', 'peakGravity'] },
     { key: 'waterfall', label: 'Waterfall', keys: ['waterfallSpeed'] },
-    { key: 'threeBand', label: 'Three Band', keys: ['energy', 'speed', 'mirror'] },
+    { key: 'threeBand', label: 'Three Band', keys: ['reactivity', 'speed', 'mirror'] },
   ],
   ClockDisplay: [
     { key: 'display', label: 'Display', keys: ['displayMode', 'units', 'x', 'y', 'hAlign', 'vAlign', 'size', 'radius', 'scaleWithMatrix'] },
@@ -4551,7 +4541,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   KickShock: [
     { key: 'drums', label: 'Drums', keys: ['kick', 'snare', 'hihat'] },
-    { key: 'motion', label: 'Motion', keys: ['energy', 'speed'] },
+    { key: 'motion', label: 'Motion', keys: ['reactivity', 'speed'] },
     { key: 'rings', label: 'Rings', keys: ['count', 'decay', 'thickness', 'spawnSpread', 'tiles'] },
     { key: 'color', label: 'Color', keys: ['palette', 'blendMode'] },
   ],
@@ -4561,13 +4551,13 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'color', label: 'Color', keys: ['palette', 'blendMode'] },
   ],
   RainRipples: [
-    { key: 'motion', label: 'Motion', keys: ['energy', 'speed'] },
+    { key: 'motion', label: 'Motion', keys: ['reactivity', 'speed'] },
     { key: 'ripples', label: 'Ripples', keys: ['count', 'decay', 'thickness', 'spawnSpread'] },
     { key: 'color', label: 'Color', keys: ['palette', 'blendMode'] },
   ],
   SpectraMosaic: [
     { key: 'audio', label: 'Audio', keys: ['bass', 'mids', 'treble'] },
-    { key: 'motion', label: 'Motion', keys: ['energy', 'speed', 'tiles'] },
+    { key: 'motion', label: 'Motion', keys: ['reactivity', 'speed', 'tiles'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   FormatNumber: [
@@ -5537,7 +5527,7 @@ export function isPropertyEnabled(
     if (key === 'peakHold' || key === 'peakGravity') return style !== 'Waterfall' && !threeBand
     // Three Band eases its unwired bands with Smoothing; it has no Tilt.
     if (key === 'tilt') return !threeBand
-    if (key === 'energy' || key === 'speed' || key === 'mirror') return threeBand
+    if (key === 'reactivity' || key === 'speed' || key === 'mirror') return threeBand
   }
   if (nodeType === 'FrameWarp' && key === 'motionSpeed') return String(properties.motion ?? 'swirl') !== 'none'
   if (nodeType === 'FrameFeedback') {

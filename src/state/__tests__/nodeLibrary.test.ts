@@ -476,23 +476,23 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('Animartrix', 'audioAmount')).toMatchObject({ control: 'slider', min: 0, max: 2 })
   })
 
-  it('MidrangeWaves exposes energy, normalized speed, and palette inputs', () => {
+  it('MidrangeWaves exposes reactivity, normalized speed, and palette inputs', () => {
     const mw = NODE_LIBRARY.find((n) => n.type === 'MidrangeWaves')
-    expect(mw?.inputs.map((p) => p.id)).toEqual(['mids', 'energy', 'speed', 'paletteIn'])
-    expect(mw?.defaultProperties).toMatchObject({ energy: 0.7, speed: 1, palette: 'ocean' })
-    expect(propertyMeta('MidrangeWaves', 'energy')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    expect(mw?.inputs.map((p) => p.id)).toEqual(['mids', 'reactivity', 'speed', 'paletteIn'])
+    expect(mw?.defaultProperties).toMatchObject({ reactivity: 0.7, speed: 0.5, palette: 'ocean' })
+    expect(propertyMeta('MidrangeWaves', 'reactivity')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('MidrangeWaves', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
-  it('SpectrumVisualizer Three Band exposes palette-driven energy and speed controls', () => {
+  it('SpectrumVisualizer Three Band exposes palette-driven reactivity and speed controls', () => {
     const visualizer = NODE_LIBRARY.find((n) => n.type === 'SpectrumVisualizer')
-    expect(visualizer?.inputs.map((p) => p.id)).toEqual(expect.arrayContaining(['bass', 'mids', 'treble', 'energy', 'speed', 'paletteIn']))
-    expect(visualizer?.propertyInputs).toMatchObject({ energy: 'energy', speed: 'speed' })
-    expect(visualizer?.defaultProperties).toMatchObject({ energy: 0.7, speed: 0.6, mirror: true })
+    expect(visualizer?.inputs.map((p) => p.id)).toEqual(expect.arrayContaining(['bass', 'mids', 'treble', 'reactivity', 'speed', 'paletteIn']))
+    expect(visualizer?.propertyInputs).toMatchObject({ reactivity: 'reactivity', speed: 'speed' })
+    expect(visualizer?.defaultProperties).toMatchObject({ reactivity: 0.7, speed: 0.6, mirror: true })
     expect(propertyMeta('SpectrumVisualizer', 'style')).toMatchObject({ options: expect.arrayContaining(['Three Band']) })
-    expect(propertyMeta('SpectrumVisualizer', 'energy')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    expect(propertyMeta('SpectrumVisualizer', 'reactivity')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('SpectrumVisualizer', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
-    for (const key of ['energy', 'speed', 'mirror']) {
+    for (const key of ['reactivity', 'speed', 'mirror']) {
       expect(isPropertyEnabled('SpectrumVisualizer', key, { style: 'Three Band' }), key).toBe(true)
       expect(isPropertyEnabled('SpectrumVisualizer', key, { style: 'Bars' }), key).toBe(false)
     }
@@ -509,7 +509,7 @@ describe('nodeLibrary', () => {
     expect(visualizer?.inputs.map((p) => p.id)).toEqual([
       'audio', 'paletteIn',
       'gain', 'smoothing', 'tilt', 'peakHold', 'peakGravity', 'waterfallSpeed',
-      'bass', 'mids', 'treble', 'energy', 'speed',
+      'bass', 'mids', 'treble', 'reactivity', 'speed',
     ])
     // `bands` sizes the emitted band array, so it has no socket.
     expect(visualizer?.inputs.map((p) => p.id)).not.toContain('bands')
@@ -540,19 +540,19 @@ describe('nodeLibrary', () => {
     expect(def.defaultProperties).not.toHaveProperty('maxVolume')
   })
 
-  it('BassRings exposes bass, energy, normalized speed, and palette inputs', () => {
+  it('BassRings exposes bass, reactivity, normalized speed, and palette inputs', () => {
     const br = NODE_LIBRARY.find((n) => n.type === 'BassRings')
-    expect(br?.inputs.map((p) => p.id)).toEqual(['bass', 'energy', 'speed', 'paletteIn'])
-    expect(br?.defaultProperties).toMatchObject({ energy: 0.7, speed: 1, palette: 'lava' })
-    expect(propertyMeta('BassRings', 'energy')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    expect(br?.inputs.map((p) => p.id)).toEqual(['bass', 'reactivity', 'speed', 'paletteIn'])
+    expect(br?.defaultProperties).toMatchObject({ reactivity: 0.7, speed: 0.5, palette: 'lava' })
+    expect(propertyMeta('BassRings', 'reactivity')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('BassRings', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
-  it('MidrangeBloom exposes energy, normalized speed, and palette inputs', () => {
+  it('MidrangeBloom exposes reactivity, normalized speed, and palette inputs', () => {
     const mb = NODE_LIBRARY.find((n) => n.type === 'MidrangeBloom')
-    expect(mb?.inputs.map((p) => p.id)).toEqual(['mids', 'energy', 'speed', 'paletteIn'])
-    expect(mb?.defaultProperties).toMatchObject({ energy: 0.7, speed: 1, palette: 'party' })
-    expect(propertyMeta('MidrangeBloom', 'energy')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    expect(mb?.inputs.map((p) => p.id)).toEqual(['mids', 'reactivity', 'speed', 'paletteIn'])
+    expect(mb?.defaultProperties).toMatchObject({ reactivity: 0.7, speed: 0.5, palette: 'party' })
+    expect(propertyMeta('MidrangeBloom', 'reactivity')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('MidrangeBloom', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
@@ -562,11 +562,11 @@ describe('nodeLibrary', () => {
     expect(ts?.defaultProperties).toMatchObject({ density: 0.5, palette: 'ice' })
   })
 
-  it('TreblePrism exposes energy, normalized speed, and a palette input', () => {
+  it('TreblePrism exposes reactivity, normalized speed, and a palette input', () => {
     const tp = NODE_LIBRARY.find((n) => n.type === 'TreblePrism')
-    expect(tp?.inputs.map((p) => p.id)).toEqual(['treble', 'energy', 'speed', 'paletteIn'])
-    expect(tp?.defaultProperties).toMatchObject({ energy: 0.7, speed: 1, palette: 'amethyst' })
-    expect(propertyMeta('TreblePrism', 'energy')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    expect(tp?.inputs.map((p) => p.id)).toEqual(['treble', 'reactivity', 'speed', 'paletteIn'])
+    expect(tp?.defaultProperties).toMatchObject({ reactivity: 0.7, speed: 0.5, palette: 'amethyst' })
+    expect(propertyMeta('TreblePrism', 'reactivity')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('TreblePrism', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 
@@ -617,9 +617,9 @@ describe('nodeLibrary', () => {
 
   it('AudioCascade exposes full-spectrum audio inputs with normalized controls', () => {
     const ac = NODE_LIBRARY.find((n) => n.type === 'AudioCascade')
-    expect(ac?.inputs.map((p) => p.id)).toEqual(['bass', 'mids', 'treble', 'energy', 'speed', 'paletteIn'])
-    expect(ac?.defaultProperties).toMatchObject({ energy: 0.7, speed: 1, palette: 'rainbow' })
-    expect(propertyMeta('AudioCascade', 'energy')).toMatchObject({ control: 'slider', min: 0, max: 1 })
+    expect(ac?.inputs.map((p) => p.id)).toEqual(['bass', 'mids', 'treble', 'reactivity', 'speed', 'paletteIn'])
+    expect(ac?.defaultProperties).toMatchObject({ reactivity: 0.7, speed: 0.5, palette: 'rainbow' })
+    expect(propertyMeta('AudioCascade', 'reactivity')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('AudioCascade', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
   })
 

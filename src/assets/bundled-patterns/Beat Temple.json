@@ -292,8 +292,8 @@
      "category": "pattern",
      "properties": {
       "hue": 0,
-      "energy": 0.7,
-      "speed": 0.9,
+      "reactivity": 0.7,
+      "speed": 0.45,
       "palette": "ultraviolet"
      },
      "inputs": [
@@ -308,7 +308,7 @@
        "dataType": "float"
       },
       {
-       "id": "energy",
+       "id": "reactivity",
        "label": "Energy",
        "dataType": "float"
       },
@@ -529,8 +529,8 @@
       "value": 0,
       "inMin": 0.05,
       "inMax": 0.7,
-      "outMin": 0.6,
-      "outMax": 2.0
+      "outMin": 0.3,
+      "outMax": 1
      },
      "inputs": [
       {
@@ -800,7 +800,7 @@
     "source": "drive",
     "sourceHandle": "result",
     "target": "kal",
-    "targetHandle": "energy",
+    "targetHandle": "reactivity",
     "type": "glowEdge",
     "reconnectable": "target"
    }

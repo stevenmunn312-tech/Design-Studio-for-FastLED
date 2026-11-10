@@ -376,8 +376,8 @@
           "nodeType": "KickShock",
           "category": "pattern",
           "properties": {
-            "energy": 0.86,
-            "speed": 0.78,
+            "reactivity": 0.86,
+            "speed": 0.39,
             "palette": "volcano",
             "count": 10,
             "decay": 0.86,
@@ -402,7 +402,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -487,8 +487,8 @@
           "nodeType": "VocalAurora",
           "category": "pattern",
           "properties": {
-            "energy": 0.78,
-            "speed": 0.56,
+            "reactivity": 0.78,
+            "speed": 0.28,
             "palette": "aurora"
           },
           "inputs": [
@@ -498,7 +498,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -685,6 +685,43 @@
           ],
           "outputs": []
         }
+      },
+      {
+        "id": "aurora-speed-half",
+        "type": "studioNode",
+        "position": {
+          "x": 810,
+          "y": 510
+        },
+        "data": {
+          "label": "Math",
+          "nodeType": "Math",
+          "category": "math",
+          "properties": {
+            "mathOp": "multiply",
+            "a": 0,
+            "b": 0.5
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "float"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
       }
     ],
     "edges": [
@@ -837,7 +874,7 @@
         "source": "features",
         "sourceHandle": "energy",
         "target": "shock",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -864,7 +901,7 @@
         "source": "features",
         "sourceHandle": "energy",
         "target": "aurora",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -881,8 +918,8 @@
         "id": "edge-21-fft-aurora",
         "source": "fft",
         "sourceHandle": "mids",
-        "target": "aurora",
-        "targetHandle": "speed",
+        "target": "aurora-speed-half",
+        "targetHandle": "a",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -946,6 +983,15 @@
         "sourceHandle": "frame",
         "target": "group-output",
         "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e-aurora-speed-half",
+        "source": "aurora-speed-half",
+        "sourceHandle": "result",
+        "target": "aurora",
+        "targetHandle": "speed",
         "type": "glowEdge",
         "reconnectable": "target"
       }

@@ -2426,8 +2426,8 @@ describe('generateCpp', () => {
     expect(cpp).toContain('CRGB* const buf_ax = leds;')
   })
 
-  it('emits MidrangeWaves through a FastLED palette with energy-controlled reactivity', () => {
-    const mw = node('mw', 'MidrangeWaves', 'pattern', { energy: 1.4, speed: 1, palette: 'ocean', mids: 0.5 })
+  it('emits MidrangeWaves through a FastLED palette with a reactivity control', () => {
+    const mw = node('mw', 'MidrangeWaves', 'pattern', { reactivity: 1.4, speed: 0.5, palette: 'ocean', mids: 0.5 })
     const cpp = generateCpp([mw, outputNode], [edge('e', 'mw', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _m =')
     expect(cpp).toContain('float _strength = min(1.0f, max(0.0f, _intensity));')
@@ -2441,10 +2441,10 @@ describe('generateCpp', () => {
   })
 
   it('emits BassRings as a radial sine pattern with bass-scaled density and brightness', () => {
-    const br = node('br', 'BassRings', 'pattern', { bass: 0.6, energy: 0.75, speed: 1.25, palette: 'lava' })
+    const br = node('br', 'BassRings', 'pattern', { bass: 0.6, reactivity: 0.75, speed: 0.625, palette: 'lava' })
     const cpp = generateCpp([br, outputNode], [edge('e', 'br', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _strength = min(1.0f, max(0.0f,')
-    expect(cpp).toContain('float _spd = min(1.0f, max(0.0f,')
+    expect(cpp).toContain('float _spd = min(2.0f, max(0.0f,')
     expect(cpp).toContain('float _motion = _spd * (0.75f + _b * 1.75f * _strength);')
     expect(cpp).toContain('float _rings = 4.0f + _b * 8.0f * _strength;')
     // The integer kernel: the ring count is an angle step, the crisp curve a table.
@@ -2455,9 +2455,9 @@ describe('generateCpp', () => {
   })
 
   it('emits MidrangeBloom through a palette with radial bloom modulation', () => {
-    const mb = node('mb', 'MidrangeBloom', 'pattern', { mids: 0.7, energy: 0.8, speed: 0.6, palette: 'party' })
+    const mb = node('mb', 'MidrangeBloom', 'pattern', { mids: 0.7, reactivity: 0.8, speed: 0.3, palette: 'party' })
     const cpp = generateCpp([mb, outputNode], [edge('e', 'mb', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('float _motion = min(1.0f, max(0.0f, _spd)) * (0.8f + _mAmt * 2.2f * _strength);')
+    expect(cpp).toContain('float _motion = min(2.0f, max(0.0f, _spd)) * (0.8f + _mAmt * 2.2f * _strength);')
     expect(cpp).toContain('_mbA1=(int32_t)(fmodf(_phase_mb*3.2f,6.2831853f)*10430.378f)')
     expect(cpp).toContain('(5.0f+_mAmt*8.0f*_strength)*3.14159265f')
     expect(cpp).toContain('ColorFromPalette(paldef_party, _mbIdx)')
@@ -2466,7 +2466,7 @@ describe('generateCpp', () => {
   })
 
   it('emits TreblePrism as sharp diagonal treble-reactive shards', () => {
-    const tp = node('tp', 'TreblePrism', 'pattern', { treble: 0.85, energy: 0.9, speed: 0.7, palette: 'amethyst' })
+    const tp = node('tp', 'TreblePrism', 'pattern', { treble: 0.85, reactivity: 0.9, speed: 0.35, palette: 'amethyst' })
     const cpp = generateCpp([tp, outputNode], [edge('e', 'tp', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _motion = _spd * (1.2f + _t * 3.2f * _strength);')
     // The integer kernel: shard and flash curves are tables, the waves sin16.
@@ -2477,7 +2477,7 @@ describe('generateCpp', () => {
   })
 
   it('emits AudioCascade as a full-spectrum palette pattern with ribbons and shimmer', () => {
-    const ac = node('ac', 'AudioCascade', 'pattern', { bass: 0.8, mids: 0.7, treble: 0.9, energy: 0.85, speed: 0.75, palette: 'rainbow' })
+    const ac = node('ac', 'AudioCascade', 'pattern', { bass: 0.8, mids: 0.7, treble: 0.9, reactivity: 0.85, speed: 0.375, palette: 'rainbow' })
     const cpp = generateCpp([ac, outputNode], [edge('e', 'ac', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _motion = _spd * (0.8f + (_b + _m + _t) * 1.4f * _strength);')
     // The integer kernel: the shimmer curve is a table, the waves sin16.
@@ -4443,7 +4443,7 @@ describe('generateCpp — INMP441 audio engine', () => {
   it('emits Spectrum Visualizer Three Band as a palette-driven on-device equalizer', () => {
     const sb = node('sb', 'SpectrumVisualizer', 'pattern', {
       style: 'Three Band',
-      energy: 0.7,
+      reactivity: 0.7,
       speed: 0.6,
       palette: 'ocean',
       mirror: true,
@@ -4842,7 +4842,7 @@ describe('generateCpp — INMP441 audio engine', () => {
   })
 
   it('softens VocalAurora input in generated firmware', () => {
-    const aurora = node('aurora', 'VocalAurora', 'pattern', { vocals: 1, energy: 0.7 })
+    const aurora = node('aurora', 'VocalAurora', 'pattern', { vocals: 1, reactivity: 0.7 })
     const cpp = generateCpp([aurora, out], [
       edge('e1', 'aurora', 'out', 'frame', 'frame'),
     ])

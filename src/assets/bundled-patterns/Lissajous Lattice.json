@@ -496,8 +496,8 @@
      "nodeType": "TreblePrism",
      "category": "pattern",
      "properties": {
-      "energy": 0.65,
-      "speed": 0.9,
+      "reactivity": 0.65,
+      "speed": 0.45,
       "palette": "amethyst"
      },
      "inputs": [
@@ -507,7 +507,7 @@
        "dataType": "float"
       },
       {
-       "id": "energy",
+       "id": "reactivity",
        "label": "Energy",
        "dataType": "float"
       },

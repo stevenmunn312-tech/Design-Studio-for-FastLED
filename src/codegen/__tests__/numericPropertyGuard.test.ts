@@ -37,9 +37,9 @@ describe('numeric property guard', () => {
   })
 
   it('keeps numeric strings and leaves the stored properties untouched', () => {
-    const stored = { count: '12', energy: 'abc' }
-    expect(resolveNodeNumericProperties('KickShock', stored, 16, 16)).toMatchObject({ count: 12, energy: 0.7 })
-    expect(stored).toEqual({ count: '12', energy: 'abc' })
+    const stored = { count: '12', reactivity: 'abc' }
+    expect(resolveNodeNumericProperties('KickShock', stored, 16, 16)).toMatchObject({ count: 12, reactivity: 0.7 })
+    expect(stored).toEqual({ count: '12', reactivity: 'abc' })
   })
 
   // The nodes whose array sizes crashed the preview or emitted

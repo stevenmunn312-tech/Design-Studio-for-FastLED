@@ -4,6 +4,7 @@ import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
 import { spectrumThirdBounds } from '../../state/evaluator/signals'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
+import { audioSpeedRateCpp } from './audioSpeed'
 import {
   auroraFrameCpp, auroraPixelCpp, auroraRowCpp, cascadeFrameCpp, cascadePixelCpp, prismFrameCpp, prismPixelCpp,
   EMBER_PIXEL_CPP, KALEIDO_PIXEL_CPP, trailColumnPassCpp, trailRowPassCpp, MOSAIC_PIXEL_CPP, WAVES_PIXEL_CPP, bloomFrameCpp, emberFrameCpp, wavesFrameCpp, bloomPixelCpp, kaleidoFrameCpp, ringsFrameCpp, ringsPixelCpp, shockFrameCpp, shockPixelCpp, stormFrameCpp, stormPixelCpp,
@@ -46,7 +47,7 @@ function threeBandCpp({ node, id, p, ln, f, ownBuf, incoming, paletteExpr, needs
     if (incoming.has(`${node.id}:${port}`)) return f(port, port, 0)
     return `_svTB_${id}[${i}]`
   }
-  const energy = f('energy', 'energy', 0.7)
+  const energy = f('reactivity', 'reactivity', 0.7)
   const speed = f('speed', 'speed', 0.6)
   const pal = paletteExpr(node.id, 'paletteIn', p)
   const mirror = p.mirror !== false
@@ -236,13 +237,13 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const bass = f('bass', 'bass', 0.5)
-    const energy = f('energy', 'energy', 0.7)
-    const speed = f('speed', 'speed', 1)
+    const energy = f('reactivity', 'reactivity', 0.7)
+    const speed = audioSpeedRateCpp(f('speed', 'speed', 0.5))
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
     ln(`    float _b = min(1.0f, max(0.0f, ${bass}));`)
     ln(`    float _strength = min(1.0f, max(0.0f, ${energy}));`)
-    ln(`    float _spd = min(1.0f, max(0.0f, ${speed}));`)
+    ln(`    float _spd = min(2.0f, max(0.0f, ${speed}));`)
     ln(`    float _cx = WIDTH * 0.5f, _cy = HEIGHT * 0.5f, _maxD = sqrtf(_cx * _cx + _cy * _cy);`)
     ln(`    float _motion = _spd * (0.75f + _b * 1.75f * _strength);`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '1.2f + _motion * 4.8f')
@@ -264,8 +265,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const mids = f('mids', 'mids', 0.5)
-    const energy = f('energy', 'energy', 0.7)
-    const speed = f('speed', 'speed', 1)
+    const energy = f('reactivity', 'reactivity', 0.7)
+    const speed = audioSpeedRateCpp(f('speed', 'speed', 0.5))
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
     ln(`    float _m = ${mids}, _intensity = ${energy}, _spd = ${speed};`)
@@ -286,14 +287,14 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const mids = f('mids', 'mids', 0.5)
-    const energy = f('energy', 'energy', 0.7)
-    const speed = f('speed', 'speed', 1)
+    const energy = f('reactivity', 'reactivity', 0.7)
+    const speed = audioSpeedRateCpp(f('speed', 'speed', 0.5))
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
     ln(`    float _m = ${mids}, _intensity = ${energy}, _spd = ${speed};`)
     ln(`    float _mAmt = min(1.0f, max(0.0f, _m));`)
     ln(`    float _strength = min(1.0f, max(0.0f, _intensity));`)
-    ln(`    float _motion = min(1.0f, max(0.0f, _spd)) * (0.8f + _mAmt * 2.2f * _strength);`)
+    ln(`    float _motion = min(2.0f, max(0.0f, _spd)) * (0.8f + _mAmt * 2.2f * _strength);`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_motion')
     // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
     for (const line of bloomFrameCpp(ph, '_mAmt', '_strength', id)) ln(`    ${line}`)
@@ -335,13 +336,13 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const treble = f('treble', 'treble', 0.5)
-    const energy = f('energy', 'energy', 0.7)
-    const speed = f('speed', 'speed', 1)
+    const energy = f('reactivity', 'reactivity', 0.7)
+    const speed = audioSpeedRateCpp(f('speed', 'speed', 0.5))
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
     ln(`    float _t = min(1.0f, max(0.0f, ${treble}));`)
     ln(`    float _strength = min(1.0f, max(0.0f, ${energy}));`)
-    ln(`    float _spd = min(1.0f, max(0.0f, ${speed}));`)
+    ln(`    float _spd = min(2.0f, max(0.0f, ${speed}));`)
     ln(`    float _motion = _spd * (1.2f + _t * 3.2f * _strength);`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_motion')
     // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
@@ -360,13 +361,13 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const bass = f('bass', 'bass', 0.5)
     const mids = f('mids', 'mids', 0.5)
     const treble = f('treble', 'treble', 0.5)
-    const energy = f('energy', 'energy', 0.7)
-    const speed = f('speed', 'speed', 1)
+    const energy = f('reactivity', 'reactivity', 0.7)
+    const speed = audioSpeedRateCpp(f('speed', 'speed', 0.5))
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
     ln(`    float _b = min(1.0f, max(0.0f, ${bass})), _m = min(1.0f, max(0.0f, ${mids})), _t = min(1.0f, max(0.0f, ${treble}));`)
     ln(`    float _strength = min(1.0f, max(0.0f, ${energy}));`)
-    ln(`    float _spd = min(1.0f, max(0.0f, ${speed}));`)
+    ln(`    float _spd = min(2.0f, max(0.0f, ${speed}));`)
     ln(`    float _motion = _spd * (0.8f + (_b + _m + _t) * 1.4f * _strength);`)
     const phRibbon = speedPhaseCpp(ln, phaseTag(id, 'ribbon'), '_motion * (2.0f + _m * 3.0f * _strength)')
     const phSweep = speedPhaseCpp(ln, phaseTag(id, 'sweep'), '_motion * (1.4f + _b * 2.2f * _strength)')
@@ -488,8 +489,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const kick = f('kick', 'kick', 0)
     const snare = f('snare', 'snare', 0)
     const hihat = f('hihat', 'hihat', 0)
-    const energy = f('energy', 'energy', 0.7)
-    const speed = f('speed', 'speed', 1)
+    const energy = f('reactivity', 'reactivity', 0.7)
+    const speed = audioSpeedRateCpp(f('speed', 'speed', 0.5))
     const tiles = f('tiles', 'tiles', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     // `count` sizes the static shock pool below and stays a property;
@@ -505,7 +506,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _ksLife=fmaxf(0.05f, ${f('decay', 'decay', 1)});`)
     ln(`    float _ksBand=fmaxf(0.05f, ${f('thickness', 'thickness', 1)});`)
     ln(`    if(!_ksInit_${id}){ for(int _i=0;_i<${CAP};_i++) _ksAlive_${id}[_i]=false; _ksInit_${id}=true; }`)
-    ln(`    float _spd=constrain(${speed},0.0f,1.0f),_strength=min(1.0f,max(0.0f,${energy})),_hihatAmt=min(1.0f,max(0.0f,${hihat})); int _tiles=max(1,min(8,(int)roundf(${tiles})));`)
+    ln(`    float _spd=constrain(${speed},0.0f,2.0f),_strength=min(1.0f,max(0.0f,${energy})),_hihatAmt=min(1.0f,max(0.0f,${hihat})); int _tiles=max(1,min(8,(int)roundf(${tiles})));`)
     for (const line of demo) ln(`    ${line}`)
     ln(demo.length
       ? `    bool _kickHit=_ksDemoKick||(${kick})>0.5f, _snareHit=_ksDemoSnare||(${snare})>0.5f;`
@@ -540,9 +541,9 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const vocals = f('vocals', 'vocals', 0)
-    const energy = f('energy', 'energy', 0.7)
+    const energy = f('reactivity', 'reactivity', 0.7)
     const silence = boolExpr(node.id, 'silence')
-    const speed = f('speed', 'speed', 1)
+    const speed = audioSpeedRateCpp(f('speed', 'speed', 0.5))
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { // VocalAurora`)
     ln(`    float _rawLevel=min(1.0f,max(0.0f,${vocals}));`)
@@ -573,8 +574,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const ob = ownBuf()
     const beat = boolExpr(node.id, 'beat')
     const hue = f('hue', 'hue', 0)
-    const energy = f('energy', 'energy', 0.7)
-    const speed = f('speed', 'speed', 1)
+    const energy = f('reactivity', 'reactivity', 0.7)
+    const speed = audioSpeedRateCpp(f('speed', 'speed', 0.5))
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { // BeatKaleidoscope`)
     // A rising beat edge punches; the punch keeps 0.85 every 60th of a second.
@@ -607,8 +608,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const bass = f('bass', 'bass', 0.5)
     const mids = f('mids', 'mids', 0.5)
     const treble = f('treble', 'treble', 0.5)
-    const energy = f('energy', 'energy', 0.7)
-    const speed = f('speed', 'speed', 1)
+    const energy = f('reactivity', 'reactivity', 0.7)
+    const speed = audioSpeedRateCpp(f('speed', 'speed', 0.5))
     const tiles = f('tiles', 'tiles', 4)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { // SpectraMosaic`)
@@ -694,8 +695,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const mids = f('mids', 'mids', 0.5)
     const treble = f('treble', 'treble', 0.5)
     const beat = boolExpr(node.id, 'beat')
-    const energy = f('energy', 'energy', 0.7)
-    const speed = f('speed', 'speed', 1)
+    const energy = f('reactivity', 'reactivity', 0.7)
+    const speed = audioSpeedRateCpp(f('speed', 'speed', 0.5))
     ln(`  { // EmberPulse`)
     // A rising beat edge adds a burst; it keeps 0.9 every 60th of a second.
     ln(`    static float _epBurst_${id}=0; static bool _epPrev_${id}=false;`)
@@ -718,8 +719,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const bass = f('bass', 'bass', 0.5)
     const mids = f('mids', 'mids', 0.5)
     const treble = f('treble', 'treble', 0.5)
-    const energy = f('energy', 'energy', 0.7)
-    const speed = f('speed', 'speed', 1)
+    const energy = f('reactivity', 'reactivity', 0.7)
+    const speed = audioSpeedRateCpp(f('speed', 'speed', 0.5))
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { // TurbulentBloom`)
     ln(`    float _b=${bass},_m=${mids},_tr=${treble},_strength=min(1.0f,max(0.0f,${energy}));`)
@@ -743,8 +744,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const bass = f('bass', 'bass', 0.5)
-    const energy = f('energy', 'energy', 0.7)
-    const speed = f('speed', 'speed', 1)
+    const energy = f('reactivity', 'reactivity', 0.7)
+    const speed = audioSpeedRateCpp(f('speed', 'speed', 0.5))
     const colorE = channelColor('color', 80, 160, 255)
     ln(`  { // GravityWell`)
     ln(`    float _level=min(1.0f,max(0.0f,${bass})),_strength=min(1.0f,max(0.0f,${energy}));`)
@@ -770,8 +771,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const trigger = boolExpr(node.id, 'trigger')
-    const energy = f('energy', 'energy', 0.7)
-    const speed = f('speed', 'speed', 1)
+    const energy = f('reactivity', 'reactivity', 0.7)
+    const speed = audioSpeedRateCpp(f('speed', 'speed', 0.5))
     const pal = paletteExpr(node.id, 'paletteIn', p)
     /*
      * `count` stays a property: it is the length of the static ripple
@@ -819,8 +820,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const treble = f('treble', 'treble', 0.5)
     const mids = f('mids', 'mids', 0.5)
     const hihat = f('hihat', 'hihat', 0)
-    const energy = f('energy', 'energy', 0.7)
-    const speed = f('speed', 'speed', 1)
+    const energy = f('reactivity', 'reactivity', 0.7)
+    const speed = audioSpeedRateCpp(f('speed', 'speed', 0.5))
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { // PrismStorm`)
     ln(`    static float _psOri_${id}=0; static bool _psInit_${id}=false,_psPrevAbove_${id}=false;`)
