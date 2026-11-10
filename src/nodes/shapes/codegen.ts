@@ -2,12 +2,12 @@ import {
   textBlockLayout,
   textAlignMode,
   TEXT_LINE_GAP,
-  FONT_W,
   textColumns,
-  DEFAULT_FONT,
-  FONT_H,
   TEXT_SIZE,
   textSize,
+  textFont,
+  textFontId,
+  fontColumnCppType,
 } from '../shared/font'
 import { asAnimatedImage, asImage } from '../shared/image'
 import { hexToRgb } from '../../state/palettes/polinePalette'
@@ -46,7 +46,7 @@ function withMatrixScale(radiusExpr: string, p: Record<string, unknown>): string
 
 // Every character the Clock Display can print, in every mode (digits, the
 // separators, and the AM/PM letters). Its glyph columns are pulled from the
-// shared bitmap font when the sketch is generated.
+// node's font when the sketch is generated; every font has them all.
 const CLOCK_GLYPH_CHARS = '0123456789:.-AMP'
 
 import { GAUGE_PEAK_FALL, GAUGE_Q_LIFT, gaugeDirection, gaugeSegments, gaugeStyle } from '../../state/evaluator/gauge'
@@ -56,7 +56,7 @@ import { asSdVideoClip, SDV_HEADER_BYTES, SDV_MAX_SPEED, sdvFrameBytes, sdvPath 
 import { sanitizePin } from '../../codegen/hardwarePins'
 import { SPI_BUS_CPP } from '../../codegen/helpers/spiBusCpp'
 import { CLOCK_TIMER_MAX_SEC } from './clockTimer'
-import { FONT_CPP_MARKER, WIRED_TEXT_MAX, fontCppHelper } from '../shared/fontCpp'
+import { WIRED_TEXT_MAX, fontColCppName, fontCppHelper, fontCppMarker } from '../shared/fontCpp'
 import { centerAxisCpp, clockCenterAxisCpp, lineAxisCpp, positionUnits, textAxisStartCpp } from './positionUnits'
 import { FLAT_PATH_ROW_CPP, SIZING_SIDE_CPP } from '../shared/stringCanvas'
 
@@ -429,13 +429,21 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     const size = textSize(p.size ?? TEXT_SIZE.default)
     const fontColumn = (ci: string) => (size > 1 ? `${ci} / ${size}` : ci)
     const rowBit = size > 1 ? `(_r / ${size})` : '_r'
+    // Font is one of a closed set of ids (font.ts textFontId), never the
+    // saved string itself, because the id below is written into identifiers.
+    const fontId = textFontId(p.font)
+    const font = textFont(fontId)
+    // A column holds a bit per font row, so its type follows the font's height.
+    const colType = fontColumnCppType(font)
     const textUp = incoming.get(`${node.id}:text`)
     if (textUp) {
-      // A wired string is drawn at run time from the built-in font's glyph
-      // table (one copy per sketch), one line, like the evaluator's wired path.
-      if (!globalLines.some((line) => line.startsWith(FONT_CPP_MARKER))) globalLines.push(fontCppHelper())
-      const stride = FONT_W + letterSpacing
-      const lineH = FONT_H * size
+      // A wired string is drawn at run time from the node's font as a glyph
+      // table (one copy per sketch and font), one line, like the evaluator's
+      // wired path. A font no wired Text uses is never emitted.
+      const marker = fontCppMarker(fontId)
+      if (!globalLines.some((line) => line.startsWith(marker))) globalLines.push(fontCppHelper(fontId))
+      const stride = font.w + letterSpacing
+      const lineH = font.h * size
       const colorE = channelColor('color', 0, 255, 255)
       const dynamic = !!incoming.get(`${node.id}:scroll`) || Number(p.scroll ?? 0) !== 0
       ln(`  { // Text (wired)`)
@@ -456,7 +464,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ln(`    int _sy = (int)${textAxisStartCpp(f('y', 'y', 0.5), units, 'HEIGHT', `${lineH}`, vAlign, wrap)};`)
       ln(`    int _sx = (int)${textAxisStartCpp(f('x', 'x', 0.5), units, 'WIDTH', '_tn', hAlign, wrap)};`)
       const draw = (sx: string, sy: string, indent: string) => {
-        ln(`${indent}for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (${sx}) + _offX; if (_ci < 0 || _ci >= _tn) continue; int _gc = ${fontColumn('_ci')} % ${stride}; if (_gc >= ${FONT_W}) continue; uint8_t _col = _fontCol(_ts[${fontColumn('_ci')} / ${stride}], _gc);`)
+        ln(`${indent}for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (${sx}) + _offX; if (_ci < 0 || _ci >= _tn) continue; int _gc = ${fontColumn('_ci')} % ${stride}; if (_gc >= ${font.w}) continue; ${colType} _col = ${fontColCppName(fontId)}(_ts[${fontColumn('_ci')} / ${stride}], _gc);`)
         ln(`${indent}  for (int _r = 0; _r < ${lineH}; _r++) if (_col & (1 << ${rowBit})) { int _yy = (${sy}) + _r - _offY; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
       }
       if (wrap) {
@@ -472,7 +480,6 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       return
     }
     const text = String(p.text ?? 'HELLO')
-    const font = DEFAULT_FONT
     const layout = textBlockLayout(text, font, letterSpacing, TEXT_LINE_GAP, size)
     const renderableLines = layout.lines
       .map((line, index) => ({ ...line, index }))
@@ -481,7 +488,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     const colorE = channelColor('color', 0, 255, 255)
     ln(`  { // Text "${text.replace(/[^ -~]/g, '?')}"`)
     for (const line of renderableLines) {
-      ln(`    static const uint8_t _txt_${id}_${line.index}[] = {${line.cols.join(',')}};`)
+      ln(`    static const ${colType} _txt_${id}_${line.index}[] = {${line.cols.join(',')}};`)
       ln(`    const int _tn_${id}_${line.index} = ${line.width};`)
     }
     ln(`    ${seedFrom('base')}`)
@@ -509,14 +516,14 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ln(`    for (int _wy = 0; _wy < 3; _wy++) for (int _wx = 0; _wx < 3; _wx++) {`)
       for (const line of renderableLines) {
         const lineOffset = line.index * layout.lineStep
-        ln(`      for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (_sx_${line.index} + _wrapX[_wx]) + _offX; if (_ci < 0 || _ci >= _tn_${id}_${line.index}) continue; uint8_t _col = _txt_${id}_${line.index}[${fontColumn('_ci')}];`)
+        ln(`      for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (_sx_${line.index} + _wrapX[_wx]) + _offX; if (_ci < 0 || _ci >= _tn_${id}_${line.index}) continue; ${colType} _col = _txt_${id}_${line.index}[${fontColumn('_ci')}];`)
         ln(`        for (int _r = 0; _r < ${font.h * size}; _r++) if (_col & (1 << ${rowBit})) { int _yy = (_sy + _wrapY[_wy] + ${lineOffset}) + _r - _offY; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
       }
       ln(`    }`)
     } else {
       for (const line of renderableLines) {
         const lineOffset = line.index * layout.lineStep
-        ln(`    for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - _sx_${line.index} + _offX; if (_ci < 0 || _ci >= _tn_${id}_${line.index}) continue; uint8_t _col = _txt_${id}_${line.index}[${fontColumn('_ci')}];`)
+        ln(`    for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - _sx_${line.index} + _offX; if (_ci < 0 || _ci >= _tn_${id}_${line.index}) continue; ${colType} _col = _txt_${id}_${line.index}[${fontColumn('_ci')}];`)
         ln(`      for (int _r = 0; _r < ${font.h * size}; _r++) if (_col & (1 << ${rowBit})) { int _yy = (_sy + ${lineOffset}) + _r - _offY; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
       }
     }
@@ -561,27 +568,34 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`    };`)
     // The clock's text is assembled at runtime (unlike the Text node, whose
     // string is known here and baked as columns), so the sketch carries a
-    // glyph lookup — generated from the shared bitmap font in nodes/shared/font.ts
+    // glyph lookup — generated from the node's font in nodes/shared/font.ts
     // rather than hand-transcribed, so preview and firmware cannot drift.
+    // Only the clock's own characters are carried, never the whole font.
+    const font = textFont(p.font)
+    const colType = fontColumnCppType(font)
     ln(`    static const char _clkChars_${id}[] = "${CLOCK_GLYPH_CHARS}";`)
-    ln(`    static const uint8_t _clkGlyphs_${id}[][${FONT_W}] = {${
-      [...CLOCK_GLYPH_CHARS].map((ch) => `{${textColumns(ch, DEFAULT_FONT, 0).join(',')}}`).join(', ')
+    ln(`    static const ${colType} _clkGlyphs_${id}[][${font.w}] = {${
+      [...CLOCK_GLYPH_CHARS].map((ch) => `{${textColumns(ch, font, 0).join(',')}}`).join(', ')
     }};`)
-    ln(`    auto _clkCols = [&](char _ch, uint8_t *_cols) {`)
-    ln(`      for (int _c = 0; _c < ${FONT_W}; _c++) _cols[_c] = 0;`)
+    ln(`    auto _clkCols = [&](char _ch, ${colType} *_cols) {`)
+    ln(`      for (int _c = 0; _c < ${font.w}; _c++) _cols[_c] = 0;`)
     ln(`      for (int _g = 0; _clkChars_${id}[_g]; _g++) if (_clkChars_${id}[_g] == _ch) {`)
-    ln(`        for (int _c = 0; _c < ${FONT_W}; _c++) _cols[_c] = _clkGlyphs_${id}[_g][_c];`)
+    ln(`        for (int _c = 0; _c < ${font.w}; _c++) _cols[_c] = _clkGlyphs_${id}[_g][_c];`)
     ln(`        return;`)
     ln(`      }`)
     ln(`    };`)
     // Size draws each glyph pixel size x size, as Text does: drawn column
     // `_c` and row `_r` read the glyph's `_c / size` and `_r / size`.
     const size = textSize(p.size ?? TEXT_SIZE.default)
-    const glyphW = FONT_W * size, glyphH = FONT_H * size
+    const glyphW = font.w * size, glyphH = font.h * size
+    // From one glyph's left edge to the next: the 3x5 digits touch, and the
+    // other fonts leave their `clockGap` after each, as the preview's
+    // blitText does through textColumns' letter spacing.
+    const glyphStep = (font.w + (font.clockGap ?? 0)) * size
     ln(`    auto _clkText = [&](const char *_s, int _sx, int _sy, const CRGB &_col) {`)
     ln(`      for (int _i = 0; _s[_i]; _i++) {`)
-    ln(`        uint8_t _cols[${FONT_W}]; _clkCols(_s[_i], _cols);`)
-    ln(`        for (int _c = 0; _c < ${glyphW}; _c++) { int _x = _sx + _i * ${glyphW} + _c; if (_x < 0 || _x >= WIDTH) continue; uint8_t _bits = _cols[${size > 1 ? `_c / ${size}` : '_c'}];`)
+    ln(`        ${colType} _cols[${font.w}]; _clkCols(_s[_i], _cols);`)
+    ln(`        for (int _c = 0; _c < ${glyphW}; _c++) { int _x = _sx + _i * ${glyphStep} + _c; if (_x < 0 || _x >= WIDTH) continue; ${colType} _bits = _cols[${size > 1 ? `_c / ${size}` : '_c'}];`)
     ln(`          for (int _r = 0; _r < ${glyphH}; _r++) if (_bits & (1 << ${size > 1 ? `(_r / ${size})` : '_r'})) _clkPx(_x, _sy + _r, _col); }`)
     ln(`      }`)
     ln(`    };`)
@@ -598,9 +612,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`    };`)
     // Pixel extents of the strings each mode prints, derived from the
     // shared font so they stay in step with blitText's own layout maths.
-    const glyphRun = (chars: number) => `${chars * glyphW}`
-    const twoLineHeight = `${(FONT_H * 2 + TEXT_LINE_GAP) * size}`
-    const subLineOffset = (FONT_H + TEXT_LINE_GAP) * size
+    const glyphRun = (chars: number) => `${chars * glyphStep}`
+    const twoLineHeight = `${(font.h * 2 + TEXT_LINE_GAP) * size}`
+    const subLineOffset = (font.h + TEXT_LINE_GAP) * size
     if (transport) {
       const syExpr = textAxisStartCpp(yExpr, units, 'HEIGHT', twoLineHeight, vAlign, false)
       const sxMainExpr = textAxisStartCpp(xExpr, units, 'WIDTH', glyphRun(5), hAlign, false)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { DEFAULT_FONT } from '../../../nodes/shared/font'
+import { DEFAULT_FONT, TEXT_FONTS } from '../../../nodes/shared/font'
 import {
   DISPLAY_TEXT_MAX_BYTES,
   DISPLAY_TEXT_BUFFER_BYTES,
@@ -80,6 +80,12 @@ describe('coerceGlyphs', () => {
   it('folds to upper case and keeps drawable characters', () => {
     expect(coerceGlyphs('hello')).toBe('HELLO')
     expect(coerceGlyphs('12:30')).toBe('12:30')
+  })
+
+  it('keeps lower case, and the wider punctuation, for a font that has them', () => {
+    const font = TEXT_FONTS['5x8']
+    expect(coerceGlyphs('Hello ~ {world} | @home', font)).toBe('Hello ~ {world} | @home')
+    expect(coerceGlyphs('café', font)).toBe(`caf${DISPLAY_TEXT_GLYPH_FALLBACK}`)
   })
 
   it('replaces what the shared font cannot draw', () => {

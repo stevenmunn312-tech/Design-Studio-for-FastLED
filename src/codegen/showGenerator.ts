@@ -41,6 +41,7 @@ import { WRAP_X_HELPER_CPP } from './helpers/wrapXHelperCpp'
 import { POLINE_HELPER_CPP } from './helpers/polineHelperCpp'
 import { displayTextCppHelperBlocks } from './displays/displayTextCpp'
 import { fontCppHelper } from '../nodes/shared/fontCpp'
+import { DEFAULT_FONT_ID, TEXT_FONT_IDS } from '../nodes/shared/font'
 import { buildXYTable } from '../state/output/xyLayout'
 import { SHAPE_COUNT_MACRO, shapeCopyCpp, shapeCountDefineCpp, shapeMapFor, shapeTableCpp, shapeTableName } from './output/shapeMapCpp'
 import { cppComment, floatLit } from './cppLiterals'
@@ -276,6 +277,10 @@ const SHARED_HELPER_BLOCKS: Record<string, string> = {
   ...Object.fromEntries(displayTextCppHelperBlocks({ number: true, dateTime: true, copy: true })
     .map((block, index) => [`displayText:${index}`, block])),
   font: fontCppHelper(),
+  // One block per other font a wired Text can name. A pattern's sketch holds
+  // only the ones its own nodes use, so a show carries no font nothing draws.
+  ...Object.fromEntries(TEXT_FONT_IDS.filter((id) => id !== DEFAULT_FONT_ID)
+    .map((id) => [`font:${id}`, fontCppHelper(id)])),
   phi: PHI_DEFINE_CPP,
   sdf: SDF_HELPER_CPP,
   latticeQ: LATTICE_Q12_CPP,

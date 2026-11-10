@@ -11,7 +11,7 @@
 // Arduino `String` that reallocates once per LED frame, so every function here
 // has to produce something that fits a known budget.
 
-import { FONT, type BitmapFont, DEFAULT_FONT } from '../../nodes/shared/font'
+import { FONT, type BitmapFont, DEFAULT_FONT, fontCase } from '../../nodes/shared/font'
 
 /**
  * Bytes a generated string may occupy, terminator excluded.
@@ -121,8 +121,9 @@ export function supportedGlyphs(font: BitmapFont = DEFAULT_FONT): Set<string> {
  * Applied by a rendering surface, not by the `string` type itself: a 3x5 LED
  * font and an LVGL screen have very different coverage, so folding text down to
  * the smallest common set at the wire would make every display as limited as
- * the most limited one. `textColumns` in `font.ts` already uppercases, so the
- * same fold happens here before the lookup.
+ * the most limited one. `textColumns` in `font.ts` folds to capitals for a font
+ * without lower case, so the same fold (`fontCase`) happens here before the
+ * lookup, and a font that has lower case keeps it.
  */
 export function coerceGlyphs(
   text: string,
@@ -131,7 +132,7 @@ export function coerceGlyphs(
 ): string {
   const glyphs = supportedGlyphs(font)
   let out = ''
-  for (const ch of text.toUpperCase()) out += glyphs.has(ch) ? ch : fallback
+  for (const ch of fontCase(text, font)) out += glyphs.has(ch) ? ch : fallback
   return out
 }
 
