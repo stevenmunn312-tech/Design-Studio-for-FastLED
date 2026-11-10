@@ -21,6 +21,7 @@ import { METER_PEAK_FALL, METER_PEAK_HOLD, meterOrigin } from './levelMeter'
 import { trebleSparksFadeByCpp } from './trebleSparks'
 import { demoDrumsCpp } from './demoDrums'
 import { envelopeDtCpp, keepOverCpp } from '../shared/envelopeClock'
+import { audioBandsCpp } from './audioBands'
 import {
   DANCE_FIGURE_COUNT, DANCE_FLASH_BEAT_WAIT_MS, DANCE_FLASH_FIRST_MIN_MS, DANCE_FLASH_FIRST_SPAN_MS,
   DANCE_FLASH_HOLD_MS, danceFlashGap, DANCE_LCG_A, DANCE_LCG_C,
@@ -223,18 +224,22 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     if (!live) ln(`    // Connect an Audio source to draw the waveform on-device.`)
     ln(`  }`)
   },
-  BassPulse({ node, p, ln, f, ownBuf, paletteExpr }) {
+  BassPulse(ctx) {
+    const { node, p, ln, ownBuf, paletteExpr } = ctx
+    const bands = audioBandsCpp(ctx, ['bass'])
     const ob = ownBuf()
     const pal = paletteExpr(node.id, 'paletteIn', p)
-    const bass = f('bass', 'bass', 0.5)
+    const bass = bands.f('bass', 'bass', 0.5)
     ln(`  { float _lv = constrain(${bass}, 0.0f, 1.0f); float _v = sqrtf(_lv);`)
     ln(`    CRGB _c = ColorFromPalette(${pal}, (uint8_t)(_lv * 255)); _c.nscale8((uint8_t)(_v * 255));`)
     ln(`    fill_solid(${ob}, NUM_LEDS, _c); }`)
   },
-  BassRings({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  BassRings(ctx) {
+    const { node, id, p, ln, f, ownBuf, paletteExpr, needsT } = ctx
+    const bands = audioBandsCpp(ctx, ['bass'])
     needsT.v = true
     const ob = ownBuf()
-    const bass = f('bass', 'bass', 0.5)
+    const bass = bands.f('bass', 'bass', 0.5)
     const energy = f('energy', 'energy', 0.7)
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -259,10 +264,12 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  MidrangeWaves({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  MidrangeWaves(ctx) {
+    const { node, id, p, ln, f, ownBuf, paletteExpr, needsT } = ctx
+    const bands = audioBandsCpp(ctx, ['mids'])
     needsT.v = true
     const ob = ownBuf()
-    const mids = f('mids', 'mids', 0.5)
+    const mids = bands.f('mids', 'mids', 0.5)
     const energy = f('energy', 'energy', 0.7)
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -281,10 +288,12 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  MidrangeBloom({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  MidrangeBloom(ctx) {
+    const { node, id, p, ln, f, ownBuf, paletteExpr, needsT } = ctx
+    const bands = audioBandsCpp(ctx, ['mids'])
     needsT.v = true
     const ob = ownBuf()
-    const mids = f('mids', 'mids', 0.5)
+    const mids = bands.f('mids', 'mids', 0.5)
     const energy = f('energy', 'energy', 0.7)
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -303,9 +312,11 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  TrebleSparks({ node, p, ln, f, ownBuf, paletteExpr }) {
+  TrebleSparks(ctx) {
+    const { node, p, ln, f, ownBuf, paletteExpr } = ctx
+    const bands = audioBandsCpp(ctx, ['treble'])
     const ob = ownBuf({ persists: true })
-    const treble = f('treble', 'treble', 0.5)
+    const treble = bands.f('treble', 'treble', 0.5)
     const density = f('density', 'density', 0.5)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
@@ -330,10 +341,12 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  TreblePrism({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  TreblePrism(ctx) {
+    const { node, id, p, ln, f, ownBuf, paletteExpr, needsT } = ctx
+    const bands = audioBandsCpp(ctx, ['treble'])
     needsT.v = true
     const ob = ownBuf()
-    const treble = f('treble', 'treble', 0.5)
+    const treble = bands.f('treble', 'treble', 0.5)
     const energy = f('energy', 'energy', 0.7)
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -353,12 +366,14 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  AudioCascade({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  AudioCascade(ctx) {
+    const { node, id, p, ln, f, ownBuf, paletteExpr, needsT } = ctx
+    const bands = audioBandsCpp(ctx, ['bass', 'mids', 'treble'])
     needsT.v = true
     const ob = ownBuf()
-    const bass = f('bass', 'bass', 0.5)
-    const mids = f('mids', 'mids', 0.5)
-    const treble = f('treble', 'treble', 0.5)
+    const bass = bands.f('bass', 'bass', 0.5)
+    const mids = bands.f('mids', 'mids', 0.5)
+    const treble = bands.f('treble', 'treble', 0.5)
     const energy = f('energy', 'energy', 0.7)
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -600,12 +615,14 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  SpectraMosaic({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  SpectraMosaic(ctx) {
+    const { node, id, p, ln, f, ownBuf, paletteExpr, needsT } = ctx
+    const bands = audioBandsCpp(ctx, ['bass', 'mids', 'treble'])
     needsT.v = true
     const ob = ownBuf()
-    const bass = f('bass', 'bass', 0.5)
-    const mids = f('mids', 'mids', 0.5)
-    const treble = f('treble', 'treble', 0.5)
+    const bass = bands.f('bass', 'bass', 0.5)
+    const mids = bands.f('mids', 'mids', 0.5)
+    const treble = bands.f('treble', 'treble', 0.5)
     const energy = f('energy', 'energy', 0.7)
     const speed = f('speed', 'speed', 1)
     const tiles = f('tiles', 'tiles', 4)
@@ -686,12 +703,14 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  EmberPulse({ node, id, ln, f, ownBuf, boolExpr, needsT }) {
+  EmberPulse(ctx) {
+    const { node, id, ln, f, ownBuf, boolExpr, needsT } = ctx
+    const bands = audioBandsCpp(ctx, ['bass', 'mids', 'treble'])
     needsT.v = true
     const ob = ownBuf()
-    const bass = f('bass', 'bass', 0.5)
-    const mids = f('mids', 'mids', 0.5)
-    const treble = f('treble', 'treble', 0.5)
+    const bass = bands.f('bass', 'bass', 0.5)
+    const mids = bands.f('mids', 'mids', 0.5)
+    const treble = bands.f('treble', 'treble', 0.5)
     const beat = boolExpr(node.id, 'beat')
     const energy = f('energy', 'energy', 0.7)
     const speed = f('speed', 'speed', 1)
@@ -711,12 +730,14 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  TurbulentBloom({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  TurbulentBloom(ctx) {
+    const { node, id, p, ln, f, ownBuf, paletteExpr, needsT } = ctx
+    const bands = audioBandsCpp(ctx, ['bass', 'mids', 'treble'])
     needsT.v = true
     const ob = ownBuf()
-    const bass = f('bass', 'bass', 0.5)
-    const mids = f('mids', 'mids', 0.5)
-    const treble = f('treble', 'treble', 0.5)
+    const bass = bands.f('bass', 'bass', 0.5)
+    const mids = bands.f('mids', 'mids', 0.5)
+    const treble = bands.f('treble', 'treble', 0.5)
     const energy = f('energy', 'energy', 0.7)
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -738,10 +759,12 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  GravityWell({ id, ln, f, channelColor, ownBuf, needsT }) {
+  GravityWell(ctx) {
+    const { id, ln, f, channelColor, ownBuf, needsT } = ctx
+    const bands = audioBandsCpp(ctx, ['bass'])
     needsT.v = true
     const ob = ownBuf()
-    const bass = f('bass', 'bass', 0.5)
+    const bass = bands.f('bass', 'bass', 0.5)
     const energy = f('energy', 'energy', 0.7)
     const speed = f('speed', 'speed', 1)
     const colorE = channelColor('color', 80, 160, 255)
@@ -812,11 +835,13 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  PrismStorm({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  PrismStorm(ctx) {
+    const { node, id, p, ln, f, ownBuf, paletteExpr, needsT } = ctx
+    const bands = audioBandsCpp(ctx, ['mids', 'treble'])
     needsT.v = true
     const ob = ownBuf()
-    const treble = f('treble', 'treble', 0.5)
-    const mids = f('mids', 'mids', 0.5)
+    const treble = bands.f('treble', 'treble', 0.5)
+    const mids = bands.f('mids', 'mids', 0.5)
     const hihat = f('hihat', 'hihat', 0)
     const energy = f('energy', 'energy', 0.7)
     const speed = f('speed', 'speed', 1)
@@ -844,10 +869,12 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  AudioFlow({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
+  AudioFlow(ctx) {
+    const { node, id, p, ln, f, ownBuf, paletteExpr, needsT } = ctx
+    const bands = audioBandsCpp(ctx, ['bass', 'mids', 'treble'])
     needsT.v = true
     const ob = ownBuf()
-    const bass = f('bass', 'bass', 0.5), mids = f('mids', 'mids', 0.5), treble = f('treble', 'treble', 0.3)
+    const bass = bands.f('bass', 'bass', 0.5), mids = bands.f('mids', 'mids', 0.5), treble = bands.f('treble', 'treble', 0.3)
     const speed = audioFlowExpr('speed', f('speed', 'speed', 0.5))
     const scale = audioFlowExpr('scale', f('scale', 'scale', 0.5))
     const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -866,13 +893,15 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`      uint8_t _v=inoise8((uint16_t)(uint32_t)((_x*_sc+_flow)*256),(uint16_t)(uint32_t)((_y*_sc*0.6f+_vflow+8.0f)*256));`)
     ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)(int)(_v+_tr*80)); ${ob}[_y*WIDTH+_x].nscale8(_bright);}}`)
   },
-  ColorTrails({ node, id, p, ln, f, ownBuf, boolExpr, paletteExpr, needsT, frameBufs }) {
+  ColorTrails(ctx) {
+    const { node, id, p, ln, f, ownBuf, boolExpr, paletteExpr, needsT, frameBufs } = ctx
+    const bands = audioBandsCpp(ctx, ['bass', 'mids', 'treble'])
     needsT.v = true
     const ob = ownBuf({ persists: true })
     const tmpId = `cttmp_${id}`
     frameBufs.add(tmpId)
     const tmp = `buf_${tmpId}`
-    const bass = f('bass', 'bass', 0), mids = f('mids', 'mids', 0), treble = f('treble', 'treble', 0)
+    const bass = bands.f('bass', 'bass', 0), mids = bands.f('mids', 'mids', 0), treble = bands.f('treble', 'treble', 0)
     const beat = boolExpr(node.id, 'beat')
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const xSpeed = f('xSpeed', 'xSpeed', 0.1), xAmp = f('xAmplitude', 'xAmplitude', 1), xFreq = f('xFrequency', 'xFrequency', 0.33)
@@ -939,7 +968,9 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  Animartrix({ node, id, p, f, ownBuf, boolExpr, loopLines, needsT }) {
+  Animartrix(ctx) {
+    const { node, id, p, f, ownBuf, boolExpr, loopLines, needsT } = ctx
+    const bands = audioBandsCpp(ctx, ['bass', 'mids', 'treble'])
     needsT.v = true
     const ob = ownBuf()
     loopLines.push(...animartrixCppLines({
@@ -948,9 +979,9 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
       effect: p.effect,
       speed: f('speed', 'speed', 0.65),
       audioAmount: f('audioAmount', 'audioAmount', 1),
-      bass: f('bass', 'bass', 0),
-      mids: f('mids', 'mids', 0),
-      treble: f('treble', 'treble', 0),
+      bass: bands.f('bass', 'bass', 0),
+      mids: bands.f('mids', 'mids', 0),
+      treble: bands.f('treble', 'treble', 0),
       kick: f('kick', 'kick', 0),
       snare: f('snare', 'snare', 0),
       hihat: f('hihat', 'hihat', 0),
