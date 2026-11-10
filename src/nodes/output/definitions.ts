@@ -175,6 +175,13 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       // and the user had to know the word "serpentine" to fix it. Gated to the
       // grid forms: a single chain has no alternate rows to zig.
       serpentine: true,
+      // Where LED 0 sits on the panel, seen from the front, and whether the
+      // first run leaves it along a row or a column
+      // (`matrixLedIndex`, src/state/output/xyLayout.ts). The defaults are the
+      // order every output had before these existed, so an output saved
+      // without them maps exactly as it did. LED matrix form only.
+      startCorner: 'top-left',
+      firstRun: 'horizontal',
       // Physical wiring order *within* the matrix and HUB75 forms
       // (src/state/output/xyLayout.ts): 'matrix' keeps the plain row-major (or
       // pixel-serpentine) behaviour above; 'panels' splits the grid into

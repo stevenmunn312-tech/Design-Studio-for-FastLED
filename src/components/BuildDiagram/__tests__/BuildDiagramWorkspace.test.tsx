@@ -1600,6 +1600,49 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.textContent).toContain('RECOMMENDED POWER SUPPLY5 V · 40A · 200 W')
   })
 
+  it('rings LED 0 in the matrix start corner and draws the first run from it', () => {
+    const plain = matrixNode(14, 16, 16, 'out')
+    const chosen = matrixNode(12, 16, 8, 'out-2', { serpentine: true, startCorner: 'bottom-left', firstRun: 'vertical' })
+    useGraphStore.setState({ nodes: [plain, chosen] as never[] })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    const first = diagram?.querySelector('[data-output-card="output:out"] [data-matrix-data-in]')
+    expect(first?.getAttribute('data-matrix-data-in')).toBe('top-left')
+    expect(first?.getAttribute('data-matrix-first-run')).toBe('horizontal')
+    // Every run the same way: four separate strokes, not one zig-zag.
+    expect(first?.querySelectorAll('[data-matrix-run]')).toHaveLength(4)
+
+    const second = diagram?.querySelector('[data-output-card="output:out-2"] [data-matrix-data-in]')
+    expect(second?.getAttribute('data-matrix-data-in')).toBe('bottom-left')
+    expect(second?.getAttribute('data-matrix-first-run')).toBe('vertical')
+    expect(second?.querySelector('title')?.textContent).toBe('LED 0 · data in at the bottom-left corner, first run going up')
+    expect(second?.querySelectorAll('[data-matrix-run]')).toHaveLength(1)
+    // The ring sits on the sample grid's bottom-left LED and the arrow rises
+    // from it, in the picture's own coordinates.
+    const ring = second?.querySelector('circle')
+    const arrow = second?.querySelector('line')
+    const pixels = second?.parentElement?.querySelector('[data-led-preview="4x4"]')
+    const cells = Array.from(pixels?.querySelectorAll(':scope > g') ?? [])
+      .map((cell) => /translate\(([^ ]+) ([^)]+)\)/.exec(cell.getAttribute('transform') ?? '')!.slice(1).map(Number))
+    const left = Math.min(...cells.map(([cx]) => cx))
+    const bottom = Math.max(...cells.map(([, cy]) => cy))
+    expect(Number(ring?.getAttribute('cx'))).toBeGreaterThan(left)
+    expect(Number(ring?.getAttribute('cx'))).toBeLessThan(left + 32)
+    expect(Number(ring?.getAttribute('cy'))).toBeGreaterThan(bottom)
+    expect(arrow?.getAttribute('x1')).toBe(arrow?.getAttribute('x2'))
+    expect(Number(arrow?.getAttribute('y2'))).toBeLessThan(Number(arrow?.getAttribute('y1')))
+  })
+
+  it('leaves the data-in marker off strings and HUB75 panels', () => {
+    const strip = matrixNode(14, 1, 16, 'strip', { form: 'strip', ledCount: 16, startCorner: 'bottom-right' })
+    useGraphStore.setState({ nodes: [strip] as never[] })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    expect(container.querySelector('[data-matrix-data-in]')).toBeNull()
+  })
+
   it('draws LED strings and both VU rails as single four-LED rows', () => {
     const strip = matrixNode(14, 1, 16, 'strip', { form: 'strip', ledCount: 16 })
     useGraphStore.setState({ nodes: [strip, stereoVuMeterNode()] as never[] })

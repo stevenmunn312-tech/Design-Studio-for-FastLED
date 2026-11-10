@@ -5,14 +5,23 @@
 // (src/state/output/ledOutputForm.ts), so a linear form is always plain row-major here
 // regardless of what a `layout` left over from an earlier form still says.
 //
-// `layout: 'matrix'` (default) and `'strip'` keep the existing behaviour —
-// row-major, optionally zig-zagged by the pixel-level `serpentine` flag.
+// `layout: 'matrix'` (default) and `'strip'` wire the grid as one panel: LED 0
+// at `startCorner`, the first run along `firstRun` (a row or a column), and
+// each later run either zig-zagging back (`serpentine`) or restarting from the
+// same edge. `matrixLedIndex` is that rule, and the only statement of it: the
+// firmware XY table, the wiring diagnostic, the live-stream packet builder and
+// the Build Diagram all read it, so none of them can disagree about where an
+// LED is.
 // `layout: 'panels'` splits the WIDTH×HEIGHT grid into `tilesX`×`tilesY`
 // equal-sized tiles (each physically its own panel, wired in its own chain
 // position), each independently rotatable via `tileRotations` and chained in
 // either row order or a panel-level serpentine snake via `tileSerpentine`.
+// Every panel is wired inside by the same `matrixLedIndex` rule, applied after
+// its rotation, exactly as `serpentine` always was: start corner and first run
+// describe the panel as bought, rotation describes how it was mounted.
 // `layout: 'custom'` takes an explicit JSON permutation of 0..N-1 as the
-// escape hatch for arrangements this can't express (irregular chains, etc).
+// escape hatch for arrangements this can't express (irregular chains, etc),
+// and ignores serpentine, start corner and first run alike.
 //
 // `buildXYTable` returns `null` when the grid can be addressed with a plain
 // row-major memmove (no remap needed) so callers can keep that fast path.
@@ -22,10 +31,26 @@ import { isLinearForm, outputForm } from './ledOutputForm'
 export type MatrixLayout = 'matrix' | 'strip' | 'panels' | 'custom'
 export type TileRotation = 0 | 90 | 180 | 270
 
+export type MatrixStartCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+export type MatrixFirstRun = 'horizontal' | 'vertical'
+
+export const MATRIX_START_CORNERS: readonly MatrixStartCorner[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right']
+export const MATRIX_FIRST_RUNS: readonly MatrixFirstRun[] = ['horizontal', 'vertical']
+
+/** How one matrix panel is wired inside: where LED 0 sits, which way the
+ *  first run leaves it, and whether later runs zig-zag. */
+export interface MatrixWiring {
+  serpentine: boolean
+  startCorner: MatrixStartCorner
+  firstRun: MatrixFirstRun
+}
+
 export interface TileLayoutProps {
   form?: unknown
   layout?: unknown
   serpentine?: unknown
+  startCorner?: unknown
+  firstRun?: unknown
   tilesX?: unknown
   tilesY?: unknown
   tileSerpentine?: unknown
@@ -126,11 +151,70 @@ export function parseCustomXYMap(json: unknown, n: number): number[] | null {
   return JSON.parse(String(json).trim()) as number[]
 }
 
-function serpentineTable(width: number, height: number): number[] {
+/**
+ * The physical LED index of grid cell (x, y) on one `width` x `height` matrix
+ * panel, with (0, 0) the top-left cell seen from the front.
+ *
+ * The chain starts at `startCorner` and its first run travels along
+ * `firstRun`: a row for 'horizontal', a column for 'vertical'. Runs then stack
+ * away from the start corner. With `serpentine` every odd run comes back the
+ * other way; without it every run restarts from the start corner's edge.
+ * Top-left + horizontal is the plain row-major (or row zig-zag) order every
+ * output had before the corner and direction could be chosen.
+ */
+export function matrixLedIndex(x: number, y: number, width: number, height: number, wiring: MatrixWiring): number {
+  // Measure both axes from the start corner, so every corner is the top-left
+  // case mirrored.
+  const fromStartX = wiring.startCorner === 'top-right' || wiring.startCorner === 'bottom-right' ? width - 1 - x : x
+  const fromStartY = wiring.startCorner === 'bottom-left' || wiring.startCorner === 'bottom-right' ? height - 1 - y : y
+  const vertical = wiring.firstRun === 'vertical'
+  const run = vertical ? fromStartX : fromStartY
+  const along = vertical ? fromStartY : fromStartX
+  const runLength = vertical ? height : width
+  return run * runLength + (wiring.serpentine && (run & 1) ? runLength - 1 - along : along)
+}
+
+/**
+ * An LED output's panel wiring, read from its properties. Serpentine belongs
+ * to both grid forms as before; the start corner and first run belong to the
+ * LED matrix form only. A HUB75 panel is scanned by its driver, and a string,
+ * ring or corkscrew is its own order, so a value left behind by another form
+ * reads as the default there.
+ */
+export function matrixWiringFromProps(props: TileLayoutProps): MatrixWiring {
+  const form = outputForm(props as Record<string, unknown>)
+  const chooses = form === 'matrix'
+  return {
+    // Serpentine zig-zags alternate runs; a one-run chain has none to zig.
+    serpentine: props.serpentine === true && !isLinearForm(form),
+    startCorner: chooses && MATRIX_START_CORNERS.includes(props.startCorner as MatrixStartCorner)
+      ? props.startCorner as MatrixStartCorner
+      : 'top-left',
+    firstRun: chooses && props.firstRun === 'vertical' ? 'vertical' : 'horizontal',
+  }
+}
+
+/** Whether the wiring is plain row-major, which needs no remap at all. */
+function isRowMajor(wiring: MatrixWiring): boolean {
+  return !wiring.serpentine && wiring.startCorner === 'top-left' && wiring.firstRun === 'horizontal'
+}
+
+/**
+ * Whether these properties choose a start corner and first run at all: the LED
+ * matrix form in its matrix or panels layout. Custom maps, HUB75 panels and
+ * single chains do not, so their controls are hidden and their saved values
+ * unread.
+ */
+export function matrixWiringApplies(props: TileLayoutProps): boolean {
+  if (outputForm(props as Record<string, unknown>) !== 'matrix') return false
+  return normalizedLayout(props) !== 'custom'
+}
+
+function matrixTable(width: number, height: number, wiring: MatrixWiring): number[] {
   const table = new Array<number>(width * height)
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      table[y * width + x] = (y & 1) ? y * width + (width - 1 - x) : y * width + x
+      table[y * width + x] = matrixLedIndex(x, y, width, height, wiring)
     }
   }
   return table
@@ -150,10 +234,56 @@ export function rotatePoint(lx: number, ly: number, w: number, h: number, deg: T
   }
 }
 
+/** Where a stretch of the chain enters the grid, for a wiring drawing. */
+export interface ChainEntry {
+  /** The stretch's first LED, 0..1 across and down the cells the stretch
+   *  covers: (0, 1) is their bottom-left corner. */
+  x: number
+  y: number
+  /** The step from that LED to the next one, each -1, 0 or 1 (a jump of more
+   *  than one cell keeps only its sign). Both 0 on a one-LED stretch. */
+  dx: number
+  dy: number
+}
+
+/**
+ * Where LEDs `firstLed` .. `firstLed + count - 1` of the chain enter the grid
+ * and which way they set off, read back from the same table the firmware is
+ * given. The whole chain by default; a data lane passes its own stretch.
+ * Reading the finished table rather than the properties means a rotated panel
+ * or a custom map is drawn where it really starts, with no second rule.
+ */
+export function chainEntry(
+  width: number, height: number, props: TileLayoutProps, firstLed = 0, count = width * height,
+): ChainEntry | null {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1 || count < 1) return null
+  const table = buildXYTable(width, height, props)
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+  let first: { x: number; y: number } | null = null
+  let second: { x: number; y: number } | null = null
+  for (let cell = 0; cell < width * height; cell++) {
+    const led = table ? table[cell] : cell
+    if (led < firstLed || led >= firstLed + count) continue
+    const x = cell % width
+    const y = Math.floor(cell / width)
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x)
+    minY = Math.min(minY, y); maxY = Math.max(maxY, y)
+    if (led === firstLed) first = { x, y }
+    else if (led === firstLed + 1) second = { x, y }
+  }
+  if (!first) return null
+  return {
+    x: maxX > minX ? (first.x - minX) / (maxX - minX) : 0,
+    y: maxY > minY ? (first.y - minY) / (maxY - minY) : 0,
+    dx: second ? Math.sign(second.x - first.x) : 0,
+    dy: second ? Math.sign(second.y - first.y) : 0,
+  }
+}
+
 /** Builds the grid->physical-index wiring table (row-major, length
  *  width*height), or returns null when no remap is needed (plain
- *  row-major matrix/strip with pixel serpentine off — the caller's
- *  existing memmove fast path already does the right thing). */
+ *  row-major matrix/strip: top-left start, rows, serpentine off — the
+ *  caller's existing memmove fast path already does the right thing). */
 export function buildXYTable(width: number, height: number, props: TileLayoutProps): number[] | null {
   // Every in-app caller clamps the matrix dimensions to 1..64 before getting
   // here, but this is an exported pure function and a negative or non-finite
@@ -164,8 +294,7 @@ export function buildXYTable(width: number, height: number, props: TileLayoutPro
   if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1) return null
 
   const layout = normalizedLayout(props)
-  // Serpentine zig-zags alternate rows; a one-row chain has none to zig.
-  const pixelSerpentine = props.serpentine === true && !isLinearForm(outputForm(props as Record<string, unknown>))
+  const wiring = matrixWiringFromProps(props)
 
   if (layout === 'custom') {
     const custom = parseCustomXYMap(props.customXYMap, width * height)
@@ -189,9 +318,7 @@ export function buildXYTable(width: number, height: number, props: TileLayoutPro
           const ly = y - ty * tileH
           const deg = tileRotationAt(props, ty * tilesX + tx)
           const r = rotatePoint(lx, ly, tileW, tileH, deg)
-          const localIndex = (pixelSerpentine && (r.y & 1))
-            ? r.y * r.w + (r.w - 1 - r.x)
-            : r.y * r.w + r.x
+          const localIndex = matrixLedIndex(r.x, r.y, r.w, r.h, wiring)
           const chainX = (tileSerpentine && (ty & 1)) ? (tilesX - 1 - tx) : tx
           const chain = ty * tilesX + chainX
           table[y * width + x] = chain * (tileW * tileH) + localIndex
@@ -203,6 +330,6 @@ export function buildXYTable(width: number, height: number, props: TileLayoutPro
   }
 
   // 'matrix' / 'strip' (and any unrecognised/fallen-back-to layout).
-  if (!pixelSerpentine) return null
-  return serpentineTable(width, height)
+  if (isRowMajor(wiring)) return null
+  return matrixTable(width, height, wiring)
 }

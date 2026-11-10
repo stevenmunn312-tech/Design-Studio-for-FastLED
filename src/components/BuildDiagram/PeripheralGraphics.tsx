@@ -45,6 +45,7 @@ import {
   positionedStringPoints,
 } from './physicalDiagramLayout'
 import { LedPixels } from './ControllerGraphic'
+import { matrixLedIndex, type ChainEntry, type MatrixFirstRun, type MatrixStartCorner } from '../../state/output/xyLayout'
 import {
   type PhysicalDiagramConnection,
   signalPresentation,
@@ -287,6 +288,83 @@ function PositionedString({ points, item }: { points: Array<[number, number]>; i
   )
 }
 
+const SAMPLE_GRID = 4
+const SAMPLE_PITCH = 128 / SAMPLE_GRID
+
+function compassWord(dx: number, dy: number): string {
+  return dx > 0 ? 'right' : dx < 0 ? 'left' : dy > 0 ? 'down' : 'up'
+}
+
+/**
+ * Where the data-in wire meets a matrix and which way the first run goes,
+ * drawn over the card's sample grid.
+ *
+ * The ringed LED and its arrow come from `dataIn`, which the manifest reads
+ * back from the firmware's own XY table, so they hold for tiled, rotated and
+ * custom-mapped matrices and for each lane of a split chain. A plain matrix
+ * also gets its whole order traced through the sample grid by
+ * `matrixLedIndex`, the rule that table is built from, so a zig-zag reads as a
+ * zig-zag. The sample is four by four whatever the real size: it shows the
+ * order, not the count.
+ */
+function MatrixDataEntry({ item, x, y, color }: { item: HardwareManifestItem; x: number; y: number; color: string }) {
+  const entry = item.facts.dataIn as ChainEntry | undefined
+  if (!entry) return null
+  const centre = (cell: number) => (cell * SAMPLE_PITCH) + (SAMPLE_PITCH / 2)
+  const startX = x + centre(entry.x * (SAMPLE_GRID - 1))
+  const startY = y + centre(entry.y * (SAMPLE_GRID - 1))
+  const moves = entry.dx !== 0 || entry.dy !== 0
+  // The arrow covers the first run of the sample: from LED 0 to the far edge,
+  // three cells from a corner. A custom map may start mid-grid or head for an
+  // edge it is already on, so the arrow is cut to stay on the panel.
+  const room = (at: number, step: number) => step > 0 ? (SAMPLE_GRID - 1) * (1 - at) : step < 0 ? (SAMPLE_GRID - 1) * at : Infinity
+  const reach = Math.max(0.6, Math.min(room(entry.x, entry.dx), room(entry.y, entry.dy), SAMPLE_GRID - 1)) * SAMPLE_PITCH
+  const tipX = startX + (entry.dx * reach)
+  const tipY = startY + (entry.dy * reach)
+  // An arrowhead as a plain triangle, so the exported SVG needs no marker defs.
+  const head = `${tipX},${tipY} ${tipX - (entry.dx * 9) - (entry.dy * 5)},${tipY - (entry.dy * 9) - (entry.dx * 5)} ${tipX - (entry.dx * 9) + (entry.dy * 5)},${tipY - (entry.dy * 9) + (entry.dx * 5)}`
+  const corner = `${entry.y <= 0.5 ? 'top' : 'bottom'}-${entry.x <= 0.5 ? 'left' : 'right'}`
+  const wiring = item.facts.layout === 'matrix' && item.facts.laneCount === undefined && typeof item.facts.startCorner === 'string'
+    ? {
+        serpentine: item.facts.serpentine === true,
+        startCorner: item.facts.startCorner as MatrixStartCorner,
+        firstRun: item.facts.firstRun as MatrixFirstRun,
+      }
+    : null
+  const order: Array<[number, number]> = []
+  if (wiring) {
+    for (let cy = 0; cy < SAMPLE_GRID; cy += 1) {
+      for (let cx = 0; cx < SAMPLE_GRID; cx += 1) {
+        order[matrixLedIndex(cx, cy, SAMPLE_GRID, SAMPLE_GRID, wiring)] = [x + centre(cx), y + centre(cy)]
+      }
+    }
+  }
+  // A zig-zag is one unbroken line. Runs that all go the same way are drawn
+  // apart: the return lead between them is not part of the LED order.
+  const strokes = !wiring
+    ? []
+    : wiring.serpentine
+      ? [order]
+      : Array.from({ length: SAMPLE_GRID }, (_, run) => order.slice(run * SAMPLE_GRID, (run + 1) * SAMPLE_GRID))
+  return (
+    <g
+      data-matrix-data-in={corner}
+      data-matrix-first-run={moves ? (entry.dx !== 0 ? 'horizontal' : 'vertical') : undefined}
+      pointerEvents="none"
+    >
+      <title>{`LED 0 · data in at the ${corner} corner${moves ? `, first run going ${compassWord(entry.dx, entry.dy)}` : ''}`}</title>
+      {strokes.map((points, index) => (
+        <polyline key={index} data-matrix-run={index} points={points.map(([px, py]) => `${px},${py}`).join(' ')} fill="none" stroke={color} strokeWidth="1.5" strokeOpacity="0.85" strokeLinejoin="round" />
+      ))}
+      {moves && <line x1={startX} y1={startY} x2={tipX - (entry.dx * 6)} y2={tipY - (entry.dy * 6)} stroke={color} strokeWidth="3" strokeLinecap="round" />}
+      {moves && <polygon points={head} fill={color} />}
+      <circle cx={startX} cy={startY} r="8" fill="#15191a" stroke={color} strokeWidth="2.5" />
+      {/* A style, not a fill attribute, which any sheet rule for text would beat. */}
+      <text x={startX} y={startY + 3.5} textAnchor="middle" style={{ fontSize: 10, fontWeight: 700, fill: '#ffffff' }}>0</text>
+    </g>
+  )
+}
+
 export function OutputGraphic({ layout, connection, selected, plan, powerPlanBelow }: { layout: ItemLayout; connection?: PhysicalDiagramConnection; selected: boolean; plan?: OutputElectricalPlan; powerPlanBelow: boolean }) {
   const { x, y, width, height, item } = layout
   const presentation = connection ? signalPresentation(connection) : { role: 'data', color: '#24963e' }
@@ -318,6 +396,7 @@ export function OutputGraphic({ layout, connection, selected, plan, powerPlanBel
         : singleRow
           ? <LedPixels x={x + ((width - 128) / 2)} y={y + 18} width={128} height={32} singleRow />
           : <LedPixels x={x + ((width - 128) / 2)} y={y + 18} width={128} height={128} />}
+      {!positioned && !singleRow && <MatrixDataEntry item={item} x={x + ((width - 128) / 2)} y={y + 18} color={presentation.color} />}
       <NetStub x={x} y={y + groundOffset} kind="gnd" direction="left" wireId={`${item.id}-led-ground-net`} />
       <NetStub x={x} y={y + powerOffset} kind="v5" direction="left" wireId={`${item.id}-led-5v-net`} />
       <g data-terminal={`${item.id}-gnd`}>

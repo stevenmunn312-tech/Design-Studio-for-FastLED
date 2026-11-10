@@ -33,7 +33,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
   MatrixOutput: {
     overview: [
       'The LED output is where a graph becomes light. Its form — a string, a matrix, a ring, a corkscrew, or a HUB75 panel — is chosen on the bench, and the node retitles itself to match: LED String, LED Matrix, LED Ring.',
-      'It holds everything about the physical LEDs: chipset, colour order, data pin (and clock pin and data rate for APA102, HD108 and WS2801), size and layout (serpentine rows, tiled panels, custom maps, positioned strings), colour correction, white point and dithering. Its frame is what the preview shows and what the sketch sends.',
+      'It holds everything about the physical LEDs: chipset, colour order, data pin (and clock pin and data rate for APA102, HD108 and WS2801), size and layout (serpentine rows, the corner the first LED sits in and which way the first run goes, tiled panels, custom maps, positioned strings), colour correction, white point and dithering. Its frame is what the preview shows and what the sketch sends.',
       'It also takes live controls: Enabled for a blackout, Brightness as its own dimmer on top of the Board’s master level, and a Controls bundle or step buttons from a panel or remote. Its Display output reports its state to a screen.',
       'Gamma, under Rendering, corrects everything the output sends so mid-tones look right on the LEDs: 1 is off and 2.2 to 2.8 suits most strips. It replaces a Gamma node at the end of the graph, so use one or the other. It runs before the dimmers, as that node did, and a HUB75 panel has none because its driver applies its own curve.',
     ],
@@ -49,7 +49,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
     outputs: {
       display: 'This output’s name, on/blackout state and level, for a 7-Segment Display, OLED Display or TFT Display.',
     },
-    propertyNote: 'Only the fields for the chosen form and layout are used. Correction, white point and dithering change the LEDs, not the preview. A HUB75 chain of two or more panels is assumed to start top-left and run down each column (zig-zag when Serpentine is on); that order comes from the driver library’s documentation and has not been checked on real multi-panel hardware, so confirm it against the first frame.',
+    propertyNote: 'Only the fields for the chosen form and layout are used. An LED matrix is described by three settings: Start corner is the corner the first LED sits in, seen from the front; First run is Horizontal when the LEDs fill a row before moving on and Vertical when they fill a column; Serpentine is on when each run comes back the other way. A panel wired back and forth from the bottom-left in rows is Serpentine on, Bottom-left, Horizontal. With tiled panels the three describe each panel before it is turned, and a custom map ignores them. The Build Diagram rings LED 0 on the matrix and draws the first run from it; run the Wiring Test to confirm on the real panel. Correction, white point and dithering change the LEDs, not the preview. A HUB75 chain of two or more panels is assumed to start top-left and run down each column (zig-zag when Serpentine is on); that order comes from the driver library’s documentation and has not been checked on real multi-panel hardware, so confirm it against the first frame.',
     example: example({
       featured: 'MatrixOutput',
       title: 'A finished build with a dimmer and a blackout button',

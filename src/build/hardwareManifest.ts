@@ -33,7 +33,8 @@ import { resolvePartIdentity } from './parts/partOptions'
 import { boardHasInternalDac, hasAudioOutputStage, powerAmplifierFeed, powerAmplifierSource } from '../state/audio/audioOutput'
 import { micModuleFor } from '../state/peripherals/micModules'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/output/ledOutputForm'
-import { LANE_PIN_KEY_PREFIX, claimedLanePins, dataLanePlan } from '../state/output/dataLanes'
+import { LANE_PIN_KEY_PREFIX, claimedLanePins, dataLanePlan, dataLaneRunsAreColumns } from '../state/output/dataLanes'
+import { chainEntry, matrixWiringApplies, matrixWiringFromProps } from '../state/output/xyLayout'
 import { normalizeButtonBankEntries } from '../state/player/buttonBank'
 import { relayLoadLabel, relayPinKeys } from '../state/peripherals/relayModule'
 import {
@@ -649,6 +650,13 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
   const positioned = stringPositions(props)
   const mmPerUnit = positioned ? positionsMmPerUnit(props, positioned, ledPitchMm(form)) : null
   const span = positioned && mmPerUnit ? stringSpanMm(positioned, mmPerUnit) : null
+  // Where the data-in wire lands on the panel, for the diagram's picture of
+  // it. Only an LED matrix in a matrix or panels layout has one to state.
+  const wiring = matrixWiringApplies(props) ? matrixWiringFromProps(props) : null
+  // The corner the chain really starts in and the way it sets off, whatever
+  // the layout: read back from the firmware's own table, so a rotated first
+  // panel or a custom map is pictured where it is.
+  const dataIn = form === 'matrix' ? chainEntry(width, height, props) : null
   return {
     id: `output:${node.id}`,
     kind: 'matrix-output',
@@ -669,6 +677,8 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
       form,
       routeOrdinal: ordinal,
       layout: String(props.layout ?? 'matrix'),
+      ...(wiring ? { serpentine: wiring.serpentine, startCorner: wiring.startCorner, firstRun: wiring.firstRun } : {}),
+      ...(dataIn ? { dataIn } : {}),
       chipset,
       dataLink,
       ...(positioned && mmPerUnit && span ? {
@@ -712,9 +722,14 @@ function buildMatrixOutputItems(node: StudioNode, ordinal: number, count: number
   const tileRows = props.layout === 'panels'
     ? Math.max(1, Math.floor(outputGridDims(props).height / Math.max(1, Math.round(Number(props.tilesY ?? 1)))))
     : 1
-  // A lane of whole rows is drawn as those rows; a lane of panels that are not
-  // whole rows of the grid as the panels side by side.
-  const laneGrid = outputForm(props) === 'matrix' && plan.perLane % width === 0
+  // A lane of whole rows is drawn as those rows (whole columns, on a matrix
+  // wired by columns); a lane of panels that are not whole rows of the grid as
+  // the panels side by side.
+  const gridHeight = outputGridDims(props).height
+  const full = outputGridDims(props)
+  const laneGrid = outputForm(props) === 'matrix' && dataLaneRunsAreColumns(props) && plan.perLane % gridHeight === 0
+    ? { width: plan.perLane / gridHeight, height: gridHeight }
+    : outputForm(props) === 'matrix' && plan.perLane % width === 0
     ? { width, height: plan.perLane / width }
     : outputForm(props) === 'matrix'
       ? { width: plan.perLane / tileRows, height: tileRows }
@@ -737,6 +752,8 @@ function buildMatrixOutputItems(node: StudioNode, ordinal: number, count: number
         lane,
         laneCount: plan.lanes,
         laneFirstLed: first,
+        // Each lane is its own run with its own data-in end.
+        ...(whole.facts.dataIn ? { dataIn: chainEntry(full.width, full.height, props, first, plan.perLane) } : {}),
         desiredCurrentCapMa: powerCapMa == null ? null : Math.round(powerCapMa / plan.lanes),
       },
     }

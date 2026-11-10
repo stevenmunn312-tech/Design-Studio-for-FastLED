@@ -137,7 +137,7 @@ const STRUCTURAL_KEYS = new Set([
 const WIRING_KEYS: Record<string, Set<string>> = {
   MicInput: new Set(['i2sWs', 'i2sSck', 'i2sSd', 'channel']),
   LineInput: new Set(['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout', 'channel']),
-  MatrixOutput: new Set(['chipset', 'colorOrder', 'dataPin', 'clockPin', 'dataRateMhz', 'serpentine']),
+  MatrixOutput: new Set(['chipset', 'colorOrder', 'dataPin', 'clockPin', 'dataRateMhz', 'serpentine', 'startCorner', 'firstRun']),
   // A Button's rows hold its pins and pull-ups.
   ButtonBank: new Set(['buttons']),
   TouchButtonInput: new Set(['pin']),

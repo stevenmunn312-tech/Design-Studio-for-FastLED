@@ -679,7 +679,7 @@ function UploadTab() {
         <div className={styles.definitionGrid}>
           <div><strong>Compile failed</strong><span>No firmware reached the board. Read the Upload tab&apos;s Output console, fix the reported graph, dependency, or capacity error, then compile again.</span></div>
           <div><strong>Upload failed</strong><span>The sketch compiled, but flashing failed. Recheck the selected port, USB cable, driver, permissions, and any board-specific download-mode steps.</span></div>
-          <div><strong>Wrong colours or order</strong><span>Run Wiring Test and correct colour order, serpentine direction, panel layout, or custom XY map in the LED output.</span></div>
+          <div><strong>Wrong colours or order</strong><span>Run Wiring Test and correct colour order, start corner, first run, serpentine direction, panel layout, or custom XY map in the LED output.</span></div>
           <div><strong>Preview works, LEDs do not</strong><span>Confirm data and clock pins, common ground, external power, chipset, brightness, and power-limit settings before changing the graph.</span></div>
         </div>
       </div>

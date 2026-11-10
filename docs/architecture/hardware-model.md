@@ -642,8 +642,11 @@ the object the user owns. Responsibilities are split as follows:
 - the workbench inspector owns GPIO assignments and module identity;
 - the graph node owns size/count, chipset, colour order and a clocked
   chipset's data rate where applicable,
-  frame fit/crop route, matrix/panel/custom mapping, correction, dithering, and
-  supersampling; and
+  frame fit/crop route, matrix/panel/custom mapping (for an LED matrix: the
+  corner LED 0 sits in, whether the first run is a row or a column, and
+  whether runs zig-zag; see
+  [matrix wiring order](../development/patterns/hardware-and-build-diagram.md#matrix-wiring-order)),
+  correction, dithering, and supersampling; and
 - the Board owns brightness, power, overclock, and memory policy.
 
 The corkscrew form uses an unwrapped-cylinder authoring canvas whose horizontal
