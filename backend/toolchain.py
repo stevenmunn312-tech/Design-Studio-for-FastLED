@@ -262,6 +262,14 @@ _FBUILD_HUB75_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "ESP32-HUB75-MatrixPanel-D
 # SAMD51 INMP441 capture uses Adafruit's receive-capable ZeroI2S driver and
 # its ZeroDMA dependency. Both are fetched only when a generated sketch names
 # ZeroI2S, just like the other optional hardware libraries below.
+_ZERO_I2S_INCLUDE = "#include <Adafruit_ZeroI2S.h>"
+_ZERO_I2S_VERSION = "1.2.4"
+_ZERO_DMA_VERSION = "1.1.4"
+# The Arduino Library Manager names of the pair, for arduino-cli.
+_ZERO_I2S_LIBRARIES = (
+    ("Adafruit Zero I2S Library", _ZERO_I2S_VERSION),
+    ("Adafruit Zero DMA Library", _ZERO_DMA_VERSION),
+)
 _FBUILD_ZERO_I2S_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "Adafruit_ZeroI2S"
 _FBUILD_ZERO_DMA_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "Adafruit_ZeroDMA"
 _FBUILD_LVGL_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "lvgl"
@@ -593,21 +601,21 @@ _PIO_BOARDS: dict[str, dict] = {
     "arduino:samd:arduino_zero_native": {"platform": "atmelsam", "board": "zeroUSB"},
     "adafruit:samd:adafruit_feather_m0": {"platform": "atmelsam", "board": "adafruit_feather_m0"},
     "adafruit:samd:adafruit_qtpy_m0": {"platform": "atmelsam", "board": "adafruit_qtpy_m0"},
-    # fbuild's atmelsam adapter currently drops the Arduino board/architecture
-    # defines when compiling vendored local-library unity files. Repeat the
-    # exact MCU identity here so FastLED selects its SAMD51 implementation in
-    # both the sketch TU and library TUs.
+    # fbuild's atmelsam adapter drops the board's MCU defines when compiling
+    # vendored local-library unity files. Repeat the exact MCU identity here
+    # so FastLED selects its SAMD51 implementation in both the sketch TU and
+    # library TUs.
     "adafruit:samd:adafruit_feather_m4": {
         "platform": "atmelsam", "board": "adafruit_feather_m4",
-        "build_flags": ["-DARDUINO_ARCH_SAMD", "-D__SAMD51__", "-D__SAMD51J19A__", "-DEIC_IRQn=EIC_0_IRQn", "-DFASTLED_FORCE_SOFTWARE_SPI=1"],
+        "build_flags": ["-D__SAMD51__", "-D__SAMD51J19A__"],
     },
     "adafruit:samd:adafruit_grandcentral_m4": {
         "platform": "atmelsam", "board": "adafruit_grandcentral_m4",
-        "build_flags": ["-DARDUINO_ARCH_SAMD", "-D__SAMD51__", "-D__SAMD51P20A__", "-DEIC_IRQn=EIC_0_IRQn", "-DFASTLED_FORCE_SOFTWARE_SPI=1"],
+        "build_flags": ["-D__SAMD51__", "-D__SAMD51P20A__"],
     },
     "adafruit:samd:adafruit_matrixportal_m4": {
         "platform": "atmelsam", "board": "adafruit_matrixportal_m4",
-        "build_flags": ["-DARDUINO_ARCH_SAMD", "-D__SAMD51__", "-D__SAMD51J19A__", "-DEIC_IRQn=EIC_0_IRQn", "-DFASTLED_FORCE_SOFTWARE_SPI=1"],
+        "build_flags": ["-D__SAMD51__", "-D__SAMD51J19A__"],
     },
     # STM32duino names no board by these ids: arduino-cli picks a series board
     # (GenF1, GenF4, Nucleo_144) and the chip by its `pnum` menu value.
@@ -886,7 +894,7 @@ def _write_if_changed(path: Path, text: str) -> bool:
     recompile from mtimes, so rewriting a file with the bytes it already has
     costs a rebuild and buys nothing. Two writers here used to do exactly that
     on every run — the sketch (`_write_fbuild_main`) and the vendored FastLED
-    patches (`_patch_fastled_samd51_build`) — which is why a re-upload of an
+    patches (removed with FastLED 3.10.9) — which is why a re-upload of an
     unchanged design still recompiled its largest translation unit, relinked,
     and rebuilt whichever FastLED objects include a patched header.
 
@@ -1091,128 +1099,7 @@ def _ensure_fbuild_project():
         )
         if rc != 0 or not _fastled_checkout_matches_pin(_FBUILD_LIB_DIR):
             yield f"[error] failed to vendor FastLED {_FASTLED_VERSION} — the build below will fail on FastLED.h\n"
-    _patch_fastled_samd51_build()
     _fbuild_project_ready = True
-
-
-def _patch_fastled_samd51_build() -> None:
-    """Apply narrow upstream SAMD51 compile fixes to the vendored FastLED.
-
-    FastLED 3.10.4+ currently names SAMD21-only PMUX/EIC constants in its
-    SAMD51 ISR source, and its unused SAMD51 quad-SPI implementation returns
-    obsolete result types. Studio does not use the quad-SPI path; stubbing its
-    buffer acquisition keeps ordinary FastLED controllers and the audio
-    processor buildable until upstream lands equivalent fixes. Its generic
-    Arduino audio unit also cannot include ``I2S.h`` on SAMD51 because the
-    core's ``I2S`` peripheral macro expands inside that header token. Studio's
-    SAMD51 code uses its own ZeroI2S adapter, so disable that unused generic
-    backend on SAMD51 only.
-
-    Every write here goes through `_write_if_changed`. This runs once per
-    helper process, against a vendored tree that is almost always already
-    patched, and these are headers: rewriting one with its own bytes rebuilt
-    every FastLED object that includes it on the next build — three of them on
-    an ESP32-S3 re-upload that had changed nothing at all.
-    """
-    isr = _FBUILD_LIB_DIR / "src" / "platforms" / "arm" / "samd" / "isr_samd.hpp"
-    if isr.exists():
-        text = isr.read_text(encoding="utf-8")
-        text = text.replace("PORT_PMUX_PMUXO_A", "PORT_PMUX_PMUXO(0)")
-        text = text.replace("PORT_PMUX_PMUXE_A", "PORT_PMUX_PMUXE(0)")
-        # Upstream spells EIC_IRQn, which SAMD51 builds already alias to
-        # EIC_0_IRQn through their build_flags. Rewriting the source instead
-        # named a SAMD51-only IRQ in the tree every SAMD21 shares, so undo it
-        # wherever an earlier helper applied it.
-        text = text.replace("NVIC_DisableIRQ(EIC_0_IRQn)", "NVIC_DisableIRQ(EIC_IRQn)")
-        _write_if_changed(isr, text)
-
-    quad = _FBUILD_LIB_DIR / "src" / "platforms" / "arm" / "d51" / "spi_hw_4_samd51.cpp.hpp"
-    if quad.exists():
-        text = quad.read_text(encoding="utf-8")
-        start = text.find("DMABuffer SPIQuadSAMD51::acquireDMABuffer(size_t bytes_per_lane) {")
-        end = text.find("\nbool SPIQuadSAMD51::transmit", start)
-        if start >= 0 and end > start:
-            stub = (
-                "DMABuffer SPIQuadSAMD51::acquireDMABuffer(size_t bytes_per_lane) {\n"
-                "    (void)bytes_per_lane;\n"
-                "    return DMABuffer(SPIError::NOT_SUPPORTED);\n"
-                "}\n"
-            )
-            text = text[:start] + stub + text[end:]
-            _write_if_changed(quad, text)
-
-    audio = _FBUILD_LIB_DIR / "src" / "fl" / "audio" / "audio_input.cpp.hpp"
-    if audio.exists():
-        text = audio.read_text(encoding="utf-8")
-        old = (
-            "  #elif defined(FL_IS_TEENSY)\n"
-            "    // Teensy uses the PJRC Audio backend when enabled, never generic Arduino I2S.\n"
-            "    #define FASTLED_USES_ARDUINO_AUDIO_INPUT 0\n"
-            "  #elif FL_HAS_INCLUDE(<Arduino.h>)"
-        )
-        new = (
-            "  #elif defined(FL_IS_TEENSY)\n"
-            "    // Teensy uses the PJRC Audio backend when enabled, never generic Arduino I2S.\n"
-            "    #define FASTLED_USES_ARDUINO_AUDIO_INPUT 0\n"
-            "  #elif defined(FL_IS_SAMD51)\n"
-            "    // Studio supplies a ZeroI2S IInput adapter on SAMD51.\n"
-            "    #define FASTLED_USES_ARDUINO_AUDIO_INPUT 0\n"
-            "  #elif FL_HAS_INCLUDE(<Arduino.h>)"
-        )
-        if old in text:
-            _write_if_changed(audio, text.replace(old, new))
-
-    arduino_audio = _FBUILD_LIB_DIR / "src" / "platforms" / "arduino" / "audio_input.hpp"
-    if arduino_audio.exists():
-        text = arduino_audio.read_text(encoding="utf-8")
-        old = (
-            '#elif defined(FL_IS_SAMD21)\n'
-            '#define ARDUINO_I2S_FULLY_SUPPORTED 0\n'
-            '#define ARDUINO_I2S_BROKEN_REASON "I2S not supported on SAMD21"\n'
-            '#elif FL_HAS_INCLUDE(<I2S.h>)'
-        )
-        new = (
-            '#elif defined(FL_IS_SAMD21)\n'
-            '#define ARDUINO_I2S_FULLY_SUPPORTED 0\n'
-            '#define ARDUINO_I2S_BROKEN_REASON "I2S not supported on SAMD21"\n'
-            '#elif defined(FL_IS_SAMD51)\n'
-            '#define ARDUINO_I2S_FULLY_SUPPORTED 0\n'
-            '#define ARDUINO_I2S_BROKEN_REASON "Studio uses ZeroI2S on SAMD51"\n'
-            '#elif FL_HAS_INCLUDE(<I2S.h>)'
-        )
-        if old in text:
-            text = text.replace(old, new)
-        # fbuild's dependency scanner evaluates header tokens before the C++
-        # platform branch can discard them. On Adafruit SAMD51, the core macro
-        # named `I2S` expands the token in both __has_include(<I2S.h>) and
-        # #include <I2S.h> into a peripheral address, yielding an impossible
-        # path such as `((I2s *)0x43002800UL).h`. None of Studio's supported
-        # mic targets uses this generic FastLED adapter (each has a selected
-        # backend above), so remove those two tokens from the vendored unity
-        # build instead of allowing an unused source path to break SAMD51.
-        text = text.replace(
-            "#elif FL_HAS_INCLUDE(<I2S.h>)",
-            "#elif 0 // Studio mic targets use their selected IInput adapter",
-        )
-        text = text.replace(
-            "#include <I2S.h>",
-            "// Generic Arduino I2S include disabled by the Studio build helper.",
-        )
-        _write_if_changed(arduino_audio, text)
-
-    # The generated SAMD51 sketches use clockless LEDs and explicitly select
-    # FastLED's software-SPI fallback. Honour that selection before FastLED's
-    # new SAMD dispatcher includes its still-experimental hardware SPI adapter,
-    # which has an unnecessary transitive <SPI.h> dependency under fbuild.
-    for relative in ("platforms/spi_device_proxy.h", "platforms/spi_output_template.h"):
-        dispatcher = _FBUILD_LIB_DIR / "src" / relative
-        if dispatcher.exists():
-            text = dispatcher.read_text(encoding="utf-8")
-            text = text.replace(
-                "#elif defined(FL_IS_SAM) || defined(FL_IS_SAMD)",
-                "#elif (defined(FL_IS_SAM) || defined(FL_IS_SAMD)) && !defined(FASTLED_FORCE_SOFTWARE_SPI)",
-            )
-            _write_if_changed(dispatcher, text)
 
 
 _fbuild_audio_lib_ready = False
@@ -1389,8 +1276,8 @@ def _ensure_fbuild_zero_i2s_lib():
     yield "\n=== vendoring Adafruit ZeroI2S + ZeroDMA (first SAMD51 mic build only) ===\n"
     _FBUILD_ZERO_I2S_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
     libraries = (
-        ("Adafruit ZeroI2S", "1.2.4", "https://github.com/adafruit/Adafruit_ZeroI2S.git", _FBUILD_ZERO_I2S_LIB_DIR),
-        ("Adafruit ZeroDMA", "1.1.4", "https://github.com/adafruit/Adafruit_ZeroDMA.git", _FBUILD_ZERO_DMA_LIB_DIR),
+        ("Adafruit ZeroI2S", _ZERO_I2S_VERSION, "https://github.com/adafruit/Adafruit_ZeroI2S.git", _FBUILD_ZERO_I2S_LIB_DIR),
+        ("Adafruit ZeroDMA", _ZERO_DMA_VERSION, "https://github.com/adafruit/Adafruit_ZeroDMA.git", _FBUILD_ZERO_DMA_LIB_DIR),
     )
     for label, tag, url, path in libraries:
         if path.exists():
@@ -1403,6 +1290,22 @@ def _ensure_fbuild_zero_i2s_lib():
             yield f"[error] failed to vendor {label} — the SAMD51 microphone build will fail\n"
             return
     _fbuild_zero_i2s_lib_ready = True
+
+
+def _ensure_arduino_zero_i2s_lib():
+    """Ask arduino-cli for the same Adafruit ZeroI2S and ZeroDMA releases fbuild vendors."""
+    for name, version in _ZERO_I2S_LIBRARIES:
+        rc = yield from _run_phase(
+            f"install {name} {version}",
+            _ARDUINO_BASE + ["lib", "install", f"{name}@{version}", "--no-deps"],
+        )
+        if rc != 0:
+            yield (
+                f"[error] failed to install {name} {version}. Check the network connection or run "
+                f"'arduino-cli lib install \"{name}@{version}\"' and try again.\n"
+            )
+            return rc
+    return 0
 
 
 _fbuild_lvgl_lib_ready = False

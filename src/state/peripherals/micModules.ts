@@ -68,7 +68,7 @@ export const MIC_MODULES: readonly MicModule[] = [
     profile: 'GenericMEMS',
   },
   {
-    // FastLED 3.10.5 ships no ESP32 factory or profile for it, and its ESP32
+    // FastLED 3.10.9 ships no ESP32 factory or profile for it, and its ESP32
     // driver always configures Philips I2S and ignores the requested format,
     // so no FastLED config can express this chip's timing. It is captured by
     // the app's own adapter instead, like the PCM1802. The quirk: the ESP32

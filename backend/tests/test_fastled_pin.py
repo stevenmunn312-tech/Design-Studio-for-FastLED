@@ -68,7 +68,6 @@ def test_fbuild_vendors_the_pinned_tag_over_a_stale_checkout(tmp_path, monkeypat
     monkeypatch.setattr(toolchain, "_FBUILD_LIB_DIR", library)
     monkeypatch.setattr(toolchain, "_FBUILD_SRC_DIR", tmp_path / "src")
     monkeypatch.setattr(toolchain, "_write_fbuild_ini", lambda: None)
-    monkeypatch.setattr(toolchain, "_patch_fastled_samd51_build", lambda: None)
     monkeypatch.setattr(toolchain, "_fbuild_project_ready", False)
     clones = []
 

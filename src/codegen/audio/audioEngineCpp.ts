@@ -432,7 +432,7 @@ function audioEngineCpp(
  * every sample arrives one bit left and loses its sign bit. The published fix
  * keeps Philips framing (RX MSB shift) and delays the receiver's SD input
  * sampling, through two fields of the classic ESP32's I2S register block.
- * FastLED 3.10.5's ESP32 driver always configures Philips, ignores the
+ * FastLED 3.10.9's ESP32 driver always configures Philips, ignores the
  * requested format and exposes no timing control, so the app owns the receive
  * channel here, as it does for the PCM1802. The ESP32-S3's I2S block has no
  * documented equivalent, which is why this module is offered on classic ESP32
@@ -870,23 +870,7 @@ export function audioEngineForGraph(
       ? 'Both'
       : 'Left'
   return {
-    // FastLED 3.10.5's SAMD ISR translation unit still names the SAMD21-style
-    // PMUX/EIC symbols. Adafruit's SAMD51 CMSIS headers expose their equivalent
-    // indexed forms; aliases here keep exported sketches compilable without
-    // modifying the user's FastLED installation.
-    preInclude: !lineInput && backend === 'samd51-zero-i2s' ? [
-      '// The I2S microphone + clockless LED path does not need SAMD hardware SPI.',
-      '#define FASTLED_FORCE_SOFTWARE_SPI 1',
-      '#if defined(__SAMD51__)',
-      '#ifndef PORT_PMUX_PMUXO_A',
-      '#define PORT_PMUX_PMUXO_A PORT_PMUX_PMUXO(0)',
-      '#define PORT_PMUX_PMUXE_A PORT_PMUX_PMUXE(0)',
-      '#endif',
-      '#ifndef EIC_IRQn',
-      '#define EIC_IRQn EIC_0_IRQn',
-      '#endif',
-      '#endif',
-    ] : [],
+    preInclude: [],
     include: [
       `// ${lineInput ? 'PCM1802 line-in' : micModule.label} capture feeds the same FastLED Processor contract as preview.`,
       ...(lineInput || micModule.capture === 'sph0645-classic-esp32' ? [

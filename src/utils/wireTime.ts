@@ -3,7 +3,7 @@
  * Graph Health advice when that wire time, not the work, sets the frame rate.
  *
  * Every figure comes from `src/build/ledDrivers.ts` (the pinned FastLED
- * 3.10.5): each output's send time from `chipsetSendMicros`, how many send at
+ * 3.10.9): each output's send time from `chipsetSendMicros`, how many send at
  * once from the board family's driver facts. The model, recorded in
  * docs/development/patterns/validation-and-deploy.md:
  *

@@ -220,10 +220,10 @@ def test_write_fbuild_ini_emits_a_section_per_board_and_psram_variant(tmp_path, 
     # the sketch, or FastLED falls through to its unsupported generic Arduino
     # pin implementation.
     feather_m4_section = text.split("[env:adafruit_samd_adafruit_feather_m4]")[1].split("[env:")[0]
-    assert "-DARDUINO_ARCH_SAMD" in feather_m4_section
     assert "-D__SAMD51J19A__" in feather_m4_section
-    assert "-DEIC_IRQn=EIC_0_IRQn" in feather_m4_section
-    assert "-DFASTLED_FORCE_SOFTWARE_SPI=1" in feather_m4_section
+    # FastLED 3.10.9 builds on SAMD51 as released: no alias or SPI override.
+    assert "EIC_IRQn" not in feather_m4_section
+    assert "FASTLED_FORCE_SOFTWARE_SPI" not in feather_m4_section
 
     # Base (non-PSRAM) ESP32 envs get the huge_app.csv partition table — the
     # stock default.csv's 1.31MB OTA app slots are too small for the
@@ -231,61 +231,6 @@ def test_write_fbuild_ini_emits_a_section_per_board_and_psram_variant(tmp_path, 
     esp32_section = text.split("[env:esp32_esp32_esp32]")[1].split("[env:")[0]
     assert "board_build.partitions = huge_app.csv" in esp32_section
     assert "board_build.partitions" not in uno_section
-
-
-def test_patch_fastled_samd51_disables_unused_generic_i2s_backend(tmp_path, monkeypatch):
-    lib_dir = tmp_path / "FastLED"
-    monkeypatch.setattr(toolchain, "_FBUILD_LIB_DIR", lib_dir)
-    audio = lib_dir / "src" / "fl" / "audio" / "audio_input.cpp.hpp"
-    audio.parent.mkdir(parents=True)
-    audio.write_text(
-        "  #elif defined(FL_IS_TEENSY)\n"
-        "    // Teensy uses the PJRC Audio backend when enabled, never generic Arduino I2S.\n"
-        "    #define FASTLED_USES_ARDUINO_AUDIO_INPUT 0\n"
-        "  #elif FL_HAS_INCLUDE(<Arduino.h>)\n",
-        encoding="utf-8",
-    )
-    arduino_audio = lib_dir / "src" / "platforms" / "arduino" / "audio_input.hpp"
-    arduino_audio.parent.mkdir(parents=True)
-    arduino_audio.write_text(
-        '#elif defined(FL_IS_SAMD21)\n'
-        '#define ARDUINO_I2S_FULLY_SUPPORTED 0\n'
-        '#define ARDUINO_I2S_BROKEN_REASON "I2S not supported on SAMD21"\n'
-        '#elif FL_HAS_INCLUDE(<I2S.h>)\n'
-        '#include <I2S.h>\n',
-        encoding="utf-8",
-    )
-
-    toolchain._patch_fastled_samd51_build()
-    toolchain._patch_fastled_samd51_build()  # idempotent
-
-    patched = audio.read_text(encoding="utf-8")
-    assert patched.count("defined(FL_IS_SAMD51)") == 1
-    assert "Studio supplies a ZeroI2S IInput adapter" in patched
-    patched_arduino = arduino_audio.read_text(encoding="utf-8")
-    assert patched_arduino.count("defined(FL_IS_SAMD51)") == 1
-    assert "Studio uses ZeroI2S on SAMD51" in patched_arduino
-    assert "<I2S.h>" not in patched_arduino
-    assert "selected IInput adapter" in patched_arduino
-
-
-def test_patch_fastled_samd51_honours_software_spi_selection(tmp_path, monkeypatch):
-    lib_dir = tmp_path / "FastLED"
-    monkeypatch.setattr(toolchain, "_FBUILD_LIB_DIR", lib_dir)
-    for relative in ("platforms/spi_device_proxy.h", "platforms/spi_output_template.h"):
-        dispatcher = lib_dir / "src" / relative
-        dispatcher.parent.mkdir(parents=True, exist_ok=True)
-        dispatcher.write_text(
-            "#elif defined(FL_IS_SAM) || defined(FL_IS_SAMD)\n#include \"hardware.h\"\n",
-            encoding="utf-8",
-        )
-
-    toolchain._patch_fastled_samd51_build()
-    toolchain._patch_fastled_samd51_build()
-
-    for relative in ("platforms/spi_device_proxy.h", "platforms/spi_output_template.h"):
-        patched = (lib_dir / "src" / relative).read_text(encoding="utf-8")
-        assert patched.count("!defined(FASTLED_FORCE_SOFTWARE_SPI)") == 1
 
 
 def test_fbuild_size_report_keeps_sane_ram_percentage():

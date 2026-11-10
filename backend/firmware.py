@@ -286,6 +286,11 @@ def _compile_upload(
             rc = yield from toolchain._ensure_arduino_irremote_lib()
             if rc != 0:
                 return rc, "compile"
+        uses_zero_i2s = any(toolchain._ZERO_I2S_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+        if uses_zero_i2s:
+            rc = yield from toolchain._ensure_arduino_zero_i2s_lib()
+            if rc != 0:
+                return rc, "compile"
         uses_vl53l0x = any(toolchain._VL53L0X_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
         if uses_vl53l0x:
             rc = yield from toolchain._ensure_arduino_vl53l0x_lib()
@@ -739,7 +744,7 @@ def _compile_upload_fbuild(
                 yield from toolchain._ensure_fbuild_esp_dmx_lib()
             if "#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>" in ino:
                 yield from toolchain._ensure_fbuild_hub75_lib()
-            if "#include <Adafruit_ZeroI2S.h>" in ino:
+            if toolchain._ZERO_I2S_INCLUDE in ino:
                 yield from toolchain._ensure_fbuild_zero_i2s_lib()
             if toolchain._LVGL_INCLUDE_MARKER in ino:
                 yield from toolchain._ensure_fbuild_lvgl_lib(ino)

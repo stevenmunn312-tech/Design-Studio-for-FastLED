@@ -5102,11 +5102,13 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('_audioProcessor->getEqBin(i >> 1)')
   })
 
-  it('selects the dependency-free SAMD51 software-SPI fallback before FastLED is included', () => {
+  it('builds a SAMD51 microphone sketch on FastLED as released, with no alias or SPI override', () => {
     const board = node('board', 'Board', 'hardware', { profileId: 'adafruit-feather-m4-express' })
     const mic = node('mic', 'MicInput', 'hardware', {})
     const cpp = generateCpp([board, mic, out], [])
-    expect(cpp.indexOf('#define FASTLED_FORCE_SOFTWARE_SPI 1')).toBeLessThan(cpp.indexOf('#include <FastLED.h>'))
+    expect(cpp).not.toContain('FASTLED_FORCE_SOFTWARE_SPI')
+    expect(cpp).not.toContain('PORT_PMUX_PMUXO_A')
+    expect(cpp).not.toContain('EIC_IRQn')
   })
 
   it('falls back to silence with no mic node', () => {

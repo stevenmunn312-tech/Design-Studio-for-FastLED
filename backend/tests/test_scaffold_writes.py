@@ -61,43 +61,6 @@ def test_re_writing_the_same_sketch_does_not_touch_main_ino(tmp_path, monkeypatc
     assert (src / "main.ino").read_text(encoding="utf-8").endswith("// changed\n")
 
 
-def test_patching_an_already_patched_fastled_touches_nothing(tmp_path, monkeypatch):
-    # The patcher runs once per helper process against a tree that is almost
-    # always already patched -- the second run must be a no-op on disk.
-    lib = tmp_path / "FastLED"
-    monkeypatch.setattr(toolchain, "_FBUILD_LIB_DIR", lib)
-    sources = {
-        "src/platforms/arm/samd/isr_samd.hpp":
-            "PORT_PMUX_PMUXO_A PORT_PMUX_PMUXE_A NVIC_DisableIRQ(EIC_IRQn)\n",
-        "src/platforms/arduino/audio_input.hpp":
-            "#elif FL_HAS_INCLUDE(<I2S.h>)\n#include <I2S.h>\n",
-        "src/platforms/spi_device_proxy.h":
-            "#elif defined(FL_IS_SAM) || defined(FL_IS_SAMD)\n",
-        "src/platforms/spi_output_template.h":
-            "#elif defined(FL_IS_SAM) || defined(FL_IS_SAMD)\n",
-    }
-    for relative, text in sources.items():
-        path = lib / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
-
-    toolchain._patch_fastled_samd51_build()
-    patched = {
-        relative: ((lib / relative).stat().st_mtime_ns,
-                   (lib / relative).read_text(encoding="utf-8"))
-        for relative in sources
-    }
-    # The first pass has to have done something, or the second proving nothing
-    # changed would prove nothing at all.
-    for relative, text in sources.items():
-        assert patched[relative][1] != text, relative
-
-    toolchain._patch_fastled_samd51_build()
-    for relative, (mtime, text) in patched.items():
-        assert (lib / relative).stat().st_mtime_ns == mtime, relative
-        assert (lib / relative).read_text(encoding="utf-8") == text, relative
-
-
 def test_the_sketch_workspace_is_the_same_directory_every_build(tmp_path, monkeypatch):
     # arduino-cli keys its build cache on a hash of the sketch path, so the
     # path has to be stable across builds or every compile is a cache miss.
@@ -310,18 +273,3 @@ def test_a_build_that_fits_still_uploads(monkeypatch):
 
     assert (rc, phase) == (0, "upload")
     assert "[size-error]" not in "".join(lines)
-
-
-def test_fastled_patch_keeps_the_shared_eic_irq_name(tmp_path, monkeypatch):
-    # EIC_0_IRQn exists only on SAMD51, and SAMD51 builds already alias
-    # EIC_IRQn to it through build_flags. The vendored tree is shared with
-    # SAMD21 builds, so the patcher must leave the upstream name in place and
-    # restore it where an earlier helper rewrote it.
-    lib = tmp_path / "FastLED"
-    monkeypatch.setattr(toolchain, "_FBUILD_LIB_DIR", lib)
-    isr = lib / "src/platforms/arm/samd/isr_samd.hpp"
-    isr.parent.mkdir(parents=True)
-    for before in ("NVIC_DisableIRQ(EIC_IRQn)\n", "NVIC_DisableIRQ(EIC_0_IRQn)\n"):
-        isr.write_text(before, encoding="utf-8")
-        toolchain._patch_fastled_samd51_build()
-        assert isr.read_text(encoding="utf-8") == "NVIC_DisableIRQ(EIC_IRQn)\n"

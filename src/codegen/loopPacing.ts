@@ -4,7 +4,7 @@
  * sketch, a show controller and the player all honour the same Board
  * property, and the preview's own gate (LEDPreview) reads the same setting.
  *
- * Not `FastLED.delay`. In the pinned FastLED 3.10.5 it calls `show()` at least
+ * Not `FastLED.delay`. In the pinned FastLED 3.10.9 it calls `show()` at least
  * once more and keeps re-sending until the time is up, so every frame went out
  * twice and the sleep was added to the work instead of absorbing it: a 2 ms
  * pass under the 60 fps default measured 50 fps, and a strip whose send takes

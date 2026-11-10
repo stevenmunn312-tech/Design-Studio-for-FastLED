@@ -15,7 +15,7 @@ describe('LED driver facts', () => {
     }
   })
 
-  it('names FastLED 3.10.5 default buses', () => {
+  it('names FastLED 3.10.9 default buses', () => {
     expect(ledDriverFacts('esp32-s3').clocklessBus).toBe('RMT')
     expect(ledDriverFacts('esp32-c6').clocklessBus).toBe('PARLIO')
     expect(ledDriverFacts('esp32-s3').spiBus).toBe('LCD_SPI')

@@ -144,7 +144,7 @@ export const CHIPSET_WIRE: Record<string, ChipsetWire> = {
   'SK6812-RGBW': { kind: 'clockless', bitNs: 300 + 600 + 300, bitsPerLed: 32, resetUs: 80 },
   // 16 bits a channel, forwarded through the WS2812 controller.
   WS2816: { kind: 'clockless', bitNs: WS2812_BIT_NS, bitsPerLed: 48, resetUs: 280 },
-  SM16824E: { kind: 'clockless', bitNs: 300 + 900 + 100, bitsPerLed: 24, resetUs: 200 },
+  SM16824E: { kind: 'clockless', bitNs: 300 + 600 + 300, bitsPerLed: 24, resetUs: 200 },
   APA102: { kind: 'clocked', defaultHz: 6_000_000, bitsPerLed: 32, frameBits: (leds) => 32 + Math.max(32, Math.ceil(leds / 2)) },
   APA102HD: { kind: 'clocked', defaultHz: 6_000_000, bitsPerLed: 32, frameBits: (leds) => 32 + Math.max(32, Math.ceil(leds / 2)) },
   HD108: { kind: 'clocked', defaultHz: 25_000_000, bitsPerLed: 64, frameBits: () => 128 },

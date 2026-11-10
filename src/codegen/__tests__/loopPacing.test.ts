@@ -10,7 +10,7 @@ import type { GroupRegistry } from '../../state/graphEvaluator'
 /**
  * Every loop ends in one wait for a fixed deadline, never `FastLED.delay`.
  *
- * FastLED 3.10.5's `delay` re-sends the frame until the time is up, so a
+ * FastLED 3.10.9's `delay` re-sends the frame until the time is up, so a
  * frame went out at least twice and the sleep added to the work. The pacing
  * function is added from the finished sketch text, so these hold the three
  * generators to the same function and the form to what the build sends.
