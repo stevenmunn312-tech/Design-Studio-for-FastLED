@@ -10,7 +10,7 @@ Every candidate except the fourteen promoted saved patterns ends with a shared e
 
 ## Promoted saved patterns
 
-These patterns retain their original ports, and their original graphs and settings except where noted. Promotion does not retrofit the newer audio rig into these user-authored graphs. Two were promoted under working names and renamed on 2026-11-10: “My Pattern” is Sunset Bloom Spectrum and “New Group temp” is Citrus Spectrum Bars. Aurora Voice and Cascade Surge were retuned the same day: Aurora Voice rests brighter and shifts hue less on a beat, and Cascade Surge leads with its rainbow ribbons over a cool bass wash. A saved personal copy of any of these four no longer matches the bundled one, so it stays in the library beside it.
+These patterns retain their original ports, and their original graphs and settings except where noted. Promotion does not retrofit the newer audio rig into these user-authored graphs. Two were promoted under working names and renamed on 2026-11-10: “My Pattern” is Sunset Bloom Spectrum and “New Group temp” is Citrus Spectrum Bars. Aurora Voice and Cascade Surge were retuned the same day: Aurora Voice rests brighter and leans its hue about 20° on a beat instead of spinning it through 40 turns, and Cascade Surge leads with its rainbow ribbons over a cool bass wash. A saved personal copy of any of these four no longer matches the bundled one, so it stays in the library beside it.
 
 - **Aurora Voice** — `bundled-audio-73`
 - **Cascade Surge** — `bundled-audio-74`

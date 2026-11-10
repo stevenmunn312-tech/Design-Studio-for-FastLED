@@ -54,7 +54,7 @@
           "properties": {
             "sensitivity": 0.8,
             "gate": 0.12,
-            "smoothing": 0.86
+            "smoothing": 0.9
           },
           "inputs": [
             {
@@ -288,7 +288,7 @@
             "inMin": 0,
             "inMax": 1,
             "outMin": 0,
-            "outMax": 18
+            "outMax": 0.06
           },
           "inputs": [
             {
