@@ -39,6 +39,20 @@ describe('PerformanceDeck', () => {
     expect(useGraphStore.getState().nodes.find((n) => n.id === 'sc')!.data.properties.r).toBe(0.5)
   })
 
+  it('slides a pinned log property along its travel and stores its own units', () => {
+    useGraphStore.getState().loadGraph(
+      [node('ct', 'ColorTrails', { trailLength: 14.4 })],
+      [],
+      { activeGraphId: ROOT_GRAPH_ID },
+    )
+    useGraphStore.getState().pinProperty('ct', 'trailLength')
+    const { getByRole } = render(<PerformanceDeck />)
+    const fader = getByRole('slider', { name: /· trailLength$/ }) as HTMLInputElement
+    expect(Number(fader.value) / Number(fader.max)).toBeCloseTo(0.7, 2)
+    fireEvent.change(fader, { target: { value: String(Number(fader.max) / 2) } })
+    expect(useGraphStore.getState().nodes.find((n) => n.id === 'ct')!.data.properties.trailLength).toBe(3.5)
+  })
+
   it('unpinning a control removes its knob', () => {
     const { getByRole, queryByRole } = render(<PerformanceDeck />)
     expect(getByRole('slider', { name: /· r$/ })).toBeTruthy()

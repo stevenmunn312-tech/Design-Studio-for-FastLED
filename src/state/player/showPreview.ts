@@ -210,21 +210,33 @@ const blank = (W: number, H: number): Frame =>
 /** The built-in an enum show plays for a pattern name; unknown names play NoiseField. */
 const builtinShowPatternName = (name: string) => (BUILTIN_SHOW_PATTERNS[name] ? name : 'NoiseField')
 
-// Enum show: render the active built-in pattern through a synthetic one-node graph.
+// Enum show: render the active built-in pattern through a synthetic graph:
+// its node, the source an effect draws from, and the output.
 function renderEnumFrame(st: ShowState, timeMs: number, W: number, H: number): Frame {
   const name = builtinShowPatternName(st.pattern)
   const map = BUILTIN_SHOW_PATTERNS[name]
   const palette = isStudioPalette(st.palette) ? st.palette : 'rainbow'
-  const props = { ...(map.props ?? {}), palette, speed: st.speed }
+  // Every node takes the show's palette and raw speed, as the sketch wires
+  // them to every node with the port (builtinShowPatternGroups).
+  const props = (node: { props?: Record<string, unknown> }) => ({ ...(node.props ?? {}), palette, speed: st.speed })
   // Stable per-pattern id so stateful patterns (Fire…) keep continuity. Keyed
   // by name, as the player compiles one function per name: Fire and Fire2012
   // are one node type but two patterns, each with its own state.
   const patId = builtinShowPatternGroupId(name)
-  const pat = synthNode(patId, map.nodeType, 'pattern', props)
+  const pat = synthNode(patId, map.nodeType, 'pattern', props(map))
   const out = synthNode('__show_out', 'MatrixOutput', 'output', { width: W, height: H })
+  const nodes = [pat, out]
   const edges = [{ id: '__show_e', source: patId, target: '__show_out', sourceHandle: 'frame', targetHandle: 'frame' }] as unknown as StudioEdge[]
-  // t = tick/60 = seconds, so tick = ms * 0.06 keeps animation on the song clock.
-  return evaluateGraph([pat, out], edges, timeMs * 0.06, W, H) ?? blank(W, H)
+  if (map.source) {
+    const srcId = `${patId}_source`
+    nodes.unshift(synthNode(srcId, map.source.nodeType, 'pattern', props(map.source)))
+    edges.push({ id: '__show_src', source: srcId, target: patId, sourceHandle: 'frame', targetHandle: 'frame' } as unknown as StudioEdge)
+  }
+  // t = tick/60 = seconds, so tick = ms * 0.06 keeps animation on the song
+  // clock. A built-in with a clock of its own animates that many times as
+  // fast; timers on elapsed time stay unscaled, as the sketch's on millis() do.
+  const tick = timeMs * 0.06
+  return evaluateGraph(nodes, edges, tick * (map.clock ?? 1), W, H, {}, '', new Set(), {}, null, true, nodes, tick) ?? blank(W, H)
 }
 
 // Collection show: render the active pattern group's subgraph directly (its

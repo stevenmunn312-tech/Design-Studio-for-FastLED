@@ -10,6 +10,7 @@ import {
   resolvedDisplayControlValue,
   type DisplayWidgetRuntime,
 } from '../../state/displays/displayRuntimeStore'
+import { rangePosition, rangeValueAt } from '../../state/rangeScale'
 
 export type DisplayControlValue = boolean | number | string
 
@@ -55,27 +56,38 @@ export function snapDisplayControlValue(widget: DisplayWidget, value: number): n
   return Number(Math.max(min, Math.min(max, snapped)).toFixed(precision))
 }
 
+/**
+ * The value under a point on a Slider: the point's place along the track,
+ * along the widget's scale (state/rangeScale.ts), on its step. The LVGL
+ * runtime reads the knob's place the same way (`_rsLogValue` for a log one).
+ */
 export function sliderValueFromPoint(
   widget: DisplayWidget,
   point: { x: number; y: number },
   rect: DisplayControlRect,
 ): number {
-  const { min, max } = displayControlRange(widget)
+  const { min, max, scale } = displayControlRange(widget)
   const vertical = widget.properties.orientation === 'vertical'
   const amount = vertical
     ? 1 - ((point.y - rect.top) / Math.max(1, rect.height))
     : (point.x - rect.left) / Math.max(1, rect.width)
-  return snapDisplayControlValue(widget, min + Math.max(0, Math.min(1, amount)) * (max - min))
+  return snapDisplayControlValue(widget, rangeValueAt(amount, min, max, scale))
 }
 
+/**
+ * A Dial dragged `deltaY` pixels from where it was: `travel` pixels upward
+ * cross its whole range, measured along its scale, so a log Dial turns a
+ * decade for the same drag at either end.
+ */
 export function dialValueFromDrag(
   widget: DisplayWidget,
   startValue: number,
   deltaY: number,
   travel = 120,
 ): number {
-  const { min, max } = displayControlRange(widget)
-  return snapDisplayControlValue(widget, startValue - (deltaY / Math.max(1, travel)) * (max - min))
+  const { min, max, scale } = displayControlRange(widget)
+  const position = rangePosition(startValue, min, max, scale) - deltaY / Math.max(1, travel)
+  return snapDisplayControlValue(widget, rangeValueAt(position, min, max, scale))
 }
 
 export function stepDisplayControlValue(widget: DisplayWidget, value: number, direction: -1 | 1): number {

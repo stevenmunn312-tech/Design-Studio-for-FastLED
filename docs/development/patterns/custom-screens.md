@@ -286,7 +286,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   and `displayWidgetIsNumericControl` (those plus Choice Strip, whose range is
   its option indices). `displayControlRange`, `displayControlStartValue` and
   `displayChoiceOptions` are the one reading of range, start and options for
-  the preview, run surface, Touch evaluator and emitter. Choice Strip and Step
+  the preview, run surface, Touch evaluator and emitter. A Slider or Dial
+  (`displayWidgetHasScale`) also has a Scale: `displayControlRange().scale`
+  is log only for a log Scale over a minimum above zero, and a log one keeps
+  its place 0–1 in the LVGL runtime (minimum 0, maximum 1, step 0), seeded
+  and set through `_rsLogPosition` and reported through `_rsLogValue`; see
+  [graph and nodes](graph-and-nodes.md). Choice Strip and Step
   Control are an `lv_obj` container of `lv_button`s and labels, laid out in
   pixels by the emitter from the same helpers (`displayStepKeyWidth`); the
   container takes no callback, each key reports to the widget's runtime, and

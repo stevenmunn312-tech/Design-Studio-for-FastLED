@@ -268,6 +268,7 @@ function SliderProperty({
   min,
   max,
   step,
+  scale,
   disabled,
   onChange,
 }: {
@@ -276,6 +277,7 @@ function SliderProperty({
   min: number
   max: number
   step: number
+  scale?: 'log'
   disabled: boolean
   onChange: (value: number) => void
 }) {
@@ -289,6 +291,7 @@ function SliderProperty({
       min={min}
       max={max}
       step={step}
+      scale={scale}
       disabled={disabled}
       ariaLabel={`${label} value`}
       onChange={onChange}
@@ -739,6 +742,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 min={meta.min}
                 max={meta.max}
                 step={meta.step}
+                scale={meta.scale}
                 disabled={disabled}
                 onChange={(value) => writeValue(value)}
               />

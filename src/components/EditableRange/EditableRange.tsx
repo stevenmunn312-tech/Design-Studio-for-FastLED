@@ -1,5 +1,8 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { stopWheelWhileFocused } from '../Canvas/wheelBehavior'
+import {
+  effectiveRangeScale, logTravelPosition, logTravelValue, RANGE_TRAVEL_STEPS, type RangeScale,
+} from '../../state/rangeScale'
 import { validRangeValue } from './validRangeValue'
 import styles from './EditableRange.module.css'
 
@@ -18,6 +21,11 @@ import styles from './EditableRange.module.css'
  *
  * `renderValue` draws the readout beside the slider; double-clicking the
  * readout opens the editor too.
+ *
+ * `scale="log"` travels a range that spans decades logarithmically
+ * (state/rangeScale.ts). The input then runs over `RANGE_TRAVEL_STEPS`
+ * positions and announces the value as its `aria-valuetext`; what it reports,
+ * and what the editor takes, is still the value on the step.
  */
 export interface EditableRangeProps {
   value: number
@@ -26,6 +34,8 @@ export interface EditableRangeProps {
   step: number
   ariaLabel: string
   onChange: (value: number) => void
+  /** How the slider travels the range; linear unless the range spans decades. */
+  scale?: RangeScale
   disabled?: boolean
   /** Class for the slider itself (the caller's layout and accent). */
   className?: string
@@ -39,9 +49,10 @@ export interface EditableRangeProps {
 }
 
 export default function EditableRange({
-  value, min, max, step, ariaLabel, onChange, disabled = false,
+  value, min, max, step, ariaLabel, onChange, scale, disabled = false,
   className, wrapClassName, valueClassName, renderValue, style, title,
 }: EditableRangeProps) {
+  const log = effectiveRangeScale(scale, min, max) === 'log'
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [invalid, setInvalid] = useState(false)
@@ -118,15 +129,18 @@ export default function EditableRange({
       <input
         className={className}
         type="range"
-        min={min}
-        max={max}
-        step={step}
+        min={log ? 0 : min}
+        max={log ? RANGE_TRAVEL_STEPS : max}
+        step={log ? 1 : step}
         disabled={disabled}
-        value={value}
+        value={log ? logTravelPosition(value, min, max) : value}
         aria-label={ariaLabel}
+        aria-valuetext={log ? String(value) : undefined}
         title={title}
         style={style}
-        onChange={(event) => onChange(Number(event.target.value))}
+        onChange={(event) => onChange(log
+          ? logTravelValue(Number(event.target.value), value, min, max, step)
+          : Number(event.target.value))}
         onDoubleClick={(event) => {
           event.stopPropagation()
           beginEditing()

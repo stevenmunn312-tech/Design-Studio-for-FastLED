@@ -258,7 +258,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   commits, Escape abandons (answered with `preventDefault`, so the layer
   around it stays open), and leaving the field commits a valid value. A value
   is valid only inside `[min, max]` and on the slider's step, so typing cannot
-  set what dragging could not. Transport scrubbers (timeline position,
+  set what dragging could not. `scale="log"` makes the input its travel
+  (`RANGE_TRAVEL_STEPS` positions, the value as `aria-valuetext`) while it
+  still reports and takes the value; an arrow key that would not reach the
+  next step moves one step anyway (`logTravelValue`), or the keyboard could
+  never leave the bottom of three decades. See
+  [graph and nodes](graph-and-nodes.md). Transport scrubbers (timeline position,
   thumbnail scrub) stay raw ranges: there is no value to type. With no
   `renderValue`/`wrapClassName` it renders the bare input, so a grid row that
   counts its children keeps its columns.

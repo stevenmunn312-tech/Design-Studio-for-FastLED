@@ -520,8 +520,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   meter measures with the analysed shows on hand. A show without a collection
   plays built-in patterns compiled from the same nodes the preview draws them
   with (`src/state/player/builtinShowPatterns.ts`), numbered by the slots the
-  player on that card compiled. The open inventory of what is still emitted
-  but unreachable is in the root `todo.md`.
+  player on that card compiled. An effect built-in names its `source` node
+  (Kaleidoscope is a radial Mirror over a fine Plasma); every node with a
+  `speed` or `paletteIn` port takes the show's raw speed and palette, set as
+  properties in the preview and wired as role inputs in the sketch. A
+  built-in whose node tops out below the rate the pattern had carries a
+  `clock`: Simplex2D, now Noise fbm, whose speed reaches it already clamped at
+  fbm's 1.2 against the old simplex type's 3, runs its animation
+  `SIMPLEX_SPEED_AS_FBM` (2.5) times as fast. The preview multiplies the
+  pattern's tick and keeps elapsed time unscaled; `buildPatternRenderers`'
+  `clocks` emits `t = ms / 1000.0f * 2.5f` in that `render_pN` alone, and
+  timers on raw `millis()` keep real time there too. Scaling the clock, not
+  fbm's range, leaves every other fbm use as it is. The open inventory of
+  what is still emitted but unreachable is in the root `todo.md`.
 - **A pattern on both sides of a transition renders once.** Rendering it as
   both would step its state twice a frame (a Trails fade, a simulation), on
   the preview and on the device. A transition runs from the pattern playing

@@ -58,7 +58,7 @@ import { SPI_BUS_CPP } from '../../codegen/helpers/spiBusCpp'
 import { CLOCK_TIMER_MAX_SEC } from './clockTimer'
 import { FONT_CPP_MARKER, WIRED_TEXT_MAX, fontCppHelper } from '../shared/fontCpp'
 import { centerAxisCpp, clockCenterAxisCpp, lineAxisCpp, positionUnits, textAxisStartCpp } from './positionUnits'
-import { SIZING_SIDE_CPP } from '../shared/stringCanvas'
+import { FLAT_PATH_ROW_CPP, SIZING_SIDE_CPP } from '../shared/stringCanvas'
 
 export const SHAPES_EMITTERS: NodeEmitters = {
   SDVideo({ nodes, props, id, f, ln, ownBuf, needsT, needsSdVideo, globalLines, setupLines, p }) {
@@ -305,7 +305,8 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`    float _rad = max(0.25f, ${f('thickness', 'thickness', thickness)} * 0.5f);`)
     ln(`    float _ext = max(0.0f, (float)${SIZING_SIDE_CPP} * 0.5f * ${f('scale', 'scale', scale)} - _rad);`)
     ln(`    float _sx = (WIDTH - 1) * 0.5f + _px * _ext;`)
-    ln(`    float _sy = (HEIGHT - 1) * 0.5f - _py * _ext;`)
+    // One row runs flat (flatPathRow): the point sweeps the strip on the row's middle.
+    ln(`    float _sy = ${FLAT_PATH_ROW_CPP} ? 0.5f : (HEIGHT - 1) * 0.5f - _py * _ext;`)
     ln(`    int _x0 = max(0, (int)floorf(_sx - _rad - 1.0f)), _x1 = min(WIDTH - 1, (int)ceilf(_sx + _rad + 1.0f));`)
     ln(`    int _y0 = max(0, (int)floorf(_sy - _rad - 1.0f)), _y1 = min(HEIGHT - 1, (int)ceilf(_sy + _rad + 1.0f));`)
     ln(`    for (int _y = _y0; _y <= _y1; _y++) for (int _x = _x0; _x <= _x1; _x++) {`)
@@ -339,10 +340,14 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     const ph = speedPhaseCpp(ln, phaseTag(id), `constrain(${f('speed', 'speed', 0.2)},${floatLit(-FOURIER_SPEED_MAX)},${floatLit(FOURIER_SPEED_MAX)})`)
     ln(`    float _turnF=${ph}; _turnF-=floorf(_turnF); uint16_t _turn=(uint16_t)(int32_t)(_turnF*65536.0f);`)
     ln(`    int32_t _penX, _penY;`)
-    ln(`    _fePen(${A},${table.length},_hw,_hfr,_turn,_ext,_cx,_cy,${p.showCircles !== false ? ob : '0'},WIDTH,HEIGHT,_col,&_penX,&_penY);`)
+    // One row runs flat (flatPathRow): the pen and trail sweep the strip and
+    // no guide circle is drawn. Both fold to constants on a single canvas.
+    const flat = `${FLAT_PATH_ROW_CPP}?true:false`
+    const rings = p.showCircles !== false ? `${FLAT_PATH_ROW_CPP}?0:${ob}` : '0'
+    ln(`    _fePen(${A},${table.length},_hw,_hfr,_turn,_ext,_cx,_cy,${flat},${rings},WIDTH,HEIGHT,_col,&_penX,&_penY);`)
     // Persistence is a half-life (trailFadeCpp), the evaluator's trailFadeAmount.
     trailFadeCpp(ln, phaseTag(id), f('persistence', 'persistence', 1), `${A}trail`)
-    ln(`    _feTrail(${A}trail,WIDTH,HEIGHT,${A},${table.length},_hw,_hfr,_turn,_ext,_cx,_cy,_penX,_penY,_rad8,_col,&${A}turn,&${A}x,&${A}y,&${A}has);`)
+    ln(`    _feTrail(${A}trail,WIDTH,HEIGHT,${A},${table.length},_hw,_hfr,_turn,_ext,_cx,_cy,${flat},_penX,_penY,_rad8,_col,&${A}turn,&${A}x,&${A}y,&${A}has);`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]+=${A}trail[_i];`)
     if (p.showPen !== false) ln(`    _feDisc(${ob},WIDTH,HEIGHT,_penX,_penY,_rad8+128,_col,false);`)
     ln(`  }`)

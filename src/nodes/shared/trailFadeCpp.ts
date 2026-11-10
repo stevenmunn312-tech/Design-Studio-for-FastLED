@@ -15,7 +15,7 @@ export function trailFadeCpp(
 }
 
 /** The share kept over `dtExpr` seconds at `trailExpr`, as `trailSurvives` computes it. */
-function survivesCpp(trailExpr: string, dtExpr: string): string {
+export function survivesCpp(trailExpr: string, dtExpr: string): string {
   const longest = floatLit(TRAIL_HALF_LIFE.longest, 6)
   const ratio = floatLit(TRAIL_HALF_LIFE.shortest / TRAIL_HALF_LIFE.longest, 8)
   const halfLife = `(${longest} * powf(${ratio}, 1.0f - constrain((${trailExpr}), 0.0f, 1.0f)))`

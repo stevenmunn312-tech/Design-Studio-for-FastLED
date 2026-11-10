@@ -202,7 +202,7 @@ const RESTACKED: Readonly<Record<DisplayRestack, string>> = {
 }
 
 /** Widget properties that set the value range rather than the look. */
-const RANGE_PROPERTY_KEYS: ReadonlySet<string> = new Set(['min', 'max', 'step', 'initial'])
+const RANGE_PROPERTY_KEYS: ReadonlySet<string> = new Set(['min', 'max', 'step', 'initial', 'scale'])
 
 /** A port's data type, in the words the inspector uses beside it. */
 const DATA_TYPE_WORDS: Readonly<Record<string, string>> = {
@@ -673,6 +673,7 @@ export default function DisplayEditor() {
         min: targetRangeRepair.min,
         max: targetRangeRepair.max,
         step: targetRangeRepair.step,
+        ...(targetRangeRepair.scale ? { scale: targetRangeRepair.scale } : {}),
       },
     })), `${selected.label || selected.type} range matched ${targetRangeRepair.targetLabel}.`)
   }
@@ -1478,7 +1479,7 @@ export default function DisplayEditor() {
               {targetRangeRepair && (
                 <button type="button" onClick={matchTargetRange}>
                   Match target range
-                  <small>{targetRangeRepair.targetLabel}: {targetRangeRepair.min}-{targetRangeRepair.max}, step {targetRangeRepair.step}</small>
+                  <small>{targetRangeRepair.targetLabel}: {targetRangeRepair.min}-{targetRangeRepair.max}, step {targetRangeRepair.step}{targetRangeRepair.scale === 'log' ? ', log scale' : ''}</small>
                 </button>
               )}
               {listedPorts.length > 0 && (

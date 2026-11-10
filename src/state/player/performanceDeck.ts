@@ -8,6 +8,7 @@
 
 import { propertyMeta } from '../nodeLibrary'
 import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from '../peripherals/keypad'
+import { effectiveRangeScale, rangePosition, rangeValueAt, snapRangeValue, type RangeScale } from '../rangeScale'
 
 export type PinnedControlKind = 'knob' | 'fader' | 'toggle' | 'select'
 
@@ -22,6 +23,8 @@ export interface PinnedControl {
   min?: number
   max?: number
   step?: number
+  /** The property's log travel, carried with its range; absent is linear. */
+  scale?: 'log'
   options?: readonly string[]
   createdAt: number
 }
@@ -173,12 +176,20 @@ export function deriveControlShape(
   nodeType: string,
   key: string,
   value: unknown,
-): Pick<PinnedControl, 'kind' | 'min' | 'max' | 'step' | 'options'> {
+): Pick<PinnedControl, 'kind' | 'min' | 'max' | 'step' | 'scale' | 'options'> {
   const meta = propertyMeta(nodeType, key)
   if (meta?.control === 'select') return { kind: 'select', options: meta.options }
-  if (meta?.control === 'slider') return { kind: 'fader', min: meta.min, max: meta.max, step: meta.step }
+  if (meta?.control === 'slider') {
+    const range = { kind: 'fader' as const, min: meta.min, max: meta.max, step: meta.step }
+    return meta.scale === 'log' ? { ...range, scale: 'log' } : range
+  }
   if (typeof value === 'boolean') return { kind: 'toggle' }
   return { kind: 'knob', min: 0, max: 1, step: 0.01 }
+}
+
+/** How a pin's fader travels its range: log only for a log pin whose range allows it. */
+export function pinRangeScale(pin: Pick<PinnedControl, 'min' | 'max' | 'scale'>): RangeScale {
+  return effectiveRangeScale(pin.scale, pin.min ?? 0, pin.max ?? 1)
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -187,7 +198,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 function normalizePinnedControl(value: unknown): PinnedControl | null {
   if (!isPlainObject(value)) return null
-  const { id, nodeId, propertyKey, label, kind, min, max, step, options, createdAt } = value
+  const { id, nodeId, propertyKey, label, kind, min, max, step, scale, options, createdAt } = value
   if (typeof id !== 'string' || typeof nodeId !== 'string' || typeof propertyKey !== 'string') return null
   if (typeof label !== 'string') return null
   const validKind: PinnedControlKind = kind === 'fader' || kind === 'toggle' || kind === 'select' ? kind : 'knob'
@@ -200,6 +211,7 @@ function normalizePinnedControl(value: unknown): PinnedControl | null {
     min: typeof min === 'number' ? min : undefined,
     max: typeof max === 'number' ? max : undefined,
     step: typeof step === 'number' ? step : undefined,
+    ...(scale === 'log' ? { scale: 'log' as const } : {}),
     options: Array.isArray(options) ? options.filter((o): o is string => typeof o === 'string') : undefined,
     createdAt: typeof createdAt === 'number' ? createdAt : Date.now(),
   }
@@ -300,7 +312,9 @@ function snapToStep(value: number, step?: number): number {
 /** Interpolate every pin present in *both* scenes at progress t (0..1).
  *  Numeric values lerp (snapped to the pin's step); boolean/select/string
  *  values hard-switch at t >= 0.5 — there's no meaningful halfway point for
- *  a discrete parameter. A pin missing from either scene is skipped. */
+ *  a discrete parameter. A pin missing from either scene is skipped. A log
+ *  pin lerps along its fader's travel, so halfway from 1 s to 100 s is 10 s,
+ *  where the fader itself would be halfway between them. */
 export function interpolateScene(
   a: ParameterScene,
   b: ParameterScene,
@@ -314,7 +328,16 @@ export function interpolateScene(
     const va = a.values[pin.id]
     const vb = b.values[pin.id]
     if (typeof va === 'number' && typeof vb === 'number') {
-      out[pin.id] = snapToStep(lerp(va, vb, clampedT), pin.step)
+      if (pinRangeScale(pin) === 'log') {
+        const min = pin.min ?? 0
+        const max = pin.max ?? 1
+        const position = lerp(rangePosition(va, min, max, 'log'), rangePosition(vb, min, max, 'log'), clampedT)
+        // On the step counted from the minimum, as the fader lands, so the
+        // bottom of a range whose minimum is not a whole step stays reachable.
+        out[pin.id] = snapRangeValue(rangeValueAt(position, min, max, 'log'), min, max, pin.step ?? 0)
+      } else {
+        out[pin.id] = snapToStep(lerp(va, vb, clampedT), pin.step)
+      }
     } else {
       out[pin.id] = clampedT >= 0.5 ? vb : va
     }
@@ -323,8 +346,10 @@ export function interpolateScene(
 }
 
 /** Scale a MIDI CC/note's normalized 0..1 value onto a pinned control's
- *  declared range: linear + step-snapped for a fader/knob, a 0.5 threshold
- *  for a toggle, and index-selection for a select-kind pin. */
+ *  declared range: along the fader's travel (linear, or log for a log pin)
+ *  and step-snapped for a fader/knob, a 0.5 threshold for a toggle, and
+ *  index-selection for a select-kind pin. A hardware fader is a position,
+ *  so it lands where the deck's own fader would. */
 export function scaleMidiValueToPin(pin: PinnedControl, normalized: number): unknown {
   const clamped = Math.max(0, Math.min(1, normalized))
   if (pin.kind === 'toggle') return clamped >= 0.5
@@ -334,6 +359,7 @@ export function scaleMidiValueToPin(pin: PinnedControl, normalized: number): unk
   }
   const min = pin.min ?? 0
   const max = pin.max ?? 1
+  if (pinRangeScale(pin) === 'log') return snapRangeValue(rangeValueAt(clamped, min, max, 'log'), min, max, pin.step ?? 0)
   return snapToStep(lerp(min, max, clamped), pin.step)
 }
 

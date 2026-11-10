@@ -4571,8 +4571,8 @@
 <text x="8" y="344" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" opacity="0.7">bpm</text>
 <g opacity="0.45">
 <rect x="98" y="338" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="98" y="338" width="3.3" height="4" rx="2" fill="#d633ff"/>
-<circle cx="101.3" cy="340" r="6" fill="#d633ff"/>
+<rect x="98" y="338" width="32.6" height="4" rx="2" fill="#d633ff"/>
+<circle cx="130.6" cy="340" r="6" fill="#d633ff"/>
 <text x="210" y="344" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">12</text>
 </g>
 <circle cx="0" cy="340" r="9" fill="#9aa0a6" opacity="0.22"/>

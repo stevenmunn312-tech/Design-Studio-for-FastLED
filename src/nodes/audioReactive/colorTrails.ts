@@ -21,8 +21,13 @@
 export const COLOR_TRAILS_FLOW_KEYS = ['flowSpeed', 'flowStrength', 'flowScale'] as const
 export const COLOR_TRAILS_AXIS_KEYS = ['xSpeed', 'xStrength', 'xScale', 'ySpeed', 'yStrength', 'yScale'] as const
 
-/** Trail length's slider, in seconds of half-life: Persistence 0.9 is 0.11 s, 0.9999 is 115.5 s. */
-export const COLOR_TRAILS_TRAIL_LENGTH = { min: 0.1, max: 120, step: 0.1 } as const
+/**
+ * Trail length's slider, in seconds of half-life: Persistence 0.9 is 0.11 s,
+ * 0.9999 is 115.5 s. Three decades, so it travels on a log scale: the bundled
+ * 10–18 s trails sit two thirds to three quarters of the way along rather
+ * than in its first sixth. The value is still seconds.
+ */
+export const COLOR_TRAILS_TRAIL_LENGTH = { min: 0.1, max: 120, step: 0.1, scale: 'log' } as const
 
 /** Whether the axes run apart: the toggle is never wired, so the sketch decides it at generation. */
 export function colorTrailsIndependent(properties: Record<string, unknown>): boolean {

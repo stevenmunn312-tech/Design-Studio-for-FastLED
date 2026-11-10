@@ -36,7 +36,7 @@ import {
   performanceTransitionStyles, showFileToBinary, showPaletteNames, showPatternNames,
   showTransitionStyles, transitionStyleIds,
 } from '../codegen/performanceGenerator'
-import { builtinShowPatternGroupId, builtinShowPatternGroups } from '../state/player/builtinShowPatterns'
+import { builtinShowPatternClocks, builtinShowPatternGroupId, builtinShowPatternGroups } from '../state/player/builtinShowPatterns'
 import type { ShowFile } from '../types/showFile'
 import type { ShowUploadFile } from './backendClient'
 import { stereoVuEmitsFromGraph } from '../codegen/audio/stereoVuMeterCpp'
@@ -154,7 +154,7 @@ export function buildShowPlayer(
     : undefined
   // A show without a collection names built-in patterns. They compile from the
   // nodes the preview draws them with, taking the show's palette and its raw
-  // 0–2 speed, as the preview sets them on the node.
+  // 0–2 speed, as the preview sets them on the nodes, each at its own clock.
   const builtinNames = !opts.genericPlayer && patternSet.length === 0
     ? opts.shows?.length ? showPatternNames(opts.shows) : generatedShowPatternNames()
     : []
@@ -163,7 +163,7 @@ export function buildShowPlayer(
     : builtinNames.length > 0
       ? {
           ...buildPatternRenderers(builtinNames.map(builtinShowPatternGroupId), builtinShowPatternGroups(builtinNames),
-            ['speed', 'palette'], true, true),
+            ['speed', 'palette'], true, true, undefined, builtinShowPatternClocks(builtinNames)),
           rawSpeed: true,
         }
       : undefined

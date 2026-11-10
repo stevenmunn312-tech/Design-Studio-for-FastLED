@@ -80,6 +80,7 @@ import {
   customDisplayLvglTimingSetupCpp,
   customDisplayLvglTimingLoopCpp,
 } from './displays/customDisplayLvglCpp'
+import { RANGE_SCALE_LOG_CPP } from '../state/rangeScale'
 import {
   type CustomDisplayPanelEmit,
   customDisplayPanelGlobalCpp,
@@ -1419,6 +1420,8 @@ export function generateCpp(
     lines.push(CUSTOM_DISPLAY_LVGL_HELPERS)
     // A placed Colour Picker calls it only where its output is read.
     if ([...customDisplaySamples, ...loopLines].some((line) => line.includes('_cdHueColor('))) lines.push(CUSTOM_DISPLAY_LVGL_HUE_COLOR_CPP)
+    // Only a log-scale Slider or Dial travels its range logarithmically.
+    if ([...customDisplaySamples, ...loopLines].some((line) => line.includes('_rsLog'))) lines.push(RANGE_SCALE_LOG_CPP)
     if (customDisplays.some((display) => customDisplayNeedsNavigation(display.document))) lines.push(CUSTOM_DISPLAY_LVGL_NAVIGATION_CPP)
     if (customDisplays.some((display) => customDisplayNeedsKeyboard(display.document))) lines.push(CUSTOM_DISPLAY_LVGL_TEXT_ENTRY_CPP)
     // Called only from a reading's update, so only where one is bound.

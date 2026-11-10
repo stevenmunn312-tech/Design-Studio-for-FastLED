@@ -1,4 +1,4 @@
-import type { PinnedControl } from '../../state/player/performanceDeck'
+import { pinRangeScale, type PinnedControl } from '../../state/player/performanceDeck'
 import EditableRange from '../EditableRange/EditableRange'
 import styles from './PerformanceDeck.module.css'
 
@@ -58,6 +58,7 @@ export default function DeckKnob({ pin, value, onChange, onLearnMidi, onUnpin, l
           min={min}
           max={max}
           step={step}
+          scale={pinRangeScale(pin)}
           value={typeof value === 'number' ? value : min}
           onChange={onChange}
           ariaLabel={pin.label}

@@ -3,7 +3,8 @@ import type { StudioEdge, StudioNode } from '../graphStore'
 import { nodeDisplayLabel, propertyLabel, propertyMeta } from '../nodeLibrary'
 import { propertyInputsFor } from '../propertyInputs'
 import { displayControlEdges } from '../player/wireFirstControls'
-import { displayWidgetIsRangedControl } from './displayRegistry'
+import { displayWidgetHasScale, displayWidgetIsRangedControl } from './displayRegistry'
+import type { RangeScale } from '../rangeScale'
 
 export interface DisplayWidgetTargetRangeRepair {
   targetNodeId: string
@@ -14,6 +15,8 @@ export interface DisplayWidgetTargetRangeRepair {
   min: number
   max: number
   step: number
+  /** The target's travel, for a control that has a Scale; absent for one that steps. */
+  scale?: RangeScale
 }
 
 function numericProperty(widget: DisplayWidget, key: 'min' | 'max' | 'step'): number | null {
@@ -21,10 +24,12 @@ function numericProperty(widget: DisplayWidget, key: 'min' | 'max' | 'step'): nu
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-function sameRange(widget: DisplayWidget, repair: Pick<DisplayWidgetTargetRangeRepair, 'min' | 'max' | 'step'>): boolean {
+function sameRange(widget: DisplayWidget, repair: Pick<DisplayWidgetTargetRangeRepair, 'min' | 'max' | 'step' | 'scale'>): boolean {
   return numericProperty(widget, 'min') === repair.min
     && numericProperty(widget, 'max') === repair.max
     && numericProperty(widget, 'step') === repair.step
+    // A missing Scale is linear, so a linear target matches it.
+    && (repair.scale === undefined || (widget.properties.scale === 'log' ? 'log' : 'linear') === repair.scale)
 }
 
 export function displayWidgetTargetRangeRepair(
@@ -63,6 +68,7 @@ export function displayWidgetTargetRangeRepair(
     min: meta.min,
     max: meta.max,
     step: meta.step,
+    ...(displayWidgetHasScale(widget.type) ? { scale: meta.scale === 'log' ? 'log' as const : 'linear' as const } : {}),
   }
   return sameRange(widget, repair) ? null : repair
 }

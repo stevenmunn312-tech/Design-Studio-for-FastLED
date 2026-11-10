@@ -43,7 +43,7 @@ import { displayTextCppHelperBlocks } from './displays/displayTextCpp'
 import { fontCppHelper } from '../nodes/shared/fontCpp'
 import { buildXYTable } from '../state/output/xyLayout'
 import { SHAPE_COUNT_MACRO, shapeCopyCpp, shapeCountDefineCpp, shapeMapFor, shapeTableCpp, shapeTableName } from './output/shapeMapCpp'
-import { cppComment } from './cppLiterals'
+import { cppComment, floatLit } from './cppLiterals'
 import { parseBufferAlias, parseBufferDecl, type RenderBufferType } from './renderBuffers'
 import { applyEntryReset, entrySlotCpp, persistentBuffer, type PersistentBuffer } from './player/entryReset'
 import { patternPickCpp } from './player/patternPickCpp'
@@ -316,10 +316,21 @@ interface PatternUnitNaming {
   pooled: boolean
 }
 
+/**
+ * The unit's animation clock in seconds from the show's `ms`. A clock other
+ * than 1 runs the pattern's animation that many times as fast as the show,
+ * as the preview scales its tick for it; timers on raw `millis()` keep real
+ * time, as the preview's elapsed tick does.
+ */
+function unitClockCpp(clock: number): string {
+  return clock === 1 ? 'ms / 1000.0f' : `ms / 1000.0f * ${floatLit(clock)}`
+}
+
 function buildPattern(
   groupId: string, groups: GroupRegistry, index: number, roleParams: string[] = [],
   externalAudio = false, nativeFastLedAudio = false,
   naming: PatternUnitNaming = { fn: `render_p${index}`, prefix: `p${index}`, pooled: true },
+  clock = 1,
 ): PatternUnit {
   const fnName = naming.fn
   // Signature: render_pN(uint32_t ms[, float reactivity, …][, const CRGBPalette16& palette])
@@ -470,7 +481,7 @@ function buildPattern(
       for (i++; i < lines.length && lines[i] !== '}'; i++) {
         const l = lines[i]
         if (l.includes('FastLED.show();') || isLoopPacing(l)) continue
-        body.push(pfx(l).replace('millis() / 1000.0f', 'ms / 1000.0f'))
+        body.push(pfx(l).replace('millis() / 1000.0f', unitClockCpp(clock)))
       }
       break
     }
@@ -571,12 +582,19 @@ export function patternRenderersUseAudio(renderers: PatternRenderers | undefined
     || Object.values(audioFeaturesInCode(blocks)).some(Boolean)
 }
 
+/**
+ * `clocks`, by position, runs a pattern's animation that many times as fast as
+ * the show (1 when absent): the built-in Simplex2D's, whose node tops out
+ * below the rate the pattern had (builtinShowPatterns.ts).
+ */
 export function buildPatternRenderers(
   patternIds: string[], groups: GroupRegistry, roleParams: string[] = [],
   externalAudio = false, nativeFastLedAudio = false,
   entryPolicies?: readonly PatternEntryPolicy[],
+  clocks?: readonly number[],
 ): PatternRenderers {
-  const units = patternIds.map((id, i) => buildPattern(id, groups, i, roleParams, externalAudio, nativeFastLedAudio))
+  const units = patternIds.map((id, i) => buildPattern(id, groups, i, roleParams, externalAudio, nativeFastLedAudio,
+    undefined, clocks?.[i] ?? 1))
   const usedRoles = roleParams.filter((role) => units.some((unit) =>
     new RegExp(`\\b${role}\\b`).test(cppCode(unit.fn.slice(unit.fn.indexOf('{'))))))
   for (const unit of units) {

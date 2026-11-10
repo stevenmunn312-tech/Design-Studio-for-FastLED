@@ -367,6 +367,12 @@ describe('the performance player without a collection', () => {
     expect(sketch).toContain('case 0: render_p0(ms, speed, palette); break;')
     expect(sketch).toContain('case 1: render_p1(ms, speed, palette); break;')
     expect(sketch).not.toContain('render_p2')
+    // Kaleidoscope (editor order puts it after Noise2D) folds its plasma
+    // source, which drew black with none.
+    const kaleidoscope = sketch.slice(sketch.indexOf('void render_p1(uint32_t ms, float speed, const CRGBPalette16& palette) {')).split('\n}\n')[0]
+    expect(kaleidoscope).not.toContain('Mirror: no input')
+    expect(kaleidoscope).toContain('_atan2_16(_kdy,_kdx)')
+    expect(kaleidoscope).toContain('float n_speed_out = speed;')
     expect(sketch).toContain('case CMD_SET_SPEED:      speed = ev.params[0]; break;')
     // The transitions and palettes it names, and no others. Iris alone needs
     // no dispatch.
@@ -374,6 +380,22 @@ describe('the performance player without a collection', () => {
     expect(sketch).not.toContain('switch (type)')
     expect(sketch).not.toContain('case 1: {  // wipe')
     expect(sketch).toContain('default: return paldef_ocean;')
+  })
+
+  // Simplex2D's fbm tops out at 1.2 against the old simplex's 3, so its
+  // animation clock alone runs 2.5 times as fast, as the preview's does.
+  it('runs the built-in Simplex2D on its own clock and every other built-in on the show\'s', () => {
+    const simplex: ShowFile = { ...show, events: [
+      { t: 0, cmd: 'SET_PATTERN', params: { name: 'Plasma' } },
+      { t: 500, cmd: 'SET_PATTERN', params: { name: 'Simplex2D' } },
+    ] }
+    const sketch = buildShowPlayer(graph.nodes, graph.edges, {}, {
+      bakedAudio: false, preferredTrack: 'Track', shows: [simplex],
+    })
+    const body = (i: number) => sketch.slice(sketch.indexOf(`void render_p${i}(uint32_t ms, float speed, const CRGBPalette16& palette) {`)).split('\n}\n')[0]
+    expect(body(0)).toContain('  float t = ms / 1000.0f;\n')
+    expect(body(1)).toContain('  float t = ms / 1000.0f * 2.5f;\n')
+    expect(body(1)).toContain('// Fractal noise (fBm of simplex octaves)')
   })
 
   it('compiles no transition when its shows only transition a pattern into itself', () => {

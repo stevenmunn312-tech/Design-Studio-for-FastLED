@@ -40,7 +40,9 @@ each a known type, a unique id of lower-case letters, digits and hyphens, a
 label of at most 40 characters with control characters removed, and only the
 properties its widget type declares, bounded by the widget inspector's own
 ranges (`normalizeDisplayWidgetProperties`). A Button keeps its text, a Toggle
-its on and off words, a ranged control its range and start, a Choice Strip its
+its on and off words, a ranged control its range and start (a Slider its Scale
+too: a log one draws its input as the travel, and the page carries
+`RANGE_SCALE_LOG_JS` only then, sending values as a linear one does), a Choice Strip its
 options, a Colour Picker its start hue, saturation and brightness, a Text Entry
 its starting text, hint and maximum length.
 

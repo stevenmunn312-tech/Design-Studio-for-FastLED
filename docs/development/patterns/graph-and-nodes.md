@@ -311,18 +311,28 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   firmware twin `passFramesCpp`), the 60ths of a second since its previous
   pass: 1 on the first, so a 60 fps run is unchanged, and at most a quarter
   second after a stall. Starfield, Digital Rain, Flow Field, Particles,
-  String Particles and Formula Points' logistic map and attractor move this
-  way. A per-frame factor follows the clock by its kind, through the helpers
-  beside `passFrames` and their C++ twins: a share kept each frame (drag, a
-  life's decay) is raised to the frames (`keepOver`), a per-frame chance
-  becomes the chance of at least one in them (`passChance`), and a count of
-  iterations carries its fraction to the next pass (`passSteps`). A trail
-  laid one dot a frame (comet, meteor, Luminova) lays each dot it owes at its
-  own moment, already faded for the frames since, so a 30 fps trail has the
-  60 fps dots. The preview reads a tick of exactly a 60th as one frame (in
-  floating point it is a hair under), so a 60 fps run steps byte for byte
-  as the per-frame code did; `simulationClock.test.ts` holds that to frames
-  recorded before the move.
+  String Particles, Boids, Fire, Reaction Diffusion and every Formula Points
+  variant move this way. A per-frame factor follows the clock by its kind,
+  through the helpers beside `passFrames` and their C++ twins: a share kept
+  each frame (drag, a life's decay) is raised to the frames (`keepOver`),
+  and a count of iterations carries its fraction to the next pass
+  (`passSteps`). A per-frame chance is tried once in each whole frame owed
+  (`passSteps` at one a frame), never folded into one chance a pass: "at
+  least one" caps a pass at one spawn, so Rate 0.3 at 30 fps spawned about
+  15% fewer. A Particles spawn tried for a later frame starts with the life
+  the frames before it took. A simulation whose whole step only works a
+  frame at a time (Fire's heat, Boids' steering, Reaction Diffusion's Steps)
+  repeats it once per whole frame owed through `passStepFrames`, which caps
+  a pass at `MAX_STEP_FRAMES` (four: full pace down to 15 fps) and drops the
+  rest, so a board already too slow is not handed fifteen frames' work. A
+  trail laid one dot a frame (comet, meteor, Luminova, String Particles'
+  deposits, Formula Points' Lissajous and rose dot) lays each dot it owes at
+  its own moment, already faded for the frames since, so a 30 fps trail has
+  the 60 fps dots; a pass that owes none (above 60 fps) leaves the trail
+  unfaded rather than fading it with nothing drawn. The preview reads a tick
+  of exactly a 60th as one frame (in floating point it is a hair under), so
+  a 60 fps run steps byte for byte as the per-frame code did;
+  `simulationClock.test.ts` holds that to frames recorded before the move.
 - A pattern's Beat input fires on its rising edge, never on every frame it
   reads true: a Kick envelope or a Vibe spike held high for a few frames is
   one flash, not a strobe. Beat Flash, Beat Kaleidoscope and Ember Pulse keep
@@ -365,8 +375,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Fourier Epicycles and Scale with matrix size by `sizingSide`
   (`SIZING_SIDE_CPP`), the strip's length where the shorter side is one
   pixel. Two rows and up keep the matrix formulas exactly, so no matrix
-  render moves. A strip is the slice through the middle of the 2D pattern:
-  a circle Path lights where its curve crosses that row.
+  render moves. A field on a strip is the slice through the middle of the
+  2D pattern (a Shape Field circle is a lit span, a Lissajous Field crosses
+  the row several times a frame). A moving point is not: on that slice a
+  circle Path lit only where it crossed the row. So one row runs a point
+  flat (`flatPathRow`, `FLAT_PATH_ROW_CPP`): Path and Fourier Epicycles
+  drop the y reach and their point (and Fourier's trail) sweeps the strip
+  on the row's middle, and Fourier draws no guide circles there, which a
+  row shows only as pairs of stray points. Only `H === 1` counts, so a
+  single column and every matrix keep the 2D path. The sketch passes the
+  flat flag as `(HEIGHT==1)?true:false`; on a single canvas it folds to a
+  literal and `foldConstants` specialises `_fePen`/`_feTrail` down to the
+  one arm that canvas takes, so neither sketch carries the other's branch.
 - A trail is one knob, `trail`, with one meaning: 0 leaves none and 1 the
   longest. It is a half-life on a log scale, applied by the time that has
   passed, not a share taken off each frame. Confetti, Juggle, Scanner, Flow
@@ -399,11 +419,34 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Color Trails keeps its own fade, inside its integer column pass, because
   its trails run to minutes: its Trail length is a half-life in seconds
   (`nodes/audioReactive/colorTrails.ts`), converted from the old per-frame
-  Persistence exactly at 60 fps by `colorTrailsHalfLife`.
+  Persistence exactly at 60 fps by `colorTrailsHalfLife`, on a log slider so
+  the bundled 10–18 s sit two thirds of the way along.
   Frame Feedback's ade works the same way, 1 - fade per 60th of a
   second, but carries the unspent fade per ring slot rather than through the
   shared clock: an echo chain is delayFrames passes long, and one carry spent
   on alternate frames would fade one chain twice and leave the other lit.
+- **A slider's travel can be logarithmic; its value never is.** A
+  `PropertyControl` slider whose range spans decades declares `scale: 'log'`
+  (its minimum must be above zero), and every control that turns the range
+  into a position travels it by ratio: the node's `EditableRange`, a pinned
+  deck fader and its MIDI learn and scene morph, a Touch Slider or Dial wired
+  to it (adopted with its range, and offered by the range repair), and a Web
+  Remote slider. The stored, typed, wired and generated value stays in the
+  property's units, so saves and firmware are untouched. The mapping is one
+  set of helpers, `src/state/rangeScale.ts` (`rangePosition`, `rangeValueAt`,
+  `snapRangeValue`, `logTravelValue`), with a C++ twin `RANGE_SCALE_LOG_CPP`
+  (held by `rangeScaleNative.test.ts`) and a page twin `RANGE_SCALE_LOG_JS`,
+  each emitted only where a log control is. A log LVGL Slider or Dial holds
+  its place 0–1 in its runtime and makes the value where it is read
+  (`_rsLogValue`), so `_cdEvent` stays linear. Log is for durations and rates
+  whose usual values sat in a linear slider's first twentieth (Color Trails'
+  Trail length, Breathe's rate, Interval and Sequencer, the Music Player's and
+  Slideshow's holds, Trigger's debounce and One Shot) and for pitch; a
+  threshold, calibration, count, port or seed stays linear, and
+  `rangeScale.test.ts` lists the log rows so a new one is a decision. A
+  pinned deck control and a Touch widget copy the scale when they are made,
+  as they copy the range, so one made before a property turned log stays
+  linear until it is re-pinned or its range is matched.
 - Two node-authoring facts are derived rather than listed, and were each written
   down twice before. A **palette producer** is a *builder* (emits its own
   `pal_<id>` CRGBPalette16) or a *selector* (resolves to a shared

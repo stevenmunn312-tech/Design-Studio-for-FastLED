@@ -48,7 +48,7 @@ describe('Web Remote wire-first controls', () => {
       graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } },
       graphData: {},
     } as never)
-    const nodes = [node('remote', 'WebRemoteInput'), node('ff', 'GeometryField', { formulaType: 'goldenTiling' }), node('fill', 'SolidColor', { r: 0, g: 255, b: 0 })]
+    const nodes = [node('remote', 'WebRemoteInput'), node('ff', 'GeometryField', { formulaType: 'goldenTiling' }), node('fill', 'SolidColor', { r: 0, g: 255, b: 0 }), node('ct', 'ColorTrails')]
     useGraphStore.getState().loadGraph(nodes, [], { nodes, edges: [], displayDocuments: {} } as never)
     vi.advanceTimersByTime(400)
     useGraphStore.temporal.getState().clear()
@@ -77,6 +77,13 @@ describe('Web Remote wire-first controls', () => {
     // Kept as the control's own start, which the firmware, the page and a
     // board link read: the preview's value alone left a board starting at 1.
     expect(control.properties.initial).toBe(12)
+  })
+
+  it('gives a phone slider on a log property the same log travel, in seconds', () => {
+    expect(connectWireFirstControl('remote', 'ct', 'trailLength').ok).toBe(true)
+    const [control] = controls()
+    expect(control).toMatchObject({ type: 'Slider', properties: { min: 0.1, max: 120, step: 0.1, scale: 'log' } })
+    expect(readWebRemoteControl('remote', control.id, 0)).toBe(14.4)
   })
 
   it('starts a control wired by hand where the property is, and keeps a start already chosen', () => {

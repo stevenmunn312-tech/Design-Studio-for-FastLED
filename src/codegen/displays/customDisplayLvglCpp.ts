@@ -43,9 +43,11 @@ import {
   displayWidgetCaptionLayout,
   displayWidgetContentBounds,
   displayWidgetDefinition,
+  displayWidgetHasScale,
   displayWidgetIsNumericControl,
   type DisplayWidgetPortRoleId,
 } from '../../state/displays/displayRegistry'
+import { rangePosition } from '../../state/rangeScale'
 import { resolveDisplayThemeTokens, displayWidgetTextTokens, type DisplayWidgetStateTokens } from '../../state/displays/displayTheme'
 import { DISPLAY_TEXT_BUFFER_BYTES, cppStringLiteral, displayString, normalizeNumberFormat } from '../../state/displays/displayText'
 import {
@@ -172,6 +174,11 @@ function floatLiteral(value: number): string {
   if (!Number.isFinite(value) || Object.is(value, -0)) return '0.0f'
   if (Number.isInteger(value)) return `${value.toFixed(1)}f`
   return `${value}f`
+}
+
+/** Whether a Slider or Dial travels its range logarithmically, and so holds a position. */
+function logScaleControl(widget: DisplayWidget): boolean {
+  return displayWidgetHasScale(widget.type) && displayControlRange(widget).scale === 'log'
 }
 
 function opacity(value: number): number {
@@ -412,20 +419,25 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
   }
 
   if (widget.type === 'Slider' || widget.type === 'Dial') {
-    lines.push(`  ${rt}.minimum = ${floatLiteral(numberProperty(widget, 'min', 0))};`)
-    lines.push(`  ${rt}.maximum = ${floatLiteral(numberProperty(widget, 'max', 1))};`)
-    lines.push(`  ${rt}.step = ${floatLiteral(numberProperty(widget, 'step', 0.01))};`)
+    const minimum = numberProperty(widget, 'min', 0)
+    const maximum = numberProperty(widget, 'max', 1)
+    // A log control's runtime holds its position along the travel, 0 to 1,
+    // unsnapped: `_cdEvent` reads the knob into it as a linear 0-1 range, and
+    // the value is made from it only where it is read (`_rsLogValue`).
+    const log = logScaleControl(widget)
+    lines.push(`  ${rt}.minimum = ${floatLiteral(log ? 0 : minimum)};`)
+    lines.push(`  ${rt}.maximum = ${floatLiteral(log ? 1 : maximum)};`)
+    lines.push(`  ${rt}.step = ${floatLiteral(log ? 0 : numberProperty(widget, 'step', 0.01))};`)
     // Seeded before the range is applied below, so the object and the runtime
     // agree from the first pass rather than after the first touch.
     // A wire-first control starts at the property it drives; anything else at
     // its own Starts at, the value the preview rests it at too.
     const seeded = emit.initialValues?.[widget.id]
       ?? (typeof widget.properties.initial === 'number' ? displayControlStartValue(widget) : undefined)
-    const minimum = numberProperty(widget, 'min', 0)
-    const maximum = numberProperty(widget, 'max', 1)
     if (typeof seeded === 'number' && maximum > minimum) {
       const clamped = Math.min(maximum, Math.max(minimum, seeded))
-      lines.push(`  ${rt}.floatValue = ${floatLiteral(clamped)};`)
+      const position = Math.round(rangePosition(clamped, minimum, maximum, 'log') * 1e6) / 1e6
+      lines.push(`  ${rt}.floatValue = ${floatLiteral(log ? position : clamped)};`)
     }
     if (widget.type === 'Slider') {
       lines.push(`  lv_slider_set_range(${obj}, 0, CD_VALUE_SCALE);`)
@@ -440,7 +452,7 @@ function setupWidgetLines(emit: CustomDisplayLvglEmit, widget: PlacedDisplayWidg
     // while the graph is being driven with something else.
     if (typeof seeded === 'number' && maximum > minimum) {
       const clamped = Math.min(maximum, Math.max(minimum, seeded))
-      const raw = Math.round(((clamped - minimum) / (maximum - minimum)) * CUSTOM_DISPLAY_LVGL_VALUE_SCALE)
+      const raw = Math.round(rangePosition(clamped, minimum, maximum, log ? 'log' : 'linear') * CUSTOM_DISPLAY_LVGL_VALUE_SCALE)
       lines.push(widget.type === 'Slider'
         ? `  lv_slider_set_value(${obj}, ${raw}, LV_ANIM_OFF);`
         : `  lv_arc_set_value(${obj}, ${raw});`)
@@ -1581,9 +1593,14 @@ function synchronizedUpdateLines(emit: CustomDisplayLvglEmit, widget: DisplayWid
   const when = live ? `if (_cdSyncTakes(${rt}, ${live}))` : `if (!_cdSyncHeld(${rt}))`
   if (widget.type === 'Toggle') return [`  ${when} _cdSetChecked(${rt}, (bool)(${expr}));`]
   if (widget.type === 'Slider' || widget.type === 'Dial') {
+    // A log control holds a position, so a reading becomes one on its way in.
+    const { min, max } = displayControlRange(widget)
+    const reading = logScaleControl(widget)
+      ? `_rsLogPosition((float)(${expr}), ${floatLiteral(min)}, ${floatLiteral(max)})`
+      : `(float)(${expr})`
     return [
       `  ${when} {`,
-      `    ${rt}.floatValue = constrain((float)(${expr}), ${rt}.minimum, ${rt}.maximum);`,
+      `    ${rt}.floatValue = constrain(${reading}, ${rt}.minimum, ${rt}.maximum);`,
       `    _cdSetInteger(${rt}, _cdScaled(${rt}.floatValue, ${rt}.minimum, ${rt}.maximum));`,
       `  }`,
     ]
@@ -1655,6 +1672,12 @@ export function customDisplayLvglOutputExpression(
     // A CRGB, the type a colour wire carries in every generator.
     const { saturation, brightness } = displayPickerTone(widget)
     return `_cdHueColor(_cdFloatOutput(${runtime(emit, index)}), ${floatLiteral(saturation)}, ${floatLiteral(brightness)})`
+  }
+  // A log control's runtime holds its position; the value, on its step, is
+  // made from it here, as `sliderValueFromPoint` makes it in the preview.
+  if (logScaleControl(widget)) {
+    const { min, max, step } = displayControlRange(widget)
+    return `_rsLogValue(_cdFloatOutput(${runtime(emit, index)}), ${floatLiteral(min)}, ${floatLiteral(max)}, ${floatLiteral(step)})`
   }
   if (displayWidgetIsNumericControl(widget.type)) return `_cdFloatOutput(${runtime(emit, index)})`
   return null

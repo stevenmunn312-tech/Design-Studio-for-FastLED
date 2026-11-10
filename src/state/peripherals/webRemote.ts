@@ -35,6 +35,7 @@ import {
   DISPLAY_PICKER_HUE_MAX,
   type DisplayRgb,
 } from '../displays/displayRegistry'
+import type { RangeScale } from '../rangeScale'
 
 export const WEB_REMOTE_NODE_TYPE = 'WebRemoteInput'
 
@@ -74,7 +75,7 @@ const KIND: Record<WebRemoteControlType, WebRemoteControlKind> = {
 const KEPT_PROPERTIES: Record<WebRemoteControlType, readonly string[]> = {
   Button: ['text'],
   Toggle: ['offLabel', 'onLabel'],
-  Slider: ['min', 'max', 'step', 'initial'],
+  Slider: ['min', 'max', 'step', 'initial', 'scale'],
   'Step Control': ['min', 'max', 'step', 'initial'],
   'Choice Strip': ['options', 'initial'],
   'Colour Picker': ['initial', 'saturation', 'brightness'],
@@ -245,13 +246,18 @@ export function patchWebRemoteControl(
     : control))
 }
 
-/** The range a control's state moves in: its widget's, a hue's 0-360, or 0/1. */
-export function webRemoteStateRange(control: Pick<WebRemoteControl, 'type' | 'properties'>): { min: number; max: number; step: number } {
+/**
+ * The range a control's state moves in: its widget's, a hue's 0-360, or 0/1.
+ * `scale` is how its slider travels it; only a Slider's can be log.
+ */
+export function webRemoteStateRange(
+  control: Pick<WebRemoteControl, 'type' | 'properties'>,
+): { min: number; max: number; step: number; scale: RangeScale } {
   const kind = KIND[control.type]
-  if (kind === 'press' || kind === 'latch') return { min: 0, max: 1, step: 1 }
+  if (kind === 'press' || kind === 'latch') return { min: 0, max: 1, step: 1, scale: 'linear' }
   // A text control's range is its length in characters.
-  if (kind === 'text') return { min: 0, max: displayTextEntryMaxLength(control), step: 1 }
-  if (kind === 'hue') return { min: 0, max: DISPLAY_PICKER_HUE_MAX, step: 1 }
+  if (kind === 'text') return { min: 0, max: displayTextEntryMaxLength(control), step: 1, scale: 'linear' }
+  if (kind === 'hue') return { min: 0, max: DISPLAY_PICKER_HUE_MAX, step: 1, scale: 'linear' }
   return displayControlRange(control)
 }
 
