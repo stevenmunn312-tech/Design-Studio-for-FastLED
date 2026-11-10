@@ -24,6 +24,7 @@ import { stereoVuTotalLeds } from '../state/audio/stereoVuSizing'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../nodes/shared/scalarExpression'
 import { fieldFormulaReadsPrev, isFieldFormulaValid, isNodeFormulaValid, isScalarFormulaValid } from '../nodes/shared/formulaLang'
 import { isValidRtcDateTime } from '../state/peripherals/rtc'
+import { clockTimeZone, isKnownTimeZone } from '../state/peripherals/timeZones'
 import { parseScheduleTime } from '../nodes/signal/schedule'
 import { buildXYTable, validateMatrixLayout, tileRotationAt } from '../state/output/xyLayout'
 import { compositionDims, leadingOutputRoutes, outputMirrorLeaders, outputRoutes } from '../state/output/outputRouting'
@@ -251,10 +252,11 @@ export function findStereoVuMeterErrors(nodes: StudioNode[], edges: StudioEdge[]
 }
 
 function findRtcWarnings(nodes: StudioNode[]): string[] {
-  return nodes.flatMap((node) => {
+  const warnings = nodes.flatMap((node) => {
     if (node.data.nodeType !== 'RTCInput') return []
     const props = node.data.properties as Record<string, unknown>
     const source = String(props.timeSource ?? 'Compile Time')
+    const label = String(node.data.label ?? node.data.nodeType)
     if (source === 'Manual') {
       const valid = isValidRtcDateTime({
         year: Number(props.startYear ?? 0),
@@ -264,15 +266,31 @@ function findRtcWarnings(nodes: StudioNode[]): string[] {
         minute: Number(props.startMinute ?? 0),
         second: Number(props.startSecond ?? 0),
       })
-      return valid ? [] : [`${String(node.data.label ?? node.data.nodeType)} has an invalid manual RTC start date/time`]
+      return valid ? [] : [`${label} has an invalid manual RTC start date/time`]
     }
+    if (source !== 'NTP') return []
+    const found: string[] = []
     // The Wi-Fi name NTP joins with is the Board's, asked once by the
     // network warnings below for every network user.
-    if (source === 'NTP' && !String(props.ntpServer ?? '').trim()) {
-      return [`${String(node.data.label ?? node.data.nodeType)} is missing its NTP server`]
+    if (!String(props.ntpServer ?? '').trim()) found.push(`${label} is missing its NTP server`)
+    // Preview and firmware both run an unreadable zone as UTC.
+    if (props.timeZone !== undefined && !isKnownTimeZone(props.timeZone)) {
+      found.push(`${label} has a time zone this version does not know, so it keeps UTC; choose its zone again`)
     }
-    return []
+    return found
   })
+  // The ESP cores hold one zone for the whole chip (`configTzTime` sets the
+  // process's TZ), so the last clock configured would set it for every clock.
+  const zones = new Set(nodes
+    .filter((node) => node.data.nodeType === 'RTCInput'
+      && String((node.data.properties as Record<string, unknown>).timeSource ?? 'Compile Time') === 'NTP')
+    .map((node) => clockTimeZone(node.data.properties as Record<string, unknown>)))
+  const board = selectedPhysicalBoardProfile(nodes)
+  const espCore = !board || board.targetFamilies.some((family) => family === 'esp8266' || family.startsWith('esp32'))
+  if (zones.size > 1 && espCore) {
+    warnings.push('NTP clocks on one ESP board share one time zone, so clocks set to different zones would all read the last one; set them to the same zone')
+  }
+  return warnings
 }
 
 function isIpv4(value: unknown): boolean {

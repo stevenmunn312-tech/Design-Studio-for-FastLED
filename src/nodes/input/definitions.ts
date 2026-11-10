@@ -507,7 +507,9 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: {
       timeSource: 'Compile Time',
       ntpServer: 'pool.ntp.org',
-      timezoneOffsetMinutes: 0,
+      // NTP time's zone (state/peripherals/timeZones.ts): a curated zone
+      // with its daylight-saving rule, or a fixed UTC offset.
+      timeZone: 'UTC',
       startYear: 2026,
       startMonth: 1,
       startDay: 1,

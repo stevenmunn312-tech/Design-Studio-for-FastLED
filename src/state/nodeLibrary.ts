@@ -52,6 +52,7 @@ import { BOID_COLOR_MODES, BOID_PALETTE_MODES, BOIDS_VISUAL_RANGE, FLOW_FIELD_CO
 import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
 import { PATH_SHAPES } from '../nodes/shapes/customPath'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
+import { TIME_ZONE_LABELS, TIME_ZONE_OPTIONS, isKnownTimeZone } from './peripherals/timeZones'
 import { DECODER_MAX_VOLUME } from '../build/parts/partFields'
 import { MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './player/masterSpeed'
 import { MUSIC_PLAYER_MIN_HOLD_SEC } from './player/musicPlayerTiming'
@@ -715,7 +716,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   RTCInput: {
     timeSource: { control: 'select', options: ['Compile Time', 'Manual', 'NTP', 'DS3231'] },
-    timezoneOffsetMinutes: { control: 'slider', min: -720, max: 840, step: 15 },
+    timeZone: { control: 'select', options: TIME_ZONE_OPTIONS, labels: TIME_ZONE_LABELS },
     startMonth: { control: 'slider', min: 1, max: 12, step: 1 },
     startDay: { control: 'slider', min: 1, max: 31, step: 1 },
     startHour: { control: 'slider', min: 0, max: 23, step: 1 },
@@ -1849,6 +1850,12 @@ export function propertyOptions(
   if (nodeType === 'Ease' && key === 'easeType' && properties.easeType === 'inOutApprox') {
     return [...meta.options, 'inOutApprox']
   }
+  // A saved offset the list does not name (the old slider took any quarter
+  // hour) still reads, and shows, as itself.
+  if (nodeType === 'RTCInput' && key === 'timeZone' && isKnownTimeZone(properties.timeZone)
+    && !meta.options.includes(String(properties.timeZone))) {
+    return [...meta.options, String(properties.timeZone)]
+  }
   return meta.options
 }
 
@@ -1864,7 +1871,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   seed: '0 runs free (Math.random each time); any other value reproduces the exact same result on every run.',
   clampInputs: "Clamps a wired float input to this node's slider range, so an unbounded upstream signal can't exceed it.",
   energy: 'How strongly the audio changes the picture: 0 = calm base motion, 1 = fully reactive.',
-  timezoneOffsetMinutes: 'Fixed local offset from UTC for NTP-synced firmware time. Preview still reads the browser clock.',
+  timeZone: 'Where the board keeps NTP time. A city zone follows its daylight-saving dates, on the board and in the preview; a fixed UTC offset never changes.',
   dmxPort: 'ESP32 UART used by esp_dmx for DMX512 receive.',
   requireSync: 'Keeps the schedule inactive until the upstream Clock reports a real NTP sync.',
   dateTimeFormat: 'Which part of the clock reading the text shows. An invalid clock shows dashes, never a plausible time.',
@@ -3987,7 +3994,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   RTCInput: {
     timeSource: 'time source',
     ntpServer: 'NTP server',
-    timezoneOffsetMinutes: 'UTC offset (min)',
+    timeZone: 'time zone',
     startYear: 'year',
     startMonth: 'month',
     startDay: 'day',
@@ -4248,7 +4255,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   RTCInput: [
     { key: 'source', label: 'Clock Source', keys: ['timeSource'] },
-    { key: 'network', label: 'NTP', keys: ['ntpServer', 'timezoneOffsetMinutes'] },
+    { key: 'network', label: 'NTP', keys: ['ntpServer', 'timeZone'] },
     { key: 'manualStart', label: 'Manual Start', keys: ['startYear', 'startMonth', 'startDay', 'startHour', 'startMinute', 'startSecond'] },
   ],
   // Enable and Require Synced Time decide whether the schedule runs at all,
@@ -5261,7 +5268,7 @@ export function isPropertyEnabled(
     }
   }
   if (nodeType === 'RTCInput') {
-    if (key === 'ntpServer' || key === 'timezoneOffsetMinutes') return String(properties.timeSource ?? 'Compile Time') === 'NTP'
+    if (key === 'ntpServer' || key === 'timeZone') return String(properties.timeSource ?? 'Compile Time') === 'NTP'
     if (key.startsWith('start')) return String(properties.timeSource ?? 'Compile Time') === 'Manual'
   }
   if (nodeType === 'ScheduleTrigger') {

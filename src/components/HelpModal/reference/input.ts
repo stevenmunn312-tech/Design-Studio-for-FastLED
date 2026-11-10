@@ -793,7 +793,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'The preview runs the clock the chosen source will produce on the board, so a Manual time starts ticking from the moment you enter it.',
     ],
     steps: [
-      'Choose a time source. For NTP, set the UTC offset here and the Wi-Fi in the Board’s Network settings. For a DS3231, add the module from the Hardware tab’s Clocks shelf, or with Add DS3231 on the node, and wire it to the I2C pins the Build Diagram shows.',
+      'Choose a time source. For NTP, choose the time zone here and set the Wi-Fi in the Board’s Network settings. A city zone changes its clocks on its daylight-saving dates; a fixed UTC offset never does. For a DS3231, add the module from the Hardware tab’s Clocks shelf, or with Add DS3231 on the node, and wire it to the I2C pins the Build Diagram shows.',
       'Wire DateTime to Clock Display, Format Date/Time or a Schedule Trigger, and Display to a panel.',
     ],
     outputs: {
@@ -812,7 +812,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       secondsOfDay: 'Seconds since midnight, 0 to 86399. Handy for smooth daily cycles.',
       weekend: 'True on Saturday and Sunday.',
     },
-    propertyNote: 'Only the fields for the chosen source are used: the server and UTC offset for NTP and the start fields for Manual. A DS3231’s pins are the module’s, on the Hardware tab.',
+    propertyNote: 'Only the fields for the chosen source are used: the server and time zone for NTP and the start fields for Manual. A DS3231’s pins are the module’s, on the Hardware tab.',
     example: example({
       featured: 'RTCInput',
       title: 'White light that follows the sun',

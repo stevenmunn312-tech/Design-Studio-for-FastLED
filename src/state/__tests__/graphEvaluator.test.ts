@@ -5987,15 +5987,32 @@ describe('RTCInput', () => {
     })
   })
 
-  it('shows NTP time as UTC plus the configured offset', () => {
+  it('shows NTP time in a fixed-offset zone', () => {
     vi.useFakeTimers()
     // 12:00 UTC exactly, whatever the host timezone is.
     vi.setSystemTime(new Date(Date.UTC(2026, 6, 27, 12, 0, 0)))
     try {
-      const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'NTP', timezoneOffsetMinutes: 330 })
+      const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'NTP', timeZone: 'UTC+05:30' })
       expect(evaluateGraphFull([rtc], [], 0, W, H).outputs.get('rtc')).toMatchObject({
         valid: true, hour: 17, minute: 30, day: 27, month: 7, year: 2026,
       })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('follows a zone through daylight saving, as the board will', () => {
+    vi.useFakeTimers()
+    try {
+      const rtc = node('rtc', 'RTCInput', 'input', { timeSource: 'NTP', timeZone: 'Europe/London' })
+      // 12:00 UTC is 13:00 in a British summer and 12:00 in winter.
+      vi.setSystemTime(new Date(Date.UTC(2026, 6, 27, 12, 0, 0)))
+      expect(evaluateGraphFull([rtc], [], 0, W, H).outputs.get('rtc')).toMatchObject({ hour: 13, minute: 0 })
+      vi.setSystemTime(new Date(Date.UTC(2026, 11, 27, 12, 0, 0)))
+      expect(evaluateGraphFull([rtc], [], 0, W, H).outputs.get('rtc')).toMatchObject({ hour: 12, minute: 0 })
+      // An unknown zone keeps UTC, as the firmware does.
+      const unknown = node('rtc', 'RTCInput', 'input', { timeSource: 'NTP', timeZone: 'Mars/Olympus_Mons' })
+      expect(evaluateGraphFull([unknown], [], 0, W, H).outputs.get('rtc')).toMatchObject({ hour: 12 })
     } finally {
       vi.useRealTimers()
     }
@@ -6126,7 +6143,7 @@ describe('ScheduleTrigger', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(Date.UTC(2026, 0, 5, 19, 0, 0)))
     try {
-      const synced = scheduleGraph({ rtc: 'rtc-sy', sched: 'sched-sy' }, { timeSource: 'NTP', timezoneOffsetMinutes: 0 }, props)
+      const synced = scheduleGraph({ rtc: 'rtc-sy', sched: 'sched-sy' }, { timeSource: 'NTP', timeZone: 'UTC' }, props)
       expect(evaluateGraphFull(synced.nodes, synced.edges, 0, W, H).outputs.get('sched-sy')).toMatchObject({
         active: true,
       })

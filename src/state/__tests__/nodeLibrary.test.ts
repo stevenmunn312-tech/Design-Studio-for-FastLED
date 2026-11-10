@@ -628,7 +628,7 @@ describe('nodeLibrary', () => {
     expect(rtc?.defaultProperties).toMatchObject({
       timeSource: 'Compile Time',
       ntpServer: 'pool.ntp.org',
-      timezoneOffsetMinutes: 0,
+      timeZone: 'UTC',
       startYear: 2026,
       startMonth: 1,
       startDay: 1,
