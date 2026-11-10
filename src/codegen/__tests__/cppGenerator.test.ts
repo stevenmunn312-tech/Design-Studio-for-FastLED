@@ -5302,6 +5302,13 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     // With nothing selecting B, A is the whole result.
     const fixed = generateCpp([node('sw', 'Switch', 'math', { a: 0.25, b: 0.75 }), ...t.nodes], t.edges)
     expect(fixed).toContain('float n_sw_result = (0.25);')
+    // Unwired, its Select switch picks the side at generation time.
+    const onB = generateCpp([node('sw', 'Switch', 'math', { a: 0.25, b: 0.75, select: true }), ...t.nodes], t.edges)
+    expect(onB).toContain('float n_sw_result = (0.75);')
+    // A wire into Select still decides, whatever the switch says.
+    const wired = generateCpp([lfo, node('sw', 'Switch', 'math', { a: 0.25, b: 0.75, select: true }), ...t.nodes],
+      [...t.edges, edge('s0', 'lfo', 'sw', 'value', 'sel')])
+    expect(wired).toMatch(/float n_sw_result = \(.*n_lfo_value.*\) \? \(0\.75\) : \(0\.25\);/)
   })
 
   it('Envelope decays from a millis() fire time over the decay window', () => {

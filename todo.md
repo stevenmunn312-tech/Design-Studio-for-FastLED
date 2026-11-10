@@ -234,11 +234,6 @@ module (no fixture yet).
   `gammaVideoTable` (`src/nodes/composite/gamma.ts`), now a byte-exact
   port of FastLED's `napplyGamma_video`. Evidence
   `src/components/HelpModal/reference/composite.ts:171`.
-- [ ] **Math Switch: Add a Select property (Med, S).** Frame Switch gained a
-  `select` switch as its `sel` port's property input; Math `Switch` has the
-  same gap (unwired it always passes A). Left to the Colour and maths list's
-  owner, which is also folding Gate into Switch. Evidence
-  `src/nodes/composite/definitions.ts:365`.
 
 #### Fields and shapes
 

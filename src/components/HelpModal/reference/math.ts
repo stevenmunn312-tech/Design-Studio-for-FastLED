@@ -277,12 +277,13 @@ export const MATH_REFERENCE: NodeReferenceMap = {
       'Switch outputs A while Select is false and B while it is true. It is a two-position selector for numbers.',
       'Give a true/false signal two meanings in a number: a slow speed and a fast one, a dim level and a bright one, a weekday mode and a weekend mode.',
       'It is also a gate: wire a signal into B and leave A as the fallback, and the signal acts only while Select is true — colours that wander only while a button is held, a level that only counts during the chorus.',
+      'Unwired, the Select switch on the node picks the value, so it doubles as a manual A/B toggle or a control on a remote.',
       'To switch between two whole pictures, use Frame Switch instead.',
     ],
     inputs: {
       a: 'The value while Select is false.',
       b: 'The value while Select is true.',
-      sel: 'Chooses between A (false) and B (true).',
+      sel: 'Chooses between A (false) and B (true). Unwired, the Select switch on the node chooses.',
     },
     outputs: {
       result: 'A or B.',

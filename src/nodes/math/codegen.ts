@@ -71,8 +71,11 @@ export const MATH_EMITTERS: NodeEmitters = {
     ln(`  static float ${v('result')} = 0; static bool _shP_${id} = false, _shI_${id} = false;`)
     ln(`  { bool _t = (${trig}); if (!_shI_${id} || (_t && !_shP_${id})) { ${v('result')} = ${val}; _shI_${id} = true; } _shP_${id} = _t; }`)
   },
-  Switch({ node, ln, v, f, boolExpr }) {
-    const a = f('a', 'a', 0), b2 = f('b', 'b', 1), sel = boolExpr(node.id, 'sel')
+  // An unwired Select is the `select` switch, so the side is a literal the
+  // sketch folds, as the evaluator reads it.
+  Switch({ node, p, ln, v, f, boolExpr, incoming }) {
+    const a = f('a', 'a', 0), b2 = f('b', 'b', 1)
+    const sel = incoming.has(`${node.id}:sel`) ? boolExpr(node.id, 'sel') : String(p.select === true)
     ln(`  float ${v('result')} = (${sel}) ? (${b2}) : (${a});`)
   },
   Not({ node, ln, v, boolExpr }) {

@@ -2789,6 +2789,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Switch: {
     a: 'Output while Select is false.',
     b: 'Output while Select is true.',
+    select: 'On outputs B, off outputs A. A wire into Select overrides this.',
   },
   Compare: {
     compareOp: 'The test: A greater than B, less than B, at least B or at most B.',
