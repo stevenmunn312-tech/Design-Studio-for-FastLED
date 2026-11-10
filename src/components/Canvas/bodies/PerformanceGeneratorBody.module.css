@@ -145,51 +145,6 @@
   gap: calc(var(--space-0) * 1.5);
 }
 
-.canvas {
-  width: 100%;
-  height: auto;
-  image-rendering: pixelated;
-  border-radius: 6px;
-  background: black;
-  border: 1px solid var(--divider);
-}
-
-.mainPreviewToggle {
-  display: flex;
-  align-items: center;
-  gap: calc(var(--space-0) * 1.5);
-  padding: calc(var(--space-0) * 0.5) var(--space-0);
-  font-size: var(--fs-caption);
-  font-family: var(--font-body);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.mainPreviewToggle input {
-  cursor: pointer;
-}
-
-.mainNote {
-  padding: calc(var(--space-0) * 2.5) var(--space-1);
-  text-align: center;
-  font-size: var(--fs-caption);
-  font-family: var(--font-body);
-  color: var(--accent-show);
-  border: 1px dashed var(--accent-show);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--accent-show) 8%, var(--bg-primary));
-}
-
-.transportNote {
-  padding: calc(var(--space-0) * 0.75) var(--space-1);
-  font-size: var(--fs-caption);
-  font-family: var(--font-body);
-  color: var(--text-secondary);
-  border: 1px dashed var(--divider);
-  border-radius: 6px;
-  text-align: center;
-}
-
 .statusRow {
   display: flex;
   flex-wrap: wrap;

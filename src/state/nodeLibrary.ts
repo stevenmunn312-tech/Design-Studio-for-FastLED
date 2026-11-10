@@ -3304,7 +3304,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     paletteMode: 'Mood picks a palette per song section, Cycle rotates palettes, Fixed keeps one palette.',
     fixedPalette: 'The palette used for the whole show when Palette Mode is Fixed.',
     useGroupInputs: 'Feed each pattern\'s reactivity, speed and palette inputs from the music so patterns follow the song. Any other Group Input with a plain name gets its own lane in Edit lanes.',
-    showInMainPreview: 'Also draw the running show in the main preview. Off keeps the main preview on the graph while the body plays.',
   },
   SDCard: {
     sdCsPin: 'Chip-select wired to the card module\'s CS pad. One pin per SPI device.',

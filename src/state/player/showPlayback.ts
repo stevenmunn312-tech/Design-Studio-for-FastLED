@@ -2,9 +2,8 @@ import { create } from 'zustand'
 import type { ShowFile } from '../../types/showFile'
 
 // Bridges a PerformanceGenerator node's live show playback to the main LED
-// preview. When the generator's `frame` output is wired into MatrixOutput, the
-// node body stops drawing its own thumbnail and instead publishes the playing
-// show + position here; LEDPreview reads this each frame (via getState, so the
+// preview, the only place a show is drawn. The node body publishes the show it
+// holds and its position here; LEDPreview reads this each frame (via getState, so the
 // per-frame posMs updates don't re-render subscribers) and renders the show in
 // the big preview canvas.
 

@@ -546,10 +546,11 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     // A network node's own copy of the network settings, from before the
     // Board held the one identity every network user shares
     // (peripherals/boardNetwork.ts), and a Clock's DS3231 wiring and a DMX or
-    // MIDI node's UART and pins, from before each part was one of its own.
+    // MIDI node's UART and pins, from before each part was one of its own,
+    // and a Performance Generator's main-preview switch.
     // Nothing reads them, so they are dropped rather than drawn as rows that
     // do nothing; pre-1.0, not migrated.
-    const retired = RETIRED_NETWORK_PROPERTY_KEYS[nodeType]
+    const retired = RETIRED_PROPERTY_KEYS[nodeType]
     if (retired) for (const key of retired) delete properties[key]
     // A Clock's fixed minute offset, from before it took a time zone: kept as
     // the matching fixed-offset zone, so a saved clock reads the same time.
@@ -623,7 +624,7 @@ const RETIRED_CLOCK_PART_KEYS = ['partId', 'sdaPin', 'sclPin', 'boardId', 'assig
  */
 const RETIRED_DMX_WIRING_KEYS = ['dmxPort', 'dmxTxPin', 'dmxRxPin', 'dmxEnablePin']
 const RETIRED_MIDI_WIRING_KEYS = ['midiUart', 'midiRxPin']
-const RETIRED_NETWORK_PROPERTY_KEYS: Readonly<Record<string, readonly string[]>> = {
+const RETIRED_PROPERTY_KEYS: Readonly<Record<string, readonly string[]>> = {
   DMXInput: [...NODE_NETWORK_KEYS, ...RETIRED_DMX_WIRING_KEYS],
   DdpInput: NODE_NETWORK_KEYS,
   WebRemoteInput: NODE_NETWORK_KEYS,
@@ -631,6 +632,9 @@ const RETIRED_NETWORK_PROPERTY_KEYS: Readonly<Record<string, readonly string[]>>
   StreamOutput: NODE_NETWORK_KEYS,
   PatternMaster: ['wifiHostname'],
   MidiInput: RETIRED_MIDI_WIRING_KEYS,
+  // The switch that kept a show out of the main LED preview, from when the
+  // node body had a canvas of its own to draw it in instead.
+  PerformanceGenerator: ['showInMainPreview'],
 }
 
 /**

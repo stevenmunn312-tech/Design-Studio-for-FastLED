@@ -6,39 +6,21 @@ import { resolveShowTarget } from '../../../state/player/showTarget'
 import { useShowPlayback } from '../../../state/player/showPlayback'
 import { usePlayerTransport } from '../../../state/player/playerTransport'
 import { renderShowFrame, showStateAt, sectionAt } from '../../../state/player/showPreview'
-import type { Frame } from '../../../state/graphEvaluator'
 import { performanceOptionsFromProperties } from '../../../codegen/performanceGenerator'
 import type { ShowEvent } from '../../../types/showFile'
-import { bakedFrameAt, chooseBakeFps, packFrame, usePerformanceBakeStore } from '../../../state/player/performanceBakeStore'
+import { chooseBakeFps, packFrame, usePerformanceBakeStore } from '../../../state/player/performanceBakeStore'
 import ShowTimeline from '../ShowTimeline'
 import ShowLaneEditor from '../ShowLaneEditor'
 import styles from './PerformanceGeneratorBody.module.css'
 import { Icon } from '../../icons/Icon'
 
-// Plays a scanned song and renders its generated .show in sync — the browser
-// mirror of the on-device player, so you can preview the timed performance
-// before exporting. Reuses the real pattern evaluator via showPreview.ts.
-// Transport (play/seek/prev/next/volume) lives in the music player under the
-// main LED preview, wired through the shared playerTransport store.
-
-function draw(canvas: HTMLCanvasElement, frame: Frame, W: number, H: number) {
-  // Software canvas (see NodePreview): this show preview repaints every frame
-  // during playback; a hardware-accelerated 2D canvas redrawn per frame leaks
-  // GPU compositor memory unbounded in Chromium.
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) return
-  const cw = canvas.width, ch = canvas.height
-  const cellW = cw / W, cellH = ch / H
-  ctx.fillStyle = '#000'
-  ctx.fillRect(0, 0, cw, ch)
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const px = frame[y][x]
-      ctx.fillStyle = `rgb(${px.r},${px.g},${px.b})`
-      ctx.fillRect(x * cellW, y * cellH, Math.ceil(cellW), Math.ceil(cellH))
-    }
-  }
-}
+// Plays a scanned song and its generated .show in sync — the browser mirror of
+// the on-device player, so you can preview the timed performance before
+// exporting. The show is drawn in the main LED preview and nowhere else: this
+// body owns the audio clock and publishes the show and its position to
+// showPlayback.ts, which LEDPreview renders through the real pattern evaluator
+// (showPreview.ts). Transport (play/seek/prev/next/volume) lives in the music
+// player under that preview, wired through the shared playerTransport store.
 
 function waitForPaint(): Promise<void> {
   return new Promise((resolve) => window.requestAnimationFrame(() => resolve()))
@@ -63,8 +45,8 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   // The output this show is wired to — the same resolver the player's codegen
   // uses, so the preview cannot be drawing one size while the firmware builds
   // another. Both used to scan for the first MatrixOutput independently.
-  // Unwired there is no answer, and 16x16 is only a shape to draw the empty
-  // canvas at; `findShowTargetErrors` is what says so in words.
+  // Unwired there is no answer, and 16x16 is only a size to bake at;
+  // `findShowTargetErrors` is what says so in words.
   const gridW = useGraphStore((s) => {
     const o = resolveShowTarget(rootGraphNodes(s), rootGraphEdges(s)).target
     return Math.max(1, Math.min(64, Number(o?.data.properties.width ?? 16)))
@@ -73,12 +55,6 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
     const o = resolveShowTarget(rootGraphNodes(s), rootGraphEdges(s)).target
     return Math.max(1, Math.min(64, Number(o?.data.properties.height ?? 16)))
   })
-
-  // Explicit opt-in (a node property, not a graph wire — PerformanceGenerator
-  // has no `frame` port; see nodeLibrary.ts) for mirroring this generator's
-  // playing show into the big LED preview instead of just the node's own
-  // canvas (see showPlayback.ts).
-  const showInMainPreview = !!properties.showInMainPreview
 
   const [previewId, setPreviewId] = useState<string | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -89,7 +65,6 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   const [selectedEvent, setSelectedEvent] = useState<number | null>(null)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const rafRef = useRef<number | null>(null)
   const previousOptionsRef = useRef(regenerateKey)
   // Resume playback after a prev/next track switch once the new audio loads.
@@ -99,8 +74,6 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   const show = entry?.show ?? null
   const readyIndex = ready.findIndex((e) => e.id === previewId)
   const bakeLocked = !!bake && bake.status !== 'idle'
-  const bakeMatchesEntry = !!entry && bake?.entryId === entry.id
-  const bakedPreviewActive = bake?.status === 'baked' && bakeMatchesEntry
 
   // Keep the first available show selected, and recover cleanly if the active
   // song is removed from the library.
@@ -163,9 +136,8 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
   const audioUrl = useMemo(() => (entry ? URL.createObjectURL(entry.file) : null), [entry])
   useEffect(() => () => { if (audioUrl) URL.revokeObjectURL(audioUrl) }, [audioUrl])
 
-  // Render loop: drive the canvas from the audio clock while playing. With
-  // "show in main preview" on, the frame goes to the main preview instead — we
-  // just publish the position to the shared playback store and let LEDPreview draw.
+  // While playing, publish the audio clock's position to the shared playback
+  // store every frame; LEDPreview draws the show from it.
   useEffect(() => {
     if (!playing || !show) return
     let lastStateUpdate = 0
@@ -173,51 +145,28 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
       const audio = audioRef.current
       if (audio) {
         const ms = Math.min(show.durationMs, audio.currentTime * 1000)
-        if (showInMainPreview) {
-          useShowPlayback.getState().setPlayback({ nodeId, show, posMs: ms, useGroupInputs, playing: true })
-        } else if (canvasRef.current) {
-          const baked = bakedPreviewActive && (trusted || !show.patternSet?.length)
-            ? bakedFrameAt(nodeId, ms)
-            : null
-          draw(
-            canvasRef.current,
-            baked ?? renderShowFrame(show, ms, gridW, gridH, getGroupRegistry(), useGroupInputs, trusted),
-            gridW,
-            gridH,
-          )
-        }
+        useShowPlayback.getState().setPlayback({ nodeId, show, posMs: ms, useGroupInputs, playing: true })
         if (ms - lastStateUpdate > 120) { setPosMs(ms); lastStateUpdate = ms }
       }
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
-  }, [bakedPreviewActive, playing, show, gridW, gridH, useGroupInputs, showInMainPreview, nodeId, trusted])
+  }, [playing, show, useGroupInputs, nodeId])
 
-  // Draw a static frame at the current position when paused/seeking.
+  // Paused or seeking: publish the still position, so the main preview shows
+  // that frame.
   useEffect(() => {
     if (playing || !show) return
-    if (showInMainPreview) {
-      useShowPlayback.getState().setPlayback({ nodeId, show, posMs, useGroupInputs, playing: false })
-    } else if (canvasRef.current) {
-      const baked = bakedPreviewActive && (trusted || !show.patternSet?.length)
-        ? bakedFrameAt(nodeId, posMs)
-        : null
-      draw(
-        canvasRef.current,
-        baked ?? renderShowFrame(show, posMs, gridW, gridH, getGroupRegistry(), useGroupInputs, trusted),
-        gridW,
-        gridH,
-      )
-    }
-  }, [bakedPreviewActive, playing, show, posMs, gridW, gridH, useGroupInputs, showInMainPreview, nodeId, trusted])
+    useShowPlayback.getState().setPlayback({ nodeId, show, posMs, useGroupInputs, playing: false })
+  }, [playing, show, posMs, useGroupInputs, nodeId])
 
-  // Release the main preview when this node is no longer wired / has no show,
-  // and on unmount, so a stale show doesn't linger in the big canvas.
+  // Release the main preview when this node has no show, and on unmount, so a
+  // stale show doesn't linger in the big canvas.
   useEffect(() => {
-    if (!showInMainPreview || !show) useShowPlayback.getState().clearPlayback(nodeId)
+    if (!show) useShowPlayback.getState().clearPlayback(nodeId)
     return () => useShowPlayback.getState().clearPlayback(nodeId)
-  }, [showInMainPreview, show, nodeId])
+  }, [show, nodeId])
 
   function startPreview(id: string) {
     if (bakeLocked) return
@@ -422,27 +371,6 @@ export default function PerformanceGeneratorBody({ nodeId }: { nodeId: string })
 
       {entry && show && (
         <div className={styles.player}>
-          <label className={`nodrag ${styles.mainPreviewToggle}`}>
-            <input
-              type="checkbox"
-              checked={showInMainPreview}
-              onChange={() => useGraphStore.getState().updateNodeProperty(nodeId, 'showInMainPreview', !showInMainPreview)}
-            />
-            Show in main LED preview
-          </label>
-          {showInMainPreview ? (
-            <div className={styles.mainNote}><Icon name="play" /> Playing in the main LED preview</div>
-          ) : (
-            <canvas
-              ref={canvasRef}
-              className={styles.canvas}
-              width={gridW * 10}
-              height={gridH * 10}
-              role="img"
-              aria-label={`LED preview for ${entry.analysis?.title ?? entry.file.name}`}
-            />
-          )}
-          <div className={styles.transportNote}>⏯ Controls in the player under the LED preview</div>
           {live && (
             <div className={styles.statusRow}>
               <span className={styles.chip}><b>Pattern</b>{live.patternIndex >= 0 ? `#${live.patternIndex + 1}` : live.pattern}</span>
