@@ -111,39 +111,28 @@ export const INPUT_EMITTERS: NodeEmitters = {
     globalLines.push(`bool _dmxLive_${id} = false;`)
     globalLines.push(`uint32_t _dmxLastPacketMs_${id} = 0;`)
 
-    // DMX512 reads the transceiver on the bench, on its three GPIOs and the
-    // UART the allocator gave it. With none on the bench there is nothing to
+    // DMX512 reads the transceiver on the bench, on its RO and DE/RE GPIOs and
+    // the UART the allocator gave it (dmxReceiverCpp.ts). With none on the bench there is nothing to
     // read, so the node rests at no data (the validator refuses the build).
     const transceiver = inputMode === 'DMX512' ? dmxTransceiverIn(nodes) : null
     if (inputMode === 'DMX512' && !transceiver) {
       ln(`  // DMX512: no DMX transceiver on the bench, so there is no line to read.`)
     } else if (inputMode === 'DMX512') {
       const wiring = transceiver!.data.properties as Record<string, unknown>
-      const txPin = sanitizePin(wiring.dmxTxPin, 17)
       const rxPin = sanitizePin(wiring.dmxRxPin, 16)
       const enPin = sanitizePin(wiring.dmxEnablePin, 21)
       globalLines.push(`#if defined(ESP32)`)
       globalLines.push(...uartPortDeclarationCpp(firmwareUartPorts(nodes, 'dmx'),
-        (port) => `static dmx_port_t _dmxPort_${id} = (dmx_port_t)${port};  // the UART the allocator gave DMX512`))
+        (port) => `static const int _dmxPort_${id} = ${port};  // the UART the allocator gave DMX512`))
+      globalLines.push(`static uint32_t _dmxPacketSeen_${id} = 0;`)
       globalLines.push(`#endif`)
       setupLines.push(`#if defined(ESP32)`)
-      setupLines.push(`  dmx_config_t _dmxConfig_${id} = DMX_CONFIG_DEFAULT;`)
-      setupLines.push(`  dmx_personality_t _dmxPersonality_${id}[] = { {1, "Studio"} };`)
-      setupLines.push(`  dmx_driver_install(_dmxPort_${id}, &_dmxConfig_${id}, _dmxPersonality_${id}, 1);`)
-      setupLines.push(`  dmx_set_pin(_dmxPort_${id}, ${txPin}, ${rxPin}, ${enPin});`)
+      setupLines.push(`  _dmxBegin(_dmxPort_${id}, ${rxPin}, ${enPin});`)
       setupLines.push(`#endif`)
       ln(`#if defined(ESP32)`)
-      ln(`  dmx_packet_t _dmxPacket_${id};`)
-      ln(`  if (dmx_receive(_dmxPort_${id}, &_dmxPacket_${id}, DMX_TIMEOUT_TICK)) {`)
-      ln(`    if (!_dmxPacket_${id}.err) {`)
-      ln(`      uint8_t _dmxRaw_${id}[DMX_PACKET_SIZE] = {0};`)
-      ln(`      dmx_read(_dmxPort_${id}, _dmxRaw_${id}, _dmxPacket_${id}.size);`)
-      ln(`      uint16_t _dmxSlots_${id} = (uint16_t)min<int>(max(0, (int)_dmxPacket_${id}.size - 1), 512);`)
-      ln(`      memset(_dmxData_${id}, 0, 512);`)
-      ln(`      if (_dmxSlots_${id} > 0) memcpy(_dmxData_${id}, _dmxRaw_${id} + 1, _dmxSlots_${id});`)
-      ln(`      _dmxLastPacketMs_${id} = millis();`)
-      ln(`      _dmxLive_${id} = true;`)
-      ln(`    }`)
+      ln(`  if (_dmxTake(_dmxData_${id}, &_dmxPacketSeen_${id})) {`)
+      ln(`    _dmxLastPacketMs_${id} = millis();`)
+      ln(`    _dmxLive_${id} = true;`)
       ln(`  } else if (_dmxLastPacketMs_${id} && millis() - _dmxLastPacketMs_${id} > 1000u) {`)
       ln(`    _dmxLive_${id} = false;`)
       ln(`  }`)

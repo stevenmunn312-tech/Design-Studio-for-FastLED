@@ -587,7 +587,7 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
       { key: 'dmxEnablePin', label: 'DE/RE' },
     ],
     properties: { partId: DMX_TRANSCEIVER_PART_ID },
-    // esp_dmx reads one line per board; a second universe is out of v1.
+    // The receiver reads one line per board; a second universe is out of v1.
     singleton: true,
   },
   {

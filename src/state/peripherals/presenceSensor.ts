@@ -19,7 +19,7 @@ export const PRESENCE_RX_PIN_KEY = 'rxPin'
 /**
  * The ESP32 UART the generated sketch reads the sensor on. UART1 exists on
  * every ESP32 and remaps to any pin, where UART2 is absent on the C3 and S2.
- * esp_dmx takes a UART too, so validation refuses a DMX512 input left on this
+ * The DMX512 receiver takes a UART too, so validation refuses a DMX512 input left on this
  * one.
  */
 export const PRESENCE_UART_PORT = 1

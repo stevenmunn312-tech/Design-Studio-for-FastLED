@@ -104,7 +104,6 @@ vendors these libraries when a build needs them:
 |---|---|---|
 | FastLED | always | first fbuild compile (`_ensure_fbuild_project`) |
 | ESP32-audioI2S | music-sync Player sketch only | lazily, first Player build (`_ensure_fbuild_audio_lib`) |
-| esp_dmx | DMX512 firmware only | lazily, first DMX512 build (`_ensure_fbuild_esp_dmx_lib`) |
 | ESP32-HUB75-MatrixPanel-DMA | HUB75 display firmware | lazily, first HUB75 build (`_ensure_fbuild_hub75_lib`) |
 | Adafruit ZeroI2S and ZeroDMA | SAMD51 microphone capture | lazily, first matching build (`_ensure_fbuild_zero_i2s_lib`) |
 | LVGL | custom screen firmware | lazily, first LVGL build (`_ensure_fbuild_lvgl_lib`) |
@@ -804,7 +803,9 @@ commit `f3b91e4`): 189 legs, Arduino CLI 1.5.1 with 123 and fbuild 2.5.51 with
   engines, and it is not an fbuild fault.** esp_dmx reads
   `uart_periph_signal[n].module`, which ESP-IDF 5.5 removed
   (`uart.c:330: 'uart_signal_conn_t' has no member named 'module'`); on
-  Arduino CLI the helper never installs the library. Root todo, section 3.
+  Arduino CLI the helper never installed the library. Fixed the next day by
+  dropping the library: the sketch reads the UART itself
+  ([DMX512 receiver](../design/dmx-artnet-input.md#the-dmx512-receiver)).
 - **ESP32-C3 and C6 pass on both engines** without `-DFL_NO_EXCEPT=`.
 - **Arduino Nano ESP32 passes on fbuild**
   ([#1760](https://github.com/FastLED/fbuild/issues/1760), fixed by #1764),

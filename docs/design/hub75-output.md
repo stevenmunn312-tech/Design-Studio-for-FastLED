@@ -135,7 +135,7 @@ a HUB75 panel plays the identical *role* in a graph (a Frame sink).
 
 ### Vendoring (implemented — `backend/toolchain.py`)
 
-Follows the existing `ESP32-audioI2S`/`esp_dmx` pattern
+Follows the existing `ESP32-audioI2S` pattern
 (`_ensure_fbuild_hub75_lib`): `git clone` the DMA library into the fbuild
 project's `lib/` on first use, pinned to tag `3.0.14` (the newest
 non-prerelease release as of 2026-08-08) rather than tracking a

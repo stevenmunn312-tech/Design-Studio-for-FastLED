@@ -688,7 +688,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `dmxEnablePin`, from free pins through its `PART_PIN_PLANS` entry) and a
   `DMXInput` set to DMX512 reads it, so the DMX node keeps only its source,
   universe and UDP port and never draws anything itself. One per board
-  (`dmx-transceiver-count`): esp_dmx reads one line. It takes **5 V**, its rated
+  (`dmx-transceiver-count`): the receiver reads one line. It takes **5 V**, its rated
   supply, so RO swings to 5 V: `receiveDivider` draws 1 kΩ from RO to a junction
   and 2 kΩ to ground, and `peripheralSignalEndPoint` ends the RX wire on that
   junction for both the lane allocator and the router, so the wire's lane is

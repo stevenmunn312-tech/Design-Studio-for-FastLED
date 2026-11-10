@@ -235,6 +235,15 @@ def samd51_legs() -> list[Leg]:
             for name in manifest_names(folder, "samd51")]
 
 
+def dmx_legs() -> list[Leg]:
+    """The DMX512 receiver on each ESP32 UART design: it reads the FIFO through the chip's own `uart_ll`."""
+    sketch = ROOT / "backend" / "sketches" / "dmx-fixtures" / "dmx512.ino"
+    manifest_names(sketch.parent, "dmx")
+    targets = {"esp32": CLASSIC, "esp32s3": "esp32:esp32:esp32s3", "esp32c3": "esp32:esp32:esp32c3",
+               "esp32c6": "esp32:esp32:esp32c6"}
+    return [Leg("dmx", "compile-presence-smoke.py", sketch, fqbn, tag, "dmx") for tag, fqbn in targets.items()]
+
+
 def pattern_node_legs() -> list[Leg]:
     """Every pattern-node phase on classic ESP32; Phase 8 also on S3; the RAM-priced phases also on ESP8266."""
     folder = ROOT / "backend" / "sketches" / "pattern-node-fixtures"
@@ -325,7 +334,7 @@ def candidates() -> list[Leg]:
     """Every fixture leg on both engines; fbuild only for boards its scaffold declares."""
     legs = [
         *display_legs(), *custom_board_legs(), *control_graph_legs(), *ir_legs(), *ethernet_legs(),
-        *board_link_legs(), *power_switch_legs(), *peripheral_legs(), *samd51_legs(), *pattern_node_legs(),
+        *board_link_legs(), *power_switch_legs(), *peripheral_legs(), *samd51_legs(), *dmx_legs(), *pattern_node_legs(),
         *corpus_legs("dead-code", "dead-code-compile"),
         *corpus_legs("pattern-collections", "pattern-collections-compile"),
         *corpus_legs("show-sequencing", "show-sequencing-compile"),
@@ -339,7 +348,7 @@ def candidates() -> list[Leg]:
 # The generator behind each family's fixtures.
 GENERATORS = {"display": "display", "custom-board": "custom-board", "control-graph": "control-graph", "ir": "ir",
               "ethernet": "ethernet", "board-links": "board-links", "power-switch": "power-switch",
-              "pattern-node": "pattern-node", "samd51": "samd51", "dead-code": "dead-code", "pattern-collections": "pattern-collections",
+              "pattern-node": "pattern-node", "samd51": "samd51", "dmx": "dmx", "dead-code": "dead-code", "pattern-collections": "pattern-collections",
               "show-sequencing": "show-sequencing", "lanes": "lanes", "led-drivers": "led-drivers",
               **{family: family for family in (
                   "buzzer", "cooling-fan", "darlington", "dfplayer", "distance", "encoder", "environment", "ina226",

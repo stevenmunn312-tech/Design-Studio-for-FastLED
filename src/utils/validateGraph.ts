@@ -1776,7 +1776,7 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
     errors.push('DFPlayer Mini firmware currently requires an ESP32-family board for its assignable UART')
   }
   if (selectedFqbn && dmx512Inputs(nodes).length > 0 && !selectedFqbn.startsWith('esp32:')) {
-    errors.push('DMX512 firmware input requires an ESP32-family board because the generated sketch uses esp_dmx')
+    errors.push('DMX512 firmware input requires an ESP32-family board because the generated receiver reads an ESP32 UART')
   }
   // The shared DIN reader opens an ESP32 HardwareSerial on the allocated UART.
   if (selectedFqbn && dinMidiInputs(nodes).length > 0 && !selectedFqbn.startsWith('esp32:')) {
@@ -4790,7 +4790,7 @@ export function buildGraphDiagnostics(
       diagnostics.push({
         id: `${node.id}-board-dmx512`, severity: 'error', category: 'board',
         title: 'DMX512 input is incompatible with the selected board',
-        message: 'The generated DMX512 receiver uses esp_dmx, which is ESP32-only.',
+        message: 'The generated DMX512 receiver reads an ESP32 UART.',
         fix: 'Choose an ESP32-family board in Board & Port, or switch the DMX node to Art-Net mode.',
         nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
       })

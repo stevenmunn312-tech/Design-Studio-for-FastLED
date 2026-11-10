@@ -665,8 +665,6 @@ def _compile_upload_fbuild(
             yield from toolchain._ensure_fbuild_project()
             if "#include <Audio.h>" in ino:
                 yield from toolchain._ensure_fbuild_audio_lib()
-            if "#include <esp_dmx.h>" in ino:
-                yield from toolchain._ensure_fbuild_esp_dmx_lib()
             if "#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>" in ino:
                 yield from toolchain._ensure_fbuild_hub75_lib()
             if toolchain._ZERO_I2S_INCLUDE in ino:

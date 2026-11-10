@@ -202,9 +202,13 @@ describe('the DMX transceiver and MIDI interface as bench parts', () => {
   it('opens the allocated UART in firmware, on the transceiver\'s pins', () => {
     const { nodes, edges } = dmxGraph([node('max485', 'DmxTransceiver', { dmxTxPin: 25, dmxRxPin: 26, dmxEnablePin: 27 })])
     const cpp = generateCpp(nodes, edges)
-    expect(cpp).toContain('#include <esp_dmx.h>')
-    expect(cpp).toContain('static dmx_port_t _dmxPort_dmx = (dmx_port_t)1;')
-    expect(cpp).toContain('dmx_set_pin(_dmxPort_dmx, 25, 26, 27);')
+    // The app's own receiver: no DMX library to install.
+    expect(cpp).not.toContain('esp_dmx')
+    expect(cpp).toContain('#include <hal/uart_ll.h>')
+    expect(cpp).toContain('static const int _dmxPort_dmx = 1;')
+    expect(cpp).toContain('_dmxBegin(_dmxPort_dmx, 26, 27);')
+    expect(cpp).toContain('if (_dmxTake(_dmxData_dmx, &_dmxPacketSeen_dmx)) {')
+    expect(cpp.match(/static void _dmxIsr\(void \*\) \{/g)).toHaveLength(1)
     expect(cpp).not.toContain('#if defined(CONFIG_IDF_TARGET_ESP32) ||')
 
     // Beside the radar, DMX512 takes UART2 on the classic ESP32 and S3. A
@@ -213,7 +217,7 @@ describe('the DMX transceiver and MIDI interface as bench parts', () => {
     const sharedCpp = generateCpp(shared.nodes, shared.edges)
     expect(sharedCpp).toContain([
       '#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3)',
-      'static dmx_port_t _dmxPort_dmx = (dmx_port_t)2;  // the UART the allocator gave DMX512',
+      'static const int _dmxPort_dmx = 2;  // the UART the allocator gave DMX512',
       '#else',
     ].join('\n'))
     expect(findDeployBlockingErrors(shared.nodes, shared.edges, CLASSIC).filter((error) => error.includes('UART'))).toEqual([])
@@ -222,8 +226,8 @@ describe('the DMX transceiver and MIDI interface as bench parts', () => {
 
     // No transceiver, nothing to read: no driver, no port.
     const bare = generateCpp(dmxGraph().nodes, dmxGraph().edges)
-    expect(bare).not.toContain('esp_dmx')
-    expect(bare).not.toContain('dmx_receive')
+    expect(bare).not.toContain('uart_ll')
+    expect(bare).not.toContain('_dmxTake')
     expect(bare).not.toContain('_dmxPort_')
   })
 

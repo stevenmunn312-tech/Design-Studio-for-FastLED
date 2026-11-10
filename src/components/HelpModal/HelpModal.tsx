@@ -756,7 +756,7 @@ function UploadTab() {
           <div className={styles.tip}>
             <div className={styles.tipIcon}>◇</div>
             <div className={styles.tipText}>
-              <strong>DMX512</strong> is ESP32-only and needs an RS-485 transceiver such as a MAX485 or SN75176 — a bare GPIO cannot read a DMX line. Wire the transceiver's TX, RX, and enable pins to the ones set on the node, connect DMX data +/− and ground to the XLR line, and terminate the run. With <strong>fbuild</strong> the <code>esp_dmx</code> library is vendored automatically on the first DMX512 build; with <strong>arduino-cli</strong>, install <code>esp_dmx</code> yourself first.
+              <strong>DMX512</strong> is ESP32-only and needs an RS-485 transceiver such as a MAX485 or SN75176 — a bare GPIO cannot read a DMX line. Wire the transceiver's TX, RX, and enable pins to the ones set on the node, connect DMX data +/− and ground to the XLR line, and terminate the run. The sketch reads the line itself, so there is no library to install.
             </div>
           </div>
           <div className={styles.tip}>

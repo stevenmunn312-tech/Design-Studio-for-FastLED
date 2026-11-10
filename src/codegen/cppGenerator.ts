@@ -114,6 +114,7 @@ import {
 import { distinctTelemetryLabels, telemetryNodeMapLine } from '../state/upload/deviceTelemetry'
 import { rtcI2cPinsForProfile } from '../build/pins/rtcPins'
 import { powerMonitorHelperCpp, powerMonitorSetupCpp } from './peripherals/powerMonitorCpp'
+import { DMX_RECEIVER_HELPER_CPP, DMX_RECEIVER_INCLUDES_CPP } from './peripherals/dmxReceiverCpp'
 import { presenceSensorSetupCpp, PRESENCE_SENSOR_HELPER_CPP } from './peripherals/presenceSensorCpp'
 import { TEMPERATURE_SENSOR_HELPER_CPP } from './peripherals/temperatureSensorCpp'
 import { DISTANCE_SENSOR_HELPER_CPP, distanceSensorLibraryInclude } from './peripherals/distanceSensorCpp'
@@ -660,7 +661,7 @@ export function generateCpp(
     min: MASTER_SPEED_MIN,
     max: MASTER_SPEED_MAX,
   }
-  // esp_dmx only where a DMX512 input has the bench's transceiver to read; with
+  // The DMX512 receiver only where an input has the bench's transceiver to read; with
   // none the node rests idle and the validator says why.
   const dmxInputs = sorted.filter((n) => n.data.nodeType === 'DMXInput')
   const needsDmx512 = dmxTransceiverIn(nodes) !== null
@@ -1250,11 +1251,7 @@ export function generateCpp(
   if (customDisplays.length > 0) lines.push(CUSTOM_DISPLAY_LVGL_INCLUDE)
   if (network) lines.push(network.include)
   if (link) lines.push(link.include)
-  if (needsDmx512) {
-    lines.push(`#if defined(ESP32)`)
-    lines.push(`#include <esp_dmx.h>`)
-    lines.push(`#endif`)
-  }
+  if (needsDmx512) lines.push(...DMX_RECEIVER_INCLUDES_CPP)
   if (audio) lines.push(audio.include)
   // Above every function, because the Arduino .ino preprocessor hoists a
   // prototype for each one to a point above where these types are defined.
@@ -1605,6 +1602,7 @@ export function generateCpp(
   }
   if (powerMonitors.length > 0) lines.push(...powerMonitorHelperCpp(powerMonitors.map(props)))
   if (presenceSensors.length > 0) lines.push(...PRESENCE_SENSOR_HELPER_CPP)
+  if (needsDmx512) lines.push(...DMX_RECEIVER_HELPER_CPP)
   if (digitalLightSensors.length > 0) lines.push(...LIGHT_SENSOR_HELPER_CPP)
   if (environmentSensors.length > 0) lines.push(...ENVIRONMENT_SENSOR_HELPER_CPP)
   if (temperatureSensors.length > 0) lines.push(...TEMPERATURE_SENSOR_HELPER_CPP)

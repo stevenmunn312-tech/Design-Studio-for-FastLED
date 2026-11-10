@@ -66,9 +66,9 @@ sending."
 
 | | Preview (browser) | Firmware `Art-Net` | Firmware `DMX512` |
 |---|---|---|---|
-| Transport | helper UDP listener, polled | `WiFiUDP` on the sketch's Wi-Fi (`WiFi.h`, `ESP8266WiFi.h` or `WiFiS3.h`) | `esp_dmx` on an RS-485 transceiver |
+| Transport | helper UDP listener, polled | `WiFiUDP` on the sketch's Wi-Fi (`WiFi.h`, `ESP8266WiFi.h` or `WiFiS3.h`) | the sketch's own UART receiver on an RS-485 transceiver |
 | Where | `backend/streaming.py` + `dmxStore.ts` | generated `loop()` | generated `loop()` |
-| Filter | universe must match the node's | opcode `0x5000` + universe match | driver-level |
+| Filter | universe must match the node's | opcode `0x5000` + universe match | null start code only |
 | Goes stale after | helper's own liveness check | 2000 ms without a packet | 1000 ms without a packet |
 | Boards | any | ESP32 / ESP8266 / Arduino UNO R4 WiFi | ESP32 only |
 
@@ -103,9 +103,10 @@ What preview and firmware **must** agree on, and where the tests live:
 
 What deliberately **differs**:
 
-- The DMX512 start code. `esp_dmx` hands back a packet whose byte 0 is the start
-  code, so firmware copies from `_dmxRaw + 1`; Art-Net's payload begins at byte
-  18 with no start code. Both land as "channel 1 is `channels[0]`."
+- The DMX512 start code. A packet on the wire begins with it, so the receiver
+  drops it (and skips packets whose start code is not null); Art-Net's payload
+  begins at byte 18 with no start code. Both land as "channel 1 is
+  `channels[0]`."
 - Liveness timeouts (1 s vs 2 s), which follow each transport's own refresh rate
   rather than a shared constant.
 - Preview has no `DMX512` path at all, as above.
@@ -192,8 +193,8 @@ pin. The part stays experimental until a bench row confirms it
 
 ## Validation
 
-`validateGraph.ts` blocks upload for: DMX512 on a non-ESP32 target (esp_dmx is
-ESP32-only), Art-Net or NTP on a board with no Wi-Fi radio (`fqbnHasWifi` in
+`validateGraph.ts` blocks upload for: DMX512 on a non-ESP32 target (the receiver
+reads an ESP32 UART), Art-Net or NTP on a board with no Wi-Fi radio (`fqbnHasWifi` in
 `src/state/peripherals/networkCapability.ts`: the ESP cores except the H2 and
 P4, and the Arduino UNO R4 WiFi; a wired Ethernet link lifts the gate), and the
 transceiver's pins colliding with any other GPIO role — they join the shared

@@ -254,10 +254,9 @@ _BLUETOOTH_AUDIO_TOOLS_VERSION = "v1.2.6"
 _ARDUINO_A2DP_LIB_DIR = _DATA_DIR / ".arduino-libraries" / "ESP32-A2DP"
 _ARDUINO_AUDIO_TOOLS_LIB_DIR = _DATA_DIR / ".arduino-libraries" / "arduino-audio-tools"
 _arduino_bluetooth_lock = threading.Lock()
-_FBUILD_ESP_DMX_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "esp_dmx"
 # HUB75 scan-panel output (docs/design/hub75-output.md) — FastLED
 # has no native HUB75 driver, so a HUB75 MatrixOutput route needs this DMA
-# library instead. Vendored the same lazy way as ESP32-audioI2S/esp_dmx above.
+# library instead. Vendored the same lazy way as ESP32-audioI2S above.
 _FBUILD_HUB75_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "ESP32-HUB75-MatrixPanel-DMA"
 # SAMD51 INMP441 capture uses Adafruit's receive-capable ZeroI2S driver and
 # its ZeroDMA dependency. Both are fetched only when a generated sketch names
@@ -1206,35 +1205,13 @@ def _ensure_fbuild_audio_lib():
     return rc
 
 
-_fbuild_esp_dmx_lib_ready = False
-
-
-def _ensure_fbuild_esp_dmx_lib():
-    """Vendor esp_dmx (someweisguy/esp_dmx) on first DMX512 firmware build."""
-    global _fbuild_esp_dmx_lib_ready
-    if _fbuild_esp_dmx_lib_ready:
-        return
-    if (_FBUILD_ESP_DMX_LIB_DIR / "library.properties").exists():
-        _fbuild_esp_dmx_lib_ready = True
-        return
-    yield "\n=== vendoring esp_dmx (first DMX512 build only) ===\n"
-    _FBUILD_ESP_DMX_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
-    rc = yield from _run_phase(
-        "vendor esp_dmx",
-        ["git", "clone", "--progress", "--depth", "1", "https://github.com/someweisguy/esp_dmx.git", str(_FBUILD_ESP_DMX_LIB_DIR)],
-    )
-    if rc != 0:
-        yield "[error] failed to vendor esp_dmx — DMX512 builds may fail on esp_dmx.h\n"
-    _fbuild_esp_dmx_lib_ready = True
-
-
 _fbuild_hub75_lib_ready = False
 
 
 def _ensure_fbuild_hub75_lib():
     """Vendor ESP32-HUB75-MatrixPanel-DMA (mrcodetastic/ESP32-HUB75-MatrixPanel-DMA)
-    on first HUB75 firmware build — same rationale as `_ensure_fbuild_audio_lib`/
-    `_ensure_fbuild_esp_dmx_lib`: fbuild 2.4.0's `lib_deps` registry resolution
+    on first HUB75 firmware build — same rationale as `_ensure_fbuild_audio_lib`:
+    fbuild 2.4.0's `lib_deps` registry resolution
     doesn't work, so a vendored local lib is the only path that compiles."""
     global _fbuild_hub75_lib_ready
     if _fbuild_hub75_lib_ready:
