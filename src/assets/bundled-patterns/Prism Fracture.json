@@ -241,8 +241,8 @@
           "nodeType": "PrismStorm",
           "category": "pattern",
           "properties": {
-            "energy": 0.75,
-            "speed": 0.9,
+            "reactivity": 0.75,
+            "speed": 0.45,
             "palette": "amethyst"
           },
           "inputs": [
@@ -262,7 +262,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -635,7 +635,7 @@
         "source": "feat",
         "sourceHandle": "energy",
         "target": "prism",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {

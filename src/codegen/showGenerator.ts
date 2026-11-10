@@ -247,10 +247,10 @@ interface PatternUnit {
 const scratchPoolName = (type: RenderBufferType, slot: number) =>
   `_pool_${type === 'CRGB' ? 'buf' : 'field'}_${slot}`
 
-// C++ parameter type per group-input role. Float roles (energy/speed) pass a
+// C++ parameter type per group-input role. Float roles (reactivity/speed) pass a
 // scalar; the palette role passes a CRGBPalette16 by const reference.
 const ROLE_CPP_TYPE: Record<string, string> = {
-  energy:  'float',
+  reactivity: 'float',
   speed:   'float',
   palette: 'const CRGBPalette16&',
 }
@@ -298,11 +298,11 @@ const SHARED_HELPER_BLOCKS: Record<string, string> = {
   transition3d: TRANSITION_3D_HELPERS_CPP,
 }
 
-// The `energy` show role has no physical noodle once the Group is absorbed by a
+// The `reactivity` show role has no physical noodle once the Group is absorbed by a
 // collection. When the show is not driving it as a render parameter and the
 // host supplies audio globals, it follows the mean of the three bands, as the
 // browser preview does (showPreview.ts renderStateFrame).
-const ENERGY_FROM_AUDIO = '((_audioBass + _audioMids + _audioTreble) / 3.0f)'
+const REACTIVITY_FROM_AUDIO = '((_audioBass + _audioMids + _audioTreble) / 3.0f)'
 
 /**
  * How a compiled unit is named and where its buffers live. A collected
@@ -322,7 +322,7 @@ function buildPattern(
   naming: PatternUnitNaming = { fn: `render_p${index}`, prefix: `p${index}`, pooled: true },
 ): PatternUnit {
   const fnName = naming.fn
-  // Signature: render_pN(uint32_t ms[, float energy, …][, const CRGBPalette16& palette])
+  // Signature: render_pN(uint32_t ms[, float reactivity, …][, const CRGBPalette16& palette])
   // — one extra param per exposed role when "Use group inputs" is on.
   const sig = `uint32_t ms${roleParams.map((p) => `, ${roleSig(p)}`).join('')}`
   const sub = groups[groupId]
@@ -342,8 +342,8 @@ function buildPattern(
   // Keep inputs supplied by an explicit render parameter or by the host audio
   // globals. Edges from every other GroupInput are removed so downstream nodes
   // correctly fall back to their own property defaults.
-  const groupInputExprs: Record<string, string> = externalAudio && !roleParams.includes('energy')
-    ? { energy: ENERGY_FROM_AUDIO }
+  const groupInputExprs: Record<string, string> = externalAudio && !roleParams.includes('reactivity')
+    ? { reactivity: REACTIVITY_FROM_AUDIO }
     : {}
   const groupInputRole = (n: StudioNode) => String((n.data.properties as { paramId?: string }).paramId ?? '')
   const isAudioGI = (n: StudioNode) => ((n.data.outputs as { dataType?: string }[] | undefined)?.[0]?.dataType ?? '') === 'audio'
@@ -544,7 +544,7 @@ export interface PatternRenderers {
   helpers: string[]
   functions: string[]
   count: number
-  /** Role params threaded into every render_pN (e.g. ['energy']); [] when off. */
+  /** Role params threaded into every render_pN (e.g. ['reactivity']); [] when off. */
   params: string[]
   /** Per pattern, whether its subgraph listens to audio (isAudioReactiveSubgraph):
    *  the generic player fades only those to black on silence. Absent means

@@ -78,10 +78,10 @@ const PATTERNS = {
   reactive: group([node('au', 'Audio', { sourceId: 'decoder:sd' }), node('fft', 'FFTAnalyzer'), node('sc', 'SolidColor', { b: 60 })],
     [edge('a1', 'au', 'audio', 'fft', 'audio'), edge('a2', 'fft', 'bass', 'sc', 'r'), edge('eg', 'sc', 'frame', 'go', 'frame')]),
   roles: group([
-    roleInput('speed', 'float'), roleInput('palette', 'palette'), roleInput('energy', 'float'), node('pl', 'Plasma'), node('bm', 'BrightnessMod'),
+    roleInput('speed', 'float'), roleInput('palette', 'palette'), roleInput('reactivity', 'float'), node('pl', 'Plasma'), node('bm', 'BrightnessMod'),
   ], [
     edge('rs', 'speed', 'out', 'pl', 'speed'), edge('rp', 'palette', 'out', 'pl', 'paletteIn'), edge('pf', 'pl', 'frame', 'bm', 'frame'),
-    edge('re', 'energy', 'out', 'bm', 'brightness'), edge('bf', 'bm', 'frame', 'go', 'frame'),
+    edge('re', 'reactivity', 'out', 'bm', 'brightness'), edge('bf', 'bm', 'frame', 'go', 'frame'),
   ]),
 } as const
 type PatternName = keyof typeof PATTERNS

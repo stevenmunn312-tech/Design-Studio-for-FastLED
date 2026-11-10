@@ -210,8 +210,8 @@
           "nodeType": "GravityWell",
           "category": "pattern",
           "properties": {
-            "energy": 0.75,
-            "speed": 1,
+            "reactivity": 0.75,
+            "speed": 0.5,
             "r": 80,
             "g": 160,
             "b": 255
@@ -223,7 +223,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -530,7 +530,7 @@
         "source": "feat",
         "sourceHandle": "energy",
         "target": "gw",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {

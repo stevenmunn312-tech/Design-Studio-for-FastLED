@@ -6,6 +6,8 @@ import {
   textColumns,
   DEFAULT_FONT,
   FONT_H,
+  TEXT_SIZE,
+  textSize,
 } from '../shared/font'
 import { asAnimatedImage, asImage } from '../shared/image'
 import { hexToRgb } from '../../state/palettes/polinePalette'
@@ -33,13 +35,13 @@ import {
 // Shape's `size` and ClockDisplay's `radius` were tuned as raw pixel
 // counts against a 16x16 matrix (graphEvaluator.ts's DEFAULT_W/DEFAULT_H).
 // scaleWithMatrix (opt-in per node) scales that radius proportionally by the
-// target matrix's shorter side, using the WIDTH/HEIGHT *macro names* (not
-// baked JS numbers) so it tracks the supersampled render resolution — mirrors
-// graphEvaluator.ts's matrixSizeScale(); keep the reference size (16) in sync.
-// Returns `radiusExpr` unchanged when the toggle is off, so existing sketches
-// generate byte-identical code.
+// target matrix's shorter side, or a one-row strip's length (`sizingSide`),
+// using the WIDTH/HEIGHT *macro names* (not baked JS numbers) so it tracks the
+// supersampled render resolution — mirrors evaluate.ts's matrixSizeScale();
+// keep the reference size (16) in sync. Returns `radiusExpr` unchanged when
+// the toggle is off, so existing sketches generate byte-identical code.
 function withMatrixScale(radiusExpr: string, p: Record<string, unknown>): string {
-  return p.scaleWithMatrix ? `${radiusExpr}*(min(WIDTH,HEIGHT)/16.0f)` : radiusExpr
+  return p.scaleWithMatrix ? `${radiusExpr}*(${SIZING_SIDE_CPP}/16.0f)` : radiusExpr
 }
 
 // Every character the Clock Display can print, in every mode (digits, the
@@ -56,6 +58,7 @@ import { SPI_BUS_CPP } from '../../codegen/helpers/spiBusCpp'
 import { CLOCK_TIMER_MAX_SEC } from './clockTimer'
 import { FONT_CPP_MARKER, WIRED_TEXT_MAX, fontCppHelper } from '../shared/fontCpp'
 import { centerAxisCpp, clockCenterAxisCpp, lineAxisCpp, positionUnits, textAxisStartCpp } from './positionUnits'
+import { SIZING_SIDE_CPP } from '../shared/stringCanvas'
 
 export const SHAPES_EMITTERS: NodeEmitters = {
   SDVideo({ nodes, props, id, f, ln, ownBuf, needsT, needsSdVideo, globalLines, setupLines, p }) {
@@ -300,7 +303,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ln(`    ${pathExpr}`)
     }
     ln(`    float _rad = max(0.25f, ${f('thickness', 'thickness', thickness)} * 0.5f);`)
-    ln(`    float _ext = max(0.0f, min((float)WIDTH, (float)HEIGHT) * 0.5f * ${f('scale', 'scale', scale)} - _rad);`)
+    ln(`    float _ext = max(0.0f, (float)${SIZING_SIDE_CPP} * 0.5f * ${f('scale', 'scale', scale)} - _rad);`)
     ln(`    float _sx = (WIDTH - 1) * 0.5f + _px * _ext;`)
     ln(`    float _sy = (HEIGHT - 1) * 0.5f - _py * _ext;`)
     ln(`    int _x0 = max(0, (int)floorf(_sx - _rad - 1.0f)), _x1 = min(WIDTH - 1, (int)ceilf(_sx + _rad + 1.0f));`)
@@ -331,7 +334,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     // (fourierHelperCpp.ts), in 1/256 pixel and 16-bit turns.
     ln(`    float _scale=constrain(${f('scale', 'scale', 0.8)},${floatLit(FOURIER_SCALE_MIN)},1.0f);`)
     ln(`    float _rad=constrain(${f('thickness', 'thickness', 1.25)},${floatLit(FOURIER_THICKNESS_MIN)},${floatLit(FOURIER_THICKNESS_MAX)})*0.5f;`)
-    ln(`    int32_t _ext=(int32_t)(fmaxf(0.0f,min(WIDTH,HEIGHT)*0.5f*_scale-_rad)*256.0f), _rad8=(int32_t)(_rad*256.0f), _cx=WIDTH*128, _cy=HEIGHT*128;`)
+    ln(`    int32_t _ext=(int32_t)(fmaxf(0.0f,${SIZING_SIDE_CPP}*0.5f*_scale-_rad)*256.0f), _rad8=(int32_t)(_rad*256.0f), _cx=WIDTH*128, _cy=HEIGHT*128;`)
     ln(`    float _h=constrain(${f('harmonics', 'harmonics', 32)},1.0f,${table.length}.0f); int _hw=(int)_h, _hfr=(int)((_h-_hw)*256.0f);`)
     const ph = speedPhaseCpp(ln, phaseTag(id), `constrain(${f('speed', 'speed', 0.2)},${floatLit(-FOURIER_SPEED_MAX)},${floatLit(FOURIER_SPEED_MAX)})`)
     ln(`    float _turnF=${ph}; _turnF-=floorf(_turnF); uint16_t _turn=(uint16_t)(int32_t)(_turnF*65536.0f);`)
@@ -415,34 +418,41 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     const scrollAxis: 'horizontal' | 'vertical' = p.scrollAxis === 'vertical' ? 'vertical' : 'horizontal'
     const wrap = Boolean(p.wrap)
     const units = positionUnits(p.units)
+    // Size draws each font pixel size x size: drawn column `_ci` and row `_r`
+    // read the font's `_ci / size` and `_r / size`. At size 1 the lines are
+    // the ones every sketch had before Size.
+    const size = textSize(p.size ?? TEXT_SIZE.default)
+    const fontColumn = (ci: string) => (size > 1 ? `${ci} / ${size}` : ci)
+    const rowBit = size > 1 ? `(_r / ${size})` : '_r'
     const textUp = incoming.get(`${node.id}:text`)
     if (textUp) {
       // A wired string is drawn at run time from the built-in font's glyph
       // table (one copy per sketch), one line, like the evaluator's wired path.
       if (!globalLines.some((line) => line.startsWith(FONT_CPP_MARKER))) globalLines.push(fontCppHelper())
       const stride = FONT_W + letterSpacing
+      const lineH = FONT_H * size
       const colorE = channelColor('color', 0, 255, 255)
       const dynamic = !!incoming.get(`${node.id}:scroll`) || Number(p.scroll ?? 0) !== 0
       ln(`  { // Text (wired)`)
-      ln(`    const char* _ts = n_${safeId(textUp.srcId)}_${safeId(textUp.srcPort)}; int _tl = 0; while (_ts[_tl] && _tl < ${WIRED_TEXT_MAX}) _tl++; int _tn = _tl * ${stride};`)
+      ln(`    const char* _ts = n_${safeId(textUp.srcId)}_${safeId(textUp.srcPort)}; int _tl = 0; while (_ts[_tl] && _tl < ${WIRED_TEXT_MAX}) _tl++; int _tn = _tl * ${stride * size};`)
       ln(`    ${seedFrom('base')}`)
       if (dynamic) {
         needsT.v = true
         ln(`    float _scr = ${f('scroll', 'scroll', 0)};`)
         const ph = speedPhaseCpp(ln, phaseTag(id), '_scr')
         if (scrollAxis === 'vertical') {
-          ln(`    int _totY = ${FONT_H} + HEIGHT, _offY = _scr != 0.0f ? ((((int)(${ph})) % _totY) + _totY) % _totY : 0, _offX = 0;`)
+          ln(`    int _totY = ${lineH} + HEIGHT, _offY = _scr != 0.0f ? ((((int)(${ph})) % _totY) + _totY) % _totY : 0, _offX = 0;`)
         } else {
           ln(`    int _totX = _tn + WIDTH, _offX = _scr != 0.0f ? ((((int)(${ph})) % _totX) + _totX) % _totX : 0, _offY = 0;`)
         }
       } else {
         ln(`    int _offX = 0, _offY = 0;`)
       }
-      ln(`    int _sy = (int)${textAxisStartCpp(f('y', 'y', 0.5), units, 'HEIGHT', `${FONT_H}`, vAlign, wrap)};`)
+      ln(`    int _sy = (int)${textAxisStartCpp(f('y', 'y', 0.5), units, 'HEIGHT', `${lineH}`, vAlign, wrap)};`)
       ln(`    int _sx = (int)${textAxisStartCpp(f('x', 'x', 0.5), units, 'WIDTH', '_tn', hAlign, wrap)};`)
       const draw = (sx: string, sy: string, indent: string) => {
-        ln(`${indent}for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (${sx}) + _offX; if (_ci < 0 || _ci >= _tn) continue; int _gc = _ci % ${stride}; if (_gc >= ${FONT_W}) continue; uint8_t _col = _fontCol(_ts[_ci / ${stride}], _gc);`)
-        ln(`${indent}  for (int _r = 0; _r < ${FONT_H}; _r++) if (_col & (1 << _r)) { int _yy = (${sy}) + _r - _offY; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
+        ln(`${indent}for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (${sx}) + _offX; if (_ci < 0 || _ci >= _tn) continue; int _gc = ${fontColumn('_ci')} % ${stride}; if (_gc >= ${FONT_W}) continue; uint8_t _col = _fontCol(_ts[${fontColumn('_ci')} / ${stride}], _gc);`)
+        ln(`${indent}  for (int _r = 0; _r < ${lineH}; _r++) if (_col & (1 << ${rowBit})) { int _yy = (${sy}) + _r - _offY; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
       }
       if (wrap) {
         ln(`    int _wrapX[3] = {-WIDTH, 0, WIDTH};`)
@@ -458,7 +468,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     }
     const text = String(p.text ?? 'HELLO')
     const font = DEFAULT_FONT
-    const layout = textBlockLayout(text, font, letterSpacing)
+    const layout = textBlockLayout(text, font, letterSpacing, TEXT_LINE_GAP, size)
     const renderableLines = layout.lines
       .map((line, index) => ({ ...line, index }))
       .filter((line) => line.cols.length > 0)
@@ -467,7 +477,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`  { // Text "${text.replace(/[^ -~]/g, '?')}"`)
     for (const line of renderableLines) {
       ln(`    static const uint8_t _txt_${id}_${line.index}[] = {${line.cols.join(',')}};`)
-      ln(`    const int _tn_${id}_${line.index} = ${line.cols.length};`)
+      ln(`    const int _tn_${id}_${line.index} = ${line.width};`)
     }
     ln(`    ${seedFrom('base')}`)
     if (dynamic) {
@@ -493,16 +503,16 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ln(`    int _wrapY[3] = {-HEIGHT, 0, HEIGHT};`)
       ln(`    for (int _wy = 0; _wy < 3; _wy++) for (int _wx = 0; _wx < 3; _wx++) {`)
       for (const line of renderableLines) {
-        const lineOffset = line.index * (font.h + TEXT_LINE_GAP)
-        ln(`      for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (_sx_${line.index} + _wrapX[_wx]) + _offX; if (_ci < 0 || _ci >= _tn_${id}_${line.index}) continue; uint8_t _col = _txt_${id}_${line.index}[_ci];`)
-        ln(`        for (int _r = 0; _r < ${font.h}; _r++) if (_col & (1 << _r)) { int _yy = (_sy + _wrapY[_wy] + ${lineOffset}) + _r - _offY; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
+        const lineOffset = line.index * layout.lineStep
+        ln(`      for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - (_sx_${line.index} + _wrapX[_wx]) + _offX; if (_ci < 0 || _ci >= _tn_${id}_${line.index}) continue; uint8_t _col = _txt_${id}_${line.index}[${fontColumn('_ci')}];`)
+        ln(`        for (int _r = 0; _r < ${font.h * size}; _r++) if (_col & (1 << ${rowBit})) { int _yy = (_sy + _wrapY[_wy] + ${lineOffset}) + _r - _offY; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
       }
       ln(`    }`)
     } else {
       for (const line of renderableLines) {
-        const lineOffset = line.index * (font.h + TEXT_LINE_GAP)
-        ln(`    for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - _sx_${line.index} + _offX; if (_ci < 0 || _ci >= _tn_${id}_${line.index}) continue; uint8_t _col = _txt_${id}_${line.index}[_ci];`)
-        ln(`      for (int _r = 0; _r < ${font.h}; _r++) if (_col & (1 << _r)) { int _yy = (_sy + ${lineOffset}) + _r - _offY; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
+        const lineOffset = line.index * layout.lineStep
+        ln(`    for (int _x = 0; _x < WIDTH; _x++) { int _ci = _x - _sx_${line.index} + _offX; if (_ci < 0 || _ci >= _tn_${id}_${line.index}) continue; uint8_t _col = _txt_${id}_${line.index}[${fontColumn('_ci')}];`)
+        ln(`      for (int _r = 0; _r < ${font.h * size}; _r++) if (_col & (1 << ${rowBit})) { int _yy = (_sy + ${lineOffset}) + _r - _offY; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
       }
     }
     ln(`  }`)
@@ -559,11 +569,15 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`        return;`)
     ln(`      }`)
     ln(`    };`)
+    // Size draws each glyph pixel size x size, as Text does: drawn column
+    // `_c` and row `_r` read the glyph's `_c / size` and `_r / size`.
+    const size = textSize(p.size ?? TEXT_SIZE.default)
+    const glyphW = FONT_W * size, glyphH = FONT_H * size
     ln(`    auto _clkText = [&](const char *_s, int _sx, int _sy, const CRGB &_col) {`)
     ln(`      for (int _i = 0; _s[_i]; _i++) {`)
     ln(`        uint8_t _cols[${FONT_W}]; _clkCols(_s[_i], _cols);`)
-    ln(`        for (int _c = 0; _c < ${FONT_W}; _c++) { int _x = _sx + _i * ${FONT_W} + _c; if (_x < 0 || _x >= WIDTH) continue; uint8_t _bits = _cols[_c];`)
-    ln(`          for (int _r = 0; _r < ${FONT_H}; _r++) if (_bits & (1 << _r)) _clkPx(_x, _sy + _r, _col); }`)
+    ln(`        for (int _c = 0; _c < ${glyphW}; _c++) { int _x = _sx + _i * ${glyphW} + _c; if (_x < 0 || _x >= WIDTH) continue; uint8_t _bits = _cols[${size > 1 ? `_c / ${size}` : '_c'}];`)
+    ln(`          for (int _r = 0; _r < ${glyphH}; _r++) if (_bits & (1 << ${size > 1 ? `(_r / ${size})` : '_r'})) _clkPx(_x, _sy + _r, _col); }`)
     ln(`      }`)
     ln(`    };`)
     ln(`    auto _clkLine = [&](float _x0, float _y0, float _x1, float _y1, const CRGB &_col) {`)
@@ -579,9 +593,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     ln(`    };`)
     // Pixel extents of the strings each mode prints, derived from the
     // shared font so they stay in step with blitText's own layout maths.
-    const glyphRun = (chars: number) => `${chars * FONT_W}`
-    const twoLineHeight = `${FONT_H * 2 + TEXT_LINE_GAP}`
-    const subLineOffset = FONT_H + TEXT_LINE_GAP
+    const glyphRun = (chars: number) => `${chars * glyphW}`
+    const twoLineHeight = `${(FONT_H * 2 + TEXT_LINE_GAP) * size}`
+    const subLineOffset = (FONT_H + TEXT_LINE_GAP) * size
     if (transport) {
       const syExpr = textAxisStartCpp(yExpr, units, 'HEIGHT', twoLineHeight, vAlign, false)
       const sxMainExpr = textAxisStartCpp(xExpr, units, 'WIDTH', glyphRun(5), hAlign, false)
@@ -642,7 +656,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       }
     } else {
       const twoLine = mode !== 'Digital HH:MM'
-      const syExpr = textAxisStartCpp(yExpr, units, 'HEIGHT', twoLine ? twoLineHeight : `${FONT_H}`, vAlign, false)
+      const syExpr = textAxisStartCpp(yExpr, units, 'HEIGHT', twoLine ? twoLineHeight : `${glyphH}`, vAlign, false)
       const sxMainExpr = textAxisStartCpp(xExpr, units, 'WIDTH', glyphRun(5), hAlign, false)
       const sxSubExpr = textAxisStartCpp(xExpr, units, 'WIDTH', glyphRun(mode === 'Digital + Date' ? 5 : 2), hAlign, false)
       ln(`    float _clkSec_${id} = ${secondsExpr}; while (_clkSec_${id} < 0.0f) _clkSec_${id} += 86400.0f; while (_clkSec_${id} >= 86400.0f) _clkSec_${id} -= 86400.0f;`)

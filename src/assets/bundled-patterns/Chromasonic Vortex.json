@@ -115,7 +115,7 @@
           "nodeType": "GroupInput",
           "category": "composite",
           "properties": {
-            "paramId": "energy"
+            "paramId": "reactivity"
           },
           "inputs": [],
           "outputs": [
@@ -319,8 +319,8 @@
           "nodeType": "BassRings",
           "category": "pattern",
           "properties": {
-            "energy": 0.74,
-            "speed": 0.82,
+            "reactivity": 0.74,
+            "speed": 0.41,
             "r": 255,
             "g": 60,
             "b": 190
@@ -332,7 +332,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -966,7 +966,7 @@
         "source": "groupmul-group-1783293400000-energy-0",
         "sourceHandle": "result",
         "target": "BassRings-1",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {
