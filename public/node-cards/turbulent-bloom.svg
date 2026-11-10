@@ -281,6 +281,9 @@
 <use href="#lamp-6.94x6.94" x="220.59" y="252.59" fill="rgb(12,46,65)"/>
 <rect x="214" y="42" width="16" height="14" rx="3" fill="rgba(0,0,0,0.45)"/>
 <text x="222" y="52" text-anchor="middle" font-size="9" fill="#a0a0a0">▾</text>
+<circle cx="0" cy="280" r="9" fill="#00e0a4" opacity="0.22"/>
+<circle cx="0" cy="280" r="6" fill="#00e0a4"/>
+<text x="18" y="284" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Audio</text>
 <circle cx="240" cy="280" r="9" fill="#5ad1ff" opacity="0.22"/>
 <circle cx="240" cy="280" r="6" fill="#5ad1ff"/>
 <text x="222" y="284" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Frame</text>
@@ -327,9 +330,9 @@
 <text x="8" y="420" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">speed</text>
 <g>
 <rect x="98" y="414" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="98" y="414" width="72.0" height="4" rx="2" fill="#d633ff"/>
-<circle cx="170.0" cy="416" r="6" fill="#d633ff"/>
-<text x="210" y="420" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">1</text>
+<rect x="98" y="414" width="36.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="134.0" cy="416" r="6" fill="#d633ff"/>
+<text x="210" y="420" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.5</text>
 </g>
 <text x="224" y="420" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
 <text x="8" y="442" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">palette</text>

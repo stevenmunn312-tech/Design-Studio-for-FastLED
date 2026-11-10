@@ -26,9 +26,9 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ### Button
 
-![Button node](../../public/node-cards/button-input.svg)
+![Button node](../../public/node-cards/button-bank.svg)
 
-![Button example graph](../../public/node-cards/graphs/button-input.svg)
+![Button example graph](../../public/node-cards/graphs/button-bank.svg)
 
 ### Touch Button
 
@@ -41,12 +41,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Touch Screen node](../../public/node-cards/touch-input.svg)
 
 ![Touch Screen example graph](../../public/node-cards/graphs/touch-input.svg)
-
-### Button Bank
-
-![Button Bank node](../../public/node-cards/button-bank.svg)
-
-![Button Bank example graph](../../public/node-cards/graphs/button-bank.svg)
 
 ### IR Remote
 
@@ -1129,12 +1123,6 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 ![Mirror node](../../public/node-cards/mirror.svg)
 
 ![Mirror example graph](../../public/node-cards/graphs/mirror.svg)
-
-### Kaleidoscope
-
-![Kaleidoscope node](../../public/node-cards/kaleidoscope.svg)
-
-![Kaleidoscope example graph](../../public/node-cards/graphs/kaleidoscope.svg)
 
 ### Frame Warp
 

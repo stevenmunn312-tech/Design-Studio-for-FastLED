@@ -310,9 +310,9 @@
 <text x="8" y="382" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">speed</text>
 <g>
 <rect x="98" y="376" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="98" y="376" width="72.0" height="4" rx="2" fill="#d633ff"/>
-<circle cx="170.0" cy="378" r="6" fill="#d633ff"/>
-<text x="210" y="382" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">1</text>
+<rect x="98" y="376" width="36.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="134.0" cy="378" r="6" fill="#d633ff"/>
+<text x="210" y="382" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.5</text>
 </g>
 <text x="224" y="382" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
 <text x="8" y="404" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">palette</text>

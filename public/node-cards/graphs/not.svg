@@ -3234,8 +3234,8 @@
 </g>
 <g transform="translate(384,424)">
 <defs><linearGradient id="tint-audio" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c3c2e"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
-<rect x="0" y="0" width="240" height="250" rx="8" fill="#1f242b" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="250" rx="8" fill="url(#tint-audio)"/>
+<rect x="0" y="0" width="240" height="278" rx="8" fill="#1f242b" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="278" rx="8" fill="url(#tint-audio)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#88ea47"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Audio Featur…</text>
@@ -3263,33 +3263,36 @@
 <circle cx="240" cy="136" r="9" fill="#c6ff32" opacity="0.22"/>
 <circle cx="240" cy="136" r="6" fill="#c6ff32"/>
 <text x="222" y="140" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Silence</text>
-<line x1="8" y1="156.5" x2="232" y2="156.5" stroke="rgba(255,255,255,0.05)"/>
-<text x="8" y="178" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Expose input…</text>
-<text x="8" y="200" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">sensitivity</text>
+<circle cx="240" cy="164" r="9" fill="#9aa0a6" opacity="0.22"/>
+<circle cx="240" cy="164" r="6" fill="#9aa0a6"/>
+<text x="222" y="168" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Level</text>
+<line x1="8" y1="184.5" x2="232" y2="184.5" stroke="rgba(255,255,255,0.05)"/>
+<text x="8" y="206" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Expose input…</text>
+<text x="8" y="228" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">sensitivity</text>
 <g>
-<rect x="98" y="194" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="98" y="194" width="36.0" height="4" rx="2" fill="#d633ff"/>
-<circle cx="134.0" cy="196" r="6" fill="#d633ff"/>
-<text x="210" y="200" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.5</text>
+<rect x="98" y="222" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="98" y="222" width="36.0" height="4" rx="2" fill="#d633ff"/>
+<circle cx="134.0" cy="224" r="6" fill="#d633ff"/>
+<text x="210" y="228" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.5</text>
 </g>
-<text x="224" y="200" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="219" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Silence Ga…</text>
+<text x="224" y="228" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="247" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Silence Ga…</text>
 <g>
-<rect x="98" y="213" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="98" y="213" width="10.8" height="4" rx="2" fill="#d633ff"/>
-<circle cx="108.8" cy="215" r="6" fill="#d633ff"/>
-<text x="210" y="219" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.15</text>
+<rect x="98" y="241" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="98" y="241" width="10.8" height="4" rx="2" fill="#d633ff"/>
+<circle cx="108.8" cy="243" r="6" fill="#d633ff"/>
+<text x="210" y="247" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.15</text>
 </g>
-<text x="224" y="219" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<text x="8" y="238" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">smoothing</text>
+<text x="224" y="247" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<text x="8" y="266" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">smoothing</text>
 <g>
-<rect x="98" y="232" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
-<rect x="98" y="232" width="60.6" height="4" rx="2" fill="#d633ff"/>
-<circle cx="158.6" cy="234" r="6" fill="#d633ff"/>
-<text x="210" y="238" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.8</text>
+<rect x="98" y="260" width="72" height="4" rx="2" fill="#cfd2d6" opacity="0.85"/>
+<rect x="98" y="260" width="60.6" height="4" rx="2" fill="#d633ff"/>
+<circle cx="158.6" cy="262" r="6" fill="#d633ff"/>
+<text x="210" y="266" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#e0e0e0" text-anchor="end">0.8</text>
 </g>
-<text x="224" y="238" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
-<rect x="0.5" y="0.5" width="239" height="249" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<text x="224" y="266" text-anchor="middle" font-size="11" opacity="0.6" filter="url(#grey)">📌</text>
+<rect x="0.5" y="0.5" width="239" height="277" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(724,504)">
 <defs><linearGradient id="tint-math" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#223432"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
