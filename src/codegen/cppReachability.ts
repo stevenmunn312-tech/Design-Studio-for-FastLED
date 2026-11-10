@@ -33,7 +33,7 @@ export function recordBodies(code: string): [number, number][] {
   const open: (number | null)[] = []
   for (let i = 0; i < code.length; i++) {
     if (code[i] === '{') {
-      open.push(/\b(?:struct|class|union)(?:\s+\w+)?\s*(?::[^;{}()]*)?$/.test(code.slice(Math.max(0, i - 200), i)) ? i : null)
+      open.push(/\b(?:struct|class|union)(?:\s+\w+)?(?:\s+final)?\s*(?::[^;{}()]*)?$/.test(code.slice(Math.max(0, i - 200), i)) ? i : null)
     } else if (code[i] === '}') {
       const start = open.pop()
       if (start != null) bodies.push([start, i])

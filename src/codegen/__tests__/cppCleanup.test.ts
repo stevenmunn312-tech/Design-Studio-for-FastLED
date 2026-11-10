@@ -60,3 +60,20 @@ describe('withoutUnreadLocals and warning silencers', () => {
     expect(withoutUnreadLocals(source)).toBe(source)
   })
 })
+
+describe('withoutUnreadLocals and record members', () => {
+  it('keeps a member a final class declares after the methods that read it', () => {
+    const source = `class Input final : public Base {
+ public:
+  void start() {
+    _failed = !begin();
+    if (!_failed) enable();
+  }
+  bool error() { return _failed; }
+ private:
+  bool _failed = false;
+};
+`
+    expect(withoutUnreadLocals(source)).toContain('bool _failed = false;')
+  })
+})
