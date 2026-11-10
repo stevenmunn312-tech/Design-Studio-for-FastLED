@@ -19,6 +19,21 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   blocks so the show, player, post-chain, and control graph deduplicate each
   operation rather than overlapping bundles. Remove shared blocks before
   capturing Code-node globals, which can contain those same blocks.
+- Text and Clock Display draw in the font their Font property names
+  (`TEXT_FONTS` in `src/nodes/shared/font.ts`); preview and firmware both read
+  that one table through `textColumns`. A font id reaches C++ identifiers, so
+  read the property only through `textFontId`, which admits the closed set.
+  Typed text bakes just its own columns and a clock just its sixteen glyphs; a
+  whole table (`fontCppHelper(id)`) is emitted only for a font a wired Text
+  uses, and each id is its own entry in `SHARED_HELPER_BLOCKS` so a show lifts
+  exactly the fonts its patterns hold. The 3x5 block keeps its unsuffixed names
+  and exact text. Derive a column's C++ type from `fontColumnCppType`: a column
+  is a bit per row, so a font over eight rows does not fit `uint8_t`. A new
+  table needs every Clock Display glyph, and `uppercase: true` if it has no
+  lower case. The glyphs in `fontGlyphs.ts` are project-drawn; FastLED's
+  `fl/font` console fonts come from an unlicensed collection and are not copied.
+  The fixed OLED and TFT layouts still draw the 3x5 font only: their row
+  pitches, text scales and emitted `*_FONT_W`/`*_FONT_H` constants assume it.
 - Unwired numeric properties can emit integer literals. Cast a division
   operand to `float` or use a floating-point coefficient before dividing;
   assigning the integer division result to a float does not restore fractions.

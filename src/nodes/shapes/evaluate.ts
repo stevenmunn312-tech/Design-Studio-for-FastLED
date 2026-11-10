@@ -1,5 +1,5 @@
 import type { RtcPreview } from '../../state/peripherals/rtc'
-import { type BitmapFont, DEFAULT_FONT, TEXT_SIZE, textBlockLayout, TEXT_LINE_GAP, textAlignMode, textSize } from '../shared/font'
+import { type BitmapFont, DEFAULT_FONT, TEXT_SIZE, textBlockLayout, TEXT_LINE_GAP, textAlignMode, textFont, textSize } from '../shared/font'
 import { asAnimatedImage, type ImageData, animatedImageFrame, asImage, sampleImageToFrame } from '../shared/image'
 import type { ImagePaletteSource } from '../../state/palettes/imagePalette'
 import { hexToRgb } from '../../state/palettes/polinePalette'
@@ -584,11 +584,11 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     return { frame: solidFrame(color, W, H) }
   },
   Text({ input, num, t, W, H, stateKey }, id, props) {
-    // A wired string replaces the typed text; both draw in the built-in font,
+    // A wired string replaces the typed text; both draw in the node's font,
     // which the sketch carries as a glyph table for a wire's text.
     const wired = input(id, 'text', null)
     const text = typeof wired === 'string' ? wired : String(props.text ?? 'HELLO')
-    const font = DEFAULT_FONT
+    const font = textFont(props.font)
     const letterSpacing = Math.max(0, Math.round(Number(props.letterSpacing ?? 1)))
     const size = textSize(props.size ?? TEXT_SIZE.default)
     const layout = textBlockLayout(text, font, letterSpacing, TEXT_LINE_GAP, size)
@@ -633,6 +633,10 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const units = positionUnits(props.units)
     // The digits' pixel scale (font.ts textSize), shared with Text.
     const size = textSize(props.size ?? TEXT_SIZE.default)
+    // The digits' font, and the blank column it wants between them: none for
+    // the 3x5 digits, as every clock has drawn them (font.ts clockGap).
+    const font = textFont(props.font)
+    const digitGap = font.clockGap ?? 0
     const radiusScale = props.scaleWithMatrix ? matrixSizeScale(W, H) : 1
     const radius = Math.max(2, num(id, 'radius', props, 'radius', 6) * radiusScale)
     const baseIn = input(id, 'base', null) as Frame | null
@@ -676,13 +680,13 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
         color,
         x,
         y,
-        DEFAULT_FONT,
+        font,
         W,
         H,
         textAlignMode(props.hAlign ?? 'center', 'left', 'right'),
         textAlignMode(props.vAlign ?? 'middle', 'top', 'bottom'),
         false,
-        0,
+        digitGap,
         units,
         units,
         size,
@@ -707,7 +711,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       if (mode === 'Analog + Date') {
         // The date starts on the row below the face, floor(cy + radius + 1),
         // as the sketch draws it: a pixel row whatever the units.
-        blitText(frame, valid ? clockDateText(day, month) : '--.--', scaleRgb(color, 0.9), x, cy + radius + 0.5, DEFAULT_FONT, W, H, 'center', 'start', false, 0, units, 'pixels', size)
+        blitText(frame, valid ? clockDateText(day, month) : '--.--', scaleRgb(color, 0.9), x, cy + radius + 0.5, font, W, H, 'center', 'start', false, digitGap, units, 'pixels', size)
       }
       return { frame, ...clockOut }
     }
@@ -737,13 +741,13 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       color,
       x,
       y,
-      DEFAULT_FONT,
+      font,
       W,
       H,
       textAlignMode(props.hAlign ?? 'center', 'left', 'right'),
       textAlignMode(props.vAlign ?? 'middle', 'top', 'bottom'),
       false,
-      0,
+      digitGap,
       units,
       units,
       size,

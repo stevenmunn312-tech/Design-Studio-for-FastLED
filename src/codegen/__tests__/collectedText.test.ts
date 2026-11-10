@@ -39,6 +39,28 @@ describe('collected pattern dependencies', () => {
     }
   })
 
+  it('lifts each font a collected wired Text names, once, and no other', () => {
+    const inFont = (font: string) => ({
+      nodes: [node('number', 'FormatNumber', { value: 42 }), node('text', 'Text', { font }), node('output', 'GroupOutput')],
+      edges: [edge('number', 'text', 'text', 'text'), frame('text', 'output')],
+    })
+    const groups = { a: inFont('5x8'), b: inFont('5x8'), c: textGroup } as GroupRegistry
+    const collection = [node('pc', 'PatternCollection', { patternIds: ['a', 'b', 'c'] }), ...nodes.slice(1)]
+    const renderers = buildPatternRenderers(['a', 'b', 'c'], groups)
+    for (const cpp of [generateShowSketch(collection, edges, groups), generatePlayerSketch({}, renderers, { genericPlayer: true })]) {
+      expect(cpp.match(/^static const uint8_t _fontCols_5x8\[/gm)).toHaveLength(1)
+      expect(cpp.match(/^static uint8_t _fontCol_5x8\(/gm)).toHaveLength(1)
+      expect(cpp.match(/^static const uint8_t _fontCols\[/gm)).toHaveLength(1)
+      expect(cpp.match(/^static uint8_t _fontCol\(/gm)).toHaveLength(1)
+      expect(cpp).toContain('_fontCol_5x8(_ts[')
+      expect(cpp).not.toMatch(/_fontCols?_(4x6|6x8)/)
+    }
+    // A show whose patterns all draw in 5x8 carries no 3x5 table.
+    const only = buildPatternRenderers(['a', 'b'], groups).helpers.join('\n')
+    expect(only).toContain('static uint8_t _fontCol_5x8(')
+    expect(only).not.toMatch(/_fontCol\(|_fontChars/)
+  })
+
   it('does not capture a shared font twice when it follows Code-node globals', () => {
     const group = {
       nodes: [node('code', 'Code', { globalCode: 'float textGain = 0.5f;', code: '' }),

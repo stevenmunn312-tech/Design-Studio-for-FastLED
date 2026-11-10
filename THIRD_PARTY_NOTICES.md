@@ -48,6 +48,12 @@ Each license is shipped next to its files.
   `public/fonts/JetBrainsMono-OFL.txt`.
 - Characters outside those subsets fall back to the generic family in the
   stack (`sans-serif` or `monospace`).
+- The LED bitmap fonts Text and Clock Display draw with (3×5, 4×6, 5×8 and
+  the bold 6×8, in `src/nodes/shared/font.ts` and `fontGlyphs.ts`) are
+  project-authored and fall under [`LICENSE`](LICENSE). They are not the
+  console fonts FastLED ships under `src/fl/font/`: those come from the
+  `idispatch/raster-fonts` collection by way of WLED, which publishes no
+  licence for them, so no glyph data was copied from there.
 
 ## Icons and branding assets
 
