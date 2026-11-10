@@ -9,6 +9,14 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- The MAX485 DMX transceiver and the Adafruit MIDI FeatherWing are bench
+  parts on a new DMX & MIDI shelf, with pins assigned automatically and
+  renders rebuilt from new 3-D models. A DMX node set to DMX512 and MIDI
+  nodes set to DIN read them, adding a part brings its node, and Graph
+  Health (and a button on the node) offers to add the missing part.
+- Touch-screen Sliders and Dials and Web Remote sliders have a Scale setting
+  (linear or log). A control wired to a log property takes its scale, and
+  Match target range includes it.
 - Audio Features has a Level output: Loudness lifted by Sensitivity (6.4× at
   the default, raw at 0), eased over 0.15 s and held to 0–1, ready for a 0–1
   input without a Smooth node.
@@ -295,6 +303,26 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- Serial parts' UARTs are allocated automatically: the radar and DFPlayer
+  keep their fixed ports, then the DMX transceiver and the MIDI interface
+  each take the lowest free UART. Graph Health names who holds a port when a
+  board runs out. Every DIN MIDI node on a board reads the one jack through
+  a shared reader.
+- Sliders whose range spans decades move on a log scale: Color Trails' Trail
+  length (the usual 10-18 s now sit about two thirds along), Breathe rate,
+  Interval and Sequencer interval, Music Player and Pattern Slideshow hold
+  times, Trigger debounce, One Shot hold and Buzzer pitch. Values are stored
+  as before. Control Deck faders, MIDI faders and scene morphs follow the
+  same scale; a deck pin or touch widget made earlier keeps linear travel
+  until it is pinned again or its range is matched.
+- Fire, Boids and Reaction Diffusion run at the same pace at any board frame
+  rate down to 15 fps, and a board above 60 fps no longer speeds them up.
+  Reaction Diffusion's Steps counts per 60th of a second.
+- On a one-row strip, Path and Fourier Epicycles sweep their point (and
+  Fourier's trail) along the strip, and Fourier hides its guide circles
+  there. Matrices are unchanged.
+- The built-in Kaleidoscope show pattern draws a six-segment kaleidoscope of
+  a fine plasma, turning slowly in the show's palette and speed.
 - The audio patterns' Energy setting is stored as `reactivity`, as a
   property and a port, so it no longer shares a name with Audio Features'
   Energy output and wiring Energy or Loudness into it is a deliberate
@@ -881,6 +909,18 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- The built-in Simplex2D show pattern runs at the pace it had before Noise's
+  types merged, at every show speed, in the preview and on the board. It had
+  run 2.5 times slower.
+- String Particles' trails and Formula Points' Lissajous and rose trails
+  stay as bright and unbroken at 30 fps as at 60, and Particles' Rate spawns
+  as many a second at any frame rate (Rate 0.3 at 30 fps spawned about 15%
+  fewer).
+- Radial Mirror lights a one-row strip: the fold's source landed below the
+  row, so the Kaleidoscope show pattern and bundled radial patterns drew a
+  strip black.
+- Two DIN MIDI nodes on one board no longer split the jack's bytes between
+  them.
 - Centred patterns work on one-row strips, rings and corkscrews: Geometry
   Field's Lissajous no longer renders near-black, Shape Field's default
   circle is no longer a speck, Path and Fourier Epicycles have room to move,
@@ -1317,6 +1357,9 @@ versioning (`0.y.z`) until the first stable release.
 - Saved projects are not migrated for the node removals, renames and property
   changes below (pre-1.0); every bundled pattern, Help example and starter
   template was converted.
+- The DMX node's UART and pin settings (`dmxPort`, `dmxTxPin`, `dmxRxPin`,
+  `dmxEnablePin`) and the MIDI node's `midiUart` and `midiRxPin`; the bench
+  parts and the UART allocator own them, and old saves drop them on load.
 - The Kaleidoscope node; use Mirror's Radial axis. Bundled patterns, seeds,
   Help examples and the Kaleidoscope show pattern are converted and look the
   same.

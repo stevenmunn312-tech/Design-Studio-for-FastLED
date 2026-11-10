@@ -87,8 +87,11 @@ remap, the band patterns' Audio input and palettes, Audio Features Level,
 Color Trails' linked axes, Mirror Radial (Kaleidoscope removed), output
 Gamma, Math Switch Select, the Noise/Plasma merge, simulation motion on the
 clock, strip centring, Text Size, Button as a one-row bank, Clock time zones
-and 4096-LED strings. What follows is what is left, plus what those passes
-turned up. Merges, renames and removed properties change saved shapes: land
+and 4096-LED strings. A follow-up pass the same day landed what those
+turned up: DMX512 and DIN MIDI as bench parts with a UART allocator, the
+built-in Simplex2D pace and a Kaleidoscope source, log sliders, the rest of
+the simulations on the clock, and Path, Fourier and radial Mirror on a
+one-row strip. What follows is what is left, plus what that pass turned up. Merges, renames and removed properties change saved shapes: land
 them before the HW-18 format freeze, or drop them.
 
 New firmware from those passes has not been compiled yet. Before the
@@ -131,45 +134,34 @@ and long-side sizing (a 60x1 strip with Geometry Field, a formula reading
 Clock Display at Size 2 (a 64x32 HUB75), and Button rows (`ssr`,
 `board-links`, `control-graph`, the Player Buttons and Screen starter).
 
-#### Inputs, hardware, graph and code
+Also uncompiled, from the later 2026-11-10 pass: the DMX transceiver and MIDI
+interface bench parts (a DMX512 node on a classic ESP32 and on an ESP32-C3,
+whose one spare UART takes the `CONFIG_IDF_TARGET_*` branch; two DIN MIDI
+nodes sharing `midiDinCpp`'s reader; DMX512 beside a radar and a DFPlayer so
+the allocator moves it), simulations on the clock (Fire classic, smoke and
+Fire2012, Boids in density mode with `_bnx`/`_bny`/`_bnn` as statics,
+Reaction Diffusion, String Particles drift and meteors, Formula Points
+Lissajous and rose, Particles fireworks and waterfall), a log Slider and
+Dial on an LVGL screen (`_rsLogValue`, `_rsLogPosition`), the Simplex2D show
+clock and the Kaleidoscope show pattern (`performance` player), Path and
+Fourier on a 60x1 strip (`FLAT_PATH_ROW_CPP`), and radial Mirror on a strip.
 
-- [ ] **Category: Move DMX512 and DIN MIDI hardware to bench parts (Med, M).**
-  Every other physical input is a bench part with auto-assigned pins, but
-  DMX512 and DIN MIDI keep raw pin sliders and a user-picked UART on library
-  nodes. Mirror the Audio to Microphone model: bench parts for the RS-485
-  transceiver and MIDI wing, UART allocated automatically, and drop
-  `dmxPort`/`midiUart`. Evidence `src/nodes/input/definitions.ts:451`,
-  `src/build/hardwareManifest.ts:1502`. Still open: it needs bench entries
-  (and verified renders) for the MAX485 board and the MIDI FeatherWing, and a
-  UART allocator. Meanwhile `midiUartValidationIssues` refuses a DIN UART the
-  radar, DMX512, the DFPlayer or a second jack already reads. Blocked on
-  Blender models: neither part is in `Blender Assets` yet.
+#### Found while landing the follow-up pass
 
-#### Found while landing the last pass
-
-- [ ] **Show: Simplex2D runs slower at high show speeds (Med, S).** The
-  built-in Simplex2D is now Noise fbm with the Simplex preset, and the show's
-  speed rides the `speed` wire into fbm, whose top rate is 1.2 against
-  simplex's 3. Above a show speed of about 0.4 it runs up to 2.5x slower than
-  before (the show default is 1). Scale speed in the built-in show path, or
-  widen fbm's range (which rescales every fbm use).
-- [ ] **Show: the built-in Kaleidoscope pattern draws black (Low, S).** It is
-  an effect with no source wired, now a radial Mirror, and always drew black.
-  Give it a source or drop it from Performance Generator's chorus list.
-- [ ] **Color Trails: a log Trail length slider (Low, M).** Trail length is a
-  half-life of 0.1-120 s on a linear slider, so the bundled 10-18 s values sit
-  at 8-15% of its travel. Property sliders are linear only; a log mapping
-  means the shared slider, the deck faders and Touch widget ranges.
-- [ ] **Simulations: the rest of per-pass motion (Med, M).** Still per pass:
-  String Particles' trail deposits (dimmer with gaps at 30 fps), Boids,
-  Fire's cooling and sparks, Reaction Diffusion iterations, and Formula
-  Points' Lissajous and rose dot. Rate spawns cap at one per pass
-  (`passChance`), so Rate 0.3 at 30 fps spawns about 15% fewer.
-- [ ] **Strips: decide how 2-D paths read on a one-row strip (Low, S).** A
-  strip now shows the middle slice of a centred pattern, so a circle Path
-  lights only where it crosses the row and Fourier mostly shows its guide
-  circles. Flattening the y reach on a 1-row canvas would make a point sweep
-  the strip instead.
+- [ ] **Trails: short byte trails read brighter at 30 fps (Low, S).** The
+  shared byte fade (`trailFade.ts`) floors each step, and 60 fps pays that
+  twice as often, so below a trail of about 0.85 a 30 fps board draws a trail
+  up to 8% brighter with about 12% more lit pixels. It affects every
+  byte-trail node. Fold the floor into the per-second rate, or carry the
+  remainder.
+- [ ] **DIN MIDI inside a show or SD-player pattern reads idle (Low, S).** An
+  extracted pattern has no MIDI interface to see, so its DIN nodes get no
+  messages; before the bench parts it emitted its own reader into the
+  pattern. Give the show and SD-player sketches the board's shared reader, or
+  refuse DIN MIDI inside an exported pattern.
+- [ ] **Help cards cut long part names (Low, S).** "DMX Transcei...", "MIDI
+  Interfa..." and "DC-DC Conver..." truncate on their Help cards. Wrap the
+  title or shorten the label.
 
 
 ## 4. Bench and community testing (non-blocking, in parallel)
