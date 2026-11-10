@@ -27,14 +27,14 @@ import { speedPhase } from '../shared/speedClock'
 import {
   auroraPixel, auroraRow, bloomFrame, bloomPixel, cascadeFrame, emberFrame, emberPixel, kaleidoFrame, kaleidoPixel, mosaicCell,
   trailColumnPass, trailFade15, trailRowPass, trailShift8, wavesFrame, wavesPixel, ringsFrame, ringsPixel, shockFrame, shockPixel,
-  turbulentFrame, turbulentPixel, wellFrame, wellPixel, cascadePixel, prismFrame, prismPixel, stormFrame, stormPixel } from '../shared/integerPatterns'
+  turbulentFrame, turbulentPixel, wellFrame, wellIndex, wellPixel, cascadePixel, prismFrame, prismPixel, stormFrame, stormPixel } from '../shared/integerPatterns'
 import { inoise8, scale8 } from '../shared/lib8tion'
 import { samplePaletteClamped } from '../../state/palettes/ledColor'
 import { METER_PEAK_FALL, METER_PEAK_HOLD, meterDistance, meterFill, meterOrigin } from './levelMeter'
 import { trebleSparksFadeBy } from './trebleSparks'
 import { fadeFrameToBlackBy } from '../shared/trailFade'
 import {
-  danceFlashAdvance, danceFlashStart, stampDanceFlash, type DanceFlashClock,
+  danceFlashAdvance, danceFlashPaletteIndex, danceFlashStart, stampDanceFlash, type DanceFlashClock,
 } from './danceFlash'
 import { demoDrums, demoDrumsActive } from './demoDrums'
 import { envelopeDt, keepOver } from '../shared/envelopeClock'
@@ -519,6 +519,31 @@ export function beatFlashUsesPalette(props: Record<string, unknown>, paletteWire
   return paletteWired || props.colorSource === 'palette'
 }
 
+/** Dance Flash colours its silhouette from the palette like Beat Flash: a
+ *  wired palette, or Color set to Palette; Solid (the default) is R, G, B. */
+export const danceFlashUsesPalette = beatFlashUsesPalette
+
+/**
+ * Ember Pulse's Color: Heat (the default) is FastLED's HeatColor ramp, the
+ * look it has always had; Palette, or a wired palette, reads the heat byte
+ * through the palette as an amount, so the hottest pixel takes its last colour.
+ */
+export const EMBER_COLOR_SOURCES = ['heat', 'palette'] as const
+export function emberUsesPalette(props: Record<string, unknown>, paletteWired: boolean): boolean {
+  return paletteWired || props.colorSource === 'palette'
+}
+
+/**
+ * Gravity Well's Color: Palette (the default for a new node) colours the
+ * rings by their distance from the well; Solid is R, G, B. A wired palette
+ * always colours, and a wired Color port wins over both. A node saved
+ * without the key reads the library default, as the canvas shows it; every
+ * bundled use names Solid.
+ */
+export function gravityWellUsesPalette(props: Record<string, unknown>, paletteWired: boolean): boolean {
+  return paletteWired || (props.colorSource ?? 'palette') === 'palette'
+}
+
 function updateBeatFlashLevel(key: string, beat: boolean, attack: number, decay: number, now: number): number {
   const state = flashLevel.get(key) ?? { level: 0, rising: false, prevBeat: false, lastT: undefined }
   const dt = envelopeDt(state.lastT, now)
@@ -758,7 +783,7 @@ function evalPercussionBlobs(
 // treble shape which columns run hot, with a beat-triggered ember burst.
 function evalEmberPulse(
   key: string, bass: number, mids: number, treble: number, beat: boolean, energy: number,
-  speed: number, t: number, W = DEFAULT_W, H = DEFAULT_H, now = t,
+  speed: number, t: number, W = DEFAULT_W, H = DEFAULT_H, now = t, palette: Palette | null = null,
 ): Frame {
   // A rising beat edge adds a burst; it keeps 0.9 of itself every 60th of a second.
   const held = emberBurst.get(key)
@@ -772,6 +797,9 @@ function evalEmberPulse(
 
   // The sketch's integer kernel (shared/integerPatterns.ts).
   const frame = emberFrame(W, H, bass, mids, treble, strength, flicker, burst)
+  // Heat colours through HeatColor, or through a palette as an amount
+  // (LINEARBLEND_NOWRAP in the sketch), so the hottest pixel is its last colour.
+  if (palette) return buildFrame(W, H, (x, y) => samplePaletteClamped(palette, emberPixel(x, y, H, frame) / 255))
   return buildFrame(W, H, (x, y) => heatColor(emberPixel(x, y, H, frame)))
 }
 
@@ -806,7 +834,7 @@ function evalTurbulentBloom(
 // well instead of BassRings' evenly-spaced sine rings.
 function evalGravityWell(
   key: string, bass: number, energy: number, speed: number, color: RGB, t: number,
-  W = DEFAULT_W, H = DEFAULT_H,
+  W = DEFAULT_W, H = DEFAULT_H, palette: Palette | null = null,
 ): Frame {
   const level = clamp01(bass), strength = clamp01(energy)
   const cx0 = (W - 1) / 2, cy0 = (H - 1) / 2
@@ -822,7 +850,9 @@ function evalGravityWell(
   const frame = wellFrame(wellX, wellY, maxD, k, phase, 0.03 + level * 0.08 * strength, 0.15 + level * 0.85 * strength)
   return buildFrame(W, H, (x, y) => {
     const v = wellPixel(x, y, frame)
-    return { r: scale8(color.r, v), g: scale8(color.g, v), b: scale8(color.b, v) }
+    // Palette: colour by distance from the well, as Bass Rings does from the centre.
+    const c = palette ? samplePalette(palette, wellIndex(x, y, frame) / 256) : color
+    return { r: scale8(c.r, v), g: scale8(c.g, v), b: scale8(c.b, v) }
   })
 }
 
@@ -1318,7 +1348,7 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
   },
   // Keep in lockstep with the `DanceFlash` emitter: same 16×16 art, same
   // centred square fit, same millisecond schedule (danceFlash.ts).
-  DanceFlash({ input, num, W, H, stateKey, incoming, t }, id, props) {
+  DanceFlash({ input, num, pal, W, H, stateKey, incoming, t }, id, props) {
     const base = input(id, 'frame', null) as Frame | null
     const beatWired = incoming.has(`${id}:beat`)
     const beat = beatWired && input(id, 'beat', false) === true
@@ -1332,7 +1362,11 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     slot.lastT = t
     const showing = danceFlashAdvance(slot.clock, t, beat, beatWired, Math.random, props.gap)
     if (!showing) return { frame: base ?? blankFrame(W, H) }
-    const color = {
+    // A wired palette, or Color set to Palette, runs down the figure.
+    const palette = danceFlashUsesPalette(props, incoming.has(`${id}:paletteIn`))
+      ? pal(id, 'paletteIn', props, 'palette', 'rainbow')
+      : null
+    const color = palette ? (row: number) => samplePaletteClamped(palette, danceFlashPaletteIndex(row) / 255) : {
       r: byte(num(id, 'r', props, 'r', 255) / 255),
       g: byte(num(id, 'g', props, 'g', 255) / 255),
       b: byte(num(id, 'b', props, 'b', 255) / 255),
@@ -1412,7 +1446,10 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const beatVal = input(id, 'beat', false) as boolean
     const energy = num(id, 'energy', props, 'energy', 0.7)
     const speed = num(id, 'speed', props, 'speed', 1)
-    return { frame: evalEmberPulse(stateKey(id), bass, mids, treble, beatVal, energy, speed, t, W, H, elapsedT) }
+    const palette = emberUsesPalette(props, ctx.incoming.has(`${id}:paletteIn`))
+      ? ctx.pal(id, 'paletteIn', props, 'palette', 'heat')
+      : null
+    return { frame: evalEmberPulse(stateKey(id), bass, mids, treble, beatVal, energy, speed, t, W, H, elapsedT, palette) }
   },
   TurbulentBloom(ctx, id, props) {
     const { num, pal, t, W, H, stateKey } = ctx
@@ -1437,7 +1474,11 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
       g: byte(num(id, 'g', props, 'g', 160) / 255),
       b: byte(num(id, 'b', props, 'b', 255) / 255),
     }
-    return { frame: evalGravityWell(stateKey(id), bass, energy, speed, color, t, W, H) }
+    // A wired Color wins; otherwise Color chooses R, G, B or the palette.
+    const palette = !colorIn && gravityWellUsesPalette(props, ctx.incoming.has(`${id}:paletteIn`))
+      ? ctx.pal(id, 'paletteIn', props, 'palette', 'ocean')
+      : null
+    return { frame: evalGravityWell(stateKey(id), bass, energy, speed, color, t, W, H, palette) }
   },
   RainRipples({ input, num, pal, t, W, H, stateKey }, id, props) {
     const trigger = input(id, 'trigger', false) as boolean

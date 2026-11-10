@@ -288,17 +288,22 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'frame', label: 'Base', dataType: 'frame' },
       { id: 'beat', label: 'Beat', dataType: 'bool' },
+      // Wire a palette, or set Color to Palette, to run it down the figure;
+      // Color's Solid (the default) is the r/g/b colour, as on Beat Flash.
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'r', label: 'R', dataType: 'float' },
       { id: 'g', label: 'G', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
     ],
-    propertyInputs: { r: 'r', g: 'g', b: 'b' },
+    propertyInputs: { palette: 'paletteIn', r: 'r', g: 'g', b: 'b' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // 1 is repeatable in preview and firmware. 0 draws freely on each side.
       seed: 1,
       // Quiet time between flashes (DANCE_FLASH_GAPS in danceFlash.ts).
       gap: '2–5 min',
+      colorSource: 'solid',
+      palette: 'rainbow',
       r: 255, g: 255, b: 255,
     },
   },
@@ -424,7 +429,9 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // Bottom-up column fire (HeatColor ramp) — bass/mids/treble shape the columns.
+    // Bottom-up column fire — bass/mids/treble shape the columns. Color's Heat
+    // (the default) is FastLED's HeatColor ramp; Palette, or a wired palette,
+    // reads the heat through the palette instead.
     type: 'EmberPulse',
     label: 'Ember Pulse',
     category: 'pattern',
@@ -436,9 +443,10 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'energy', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
-    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed' },
+    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
     defaultExposedInputs: ['bass', 'mids', 'treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
@@ -446,6 +454,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       // fall back to, now dialable so a pattern can be judged without audio.
       bass: 0.5, mids: 0.5, treble: 0.5,
       energy: 0.7, speed: 1.0,
+      colorSource: 'heat', palette: 'heat',
     },
   },
   {
@@ -475,6 +484,9 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // Gravitational-lensing rings — bass drives density, rings bunch near the well.
+    // Color is Beat Flash's model: Palette (a new node's default) colours the
+    // rings by distance from the well, Solid uses R, G, B, and a wired Color
+    // port wins over both.
     type: 'GravityWell',
     label: 'Gravity Well',
     category: 'pattern',
@@ -483,13 +495,14 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'energy', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'color', label: 'Color', dataType: 'color' },
       { id: 'r', label: 'R', dataType: 'float' },
       { id: 'g', label: 'G', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
       { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
-    propertyInputs: { bass: 'bass', energy: 'energy', speed: 'speed', r: 'r', g: 'g', b: 'b' },
+    propertyInputs: { bass: 'bass', energy: 'energy', speed: 'speed', palette: 'paletteIn', r: 'r', g: 'g', b: 'b' },
     defaultExposedInputs: ['bass'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
@@ -497,6 +510,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       // fall back to, now dialable so a pattern can be judged without audio.
       bass: 0.5,
       energy: 0.7, speed: 1.0, r: 80, g: 160, b: 255,
+      colorSource: 'palette', palette: 'ocean',
     },
   },
   {

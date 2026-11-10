@@ -7,7 +7,7 @@ import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import {
   auroraFrameCpp, auroraPixelCpp, auroraRowCpp, cascadeFrameCpp, cascadePixelCpp, prismFrameCpp, prismPixelCpp,
   EMBER_PIXEL_CPP, KALEIDO_PIXEL_CPP, trailColumnPassCpp, trailRowPassCpp, MOSAIC_PIXEL_CPP, WAVES_PIXEL_CPP, bloomFrameCpp, emberFrameCpp, wavesFrameCpp, bloomPixelCpp, kaleidoFrameCpp, ringsFrameCpp, ringsPixelCpp, shockFrameCpp, shockPixelCpp, stormFrameCpp, stormPixelCpp,
-  turbulentFrameCpp, turbulentPixelCpp, wellFrameCpp, wellPixelCpp,
+  turbulentFrameCpp, turbulentPixelCpp, wellFrameCpp, wellPixelCpp, WELL_INDEX_CPP,
 } from '../shared/integerPatterns'
 import {
   WAVE_GAIN_MAX, WAVE_GAIN_MIN, WAVE_PALETTE_BASE, WAVE_PALETTE_SPAN, WAVE_RING_BASE, WAVE_RING_SLACK, WAVE_RING_SPAN,
@@ -15,7 +15,7 @@ import {
 } from '../../state/evaluator/waveform'
 import {
   BEAT_FLASH_ATTACK_MAX_SEC, VOCAL_AURORA_MIN_INPUT_GAIN, VOCAL_AURORA_MAX_INPUT_GAIN,
-  beatFlashMode, beatFlashUsesPalette,
+  beatFlashMode, beatFlashUsesPalette, danceFlashUsesPalette, emberUsesPalette, gravityWellUsesPalette,
 } from './evaluate'
 import { METER_PEAK_FALL, METER_PEAK_HOLD, meterOrigin } from './levelMeter'
 import { trebleSparksFadeByCpp } from './trebleSparks'
@@ -434,7 +434,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
   },
   // Keep in lockstep with the `DanceFlash` evaluator (danceFlash.ts): the
   // same artwork, nearest-neighbour fit to a centred square, and millisecond LCG schedule.
-  DanceFlash({ node, id, p, ln, ownBuf, seedFrom, incoming, boolExpr, channelColor, needsT }) {
+  DanceFlash({ node, id, p, ln, ownBuf, seedFrom, incoming, boolExpr, channelColor, needsT, paletteExpr }) {
     needsT.v = true
     const ob = ownBuf()
     // A missing seed is the evaluator's 1, not an unseeded 0: an older save
@@ -482,14 +482,19 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`      _dfUntil_${id}=t+${DANCE_FLASH_HOLD_MS}/1000.0f; _dfNext_${id}=_dfUntil_${id}+_dfGap_${id}; _dfOn_${id}=true;`)
     if (beatWired) ln(`      }`)
     ln(`    }`)
-    ln(`    if(_dfOn_${id}){ CRGB _dfCol_${id}=${color};`)
+    // Palette runs down the figure, head to foot (danceFlashPaletteIndex).
+    const pal = danceFlashUsesPalette(p, incoming.has(`${node.id}:paletteIn`)) ? paletteExpr(node.id, 'paletteIn', p) : null
+    ln(pal ? `    if(_dfOn_${id}){` : `    if(_dfOn_${id}){ CRGB _dfCol_${id}=${color};`)
     // The largest square the matrix holds, centred (danceFit), so the
     // figure keeps its shape on a wide or tall panel.
     ln(`      int _dfS=max(1,min(WIDTH,HEIGHT)); int _dfOx=(WIDTH-_dfS)/2,_dfOy=(HEIGHT-_dfS)/2;`)
     ln(`      for(int _fy=0;_fy<_dfS;_fy++) for(int _fx=0;_fx<_dfS;_fx++){`)
     ln(`        int _sx=min(${DANCE_SIZE - 1},(_fx*${DANCE_SIZE})/_dfS); if(_dfMir_${id}) _sx=${DANCE_SIZE - 1}-_sx;`)
     ln(`        int _sy=min(${DANCE_SIZE - 1},(_fy*${DANCE_SIZE})/_dfS);`)
-    ln(`        if(_dfGlyph[_dfFig_${id}][_sy]&(uint16_t)(1u<<(${DANCE_SIZE - 1}-_sx))) ${ob}[(_fy+_dfOy)*WIDTH+_fx+_dfOx]=_dfCol_${id};`)
+    const lit = pal
+      ? `ColorFromPalette(${pal},(uint8_t)((_sy*255)/${DANCE_SIZE - 1}),255,LINEARBLEND_NOWRAP)`
+      : `_dfCol_${id}`
+    ln(`        if(_dfGlyph[_dfFig_${id}][_sy]&(uint16_t)(1u<<(${DANCE_SIZE - 1}-_sx))) ${ob}[(_fy+_dfOy)*WIDTH+_fx+_dfOx]=${lit};`)
     ln(`      }`)
     ln(`    }`)
     ln(`  }`)
@@ -726,7 +731,11 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     for (const line of emberFrameCpp('_b', '_m', '_tr', '_strength', '_flicker', `_epBurst_${id}`)) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     for (const line of EMBER_PIXEL_CPP) ln(`      ${line}`)
-    ln(`      ${ob}[_y*WIDTH+_x]=HeatColor(_epH);`)
+    // Heat colours through HeatColor, or through the palette as an amount.
+    const pal = emberUsesPalette(ctx.p, ctx.incoming.has(`${node.id}:paletteIn`)) ? ctx.paletteExpr(node.id, 'paletteIn', ctx.p) : null
+    ln(pal
+      ? `      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},_epH,255,LINEARBLEND_NOWRAP);`
+      : `      ${ob}[_y*WIDTH+_x]=HeatColor(_epH);`)
     ln(`    }`)
     ln(`  }`)
   },
@@ -777,13 +786,22 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    float _wellX=_cx0+cosf(${phOrbit}*0.25f)*_orbitR, _wellY=_cy0+sinf(${phOrbit}*0.35f)*_orbitR;`)
     ln(`    float _maxD=max(1e-6f,sqrtf(_cx0*_cx0+_cy0*_cy0));`)
     ln(`    float _k=5.0f+_level*10.0f*_strength, _phase=${phWave};`)
-    ln(`    CRGB _base=${colorE};`)
+    // A wired Color wins; otherwise Color chooses R, G, B or the palette.
+    const pal = !ctx.incoming.has(`${ctx.node.id}:color`) && gravityWellUsesPalette(ctx.p, ctx.incoming.has(`${ctx.node.id}:paletteIn`))
+      ? ctx.paletteExpr(ctx.node.id, 'paletteIn', ctx.p)
+      : null
+    if (!pal) ln(`    CRGB _base=${colorE};`)
     // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
     for (const line of wellFrameCpp('_wellX', '_wellY', '_maxD', '_k', '_phase', '(0.03f+_level*0.08f*_strength)', '(0.15f+_level*0.85f*_strength)', id)) ln(`    ${line}`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     for (const line of wellPixelCpp(id)) ln(`      ${line}`)
     ln(`      int _i=_y*WIDTH+_x;`)
-    ln(`      ${ob}[_i]=_base;`)
+    if (pal) {
+      ln(`      ${WELL_INDEX_CPP}`)
+      ln(`      ${ob}[_i]=ColorFromPalette(${pal},_gwIdx);`)
+    } else {
+      ln(`      ${ob}[_i]=_base;`)
+    }
     ln(`      ${ob}[_i].nscale8(_gwV);`)
     ln(`    }`)
     ln(`  }`)

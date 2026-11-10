@@ -1134,10 +1134,12 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Dance Flash briefly stamps a silhouette over the frame you give it: a DJ at the decks, a man dancing, a woman dancing, or the two of them together. The pictures are drawn at 16×16 and scaled to the largest square the matrix holds, centred, so a wide or tall panel shows the same pose without squashing it.',
       'It stays quiet for the Gap, about 30 seconds, one to two minutes, or two to five minutes (the default), then flashes for a fraction of a second. Each flash picks one of the four poses and may mirror it left to right. Leave Beat unwired and the flashes keep their own time. Wire a beat and a due flash waits for the next one, so it lands in the music.',
+      'Color chooses how the figure is lit: Solid (the default) draws it in the R, G and B colour, and Palette runs the palette down it from head to foot.',
     ],
     inputs: {
       frame: 'The picture the silhouette flashes over. Unwired, it flashes on black.',
       beat: 'Optional. When wired, a flash waits for the next beat instead of using its own timer.',
+      paletteIn: 'Optional. A wired palette runs down the figure whatever Color says.',
     },
     example: example({
       featured: 'DanceFlash',
@@ -1274,9 +1276,11 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   EmberPulse: {
     overview: [
       'Ember Pulse is a fire that burns from the bottom in columns: bass heats the centre columns, treble the edges, and every beat sends a burst up.',
+      'Color chooses how the heat is lit: Heat (the default) is FastLED’s HeatColor ramp, black through red and yellow to white, and Palette reads the heat through a palette instead, coolest to hottest.',
     ],
     inputs: {
       beat: 'Each rising edge sends a burst of heat up the columns.',
+      paletteIn: 'Optional. A wired palette colours the heat whatever Color says.',
       audio: BAND_AUDIO_INPUT,
     },
     example: example({
@@ -1319,10 +1323,11 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   GravityWell: {
     overview: [
       'Gravity Well draws rings that bunch up as they approach a drifting well, like light bent by gravity. Bass packs more rings toward the well.',
-      'It uses one colour, from its fields or a wired colour.',
+      'Color chooses how the rings are lit: Palette (the default) colours them by their distance from the well, and Solid uses the R, G and B colour.',
     ],
     inputs: {
-      color: 'Ring colour. Replaces the R, G and B fields.',
+      paletteIn: 'Optional. A wired palette colours the rings whatever Color says.',
+      color: 'Ring colour. Replaces the palette and the R, G and B fields.',
       audio: BAND_AUDIO_INPUT,
     },
     example: example({
@@ -1331,7 +1336,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       nodes: {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.6 }],
-        well: ['GravityWell', { r: 160, g: 120, b: 255, energy: 0.8 }],
+        well: ['GravityWell', { colorSource: 'solid', r: 160, g: 120, b: 255, energy: 0.8 }],
       },
       wires: ['mic.audio > fft.audio', 'fft.bass > well.bass'],
       explanation: 'FFT Analyzer’s bass drives Gravity Well, so the violet rings crowd tighter round the drifting well on every kick, like spacetime bending.',

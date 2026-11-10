@@ -229,7 +229,8 @@
             "speed": 0.72,
             "r": 40,
             "g": 180,
-            "b": 255
+            "b": 255,
+            "colorSource": "solid"
           },
           "inputs": [
             {

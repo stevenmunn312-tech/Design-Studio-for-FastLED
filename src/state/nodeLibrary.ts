@@ -780,6 +780,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
     // DANCE_FLASH_GAPS in nodes/audioReactive/danceFlash.ts; a test holds the two equal.
     gap: { control: 'select', options: ['30 s', '1–2 min', '2–5 min'] },
+    colorSource: { control: 'select', options: ['solid', 'palette'] },
   },
   FFTAnalyzer:       {
     bands:     { control: 'slider', min: 8, max: 32, step: 1 },
@@ -1017,9 +1018,15 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     decay:     { control: 'slider', min: 0.3, max: 3, step: 0.05 },
     blendMode: { control: 'select', options: ['add', 'max'] },
   },
-  EmberPulse:       { speed: N01 },
+  EmberPulse: {
+    speed: N01,
+    colorSource: { control: 'select', options: ['heat', 'palette'] },
+  },
   TurbulentBloom:   { speed: N01 },
-  GravityWell:      { speed: N01 },
+  GravityWell: {
+    speed: N01,
+    colorSource: { control: 'select', options: ['solid', 'palette'] },
+  },
   RainRipples: {
     speed: N01,
     count:     { control: 'slider', min: 2, max: 16, step: 1 },
@@ -2652,6 +2659,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   DanceFlash: {
     gap: 'Quiet time between flashes: about 30 s (20–40 s), 1–2 min, or 2–5 min. The first flash comes a few seconds after start whichever you pick.',
+    colorSource: 'Solid draws the silhouette in the R, G, B colour; Palette runs the palette down it, head to foot. A wired palette always does.',
+    palette: 'Palette the silhouette runs through from head to foot, when Color is Palette.',
   },
   KickShock: {
     speed: 'Ring travel rate (0–1); reactivity multiplies it. Kick rings are slow and wide, snare fast and thin.',
@@ -3392,12 +3401,16 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   EmberPulse: {
     speed: 'Flicker rate (0–1). Bass heats the centre columns, treble the edges; each beat bursts.',
+    colorSource: 'Heat colours the fire with FastLED’s HeatColor ramp, black through red and yellow to white; Palette reads the heat through the palette instead, coolest to hottest. A wired palette always does.',
+    palette: 'Palette the heat runs through, coolest first, when Color is Palette.',
   },
   TurbulentBloom: {
     speed: 'Base turbulence rate (0–1); treble drives fast jitter, mids slow drift, bass pulses brightness.',
   },
   GravityWell: {
     speed: 'Well orbit and ring wave rate (0–1); bass packs more rings toward the well.',
+    colorSource: 'Palette colours the rings by their distance from the well; Solid uses the R, G, B colour. A wired palette always colours, and a wired Color replaces both.',
+    palette: 'Palette the rings take by distance from the well, nearest first, when Color is Palette.',
   },
   PrismStorm: {
     speed: 'Shard drift rate (0–1); mids speed it up, treble sharpens the grain, each hi-hat hit snaps the angle.',
@@ -3761,6 +3774,9 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     flashMode: 'mode',
     colorSource: 'color',
   },
+  DanceFlash: { colorSource: 'color' },
+  EmberPulse: { colorSource: 'color' },
+  GravityWell: { colorSource: 'color' },
   // On the pool patterns decay, thickness and size are multipliers of a
   // ring's or blob's lifetime, width and radius, not rates.
   KickShock: {
@@ -5497,12 +5513,15 @@ export function isPropertyEnabled(
     if (key === 'bassWeight' || key === 'midsWeight' || key === 'trebleWeight') return weighted
     if (key === 'hueStart' || key === 'hueSpan') return !weighted
   }
-  // Beat Flash reads its R, G, B or its palette, as Color chooses.
-  if (nodeType === 'BeatFlash') {
-    const palette = properties.colorSource === 'palette'
+  // Beat Flash and Dance Flash read their R, G, B or their palette, as Color
+  // chooses; Gravity Well too, with Palette its default.
+  if (nodeType === 'BeatFlash' || nodeType === 'DanceFlash' || nodeType === 'GravityWell') {
+    const palette = (properties.colorSource ?? (nodeType === 'GravityWell' ? 'palette' : 'solid')) === 'palette'
     if (key === 'palette') return palette
     if (key === 'r' || key === 'g' || key === 'b') return !palette
   }
+  // Ember Pulse reads its palette only on Palette; Heat is the HeatColor ramp.
+  if (nodeType === 'EmberPulse' && key === 'palette') return properties.colorSource === 'palette'
   if (nodeType === 'SpectrumVisualizer') {
     const style = String(properties.style ?? 'Bars')
     const threeBand = style === 'Three Band'
