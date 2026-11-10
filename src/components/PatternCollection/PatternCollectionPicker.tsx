@@ -114,9 +114,9 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
   const categories = usePatternLibrary((state) => state.categories)
   const ratingsByPatternId = usePatternRatingStore((state) => state.ratingsByPatternId)
   const userRatingsByPatternId = usePatternRatingStore((state) => state.userRatingsByPatternId)
+  const intentOverridesByPatternId = usePatternRatingStore((state) => state.intentOverridesByPatternId)
   const addPatternsToCollection = useGraphStore((state) => state.addPatternsToCollection)
   const setStatus = useUiStore((state) => state.setStatus)
-  const requestConfirm = useUiStore((state) => state.requestConfirm)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortMode>('name')
   const [intents, setIntents] = useState<Set<PatternIntent>>(new Set())
@@ -125,12 +125,12 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
   const [showPoor, setShowPoor] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [hideHeavy, setHideHeavy] = useState(false)
-  // Set while Pattern Insights judges patterns that were just added.
+  // Set while Pattern Insights judges the patterns that have no score.
   const [judging, setJudging] = useState<{ done: number; total: number } | null>(null)
+  const [offerDismissed, setOfferDismissed] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const mountedRef = useRef(true)
-  // Closing stops a scan in progress. The patterns are already in the
-  // collection by then, so nothing is lost but the scores not yet made.
+  // Closing stops a scan in progress; only the scores not yet made are lost.
   const close = () => {
     abortRef.current?.abort()
     onClose()
@@ -291,41 +291,33 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
     })
   }
 
-  const addSelected = async () => {
+  const addSelected = () => {
     const chosen = patterns.filter((pattern) => selected.has(pattern.id) && !existingSourceIds.has(pattern.id))
     if (chosen.length === 0) return
-    // Adding comes first and does not wait for anything below: the offer to
-    // judge is about patterns that are already in the collection.
     addPatternsToCollection(collectionNodeId, chosen.map(withRegisteredGroups))
-    setSelected(new Set())
     setStatus(`Added ${chosen.length} pattern${chosen.length === 1 ? '' : 's'} to the collection`, 'success')
+    close()
+  }
 
+  // Patterns the Rating chips, the Studio Score sort and the render weight
+  // cannot place yet. A score made for another graph or grid counts as none.
+  const unrated = useMemo(() => {
     const context = currentRatingContext()
-    const { ratingsByPatternId: stored, intentOverridesByPatternId: overrides } = usePatternRatingStore.getState()
-    const unrated = chosen.filter((pattern) =>
-      !hasCurrentScore(stored[pattern.id], patternRatingKey(pattern, context, overrides[pattern.id])))
-    if (unrated.length === 0) return onClose()
+    return patterns.filter((pattern) => !hasCurrentScore(
+      ratingsByPatternId[pattern.id],
+      patternRatingKey(pattern, context, intentOverridesByPatternId[pattern.id]),
+    ))
+  }, [intentOverridesByPatternId, patterns, ratingsByPatternId])
 
-    const one = unrated.length === 1
-    const judge = await requestConfirm({
-      title: one ? 'Judge the new pattern?' : 'Judge the new patterns?',
-      message: `${one
-        ? `“${unrated[0].name}” has no Studio Score yet.`
-        : `${unrated.length} of the patterns you added have no Studio Score yet.`} `
-        + `Studio can run Pattern Insights on ${one ? 'it' : 'them'} now, which gives ${one ? 'it' : 'each'} a score and a render weight to sort and filter by. `
-        + `${one ? 'It is' : 'They are'} in the collection either way.`,
-      confirmLabel: one ? 'Judge it now' : 'Judge them now',
-      cancelLabel: 'Not now',
-    })
-    if (!mountedRef.current) return
-    if (!judge) return onClose()
-
+  // A suggestion, never a gate: the picker is usable throughout, and the scan
+  // stops when asked or when the picker closes.
+  const judgeUnrated = async () => {
     const controller = new AbortController()
     abortRef.current = controller
     setJudging({ done: 0, total: unrated.length })
     try {
       const results = await rateAllPatterns(unrated, {
-        ...context,
+        ...currentRatingContext(),
         signal: controller.signal,
         onProgress: (done, total) => { if (mountedRef.current) setJudging({ done, total }) },
       })
@@ -335,17 +327,18 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
         `Judged ${judged} pattern${judged === 1 ? '' : 's'}${left ? `; ${left} left without a score` : ''}`,
         left ? 'info' : 'success',
       )
+      // Whatever could not be scored stays unscored; asking again would not help.
+      if (left && mountedRef.current) setOfferDismissed(true)
     } catch (error) {
-      // Stopping is the user's own choice and needs no message; anything else
-      // is reported plainly, since the patterns were added regardless.
+      // Stopping is a choice made in the picker and needs no message.
       if (!(error instanceof DOMException && error.name === 'AbortError')) {
-        console.error('[PatternCollectionPicker] rating the added patterns failed', error)
-        setStatus('Pattern Insights could not finish. The patterns are in the collection.', 'info')
+        console.error('[PatternCollectionPicker] rating the unrated patterns failed', error)
+        setStatus('Pattern Insights could not finish.', 'info')
       }
     } finally {
       if (abortRef.current === controller) abortRef.current = null
+      if (mountedRef.current) setJudging(null)
     }
-    if (mountedRef.current) onClose()
   }
 
   const renderRow = ({ pattern, rating, userRating, fit, ram, cost }: FitRow) => {
@@ -374,7 +367,7 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
         <input
           type="checkbox"
           checked={checked || added}
-          disabled={added || !!judging}
+          disabled={added}
           onChange={() => toggle(pattern.id)}
           aria-label={`${added ? 'Already added' : 'Select'} ${pattern.name}`}
         />
@@ -521,6 +514,29 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
           </div>
         </div>
 
+        {judging ? (
+          <div className={styles.offer} role="status">
+            <span className={styles.judging}>
+              Judging {Math.min(judging.done + 1, judging.total)} of {judging.total}…
+              <span className={styles.progressTrack} aria-hidden="true">
+                <span style={{ width: `${judging.total ? (judging.done / judging.total) * 100 : 0}%` }} />
+              </span>
+            </span>
+            <button type="button" onClick={() => abortRef.current?.abort()}>Stop</button>
+          </div>
+        ) : unrated.length > 0 && !offerDismissed && (
+          <div className={styles.offer} role="status">
+            <span>
+              {unrated.length === 1
+                ? `“${unrated[0].name}” has no Studio Score yet.`
+                : `${unrated.length} patterns have no Studio Score yet.`}
+              {' '}Pattern Insights can judge {unrated.length === 1 ? 'it' : 'them'} now, so the Rating chips and render weight cover {unrated.length === 1 ? 'it' : 'them'}.
+            </span>
+            <button type="button" className={styles.offerRun} onClick={() => void judgeUnrated()}>Run Pattern Insights</button>
+            <button type="button" onClick={() => setOfferDismissed(true)}>Not now</button>
+          </div>
+        )}
+
         <div className={styles.columnHead}>
           <button type="button" className={styles.selectAll} onClick={toggleAllVisible} disabled={selectableRows.length === 0}>
             {allVisibleSelected ? 'Clear visible' : 'Select visible'}
@@ -557,29 +573,15 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
           )}
         </div>
 
-        {judging ? (
-          <footer className={styles.footer}>
-            <span className={styles.judging} role="status">
-              Added. Judging {Math.min(judging.done + 1, judging.total)} of {judging.total}…
-              <span className={styles.progressTrack} aria-hidden="true">
-                <span style={{ width: `${judging.total ? (judging.done / judging.total) * 100 : 0}%` }} />
-              </span>
-            </span>
-            <div>
-              <button type="button" className={styles.cancel} onClick={close}>Stop and close</button>
-            </div>
-          </footer>
-        ) : (
-          <footer className={styles.footer}>
-            <span>{selected.size === 0 ? 'Choose one or more patterns' : `${selected.size} selected`}</span>
-            <div>
-              <button type="button" className={styles.cancel} onClick={close}>Cancel</button>
-              <button type="button" className={styles.primary} onClick={() => void addSelected()} disabled={selected.size === 0}>
-                Add {selected.size || ''} pattern{selected.size === 1 ? '' : 's'}
-              </button>
-            </div>
-          </footer>
-        )}
+        <footer className={styles.footer}>
+          <span>{selected.size === 0 ? 'Choose one or more patterns' : `${selected.size} selected`}</span>
+          <div>
+            <button type="button" className={styles.cancel} onClick={close}>Cancel</button>
+            <button type="button" className={styles.primary} onClick={addSelected} disabled={selected.size === 0}>
+              Add {selected.size || ''} pattern{selected.size === 1 ? '' : 's'}
+            </button>
+          </div>
+        </footer>
       </div>
     </div>,
     document.body,

@@ -464,3 +464,42 @@
 @media (prefers-reduced-motion: reduce) {
   .progressTrack span { transition: none; }
 }
+
+/* The suggestion to judge unrated patterns: a strip above the list, so it
+   never stands between the user and the patterns. */
+.offer {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space-0) * 2);
+  padding: calc(var(--space-0) * 2) calc(var(--space-0) * 5);
+  border-top: 1px solid color-mix(in srgb, var(--accent-library) 22%, transparent);
+  background: color-mix(in srgb, var(--accent-library) 7%, transparent);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
+}
+
+.offer > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.offer button {
+  flex: none;
+  min-height: 28px;
+  padding: 0 calc(var(--space-0) * 2.5);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 9%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--text-primary) 2.5%, transparent);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.offer .offerRun {
+  border-color: color-mix(in srgb, var(--accent-library) 48%, transparent);
+  background: color-mix(in srgb, var(--accent-library) 14%, var(--bg-primary));
+  color: color-mix(in srgb, var(--accent-library) 72%, white);
+}

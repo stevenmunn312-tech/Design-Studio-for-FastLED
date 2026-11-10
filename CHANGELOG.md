@@ -27,9 +27,10 @@ versioning (`0.y.z`) until the first stable release.
   measurements from a board. The Pattern Collection picker shows the cost,
   sorts by render weight or estimated RAM, and has a Hide heavy chip.
   Existing scores are rescanned to pick up the render weight.
-- Adding patterns to a Pattern Collection offers to run Pattern Insights on
-  any that have no current Studio Score. The patterns are added either way,
-  and the scan can be stopped.
+- The Add patterns picker on a Pattern Collection suggests running Pattern
+  Insights when the library holds patterns with no current Studio Score. The
+  suggestion is a strip in the picker: it can be dismissed, the scan can be
+  stopped, and choosing and adding patterns never waits for it.
 - Adding an SD card reader on the Hardware tab adds an Audio node set to
   Audio Decoder when the project has none.
 - The Music Player and Music-synced SD Show starters open with twenty of the

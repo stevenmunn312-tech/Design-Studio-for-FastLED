@@ -172,8 +172,8 @@ Fourier on a 60x1 strip (`FLAT_PATH_ROW_CPP`), and radial Mirror on a strip.
 
 Landed 2026-11-11, all uncompiled and none seen on hardware: the Font select
 on Text and Clock Display (3x5, 4x6, 5x8, bold 6x8; glyphs drawn for this
-project because FastLED's console fonts carry no licence), the offer to run
-Pattern Insights on unrated patterns added to a collection, estimated cost
+project because FastLED's console fonts carry no licence), the suggestion
+in the Add patterns picker to run Pattern Insights on unrated patterns, estimated cost
 per pattern (render weight and firmware RAM), the LED matrix start corner
 and first run, the Audio node an SD card reader brings, the Performance
 Generator playing only in the main preview, and the Music Player and

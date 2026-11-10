@@ -270,8 +270,8 @@ describe('PatternCollectionPicker cost', () => {
   })
 })
 
-// ── Offer to judge what was just added ───────────────────────────────────────
-describe('PatternCollectionPicker offer to judge unrated patterns', () => {
+// ── Suggestion to judge unrated patterns ─────────────────────────────────────
+describe('PatternCollectionPicker suggestion to judge unrated patterns', () => {
   const rate = vi.mocked(rateAllPatterns)
   const added = () => {
     const collection = useGraphStore.getState().nodes.find((n) => n.id === 'collection')!
@@ -283,14 +283,9 @@ describe('PatternCollectionPicker offer to judge unrated patterns', () => {
     summary: '', strengths: [], improvements: [], criteria: [], audioReactive: false,
     cacheKey: patternRatingKey(saved, currentRatingContext()),
   })
-  const choose = (...names: string[]) => {
-    for (const name of names) fireEvent.click(screen.getByRole('checkbox', { name: `Select ${name}` }))
-    fireEvent.click(screen.getByRole('button', { name: /^Add \d+ pattern/ }))
-  }
-  const answer = async (value: boolean) => {
-    await waitFor(() => expect(useUiStore.getState().appDialog).not.toBeNull())
-    await act(async () => { useUiStore.getState().resolveAppDialog(value) })
-  }
+  const allCurrent = () => Object.fromEntries(LIBRARY.map((saved) => [saved.id, current(saved)]))
+  const offer = () => screen.queryByRole('status')
+  const run = () => fireEvent.click(screen.getByRole('button', { name: 'Run Pattern Insights' }))
 
   beforeEach(() => {
     stripProject()
@@ -301,65 +296,61 @@ describe('PatternCollectionPicker offer to judge unrated patterns', () => {
     rate.mockImplementation(async (patterns) => patterns.map(current))
   })
 
-  it('adds first, then offers to judge only the patterns without a current score', async () => {
+  it('suggests Pattern Insights as soon as the picker opens, for the patterns without a current score', async () => {
     usePatternRatingStore.setState({ ratingsByPatternId: { 'pat-juggle': current(LIBRARY[0]) } })
     const onClose = vi.fn()
     render(<PatternCollectionPicker collectionNodeId="collection" onClose={onClose} />)
-    choose('Juggle', 'Scanner')
 
-    // In the collection before anything is asked: rating never gates adding.
-    expect(added()).toBe(2)
-    await waitFor(() => expect(useUiStore.getState().appDialog).not.toBeNull())
-    const dialog = useUiStore.getState().appDialog!
-    expect(dialog.kind).toBe('confirm')
-    expect(dialog.title).toBe('Judge the new pattern?')
-    expect(dialog.message).toContain('“Scanner” has no Studio Score yet')
-    expect(dialog.message).toContain('in the collection either way')
-    expect(dialog).toMatchObject({ confirmLabel: 'Judge it now', cancelLabel: 'Not now', tone: 'default' })
-    expect(onClose).not.toHaveBeenCalled()
+    expect(offer()?.textContent).toContain('3 patterns have no Studio Score yet')
+    // A strip in the picker, not a dialog in front of it.
+    expect(useUiStore.getState().appDialog).toBeNull()
 
-    await answer(true)
-    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
-    expect(rate).toHaveBeenCalledTimes(1)
-    expect(rate.mock.calls[0][0].map((saved) => saved.name)).toEqual(['Scanner'])
+    run()
+    await waitFor(() => expect(rate).toHaveBeenCalledTimes(1))
+    expect(rate.mock.calls[0][0].map((saved) => saved.name)).toEqual(['Scanner', 'Wall Clock', 'Spectrum Bars'])
     // The same context the Pattern Insights popup rates with.
     expect(rate.mock.calls[0][1]).toMatchObject(currentRatingContext())
+    // The picker stays open for the choosing the scores were wanted for.
+    expect(onClose).not.toHaveBeenCalled()
   })
 
-  it('just adds when the answer is no', async () => {
-    const onClose = vi.fn()
-    render(<PatternCollectionPicker collectionNodeId="collection" onClose={onClose} />)
-    choose('Juggle', 'Scanner')
-    await waitFor(() => expect(useUiStore.getState().appDialog?.title).toBe('Judge the new patterns?'))
-    expect(useUiStore.getState().appDialog?.message).toContain('2 of the patterns you added have no Studio Score yet')
-    await answer(false)
-    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
-    expect(added()).toBe(2)
-    expect(rate).not.toHaveBeenCalled()
+  it('names a single unrated pattern', () => {
+    const ratings = allCurrent()
+    delete ratings['pat-scanner']
+    usePatternRatingStore.setState({ ratingsByPatternId: ratings })
+    render(<PatternCollectionPicker collectionNodeId="collection" onClose={() => {}} />)
+    expect(offer()?.textContent).toContain('“Scanner” has no Studio Score yet')
   })
 
-  it('asks nothing when every chosen pattern already has a current score', () => {
+  it('suggests nothing when every pattern has a current score', () => {
+    usePatternRatingStore.setState({ ratingsByPatternId: allCurrent() })
+    render(<PatternCollectionPicker collectionNodeId="collection" onClose={() => {}} />)
+    expect(offer()).toBeNull()
+  })
+
+  it('treats a score made for another graph or grid as no score', () => {
     usePatternRatingStore.setState({
-      ratingsByPatternId: { 'pat-juggle': current(LIBRARY[0]), 'pat-scanner': current(LIBRARY[1]) },
-    })
-    const onClose = vi.fn()
-    render(<PatternCollectionPicker collectionNodeId="collection" onClose={onClose} />)
-    choose('Juggle', 'Scanner')
-    expect(added()).toBe(2)
-    expect(useUiStore.getState().appDialog).toBeNull()
-    expect(onClose).toHaveBeenCalledTimes(1)
-  })
-
-  it('treats a score made for another graph or grid as no score', async () => {
-    usePatternRatingStore.setState({
-      ratingsByPatternId: { 'pat-juggle': { ...current(LIBRARY[0]), cacheKey: 'v3:stale' } },
+      ratingsByPatternId: { ...allCurrent(), 'pat-juggle': { ...current(LIBRARY[0]), cacheKey: 'v3:stale' } },
     })
     render(<PatternCollectionPicker collectionNodeId="collection" onClose={() => {}} />)
-    choose('Juggle')
-    await waitFor(() => expect(useUiStore.getState().appDialog?.message).toContain('“Juggle” has no Studio Score yet'))
+    expect(offer()?.textContent).toContain('“Juggle” has no Studio Score yet')
   })
 
-  it('shows progress while judging, and stops the scan when the picker is closed', async () => {
+  it('goes away on Not now, and adding never waits for it', () => {
+    const onClose = vi.fn()
+    render(<PatternCollectionPicker collectionNodeId="collection" onClose={onClose} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
+    expect(offer()).toBeNull()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Juggle' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Add \d+ pattern/ }))
+    expect(added()).toBe(1)
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(rate).not.toHaveBeenCalled()
+    expect(useUiStore.getState().appDialog).toBeNull()
+  })
+
+  it('shows progress while judging, keeps the picker usable, and stops on request', async () => {
     let options: RateOptions | undefined
     rate.mockImplementation((_patterns, opts) => {
       options = opts
@@ -370,18 +361,35 @@ describe('PatternCollectionPicker offer to judge unrated patterns', () => {
     })
     const onClose = vi.fn()
     render(<PatternCollectionPicker collectionNodeId="collection" onClose={onClose} />)
-    choose('Juggle', 'Scanner')
-    await answer(true)
+    run()
 
-    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Judging 1 of 2'))
-    act(() => options!.onProgress?.(1, 2))
-    expect(screen.getByRole('status').textContent).toContain('Judging 2 of 2')
-    // Nothing more can be added mid-scan; the way out is to stop.
-    expect(screen.queryByRole('button', { name: /^Add/ })).toBeNull()
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Judging 1 of 4'))
+    act(() => options!.onProgress?.(1, 4))
+    expect(screen.getByRole('status').textContent).toContain('Judging 2 of 4')
+    // Choosing carries on during the scan.
+    expect((screen.getByRole('checkbox', { name: 'Select Juggle' }) as HTMLInputElement).disabled).toBe(false)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Stop and close' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
     expect(options!.signal?.aborted).toBe(true)
-    await waitFor(() => expect(onClose).toHaveBeenCalled())
-    expect(added()).toBe(2)
+    // Stopping leaves the picker open, with the suggestion back for what is left.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Run Pattern Insights' })).toBeTruthy())
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('stops the scan when the picker is closed', async () => {
+    let options: RateOptions | undefined
+    rate.mockImplementation((_patterns, opts) => {
+      options = opts
+      return new Promise((_resolve, reject) => {
+        opts.signal?.addEventListener('abort', () => reject(new DOMException('Pattern scan cancelled', 'AbortError')))
+      })
+    })
+    const onClose = vi.fn()
+    render(<PatternCollectionPicker collectionNodeId="collection" onClose={onClose} />)
+    run()
+    await waitFor(() => expect(options).toBeDefined())
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(options!.signal?.aborted).toBe(true)
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })
