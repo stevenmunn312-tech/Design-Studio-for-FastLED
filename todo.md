@@ -81,10 +81,15 @@ Frame Transform and Field Transform, Shape Field's rose and superformula,
 the position Units select, Power Switch's RGB strip load and the Particles
 prune. Three suggestions were dropped (merging TouchButton and Motion into
 Button, wired Palette Bank slots, a Field -> Frame palette offset) and three
-moved to section 6. What follows is what was left: each item needs a product
-decision, a bench part, a by-ear check or a larger rework, and most carry a
-note on what was found. Merges, renames and removed properties change saved
-shapes: land them before the HW-18 format freeze, or drop them.
+moved to section 6. The last eighteen landed the same day, chosen so every
+bundled look stays the same: `energy` -> `reactivity` and the audio Speed
+remap, the band patterns' Audio input and palettes, Audio Features Level,
+Color Trails' linked axes, Mirror Radial (Kaleidoscope removed), output
+Gamma, Math Switch Select, the Noise/Plasma merge, simulation motion on the
+clock, strip centring, Text Size, Button as a one-row bank, Clock time zones
+and 4096-LED strings. What follows is what is left, plus what those passes
+turned up. Merges, renames and removed properties change saved shapes: land
+them before the HW-18 format freeze, or drop them.
 
 New firmware from those passes has not been compiled yet. Before the
 freeze, compile one fixture each for: DMX and DDP Live, Presence `connected`
@@ -108,7 +113,23 @@ show-ntp and player-ntp, now on Europe/Paris; `_rtcTzOffset` on an UNO R4
 WiFi NTP clock, no fixture yet) and long strings (a 720- and a 4096-LED
 string with Waveform's line style and an elementary Automaton, which lost
 their stack arrays, no fixture yet) before a long chain is trusted on
-hardware.
+hardware. Also: the audio Speed doubling and 2.0 clamps (Bass Cathedral
+Collapse, Chromatic Orbit Reactor, Beat Temple), the `reactivity` role in the
+show and SD player (`show-sequencing` ramped-param player with a
+`SET_ENERGY` ramp), the band patterns' `audioBandsCpp` block (ESP32-S3 + mic
+into Ember Pulse on Palette, Gravity Well, Hi-Hat Shards and AnimARTrix; a
+Slideshow group feeding Audio Cascade; the same graph with no mic), Dance
+Flash and Ember Pulse on Palette, Gravity Well `_gwIdx`, Audio Features
+Level, Color Trails' half-life fade (linked and independent), Mirror Radial
+turned and rotation-only (Prism Fracture, Chromasonic Vortex), output Gamma
+(single output, two outputs, show controller, SD player, a mapped ring), the
+Math Switch literal, Noise Contrast and Plasma Fractal on lava, Plasma Sine
+Grid and Sine 2D, Particles (luminova, comet, fireworks, chase), String
+Particles on a ring, Formula Points logistic and attractor, strip centring
+and long-side sizing (a 60x1 strip with Geometry Field, a formula reading
+`r`, Shape Field, Path, Fourier; AVR for the `min`/`max` macros), Text and
+Clock Display at Size 2 (a 64x32 HUB75), and Button rows (`ssr`,
+`board-links`, `control-graph`, the Player Buttons and Screen starter).
 
 #### Inputs, hardware, graph and code
 
@@ -121,7 +142,34 @@ hardware.
   `src/build/hardwareManifest.ts:1502`. Still open: it needs bench entries
   (and verified renders) for the MAX485 board and the MIDI FeatherWing, and a
   UART allocator. Meanwhile `midiUartValidationIssues` refuses a DIN UART the
-  radar, DMX512, the DFPlayer or a second jack already reads.
+  radar, DMX512, the DFPlayer or a second jack already reads. Blocked on
+  Blender models: neither part is in `Blender Assets` yet.
+
+#### Found while landing the last pass
+
+- [ ] **Show: Simplex2D runs slower at high show speeds (Med, S).** The
+  built-in Simplex2D is now Noise fbm with the Simplex preset, and the show's
+  speed rides the `speed` wire into fbm, whose top rate is 1.2 against
+  simplex's 3. Above a show speed of about 0.4 it runs up to 2.5x slower than
+  before (the show default is 1). Scale speed in the built-in show path, or
+  widen fbm's range (which rescales every fbm use).
+- [ ] **Show: the built-in Kaleidoscope pattern draws black (Low, S).** It is
+  an effect with no source wired, now a radial Mirror, and always drew black.
+  Give it a source or drop it from Performance Generator's chorus list.
+- [ ] **Color Trails: a log Trail length slider (Low, M).** Trail length is a
+  half-life of 0.1-120 s on a linear slider, so the bundled 10-18 s values sit
+  at 8-15% of its travel. Property sliders are linear only; a log mapping
+  means the shared slider, the deck faders and Touch widget ranges.
+- [ ] **Simulations: the rest of per-pass motion (Med, M).** Still per pass:
+  String Particles' trail deposits (dimmer with gaps at 30 fps), Boids,
+  Fire's cooling and sparks, Reaction Diffusion iterations, and Formula
+  Points' Lissajous and rose dot. Rate spawns cap at one per pass
+  (`passChance`), so Rate 0.3 at 30 fps spawns about 15% fewer.
+- [ ] **Strips: decide how 2-D paths read on a one-row strip (Low, S).** A
+  strip now shows the middle slice of a centred pattern, so a circle Path
+  lights only where it crosses the row and Fourier mostly shows its guide
+  circles. Flattening the y reach on a 1-row canvas would make a point sweep
+  the strip instead.
 
 
 ## 4. Bench and community testing (non-blocking, in parallel)

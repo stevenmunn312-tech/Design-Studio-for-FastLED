@@ -9,6 +9,38 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Audio Features has a Level output: Loudness lifted by Sensitivity (6.4× at
+  the default, raw at 0), eased over 0.15 s and held to 0–1, ready for a 0–1
+  input without a Smooth node.
+- The band patterns (Bass Pulse, Bass Rings, Midrange Waves, Midrange Bloom,
+  Treble Sparks, Treble Prism, Audio Cascade, Spectra Mosaic, Ember Pulse,
+  Turbulent Bloom, Gravity Well, Hi-Hat Shards, Audio Flow, Color Trails and
+  AnimARTrix) take an optional Audio input. While it carries audio, each
+  unwired band follows its third of the spectrum as FFT Analyzer at its
+  defaults would send it, so a first patch is one wire. Wired bands still
+  win.
+- Dance Flash has a Color select (Solid, Palette) and a Palette input;
+  Palette runs the palette down the figure. Ember Pulse has a Color select
+  (Heat, Palette) and a Palette input; Heat, the default, is still FastLED's
+  HeatColor ramp.
+- A Gamma setting on the LED output (Rendering, 1 = off) applies FastLED's
+  video gamma to everything the output sends, before its Brightness, in the
+  preview and in every sketch, so a finished graph no longer needs a
+  trailing Gamma node. HUB75 outputs keep their driver's own curve.
+- Math Switch has a Select switch: unwired, it picks A or B, so the node
+  works as a manual A/B toggle or a remote control.
+- Text and Clock Display have a Size (1–4) that draws the 3×5 font larger,
+  each font pixel a square of that many pixels with the gaps scaled to
+  match, for 32×32 and 64×32 HUB75 panels. Size 1 draws exactly as before.
+- NTP Clocks have a time-zone picker: 39 city zones that follow their
+  daylight-saving dates on the board and in the preview, plus UTC and fixed
+  UTC offsets. ESP32 uses `configTzTime`, ESP8266 `configTime(tz, server)`,
+  and the UNO R4 WiFi applies the zone's rule itself. Graph Health warns
+  about an unknown zone, and about NTP clocks on one ESP board set to
+  different zones.
+- Noise has a Contrast that spreads any type's field toward both ends of the
+  palette, and built-in Simplex and Noise 3D presets. Plasma has a Style:
+  Classic, Sine Grid or Sine 2D.
 - A Network group in the Board's settings: hostname, DHCP or a static address,
   and Wi-Fi name and password. Every network feature on that board shares it,
   and each board in a multi-board project has its own.
@@ -262,6 +294,49 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- The audio patterns' Energy setting is stored as `reactivity`, as a
+  property and a port, so it no longer shares a name with Audio Features'
+  Energy output and wiring Energy or Loudness into it is a deliberate
+  choice. Show group inputs use the `reactivity` role in place of `energy`
+  (Use Group Inputs, Pattern Slideshow and Music Player inputs, and the show
+  and SD-player sketches); the show's Energy lane drives that role. Bundled
+  patterns keep their wires.
+- Speed on Bass Rings, Midrange Waves, Midrange Bloom, Treble Prism, Audio
+  Cascade, Kick Shock, Vocal Aurora, Beat Kaleidoscope, Spectra Mosaic,
+  Ember Pulse, Turbulent Bloom, Gravity Well, Rain Ripples and Hi-Hat Shards
+  defaults to 0.5, the old look, and 1 now runs twice as fast. Bundled
+  patterns look exactly as before.
+- Gravity Well has a Color select and a Palette input. New nodes start on
+  Palette, which colours the rings by distance from the well; R, G and B
+  show on Solid, a wired Color still wins, and every bundled use keeps its
+  look on Solid.
+- Color Trails links its axes: one Flow speed, strength and scale drive rows
+  and columns, and Independent axes shows separate X and Y speed, strength
+  and scale (formerly amplitude and frequency). Persistence, a share kept
+  per frame, is replaced by Trail length, the trail's half-life in seconds
+  (0.1–120 s) timed by elapsed time. The bundled Color Trails patterns keep
+  their look.
+- Audio Features' Help points 0–1 inputs at Level instead of Loudness plus a
+  Smooth node.
+- Mirror has a Radial axis, the kaleidoscope fold, with Segments, Rotation
+  and Spin (Tile Symmetry's), so the wedges can turn; glow is hidden for
+  Radial.
+- Button and Button Bank are one node, Button. It starts with one button and
+  grows another with **Add button…** without rewiring the first; one shelf
+  entry covers both. The Player Buttons and Screen template holds its three
+  buttons as rows of one Button.
+- Noise keeps fbm, Noise 4D, Worley, Plasma Fractal and Gabor. Simplex and
+  Noise 3D are fbm presets, and Sine Grid and Sine 2D moved to Plasma with
+  their own speed and scale ranges. Bundled seeds, show built-ins and the
+  Help example are converted.
+- LED strings, rings and corkscrews can have up to 4096 LEDs (was 300),
+  positioned strings included, and the LED count is typed in. Segment
+  networks stay at 300. String Particles' and Gauge's ring LED count can
+  match any ring, and Stereo VU rail lengths go up to their 1024 limit,
+  typed in.
+- A saved Clock's UTC offset loads as the matching fixed-offset time zone.
+- Scale with matrix (Shape, and Clock Display's analog face) sizes by a
+  one-row strip's length.
 - Formula Shapes is now Geometry Field: a Fibonacci spiral, golden-ratio rings
   or a Lissajous curve as a field. Saved projects that use it need the node
   added again.
@@ -805,6 +880,24 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Centred patterns work on one-row strips, rings and corkscrews: Geometry
+  Field's Lissajous no longer renders near-black, Shape Field's default
+  circle is no longer a speck, Path and Fourier Epicycles have room to move,
+  and formula `cx`/`cy` read the strip's middle row instead of its bottom
+  edge. Shape Field, Path and Fourier size by the strip's length. Every
+  matrix renders unchanged.
+- Particles (every mode), String Particles and Formula Points' logistic map
+  and attractor move, fade, spawn and iterate on the clock, so a 30 fps
+  board keeps the 60 fps pace. Output at 60 fps is unchanged.
+- Noise 4D, Plasma Fractal and Sine 2D no longer cut seams through palettes
+  such as lava. Plasma Fractal is now centred on the palette's middle.
+- The RAM estimate no longer over-counts a long string beside a matrix, and
+  now counts Flow Field, Field Blur and String Particles' per-LED state.
+  Waveform and the 1-D Automaton no longer put a per-column array on the
+  loop stack, which a long string would overflow.
+- On a board change, a button is placed after the parts whose pins the board
+  fixes, so it no longer lands on an SD card's or I2S trio's pin. A player
+  sketch no longer reads a button with no pin assigned as GPIO0.
 - Fourier Epicycles and the other saved-up trail fades (Juggle, Confetti,
   Scanner, Trails and the rest) now step on the same frames on the board as in
   the preview. The sketch kept the saved-up fade in single precision, and a
@@ -1223,6 +1316,15 @@ versioning (`0.y.z`) until the first stable release.
 - Saved projects are not migrated for the node removals, renames and property
   changes below (pre-1.0); every bundled pattern, Help example and starter
   template was converted.
+- The Kaleidoscope node; use Mirror's Radial axis. Bundled patterns, seeds,
+  Help examples and the Kaleidoscope show pattern are converted and look the
+  same.
+- The single-button node type (`ButtonInput`): Button is now the bank
+  (`ButtonBank`) with one row.
+- The `energy` property, port and group-input role on audio patterns (now
+  `reactivity`).
+- The Noise types `simplex`, `noise3d`, `field` and `sine`, and the Clock's
+  `timezoneOffsetMinutes` property (converted on load).
 - Geometry Field's Rose and Superformula variants; use Shape Field's Rose and
   Superformula shapes. Moonflower Release and the Help starfish now draw with
   Shape Field.
