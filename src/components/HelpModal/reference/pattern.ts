@@ -1374,7 +1374,8 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Color Trails, adapted from a Stefan Petrick prototype, paints colour into the frame and lets it drift and smear along noise profiles, leaving long fluid trails.',
       'Injection chooses what paints the colour: a moving line, a rainbow border, or both. Flow chooses between sliding fixed profiles and morphing them over time. Bass raises the displacement, mids speed the endpoints and treble speeds the colour sweep.',
-      'Persistence near 1 makes trails last for seconds or minutes.',
+      'Flow speed, strength and scale move the rows and columns alike. Turn on Independent axes to set the column (X) and row (Y) currents apart, for instance scrolling them in opposite directions.',
+      'Trail length is how many seconds the colour takes to fade to half; long trails last until the currents smear them out.',
     ],
     inputs: {
       beat: 'Each beat briefly brightens the injected colour and throws the line wider.',

@@ -2927,10 +2927,11 @@ describe('evaluateGraph', () => {
 
   it('ColorTrails injects a moving line into a persistent advected RGB buffer', () => {
     const trails = node('ct-fluid', 'ColorTrails', 'pattern', {
-      xSpeed: 0.1, xAmplitude: 1, xFrequency: 0.33,
-      ySpeed: 0.1, yAmplitude: 1, yFrequency: 0.32,
+      independentAxes: true,
+      xSpeed: 0.1, xStrength: 1, xScale: 0.33,
+      ySpeed: 0.1, yStrength: 1, yScale: 0.32,
       displacement: 1.8, endpointSpeed: 0.35, colorSpeed: 0.1,
-      persistence: 0.99922, palette: 'rainbow', seed: 42,
+      trailLength: 14.8051, palette: 'rainbow', seed: 42,
     })
     const { nodes, edges } = withOutput(trails)
     const first = evaluateGraph(nodes, edges, 0, 16, 16)!
@@ -2962,7 +2963,7 @@ describe('evaluateGraph', () => {
   it('ColorTrails can inject a rainbow liquid frame without filling its centre', () => {
     const trails = node('ct-border', 'ColorTrails', 'pattern', {
       injectionMode: 'Rainbow Border', flowMode: 'Morphing 2D',
-      displacement: 0, persistence: 0.9999, palette: 'rainbow', seed: 42,
+      displacement: 0, trailLength: 115.5, palette: 'rainbow', seed: 42,
     })
     const { nodes, edges } = withOutput(trails)
     const frame = evaluateGraph(nodes, edges, 0, 8, 8)!
@@ -2978,7 +2979,7 @@ describe('evaluateGraph', () => {
     const render = (id: string, flowMode: string) => {
       const trails = node(id, 'ColorTrails', 'pattern', {
         injectionMode: 'Rainbow Border', flowMode, displacement: 1,
-        persistence: 0.9999, palette: 'rainbow', seed: 42,
+        trailLength: 115.5, palette: 'rainbow', seed: 42,
       })
       const { nodes, edges } = withOutput(trails)
       return evaluateGraph(nodes, edges, 6, 12, 12)

@@ -412,21 +412,42 @@ describe('nodeLibrary', () => {
     // only decides whether a socket can be drawn on it.
     expect(trails?.inputs.map((p) => p.id)).toEqual([
       'bass', 'mids', 'treble', 'beat', 'paletteIn',
-      'xSpeed', 'xAmplitude', 'xFrequency', 'ySpeed', 'yAmplitude', 'yFrequency',
-      'displacement', 'endpointSpeed', 'colorSpeed', 'persistence',
+      'flowSpeed', 'flowStrength', 'flowScale',
+      'xSpeed', 'xStrength', 'xScale', 'ySpeed', 'yStrength', 'yScale',
+      'displacement', 'endpointSpeed', 'colorSpeed', 'trailLength',
     ])
     expect(trails?.defaultProperties).toMatchObject({
       injectionMode: 'Moving Line', flowMode: 'Scrolling',
-      xSpeed: 0.1, xAmplitude: 1, xFrequency: 0.33,
-      ySpeed: 0.1, yAmplitude: 1, yFrequency: 0.32,
+      flowSpeed: 0.1, flowStrength: 1, flowScale: 0.33, independentAxes: false,
+      xSpeed: 0.1, xStrength: 1, xScale: 0.33,
+      ySpeed: 0.1, yStrength: 1, yScale: 0.32,
       displacement: 1.8, endpointSpeed: 0.35, colorSpeed: 0.1,
-      persistence: 0.9992, palette: 'rainbow', seed: 42,
+      trailLength: 14.4, palette: 'rainbow', seed: 42,
     })
+    expect(propertyMeta('ColorTrails', 'flowSpeed')).toMatchObject({ control: 'slider', min: -2, max: 2 })
     expect(propertyMeta('ColorTrails', 'xSpeed')).toMatchObject({ control: 'slider', min: -2, max: 2 })
     expect(propertyMeta('ColorTrails', 'injectionMode')).toMatchObject({ control: 'select', options: ['Moving Line', 'Rainbow Border', 'Both'] })
     expect(propertyMeta('ColorTrails', 'flowMode')).toMatchObject({ control: 'select', options: ['Scrolling', 'Morphing 2D'] })
     expect(propertyMeta('ColorTrails', 'displacement')).toMatchObject({ control: 'slider', min: 0, max: 4 })
-    expect(propertyMeta('ColorTrails', 'persistence')).toMatchObject({ control: 'slider', min: 0.9, max: 0.9999 })
+    // Seconds of half-life, covering the old Persistence (0.9–0.9999 a frame is 0.11–115.5 s).
+    expect(propertyMeta('ColorTrails', 'trailLength')).toMatchObject({ control: 'slider', min: 0.1, max: 120 })
+  })
+
+  it('ColorTrails links its axes until Independent axes shows the X and Y sets', () => {
+    const linked = { ...NODE_LIBRARY.find((n) => n.type === 'ColorTrails')!.defaultProperties }
+    const apart = { ...linked, independentAxes: true }
+    for (const key of ['flowSpeed', 'flowStrength', 'flowScale']) {
+      expect(isPropertyEnabled('ColorTrails', key, linked), key).toBe(true)
+      expect(isPropertyEnabled('ColorTrails', key, apart), key).toBe(false)
+    }
+    for (const key of ['xSpeed', 'xStrength', 'xScale', 'ySpeed', 'yStrength', 'yScale']) {
+      expect(isPropertyEnabled('ColorTrails', key, linked), key).toBe(false)
+      expect(isPropertyEnabled('ColorTrails', key, apart), key).toBe(true)
+    }
+    for (const key of ['independentAxes', 'trailLength', 'displacement']) {
+      expect(isPropertyEnabled('ColorTrails', key, linked), key).toBe(true)
+      expect(isPropertyEnabled('ColorTrails', key, apart), key).toBe(true)
+    }
   })
 
   it('AnimARTrix exposes the credited five-effect audio-reactive instrument', () => {

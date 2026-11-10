@@ -353,6 +353,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   spends its cubed `1 - decay³` per 60th of a second through `timedFadeAmount`
   and `timedFadeCpp`, the same clock and byte carry, so its saved values keep
   their look and still reach black (rounding per frame had stalled them).
+  Color Trails keeps its own fade, inside its integer column pass, because
+  its trails run to minutes: its Trail length is a half-life in seconds
+  (`nodes/audioReactive/colorTrails.ts`), converted from the old per-frame
+  Persistence exactly at 60 fps by `colorTrailsHalfLife`.
   Frame Feedback's ade works the same way, 1 - fade per 60th of a
   second, but carries the unspent fade per ring slot rather than through the
   shared clock: an echo chain is delayFrames passes long, and one carry spent

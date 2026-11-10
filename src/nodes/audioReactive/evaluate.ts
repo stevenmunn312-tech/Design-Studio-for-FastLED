@@ -37,6 +37,7 @@ import {
   danceFlashAdvance, danceFlashStart, stampDanceFlash, type DanceFlashClock,
 } from './danceFlash'
 import { demoDrums, demoDrumsActive } from './demoDrums'
+import { colorTrailsIndependent, colorTrailsKeep } from './colorTrails'
 import { envelopeDt, keepOver } from '../shared/envelopeClock'
 
 const levelMeterPeaks = instanceState('levelMeterPeaks', new Map<string, { peak: number; since: number; lastT: number }>())
@@ -907,15 +908,16 @@ interface ColorTrailsParams {
   injectionMode: string
   flowMode: string
   xSpeed: number
-  xAmplitude: number
-  xFrequency: number
+  xStrength: number
+  xScale: number
   ySpeed: number
-  yAmplitude: number
-  yFrequency: number
+  yStrength: number
+  yScale: number
   displacement: number
   endpointSpeed: number
   colorSpeed: number
-  persistence: number
+  /** Half-life in seconds (colorTrails.ts). */
+  trailLength: number
   bass: number
   mids: number
   treble: number
@@ -1085,23 +1087,23 @@ function evalColorTrails(
 
   // Pass 1: horizontal subpixel shift per row from the Y profile.
   for (let y = 0; y < H; y++) {
-    const spatial = y * 0.23 * p.yFrequency
+    const spatial = y * 0.23 * p.yScale
     const noise = p.flowMode === 'Morphing 2D'
       ? colorTrailsNoise2(spatial, yPhase, seedY)
       : colorTrailsNoise1(spatial + yPhase, seedY)
-    const profile = noise * p.yAmplitude
+    const profile = noise * p.yStrength
     trailRowPass(s.frame, s.tmp, y, trailShift8(Math.max(-1, Math.min(1, profile * displacement))), W)
   }
 
   // Pass 2: vertical subpixel shift per column from the reversed X profile,
-  // then apply the long feedback fade.
-  const fade15 = trailFade15(Math.pow(Math.max(0, Math.min(0.99999, p.persistence)), dtFrames))
+  // then apply the long feedback fade: Trail length is its half-life.
+  const fade15 = trailFade15(colorTrailsKeep(p.trailLength, dtFrames))
   for (let x = 0; x < W; x++) {
-    const spatial = (W - 1 - x) * 0.23 * p.xFrequency
+    const spatial = (W - 1 - x) * 0.23 * p.xScale
     const noise = p.flowMode === 'Morphing 2D'
       ? colorTrailsNoise2(spatial, xPhase, seedX)
       : colorTrailsNoise1(spatial + xPhase, seedX)
-    const profile = noise * p.xAmplitude
+    const profile = noise * p.xStrength
     trailColumnPass(s.tmp, s.frame, x, trailShift8(Math.max(-1, Math.min(1, profile * displacement))), fade15, H)
   }
   return s.frame
@@ -1451,6 +1453,22 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
   },
   ColorTrails({ input, num, pal, t, W, H, stateKey }, id, props) {
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
+    // Linked, the one Flow set drives both axes; Independent axes reads X and Y apart.
+    const axes = colorTrailsIndependent(props)
+      ? {
+        xSpeed: num(id, 'xSpeed', props, 'xSpeed', 0.1),
+        xStrength: num(id, 'xStrength', props, 'xStrength', 1),
+        xScale: num(id, 'xScale', props, 'xScale', 0.33),
+        ySpeed: num(id, 'ySpeed', props, 'ySpeed', 0.1),
+        yStrength: num(id, 'yStrength', props, 'yStrength', 1),
+        yScale: num(id, 'yScale', props, 'yScale', 0.32),
+      }
+      : (() => {
+        const speed = num(id, 'flowSpeed', props, 'flowSpeed', 0.1)
+        const strength = num(id, 'flowStrength', props, 'flowStrength', 1)
+        const scale = num(id, 'flowScale', props, 'flowScale', 0.33)
+        return { xSpeed: speed, xStrength: strength, xScale: scale, ySpeed: speed, yStrength: strength, yScale: scale }
+      })()
     return { frame: evalColorTrails(stateKey(id), {
       injectionMode: String(props.injectionMode ?? 'Moving Line'),
       flowMode: String(props.flowMode ?? 'Scrolling'),
@@ -1458,16 +1476,11 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
       mids: num(id, 'mids', props, 'mids', 0),
       treble: num(id, 'treble', props, 'treble', 0),
       beat: Boolean(input(id, 'beat', false)),
-      xSpeed: num(id, 'xSpeed', props, 'xSpeed', 0.1),
-      xAmplitude: num(id, 'xAmplitude', props, 'xAmplitude', 1),
-      xFrequency: num(id, 'xFrequency', props, 'xFrequency', 0.33),
-      ySpeed: num(id, 'ySpeed', props, 'ySpeed', 0.1),
-      yAmplitude: num(id, 'yAmplitude', props, 'yAmplitude', 1),
-      yFrequency: num(id, 'yFrequency', props, 'yFrequency', 0.32),
+      ...axes,
       displacement: num(id, 'displacement', props, 'displacement', 1.8),
       endpointSpeed: num(id, 'endpointSpeed', props, 'endpointSpeed', 0.35),
       colorSpeed: num(id, 'colorSpeed', props, 'colorSpeed', 0.1),
-      persistence: num(id, 'persistence', props, 'persistence', 0.9992),
+      trailLength: num(id, 'trailLength', props, 'trailLength', 14.4),
       seed: normalizedSeed(props.seed ?? 42),
     }, t, palette, W, H) }
   },

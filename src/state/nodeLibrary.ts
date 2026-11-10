@@ -42,6 +42,7 @@ import {
   type TftController,
 } from './displays/tftSurface'
 import { JUGGLE_COUNT } from '../nodes/generative/juggle'
+import { COLOR_TRAILS_TRAIL_LENGTH, colorTrailsPropertyEnabled } from '../nodes/audioReactive/colorTrails'
 import { RAINBOW_AXES, SPIRAL_ARMS } from '../nodes/generative/limits'
 import { KALEIDOSCOPE_SEGMENTS } from '../nodes/composite/kaleidoscope'
 import { ARRAY_COPIES } from '../nodes/composite/limits'
@@ -927,16 +928,19 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   ColorTrails: {
     injectionMode:{ control: 'select', options: ['Moving Line', 'Rainbow Border', 'Both'] },
     flowMode:     { control: 'select', options: ['Scrolling', 'Morphing 2D'] },
+    flowSpeed:    { control: 'slider', min: -2, max: 2, step: 0.01 },
+    flowStrength: { control: 'slider', min: 0.1, max: 1, step: 0.01 },
+    flowScale:    { control: 'slider', min: 0.1, max: 4, step: 0.01 },
     xSpeed:       { control: 'slider', min: -2, max: 2, step: 0.01 },
-    xAmplitude:   { control: 'slider', min: 0.1, max: 1, step: 0.01 },
-    xFrequency:   { control: 'slider', min: 0.1, max: 4, step: 0.01 },
+    xStrength:    { control: 'slider', min: 0.1, max: 1, step: 0.01 },
+    xScale:       { control: 'slider', min: 0.1, max: 4, step: 0.01 },
     ySpeed:       { control: 'slider', min: -2, max: 2, step: 0.01 },
-    yAmplitude:   { control: 'slider', min: 0.1, max: 1, step: 0.01 },
-    yFrequency:   { control: 'slider', min: 0.1, max: 4, step: 0.01 },
+    yStrength:    { control: 'slider', min: 0.1, max: 1, step: 0.01 },
+    yScale:       { control: 'slider', min: 0.1, max: 4, step: 0.01 },
     displacement: { control: 'slider', min: 0, max: 4, step: 0.05 },
     endpointSpeed:{ control: 'slider', min: 0, max: 2, step: 0.01 },
     colorSpeed:   { control: 'slider', min: 0, max: 1, step: 0.01 },
-    persistence:  { control: 'slider', min: 0.9, max: 0.9999, step: 0.0001 },
+    trailLength:  { control: 'slider', ...COLOR_TRAILS_TRAIL_LENGTH },
   },
   Animartrix: {
     effect:      { control: 'select', options: ANIMARTRIX_EFFECTS },
@@ -2689,16 +2693,20 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   ColorTrails: {
     injectionMode: 'What paints colour in: a moving line, a rainbow border, or both.',
     flowMode: 'Scrolling slides fixed noise profiles; Morphing 2D evolves them over time.',
+    flowSpeed: 'How fast both noise profiles scroll (−2–2); negative reverses them.',
+    flowStrength: 'How far rows and columns shift per step (0.1–1).',
+    flowScale: 'How quickly both profiles vary across the matrix (0.1–4); higher gives finer currents.',
+    independentAxes: 'Set the column (X) and row (Y) flow apart: swaps the shared Flow speed, strength and scale for a set on each axis.',
     xSpeed: 'How fast the column profile scrolls (−2–2); negative reverses it.',
-    xAmplitude: 'How far columns shift per step (0.1–1).',
-    xFrequency: 'How quickly the column profile varies across the matrix (0.1–4).',
+    xStrength: 'How far columns shift per step (0.1–1).',
+    xScale: 'How quickly the column profile varies across the matrix (0.1–4).',
     ySpeed: 'How fast the row profile scrolls (−2–2); negative reverses it.',
-    yAmplitude: 'How far rows shift per step (0.1–1).',
-    yFrequency: 'How quickly the row profile varies down the matrix (0.1–4).',
+    yStrength: 'How far rows shift per step (0.1–1).',
+    yScale: 'How quickly the row profile varies down the matrix (0.1–4).',
     displacement: 'Overall shift strength (0–4), capped at one pixel per frame; bass boosts it.',
     endpointSpeed: 'How fast the line endpoints wander (0–2); mids speed them up.',
     colorSpeed: 'How fast the palette sweeps along the line (0–1); treble speeds it up.',
-    persistence: 'Share of the trail kept per frame (0.9–0.9999); 0.999 fades in seconds, 0.9999 in minutes.',
+    trailLength: 'Seconds for the trail to fade to half (0.1–120), at any frame rate. The flow also blurs trails, so a long one lasts until the currents smear it out.',
     seed: 'Picks the noise profiles the trails follow. Every value, 0 included, gives the same flow on every run: it chooses a profile rather than seeding randomness.',
     bass: 'Bass level (0–1) when unwired; raises displacement up to 2.5×.',
     mids: 'Mids level (0–1) when unwired; speeds the endpoints up to 2.5×.',
@@ -3789,12 +3797,17 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   ColorTrails: {
     injectionMode: 'injection',
     flowMode: 'flow',
+    flowSpeed: 'flow speed',
+    flowStrength: 'flow strength',
+    flowScale: 'flow scale',
+    independentAxes: 'independent axes',
     xSpeed: 'X speed',
-    xAmplitude: 'X amplitude',
-    xFrequency: 'X frequency',
+    xStrength: 'X strength',
+    xScale: 'X scale',
     ySpeed: 'Y speed',
-    yAmplitude: 'Y amplitude',
-    yFrequency: 'Y frequency',
+    yStrength: 'Y strength',
+    yScale: 'Y scale',
+    trailLength: 'trail length (s)',
     endpointSpeed: 'endpoint speed',
     colorSpeed: 'color speed',
     // Not a random seed: 0 is a profile like any other (see its tooltip).
@@ -4368,10 +4381,13 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ColorTrails: [
     { key: 'audio', label: 'Audio', keys: ['bass', 'mids', 'treble'] },
     { key: 'style', label: 'Style', keys: ['injectionMode', 'flowMode'] },
-    { key: 'xFlow', label: 'Column Flow', keys: ['xSpeed', 'xAmplitude', 'xFrequency'] },
-    { key: 'yFlow', label: 'Row Flow', keys: ['ySpeed', 'yAmplitude', 'yFrequency'] },
+    // Linked, Flow shows its three rows and the axis groups drop out;
+    // Independent axes swaps them (colorTrailsPropertyEnabled).
+    { key: 'flow', label: 'Flow', keys: ['flowSpeed', 'flowStrength', 'flowScale', 'independentAxes'] },
+    { key: 'xFlow', label: 'Column Flow', keys: ['xSpeed', 'xStrength', 'xScale'] },
+    { key: 'yFlow', label: 'Row Flow', keys: ['ySpeed', 'yStrength', 'yScale'] },
     { key: 'motion', label: 'Motion', keys: ['displacement', 'endpointSpeed'] },
-    { key: 'color', label: 'Color & Trails', keys: ['colorSpeed', 'persistence', 'palette'] },
+    { key: 'color', label: 'Color & Trails', keys: ['colorSpeed', 'trailLength', 'palette'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
   ],
   Animartrix: [
@@ -5205,6 +5221,7 @@ export function showsDisabledProperties(nodeType: string): boolean {
 export function isPropertyEnabled(
   nodeType: string, key: string, properties: Record<string, unknown>, wiredInputs?: ReadonlySet<string>,
 ): boolean {
+  if (nodeType === 'ColorTrails') return colorTrailsPropertyEnabled(key, properties)
   if (nodeType === 'PatternMaster' && key === 'bluetoothName') return properties.musicSource === 'Bluetooth'
   if (nodeType === 'PatternMaster' && RADIO_GROUP_KEYS.has(key)) return properties.musicSource === 'Internet Radio'
   // A channel the selected board does not have has no pin to wire and no load to dim.

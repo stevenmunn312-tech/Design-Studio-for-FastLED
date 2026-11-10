@@ -2368,10 +2368,11 @@ describe('generateCpp', () => {
     const beat = node('ctbeat', 'Compare', 'math', { a: 1, b: 0.5 })
     const ct = node('ct', 'ColorTrails', 'pattern', {
       bass: 0.4, mids: 0.3, treble: 0.2,
-      xSpeed: 0.1, xAmplitude: 1, xFrequency: 0.33,
-      ySpeed: 0.1, yAmplitude: 1, yFrequency: 0.32,
+      independentAxes: true,
+      xSpeed: 0.1, xStrength: 1, xScale: 0.33,
+      ySpeed: 0.1, yStrength: 1, yScale: 0.32,
       displacement: 1.8, endpointSpeed: 0.35, colorSpeed: 0.1,
-      persistence: 0.99922, palette: 'rainbow', seed: 42,
+      trailLength: 14.8051, palette: 'rainbow', seed: 42,
     })
     const cpp = generateCpp([beat, ct, outputNode], [
       edge('ct-eb', 'ctbeat', 'ct', 'result', 'beat'),
@@ -2390,15 +2391,16 @@ describe('generateCpp', () => {
     expect(cpp.match(/int32_t _s8=\(int32_t\)\(constrain\(_profile\*_ctDisp,-1\.0f,1\.0f\)\*256\.0f\)/g)).toHaveLength(2)
     expect(cpp).toContain('int32_t _sx=_x*256-_s8;')
     expect(cpp).toContain('int32_t _sy=_y*256-_s8;')
-    expect(cpp).toContain('powf(constrain((float)(0.99922),0.0f,0.99999f),_ctDtf)*32768.0f+0.5f')
+    // Trail length is the fade's half-life in seconds, spent by elapsed 60ths.
+    expect(cpp).toContain('powf(2.0f,-(_ctDtf)/(60.0f*((float)(14.8051))))')
+    expect(cpp).toContain('*32768.0f+0.5f')
   })
 
   it('emits the ColorTrails liquid frame with morphing 2D Perlin flow', () => {
     const ct = node('liquid', 'ColorTrails', 'pattern', {
       injectionMode: 'Rainbow Border', flowMode: 'Morphing 2D',
-      xSpeed: 0.1, xAmplitude: 1, xFrequency: 0.33,
-      ySpeed: 0.1, yAmplitude: 1, yFrequency: 0.32,
-      displacement: 1.8, persistence: 0.99922, palette: 'rainbow', seed: 42,
+      flowSpeed: 0.1, flowStrength: 1, flowScale: 0.33,
+      displacement: 1.8, trailLength: 14.8051, palette: 'rainbow', seed: 42,
     })
     const cpp = generateCpp([ct, outputNode], [edge('liquid-out', 'liquid', 'out', 'frame', 'frame')])
     expect(cpp).toContain('ColorTrails: Rainbow Border injection')

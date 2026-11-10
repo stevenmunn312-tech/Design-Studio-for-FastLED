@@ -20,6 +20,7 @@ import {
 import { METER_PEAK_FALL, METER_PEAK_HOLD, meterOrigin } from './levelMeter'
 import { trebleSparksFadeByCpp } from './trebleSparks'
 import { demoDrumsCpp } from './demoDrums'
+import { colorTrailsIndependent, colorTrailsKeepCpp } from './colorTrails'
 import { envelopeDtCpp, keepOverCpp } from '../shared/envelopeClock'
 import {
   DANCE_FIGURE_COUNT, DANCE_FLASH_BEAT_WAIT_MS, DANCE_FLASH_FIRST_MIN_MS, DANCE_FLASH_FIRST_SPAN_MS,
@@ -875,12 +876,22 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const bass = f('bass', 'bass', 0), mids = f('mids', 'mids', 0), treble = f('treble', 'treble', 0)
     const beat = boolExpr(node.id, 'beat')
     const pal = paletteExpr(node.id, 'paletteIn', p)
-    const xSpeed = f('xSpeed', 'xSpeed', 0.1), xAmp = f('xAmplitude', 'xAmplitude', 1), xFreq = f('xFrequency', 'xFrequency', 0.33)
-    const ySpeed = f('ySpeed', 'ySpeed', 0.1), yAmp = f('yAmplitude', 'yAmplitude', 1), yFreq = f('yFrequency', 'yFrequency', 0.32)
+    // Independent axes is never wired, so the axes are chosen here: linked,
+    // the Flow set drives both, as the preview's handler reads them.
+    const independent = colorTrailsIndependent(p)
+    const flowSpeed = independent ? '' : f('flowSpeed', 'flowSpeed', 0.1)
+    const flowStrength = independent ? '' : f('flowStrength', 'flowStrength', 1)
+    const flowScale = independent ? '' : f('flowScale', 'flowScale', 0.33)
+    const xSpeed = independent ? f('xSpeed', 'xSpeed', 0.1) : flowSpeed
+    const xAmp = independent ? f('xStrength', 'xStrength', 1) : flowStrength
+    const xFreq = independent ? f('xScale', 'xScale', 0.33) : flowScale
+    const ySpeed = independent ? f('ySpeed', 'ySpeed', 0.1) : flowSpeed
+    const yAmp = independent ? f('yStrength', 'yStrength', 1) : flowStrength
+    const yFreq = independent ? f('yScale', 'yScale', 0.32) : flowScale
     const displacement = f('displacement', 'displacement', 1.8)
     const endpointSpeed = f('endpointSpeed', 'endpointSpeed', 0.35)
     const colorSpeed = f('colorSpeed', 'colorSpeed', 0.1)
-    const persistence = f('persistence', 'persistence', 0.9992)
+    const trailLength = f('trailLength', 'trailLength', 14.4)
     const seed = seedProp({ seed: p.seed ?? 42 })
     const injectionMode = String(p.injectionMode ?? 'Moving Line')
     const injectLine = injectionMode !== 'Rainbow Border'
@@ -934,7 +945,8 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const xNoise = morphFlow ? `_ctNoise2((WIDTH-1-_x)*0.23f*(${xFreq}),${phX},_seedX)` : `_ctNoise((WIDTH-1-_x)*0.23f*(${xFreq})+${phX},_seedX)`
     // Integer advection (shared/integerPatterns.ts): the shift is a float once a row or column.
     ln(`      for(int _y=0;_y<HEIGHT;_y++){ float _profile=${yNoise}*(${yAmp}); int32_t _s8=(int32_t)(constrain(_profile*_ctDisp,-1.0f,1.0f)*256.0f); ${trailRowPassCpp(ob, tmp)} }`)
-    ln(`      uint32_t _fd15=(uint32_t)(powf(constrain((float)(${persistence}),0.0f,0.99999f),_ctDtf)*32768.0f+0.5f);`)
+    // Trail length is the fade's half-life in seconds (colorTrails.ts).
+    ln(`      uint32_t _fd15=(uint32_t)(${colorTrailsKeepCpp(`(float)(${trailLength})`, '_ctDtf')}*32768.0f+0.5f);`)
     ln(`      for(int _x=0;_x<WIDTH;_x++){ float _profile=${xNoise}*(${xAmp}); int32_t _s8=(int32_t)(constrain(_profile*_ctDisp,-1.0f,1.0f)*256.0f); ${trailColumnPassCpp(tmp, ob)} }`)
     ln(`    }`)
     ln(`  }`)
