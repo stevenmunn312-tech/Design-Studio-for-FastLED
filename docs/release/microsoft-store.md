@@ -21,6 +21,11 @@ certificate of our own. The portable ZIP on GitHub stays unsigned.
 - **Manifest:** `desktop/assets/AppxManifest.xml`. A full-trust desktop app
   (`runFullTrust`) with the `microphone` device capability. Minimum Windows is
   10 1809 (17763), the oldest release WebView2 supports.
+- **Per-monitor DPI awareness.** `desktop/assets/launcher.manifest` is
+  embedded in the launcher and declares `PerMonitorV2`, so the window stays
+  sharp at any display scale and when moved between monitors. Without it the
+  kit warns: pywebview sets DPI awareness at runtime through ctypes, which
+  the kit cannot see.
 - **Logos:** `desktop/assets/msix/`, rendered from `public/icon-512.png` by
   `scripts/assets/make-desktop-icons.py` (which also writes the launcher's
   `app.ico`). Re-run it when the icon changes and commit the output.
@@ -84,6 +89,13 @@ root with only the package to test in `release\desktop`:
 The run takes several minutes and ends with a pass or fail line; the XML
 report lists each test. Delete an old report first, because the kit will not
 overwrite one.
+
+Expect an overall **WARNING**, because the optional **Blocked executables**
+test fails. It flags every binary that can start a process or contains a string
+such as `cmd`, `reg` or `powershell`, and starting compilers, `esptool` and
+`fbuild` is what the helper does. Many hits are only text matches (`BASH` in
+`unicodedata.pyd`, for example). The `runFullTrust` justification below
+covers it. Every other test should pass; investigate any that does not.
 
 ## Submit
 

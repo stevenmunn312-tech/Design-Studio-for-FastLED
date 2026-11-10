@@ -46,6 +46,13 @@ def test_windows_launcher_is_built_without_a_console_and_with_the_icon():
     assert args[0] == "--windowed"
     assert Path(args[args.index("--icon") + 1]).is_file()
 
+    # The Windows App Certification Kit warns unless the executable declares
+    # per-monitor DPI awareness in its manifest.
+    import xml.etree.ElementTree as ET
+    manifest = ET.parse(args[args.index("--manifest") + 1]).getroot()
+    awareness = [e.text for e in manifest.iter() if e.tag.endswith("}dpiAwareness")]
+    assert awareness and awareness[0].startswith("PerMonitorV2")
+
     assert build.launcher_platform_args("posix") == ["--console"]
 
 

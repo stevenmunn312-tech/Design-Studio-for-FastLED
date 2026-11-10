@@ -66,9 +66,14 @@ ASSETS = ROOT / "desktop" / "assets"
 
 def launcher_platform_args(os_name: str = os.name) -> list[str]:
     """Windows gets a console-less launcher (the Studio opens in its own
-    WebView2 window) carrying the app icon, which the window reuses."""
+    WebView2 window) carrying the app icon, which the window reuses, and a
+    manifest declaring per-monitor DPI awareness."""
     if os_name == "nt":
-        return ["--windowed", "--icon", str(ASSETS / "app.ico")]
+        return [
+            "--windowed",
+            "--icon", str(ASSETS / "app.ico"),
+            "--manifest", str(ASSETS / "launcher.manifest"),
+        ]
     return ["--console"]
 
 

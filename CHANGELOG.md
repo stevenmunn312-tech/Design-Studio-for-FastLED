@@ -397,7 +397,8 @@ versioning (`0.y.z`) until the first stable release.
   closing it stops the app. External links still open in your browser, exports
   ask where to save, and launching the app again brings the open window
   forward. Compiles, uploads and file dialogs no longer flash console windows.
-  Without WebView2 the app falls back to your browser. macOS and Linux still
+  The window stays sharp at any display scale and when moved to a monitor
+  with a different one. Without WebView2 the app falls back to your browser. macOS and Linux still
   open in the browser.
 
 - **The Windows bundle can be packed for the Microsoft Store.** `npm run
