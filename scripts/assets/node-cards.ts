@@ -35,6 +35,7 @@ import {
   editableProperties, hasRgbProperties, rgbSwatches,
 } from '../../src/components/Canvas/studioNodeChrome'
 import { isPinnableProperty } from '../../src/state/player/performanceDeck'
+import { effectiveRangeScale, rangePosition } from '../../src/state/rangeScale'
 import { evaluateGraphFull, evaluateScalarSeries, resetEvaluatorState } from '../../src/state/graphEvaluator'
 import { useUiStore } from '../../src/state/uiStore'
 import { setRtcClockSource } from '../../src/state/peripherals/rtc'
@@ -317,7 +318,7 @@ type PropRow =
   | { kind: 'group'; label: string; open: boolean; rows: PropRow[] }
   // `key` identifies the property (meta, exposed sockets); `label` is what the
   // canvas prints for it, which is not always the raw key.
-  | { kind: 'slider'; key: string; label: string; value: number; min: number; max: number; disabled: boolean; pin: boolean }
+  | { kind: 'slider'; key: string; label: string; value: number; min: number; max: number; scale?: 'log'; disabled: boolean; pin: boolean }
   | { kind: 'select'; key: string; label: string; value: string; disabled: boolean; pin: boolean }
   | { kind: 'checkbox'; key: string; label: string; value: boolean; disabled: boolean; pin: boolean }
   | { kind: 'color'; key: string; label: string; value: string; disabled: boolean; pin: boolean }
@@ -392,7 +393,7 @@ function buildPropRows(
       return { kind: 'select', key, label, value: String(val), disabled, pin }
     }
     if (meta?.control === 'slider' && typeof val === 'number') {
-      return { kind: 'slider', key, label, value: val, min: meta.min, max: meta.max, disabled, pin }
+      return { kind: 'slider', key, label, value: val, min: meta.min, max: meta.max, scale: meta.scale, disabled, pin }
     }
     if (typeof val === 'boolean') return { kind: 'checkbox', key, label, value: val, disabled, pin }
     if (isHexColor(val)) return { kind: 'color', key, label, value: val, disabled, pin }
@@ -879,7 +880,8 @@ function propRowSvg(row: PropRow, x: number, y: number, w: number): string {
   switch (row.kind) {
     case 'slider': {
       const trackW = 72, valW = 34
-      const frac = Math.max(0, Math.min(1, (row.value - row.min) / (row.max - row.min || 1)))
+      // Where EditableRange puts the knob: along the slider's own scale.
+      const frac = rangePosition(row.value, row.min, row.max, effectiveRangeScale(row.scale, row.min, row.max))
       parts.push(`<g${dim}>`)
       parts.push(`<rect x="${controlX}" y="${cy - 2}" width="${trackW}" height="4" rx="2" fill="${C.track}" opacity="0.85"/>`)
       parts.push(`<rect x="${controlX}" y="${cy - 2}" width="${(trackW * frac).toFixed(1)}" height="4" rx="2" fill="${C.slider}"/>`)

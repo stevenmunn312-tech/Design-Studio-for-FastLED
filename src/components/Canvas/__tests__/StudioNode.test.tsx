@@ -91,6 +91,20 @@ describe('StudioNode', () => {
     expect(useGraphStore.getState().nodes.find((node) => node.id === 'n1')!.data.properties.group).toBe('p6')
   })
 
+  it('slides Color Trails\' Trail length along a log scale and stores seconds', () => {
+    const { container } = renderNode(makeNode('ColorTrails', { ...libraryDefaults('ColorTrails'), trailLength: 14.8051 }))
+    openAllGroups(container)
+    const slider = container.querySelector('input[type="range"][aria-label^="trail length"]') as HTMLInputElement
+    expect(slider).not.toBeNull()
+    // The bundled 14.8 s trail sits seven tenths of the way along, not an eighth.
+    expect(Number(slider.value) / Number(slider.max)).toBeCloseTo(0.705, 2)
+    expect(slider.getAttribute('aria-valuetext')).toBe('14.8051')
+    fireEvent.change(slider, { target: { value: String(Number(slider.max) / 3) } })
+    const stored = useGraphStore.getState().nodes.find((node) => node.id === 'n1')!.data.properties.trailLength
+    // A third of the way along three decades is a decade up: about 1 s.
+    expect(stored).toBe(1.1)
+  })
+
   it('adds Beat Transitions to the timing controls of an existing Music Player', () => {
     const { container } = renderNode(makeNode('PatternMaster', { minTime: 4, maxTime: 12 }))
     const header = within(container).getByRole('button', { name: /timing/i })

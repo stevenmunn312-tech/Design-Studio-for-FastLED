@@ -11,6 +11,7 @@ import {
   displayColorHue,
   displayPickerSeed,
   displayWidgetDefinition,
+  displayWidgetHasScale,
   displayWidgetIsControl,
   displayWidgetIsRangedControl,
   isDisplayRgb,
@@ -142,15 +143,18 @@ export function adoptedControlRange(
   nodeType: string,
   propertyKey: string,
   portLabel: string,
-): { label: string; min: number; max: number; step: number } | null {
+): { label: string; min: number; max: number; step: number; scale?: 'log' } | null {
   const meta = propertyMeta(nodeType, propertyKey)
   if (meta?.control !== 'slider') return null
-  return {
+  const range = {
     label: readableLabel(nodeType, propertyKey, portLabel),
     min: meta.min,
     max: meta.max,
     step: meta.step,
   }
+  // A log property hands its travel on too, so a Slider wired to a half-life
+  // moves through it the way the node's own slider does.
+  return meta.scale === 'log' ? { ...range, scale: 'log' } : range
 }
 
 /**
@@ -198,9 +202,13 @@ export function adoptedControlProperties(
   }
   if (!displayWidgetIsRangedControl(widgetType) || input.dataType !== 'float' || !input.propertyKey) return null
   const adopted = adoptedControlRange(nodeType, input.propertyKey, input.label)
-  return adopted
-    ? { label: adopted.label, properties: { min: adopted.min, max: adopted.max, step: adopted.step } }
-    : null
+  if (!adopted) return null
+  const range = { min: adopted.min, max: adopted.max, step: adopted.step }
+  // Only a control a finger drags along has a Scale; a Step Control steps.
+  return {
+    label: adopted.label,
+    properties: adopted.scale && displayWidgetHasScale(widgetType) ? { ...range, scale: adopted.scale } : range,
+  }
 }
 
 function inputLabel(nodeType: string, input: Pick<ExposableInput, 'label' | 'propertyKey'>): string {
@@ -645,6 +653,7 @@ export function displayControlIsUnconfigured(widget: DisplayWidget): boolean {
     && widget.properties.min === defaults.min
     && widget.properties.max === defaults.max
     && widget.properties.step === defaults.step
+    && widget.properties.scale === undefined
 }
 
 /**

@@ -14,6 +14,7 @@ import {
   DISPLAY_SELECTION_SOURCE_FIELD, DISPLAY_SOURCE_FROM_GRAPH, displaySourceFields, normalizeDisplaySource, type DisplaySourceField,
 } from './displaySourceFields'
 import type { DisplaySignalKind } from './displaySignal'
+import { effectiveRangeScale, logRangeUsable, RANGE_SCALES, type RangeScale } from '../rangeScale'
 
 export type DisplayClass = 'touch-tft'
 export type DisplayWidgetPortDirection = 'input' | 'output'
@@ -261,6 +262,9 @@ function rangePropertyIssues(
   }
   if (options.step && numericProperty(properties, 'step', 0.01) <= 0) {
     issues.push('Step must be greater than zero.')
+  }
+  if (properties.scale === 'log' && max > min && !logRangeUsable(min, max)) {
+    issues.push('A log scale needs a minimum above zero; until then it moves linearly.')
   }
   if (options.warnings) {
     const low = numericProperty(properties, 'warningLow', min)
@@ -665,7 +669,7 @@ export const DISPLAY_WIDGET_LIBRARY: Readonly<Record<DisplayWidgetType, DisplayW
     portRoles: synchronized('float'), defaultProperties: { min: 0, max: 1, step: 0.01, orientation: 'horizontal' },
     minimumVisualSize: { width: 96, height: 20 }, minimumTouchSize: { width: 96, height: 48 }, allowedDisplayClasses: TOUCH_TFT,
     previewRenderer: 'slider', lvglEmitter: 'slider',
-    propertyInspector: [number('min', 'Minimum', -1000000, 1000000, 0.01), number('max', 'Maximum', -1000000, 1000000, 0.01), number('step', 'Step', 0.0001, 1000000, 0.0001), number('initial', 'Starts at', -1000000, 1000000, 0.01), select('orientation', 'Orientation', ['horizontal', 'vertical'])],
+    propertyInspector: [number('min', 'Minimum', -1000000, 1000000, 0.01), number('max', 'Maximum', -1000000, 1000000, 0.01), number('step', 'Step', 0.0001, 1000000, 0.0001), number('initial', 'Starts at', -1000000, 1000000, 0.01), select('scale', 'Scale', RANGE_SCALES), select('orientation', 'Orientation', ['horizontal', 'vertical'])],
     states: CONTROL_STATES, assetSlots: NO_ASSETS,
     validateProperties: (properties) => rangePropertyIssues(properties, { step: true, initial: true }),
   },
@@ -674,7 +678,7 @@ export const DISPLAY_WIDGET_LIBRARY: Readonly<Record<DisplayWidgetType, DisplayW
     portRoles: synchronized('float'), defaultProperties: { min: 0, max: 1, step: 0.01 },
     minimumVisualSize: { width: 48, height: 48 }, minimumTouchSize: { width: 48, height: 48 }, allowedDisplayClasses: TOUCH_TFT,
     previewRenderer: 'dial', lvglEmitter: 'arc',
-    propertyInspector: [number('min', 'Minimum', -1000000, 1000000, 0.01), number('max', 'Maximum', -1000000, 1000000, 0.01), number('step', 'Step', 0.0001, 1000000, 0.0001), number('initial', 'Starts at', -1000000, 1000000, 0.01)],
+    propertyInspector: [number('min', 'Minimum', -1000000, 1000000, 0.01), number('max', 'Maximum', -1000000, 1000000, 0.01), number('step', 'Step', 0.0001, 1000000, 0.0001), number('initial', 'Starts at', -1000000, 1000000, 0.01), select('scale', 'Scale', RANGE_SCALES)],
     states: CONTROL_STATES, assetSlots: NO_ASSETS,
     validateProperties: (properties) => rangePropertyIssues(properties, { step: true, initial: true }),
   },
@@ -1117,21 +1121,35 @@ export function displayWidgetIsNumericControl(type: DisplayWidgetType): boolean 
   return displayWidgetIsRangedControl(type) || type === 'Choice Strip'
 }
 
+const SCALED_CONTROLS: ReadonlySet<DisplayWidgetType> = new Set(['Slider', 'Dial'])
+
+/**
+ * Whether this control has a Scale: one a finger drags along a travel, so the
+ * travel can be logarithmic. A Step Control moves a step at a time and a
+ * Choice Strip by option, so neither has one.
+ */
+export function displayWidgetHasScale(type: DisplayWidgetType): boolean {
+  return SCALED_CONTROLS.has(type)
+}
+
 /**
  * The range a numeric control moves in. A Choice Strip's is its option
  * indices; the ranged controls read their own properties, with a maximum
- * below the minimum held at the minimum and a missing step at 0.01.
+ * below the minimum held at the minimum and a missing step at 0.01. `scale`
+ * is how a Slider or Dial travels it (state/rangeScale.ts): log only when it
+ * asks for log and its minimum is above zero.
  */
 export function displayControlRange(
   widget: Pick<DisplayWidget, 'type' | 'properties'>,
-): { min: number; max: number; step: number } {
+): { min: number; max: number; step: number; scale: RangeScale } {
   if (widget.type === 'Choice Strip') {
-    return { min: 0, max: Math.max(0, displayChoiceOptions(widget).length - 1), step: 1 }
+    return { min: 0, max: Math.max(0, displayChoiceOptions(widget).length - 1), step: 1, scale: 'linear' }
   }
   const min = numericProperty(widget.properties, 'min', 0)
   const max = Math.max(min, numericProperty(widget.properties, 'max', 1))
   const step = numericProperty(widget.properties, 'step', 0.01)
-  return { min, max, step: step > 0 ? step : 0.01 }
+  const scale = displayWidgetHasScale(widget.type) ? effectiveRangeScale(widget.properties.scale, min, max) : 'linear'
+  return { min, max, step: step > 0 ? step : 0.01, scale }
 }
 
 /**

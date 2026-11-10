@@ -232,6 +232,34 @@ describe('normal-sketch codegen for the custom Display node', () => {
     expect(cpp).toContain('lv_indev_set_mode(_cdIndev_tft, LV_INDEV_MODE_EVENT);')
   })
 
+  it('carries the log travel only into a sketch with a log-scale Slider, made into a value where it is read', () => {
+    const withSlider = (scale?: string) => updateDisplayWidget(addDisplayWidget(document(), 'Slider'), 'slider', (widget) => ({
+      ...widget, properties: { ...widget.properties, min: 0.1, max: 120, step: 0.1, ...(scale ? { scale } : {}) },
+    }))
+    const nodes = [panel(), touch(), node('math', 'Math', { mathOp: 'multiply', b: 0.5 }), output]
+    const edges = [edge('a', 'tft-touch', 'widget:slider:out', 'math', 'a'),
+      edge('d', 'math', 'result', 'tft', 'widget:slider:set'), edge('e', 'math', 'result', 'out', 'brightness')]
+
+    const log = generateCpp(nodes, edges, {}, { displayDocuments: { screen: withSlider('log') } })
+    // The runtime holds a place along the travel: a 0-1 range with no step.
+    expect(log).toContain('_cd_screen[2].minimum = 0.0f;')
+    expect(log).toContain('_cd_screen[2].maximum = 1.0f;')
+    expect(log).toContain('_cd_screen[2].step = 0.0f;')
+    // Seconds, on the step, are made from it where the wire reads it...
+    expect(log).toContain('_rsLogValue(_cdFloatOutput(_cd_screen[2]), 0.1f, 120.0f, 0.1f)')
+    // ...and a reading on Set becomes a place on its way in.
+    expect(log).toContain('constrain(_rsLogPosition((float)(n_math_result), 0.1f, 120.0f), _cd_screen[2].minimum, _cd_screen[2].maximum)')
+    expect(log.split('static float _rsLogValue(').length - 1).toBe(1)
+    expect(log.split('static float _rsLogPosition(').length - 1).toBe(1)
+    expect(log.indexOf('static float _rsLogValue(')).toBeLessThan(log.indexOf('void loop() {'))
+
+    // A linear Slider, the same range: no log helper, the value held as it was.
+    const linear = generateCpp(nodes, edges, {}, { displayDocuments: { screen: withSlider() } })
+    expect(linear).not.toContain('_rsLog')
+    expect(linear).toContain('_cd_screen[2].maximum = 120.0f;')
+    expect(linear).toContain('constrain((float)(n_math_result), _cd_screen[2].minimum, _cd_screen[2].maximum)')
+  })
+
   /*
    * Enabled reached the fixed layouts and stopped at the custom arm, so
    * turning a custom screen off produced byte-for-byte identical firmware.

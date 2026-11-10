@@ -28,6 +28,7 @@ import {
   webRemoteTitle,
 } from './webRemote'
 import { displayPickerTone } from '../displays/displayRegistry'
+import { logTravelPosition, RANGE_SCALE_LOG_JS, RANGE_TRAVEL_STEPS } from '../rangeScale'
 
 /** HTML text or a double-quoted attribute value. */
 export function escapeHtml(value: unknown): string {
@@ -86,6 +87,12 @@ function controlHtml(control: WebRemoteControl, index: number): string {
           + `<span class="s"><button class="m" type="button" data-d="-1" aria-label="Decrease ${label}">&minus;</button>`
           + `<button class="m" type="button" data-d="1" aria-label="Increase ${label}">+</button></span></section>`
       }
+      // A log slider's input is its travel, not its value: the script turns
+      // a place along it into a value with `lv` and back with `lp`.
+      if (range.scale === 'log') {
+        return `${head} data-g="1"><label class="l" for="${id}">${label}</label>${value}`
+          + `<input id="${id}" type="range" min="0" max="${RANGE_TRAVEL_STEPS}" step="1" value="${logTravelPosition(start, range.min, range.max)}"></section>`
+      }
       return `${head}><label class="l" for="${id}">${label}</label>${value}`
         + `<input id="${id}" type="range" min="${num(range.min)}" max="${num(range.max)}" step="${num(range.step)}" value="${num(start)}"></section>`
     }
@@ -143,58 +150,68 @@ const STYLE = [
  * The page's behaviour. Static text: everything it knows about a control comes
  * from that control's `data-` attributes, which the generator wrote as numbers
  * or escaped words.
+ *
+ * A page with a log-scale slider (`data-g`) also carries `RANGE_SCALE_LOG_JS`:
+ * its input holds a place along the travel, read into a value with `rv` and
+ * set from one with `lp`. A page without one carries neither, as the board
+ * serves it from flash.
  */
-const SCRIPT = [
-  '(function(){',
-  "var E=location.protocol==='about:',st=document.getElementById('st'),",
-  "cs=[].slice.call(document.querySelectorAll('.c')),busy={},beat={};",
-  'function q(c,x){var lo=+c.dataset.min,hi=+c.dataset.max,s=+c.dataset.step;x=+x;if(!isFinite(x))x=lo;',
-  'x=Math.min(hi,Math.max(lo,x));if(s>0)x=lo+Math.round((x-lo)/s)*s;return Math.min(hi,Math.max(lo,Math.round(x*1e6)/1e6));}',
-  'function fmt(c,x){return (+x).toFixed(+c.dataset.d);}',
-  'function hsv(h,s,v){h=((h%360)+360)%360/60;v=Math.min(1,Math.max(0,v));var k=v*Math.min(1,Math.max(0,s)),',
-  'x=k*(1-Math.abs(h%2-1)),i=Math.floor(h),r=[[k,x,0],[x,k,0],[0,k,x],[0,x,k],[x,0,k],[k,0,x]][i]||[k,0,x],m=v-k;',
-  "return 'rgb('+r.map(function(n){return Math.round((n+m)*255);}).join(',')+')';}",
-  'function show(c,x){c.dataset.v=x;var k=c.dataset.k,el;',
-  "if(k==='text'){el=c.querySelector('input');if(document.activeElement!==el)el.value=x;}",
-  "else if(k==='press'){el=c.querySelector('button');el.classList.toggle('down',x>=0.5);el.setAttribute('aria-pressed',x>=0.5);}",
-  "else if(k==='latch'){el=c.querySelector('button');el.setAttribute('aria-pressed',x>=0.5);el.textContent=x>=0.5?c.dataset.on:c.dataset.off;}",
-  "else if(k==='choice'){c.querySelectorAll('.h').forEach(function(b){b.classList.toggle('a',+b.dataset.o===Math.round(x));});}",
-  "else{el=c.querySelector('input');if(el)el.value=x;el=c.querySelector('.o');if(el)el.textContent=fmt(c,x);",
-  "el=c.querySelector('.w');if(el)el.style.background=hsv(x,+c.dataset.sat,+c.dataset.bri);}}",
-  "function live(ok){st.textContent=ok?'live':'offline';st.className='st '+(ok?'on':'off');}",
-  'function apply(v){if(!Array.isArray(v))return;live(true);cs.forEach(function(c){var i=+c.dataset.i;',
-  "if(!busy[i]&&(typeof v[i]==='number'||typeof v[i]==='string'))show(c,v[i]);});}",
-  'function json(r){if(!r.ok)throw 0;return r.json();}',
-  "function send(i,v){if(E){parent.postMessage({fls:'wr',op:'set',i:i,v:v},'*');return;}",
-  "fetch('/set',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'i='+i+'&v='+encodeURIComponent(v)})",
-  '.then(json).then(apply,function(){live(false);});}',
-  "function poll(){if(E){parent.postMessage({fls:'wr',op:'get'},'*');return;}",
-  "fetch('/s',{cache:'no-store'}).then(json).then(apply,function(){live(false);});}",
-  "if(E)addEventListener('message',function(e){if(e.source===parent&&e.data&&e.data.fls==='wr')apply(e.data.v);});",
-  // A held button repeats its press so the board can time out a lost release.
-  'function down(c,i){if(busy[i])return;busy[i]=1;show(c,1);send(i,1);beat[i]=setInterval(function(){send(i,1);},400);}',
-  'function up(c,i){if(!busy[i])return;clearInterval(beat[i]);delete busy[i];show(c,0);send(i,0);}',
-  'var last={};function slide(c,i,x){x=q(c,x);show(c,x);var t=Date.now();if(!last[i]||t-last[i]>80){last[i]=t;send(i,x);}}',
-  'cs.forEach(function(c){var i=+c.dataset.i,k=c.dataset.k,b=c.querySelector(\'button\'),r=c.querySelector(\'input\');',
-  "if(k==='press'){b.addEventListener('pointerdown',function(e){b.setPointerCapture(e.pointerId);down(c,i);});",
-  "['pointerup','pointercancel','lostpointercapture'].forEach(function(n){b.addEventListener(n,function(){up(c,i);});});",
-  "b.addEventListener('keydown',function(e){if(e.key===' '||e.key==='Enter'){e.preventDefault();down(c,i);}});",
-  "b.addEventListener('keyup',function(e){if(e.key===' '||e.key==='Enter')up(c,i);});",
-  "b.addEventListener('contextmenu',function(e){e.preventDefault();});}",
-  "else if(k==='text'){r.addEventListener('focus',function(){busy[i]=1;});r.addEventListener('blur',function(){delete busy[i];});",
-  "c.querySelector('form').addEventListener('submit',function(e){e.preventDefault();show(c,r.value);send(i,r.value);r.blur();});}",
-  "else if(k==='latch'){b.addEventListener('click',function(){var x=+c.dataset.v>=0.5?0:1;show(c,x);send(i,x);});}",
-  "else if(k==='choice'){c.querySelectorAll('.h').forEach(function(h){h.addEventListener('click',function(){var x=q(c,h.dataset.o);show(c,x);send(i,x);});});}",
-  "else if(c.dataset.ui==='step'){c.querySelectorAll('.m').forEach(function(m){m.addEventListener('click',function(){",
-  'var x=q(c,+c.dataset.v+(+m.dataset.d)*(+c.dataset.step));show(c,x);send(i,x);});});}',
-  "else if(r){r.addEventListener('pointerdown',function(){busy[i]=1;});",
-  "r.addEventListener('input',function(){slide(c,i,r.value);});",
-  "r.addEventListener('change',function(){var x=q(c,r.value);delete busy[i];last[i]=Date.now();send(i,x);});}",
-  "show(c,k==='text'?c.dataset.v:+c.dataset.v);});",
-  "document.addEventListener('visibilitychange',function(){if(document.hidden)cs.forEach(function(c){if(c.dataset.k==='press')up(c,+c.dataset.i);});else poll();});",
-  'poll();setInterval(poll,1000);',
-  '})();',
-].join('\n')
+function pageScript(log: boolean): string {
+  const read = log ? 'rv(c,r)' : 'r.value'
+  const place = log ? `c.dataset.g?Math.round(lp(c,x)*${RANGE_TRAVEL_STEPS}):x` : 'x'
+  return [
+    '(function(){',
+    "var E=location.protocol==='about:',st=document.getElementById('st'),",
+    "cs=[].slice.call(document.querySelectorAll('.c')),busy={},beat={};",
+    'function q(c,x){var lo=+c.dataset.min,hi=+c.dataset.max,s=+c.dataset.step;x=+x;if(!isFinite(x))x=lo;',
+    'x=Math.min(hi,Math.max(lo,x));if(s>0)x=lo+Math.round((x-lo)/s)*s;return Math.min(hi,Math.max(lo,Math.round(x*1e6)/1e6));}',
+    ...(log ? [RANGE_SCALE_LOG_JS, `function rv(c,r){return c.dataset.g?lv(c,r.value/${RANGE_TRAVEL_STEPS}):r.value;}`] : []),
+    'function fmt(c,x){return (+x).toFixed(+c.dataset.d);}',
+    'function hsv(h,s,v){h=((h%360)+360)%360/60;v=Math.min(1,Math.max(0,v));var k=v*Math.min(1,Math.max(0,s)),',
+    'x=k*(1-Math.abs(h%2-1)),i=Math.floor(h),r=[[k,x,0],[x,k,0],[0,k,x],[0,x,k],[x,0,k],[k,0,x]][i]||[k,0,x],m=v-k;',
+    "return 'rgb('+r.map(function(n){return Math.round((n+m)*255);}).join(',')+')';}",
+    'function show(c,x){c.dataset.v=x;var k=c.dataset.k,el;',
+    "if(k==='text'){el=c.querySelector('input');if(document.activeElement!==el)el.value=x;}",
+    "else if(k==='press'){el=c.querySelector('button');el.classList.toggle('down',x>=0.5);el.setAttribute('aria-pressed',x>=0.5);}",
+    "else if(k==='latch'){el=c.querySelector('button');el.setAttribute('aria-pressed',x>=0.5);el.textContent=x>=0.5?c.dataset.on:c.dataset.off;}",
+    "else if(k==='choice'){c.querySelectorAll('.h').forEach(function(b){b.classList.toggle('a',+b.dataset.o===Math.round(x));});}",
+    `else{el=c.querySelector('input');if(el)el.value=${place};el=c.querySelector('.o');if(el)el.textContent=fmt(c,x);`,
+    "el=c.querySelector('.w');if(el)el.style.background=hsv(x,+c.dataset.sat,+c.dataset.bri);}}",
+    "function live(ok){st.textContent=ok?'live':'offline';st.className='st '+(ok?'on':'off');}",
+    'function apply(v){if(!Array.isArray(v))return;live(true);cs.forEach(function(c){var i=+c.dataset.i;',
+    "if(!busy[i]&&(typeof v[i]==='number'||typeof v[i]==='string'))show(c,v[i]);});}",
+    'function json(r){if(!r.ok)throw 0;return r.json();}',
+    "function send(i,v){if(E){parent.postMessage({fls:'wr',op:'set',i:i,v:v},'*');return;}",
+    "fetch('/set',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'i='+i+'&v='+encodeURIComponent(v)})",
+    '.then(json).then(apply,function(){live(false);});}',
+    "function poll(){if(E){parent.postMessage({fls:'wr',op:'get'},'*');return;}",
+    "fetch('/s',{cache:'no-store'}).then(json).then(apply,function(){live(false);});}",
+    "if(E)addEventListener('message',function(e){if(e.source===parent&&e.data&&e.data.fls==='wr')apply(e.data.v);});",
+    // A held button repeats its press so the board can time out a lost release.
+    'function down(c,i){if(busy[i])return;busy[i]=1;show(c,1);send(i,1);beat[i]=setInterval(function(){send(i,1);},400);}',
+    'function up(c,i){if(!busy[i])return;clearInterval(beat[i]);delete busy[i];show(c,0);send(i,0);}',
+    'var last={};function slide(c,i,x){x=q(c,x);show(c,x);var t=Date.now();if(!last[i]||t-last[i]>80){last[i]=t;send(i,x);}}',
+    'cs.forEach(function(c){var i=+c.dataset.i,k=c.dataset.k,b=c.querySelector(\'button\'),r=c.querySelector(\'input\');',
+    "if(k==='press'){b.addEventListener('pointerdown',function(e){b.setPointerCapture(e.pointerId);down(c,i);});",
+    "['pointerup','pointercancel','lostpointercapture'].forEach(function(n){b.addEventListener(n,function(){up(c,i);});});",
+    "b.addEventListener('keydown',function(e){if(e.key===' '||e.key==='Enter'){e.preventDefault();down(c,i);}});",
+    "b.addEventListener('keyup',function(e){if(e.key===' '||e.key==='Enter')up(c,i);});",
+    "b.addEventListener('contextmenu',function(e){e.preventDefault();});}",
+    "else if(k==='text'){r.addEventListener('focus',function(){busy[i]=1;});r.addEventListener('blur',function(){delete busy[i];});",
+    "c.querySelector('form').addEventListener('submit',function(e){e.preventDefault();show(c,r.value);send(i,r.value);r.blur();});}",
+    "else if(k==='latch'){b.addEventListener('click',function(){var x=+c.dataset.v>=0.5?0:1;show(c,x);send(i,x);});}",
+    "else if(k==='choice'){c.querySelectorAll('.h').forEach(function(h){h.addEventListener('click',function(){var x=q(c,h.dataset.o);show(c,x);send(i,x);});});}",
+    "else if(c.dataset.ui==='step'){c.querySelectorAll('.m').forEach(function(m){m.addEventListener('click',function(){",
+    'var x=q(c,+c.dataset.v+(+m.dataset.d)*(+c.dataset.step));show(c,x);send(i,x);});});}',
+    "else if(r){r.addEventListener('pointerdown',function(){busy[i]=1;});",
+    `r.addEventListener('input',function(){slide(c,i,${read});});`,
+    `r.addEventListener('change',function(){var x=q(c,${read});delete busy[i];last[i]=Date.now();send(i,x);});}`,
+    "show(c,k==='text'?c.dataset.v:+c.dataset.v);});",
+    "document.addEventListener('visibilitychange',function(){if(document.hidden)cs.forEach(function(c){if(c.dataset.k==='press')up(c,+c.dataset.i);});else poll();});",
+    'poll();setInterval(poll,1000);',
+    '})();',
+  ].join('\n')
+}
 
 /**
  * The whole page for a remote's controls, as the board serves it and the
@@ -216,7 +233,7 @@ export function webRemotePageHtml(title: unknown, controls: readonly WebRemoteCo
     '<main>',
     body,
     '</main>',
-    `<script>${SCRIPT}</script>`,
+    `<script>${pageScript(controls.some((control) => webRemoteStateRange(control).scale === 'log'))}</script>`,
     '</body></html>',
   ].join('\n')
 }

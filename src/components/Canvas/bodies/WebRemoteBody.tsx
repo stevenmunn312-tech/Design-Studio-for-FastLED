@@ -38,8 +38,10 @@ import { useNodeBoardId } from '../../Hardware/boardSelection'
 import { displayWidgetDefinition, isDisplayRgb, TOUCH_CONTROL_ADD_DATA_TYPE, TOUCH_CONTROL_ADD_HANDLE } from '../../../state/displays/displayRegistry'
 import type { DisplayWidgetProperty } from '../../../state/displays/displayDocument'
 import { portColor } from '../../../state/nodeLibrary'
+import { RANGE_SCALES } from '../../../state/rangeScale'
 import { useEscapeLayer } from '../../../hooks/useEscapeLayer'
 import { portHandleStyle } from '../nodeHandleStyle'
+import { stopWheelWhileFocused } from '../wheelBehavior'
 import styles from './WebRemoteBody.module.css'
 import BoardNetworkNote from './BoardNetworkNote'
 import EditableRange from '../../EditableRange/EditableRange'
@@ -143,6 +145,7 @@ function MiniControl({ nodeId, control }: { nodeId: string; control: WebRemoteCo
             min={range.min}
             max={range.max}
             step={range.step}
+            scale={range.scale}
             value={number}
             ariaLabel={control.label}
             onChange={write}
@@ -285,6 +288,22 @@ function ControlSettings({ nodeId, control }: { nodeId: string; control: WebRemo
       <NumberField label="min" value={range.min} onCommit={(value) => set({ min: value })} />
       <NumberField label="max" value={range.max} onCommit={(value) => set({ max: value })} />
       <NumberField label="step" value={range.step} onCommit={(value) => set({ step: value })} />
+      {/* A slider can travel a range that spans decades logarithmically; a
+          Step Control moves a step at a time and has no travel to scale. */}
+      {control.type === 'Slider' && (
+        <label className={styles.field}>
+          scale
+          <select
+            className={`nodrag ${styles.fieldInput}`}
+            aria-label={`${control.label} scale`}
+            value={control.properties.scale === 'log' ? 'log' : 'linear'}
+            onWheelCapture={stopWheelWhileFocused}
+            onChange={(event) => set({ scale: event.target.value })}
+          >
+            {RANGE_SCALES.map((scale) => <option key={scale} value={scale}>{scale}</option>)}
+          </select>
+        </label>
+      )}
     </div>
   )
 }

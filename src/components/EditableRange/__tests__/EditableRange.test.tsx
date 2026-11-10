@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import EditableRange from '../EditableRange'
 import { validRangeValue } from '../validRangeValue'
 import { useEscapeLayer } from '../../../hooks/useEscapeLayer'
+import { RANGE_TRAVEL_STEPS, rangePosition } from '../../../state/rangeScale'
 
 function Popup({ onEscape, onChange }: { onEscape: () => void; onChange: (value: number) => void }) {
   useEscapeLayer(onEscape)
@@ -98,6 +99,49 @@ describe('EditableRange', () => {
     )
     const row = container.querySelector('[data-testid="row"]')!
     expect(Array.from(row.children).map((child) => child.tagName)).toEqual(['SPAN', 'INPUT', 'OUTPUT'])
+  })
+
+  it('travels a log scale while reporting and taking the value in its own units', () => {
+    const onChange = vi.fn()
+    const { rerender } = render(
+      <EditableRange value={14.4} min={0.1} max={120} step={0.1} scale="log" ariaLabel="Trail" onChange={onChange} />,
+    )
+    const slider = screen.getByLabelText('Trail') as HTMLInputElement
+    // The input is the travel; the value is what it announces.
+    expect(slider.min).toBe('0')
+    expect(slider.max).toBe(String(RANGE_TRAVEL_STEPS))
+    expect(slider.step).toBe('1')
+    expect(Number(slider.value)).toBe(Math.round(rangePosition(14.4, 0.1, 120, 'log') * RANGE_TRAVEL_STEPS))
+    expect(Number(slider.value)).toBeGreaterThan(650)
+    expect(slider.getAttribute('aria-valuetext')).toBe('14.4')
+
+    // Halfway along three decades is about 3.5 s, not 60 s.
+    fireEvent.change(slider, { target: { value: String(RANGE_TRAVEL_STEPS / 2) } })
+    expect(onChange).toHaveBeenLastCalledWith(3.5)
+    fireEvent.change(slider, { target: { value: String(RANGE_TRAVEL_STEPS) } })
+    expect(onChange).toHaveBeenLastCalledWith(120)
+    fireEvent.change(slider, { target: { value: '0' } })
+    expect(onChange).toHaveBeenLastCalledWith(0.1)
+
+    // An arrow press at the bottom still moves a step.
+    rerender(<EditableRange value={0.1} min={0.1} max={120} step={0.1} scale="log" ariaLabel="Trail" onChange={onChange} />)
+    fireEvent.change(screen.getByLabelText('Trail'), { target: { value: '1' } })
+    expect(onChange).toHaveBeenLastCalledWith(0.2)
+
+    // Typing takes seconds, on the step, as on a linear slider.
+    fireEvent.doubleClick(screen.getByLabelText('Trail'))
+    const editor = screen.getByLabelText('Trail') as HTMLInputElement
+    expect(editor.value).toBe('0.1')
+    fireEvent.change(editor, { target: { value: '17.8' } })
+    fireEvent.keyDown(editor, { key: 'Enter' })
+    expect(onChange).toHaveBeenLastCalledWith(17.8)
+  })
+
+  it('travels linearly when a log scale has no minimum above zero', () => {
+    render(<EditableRange value={2} min={0} max={10} step={1} scale="log" ariaLabel="Count" onChange={() => {}} />)
+    const slider = screen.getByLabelText('Count') as HTMLInputElement
+    expect([slider.min, slider.max, slider.value]).toEqual(['0', '10', '2'])
+    expect(slider.hasAttribute('aria-valuetext')).toBe(false)
   })
 
   it('accepts only values on the slider step inside its range', () => {

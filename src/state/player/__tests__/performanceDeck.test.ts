@@ -6,6 +6,7 @@ import {
   scaleMidiValueToPin,
   isPinnableProperty,
   deriveControlShape,
+  pinRangeScale,
   serializeKeyCombo,
   RESERVED_COMBOS,
   type PinnedControl,
@@ -101,6 +102,17 @@ describe('interpolateScene', () => {
     const result = interpolateScene(a, b, 0.5, pins)
     expect('p-missing' in result).toBe(false)
   })
+
+  it('morphs a log pin along its fader, so halfway between 1 s and 100 s is 10 s', () => {
+    const trail = [pin({ id: 'p-log', min: 0.1, max: 120, step: 0.1, scale: 'log' })]
+    const a = scene('a', { 'p-log': 1 })
+    const b = scene('b', { 'p-log': 100 })
+    expect(interpolateScene(a, b, 0, trail)['p-log']).toBe(1)
+    expect(interpolateScene(a, b, 0.5, trail)['p-log']).toBe(10)
+    expect(interpolateScene(a, b, 1, trail)['p-log']).toBe(100)
+    // Linear, the same pin would pass 50.5 s at halfway.
+    expect(interpolateScene(a, b, 0.5, [pin({ id: 'p-log', min: 0.1, max: 120, step: 0.1 })])['p-log']).toBe(50.5)
+  })
 })
 
 describe('scaleMidiValueToPin', () => {
@@ -121,6 +133,16 @@ describe('scaleMidiValueToPin', () => {
     const p = pin({ kind: 'select', options: ['a', 'b', 'c', 'd'] })
     expect(scaleMidiValueToPin(p, 0)).toBe('a')
     expect(scaleMidiValueToPin(p, 0.99)).toBe('d')
+  })
+
+  it('moves a log pin where its deck fader would be, held at both ends', () => {
+    const p = pin({ kind: 'fader', min: 0.1, max: 120, step: 0.1, scale: 'log' })
+    expect(scaleMidiValueToPin(p, 0)).toBe(0.1)
+    expect(scaleMidiValueToPin(p, 1)).toBe(120)
+    expect(scaleMidiValueToPin(p, 1 / 3)).toBe(1.1)
+    expect(scaleMidiValueToPin(p, 0.5)).toBe(3.5)
+    expect(scaleMidiValueToPin(p, -2)).toBe(0.1)
+    expect(scaleMidiValueToPin(p, 7)).toBe(120)
   })
 })
 
@@ -190,6 +212,18 @@ describe('deriveControlShape', () => {
 
   it('falls back to toggle for booleans with no metadata', () => {
     expect(deriveControlShape('Circle', 'someUnmappedBoolFlag', true).kind).toBe('toggle')
+  })
+
+  it('carries a log property\'s travel with its range, and keeps it through a save', () => {
+    const shape = deriveControlShape('ColorTrails', 'trailLength', 14.4)
+    expect(shape).toEqual({ kind: 'fader', min: 0.1, max: 120, step: 0.1, scale: 'log' })
+    expect(pinRangeScale(shape)).toBe('log')
+    expect('scale' in deriveControlShape('Board', 'brightness', 200)).toBe(false)
+    const saved = normalizeDeckConfig({ pins: [pin({ ...shape }), { ...pin({ id: 'pin-2' }), scale: 'cubic' }] })
+    expect(saved.pins[0].scale).toBe('log')
+    expect('scale' in saved.pins[1]).toBe(false)
+    // A log pin with no minimum above zero cannot travel logarithmically.
+    expect(pinRangeScale(pin({ min: 0, max: 10, scale: 'log' }))).toBe('linear')
   })
 })
 

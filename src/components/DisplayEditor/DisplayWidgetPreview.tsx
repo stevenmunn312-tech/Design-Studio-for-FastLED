@@ -21,9 +21,11 @@ import {
   displayWidgetBodyFallback,
   displayWidgetCaptionLayout,
   displayWidgetContentBounds,
+  displayWidgetHasScale,
   type DisplayPreviewRenderer,
   type DisplayWidgetState,
 } from '../../state/displays/displayRegistry'
+import { rangePosition } from '../../state/rangeScale'
 import { displayAsset, displayAssetUrl } from '../../state/displays/displayAssets'
 import { displayWidgetTextTokens, resolveDisplayThemeTokens } from '../../state/displays/displayTheme'
 import { formatNumberText, normalizeNumberFormat } from '../../state/displays/displayText'
@@ -177,6 +179,12 @@ function numericValue(value: unknown, fallback = 0.62): number {
 }
 
 function normalized(widget: DisplayWidget, value: unknown): number {
+  // A Slider or Dial draws its knob where its own travel puts the value, so
+  // a log one sits where a finger would have to be to set it.
+  if (displayWidgetHasScale(widget.type)) {
+    const { min, max, scale } = displayControlRange(widget)
+    if (scale === 'log') return rangePosition(numericValue(value), min, max, scale)
+  }
   const min = numberProperty(widget, 'min', 0)
   const max = numberProperty(widget, 'max', 1)
   return Math.max(0, Math.min(1, (numericValue(value) - min) / Math.max(Number.EPSILON, max - min)))

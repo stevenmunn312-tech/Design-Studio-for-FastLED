@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { NodeDefinition } from '../types'
 import { NODE_LIBRARY, propertyMeta } from './nodeLibrary'
+import { effectiveRangeScale, rangePosition, rangeValueAt, snapRangeValue } from './rangeScale'
 import { NOISE_PRESETS, type BuiltInPreset } from '../nodes/generative/noiseTypes'
 
 const KEY = 'design-studio-for-fastled.node-presets.v1'
@@ -196,6 +197,14 @@ function randomHex(): string {
 function randomizeValue(nodeType: string, key: string, current: unknown, mutate: boolean): unknown {
   const meta = propertyMeta(nodeType, key)
   if (meta?.control === 'select') return randomChoice(meta.options)
+  if (meta?.control === 'slider' && effectiveRangeScale(meta.scale, meta.min, meta.max) === 'log') {
+    // Drawn and nudged along the slider's own travel, so a three-decade range
+    // is not almost always given a value from its top decade.
+    const at = mutate && typeof current === 'number'
+      ? rangePosition(current, meta.min, meta.max, 'log') + (Math.random() - 0.5) * 0.3
+      : Math.random()
+    return snapRangeValue(rangeValueAt(at, meta.min, meta.max, 'log'), meta.min, meta.max, meta.step)
+  }
   if (meta?.control === 'slider') {
     const span = meta.max - meta.min
     const next = mutate && typeof current === 'number'

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   defaultPropertiesForNodeType,
   presettableProperties,
@@ -46,6 +46,21 @@ describe('nodePresets', () => {
     expect(Number(next.speed)).toBeLessThanOrEqual(1)
     expect(Number(next.scale)).toBeGreaterThanOrEqual(0)
     expect(Number(next.scale)).toBeLessThanOrEqual(1)
+  })
+
+  it('draws and nudges a log slider along its own travel, in its own units', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0.5)
+    try {
+      // Halfway along 0.1-120 s is about 3.5 s, where a linear draw gave 60 s.
+      expect(variationProperties('ColorTrails', { trailLength: 14.4 }, 'randomize').trailLength).toBe(3.5)
+      random.mockReturnValue(1)
+      // A mutation moves at most 15 % of the travel, a factor of 1200^0.15
+      // (about 2.9) on three decades: from 14.4 s at most 41.7 s, never 120 s.
+      expect(variationProperties('ColorTrails', { trailLength: 14.4 }, 'mutate').trailLength).toBe(41.7)
+      expect(variationProperties('ColorTrails', { trailLength: 120 }, 'mutate').trailLength).toBe(120)
+    } finally {
+      random.mockRestore()
+    }
   })
 
   it('keeps code, media, graph identity, and hardware settings out of presets', () => {

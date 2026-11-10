@@ -104,6 +104,34 @@ describe('display widget preview artwork', () => {
   })
 })
 
+describe('display widget preview ranges', () => {
+  function ranged(type: 'Slider' | 'Dial' | 'Progress', properties: Record<string, string | number | boolean>): DisplayWidget {
+    return {
+      id: type.toLowerCase(), type, label: type, bounds: { x: 0, y: 0, width: 120, height: 48 },
+      properties: { ...DISPLAY_WIDGET_LIBRARY[type].defaultProperties, ...properties },
+    }
+  }
+  const fill = (view: ReturnType<typeof draw>) => parseFloat((view.container.querySelector('[style*="--widget-fill"]') as HTMLElement)
+    .style.getPropertyValue('--widget-fill'))
+
+  it('draws a log Slider\'s knob where a finger would set its value', () => {
+    const log = { min: 1, max: 1000, step: 1, scale: 'log' }
+    expect(fill(draw(ranged('Slider', log), 10))).toBeCloseTo(100 / 3, 9)
+    expect(fill(draw(ranged('Slider', log), 1000))).toBe(100)
+    expect(fill(draw(ranged('Slider', log), 0.5))).toBe(0)
+    // The same range, linear, puts 10 near the start.
+    expect(fill(draw(ranged('Slider', { min: 1, max: 1000, step: 1 }), 10))).toBeCloseTo((9 / 999) * 100, 9)
+    const dial = draw(ranged('Dial', log), 100).container.querySelector('[style*="--dial-angle"]') as HTMLElement
+    expect(parseFloat(dial.style.getPropertyValue('--dial-angle'))).toBeCloseTo(-135 + (2 / 3) * 270, 9)
+  })
+
+  it('keeps a reading widget linear: only a control has a Scale', () => {
+    // Normalize drops a scale a Progress bar does not declare, but even
+    // carried it is not read there.
+    expect(fill(draw(ranged('Progress', { min: 0, max: 100, scale: 'log' }), 25))).toBe(25)
+  })
+})
+
 describe('display widget preview text', () => {
   const artist: DisplayWidget = {
     id: 'text', type: 'Text', label: 'Artist',

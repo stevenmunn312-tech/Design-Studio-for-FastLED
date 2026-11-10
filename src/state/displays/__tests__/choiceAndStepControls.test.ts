@@ -55,7 +55,7 @@ describe('Choice Strip', () => {
     expect(displayChoiceOptions(control('Choice Strip', { options: ' Low,Mid , ,High ' }))).toEqual(['Low', 'Mid', 'High'])
     const many = control('Choice Strip', { options: 'a,b,c,d,e,f,g,h' })
     expect(displayChoiceOptions(many)).toHaveLength(DISPLAY_CHOICE_MAX_OPTIONS)
-    expect(displayControlRange(many)).toEqual({ min: 0, max: 5, step: 1 })
+    expect(displayControlRange(many)).toEqual({ min: 0, max: 5, step: 1, scale: 'linear' })
   })
 
   it('counts its options from 0 and starts on its own Starts at, or the first', () => {

@@ -431,13 +431,17 @@ export const WHITE_POINT_OPTIONS = [
  * (checkbox for booleans, number/text input otherwise). A slider whose range is
  * too wide to drag on a node (a port number, a lux ceiling) sets
  * `entry: 'number'` and is typed into a bounded number field instead; every
- * other reader still treats it as the same bounded range.
+ * other reader still treats it as the same bounded range. A slider whose range
+ * spans decades sets `scale: 'log'`: every control that turns the range into a
+ * position (the node's slider, deck faders, screen and phone controls) then
+ * travels it logarithmically, while the value stays in the property's units
+ * (state/rangeScale.ts). Its minimum must be above zero.
  */
 export type PropertyControl =
   // `numeric` stores the chosen option as a number rather than its text.
   // `labels` shows an option as words while the stored value stays its code.
   | { control: 'select'; options: readonly string[]; numeric?: true; labels?: Readonly<Record<string, string>> }
-  | { control: 'slider'; min: number; max: number; step: number; entry?: 'number' }
+  | { control: 'slider'; min: number; max: number; step: number; entry?: 'number'; scale?: 'log' }
   // A 24-hour time of day, stored as "HH:MM" or "HH:MM:SS" text.
   | { control: 'time' }
 
@@ -487,8 +491,9 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   triggerOp:      { control: 'select', options: ['debounce', 'changed', 'toggle', 'oneShot', 'pulseDivider', 'delay'] },
   feedbackTransform: { control: 'select', options: FEEDBACK_TRANSFORMS, labels: { zoomTurn: 'zoom + turn' } },
   delayFrames:    { control: 'slider', min: 1, max: 32, step: 1 },
-  stableTime:     { control: 'slider', min: 0.01, max: 1, step: 0.01 },
-  holdTime:       { control: 'slider', min: 0.02, max: 3, step: 0.02 },
+  // Debounce and One Shot times span two decades: travelled on a log scale.
+  stableTime:     { control: 'slider', min: 0.01, max: 1, step: 0.01, scale: 'log' },
+  holdTime:       { control: 'slider', min: 0.02, max: 3, step: 0.02, scale: 'log' },
   divideBy:       { control: 'slider', min: 2, max: 16, step: 1 },
   delayTime:      { control: 'slider', min: 0.05, max: 5, step: 0.05 },
   fieldOp:        { control: 'select', options: ['add', 'subtract', 'multiply', 'mix', 'min', 'max', 'difference'] },
@@ -559,7 +564,8 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   // Gray-Scott regimes sit half a thousandth apart (coral's kill is 0.0625).
   feed:     { control: 'slider', min: 0, max: 0.1, step: 0.0005 },
   kill:     { control: 'slider', min: 0, max: 0.1, step: 0.0005 },
-  interval: { control: 'slider', min: 0.1, max: 20, step: 0.1 },
+  // Seconds between pulses or steps, 0.1 to 20: travelled on a log scale.
+  interval: { control: 'slider', min: 0.1, max: 20, step: 0.1, scale: 'log' },
   // Smooth's time constant (seconds to ~63% of a step; 0 = passthrough), and
   // its optional separate one for a falling value (0 = the same as Response).
   response: { control: 'slider', min: 0, max: 2, step: 0.01 },
@@ -1152,7 +1158,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   ColorWipe:       { speed: N01, direction: { control: 'select', options: [...WIPE_DIRECTIONS] } },
   Breathe:         {
-    bpm: { control: 'slider', min: BREATHE_BPM.min, max: BREATHE_BPM.max, step: 1 },
+    // 1 to 240 breaths a minute, most of them under 30: a log scale.
+    bpm: { control: 'slider', min: BREATHE_BPM.min, max: BREATHE_BPM.max, step: 1, scale: 'log' },
     minLevel: N01,
     curve: { control: 'select', options: [...BREATHE_CURVES] },
   },
@@ -1342,7 +1349,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   BuzzerOutput: {
     sigPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
-    pitchHz: { control: 'slider', min: BUZZER_PITCH_MIN_HZ, max: BUZZER_PITCH_MAX_HZ, step: 10 },
+    // Pitch is heard by ratio: each octave takes the same travel.
+    pitchHz: { control: 'slider', min: BUZZER_PITCH_MIN_HZ, max: BUZZER_PITCH_MAX_HZ, step: 10, scale: 'log' },
   },
   CoolingFanOutput: {
     pwmPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -1582,16 +1590,16 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     volume: N01,
     musicSource: { control: 'select', options: MUSIC_PLAYER_SOURCES },
     order: { control: 'select', options: PATTERN_SLIDESHOW_ORDERS },
-    minTime: { control: 'slider', min: 1, max: 300, step: 1 },
-    maxTime: { control: 'slider', min: 1, max: 300, step: 1 },
+    minTime: { control: 'slider', min: 1, max: 300, step: 1, scale: 'log' },
+    maxTime: { control: 'slider', min: 1, max: 300, step: 1, scale: 'log' },
     transitionSec: { control: 'slider', min: 0, max: 10, step: 0.1 },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   PatternSlideshow: {
     order: { control: 'select', options: PATTERN_SLIDESHOW_ORDERS },
     interval: { control: 'slider', min: 1, max: 300, step: 1 },
-    minTime: { control: 'slider', min: 1, max: 300, step: 1 },
-    maxTime: { control: 'slider', min: 1, max: 300, step: 1 },
+    minTime: { control: 'slider', min: 1, max: 300, step: 1, scale: 'log' },
+    maxTime: { control: 'slider', min: 1, max: 300, step: 1, scale: 'log' },
     transitionSec: { control: 'slider', min: 0, max: 10, step: 0.1 },
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },

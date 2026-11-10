@@ -399,11 +399,34 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Color Trails keeps its own fade, inside its integer column pass, because
   its trails run to minutes: its Trail length is a half-life in seconds
   (`nodes/audioReactive/colorTrails.ts`), converted from the old per-frame
-  Persistence exactly at 60 fps by `colorTrailsHalfLife`.
+  Persistence exactly at 60 fps by `colorTrailsHalfLife`, on a log slider so
+  the bundled 10–18 s sit two thirds of the way along.
   Frame Feedback's ade works the same way, 1 - fade per 60th of a
   second, but carries the unspent fade per ring slot rather than through the
   shared clock: an echo chain is delayFrames passes long, and one carry spent
   on alternate frames would fade one chain twice and leave the other lit.
+- **A slider's travel can be logarithmic; its value never is.** A
+  `PropertyControl` slider whose range spans decades declares `scale: 'log'`
+  (its minimum must be above zero), and every control that turns the range
+  into a position travels it by ratio: the node's `EditableRange`, a pinned
+  deck fader and its MIDI learn and scene morph, a Touch Slider or Dial wired
+  to it (adopted with its range, and offered by the range repair), and a Web
+  Remote slider. The stored, typed, wired and generated value stays in the
+  property's units, so saves and firmware are untouched. The mapping is one
+  set of helpers, `src/state/rangeScale.ts` (`rangePosition`, `rangeValueAt`,
+  `snapRangeValue`, `logTravelValue`), with a C++ twin `RANGE_SCALE_LOG_CPP`
+  (held by `rangeScaleNative.test.ts`) and a page twin `RANGE_SCALE_LOG_JS`,
+  each emitted only where a log control is. A log LVGL Slider or Dial holds
+  its place 0–1 in its runtime and makes the value where it is read
+  (`_rsLogValue`), so `_cdEvent` stays linear. Log is for durations and rates
+  whose usual values sat in a linear slider's first twentieth (Color Trails'
+  Trail length, Breathe's rate, Interval and Sequencer, the Music Player's and
+  Slideshow's holds, Trigger's debounce and One Shot) and for pitch; a
+  threshold, calibration, count, port or seed stays linear, and
+  `rangeScale.test.ts` lists the log rows so a new one is a decision. A
+  pinned deck control and a Touch widget copy the scale when they are made,
+  as they copy the range, so one made before a property turned log stays
+  linear until it is re-pinned or its range is matched.
 - Two node-authoring facts are derived rather than listed, and were each written
   down twice before. A **palette producer** is a *builder* (emits its own
   `pal_<id>` CRGBPalette16) or a *selector* (resolves to a shared
