@@ -104,7 +104,7 @@ describe('TemplatesPopup', () => {
     const { getByText, getByRole } = render(<TemplatesPopup />)
     const card = getByText('Music-synced SD Show').closest('button')!
     expect(card.textContent).toContain('Advanced')
-    expect(card.textContent).toMatch(/In the browser.*Analyse songs and preview the show/)
+    expect(card.textContent).toMatch(/In the browser.*demo track analysed into a show/)
     expect(card.textContent).toMatch(/On a board.*microSD card module/)
     expect(card.textContent).toMatch(/Have ready.*songs to analyse/i)
     const juggle = getByRole('button', { name: /Start with Juggle/ })

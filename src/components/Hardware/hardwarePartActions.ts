@@ -367,6 +367,11 @@ export function benchPartActions({
         } as never)
       }
     }
+    // A card reader is there to play music from, and music reaches the graph
+    // through an Audio node, so the first reader brings one set to the decoder,
+    // as a microphone brings one set to itself. An Audio node already in the
+    // graph is the user's, source included, and is left alone.
+    const audioAdded = entry.nodeType === 'SDCard' && ensureRootAudioNode('decoder') !== null
     const audioNodes = nodes.filter((node) => node.data.nodeType === 'Audio')
     if (entry.nodeType === 'StereoVuMeter' && audioNodes.length === 1) {
       connectRoot({
@@ -379,7 +384,9 @@ export function benchPartActions({
     setStatus(
       entry.nodeType === 'StereoVuMeter' && audioNodes.length === 1
         ? `Added ${entry.label} and connected Audio`
-        : `Added ${entry.label}`,
+        : audioAdded
+          ? `Added ${entry.label} and an Audio node set to Audio Decoder`
+          : `Added ${entry.label}`,
       'success',
     )
   }

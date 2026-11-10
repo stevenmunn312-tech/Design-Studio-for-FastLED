@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AUDIO_BUNDLED_PATTERNS } from '../../state/patterns/bundledPatterns'
+import { starterShowPatterns } from '../../state/patterns/starterShowPatterns'
+import { usePatternLibrary } from '../../state/patterns/patternLibrary'
+import { useMusicStore } from '../../state/player/musicStore'
+import { DEMO_TRACK_FILE } from '../../state/player/demoTrack'
 import {
   landOnStartingWorkspace,
   openBlankProject,
@@ -95,13 +98,103 @@ describe('startFlow', () => {
     expect(useUiStore.getState().previewPanelOpen).toBe(true)
   })
 
-  it('opens the Music Player starter with the audio-reactive shelf in its collection', () => {
-    startTemplateById('generative-show')
+  /*
+   * Both show starters open with the Exceptional audio-reactive patterns, as
+   * copies that remember their library pattern, so Update from library works
+   * on a starter's collection as on one the user filled.
+   */
+  it.each([
+    ['Music Player', 'generative-show'],
+    ['Performance Generator', 'music-sync-sd-show'],
+  ])('opens the %s starter with the Exceptional audio-reactive patterns in its collection', (_, id) => {
+    startTemplateById(id)
     const graph = useGraphStore.getState()
     const collection = graph.nodes.find((node) => node.data.nodeType === 'PatternCollection')!
     const patternIds = (collection.data.properties as { patternIds: string[] }).patternIds
-    expect(patternIds.map((id) => graph.graphs[id]?.name)).toEqual(AUDIO_BUNDLED_PATTERNS.map((pattern) => pattern.name))
-    for (const id of patternIds) expect(graph.graphData[id]?.nodes.length).toBeGreaterThan(0)
+    const show = starterShowPatterns()
+    expect(patternIds.map((groupId) => graph.graphs[groupId]?.name)).toEqual(show.map((pattern) => pattern.name))
+    expect(patternIds.map((groupId) => graph.graphs[groupId]?.sourcePatternId)).toEqual(show.map((pattern) => pattern.id))
+    for (const groupId of patternIds) expect(graph.graphData[groupId]?.nodes.length).toBeGreaterThan(0)
+    // Bundled patterns ship with the app, so collecting them leaves the
+    // starter trusted and its patterns running.
+    expect(graph.trusted).toBe(true)
+    const library = new Set(usePatternLibrary.getState().patterns.map((pattern) => pattern.id))
+    for (const pattern of show) expect(library.has(pattern.id), pattern.name).toBe(true)
+  })
+
+  /*
+   * The Performance Generator starter's Music Library opens holding the demo
+   * track, queued for analysis exactly as a dropped file is. It fetches and
+   * decodes a file, so it is held to a trusted workspace and to the start
+   * choice that asked for it.
+   */
+  describe('the demo track in the Performance Generator starter', () => {
+    const demoNames = () => useMusicStore.getState().entries.map((entry) => entry.file.name)
+    let release: (response: Response) => void
+    const settle = async () => { for (let i = 0; i < 8; i++) await Promise.resolve() }
+    const mp3 = () => new Response(new Blob([new Uint8Array([0xff, 0xfb, 0x90, 0x00])], { type: 'audio/mpeg' }))
+
+    beforeEach(() => {
+      useMusicStore.setState({ entries: [] })
+      vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((resolve) => { release = resolve })))
+    })
+    afterEach(() => {
+      vi.unstubAllGlobals()
+      useMusicStore.setState({ entries: [] })
+    })
+
+    it('is added to the Music Library when the starter opens', async () => {
+      startTemplateById('music-sync-sd-show')
+      expect(demoNames()).toEqual([])
+      release(mp3())
+      await settle()
+      expect(demoNames()).toEqual([DEMO_TRACK_FILE])
+    })
+
+    it('is not fetched for a starter with no Music Library', async () => {
+      startTemplateById('generative-show')
+      await settle()
+      expect(fetch).not.toHaveBeenCalled()
+    })
+
+    it('is dropped when the workspace stopped being trusted while it loaded', async () => {
+      startTemplateById('music-sync-sd-show')
+      // Code from elsewhere arrives the way a paste or a pattern drop brings
+      // it: with the workspace marked untrusted in the same update.
+      useGraphStore.setState((state) => ({
+        trusted: false,
+        nodes: [...state.nodes, {
+          id: 'pasted-code',
+          type: 'studioNode',
+          position: { x: 0, y: 0 },
+          data: {
+            label: 'Code', nodeType: 'Code', category: 'pattern',
+            properties: { code: 'leds[0] = CRGB(7, 7, 7); // never written on this machine' }, inputs: [], outputs: [],
+          },
+        } as unknown as StudioNode],
+      }))
+      expect(useGraphStore.getState().trusted).toBe(false)
+      release(mp3())
+      await settle()
+      expect(demoNames()).toEqual([])
+    })
+
+    it('is dropped when another start choice replaced the starter while it loaded', async () => {
+      startTemplateById('music-sync-sd-show')
+      const first = release
+      startTemplateById('juggle')
+      first(mp3())
+      await settle()
+      expect(demoNames()).toEqual([])
+    })
+
+    it('leaves the library empty, and says so, when the track cannot be loaded', async () => {
+      startTemplateById('music-sync-sd-show')
+      release(new Response(null, { status: 404 }))
+      await settle()
+      expect(demoNames()).toEqual([])
+      expect(useUiStore.getState().statusText).toBe('The demo track could not be loaded. Drop your own songs into the Music Library.')
+    })
   })
 
   it('leaves the shelf as the user had it when a starter is loaded', () => {
@@ -289,9 +382,9 @@ describe('opening a start choice as its own project', () => {
       expect(result?.nodeIds.length).toBeGreaterThan(0)
       expect(types()).not.toContain('Noise')
       expect(types()).toContain('PatternMaster')
-      // Lit from the first frame: the collection holds the audio-reactive shelf.
+      // Lit from the first frame: the collection holds the starter show.
       const collection = useGraphStore.getState().nodes.find((node) => node.data.nodeType === 'PatternCollection')!
-      expect((collection.data.properties as { patternIds: string[] }).patternIds).toHaveLength(AUDIO_BUNDLED_PATTERNS.length)
+      expect((collection.data.properties as { patternIds: string[] }).patternIds).toHaveLength(starterShowPatterns().length)
       // The bench parts the player needs come with it, on the project's board,
       // hidden on the canvas as the hardware view's parts always are.
       expect(types()).toContain('SDCard')

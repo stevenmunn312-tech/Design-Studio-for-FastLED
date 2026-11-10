@@ -55,7 +55,6 @@ export const BAKE_TIME_PROPERTIES: Record<string, readonly string[]> = {
     'paletteMode',
     'fixedPalette',
     'useGroupInputs',
-    'showInMainPreview',
   ],
   Sequencer: ['interval', 'fade'],
   Transition: ['transitionType', 'direction', 'axis', 'tileSize', 'count', 'turns'],

@@ -880,6 +880,16 @@ describe('graphStore — loadGraph normalization', () => {
     expect(dataOf('lib').category).toBe('show')
   })
 
+  it('drops a Performance Generator\'s retired main-preview switch on load', () => {
+    // The show plays in the main LED preview and nowhere else now. A save from
+    // when that was a choice may carry the switch turned off; nothing reads
+    // it, and it is not kept to come back as a property row.
+    useGraphStore.getState().loadGraph([node('perf', 'PerformanceGenerator', { showInMainPreview: false, minTime: 12 })], [])
+
+    expect(dataOf('perf').properties).not.toHaveProperty('showInMainPreview')
+    expect(dataOf('perf').properties.minTime).toBe(12)
+  })
+
   it('does not reinterpret retired pre-v1 node types', () => {
     const animated = node('animated', 'AnimatedImage', { playbackRate: 2 })
     const string = node('string', 'LedStringOutput', { ledCount: 120 })

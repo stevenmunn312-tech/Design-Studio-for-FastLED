@@ -110,7 +110,6 @@ const STRUCTURAL_KEYS = new Set([
   'transitions',
   'previewHidden',
   'bypassed',
-  'showInMainPreview',
   'usePsram',
   'psramPolicy',
   'psramMode',

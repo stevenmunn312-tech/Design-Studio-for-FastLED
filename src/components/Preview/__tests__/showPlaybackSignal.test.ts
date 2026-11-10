@@ -19,8 +19,8 @@ const litShow: ShowFile = {
 }
 
 // PerformanceGenerator has no graph-wired `frame` port (see nodeLibrary.ts) —
-// a playing show is opted into the main preview explicitly via the
-// `showInMainPreview` node property (PerformanceGeneratorBody → showPlayback.ts),
+// the node body publishes the show it holds to the main preview
+// (PerformanceGeneratorBody → showPlayback.ts),
 // so this only ever depends on the playback state, not the graph.
 describe('applyShowPlaybackSignal', () => {
   it('prefers a baked preview frame over live rendering when one exists for the generator', () => {

@@ -747,11 +747,10 @@ describe('nodeLibrary', () => {
     expect(generator?.inputs.map((p) => p.id))
       .toEqual(['patternset', 'transitions', 'controls', ...performanceActions])
     expect(generator?.actionInputs).toEqual(performanceActions)
-    expect(generator?.defaultProperties).toMatchObject({
-      useGroupInputs: true,
-      // The show plays where the LEDs it names are drawn.
-      showInMainPreview: true,
-    })
+    expect(generator?.defaultProperties).toMatchObject({ useGroupInputs: true })
+    // The show plays in the main LED preview and nowhere else, so there is no
+    // switch for it.
+    expect(generator?.defaultProperties).not.toHaveProperty('showInMainPreview')
   })
 
   it('adds the PIR and LDR as bench parts, not sidebar nodes', () => {

@@ -12,8 +12,8 @@ interface ShowPlaybackPreview {
 
 // PerformanceGenerator has no `frame` graph port (a firmware-facing one would
 // be misleading — a normal sketch has no audio transport to drive it; see the
-// node definition comment in nodeLibrary.ts). Instead, its own body opts a
-// playing show into the main LED preview explicitly via `showInMainPreview`
+// node definition comment in nodeLibrary.ts). Instead, its body publishes the
+// show it holds to the main LED preview, the only place a show is drawn
 // (PerformanceGeneratorBody → showPlayback.ts's `setPlayback`); this just
 // renders whatever that store currently holds over the graph's own terminal
 // frame, once per evaluated pass.

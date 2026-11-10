@@ -1749,8 +1749,8 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
   },
   PerformanceGenerator({ inputSourceType, input, elapsedT: t, W, H, stateKey, incoming, nodeMap }, id) {
     // The `frame` edge names the show's destination; it does not carry it.
-    // Playback lives in the node body (PerformanceGeneratorBody) and, with
-    // `showInMainPreview` (on by default), reaches the main LED preview through
+    // Playback lives in the node body (PerformanceGeneratorBody) and reaches
+    // the main LED preview, the only place it is drawn, through
     // showPlayback.ts — which composites over this frame rather than through
     // it, because a show is driven by an audio transport that the evaluator's
     // tick has no relationship to. So the port emits blank: with nothing

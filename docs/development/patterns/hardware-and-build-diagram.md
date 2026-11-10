@@ -91,7 +91,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   the outputs; the part carries only its identity and pins, is hidden on the
   canvas, and is found by scanning the board's partition (`rtcModuleIn`,
   `dmxTransceiverIn`, `midiInterfaceIn`). Adding the part brings its library
-  node when the graph has none (`ensureRootAudioNode`, `ensureRootReaderNode`),
+  node when the graph has none (`ensureRootAudioNode`, `ensureRootReaderNode`);
+  an SD card reader, a fixture rather than a provider, brings an Audio node
+  set to the decoder by the same rule,
   and a choice whose part is missing is a validation finding whose repair adds
   it (`add-rtc-module`, `add-bench-part` through `addProviderPartToBoard`, also
   a button on the reading node), never a second set of outputs on the part. With

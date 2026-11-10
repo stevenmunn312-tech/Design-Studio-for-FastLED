@@ -311,6 +311,66 @@ describe('HardwarePane', () => {
     expect(useGraphStore.getState().nodes).toEqual([])
   })
 
+  /*
+   * A card reader is there to play music from, so the first one brings an
+   * Audio node set to the decoder, by the microphone's rule: never a second,
+   * and never a change to the one the user already has.
+   */
+  it('adds an Audio node set to the decoder with the first SD card reader', () => {
+    render(<HardwarePane />)
+
+    addPart('Storage', 'microSD module (5 V)')
+
+    const state = useGraphStore.getState()
+    expect(state.nodes.some((entry) => entry.data.nodeType === 'SDCard')).toBe(true)
+    const audio = state.nodes.filter((entry) => entry.data.nodeType === 'Audio')
+    expect(audio).toHaveLength(1)
+    expect((audio[0].data.properties as Record<string, unknown>).sourceId).toBe('kind:decoder')
+    expect(useUiStore.getState().statusText).toBe('Added SD Card and an Audio node set to Audio Decoder')
+  })
+
+  it('keeps the Audio node already on the graph when an SD card reader is added', () => {
+    useGraphStore.setState({
+      nodes: [
+        node('Board', ROOT_BOARD_NODE_ID, { profileId: DEFAULT_BOARD_PROFILE_ID }) as never,
+        node('Audio', 'audio-existing', { sourceId: 'kind:microphone' }) as never,
+      ],
+    })
+    render(<HardwarePane />)
+
+    addPart('Storage', 'microSD module (5 V)')
+
+    const audio = useGraphStore.getState().nodes.filter((entry) => entry.data.nodeType === 'Audio')
+    expect(audio.map((entry) => entry.id)).toEqual(['audio-existing'])
+    expect((audio[0].data.properties as Record<string, unknown>).sourceId).toBe('kind:microphone')
+    expect(useUiStore.getState().statusText).toBe('Added SD Card')
+  })
+
+  it('puts the SD card reader\'s Audio node in the root graph while a pattern group is open', () => {
+    useGraphStore.setState({
+      nodes: [],
+      edges: [],
+      activeGraphId: 'g1',
+      graphs: {
+        [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' },
+        g1: { id: 'g1', name: 'Pattern' },
+      },
+      graphData: {
+        [ROOT_GRAPH_ID]: {
+          nodes: [node('Board', ROOT_BOARD_NODE_ID, { profileId: DEFAULT_BOARD_PROFILE_ID }) as never],
+          edges: [],
+        },
+      },
+    })
+    render(<HardwarePane />)
+
+    addPart('Storage', 'microSD module (5 V)')
+
+    const root = rootGraphNodes(useGraphStore.getState())
+    expect(root.map((entry) => entry.data.nodeType)).toEqual(expect.arrayContaining(['SDCard', 'Audio']))
+    expect(useGraphStore.getState().nodes).toEqual([])
+  })
+
   it('refuses the SPH0645LM4H on the shelf of an ESP32-S3, and says why', () => {
     render(<HardwarePane />)
     openShelfCategory('Audio')
