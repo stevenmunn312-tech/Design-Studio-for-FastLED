@@ -10,7 +10,7 @@ Every candidate except the fourteen promoted saved patterns ends with a shared e
 
 ## Promoted saved patterns
 
-These patterns retain their original names, ports, graphs and settings, including the working names “My Pattern” and “New Group temp”. Promotion does not retrofit the newer audio rig into these user-authored graphs.
+These patterns retain their original ports, and their original graphs and settings except where noted. Promotion does not retrofit the newer audio rig into these user-authored graphs. Two were promoted under working names and renamed on 2026-11-10: “My Pattern” is Sunset Bloom Spectrum and “New Group temp” is Citrus Spectrum Bars. Aurora Voice and Cascade Surge were retuned the same day: Aurora Voice rests brighter and shifts hue less on a beat, and Cascade Surge leads with its rainbow ribbons over a cool bass wash. A saved personal copy of any of these four no longer matches the bundled one, so it stays in the library beside it.
 
 - **Aurora Voice** — `bundled-audio-73`
 - **Cascade Surge** — `bundled-audio-74`
@@ -18,9 +18,9 @@ These patterns retain their original names, ports, graphs and settings, includin
 - **Event Horizon** — `bundled-audio-76`
 - **Fractal Voyage** — `bundled-audio-77`
 - **Monsoon Echo** — `bundled-audio-78`
-- **My Pattern** — `bundled-audio-79`
+- **Sunset Bloom Spectrum** — `bundled-audio-79`
 - **Neon Prism EQ** — `bundled-audio-80`
-- **New Group temp** — `bundled-audio-81`
+- **Citrus Spectrum Bars** — `bundled-audio-81`
 - **Peacock Mosaic Drift** — `bundled-audio-82`
 - **Polar Bloom** — `bundled-audio-83`
 - **Prism Fracture** — `bundled-audio-84`

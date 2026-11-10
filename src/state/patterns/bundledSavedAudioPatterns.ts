@@ -5,9 +5,9 @@ import cinderStorm from '../../assets/bundled-patterns/Cinder Storm.json'
 import eventHorizon from '../../assets/bundled-patterns/Event Horizon.json'
 import fractalVoyage from '../../assets/bundled-patterns/Fractal Voyage.json'
 import monsoonEcho from '../../assets/bundled-patterns/Monsoon Echo.json'
-import myPattern from '../../assets/bundled-patterns/My Pattern.json'
+import sunsetBloomSpectrum from '../../assets/bundled-patterns/Sunset Bloom Spectrum.json'
 import neonPrismEq from '../../assets/bundled-patterns/Neon Prism EQ.json'
-import newGroupTemp from '../../assets/bundled-patterns/New Group temp.json'
+import citrusSpectrumBars from '../../assets/bundled-patterns/Citrus Spectrum Bars.json'
 import peacockMosaicDrift from '../../assets/bundled-patterns/Peacock Mosaic Drift.json'
 import polarBloom from '../../assets/bundled-patterns/Polar Bloom.json'
 import prismFracture from '../../assets/bundled-patterns/Prism Fracture.json'
@@ -16,8 +16,12 @@ import ultravioletKaleidoPulse from '../../assets/bundled-patterns/Ultraviolet K
 
 type BundledSeed = Omit<SavedPattern, 'id' | 'createdAt' | 'categoryId' | 'bundled'>
 
-// Promoted library entries retain their original graph and port signatures.
-// Append this set after the existing audio shelves to preserve bundled ids.
+// Promoted library entries retain their original port signatures, and their
+// original graphs except Aurora Voice and Cascade Surge, retuned 2026-11-10.
+// Sunset Bloom Spectrum and Citrus Spectrum Bars were promoted as "My
+// Pattern" and "New Group temp". Order is identity: a pattern's
+// `bundled-audio-NN` id is its position, so the two renamed entries keep
+// their slots rather than their alphabetical place.
 export const SAVED_AUDIO_SEEDS = [
   auroraVoice,
   cascadeSurge,
@@ -25,9 +29,9 @@ export const SAVED_AUDIO_SEEDS = [
   eventHorizon,
   fractalVoyage,
   monsoonEcho,
-  myPattern,
+  sunsetBloomSpectrum,
   neonPrismEq,
-  newGroupTemp,
+  citrusSpectrumBars,
   peacockMosaicDrift,
   polarBloom,
   prismFracture,

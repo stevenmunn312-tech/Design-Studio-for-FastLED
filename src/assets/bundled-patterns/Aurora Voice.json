@@ -52,9 +52,9 @@
           "nodeType": "AudioFeatures",
           "category": "audio",
           "properties": {
-            "sensitivity": 0.5,
+            "sensitivity": 0.8,
             "gate": 0.12,
-            "smoothing": 0.8
+            "smoothing": 0.86
           },
           "inputs": [
             {
@@ -94,7 +94,7 @@
           "nodeType": "BeatDetect",
           "category": "audio",
           "properties": {
-            "threshold": 0.2,
+            "threshold": 0.4,
             "attack": 0.55,
             "decay": 0.25
           },
@@ -210,7 +210,7 @@
           "properties": {
             "mirrorMode": "vertical",
             "glow": true,
-            "glowAmount": 0.4,
+            "glowAmount": 0.5,
             "r": 255,
             "g": 255,
             "b": 255
@@ -253,8 +253,8 @@
           "nodeType": "Envelope",
           "category": "signal",
           "properties": {
-            "attack": 0,
-            "decay": 0.6
+            "attack": 0.08,
+            "decay": 0.9
           },
           "inputs": [
             {
@@ -288,7 +288,7 @@
             "inMin": 0,
             "inMax": 1,
             "outMin": 0,
-            "outMax": 40
+            "outMax": 18
           },
           "inputs": [
             {
@@ -373,7 +373,7 @@
           "nodeType": "Blur2D",
           "category": "composite",
           "properties": {
-            "amount": 0.08
+            "amount": 0.03
           },
           "inputs": [
             {
@@ -417,6 +417,114 @@
           ],
           "outputs": []
         }
+      },
+      {
+        "id": "map-vocals",
+        "type": "studioNode",
+        "position": {
+          "x": -500,
+          "y": 110
+        },
+        "data": {
+          "label": "Map Range",
+          "nodeType": "MapRange",
+          "category": "math",
+          "properties": {
+            "value": 0,
+            "inMin": 0,
+            "inMax": 0.5,
+            "outMin": 0.3,
+            "outMax": 1
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "inMin",
+              "label": "In Min",
+              "dataType": "float"
+            },
+            {
+              "id": "inMax",
+              "label": "In Max",
+              "dataType": "float"
+            },
+            {
+              "id": "outMin",
+              "label": "Out Min",
+              "dataType": "float"
+            },
+            {
+              "id": "outMax",
+              "label": "Out Max",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "map-react",
+        "type": "studioNode",
+        "position": {
+          "x": -500,
+          "y": 270
+        },
+        "data": {
+          "label": "Map Range",
+          "nodeType": "MapRange",
+          "category": "math",
+          "properties": {
+            "value": 0,
+            "inMin": 0,
+            "inMax": 1,
+            "outMin": 0.5,
+            "outMax": 1
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "inMin",
+              "label": "In Min",
+              "dataType": "float"
+            },
+            {
+              "id": "inMax",
+              "label": "In Max",
+              "dataType": "float"
+            },
+            {
+              "id": "outMin",
+              "label": "Out Min",
+              "dataType": "float"
+            },
+            {
+              "id": "outMax",
+              "label": "Out Max",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
       }
     ],
     "edges": [
@@ -442,30 +550,6 @@
         "reconnectable": "target",
         "style": {
           "stroke": "#00e0a4"
-        }
-      },
-      {
-        "id": "e21-feat-vocals-aurora-vocals",
-        "source": "feat",
-        "sourceHandle": "vocals",
-        "target": "aurora",
-        "targetHandle": "vocals",
-        "type": "glowEdge",
-        "reconnectable": "target",
-        "style": {
-          "stroke": "#9aa0a6"
-        }
-      },
-      {
-        "id": "e22-feat-energy-aurora-energy",
-        "source": "feat",
-        "sourceHandle": "energy",
-        "target": "aurora",
-        "targetHandle": "reactivity",
-        "type": "glowEdge",
-        "reconnectable": "target",
-        "style": {
-          "stroke": "#9aa0a6"
         }
       },
       {
@@ -562,6 +646,54 @@
         "reconnectable": "target",
         "style": {
           "stroke": "#5ad1ff"
+        }
+      },
+      {
+        "id": "e-feat-vocals-map-vocals-value",
+        "source": "feat",
+        "sourceHandle": "vocals",
+        "target": "map-vocals",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "e-map-vocals-result-aurora-vocals",
+        "source": "map-vocals",
+        "sourceHandle": "result",
+        "target": "aurora",
+        "targetHandle": "vocals",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "e-feat-energy-map-react-value",
+        "source": "feat",
+        "sourceHandle": "energy",
+        "target": "map-react",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "e-map-react-result-aurora-reactivity",
+        "source": "map-react",
+        "sourceHandle": "result",
+        "target": "aurora",
+        "targetHandle": "reactivity",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
         }
       }
     ]

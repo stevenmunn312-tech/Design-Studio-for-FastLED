@@ -287,7 +287,7 @@
           "nodeType": "BassPulse",
           "category": "pattern",
           "properties": {
-            "palette": "sunset"
+            "palette": "ocean"
           },
           "inputs": [
             {
@@ -322,8 +322,8 @@
           "nodeType": "Blend",
           "category": "composite",
           "properties": {
-            "blendMode": "add",
-            "amount": 0.6
+            "blendMode": "screen",
+            "amount": 0.4
           },
           "inputs": [
             {
@@ -363,7 +363,7 @@
           "nodeType": "Saturation",
           "category": "composite",
           "properties": {
-            "amount": 1.1
+            "amount": 1.15
           },
           "inputs": [
             {
@@ -398,7 +398,7 @@
           "nodeType": "Gamma",
           "category": "composite",
           "properties": {
-            "gamma": 2.2
+            "gamma": 1
           },
           "inputs": [
             {
@@ -570,7 +570,7 @@
         "source": "pulse",
         "sourceHandle": "frame",
         "target": "blend",
-        "targetHandle": "a",
+        "targetHandle": "b",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {
@@ -582,7 +582,7 @@
         "source": "cascade",
         "sourceHandle": "frame",
         "target": "blend",
-        "targetHandle": "b",
+        "targetHandle": "a",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {

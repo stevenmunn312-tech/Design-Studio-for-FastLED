@@ -16,6 +16,14 @@ versioning (`0.y.z`) until the first stable release.
   Strong and Exceptional list every pattern scored 75 or better.
 - Psydance is tagged best on an LED matrix. The Board settings no longer
   repeat the Report telemetry tooltip as a note under the switch.
+- Twelve more bundled audio patterns are tagged best on an LED matrix. Two
+  of them have names now: "My Pattern" is Sunset Bloom Spectrum and "New
+  Group temp" is Citrus Spectrum Bars. Aurora Voice rests brighter, keeps
+  its curtains lit between phrases and shifts hue less on a beat (18° at a
+  0.4 threshold, was 40° at 0.2). Cascade Surge leads with its rainbow
+  ribbons over a cool bass wash in place of a flat red one. A personal copy
+  of any of these four saved before the change stays in the library beside
+  the bundled one.
 - The MAX485 DMX transceiver and the Adafruit MIDI FeatherWing are bench
   parts on a new DMX & MIDI shelf, with pins assigned automatically and
   renders rebuilt from new 3-D models. A DMX node set to DMX512 and MIDI

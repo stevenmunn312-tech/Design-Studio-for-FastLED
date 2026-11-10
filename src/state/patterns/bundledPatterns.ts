@@ -947,8 +947,7 @@ const BUNDLED_BEST_ON: Record<string, PatternFormTag[]> = {
   'Psydance': ['matrix'],
   // Tagged from their node lists, not from renders: each stars an engine
   // whose idea is the second axis (an arrayed or mirrored tile, bar height,
-  // a mosaic, a well, ripples). Aurora Voice, Cascade Surge and Cinder Storm
-  // stay untagged until someone looks at them on a 60x1 strip.
+  // a mosaic, a well, ripples).
   'Polar Bloom': ['matrix'],
   'Prism Fracture': ['matrix'],
   'Ultraviolet Kaleido Pulse': ['matrix'],
@@ -956,6 +955,12 @@ const BUNDLED_BEST_ON: Record<string, PatternFormTag[]> = {
   'Peacock Mosaic Drift': ['matrix'],
   'Event Horizon': ['matrix'],
   'Monsoon Echo': ['matrix'],
+  // Checked by eye on a matrix, 2026-11-10.
+  'Aurora Voice': ['matrix'],
+  'Cascade Surge': ['matrix'],
+  'Cinder Storm': ['matrix'],
+  'Sunset Bloom Spectrum': ['matrix'],
+  'Citrus Spectrum Bars': ['matrix'],
 }
 
 /** Every name in the table above, so a test can prove each one still matches a
@@ -1012,9 +1017,10 @@ const AUDIO_LIGHT_FLOORS: Record<string, number> = {
 }
 
 /** Shelves one to three, the string recipes and the late seed share the
- *  energy stage. Promoted user graphs are kept byte for byte, because the
- *  library deduplicates them against the user's own saved copy; the release
- *  builder applies the stage itself. */
+ *  energy stage. Promoted user graphs load as their files are, because the
+ *  library deduplicates an unchanged one against the user's own saved copy
+ *  (the two renamed and the two retuned ones no longer match theirs); the
+ *  release builder applies the stage itself. */
 const shapedAudioSeeds = (seeds: BundledSeed[]) =>
   seeds.map((seed) => withEnergyDynamics(seed, { lightFloor: AUDIO_LIGHT_FLOORS[seed.name] }) as BundledSeed)
 
