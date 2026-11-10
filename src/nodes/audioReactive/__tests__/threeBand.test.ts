@@ -22,7 +22,7 @@ function bassBar(props: Record<string, unknown>, ms: number, level: number, wire
   return frame.filter((row) => row[0].r + row[0].g + row[0].b > 0).length
 }
 
-const props = { style: 'Three Band', gain: 1, smoothing: 0.8, energy: 0, speed: 0, mirror: false }
+const props = { style: 'Three Band', gain: 1, smoothing: 0.8, reactivity: 0, speed: 0, mirror: false }
 
 beforeEach(() => resetEvaluatorState())
 

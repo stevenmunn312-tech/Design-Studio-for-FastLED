@@ -58,7 +58,8 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { speed: 1, loop: true },
   },
   {
-    // Renders text with the built-in 3×5 font over an optional base frame;
+    // Renders text with the built-in 3×5 font over an optional base frame,
+    // each font pixel Size pixels square (1–4, font.ts textSize);
     // scroll > 0 scrolls it left. X/Y are 0–1 or pixels by Units
     // (positionUnits.ts); `wrap` tiles it across the opposite edges.
     type: 'Text',
@@ -82,7 +83,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       text: 'HELLO', units: 'normalized', x: 0.5, y: 0.5, scroll: 0, wrap: false, r: 0, g: 255, b: 255,
-      hAlign: 'center', vAlign: 'middle', scrollAxis: 'horizontal', letterSpacing: 1,
+      hAlign: 'center', vAlign: 'middle', scrollAxis: 'horizontal', letterSpacing: 1, size: 1,
     },
   },
   {
@@ -138,6 +139,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
       b: 90,
       hAlign: 'center',
       vAlign: 'middle',
+      size: 1,
     },
   },
   {

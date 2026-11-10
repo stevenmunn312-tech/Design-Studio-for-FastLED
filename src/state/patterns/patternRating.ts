@@ -745,7 +745,7 @@ function audioForFrame(i: number, scenario: AudioScenario): { override: AudioOve
   }
   const roles: Record<string, number | boolean> = {
     bass, mids, treble, kick: bass, snare: mids, hihat: treble, vocals: mids,
-    energy, beat, silence: scenario === 'silent',
+    reactivity: energy, beat, silence: scenario === 'silent',
   }
   return { override, roles }
 }

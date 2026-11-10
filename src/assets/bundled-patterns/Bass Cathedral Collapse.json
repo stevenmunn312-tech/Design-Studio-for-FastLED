@@ -871,7 +871,7 @@
             "peakGravity": 1.8,
             "waterfallSpeed": 10,
             "palette": "rainbow",
-            "energy": 0.8,
+            "reactivity": 0.8,
             "speed": 0.5,
             "mirror": true
           },
@@ -932,7 +932,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Reactivity",
               "dataType": "float"
             },
@@ -964,8 +964,8 @@
           "category": "pattern",
           "properties": {
             "bass": 0.5,
-            "energy": 0.8,
-            "speed": 0.6,
+            "reactivity": 0.8,
+            "speed": 0.3,
             "palette": "lava"
           },
           "inputs": [
@@ -975,7 +975,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -1014,8 +1014,8 @@
             "hihat": 0,
             "kick": 0,
             "snare": 0,
-            "energy": 0.8,
-            "speed": 1,
+            "reactivity": 0.8,
+            "speed": 0.5,
             "tiles": 1,
             "palette": "volcano",
             "count": 6,
@@ -1041,7 +1041,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -1333,6 +1333,43 @@
           ],
           "outputs": []
         }
+      },
+      {
+        "id": "rings-speed-half",
+        "type": "studioNode",
+        "position": {
+          "x": -100,
+          "y": 280
+        },
+        "data": {
+          "label": "Math",
+          "nodeType": "Math",
+          "category": "math",
+          "properties": {
+            "mathOp": "multiply",
+            "a": 0,
+            "b": 0.5
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "float"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
       }
     ],
     "edges": [
@@ -1503,7 +1540,7 @@
         "source": "barEnergy",
         "sourceHandle": "result",
         "target": "bars",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -1539,7 +1576,7 @@
         "source": "ringEnergy",
         "sourceHandle": "result",
         "target": "rings",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -1547,8 +1584,8 @@
         "id": "e23",
         "source": "mids",
         "sourceHandle": "result",
-        "target": "rings",
-        "targetHandle": "speed",
+        "target": "rings-speed-half",
+        "targetHandle": "a",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -1684,6 +1721,15 @@
         "sourceHandle": "frame",
         "target": "out",
         "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e-rings-speed-half",
+        "source": "rings-speed-half",
+        "sourceHandle": "result",
+        "target": "rings",
+        "targetHandle": "speed",
         "type": "glowEdge",
         "reconnectable": "target"
       }

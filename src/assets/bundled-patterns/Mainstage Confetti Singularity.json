@@ -268,8 +268,8 @@
           "nodeType": "AudioCascade",
           "category": "pattern",
           "properties": {
-            "energy": 0.8,
-            "speed": 0.72,
+            "reactivity": 0.8,
+            "speed": 0.36,
             "palette": "rainbow"
           },
           "inputs": [
@@ -289,7 +289,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -588,6 +588,43 @@
           ]
         },
         "selected": false
+      },
+      {
+        "id": "p10-cascade-speed-half",
+        "type": "studioNode",
+        "position": {
+          "x": -280,
+          "y": 60
+        },
+        "data": {
+          "label": "Math",
+          "nodeType": "Math",
+          "category": "math",
+          "properties": {
+            "mathOp": "multiply",
+            "a": 0,
+            "b": 0.5
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "float"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
       }
     ],
     "edges": [
@@ -695,7 +732,7 @@
         "source": "smooth-p10-fft-bass",
         "sourceHandle": "result",
         "target": "p10-cascade",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -703,8 +740,8 @@
         "id": "p10-e14",
         "source": "smooth-p10-fft-treble",
         "sourceHandle": "result",
-        "target": "p10-cascade",
-        "targetHandle": "speed",
+        "target": "p10-cascade-speed-half",
+        "targetHandle": "a",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -831,6 +868,15 @@
         "sourceHandle": "frame",
         "target": "p10-out",
         "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e-p10-cascade-speed-half",
+        "source": "p10-cascade-speed-half",
+        "sourceHandle": "result",
+        "target": "p10-cascade",
+        "targetHandle": "speed",
         "type": "glowEdge",
         "reconnectable": "target"
       }

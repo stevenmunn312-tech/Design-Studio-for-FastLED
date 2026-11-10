@@ -1143,7 +1143,7 @@ function evalPatternShow(
         st.roles[name] = rampValue({ from, to, t: 0, rampMs }, from, at)
       }
       take('speed', step.speed)
-      take('energy', step.energyValue)
+      take('reactivity', step.energyValue)
       take('brightness', step.brightness)
       for (const [name, value] of Object.entries(step.params ?? {})) take(name, value)
     }
@@ -1303,7 +1303,7 @@ function semanticAudioInputs(audio: Pick<AudioOverride, 'micBass' | 'micMids' | 
     snare: audio.micMids,
     hihat: audio.micTreble,
     vocals: audio.micMids,
-    energy: (audio.micBass + audio.micMids + audio.micTreble) / 3,
+    reactivity: (audio.micBass + audio.micMids + audio.micTreble) / 3,
     beat: false,
     silence: audio.micBass + audio.micMids + audio.micTreble < 0.03,
   }

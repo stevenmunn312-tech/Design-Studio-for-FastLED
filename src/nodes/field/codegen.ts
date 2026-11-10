@@ -29,6 +29,8 @@ import {
 } from '../../state/evaluator/fractal'
 import { TURING_ITERATIONS_MAX, TURING_STEP_MAX, TURING_STEP_MIN, turingRadii } from '../../state/evaluator/turing'
 import { SHAPE_FIELD_KINDS } from '../../state/evaluator/sdf'
+import { centeredCpp } from '../../state/evaluator/formula'
+import { SIZING_SIDE_CPP } from '../shared/stringCanvas'
 
 function byteArray8(bytes: Uint8Array): string {
   return Array.from({ length: 8 }, (_, i) => `0x${(bytes[i] ?? 0).toString(16).padStart(2, '0')}`).join(',')
@@ -55,7 +57,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    float W=WIDTH, H=HEIGHT; (void)W;(void)H;`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float x=(float)_x/(WIDTH-1>0?WIDTH-1:1),y=(float)_y/(HEIGHT-1>0?HEIGHT-1:1),px=_x,py=_y; (void)x;(void)y;(void)px;(void)py;`)
-    ln(`      float cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
+    ln(`      ${centeredCpp('cx', 'cy')}`)
     ln(`      float r=sqrtf(cx*cx+cy*cy),angle=atan2f(cy,cx); (void)cx;(void)cy;(void)r;(void)angle;`)
     ln(`      float fieldIn=${fin ? `${fin}[_y*WIDTH+_x]` : '0.0f'}; (void)fieldIn;`)
     if (persists) ln(`      float prev=${of}[_y*WIDTH+_x];`)
@@ -192,7 +194,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
         emitSpd()
         ln(`    float _dens=fmaxf(1.0f,${f('density', 'density', 12)}),_phase=${f('phase', 'phase', 0)};`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
+        ln(`      ${centeredCpp('_cx', '_cy')}`)
         ln(`      float _r=sqrtf(_cx*_cx+_cy*_cy);`)
         ln(`      float _n=floorf(_r*_dens+_rot+_phase);`)
         ln(`      float _g=_n*${invPhi};`)
@@ -205,7 +207,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
         ln(`    float _fa=fmaxf(1.0f,${f('freqA', 'freqA', 3)}),_fb=fmaxf(1.0f,${f('freqB', 'freqB', 2)});`)
         ln(`    float _thick=fmaxf(0.02f,${f('thickness', 'thickness', 0.1)});`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
+        ln(`      ${centeredCpp('_cx', '_cy')}`)
         ln(`      float _minDSq=1e9f;`)
         ln(`      for(int _s=0;_s<${LISSAJOUS_FIELD_SAMPLES};_s++){`)
         ln(`        float _sp=((float)_s/${LISSAJOUS_FIELD_SAMPLES}.0f)*6.2831853f;`)
@@ -225,7 +227,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
         ln(`    float _aSp=fmaxf(0.02f,${f('tightness', 'tightness', 0.15)});`)
         ln(`    float _bw=fmaxf(0.02f,${f('bandWidth', 'bandWidth', 0.25)});`)
         ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-        ln(`      float _cx=((float)_x-WIDTH/2.0f)/(WIDTH/2.0f),_cy=((float)_y-HEIGHT/2.0f)/(HEIGHT/2.0f);`)
+        ln(`      ${centeredCpp('_cx', '_cy')}`)
         ln(`      float _r=sqrtf(_cx*_cx+_cy*_cy); if(_r<1e-4f)_r=1e-4f;`)
         ln(`      float _ang=atan2f(_cy,_cx);`)
         ln(`      float _phaseAtR=(3.14159265f/2.0f)*logf(_r/_aSp)/${lnPhiLit};`)
@@ -515,7 +517,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
     const range = floatLit(Math.max(1e-4, Number(p.range ?? 0.5)))
     const spins = edges.some((e) => e.target === node.id && e.targetHandle === 'spin') || Number(p.spin ?? 0) !== 0
     ln(`  { /* ShapeField: ${shape} ${mode} */`)
-    ln(`    float _short=(float)min(WIDTH,HEIGHT),_size=fmaxf(1e-4f,${f('size', 'size', 0.3)}*_short);`)
+    ln(`    float _short=(float)${SIZING_SIDE_CPP},_size=fmaxf(1e-4f,${f('size', 'size', 0.3)}*_short);`)
     ln(`    float _cx=constrain(${f('cx', 'cx', 0.5)},0.0f,1.0f)*(WIDTH-1)+0.5f,_cy=constrain(${f('cy', 'cy', 0.5)},0.0f,1.0f)*(HEIGHT-1)+0.5f;`)
     if (spins) {
       needsT.v = true

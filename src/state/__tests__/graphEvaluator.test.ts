@@ -682,7 +682,7 @@ describe('evaluateGraph', () => {
     const render = (vocals: number) => {
       const { nodes, edges } = withOutput(node('aurora', 'VocalAurora', 'pattern', {
         vocals,
-        energy: 0,
+        reactivity: 0,
         speed: 0,
         palette: 'aurora',
       }))
@@ -703,7 +703,7 @@ describe('evaluateGraph', () => {
 
   it('VocalAurora integrates its drift phase instead of scaling absolute time', () => {
     const graph = (id: string, vocals: number) => withOutput(node(id, 'VocalAurora', 'pattern', {
-      vocals, energy: 0.7, speed: 1, palette: 'aurora',
+      vocals, reactivity: 0.7, speed: 1, palette: 'aurora',
     }))
     // A fresh instance renders the same frame no matter how old the app clock
     // is — with t-scaled drift, an hour-old clock would place the curtains
@@ -731,15 +731,15 @@ describe('evaluateGraph', () => {
     const W16 = 16, H16 = 16
     const T0 = 360000 // ticks ≈ 100 minutes of app clock
     const cases: Array<{ type: string; prop: string; base: number; step: number; props: Record<string, unknown> }> = [
-      { type: 'BeatKaleidoscope', prop: 'energy', base: 0.5, step: 0.05, props: { hue: 0, speed: 1 } },
-      { type: 'SpectraMosaic', prop: 'energy', base: 0.5, step: 0.05, props: { bass: 0.5, mids: 0.5, treble: 0.5, speed: 1, tiles: 4 } },
+      { type: 'BeatKaleidoscope', prop: 'reactivity', base: 0.5, step: 0.05, props: { hue: 0, speed: 1 } },
+      { type: 'SpectraMosaic', prop: 'reactivity', base: 0.5, step: 0.05, props: { bass: 0.5, mids: 0.5, treble: 0.5, speed: 1, tiles: 4 } },
       // TurbulentBloom's warp is steep, so run it slow with a tiny step — the
       // t-scaled bug would still shift its noise phase by hundreds of units.
-      { type: 'TurbulentBloom', prop: 'treble', base: 0.5, step: 0.01, props: { bass: 0.5, mids: 0.5, energy: 0.7, speed: 0.1 } },
+      { type: 'TurbulentBloom', prop: 'treble', base: 0.5, step: 0.01, props: { bass: 0.5, mids: 0.5, reactivity: 0.7, speed: 0.1 } },
       // PrismStorm's mids also zooms its shard field, so keep the spatial
       // frequency low (treble 0) and the step tiny — the t-scaled bug would
       // still spin the held orientation by ~96° on this step.
-      { type: 'PrismStorm', prop: 'mids', base: 0.5, step: 0.002, props: { treble: 0, hihat: 0, energy: 0.7, speed: 1 } },
+      { type: 'PrismStorm', prop: 'mids', base: 0.5, step: 0.002, props: { treble: 0, hihat: 0, reactivity: 0.7, speed: 1 } },
       { type: 'AudioFlow', prop: 'mids', base: 0.5, step: 0.02, props: { bass: 0.5, treble: 0.3, speed: 0.5, scale: 0.5 } },
     ]
     // PrismStorm seeds its held shard orientation from Math.random; pin it so
@@ -2145,7 +2145,7 @@ describe('evaluateGraph', () => {
   it('Turbulent Bloom retains brightness response in FastLED\'s upper bass range', () => {
     const brightnessAt = (bass: number) => {
       const bloom = node('tb-upper-bass', 'TurbulentBloom', 'pattern', {
-        bass, mids: 0.5, treble: 0.5, energy: 0.7, speed: 0.5, palette: 'deepsea',
+        bass, mids: 0.5, treble: 0.5, reactivity: 0.7, speed: 0.5, palette: 'deepsea',
       })
       const { nodes, edges } = withOutput(bloom)
       const frame = evaluateGraph(nodes, edges, 60, 8, 8)!
@@ -2155,14 +2155,14 @@ describe('evaluateGraph', () => {
     expect(brightnessAt(0.95)).toBeGreaterThan(brightnessAt(0.65))
   })
 
-  it('Three Band Spectrum Visualizer responds to energy, palette, and motion controls', () => {
+  it('Three Band Spectrum Visualizer responds to reactivity, palette, and motion controls', () => {
     const render = (props: Record<string, unknown>, tick: number) => {
       const sb = node('sb', 'SpectrumVisualizer', 'pattern', {
         style: 'Three Band',
         bass: 0.85,
         mids: 0.55,
         treble: 0.9,
-        energy: 1,
+        reactivity: 1,
         speed: 0.6,
         palette: 'rainbow',
         mirror: true,
@@ -2171,8 +2171,8 @@ describe('evaluateGraph', () => {
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([sb, out], [edge('e', 'sb', 'frame', 'out', 'frame')], tick, 8, 8)!
     }
-    const dim = render({ energy: 0.2 }, 0)
-    const bright = render({ energy: 1 }, 0)
+    const dim = render({ reactivity: 0.2 }, 0)
+    const bright = render({ reactivity: 1 }, 0)
     const ocean = render({ palette: 'ocean' }, 0)
     const still = render({ speed: 0 }, 0)
     const moving = render({ speed: 1 }, 120)
@@ -2189,7 +2189,7 @@ describe('evaluateGraph', () => {
     // wherever buildFrame() mutated one aliased slot in place — the mirrored
     // slot changed with it. Every slot must be a distinct object.
     const sb = node('sb', 'SpectrumVisualizer', 'pattern', {
-      style: 'Three Band', bass: 0.9, mids: 0.9, treble: 0.9, energy: 1, speed: 0.6, palette: 'rainbow', mirror: true,
+      style: 'Three Band', bass: 0.9, mids: 0.9, treble: 0.9, reactivity: 1, speed: 0.6, palette: 'rainbow', mirror: true,
     })
     const out = node('out', 'MatrixOutput', 'output', {})
     const f = evaluateGraph([sb, out], [edge('e', 'sb', 'frame', 'out', 'frame')], 0, 8, 8)!
@@ -2200,9 +2200,9 @@ describe('evaluateGraph', () => {
     }
   })
 
-  it('MidrangeWaves energy scales the audio-reactive strength', () => {
-    const brightnessAt = (energy: number) => {
-      const mw = node('mw', 'MidrangeWaves', 'pattern', { mids: 0.8, energy, speed: 0.5, palette: 'ocean' })
+  it('MidrangeWaves reactivity scales the audio-reactive strength', () => {
+    const brightnessAt = (reactivity: number) => {
+      const mw = node('mw', 'MidrangeWaves', 'pattern', { mids: 0.8, reactivity, speed: 0.5, palette: 'ocean' })
       const out = node('out', 'MatrixOutput', 'output', {})
       const f = evaluateGraph([mw, out], [edge('e', 'mw', 'frame', 'out', 'frame')], 30, 8, 8)!
       return f.flat().reduce((a, px) => a + px.r + px.g + px.b, 0)
@@ -2210,9 +2210,9 @@ describe('evaluateGraph', () => {
     expect(brightnessAt(1.5)).toBeGreaterThan(brightnessAt(0.25))
   })
 
-  it('BassRings energy scales the bass-driven concentric waves', () => {
-    const render = (energy: number, bass: number, tick: number) => {
-      const br = node('br', 'BassRings', 'pattern', { bass, energy, speed: 1, r: 255, g: 120, b: 32 })
+  it('BassRings reactivity scales the bass-driven concentric waves', () => {
+    const render = (reactivity: number, bass: number, tick: number) => {
+      const br = node('br', 'BassRings', 'pattern', { bass, reactivity, speed: 1, r: 255, g: 120, b: 32 })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([br, out], [edge('e', 'br', 'frame', 'out', 'frame')], tick, 8, 8)!
     }
@@ -2223,9 +2223,9 @@ describe('evaluateGraph', () => {
     expect(JSON.stringify(render(1, 1, 120))).not.toEqual(JSON.stringify(strong))
   })
 
-  it('MidrangeBloom energy scales a palette-driven midrange pattern', () => {
-    const render = (energy: number, tick: number) => {
-      const mb = node('mb', 'MidrangeBloom', 'pattern', { mids: 0.85, energy, speed: 0.6, palette: 'party' })
+  it('MidrangeBloom reactivity scales a palette-driven midrange pattern', () => {
+    const render = (reactivity: number, tick: number) => {
+      const mb = node('mb', 'MidrangeBloom', 'pattern', { mids: 0.85, reactivity, speed: 0.6, palette: 'party' })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([mb, out], [edge('e', 'mb', 'frame', 'out', 'frame')], tick, 8, 8)!
     }
@@ -2236,9 +2236,9 @@ describe('evaluateGraph', () => {
     expect(JSON.stringify(render(1, 120))).not.toEqual(JSON.stringify(strong))
   })
 
-  it('TreblePrism energy scales sharp treble highlights', () => {
-    const render = (energy: number, tick: number) => {
-      const tp = node('tp', 'TreblePrism', 'pattern', { treble: 0.9, energy, speed: 0.8, r: 200, g: 120, b: 255 })
+  it('TreblePrism reactivity scales sharp treble highlights', () => {
+    const render = (reactivity: number, tick: number) => {
+      const tp = node('tp', 'TreblePrism', 'pattern', { treble: 0.9, reactivity, speed: 0.8, r: 200, g: 120, b: 255 })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([tp, out], [edge('e', 'tp', 'frame', 'out', 'frame')], tick, 8, 8)!
     }
@@ -2250,8 +2250,8 @@ describe('evaluateGraph', () => {
   })
 
   it('AudioCascade uses bass, mids, and treble together in a moving palette pattern', () => {
-    const render = (energy: number, tick: number) => {
-      const ac = node('ac', 'AudioCascade', 'pattern', { bass: 0.8, mids: 0.7, treble: 0.9, energy, speed: 0.75, palette: 'rainbow' })
+    const render = (reactivity: number, tick: number) => {
+      const ac = node('ac', 'AudioCascade', 'pattern', { bass: 0.8, mids: 0.7, treble: 0.9, reactivity, speed: 0.75, palette: 'rainbow' })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph([ac, out], [edge('e', 'ac', 'frame', 'out', 'frame')], tick, 8, 8)!
     }
@@ -2927,10 +2927,11 @@ describe('evaluateGraph', () => {
 
   it('ColorTrails injects a moving line into a persistent advected RGB buffer', () => {
     const trails = node('ct-fluid', 'ColorTrails', 'pattern', {
-      xSpeed: 0.1, xAmplitude: 1, xFrequency: 0.33,
-      ySpeed: 0.1, yAmplitude: 1, yFrequency: 0.32,
+      independentAxes: true,
+      xSpeed: 0.1, xStrength: 1, xScale: 0.33,
+      ySpeed: 0.1, yStrength: 1, yScale: 0.32,
       displacement: 1.8, endpointSpeed: 0.35, colorSpeed: 0.1,
-      persistence: 0.99922, palette: 'rainbow', seed: 42,
+      trailLength: 14.8051, palette: 'rainbow', seed: 42,
     })
     const { nodes, edges } = withOutput(trails)
     const first = evaluateGraph(nodes, edges, 0, 16, 16)!
@@ -2962,7 +2963,7 @@ describe('evaluateGraph', () => {
   it('ColorTrails can inject a rainbow liquid frame without filling its centre', () => {
     const trails = node('ct-border', 'ColorTrails', 'pattern', {
       injectionMode: 'Rainbow Border', flowMode: 'Morphing 2D',
-      displacement: 0, persistence: 0.9999, palette: 'rainbow', seed: 42,
+      displacement: 0, trailLength: 115.5, palette: 'rainbow', seed: 42,
     })
     const { nodes, edges } = withOutput(trails)
     const frame = evaluateGraph(nodes, edges, 0, 8, 8)!
@@ -2978,7 +2979,7 @@ describe('evaluateGraph', () => {
     const render = (id: string, flowMode: string) => {
       const trails = node(id, 'ColorTrails', 'pattern', {
         injectionMode: 'Rainbow Border', flowMode, displacement: 1,
-        persistence: 0.9999, palette: 'rainbow', seed: 42,
+        trailLength: 115.5, palette: 'rainbow', seed: 42,
       })
       const { nodes, edges } = withOutput(trails)
       return evaluateGraph(nodes, edges, 6, 12, 12)

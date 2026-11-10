@@ -20,13 +20,34 @@ export interface BitmapFont {
 
 export interface TextLineLayout {
   text: string
+  /** One bitmap per font column, at size 1. */
   cols: number[]
+  /** Drawn width in pixels: `cols.length * scale`. */
+  width: number
 }
 
 export interface TextBlockLayout {
   lines: TextLineLayout[]
+  /** Drawn width and height in pixels, at `scale`. */
   width: number
   height: number
+  /** Pixels a font pixel is drawn across and down. */
+  scale: number
+  /** Pixels from one line's top to the next's. */
+  lineStep: number
+}
+
+/**
+ * Text and Clock Display's Size: each font pixel drawn as a square this many
+ * pixels across, gaps and line spacing included, so size 2 is the size-1
+ * text upscaled exactly. Whole numbers only, so a glyph never smears.
+ */
+export const TEXT_SIZE = { min: 1, max: 4, default: 1 } as const
+
+/** A Size property as the whole pixel scale both sides draw at. */
+export function textSize(value: unknown): number {
+  const n = Math.round(Number(value))
+  return Number.isFinite(n) ? Math.max(TEXT_SIZE.min, Math.min(TEXT_SIZE.max, n)) : TEXT_SIZE.default
 }
 
 export const FONT: Record<string, number[]> = {
@@ -101,15 +122,22 @@ export function textLines(text: string): string[] {
 /**
  * Shared multiline text layout: precompute each line's bitmap columns plus the
  * block width/height so the preview and firmware place the same text block.
+ * `scale` is the Size (`textSize`): the columns stay at size 1, and every
+ * pixel measure is that many times the size-1 one.
  */
 export function textBlockLayout(
   text: string,
   font: BitmapFont = DEFAULT_FONT,
   letterSpacing = 1,
   lineGap = TEXT_LINE_GAP,
+  scale = 1,
 ): TextBlockLayout {
-  const lines = textLines(text).map((line) => ({ text: line, cols: textColumns(line, font, letterSpacing) }))
-  const width = lines.reduce((max, line) => Math.max(max, line.cols.length), 0)
-  const height = lines.length > 0 ? font.h + (lines.length - 1) * (font.h + Math.max(0, lineGap)) : 0
-  return { lines, width, height }
+  const lines = textLines(text).map((line) => {
+    const cols = textColumns(line, font, letterSpacing)
+    return { text: line, cols, width: cols.length * scale }
+  })
+  const width = lines.reduce((max, line) => Math.max(max, line.width), 0)
+  const lineStep = (font.h + Math.max(0, lineGap)) * scale
+  const height = lines.length > 0 ? font.h * scale + (lines.length - 1) * lineStep : 0
+  return { lines, width, height, scale, lineStep }
 }

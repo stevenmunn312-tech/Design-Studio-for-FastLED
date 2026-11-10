@@ -135,27 +135,6 @@ hardware.
 
 #### Audio and audio-reactive
 
-- [ ] **Category: Rename the `energy` property and port to `reactivity`
-  (Med, M).** Every audio pattern relabels `energy` as "reactivity"
-  (`src/state/nodeLibrary.ts:3301`), so the stored id matches Audio
-  Features' peak-relative Energy output and invites Energy → Reactivity
-  wiring (about 20 bundled-pattern edges and the Vocal Aurora help example
-  do this). Rename the id and port (pre-1.0, so no migration needed) so
-  choosing Energy or Loudness becomes a deliberate wire. Left open: the
-  fourteen promoted saved graphs (`bundledSavedAudioPatterns.ts`) must stay
-  byte for byte, and several carry `energy` properties and edges, so a
-  rename needs a decision on how their copies are converted; the show
-  engines' `useGroupInputs` also feed a pattern's `energy` input by name.
-- [ ] **Category: Remap Speed so the current look sits mid-slider (Med, M).**
-  BassRings, MidrangeWaves, MidrangeBloom, TreblePrism, AudioCascade,
-  KickShock, VocalAurora, BeatKaleidoscope, SpectraMosaic, EmberPulse,
-  TurbulentBloom, GravityWell, RainRipples and PrismStorm default `speed`
-  to 1.0 on a 0–1 slider, leaving no room to go faster. Remap so the
-  current look is 0.5 (internal rate = 2 × slider) and update saved values
-  and bundled patterns. Evidence `src/state/nodeLibrary.ts:583`. Left open:
-  many bundled patterns wire Map Range or audio levels into these speeds,
-  and the promoted graphs cannot be edited, so a remap changes tuned looks
-  unless every wired range is halved too; needs a by-ear check.
 - [ ] **Category: Add an optional Audio input to the band patterns (Med,
   M).** Every band pattern needs Mic → FFT Analyzer → pattern. Spectrum
   Visualizer's Three Band style already falls back to the spectrum thirds
@@ -177,17 +156,6 @@ hardware.
   (Solid, Palette) replaced the `'none'` sentinel and gates R/G/B. Dance
   Flash and Ember Pulse remain (the HeatColor ramp is a look choice), and
   Gravity Well is blocked as below.
-- [ ] **Audio Features: Apply Sensitivity and smoothing to Loudness (Med,
-  S).** Loudness is the raw meter and real music sits at 0.02–0.2 of its
-  scale, so wired into a 0–1 input it barely moves and the help tells users
-  to add a Smooth node. Apply Sensitivity as a gain plus about 0.15 s of
-  smoothing. Evidence `src/nodes/audio/evaluate.ts:294`. Left open: the
-  shared energy stage (`energyDynamics.ts`) reads each pattern's own Audio
-  Features Loudness, whose Sensitivity varies 0.5–0.65 across the bundled
-  patterns, through its own 0.15 s Smooth, with ranges set by ear for the
-  raw meter. A gain would retune 86 patterns and a second smoother would
-  stack lag (the 0.6 s delay Steve heard). Needs a decision: a separate
-  eased output, or moving the stage onto it and retuning by ear.
 - [ ] **Gravity Well: Replace R/G/B ports with a palette (Med, S).** It is
   the only band pattern with no palette; a Color port overrides three R/G/B
   float ports. Swap the R/G/B ports for a palette and keep the optional
@@ -197,16 +165,6 @@ hardware.
   80/160/255, so dropping R/G/B recolours it; a Solid/Palette select like
   Beat Flash's would keep it, but a saved node without the key would read
   differently from a new one. Needs a decision on that graph.
-- [ ] **Color Trails: Cut the tuning knobs (Med, M).** Twelve knobs over 15
-  inputs, with separate X and Y speed, amplitude and frequency, and a
-  Persistence slider (0.9–0.9999, step 0.0001) the help explains in
-  minutes. Link X and Y by default (one Flow speed, strength and scale plus
-  an "independent axes" toggle), and replace Persistence with a Trail
-  length in seconds. Evidence `src/state/nodeLibrary.ts:899`. Left open:
-  all four bundled Color Trails tune X and Y differently (often opposite
-  signs), so each would need the independent toggle and a conversion of
-  Persistence (0.9988–0.99935 per frame) into seconds; the trail-length
-  curve wants a by-ear check.
 
 #### Effects and signals
 
@@ -238,27 +196,6 @@ hardware.
   owner, which is also folding Gate into Switch. Evidence
   `src/nodes/composite/definitions.ts:365`.
 
-#### Fields and shapes
-
-- [ ] **Category: Fix centred fields on a 1-row strip (Med, M).** Strips,
-  rings and corkscrews are `height: 1`, where `centeredY(0, 1)` is -1, so
-  every centred field samples only the bottom of its circle. Geometry Field's
-  Lissajous renders near-black, Shape Field's default circle is a sub-pixel
-  speck (it sizes by the short side), and Path and Fourier cannot move (reach
-  is 0). Centre on pixel centres, `(y+0.5-H/2)/(H/2)`, and use the long side
-  when one dimension is 1. `src/state/evaluator/formula.ts:28`.
-  Gradient Field is done (it measures in pixels from its pivot, so its radial
-  centre sits on a strip's row). Still to do: `centeredX/Y` is shared with
-  Custom Formula and every emitter's `cx/cy` line; Shape Field, Path, Fourier
-  and Shape's new Scale with matrix (`matrixSizeScale`) all size by the short
-  side, which is 1 on a strip.
-- [ ] **Text: Add an integer size (Med, M).** The only font is 3x5, tiny on
-  32x32 or 64x32 HUB75 panels. Add an integer `size` (pixel scale 1-4),
-  shared with Clock Display's digits. `src/nodes/shared/font.ts:10`.
-  Touches `textBlockLayout` widths and heights, `renderTextInto` and the
-  scroll totals in the preview, and both sketch paths (the baked column
-  arrays and the wired `_fontCol` loop, each with wrap and scroll), plus
-  Clock Display's `blitText` and its clock glyph table.
 #### Generative and simulations
 
 - [ ] **Category: Move the rest of simulation motion onto the clock (Med, M).**

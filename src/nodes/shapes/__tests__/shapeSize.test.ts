@@ -37,7 +37,7 @@ describe('Shape size', () => {
   it('scales Size in the sketch only while the switch is on', () => {
     const cpp = (props: Record<string, unknown>) => generateCpp([node('s', 'Shape', props), node('out', 'MatrixOutput')],
       [{ id: 'e', source: 's', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }] as never)
-    expect(cpp({})).toContain('float _size=max(0.5f,6)*(min(WIDTH,HEIGHT)/16.0f),')
+    expect(cpp({})).toContain('float _size=max(0.5f,6)*((min(WIDTH,HEIGHT)==1?max(WIDTH,HEIGHT):min(WIDTH,HEIGHT))/16.0f),')
     expect(cpp({ scaleWithMatrix: false })).toContain('float _size=max(0.5f,6),')
   })
 
