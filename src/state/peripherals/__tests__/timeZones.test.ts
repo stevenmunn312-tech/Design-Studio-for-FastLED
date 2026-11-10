@@ -26,6 +26,17 @@ function intlOffsetSeconds(zone: string, utcSeconds: number): number {
 const FROM = Date.UTC(2027, 0, 1) / 1000
 const TO = Date.UTC(2029, 0, 1) / 1000
 
+// Zones whose current rule is newer than some Node builds' tz data. A host
+// with older data still runs the old rule, so the zone is only checked where
+// the host has the release that brought the change.
+const RULE_SINCE: Record<string, string> = {
+  'America/Vancouver': '2026b',
+  'America/Edmonton': '2026c',
+  'America/Winnipeg': '2026e',
+}
+const hostTzdata = process.versions.tz ?? ''
+const hostKnowsRule = (name: string) => !RULE_SINCE[name] || hostTzdata >= RULE_SINCE[name]
+
 describe('curated time zones', () => {
   it('each parses, and every zone a label names is one Intl knows', () => {
     for (const zone of CURATED_TIME_ZONES) {
@@ -42,6 +53,7 @@ describe('curated time zones', () => {
   it.each(CURATED_TIME_ZONES.flatMap((zone) => [zone.id, ...(zone.alsoZones ?? [])].map((name) => [name, zone.posix] as const)))(
     '%s follows %s through 2027-2028',
     (name, posix) => {
+      if (!hostKnowsRule(name)) return
       const zone = parsePosixTimeZone(posix)!
       let switches = 0
       let previous = posixUtcOffsetSeconds(zone, FROM)

@@ -25,16 +25,19 @@ export interface TimeZoneEntry {
   alsoZones?: readonly string[]
 }
 
-/** West to east. Each rule is tzdata's (2026b) from 2027 on. */
+/** West to east. Each rule is tzdata's (2026e) from 2027 on. */
 export const CURATED_TIME_ZONES: readonly TimeZoneEntry[] = [
   { id: 'Pacific/Honolulu', label: 'Hawaii (Honolulu)', posix: 'HST10' },
   { id: 'America/Anchorage', label: 'Alaska (Anchorage)', posix: 'AKST9AKDT,M3.2.0,M11.1.0' },
   { id: 'America/Los_Angeles', label: 'Pacific Time (Los Angeles, Seattle)', posix: 'PST8PDT,M3.2.0,M11.1.0' },
-  // British Columbia has kept daylight time all year since November 2026.
+  // British Columbia (tzdata 2026b), Alberta (2026c) and Manitoba (2026e)
+  // have kept daylight time all year since November 2026.
   { id: 'America/Vancouver', label: 'British Columbia (Vancouver)', posix: 'MST7' },
   { id: 'America/Phoenix', label: 'Arizona (Phoenix)', posix: 'MST7' },
-  { id: 'America/Denver', label: 'Mountain Time (Denver, Calgary)', posix: 'MST7MDT,M3.2.0,M11.1.0', alsoZones: ['America/Edmonton'] },
-  { id: 'America/Chicago', label: 'Central Time (Chicago, Winnipeg)', posix: 'CST6CDT,M3.2.0,M11.1.0', alsoZones: ['America/Winnipeg'] },
+  { id: 'America/Denver', label: 'Mountain Time (Denver)', posix: 'MST7MDT,M3.2.0,M11.1.0' },
+  { id: 'America/Edmonton', label: 'Alberta (Edmonton, Calgary)', posix: 'CST6' },
+  { id: 'America/Chicago', label: 'Central Time (Chicago)', posix: 'CST6CDT,M3.2.0,M11.1.0' },
+  { id: 'America/Winnipeg', label: 'Manitoba (Winnipeg)', posix: 'EST5' },
   { id: 'America/Mexico_City', label: 'Mexico City', posix: 'CST6' },
   { id: 'America/Regina', label: 'Saskatchewan (Regina)', posix: 'CST6' },
   { id: 'America/New_York', label: 'Eastern Time (New York, Toronto)', posix: 'EST5EDT,M3.2.0,M11.1.0', alsoZones: ['America/Toronto'] },

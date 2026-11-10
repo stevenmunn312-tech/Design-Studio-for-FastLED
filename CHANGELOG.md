@@ -32,9 +32,10 @@ versioning (`0.y.z`) until the first stable release.
 - Text and Clock Display have a Size (1–4) that draws the 3×5 font larger,
   each font pixel a square of that many pixels with the gaps scaled to
   match, for 32×32 and 64×32 HUB75 panels. Size 1 draws exactly as before.
-- NTP Clocks have a time-zone picker: 39 city zones that follow their
+- NTP Clocks have a time-zone picker: 41 city zones that follow their
   daylight-saving dates on the board and in the preview, plus UTC and fixed
-  UTC offsets. ESP32 uses `configTzTime`, ESP8266 `configTime(tz, server)`,
+  UTC offsets. Alberta and Manitoba have their own entries, on the permanent
+  daylight time they adopted in 2026 (tzdata 2026c and 2026e). ESP32 uses `configTzTime`, ESP8266 `configTime(tz, server)`,
   and the UNO R4 WiFi applies the zone's rule itself. Graph Health warns
   about an unknown zone, and about NTP clocks on one ESP board set to
   different zones.
