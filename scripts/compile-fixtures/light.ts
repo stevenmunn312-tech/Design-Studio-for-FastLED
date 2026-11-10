@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { generateCpp } from '../../src/codegen/cppGenerator'
+import { analogLevelCpp } from '../../src/codegen/helpers/analogReadCpp'
 import { generateShowSketch } from '../../src/codegen/showGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../src/state/nodeLibrary'
 import type { StudioEdge, StudioNode } from '../../src/state/graphStore'
@@ -120,7 +121,7 @@ for (const [name, source] of Object.entries(fixtures)) {
   }
   if (expected && !source.includes('#include <Wire.h>')) throw new Error(`${name}: missing Wire.h`)
 }
-if (!ldr.includes('analogRead(34) / 4095.0f')) throw new Error('ldr: missing the analog read')
+if (!ldr.includes(analogLevelCpp(34))) throw new Error('ldr: missing the analog read')
 
 const outputDir = resolve(process.argv[2] ?? 'backend/sketches/light-sensor-fixtures')
 mkdirSync(outputDir, { recursive: true })

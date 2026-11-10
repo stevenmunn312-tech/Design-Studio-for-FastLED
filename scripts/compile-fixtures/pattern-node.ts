@@ -226,7 +226,8 @@ function phase6Sketch(maxHarmonics: number): string {
     node('lfo', 'Wave', { rateUnit: 'BPM', bpm: 6, unipolar: true, amplitude: 15, offset: 1 }),
     node('star', 'FourierEpicycles', { outline: 'star', maxHarmonics, speed: 0.25, persistence: 0.995 }),
     node('custom', 'FourierEpicycles', {
-      outline: 'custom', customPoints: CUSTOM_OUTLINE, maxHarmonics, speed: -0.2,
+      // Harmonics is not wired here, so the table is sized from it, not Max Harmonics.
+      outline: 'custom', customPoints: CUSTOM_OUTLINE, maxHarmonics, harmonics: maxHarmonics, speed: -0.2,
       showCircles: false, r: 80, g: 200, b: 255,
     }),
     node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),
@@ -241,7 +242,7 @@ function phase6Sketch(maxHarmonics: number): string {
   const sketch = generateCpp(nodes, edges)
   for (const marker of [
     `/* Fourier Epicycles: star, ${maxHarmonics} terms */`, `/* Fourier Epicycles: custom, ${maxHarmonics} terms */`,
-    `static const uint16_t _fe_star[${maxHarmonics}][3] PROGMEM`, '_fePen(_fe_custom,', ',0,WIDTH,HEIGHT,_col,&_penX,&_penY);',
+    `static const uint16_t _fe_star[${maxHarmonics}][3] PROGMEM`, '_fePen(_fe_custom,', ', 0, WIDTH, HEIGHT, _col, &_penX, &_penY);',
     '_feTrail(_fe_startrail,',
   ]) {
     if (!sketch.includes(marker)) throw new Error(`Phase 6 fixture (${maxHarmonics}) is missing ${marker}`)
@@ -560,7 +561,7 @@ const phase9Ring = (() => {
     edge('b-out', 'b', 'frame', 'out', 'frame'),
   ]
   const sketch = generateCpp(nodes, edges)
-  for (const marker of ['_len=60;', 'static uint16_t _sp_spix[60];', '_sp_spix[_k]=_y*WIDTH+_x;', 'inoise16(_cx+3277u,_cy,_cz)']) {
+  for (const marker of ['_len=60;', 'static uint16_t _sp_spix[60];', '_sp_spix[_k]=_y*WIDTH+_x;', '(_snoise2(_nx+0.05f,_ny)-_snoise2(_nx-0.05f,_ny))*5.0f']) {
     if (!sketch.includes(marker)) throw new Error(`Phase 9 ring fixture is missing ${marker}`)
   }
   return sketch
@@ -649,7 +650,7 @@ const phase10String = (() => {
   const last = blendChain(nodes, edges, ['rain', 'gauge', 'candle', 'bolt', 'beat', 'tv', 'sun', 'fire', 'pride'], 'mix')
   edges.push(edge('mix-out', last, 'frame', 'out', 'frame'))
   return requireMarkers('string', generateCpp(nodes, edges), [
-    '// Digital Rain', '// Gauge (bar)', '_gg_gauge', '// Candle', '// Lightning', '// Heartbeat', '// Sunrise',
+    '// Digital Rain', '// Gauge (bar)', '_gg_gauge', '// Candle', '// Lightning', '// Breathe', '+0.7f*expf(-', '// Sunrise',
     '// TV Simulator', 'inoise8((uint16_t)(_s*90)', 'CRGB _pc=ColorFromPalette', 'x*=0x7feb352dU',
   ])
 })()
