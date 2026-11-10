@@ -2092,7 +2092,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "DMX512 on a 5-pin or 3-pin XLR: pin 1 common/shield to GND, pin 2 Data- to B, pin 3 Data+ to A.",
       "R7 (120 ohm) terminates the line and is fitted at the factory. Keep it only on the last device in a DMX chain; remove it on a receiver in the middle of a run.",
       "The logic and bus headers are shown unpopulated; the screw terminal is fitted, as the module ships. B and A on the header and the terminal are the same nets.",
-      "Low-cost supplier revisions change silkscreen and resistor placement. Follow the markings on the exact board in hand."
+      "Pads are hot-air levelled tin, as on the photographed board. Low-cost supplier revisions change silkscreen and resistor placement; follow the markings on the exact board in hand."
     ],
     "render": {
       "file": "parts/max485-rs485-module.webp",
@@ -2102,10 +2102,10 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "indicators": [
         {
           "rectPx": [
-            248.6,
-            399.2,
-            29.4,
-            29.6
+            247.9,
+            399.3,
+            30.9,
+            29.4
           ],
           "color": [
             255,
