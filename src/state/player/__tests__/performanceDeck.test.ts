@@ -160,12 +160,12 @@ describe('isPinnableProperty', () => {
     expect(isPinnableProperty('MicInput', 'gain', 1)).toBe(true)
   })
 
-  it('excludes GPIO pin properties on ButtonInput/PotInput/EncoderInput', () => {
+  it('excludes GPIO pin properties on Button/PotInput/EncoderInput', () => {
     // Same rationale as MicInput's I2S pins above: a hardware pin is a
     // one-time wiring decision, not something to ride live on a performance
     // deck fader — now that these pins have bounded slider metadata,
     // they'd otherwise look pinnable-shaped.
-    expect(isPinnableProperty('ButtonInput', 'pin', 0)).toBe(false)
+    expect(isPinnableProperty('ButtonBank', 'buttons', [{ id: '1', label: 'Button 1', pin: 0, pullup: true }])).toBe(false)
     expect(isPinnableProperty('PotInput', 'pin', 34)).toBe(false)
     expect(isPinnableProperty('EncoderInput', 'pinA', 32)).toBe(false)
     expect(isPinnableProperty('EncoderInput', 'pinB', 33)).toBe(false)

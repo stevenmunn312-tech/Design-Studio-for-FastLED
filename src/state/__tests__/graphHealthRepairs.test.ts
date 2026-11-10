@@ -28,6 +28,7 @@ import { boardPartition } from '../../build/boardPartition'
 import { collectPinUses } from '../../build/hardwareManifest'
 import { createDisplayDocument } from '../displays/displayEditor'
 import { applyDisplayTemplate } from '../displays/displayTemplates'
+import { singleButtonRow } from '../player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -82,7 +83,7 @@ describe('Move I2C hardware to board pins', () => {
   })
 
   it('refuses occupied board pins without changing any hardware', () => {
-    useGraphStore.getState().loadGraph([...parts(), node('button', 'ButtonInput', { pin: 8 })], [])
+    useGraphStore.getState().loadGraph([...parts(), node('button', 'ButtonBank', { buttons: singleButtonRow(8) })], [])
     const before = rootGraphNodes(useGraphStore.getState())
     expect(moveI2cPartsToBoardPins()).toMatchObject({ ok: false, reason: expect.stringContaining('GPIO 8') })
     expect(rootGraphNodes(useGraphStore.getState())).toBe(before)
@@ -335,7 +336,7 @@ describe('repairs on secondary boards', () => {
     useGraphStore.getState().loadGraph([...boards(),
       node('rtc1', 'RtcModule', { sdaPin: 21, sclPin: 22 }),
       node('rtc2', 'RtcModule', { sdaPin: 3, sclPin: 4, boardId: 'board-2' }),
-      node('button', 'ButtonInput', { pin: 5 }),
+      node('button', 'ButtonBank', { buttons: singleButtonRow(5) }),
     ], [])
     expect(moveI2cPartsToBoardPins('board-2')).toEqual({ ok: true, pins: { sdaPin: 5, sclPin: 6 } })
     expect(props('rtc1')).toMatchObject({ sdaPin: 21, sclPin: 22 })
@@ -359,7 +360,7 @@ describe('repairs on secondary boards', () => {
     useGraphStore.getState().loadGraph([...boards(),
       node('out1', 'MatrixOutput', { width: 32, height: 32, dataPin: 5 }),
       node('out2', 'MatrixOutput', { width: 32, height: 32, dataPin: 4, boardId: 'board-2' }),
-      node('button', 'ButtonInput', { pin: 6, boardId: 'board-2' }),
+      node('button', 'ButtonBank', { boardId: 'board-2', buttons: singleButtonRow(6) }),
     ], [])
     expect(splitOutputAcrossPins('out2', 2, [6]).ok).toBe(false)
     expect(splitOutputAcrossPins('out2', 2, [5]).ok).toBe(true)

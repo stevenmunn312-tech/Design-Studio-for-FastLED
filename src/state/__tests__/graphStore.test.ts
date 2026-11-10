@@ -488,7 +488,7 @@ describe('graphStore — grouping', () => {
     // MicInput, LineInput and Board only, so grouping a selection containing
     // any other part sealed it inside a pattern group — the one place the
     // root-graph-only invariant says hardware can never live.
-    const parts = ['PotInput', 'EncoderInput', 'ButtonInput', 'ButtonBank', 'RtcModule',
+    const parts = ['PotInput', 'EncoderInput', 'ButtonBank', 'TouchButtonInput', 'RtcModule',
       'MotionInput', 'LightInput', 'SegmentDisplay', 'InfoDisplay']
     reset([node('sc', 'SolidColor'), ...parts.map((type) => node(type.toLowerCase(), type))])
 
@@ -918,7 +918,7 @@ describe('graphStore — loadGraph normalization', () => {
     expect(buttons[0]).toMatchObject({ label: 'Play / Pause', pullup: true })
     expect(bank.data.outputs).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: `button-${buttons[0].id}`, label: 'Play / Pause' }),
-      expect.objectContaining({ id: 'add-button', label: 'Connect button…' }),
+      expect.objectContaining({ id: 'add-button', label: 'Add button…' }),
     ]))
     expect(state.edges).toContainEqual(expect.objectContaining({
       source: 'bank', sourceHandle: `button-${buttons[0].id}`, target: 'controls', targetHandle: 'playPause',

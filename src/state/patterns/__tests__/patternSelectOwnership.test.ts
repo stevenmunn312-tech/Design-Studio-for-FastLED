@@ -13,6 +13,7 @@ import { NODE_LIBRARY } from '../../nodeLibrary'
 import { ENCODER_COUNTS_PER_STEP, type PatternSelectValue } from '../patternSelection'
 import type { StudioNode, StudioEdge } from '../../graphStore'
 import { useHardwareInputStore } from '../../peripherals/hardwareInputStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow, buttonPressKey } from '../../player/buttonBank'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -42,14 +43,14 @@ function build(controlProps: Record<string, unknown> = {}) {
     node('master', 'PatternMaster', { minTime: 9999, maxTime: 9999, transitionSec: 0, seed: 5 }),
     node('out', 'MatrixOutput', {}),
     node('enc', 'EncoderInput', { pinA: 1, pinB: 2, pinSW: 3 }),
-    node('btn', 'ButtonInput', { pin: 4 }),
+    node('btn', 'ButtonBank', { buttons: singleButtonRow(4) }),
   ]
   const edges = [
     edge('e1', 'coll', 'patternset', 'master', 'patternset'),
     edge('e2', 'ctl', 'controls', 'master', 'controls'),
     edge('e3', 'master', 'frame', 'out', 'frame'),
     edge('e4', 'enc', 'position', 'ctl', 'patternSelect'),
-    edge('e5', 'btn', 'pressed', 'ctl', 'patternNext'),
+    edge('e5', 'btn', FIRST_BUTTON_HANDLE, 'ctl', 'patternNext'),
   ]
   return { nodes, edges }
 }
@@ -67,7 +68,7 @@ const blueFor = (index: number) => 30 + index * 40
 
 const turn = (counts: number) =>
   useHardwareInputStore.getState().setEncoder('enc', { position: counts })
-const press = (down: boolean) => useHardwareInputStore.getState().setButton('btn', down)
+const press = (down: boolean) => useHardwareInputStore.getState().setButton(buttonPressKey('btn'), down)
 
 describe('the player publishes the selection', () => {
   beforeEach(() => {

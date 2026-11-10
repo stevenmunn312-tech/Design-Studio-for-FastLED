@@ -15,6 +15,7 @@ import type { StudioEdge, StudioNode } from '../../graphStore'
 import { isPropertyEnabled, libraryDefaults, NODE_LIBRARY, propertyLabel } from '../../nodeLibrary'
 import { partById } from '../../../build/parts/partCatalogue'
 import { PART_OPTIONS } from '../../../build/parts/partOptions'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
@@ -34,11 +35,11 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 
 function buzzerGraph(properties: Record<string, unknown> = {}, wired = true) {
   const nodes = [
-    node('buzz', 'BuzzerOutput', properties), node('btn', 'ButtonInput', { pin: 4 }),
+    node('buzz', 'BuzzerOutput', properties), node('btn', 'ButtonBank', { buttons: singleButtonRow(4) }),
     node('fill', 'SolidColor'), node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
   ]
   const edges = [edge('frame', 'fill', 'frame', 'out', 'frame')]
-  if (wired) edges.push(edge('sound', 'btn', 'pressed', 'buzz', 'on'))
+  if (wired) edges.push(edge('sound', 'btn', FIRST_BUTTON_HANDLE, 'buzz', 'on'))
   return { nodes, edges }
 }
 

@@ -14,6 +14,7 @@ import { PART_CATALOGUE, partById } from '../../../build/parts/partCatalogue'
 import { pdTriggerSpec } from '../../../state/peripherals/pdTrigger'
 import { usePreviewStore } from '../../../state/previewStore'
 import { relayChannelCountForPart, relayEnergisedKey } from '../../../state/peripherals/relayModule'
+import { FIRST_BUTTON_HANDLE, singleButtonRow, buttonPressKey } from '../../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
@@ -50,9 +51,9 @@ describe('what lights a bench indicator', () => {
   })
 
   it('publishes each relay coil the way the firmware drives it', () => {
-    const nodes = [node('btn', 'ButtonInput'), node('relay', 'RelayOutput', { partId: RELAY_4CH })]
-    const edges = [edge('btn', 'pressed', 'relay', 'channel2')]
-    useHardwareInputStore.getState().setButton('btn', true)
+    const nodes = [node('btn', 'ButtonBank', { buttons: singleButtonRow(0) }), node('relay', 'RelayOutput', { partId: RELAY_4CH })]
+    const edges = [edge('btn', FIRST_BUTTON_HANDLE, 'relay', 'channel2')]
+    useHardwareInputStore.getState().setButton(buttonPressKey('btn'), true)
     const outputs = evaluateGraphFull(nodes, edges, 0).outputs.get('relay')
     // Wired and pressed is energised; unwired is off, as `boolExpr` emits.
     expect(outputs?.[relayEnergisedKey(2)]).toBe(true)

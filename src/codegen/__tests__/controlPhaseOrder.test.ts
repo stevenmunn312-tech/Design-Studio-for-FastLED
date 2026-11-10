@@ -29,6 +29,7 @@ import { CONTROL_PHASES, controlPhaseSpans, controlPhaseViolation } from '../../
 import { generateCpp } from '../cppGenerator'
 import { generateShowSketch } from '../showGenerator'
 import { buildShowPlayer } from '../../utils/showUpload'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -100,14 +101,14 @@ function normalSketch(): string {
   const nodes = [
     node('board', 'Board', { profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc' }),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 27 }),
-    node('fill', 'SolidColor'), node('btn', 'ButtonInput', { pin: 12 }), ...controlNodes,
+    node('fill', 'SolidColor'), node('btn', 'ButtonBank', { buttons: singleButtonRow(12) }), ...controlNodes,
   ]
   const edges = [
     edge('fill', 'frame', 'out', 'frame'),
     // A wired Enabled is what puts the panel latch in the loop at all, and it
     // is the phase that reads last pass's value. An independent source, so
     // this graph is not also the self-disable shape validation warns about.
-    edge('btn', 'pressed', 'tft', 'enabled'),
+    edge('btn', FIRST_BUTTON_HANDLE, 'tft', 'enabled'),
     // Reaches the LED output runtime block, the other apply-destinations anchor.
     edge('tft-touch', 'widget:toggle:out', 'out', 'enabled'),
     ...controlEdges,

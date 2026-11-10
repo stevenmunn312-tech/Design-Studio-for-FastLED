@@ -80,6 +80,11 @@ export function buttonBankHandle(entryId: string): string {
 /** The output of a Button's first row: what a one-button node is read through. */
 export const FIRST_BUTTON_HANDLE = buttonBankHandle(FIRST_BUTTON_ID)
 
+/** Where a row's press control on the node keeps its state in the hardware input store. */
+export function buttonPressKey(nodeId: string, entryId: string = FIRST_BUTTON_ID): string {
+  return `${nodeId}:${entryId}`
+}
+
 /**
  * A Button's `buttons` holding one row on `pin`, chosen by hand rather than
  * stamped as the app's. Templates, Help examples and fixtures that need a

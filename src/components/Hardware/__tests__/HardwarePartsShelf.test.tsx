@@ -10,7 +10,7 @@ const categories: HardwareShelfCategory[] = [
     hint: 'Controls and sensors',
     items: [{
       key: 'button',
-      nodeType: 'ButtonInput',
+      nodeType: 'ButtonBank',
       label: 'Button',
       hint: 'A momentary control',
       disabled: false,

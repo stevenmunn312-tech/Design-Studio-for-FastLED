@@ -106,7 +106,7 @@ import {
   invalidRadioStations, normalizeRadioStations, radioAccessCodeProblem,
   RADIO_ACCESS_CODE_MAX, RADIO_ACCESS_CODE_MIN, RADIO_CARD_PLAYLIST,
 } from '../state/player/radioStations'
-import { BOARD_LINK_OUT_NODE_TYPE, isBoardLinkNodeType } from '../build/boardLinks'
+import { BOARD_LINK_OUT_NODE_TYPE, isBoardLinkNodeType, outputPortDataType } from '../build/boardLinks'
 import { WEB_REMOTE_NODE_TYPE, normalizeWebRemoteControls } from '../state/peripherals/webRemote'
 import { fqbnHasWifi, fqbnServesWebRemote } from '../state/peripherals/networkCapability'
 import { particleMode, particlePoolSize } from '../nodes/simulations/particleModes'
@@ -3901,8 +3901,8 @@ function unusablePlayerControlIssues(nodes: StudioNode[], edges: StudioEdge[]): 
         continue
       }
       const source = byId.get(edge.source)
-      const sourceType = (source?.data.outputs as Array<{ id: string; dataType?: string }> | undefined)
-        ?.find((port) => port.id === edge.sourceHandle)?.dataType
+      // A Button's rows are read from its properties as well as its ports.
+      const sourceType = source ? outputPortDataType(source, edge.sourceHandle) : null
       if ((sourceType === 'bool' || sourceType === 'float') && sourceType !== entry.dataType) {
         issues.push({
           nodeId: control.id,

@@ -13,6 +13,7 @@ import type { StudioEdge, StudioNode } from '../../graphStore'
 import { libraryDefaults, NODE_LIBRARY } from '../../nodeLibrary'
 import { partById } from '../../../build/parts/partCatalogue'
 import { PART_OPTIONS } from '../../../build/parts/partOptions'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
@@ -33,12 +34,12 @@ function edge(id: string, source: string, sourceHandle: string, target: string, 
 /** A button drives channel 1 only; the other seven are left unwired. */
 function driverGraph(properties: Record<string, unknown> = {}) {
   const nodes = [
-    node('drv', 'DarlingtonDriverOutput', properties), node('btn', 'ButtonInput', { pin: 15 }),
+    node('drv', 'DarlingtonDriverOutput', properties), node('btn', 'ButtonBank', { buttons: singleButtonRow(15) }),
     node('fill', 'SolidColor'), node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
   ]
   const edges = [
     edge('frame', 'fill', 'frame', 'out', 'frame'),
-    edge('c1', 'btn', 'pressed', 'drv', 'channel1'),
+    edge('c1', 'btn', FIRST_BUTTON_HANDLE, 'drv', 'channel1'),
   ]
   return { nodes, edges }
 }

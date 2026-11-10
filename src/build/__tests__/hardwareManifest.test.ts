@@ -6,6 +6,7 @@ import {
   peripheralSignalPadIndex,
 } from '../../components/BuildDiagram/physicalDiagramLayout'
 import { buildHardwareManifest, collectPinUses } from '../hardwareManifest'
+import { singleButtonRow } from '../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {
@@ -83,7 +84,7 @@ describe('hardwareManifest', () => {
   it('builds a shared manifest for outputs and MVP peripherals', () => {
     const manifest = buildHardwareManifest([
       node('out', 'MatrixOutput', { width: 16, height: 16, chipset: 'WS2812B', dataPin: 14 }),
-      node('btn', 'ButtonInput', { pin: 2 }),
+      node('btn', 'ButtonBank', { buttons: singleButtonRow(2) }),
       node('enc', 'EncoderInput', { pinA: 7, pinB: 8, pinSW: 9 }),
     ], [], 'esp32:esp32:esp32s3')
 
@@ -194,7 +195,7 @@ describe('hardwareManifest', () => {
       expect.objectContaining({ propertyKey: 'buttons.next.pin', label: 'Next pin', pin: 13, requirement: { capability: 'digitalInput', pullup: false } }),
     ])
     expect(buildHardwareManifest([bank], [], 'esp32:esp32:esp32s3').primaryItems[0])
-      .toMatchObject({ kind: 'button-input', subtitle: 'Momentary button bank', supported: true })
+      .toMatchObject({ kind: 'button-input', subtitle: 'Momentary button input', supported: true })
   })
 
   it('describes a corkscrew by its chain geometry instead of stale matrix dimensions', () => {

@@ -50,7 +50,7 @@ describe('WorkspaceTabs', () => {
 
     // Adding hardware puts a node on the Graph, a module on the wiring sheet
     // and a peripheral in the sketch — none of which is on screen.
-    act(() => { useGraphStore.setState({ nodes: [node('btn', 'ButtonInput')] } as never) })
+    act(() => { useGraphStore.setState({ nodes: [node('btn', 'ButtonBank')] } as never) })
     expect(updated()).toEqual(['Graph', 'Upload', 'Build Diagram'])
   })
 
@@ -73,7 +73,7 @@ describe('WorkspaceTabs', () => {
     useGraphStore.setState({ activeGraphId: 'group-1', nodes: [], graphData: { root: { nodes: [], edges: [] } } } as never)
     render(<WorkspaceTabs />)
     // A part added from the bench lands on the root graph, not the open group.
-    act(() => { useGraphStore.setState({ graphData: { root: { nodes: [node('btn', 'ButtonInput')], edges: [] } } } as never) })
+    act(() => { useGraphStore.setState({ graphData: { root: { nodes: [node('btn', 'ButtonBank')], edges: [] } } } as never) })
     expect(updated()).toEqual(['Hardware', 'Upload', 'Build Diagram'])
   })
 })

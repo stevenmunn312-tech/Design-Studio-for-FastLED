@@ -13,6 +13,7 @@ import { particleModeUsesRate } from '../../nodes/simulations/particleModes'
 import { fourierTable, fourierTableQ } from '../../nodes/shapes/fourierOutline'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import { harmonyStopPlace } from '../../state/palettes/harmonyPalette'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -493,12 +494,12 @@ describe('generateCpp', () => {
     expect(generateCpp([bad], [])).not.toContain('setTemperature')
   })
 
-  it('emits a setup() pinMode for ButtonInput honouring the pullup property', () => {
-    const btn = node('btn', 'ButtonInput', 'input', { pin: 7, pullup: true })
+  it('emits a setup() pinMode for a Button honouring the pullup property', () => {
+    const btn = node('btn', 'ButtonBank', 'input', { buttons: singleButtonRow(7, { pullup: true }) })
     const bm = node('bm', 'BrightnessMod', 'composite', {})
     const sc = node('sc', 'SolidColor', 'pattern', {})
     const edges = [
-      edge('e1', 'btn', 'bm', 'pressed', 'brightness'),
+      edge('e1', 'btn', 'bm', FIRST_BUTTON_HANDLE, 'brightness'),
       edge('e2', 'sc', 'bm', 'frame', 'frame'),
       edge('e3', 'bm', 'out', 'frame', 'frame'),
     ]
@@ -508,7 +509,7 @@ describe('generateCpp', () => {
     expect(pinMode).toBeLessThan(cpp.indexOf('void loop()'))
     expect(cpp).toContain('digitalRead(7) == LOW')
 
-    const noPull = node('btn', 'ButtonInput', 'input', { pin: 7, pullup: false })
+    const noPull = node('btn', 'ButtonBank', 'input', { buttons: singleButtonRow(7, { pullup: false }) })
     expect(generateCpp([noPull, bm, sc, outputNode], edges)).toContain('pinMode(7, INPUT);')
   })
 
@@ -578,7 +579,7 @@ describe('generateCpp', () => {
   })
 
   it('initializes active-low relay channels inactive before enabling their GPIOs', () => {
-    const button = node('btn', 'ButtonInput', 'input', { pin: 12, pullup: true })
+    const button = node('btn', 'ButtonBank', 'input', { buttons: singleButtonRow(12, { pullup: true }) })
     const relay = node('relay', 'RelayOutput', 'output', {
       partId: 'relay-module-4ch-5v',
       in1Pin: 5,
@@ -589,7 +590,7 @@ describe('generateCpp', () => {
     })
     const cpp = generateCpp(
       [button, relay],
-      [edge('relay-trigger', 'btn', 'relay', 'pressed', 'channel2')],
+      [edge('relay-trigger', 'btn', 'relay', FIRST_BUTTON_HANDLE, 'channel2')],
     )
 
     for (const pin of [5, 16, 17, 18]) {
@@ -599,11 +600,11 @@ describe('generateCpp', () => {
       expect(output).toBeGreaterThan(inactive)
     }
     expect(cpp).not.toContain('pinMode(19, OUTPUT);')
-    expect(cpp).toContain('digitalWrite(16, n_btn_pressed ? LOW : HIGH);')
+    expect(cpp).toContain('digitalWrite(16, n_btn_button_1 ? LOW : HIGH);')
   })
 
   it('holds an active-high solid-state relay off before enabling its two GPIOs', () => {
-    const button = node('btn', 'ButtonInput', 'input', { pin: 12, pullup: true })
+    const button = node('btn', 'ButtonBank', 'input', { buttons: singleButtonRow(12, { pullup: true }) })
     const relay = node('relay', 'RelayOutput', 'output', {
       partId: 'seeed-grove-2ch-ssr',
       in1Pin: 5,
@@ -612,7 +613,7 @@ describe('generateCpp', () => {
     })
     const cpp = generateCpp(
       [button, relay],
-      [edge('relay-trigger', 'btn', 'relay', 'pressed', 'channel1')],
+      [edge('relay-trigger', 'btn', 'relay', FIRST_BUTTON_HANDLE, 'channel1')],
     )
 
     for (const pin of [5, 16]) {
@@ -622,31 +623,35 @@ describe('generateCpp', () => {
       expect(output).toBeGreaterThan(idle)
     }
     expect(cpp).not.toContain('pinMode(17, OUTPUT);')
-    expect(cpp).toContain('digitalWrite(5, n_btn_pressed ? HIGH : LOW);')
+    expect(cpp).toContain('digitalWrite(5, n_btn_button_1 ? HIGH : LOW);')
     // The unwired channel stays at its idle level in the loop too.
     expect(cpp.match(/digitalWrite\(16, LOW\);/g)).toHaveLength(2)
   })
 
   it('holds an active-high power switch off before enabling its GPIO, then drives it from the wire', () => {
-    const button = node('btn', 'ButtonInput', 'input', { pin: 12, pullup: true })
+    const button = node('btn', 'ButtonBank', 'input', { buttons: singleButtonRow(12, { pullup: true }) })
     const sw = node('sw', 'PowerSwitchOutput', 'output', { partId: 'lr7843-mosfet-module', signalPin: 25 })
-    const cpp = generateCpp([button, sw], [edge('switch-on', 'btn', 'sw', 'pressed', 'on')])
+    const cpp = generateCpp([button, sw], [edge('switch-on', 'btn', 'sw', FIRST_BUTTON_HANDLE, 'on')])
 
     const off = cpp.indexOf('digitalWrite(25, LOW);')
     const output = cpp.indexOf('pinMode(25, OUTPUT);')
     expect(off).toBeGreaterThanOrEqual(0)
     expect(output).toBeGreaterThan(off)
     // Active-high, unlike the mechanical relay modules: pressed means HIGH means load on.
-    expect(cpp).toContain('digitalWrite(25, n_btn_pressed ? HIGH : LOW);')
+    expect(cpp).toContain('digitalWrite(25, n_btn_button_1 ? HIGH : LOW);')
   })
 
   it('rounds and clamps out-of-range pins to a valid GPIO instead of emitting them literally', () => {
     // A fractional/negative/too-large pin must never reach generated C++ as-is
     // (the shared sanitizePin helper) — mirrors the same clamp MicInput's I2S
     // pins already had.
-    const btn = node('btn', 'ButtonInput', 'input', { pin: -5.7 })
-    expect(generateCpp([btn], [])).toContain('pinMode(0,')
-    expect(generateCpp([btn], [])).not.toContain('-5.7')
+    const touch = node('touch', 'TouchButtonInput', 'input', { pin: -5.7 })
+    expect(generateCpp([touch], [])).toContain('pinMode(0,')
+    expect(generateCpp([touch], [])).not.toContain('-5.7')
+    // A Button row below 0 has no GPIO yet: it reads unpressed rather than GPIO0.
+    const btn = node('btn', 'ButtonBank', 'input', { buttons: singleButtonRow(-5.7) })
+    expect(generateCpp([btn], [])).toContain('bool n_btn_button_1 = false; // no GPIO assigned')
+    expect(generateCpp([btn], [])).not.toContain('pinMode(0,')
 
     const pot = node('pot', 'PotInput', 'hardware', { pin: 9999 })
     expect(generateCpp([pot], [])).toContain('analogRead(255)')
@@ -1731,8 +1736,8 @@ describe('generateCpp', () => {
 
   it('emits String Particles on each track and in each mode', () => {
     const sp = (props: Record<string, unknown>, trigger = false) => generateCpp(
-      [node('n', 'StringParticles', 'pattern', props), ...(trigger ? [node('btn', 'ButtonInput', 'input', { pin: 7 })] : []), outputNode],
-      [edge('e', 'n', 'out', 'frame', 'frame'), ...(trigger ? [edge('t', 'btn', 'n', 'pressed', 'trigger')] : [])])
+      [node('n', 'StringParticles', 'pattern', props), ...(trigger ? [node('btn', 'ButtonBank', 'input', { buttons: singleButtonRow(7) })] : []), outputNode],
+      [edge('e', 'n', 'out', 'frame', 'frame'), ...(trigger ? [edge('t', 'btn', 'n', FIRST_BUTTON_HANDLE, 'trigger')] : [])])
     const row = sp({ track: 'row' })
     expect(row).toContain('_len=WIDTH;')
     expect(row).toContain('[(HEIGHT/2)*WIDTH+_k]=CRGB(_r,_g,_bl);')
@@ -1761,8 +1766,8 @@ describe('generateCpp', () => {
 
   it('emits the classic generative nodes with the shared hash', () => {
     const gen = (type: string, props: Record<string, unknown> = {}, trigger = false) => generateCpp(
-      [node('n', type, 'pattern', props), ...(trigger ? [node('btn', 'ButtonInput', 'input', { pin: 7 })] : []), outputNode],
-      [edge('e', 'n', 'out', 'frame', 'frame'), ...(trigger ? [edge('t', 'btn', 'n', 'pressed', 'trigger')] : [])])
+      [node('n', type, 'pattern', props), ...(trigger ? [node('btn', 'ButtonBank', 'input', { buttons: singleButtonRow(7) })] : []), outputNode],
+      [edge('e', 'n', 'out', 'frame', 'frame'), ...(trigger ? [edge('t', 'btn', 'n', FIRST_BUTTON_HANDLE, 'trigger')] : [])])
     const hash = 'x*=0x7feb352dU; x^=x>>15; x*=0x846ca68bU;'
     const single = gen('Candle')
     expect(single).toContain(hash)
@@ -1905,8 +1910,8 @@ describe('generateCpp', () => {
     expect(viscous).toContain('_fluidViscosity(_fl_nu,_fl_nv,_fl_nu0,_fl_nv0,WIDTH,HEIGHT,_it,0.2);')
     expect(viscous).toContain('_fluidDiffuse(_fl_nd,_fl_nd0,WIDTH,HEIGHT,_it,0.1);')
     const triggered = generateCpp(
-      [node('n', 'FluidSim', 'field', {}), node('f', 'FieldToFrame', 'pattern', {}), node('btn', 'ButtonInput', 'input', { pin: 7 }), outputNode],
-      [edge('e', 'n', 'f', 'field', 'field'), edge('e2', 'f', 'out', 'frame', 'frame'), edge('t', 'btn', 'n', 'pressed', 'trigger')],
+      [node('n', 'FluidSim', 'field', {}), node('f', 'FieldToFrame', 'pattern', {}), node('btn', 'ButtonBank', 'input', { buttons: singleButtonRow(7) }), outputNode],
+      [edge('e', 'n', 'f', 'field', 'field'), edge('e2', 'f', 'out', 'frame', 'frame'), edge('t', 'btn', 'n', FIRST_BUTTON_HANDLE, 'trigger')],
     )
     expect(triggered).toContain('if(_tr&&!_fl_npr)')
     expect(plain).not.toContain('*2.0f*0.3f')
@@ -2101,10 +2106,10 @@ describe('generateCpp', () => {
 
   it('wraps a Palette Bank press at both ends and cancels opposing presses', () => {
     const pb = node('pb', 'PaletteBank', 'color', { palettes: ['ocean', 'lava'] })
-    const btn = node('btn', 'ButtonInput', 'input', { pin: 4 })
+    const btn = node('btn', 'ButtonBank', 'input', { buttons: singleButtonRow(4) })
     const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
     const cpp = generateCpp([pb, btn, sx, outputNode], [
-      edge('e0', 'btn', 'pb', 'pressed', 'next'),
+      edge('e0', 'btn', 'pb', FIRST_BUTTON_HANDLE, 'next'),
       edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
       edge('e2', 'sx', 'out', 'frame', 'frame'),
     ])
@@ -2121,11 +2126,11 @@ describe('generateCpp', () => {
     // it never counted, and the bank never moved.
     const pb = node('pb', 'PaletteBank', 'color', { palettes: ['ocean', 'lava'] })
     const tick = node('tick', 'Interval', 'signal', { interval: 5 })
-    const btn = node('btn', 'ButtonInput', 'input', { pin: 4 })
+    const btn = node('btn', 'ButtonBank', 'input', { buttons: singleButtonRow(4) })
     const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
     const cpp = generateCpp([pb, tick, btn, sx, outputNode], [
       edge('e0', 'tick', 'pb', 'pulse', 'next'),
-      edge('e1', 'btn', 'pb', 'pressed', 'previous'),
+      edge('e1', 'btn', 'pb', FIRST_BUTTON_HANDLE, 'previous'),
       edge('e2', 'pb', 'sx', 'palette', 'paletteIn'),
       edge('e3', 'sx', 'out', 'frame', 'frame'),
     ])
@@ -2135,15 +2140,15 @@ describe('generateCpp', () => {
 
   it('takes a computed pulse into an LED output action without the contact debounce', () => {
     const tick = node('tick', 'Interval', 'signal', { interval: 5 })
-    const btn = node('btn', 'ButtonInput', 'input', { pin: 4 })
+    const btn = node('btn', 'ButtonBank', 'input', { buttons: singleButtonRow(4) })
     const solid = node('solid', 'SolidColor', 'pattern', {})
     const cpp = generateCpp([tick, btn, solid, outputNode], [
       edge('e0', 'tick', 'out', 'pulse', 'ledToggle'),
-      edge('e1', 'btn', 'out', 'pressed', 'brightnessUp'),
+      edge('e1', 'btn', 'out', FIRST_BUTTON_HANDLE, 'brightnessUp'),
       edge('e2', 'solid', 'out', 'frame', 'frame'),
     ])
     expect(cpp).toMatch(/\.update\(n_tick_pulse, _pcNow_\w+, false, 0u,/)
-    expect(cpp).toMatch(/\.update\(n_btn_pressed, _pcNow_\w+, true, 30u,/)
+    expect(cpp).toMatch(/\.update\(n_btn_button_1, _pcNow_\w+, true, 30u,/)
   })
 
   it('still produces a palette when the bank is empty', () => {
@@ -3569,7 +3574,7 @@ describe('Pattern node expansion - Phase 5 Turing Field and Reaction Diffusion c
     const beat = node('beat', 'Button', 'input', {})
     const lfo = node('lfo', 'Function', 'math', { fn: 'sin' })
     const cpp = generateTuring({}, [beat, lfo], [
-      edge('reset-edge', beat.id, 'turing', 'pressed', 'reset'),
+      edge('reset-edge', beat.id, 'turing', FIRST_BUTTON_HANDLE, 'reset'),
       edge('step-edge', lfo.id, 'turing', 'result', 'stepSize'),
     ])
     expect(cpp).toMatch(/bool _reset=[^;]+;\n\s+if\(_reset&&!_tf_turingprev\)\{ _tf_turingepoch\+\+; _tf_turinginit=false; \} _tf_turingprev=_reset;/)
@@ -6064,10 +6069,10 @@ describe('bypassed nodes (codegen)', () => {
 })
 
 describe('generateCpp — BeatFlash', () => {
-  const beat = node('beat', 'ButtonInput', 'input', {})
+  const beat = node('beat', 'ButtonBank', 'input', { buttons: singleButtonRow(0) })
   const base = node('base', 'SolidColor', 'pattern', { r: 10, g: 20, b: 30 })
   const flash = (id: string, props: Record<string, unknown>) => generateCpp([beat, base, node(id, 'BeatFlash', 'pattern', props)], [
-    edge('e1', 'beat', id, 'pressed', 'beat'),
+    edge('e1', 'beat', id, FIRST_BUTTON_HANDLE, 'beat'),
     edge('e2', 'base', id, 'frame', 'frame'),
   ])
 
@@ -6201,8 +6206,8 @@ describe('KickShock / PercussionBlobs / RainRipples pool-spawner codegen', () =>
 
   it('RainRipples spawnSpread defaults to 1 (fully random)', () => {
     const rr = node('rr3', 'RainRipples', 'pattern', {})
-    const btn = node('btn', 'ButtonInput', 'input', { pin: 7 })
-    const cpp = generateCpp([rr, btn, outputNode], [edge('e', 'rr3', 'out', 'frame', 'frame'), edge('t', 'btn', 'rr3', 'pressed', 'trigger')])
+    const btn = node('btn', 'ButtonBank', 'input', { buttons: singleButtonRow(7) })
+    const cpp = generateCpp([rr, btn, outputNode], [edge('e', 'rr3', 'out', 'frame', 'frame'), edge('t', 'btn', 'rr3', FIRST_BUTTON_HANDLE, 'trigger')])
     expect(cpp).toContain('float _rrSpread=constrain(1, 0.0f, 1.0f);')
     expect(cpp).toContain('-_rrCx)*_rrSpread')
   })
@@ -6404,11 +6409,11 @@ describe('direct LED output actions reach the fixture', () => {
     nodes: [
       node('out', 'MatrixOutput', 'output', { width: 8, height: 8, dataPin: 27 }),
       node('fill', 'SolidColor', 'pattern'),
-      node('btn', 'ButtonInput', 'input', { pin: 12 }),
+      node('btn', 'ButtonBank', 'input', { buttons: singleButtonRow(12) }),
     ],
     edges: [
       edge('f', 'fill', 'out', 'frame', 'frame'),
-      edge('a', 'btn', 'out', 'pressed', targetHandle),
+      edge('a', 'btn', 'out', FIRST_BUTTON_HANDLE, targetHandle),
     ],
   })
 

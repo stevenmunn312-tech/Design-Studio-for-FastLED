@@ -1,4 +1,5 @@
 import type { StudioNode } from '../state/graphStore'
+import { buttonBankEntryForHandle } from '../state/player/buttonBank'
 import { NODE_LIBRARY } from '../state/nodeLibrary'
 import {
   displayHueColor, displayPickerTone, displayWidgetPortId, parseDisplayWidgetPortId,
@@ -73,13 +74,16 @@ interface PortCarrier {
 /**
  * The data type of a node's output port: the instance's own ports first
  * (minted ports such as a Web Remote control or a Touch widget live only
- * there), then the library's. Null for a port neither declares.
+ * there), then the library's. Null for a port neither declares. A Button's
+ * rows are read from its properties too, so a graph whose node never had its
+ * ports minted still carries a single button as a press.
  */
 export function outputPortDataType(node: StudioNode, handle: string | null | undefined): string | null {
-  const data = node.data as PortCarrier & { nodeType?: string }
+  const data = node.data as PortCarrier & { nodeType?: string; properties?: Record<string, unknown> }
   const id = handle ?? ''
   const own = data.outputs?.find((port) => port.id === id)
   if (own) return own.dataType
+  if (data.nodeType === 'ButtonBank' && buttonBankEntryForHandle(data.properties?.buttons, id)) return 'bool'
   const declared = LIBRARY_OUTPUTS.get(String(data.nodeType ?? ''))?.find((port) => port.id === id)
   return declared?.dataType ?? null
 }

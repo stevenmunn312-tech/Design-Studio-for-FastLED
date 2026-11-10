@@ -18,6 +18,7 @@ import {
   boardLinkSlotHolds,
   isMomentaryBoolSource,
 } from '../boardLinks'
+import { singleButtonRow, FIRST_BUTTON_HANDLE } from '../../state/player/buttonBank'
 
 function node(
   id: string,
@@ -307,7 +308,7 @@ describe('board links — the partition', () => {
 
 describe('board links — presses and levels', () => {
   it('reads push switches and keys as presses, sensors as levels', () => {
-    expect(isMomentaryBoolSource(node('b', 'ButtonInput'), 'pressed', [])).toBe(true)
+    expect(isMomentaryBoolSource(node('b', 'ButtonBank', { buttons: singleButtonRow(0) }), FIRST_BUTTON_HANDLE, [])).toBe(true)
     expect(isMomentaryBoolSource(node('e', 'EncoderInput'), 'pressed', [])).toBe(true)
     expect(isMomentaryBoolSource(node('m', 'MotionInput'), 'motion', [])).toBe(false)
     expect(isMomentaryBoolSource(node('t', 'TouchInput'), 'next', [])).toBe(true)

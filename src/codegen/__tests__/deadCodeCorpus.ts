@@ -13,6 +13,7 @@ import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import type { GroupRegistry } from '../../state/graphEvaluator'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}, hidden = false): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -166,10 +167,10 @@ function showSketches(): Record<string, string> {
     'performance-one-pattern': performance(['solid']),
     'performance-audio-controls': performance(['reactive', 'warp'], { useGroupInputs: true }, [
       node('pool', 'TransitionSet', { transitions: ['iris', 'cube'] }),
-      node('button', 'ButtonInput', { pin: 12, pullup: true }), node('controls', 'ControlMap', { controls: ['playPause'] }),
+      node('button', 'ButtonBank', { buttons: singleButtonRow(12, { pullup: true }) }), node('controls', 'ControlMap', { controls: ['playPause'] }),
     ], [
       edge('pool', 'pool', 'transitions', 'perf', 'transitions'),
-      edge('press', 'button', 'pressed', 'controls', 'playPause'), edge('controls', 'controls', 'controls', 'perf', 'controls'),
+      edge('press', 'button', FIRST_BUTTON_HANDLE, 'controls', 'playPause'), edge('controls', 'controls', 'controls', 'perf', 'controls'),
     ]),
     'slideshow-one-solid': slideshow(['solid']),
     'slideshow-one-warp': slideshow(['warp']),

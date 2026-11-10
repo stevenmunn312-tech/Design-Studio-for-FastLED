@@ -68,7 +68,7 @@ import { useGraphStore } from '../../state/graphStore'
 import { isDisplaySignal, type DisplaySignal } from '../../state/displays/displaySignal'
 import { tftControllerForProps } from '../../state/nodeLibrary'
 import { previewAudioCapabilityKind } from '../../state/audio/audioCapabilities'
-import { normalizeButtonBankEntries, buttonBankHandle } from '../../state/player/buttonBank'
+import { normalizeButtonBankEntries, buttonBankHandle, buttonPressKey } from '../../state/player/buttonBank'
 import { normalizeWebRemoteControls, webRemoteControlOutput, webRemotePortId, webRemoteStartState } from '../../state/peripherals/webRemote'
 import { sampleWebRemoteControl } from '../../state/peripherals/webRemoteRuntime'
 import { clamp01 } from '../../state/evaluator/frames'
@@ -326,7 +326,7 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
     const live = useHardwareInputStore.getState().button
     return Object.fromEntries(buttons.map((button) => [
       buttonBankHandle(button.id),
-      live.get(`${id}:${button.id}`) ?? false,
+      live.get(buttonPressKey(id, button.id)) ?? false,
     ]))
   },
   // What the node's mini remote and the phone preview have set, read through

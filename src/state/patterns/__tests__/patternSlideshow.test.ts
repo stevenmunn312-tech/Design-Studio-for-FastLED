@@ -14,6 +14,7 @@ import { advanceSlideshowSilenceFade, slideshowSettings, asSlideshowOrder } from
 import { validateGraph } from '../../../utils/validateGraph'
 import { useHardwareInputStore } from '../../peripherals/hardwareInputStore'
 import type { StudioNode, StudioEdge } from '../../graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow, buttonPressKey } from '../../player/buttonBank'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -211,7 +212,7 @@ describe('a running Pattern Slideshow', () => {
   it('takes a wired Beat over the Audio wire\'s detector, as the Music Player does', () => {
     const provider = node('mic-provider', 'MicInput')
     const audioNode = node('audio', 'Audio', { sourceId: 'mic-provider' })
-    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const button = node('btn', 'ButtonBank', { buttons: singleButtonRow(12) })
     const beating: AudioSignal = {
       active: true, micActive: true, beat: true,
       micBass: 0.5, micMids: 0.5, micTreble: 0.5,
@@ -221,33 +222,33 @@ describe('a running Pattern Slideshow', () => {
       nodes: [provider, audioNode, button],
       edges: [
         edge('ea', 'audio', 'audio', 'show', 'audio'),
-        edge('eb', 'btn', 'pressed', 'show', 'beat'),
+        edge('eb', 'btn', FIRST_BUTTON_HANDLE, 'show', 'beat'),
       ],
       audioOverride: beating,
     }
     const props = { order: 'Sequential', audioReactive: true, minTime: 1, maxTime: 1, transitionSec: 0, beatTransitions: true }
-    useHardwareInputStore.getState().setButton('btn', false)
+    useHardwareInputStore.getState().setButton(buttonPressKey('btn'), false)
     runSlideshow(props, 0, extra)
     runSlideshow(props, 2, extra)
     runSlideshow(props, 2.1, extra)
     // The Audio wire beats on every frame, and the show ignores it: the
     // wired Beat is the beat, and the button is up.
     expect(playingIndex()).toBe(0)
-    useHardwareInputStore.getState().setButton('btn', true)
+    useHardwareInputStore.getState().setButton(buttonPressKey('btn'), true)
     runSlideshow(props, 2.2, extra)
     runSlideshow(props, 2.3, extra)
     expect(playingIndex()).toBe(1)
   })
 
   it('waits on a wired Beat with no Audio at all', () => {
-    const button = node('btn', 'ButtonInput', { pin: 12 })
-    const extra = { nodes: [button], edges: [edge('eb', 'btn', 'pressed', 'show', 'beat')] }
+    const button = node('btn', 'ButtonBank', { buttons: singleButtonRow(12) })
+    const extra = { nodes: [button], edges: [edge('eb', 'btn', FIRST_BUTTON_HANDLE, 'show', 'beat')] }
     const props = { order: 'Sequential', audioReactive: true, minTime: 1, maxTime: 1, transitionSec: 0, beatTransitions: true }
-    useHardwareInputStore.getState().setButton('btn', false)
+    useHardwareInputStore.getState().setButton(buttonPressKey('btn'), false)
     runSlideshow(props, 0, extra)
     runSlideshow(props, 2, extra)
     expect(playingIndex()).toBe(0)
-    useHardwareInputStore.getState().setButton('btn', true)
+    useHardwareInputStore.getState().setButton(buttonPressKey('btn'), true)
     runSlideshow(props, 2.1, extra)
     runSlideshow(props, 2.2, extra)
     expect(playingIndex()).toBe(1)

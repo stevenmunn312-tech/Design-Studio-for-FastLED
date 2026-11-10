@@ -7,6 +7,7 @@ import { buildShowPlayer, buildShowPlayerForMeasurement, buildShowPayload } from
 import { buildGraphDiagnostics, findDisplayGeneratorIssues, findOutputRuntimeIssues } from '../../utils/validateGraph'
 import { playerControlGraph } from '../player/playerControlGraph'
 import { assertWireable } from '../../test-utils/assertWireable'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -99,14 +100,14 @@ describe('custom displays in SD-player firmware', () => {
   it('shares scalar computations between widget readouts and chained controls', () => {
     const nodes = [panel('tft'), touch(), node('map', 'MapRange'), node('format', 'FormatNumber'),
       node('first', 'ControlMap', { controls: ['volume'] }),
-      node('last', 'ControlMap', { controls: ['next'], debounceMs: 55 }), node('button', 'ButtonInput', { pin: 12, pullup: false }),
+      node('last', 'ControlMap', { controls: ['next'], debounceMs: 55 }), node('button', 'ButtonBank', { buttons: singleButtonRow(12, { pullup: false }) }),
       node('fixed', 'TransportDisplay', { partId: 'st7789v-xpt2046-touch-240x320', tftLayout: 'Fixed Transport' }),
       // Touch leaves through its own node now; the panel has no outputs.
       node('fixed-touch', 'TouchInput', { panelId: 'fixed' })]
     const edges = [edge('tft-touch', 'widget:slider:out', 'map', 'value'), edge('map', 'result', 'format', 'value'),
       edge('format', 'text', 'tft', 'widget:text:value'),
       edge('map', 'result', 'first', 'volume'), edge('fixed-touch', 'controls', 'first', 'controlsIn'),
-      edge('first', 'controls', 'last', 'controlsIn'), edge('button', 'pressed', 'last', 'next'),
+      edge('first', 'controls', 'last', 'controlsIn'), edge('button', FIRST_BUTTON_HANDLE, 'last', 'next'),
       edge('last', 'controls', 'player', 'controls')]
     const cpp = generate(nodes, edges)
     expect(cpp.match(/float n_map_result =/g)).toHaveLength(1)
@@ -115,13 +116,13 @@ describe('custom displays in SD-player firmware', () => {
     expect(cpp).toContain('n_first_controls = n_fixed_controls;')
     expect(cpp).toContain('n_last_controls = n_first_controls;')
     expect(cpp).toContain('digitalRead(12) == HIGH')
-    expect(cpp).toContain('.update(n_button_pressed, _pcNow_last, false, 55u,')
+    expect(cpp).toContain('.update(n_button_button_1, _pcNow_last, false, 55u,')
     expect(cpp).toContain('if (n_last_controls.next) changePlayerTrack(1);')
   })
 
   it('emits direct player action inputs without requiring Player Controls', () => {
-    const nodes = [node('button', 'ButtonInput', { pin: 12, pullup: true })]
-    const cpp = generate(nodes, [edge('button', 'pressed', 'player', 'playPause')])
+    const nodes = [node('button', 'ButtonBank', { buttons: singleButtonRow(12, { pullup: true }) })]
+    const cpp = generate(nodes, [edge('button', FIRST_BUTTON_HANDLE, 'player', 'playPause')])
     expect(cpp).toContain('PlayerControlsValue n_player_direct_controls;')
     expect(cpp).toContain('static CtlEdge _pcE_player_direct_playPause;')
     expect(cpp).toContain('if (n_player_direct_controls.playPause && audio.pauseResume()) playerPaused = !playerPaused;')

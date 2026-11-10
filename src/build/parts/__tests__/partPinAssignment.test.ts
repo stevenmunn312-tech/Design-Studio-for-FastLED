@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { assignPartPins } from '../partPinAssignment'
 import type { StudioNode } from '../../../state/graphStore'
 import type { PhysicalBoardProfile } from '../../boards/boardProfiles'
+import { singleButtonRow } from '../../../state/player/buttonBank'
 
 /** A board exposing 4, 5, 6 as general purpose, with 5 off limits. */
 function profile(safeGeneralPurpose: number[], reserved: number[] = []): PhysicalBoardProfile {
@@ -43,7 +44,7 @@ describe('assignPartPins', () => {
   })
 
   it('skips pins the graph already claims', () => {
-    const nodes = [nodeWithPin('b', 'ButtonInput', { pin: 4 })]
+    const nodes = [nodeWithPin('b', 'ButtonBank', { buttons: singleButtonRow(4) })]
     const result = assignPartPins(profile([4, 5, 6]), ESP32_S3, nodes, [{ key: 'pin' }])
     expect(result).toEqual({ ok: true, pins: { pin: 5 } })
   })
@@ -54,7 +55,7 @@ describe('assignPartPins', () => {
   })
 
   it('refuses rather than guessing when the board is full', () => {
-    const nodes = [nodeWithPin('b', 'ButtonInput', { pin: 4 })]
+    const nodes = [nodeWithPin('b', 'ButtonBank', { buttons: singleButtonRow(4) })]
     const result = assignPartPins(profile([4]), 'unknown:board:xyz', nodes, [{ key: 'pin' }])
     expect(result.ok).toBe(false)
   })
@@ -63,8 +64,8 @@ describe('assignPartPins', () => {
   // with who holds each pin, so the refusal reads as a count, not a fault.
   it('names the board and the parts holding its pins when it is full', () => {
     const nodes = [
-      nodeWithPin('Mode button', 'ButtonInput', { pin: 4 }),
-      nodeWithPin('Next button', 'ButtonInput', { pin: 6 }),
+      nodeWithPin('Mode button', 'TouchButtonInput', { pin: 4 }),
+      nodeWithPin('Next button', 'TouchButtonInput', { pin: 6 }),
     ]
     const result = assignPartPins(profile([4, 5, 6], [5]), ESP32_S3, nodes, [{ key: 'pin' }])
     expect(result.ok).toBe(false)
@@ -77,7 +78,7 @@ describe('assignPartPins', () => {
   })
 
   it('says how many pins are left when a part needs more than that', () => {
-    const nodes = [nodeWithPin('Mode button', 'ButtonInput', { pin: 4 })]
+    const nodes = [nodeWithPin('Mode button', 'TouchButtonInput', { pin: 4 })]
     const result = assignPartPins(profile([4, 5]), ESP32_S3, nodes, [
       { key: 'pinA' }, { key: 'pinB' }, { key: 'pinSW' },
     ])

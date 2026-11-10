@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { StudioNode } from '../../../state/graphStore'
 import { boardProfileById } from '../../boards/boardProfiles'
 import { assignHardwarePartPins } from '../i2cPinAssignment'
+import { singleButtonRow } from '../../../state/player/buttonBank'
 
 const board = boardProfileById('espressif-esp32-s3-devkitc-1')!
 const fqbn = 'esp32:esp32:esp32s3'
@@ -16,7 +17,7 @@ describe('hardware I2C assignment', () => {
     const nodes = [
       node('rtc', 'RtcModule', { sdaPin: 8, sclPin: 9 }),
       ...(board.pinSafety?.safeGeneralPurpose ?? []).filter((pin) => pin !== 8 && pin !== 9)
-        .map((pin) => node(`button-${pin}`, 'ButtonInput', { pin })),
+        .map((pin) => node(`button-${pin}`, 'TouchButtonInput', { pin })),
     ]
     expect(nodes.length).toBeGreaterThan(2)
     expect(assignHardwarePartPins(board, fqbn, nodes, requests, 'InfoDisplay', oled))
@@ -24,7 +25,7 @@ describe('hardware I2C assignment', () => {
   })
 
   it('blocks adding an I2C device when a non-I2C part holds SDA', () => {
-    expect(assignHardwarePartPins(board, fqbn, [node('button', 'ButtonInput', { pin: 8 })], requests, 'InfoDisplay', oled))
+    expect(assignHardwarePartPins(board, fqbn, [node('button', 'ButtonBank', { buttons: singleButtonRow(8) })], requests, 'InfoDisplay', oled))
       .toMatchObject({ ok: false, reason: expect.stringContaining('GPIO 8') })
   })
 

@@ -10,6 +10,7 @@ import { POLINE_HELPER_CPP } from '../helpers/polineHelperCpp'
 import { NODE_LIBRARY, libraryDefaults, propertyMeta } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import type { GroupRegistry } from '../../state/graphEvaluator'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}, inputs: unknown[] = [], outputs: unknown[] = []): StudioNode {
   return { id, type: 'studioNode', position: { x: 0, y: 0 },
@@ -76,13 +77,13 @@ describe('showGenerator', () => {
       node('stray', 'PatternSlideshow'),
       node('stray-out', 'MatrixOutput', { width: 4, height: 4, dataPin: 3 }),
       ...nodes,
-      node('btn', 'ButtonInput', { pin: 12 }),
+      node('btn', 'ButtonBank', { buttons: singleButtonRow(12) }),
       node('ctl', 'ControlMap', { controls: ['patternNext'] }),
     ]
     const mixedEdges = [
       edge('stray-frame', 'stray', 'frame', 'stray-out', 'frame'),
       ...edges,
-      edge('press', 'btn', 'pressed', 'ctl', 'patternNext'),
+      edge('press', 'btn', FIRST_BUTTON_HANDLE, 'ctl', 'patternNext'),
       edge('command', 'ctl', 'controls', 'pm', 'controls'),
     ]
 
@@ -594,11 +595,11 @@ describe('showGenerator', () => {
   })
 
   it('takes a wired Beat over the Audio wire\'s beat, as the Music Player does', () => {
-    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const button = node('btn', 'ButtonBank', { buttons: singleButtonRow(12) })
     const show = withSlideshow(
       { audioReactive: true, minTime: 5, maxTime: 30, beatTransitions: true },
       [micBoard, ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 }), button],
-      [edge('ea', 'mic', 'audio', 'pm', 'audio'), edge('eb', 'btn', 'pressed', 'pm', 'beat')],
+      [edge('ea', 'mic', 'audio', 'pm', 'audio'), edge('eb', 'btn', FIRST_BUTTON_HANDLE, 'pm', 'beat')],
     )
     const cpp = generateShowSketch(show.nodes, show.edges, groups)
     const beatNow = cpp.match(/const bool beatNow = (.+);/)
@@ -609,12 +610,12 @@ describe('showGenerator', () => {
   })
 
   it('waits on a wired Beat with no audio host, and lets Player Particles burst on it', () => {
-    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const button = node('btn', 'ButtonBank', { buttons: singleButtonRow(12) })
     const fx = node('fx', 'PlayerParticles', { enabled: true, intensity: 0.8, energyGate: 0.4 })
     const show = withSlideshow(
       { audioReactive: true, minTime: 5, maxTime: 30, beatTransitions: true },
       [micBoard, button, fx],
-      [edge('eb', 'btn', 'pressed', 'pm', 'beat'), edge('ef', 'fx', 'particleFx', 'pm', 'particleFx')],
+      [edge('eb', 'btn', FIRST_BUTTON_HANDLE, 'pm', 'beat'), edge('ef', 'fx', 'particleFx', 'pm', 'particleFx')],
     )
     const cpp = generateShowSketch(show.nodes, show.edges, groups)
     expect(cpp).not.toContain('_audioBeat')
@@ -779,8 +780,8 @@ describe('showGenerator', () => {
     // The preview reads these wires; the sketch once baked the node's fields,
     // so Help's "a button enables the sparks" did nothing on the board.
     const particleFx = node('pfx', 'PlayerParticles', { enabled: false, style: 'fireworks', intensity: 0.5 })
-    const sparks = node('sparks', 'ButtonInput', { pin: 12 })
-    const roll = node('roll', 'ButtonInput', { pin: 13 })
+    const sparks = node('sparks', 'ButtonBank', { buttons: singleButtonRow(12) })
+    const roll = node('roll', 'ButtonBank', { buttons: singleButtonRow(13) })
     const knob = node('knob', 'PotInput', { pin: 4 })
     const gold = node('gold', 'Color', { color: '#ffb020' })
     const cpp = generateShowSketch(
@@ -789,8 +790,8 @@ describe('showGenerator', () => {
       [...edges,
         edge('ea', 'mic', 'audio', 'pm', 'audio'),
         edge('efx', 'pfx', 'particleFx', 'pm', 'particleFx'),
-        edge('een', 'sparks', 'pressed', 'pfx', 'enabled'),
-        edge('ers', 'roll', 'pressed', 'pfx', 'randomStyle'),
+        edge('een', 'sparks', FIRST_BUTTON_HANDLE, 'pfx', 'enabled'),
+        edge('ers', 'roll', FIRST_BUTTON_HANDLE, 'pfx', 'randomStyle'),
         edge('ein', 'knob', 'value', 'pfx', 'intensity'),
         edge('eco', 'gold', 'color', 'pfx', 'color')],
       groups,
@@ -798,14 +799,14 @@ describe('showGenerator', () => {
 
     // Enabled off on the node, but wired: the overlay ships and the button gates it.
     expect(cpp).toContain('void particleOverlay(')
-    expect(cpp).toContain('if (_audioBeat && (n_sparks_pressed)) {')
-    expect(cpp).toContain('if (n_sparks_pressed) particleOverlay(burstStart, burstStyle, burstColor.r, burstColor.g, burstColor.b, burstIntensity, now);')
+    expect(cpp).toContain('if (_audioBeat && (n_sparks_button_1)) {')
+    expect(cpp).toContain('if (n_sparks_button_1) particleOverlay(burstStart, burstStyle, burstColor.r, burstColor.g, burstColor.b, burstIntensity, now);')
     // Intensity follows the knob while sparks draw.
     expect(cpp).toContain('burstIntensity = constrain(n_knob_value, 0.0f, 1.0f);')
     expect(cpp).toContain('  if (burstStart != 0) burstIntensity = constrain(n_knob_value, 0.0f, 1.0f);')
     // Colour and style roll when a burst starts.
     expect(cpp).toContain('burstColor = n_gold_color;')
-    expect(cpp).toContain('burstStyle = ((n_roll_pressed) ? random8(17) : 3);')
+    expect(cpp).toContain('burstStyle = ((n_roll_button_1) ? random8(17) : 3);')
     expect(cpp).toContain('switch (burstStyle)')
   })
 
@@ -1404,11 +1405,11 @@ describe('displays in a show controller', () => {
     // Three buttons and no screen at all: the cursor, the bundle type and the
     // show's own advance all have to exist without a display asking for them.
     const controlNodes = [
-      node('btn', 'ButtonInput', { pin: 12 }),
+      node('btn', 'ButtonBank', { buttons: singleButtonRow(12) }),
       node('ctl', 'ControlMap', { controls: ['patternNext'] }),
     ]
     const controlEdges = [
-      edge('press', 'btn', 'pressed', 'ctl', 'patternNext'),
+      edge('press', 'btn', FIRST_BUTTON_HANDLE, 'ctl', 'patternNext'),
       edge('cmd', 'ctl', 'controls', 'pm', 'controls'),
     ]
 

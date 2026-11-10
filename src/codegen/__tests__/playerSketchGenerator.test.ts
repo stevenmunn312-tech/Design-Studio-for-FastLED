@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 import { generatePlayerSketch, playerConfigFromGraph, playerControlsFromGraph, playerParticlesFromGraph } from '../playerSketchGenerator'
 import { FRAME_SAMPLE_HELPER_CPP } from '../helpers/frameSampleHelperCpp'
 import { patternRenderersUseAudio } from '../showGenerator'
@@ -325,16 +326,16 @@ describe('playerSketchGenerator', () => {
           debounceMs: 45, volumeStep: 0.08, brightnessStep: 0.09,
           repeatDelayMs: 525, repeatIntervalMs: 150,
         } } },
-        { id: 'old-next', data: { nodeType: 'ButtonInput', properties: { pin: 3 } } },
-        { id: 'next', data: { nodeType: 'ButtonInput', properties: { pin: 7, pullup: false } } },
+        { id: 'old-next', data: { nodeType: 'ButtonBank', properties: { buttons: singleButtonRow(3) } } },
+        { id: 'next', data: { nodeType: 'ButtonBank', properties: { buttons: singleButtonRow(7, { pullup: false }) } } },
         { id: 'volume', data: { nodeType: 'PotInput', properties: { pin: 4 } } },
         { id: 'encoder', data: { nodeType: 'EncoderInput', properties: { pinA: 8, pinB: 9, pinSW: 10 } } },
       ]
       const edges = [
         { source: 'base', sourceHandle: 'controls', target: 'controls', targetHandle: 'controlsIn' },
         { source: 'controls', sourceHandle: 'controls', target: 'master', targetHandle: 'controls' },
-        { source: 'old-next', sourceHandle: 'pressed', target: 'base', targetHandle: 'next' },
-        { source: 'next', sourceHandle: 'pressed', target: 'controls', targetHandle: 'next' },
+        { source: 'old-next', sourceHandle: FIRST_BUTTON_HANDLE, target: 'base', targetHandle: 'next' },
+        { source: 'next', sourceHandle: FIRST_BUTTON_HANDLE, target: 'controls', targetHandle: 'next' },
         { source: 'volume', sourceHandle: 'value', target: 'base', targetHandle: 'volume' },
         { source: 'encoder', sourceHandle: 'position', target: 'controls', targetHandle: 'brightness' },
       ]

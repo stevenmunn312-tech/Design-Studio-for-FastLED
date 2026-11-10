@@ -7,6 +7,7 @@ import {
   BUTTON_BANK_ADD_LABEL,
   MAX_BUTTON_BANK_ENTRIES,
   buttonBankHandle,
+  buttonPressKey,
   normalizeButtonBankEntries,
 } from '../../../state/player/buttonBank'
 import { portColor } from '../../../state/nodeLibrary'
@@ -40,7 +41,7 @@ export default function ButtonBankBody({ nodeId }: { nodeId: string }) {
     <div className={styles.bank} aria-label="Button controls">
       {entries.map((entry) => {
         const handle = buttonBankHandle(entry.id)
-        const stateKey = `${nodeId}:${entry.id}`
+        const stateKey = buttonPressKey(nodeId, entry.id)
         const isPressed = pressed.get(stateKey) ?? false
         return (
           <div className={styles.row} key={entry.id}>

@@ -6,6 +6,7 @@ import { useGraphStore } from '../../graphStore'
 import { useHardwareInputStore } from '../../peripherals/hardwareInputStore'
 import { usePlayerTransport } from '../../player/playerTransport'
 import type { StudioEdge, StudioNode } from '../../graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow, buttonPressKey } from '../../player/buttonBank'
 
 function node(
   id: string,
@@ -173,18 +174,18 @@ describe('display evaluator parity', () => {
 
   it('lets a physical button gate a custom panel Enabled input in preview', () => {
     const custom = screen()
-    const button = node('panel-enable', 'ButtonInput')
-    const edges = [edge('enable', 'panel-enable', 'pressed', 'screen', 'enabled')]
+    const button = node('panel-enable', 'ButtonBank', { buttons: singleButtonRow(0) })
+    const edges = [edge('enable', 'panel-enable', FIRST_BUTTON_HANDLE, 'screen', 'enabled')]
     const runtime = useDisplayRuntimeStore.getState()
     runtime.touchDisplayWidget('panel', 'slider', 0.5)
 
-    useHardwareInputStore.getState().setButton('panel-enable', false)
+    useHardwareInputStore.getState().setButton(buttonPressKey('panel-enable'), false)
     const disabled = evaluateGraphFull([custom, touch(), button], edges, 0, 8, 8)
       .outputs.get('touch') as Record<string, unknown>
     expect(disabled['widget:slider:out']).toBe(0)
     expect(runtime.readDisplayWidget('panel', 'slider')?.roleValues.get('set')).toBeUndefined()
 
-    useHardwareInputStore.getState().setButton('panel-enable', true)
+    useHardwareInputStore.getState().setButton(buttonPressKey('panel-enable'), true)
     const enabled = evaluateGraphFull([custom, touch(), button], edges, 1, 8, 8)
       .outputs.get('touch') as Record<string, unknown>
     expect(enabled['widget:slider:out']).toBe(0.5)

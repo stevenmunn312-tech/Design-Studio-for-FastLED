@@ -16,6 +16,7 @@ import { LIVE_PLAYER_SHOW_PROPERTIES } from '../runtimeControlScope'
 import { generateShowSketch } from '../../../codegen/showGenerator'
 import { buildShowPlayerForMeasurement } from '../../../utils/showUpload'
 import type { StudioEdge, StudioNode } from '../../graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../buttonBank'
 
 const FQBN = 'esp32:esp32:esp32'
 
@@ -76,8 +77,8 @@ function withTarget(engine: Engine, nodeType: string, port: string, wired: boole
     // The SD player bursts on its decoder's beat; a slideshow needs a beat
     // wired, or there is no overlay for the ports to act on.
     if (engine === 'show') {
-      nodes.push(node('beat', 'ButtonInput', { pin: 27 }))
-      edges.push(edge('beat', 'pressed', engineId, 'beat'))
+      nodes.push(node('beat', 'ButtonBank', { buttons: singleButtonRow(27) }))
+      edges.push(edge('beat', FIRST_BUTTON_HANDLE, engineId, 'beat'))
     }
   } else if (['TransportDisplay', 'InfoDisplay', 'SegmentDisplay'].includes(nodeType)) {
     const parts: Record<string, Record<string, unknown>> = {
@@ -96,8 +97,8 @@ function withTarget(engine: Engine, nodeType: string, port: string, wired: boole
   // sketch can only contain because something wired consumes it.
   if (wired) {
     if (dataType === 'bool') {
-      nodes.push(node('src', 'ButtonInput', { pin: 34 }))
-      edges.push(edge('src', 'pressed', target, port))
+      nodes.push(node('src', 'ButtonBank', { buttons: singleButtonRow(34) }))
+      edges.push(edge('src', FIRST_BUTTON_HANDLE, target, port))
     } else {
       nodes.push(node('src', 'PotInput', { pin: 35 }))
       edges.push(edge('src', 'value', target, port))
