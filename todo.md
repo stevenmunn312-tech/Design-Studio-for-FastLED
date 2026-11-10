@@ -244,46 +244,16 @@ module (no fixture yet).
 
 - [ ] **Category: Fix centred fields on a 1-row strip (Med, M).** Strips,
   rings and corkscrews are `height: 1`, where `centeredY(0, 1)` is -1, so
-  every centred field samples only the bottom of its circle. Formula Shapes'
-  superformula and Lissajous render near-black, Shape Field's default circle
-  is a sub-pixel speck (it sizes by the short side), and Path and Fourier
-  cannot move (reach is 0). Centre on pixel centres, `(y+0.5-H/2)/(H/2)`, and
-  use the long side when one dimension is 1. Same for the rose kernel.
-  `src/state/evaluator/formula.ts:28`, `src/nodes/shared/integerPatterns.ts:1232`.
+  every centred field samples only the bottom of its circle. Geometry Field's
+  Lissajous renders near-black, Shape Field's default circle is a sub-pixel
+  speck (it sizes by the short side), and Path and Fourier cannot move (reach
+  is 0). Centre on pixel centres, `(y+0.5-H/2)/(H/2)`, and use the long side
+  when one dimension is 1. `src/state/evaluator/formula.ts:28`.
   Gradient Field is done (it measures in pixels from its pivot, so its radial
   centre sits on a strip's row). Still to do: `centeredX/Y` is shared with
-  Custom Formula and every emitter's `cx/cy` line; the rose kernel is an
-  integer kernel with a C++ twin; Shape Field, Path, Fourier and Shape's new
-  Scale with matrix (`matrixSizeScale`) all size by the short side, which is
-  1 on a strip.
-- [ ] **Category: Fold Formula Shapes into Shape Field (Med, M).** Decided
-  2026-11-10: rose and superformula become Shape Field kinds and the
-  FormulaField node goes. Done: Shape Field has `rose` (Petals) and
-  `superformula` (Lobes, N1-N3, A, B) with its position, size, fill, distance
-  and falloff, plus a Spin (°/s) for every kind; Rotation is the rose's old
-  Angle Offset. Shape keeps its three kinds (`SHAPE_FIELD_KINDS` in
-  `src/state/evaluator/sdf.ts` says why). **Blocked on a decision:** Formula
-  Shapes also draws `fibonacciSpiral`, `goldenTiling` and `lissajousField`,
-  which are not shapes, and those are what the three bundled patterns use
-  (Fibonacci Spiral Drive, Golden Ratio Cathedral, Lissajous Lattice), as does
-  the audio release set's `weave` (`bundledAudioReleaseB.ts`). Removing the
-  node needs a home for those three first (more Shape Field kinds, Gradient
-  Field types, or a smaller node of their own). Then convert the rest:
-  Help's superformula starfish and the release set's `flower` map to Shape
-  Field at cx/cy 0.5 and size 0.5 (a lobe reaches half the width in both, on
-  a square matrix), with Spin at minus speed × 1.5 rad/s in degrees (Formula
-  Shapes turns the other way, and sits half a pixel off centre). Formula
-  Shapes' `rose` is not an outline
-  but an angular glow over the whole matrix (cos of petals × angle, dimmed
-  with the radius), so a Shape Field rose in Distance mode is the nearest
-  look; no bundled pattern uses it.
-- [ ] **Category: Rename the FormulaField type to FormulaShapes (Low, M).**
-  `FieldFormula` and `FormulaField` are easy to swap in docs and code.
-  Pre-v1, rename the type cleanly if the node stays. Needs a decision: the
-  node-review pass kept node type ids on renames (the label already reads
-  Formula Shapes), and the id is in three bundled patterns, the node cards'
-  file names and saved projects. Decided 2026-11-10: settled by removing the
-  node, which waits on the open question in the Formula Shapes item above.
+  Custom Formula and every emitter's `cx/cy` line; Shape Field, Path, Fourier
+  and Shape's new Scale with matrix (`matrixSizeScale`) all size by the short
+  side, which is 1 on a strip.
 - [ ] **Text: Add an integer size (Med, M).** The only font is 3x5, tiny on
   32x32 or 64x32 HUB75 panels. Add an integer `size` (pixel scale 1-4),
   shared with Clock Display's digits. `src/nodes/shared/font.ts:10`.
@@ -400,7 +370,7 @@ chooses the supported combinations from whatever is on record at release.
   - S3 PSRAM variants;
   - tiled, rotated or custom-XY layouts, and native multi-output;
   - baked audio and collection modulation;
-  - FormulaField and FormulaPoints;
+  - GeometryField and FormulaPoints;
   - pattern nodes with compile evidence only: the Fluid solver's C++, and
     Turing Field's pixels against the preview;
   - a real Art-Net controller, and DMX512 over RS-485;
