@@ -452,3 +452,52 @@ describe('captureWindows detector audio', () => {
     expect(silent).toBeLessThan(pulse)
   })
 })
+
+// ── Render weight ────────────────────────────────────────────────────────────
+// The rating render is timed as it runs, and the result is stored on the
+// rating as a weight relative to a plain Plasma pattern on the same machine.
+describe('render weight', () => {
+  const opts = { gridW: 8, gridH: 8, groups: {} }
+  const plain = (id: string): SavedPattern => ({
+    id, name: `pattern ${id}`, createdAt: 0, inputs: [], outputs: [],
+    subgraph: {
+      nodes: [node('s', 'SolidColor', 'pattern', { r: 200, g: 40, b: 90 }), node('out', 'GroupOutput', 'output')],
+      edges: [edge('e1', 's', 'out', 'frame', 'frame')],
+    },
+  })
+
+  it('times only the scored frames, not the warm-up or the gaps', async () => {
+    const timing = { frameMs: [] as number[] }
+    const windows = await captureWindows(plain('timed'), 4, 4, {}, true, 'pulse', 2, undefined, timing)
+    expect(timing.frameMs).toHaveLength(windows.flat().length)
+    expect(timing.frameMs.every((ms) => ms >= 0)).toBe(true)
+  })
+
+  it('stores a render cost on the rating, at the grid it was measured on', async () => {
+    const rating = await ratePattern(plain('weighed'), opts)
+    expect(rating.failed).toBeFalsy()
+    expect(rating.renderCost).toMatchObject({ gridW: 8, gridH: 8 })
+    expect(rating.renderCost!.frames).toBeGreaterThan(0)
+    expect(rating.renderCost!.usPerLed).toBeGreaterThan(0)
+    expect(rating.renderCost!.relative).toBeGreaterThan(0)
+    expect(usePatternRatingStore.getState().ratingsByPatternId.weighed.renderCost).toEqual(rating.renderCost)
+  })
+
+  it('bumped the cache version, so ratings stored without a cost are rescanned', () => {
+    expect(patternRatingKey(plain('versioned'), opts)).toMatch(/^v4:/)
+  })
+
+  it('leaves a skipped pattern without a cost rather than inventing one', async () => {
+    clearPatternContentTrustForTests()
+    const formula: SavedPattern = {
+      id: 'cost-skip', name: 'cost skip', createdAt: 0, inputs: [], outputs: [],
+      subgraph: {
+        nodes: [node('cf', 'CustomFormula', 'pattern', { formula: 'sin(x*6+t)*0.5+0.31' }), node('out', 'GroupOutput', 'output')],
+        edges: [edge('e1', 'cf', 'out', 'frame', 'frame')],
+      },
+    }
+    const rating = await ratePattern(formula, { ...opts, confirmTrust: async () => false })
+    expect(rating.skipped).toBe(true)
+    expect(rating.renderCost).toBeUndefined()
+  })
+})

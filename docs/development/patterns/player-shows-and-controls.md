@@ -448,6 +448,24 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   must not discard curation. The picker's facets are OR-within/AND-across with
   counts computed excluding their own facet. See
   [generative pattern show](../../design/generative-pattern-show.md#choosing-patterns-for-a-collection).
+- **Pattern cost is two estimates with two sources, and neither is a second
+  model.** Firmware RAM is `estimatePatternFirmwareRam` in `validateGraph.ts`,
+  the same `graphAllocations` walk the deploy gate prices a Pattern Collection
+  with, asked about one pattern at `currentFirmwareDims()`; a node that holds
+  state is added there (`STATEFUL_EXTRA_BYTES_PER_LED` and its neighbours) and
+  the picker follows. It needs no scan, so every row has it. Render weight is
+  timed inside the rating render (`captureWindows`' `timing` argument, scored
+  frames only) and stored on the rating as a multiple of a plain Plasma
+  pattern timed in the same session at the same grid, which cancels the
+  machine but not the grid: fixed per-frame work is spread over fewer LEDs on
+  a small grid, so `renderWeightEdges` raises the band edges as the grid
+  shrinks. It is a browser timing for ranking patterns, never microcontroller
+  frame time, and the copy says so wherever it appears. Changing what a
+  rating stores means bumping `ANALYSIS_VERSION` in `patternRating.ts`; the
+  version is in every cache key, so old ratings are rescanned. The popup and
+  the picker must rate with the same `currentRatingContext()`, or a score
+  made in one reads as stale in the other. Bands and formatting live in
+  `src/state/patterns/patternCost.ts`.
 - **Transitions: a style is a pure inverse per-pixel sample.** Every A→B
   transition style is `(A, B, t, W, H) → pixel`, never a forward blit, particle
   system, or per-frame state — that contract is why the 3D styles needed no new

@@ -1,10 +1,19 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import PatternCollectionPicker from '../PatternCollectionPicker'
 import { ROOT_GRAPH_ID, useGraphStore, type StudioNode } from '../../../state/graphStore'
 import { usePatternLibrary, type SavedPattern } from '../../../state/patterns/patternLibrary'
-import { usePatternRatingStore } from '../../../state/patterns/patternRating'
+import { patternRatingKey, rateAllPatterns, usePatternRatingStore, type PatternRating, type RateOptions } from '../../../state/patterns/patternRating'
+import { currentRatingContext } from '../../../state/patterns/patternRatingContext'
+import { useUiStore } from '../../../state/uiStore'
 import type { PatternFormTag } from '../../../state/patterns/patternTags'
+
+// The critic's render is covered by patternRating.test.ts. Here only the
+// batch driver is replaced, so each test decides what a scan returns and when.
+vi.mock('../../../state/patterns/patternRating', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../../../state/patterns/patternRating')>(),
+  rateAllPatterns: vi.fn(),
+}))
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {
@@ -164,5 +173,215 @@ describe('PatternCollectionPicker', () => {
     fireEvent.click(screen.getByRole('button', { name: /LED String/ }))
     expect(rowNames()).toContain('Wall Clock')
     expect(screen.queryByText(/unsuited to this output/)).toBeNull()
+  })
+})
+
+// ── Cost ─────────────────────────────────────────────────────────────────────
+// RAM comes from the pattern's own nodes, so every row has it; render weight
+// only exists once Pattern Insights has judged the pattern.
+describe('PatternCollectionPicker cost', () => {
+  const chained = (id: string, name: string, types: string[]): SavedPattern => {
+    const base = pattern(id, name, [...types, 'GroupOutput'])
+    const ids = base.subgraph.nodes.map((n) => n.id)
+    return {
+      ...base,
+      subgraph: {
+        nodes: base.subgraph.nodes,
+        edges: ids.slice(0, -1).map((source, i) => ({
+          id: `${id}-e${i}`, source, sourceHandle: 'frame', target: ids[i + 1], targetHandle: 'frame',
+        })) as never,
+      },
+    }
+  }
+  const COSTED: SavedPattern[] = [
+    chained('pat-fill', 'Plain Fill', ['SolidColor']),
+    chained('pat-fluid', 'Ink Tank', ['SolidColor', 'FluidSim', 'FrameFeedback']),
+    chained('pat-trails', 'Comet', ['SolidColor', 'Trails']),
+  ]
+  const weighed = (id: string, relative: number) => ({
+    patternId: id, intent: 'ambient', overall: 70, failed: false, skipped: false,
+    renderCost: { usPerLed: relative, relative, gridW: 16, gridH: 16, frames: 42 },
+  })
+
+  beforeEach(() => {
+    useGraphStore.setState({
+      nodes: [
+        node('out', 'MatrixOutput', { width: 16, height: 16 }),
+        node('collection', 'PatternCollection', { patternIds: [] }),
+      ],
+      edges: [],
+      activeGraphId: ROOT_GRAPH_ID,
+      graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } },
+      graphData: {},
+    })
+    usePatternLibrary.setState({ patterns: COSTED })
+    usePatternRatingStore.setState({ ratingsByPatternId: {}, userRatingsByPatternId: {}, intentOverridesByPatternId: {} })
+  })
+
+  const open = () => {
+    render(<PatternCollectionPicker collectionNodeId="collection" onClose={() => {}} />)
+    // The project drives a matrix, which presses that chip; cost is the subject here.
+    fireEvent.click(screen.getByRole('button', { name: /LED Matrix/ }))
+  }
+  const costOf = (name: string) =>
+    screen.getByRole('checkbox', { name: `Select ${name}` }).closest('label')!.querySelector('[title^="Estimated cost"]')!
+
+  it('prices RAM on every row without a scan, for this project’s canvas', () => {
+    open()
+    expect(costOf('Plain Fill').textContent).toMatch(/^Light · ~\d+ B$/)
+    expect(costOf('Ink Tank').textContent).toMatch(/^Heavy · ~\d+(\.\d)? KB$/)
+    expect(costOf('Ink Tank').getAttribute('title')).toContain('16×16 canvas')
+    expect(costOf('Ink Tank').getAttribute('title')).toContain('not measured on a board')
+  })
+
+  it('hides heavy patterns on request, and says how many that is', () => {
+    open()
+    const chip = screen.getByRole('button', { name: /Hide heavy/ })
+    expect(within(chip).getByText('1')).toBeTruthy()
+    fireEvent.click(chip)
+    expect(rowNames()).toEqual(['Comet', 'Plain Fill'])
+    // The count is what the chip hides, so it does not fall to zero once pressed.
+    expect(within(screen.getByRole('button', { name: /Hide heavy/ })).getByText('1')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Hide heavy/ }))
+    expect(rowNames()).toContain('Ink Tank')
+  })
+
+  it('counts a heavy render as heavy even when the pattern is small in RAM', () => {
+    usePatternRatingStore.setState({ ratingsByPatternId: { 'pat-fill': weighed('pat-fill', 5) } as never })
+    open()
+    expect(costOf('Plain Fill').textContent).toMatch(/^Heavy · 5\.0× · ~/)
+    fireEvent.click(screen.getByRole('button', { name: /Hide heavy/ }))
+    expect(rowNames()).toEqual(['Comet'])
+  })
+
+  it('sorts by estimated RAM, smallest first', () => {
+    open()
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'ram' } })
+    expect(rowNames()).toEqual(['Plain Fill', 'Comet', 'Ink Tank'])
+  })
+
+  it('sorts by render weight, lightest first, with unjudged patterns last', () => {
+    usePatternRatingStore.setState({
+      ratingsByPatternId: { 'pat-fluid': weighed('pat-fluid', 1.2), 'pat-trails': weighed('pat-trails', 0.6) } as never,
+    })
+    open()
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'render' } })
+    expect(rowNames()).toEqual(['Comet', 'Ink Tank', 'Plain Fill'])
+  })
+})
+
+// ── Offer to judge what was just added ───────────────────────────────────────
+describe('PatternCollectionPicker offer to judge unrated patterns', () => {
+  const rate = vi.mocked(rateAllPatterns)
+  const added = () => {
+    const collection = useGraphStore.getState().nodes.find((n) => n.id === 'collection')!
+    return (collection.data.properties as { patternIds: string[] }).patternIds.length
+  }
+  const current = (saved: SavedPattern): PatternRating => ({
+    patternId: saved.id, name: saved.name, bundled: false, overall: 80,
+    intent: 'ambient', inferredIntent: 'ambient', verdict: 'strong', verdictLabel: 'Strong',
+    summary: '', strengths: [], improvements: [], criteria: [], audioReactive: false,
+    cacheKey: patternRatingKey(saved, currentRatingContext()),
+  })
+  const choose = (...names: string[]) => {
+    for (const name of names) fireEvent.click(screen.getByRole('checkbox', { name: `Select ${name}` }))
+    fireEvent.click(screen.getByRole('button', { name: /^Add \d+ pattern/ }))
+  }
+  const answer = async (value: boolean) => {
+    await waitFor(() => expect(useUiStore.getState().appDialog).not.toBeNull())
+    await act(async () => { useUiStore.getState().resolveAppDialog(value) })
+  }
+
+  beforeEach(() => {
+    stripProject()
+    usePatternLibrary.setState({ patterns: LIBRARY })
+    usePatternRatingStore.setState({ ratingsByPatternId: {}, userRatingsByPatternId: {}, intentOverridesByPatternId: {} })
+    useUiStore.setState({ appDialog: null })
+    rate.mockReset()
+    rate.mockImplementation(async (patterns) => patterns.map(current))
+  })
+
+  it('adds first, then offers to judge only the patterns without a current score', async () => {
+    usePatternRatingStore.setState({ ratingsByPatternId: { 'pat-juggle': current(LIBRARY[0]) } })
+    const onClose = vi.fn()
+    render(<PatternCollectionPicker collectionNodeId="collection" onClose={onClose} />)
+    choose('Juggle', 'Scanner')
+
+    // In the collection before anything is asked: rating never gates adding.
+    expect(added()).toBe(2)
+    await waitFor(() => expect(useUiStore.getState().appDialog).not.toBeNull())
+    const dialog = useUiStore.getState().appDialog!
+    expect(dialog.kind).toBe('confirm')
+    expect(dialog.title).toBe('Judge the new pattern?')
+    expect(dialog.message).toContain('“Scanner” has no Studio Score yet')
+    expect(dialog.message).toContain('in the collection either way')
+    expect(dialog).toMatchObject({ confirmLabel: 'Judge it now', cancelLabel: 'Not now', tone: 'default' })
+    expect(onClose).not.toHaveBeenCalled()
+
+    await answer(true)
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    expect(rate).toHaveBeenCalledTimes(1)
+    expect(rate.mock.calls[0][0].map((saved) => saved.name)).toEqual(['Scanner'])
+    // The same context the Pattern Insights popup rates with.
+    expect(rate.mock.calls[0][1]).toMatchObject(currentRatingContext())
+  })
+
+  it('just adds when the answer is no', async () => {
+    const onClose = vi.fn()
+    render(<PatternCollectionPicker collectionNodeId="collection" onClose={onClose} />)
+    choose('Juggle', 'Scanner')
+    await waitFor(() => expect(useUiStore.getState().appDialog?.title).toBe('Judge the new patterns?'))
+    expect(useUiStore.getState().appDialog?.message).toContain('2 of the patterns you added have no Studio Score yet')
+    await answer(false)
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    expect(added()).toBe(2)
+    expect(rate).not.toHaveBeenCalled()
+  })
+
+  it('asks nothing when every chosen pattern already has a current score', () => {
+    usePatternRatingStore.setState({
+      ratingsByPatternId: { 'pat-juggle': current(LIBRARY[0]), 'pat-scanner': current(LIBRARY[1]) },
+    })
+    const onClose = vi.fn()
+    render(<PatternCollectionPicker collectionNodeId="collection" onClose={onClose} />)
+    choose('Juggle', 'Scanner')
+    expect(added()).toBe(2)
+    expect(useUiStore.getState().appDialog).toBeNull()
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('treats a score made for another graph or grid as no score', async () => {
+    usePatternRatingStore.setState({
+      ratingsByPatternId: { 'pat-juggle': { ...current(LIBRARY[0]), cacheKey: 'v3:stale' } },
+    })
+    render(<PatternCollectionPicker collectionNodeId="collection" onClose={() => {}} />)
+    choose('Juggle')
+    await waitFor(() => expect(useUiStore.getState().appDialog?.message).toContain('“Juggle” has no Studio Score yet'))
+  })
+
+  it('shows progress while judging, and stops the scan when the picker is closed', async () => {
+    let options: RateOptions | undefined
+    rate.mockImplementation((_patterns, opts) => {
+      options = opts
+      // Never resolves on its own: only cancelling ends it, as a long scan would.
+      return new Promise((_resolve, reject) => {
+        opts.signal?.addEventListener('abort', () => reject(new DOMException('Pattern scan cancelled', 'AbortError')))
+      })
+    })
+    const onClose = vi.fn()
+    render(<PatternCollectionPicker collectionNodeId="collection" onClose={onClose} />)
+    choose('Juggle', 'Scanner')
+    await answer(true)
+
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Judging 1 of 2'))
+    act(() => options!.onProgress?.(1, 2))
+    expect(screen.getByRole('status').textContent).toContain('Judging 2 of 2')
+    // Nothing more can be added mid-scan; the way out is to stop.
+    expect(screen.queryByRole('button', { name: /^Add/ })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Stop and close' }))
+    expect(options!.signal?.aborted).toBe(true)
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
+    expect(added()).toBe(2)
   })
 })

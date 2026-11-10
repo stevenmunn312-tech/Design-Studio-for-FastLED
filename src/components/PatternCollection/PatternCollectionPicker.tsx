@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { usePatternLibrary, withRegisteredGroups, type SavedPattern } from '../../state/patterns/patternLibrary'
@@ -14,6 +14,8 @@ import {
 import {
   PATTERN_INTENTS,
   isAudioReactiveSubgraph,
+  patternRatingKey,
+  rateAllPatterns,
   ratingTier,
   usePatternRatingStore,
   verdictForScore,
@@ -21,6 +23,16 @@ import {
   type PatternRating,
   type PatternVerdict,
 } from '../../state/patterns/patternRating'
+import {
+  COST_BAND_LABEL,
+  formatRamBytes,
+  formatRenderWeight,
+  patternCostBand,
+  patternRamEstimate,
+  type CostBand,
+  type PatternRamEstimate,
+} from '../../state/patterns/patternCost'
+import { currentFirmwareDims, currentRatingContext } from '../../state/patterns/patternRatingContext'
 import { useUiStore } from '../../state/uiStore'
 import { useModalFocus } from '../../hooks/useModalFocus'
 import styles from './PatternCollectionPicker.module.css'
@@ -32,7 +44,7 @@ interface Props {
 
 /** Ordering only. The axes that used to be sort modes because there was
  *  nowhere to filter on them are chips now. */
-type SortMode = 'name' | 'studio' | 'mine' | 'shelf'
+type SortMode = 'name' | 'studio' | 'mine' | 'shelf' | 'render' | 'ram'
 const EMPTY_PATTERN_IDS: string[] = []
 
 /** Whether a pattern reads the audio input. Decided by the pattern itself, not
@@ -61,6 +73,17 @@ interface Row {
   userRating: number
   shelf: string
   audio: AudioKind
+  /** Estimated firmware RAM on this project's canvas. Needs no scan. */
+  ram: PatternRamEstimate
+  /** The heavier of render weight and RAM; RAM alone until the pattern is judged. */
+  cost: CostBand
+}
+
+/** A score made for this graph, grid and intent. A stale or skipped one does
+ *  not count; a pattern Studio tried and could not render does, since asking
+ *  again would only fail the same way. */
+function hasCurrentScore(rating: PatternRating | undefined, expectedKey: string): boolean {
+  return !!rating && !rating.skipped && rating.cacheKey === expectedKey
 }
 
 type FitRow = Row & { fit: PatternFit }
@@ -93,6 +116,7 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
   const userRatingsByPatternId = usePatternRatingStore((state) => state.userRatingsByPatternId)
   const addPatternsToCollection = useGraphStore((state) => state.addPatternsToCollection)
   const setStatus = useUiStore((state) => state.setStatus)
+  const requestConfirm = useUiStore((state) => state.requestConfirm)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortMode>('name')
   const [intents, setIntents] = useState<Set<PatternIntent>>(new Set())
@@ -100,7 +124,27 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
   const [verdicts, setVerdicts] = useState<Set<PatternVerdict>>(new Set())
   const [showPoor, setShowPoor] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const dialogRef = useModalFocus<HTMLDivElement>(onClose)
+  const [hideHeavy, setHideHeavy] = useState(false)
+  // Set while Pattern Insights judges patterns that were just added.
+  const [judging, setJudging] = useState<{ done: number; total: number } | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const mountedRef = useRef(true)
+  // Closing stops a scan in progress. The patterns are already in the
+  // collection by then, so nothing is lost but the scores not yet made.
+  const close = () => {
+    abortRef.current?.abort()
+    onClose()
+  }
+  const dialogRef = useModalFocus<HTMLDivElement>(close)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      abortRef.current?.abort()
+    }
+  }, [])
+  // RAM is stated for the canvas this project's firmware would allocate.
+  const firmwareDims = useMemo(() => currentFirmwareDims(), [])
 
   const collection = useGraphStore((state) => state.nodes.find((node) => node.id === collectionNodeId))
   const graphs = useGraphStore((state) => state.graphs)
@@ -128,17 +172,28 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
     [categories],
   )
 
-  const allRows = useMemo<Row[]>(() => patterns.map((pattern) => ({
-    pattern,
-    rating: ratingsByPatternId[pattern.id],
-    userRating: userRatingsByPatternId[pattern.id] ?? 0,
-    // The shelf still sorts and searches; it no longer filters or labels the
-    // row, where it collided with the audio chip and the intent.
-    shelf: pattern.categoryId ? categoryNames.get(pattern.categoryId) ?? 'Unknown shelf' : 'New & Unsorted',
-    // Derived from the pattern, not from the shelf it happens to sit on, so a
-    // saved pattern answers this chip without ever having been scanned.
-    audio: isAudioReactiveSubgraph(pattern.subgraph.nodes) ? 'reactive' : 'standard',
-  })), [categoryNames, patterns, ratingsByPatternId, userRatingsByPatternId])
+  const ramByPatternId = useMemo(
+    () => new Map(patterns.map((pattern) => [pattern.id, patternRamEstimate(pattern, firmwareDims)])),
+    [firmwareDims, patterns],
+  )
+
+  const allRows = useMemo<Row[]>(() => patterns.map((pattern) => {
+    const rating = ratingsByPatternId[pattern.id]
+    const ram = ramByPatternId.get(pattern.id) ?? patternRamEstimate(pattern, firmwareDims)
+    return {
+      pattern,
+      rating,
+      ram,
+      cost: patternCostBand(rating?.renderCost, ram),
+      userRating: userRatingsByPatternId[pattern.id] ?? 0,
+      // The shelf still sorts and searches; it no longer filters or labels the
+      // row, where it collided with the audio chip and the intent.
+      shelf: pattern.categoryId ? categoryNames.get(pattern.categoryId) ?? 'Unknown shelf' : 'New & Unsorted',
+      // Derived from the pattern, not from the shelf it happens to sit on, so a
+      // saved pattern answers this chip without ever having been scanned.
+      audio: isAudioReactiveSubgraph(pattern.subgraph.nodes) ? 'reactive' : 'standard',
+    }
+  }), [categoryNames, firmwareDims, patterns, ramByPatternId, ratingsByPatternId, userRatingsByPatternId])
 
   const hasVerdict = (rating: PatternRating | undefined, wanted: PatternVerdict): boolean =>
     !!rating && !rating.failed && !rating.skipped && verdictForScore(rating.overall).id === wanted
@@ -152,15 +207,16 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
    * facet reads zero except the pressed one, and the list looks empty when it
    * is merely narrowed.
    */
-  const matches = useMemo(() => (row: Row, skip?: 'intent' | 'audio' | 'score') => {
+  const matches = useMemo(() => (row: Row, skip?: 'intent' | 'audio' | 'score' | 'cost') => {
     const needle = query.trim().toLocaleLowerCase()
     if (needle && !`${row.pattern.name} ${row.shelf}`.toLocaleLowerCase().includes(needle)) return false
     if (skip !== 'intent' && intents.size > 0 && (!row.rating || !intents.has(row.rating.intent))) return false
     if (skip !== 'audio' && audioKinds.size > 0 && !audioKinds.has(row.audio)) return false
     if (skip !== 'score' && verdicts.size > 0
       && ![...verdicts].some((wanted) => hasVerdict(row.rating, wanted))) return false
+    if (skip !== 'cost' && hideHeavy && row.cost === 'heavy') return false
     return true
-  }, [audioKinds, intents, query, verdicts])
+  }, [audioKinds, hideHeavy, intents, query, verdicts])
 
   /**
    * How a pattern suits the selected outputs: best if it is best on any of
@@ -183,6 +239,14 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
       }
       if (sort === 'mine') return b.userRating - a.userRating || a.pattern.name.localeCompare(b.pattern.name)
       if (sort === 'shelf') return a.shelf.localeCompare(b.shelf) || a.pattern.name.localeCompare(b.pattern.name)
+      if (sort === 'render') {
+        // Lightest first; a pattern not judged yet has no weight and goes last.
+        const aWeight = a.rating?.renderCost?.relative ?? Infinity
+        const bWeight = b.rating?.renderCost?.relative ?? Infinity
+        if (aWeight !== bWeight) return aWeight - bWeight
+        return a.pattern.name.localeCompare(b.pattern.name)
+      }
+      if (sort === 'ram') return a.ram.totalBytes - b.ram.totalBytes || a.pattern.name.localeCompare(b.pattern.name)
       return a.pattern.name.localeCompare(b.pattern.name)
     }
     return allRows
@@ -227,15 +291,64 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
     })
   }
 
-  const addSelected = () => {
+  const addSelected = async () => {
     const chosen = patterns.filter((pattern) => selected.has(pattern.id) && !existingSourceIds.has(pattern.id))
     if (chosen.length === 0) return
+    // Adding comes first and does not wait for anything below: the offer to
+    // judge is about patterns that are already in the collection.
     addPatternsToCollection(collectionNodeId, chosen.map(withRegisteredGroups))
+    setSelected(new Set())
     setStatus(`Added ${chosen.length} pattern${chosen.length === 1 ? '' : 's'} to the collection`, 'success')
-    onClose()
+
+    const context = currentRatingContext()
+    const { ratingsByPatternId: stored, intentOverridesByPatternId: overrides } = usePatternRatingStore.getState()
+    const unrated = chosen.filter((pattern) =>
+      !hasCurrentScore(stored[pattern.id], patternRatingKey(pattern, context, overrides[pattern.id])))
+    if (unrated.length === 0) return onClose()
+
+    const one = unrated.length === 1
+    const judge = await requestConfirm({
+      title: one ? 'Judge the new pattern?' : 'Judge the new patterns?',
+      message: `${one
+        ? `“${unrated[0].name}” has no Studio Score yet.`
+        : `${unrated.length} of the patterns you added have no Studio Score yet.`} `
+        + `Studio can run Pattern Insights on ${one ? 'it' : 'them'} now, which gives ${one ? 'it' : 'each'} a score and a render weight to sort and filter by. `
+        + `${one ? 'It is' : 'They are'} in the collection either way.`,
+      confirmLabel: one ? 'Judge it now' : 'Judge them now',
+      cancelLabel: 'Not now',
+    })
+    if (!mountedRef.current) return
+    if (!judge) return onClose()
+
+    const controller = new AbortController()
+    abortRef.current = controller
+    setJudging({ done: 0, total: unrated.length })
+    try {
+      const results = await rateAllPatterns(unrated, {
+        ...context,
+        signal: controller.signal,
+        onProgress: (done, total) => { if (mountedRef.current) setJudging({ done, total }) },
+      })
+      const judged = results.filter((rating) => !rating.failed && !rating.skipped).length
+      const left = results.length - judged
+      setStatus(
+        `Judged ${judged} pattern${judged === 1 ? '' : 's'}${left ? `; ${left} left without a score` : ''}`,
+        left ? 'info' : 'success',
+      )
+    } catch (error) {
+      // Stopping is the user's own choice and needs no message; anything else
+      // is reported plainly, since the patterns were added regardless.
+      if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        console.error('[PatternCollectionPicker] rating the added patterns failed', error)
+        setStatus('Pattern Insights could not finish. The patterns are in the collection.', 'info')
+      }
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null
+    }
+    if (mountedRef.current) onClose()
   }
 
-  const renderRow = ({ pattern, rating, userRating, fit }: FitRow) => {
+  const renderRow = ({ pattern, rating, userRating, fit, ram, cost }: FitRow) => {
     const added = existingSourceIds.has(pattern.id)
     const checked = selected.has(pattern.id)
     const tier = rating && !rating.failed ? ratingTier(rating.overall) : 'bad'
@@ -243,6 +356,16 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
       rating ? PATTERN_INTENTS.find((intent) => intent.id === rating.intent)?.label ?? rating.intent : null,
       pattern.bundled ? 'bundled' : null,
     ].filter(Boolean).join(' · ')
+    const render = rating?.renderCost
+    const costText = [
+      COST_BAND_LABEL[cost],
+      render ? formatRenderWeight(render.relative) : null,
+      `~${formatRamBytes(ram.totalBytes)}`,
+    ].filter(Boolean).join(' · ')
+    const costTitle = `Estimated cost. ${render
+      ? `Render weight ${formatRenderWeight(render.relative)} a plain Plasma pattern in this browser`
+      : 'Render weight is measured when Pattern Insights judges the pattern'}; `
+      + `about ${formatRamBytes(ram.totalBytes)} of firmware RAM on a ${ram.w}×${ram.h} canvas. For comparing patterns, not measured on a board.`
     return (
       <label
         key={pattern.id}
@@ -251,13 +374,16 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
         <input
           type="checkbox"
           checked={checked || added}
-          disabled={added}
+          disabled={added || !!judging}
           onChange={() => toggle(pattern.id)}
           aria-label={`${added ? 'Already added' : 'Select'} ${pattern.name}`}
         />
         <span className={styles.rowCopy}>
           <strong>{pattern.name}</strong>
-          {subtitle && <small>{subtitle}</small>}
+          <span className={styles.rowMeta}>
+            {subtitle && <small>{subtitle}</small>}
+            <span className={`${styles.cost} ${cost === 'heavy' ? styles.costHeavy : ''}`} title={costTitle}>{costText}</span>
+          </span>
         </span>
         <PatternFormIcons bestOn={pattern.bestOn} />
         {added ? (
@@ -278,7 +404,7 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
     <div
       className={styles.overlay}
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
+        if (event.target === event.currentTarget) close()
       }}
     >
       <div
@@ -294,7 +420,7 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
             <div className={styles.kicker}>Pattern manifest</div>
             <h2 id="pattern-picker-title">Add patterns to collection</h2>
           </div>
-          <button type="button" className={styles.close} onClick={onClose} aria-label="Close pattern picker">×</button>
+          <button type="button" className={styles.close} onClick={close} aria-label="Close pattern picker">×</button>
         </header>
 
         <div className={styles.tools}>
@@ -313,6 +439,8 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
               <option value="studio">Studio Score</option>
               <option value="mine">My Rating</option>
               <option value="shelf">Shelf</option>
+              <option value="render">Render weight, lightest first</option>
+              <option value="ram">Estimated RAM, smallest first</option>
             </select>
           </label>
         </div>
@@ -380,6 +508,17 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
               />
             ))}
           </div>
+
+          <div className={styles.facet} role="group" aria-label="Filter by estimated cost">
+            <span className={styles.facetLabel}>Cost</span>
+            <Chip
+              label="Hide heavy"
+              title="Leave out patterns estimated heavy on render time or firmware RAM, for when frame rate or memory is tight. The count is how many that hides. Estimates, not measured on a board."
+              on={hideHeavy}
+              count={allRows.filter((row) => matches(row, 'cost') && row.cost === 'heavy').length}
+              onClick={() => setHideHeavy((current) => !current)}
+            />
+          </div>
         </div>
 
         <div className={styles.columnHead}>
@@ -418,15 +557,29 @@ export default function PatternCollectionPicker({ collectionNodeId, onClose }: P
           )}
         </div>
 
-        <footer className={styles.footer}>
-          <span>{selected.size === 0 ? 'Choose one or more patterns' : `${selected.size} selected`}</span>
-          <div>
-            <button type="button" className={styles.cancel} onClick={onClose}>Cancel</button>
-            <button type="button" className={styles.primary} onClick={addSelected} disabled={selected.size === 0}>
-              Add {selected.size || ''} pattern{selected.size === 1 ? '' : 's'}
-            </button>
-          </div>
-        </footer>
+        {judging ? (
+          <footer className={styles.footer}>
+            <span className={styles.judging} role="status">
+              Added. Judging {Math.min(judging.done + 1, judging.total)} of {judging.total}…
+              <span className={styles.progressTrack} aria-hidden="true">
+                <span style={{ width: `${judging.total ? (judging.done / judging.total) * 100 : 0}%` }} />
+              </span>
+            </span>
+            <div>
+              <button type="button" className={styles.cancel} onClick={close}>Stop and close</button>
+            </div>
+          </footer>
+        ) : (
+          <footer className={styles.footer}>
+            <span>{selected.size === 0 ? 'Choose one or more patterns' : `${selected.size} selected`}</span>
+            <div>
+              <button type="button" className={styles.cancel} onClick={close}>Cancel</button>
+              <button type="button" className={styles.primary} onClick={() => void addSelected()} disabled={selected.size === 0}>
+                Add {selected.size || ''} pattern{selected.size === 1 ? '' : 's'}
+              </button>
+            </div>
+          </footer>
+        )}
       </div>
     </div>,
     document.body,

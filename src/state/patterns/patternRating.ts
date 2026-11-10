@@ -23,6 +23,7 @@ import {
 import { promptPatternTrust } from '../../utils/trustPrompt'
 import { yieldToUi } from '../../components/Preview/recordCapture'
 import { create } from 'zustand'
+import { renderCostFromTiming, usPerLed, type PatternRenderCost, type RenderTimingSamples } from './patternCost'
 
 export interface CriterionScore {
   id: string
@@ -72,6 +73,9 @@ export interface PatternRating {
     strongest?: RatingThumbnail
     weakest?: RatingThumbnail
   }
+  /** How heavy the rating render was: an estimate of relative weight, not of
+   *  microcontroller frame time. Absent on a failed or skipped rating. */
+  renderCost?: PatternRenderCost
   /** Versioned render-context key used to decide whether this result is reusable. */
   cacheKey: string
   /** Set when the pattern could not be rendered/scored (see `error`). */
@@ -778,11 +782,16 @@ export async function captureWindows(
   scenario: AudioScenario = 'pulse',
   runs = RATE_RUNS,
   signal?: AbortSignal,
+  // Collects how long each scored frame took to evaluate, for the render
+  // weight. Warm-up and gap frames are left out: the first passes pay for
+  // JIT compilation and cold caches, which says nothing about the pattern.
+  timing?: RenderTimingSamples,
 ): Promise<Frame[][]> {
   const groupId = `__rate_group_${saved.id}`
   const prefix = `__rate_${rateSerial++}/`
   const registry: GroupRegistry = { ...groups, [groupId]: saved.subgraph }
   let i = 0
+  let scoring = false
   // One continuous evaluation on a single prefix keeps state (feedback, EMAs,
   // audio build-up) coherent across warm-up, windows, and the gaps between them.
   const step = async (): Promise<Frame> => {
@@ -799,6 +808,7 @@ export async function captureWindows(
     // Per-frame guard, mirroring the live preview loop: a single malformed
     // frame is skipped (rendered as blank) rather than tearing down the rating.
     let rendered: Frame | null = null
+    const startedAt = timing && scoring ? performance.now() : 0
     try {
       rendered = evaluateGraph(
         saved.subgraph.nodes, saved.subgraph.edges, tick, w, h, registry,
@@ -807,6 +817,9 @@ export async function captureWindows(
     } catch {
       rendered = null
     }
+    // Only the evaluation is timed: copying the frame out and yielding to the
+    // UI are costs of rating, not of the pattern.
+    if (timing && scoring) timing.frameMs.push(performance.now() - startedAt)
     if (i % 8 === 0) await yieldToUi()
     return rendered ? copyFrame(rendered) : blankFrame(w, h)
   }
@@ -815,7 +828,9 @@ export async function captureWindows(
   const windows: Frame[][] = []
   for (let run = 0; run < runs; run++) {
     const frames: Frame[] = []
+    scoring = true
     for (let k = 0; k < RATE_FRAMES; k++) frames.push(await step())
+    scoring = false
     windows.push(frames)
     if (run < runs - 1) for (let k = 0; k < RATE_GAP_FRAMES; k++) await step()
   }
@@ -837,7 +852,74 @@ export interface RateOptions {
   confirmTrust?: (saved: SavedPattern) => Promise<boolean>
 }
 
-const ANALYSIS_VERSION = 3
+// 4: ratings carry `renderCost`. The version is part of every cache key, so
+// ratings stored by an older build are rescanned rather than shown without it.
+const ANALYSIS_VERSION = 4
+
+// ── Render weight reference ──────────────────────────────────────────────────
+
+/** The yardstick render weight is expressed against: one Plasma node drawing
+ *  straight to the output, at its defaults. Built from the node library so it
+ *  follows the node's ports and properties. */
+function referencePattern(): SavedPattern {
+  const plasma = NODE_DEF.get('Plasma')
+  const frame = { id: 'frame', label: 'Frame', dataType: 'frame' }
+  const node = (id: string, data: Record<string, unknown>) =>
+    ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data }) as unknown as StudioNode
+  return {
+    id: '__render_weight_reference',
+    name: 'Render weight reference',
+    createdAt: 0,
+    bundled: true,
+    inputs: [],
+    outputs: [frame],
+    subgraph: {
+      nodes: [
+        node('plasma', {
+          label: 'Plasma', nodeType: 'Plasma', category: plasma?.category ?? 'pattern',
+          properties: { ...(plasma?.defaultProperties ?? {}) },
+          inputs: plasma?.inputs ?? [], outputs: plasma?.outputs ?? [frame],
+        }),
+        node('out', {
+          label: 'Group Output', nodeType: 'GroupOutput', category: 'output',
+          properties: {}, inputs: [frame], outputs: [],
+        }),
+      ],
+      edges: [{ id: 'e', source: 'plasma', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' } as StudioEdge],
+    },
+  } as SavedPattern
+}
+
+// The reference is light, so one window of it is only a few timer ticks on a
+// short string. Keep sampling until enough time has been measured to trust.
+const REFERENCE_MIN_MEASURED_MS = 20
+const REFERENCE_MAX_PASSES = 8
+
+const referenceByGrid = new Map<string, Promise<number>>()
+
+/** Microseconds per LED per frame of the reference pattern at this grid, timed
+ *  once a session: every rating of a session is then weighed against the same
+ *  number, so their order does not depend on when each was scanned. Resolves
+ *  to 0 when it cannot be timed, which leaves ratings without a render weight
+ *  rather than with a wrong one. */
+function referenceUsPerLed(gridW: number, gridH: number, signal?: AbortSignal): Promise<number> {
+  const key = `${gridW}x${gridH}`
+  const pending = referenceByGrid.get(key)
+  if (pending) return pending
+  const measured = (async () => {
+    const reference = referencePattern()
+    const timing: RenderTimingSamples = { frameMs: [] }
+    for (let pass = 0; pass < REFERENCE_MAX_PASSES; pass++) {
+      await captureWindows(reference, gridW, gridH, {}, true, 'pulse', RATE_RUNS, signal, timing)
+      if (timing.frameMs.reduce((sum, ms) => sum + ms, 0) >= REFERENCE_MIN_MEASURED_MS) break
+    }
+    return usPerLed(timing.frameMs, gridW, gridH)
+  })()
+  referenceByGrid.set(key, measured)
+  // A cancelled or failed calibration must not be remembered as the answer.
+  measured.catch(() => referenceByGrid.delete(key))
+  return measured
+}
 
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize)
@@ -961,16 +1043,24 @@ export async function ratePattern(saved: SavedPattern, opts: RateOptions): Promi
     const startedAt = performance.now()
     const audioReactive = isAudioReactiveSubgraph(saved.subgraph.nodes) || intent === 'audio-reactive'
     const scenarios: Record<string, Frame[]> = {}
+    const timing: RenderTimingSamples = { frameMs: [] }
     if (audioReactive) {
       for (const scenario of ['silent', 'steady', 'pulse'] as const) {
-        scenarios[scenario] = (await captureWindows(saved, opts.gridW, opts.gridH, opts.groups, trusted, scenario, 1, opts.signal))[0] ?? []
+        scenarios[scenario] = (await captureWindows(saved, opts.gridW, opts.gridH, opts.groups, trusted, scenario, 1, opts.signal, timing))[0] ?? []
       }
     } else {
-      scenarios.motion = (await captureWindows(saved, opts.gridW, opts.gridH, opts.groups, trusted, 'pulse', RATE_RUNS, opts.signal)).flat()
+      scenarios.motion = (await captureWindows(saved, opts.gridW, opts.gridH, opts.groups, trusted, 'pulse', RATE_RUNS, opts.signal, timing)).flat()
     }
     const frames = Object.values(scenarios).flat()
     const elapsed = performance.now() - startedAt
     if (elapsed > 3000) console.warn(`[patternRating] "${saved.name}" took ${Math.round(elapsed)}ms to render — consider simplifying it`)
+    // The cost is a by-product of the render above. A reference that cannot be
+    // timed only costs the rating its Cost line, never the rating itself.
+    const reference = await referenceUsPerLed(opts.gridW, opts.gridH, opts.signal).catch((err) => {
+      if (err instanceof DOMException && err.name === 'AbortError') throw err
+      return 0
+    })
+    const renderCost = renderCostFromTiming(timing, opts.gridW, opts.gridH, reference)
     const diagnostics = buildGraphDiagnostics(saved.subgraph.nodes, saved.subgraph.edges, { target: 'group', groups: opts.groups })
     // Judge the whole run. Strong moments inform the thumbnail, but weak ones
     // remain in every criterion instead of disappearing behind a best-window pick.
@@ -987,6 +1077,7 @@ export async function ratePattern(saved: SavedPattern, opts: RateOptions): Promi
         typical: packThumbnail(typical),
         strongest: packThumbnail(strongest),
       },
+      ...(renderCost ? { renderCost } : {}),
       cacheKey: key,
     }
   } catch (err) {
