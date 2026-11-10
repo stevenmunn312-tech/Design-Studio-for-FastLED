@@ -229,6 +229,9 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     // one half — a symmetric bloom where the two halves overlap, its strength set
     // by `glowAmount`. The bloom is multiplied per-channel by the `Tint` colour
     // (wired or the r/g/b swatch); white is neutral, so a colour filters the glow.
+    // `radial` is the old Kaleidoscope: each pixel's polar angle folds into one
+    // of `segments` mirrored wedges, turned by Tile Symmetry's Rotation and
+    // Spin (./mirror.ts). It has no glow: no single partner to blend in.
     type: 'Mirror',
     label: 'Mirror',
     category: 'composite',
@@ -237,28 +240,20 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       { id: 'color', label: 'Tint', dataType: 'color' },
       { id: 'glowAmount', label: 'Glow', dataType: 'float' },
+      { id: 'segments', label: 'Segments', dataType: 'float' },
+      { id: 'rotation', label: 'Rotation', dataType: 'float' },
+      { id: 'spin', label: 'Spin', dataType: 'float' },
       { id: 'r', label: 'R', dataType: 'float' },
       { id: 'g', label: 'G', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
     ],
-    propertyInputs: { glowAmount: 'glowAmount', r: 'r', g: 'g', b: 'b' },
+    propertyInputs: {
+      glowAmount: 'glowAmount', segments: 'segments', rotation: 'rotation', spin: 'spin', r: 'r', g: 'g', b: 'b',
+    },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { mirrorMode: 'horizontal', glow: false, glowAmount: 0.35, r: 255, g: 255, b: 255 },
-  },
-  {
-    // Wedge mirror: folds each pixel's polar angle into one segment and
-    // samples the source there, beside Mirror's axes and Tile Symmetry's lattices.
-    type: 'Kaleidoscope',
-    label: 'Kaleidoscope',
-    category: 'composite',
-    subcategory: 'Geometry',
-    inputs: [
-      { id: 'frame', label: 'Frame', dataType: 'frame' },
-      { id: 'segments', label: 'Segments', dataType: 'float' },
-    ],
-    propertyInputs: { segments: 'segments' },
-    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { segments: 6 },
+    defaultProperties: {
+      mirrorMode: 'horizontal', glow: false, glowAmount: 0.35, segments: 6, rotation: 0, spin: 0, r: 255, g: 255, b: 255,
+    },
   },
   {
     // Feedback/trails buffer — persists its own output across frames, fading
@@ -425,8 +420,7 @@ export const COMPOSITE_DESCRIPTIONS: Record<string, string> = {
   Saturation: 'Scales color saturation (0 = greyscale), optionally keeping brightness.',
   Array: 'Repeats a frame N times with an accumulating offset/rotate/scale, composited.',
   Invert: 'Inverts colors.',
-  Mirror: 'Mirrors a frame into symmetry (4 axes) with an optional tinted glow bloom.',
-  Kaleidoscope: 'Mirrors a frame into kaleidoscope symmetry.',
+  Mirror: 'Mirrors a frame across an axis or into kaleidoscope wedges, with optional glow.',
   Trails: 'Fades the previous frame and re-lightens where the input is brighter.',
   FrameWarp: 'Displaces each pixel by two fields or a built-in swirl, ripple or turbulence.',
   Symmetry: 'Repeats a frame through a square or hexagonal wallpaper symmetry group.',

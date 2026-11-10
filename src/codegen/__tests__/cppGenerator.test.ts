@@ -3930,10 +3930,11 @@ describe('generateCpp — RadialBurst', () => {
   })
 })
 
-describe('generateCpp — Kaleidoscope', () => {
+// Mirror's Radial fold, which was the Kaleidoscope node.
+describe('generateCpp — Mirror radial', () => {
   const src = node('sc', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
   const gen = (props: Record<string, unknown> = {}, extra: StudioNode[] = [], extraEdges: StudioEdge[] = []) => {
-    const kal = node('kal', 'Kaleidoscope', 'pattern', props)
+    const kal = node('kal', 'Mirror', 'composite', { mirrorMode: 'radial', ...props })
     return generateCpp([src, kal, ...extra, outputNode], [
       edge('e1', 'sc', 'kal', 'frame', 'frame'),
       edge('e2', 'kal', 'out', 'frame', 'frame'),
@@ -3955,7 +3956,7 @@ describe('generateCpp — Kaleidoscope', () => {
     expect(cpp).not.toContain('mirror logic to apply')
   })
 
-  // The fold, centre and rounding are the integer kernel evalKaleidoscope
+  // The fold, centre and rounding are the integer kernel the evaluator
   // runs too (shared/integerPatterns.ts; native parity in
   // integerPatternsNativeParity.test.ts).
   it('folds through the shared integer kernel and angle helper', () => {
@@ -3964,6 +3965,40 @@ describe('generateCpp — Kaleidoscope', () => {
     expect(cpp).toContain('int32_t _ka=(int32_t)(_atan2_16(_kdy,_kdx)%_kW); if(_ka>_kW/2) _ka=_kW-_ka;')
     expect(cpp).toContain('static uint16_t _atan2_16(int32_t y, int32_t x)')
     expect(cpp).not.toMatch(/atan2f|cosf|sinf/)
+  })
+
+  // Unturned, the block is the Kaleidoscope's: no turn, no clock.
+  it('emits no turn while Rotation and Spin are unwired and at 0', () => {
+    const cpp = gen({ segments: 6, rotation: 0, spin: 0 })
+    expect(cpp).not.toContain('_kT')
+    expect(cpp).not.toContain('_phase_kal')
+  })
+
+  it('turns the fold by a fixed Rotation without a clock, so it still draws once', () => {
+    const cpp = gen({ segments: 6, rotation: 45 })
+    expect(cpp).toContain('uint16_t _kT=(uint16_t)(int32_t)(fmodf(constrain(45,-180.0f,180.0f)+0.0f,360.0f)*65536.0f/360.0f);')
+    expect(cpp).toContain('int32_t _ka=(int32_t)((uint16_t)(_atan2_16(_kdy,_kdx)-_kT)%_kW);')
+    expect(cpp).not.toContain('_phase_kal')
+    expect(cpp).toContain('static bool _drawn_kal = false;')
+  })
+
+  it('keeps the fold turning on the speed clock with Spin, as Tile Symmetry does', () => {
+    const cpp = gen({ segments: 6, spin: 30 })
+    expect(cpp).toContain('float _spin=constrain(30,-360.0f,360.0f);')
+    expect(cpp).toContain('static float _phase_kal = 0.0f, _phase_kalT = -1.0f;')
+    expect(cpp).toContain('fmodf(constrain(0,-180.0f,180.0f)+_phase_kal,360.0f)')
+    expect(cpp).not.toContain('_drawn_kal')
+  })
+
+  it('turns from a wired Rotation', () => {
+    const turn = node('turn', 'Random', 'signal', { min: 0, max: 90 })
+    const cpp = gen({ segments: 6 }, [turn], [edge('e3', 'turn', 'kal', 'value', 'rotation')])
+    expect(cpp).toContain('fmodf(constrain(n_turn_value,-180.0f,180.0f)+0.0f,360.0f)')
+  })
+
+  // Radial has no glow; a saved glow stays off rather than reading a partner.
+  it('ignores the glow fields', () => {
+    expect(gen({ segments: 6, glow: true, glowAmount: 1 })).not.toContain('qadd8')
   })
 
   it('bakes an unwired segments property and clamps it to the evaluator range of 2-16', () => {
@@ -3978,9 +4013,9 @@ describe('generateCpp — Kaleidoscope', () => {
   })
 
   it('renders black when nothing is wired into the frame input', () => {
-    const kal = node('kal', 'Kaleidoscope', 'pattern', { segments: 6 })
+    const kal = node('kal', 'Mirror', 'composite', { mirrorMode: 'radial', segments: 6 })
     const cpp = generateCpp([kal, outputNode], [edge('e', 'kal', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('fill_solid(buf_kal, NUM_LEDS, CRGB::Black); // Kaleidoscope: no input')
+    expect(cpp).toContain('fill_solid(buf_kal, NUM_LEDS, CRGB::Black); // Mirror: no input')
   })
 })
 
@@ -5316,6 +5351,13 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     // With nothing selecting B, A is the whole result.
     const fixed = generateCpp([node('sw', 'Switch', 'math', { a: 0.25, b: 0.75 }), ...t.nodes], t.edges)
     expect(fixed).toContain('float n_sw_result = (0.25);')
+    // Unwired, its Select switch picks the side at generation time.
+    const onB = generateCpp([node('sw', 'Switch', 'math', { a: 0.25, b: 0.75, select: true }), ...t.nodes], t.edges)
+    expect(onB).toContain('float n_sw_result = (0.75);')
+    // A wire into Select still decides, whatever the switch says.
+    const wired = generateCpp([lfo, node('sw', 'Switch', 'math', { a: 0.25, b: 0.75, select: true }), ...t.nodes],
+      [...t.edges, edge('s0', 'lfo', 'sw', 'value', 'sel')])
+    expect(wired).toMatch(/float n_sw_result = \(.*n_lfo_value.*\) \? \(0\.75\) : \(0\.25\);/)
   })
 
   it('Envelope decays from a millis() fire time over the decay window', () => {

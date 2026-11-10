@@ -17,8 +17,17 @@
 // different points (the logical composition frame here, the physical array
 // there) and that is safe only because scaling and the routes' averaging are
 // both linear, so the order does not change the result.
+//
+// The output's Gamma field is the one curve among them. It runs before the
+// dimmers on both sides, so a dimmed output matches a trailing Gamma node. A
+// route that copies pixels (a plain matrix, a crop, a ring, corkscrew or
+// wiring map) matches it byte for byte; one that averages or interpolates
+// (Fit onto a smaller output, half or 2x render resolution, a positioned
+// string) curves the averaged pixel on the device and the source pixels here,
+// which differ only at the soft edges the route blends.
 
 import type { Frame } from '../palettes/ledColor'
+import { gammaVideoTable } from '../../nodes/composite/gamma'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputLedTotal, type LedOutputForm } from './ledOutputForm'
 
 /** What a Frame is worth once the output's own wires have had their say. */
@@ -85,6 +94,30 @@ export function resolveLedOutputRuntime(enabled: unknown, brightness: unknown): 
 /** Whether this output has nothing to do, so no frame needs copying. */
 export function isLedOutputPassThrough(runtime: LedOutputRuntime): boolean {
   return runtime.enabled && runtime.brightness >= 1
+}
+
+/** The output's Gamma field while it is off. 1 is no curve, and it applies nothing. */
+export const LED_OUTPUT_GAMMA_OFF = 1
+/** The Gamma field's range, the Gamma node's own. */
+export const LED_OUTPUT_GAMMA = { min: 1, max: 3.5 } as const
+
+/**
+ * This output's gamma, `LED_OUTPUT_GAMMA_OFF` while it is off.
+ *
+ * A static field, not a wire: it is the curve a trailing Gamma node used to
+ * apply, and it sits on the output so a finished graph needs no node for it.
+ * Held to the slider and to hundredths, so the preview's table and the
+ * sketch's float literal are the same number.
+ *
+ * A HUB75 panel has none. Its DMA driver brightens through a curve of its own,
+ * and the normal sketch blits it from the render buffer with no array of its
+ * own to correct, so the field is hidden there and reads as off.
+ */
+export function ledOutputGamma(props: Record<string, unknown> | undefined): number {
+  if (outputForm(props) === 'hub75') return LED_OUTPUT_GAMMA_OFF
+  const gamma = Number(props?.outputGamma)
+  if (!Number.isFinite(gamma)) return LED_OUTPUT_GAMMA_OFF
+  return Math.max(LED_OUTPUT_GAMMA.min, Math.min(LED_OUTPUT_GAMMA.max, Math.round(gamma * 100) / 100))
 }
 
 /**
@@ -261,9 +294,15 @@ export function ledOutputStatus(
  * the same upstream node, so dimming in place would dim a second output and
  * every node preview along with it. The copy only happens when there is
  * actually something to do.
+ *
+ * Gamma goes first, through FastLED's own `napplyGamma_video` table
+ * (nodes/composite/gamma.ts), as the sketch runs it before its dimmer: a
+ * trailing Gamma node did the same, so the field replaces one exactly.
  */
-export function applyLedOutputRuntime(frame: Frame, runtime: LedOutputRuntime): Frame {
-  if (isLedOutputPassThrough(runtime)) return frame
+export function applyLedOutputRuntime(frame: Frame, runtime: LedOutputRuntime, gamma = LED_OUTPUT_GAMMA_OFF): Frame {
+  const table = gamma === LED_OUTPUT_GAMMA_OFF ? null : gammaVideoTable(gamma)
+  if (!table && isLedOutputPassThrough(runtime)) return frame
   const scale = runtime.enabled ? runtime.brightness : 0
-  return frame.map((row) => row.map((px) => ({ r: px.r * scale, g: px.g * scale, b: px.b * scale })))
+  const curve = (v: number) => (table ? table[Math.max(0, Math.min(255, Math.round(v)))] : v)
+  return frame.map((row) => row.map((px) => ({ r: curve(px.r) * scale, g: curve(px.g) * scale, b: curve(px.b) * scale })))
 }

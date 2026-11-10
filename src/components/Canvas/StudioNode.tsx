@@ -98,6 +98,7 @@ import SegmentNetworkEditor from './SegmentNetworkEditor'
 import type { FloatingAnchor } from '../Hardware/FloatingMenu'
 import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../../nodes/shared/signalRange'
 import { effectiveDataRateMhz } from '../../build/ledDrivers'
+import { mirrorGlows } from '../../nodes/composite/mirror'
 
 const MusicLibraryNodeBody = lazy(() => import('./bodies/MusicLibraryNodeBody'))
 const PerformanceGeneratorBody = lazy(() => import('./bodies/PerformanceGeneratorBody'))
@@ -1297,7 +1298,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // (The editable filter below still uses hasRGB, so r/g/b never leak into the
   // generic field list while the swatch is hidden.)
   const showRGB = hasRGB
-    && (d.nodeType !== 'Mirror' || props.glow === true)
+    && (d.nodeType !== 'Mirror' || mirrorGlows(props))
     && (d.nodeType !== 'Boids' || props.colorMode === 'solid')
     && (!['BeatFlash', 'DanceFlash', 'GravityWell'].includes(d.nodeType) || isPropertyEnabled(d.nodeType, 'r', props))
   // A gradient's A and B colours get a swatch each alongside, whatever showRGB says.

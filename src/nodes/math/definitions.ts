@@ -181,7 +181,8 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
   {
     // A/B selector — outputs A when `sel` is false, B when true; both branches
     // are live signals, so A doubles as a gate's fallback. FrameSwitch is the
-    // frame counterpart.
+    // frame counterpart. Unwired, the `select` switch picks the side, as Frame
+    // Switch's does.
     type: 'Switch',
     label: 'Switch',
     category: 'math',
@@ -192,9 +193,9 @@ export const MATH_DEFINITIONS: NodeDefinition[] = [
       { id: 'sel', label: 'Select', dataType: 'bool' },
     ],
     outputs: [{ id: 'result', label: 'Result', dataType: 'float' }],
-    propertyInputs: { a: 'a', b: 'b' },
-    defaultExposedInputs: ['a', 'b'],
-    defaultProperties: { a: 0, b: 1 },
+    propertyInputs: { a: 'a', b: 'b', select: 'sel' },
+    defaultExposedInputs: ['a', 'b', 'sel'],
+    defaultProperties: { a: 0, b: 1, select: false },
   },
   {
     type: 'Not',

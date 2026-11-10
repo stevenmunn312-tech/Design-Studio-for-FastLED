@@ -19,7 +19,9 @@ import {
   tftTransportForProps,
   xptTouchPinsForProps,
 } from '../../state/nodeLibrary'
-import { hub75OutputRuntimeCpp, ledOutputRuntimeCpp } from '../../codegen/output/ledOutputRuntimeCpp'
+import {
+  hub75OutputRuntimeCpp, ledOutputGammaExpr, ledOutputGammaPixelCpp, ledOutputRuntimeCpp,
+} from '../../codegen/output/ledOutputRuntimeCpp'
 import { renderScaleUpscaleCpp } from '../../codegen/output/renderScaleCpp'
 import { SHAPE_COUNT_MACRO, shapeCopyCpp, shapeTableName } from '../../codegen/output/shapeMapCpp'
 import { playerControlsServiceCpp, designControlBundleEmit, ledOutputLatchCpp } from '../../codegen/player/playerControlsCpp'
@@ -891,18 +893,20 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     if (multipleOutputs) {
       const route = multiRoute!
       const leds = `leds_${route.safeId}`
+      // Gamma before the Board's level, which this blit applies per pixel.
+      const post = `${ledOutputGammaPixelCpp(ledOutputGammaExpr(node.data.properties))}_c.nscale8_video(${route.hardware.brightness});`
       const xy = route.xyTable ? `XY_${route.safeId}(_x, _y)` : `_y * ${route.width} + _x`
       if (!src) {
         ln(`  fill_solid(${leds}, ${route.ledTotal}, CRGB::Black);`)
       } else if (route.shape) {
         for (const line of shapeCopyCpp(route.shape, {
           src, leds, table: shapeTableName(route.shape.kind, `_${route.safeId}`), count: String(route.shape.ledCount),
-          srcW: 'WIDTH', srcH: 'HEIGHT', post: `_c.nscale8_video(${route.hardware.brightness});`,
+          srcW: 'WIDTH', srcH: 'HEIGHT', post,
         })) ln(line)
       } else if (route.routeMode === 'native' && route.renderScale < 1) {
         for (const line of renderScaleUpscaleCpp({
           src, srcW: 'WIDTH', srcH: 'HEIGHT', dstW: String(route.width), dstH: String(route.height),
-          leds, dstIndex: xy, post: `_c.nscale8_video(${route.hardware.brightness});`,
+          leds, dstIndex: xy, post,
         })) ln(line)
       } else if (route.routeMode === 'native' && route.supersample > 1) {
         const ssFactor = route.supersample
@@ -911,18 +915,18 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
         ln(`    for (int _sy = 0; _sy < ${ssFactor}; _sy++) for (int _sx = 0; _sx < ${ssFactor}; _sx++) {`)
         ln(`      CRGB _p = ${src}[(_y * ${ssFactor} + _sy) * WIDTH + (_x * ${ssFactor} + _sx)]; _r += _p.r; _g += _p.g; _b += _p.b;`)
         ln(`    }`)
-        ln(`    CRGB _c(_r / ${ssFactor * ssFactor}, _g / ${ssFactor * ssFactor}, _b / ${ssFactor * ssFactor}); _c.nscale8_video(${route.hardware.brightness});`)
+        ln(`    CRGB _c(_r / ${ssFactor * ssFactor}, _g / ${ssFactor * ssFactor}, _b / ${ssFactor * ssFactor}); ${post}`)
         ln(`    ${leds}[${xy}] = _c;`)
         ln(`  }`)
       } else if (route.routeMode === 'native') {
         ln(`  for (int _y = 0; _y < ${route.height}; _y++) for (int _x = 0; _x < ${route.width}; _x++) {`)
-        ln(`    CRGB _c = ${src}[_y * WIDTH + _x]; _c.nscale8_video(${route.hardware.brightness});`)
+        ln(`    CRGB _c = ${src}[_y * WIDTH + _x]; ${post}`)
         ln(`    ${leds}[${xy}] = _c;`)
         ln(`  }`)
       } else if (route.routeMode === 'crop') {
         ln(`  for (int _y = 0; _y < ${route.height}; _y++) for (int _x = 0; _x < ${route.width}; _x++) {`)
         ln(`    int _sx = (${route.routeX} + _x) % WIDTH, _sy = (${route.routeY} + _y) % HEIGHT;`)
-        ln(`    CRGB _c = ${src}[_sy * WIDTH + _sx]; _c.nscale8_video(${route.hardware.brightness});`)
+        ln(`    CRGB _c = ${src}[_sy * WIDTH + _sx]; ${post}`)
         ln(`    ${leds}[${xy}] = _c;`)
         ln(`  }`)
       } else {
@@ -932,7 +936,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
         ln(`    if (_x1 <= _x0) _x1 = _x0 + 1; if (_y1 <= _y0) _y1 = _y0 + 1;`)
         ln(`    uint32_t _r = 0, _g = 0, _b = 0, _n = 0;`)
         ln(`    for (int _sy = _y0; _sy < min(HEIGHT, _y1); _sy++) for (int _sx = _x0; _sx < min(WIDTH, _x1); _sx++) { CRGB _p = ${src}[_sy * WIDTH + _sx]; _r += _p.r; _g += _p.g; _b += _p.b; _n++; }`)
-        ln(`    CRGB _c = _n ? CRGB(_r / _n, _g / _n, _b / _n) : CRGB::Black; _c.nscale8_video(${route.hardware.brightness});`)
+        ln(`    CRGB _c = _n ? CRGB(_r / _n, _g / _n, _b / _n) : CRGB::Black; ${post}`)
         ln(`    ${leds}[${xy}] = _c;`)
         ln(`  }`)
       }
@@ -967,7 +971,9 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     } else if (src !== `buf_${aliasedTerminalId()}`) {
       ln(`  ::memmove(leds, ${src}, sizeof(CRGB) * NUM_LEDS);`)
     }
-    for (const line of ledOutputRuntimeCpp(outputRuntimeEmit(node, 'leds', String(physLeds)))) ln(line)
+    for (const line of ledOutputRuntimeCpp({
+      ...outputRuntimeEmit(node, 'leds', String(physLeds)), gammaExpr: ledOutputGammaExpr(node.data.properties),
+    })) ln(line)
     if (stereoVuMeters.length === 0) ln(`  FastLED.show();`)
   },
   StereoVuMeter({ id, ln, stereoVuMeters }) {

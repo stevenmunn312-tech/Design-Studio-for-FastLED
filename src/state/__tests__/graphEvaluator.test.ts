@@ -4887,6 +4887,15 @@ describe('signal utility nodes', () => {
     expect(evaluateScalar([node('sw2', 'Switch', 'math', { a: 3, b: 7 })], [], 'sw2', 'result', 0)).toBe(3)
   })
 
+  it('Switch follows its Select switch while Select is unwired', () => {
+    expect(evaluateScalar([node('sw3', 'Switch', 'math', { a: 3, b: 7, select: true })], [], 'sw3', 'result', 0)).toBe(7)
+    // A wire into Select overrides the switch.
+    expect(evaluateScalar(
+      [boolSrc('sw4sel', 0), node('sw4', 'Switch', 'math', { a: 3, b: 7, select: true })],
+      [edge('e', 'sw4sel', 'result', 'sw4', 'sel')],
+      'sw4', 'result', 0)).toBe(3)
+  })
+
   it('SampleHold latches only on a rising edge of the trigger', () => {
     const graph = (on: number, value: number) => [boolSrc('sht', on), node('sh1', 'SampleHold', 'math', { value })]
     const edges = [edge('e', 'sht', 'result', 'sh1', 'trigger')]

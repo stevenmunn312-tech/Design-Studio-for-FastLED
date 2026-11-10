@@ -22,7 +22,7 @@ import {
   EMBER_PIXEL_CPP, MOSAIC_PIXEL_CPP, WAVES_PIXEL_CPP, emberFrame, emberPixel, mosaicCell, wavesFrame, wavesPixel,
   BURST_PIXEL_CPP, POLAR_PIXEL_CPP, SPIRAL_PIXEL_CPP, burstFrame, burstPixel, polarFrame, polarPixel, spiralFrame, spiralPixel,
   trailColumnPass, trailColumnPassCpp, trailRowPass, trailRowPassCpp,
-  KALEIDO_SOURCE_CPP, kaleidoSource,
+  kaleidoSource, kaleidoSourceCpp,
   NOISE_FIELD_PIXEL_CPP, noiseFieldFrame, noiseFieldSum,
   sineFieldFrame, sineFieldSum, SINE_FIELD_VALUE_CPP,
   ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, arrayCopy, arrayOver, arraySource,
@@ -334,11 +334,21 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
     }
   }, 60_000)
 
-  it.each(SIZES)('Kaleidoscope finds the same source pixel on %ix%i', (W, H) => {
+  it.each(SIZES)('Mirror radial finds the same source pixel on %ix%i', (W, H) => {
     for (const segments of [2, 5, 6, 16]) {
       const wedge = Math.trunc(65536 / segments)
-      const native = runNative(W, H, [`int32_t _kW=${wedge};`], KALEIDO_SOURCE_CPP, '"%d ",_kSrc')
+      const native = runNative(W, H, [`int32_t _kW=${wedge};`], kaleidoSourceCpp(false), '"%d ",_kSrc')
       expect(grid(W, H, (x, y) => [kaleidoSource(x, y, W, H, wedge)])).toEqual(native)
+    }
+  }, 60_000)
+
+  // The turn wraps round the 16-bit circle on both sides, past a whole turn
+  // and backwards too.
+  it.each(SIZES)('Mirror radial turns the same on %ix%i', (W, H) => {
+    for (const [segments, turn] of [[6, 1], [5, 8192], [7, 40000], [16, 65535]]) {
+      const wedge = Math.trunc(65536 / segments)
+      const native = runNative(W, H, [`int32_t _kW=${wedge}; uint16_t _kT=${turn};`], kaleidoSourceCpp(true), '"%d ",_kSrc')
+      expect(grid(W, H, (x, y) => [kaleidoSource(x, y, W, H, wedge, turn)])).toEqual(native)
     }
   }, 60_000)
 

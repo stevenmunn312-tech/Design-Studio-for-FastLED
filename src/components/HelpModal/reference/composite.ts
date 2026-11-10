@@ -1,4 +1,4 @@
-import { example, MATRIX, SAMPLE_IMAGE, STRIP } from './example'
+import { example, MATRIX, STRIP } from './example'
 import type { NodeReferenceMap } from './types'
 
 const FRAME_IN = 'The frame to process.'
@@ -169,7 +169,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
   Gamma: {
     overview: [
       'Gamma applies a curve that darkens the mid-tones, so gradients and fades look even on LEDs. LEDs respond linearly while our eyes do not, which makes uncorrected patterns look washed out and pale.',
-      '2.2 to 2.8 suits most strips. Put it last, just before the LED output.',
+      '2.2 to 2.8 suits most strips. To correct a whole graph, set the LED output’s Gamma instead: it applies the same curve to everything that output sends and replaces a Gamma node at the end. Keep this node to correct one branch, such as one side of a comparison.',
     ],
     inputs: { frame: FRAME_IN },
     outputs: { frame: FRAME_OUT },
@@ -251,7 +251,8 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
   Mirror: {
     overview: [
       'Mirror copies one half of a frame onto the other: left to right, top to bottom, both at once, or across the diagonal from corner to corner, which on a wide panel is its own long diagonal.',
-      'Glow blends the hidden half back in as a soft bloom, tinted by the Tint colour, instead of discarding it.',
+      'Radial is a kaleidoscope: it folds the frame into mirrored wedges round the centre, like the toy, so anything becomes symmetrical and jewel-like. Segments sets how many wedges (6 is the classic look), Rotation turns them and Spin keeps them turning, as Tile Symmetry’s do. Pictures and slow textures work particularly well.',
+      'Glow blends the hidden half back in as a soft bloom, tinted by the Tint colour, instead of discarding it. Radial has no glow: each wedge has no single partner to blend in.',
     ],
     inputs: {
       frame: FRAME_IN,
@@ -268,28 +269,6 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       wires: ['ink.frame > fold.frame'],
       explanation: 'Blobs in the black-and-white noir palette drift and merge, and Mirror copies the left half onto the right, so the shapes become a slowly changing inkblot test.',
       preview: 'The {output} shows symmetrical black and white blobs merging and parting, like an inkblot.',
-    }),
-  },
-
-  Kaleidoscope: {
-    overview: [
-      'Kaleidoscope folds a frame into mirrored wedges round the centre, like the toy. Segments sets how many wedges: 6 is the classic look.',
-      'Anything becomes symmetrical and jewel-like. Pictures and slow textures work particularly well.',
-    ],
-    inputs: { frame: FRAME_IN },
-    outputs: { frame: FRAME_OUT },
-    example: example({
-      featured: 'Kaleidoscope',
-      title: 'A kaleidoscope made from a picture',
-      nodes: {
-        drift: ['Wave', { frequency: 0.07, amplitude: 1.5, offset: 1.5, unipolar: true }],
-        photo: ['Image', { image: SAMPLE_IMAGE, fit: 'cover', sampling: 'smooth' }],
-        jewel: ['Kaleidoscope', { segments: 8 }],
-      },
-      wires: ['drift.result > photo.zoom', 'photo.frame > jewel.frame'],
-      output: MATRIX(24, 24),
-      explanation: 'Image shows a small picture, slowly zooming in and out under a Wave. Kaleidoscope folds it into eight mirrored wedges, so the zoom becomes a blooming, jewel-like pattern.',
-      preview: 'The {output} shows an eight-fold pink and navy pattern that slowly grows and shrinks.',
     }),
   },
 

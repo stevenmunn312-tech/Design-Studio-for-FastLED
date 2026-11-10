@@ -215,7 +215,7 @@ function showSketches(): Record<string, string> {
 function frozenChain(extra: StudioNode[]): string {
   const nodes = [
     node('fx', 'FieldFormula', { formula: 'sqrt(x * x + y * y) / W' }), node('ff', 'FieldToFrame'),
-    node('g', 'GradientFrame'), node('k', 'Kaleidoscope'), node('bl', 'Blend'), ...extra,
+    node('g', 'GradientFrame'), node('k', 'Mirror', { mirrorMode: 'radial' }), node('bl', 'Blend'), ...extra,
   ]
   const outputs = extra.filter((entry) => entry.data.nodeType === 'MatrixOutput')
   return generateCpp(nodes, [

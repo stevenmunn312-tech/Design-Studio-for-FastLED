@@ -149,11 +149,12 @@ export const MATH_EVALUATORS: NodeEvaluators = {
     holdState.set(key, { v: held, prev: trig })
     return { result: held }
   },
-  // A/B selector — both sides are live inputs, so A doubles as a gate's fallback.
+  // A/B selector — both sides are live inputs, so A doubles as a gate's
+  // fallback. An unwired Select reads the `select` switch.
   Switch({ input, num }, id, props) {
     const a = num(id, 'a', props, 'a', 0)
     const b = num(id, 'b', props, 'b', 1)
-    const sel = Boolean(input(id, 'sel', false))
+    const sel = Boolean(input(id, 'sel', props.select === true))
     return { result: sel ? b : a }
   },
   // Bundled trigger/edge utilities — `triggerOp` selects the variant. All

@@ -11,10 +11,13 @@
 // break parity is a per-branch implementation, which is exactly what emitting
 // here avoids.
 //
-// Nothing is emitted when neither port is wired and neither field has been
-// moved, so an output nobody has touched generates the sketch it always did.
+// Nothing is emitted when neither port is wired and no field (Enabled,
+// Brightness, Gamma) has been moved, so an output nobody has touched generates
+// the sketch it always did.
 
-import { LED_OUTPUT_RUNTIME_DEFAULT, ledOutputManualRuntime, ledOutputStatus } from '../../state/output/ledOutputRuntime'
+import {
+  LED_OUTPUT_GAMMA_OFF, LED_OUTPUT_RUNTIME_DEFAULT, ledOutputGamma, ledOutputManualRuntime, ledOutputStatus,
+} from '../../state/output/ledOutputRuntime'
 import { nodeDisplayLabel } from '../../state/nodeLibrary'
 import type { LedStatusExpressions } from '../displays/displaySourceExpressions'
 
@@ -91,6 +94,25 @@ export function ledOutputManualExprs(props: Record<string, unknown> | undefined)
   }
 }
 
+/**
+ * This output's Gamma field as a C++ float, or null while it is off, so an
+ * output left at 1 emits nothing. The value is `ledOutputGamma`'s, in
+ * hundredths, so the literal is the float the preview's table was built from.
+ */
+export function ledOutputGammaExpr(props: Record<string, unknown> | undefined): string | null {
+  const gamma = ledOutputGamma(props)
+  return gamma === LED_OUTPUT_GAMMA_OFF ? null : `${gamma.toFixed(2)}f`
+}
+
+/**
+ * The gamma step for a blit that scales each pixel `_c` by the Board's level
+ * itself (a sketch with several outputs): it goes before that scale, as it
+ * goes before every dimmer. Empty while gamma is off.
+ */
+export function ledOutputGammaPixelCpp(gammaExpr: string | null): string {
+  return gammaExpr ? `napplyGamma_video(_c, ${gammaExpr}); ` : ''
+}
+
 /** One output's physical destination, whatever geometry produced it. */
 export interface LedOutputRuntimeEmit {
   /** A stable C identifier fragment for this output's locals. */
@@ -103,6 +125,11 @@ export interface LedOutputRuntimeEmit {
   enabledExpr: string | null
   /** C++ float expression, or null when nothing is wired to `brightness`. */
   brightnessExpr: string | null
+  /**
+   * The Gamma field (`ledOutputGammaExpr`), or null/absent while it is off or
+   * when the caller's blit already applied it per pixel.
+   */
+  gammaExpr?: string | null
   /** Leading whitespace, so the emitted block sits in its caller's block. */
   indent?: string
 }
@@ -115,11 +142,18 @@ export interface LedOutputRuntimeEmit {
  * the bottom of the travel, which reads as a broken potentiometer. It reaches
  * true black only at zero, which is why blackout is a separate `fill_solid`
  * rather than brightness 0 by another name.
+ *
+ * Gamma goes first, through the call a Gamma node makes, so a dimmer after it
+ * dims light the way it did behind a trailing Gamma node; the preview keeps
+ * the same order (`applyLedOutputRuntime`).
  */
 export function ledOutputRuntimeCpp(emit: LedOutputRuntimeEmit): string[] {
-  if (!emit.enabledExpr && !emit.brightnessExpr) return []
   const i = emit.indent ?? '  '
-  const lines: string[] = []
+  const gamma = emit.gammaExpr
+    ? [`${i}napplyGamma_video(${emit.array}, ${emit.count}, ${emit.gammaExpr});  // LED output gamma`]
+    : []
+  if (!emit.enabledExpr && !emit.brightnessExpr) return gamma
+  const lines: string[] = [...gamma]
 
   if (emit.enabledExpr && !emit.brightnessExpr) {
     lines.push(`${i}if (!(${emit.enabledExpr})) fill_solid(${emit.array}, ${emit.count}, CRGB::Black);`)

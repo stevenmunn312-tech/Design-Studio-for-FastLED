@@ -595,7 +595,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   applies them to `leds` with the same `ledOutputRuntimeCpp` after drawing and
   before the VU fixtures and HUB75 blit (which reads that array), so controller
   brightness stays the transport's. Only a *wire* into those ports is refused
-  there. The same three-part rule extends to a *group* of properties sharing one
+  there. The output's Gamma field (`outputGamma`, 1 is off) is a static
+  curve, not a wire, and the one non-linear step: `ledOutputGamma` resolves it
+  (none on HUB75), and it runs before every dimmer on every side, so it
+  replaces a trailing Gamma node. A multi-output blit scales each pixel by the
+  Board level itself, so gamma goes into that blit
+  (`ledOutputGammaPixelCpp`), and the SD player moves its field lines after
+  the audio fade and post chain while gamma is on. The same three-part rule extends to a *group* of properties sharing one
   shape rather than a single knob: a colour is r/g/b (or rA/gA/bA, rB/gB/bB), so
   `channelColor(port, dr, dg, db, keys?)` in `cppGenerator.ts` is that group's
   one resolver — the whole-colour port wins when wired, an unwired channel folds
@@ -728,9 +734,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `falloff` the distance from a point, Spectrum Visualizer's `Three Band` the
   stylised bars, Wave's `rateUnit`, `unipolar` and `offset` reproduce
   Counter and BeatSin exactly (`statefulSignalParity.test.ts` runs both on
-  each side), and Frame Transform's `mode` is the old Frame Transform
+  each side), Frame Transform's `mode` is the old Frame Transform
   (`exact`) or the old Transform (`smooth`, read `nearest` on `black` edges
-  to match it). Where the old nodes were one operation split by parameter,
+  to match it), and Mirror's `radial` axis is the old Kaleidoscope, whose
+  turn (Tile Symmetry's Rotation and Spin) is emitted only while it can move. Where the old nodes were one operation split by parameter,
   the merge is one kernel instead: Field Transform pushes, turns, zooms and
   tiles in a single read, and a rate sits beside each value it moves
   (`rotateRate`, `offsetXRate`) rather than behind a mode, so the per-mode

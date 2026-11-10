@@ -35,6 +35,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       'The LED output is where a graph becomes light. Its form — a string, a matrix, a ring, a corkscrew, or a HUB75 panel — is chosen on the bench, and the node retitles itself to match: LED String, LED Matrix, LED Ring.',
       'It holds everything about the physical LEDs: chipset, colour order, data pin (and clock pin and data rate for APA102, HD108 and WS2801), size and layout (serpentine rows, tiled panels, custom maps, positioned strings), colour correction, white point and dithering. Its frame is what the preview shows and what the sketch sends.',
       'It also takes live controls: Enabled for a blackout, Brightness as its own dimmer on top of the Board’s master level, and a Controls bundle or step buttons from a panel or remote. Its Display output reports its state to a screen.',
+      'Gamma, under Rendering, corrects everything the output sends so mid-tones look right on the LEDs: 1 is off and 2.2 to 2.8 suits most strips. It replaces a Gamma node at the end of the graph, so use one or the other. It runs before the dimmers, as that node did, and a HUB75 panel has none because its driver applies its own curve.',
     ],
     steps: [
       'Add the LED output from the Hardware tab and choose its form, chipset and size.',

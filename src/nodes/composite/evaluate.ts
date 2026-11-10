@@ -23,16 +23,15 @@ import { wallpaperGroupIndex, wallpaperSpinRate } from '../../state/evaluator/sy
 import { speedPhase } from '../shared/speedClock'
 import { TRAIL_MIN_STEP, fadeFrameToBlackBy, timedFadeAmount } from '../shared/trailFade'
 import { TRAILS_REFERENCE_FPS } from './trails'
-import { evalKaleidoscope } from './kaleidoscope'
 import { gammaVideoTable } from './gamma'
 import { transformZoom } from './transformZoom'
 import { ARRAY_COPIES } from './limits'
 import { FEEDBACK_BLEND_MODES } from './blendModes'
-import { diagonalFold } from './mirror'
+import { diagonalFold, mirrorGlows, radialTurn16, radialWedge } from './mirror'
 import { WARP_MOTIONS, warpPush } from './frameWarpMotion'
 import {
-  FEEDBACK_TRANSFORMS, arrayCopy, arrayDim, arrayOver, arraySource, blendMix8, div255, feedbackFrame, feedbackSource, sampleFrameQ8, wallpaperFrame,
-  wallpaperSourceQ8,
+  FEEDBACK_TRANSFORMS, arrayCopy, arrayDim, arrayOver, arraySource, blendMix8, div255, feedbackFrame, feedbackSource, kaleidoSource,
+  sampleFrameQ8, wallpaperFrame, wallpaperSourceQ8,
 } from '../shared/integerPatterns'
 import { scale8 } from '../shared/lib8tion'
 
@@ -539,17 +538,22 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     if (!src) { return { frame: blankFrame(W, H) } }
     return { frame: buildFrame(W, H, (x, y) => { const px = src[y][x]; return { r: 255 - px.r, g: 255 - px.g, b: 255 - px.b } }) }
   },
-  Kaleidoscope({ input, num, W, H }, id, props) {
-    const src = input(id, 'frame', null) as Frame | null
-    const segments = num(id, 'segments', props, 'segments', 6)
-    if (!src) { return { frame: blankFrame(W, H) } }
-    return { frame: evalKaleidoscope(src, segments, W, H) }
-  },
-  Mirror({ input, num, W, H }, id, props) {
+  Mirror({ input, num, t, W, H, stateKey }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
     if (!src) { return { frame: blankFrame(W, H) } }
     const mode = String(props.mirrorMode ?? 'horizontal')
-    const glow = Boolean(props.glow)
+    if (mode === 'radial') {
+      // The sketch's integer kernel (shared/integerPatterns.ts), turned by
+      // Rotation plus Spin integrated on the speed clock (./mirror.ts).
+      const wedge = radialWedge(num(id, 'segments', props, 'segments', 6))
+      const spin = speedPhase(stateKey(id), t, wallpaperSpinRate(num(id, 'spin', props, 'spin', 0)))
+      const turn = radialTurn16(num(id, 'rotation', props, 'rotation', 0), spin)
+      return { frame: buildFrame(W, H, (x, y) => {
+        const i = kaleidoSource(x, y, W, H, wedge, turn)
+        return i < 0 ? { r: 0, g: 0, b: 0 } : { ...src[Math.trunc(i / W)][i % W] }
+      }) }
+    }
+    const glow = mirrorGlows(props)
     // Additive bloom: the plain mirror (base) plus a `glowAmount` fraction of
     // the discarded partner, tinted per-channel by the `color` input (white =
     // neutral). 0 = clean mirror, 1 = full add. Both coords are symmetric under

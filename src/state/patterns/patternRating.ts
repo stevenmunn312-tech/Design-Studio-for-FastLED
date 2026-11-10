@@ -441,7 +441,7 @@ const AMBIENT_TYPES = new Set(['Pacifica', 'Noise', 'Plasma', 'FieldNoise', 'Tur
 const ANIMATED_TYPES = new Set([
   'TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave',
   'HueCycle', 'PaletteSweep', 'PolarGradient', 'Noise', 'Plasma', 'Rainbow', 'Pride2015', 'Pacifica',
-  'TwinkleFox', 'Scanner', 'Confetti', 'Juggle', 'RadialBurst', 'Spiral', 'Kaleidoscope',
+  'TwinkleFox', 'Scanner', 'Confetti', 'Juggle', 'RadialBurst', 'Spiral',
   'Blobs', 'Animartrix', 'Fire', 'Particles',
   'FlowField', 'Starfield', 'StringParticles', 'DigitalRain', 'Candle', 'Lightning', 'Sunrise', 'TVSimulator', 'Boids', 'ReactionDiffusion', 'GameOfLife',
   'SpectrumVisualizer', 'Waveform', 'BassPulse', 'BassRings', 'MidrangeWaves', 'MidrangeBloom',
@@ -450,13 +450,21 @@ const ANIMATED_TYPES = new Set([
   'GravityWell', 'RainRipples', 'PrismStorm', 'AudioFlow', 'ColorTrails', 'WaveSim', 'Truchet', 'TuringField', 'Automaton', 'FourierEpicycles',
 ])
 
+/** A node that keeps a still source from reading as a static utility. A
+ *  radial Mirror is the old Kaleidoscope node, which counted. */
+function animatedNode(node: StudioNode): boolean {
+  const type = nodeType(node)
+  return ANIMATED_TYPES.has(type)
+    || (type === 'Mirror' && (node.data.properties as { mirrorMode?: unknown } | undefined)?.mirrorMode === 'radial')
+}
+
 export function inferPatternIntent(nodes: StudioNode[]): PatternIntent {
   if (isAudioReactiveSubgraph(nodes)) return 'audio-reactive'
   const types = nodes.map(nodeType)
   if (types.some((type) => ACCENT_TYPES.has(type))) return 'accent'
   if (types.some((type) => AMBIENT_TYPES.has(type))) return 'ambient'
-  const visibleTypes = types.filter((type) => !['GroupInput', 'GroupOutput', 'Comment'].includes(type))
-  if (visibleTypes.some((type) => STATIC_TYPES.has(type)) && !visibleTypes.some((type) => ANIMATED_TYPES.has(type))) {
+  const visible = nodes.filter((node) => !['GroupInput', 'GroupOutput', 'Comment'].includes(nodeType(node)))
+  if (visible.some((node) => STATIC_TYPES.has(nodeType(node))) && !visible.some(animatedNode)) {
     return 'static-utility'
   }
   return 'showpiece'

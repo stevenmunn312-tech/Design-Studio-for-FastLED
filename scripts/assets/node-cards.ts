@@ -64,6 +64,7 @@ import { lightSensorPreviewReading, lightSensorTransport } from '../../src/state
 import { environmentPreviewDefaults, environmentPreviewReading } from '../../src/state/peripherals/environmentSensor'
 import { temperaturePreviewDefault, temperaturePreviewReading } from '../../src/state/peripherals/temperatureSensor'
 import { joystickAxis } from '../../src/state/peripherals/joystick'
+import { mirrorGlows } from '../../src/nodes/composite/mirror'
 import { KEYPAD_LEGENDS } from '../../src/state/peripherals/keypad'
 import { touchPadElectrodeCount } from '../../src/state/peripherals/touchPad'
 import { MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewReading } from '../../src/state/peripherals/motionVector'
@@ -348,7 +349,7 @@ function buildPropRows(
   // only uses it in 'solid' mode, BeatFlash's solid colour is unused while
   // its Color is Palette.
   const showRGB = hasRGB
-    && (def.type !== 'Mirror' || props.glow === true)
+    && (def.type !== 'Mirror' || mirrorGlows(props))
     && (def.type !== 'Boids' || props.colorMode === 'solid')
     && (def.type !== 'BeatFlash' || props.colorSource !== 'palette')
   const isGroupInput = def.type === 'GroupInput'

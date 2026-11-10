@@ -60,13 +60,22 @@ export function applyGammaVideo(brightness: number, gamma: number): number {
   return Math.max(1, Math.min(255, scaled))
 }
 
-let cached: { gamma: number; table: Uint8Array } | null = null
+// A few recent tables, so a Gamma node and an LED output's Gamma field at two
+// different curves do not rebuild each other's every frame. Bounded, because
+// a wired gamma (an LFO) asks for a new value every frame.
+const cached = new Map<number, Uint8Array>()
+const CACHED_TABLES = 8
 
-/** The 256-entry table for one gamma; a frame reuses the last one. */
+/** The 256-entry table for one gamma; a frame reuses a recent one. */
 export function gammaVideoTable(gamma: number): Uint8Array {
-  if (cached?.gamma === gamma) return cached.table
+  const hit = cached.get(gamma)
+  if (hit) return hit
   const table = new Uint8Array(256)
   for (let i = 0; i < 256; i++) table[i] = applyGammaVideo(i, gamma)
-  cached = { gamma, table }
+  if (cached.size >= CACHED_TABLES) {
+    const oldest = cached.keys().next()
+    if (!oldest.done) cached.delete(oldest.value)
+  }
+  cached.set(gamma, table)
   return table
 }

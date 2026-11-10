@@ -121,7 +121,9 @@ import {
 import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import { customDisplayShowCpp, type CustomDisplayAssets } from './displays/customDisplayShowCpp'
 import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp, ledOutputLatchGlobalCpp, ledOutputLatchCpp } from './player/playerControlsCpp'
-import { ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs, ledOutputRuntimeExpressions } from './output/ledOutputRuntimeCpp'
+import {
+  ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs, ledOutputRuntimeExpressions, ledOutputGammaExpr, ledOutputGammaPixelCpp,
+} from './output/ledOutputRuntimeCpp'
 import {
   clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MAX, MASTER_SPEED_MIN,
 } from '../state/player/masterSpeed'
@@ -1154,8 +1156,12 @@ export function generateShowSketch(
       ...ledOutputRuntimeExpressions(id, manual, controls.scalarOutputs.get(outputId), controls.outputs.has(outputId)),
     }
   }
-  const outputRuntime = (outputId: string, array: string, count: string): string[] =>
-    ledOutputRuntimeCpp({ ...outputRuntimeExpressions(outputId), array, count })
+  // The output's Gamma field, which a multi-output blit applies per pixel
+  // before the Board's level instead.
+  const outputGamma = (outputId: string) =>
+    ledOutputGammaExpr(nodes.find((node) => node.id === outputId)?.data.properties)
+  const outputRuntime = (outputId: string, array: string, count: string, gammaExpr: string | null = null): string[] =>
+    ledOutputRuntimeCpp({ ...outputRuntimeExpressions(outputId), array, count, gammaExpr })
   const fastLedDecls = new Set<string>()
   if (transitions) fastLedDecls.add('void compositeTransition(uint8_t type, CRGB* out, const CRGB* a, const CRGB* b, float tt);')
   for (const block of [...renderers.helpers, ...renderers.functions, ...(postFrame ? [...postFrame.helpers, postFrame.fn] : []), ...controlGraph.helpers]) {
@@ -1703,15 +1709,16 @@ export function generateShowSketch(
     for (const route of routes) {
       const dest = `leds_${route.safeId}`
       const index = route.xyTable ? `XY_${route.safeId}(_x, _y)` : `_y * ${route.width} + _x`
+      const post = `${ledOutputGammaPixelCpp(outputGamma(route.id))}_c.nscale8_video(${route.hardware.brightness});`
       if (route.shape) {
         L.push(...shapeCopyCpp(route.shape, {
           src: 'leds', leds: dest, table: shapeTableName(route.shape.kind, `_${route.safeId}`), count: String(route.shape.ledCount),
-          srcW: 'WIDTH', srcH: 'HEIGHT', post: `_c.nscale8_video(${route.hardware.brightness});`,
+          srcW: 'WIDTH', srcH: 'HEIGHT', post,
         }))
       } else if (route.routeMode === 'crop') {
         L.push(`  for (int _y = 0; _y < ${route.height}; _y++) for (int _x = 0; _x < ${route.width}; _x++) {`)
         L.push(`    int _sx = (${route.routeX} + _x) % WIDTH, _sy = (${route.routeY} + _y) % HEIGHT;`)
-        L.push(`    CRGB _c = leds[_sy * WIDTH + _sx]; _c.nscale8_video(${route.hardware.brightness}); ${dest}[${index}] = _c;`)
+        L.push(`    CRGB _c = leds[_sy * WIDTH + _sx]; ${post} ${dest}[${index}] = _c;`)
         L.push('  }')
       } else {
         L.push(`  for (int _y = 0; _y < ${route.height}; _y++) for (int _x = 0; _x < ${route.width}; _x++) {`)
@@ -1720,7 +1727,7 @@ export function generateShowSketch(
         L.push('    if (_x1 <= _x0) _x1 = _x0 + 1; if (_y1 <= _y0) _y1 = _y0 + 1;')
         L.push('    uint32_t _r = 0, _g = 0, _b = 0, _n = 0;')
         L.push('    for (int _sy = _y0; _sy < min(HEIGHT, _y1); _sy++) for (int _sx = _x0; _sx < min(WIDTH, _x1); _sx++) { CRGB _p = leds[_sy * WIDTH + _sx]; _r += _p.r; _g += _p.g; _b += _p.b; _n++; }')
-        L.push(`    CRGB _c = _n ? CRGB(_r / _n, _g / _n, _b / _n) : CRGB::Black; _c.nscale8_video(${route.hardware.brightness}); ${dest}[${index}] = _c;`)
+        L.push(`    CRGB _c = _n ? CRGB(_r / _n, _g / _n, _b / _n) : CRGB::Black; ${post} ${dest}[${index}] = _c;`)
         L.push('  }')
       }
       L.push(...outputRuntime(route.id, dest, String(route.width * route.height)))
@@ -1733,7 +1740,7 @@ export function generateShowSketch(
     } else if (singleXy) {
       L.push(`  for (int _y = 0; _y < HEIGHT; _y++) for (int _x = 0; _x < WIDTH; _x++) ${physical.array}[XY(_x, _y)] = leds[_y * WIDTH + _x];`)
     }
-    L.push(...outputRuntime(out.id, physical.array, physical.count))
+    L.push(...outputRuntime(out.id, physical.array, physical.count, outputGamma(out.id)))
   }
   for (const meter of stereoVuMeters) L.push(stereoVuLoopCpp(meter))
   if (isHub75) {
