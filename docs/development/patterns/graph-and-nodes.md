@@ -311,18 +311,28 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   firmware twin `passFramesCpp`), the 60ths of a second since its previous
   pass: 1 on the first, so a 60 fps run is unchanged, and at most a quarter
   second after a stall. Starfield, Digital Rain, Flow Field, Particles,
-  String Particles and Formula Points' logistic map and attractor move this
-  way. A per-frame factor follows the clock by its kind, through the helpers
-  beside `passFrames` and their C++ twins: a share kept each frame (drag, a
-  life's decay) is raised to the frames (`keepOver`), a per-frame chance
-  becomes the chance of at least one in them (`passChance`), and a count of
-  iterations carries its fraction to the next pass (`passSteps`). A trail
-  laid one dot a frame (comet, meteor, Luminova) lays each dot it owes at its
-  own moment, already faded for the frames since, so a 30 fps trail has the
-  60 fps dots. The preview reads a tick of exactly a 60th as one frame (in
-  floating point it is a hair under), so a 60 fps run steps byte for byte
-  as the per-frame code did; `simulationClock.test.ts` holds that to frames
-  recorded before the move.
+  String Particles, Boids, Fire, Reaction Diffusion and every Formula Points
+  variant move this way. A per-frame factor follows the clock by its kind,
+  through the helpers beside `passFrames` and their C++ twins: a share kept
+  each frame (drag, a life's decay) is raised to the frames (`keepOver`),
+  and a count of iterations carries its fraction to the next pass
+  (`passSteps`). A per-frame chance is tried once in each whole frame owed
+  (`passSteps` at one a frame), never folded into one chance a pass: "at
+  least one" caps a pass at one spawn, so Rate 0.3 at 30 fps spawned about
+  15% fewer. A Particles spawn tried for a later frame starts with the life
+  the frames before it took. A simulation whose whole step only works a
+  frame at a time (Fire's heat, Boids' steering, Reaction Diffusion's Steps)
+  repeats it once per whole frame owed through `passStepFrames`, which caps
+  a pass at `MAX_STEP_FRAMES` (four: full pace down to 15 fps) and drops the
+  rest, so a board already too slow is not handed fifteen frames' work. A
+  trail laid one dot a frame (comet, meteor, Luminova, String Particles'
+  deposits, Formula Points' Lissajous and rose dot) lays each dot it owes at
+  its own moment, already faded for the frames since, so a 30 fps trail has
+  the 60 fps dots; a pass that owes none (above 60 fps) leaves the trail
+  unfaded rather than fading it with nothing drawn. The preview reads a tick
+  of exactly a 60th as one frame (in floating point it is a hair under), so
+  a 60 fps run steps byte for byte as the per-frame code did;
+  `simulationClock.test.ts` holds that to frames recorded before the move.
 - A pattern's Beat input fires on its rising edge, never on every frame it
   reads true: a Kick envelope or a Vibe spike held high for a few frames is
   one flash, not a strobe. Beat Flash, Beat Kaleidoscope and Ember Pulse keep

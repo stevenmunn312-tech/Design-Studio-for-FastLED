@@ -1751,12 +1751,15 @@ describe('generateCpp', () => {
     expect(ring).toContain('float _cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f,_rad=min(_cx,_cy);')
     expect(ring).toContain('_sp_nix[_k]=_y*WIDTH+_x;')
     // Drift respawns a dead slot; meteors fire on a rising trigger, over a bed.
-    expect(row).toContain('if(_sp_nl[_i]<=0&&_rnd()<_spc)')
-    // Its chance, moves and life run on the 60ths since the last frame.
-    expect(row).toContain('float _spc=(_pf_n==1.0f?(_sp):1.0f-powf(1.0f-(_sp),_pf_n));')
-    expect(row).toContain('_sp_np[_i]+_sp_nv[_i]*_step*_sp_nl[_i]*_pf_n')
-    expect(row).toContain('_sp_nl[_i]-=_sp_ndec[_sp_nk[_i]]*_pf_n;')
+    // Its chance is tried, and a deposit laid, once in each whole frame owed;
+    // moves and life run on the 60ths since the last frame.
+    expect(row).toContain('for(int _try=0;_try<_ps_n_dots;_try++) for(int _i=0;_i<_n;_i++){ if(_sp_nl[_i]<=0&&_rnd()<_sp)')
+    expect(row).toContain('float _mv=_sp_nk[_i]==0?_sp_nv[_i]*_step*_sp_nl[_i]*_pf_n:_sp_nv[_i]*_pf_n;')
+    expect(row).toContain('float _dc=_sp_ndec[_sp_nk[_i]]; _sp_nl[_i]-=_dc*_pf_n;')
+    expect(row).toContain('for(int _age=_ps_n_dots-1;_age>=0;_age--){')
     expect(row).toContain('float _drag=powf(0.92f,_pf_n);')
+    // A frame owing no whole frame leaves the trail unfaded.
+    expect(row).toContain('if(_ps_n_dots>0){')
     expect(row).not.toContain('_tr&&!_sp_nprev')
     const meteors = sp({ track: 'row', mode: 'meteors' }, true)
     expect(meteors).toContain('if(_tr&&!_sp_nprev)')
@@ -1767,6 +1770,40 @@ describe('generateCpp', () => {
     // The trail fades on the shared trail clock, over the track's own length.
     expect(row).toContain('fadeToBlackBy(_sp_ntr, _len, _by);')
     expect(row).toContain('qadd8(')
+  })
+
+  it('steps Fire, Boids and Reaction Diffusion once for each whole frame owed, at most four', () => {
+    const gen = (type: string, props: Record<string, unknown> = {}) =>
+      generateCpp([node('n', type, 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+    const capped = (tag: string) => `float _psf_${tag}O = _psf_${tag}C + _pf_n; int _psf_${tag} = (int)floorf(_psf_${tag}O + 0.001f); _psf_${tag}C = _psf_${tag}O - _psf_${tag}; if (_psf_${tag} > 4) _psf_${tag} = 4;`
+    for (const props of [{}, { fireStyle: 'smoke' }]) {
+      const fire = gen('Fire', props)
+      expect(fire).toContain('float t = millis()')
+      expect(fire).toContain(capped('n_heat'))
+      expect(fire).toContain('for (int _fs = 0; _fs < _psf_n_heat; _fs++) {')
+    }
+    const fire2012 = gen('Fire', { fireStyle: 'fire2012' })
+    expect(fire2012).toContain('float t = millis()')
+    expect(fire2012).toContain('for(int _fs=0;_fs<_psf_n_heat;_fs++){')
+    const boids = gen('Boids', { colorMode: 'solid' })
+    expect(boids).toContain('float t = millis()')
+    expect(boids).toContain(capped('n_steps'))
+    expect(boids).toContain('for(int _st=0;_st<_psf_n_steps;_st++){')
+    // The steered velocities persist, so a frame owing no step draws from them.
+    expect(boids).toContain('static float _bnx_n[80], _bny_n[80];')
+    const rd = gen('ReactionDiffusion')
+    expect(rd).toContain('float t = millis()')
+    expect(rd).toContain('(int)floorf(8)))*_psf_n_steps; _it<_iters; _it++) {')
+  })
+
+  it('lays a Lissajous or rose dot for each whole frame owed, back along the curve', () => {
+    for (const formulaType of ['lissajousPath', 'rosePath']) {
+      const cpp = generateCpp([node('n', 'FormulaPoints', 'pattern', { formulaType }), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
+      expect(cpp).toContain('if(_ps_n_dots>0){')
+      expect(cpp).toContain('for(int _age=_ps_n_dots-1;_age>=0;_age--){')
+      expect(cpp).toContain('float _phase=(_age==0?_phase_n:_phase_n-_fp_nS*((float)_age/60.0f))*2.0f;')
+      expect(cpp).toContain('if(_age>0) _dc.nscale8((uint8_t)(powf(_dk,(float)_age)*255.0f));')
+    }
   })
 
   it('emits the classic generative nodes with the shared hash', () => {
@@ -4049,9 +4086,9 @@ describe('generateCpp — Particles modes', () => {
       // Colour comes from life at render time; the pool keeps none.
       expect(cpp).not.toContain('_pa_ppr[')
       expect(cpp).not.toContain('_pc=')
-      // Rate is declared only where a spawn reads it, as a chance over the
-      // frames since the last one or, for a spawn count, as itself.
-      expect(/float _(rate|paChance|paBurst)=/.test(cpp), m).toBe(particleModeUsesRate(m))
+      // Rate is declared only where a spawn reads it, as the chance tried in
+      // each whole frame owed or, for a spawn count, as itself.
+      expect(cpp.includes('float _rate='), m).toBe(particleModeUsesRate(m))
       // Every mode steps on the 60ths of a second since its last frame.
       expect(cpp).toContain('float _pf_pp = _pf_ppT < 0.0f ? 1.0f :')
       // additive render of every live particle at its life brightness
@@ -4093,13 +4130,18 @@ describe('generateCpp — Particles modes', () => {
 
   it('scales velocities by the frames passed and keeps drag and decay over them', () => {
     const fountain = gen('fountain')
-    expect(fountain).toContain('if(random8()<(uint8_t)(_paChance*255))')
+    // A spawn's chance is tried once in each whole frame owed, and one tried
+    // for a later frame starts with the life the frames before it took.
+    expect(fountain).toContain('for(int _try=0;_try<_ps_pp_dots;_try++) if(random8()<(uint8_t)(_rate*255))')
+    expect(fountain).toContain('_pa_ppl[i]=powf(_paLife,(float)(_ps_pp_dots-_try)-_pf_pp); break;')
     expect(fountain).toContain('_pa_ppx[i]+=_pa_ppvx[i]*_pf_pp; _pa_ppy[i]+=_pa_ppvy[i]*_pf_pp; _pa_ppvy[i]+=0.02f*_paGrav*_pf_pp; _pa_ppl[i]*=_paKeep;')
     expect(fountain).toContain('float _paKeep=powf(constrain(0.92,0.0f,1.0f),_pf_pp);')
     const fireworks = gen('fireworks')
     expect(fireworks).toContain('float _paDrag=powf(0.965f,_pf_pp);')
-    expect(fireworks).toContain('float _paBurst=(_pf_pp==1.0f?(constrain(0.5,0.0f,1.0f)*0.12f):1.0f-powf(1.0f-(constrain(0.5,0.0f,1.0f)*0.12f),_pf_pp));')
+    expect(fireworks).toContain('for(int _try=0;_try<_ps_pp_dots;_try++) if(random8()<(uint8_t)(_rate*0.12f*255))')
     expect(fireworks).toContain('float _paKeep=powf(constrain(0.92,0.0f,1.0f)*0.985f,_pf_pp);')
+    // Bubbles never decay, so a late spawn starts whole.
+    expect(gen('bubbles')).not.toContain('_paLife')
     expect(gen('chase')).toContain('_pa_ppvx[i]=_pa_ppvx[i]*_paDrag+dx/d*0.025f*_pf_pp;')
     expect(gen('pinwheel')).toContain('float _paTurn=0.035f*_pf_pp;')
     // A mode that never reads Decay declares no keep.

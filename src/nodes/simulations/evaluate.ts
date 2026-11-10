@@ -2,8 +2,8 @@ import { FORMULA_POINTS_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../s
 import { PARTICLE_DECAY_SCALE, particleMode, particlePoolSize } from './particleModes'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
 import { speedPhase } from '../shared/speedClock'
-import { fadeBytesToBlackBy, fadeFrameToBlackBy, trailFadeAmount, trailKeep } from '../shared/trailFade'
-import { keepOver, passChance, passFrames, passSteps } from '../shared/passClock'
+import { fadeBytesToBlackBy, fadeFrameToBlackBy, trailFadeAmount, trailKeep, trailSurvives } from '../shared/trailFade'
+import { PASS_FPS, keepOver, passFrames, passStepFrames, passSteps } from '../shared/passClock'
 import { particleRadius } from './particleScale'
 import { fireDirection, type FireDirection } from './fireDirection'
 import { curlFlow } from '../../state/evaluator/curl'
@@ -67,7 +67,14 @@ const flowState = instanceState('flowState', new Map<string, FlowState>())
 interface StarState { x: Float32Array; y: Float32Array; z: Float32Array; w: number; h: number; seed: number }
 const starState = instanceState('starState', new Map<string, StarState>())
 
-interface BoidState { x: Float32Array; y: Float32Array; vx: Float32Array; vy: Float32Array; w: number; h: number; seed: number }
+/**
+ * `nvx`/`nvy` are the velocities the last step steered to and `nn` its
+ * neighbour counts: a pass that owes no whole frame draws from them unmoved.
+ */
+interface BoidState {
+  x: Float32Array; y: Float32Array; vx: Float32Array; vy: Float32Array
+  nvx: Float32Array; nvy: Float32Array; nn: Int32Array; w: number; h: number; seed: number
+}
 const boidState = instanceState('boidState', new Map<string, BoidState>())
 
 // ── Shared Fire/Fire2012 controls (direction, turbulence, mirror, seed) — both nodes keep their own heat algorithm but share this exact set
@@ -131,26 +138,31 @@ function evalFire(
   const cool = Math.max(0, Math.min(255, cooling)) / 255 * 0.18
   // Bounded as the sketch bounds it, so a wired value cannot widen it further.
   const spread = Math.round(Math.max(0, Math.min(2, turbulence)))
-
-  for (let p = 0; p < P; p++)
-    for (let s = 0; s < S; s++)
-      heat[p][s] = Math.max(0, heat[p][s] - cool - fireRandom(nodeId, seed) * cool)
-
-  // Propagate from p-1 (closer to the base) into p, averaging a
-  // `turbulence`-wide window across the secondary axis (spread=1 reproduces
-  // the original fixed 3-wide/4-sample kernel exactly).
-  for (let p = P - 1; p >= 1; p--) {
-    for (let s = 0; s < S; s++) {
-      let sum = 0
-      for (let ds = -spread; ds <= spread; ds++) sum += heat[p - 1][Math.max(0, Math.min(S - 1, s + ds))]
-      heat[p][s] = (heat[p][s] + sum) / (spread * 2 + 2)
-    }
-  }
-
   const sparkChance = Math.max(0, Math.min(1, (Math.max(0, Math.min(255, sparking)) / 255) * (0.35 + Math.max(0, Math.min(1, intensity)) * 0.65)))
-  for (let s = 0; s < S; s++)
-    if (fireRandom(nodeId, seed) < sparkChance)
-      heat[0][s] = Math.min(1, 0.75 + fireRandom(nodeId, seed) * 0.25)
+
+  // The heat cools, rises a row and sparks once a frame: a 30 fps pass runs
+  // the step twice, so flames climb and flicker at the 60 fps pace.
+  const steps = passStepFrames(`${nodeId}:steps`, passFrames(nodeId, t))
+  for (let step = 0; step < steps; step++) {
+    for (let p = 0; p < P; p++)
+      for (let s = 0; s < S; s++)
+        heat[p][s] = Math.max(0, heat[p][s] - cool - fireRandom(nodeId, seed) * cool)
+
+    // Propagate from p-1 (closer to the base) into p, averaging a
+    // `turbulence`-wide window across the secondary axis (spread=1 reproduces
+    // the original fixed 3-wide/4-sample kernel exactly).
+    for (let p = P - 1; p >= 1; p--) {
+      for (let s = 0; s < S; s++) {
+        let sum = 0
+        for (let ds = -spread; ds <= spread; ds++) sum += heat[p - 1][Math.max(0, Math.min(S - 1, s + ds))]
+        heat[p][s] = (heat[p][s] + sum) / (spread * 2 + 2)
+      }
+    }
+
+    for (let s = 0; s < S; s++)
+      if (fireRandom(nodeId, seed) < sparkChance)
+        heat[0][s] = Math.min(1, 0.75 + fireRandom(nodeId, seed) * 0.25)
+  }
 
   const frame = allocFrame(W, H)
   for (let p = 0; p < P; p++) {
@@ -198,22 +210,37 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
   const add = (p: Particle) => { if (particles.length < cap) particles.push(p) }
 
   // Every step below was written per frame: velocities, accelerations and
-  // counts are multiplied by the pass's `frames`, drag and decay are kept
-  // over them (`keepOver`), and a spawn's chance is the chance of coming up
-  // at least once in them (`passChance`). At one frame each is the old step.
+  // counts are multiplied by the pass's `frames`, and drag and decay are kept
+  // over them (`keepOver`). At one frame each is the old step.
   const frames = passFrames(nodeId, t)
-  const chance = passChance(rate, frames)
   const lifeKept = decay * (PARTICLE_DECAY_SCALE[particleMode(mode)] ?? 1)
   const keep = keepOver(lifeKept, frames)
+  // The whole frames this pass spans. A spawn written as a chance a frame is
+  // tried once in each, so a 30 fps pass can spawn twice, as two frames
+  // could, and Rate spawns as many a second at any frame rate. One tried for
+  // a later frame starts with the life it would have lost to the frames
+  // before it, so the pass's decay leaves it as young as 60 fps would.
+  const owed = passSteps(`${nodeId}:dots`, 1, frames)
+  const decays = PARTICLE_DECAY_SCALE[particleMode(mode)] !== undefined
+  const tries = (chance: number, spawn: () => void, perFrame = 1) => {
+    for (let k = 0; k < owed; k++) {
+      const younger = decays ? keepOver(lifeKept, owed - k - frames) : 1
+      for (let i = 0; i < perFrame; i++) {
+        if (!(rnd() < chance)) continue
+        const from = particles.length
+        spawn()
+        if (younger !== 1) for (let j = from; j < particles.length; j++) particles[j].life *= younger
+      }
+    }
+  }
   // Trail dots for the modes that lay one a frame: each one owed this pass,
   // oldest first, at its own moment, already faded for the frames since.
-  const dotsOwed = () => passSteps(`${nodeId}:dots`, 1, frames)
   const dotLife = (age: number) => keepOver(lifeKept, age + 1)
 
   switch (mode) {
     case 'drops': {
       // Drops fall from the top and bounce off the floor, losing energy.
-      if (rnd() < chance) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: (rnd() - 0.5) * 0.4 * spread, vy: rnd() * 0.2, life: 1 })
+      tries(rate, () => add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: (rnd() - 0.5) * 0.4 * spread, vy: rnd() * 0.2, life: 1 }))
       for (const p of particles) {
         p.vy += 0.045 * gravity * frames; p.x += p.vx * frames; p.y += p.vy * frames
         if (p.y >= H - 1) { p.y = H - 1; p.vy *= -0.55 * bounce; p.vx *= 0.8; p.life *= 0.9 }
@@ -224,7 +251,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     }
     case 'fireworks': {
       // Occasional radial burst from a random point; gravity + drag pull it apart.
-      if (rnd() < passChance(rate * 0.12, frames)) {
+      tries(rate * 0.12, () => {
         const cx = rnd() * W, cy = rnd() * H * 0.5 + H * 0.1
         const n = 14 + Math.floor(rnd() * 8)
         for (let i = 0; i < n; i++) {
@@ -232,7 +259,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
           const spd = rnd() * 0.5 + 0.35
           add({ x: cx, y: cy, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: 1 })
         }
-      }
+      })
       const drag = keepOver(0.965, frames)
       for (const p of particles) { p.vy += 0.022 * gravity * frames; p.vx *= drag; p.vy *= drag; p.x += p.vx * frames; p.y += p.vy * frames; p.life *= keep }
       particles = particles.filter(p => p.life > 0.05)
@@ -241,7 +268,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     case 'sparkle': {
       // Sparkle rain — random twinkles drizzle down and fade.
       const spawn = Math.max(1, Math.round(rate * W * 0.8))
-      for (let i = 0; i < spawn; i++) if (rnd() < chance) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: rnd() * H * 0.3, vx: 0, vy: rnd() * 0.25 + 0.05, life: 1 })
+      tries(rate, () => add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: rnd() * H * 0.3, vx: 0, vy: rnd() * 0.25 + 0.05, life: 1 }), spawn)
       for (const p of particles) { p.y += p.vy * frames; p.life *= keep }
       particles = particles.filter(p => p.life > 0.05 && p.y < H)
       break
@@ -249,7 +276,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     case 'comet': {
       // A head traces a Lissajous path, dropping a fading trail dot each frame.
       for (const p of particles) p.life *= keep
-      for (let age = dotsOwed() - 1; age >= 0; age--) {
+      for (let age = owed - 1; age >= 0; age--) {
         const at = t - age / 60
         const hx = (W - 1) * (0.5 + 0.45 * Math.sin(at * 0.9))
         const hy = (H - 1) * (0.5 + 0.45 * Math.sin(at * 0.6 + 1.3))
@@ -260,35 +287,35 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     }
     case 'snow': {
       // Snow drifts down with a gentle horizontal sway; recycles at the floor.
-      if (rnd() < chance) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: 0, vy: rnd() * 0.12 + 0.05, life: 0.7 + rnd() * 0.3, seed: rnd() * 6.28 })
+      tries(rate, () => add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: 0, vy: rnd() * 0.12 + 0.05, life: 0.7 + rnd() * 0.3, seed: rnd() * 6.28 }))
       for (const p of particles) { p.y += p.vy * frames; p.x += Math.sin(t * 1.5 + (p.seed ?? 0)) * 0.12 * frames }
       particles = particles.filter(p => p.y < H)
       break
     }
     case 'rain': {
       // Fast wind-blown streaks from the top.
-      if (rnd() < chance) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: (rnd() - 0.5) * 0.18, vy: rnd() * 0.45 + 0.35, life: 1 })
+      tries(rate, () => add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: (rnd() - 0.5) * 0.18, vy: rnd() * 0.45 + 0.35, life: 1 }))
       for (const p of particles) { p.x += p.vx * frames; p.y += p.vy * frames; p.life *= keep }
       particles = particles.filter(p => p.y < H && p.life > 0.05)
       break
     }
     case 'embers': {
       // Warm motes lift from the floor and wander as they cool.
-      if (rnd() < chance) add({ x: rnd() * W, y: H - 1, vx: (rnd() - 0.5) * 0.12, vy: -(rnd() * 0.18 + 0.04), life: 1, seed: rnd() * 6.28 })
+      tries(rate, () => add({ x: rnd() * W, y: H - 1, vx: (rnd() - 0.5) * 0.12, vy: -(rnd() * 0.18 + 0.04), life: 1, seed: rnd() * 6.28 }))
       for (const p of particles) { p.x += (p.vx + Math.sin(t * 2 + (p.seed ?? 0)) * 0.05) * frames; p.y += p.vy * frames; p.life *= keep }
       particles = particles.filter(p => p.y >= 0 && p.life > 0.05)
       break
     }
     case 'bubbles': {
       // Buoyant dots rise from below with a broad side-to-side wobble.
-      if (rnd() < chance) add({ x: rnd() * W, y: H - 1, vx: 0, vy: -(rnd() * 0.16 + 0.06), life: 1, seed: rnd() * 6.28 })
+      tries(rate, () => add({ x: rnd() * W, y: H - 1, vx: 0, vy: -(rnd() * 0.16 + 0.06), life: 1, seed: rnd() * 6.28 }))
       for (const p of particles) { p.x += Math.sin(t * 3 + (p.seed ?? 0)) * 0.1 * frames; p.y += p.vy * frames }
       particles = particles.filter(p => p.y >= 0)
       break
     }
     case 'vortex': {
       // Particles spiral around the centre while being pulled slowly inward.
-      if (rnd() < chance) add({ x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, life: 1 })
+      tries(rate, () => add({ x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, life: 1 }))
       const cx = (W - 1) / 2, cy = (H - 1) / 2
       for (const p of particles) {
         const dx = p.x - cx, dy = p.y - cy, d = Math.max(0.5, Math.hypot(dx, dy))
@@ -311,9 +338,8 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
       }
       for (const q of particles) if (!q.emitter) q.life *= keep
       // The emitters step once per frame owed, each step at its own moment.
-      const steps = dotsOwed()
-      for (let step = 0; step < steps; step++) {
-        const age = steps - 1 - step, at = t - age / 60
+      for (let step = 0; step < owed; step++) {
+        const age = owed - 1 - step, at = t - age / 60
         emitters.forEach((q, i) => {
           const n = _snoise2(at * LUMINOVA_NOISE_SPEED + i * LUMINOVA_NOISE_SEPARATION, i * LUMINOVA_NOISE_LANE) * 0.5 + 0.5
           q.seed = (q.seed ?? 0) + LUMINOVA_TURN + (n - 0.5) * LUMINOVA_WANDER
@@ -339,7 +365,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
       // A bright diagonal head continuously lays down a fading tail.
       for (const p of particles) p.life *= keep
       const span = Math.max(1, Math.max(W, H) - 1)
-      for (let age = dotsOwed() - 1; age >= 0; age--) {
+      for (let age = owed - 1; age >= 0; age--) {
         const phase = ((t - age / 60) * Math.max(2, W * 0.45)) % span
         add({ x: phase * (W - 1) / span, y: phase * (H - 1) / span, vx: 0, vy: 0, life: dotLife(age) })
       }
@@ -348,17 +374,17 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     }
     case 'tornado': {
       // Rising motes tighten into a rotating funnel.
-      if (rnd() < chance) add({ x: W / 2, y: H - 1, vx: 0, vy: -(rnd() * 0.16 + 0.06), life: 1, seed: rnd() * 6.28 })
+      tries(rate, () => add({ x: W / 2, y: H - 1, vx: 0, vy: -(rnd() * 0.16 + 0.06), life: 1, seed: rnd() * 6.28 }))
       for (const p of particles) { p.y += p.vy * frames; const h = Math.max(0, Math.min(1, 1 - p.y / H)); p.x = W / 2 + Math.sin(t * 5 + (p.seed ?? 0) + p.y * 0.7) * (0.5 + h * W * 0.35); p.life *= keep }
       particles = particles.filter(p => p.y >= 0 && p.life > 0.05)
       break
     }
     case 'pinwheel': {
       // Curved spokes stream out from the centre.
-      if (rnd() < chance) {
+      tries(rate, () => {
         const a = rnd() * Math.PI * 2
         add({ x: W / 2, y: H / 2, vx: Math.cos(a) * 0.18, vy: Math.sin(a) * 0.18, life: 1 })
-      }
+      })
       const turn = 0.035 * frames
       for (const p of particles) { const vx = p.vx - p.vy * turn, vy = p.vy + p.vx * turn; p.vx = vx; p.vy = vy; p.x += vx * frames; p.y += vy * frames; p.life *= keep }
       particles = particles.filter(p => p.life > 0.05 && p.x >= 0 && p.x < W && p.y >= 0 && p.y < H)
@@ -374,7 +400,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     }
     case 'chase': {
       // Particles chase a moving point, overshooting into loose loops.
-      if (rnd() < chance) add({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.1, vy: (rnd() - 0.5) * 0.1, life: 1 })
+      tries(rate, () => add({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.1, vy: (rnd() - 0.5) * 0.1, life: 1 }))
       const ax = (W - 1) * (0.5 + 0.35 * Math.sin(t * 0.7)), ay = (H - 1) * (0.5 + 0.35 * Math.cos(t * 0.9))
       const drag = keepOver(0.97, frames)
       for (const p of particles) { const dx = ax - p.x, dy = ay - p.y, d = Math.max(1, Math.hypot(dx, dy)); p.vx = p.vx * drag + dx / d * 0.025 * frames; p.vy = p.vy * drag + dy / d * 0.025 * frames; p.x += p.vx * frames; p.y += p.vy * frames; p.life *= keep }
@@ -384,7 +410,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     case 'waterfall': {
       // Dense drops accelerate down a narrow central stream and splash outward.
       const spawn = Math.max(1, Math.round(rate * 3))
-      for (let i = 0; i < spawn; i++) if (rnd() < chance) add({ x: W * 0.5 + (rnd() - 0.5) * 0.3 * W * spread, y: 0, vx: (rnd() - 0.5) * 0.08, vy: rnd() * 0.2 + 0.12, life: 1 })
+      tries(rate, () => add({ x: W * 0.5 + (rnd() - 0.5) * 0.3 * W * spread, y: 0, vx: (rnd() - 0.5) * 0.08, vy: rnd() * 0.2 + 0.12, life: 1 }), spawn)
       for (const p of particles) { p.vy += 0.025 * gravity * frames; p.x += p.vx * frames; p.y += p.vy * frames; if (p.y >= H - 1) { p.y = H - 1; p.vy *= -0.3 * bounce; p.vx += (rnd() - 0.5) * 0.35; p.life *= 0.7 } p.life *= keep }
       particles = particles.filter(p => p.life > 0.05 && p.y < H)
       break
@@ -392,7 +418,7 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
     case 'fountain':
     default: {
       // Sparks rise from the bottom, arc under gravity, and fade.
-      if (rnd() < chance) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: H - 1, vx: (rnd() - 0.5) * 0.6 * spread, vy: -(rnd() * 0.5 + 0.1), life: 1 })
+      tries(rate, () => add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: H - 1, vx: (rnd() - 0.5) * 0.6 * spread, vy: -(rnd() * 0.5 + 0.1), life: 1 }))
       for (const p of particles) { p.x += p.vx * frames; p.y += p.vy * frames; p.vy += 0.02 * gravity * frames; p.life *= keep }
       particles = particles.filter(p => p.life > 0.04 && p.y >= 0)
       break
@@ -518,31 +544,34 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
       return buf
     }
 
-    case 'lissajousPath': {
-      const buf = formulaPointsTrailBuf(st, W, H)
-      fadeFrameToBlackBy(buf, trailFadeAmount(key, t, p.trail))
-      const phase = speedPhase(key, t, p.speed) * (FORMULA_POINTS_SPEED_MAX.lissajousPath ?? 1)
-      const cx = Math.sin(Math.max(1, p.freqA) * phase)
-      const cy = Math.sin(Math.max(1, p.freqB) * phase)
-      const px = ((cx + 1) / 2) * (W - 1)
-      const py = ((cy + 1) / 2) * (H - 1)
-      splat(buf, px, py, samplePalette(p.palette, hueWrap01(phase / (2 * Math.PI))))
-      st.frame = buf
-      formulaPointsState.set(key, st)
-      return buf
-    }
-
+    case 'lissajousPath':
     case 'rosePath': {
       const buf = formulaPointsTrailBuf(st, W, H)
-      fadeFrameToBlackBy(buf, trailFadeAmount(key, t, p.trail))
-      const phase = speedPhase(key, t, p.speed) * (FORMULA_POINTS_SPEED_MAX.rosePath ?? 1)
-      const k = Math.max(1, p.petals)
-      const rr = Math.cos(k * phase)
-      const cx = rr * Math.cos(phase)
-      const cy = rr * Math.sin(phase)
-      const px = ((cx + 1) / 2) * (W - 1)
-      const py = ((cy + 1) / 2) * (H - 1)
-      splat(buf, px, py, samplePalette(p.palette, hueWrap01(phase / (2 * Math.PI))))
+      const rose = p.formulaType === 'rosePath'
+      const spin = speedPhase(key, t, p.speed)
+      const max = FORMULA_POINTS_SPEED_MAX[rose ? 'rosePath' : 'lissajousPath'] ?? 1
+      // The dot lands once a frame: one for each whole frame owed, the oldest
+      // first, where the curve was at its own moment and already faded for
+      // the frames since, so a 30 fps trail has the 60 fps dots. A pass that
+      // owes none leaves the trail as it stands, unfaded, as String Particles'.
+      const owed = passSteps(`${key}:dots`, 1, passFrames(key, t))
+      if (owed > 0) fadeFrameToBlackBy(buf, trailFadeAmount(key, t, p.trail))
+      const keepPerFrame = owed > 1 ? trailSurvives(p.trail, 1 / PASS_FPS) : 1
+      for (let age = owed - 1; age >= 0; age--) {
+        const phase = (age === 0 ? spin : spin - p.speed * (age / PASS_FPS)) * max
+        let cx: number, cy: number
+        if (rose) {
+          const rr = Math.cos(Math.max(1, p.petals) * phase)
+          cx = rr * Math.cos(phase); cy = rr * Math.sin(phase)
+        } else {
+          cx = Math.sin(Math.max(1, p.freqA) * phase); cy = Math.sin(Math.max(1, p.freqB) * phase)
+        }
+        const px = ((cx + 1) / 2) * (W - 1)
+        const py = ((cy + 1) / 2) * (H - 1)
+        const c = samplePalette(p.palette, hueWrap01(phase / (2 * Math.PI)))
+        const kb = age === 0 ? 255 : clampByte(Math.pow(keepPerFrame, age) * 255)
+        splat(buf, px, py, kb === 255 ? c : { r: scale8(c.r, kb), g: scale8(c.g, kb), b: scale8(c.b, kb) })
+      }
       st.frame = buf
       formulaPointsState.set(key, st)
       return buf
@@ -730,11 +759,18 @@ function evalStringParticles(nodeId: string, o: StringParticleOptions, spawn: nu
   const { pos, vel, life, hue, kind, trail } = s
   const step = Math.max(0, speed) * 0.6
   const spawnP = clamp01(spawn)
-  fadeBytesToBlackBy(trail, trailFadeAmount(nodeId, t, trailLen))
-  // Moves, spawn chances and life were each written per frame; they run on
-  // the 60ths of a second this pass spans, so a 30 fps string keeps pace.
+  // Moves and life were each written per frame; they run on the 60ths of a
+  // second this pass spans, so a 30 fps string keeps pace. A spawn chance is
+  // tried, and a trail deposit laid, once in each whole frame owed. A pass
+  // that owes none (above 60 fps) leaves the trail as it stands, unfaded, so
+  // the trail changes sixty times a second there too and its head never
+  // blinks out between deposits.
   const frames = passFrames(nodeId, t)
+  const owed = passSteps(`${nodeId}:dots`, 1, frames)
+  if (owed > 0) fadeBytesToBlackBy(trail, trailFadeAmount(nodeId, t, trailLen))
   const debrisDrag = keepOver(0.92, frames)
+  // What a deposit laid a frame ago has kept of its light since.
+  const depositKeep = owed > 1 ? trailSurvives(trailLen, 1 / PASS_FPS) : 1
 
   const free = () => { for (let i = 0; i < pc; i++) if (life[i] <= 0) return i; return -1 }
   const place = (i: number, k: number, p: number, v: number, l: number, h: number) => {
@@ -743,7 +779,7 @@ function evalStringParticles(nodeId: string, o: StringParticleOptions, spawn: nu
   const dir = () => (rnd() < 0.5 ? -1 : 1)
 
   if (o.mode === 'meteors') {
-    if (rnd() < passChance(spawnP * 0.3, frames)) {
+    for (let k = 0; k < owed; k++) if (rnd() < spawnP * 0.3) {
       const i = free()
       if (i >= 0) place(i, SP_AMBIENT, rnd() * len, dir() * 0.3, 0.6, rnd())
     }
@@ -759,33 +795,39 @@ function evalStringParticles(nodeId: string, o: StringParticleOptions, spawn: nu
       }
     }
   } else {
-    const chance = passChance(spawnP, frames)
-    for (let i = 0; i < pc; i++) {
-      if (life[i] <= 0 && rnd() < chance) place(i, SP_DRIFT, rnd() * len, dir(), 1, rnd())
+    for (let k = 0; k < owed; k++) for (let i = 0; i < pc; i++) {
+      if (life[i] <= 0 && rnd() < spawnP) place(i, SP_DRIFT, rnd() * len, dir(), 1, rnd())
     }
   }
   s.prev = trigger
 
   for (let i = 0; i < pc; i++) {
     if (life[i] <= 0) continue
-    if (kind[i] === SP_DRIFT) pos[i] = wrapTrack(pos[i] + vel[i] * step * life[i] * frames, len)
-    else {
-      pos[i] = wrapTrack(pos[i] + vel[i] * frames, len)
-      if (kind[i] === SP_DEBRIS) vel[i] *= debrisDrag
-    }
-    life[i] -= STRING_PARTICLE_DECAY[kind[i]] * frames
-    if (life[i] <= 0) { life[i] = 0; continue }
+    const moved = kind[i] === SP_DRIFT ? vel[i] * step * life[i] * frames : vel[i] * frames
+    pos[i] = wrapTrack(pos[i] + moved, len)
+    if (kind[i] === SP_DEBRIS) vel[i] *= debrisDrag
+    const decay = STRING_PARTICLE_DECAY[kind[i]]
+    life[i] -= decay * frames
     // Power drives colour and brightness together: a fading particle washes out
-    // toward white and dims as it goes.
+    // toward white and dims as it goes. It deposits once for each frame owed,
+    // the oldest first, back along this pass's move at the life it had then,
+    // already faded for the frames since, so a 30 fps trail has no gaps.
     const base = samplePalette(palette, clamp01(hue[i]))
-    const wq = clampByte((1 - life[i]) * 0.5 * 255)
-    const lq = clampByte(life[i] * 255)
-    const col = [base.r, base.g, base.b].map((c) => scale8(c + scale8(255 - c, wq), lq))
-    const { a, b, covA, covB } = trackSplat(pos[i], len)
-    for (const [cell, cov] of [[a, covA], [b, covB]] as const) {
-      const q = clampByte(cov * 255)
-      for (let c = 0; c < 3; c++) trail[cell * 3 + c] = qadd8(trail[cell * 3 + c], scale8(col[c], q))
+    for (let age = owed - 1; age >= 0; age--) {
+      const ago = Math.min(age, frames)
+      const l = age === 0 ? life[i] : life[i] + decay * ago
+      if (l <= 0) continue
+      const at = age === 0 ? pos[i] : wrapTrack(pos[i] - moved * (frames > 0 ? ago / frames : 0), len)
+      const wq = clampByte((1 - l) * 0.5 * 255)
+      const lq = clampByte((age === 0 ? l : l * Math.pow(depositKeep, age)) * 255)
+      const col = [base.r, base.g, base.b].map((c) => scale8(c + scale8(255 - c, wq), lq))
+      const { a, b, covA, covB } = trackSplat(at, len)
+      for (const [cell, cov] of [[a, covA], [b, covB]] as const) {
+        const q = clampByte(cov * 255)
+        for (let c = 0; c < 3; c++) trail[cell * 3 + c] = qadd8(trail[cell * 3 + c], scale8(col[c], q))
+      }
     }
+    if (life[i] <= 0) life[i] = 0
   }
 
   const frame = blankFrame(W, H)
@@ -870,41 +912,49 @@ function evalBoids(nodeId: string, speed: number, count: number, sep: number, al
       x[i] = rnd() * W; y[i] = rnd() * H
       const a = rnd() * Math.PI * 2; vx[i] = Math.cos(a); vy[i] = Math.sin(a)
     }
-    s = { x, y, vx, vy, w: W, h: H, seed }; boidState.set(nodeId, s)
+    s = { x, y, vx, vy, nvx: Float32Array.from(vx), nvy: Float32Array.from(vy), nn: new Int32Array(n), w: W, h: H, seed }
+    boidState.set(nodeId, s)
   }
-  const { x, y, vx, vy } = s
+  const { x, y, vx, vy, nvx, nvy, nn } = s
   const maxSpeed = Math.max(0.1, speed)
   const range2 = range * range
   const sepR2 = (range * 0.5) * (range * 0.5)
-  const nvx = new Float32Array(n), nvy = new Float32Array(n), nn = new Int32Array(n)
-  for (let i = 0; i < n; i++) {
-    let sx = 0, sy = 0, avx = 0, avy = 0, cx = 0, cy = 0, near = 0, sc = 0
-    for (let j = 0; j < n; j++) {
-      if (j === i) continue
-      const dx = x[j] - x[i], dy = y[j] - y[i]
-      const d2 = dx * dx + dy * dy
-      if (d2 < range2) {
-        avx += vx[j]; avy += vy[j]; cx += x[j]; cy += y[j]; near++
-        if (d2 < sepR2 && d2 > 0) { sx -= dx; sy -= dy; sc++ }
+  // Each boid steers and moves once a frame: a 30 fps pass runs the step
+  // twice, so the flock travels and turns at the 60 fps pace.
+  const steps = passStepFrames(`${nodeId}:steps`, passFrames(nodeId, t))
+  for (let step = 0; step < steps; step++) {
+    for (let i = 0; i < n; i++) {
+      let sx = 0, sy = 0, avx = 0, avy = 0, cx = 0, cy = 0, near = 0, sc = 0
+      for (let j = 0; j < n; j++) {
+        if (j === i) continue
+        const dx = x[j] - x[i], dy = y[j] - y[i]
+        const d2 = dx * dx + dy * dy
+        if (d2 < range2) {
+          avx += vx[j]; avy += vy[j]; cx += x[j]; cy += y[j]; near++
+          if (d2 < sepR2 && d2 > 0) { sx -= dx; sy -= dy; sc++ }
+        }
       }
+      nn[i] = near
+      let stx = 0, sty = 0
+      if (near > 0) {
+        stx += (avx / near - vx[i]) * ali * 0.08
+        sty += (avy / near - vy[i]) * ali * 0.08
+        stx += (cx / near - x[i]) * coh * 0.005
+        sty += (cy / near - y[i]) * coh * 0.005
+      }
+      if (sc > 0) { stx += sx * sep * 0.05; sty += sy * sep * 0.05 }
+      nvx[i] = vx[i] + stx; nvy[i] = vy[i] + sty
     }
-    nn[i] = near
-    let stx = 0, sty = 0
-    if (near > 0) {
-      stx += (avx / near - vx[i]) * ali * 0.08
-      sty += (avy / near - vy[i]) * ali * 0.08
-      stx += (cx / near - x[i]) * coh * 0.005
-      sty += (cy / near - y[i]) * coh * 0.005
+    for (let i = 0; i < n; i++) {
+      const sp = Math.hypot(nvx[i], nvy[i]) || 1
+      vx[i] = nvx[i] / sp * maxSpeed; vy[i] = nvy[i] / sp * maxSpeed
+      x[i] = (x[i] + vx[i] + W) % W; y[i] = (y[i] + vy[i] + H) % H
     }
-    if (sc > 0) { stx += sx * sep * 0.05; sty += sy * sep * 0.05 }
-    nvx[i] = vx[i] + stx; nvy[i] = vy[i] + sty
   }
   const frame = blankFrame(W, H)
   for (let i = 0; i < n; i++) {
     const sp = Math.hypot(nvx[i], nvy[i]) || 1
     const dirx = nvx[i] / sp, diry = nvy[i] / sp
-    vx[i] = dirx * maxSpeed; vy[i] = diry * maxSpeed
-    x[i] = (x[i] + vx[i] + W) % W; y[i] = (y[i] + vy[i] + H) % H
     const at = boidPalettePosition(colorMode, i, n, dirx, diry, nn[i], x[i], y[i], t, W, H)
     const bc = at === null ? color : samplePalette(palette, at)
     const tr = bc.r >> 2, tg = bc.g >> 2, tb = bc.b >> 2
@@ -933,8 +983,8 @@ export function reactionDiffusionSeedV(x: number, y: number, seed: number): numb
 
 // Gray-Scott reaction-diffusion. Two chemicals U, V diffuse on a toroidal grid
 // and react; V is the field output and, through a palette, the frame output.
-// Stateful — steps each frame.
-function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters: number, palette: Palette, W = DEFAULT_W, H = DEFAULT_H, seed = 0): { frame: Frame; field: Field } {
+// Stateful — `iters` updates for each whole 60th of a second owed.
+function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters: number, palette: Palette, t: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0): { frame: Frame; field: Field } {
   const N = W * H
   let s = rdState.get(nodeId)
   if (!s || s.w !== W || s.h !== H || s.seed !== seed) {
@@ -947,7 +997,10 @@ function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters
     rdState.set(nodeId, s)
   }
   const Du = 0.16, Dv = 0.08
-  for (let it = 0; it < iters; it++) {
+  // Steps is a count a frame: a 30 fps pass runs twice as many, so the
+  // pattern grows at the 60 fps pace, up to MAX_STEP_FRAMES frames' worth.
+  const updates = iters * passStepFrames(`${nodeId}:steps`, passFrames(nodeId, t))
+  for (let it = 0; it < updates; it++) {
     const { u, v, un, vn } = s
     for (let y = 0; y < H; y++) {
       const ym = ((y - 1 + H) % H) * W, yp = ((y + 1) % H) * W, yr = y * W
@@ -1032,7 +1085,7 @@ const fire2012Heat = instanceState('fire2012Heat', new Map<string, Uint8Array[]>
 function evalFire2012(
   nodeId: string, cooling: number, sparking: number, palette: Palette,
   W = DEFAULT_W, H = DEFAULT_H,
-  direction: FireDirection = 'up', turbulence = 1, mirror = false, seed = 0,
+  direction: FireDirection = 'up', turbulence = 1, mirror = false, seed = 0, t = 0,
 ): Frame {
   const P = firePrimaryLen(direction, W, H), S = fireSecondaryLen(direction, W, H)
   const stored = fire2012Heat.get(nodeId)
@@ -1046,24 +1099,28 @@ function evalFire2012(
   // Bounded as the sketch bounds it, so a wired value cannot widen it further.
   const spread = Math.round(Math.max(0, Math.min(2, turbulence)))
 
-  for (let p = 0; p < P; p++)
-    for (let s = 0; s < S; s++) {
-      const cool = Math.floor(fireRandom(nodeId, seed) * ((cooling * 10 / P) + 2))
-      heat[p][s] = Math.max(0, heat[p][s] - cool)
+  // Fire2012 is a step a frame too, repeated for each whole frame owed.
+  const steps = passStepFrames(`${nodeId}:steps`, passFrames(nodeId, t))
+  for (let step = 0; step < steps; step++) {
+    for (let p = 0; p < P; p++)
+      for (let s = 0; s < S; s++) {
+        const cool = Math.floor(fireRandom(nodeId, seed) * ((cooling * 10 / P) + 2))
+        heat[p][s] = Math.max(0, heat[p][s] - cool)
+      }
+    // Classic two-row lookahead: row p comes from the single row p-1 (closer to
+    // the base) plus a `turbulence`-wide sideways window at p-2 (spread=1
+    // reproduces the original fixed 4-sample kernel exactly).
+    for (let p = P - 1; p >= 2; p--) {
+      for (let s = 0; s < S; s++) {
+        let sum = heat[p - 1][s]
+        for (let ds = -spread; ds <= spread; ds++) sum += heat[p - 2][Math.max(0, Math.min(S - 1, s + ds))]
+        heat[p][s] = Math.floor(sum / (spread * 2 + 2))
+      }
     }
-  // Classic two-row lookahead: row p comes from the single row p-1 (closer to
-  // the base) plus a `turbulence`-wide sideways window at p-2 (spread=1
-  // reproduces the original fixed 4-sample kernel exactly).
-  for (let p = P - 1; p >= 2; p--) {
-    for (let s = 0; s < S; s++) {
-      let sum = heat[p - 1][s]
-      for (let ds = -spread; ds <= spread; ds++) sum += heat[p - 2][Math.max(0, Math.min(S - 1, s + ds))]
-      heat[p][s] = Math.floor(sum / (spread * 2 + 2))
-    }
+    for (let s = 0; s < S; s++)
+      if (fireRandom(nodeId, seed) * 255 < sparking)
+        heat[0][s] = Math.min(255, heat[0][s] + Math.floor(fireRandom(nodeId, seed) * 95) + 160)
   }
-  for (let s = 0; s < S; s++)
-    if (fireRandom(nodeId, seed) * 255 < sparking)
-      heat[0][s] = Math.min(255, heat[0][s] + Math.floor(fireRandom(nodeId, seed) * 95) + 160)
 
   // Heat (0–255) indexes the palette; the default 'heat' palette reproduces the
   // classic FastLED HeatColors fire ramp.
@@ -1090,7 +1147,7 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const mirror = Boolean(props.mirror)
     const seed = Math.max(0, Math.round(Number(props.seed ?? 0)))
     const style = fireStyle(props.fireStyle)
-    if (style === 'fire2012') return { frame: evalFire2012(stateKey(id), cooling, sparking, palette, W, H, direction, turbulence, mirror, seed) }
+    if (style === 'fire2012') return { frame: evalFire2012(stateKey(id), cooling, sparking, palette, W, H, direction, turbulence, mirror, seed, t) }
     return { frame: evalFire(stateKey(id), intensity, cooling, sparking, palette, W, H, direction, turbulence, mirror, seed, style === 'smoke', t) }
   },
   Particles({ num, pal, t, W, H, stateKey }, id, props) {
@@ -1191,14 +1248,14 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
     return { frame: evalBoids(stateKey(id), speed, count, sep, ali, coh, range, color, palette, colorMode, t, W, H, normalizedSeed(props.seed)) }
   },
-  ReactionDiffusion({ num, pal, W, H, stateKey }, id, props) {
+  ReactionDiffusion({ num, pal, t, W, H, stateKey }, id, props) {
     // A named preset fixes feed and kill, wires included; `custom` reads both.
     const rates = reactionDiffusionRates(props.rdPreset)
     const feed  = rates?.feed ?? num(id, 'feed', props, 'feed', REACTION_DIFFUSION_RATES.coral.feed)
     const kill  = rates?.kill ?? num(id, 'kill', props, 'kill', REACTION_DIFFUSION_RATES.coral.kill)
     const iters = Math.max(1, Math.min(REACTION_DIFFUSION_MAX_STEPS, Math.floor(num(id, 'steps', props, 'steps', 8))))
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
-    return evalReactionDiffusion(stateKey(id), feed, kill, iters, palette, W, H, normalizedSeed(props.seed))
+    return evalReactionDiffusion(stateKey(id), feed, kill, iters, palette, t, W, H, normalizedSeed(props.seed))
   },
   GameOfLife({ num, pal, elapsedTick: tick, W, H, stateKey }, id, props) {
     const palette = pal(id, 'paletteIn', props, 'palette', 'mojito')
