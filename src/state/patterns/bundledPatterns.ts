@@ -945,6 +945,17 @@ const BUNDLED_BEST_ON: Record<string, PatternFormTag[]> = {
   // Promoted library patterns. Psydance arrays a rotating shape over
   // AnimARTrix; on one row neither the tiling nor the turn survives.
   'Psydance': ['matrix'],
+  // Tagged from their node lists, not from renders: each stars an engine
+  // whose idea is the second axis (an arrayed or mirrored tile, bar height,
+  // a mosaic, a well, ripples). Aurora Voice, Cascade Surge and Cinder Storm
+  // stay untagged until someone looks at them on a 60x1 strip.
+  'Polar Bloom': ['matrix'],
+  'Prism Fracture': ['matrix'],
+  'Ultraviolet Kaleido Pulse': ['matrix'],
+  'Neon Prism EQ': ['matrix'],
+  'Peacock Mosaic Drift': ['matrix'],
+  'Event Horizon': ['matrix'],
+  'Monsoon Echo': ['matrix'],
 }
 
 /** Every name in the table above, so a test can prove each one still matches a
