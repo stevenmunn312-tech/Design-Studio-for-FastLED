@@ -1,5 +1,6 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { NODE_LIBRARY, libraryDefaults } from '../state/nodeLibrary'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../state/player/buttonBank'
 
 const node = (id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode => {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -17,7 +18,7 @@ export function intervalControlFixture(mode: 'normal' | 'show' | 'player') {
     node('board', 'Board', { profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc' }),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4 }),
     node('period', 'Math', { a: 0.25, b: 0.25 }), node('timer', 'Interval'),
-    node('button', 'ButtonInput', { pin: 5 }),
+    node('button', 'ButtonBank', { buttons: singleButtonRow(5) }),
     node('controls', 'ControlMap', { controls: ['ledToggle', 'brightnessDown'], debounceMs: 30 }),
     node('toggle', 'Trigger', { triggerOp: 'toggle' }),
     node('status', 'InfoDisplay', { partId: 'ssd1306-oled-128x64', sdaPin: 8, sclPin: 9 }),
@@ -25,7 +26,7 @@ export function intervalControlFixture(mode: 'normal' | 'show' | 'player') {
   const edges = [
     edge('period', 'result', 'timer', 'interval'),
     edge('timer', 'pulse', 'controls', 'ledToggle'),
-    edge('button', 'pressed', 'controls', 'brightnessDown'),
+    edge('button', FIRST_BUTTON_HANDLE, 'controls', 'brightnessDown'),
     edge('timer', 'pulse', 'toggle', 'trigger'),
     edge('toggle', 'out', 'status', 'enabled'),
     edge('controls', 'controls', mode === 'player' ? 'player' : 'out', 'controls'),
@@ -90,7 +91,7 @@ export function nestedControlFixture(mode: 'normal' | 'show' | 'player') {
     edges: [
       ...fixture.edges.filter((wire) => !selected.has(wire.source) && !selected.has(wire.target) && wire.source !== 'button'),
       ...outward.map((wire) => ({ ...wire, source: 'nested', sourceHandle: outputFor(wire.source) })),
-      edge('period', 'result', 'nested', 'period'), edge('button', 'pressed', 'nested', 'contact'),
+      edge('period', 'result', 'nested', 'period'), edge('button', FIRST_BUTTON_HANDLE, 'nested', 'contact'),
       edge('nested', 'contact', 'controls', 'brightnessDown'),
       edge('out', 'display', 'status', 'display'),
     ],

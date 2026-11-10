@@ -1233,13 +1233,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     i2sLrclk: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     i2sDout:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
-  ButtonInput: {
-    pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
-  },
   TouchButtonInput: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
-  // ButtonBank stores pins inside its row collection, but the shared hardware
+  // A Button stores pins inside its row collection, but the shared hardware
   // picker still asks for the electrical contract under the logical `pin` key.
   ButtonBank: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -2541,9 +2538,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     i2sLrclk: 'Word-select (LRCK/WS) clock the board drives to the ADC.',
     i2sDout: 'Data pin the ADC returns PCM samples on.',
   },
-  ButtonInput: {
-    pin: 'GPIO the button contact is wired to; the other side goes to ground when Pull-up is on.',
-  },
   TouchButtonInput: {
     pin: 'GPIO wired to the module SIG pad. The module drives it high while touched, so no pull-up.',
   },
@@ -3415,7 +3409,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     sourceId: 'Which audio provider this node reads, chosen in the body: microphone, line input or music player.',
   },
   ButtonBank: {
-    buttons: 'The buttons, each with a name and GPIO, edited in the body. Every entry becomes an output port.',
+    buttons: 'The buttons, each with a name, a GPIO and a pull-up, edited in the body. Every entry becomes an output port, true while that button is held.',
   },
   RGBToHSV: {
     r: 'Red of the colour to convert, 0 to 255, when neither the Color port nor R is wired.',
@@ -4113,7 +4107,7 @@ export function propertyLabel(nodeType: string, key: string, properties?: Record
 // properties use expressions when their ordinary editor is a free-entry number;
 // bounded sliders stay deliberately simple and predictable.
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
-  'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
+  'MatrixOutput', 'MicInput', 'LineInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
   'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput', 'WebRemoteInput',
   'MidiInput', 'SDCard', 'EthernetModule', 'RtcModule', 'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
@@ -4611,7 +4605,6 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   LineInput: new Set(['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout']),
   DMXInput: new Set(['dmxTxPin', 'dmxRxPin', 'dmxEnablePin']),
   MidiInput: new Set(['midiRxPin']),
-  ButtonInput: new Set(['pin']),
   TouchButtonInput: new Set(['pin']),
   ButtonBank: new Set(['pin']),
   PotInput: new Set(['pin']),
@@ -4707,7 +4700,7 @@ export function gpioRequirementForProperty(
   // Trig is driven, Echo is read; the module drives Echo both ways, so no pull-up.
   if (nodeType === 'DistanceInput') return { capability: key === 'trigPin' ? 'digitalOutput' : 'digitalInput', pullup: false }
   if (nodeType === 'EncoderInput') return { capability: 'digitalInput', pullup: encoderUsesPullup(props) }
-  if (nodeType === 'ButtonInput' || nodeType === 'ButtonBank') {
+  if (nodeType === 'ButtonBank') {
     return { capability: 'digitalInput', pullup: props.pullup !== false }
   }
   if (nodeType === 'DMXInput' && key === 'dmxRxPin') {

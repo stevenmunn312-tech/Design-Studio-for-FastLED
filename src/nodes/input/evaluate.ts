@@ -313,14 +313,11 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
     }
     return out
   },
-  // Live values come from the on-node widget (ButtonInputBody/PotInputBody
+  // Live values come from the on-node widget (ButtonBankBody/PotInputBody
   // /EncoderInputBody), written into hardwareInputStore on pointer
   // interaction — the same getState()-in-evalNode bridge useAudioStore
   // uses for MicInput. Falls back to the old inert defaults when the
   // widget hasn't been touched yet.
-  ButtonInput(_c, id) {
-    return { pressed: useHardwareInputStore.getState().button.get(id) ?? false }
-  },
   TouchButtonInput(_c, id) {
     return { touched: useHardwareInputStore.getState().button.get(id) ?? false }
   },

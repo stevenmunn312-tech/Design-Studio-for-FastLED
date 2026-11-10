@@ -1,6 +1,8 @@
 import type { NodePort } from '../../types'
 
 export const BUTTON_BANK_ADD_HANDLE = 'add-button'
+/** The trailing socket's label: connecting it adds a button wired to that input. */
+export const BUTTON_BANK_ADD_LABEL = 'Add button…'
 export const MAX_BUTTON_BANK_ENTRIES = 16
 
 export interface ButtonBankEntry {
@@ -50,8 +52,11 @@ export function normalizeButtonBankEntries(value: unknown): ButtonBankEntry[] {
   return entries
 }
 
+/** The id of the row every Button starts with. */
+export const FIRST_BUTTON_ID = '1'
+
 /**
- * The row a Button Bank starts with when it is added from the bench, so the
+ * The row a Button starts with when it is added from the bench, so the
  * module on the bench wires to a button at once instead of to nothing. Its
  * pin is the one the board's plan handed out, stamped like any app-assigned
  * pin so a later board change can move it; with no pin free it has none (-1)
@@ -59,7 +64,7 @@ export function normalizeButtonBankEntries(value: unknown): ButtonBankEntry[] {
  */
 export function firstButtonBankRow(pin: number | undefined, board?: string): ButtonBankEntry[] {
   return [{
-    id: 'button-1',
+    id: FIRST_BUTTON_ID,
     label: 'Button 1',
     pin: pin ?? -1,
     pullup: true,
@@ -70,6 +75,26 @@ export function firstButtonBankRow(pin: number | undefined, board?: string): But
 
 export function buttonBankHandle(entryId: string): string {
   return `button-${entryId}`
+}
+
+/** The output of a Button's first row: what a one-button node is read through. */
+export const FIRST_BUTTON_HANDLE = buttonBankHandle(FIRST_BUTTON_ID)
+
+/**
+ * A Button's `buttons` holding one row on `pin`, chosen by hand rather than
+ * stamped as the app's. Templates, Help examples and fixtures that need a
+ * single button on a known pin build it here.
+ */
+export function singleButtonRow(
+  pin: number,
+  options: { id?: string; label?: string; pullup?: boolean } = {},
+): ButtonBankEntry[] {
+  return [{
+    id: options.id ?? FIRST_BUTTON_ID,
+    label: options.label ?? 'Button 1',
+    pin,
+    pullup: options.pullup ?? true,
+  }]
 }
 
 export function buttonBankEntryForHandle(value: unknown, handle: string | null | undefined): ButtonBankEntry | undefined {
@@ -84,7 +109,7 @@ export function buttonBankOutputs(value: unknown, includeAddHandle = true): Node
     dataType: 'bool',
   }))
   if (includeAddHandle && outputs.length < MAX_BUTTON_BANK_ENTRIES) {
-    outputs.push({ id: BUTTON_BANK_ADD_HANDLE, label: 'Connect button…', dataType: 'bool' })
+    outputs.push({ id: BUTTON_BANK_ADD_HANDLE, label: BUTTON_BANK_ADD_LABEL, dataType: 'bool' })
   }
   return outputs
 }

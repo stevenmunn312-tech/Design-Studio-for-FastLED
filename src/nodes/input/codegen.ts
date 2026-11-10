@@ -33,7 +33,6 @@ export const INPUT_EMITTERS: NodeEmitters = {
   Audio({ ln }) {
     ln(`  // Audio capability — the selected hardware source is hosted once by the sketch.`)
   },
-  ButtonInput: controlInput,
   TouchButtonInput: controlInput,
   ButtonBank: controlInput,
   PotInput: controlInput,
@@ -51,7 +50,7 @@ export const INPUT_EMITTERS: NodeEmitters = {
   },
   MotionInput({ p, ln, v, pinSetupLines }) {
     // HC-SR501's OUT idles low and goes high on movement — the opposite
-    // sense to ButtonInput above, which reads a pulled-up contact. Plain
+    // sense to a Button, which reads a pulled-up contact. Plain
     // INPUT: the module drives the line both ways, so a pull-up would only
     // fight it.
     const pin = sanitizePin(p.pin, 5)

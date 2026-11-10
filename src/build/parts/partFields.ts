@@ -18,11 +18,8 @@ type PartField =
   | { key: string; label: string; kind: 'toggle' }
 
 export const PART_FIELDS: Record<string, readonly PartField[]> = {
-  // How the switch is wired is a fact about the bench, as it already is for
-  // each Button Bank button.
-  ButtonInput: [
-    { key: 'pullup', label: 'Internal pull-up', kind: 'toggle' },
-  ],
+  // How the switch is wired is a fact about the bench, as it is for each
+  // Button row.
   EncoderInput: [
     { key: 'pullup', label: 'Internal pull-up', kind: 'toggle' },
   ],

@@ -104,7 +104,7 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
             <span>Names come from connected graph inputs. Pins and pull-ups describe the physical controls.</span>
           </div>
           {buttonEntries.length === 0 && (
-            <p className={styles.bankEmpty}>Connect the empty socket on the graph to add the first button.</p>
+            <p className={styles.bankEmpty}>Connect Add button… on the graph to add the first button.</p>
           )}
           {buttonEntries.map((entry) => (
             <div className={styles.bankEntry} key={entry.id}>

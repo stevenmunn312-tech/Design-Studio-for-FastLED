@@ -8,7 +8,7 @@ import type { ButtonEdgeSettings } from './transportBridge'
  * press, so a debounce window longer than a frame would swallow it: an
  * Interval into a Palette Bank's Next never advanced the palette.
  */
-const BOUNCING_PRESS_SOURCES = new Set(['ButtonInput', 'ButtonBank', 'TouchButtonInput', 'GroupInput'])
+const BOUNCING_PRESS_SOURCES = new Set(['ButtonBank', 'TouchButtonInput', 'GroupInput'])
 
 /** Whether a press wired from `sourceType` needs the contact debounce. An unknown source keeps it. */
 export function pressSourceBounces(sourceType: string | undefined): boolean {

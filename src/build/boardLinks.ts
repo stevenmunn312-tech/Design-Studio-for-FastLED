@@ -284,7 +284,7 @@ export function boardLinkSchemaHash(slots: readonly BoardLinkSlot[], boardOrder:
  * keypads, the Button Bank's and the IR remote's minted keys.
  */
 const MOMENTARY_NODE_TYPES = new Set([
-  'ButtonInput', 'TouchButtonInput', 'ButtonBank', 'KeypadInput', 'JoystickInput', 'TouchPadInput', 'IRRemoteInput',
+  'TouchButtonInput', 'ButtonBank', 'KeypadInput', 'JoystickInput', 'TouchPadInput', 'IRRemoteInput',
 ])
 /** Single momentary ports on nodes whose other bool outputs are levels. */
 const MOMENTARY_PORTS: Record<string, readonly string[]> = {

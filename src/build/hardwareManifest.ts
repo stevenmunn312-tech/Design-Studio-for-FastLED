@@ -174,7 +174,6 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'StereoVuMeter',
   'MicInput',
   'LineInput',
-  'ButtonInput',
   'TouchButtonInput',
   'ButtonBank',
   'PotInput',
@@ -449,9 +448,6 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         }
         break
       }
-      case 'ButtonInput':
-        push(node, `${baseLabel} pin`, 'pin', props.pin)
-        break
       case 'TouchButtonInput':
         push(node, `${baseLabel} SIG pin`, 'pin', props.pin)
         break
@@ -924,8 +920,6 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             ? undefined
             : ['This line-in ADC has no complete MCLK/BCLK/LRCLK/DOUT pin set configured.'],
         }
-      case 'ButtonInput':
-        return buildPeripheralItem(node, 'button-input', 'Momentary button input', pins)
       case 'TouchButtonInput': {
         const props = node.data.properties as Record<string, unknown>
         const spec = touchButtonSpec(props.partId)
@@ -943,7 +937,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         }
       }
       case 'ButtonBank':
-        return buildPeripheralItem(node, 'button-input', 'Momentary button bank', pins)
+        return buildPeripheralItem(node, 'button-input', 'Momentary button input', pins)
       case 'PotInput':
         return buildPeripheralItem(node, 'pot-input', 'Analog potentiometer input', pins)
       case 'EncoderInput':

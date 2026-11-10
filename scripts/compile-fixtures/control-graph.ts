@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { nestedControlFixture } from '../../src/test-utils/intervalControlFixture'
+import { FIRST_BUTTON_HANDLE } from '../../src/state/player/buttonBank'
 import { assertWireable } from '../../src/test-utils/assertWireable'
 import { generateCpp } from '../../src/codegen/cppGenerator'
 import { generateShowSketch } from '../../src/codegen/showGenerator'
@@ -83,7 +84,7 @@ function withLocalClock<T extends { nodes: StudioNode[]; edges: StudioEdge[] }>(
       node('sched', 'ScheduleTrigger'),
       node('digits', 'SegmentDisplay', { partId: 'tm1637-4digit-display', clkPin: 2, dioPin: 3 })],
     edges: [...graph.edges,
-      edge('button', 'pressed', 'clk', 'reset'),
+      edge('button', FIRST_BUTTON_HANDLE, 'clk', 'reset'),
       edge('clk', 'beat', 'sched', 'enable'),
       edge('rtc', 'dateTime', 'sched', 'dateTime'),
       edge('sched', 'active', consumer, 'enabled'),

@@ -19,7 +19,7 @@ const AUDIO_INPUT_TYPES = new Set(['MicInput', 'LineInput'])
 // Ordered browsing groups. Keep the small, single-purpose shelves flat.
 const SHELF_SUBCATEGORIES: Record<string, readonly { label: string; nodeTypes: readonly string[] }[]> = {
   inputs: [
-    { label: 'Buttons & touch', nodeTypes: ['ButtonInput', 'ButtonBank', 'TouchButtonInput', 'TouchPadInput', 'KeypadInput'] },
+    { label: 'Buttons & touch', nodeTypes: ['ButtonBank', 'TouchButtonInput', 'TouchPadInput', 'KeypadInput'] },
     { label: 'Knobs & joysticks', nodeTypes: ['PotInput', 'EncoderInput', 'JoystickInput'] },
     { label: 'Remote receivers', nodeTypes: ['IRRemoteInput'] },
     { label: 'Motion & distance', nodeTypes: ['MotionInput', 'PresenceInput', 'DistanceInput', 'MotionVectorInput'] },

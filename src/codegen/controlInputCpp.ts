@@ -66,9 +66,6 @@ export function controlInputCpp(
     outputs[port] = 'bool'
   }
   switch (nodeType) {
-    case 'ButtonInput':
-      button('pressed', sanitizePin(p.pin, 0), p.pullup !== false)
-      break
     case 'TouchButtonInput': {
       const pin = sanitizePin(p.pin, 4)
       setup.push(`  pinMode(${pin}, INPUT);`)

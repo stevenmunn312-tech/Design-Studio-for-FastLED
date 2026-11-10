@@ -202,7 +202,7 @@ const EMBEDDED_UI: Record<string, { label: string; h: number; top?: boolean }> =
   FFTAnalyzer: { label: 'spectrum analyser · LOW / MID / HIGH', h: 124, top: true },
   Audio: { label: 'audio source picker', h: 278, top: true },
   Storage: { label: 'storage provider picker', h: 42, top: true },
-  ButtonBank: { label: '+ connect button…', h: 28, top: true },
+  ButtonBank: { label: '+ add button…', h: 28, top: true },
   IRRemoteInput: { label: 'map IR remote buttons', h: 75, top: true },
   WebRemoteInput: { label: 'phone remote · add control… · Wi-Fi', h: 150, top: true },
   DMXInput: { label: 'Art-Net monitor · HELPER OFFLINE', h: 181, top: true },
@@ -1068,7 +1068,6 @@ function hardwareWidgets(def: NodeDefinition, props: Record<string, unknown>): W
         pot(distance, `${presencePreviewReading(partId, true, false, distance).distance.toFixed(2)} m`),
       ]
     }
-    case 'ButtonInput':
     case 'MotionInput':
       return [button('press')]
     case 'TouchButtonInput':

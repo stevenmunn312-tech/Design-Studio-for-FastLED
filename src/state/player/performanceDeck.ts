@@ -135,7 +135,6 @@ const WIRING_KEYS: Record<string, Set<string>> = {
   MicInput: new Set(['i2sWs', 'i2sSck', 'i2sSd', 'channel']),
   LineInput: new Set(['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout', 'channel']),
   MatrixOutput: new Set(['chipset', 'colorOrder', 'dataPin', 'clockPin', 'dataRateMhz', 'serpentine']),
-  ButtonInput: new Set(['pin']),
   TouchButtonInput: new Set(['pin']),
   PotInput: new Set(['pin']),
   MotionInput: new Set(['pin']),
