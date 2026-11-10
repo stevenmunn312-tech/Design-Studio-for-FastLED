@@ -117,3 +117,57 @@ describe('Pattern Insights popup', () => {
     expect(putImageData).toHaveBeenCalledTimes(43 * 3)
   })
 })
+
+describe('Pattern Insights cost line', () => {
+  const node = (id: string, nodeType: string) => ({
+    id, type: 'studioNode', position: { x: 0, y: 0 },
+    data: { label: nodeType, nodeType, category: 'pattern', properties: {}, inputs: [], outputs: [] },
+  })
+  const heavy: SavedPattern = {
+    ...pattern,
+    id: 'pat-fluid',
+    name: 'Ink Tank',
+    subgraph: {
+      nodes: [node('fs', 'FluidSim'), node('go', 'GroupOutput')],
+      edges: [{ id: 'e', source: 'fs', sourceHandle: 'frame', target: 'go', targetHandle: 'frame' }],
+    } as never,
+  }
+  const rated = (renderCost?: PatternRating['renderCost']): PatternRating => ({
+    patternId: heavy.id, name: heavy.name, bundled: false, overall: 70,
+    intent: 'ambient', inferredIntent: 'ambient', verdict: 'promising', verdictLabel: 'Promising',
+    summary: 'Promising for Ambient.', strengths: [], improvements: [], criteria: [], audioReactive: false,
+    renderCost,
+    cacheKey: patternRatingKey(heavy, { gridW: 16, gridH: 16, groups: getGroupRegistry() }, 'ambient'),
+  })
+
+  beforeEach(() => {
+    useGraphStore.setState({ nodes: [], edges: [] })
+    usePatternLibrary.setState({ patterns: [heavy] })
+  })
+
+  it('shows render weight and RAM as estimates, with the canvas the RAM is for', () => {
+    usePatternRatingStore.setState({
+      ratingsByPatternId: { [heavy.id]: rated({ usPerLed: 2, relative: 6.2, gridW: 16, gridH: 16, frames: 42 }) },
+      userRatingsByPatternId: {},
+      intentOverridesByPatternId: { [heavy.id]: 'ambient' },
+    })
+    const view = render(<PatternRatingsPopup />)
+    const row = view.getByText('Cost (estimate)').parentElement!
+    expect(row.textContent).toContain('Render weight 6.2×Heavy')
+    // No LED output in the project, so the default 16×16 canvas: 256 LEDs.
+    expect(row.textContent).toMatch(/RAM ~\d+(\.\d)? KB at 16×16/)
+    expect(row.textContent).toContain('Not measured on a board')
+  })
+
+  it('still prices RAM for a rating that carries no render weight', () => {
+    usePatternRatingStore.setState({
+      ratingsByPatternId: { [heavy.id]: rated(undefined) },
+      userRatingsByPatternId: {},
+      intentOverridesByPatternId: { [heavy.id]: 'ambient' },
+    })
+    const view = render(<PatternRatingsPopup />)
+    const row = view.getByText('Cost (estimate)').parentElement!
+    expect(row.textContent).toContain('scan to measure')
+    expect(row.textContent).toMatch(/RAM ~/)
+  })
+})

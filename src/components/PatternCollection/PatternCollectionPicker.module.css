@@ -416,3 +416,51 @@
   .footer > div { width: 100%; }
   .footer button { flex: 1; }
 }
+
+/* The subtitle and the cost estimate share one line, so a row keeps its
+   height whether or not the pattern has been judged. */
+.rowMeta {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: calc(var(--space-0) * 2);
+}
+
+.cost {
+  flex: none;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--fs-label);
+  white-space: nowrap;
+  opacity: 0.82;
+}
+
+/* Heavy is a heads-up, not a fault: the warning colour, never the error one. */
+.costHeavy {
+  color: var(--warning);
+  opacity: 1;
+}
+
+.judging {
+  flex: 1;
+  display: grid;
+  gap: calc(var(--space-0) * 1.5);
+}
+
+.progressTrack {
+  height: 3px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+}
+
+.progressTrack span {
+  display: block;
+  height: 100%;
+  background: var(--accent-library);
+  transition: width 0.18s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progressTrack span { transition: none; }
+}

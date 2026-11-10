@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect } from 'vitest'
-import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, findDeployBlockingErrors, findPatternCountErrors, MAX_FIRMWARE_PATTERNS, estimatePowerLoad, estimateFirmwareRam, findFirmwareRamBudgetIssue, findMirroredOutputMismatches, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSharedControlSourceWarnings, findSignalRangeWarnings, findPanelEnableRecoveryIssues, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
+import { validateGraph, buildGraphDiagnostics, findPinConflicts, findPinRangeWarnings, findMatrixLayoutErrors, findPreviewOnlyWarnings, findScalarExpressionErrors, findBoardCompatibilityErrors, findBoardPinCompatibility, findExactBoardPinIssues, findHub75ConfigErrors, findHub75TopologyDiagnosticErrors, findFormulaErrors, findShowRequirementErrors, findDeployBlockingErrors, findPatternCountErrors, MAX_FIRMWARE_PATTERNS, estimatePowerLoad, estimateFirmwareRam, estimatePatternFirmwareRam, findFirmwareRamBudgetIssue, findMirroredOutputMismatches, findAudioCapabilityErrors, findPlayerControlMappingWarnings, findSharedControlSourceWarnings, findSignalRangeWarnings, findPanelEnableRecoveryIssues, DISPLAY_NODE_TYPES, DISPLAY_RAM_BYTES_BY_NODE_TYPE } from '../validateGraph'
 import { BOARD_PROFILES } from '../../build/boards/boardProfiles'
 import { rtcI2cPinsForProfile } from '../../build/pins/rtcPins'
 import { OLED_PANEL_RAM_BYTES } from '../../codegen/displays/infoDisplayCpp'
@@ -1857,6 +1857,23 @@ describe('validateGraph', () => {
         expect(priced.frameBufferBytes - bare.frameBufferBytes).toBe(48 + 2 * 48 + 2 * 48)
         // The ring stays internal without PSRAM: (delay + current slot) frames.
         expect(priced.statefulBytes - bare.statefulBytes).toBe(4 * 48)
+      })
+
+      it('prices one pattern for Pattern Insights exactly as a show of that pattern is priced', () => {
+        // The picker and the Insights card read estimatePatternFirmwareRam; the
+        // deploy gate reads estimateFirmwareRam. A pattern alone in a show
+        // costs what it keeps, its scratch, and the show's transition pair.
+        for (const id of ['trails', 'feedback']) {
+          const { nodes, edges } = show([id])
+          const bare = estimateFirmwareRam(nodes, edges)!
+          const priced = estimateFirmwareRam(nodes, edges, undefined, groups)!
+          const alone = estimatePatternFirmwareRam(groups[id], { w: 4, h: 4 })
+          expect(alone.totalBytes).toBe(alone.keptBytes + alone.scratchBytes)
+          expect(priced.internalBytes - bare.internalBytes).toBe(alone.totalBytes + 2 * 48)
+        }
+        // Trails keeps its own frame and borrows one; the ring is all kept.
+        expect(estimatePatternFirmwareRam(groups.trails, { w: 4, h: 4 })).toEqual({ keptBytes: 48, scratchBytes: 48, totalBytes: 96 })
+        expect(estimatePatternFirmwareRam(groups.feedback, { w: 4, h: 4 })).toEqual({ keptBytes: 4 * 48, scratchBytes: 2 * 48, totalBytes: 6 * 48 })
       })
 
       it('keeps a Field Formula that reads prev per pattern and pools the fields that do not', () => {

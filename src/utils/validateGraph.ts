@@ -798,6 +798,50 @@ function graphAllocations(
   return { frameBufferBytes, persistentFrameBytes, fieldBufferBytes, persistentFieldBytes, statefulBytes, feedbackBytes, namedPalettes, builderPalettes }
 }
 
+/** One pattern subgraph priced on its own: what feeds its Group Output. */
+function patternAllocations(
+  group: { nodes: readonly StudioNode[]; edges: readonly StudioEdge[] },
+  dims: { w: number; h: number },
+): GraphAllocations {
+  const terminals = group.nodes.filter((n) => n.data.nodeType === 'GroupOutput').map((n) => n.id)
+  return graphAllocations(group.nodes, group.edges, reachableFrom(terminals, group.edges), dims, null)
+}
+
+/** What one pattern asks of firmware RAM at a canvas size, split the way a
+ *  show sketch places it. */
+export interface PatternFirmwareRam {
+  /** Stays allocated for as long as the pattern is in the sketch: persistent
+   *  frame and field buffers, Frame Feedback history, simulation state and
+   *  palette tables. In a Pattern Collection every pattern pays its own. */
+  keptBytes: number
+  /** Render buffers the pattern only needs while it draws. A collection pools
+   *  these at its largest pattern's size, so only the largest one counts. */
+  scratchBytes: number
+  /** Both together: the pattern running alone in a sketch. */
+  totalBytes: number
+}
+
+/**
+ * The same per-node model the deploy gate prices a Pattern Collection with
+ * (`collectionAllocations`), for one pattern at a time, so Pattern Insights
+ * and the collection picker cannot drift from it. Like that estimate it does
+ * not look inside nested groups, and it leaves out the `leds` array and the
+ * show's two transition frames, which belong to the sketch rather than to a
+ * pattern.
+ */
+export function estimatePatternFirmwareRam(
+  group: { nodes: readonly StudioNode[]; edges: readonly StudioEdge[] },
+  dims: { w: number; h: number },
+): PatternFirmwareRam {
+  const pattern = patternAllocations(group, dims)
+  const keptBytes = pattern.persistentFrameBytes + pattern.persistentFieldBytes
+    + pattern.statefulBytes + pattern.feedbackBytes
+    + (pattern.namedPalettes.size + pattern.builderPalettes) * PALETTE_BYTES
+  const scratchBytes = (pattern.frameBufferBytes - pattern.persistentFrameBytes)
+    + (pattern.fieldBufferBytes - pattern.persistentFieldBytes)
+  return { keptBytes, scratchBytes, totalBytes: keptBytes + scratchBytes }
+}
+
 /**
  * What the patterns of every reachable Pattern Collection add to a show
  * sketch. Only one pattern renders at a time, so scratch buffers are pooled
@@ -828,8 +872,7 @@ function collectionAllocations(
     const group = groups[id]
     if (!group) continue
     priced++
-    const terminals = group.nodes.filter((n) => n.data.nodeType === 'GroupOutput').map((n) => n.id)
-    const pattern = graphAllocations(group.nodes, group.edges, reachableFrom(terminals, group.edges), dims, null)
+    const pattern = patternAllocations(group, dims)
     total.persistentFrameBytes += pattern.persistentFrameBytes
     total.persistentFieldBytes += pattern.persistentFieldBytes
     scratchFrame = Math.max(scratchFrame, pattern.frameBufferBytes - pattern.persistentFrameBytes)

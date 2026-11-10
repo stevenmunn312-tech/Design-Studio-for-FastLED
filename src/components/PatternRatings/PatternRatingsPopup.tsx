@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import { usePatternLibrary, withRegisteredGroups, type SavedPattern } from '../../state/patterns/patternLibrary'
-import { getGroupRegistry, matrixDims, rootGraphNodes, useGraphStore } from '../../state/graphStore'
+import { useGraphStore } from '../../state/graphStore'
 import {
   PATTERN_INTENTS,
   patternRatingKey,
@@ -14,6 +14,17 @@ import {
   type PatternRating,
   type RatingThumbnail,
 } from '../../state/patterns/patternRating'
+import {
+  COST_BAND_LABEL,
+  formatRamBytes,
+  formatRenderWeight,
+  patternRamEstimate,
+  ramBand,
+  ramBreakdownText,
+  renderWeightBand,
+  type PatternRamEstimate,
+} from '../../state/patterns/patternCost'
+import { currentFirmwareDims, currentRatingContext } from '../../state/patterns/patternRatingContext'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import PatternTagChips from '../PatternTags/PatternTagChips'
 import { patternFormTags, type PatternFormTag } from '../../state/patterns/patternTags'
@@ -93,9 +104,40 @@ function CriterionRow({ criterion }: { criterion: CriterionScore }) {
   )
 }
 
+const RENDER_WEIGHT_TITLE = 'How long Studio’s preview took to draw this pattern, next to a plain Plasma pattern in this browser. It ranks patterns against each other; it is not frame time on a microcontroller.'
+
+/** What the pattern costs to run. Both figures are estimates and say so: the
+ *  render weight is a browser timing, the RAM is the deploy check's model. */
+function CostLine({ rating, ram }: { rating: PatternRating; ram: PatternRamEstimate }) {
+  const render = rating.renderCost
+  const ramWeight = ramBand(ram)
+  return (
+    <div className={styles.costRow}>
+      <span className={styles.tagLabel}>Cost (estimate)</span>
+      <span className={styles.costItem} title={RENDER_WEIGHT_TITLE}>
+        Render weight{' '}
+        {render ? (
+          <>
+            <strong>{formatRenderWeight(render.relative)}</strong>
+            <span className={`${styles.costBand} ${styles[`cost_${renderWeightBand(render)}`]}`}>
+              {COST_BAND_LABEL[renderWeightBand(render)]}
+            </span>
+          </>
+        ) : <span className={styles.costBand}>scan to measure</span>}
+      </span>
+      <span className={styles.costItem} title={ramBreakdownText(ram)}>
+        RAM <strong>~{formatRamBytes(ram.totalBytes)}</strong> at {ram.w}×{ram.h}
+        <span className={`${styles.costBand} ${styles[`cost_${ramWeight}`]}`}>{COST_BAND_LABEL[ramWeight]}</span>
+      </span>
+      <span className={styles.costNote}>For comparing patterns. Not measured on a board.</span>
+    </div>
+  )
+}
+
 interface RatingCardProps {
   pattern: SavedPattern
   rating: PatternRating
+  ram: PatternRamEstimate
   checked: boolean
   userRating: number
   rescanning: boolean
@@ -106,7 +148,7 @@ interface RatingCardProps {
 }
 
 function RatingCard({
-  pattern, rating, checked, userRating, rescanning,
+  pattern, rating, ram, checked, userRating, rescanning,
   onToggle, onUserRating, onIntentChange, onTagChange,
 }: RatingCardProps) {
   const tier = ratingTier(rating.overall)
@@ -171,6 +213,8 @@ function RatingCard({
               />
             </div>
 
+            <CostLine rating={rating} ram={ram} />
+
             <div className={styles.notesGrid}>
               <div>
                 <h3>What works</h3>
@@ -193,17 +237,6 @@ function RatingCard({
   )
 }
 
-function ratingContext() {
-  const { w, h } = matrixDims(rootGraphNodes(useGraphStore.getState()))
-  const cap = 32
-  const scale = Math.min(1, cap / Math.max(w, h))
-  return {
-    gridW: Math.max(2, Math.round(w * scale)),
-    gridH: Math.max(2, Math.round(h * scale)),
-    groups: getGroupRegistry(),
-  }
-}
-
 export default function PatternRatingsPopup() {
   const closeRatings = useUiStore((state) => state.closeRatings)
   const setStatus = useUiStore((state) => state.setStatus)
@@ -223,7 +256,14 @@ export default function PatternRatingsPopup() {
   }
   const dialogRef = useModalFocus<HTMLDivElement>(handleClose)
 
-  const context = useMemo(() => ratingContext(), [])
+  const context = useMemo(() => currentRatingContext(), [])
+  // RAM is priced at the canvas the firmware would really allocate, not the
+  // capped grid the critic renders on.
+  const firmwareDims = useMemo(() => currentFirmwareDims(), [])
+  const ramByPatternId = useMemo(
+    () => new Map(patterns.map((pattern) => [pattern.id, patternRamEstimate(pattern, firmwareDims)])),
+    [firmwareDims, patterns],
+  )
   const [ratings, setRatings] = useState<PatternRating[]>(() => patterns.flatMap((pattern) => {
     const rating = storedRatings[pattern.id]
     const expectedKey = patternRatingKey(pattern, context, intentOverrides[pattern.id])
@@ -338,6 +378,7 @@ export default function PatternRatingsPopup() {
                 key={pattern.id}
                 pattern={pattern}
                 rating={rating}
+                ram={ramByPatternId.get(pattern.id) ?? patternRamEstimate(pattern, firmwareDims)}
                 checked={selected.has(pattern.id)}
                 userRating={userRatings[pattern.id] ?? 0}
                 rescanning={rescanningId === pattern.id}

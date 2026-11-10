@@ -321,3 +321,35 @@
   font-family: var(--font-body);
   font-size: var(--fs-ui);
 }
+
+.costRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: calc(var(--space-0) * 1.5) calc(var(--space-0) * 3.5);
+  margin-top: var(--space-1);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
+}
+
+.costItem strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.costBand {
+  margin-left: calc(var(--space-0) * 1.5);
+  font-size: var(--fs-label);
+}
+
+/* Heavy is a heads-up, not a fault: the warning colour, never the error one. */
+.cost_light,
+.cost_medium { color: var(--text-secondary); }
+.cost_heavy { color: var(--warning); }
+
+.costNote {
+  flex-basis: 100%;
+  font-size: var(--fs-label);
+  opacity: 0.8;
+}
