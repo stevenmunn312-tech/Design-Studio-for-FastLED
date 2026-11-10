@@ -325,6 +325,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   The sketch resolves `auto` at generation time from the one canvas it
   renders, and from each pass's own `WIDTH`/`HEIGHT` (`IS_ROW_STRING_CPP`,
   folded per template instance) when outputs render on canvases of their own.
+  Centred coordinates follow a narrower rule: only an axis exactly one pixel
+  across changes. `centeredX`/`centeredY` (`state/evaluator/formula.ts`, C++
+  twin `centeredCpp`) read it as 0, its centre, where the matrix formula gave
+  -1 and every centred field sampled its bottom edge; and Shape Field, Path,
+  Fourier Epicycles and Scale with matrix size by `sizingSide`
+  (`SIZING_SIDE_CPP`), the strip's length where the shorter side is one
+  pixel. Two rows and up keep the matrix formulas exactly, so no matrix
+  render moves. A strip is the slice through the middle of the 2D pattern:
+  a circle Path lights where its curve crosses that row.
 - A trail is one knob, `trail`, with one meaning: 0 leaves none and 1 the
   longest. It is a half-life on a log scale, applied by the time that has
   passed, not a share taken off each frame. Confetti, Juggle, Scanner, Flow

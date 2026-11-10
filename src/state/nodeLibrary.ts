@@ -51,6 +51,7 @@ import { FEEDBACK_TRANSFORMS } from '../nodes/shared/integerPatterns'
 import { WARP_MOTIONS } from '../nodes/composite/frameWarpMotion'
 import { BOID_COLOR_MODES, BOID_PALETTE_MODES, BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
 import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
+import { TEXT_SIZE } from '../nodes/shared/font'
 import { PATH_SHAPES } from '../nodes/shapes/customPath'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
 import { DECODER_MAX_VOLUME } from '../build/parts/partFields'
@@ -613,6 +614,8 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
 const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 // Shape, Text, Clock Display and Line: positions as 0–1 or pixels (positionUnits.ts).
 const POSITION_UNITS_META: PropertyControl = { control: 'select', options: POSITION_UNITS, labels: POSITION_UNIT_LABELS }
+// Text and Clock Display: whole pixels per font pixel (font.ts textSize).
+const TEXT_SIZE_META: PropertyControl = { control: 'slider', min: TEXT_SIZE.min, max: TEXT_SIZE.max, step: 1 }
 const TOUCH_CALIBRATION_META: Record<string, PropertyControl> = {
   touchXMin: { control: 'slider', min: 0, max: 4095, step: 1 },
   touchXMax: { control: 'slider', min: 0, max: 4095, step: 1 },
@@ -765,11 +768,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     y: N01,
     // Cells a second; negative scrolls the other way.
     scroll: { control: 'slider', min: -20, max: 20, step: 0.5 },
+    size: TEXT_SIZE_META,
   },
   ClockDisplay: {
     units: POSITION_UNITS_META,
     x: N01,
     y: N01,
+    size: TEXT_SIZE_META,
     radius: { control: 'slider', min: 2, max: 16, step: 0.5 },
     durationSec: { control: 'slider', min: 0, max: CLOCK_TIMER_MAX_SEC, step: 1, entry: 'number' },
   },
@@ -1508,7 +1513,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   // No slider for the ends, so Pixels take an expression such as max_x;
   // `propertyMetaFor` draws 0–1 as a slider.
   Line: { units: POSITION_UNITS_META, thickness: { control: 'slider', min: 0.5, max: 6, step: 0.1 } },
-  // A fraction of half the shorter side: past 1 the point leaves the canvas.
+  // A fraction of half the shorter side (a strip's length): past 1 the point
+  // leaves the canvas.
   Path: {
     scale: { control: 'slider', min: 0.1, max: 1, step: 0.01 },
     speed: { control: 'slider', min: -FOURIER_SPEED_MAX, max: FOURIER_SPEED_MAX, step: 0.01 },
@@ -1927,7 +1933,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   serialDebug: "Prints processor/conditioner stats to the serial monitor ~10×/sec, for checking mic wiring on-device. Firmware-only — no visible effect here.",
   pullup: "On wires the pin INPUT_PULLUP (idle high, press pulls low) — the common no-extra-parts wiring. Off wires it plain INPUT, which needs an external pull-down resistor or the pin will float when not pressed.",
   resetOnPress: 'Zeros the running position count every time the integrated push-button is pressed, instead of only ever counting up/down.',
-  scaleWithMatrix: "Scales the radius with the matrix's shorter side (tuned against a 16px reference) so the same value looks proportionally similar across different matrix sizes. Off keeps radius as an exact pixel count.",
+  scaleWithMatrix: "Scales the radius with the matrix's shorter side, or a one-row strip's length (tuned against a 16px reference), so the same value looks proportionally similar across different matrix sizes. Off keeps radius as an exact pixel count.",
   bass: 'Bass level (0–1) used while the Bass input is unwired. Wire an analyser output to drive it live.',
   mids: 'Mids level (0–1) used while the Mids input is unwired. Wire an analyser output to drive it live.',
   treble: 'Treble level (0–1) used while the Treble input is unwired. Wire an analyser output to drive it live.',
@@ -2334,9 +2340,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     radius: 'Pixels each way the blur reaches, 1 to 4. Edges are clamped, not wrapped.',
   },
   ShapeField: {
-    size: 'Radius or half-height as a fraction of the matrix’s shorter side.',
-    softness: 'Fill-edge softness as a fraction of the matrix’s shorter side.',
-    range: 'As a fraction of the matrix’s shorter side. Distance: how far either side of the outline the field ramps from 1 to 0. Falloff: how far beyond the outline it reaches 1.',
+    size: 'Radius or half-height as a fraction of the matrix’s shorter side, or of a one-row strip’s length.',
+    softness: 'Fill-edge softness as a fraction of the matrix’s shorter side, or of a one-row strip’s length.',
+    range: 'As a fraction of the matrix’s shorter side, or of a one-row strip’s length. Distance: how far either side of the outline the field ramps from 1 to 0. Falloff: how far beyond the outline it reaches 1.',
     shape: 'Rectangle, ellipse (a circle at aspect 1) or polygon, as on Shape, or a rose or superformula. Polygon uses Sides, rectangle and ellipse use Aspect, rose uses Petals, and the superformula its lobes and exponents.',
     fieldMode: 'Fill is 1 inside and 0 outside with a soft edge; distance ramps across the outline; falloff is 0 on the shape and rises to 1 at Range beyond it, so a tiny circle gives the distance from a point.',
     cx: 'Centre of the shape, left to right (0 to 1).',
@@ -2441,7 +2447,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     customPoints: 'x,y pairs from -1 to 1, 3 to 128 points, joined by a smooth closed curve through every one. Anything else draws the circle.',
     t: 'How far round the curve the point is, as a fraction of a turn: 0 and 1 are the start. It wraps, so a steadily rising signal goes round and round.',
     speed: 'Turns of the curve per second while T is unwired, starting from T. Negative runs backwards; 0 holds the point at T.',
-    scale: 'Size of the curve as a fraction of half the shorter side of the matrix.',
+    scale: 'Size of the curve as a fraction of half the shorter side of the matrix, or of a one-row strip’s length.',
     thickness: 'Diameter of the moving point in pixels.',
   },
   FourierEpicycles: {
@@ -2450,7 +2456,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     maxHarmonics: 'Most circles a wired Harmonics can use: the largest terms of the outline\'s Fourier series, sizing the table baked into the sketch. Unwired, Harmonics sizes the table itself.',
     harmonics: 'Circles in use, largest first. Fractions fade the next one in, so animating it grows a circle into the outline.',
     speed: 'Turns of the outline per second. Negative runs backwards.',
-    scale: 'Size as a fraction of half the shorter side of the canvas.',
+    scale: 'Size as a fraction of half the shorter side of the canvas, or of a one-row strip’s length.',
     thickness: 'Pen width in pixels.',
     persistence: 'How long the trail lasts: 1 halves it every 2 seconds, 0 leaves none. Each step along the slider shortens it by the same ratio, whatever the frame rate.',
     showCircles: 'Draw the rotating circles as dim guides.',
@@ -2526,6 +2532,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     y: 'Vertical position of the clock: 0 (just off the top) to 1 (just off the bottom), or a pixel row when Units is Pixels.',
     hAlign: 'Which part of the digits sits at X: left edge, centre or right edge. Digital modes only.',
     vAlign: 'Which part of the digits sits at Y: top, middle or bottom. Digital modes only.',
+    size: 'Pixel scale of the digits, 1 to 4, as Text\'s Size: each pixel of the 3×5 font is drawn this many pixels square. Every mode with digits, and the date under an analogue face.',
   },
   MicInput: {
     gain: 'Multiplies the microphone signal before analysis; 1 is unity, raise it for a quiet room.',
@@ -2888,7 +2895,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     hAlign: 'Which part of the text sits at X: its left edge, centre or right edge.',
     vAlign: 'Which part of the text sits at Y: its top, middle or bottom.',
     scrollAxis: 'Scroll sideways or up and down.',
-    letterSpacing: 'Blank columns between letters, in pixels.',
+    letterSpacing: 'Blank columns between letters, in font pixels: Size makes the gap grow with the letters.',
+    size: 'Pixel scale, 1 to 4: each pixel of the 3×5 font is drawn this many pixels square, so 2 is 6×10 letters for a 32-row panel. Gaps and line spacing grow with it.',
   },
   Line: {
     units: 'How the ends are read: 0–1, where 0 is the first pixel and 1 the last, or Pixels, which take expressions such as center_x or max_x.',
@@ -2904,7 +2912,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     cx: 'Centre X: 0 (just off the left edge) to 1 (just off the right), or a pixel column when Units is Pixels.',
     cy: 'Centre Y: 0 (just off the top) to 1 (just off the bottom), or a pixel row when Units is Pixels.',
     size: 'Half-height in pixels; for a polygon, the distance from centre to a corner. With Scale with matrix on, it is pixels on a 16-pixel matrix and grows or shrinks with the matrix.',
-    scaleWithMatrix: 'Grow or shrink Size with the matrix\'s shorter side, tuned against 16 pixels, so the shape keeps its proportion on any panel. Off keeps Size as an exact pixel count.',
+    scaleWithMatrix: 'Grow or shrink Size with the matrix\'s shorter side, or a one-row strip\'s length, tuned against 16 pixels, so the shape keeps its proportion on any panel. Off keeps Size as an exact pixel count.',
     aspect: 'Width as a multiple of height for rectangles and ellipses. 1 is square.',
     sides: 'Corners on the polygon. Fractions morph smoothly, so 3.5 is halfway to a square.',
     rotation: 'Turn the shape, in degrees.',
@@ -4375,7 +4383,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'threeBand', label: 'Three Band', keys: ['energy', 'speed', 'mirror'] },
   ],
   ClockDisplay: [
-    { key: 'display', label: 'Display', keys: ['displayMode', 'units', 'x', 'y', 'hAlign', 'vAlign', 'radius', 'scaleWithMatrix'] },
+    { key: 'display', label: 'Display', keys: ['displayMode', 'units', 'x', 'y', 'hAlign', 'vAlign', 'size', 'radius', 'scaleWithMatrix'] },
     { key: 'transport', label: 'Transport', keys: ['run', 'reset', 'durationSec'] },
   ],
   ColorTrails: [
@@ -4491,7 +4499,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   Text: [
-    { key: 'text', label: 'Text', keys: ['text', 'letterSpacing', 'wrap'] },
+    { key: 'text', label: 'Text', keys: ['text', 'size', 'letterSpacing', 'wrap'] },
     { key: 'position', label: 'Position', keys: ['units', 'x', 'y', 'hAlign', 'vAlign'] },
     { key: 'scroll', label: 'Scroll', keys: ['scroll', 'scrollAxis'] },
   ],
@@ -5404,6 +5412,8 @@ export function isPropertyEnabled(
     // Scale with matrix sizes the analogue face, so it goes with Radius.
     if (key === 'radius' || key === 'scaleWithMatrix') return analog
     if (key === 'hAlign' || key === 'vAlign') return !analog
+    // Plain Analog draws no digits; Analog + Date draws the date at Size.
+    if (key === 'size') return mode !== 'Analog'
     if (key === 'durationSec') return mode === 'Timer'
     if (key === 'run' || key === 'reset') return transport
   }

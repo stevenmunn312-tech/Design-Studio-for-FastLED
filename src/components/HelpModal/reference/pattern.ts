@@ -82,6 +82,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Text draws words in a bitmap font, still or scrolling. Type the text on the node, or wire text in from Text Value, Format Number or Format Date/Time.',
       'X and Y place it, with the alignment choosing which part of the text sits there. Units reads them as 0 to 1, from just off one edge to just off the other, or as pixels, 0 the first and max_x the last. Scroll moves it in pixels per second along either axis, and Wrap repeats it across the opposite edge so a scrolling line never leaves a gap.',
       'A new line in the typed text starts a second row. Wired text is drawn at run time in the built-in font. Base draws the text over another frame; unwired, the background is black.',
+      'The font is 3 by 5 pixels. Size 2 to 4 draws each of its pixels as a square that many pixels across, gaps included, so larger panels such as a 32 by 32 or 64 by 32 HUB75 get readable letters.',
     ],
     inputs: {
       base: 'A frame to draw the text over. The letters cover it in solid colour.',
@@ -106,7 +107,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Clock Display draws the time on the LEDs: digital in several formats, an analogue face, or either with the date. It also has a Stopwatch and a countdown Timer that need no clock at all.',
       'Wire Clock’s DateTime into it for the clock modes. It shows dashes until the clock is valid, synced and not stale, so a build never shows a believable wrong time.',
-      'X and Y place it, 0 to 1 across the matrix or, with Units set to Pixels, on a pixel. Run, Reset and Duration control the stopwatch and timer, and Done pulses when the timer reaches zero. Base draws the clock over another frame.',
+      'X and Y place it, 0 to 1 across the matrix or, with Units set to Pixels, on a pixel. Size scales the digits from 1 to 4, as on Text. Run, Reset and Duration control the stopwatch and timer, and Done pulses when the timer reaches zero. Base draws the clock over another frame.',
     ],
     inputs: {
       dateTime: 'The time from Clock’s DateTime output.',
