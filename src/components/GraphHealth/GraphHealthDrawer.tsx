@@ -34,7 +34,7 @@ import {
 } from '../../utils/validateGraph'
 import { boardFqbnTargets, buildBoardDiagnostics } from '../../utils/multiBoardValidation'
 import { LED_OUTPUT_NODE_TYPE } from '../Hardware/hardwarePartCatalog'
-import { addRtcModuleToBoard } from '../Hardware/hardwarePartActions'
+import { addProviderPartToBoard, addRtcModuleToBoard, PROVIDER_PART_NAMES } from '../Hardware/hardwarePartActions'
 import { boardIdOf, boardNodesIn } from '../../build/boardPartition'
 import { boardLinkSettings, getBoardLinkKey } from '../../state/peripherals/boardLinkKey'
 import styles from './GraphHealthDrawer.module.css'
@@ -59,6 +59,7 @@ function actionLabel(action: GraphDiagnosticAction, fix?: Partial<GraphDiagnosti
   if (fix?.repair?.kind === 'split-across-pins') return `Split across ${fix.repair.dataLanes} pins`
   if (fix?.repair?.kind === 'set-panel-layout') return `Use ${fix.repair.layout}`
   if (fix?.repair?.kind === 'set-led-driver') return fix.repair.ledDriver === 'auto' ? 'Use FastLED’s driver' : `Use ${fix.repair.ledDriver}`
+  if (fix?.repair?.kind === 'add-bench-part') return `Add a ${PROVIDER_PART_NAMES[fix.repair.nodeType]}`
   if (action === 'choose-board') return 'Choose board'
   // Named rather than a bare "Fix", so the button says what will appear on the
   // canvas before it appears there.
@@ -78,6 +79,7 @@ function actionLabel(action: GraphDiagnosticAction, fix?: Partial<GraphDiagnosti
   if (action === 'add-audio-node') return 'Add Audio node'
   if (action === 'renew-board-link-key') return 'Make a new key'
   if (action === 'add-rtc-module') return 'Add a DS3231'
+  if (action === 'add-bench-part') return 'Add the part'
   return 'Open library'
 }
 
@@ -221,6 +223,14 @@ export default function GraphHealthDrawer() {
       const result = addRtcModuleToBoard(issue.repair.boardId)
       setStatus(result.ok
         ? `Added ${result.label}${result.pins.length ? ` on the I2C pins ${result.pins.join(' and ')}` : ''} — the Clock reads it now`
+        : result.reason, result.ok ? 'success' : 'info')
+      return
+    }
+    if (issue.repair?.kind === 'add-bench-part') {
+      // The part, not another node: the DMX or MIDI node is already there and set to it.
+      const result = addProviderPartToBoard(issue.repair.nodeType, issue.repair.boardId)
+      setStatus(result.ok
+        ? `Added ${result.label}${result.pins.length ? ` on pin${result.pins.length > 1 ? 's' : ''} ${result.pins.join(', ')}` : ''} — its UART is allocated automatically`
         : result.reason, result.ok ? 'success' : 'info')
       return
     }

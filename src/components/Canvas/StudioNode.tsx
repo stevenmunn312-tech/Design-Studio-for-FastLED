@@ -52,7 +52,7 @@ import { pinSupports, pinWarningForCapability } from '../../build/boards/boardGp
 import { buttonBankOutputs } from '../../state/player/buttonBank'
 import { webRemoteOutputs } from '../../state/peripherals/webRemote'
 import { drawnOutputs, foldedOutputCount } from '../../state/outputFolding'
-import { midiChannel } from '../../state/peripherals/midiSource'
+import { midiChannel, midiUsesUart } from '../../state/peripherals/midiSource'
 import { partDerivedInputs } from '../../build/parts/partPorts'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
@@ -1687,7 +1687,15 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {d.nodeType === 'DMXInput' && <DmxInputBody nodeId={id} />}
         {d.nodeType === 'DdpInput' && <DdpInputBody nodeId={id} />}
         {d.nodeType === 'RTCInput' && <RtcInputBody nodeId={id} />}
-        {d.nodeType === 'MidiInput' && <MidiInputBody note={Math.round(Number(props.note ?? 60))} cc={Math.round(Number(props.cc ?? 1))} channel={midiChannel(props.channel)} />}
+        {d.nodeType === 'MidiInput' && (
+          <MidiInputBody
+            nodeId={id}
+            note={Math.round(Number(props.note ?? 60))}
+            cc={Math.round(Number(props.cc ?? 1))}
+            channel={midiChannel(props.channel)}
+            din={midiUsesUart(props)}
+          />
+        )}
         {(d.nodeType === 'CustomPalette' || d.nodeType === 'Poline') && (
           <Suspense fallback={null}>
             {d.nodeType === 'CustomPalette' && <CustomPaletteEditorBody nodeId={id} topPlacement />}

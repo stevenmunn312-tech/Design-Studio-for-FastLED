@@ -25,7 +25,9 @@ import {
   dfPlayerUartPort,
   dfPlayerVolumeStep,
 } from '../dfPlayer'
-import { buildGraphDiagnostics, findBoardCompatibilityErrors, findDfPlayerErrors } from '../../../utils/validateGraph'
+import {
+  buildGraphDiagnostics, findBoardCompatibilityErrors, findDfPlayerErrors, findUartErrors,
+} from '../../../utils/validateGraph'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
@@ -183,31 +185,29 @@ describe('DFPlayer wiring, audio routing, and UART ownership', () => {
         nodeIds: ['player'],
       }),
     )
-    expect(findDfPlayerErrors([
+    // The radar's fixed UART1 and the player's UART2 sit side by side on a
+    // classic ESP32; a chip with no UART2 puts both on UART1.
+    expect(findUartErrors([
       player,
       node('radar', 'PresenceInput'),
     ], 'esp32:esp32:esp32')).toEqual([])
-    expect(findDfPlayerErrors([
+    expect(findUartErrors([
       player,
       node('radar', 'PresenceInput'),
-    ], 'esp32:esp32:esp32c3').join('\n')).toContain('UART1')
-    expect(findDfPlayerErrors([
+    ], 'esp32:esp32:esp32c3').join('\n')).toContain('DFPlayer Mini and another device both use UART1')
+    expect(findUartErrors([
       player,
       node('radar', 'PresenceInput'),
     ], 'esp32:esp32:lolin_s2_mini').join('\n')).toContain('UART1')
     expect(buildHardwareManifest([player], [], 'esp32:esp32:lolin_s2_mini').primaryItems[0]?.facts.uart)
       .toBe('UART1 at 9600 baud, 8N1')
-    expect(findDfPlayerErrors([
-      player,
-      node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxPort: 2 }),
-    ], 'esp32:esp32:esp32').join('\n')).toContain('UART2')
-    expect(findDfPlayerErrors([
-      player,
-      node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxPort: 1 }),
-    ], 'esp32:esp32:esp32')).toEqual([])
+    // DMX512 takes whichever UART the player leaves, so the two never clash.
+    const dmx = [node('dmx', 'DMXInput', { inputMode: 'DMX512' }), node('max485', 'DmxTransceiver')]
+    expect(findUartErrors([player, ...dmx], 'esp32:esp32:esp32')).toEqual([])
+    expect(findUartErrors([player, ...dmx], 'esp32:esp32:esp32c3').join('\n')).toContain('No UART left for DMX512')
     expect(findDfPlayerErrors([
       node('one', 'DFPlayerOutput'),
       node('two', 'DFPlayerOutput'),
-    ], 'esp32:esp32:esp32').join('\n')).toContain('Only one DFPlayer')
+    ]).join('\n')).toContain('Only one DFPlayer')
   })
 })

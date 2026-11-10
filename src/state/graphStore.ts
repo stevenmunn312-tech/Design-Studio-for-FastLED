@@ -545,9 +545,10 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     const properties = { ...data.properties }
     // A network node's own copy of the network settings, from before the
     // Board held the one identity every network user shares
-    // (peripherals/boardNetwork.ts), and a Clock's DS3231 wiring, from before
-    // the module was a part of its own. Nothing reads them, so they are
-    // dropped rather than drawn as rows that do nothing; pre-1.0, not migrated.
+    // (peripherals/boardNetwork.ts), and a Clock's DS3231 wiring and a DMX or
+    // MIDI node's UART and pins, from before each part was one of its own.
+    // Nothing reads them, so they are dropped rather than drawn as rows that
+    // do nothing; pre-1.0, not migrated.
     const retired = RETIRED_NETWORK_PROPERTY_KEYS[nodeType]
     if (retired) for (const key of retired) delete properties[key]
     // A Clock's fixed minute offset, from before it took a time zone: kept as
@@ -615,13 +616,21 @@ const NODE_NETWORK_KEYS = ['wifiSsid', 'wifiPassword', 'wifiHostname', 'useDhcp'
  * part's now (peripherals/rtcModule.ts).
  */
 const RETIRED_CLOCK_PART_KEYS = ['partId', 'sdaPin', 'sclPin', 'boardId', 'assignedPins', 'assignedPinsBoard', 'userPinsByBoard']
+/**
+ * What a DMX node and a MIDI node carried while they were also the DMX512
+ * transceiver and the DIN jack: the UART the user picked and the wiring. They
+ * are the DmxTransceiver's and MidiInterface's now, with the UART allocated.
+ */
+const RETIRED_DMX_WIRING_KEYS = ['dmxPort', 'dmxTxPin', 'dmxRxPin', 'dmxEnablePin']
+const RETIRED_MIDI_WIRING_KEYS = ['midiUart', 'midiRxPin']
 const RETIRED_NETWORK_PROPERTY_KEYS: Readonly<Record<string, readonly string[]>> = {
-  DMXInput: NODE_NETWORK_KEYS,
+  DMXInput: [...NODE_NETWORK_KEYS, ...RETIRED_DMX_WIRING_KEYS],
   DdpInput: NODE_NETWORK_KEYS,
   WebRemoteInput: NODE_NETWORK_KEYS,
   RTCInput: [...NODE_NETWORK_KEYS, ...RETIRED_CLOCK_PART_KEYS],
   StreamOutput: NODE_NETWORK_KEYS,
   PatternMaster: ['wifiHostname'],
+  MidiInput: RETIRED_MIDI_WIRING_KEYS,
 }
 
 /**
@@ -5075,12 +5084,26 @@ export function ensureRootAudioNode(kind: AudioCapabilityKind = 'microphone'): s
  * time of day. Returns the new node's id, or null when one was already there.
  */
 export function ensureRootClockNode(timeSource: RtcTimeSource = 'DS3231'): string | null {
-  const definition = LIBRARY_DEF.get('RTCInput')
+  return ensureRootReaderNode('RTCInput', { timeSource })
+}
+
+/**
+ * Give a provider part on the bench its way into the graph: a library node of
+ * `nodeType` with `properties` choosing that part as its source (a Clock set
+ * to DS3231, a DMX node set to DMX512, a MIDI node set to DIN), unless the
+ * root graph already has a node of that type, whose source is the user's to
+ * choose. Returns the new node's id, or null when one was already there.
+ */
+export function ensureRootReaderNode(
+  nodeType: 'RTCInput' | 'DMXInput' | 'MidiInput',
+  properties: Record<string, unknown>,
+): string | null {
+  const definition = LIBRARY_DEF.get(nodeType)
   if (!definition) return null
   let addedId: string | null = null
   useGraphStore.setState((s) => {
     const nodes = rootGraphNodes(s)
-    if (nodes.some((node) => node.data.nodeType === 'RTCInput')) return s
+    if (nodes.some((node) => node.data.nodeType === nodeType)) return s
     // Left of whatever the root graph already shows, so it does not land on top of it.
     const visible = nodes.filter((node) => !node.hidden)
     const position = visible.length
@@ -5089,8 +5112,8 @@ export function ensureRootClockNode(timeSource: RtcTimeSource = 'DS3231'): strin
           y: Math.min(...visible.map((node) => node.position.y)),
         }
       : { x: 0, y: 0 }
-    addedId = uniqueId(`RTCInput-${Date.now()}`, new Set(nodes.map((node) => node.id)))
-    const clock = {
+    addedId = uniqueId(`${nodeType}-${Date.now()}`, new Set(nodes.map((node) => node.id)))
+    const reader = {
       id: addedId,
       type: 'studioNode',
       position,
@@ -5098,12 +5121,12 @@ export function ensureRootClockNode(timeSource: RtcTimeSource = 'DS3231'): strin
         label: definition.label,
         nodeType: definition.type,
         category: definition.category,
-        properties: { ...libraryDefaults('RTCInput'), timeSource },
+        properties: { ...libraryDefaults(nodeType), ...properties },
         inputs: definition.inputs,
         outputs: definition.outputs,
       },
     } as StudioNode
-    return withRootNodes(s, [...nodes, clock])
+    return withRootNodes(s, [...nodes, reader])
   })
   return addedId
 }

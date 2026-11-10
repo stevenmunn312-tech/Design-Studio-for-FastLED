@@ -22,6 +22,7 @@ const SHELF_SUBCATEGORIES: Record<string, readonly { label: string; nodeTypes: r
     { label: 'Buttons & touch', nodeTypes: ['ButtonBank', 'TouchButtonInput', 'TouchPadInput', 'KeypadInput'] },
     { label: 'Knobs & joysticks', nodeTypes: ['PotInput', 'EncoderInput', 'JoystickInput'] },
     { label: 'Remote receivers', nodeTypes: ['IRRemoteInput'] },
+    { label: 'DMX & MIDI', nodeTypes: ['DmxTransceiver', 'MidiInterface'] },
     { label: 'Motion & distance', nodeTypes: ['MotionInput', 'PresenceInput', 'DistanceInput', 'MotionVectorInput'] },
     { label: 'Light & environment', nodeTypes: ['LightInput', 'EnvironmentInput', 'TemperatureInput'] },
     { label: 'Power monitoring', nodeTypes: ['PowerMonitorInput'] },

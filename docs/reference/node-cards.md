@@ -1348,6 +1348,18 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![DS3231 RTC example graph](../../public/node-cards/graphs/rtc-module.svg)
 
+### DMX Transceiver
+
+![DMX Transceiver node](../../public/node-cards/dmx-transceiver.svg)
+
+![DMX Transceiver example graph](../../public/node-cards/graphs/dmx-transceiver.svg)
+
+### MIDI Interface
+
+![MIDI Interface node](../../public/node-cards/midi-interface.svg)
+
+![MIDI Interface example graph](../../public/node-cards/graphs/midi-interface.svg)
+
 ### Ethernet
 
 ![Ethernet node](../../public/node-cards/ethernet-module.svg)

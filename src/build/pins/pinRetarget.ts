@@ -246,6 +246,18 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   },
   // One UART receive line: the sensor streams unprompted, so its RX is unwired.
   PresenceInput: { keys: ['rxPin'], requests: [{ key: 'rxPin' }] },
+  // TX drives DI and the enable line drives the bridged DE/RE; RO is read
+  // through the receive divider. The UART is allocated, not a pin.
+  DmxTransceiver: {
+    keys: ['dmxTxPin', 'dmxRxPin', 'dmxEnablePin'],
+    requests: [
+      { key: 'dmxTxPin', capability: 'digitalOutput' },
+      { key: 'dmxRxPin', capability: 'digitalInput' },
+      { key: 'dmxEnablePin', capability: 'digitalOutput' },
+    ],
+  },
+  // The wing's MIDI_RX: the optocoupler output, listened to only.
+  MidiInterface: { keys: ['midiRxPin'], requests: [{ key: 'midiRxPin', capability: 'digitalInput' }] },
   // One pin however many keys are learned: a receiver demodulates every
   // one of them onto the same line.
   IRRemoteInput: { keys: ['pin'], requests: [{ key: 'pin' }] },

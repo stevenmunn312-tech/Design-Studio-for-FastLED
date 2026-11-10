@@ -134,7 +134,7 @@ import { FRAME_RATE } from '../build/controllerSettings'
 import { DMX_INPUT_MODES, dmxUsesNetwork } from './peripherals/dmxTransceiver'
 import { BOARD_NETWORK_KEYS, isBoardStaticAddressKey } from './peripherals/boardNetwork'
 import { ADALIGHT_BAUDS, STREAM_PROTOCOLS, streamUsesNetwork } from '../nodes/output/frameStream'
-import { MIDI_SOURCES, midiUsesUart } from './peripherals/midiSource'
+import { MIDI_SOURCES } from './peripherals/midiSource'
 import { ENCODER_LEVEL_MAX_CLICKS, encoderUsesPullup } from './peripherals/encoder'
 
 export const NODE_LIBRARY: NodeDefinition[] = [
@@ -716,10 +716,15 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     inputMode: { control: 'select', options: [...DMX_INPUT_MODES] },
     universe: { control: 'slider', min: 0, max: 32767, step: 1, entry: 'number' },
     udpPort: { control: 'slider', min: 1, max: 65535, step: 1, entry: 'number' },
-    dmxPort: { control: 'slider', min: 1, max: 2, step: 1 },
+  },
+  // The transceiver's GPIOs, edited on the bench; the UART is allocated.
+  DmxTransceiver: {
     dmxTxPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     dmxRxPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     dmxEnablePin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
+  MidiInterface: {
+    midiRxPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   DMXChannel: {
     channel: { control: 'slider', min: 1, max: 512, step: 1 },
@@ -1423,8 +1428,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     cc:   { control: 'slider', min: 0, max: 127, step: 1 },
     midiSource: { control: 'select', options: [...MIDI_SOURCES] },
     channel: { control: 'slider', min: 0, max: 16, step: 1 },
-    midiUart: { control: 'slider', min: 1, max: 2, step: 1 },
-    midiRxPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   FrameFeedback: {
     // Turned again every frame the echo comes round, so a few degrees is a
@@ -1907,7 +1910,6 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   clampInputs: "Clamps a wired float input to this node's slider range, so an unbounded upstream signal can't exceed it.",
   reactivity: 'How strongly the audio changes the picture: 0 = calm base motion, 1 = fully reactive.',
   timeZone: 'Where the board keeps NTP time. A city zone follows its daylight-saving dates, on the board and in the preview; a fixed UTC offset never changes.',
-  dmxPort: 'ESP32 UART used by esp_dmx for DMX512 receive.',
   requireSync: 'Keeps the schedule inactive until the upstream Clock reports a real NTP sync.',
   dateTimeFormat: 'Which part of the clock reading the text shows. An invalid clock shows dashes, never a plausible time.',
   decimals: 'Digits after the point. Rounding is half away from zero, matching the generated firmware exactly.',
@@ -2608,12 +2610,19 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     debug: 'Prints every change of Level and Position, and each press and release of the switch, to the serial monitor at 115200 baud. Upload again after changing this.',
   },
   DMXInput: {
-    inputMode: 'Art-Net or sACN (E1.31) receives over the network; DMX512 reads a wired DMX line through an RS-485 transceiver.',
+    inputMode: 'Art-Net or sACN (E1.31) receives over the network; DMX512 reads a wired DMX line through the DMX transceiver on the bench, which the Hardware tab adds.',
     universe: 'Universe this node listens to, 0 to 32767. Must match the sender. sACN numbers universes from 1, so 0 listens to 1 there, and joins the universe\'s multicast group.',
     udpPort: 'UDP port the local helper and the firmware listen on. Switching protocol moves it to that protocol\'s port (6454 Art-Net, 5568 sACN) unless you set another.',
-    dmxTxPin: 'GPIO to the transceiver DI pin. Receive-only sketches still need it assigned.',
-    dmxRxPin: 'GPIO from the transceiver RO pin, where DMX data arrives.',
-    dmxEnablePin: 'GPIO to the transceiver DE/RE pins; held low so the board only listens.',
+  },
+  DmxTransceiver: {
+    partId: 'Which RS-485 module this is. A DMX node set to DMX512 reads it, on a UART Studio allocates.',
+    dmxTxPin: 'GPIO to the transceiver DI pad. Receive-only sketches still need it assigned.',
+    dmxRxPin: 'GPIO from the transceiver RO pad, where DMX data arrives, through the 1 kΩ / 2 kΩ divider.',
+    dmxEnablePin: 'GPIO to the bridged DE/RE pads; held low so the board only listens.',
+  },
+  MidiInterface: {
+    partId: 'Which DIN MIDI interface this is. Every MIDI node set to DIN reads it, on a UART Studio allocates.',
+    midiRxPin: 'GPIO wired to the MIDI FeatherWing MIDI_RX pad, carrying MIDI in at 31250 baud.',
   },
   WebRemoteInput: {
     controls: 'The remote\'s controls, each with a name and a type, edited in the body. Every control becomes an output port.',
@@ -2623,10 +2632,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     udpPort: 'UDP port the local helper and the firmware listen on for DDP packets. 4048 is the protocol\'s port.',
   },
   MidiInput: {
-    midiSource: 'Web MIDI reads the browser\'s controller in preview only; DIN (UART) reads a MIDI jack wired to a UART on the board, so the sketch follows it too.',
+    midiSource: 'Web MIDI reads the browser\'s controller in preview only; DIN (UART) reads the MIDI interface on the bench, which the Hardware tab adds, so the sketch follows it too.',
     channel: 'MIDI channel to listen on, 1 to 16; 0 listens to every channel.',
-    midiUart: 'ESP32 UART the DIN jack is wired to. It must be one no other reader uses: the Presence Sensor always takes UART1, and DMX512 or a DFPlayer take the one they are set to.',
-    midiRxPin: 'GPIO wired to the MIDI FeatherWing RX pad, carrying MIDI in at 31250 baud.',
     note: 'MIDI note number to watch, 0 to 127 (60 is middle C). Velocity and Gate follow this key.',
     cc: 'Controller number to watch, 0 to 127 (1 is the mod wheel). CC outputs its last value.',
   },
@@ -4028,10 +4035,14 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   DMXInput: {
     inputMode: 'firmware source',
     udpPort: 'UDP port',
-    dmxPort: 'UART port',
+  },
+  DmxTransceiver: {
     dmxTxPin: 'TX pin',
     dmxRxPin: 'RX pin',
     dmxEnablePin: 'enable pin',
+  },
+  MidiInterface: {
+    midiRxPin: 'RX pin',
   },
   WebRemoteInput: {
     title: 'page title',
@@ -4137,8 +4148,6 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   MidiInput: {
     midiSource: 'source',
-    midiUart: 'UART port',
-    midiRxPin: 'RX pin',
   },
 }
 
@@ -4172,7 +4181,8 @@ const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
   'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput', 'WebRemoteInput',
-  'MidiInput', 'SDCard', 'EthernetModule', 'RtcModule', 'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
+  'MidiInput', 'SDCard', 'EthernetModule', 'RtcModule', 'DmxTransceiver', 'MidiInterface',
+  'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
 ])
 
 /**
@@ -4291,7 +4301,6 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   DMXInput: [
     { key: 'source', label: 'Firmware Source', keys: ['inputMode', 'universe', 'udpPort'] },
-    { key: 'dmx512', label: 'DMX512 Wiring', keys: ['dmxPort', 'dmxTxPin', 'dmxRxPin', 'dmxEnablePin'] },
   ],
   DdpInput: [
     { key: 'source', label: 'Listener', keys: ['udpPort'] },
@@ -4668,8 +4677,8 @@ export function hasClampableInputs(nodeType: string, inputs: { id: string; dataT
 const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   MicInput: new Set(['i2sWs', 'i2sSck', 'i2sSd']),
   LineInput: new Set(['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout']),
-  DMXInput: new Set(['dmxTxPin', 'dmxRxPin', 'dmxEnablePin']),
-  MidiInput: new Set(['midiRxPin']),
+  DmxTransceiver: new Set(['dmxTxPin', 'dmxRxPin', 'dmxEnablePin']),
+  MidiInterface: new Set(['midiRxPin']),
   TouchButtonInput: new Set(['pin']),
   ButtonBank: new Set(['pin']),
   PotInput: new Set(['pin']),
@@ -4768,10 +4777,10 @@ export function gpioRequirementForProperty(
   if (nodeType === 'ButtonBank') {
     return { capability: 'digitalInput', pullup: props.pullup !== false }
   }
-  if (nodeType === 'DMXInput' && key === 'dmxRxPin') {
+  if (nodeType === 'DmxTransceiver' && key === 'dmxRxPin') {
     return { capability: 'digitalInput', pullup: false }
   }
-  if (nodeType === 'MidiInput' && key === 'midiRxPin') {
+  if (nodeType === 'MidiInterface' && key === 'midiRxPin') {
     return { capability: 'digitalInput', pullup: false }
   }
   if (nodeType === 'MicInput' && key === 'i2sSd') {
@@ -5308,21 +5317,13 @@ export function isPropertyEnabled(
   }
   // The board's one network identity: a static address only counts with DHCP off.
   if (nodeType === 'Board' && isBoardStaticAddressKey(key)) return properties.useDhcp === false
-  if (nodeType === 'MidiInput' && (key === 'midiUart' || key === 'midiRxPin')) {
-    return midiUsesUart(properties)
-  }
   if (nodeType === 'StreamOutput') {
     const network = streamUsesNetwork(properties)
     if (key === 'host' || key === 'port') return network
     if (key === 'baud') return !network
   }
-  if (nodeType === 'DMXInput') {
-    const network = dmxUsesNetwork(properties)
-    if (key === 'udpPort') return network
-    if (key === 'dmxPort' || key === 'dmxTxPin' || key === 'dmxRxPin' || key === 'dmxEnablePin') {
-      return !network
-    }
-  }
+  // DMX512's wiring is the transceiver's, on the bench; only the UDP port is the node's.
+  if (nodeType === 'DMXInput' && key === 'udpPort') return dmxUsesNetwork(properties)
   if (nodeType === 'RTCInput') {
     if (key === 'ntpServer' || key === 'timeZone') return String(properties.timeSource ?? 'Compile Time') === 'NTP'
     if (key.startsWith('start')) return String(properties.timeSource ?? 'Compile Time') === 'Manual'

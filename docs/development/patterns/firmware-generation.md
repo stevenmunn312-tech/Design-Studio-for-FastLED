@@ -383,6 +383,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   player's decoder tap is unaffected because it calls `Processor::update`
   itself. Found on an ESP32-S3 + INMP441 with core 3.3.12 and FastLED 3.10.8
   on 2026-11-03.
+- A serial part opens the UART `build/pins/uartAssignment.ts` gives it, never
+  one a node property names. `generateCpp` is not told which ESP32 it builds
+  for, so `firmwareUartPorts` allocates for both branches and
+  `uartPortDeclarationCpp` emits them under
+  `CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S3` / `#else` (one line
+  when they agree), as the DFPlayer driver does; the validator refuses the
+  branch with no port for the selected board. A UART hands each byte out once,
+  so DIN MIDI is one reader for the board (`midiDinCpp.ts`): each MIDI emitter
+  only registers its note, CC and channel in `midiDinReaders`, the shared
+  parser dispatches every complete message to all of them, and it is polled
+  once per frame before the walk. A DMX512 or DIN node with no part on the bench
+  reads nothing and opens no UART. See
+  [hardware](hardware-and-build-diagram.md).
 
 ## Integer pattern kernels
 

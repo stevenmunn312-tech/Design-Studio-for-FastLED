@@ -690,18 +690,18 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'DMX / Art-Net brings a lighting desk into the graph. It receives one universe of 512 channels over the network as Art-Net or sACN, or from a wired DMX512 line through an RS-485 transceiver.',
       'The node outputs the whole universe on one wire; DMX Channel picks out a single channel as a 0–1 value. Use several DMX Channel nodes to patch the build as a fixture with dimmer, colour and effect channels.',
-      'In the preview, the local build tools listen on the same UDP port and forward what they hear. On the board, network modes join Wi-Fi (or wired Ethernet when that part is on the bench) and DMX512 reads a UART.',
+      'In the preview, the local build tools listen on the same UDP port and forward what they hear. On the board, network modes join Wi-Fi (or wired Ethernet when that part is on the bench), and DMX512 reads the DMX Transceiver on the bench, on a UART Studio allocates.',
     ],
     steps: [
       'Choose Art-Net, sACN or DMX512 as the firmware source and set the universe your desk sends.',
-      'For network modes, enter the Wi-Fi in the Board’s Network settings, where the hostname and DHCP or a fixed address are set too. For DMX512, add an RS-485 transceiver and wire its RO, DI and DE/RE pins.',
+      'For network modes, enter the Wi-Fi in the Board’s Network settings, where the hostname and DHCP or a fixed address are set too. For DMX512, add the MAX485 DMX transceiver from the Hardware tab (or press Add DMX transceiver on the node); its pins and UART are assigned for you.',
       'Add a DMX Channel node for each channel you want to use.',
     ],
     outputs: {
       dmx: 'The latest universe of 512 channel values. Feed it to DMX Channel nodes.',
       live: 'True while the desk is sending, and false once it has been quiet for a moment (one second on a DMX512 line, two on the network). Wire it to a Frame Switch to fall back to your own show when the desk goes quiet.',
     },
-    propertyNote: 'Universe and port must match the sender. sACN numbers its universes from 1, so universe 0 listens to universe 1 in sACN mode. The network fields apply to Art-Net and sACN; the UART pins apply to DMX512.',
+    propertyNote: 'Universe and port must match the sender. sACN numbers its universes from 1, so universe 0 listens to universe 1 in sACN mode. The UDP port applies to Art-Net and sACN; DMX512’s wiring belongs to the DMX Transceiver on the bench.',
     example: example({
       featured: 'DMXInput',
       title: 'Patch the matrix as a two-channel fixture',
@@ -804,20 +804,20 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
   MidiInput: {
     overview: [
       'MIDI listens to one note and one controller. Velocity is how hard that note was struck, from 0 to 1, Gate is true while it is held, and CC is the controller’s last value, also 0 to 1.',
-      'In the browser it reads any controller the Web MIDI API can see. Set Source to DIN (UART) and the uploaded sketch reads a MIDI jack wired to the board as well, so a keyboard can play the finished build.',
+      'In the browser it reads any controller the Web MIDI API can see. Set Source to DIN (UART) and the uploaded sketch reads the MIDI Interface on the bench as well, so a keyboard can play the finished build.',
       'Channel 0 listens to every channel; 1 to 16 hears only that channel, in the preview as on the board. Use several MIDI nodes to map several keys or knobs.',
       'With no controller to hand, the node’s Play note pad and CC slider send the same messages a keyboard would, on the node’s channel.',
     ],
     steps: [
       'For the preview, plug a MIDI controller into your computer and allow MIDI access, or play the node’s own pad and slider.',
-      'For the board, set Source to DIN (UART) and wire a MIDI FeatherWing or opto-isolated input to the RX pin shown.',
+      'For the board, set Source to DIN (UART) and add the MIDI FeatherWing from the Hardware tab (or press Add MIDI interface on the node). Its RX pin and UART are assigned for you, and every MIDI node set to DIN reads the one jack.',
     ],
     outputs: {
       note: 'How hard the watched note was struck, 0 to 1. Returns to 0 on release.',
       gate: 'True while the watched note is held.',
       cc: 'The watched controller’s last value, 0 to 1.',
     },
-    propertyNote: 'Note and CC choose what to listen for. The UART fields apply only to DIN, and the UART must be one nothing else reads: UART1 is the Presence Sensor’s.',
+    propertyNote: 'Note and CC choose what to listen for. Source chooses where the board hears them; the DIN wiring belongs to the MIDI Interface on the bench, which takes a UART no other part reads.',
     example: example({
       featured: 'MidiInput',
       title: 'Play a storm at sea from a keyboard',

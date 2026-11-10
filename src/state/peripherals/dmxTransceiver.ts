@@ -1,18 +1,34 @@
+import type { StudioNode } from '../graphStore'
 import { clampDmxUniverse } from './dmx'
 
 // The RS-485 transceiver a DMX512 input is wired through.
 //
-// `DMXInput` is a graph node with two firmware sources, and only one of them is
-// hardware: Art-Net arrives over Wi-Fi and needs no part, while DMX512 arrives
-// on an XLR cable and needs a transceiver between the cable and the UART. So
-// the transceiver is named here rather than as a `PART_OPTIONS` row — a part
-// option would put the module's picture on the node in Art-Net mode too, where
-// nothing is wired.
+// `DMXInput` is a library node with three firmware sources, and only one of
+// them is hardware: Art-Net and sACN arrive over the network and need no part,
+// while DMX512 arrives on an XLR cable and needs a transceiver between the
+// cable and a UART. So the transceiver is a bench part of its own
+// (`DmxTransceiver`, hidden on the canvas, no ports), the way Audio reads a
+// Microphone and a Clock set to DS3231 reads the DS3231: the DMX node keeps the
+// source choice and the outputs, and the part carries only which module it is
+// and its three GPIOs. The UART comes from the allocator
+// (build/pins/uartAssignment.ts), never from the user.
 //
 // One module today, the common "C25B" MAX485 board. A second (a 3.3 V MAX3485
 // board, say) becomes a choice here, not a second copy of the rule below.
 
 export const DMX_TRANSCEIVER_PART_ID = 'max485-rs485-module'
+export const DMX_TRANSCEIVER_NODE_TYPE = 'DmxTransceiver'
+
+/** The transceiver on the bench: the provider every DMX512 input on the board reads. */
+export function dmxTransceiverIn<T extends Pick<StudioNode, 'data'>>(nodes: readonly T[]): T | null {
+  return nodes.find((node) => node.data.nodeType === DMX_TRANSCEIVER_NODE_TYPE) ?? null
+}
+
+/** The DMX nodes in `nodes` whose firmware source is the wired DMX512 line. */
+export function dmx512Inputs<T extends Pick<StudioNode, 'data'>>(nodes: readonly T[]): T[] {
+  return nodes.filter((node) => node.data.nodeType === 'DMXInput'
+    && dmxUsesTransceiver(node.data.properties as Record<string, unknown>))
+}
 
 /** The DMX node's firmware sources: two network protocols and the wire. */
 export const DMX_INPUT_MODES = ['Art-Net', 'sACN', 'DMX512'] as const

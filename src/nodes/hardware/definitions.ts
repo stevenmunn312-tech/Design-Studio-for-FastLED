@@ -1,4 +1,5 @@
-// Hardware node definitions: the portless power, network and clock parts. They
+// Hardware node definitions: the portless power, network, clock and DMX/MIDI
+// interface parts. They
 // carry no signal, live only in the hardware view and never in the sidebar
 // (see isHardwareLibraryHiddenNodeType), and are found by scanning the graph.
 import type { NodeDefinition } from '../../types'
@@ -6,6 +7,8 @@ import { PD_TRIGGER_PART_ID, pdTriggerSpec } from '../../state/peripherals/pdTri
 import { DEFAULT_POWER_CONVERTER_PART_ID, DEFAULT_SOURCE_VOLTAGE } from '../../state/peripherals/powerConverter'
 import { DEFAULT_BATTERY_CELL_PART_ID } from '../../state/peripherals/battery'
 import { DEFAULT_RTC_MODULE_PART_ID, RTC_MODULE_NODE_TYPE } from '../../state/peripherals/rtcModule'
+import { DMX_TRANSCEIVER_NODE_TYPE, DMX_TRANSCEIVER_PART_ID } from '../../state/peripherals/dmxTransceiver'
+import { MIDI_DIN_PART_ID, MIDI_INTERFACE_NODE_TYPE } from '../../state/peripherals/midiSource'
 
 export const HARDWARE_DEFINITIONS: NodeDefinition[] = [
   {
@@ -26,6 +29,45 @@ export const HARDWARE_DEFINITIONS: NodeDefinition[] = [
       // move it to the selected board's own I2C pair.
       sdaPin: 21,
       sclPin: 22,
+    },
+  },
+  {
+    // The RS-485 transceiver a DMX512 line arrives through. It carries no
+    // signal: a DMX / Art-Net node set to DMX512 reads it, the way a Clock set
+    // to DS3231 reads its module, so the universe arrives in one place. Its
+    // three GPIOs come from the board's free pins; its UART from the allocator
+    // (build/pins/uartAssignment.ts). See state/peripherals/dmxTransceiver.ts.
+    //
+    // Config only, like SD Card: no ports, no evaluation, found by scanning.
+    type: DMX_TRANSCEIVER_NODE_TYPE,
+    label: 'DMX Transceiver',
+    category: 'hardware',
+    inputs: [],
+    outputs: [],
+    defaultProperties: {
+      partId: DMX_TRANSCEIVER_PART_ID,
+      // Classic-ESP32 fallbacks; adding the part and every board change hand
+      // out free pins through its pin plan.
+      dmxTxPin: 17,
+      dmxRxPin: 16,
+      dmxEnablePin: 21,
+    },
+  },
+  {
+    // The DIN MIDI jack. It carries no signal: every MIDI node set to DIN on
+    // the board reads it through one shared reader, so the jack's bytes are
+    // parsed once. Its RX GPIO comes from the board's free pins; its UART from
+    // the allocator. See state/peripherals/midiSource.ts.
+    //
+    // Config only, like SD Card: no ports, no evaluation, found by scanning.
+    type: MIDI_INTERFACE_NODE_TYPE,
+    label: 'MIDI Interface',
+    category: 'hardware',
+    inputs: [],
+    outputs: [],
+    defaultProperties: {
+      partId: MIDI_DIN_PART_ID,
+      midiRxPin: 16,
     },
   },
   {
@@ -114,6 +156,8 @@ export const HARDWARE_DEFINITIONS: NodeDefinition[] = [
 
 export const HARDWARE_DESCRIPTIONS: Record<string, string> = {
   RtcModule: 'Battery-backed DS3231 clock for a Clock set to DS3231; a bench part.',
+  DmxTransceiver: 'MAX485 RS-485 transceiver for a DMX node set to DMX512; a bench part.',
+  MidiInterface: 'DIN MIDI jack for every MIDI node set to DIN; a bench part.',
   EthernetModule: 'Wired Ethernet for the board\'s whole network in place of Wi-Fi; a bench part.',
   PowerConverter: 'Converts a DC source to 5 V for the controller or LED rail.',
   BatteryPack: 'Defines a lithium pack from an exact cell and its series-parallel count.',

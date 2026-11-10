@@ -17,7 +17,7 @@ export function receiveDividerSource(kind: string, partId: unknown, transport?: 
 /** Identify the assigned GPIO that must not be wired straight to a 5 V output. */
 export function dividedInputPinKey(nodeType: string, properties: Record<string, unknown>): string | null {
   const kind = ({
-    DMXInput: 'dmx-input',
+    DmxTransceiver: 'dmx-input',
     DistanceInput: 'distance-input',
     IRRemoteInput: 'ir-input',
   } as Record<string, string>)[nodeType]

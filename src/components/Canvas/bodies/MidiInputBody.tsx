@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { useMidiStore } from '../../../state/midiStore'
 import { MidiEngine, midiReading } from '../../../midi/midiEngine'
 import styles from './MidiInputBody.module.css'
+import BenchPartAction from './BenchPartAction'
 
 // Live status readout for the MidiInput node — device connection state plus
 // the current velocity/CC values for the note/cc numbers this node is
@@ -30,7 +31,14 @@ function midiByte(value: number): number {
   return Math.max(0, Math.min(127, Math.round(value)))
 }
 
-export default function MidiInputBody({ note, cc, channel }: { note: number; cc: number; channel: number }) {
+export default function MidiInputBody({ nodeId, note, cc, channel, din }: {
+  nodeId: string
+  note: number
+  cc: number
+  channel: number
+  /** Set to DIN: the sketch reads the bench's MIDI interface, which may be missing. */
+  din: boolean
+}) {
   const supported = useMidiStore((s) => s.supported)
   const active = useMidiStore((s) => s.active)
   // Two numbers rather than one reading object, so the selectors stay stable.
@@ -88,6 +96,7 @@ export default function MidiInputBody({ note, cc, channel }: { note: number; cc:
           onChange={(event) => send([0xb0 | status, midiByte(cc), midiByte(Number(event.target.value))])}
         />
       </div>
+      {din && <BenchPartAction nodeId={nodeId} nodeType="MidiInterface" />}
     </div>
   )
 }

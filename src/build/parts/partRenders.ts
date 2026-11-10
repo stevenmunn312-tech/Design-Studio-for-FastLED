@@ -40,6 +40,14 @@ export const PART_RENDER_BY_NODE_TYPE: Record<string, PartRender> = {
     label: 'DS3231 RTC module',
     src: partRenderSrc('ds3231-rtc-module') ?? '',
   },
+  DmxTransceiver: {
+    label: 'MAX485 DMX transceiver',
+    src: partRenderSrc('max485-rs485-module') ?? '',
+  },
+  MidiInterface: {
+    label: 'Adafruit MIDI FeatherWing',
+    src: partRenderSrc('adafruit-midi-featherwing') ?? '',
+  },
   TouchButtonInput: {
     label: 'Seeed Studio Grove Touch Sensor',
     src: partRenderSrc('seeed-grove-touch-sensor') ?? '',

@@ -4,6 +4,7 @@ import { useDmxStore } from '../../../state/peripherals/dmxStore'
 import { dmxListenPort, dmxListenUniverse, dmxNetworkProtocol } from '../../../state/peripherals/dmxTransceiver'
 import styles from './DmxInputBody.module.css'
 import BoardNetworkNote from './BoardNetworkNote'
+import BenchPartAction from './BenchPartAction'
 
 function statusLabel(helperOnline: boolean, listening: boolean, live: boolean, error: string, protocol: string): string {
   if (!helperOnline) return 'HELPER OFFLINE'
@@ -72,8 +73,9 @@ export default function DmxInputBody({ nodeId }: { nodeId: string }) {
         </div>
       )}
       {!network && (
-        <div className={styles.note}>Preview listens for Art-Net or sACN only; firmware uses the selected DMX512 pins.</div>
+        <div className={styles.note}>Preview listens for Art-Net or sACN only; firmware reads the DMX transceiver on the bench, on a UART Studio allocates.</div>
       )}
+      {!network && <BenchPartAction nodeId={nodeId} nodeType="DmxTransceiver" />}
       {network && <BoardNetworkNote nodeId={nodeId} />}
     </div>
   )

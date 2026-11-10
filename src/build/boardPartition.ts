@@ -7,6 +7,8 @@ import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { networkUsedIn } from '../codegen/peripherals/networkCpp'
 import { boardNetworkCredentialsKey } from '../state/peripherals/boardNetwork'
 import { RTC_MODULE_NODE_TYPE, ds3231Clocks } from '../state/peripherals/rtcModule'
+import { DMX_TRANSCEIVER_NODE_TYPE, dmx512Inputs, dmxUsesTransceiver } from '../state/peripherals/dmxTransceiver'
+import { MIDI_INTERFACE_NODE_TYPE, dinMidiInputs } from '../state/peripherals/midiSource'
 import { displayKindOfSource, displaySlotFields, receiverDisplayFields } from './boardLinkDisplay'
 import { isLinkedControlsSource, touchControlsFields } from './boardLinkControls'
 import {
@@ -227,20 +229,34 @@ function membership(nodes: readonly StudioNode[], edges: readonly StudioEdge[]):
     if (set) set.add(boardId)
     else anchors.set(nodeId, new Set([boardId]))
   }
+  // A DMX node on the wire is no network endpoint once a transceiver is on a
+  // bench: the transceiver says where it runs, below. With none it keeps the
+  // board it was stamped with.
+  const hasTransceiver = nodes.some((node) => nodeTypeOf(node) === DMX_TRANSCEIVER_NODE_TYPE)
   for (const node of nodes) {
     const type = nodeTypeOf(node)
-    if (isBoardAttachedNodeType(type) || isNetworkEndpointNodeType(type)) {
+    const wiredDmx = hasTransceiver && type === 'DMXInput'
+      && dmxUsesTransceiver((node.data?.properties ?? {}) as Record<string, unknown>)
+    if (isBoardAttachedNodeType(type) || (isNetworkEndpointNodeType(type) && !wiredDmx)) {
       anchor(node.id, boardIdOf(node, primaryId, boardIds))
     }
   }
   // A Clock reading a DS3231 runs on the board that has the module, and a
   // reading another board shows crosses the link as a datetime. With a module
   // on several boards each board reads its own, so the Clock stays unanchored.
-  const ds3231Boards = new Set(nodes.filter((node) => nodeTypeOf(node) === RTC_MODULE_NODE_TYPE)
-    .map((node) => boardIdOf(node, primaryId, boardIds)))
-  if (ds3231Boards.size === 1) {
-    const [moduleBoard] = ds3231Boards
-    for (const clock of ds3231Clocks(nodes)) anchor(clock.id, moduleBoard)
+  // A DMX512 input and the DIN MIDI nodes follow their transceiver and MIDI
+  // interface by the same rule.
+  const providers: [partType: string, readers: StudioNode[]][] = [
+    [RTC_MODULE_NODE_TYPE, ds3231Clocks(nodes)],
+    [DMX_TRANSCEIVER_NODE_TYPE, dmx512Inputs(nodes)],
+    [MIDI_INTERFACE_NODE_TYPE, dinMidiInputs(nodes)],
+  ]
+  for (const [partType, readers] of providers) {
+    const partBoards = new Set(nodes.filter((node) => nodeTypeOf(node) === partType)
+      .map((node) => boardIdOf(node, primaryId, boardIds)))
+    if (partBoards.size !== 1) continue
+    const [partBoard] = partBoards
+    for (const reader of readers) anchor(reader.id, partBoard)
   }
   for (const node of nodes) {
     if (!isGeneratorOwnerNodeType(nodeTypeOf(node))) continue

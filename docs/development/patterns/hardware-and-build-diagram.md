@@ -83,14 +83,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   a mechanical drawing's dimensions against what they point at, too: the D1
   Mini's 20.4 mm is its mounting holes, and its rails are 22.86 mm apart.
 - A part that only feeds a library node is a provider, not a signal node: the
-  Microphone and Line In for **Audio**, and the DS3231 (`RtcModule`,
-  hardware-only, no ports) for the **Clock** (`RTCInput`) set to DS3231. The
-  library node carries the source choice and the outputs; the part carries
-  only its identity and pins, is hidden on the canvas, and is found by
-  scanning the board's partition (`rtcModuleIn`). Adding the part brings its
-  library node when the graph has none (`ensureRootAudioNode`,
-  `ensureRootClockNode`), and a choice whose part is missing is a validation
-  finding whose repair adds it, never a second set of outputs on the part.
+  Microphone and Line In for **Audio**, the DS3231 (`RtcModule`) for the
+  **Clock** (`RTCInput`) set to DS3231, the MAX485 (`DmxTransceiver`) for a
+  **DMX / Art-Net** node set to DMX512, and the MIDI FeatherWing
+  (`MidiInterface`) for every **MIDI** node set to DIN. The last three are
+  hardware-only, with no ports. The library node carries the source choice and
+  the outputs; the part carries only its identity and pins, is hidden on the
+  canvas, and is found by scanning the board's partition (`rtcModuleIn`,
+  `dmxTransceiverIn`, `midiInterfaceIn`). Adding the part brings its library
+  node when the graph has none (`ensureRootAudioNode`, `ensureRootReaderNode`),
+  and a choice whose part is missing is a validation finding whose repair adds
+  it (`add-rtc-module`, `add-bench-part` through `addProviderPartToBoard`, also
+  a button on the reading node), never a second set of outputs on the part. With
+  the part on exactly one board, `boardPartition` anchors its readers there.
 - Ethernet built into a board is a profile fact (`onboardEthernet`), never an
   `EthernetModule`. Ask `wiredNetworkIn`, not `ethernetModuleIn`, whether a
   cable carries the network: the board's port wins, and a module beside it is
@@ -114,12 +119,26 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   firmware replaces it with the BUSY pin. Commands go out one at a time,
   100 ms apart, after a 1 s card start. Classic ESP32 and S3 open UART2 so
   a presence sensor can keep UART1; S2, C3, C6 and H2 have only UART1, and
-  Graph Health refuses a presence sensor or a DMX512 input on that same
-  port. That port comes from `targetFamilyFromFqbn`, not a search for
+  the UART allocator refuses a presence sensor there. That port comes from
+  `targetFamilyFromFqbn`, not a search for
   `esp32s2` in the FQBN: `lolin_s2_mini` is an S2 and shares UART1 with a
   presence sensor. Speaker mode uses SPK1/SPK2. Line Out is the wiring choice that
   lets DAC_L/DAC_R feed a power amplifier. The normal sketch is the only
   generator that emits it.
+- **A UART is allocated, never picked.** `src/build/pins/uartAssignment.ts`
+  is the one answer to which hardware UART each serial reader opens, read by
+  validation (`uartValidationIssues`), the Build Diagram's `uart` fact and the
+  firmware. The radar (`PRESENCE_UART_PORT`) and the DFPlayer
+  (`dfPlayerUartPort`) open the port their firmware fixes and are placed
+  first; the DMX transceiver and then the MIDI interface take the lowest
+  UART still free, and only while a node reads them. UART0 is the console and
+  is never handed out. A UART is a peripheral, not a GPIO, so it stays out of
+  `collectPinUses`. A fixed port another fixed reader holds, or no UART left,
+  is a conflict naming the holders. The generator is not told which ESP32 it
+  builds for, so `firmwareUartPorts` allocates for the classic/S3 branch and
+  the one-UART branch and `uartPortDeclarationCpp` picks between them with
+  `CONFIG_IDF_TARGET_*`, as the DFPlayer driver does; validation, run against
+  the selected FQBN, refuses the branch that has no port.
 - A relay module's load kind, off-state leakage and isolation live on the
   catalogue `relay` block and are shown as Build Diagram facts and as Load,
   Leakage and Isolation rows in the part inspector. They are not a graph-health
@@ -661,20 +680,27 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   provide several functions, so validate required functions across selected
   boards without requiring one node per function. See
   [battery power](../../plans/battery-power.md).
-- **DMX transceiver (experimental):** a DMX512 `DMXInput` is drawn as the "C25B"
-  MAX485 module (`dmx-input`, `src/state/peripherals/dmxTransceiver.ts`). It is not a
-  `PART_OPTIONS` row, because that would put the module's picture on an Art-Net
-  node too, and an Art-Net node draws nothing. It takes **5 V**, its rated
+- **DMX transceiver (experimental):** the "C25B" MAX485 module is a bench part,
+  `DmxTransceiver` (`src/state/peripherals/dmxTransceiver.ts`), drawn as
+  `dmx-input`. It holds the three GPIOs (`dmxTxPin`, `dmxRxPin`,
+  `dmxEnablePin`, from free pins through its `PART_PIN_PLANS` entry) and a
+  `DMXInput` set to DMX512 reads it, so the DMX node keeps only its source,
+  universe and UDP port and never draws anything itself. One per board
+  (`dmx-transceiver-count`): esp_dmx reads one line. It takes **5 V**, its rated
   supply, so RO swings to 5 V: `receiveDivider` draws 1 kΩ from RO to a junction
   and 2 kΩ to ground, and `peripheralSignalEndPoint` ends the RX wire on that
   junction for both the lane allocator and the router, so the wire's lane is
   chosen for the point it climbs to. RE has no GPIO:
   `transceiverEnableBridgePads` finds it by name and the sheet draws a jumper to
   DE. See [DMX / Art-Net input](../../design/dmx-artnet-input.md#the-transceiver).
-- **DIN MIDI interface (experimental):** a DIN-mode `MidiInput` is drawn as
-  Adafruit's MIDI FeatherWing (`midi-input`, `MIDI_DIN_PART_ID` in
-  `src/state/peripherals/midiSource.ts`), not a `PART_OPTIONS` row, for the
-  DMX transceiver's reason: a Web MIDI node draws nothing. Only three of its
+- **DIN MIDI interface (experimental):** Adafruit's MIDI FeatherWing is a
+  bench part, `MidiInterface` (`MIDI_DIN_PART_ID` in
+  `src/state/peripherals/midiSource.ts`), drawn as `midi-input`. It holds
+  `midiRxPin`, and every `MidiInput` set to DIN reads it through one shared
+  parser (`src/codegen/peripherals/midiDinCpp.ts`): a UART hands each byte out
+  once, so a reader per node would split the jack's bytes. Each node's emitter
+  registers what it watches in `midiDinReaders`, and the generator's dead-code
+  pass keeps only the dispatch lines whose outputs a wire reads. Only three of its
   28 Feather pads carry a wire: 3.3V, GND and MIDI_RX (the H11L1MS output,
   pulled up to the wing's 3V, so no divider). The other pads keep the board's
   generic net names, and one of them is `G`, which the ground-pad lookup also

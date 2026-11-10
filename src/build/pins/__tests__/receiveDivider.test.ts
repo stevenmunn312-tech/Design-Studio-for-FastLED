@@ -7,7 +7,7 @@ describe('hardware captions for divided inputs', () => {
     expect(numericPinSummary(
       { dmxRxPin: 2, dmxTxPin: 3, dmxEnablePin: 4 },
       [{ key: 'dmxRxPin', label: 'RO' }, { key: 'dmxTxPin', label: 'DI' }, { key: 'dmxEnablePin', label: 'DE' }],
-      'DMXInput',
+      'DmxTransceiver',
     )).toBe('RO 2 (See build diagram) · DI 3 · DE 4')
     expect(receiveDividerSource('dmx-input', 'max485-rs485-module')?.propertyKey).toBe('dmxRxPin')
   })

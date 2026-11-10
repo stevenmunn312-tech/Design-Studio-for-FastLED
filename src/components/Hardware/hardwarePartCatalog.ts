@@ -36,6 +36,8 @@ import { DFPLAYER_PART_ID } from '../../state/peripherals/dfPlayer'
 import { DEFAULT_BATTERY_CELL_PART_ID } from '../../state/peripherals/battery'
 import { SR1230_ENCODER_PART_ID } from '../../state/peripherals/encoder'
 import { RTC_MODULE_NODE_TYPE } from '../../state/peripherals/rtcModule'
+import { DMX_TRANSCEIVER_NODE_TYPE, DMX_TRANSCEIVER_PART_ID } from '../../state/peripherals/dmxTransceiver'
+import { MIDI_DIN_PART_ID, MIDI_INTERFACE_NODE_TYPE } from '../../state/peripherals/midiSource'
 
 export const MIC_NODE_TYPE = 'MicInput'
 
@@ -562,6 +564,45 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
     ],
     properties: { partId: 'jaycar-xc9044-rtc-module' },
     connectionSummary: 'Default I2C bus',
+    singleton: true,
+  },
+  {
+    // Read by a DMX / Art-Net node set to DMX512, as the DS3231 is by a Clock.
+    // Three free GPIOs; the UART is allocated, never picked.
+    nodeType: DMX_TRANSCEIVER_NODE_TYPE,
+    partId: 'dmx-transceiver',
+    label: 'MAX485 DMX transceiver',
+    hint: 'Wired DMX512 in from a lighting desk, for a DMX node set to DMX512',
+    footprint: partDimensionsMm(DMX_TRANSCEIVER_PART_ID, { width: 15, height: 45 }),
+    signalPort: 'dmx',
+    dataType: 'dmx',
+    pinRequests: [
+      { key: 'dmxTxPin', capability: 'digitalOutput' },
+      { key: 'dmxRxPin', capability: 'digitalInput' },
+      { key: 'dmxEnablePin', capability: 'digitalOutput' },
+    ],
+    pinFields: [
+      { key: 'dmxRxPin', label: 'RO' },
+      { key: 'dmxTxPin', label: 'DI' },
+      { key: 'dmxEnablePin', label: 'DE/RE' },
+    ],
+    properties: { partId: DMX_TRANSCEIVER_PART_ID },
+    // esp_dmx reads one line per board; a second universe is out of v1.
+    singleton: true,
+  },
+  {
+    // Read by every MIDI node set to DIN, through one shared reader.
+    nodeType: MIDI_INTERFACE_NODE_TYPE,
+    partId: 'midi-interface',
+    label: 'Adafruit MIDI FeatherWing',
+    hint: 'A DIN MIDI jack for a keyboard, for MIDI nodes set to DIN',
+    footprint: partDimensionsMm(MIDI_DIN_PART_ID, { width: 50.8, height: 22.86 }),
+    signalPort: 'note',
+    dataType: 'float',
+    pinRequests: [{ key: 'midiRxPin', capability: 'digitalInput' }],
+    pinFields: [{ key: 'midiRxPin', label: 'MIDI_RX' }],
+    properties: { partId: MIDI_DIN_PART_ID },
+    // Every DIN node on the board reads the one jack.
     singleton: true,
   },
   {

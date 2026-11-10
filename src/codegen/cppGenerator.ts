@@ -36,6 +36,10 @@ import { ledOutputManualExprs } from './output/ledOutputRuntimeCpp'
 import { LED_OUTPUT_ACTION_PORTS, ledOutputStatus, LED_OUTPUT_RUNTIME_DEFAULT } from '../state/output/ledOutputRuntime'
 import { type PlayerControlButtonEmit, PLAYER_CONTROLS_CPP, ledOutputLatchGlobalCpp } from './player/playerControlsCpp'
 import { type IrRemoteProjectNode, irRemoteProjectEmission } from './peripherals/irRemoteCpp'
+import { type MidiDinReader, midiDinEmission } from './peripherals/midiDinCpp'
+import { firmwareUartPorts } from '../build/pins/uartAssignment'
+import { midiInterfaceIn } from '../state/peripherals/midiSource'
+import { dmxTransceiverIn } from '../state/peripherals/dmxTransceiver'
 import { type MasterSpeedEmit, masterClockLoopCpp, masterSpeedUpdateCpp } from './player/masterSpeedCpp'
 import { clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from '../state/player/masterSpeed'
 import { loopPacingCpp, withLoopPacing } from './loopPacing'
@@ -656,8 +660,11 @@ export function generateCpp(
     min: MASTER_SPEED_MIN,
     max: MASTER_SPEED_MAX,
   }
+  // esp_dmx only where a DMX512 input has the bench's transceiver to read; with
+  // none the node rests idle and the validator says why.
   const dmxInputs = sorted.filter((n) => n.data.nodeType === 'DMXInput')
-  const needsDmx512 = dmxInputs.some((n) => String(props(n).inputMode ?? 'Art-Net') === 'DMX512')
+  const needsDmx512 = dmxTransceiverIn(nodes) !== null
+    && dmxInputs.some((n) => String(props(n).inputMode ?? 'Art-Net') === 'DMX512')
   // A reachable network user brings the connection up. Its settings are the
   // Board's and the link is found in the whole graph, not `sorted`: neither
   // the Board nor a cable has ports to sort by.
@@ -795,6 +802,9 @@ export function generateCpp(
   // and a second time if the controller also polls, so those compilations
   // leave the receiver to the controller.
   const irNodes: IrRemoteProjectNode[] = []
+  // The DIN MIDI nodes the bench's one MIDI interface serves, read by one
+  // shared parser emitted after the walk (peripherals/midiDinCpp.ts).
+  const midiDinReaders: MidiDinReader[] = []
   const setupLines: string[] = []
   if (needsWire) {
     /*
@@ -918,7 +928,7 @@ export function generateCpp(
     nativeMultiRender, width, height, props, hw, isHub75, hub75Hw, xyTable, ss, rs, shape,
     physLeds, outputConfigs, nativeFastLedAudio, hasExplicitAudioInput, aliasedTerminalId, floatExpr,
     pressButton, boolExpr, colorExpr, fastledPalette, paletteExpr, stereoVuMeters, loopLines,
-    customDisplaySamples, customDisplayPublication, pinSetupLines, irNodes, setupLines, globalLines,
+    customDisplaySamples, customDisplayPublication, pinSetupLines, irNodes, midiDinReaders, setupLines, globalLines,
     needsMapFloat, needsWorley, needsSimplex, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsFluid, needsSdVideo, needsFourier, needsSymmetry, needsAtan16, needsLatticeQ, needsHueMix, needsHsv, needsWrapX, needsFrameSample, needsDisplayText,
     segmentDisplays, infoDisplays, tftDisplays, playerControlNodes, ledLatchOutputs, tftTouches,
     emitTelemetry, customDisplays, customDisplayPanels, needsXyMap, frameBufs, feedbackHistoryBufs,
@@ -1185,6 +1195,13 @@ export function generateCpp(
   }
   const irEmission = irRemoteProjectEmission(irNodes)
   for (const line of irEmission.setup) pinSetupLines.add(line)
+  // A DIN MIDI node only joins the reader when the interface is on the bench.
+  const midiWing = midiDinReaders.length ? midiInterfaceIn(nodes) : null
+  const midiDin = midiDinEmission(midiWing ? midiDinReaders : [], {
+    rxPin: sanitizePin((midiWing?.data.properties as Record<string, unknown> | undefined)?.midiRxPin, 16),
+    ports: firmwareUartPorts(nodes, 'midi'),
+  })
+  setupLines.push(...midiDin.setup)
   loopLines.push(...customDisplayPublication)
 
   /*
@@ -1616,6 +1633,10 @@ export function generateCpp(
     lines.push(...irEmission.globals)
     lines.push('')
   }
+  if (midiDin.globals.length) {
+    lines.push(...midiDin.globals)
+    lines.push('')
+  }
 
   if (nativeMultiRender) {
     // One source render body, instantiated once per distinct shape. Template
@@ -1736,6 +1757,7 @@ export function generateCpp(
   // After the snapshot and before the walk, including a multi-output render
   // function that reads these bools from file scope. One decode per pass.
   lines.push(...irEmission.sample)
+  lines.push(...midiDin.poll)
   if (nativeMultiRender) {
     renderPasses.forEach((pass, index) => {
       const call = `renderOutputPass<${index}, ${pass.width}, ${pass.height}>(${needsT.v ? 't' : '0.0f'})`
