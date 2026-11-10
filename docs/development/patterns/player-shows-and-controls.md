@@ -460,12 +460,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   with, asked about one pattern at `currentFirmwareDims()`; a node that holds
   state is added there (`STATEFUL_EXTRA_BYTES_PER_LED` and its neighbours) and
   the picker follows. It needs no scan, so every row has it. Render weight is
-  timed inside the rating render (`captureWindows`' `timing` argument, scored
-  frames only) and stored on the rating as a multiple of a plain Plasma
-  pattern timed in the same session at the same grid, which cancels the
-  machine but not the grid: fixed per-frame work is spread over fewer LEDs on
-  a small grid, so `renderWeightEdges` raises the band edges as the grid
-  shrinks. It is a browser timing for ranking patterns, never microcontroller
+  timed in a pass of its own (`timeRenderBlocks`), on the fixed
+  `RENDER_WEIGHT_GRID` whatever grid the pattern is rated on, and stored on
+  the rating as a multiple of a plain Plasma pattern timed the same way in
+  the same session. The fixed grid is what makes it one number per pattern:
+  fixed per-frame work is spread over fewer LEDs on a small grid, so a weight
+  timed at the rating grid read higher there. Each block is timed whole, a
+  clock reading at each end, because browsers coarsen `performance.now()`
+  past a light frame, and the fastest block is kept, since anything else the
+  machine did only added time. Both the rating render and the timing pass
+  release their evaluator namespace when they end. A script that rates in
+  Node must also call `resetEvaluatorState()` between patterns: the frame
+  pool is only advanced by the live preview, and without it a library pass
+  runs out of memory. It is a browser timing for ranking patterns, never microcontroller
   frame time, and the copy says so wherever it appears. Changing what a
   rating stores means bumping `ANALYSIS_VERSION` in `patternRating.ts`; the
   version is in every cache key, so old ratings are rescanned. The popup and

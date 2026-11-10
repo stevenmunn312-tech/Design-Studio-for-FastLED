@@ -27,6 +27,11 @@ versioning (`0.y.z`) until the first stable release.
   measurements from a board. The Pattern Collection picker shows the cost,
   sorts by render weight or estimated RAM, and has a Hide heavy chip.
   Existing scores are rescanned to pick up the render weight.
+- A pattern's render weight is now one number whatever the project: Pattern
+  Insights times it in a short pass of its own on a fixed 32x32 grid and
+  keeps the fastest of six blocks. It moves about 5% between scans, where
+  the old figure moved about 15% and read higher on small grids. Existing
+  scores are rescanned to pick it up.
 - OLED and colour TFT fixed layouts draw in a 5x8 font with lower case, so a
   track title or pattern name reads as it was written. There is no Font
   property: the layouts were re-measured for the one font. An OLED row now

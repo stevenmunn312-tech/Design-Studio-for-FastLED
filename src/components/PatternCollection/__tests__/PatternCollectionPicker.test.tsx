@@ -200,7 +200,7 @@ describe('PatternCollectionPicker cost', () => {
   ]
   const weighed = (id: string, relative: number) => ({
     patternId: id, intent: 'ambient', overall: 70, failed: false, skipped: false,
-    renderCost: { usPerLed: relative, relative, gridW: 16, gridH: 16, frames: 42 },
+    renderCost: { usPerFrame: relative * 100, relative },
   })
 
   beforeEach(() => {

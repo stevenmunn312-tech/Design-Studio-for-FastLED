@@ -189,12 +189,10 @@ the demo track analysed. What is left:
 - [ ] **Look at the new fonts on LEDs (S).** The 4x6, 5x8 and 6x8 glyphs
   were judged as text renders only. In 4x6, `0` and `O` share a drawing and
   `m` and `w` are compromises.
-- [ ] **Pattern cost: steadier render weight (S).** The weight is timed
-  during the rating render, so it varies about 15% between scans and reads
-  higher on small grids; band edges move with grid size to compensate. A
-  short timing pass at a fixed 32x32 would give one number per pattern.
-  Flash is not estimated, and the RAM bands are per LED rather than against
-  the chosen board's budget.
+- [ ] **Pattern cost: flash and board budget (S).** Flash is not estimated,
+  and the RAM bands are per LED rather than against the chosen board's
+  budget. Render weight is done: timed since 2026-11-11 in its own pass on a
+  fixed 32x32 grid, about 5% between scans.
 - [ ] **Compile the 2026-11-11 work before the freeze (S).** A Text and a
   Clock Display in each new font (typed and wired, with an AVR leg: a wired
   font table is 376 to 564 bytes of RAM there), a matrix wired bottom-left

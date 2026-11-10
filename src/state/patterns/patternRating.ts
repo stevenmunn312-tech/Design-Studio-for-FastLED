@@ -10,6 +10,7 @@
 // registry from graphStore).
 
 import { evaluateGraph, type Frame, type RGB, type GroupRegistry, type AudioOverride, type PortValue } from '../graphEvaluator'
+import { clearInstanceStateByPrefix } from '../evaluator/memory'
 import type { StudioNode, StudioEdge } from '../graphStore'
 import type { SavedPattern } from './patternLibrary'
 import { NODE_LIBRARY } from '../nodeLibrary'
@@ -23,7 +24,7 @@ import {
 import { promptPatternTrust } from '../../utils/trustPrompt'
 import { yieldToUi } from '../../components/Preview/recordCapture'
 import { create } from 'zustand'
-import { renderCostFromTiming, usPerLed, type PatternRenderCost, type RenderTimingSamples } from './patternCost'
+import { RENDER_WEIGHT_GRID, renderCostFromBlocks, steadyFrameMs, type PatternRenderCost } from './patternCost'
 
 export interface CriterionScore {
   id: string
@@ -767,74 +768,141 @@ function copyFrame(frame: Frame): Frame {
   return frame.map((row) => row.map((px) => ({ r: px.r, g: px.g, b: px.b })))
 }
 
-/** Render a pattern subgraph to RATE_RUNS scoring windows (each RATE_FRAMES
- *  frames), spread across the animation after a warm-up prefix, under one
- *  isolated evaluator namespace with continuous ticks and swept audio. The
- *  windows sample different moments so the caller can keep the best. Exported
- *  for tests. */
-export async function captureWindows(
+/**
+ * One pattern in an isolated evaluator namespace, a frame per call: continuous
+ * ticks and swept audio, so state (feedback, EMAs, audio build-up) stays
+ * coherent from one call to the next. The rating render and the render weight
+ * timing both step a pattern through this, so they run it the same way.
+ *
+ * `dispose` releases that state. The namespace is never used again, and the
+ * evaluator's own idle sweep runs on wall-clock time from the live preview, so
+ * a library scan would otherwise hold every pattern's simulation buffers until
+ * long after it had moved on.
+ */
+function rateFrameEvaluator(
   saved: SavedPattern, w: number, h: number, groups: GroupRegistry,
   // Whether this pattern's Formula/Code nodes may run — resolved by the caller
   // (`ratePattern`) from the content-addressed trust store, plus the user's
   // answer to the trust prompt. Passed through rather than hardcoded so a
   // declined pattern renders blank even if it somehow reaches here.
-  trusted = true,
-  scenario: AudioScenario = 'pulse',
-  runs = RATE_RUNS,
-  signal?: AbortSignal,
-  // Collects how long each scored frame took to evaluate, for the render
-  // weight. Warm-up and gap frames are left out: the first passes pay for
-  // JIT compilation and cold caches, which says nothing about the pattern.
-  timing?: RenderTimingSamples,
-): Promise<Frame[][]> {
+  trusted: boolean,
+  scenario: AudioScenario,
+): { evaluate: () => Frame | null; dispose: () => void } {
   const groupId = `__rate_group_${saved.id}`
   const prefix = `__rate_${rateSerial++}/`
   const registry: GroupRegistry = { ...groups, [groupId]: saved.subgraph }
+  const audioInputs = saved.subgraph.nodes
+    .filter((groupNode) => nodeType(groupNode) === 'GroupInput' && groupInputIsAudioTyped(groupNode))
+    .map((groupNode) => groupInputRole(groupNode))
+    .filter((paramId): paramId is string => !!paramId)
   let i = 0
-  let scoring = false
-  // One continuous evaluation on a single prefix keeps state (feedback, EMAs,
-  // audio build-up) coherent across warm-up, windows, and the gaps between them.
-  const step = async (): Promise<Frame> => {
-    if (signal?.aborted) throw new DOMException('Pattern scan cancelled', 'AbortError')
+  const evaluate = () => {
     const tick = (i * 60) / RATE_FPS
     const { override, roles } = audioForFrame(i, scenario)
     i++
     const boundInputs: Record<string, PortValue> = { ...roles }
-    for (const groupNode of saved.subgraph.nodes) {
-      if (nodeType(groupNode) !== 'GroupInput' || !groupInputIsAudioTyped(groupNode)) continue
-      const paramId = groupInputRole(groupNode)
-      if (paramId) boundInputs[paramId] = override
-    }
+    for (const paramId of audioInputs) boundInputs[paramId] = override
     // Per-frame guard, mirroring the live preview loop: a single malformed
     // frame is skipped (rendered as blank) rather than tearing down the rating.
-    let rendered: Frame | null = null
-    const startedAt = timing && scoring ? performance.now() : 0
     try {
-      rendered = evaluateGraph(
+      return evaluateGraph(
         saved.subgraph.nodes, saved.subgraph.edges, tick, w, h, registry,
         prefix, new Set([groupId]), boundInputs, override, trusted,
       )
     } catch {
-      rendered = null
+      return null
     }
-    // Only the evaluation is timed: copying the frame out and yielding to the
-    // UI are costs of rating, not of the pattern.
-    if (timing && scoring) timing.frameMs.push(performance.now() - startedAt)
+  }
+  return { evaluate, dispose: () => clearInstanceStateByPrefix(prefix) }
+}
+
+function assertNotCancelled(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new DOMException('Pattern scan cancelled', 'AbortError')
+}
+
+/** Render a pattern subgraph to RATE_RUNS scoring windows (each RATE_FRAMES
+ *  frames), spread across the animation after a warm-up prefix. The windows
+ *  sample different moments so the caller can keep the best. Exported for
+ *  tests. */
+export async function captureWindows(
+  saved: SavedPattern, w: number, h: number, groups: GroupRegistry,
+  trusted = true,
+  scenario: AudioScenario = 'pulse',
+  runs = RATE_RUNS,
+  signal?: AbortSignal,
+): Promise<Frame[][]> {
+  const { evaluate, dispose } = rateFrameEvaluator(saved, w, h, groups, trusted, scenario)
+  let i = 0
+  const step = async (): Promise<Frame> => {
+    assertNotCancelled(signal)
+    const rendered = evaluate()
+    i++
     if (i % 8 === 0) await yieldToUi()
     return rendered ? copyFrame(rendered) : blankFrame(w, h)
   }
 
-  for (let k = 0; k < RATE_WARMUP_FRAMES; k++) await step()
-  const windows: Frame[][] = []
-  for (let run = 0; run < runs; run++) {
-    const frames: Frame[] = []
-    scoring = true
-    for (let k = 0; k < RATE_FRAMES; k++) frames.push(await step())
-    scoring = false
-    windows.push(frames)
-    if (run < runs - 1) for (let k = 0; k < RATE_GAP_FRAMES; k++) await step()
+  try {
+    for (let k = 0; k < RATE_WARMUP_FRAMES; k++) await step()
+    const windows: Frame[][] = []
+    for (let run = 0; run < runs; run++) {
+      const frames: Frame[] = []
+      for (let k = 0; k < RATE_FRAMES; k++) frames.push(await step())
+      windows.push(frames)
+      if (run < runs - 1) for (let k = 0; k < RATE_GAP_FRAMES; k++) await step()
+    }
+    return windows
+  } finally {
+    dispose()
   }
-  return windows
+}
+
+// ── Render weight timing ─────────────────────────────────────────────────────
+
+// Frames run before anything is timed: the first passes pay for JIT
+// compilation and cold caches, which says nothing about the pattern.
+const WEIGHT_WARMUP_FRAMES = 16
+const WEIGHT_BLOCKS = 6
+// A block is timed as a whole, with one clock reading at each end, and runs
+// until both limits below are met. Browsers coarsen `performance.now()` to
+// 0.1 ms or worse, so a single light frame reads as zero; several milliseconds
+// of them do not. The frame cap bounds a pattern whose frames time as nothing.
+const WEIGHT_BLOCK_MIN_FRAMES = 8
+const WEIGHT_BLOCK_MIN_MS = 6
+const WEIGHT_BLOCK_MAX_FRAMES = 96
+
+/**
+ * Time a pattern on the fixed render weight grid: the mean frame time of each
+ * of `WEIGHT_BLOCKS` blocks, in milliseconds. Nothing but evaluation happens
+ * inside a block; the UI gets its turn between them. Exported for tests.
+ */
+export async function timeRenderBlocks(
+  saved: SavedPattern, groups: GroupRegistry, trusted = true,
+  scenario: AudioScenario = 'pulse', signal?: AbortSignal,
+): Promise<number[]> {
+  const { evaluate, dispose } = rateFrameEvaluator(saved, RENDER_WEIGHT_GRID, RENDER_WEIGHT_GRID, groups, trusted, scenario)
+  try {
+    for (let k = 0; k < WEIGHT_WARMUP_FRAMES; k++) {
+      evaluate()
+      if (k % 8 === 7) { await yieldToUi(); assertNotCancelled(signal) }
+    }
+    const blocks: number[] = []
+    for (let block = 0; block < WEIGHT_BLOCKS; block++) {
+      await yieldToUi()
+      assertNotCancelled(signal)
+      const startedAt = performance.now()
+      let frames = 0
+      let elapsed = 0
+      do {
+        evaluate()
+        frames++
+        elapsed = performance.now() - startedAt
+      } while (frames < WEIGHT_BLOCK_MAX_FRAMES && (frames < WEIGHT_BLOCK_MIN_FRAMES || elapsed < WEIGHT_BLOCK_MIN_MS))
+      blocks.push(elapsed / frames)
+    }
+    return blocks
+  } finally {
+    dispose()
+  }
 }
 
 function blankFrame(w: number, h: number): Frame {
@@ -852,9 +920,10 @@ export interface RateOptions {
   confirmTrust?: (saved: SavedPattern) => Promise<boolean>
 }
 
-// 4: ratings carry `renderCost`. The version is part of every cache key, so
-// ratings stored by an older build are rescanned rather than shown without it.
-const ANALYSIS_VERSION = 4
+// 5: `renderCost` is timed on the fixed render weight grid. The version is
+// part of every cache key, so ratings stored by an older build are rescanned
+// rather than shown with a weight measured the old way.
+const ANALYSIS_VERSION = 5
 
 // ── Render weight reference ──────────────────────────────────────────────────
 
@@ -890,34 +959,19 @@ function referencePattern(): SavedPattern {
   } as SavedPattern
 }
 
-// The reference is light, so one window of it is only a few timer ticks on a
-// short string. Keep sampling until enough time has been measured to trust.
-const REFERENCE_MIN_MEASURED_MS = 20
-const REFERENCE_MAX_PASSES = 8
+let referenceTiming: Promise<number> | null = null
 
-const referenceByGrid = new Map<string, Promise<number>>()
-
-/** Microseconds per LED per frame of the reference pattern at this grid, timed
- *  once a session: every rating of a session is then weighed against the same
- *  number, so their order does not depend on when each was scanned. Resolves
- *  to 0 when it cannot be timed, which leaves ratings without a render weight
- *  rather than with a wrong one. */
-function referenceUsPerLed(gridW: number, gridH: number, signal?: AbortSignal): Promise<number> {
-  const key = `${gridW}x${gridH}`
-  const pending = referenceByGrid.get(key)
-  if (pending) return pending
-  const measured = (async () => {
-    const reference = referencePattern()
-    const timing: RenderTimingSamples = { frameMs: [] }
-    for (let pass = 0; pass < REFERENCE_MAX_PASSES; pass++) {
-      await captureWindows(reference, gridW, gridH, {}, true, 'pulse', RATE_RUNS, signal, timing)
-      if (timing.frameMs.reduce((sum, ms) => sum + ms, 0) >= REFERENCE_MIN_MEASURED_MS) break
-    }
-    return usPerLed(timing.frameMs, gridW, gridH)
-  })()
-  referenceByGrid.set(key, measured)
+/** Milliseconds per frame of the reference pattern on the render weight grid,
+ *  timed once a session: every rating of a session is then weighed against the
+ *  same number, so their order does not depend on when each was scanned.
+ *  Resolves to 0 when it cannot be timed, which leaves ratings without a
+ *  render weight rather than with a wrong one. */
+function referenceFrameMs(signal?: AbortSignal): Promise<number> {
+  if (referenceTiming) return referenceTiming
+  const measured = timeRenderBlocks(referencePattern(), {}, true, 'pulse', signal).then(steadyFrameMs)
+  referenceTiming = measured
   // A cancelled or failed calibration must not be remembered as the answer.
-  measured.catch(() => referenceByGrid.delete(key))
+  measured.catch(() => { if (referenceTiming === measured) referenceTiming = null })
   return measured
 }
 
@@ -1043,24 +1097,25 @@ export async function ratePattern(saved: SavedPattern, opts: RateOptions): Promi
     const startedAt = performance.now()
     const audioReactive = isAudioReactiveSubgraph(saved.subgraph.nodes) || intent === 'audio-reactive'
     const scenarios: Record<string, Frame[]> = {}
-    const timing: RenderTimingSamples = { frameMs: [] }
     if (audioReactive) {
       for (const scenario of ['silent', 'steady', 'pulse'] as const) {
-        scenarios[scenario] = (await captureWindows(saved, opts.gridW, opts.gridH, opts.groups, trusted, scenario, 1, opts.signal, timing))[0] ?? []
+        scenarios[scenario] = (await captureWindows(saved, opts.gridW, opts.gridH, opts.groups, trusted, scenario, 1, opts.signal))[0] ?? []
       }
     } else {
-      scenarios.motion = (await captureWindows(saved, opts.gridW, opts.gridH, opts.groups, trusted, 'pulse', RATE_RUNS, opts.signal, timing)).flat()
+      scenarios.motion = (await captureWindows(saved, opts.gridW, opts.gridH, opts.groups, trusted, 'pulse', RATE_RUNS, opts.signal)).flat()
     }
     const frames = Object.values(scenarios).flat()
     const elapsed = performance.now() - startedAt
     if (elapsed > 3000) console.warn(`[patternRating] "${saved.name}" took ${Math.round(elapsed)}ms to render — consider simplifying it`)
-    // The cost is a by-product of the render above. A reference that cannot be
-    // timed only costs the rating its Cost line, never the rating itself.
-    const reference = await referenceUsPerLed(opts.gridW, opts.gridH, opts.signal).catch((err) => {
+    // The weight is timed apart from the render above, on its own grid. A
+    // timing that fails only costs the rating its Cost line, never the rating.
+    const renderCost = await (async () => {
+      const blocks = await timeRenderBlocks(saved, opts.groups, trusted, 'pulse', opts.signal)
+      return renderCostFromBlocks(blocks, await referenceFrameMs(opts.signal))
+    })().catch((err) => {
       if (err instanceof DOMException && err.name === 'AbortError') throw err
-      return 0
+      return undefined
     })
-    const renderCost = renderCostFromTiming(timing, opts.gridW, opts.gridH, reference)
     const diagnostics = buildGraphDiagnostics(saved.subgraph.nodes, saved.subgraph.edges, { target: 'group', groups: opts.groups })
     // Judge the whole run. Strong moments inform the thumbnail, but weak ones
     // remain in every criterion instead of disappearing behind a best-window pick.

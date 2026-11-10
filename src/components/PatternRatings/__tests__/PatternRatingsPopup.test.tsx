@@ -147,7 +147,7 @@ describe('Pattern Insights cost line', () => {
 
   it('shows render weight and RAM as estimates, with the canvas the RAM is for', () => {
     usePatternRatingStore.setState({
-      ratingsByPatternId: { [heavy.id]: rated({ usPerLed: 2, relative: 6.2, gridW: 16, gridH: 16, frames: 42 }) },
+      ratingsByPatternId: { [heavy.id]: rated({ usPerFrame: 620, relative: 6.2 }) },
       userRatingsByPatternId: {},
       intentOverridesByPatternId: { [heavy.id]: 'ambient' },
     })

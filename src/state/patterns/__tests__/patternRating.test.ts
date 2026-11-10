@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Frame, RGB } from '../../graphEvaluator'
 import { hsv } from '../../palettes/ledColor'
 import { BUNDLED_PATTERNS, STANDARD_BUNDLED_PATTERNS } from '../bundledPatterns'
-import { captureWindows, inferPatternIntent, patternRatingKey, rateAllPatterns, ratePattern, usePatternRatingStore, verdictForScore } from '../patternRating'
+import { captureWindows, inferPatternIntent, patternRatingKey, rateAllPatterns, ratePattern, timeRenderBlocks, usePatternRatingStore, verdictForScore } from '../patternRating'
 import type { SavedPattern } from '../patternLibrary'
 import {
   clearPatternContentTrustForTests,
@@ -454,8 +454,9 @@ describe('captureWindows detector audio', () => {
 })
 
 // ── Render weight ────────────────────────────────────────────────────────────
-// The rating render is timed as it runs, and the result is stored on the
-// rating as a weight relative to a plain Plasma pattern on the same machine.
+// A short pass of its own times the pattern on a fixed grid, and the result is
+// stored on the rating as a weight relative to a plain Plasma pattern timed
+// the same way on the same machine.
 describe('render weight', () => {
   const opts = { gridW: 8, gridH: 8, groups: {} }
   const plain = (id: string): SavedPattern => ({
@@ -466,25 +467,36 @@ describe('render weight', () => {
     },
   })
 
-  it('times only the scored frames, not the warm-up or the gaps', async () => {
-    const timing = { frameMs: [] as number[] }
-    const windows = await captureWindows(plain('timed'), 4, 4, {}, true, 'pulse', 2, undefined, timing)
-    expect(timing.frameMs).toHaveLength(windows.flat().length)
-    expect(timing.frameMs.every((ms) => ms >= 0)).toBe(true)
+  it('times a pattern in blocks, each a positive frame time', async () => {
+    const blocks = await timeRenderBlocks(plain('timed'), {})
+    expect(blocks.length).toBeGreaterThan(1)
+    expect(blocks.every((ms) => Number.isFinite(ms) && ms > 0)).toBe(true)
   })
 
-  it('stores a render cost on the rating, at the grid it was measured on', async () => {
+  it('stops timing when the scan is cancelled', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    await expect(timeRenderBlocks(plain('cancelled'), {}, true, 'pulse', controller.signal))
+      .rejects.toMatchObject({ name: 'AbortError' })
+  })
+
+  it('stores a render cost on the rating', async () => {
     const rating = await ratePattern(plain('weighed'), opts)
     expect(rating.failed).toBeFalsy()
-    expect(rating.renderCost).toMatchObject({ gridW: 8, gridH: 8 })
-    expect(rating.renderCost!.frames).toBeGreaterThan(0)
-    expect(rating.renderCost!.usPerLed).toBeGreaterThan(0)
+    expect(rating.renderCost!.usPerFrame).toBeGreaterThan(0)
     expect(rating.renderCost!.relative).toBeGreaterThan(0)
     expect(usePatternRatingStore.getState().ratingsByPatternId.weighed.renderCost).toEqual(rating.renderCost)
   })
 
-  it('bumped the cache version, so ratings stored without a cost are rescanned', () => {
-    expect(patternRatingKey(plain('versioned'), opts)).toMatch(/^v4:/)
+  it('times on its own grid, so the weight is not a property of the rating grid', async () => {
+    // The stored cost names no grid: it is the same measurement whichever
+    // project the pattern was scanned in.
+    const rating = await ratePattern(plain('gridless'), { gridW: 4, gridH: 2, groups: {} })
+    expect(Object.keys(rating.renderCost!).sort()).toEqual(['relative', 'usPerFrame'])
+  })
+
+  it('bumped the cache version, so ratings weighed the old way are rescanned', () => {
+    expect(patternRatingKey(plain('versioned'), opts)).toMatch(/^v5:/)
   })
 
   it('leaves a skipped pattern without a cost rather than inventing one', async () => {

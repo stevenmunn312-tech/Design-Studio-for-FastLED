@@ -1,9 +1,11 @@
 // What a library pattern costs to run, as Pattern Insights and the Pattern
 // Collection picker show it. Both figures are estimates made in the browser:
 //
-// - Render weight is measured while the rating render runs (patternRating.ts)
-//   and expressed against a plain Plasma pattern timed on the same machine, so
-//   it is a relative weight, not microcontroller frame time.
+// - Render weight is timed in a short pass of its own (patternRating.ts), on a
+//   fixed 32x32 grid whatever grid the pattern is rated on, and expressed
+//   against a plain Plasma pattern timed the same way on the same machine. So
+//   it is one number per pattern, and a relative weight, not microcontroller
+//   frame time.
 // - Firmware RAM is not modelled here at all: it is the deploy gate's own
 //   per-node model (`estimatePatternFirmwareRam` in validateGraph.ts), asked
 //   about one pattern at a stated canvas size.
@@ -23,87 +25,53 @@ export const COST_BAND_LABEL: Record<CostBand, string> = {
   heavy: 'Heavy',
 }
 
-/** Evaluation time of each scored frame, in milliseconds. */
-export interface RenderTimingSamples { frameMs: number[] }
+/** The side of the square grid every render weight is timed on. Fixed, so a
+ *  pattern's weight does not depend on the project it was scanned in. */
+export const RENDER_WEIGHT_GRID = 32
 
 export interface PatternRenderCost {
-  /** Microseconds of browser evaluation per LED per frame at the rating grid. */
-  usPerLed: number
-  /** `usPerLed` over the reference pattern's, timed in the same session at the
-   *  same grid. 1 is "as heavy as a plain Plasma". The bands read this. */
+  /** Microseconds of browser evaluation per frame on the timing grid. */
+  usPerFrame: number
+  /** `usPerFrame` over the reference pattern's, timed in the same session.
+   *  1 is "as heavy as a plain Plasma". The bands read this. */
   relative: number
-  gridW: number
-  gridH: number
-  /** Scored frames the figure was averaged over. */
-  frames: number
 }
-
-/** A pause this long, and this far above the run's typical frame, is the
- *  garbage collector or a busy tab rather than the pattern. */
-const STALL_FLOOR_MS = 2
-const STALL_FACTOR = 10
 
 /**
- * Mean evaluation time of a frame. A mean on purpose: browsers coarsen
- * `performance.now()` (to 0.1 ms or worse), so a light pattern on a short
- * string reads as mostly zeroes with the odd tick, and a median or a trimmed
- * mean of that is zero. Only outright stalls are set aside, judged against
- * the median so that one stall cannot raise its own limit.
+ * One frame time from a timing pass, given the mean frame time of each of its
+ * blocks. The fastest block: a pattern's work is the same every time, and
+ * whatever else the machine did during a block (garbage collection, another
+ * tab, the UI) can only have added to it. A mean or a median of the blocks
+ * carries that noise into the figure, and the weight then changes between
+ * scans.
  */
-export function meanFrameMs(frameMs: readonly number[]): number {
-  if (frameMs.length === 0) return 0
-  const sorted = [...frameMs].sort((a, b) => a - b)
-  const median = sorted[Math.floor(sorted.length / 2)]
-  const limit = Math.max(STALL_FLOOR_MS, median * STALL_FACTOR)
-  const kept = frameMs.filter((ms) => ms <= limit)
-  return kept.reduce((sum, ms) => sum + ms, 0) / Math.max(1, kept.length)
+export function steadyFrameMs(blockFrameMs: readonly number[]): number {
+  const timed = blockFrameMs.filter((ms) => Number.isFinite(ms) && ms > 0)
+  return timed.length === 0 ? 0 : Math.min(...timed)
 }
 
-/** Microseconds per LED per frame: per LED so two grids can be compared. */
-export function usPerLed(frameMs: readonly number[], gridW: number, gridH: number): number {
-  return (meanFrameMs(frameMs) * 1000) / Math.max(1, gridW * gridH)
-}
-
-/** The render cost of one rating run, or undefined when nothing was timed or
- *  the reference could not be (a zero reference would make every pattern
- *  infinitely heavy). */
-export function renderCostFromTiming(
-  samples: RenderTimingSamples, gridW: number, gridH: number, referenceUsPerLed: number,
+/** The render cost from a pattern's blocks and the reference's frame time, or
+ *  undefined when either could not be timed (a zero reference would make
+ *  every pattern infinitely heavy). */
+export function renderCostFromBlocks(
+  blockFrameMs: readonly number[], referenceFrameMs: number,
 ): PatternRenderCost | undefined {
-  if (samples.frameMs.length === 0 || !(referenceUsPerLed > 0)) return undefined
-  const us = usPerLed(samples.frameMs, gridW, gridH)
-  if (!Number.isFinite(us)) return undefined
-  return { usPerLed: us, relative: us / referenceUsPerLed, gridW, gridH, frames: samples.frameMs.length }
+  const frameMs = steadyFrameMs(blockFrameMs)
+  if (!(frameMs > 0) || !(referenceFrameMs > 0)) return undefined
+  return { usPerFrame: frameMs * 1000, relative: frameMs / referenceFrameMs }
 }
 
-// Band edges, as multiples of the reference Plasma pattern on a large grid.
+// Band edges, as multiples of the reference Plasma pattern on the timing
+// grid. Fitted to the bundled library on 2026-11-11: a third of it lands
+// light and one pattern in six heavy (its median is 2.2 and its heaviest
+// 9.8). Over four scans of that library a pattern's weight moved by 5% at the
+// median and 12% at the ninetieth percentile, so a pattern close to an edge
+// can still change band on a rescan.
 export const RENDER_WEIGHT_MEDIUM = 1.3
-export const RENDER_WEIGHT_HEAVY = 3.5
-// Part of a pattern's frame does not grow with the LED count: audio analysis,
-// signal maths, the walk over the graph. The Plasma reference has almost none
-// of it, so on a small grid that fixed work is spread over fewer LEDs and
-// every pattern's multiple rises (the bundled library's median is about 2.5x
-// at 32x32 and 4.6x on a 64-LED string). The edges rise with it, by this many
-// LEDs' worth of reference work, so that a band means the same place in the
-// library at any grid. Fitted to the bundled library on 2026-11-11 at 64, 256,
-// 512 and 1024 LEDs: about a third of it lands light and one pattern in six
-// heavy. Timing varies by around 15% between runs, so a pattern near an edge
-// can change band on a rescan.
-const FIXED_WORK_ALLOWANCE_MEDIUM = 100
-const FIXED_WORK_ALLOWANCE_HEAVY = 330
+export const RENDER_WEIGHT_HEAVY = 3.7
 
-/** The two band edges for a rating grid, as multiples of the reference. */
-export function renderWeightEdges(gridW: number, gridH: number): { medium: number; heavy: number } {
-  const leds = Math.max(1, gridW * gridH)
-  return {
-    medium: RENDER_WEIGHT_MEDIUM + FIXED_WORK_ALLOWANCE_MEDIUM / leds,
-    heavy: RENDER_WEIGHT_HEAVY + FIXED_WORK_ALLOWANCE_HEAVY / leds,
-  }
-}
-
-export function renderWeightBand(cost: Pick<PatternRenderCost, 'relative' | 'gridW' | 'gridH'>): CostBand {
-  const edges = renderWeightEdges(cost.gridW, cost.gridH)
-  return cost.relative >= edges.heavy ? 'heavy' : cost.relative >= edges.medium ? 'medium' : 'light'
+export function renderWeightBand(cost: Pick<PatternRenderCost, 'relative'>): CostBand {
+  return cost.relative >= RENDER_WEIGHT_HEAVY ? 'heavy' : cost.relative >= RENDER_WEIGHT_MEDIUM ? 'medium' : 'light'
 }
 
 export interface PatternRamEstimate extends PatternFirmwareRam {

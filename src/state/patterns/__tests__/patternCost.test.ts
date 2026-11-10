@@ -4,16 +4,14 @@ import {
   RAM_MEDIUM_BYTES_PER_LED,
   RENDER_WEIGHT_HEAVY,
   RENDER_WEIGHT_MEDIUM,
-  renderWeightEdges,
   formatRamBytes,
   formatRenderWeight,
-  meanFrameMs,
   patternCostBand,
   patternRamEstimate,
   ramBand,
-  renderCostFromTiming,
+  renderCostFromBlocks,
   renderWeightBand,
-  usPerLed,
+  steadyFrameMs,
   type PatternRamEstimate,
   type PatternRenderCost,
 } from '../patternCost'
@@ -43,57 +41,40 @@ function chain(id: string, nodes: StudioNode[]): SavedPattern {
 
 const ram = (bytesPerLed: number): PatternRamEstimate =>
   ({ keptBytes: 0, scratchBytes: bytesPerLed * 256, totalBytes: bytesPerLed * 256, w: 16, h: 16, bytesPerLed })
-const render = (relative: number, gridW = 32, gridH = 32): PatternRenderCost =>
-  ({ usPerLed: relative, relative, gridW, gridH, frames: 42 })
+const render = (relative: number): PatternRenderCost => ({ usPerFrame: relative * 100, relative })
 
 describe('render timing', () => {
-  it('averages coarse timer ticks instead of calling a light pattern free', () => {
-    // A browser that rounds performance.now() to 0.1 ms reports a 0.02 ms
-    // frame as zero four times in five. A median of that is zero.
-    const coarse = Array.from({ length: 50 }, (_, i) => (i % 5 === 0 ? 0.1 : 0))
-    expect(meanFrameMs(coarse)).toBeCloseTo(0.02, 6)
+  it('takes the fastest block, since anything else the machine did only added time', () => {
+    expect(steadyFrameMs([1.2, 1.0, 3.5, 1.1])).toBe(1.0)
   })
 
-  it('sets a stall aside without touching ordinary variation', () => {
-    const steady = [1, 1.2, 0.9, 1.1, 1, 1.3, 0.8, 1]
-    expect(meanFrameMs([...steady, 60])).toBeCloseTo(meanFrameMs(steady), 6)
-    // Twice the usual is the pattern having a busier frame, not a stall.
-    expect(meanFrameMs([...steady, 2])).toBeGreaterThan(meanFrameMs(steady))
+  it('ignores a block that could not be timed', () => {
+    expect(steadyFrameMs([0, NaN, 0.4])).toBe(0.4)
+    expect(steadyFrameMs([])).toBe(0)
+    expect(steadyFrameMs([0, 0])).toBe(0)
   })
 
-  it('normalises per LED so two grids can be compared', () => {
-    expect(usPerLed([1.024], 32, 32)).toBeCloseTo(1, 6)
-    expect(usPerLed([0.256], 16, 16)).toBeCloseTo(1, 6)
+  it('gives the same weight whichever blocks were disturbed', () => {
+    const quiet = renderCostFromBlocks([2, 2, 2, 2], 1)!
+    const busy = renderCostFromBlocks([2, 9, 2.6, 4], 1)!
+    expect(busy.relative).toBe(quiet.relative)
   })
 
-  it('weighs a run against the reference, and declines when there is none', () => {
-    const cost = renderCostFromTiming({ frameMs: [0.512, 0.512] }, 16, 16, 1)!
-    expect(cost.usPerLed).toBeCloseTo(2, 6)
+  it('weighs a pattern against the reference, and declines when there is none', () => {
+    const cost = renderCostFromBlocks([0.5, 0.4], 0.2)!
+    expect(cost.usPerFrame).toBeCloseTo(400, 6)
     expect(cost.relative).toBeCloseTo(2, 6)
-    expect(cost).toMatchObject({ gridW: 16, gridH: 16, frames: 2 })
-    expect(renderCostFromTiming({ frameMs: [] }, 16, 16, 1)).toBeUndefined()
-    expect(renderCostFromTiming({ frameMs: [1] }, 16, 16, 0)).toBeUndefined()
+    expect(renderCostFromBlocks([], 1)).toBeUndefined()
+    expect(renderCostFromBlocks([1], 0)).toBeUndefined()
   })
 })
 
 describe('cost bands', () => {
   it('bands render weight at its two edges', () => {
-    const { medium, heavy } = renderWeightEdges(32, 32)
-    expect(renderWeightBand(render(medium - 0.01))).toBe('light')
-    expect(renderWeightBand(render(medium))).toBe('medium')
-    expect(renderWeightBand(render(heavy - 0.01))).toBe('medium')
-    expect(renderWeightBand(render(heavy))).toBe('heavy')
-  })
-
-  it('allows for fixed per-frame work on a small grid, and settles on a large one', () => {
-    // The same multiple that is heavy on a 32x32 matrix is ordinary on a
-    // 64-LED string, where every pattern's fixed work looms larger.
-    expect(renderWeightBand(render(4.5, 32, 32))).toBe('heavy')
-    expect(renderWeightBand(render(4.5, 32, 2))).toBe('medium')
-    expect(renderWeightBand(render(9, 32, 2))).toBe('heavy')
-    const large = renderWeightEdges(256, 256)
-    expect(large.medium).toBeCloseTo(RENDER_WEIGHT_MEDIUM, 1)
-    expect(large.heavy).toBeCloseTo(RENDER_WEIGHT_HEAVY, 1)
+    expect(renderWeightBand(render(RENDER_WEIGHT_MEDIUM - 0.01))).toBe('light')
+    expect(renderWeightBand(render(RENDER_WEIGHT_MEDIUM))).toBe('medium')
+    expect(renderWeightBand(render(RENDER_WEIGHT_HEAVY - 0.01))).toBe('medium')
+    expect(renderWeightBand(render(RENDER_WEIGHT_HEAVY))).toBe('heavy')
   })
 
   it('bands RAM per LED, so the band survives a change of canvas', () => {
