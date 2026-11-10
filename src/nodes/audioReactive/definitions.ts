@@ -43,7 +43,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'mids', label: 'Mids', dataType: 'float' },
       { id: 'treble', label: 'Treble', dataType: 'float' },
-      { id: 'energy', label: 'Reactivity', dataType: 'float' },
+      { id: 'reactivity', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
     ],
     // `bands` is deliberately absent: it sizes the band array the generator
@@ -54,13 +54,13 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       gain: 'gain', smoothing: 'smoothing', tilt: 'tilt',
       peakHold: 'peakHold', peakGravity: 'peakGravity',
       waterfallSpeed: 'waterfallSpeed',
-      energy: 'energy', speed: 'speed',
+      reactivity: 'reactivity', speed: 'speed',
     },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       style: 'Bars', bands: 16, gain: 1.25, smoothing: 0.58, tilt: 0.2,
       peakHold: 0.4, peakGravity: 1.8, waterfallSpeed: 10, palette: 'citrus',
-      energy: 0.7, speed: 0.6, mirror: true,
+      reactivity: 0.7, speed: 0.6, mirror: true,
     },
   },
 
@@ -86,6 +86,9 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
   },
 
   // ── Audio-reactive patterns ─────────────────────────────────────────────
+  // A band pattern's Audio input is optional and declared last, so splicing
+  // is unchanged: while it carries audio, each unwired band port reads that
+  // third of the spectrum instead of its field (audioBands.ts).
   {
     type: 'BassPulse',
     label: 'Bass Pulse',
@@ -94,6 +97,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
     propertyInputs: { bass: 'bass', palette: 'paletteIn' },
     defaultExposedInputs: ['bass'],
@@ -112,18 +116,19 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'bass', label: 'Bass', dataType: 'float' },
-      { id: 'energy', label: 'Reactivity', dataType: 'float' },
+      { id: 'reactivity', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
-    propertyInputs: { bass: 'bass', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { bass: 'bass', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn' },
     defaultExposedInputs: ['bass'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       bass: 0.5,
-      energy: 0.7, speed: 1.0, palette: 'lava',
+      reactivity: 0.7, speed: 0.5, palette: 'lava',
     },
   },
   {
@@ -133,18 +138,19 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'mids', label: 'Mids', dataType: 'float' },
-      { id: 'energy', label: 'Reactivity', dataType: 'float' },
+      { id: 'reactivity', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
-    propertyInputs: { mids: 'mids', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { mids: 'mids', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn' },
     defaultExposedInputs: ['mids'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       mids: 0.5,
-      energy: 0.7, speed: 1.0, palette: 'ocean',
+      reactivity: 0.7, speed: 0.5, palette: 'ocean',
     },
   },
   {
@@ -154,18 +160,19 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'mids', label: 'Mids', dataType: 'float' },
-      { id: 'energy', label: 'Reactivity', dataType: 'float' },
+      { id: 'reactivity', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
-    propertyInputs: { mids: 'mids', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { mids: 'mids', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn' },
     defaultExposedInputs: ['mids'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       mids: 0.5,
-      energy: 0.7, speed: 1.0, palette: 'party',
+      reactivity: 0.7, speed: 0.5, palette: 'party',
     },
   },
   {
@@ -177,6 +184,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'treble', label: 'Treble', dataType: 'float' },
       { id: 'density', label: 'Density', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
     propertyInputs: { treble: 'treble', density: 'density', palette: 'paletteIn' },
     defaultExposedInputs: ['treble'],
@@ -195,18 +203,19 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'treble', label: 'Treble', dataType: 'float' },
-      { id: 'energy', label: 'Reactivity', dataType: 'float' },
+      { id: 'reactivity', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
-    propertyInputs: { treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { treble: 'treble', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn' },
     defaultExposedInputs: ['treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       treble: 0.5,
-      energy: 0.7, speed: 1.0, palette: 'amethyst',
+      reactivity: 0.7, speed: 0.5, palette: 'amethyst',
     },
   },
   {
@@ -218,18 +227,19 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'mids', label: 'Mids', dataType: 'float' },
       { id: 'treble', label: 'Treble', dataType: 'float' },
-      { id: 'energy', label: 'Reactivity', dataType: 'float' },
+      { id: 'reactivity', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
-    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn' },
     defaultExposedInputs: ['bass', 'mids', 'treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       bass: 0.5, mids: 0.5, treble: 0.5,
-      energy: 0.7, speed: 1.0, palette: 'rainbow',
+      reactivity: 0.7, speed: 0.5, palette: 'rainbow',
     },
   },
   {
@@ -278,17 +288,22 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'frame', label: 'Base', dataType: 'frame' },
       { id: 'beat', label: 'Beat', dataType: 'bool' },
+      // Wire a palette, or set Color to Palette, to run it down the figure;
+      // Color's Solid (the default) is the r/g/b colour, as on Beat Flash.
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'r', label: 'R', dataType: 'float' },
       { id: 'g', label: 'G', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
     ],
-    propertyInputs: { r: 'r', g: 'g', b: 'b' },
+    propertyInputs: { palette: 'paletteIn', r: 'r', g: 'g', b: 'b' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // 1 is repeatable in preview and firmware. 0 draws freely on each side.
       seed: 1,
       // Quiet time between flashes (DANCE_FLASH_GAPS in danceFlash.ts).
       gap: '2–5 min',
+      colorSource: 'solid',
+      palette: 'rainbow',
       r: 255, g: 255, b: 255,
     },
   },
@@ -302,7 +317,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'kick', label: 'Kick', dataType: 'float' },
       { id: 'snare', label: 'Snare', dataType: 'float' },
       { id: 'hihat', label: 'Hi-Hat', dataType: 'float' },
-      { id: 'energy', label: 'Reactivity', dataType: 'float' },
+      { id: 'reactivity', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'tiles', label: 'Tiles', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
@@ -310,14 +325,14 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'thickness', label: 'Thickness', dataType: 'float' },
       { id: 'spawnSpread', label: 'Spawn Spread', dataType: 'float' },
     ],
-    propertyInputs: { decay: 'decay', thickness: 'thickness', spawnSpread: 'spawnSpread', hihat: 'hihat', kick: 'kick', snare: 'snare', energy: 'energy', speed: 'speed', tiles: 'tiles', palette: 'paletteIn' },
+    propertyInputs: { decay: 'decay', thickness: 'thickness', spawnSpread: 'spawnSpread', hihat: 'hihat', kick: 'kick', snare: 'snare', reactivity: 'reactivity', speed: 'speed', tiles: 'tiles', palette: 'paletteIn' },
     defaultExposedInputs: ['hihat', 'kick', 'snare'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       hihat: 0, kick: 0, snare: 0,
-      energy: 0.7, speed: 1.0, tiles: 1, palette: 'volcano',
+      reactivity: 0.7, speed: 0.5, tiles: 1, palette: 'volcano',
       count: 8, decay: 1, thickness: 1, spawnSpread: 0, blendMode: 'add',
     },
   },
@@ -329,19 +344,19 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'vocals', label: 'Vocals', dataType: 'float' },
-      { id: 'energy', label: 'Reactivity', dataType: 'float' },
+      { id: 'reactivity', label: 'Reactivity', dataType: 'float' },
       { id: 'silence', label: 'Silence', dataType: 'bool' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { vocals: 'vocals', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { vocals: 'vocals', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn' },
     defaultExposedInputs: ['vocals'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       vocals: 0,
-      energy: 0.7, speed: 1.0, palette: 'aurora',
+      reactivity: 0.7, speed: 0.5, palette: 'aurora',
     },
   },
   {
@@ -353,13 +368,13 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'hue', label: 'Hue', dataType: 'float' },
-      { id: 'energy', label: 'Reactivity', dataType: 'float' },
+      { id: 'reactivity', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { hue: 'hue', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { hue: 'hue', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { hue: 0, energy: 0.7, speed: 1.0, palette: 'ultraviolet' },
+    defaultProperties: { hue: 0, reactivity: 0.7, speed: 0.5, palette: 'ultraviolet' },
   },
   {
     // Tiled VU mosaic — bass/mids/treble sweep diagonally across the grid cells.
@@ -371,19 +386,20 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'mids', label: 'Mids', dataType: 'float' },
       { id: 'treble', label: 'Treble', dataType: 'float' },
-      { id: 'energy', label: 'Reactivity', dataType: 'float' },
+      { id: 'reactivity', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'tiles', label: 'Tiles', dataType: 'float' },
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
-    propertyInputs: { tiles: 'tiles', bass: 'bass', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { tiles: 'tiles', bass: 'bass', mids: 'mids', treble: 'treble', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn' },
     defaultExposedInputs: ['bass', 'mids', 'treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       bass: 0.5, mids: 0.5, treble: 0.5,
-      energy: 0.7, speed: 1.0, palette: 'peacock', tiles: 4,
+      reactivity: 0.7, speed: 0.5, palette: 'peacock', tiles: 4,
     },
   },
   {
@@ -413,7 +429,9 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // Bottom-up column fire (HeatColor ramp) — bass/mids/treble shape the columns.
+    // Bottom-up column fire — bass/mids/treble shape the columns. Color's Heat
+    // (the default) is FastLED's HeatColor ramp; Palette, or a wired palette,
+    // reads the heat through the palette instead.
     type: 'EmberPulse',
     label: 'Ember Pulse',
     category: 'pattern',
@@ -423,17 +441,20 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'mids', label: 'Mids', dataType: 'float' },
       { id: 'treble', label: 'Treble', dataType: 'float' },
       { id: 'beat', label: 'Beat', dataType: 'bool' },
-      { id: 'energy', label: 'Reactivity', dataType: 'float' },
+      { id: 'reactivity', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
-    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed' },
+    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn' },
     defaultExposedInputs: ['bass', 'mids', 'treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       bass: 0.5, mids: 0.5, treble: 0.5,
-      energy: 0.7, speed: 1.0,
+      reactivity: 0.7, speed: 0.5,
+      colorSource: 'heat', palette: 'heat',
     },
   },
   {
@@ -446,43 +467,50 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'bass', label: 'Bass', dataType: 'float' },
       { id: 'mids', label: 'Mids', dataType: 'float' },
       { id: 'treble', label: 'Treble', dataType: 'float' },
-      { id: 'energy', label: 'Reactivity', dataType: 'float' },
+      { id: 'reactivity', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
-    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn' },
     defaultExposedInputs: ['bass', 'mids', 'treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       bass: 0.5, mids: 0.5, treble: 0.5,
-      energy: 0.7, speed: 1.0, palette: 'deepsea',
+      reactivity: 0.7, speed: 0.5, palette: 'deepsea',
     },
   },
   {
     // Gravitational-lensing rings — bass drives density, rings bunch near the well.
+    // Color is Beat Flash's model: Palette (a new node's default) colours the
+    // rings by distance from the well, Solid uses R, G, B, and a wired Color
+    // port wins over both.
     type: 'GravityWell',
     label: 'Gravity Well',
     category: 'pattern',
     subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'bass', label: 'Bass', dataType: 'float' },
-      { id: 'energy', label: 'Reactivity', dataType: 'float' },
+      { id: 'reactivity', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
+      { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'color', label: 'Color', dataType: 'color' },
       { id: 'r', label: 'R', dataType: 'float' },
       { id: 'g', label: 'G', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
-    propertyInputs: { bass: 'bass', energy: 'energy', speed: 'speed', r: 'r', g: 'g', b: 'b' },
+    propertyInputs: { bass: 'bass', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn', r: 'r', g: 'g', b: 'b' },
     defaultExposedInputs: ['bass'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       bass: 0.5,
-      energy: 0.7, speed: 1.0, r: 80, g: 160, b: 255,
+      reactivity: 0.7, speed: 0.5, r: 80, g: 160, b: 255,
+      colorSource: 'palette', palette: 'ocean',
     },
   },
   {
@@ -493,17 +521,17 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'trigger', label: 'Trigger', dataType: 'bool' },
-      { id: 'energy', label: 'Reactivity', dataType: 'float' },
+      { id: 'reactivity', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'decay', label: 'Decay', dataType: 'float' },
       { id: 'thickness', label: 'Thickness', dataType: 'float' },
       { id: 'spawnSpread', label: 'Spawn Spread', dataType: 'float' },
     ],
-    propertyInputs: { decay: 'decay', thickness: 'thickness', spawnSpread: 'spawnSpread', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { decay: 'decay', thickness: 'thickness', spawnSpread: 'spawnSpread', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
-      energy: 0.7, speed: 1.0, palette: 'laguna',
+      reactivity: 0.7, speed: 0.5, palette: 'laguna',
       count: 8, decay: 1, thickness: 1, spawnSpread: 1, blendMode: 'max',
     },
   },
@@ -519,18 +547,19 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'treble', label: 'Treble', dataType: 'float' },
       { id: 'mids', label: 'Mids', dataType: 'float' },
       { id: 'hihat', label: 'Hi-Hat', dataType: 'float' },
-      { id: 'energy', label: 'Reactivity', dataType: 'float' },
+      { id: 'reactivity', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
-    propertyInputs: { hihat: 'hihat', mids: 'mids', treble: 'treble', energy: 'energy', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { hihat: 'hihat', mids: 'mids', treble: 'treble', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn' },
     defaultExposedInputs: ['hihat', 'mids', 'treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       // Wire-or-field: the same reading the evaluator and the generator already
       // fall back to, now dialable so a pattern can be judged without audio.
       hihat: 0, mids: 0.5, treble: 0.5,
-      energy: 0.7, speed: 1.0, palette: 'amethyst',
+      reactivity: 0.7, speed: 0.5, palette: 'amethyst',
     },
   },
   {
@@ -547,6 +576,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
     propertyInputs: { bass: 'bass', mids: 'mids', treble: 'treble', speed: 'speed', scale: 'scale', palette: 'paletteIn' },
     defaultExposedInputs: ['bass', 'mids', 'treble'],
@@ -573,18 +603,24 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'treble', label: 'Treble', dataType: 'float' },
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
+      // One Flow set drives both axes until Independent axes swaps in the
+      // X and Y sets (colorTrails.ts).
+      { id: 'flowSpeed', label: 'Flow Speed', dataType: 'float' },
+      { id: 'flowStrength', label: 'Flow Strength', dataType: 'float' },
+      { id: 'flowScale', label: 'Flow Scale', dataType: 'float' },
       { id: 'xSpeed', label: 'X Speed', dataType: 'float' },
-      { id: 'xAmplitude', label: 'X Amplitude', dataType: 'float' },
-      { id: 'xFrequency', label: 'X Frequency', dataType: 'float' },
+      { id: 'xStrength', label: 'X Strength', dataType: 'float' },
+      { id: 'xScale', label: 'X Scale', dataType: 'float' },
       { id: 'ySpeed', label: 'Y Speed', dataType: 'float' },
-      { id: 'yAmplitude', label: 'Y Amplitude', dataType: 'float' },
-      { id: 'yFrequency', label: 'Y Frequency', dataType: 'float' },
+      { id: 'yStrength', label: 'Y Strength', dataType: 'float' },
+      { id: 'yScale', label: 'Y Scale', dataType: 'float' },
       { id: 'displacement', label: 'Displacement', dataType: 'float' },
       { id: 'endpointSpeed', label: 'Endpoint Speed', dataType: 'float' },
       { id: 'colorSpeed', label: 'Color Speed', dataType: 'float' },
-      { id: 'persistence', label: 'Persistence', dataType: 'float' },
+      { id: 'trailLength', label: 'Trail Length', dataType: 'float' },
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
-    propertyInputs: { xSpeed: 'xSpeed', xAmplitude: 'xAmplitude', xFrequency: 'xFrequency', ySpeed: 'ySpeed', yAmplitude: 'yAmplitude', yFrequency: 'yFrequency', displacement: 'displacement', endpointSpeed: 'endpointSpeed', colorSpeed: 'colorSpeed', persistence: 'persistence', bass: 'bass', mids: 'mids', treble: 'treble', palette: 'paletteIn' },
+    propertyInputs: { flowSpeed: 'flowSpeed', flowStrength: 'flowStrength', flowScale: 'flowScale', xSpeed: 'xSpeed', xStrength: 'xStrength', xScale: 'xScale', ySpeed: 'ySpeed', yStrength: 'yStrength', yScale: 'yScale', displacement: 'displacement', endpointSpeed: 'endpointSpeed', colorSpeed: 'colorSpeed', trailLength: 'trailLength', bass: 'bass', mids: 'mids', treble: 'treble', palette: 'paletteIn' },
     defaultExposedInputs: ['bass', 'mids', 'treble'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
@@ -592,10 +628,13 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       // fall back to, now dialable so a pattern can be judged without audio.
       bass: 0, mids: 0, treble: 0,
       injectionMode: 'Moving Line', flowMode: 'Scrolling',
-      xSpeed: 0.1, xAmplitude: 1, xFrequency: 0.33,
-      ySpeed: 0.1, yAmplitude: 1, yFrequency: 0.32,
+      flowSpeed: 0.1, flowStrength: 1, flowScale: 0.33,
+      independentAxes: false,
+      xSpeed: 0.1, xStrength: 1, xScale: 0.33,
+      ySpeed: 0.1, yStrength: 1, yScale: 0.32,
       displacement: 1.8, endpointSpeed: 0.35, colorSpeed: 0.1,
-      persistence: 0.9992, palette: 'rainbow', seed: 42,
+      // Trail length is a half-life in seconds: 14.4 keeps 0.9992 a 60 fps frame.
+      trailLength: 14.4, palette: 'rainbow', seed: 42,
     },
   },
   {
@@ -615,6 +654,7 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'audioAmount', label: 'Audio Amount', dataType: 'float' },
+      { id: 'audio', label: 'Audio', dataType: 'audio' },
     ],
     propertyInputs: { audioAmount: 'audioAmount', bass: 'bass', hihat: 'hihat', kick: 'kick', mids: 'mids', snare: 'snare', treble: 'treble', speed: 'speed' },
     defaultExposedInputs: ['bass', 'hihat', 'kick', 'mids', 'snare', 'treble'],

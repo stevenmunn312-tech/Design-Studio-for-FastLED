@@ -17,6 +17,7 @@ import { NODE_LIBRARY, libraryDefaults } from '../../nodeLibrary'
 import { templateControlPlan, widgetControlRole } from '../templateControlPlan'
 import type { DisplayDocument } from '../displayDocument'
 import type { StudioEdge, StudioNode } from '../../graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}, label?: string): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -172,10 +173,10 @@ describe('declining rather than guessing', () => {
   })
 
   it('never overwrites an input something else already drives', () => {
-    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const button = node('btn', 'ButtonBank', { buttons: singleButtonRow(12) })
     const plan = templateControlPlan(
       panel, templated('now-playing'), [panel, touch, player, button],
-      [edge('player', 'display', 'tft', 'display'), edge('btn', 'pressed', 'player', 'next')],
+      [edge('player', 'display', 'tft', 'display'), edge('btn', FIRST_BUTTON_HANDLE, 'player', 'next')],
     )
     expect(routes(plan).transportNext).toBeUndefined()
     expect(reasons(plan).transportNext).toContain('already has something wired')

@@ -8,6 +8,7 @@ import {
   DANCE_FLASH_GAPS, DANCE_FIGURE_COUNT, DANCE_FIGURES, DANCE_FLASH_BEAT_WAIT_MS, DANCE_FLASH_HOLD_MS, DANCE_ROWS, DANCE_SIZE,
   danceFit, danceFlashAdvance, danceFlashStart, danceLit, danceSource,
 } from '../danceFlash'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, category: string, props: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -188,10 +189,10 @@ describe('Dance Flash firmware', () => {
   })
 
   it('gates on a wired beat and draws freely when the seed is 0', () => {
-    const beat = node('beat', 'ButtonInput', 'input', {})
+    const beat = node('beat', 'ButtonBank', 'input', { buttons: singleButtonRow(0) })
     const dance = node('dance', 'DanceFlash', 'pattern', { seed: 0 })
     const cpp = generateCpp([beat, dance, output], [
-      edge('e1', 'beat', 'pressed', 'dance', 'beat'),
+      edge('e1', 'beat', FIRST_BUTTON_HANDLE, 'dance', 'beat'),
       edge('e2', 'dance', 'frame', 'out', 'frame'),
     ])
     expect(cpp).toContain('_dfRise_dance')

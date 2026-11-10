@@ -488,7 +488,7 @@ describe('graphStore — grouping', () => {
     // MicInput, LineInput and Board only, so grouping a selection containing
     // any other part sealed it inside a pattern group — the one place the
     // root-graph-only invariant says hardware can never live.
-    const parts = ['PotInput', 'EncoderInput', 'ButtonInput', 'ButtonBank', 'RtcModule',
+    const parts = ['PotInput', 'EncoderInput', 'ButtonBank', 'TouchButtonInput', 'RtcModule',
       'MotionInput', 'LightInput', 'SegmentDisplay', 'InfoDisplay']
     reset([node('sc', 'SolidColor'), ...parts.map((type) => node(type.toLowerCase(), type))])
 
@@ -682,7 +682,7 @@ describe('graphStore — grouping', () => {
     expect(s.nodes.find((n) => n.id === 'bm')!.position).toEqual({ x: 360, y: 440 })
   })
 
-  it('auto-exposes unconnected speed/energy ports as show-input roles, multiplied against the original slider value', () => {
+  it('auto-exposes unconnected speed/reactivity ports as show-input roles, multiplied against the original slider value', () => {
     reset([node('n', 'Noise', { speed: 0.5, scale: 0.5, palette: 'rainbow' })], [])
     const gid = useGraphStore.getState().createGroup('Wavy', ['n'])
     const sub = useGraphStore.getState().graphData[gid]
@@ -693,7 +693,7 @@ describe('graphStore — grouping', () => {
       (n) => n.data.nodeType === 'GroupInput' && (n.data.properties as { paramId?: string }).paramId === 'speed',
     )
     expect(speedInputs).toHaveLength(1)
-    expect(sub.nodes.some((n) => n.data.properties?.paramId === 'energy')).toBe(false)
+    expect(sub.nodes.some((n) => n.data.properties?.paramId === 'reactivity')).toBe(false)
 
     const mul = sub.nodes.find((n) => n.data.nodeType === 'Math')!
     expect(mul).toBeTruthy()
@@ -708,6 +708,18 @@ describe('graphStore — grouping', () => {
       [{ id: 'e-out', source: 'n', sourceHandle: 'frame', target: sub.nodes.find((n) => n.data.nodeType === 'GroupOutput')!.id, targetHandle: 'frame' } as StudioEdge],
     ), 5, 4, 4, {})
     expect(frameA).toBeTruthy()
+  })
+
+  it('auto-exposes an audio pattern\'s unconnected reactivity port as the reactivity role', () => {
+    reset([node('rings', 'BassRings', { bass: 0.5, reactivity: 0.6, speed: 0.5, palette: 'lava' })], [])
+    const gid = useGraphStore.getState().createGroup('Rings', ['rings'])
+    const sub = useGraphStore.getState().graphData[gid]
+    const role = sub.nodes.find((n) => n.data.nodeType === 'GroupInput' && n.data.properties?.paramId === 'reactivity')
+    expect(role).toBeTruthy()
+    expect(sub.nodes.some((n) => n.data.properties?.paramId === 'energy')).toBe(false)
+    const mul = sub.nodes.find((n) => n.data.nodeType === 'Math' && sub.edges.some((e) => e.source === n.id && e.targetHandle === 'reactivity'))!
+    expect(mul.data.properties.a).toBe(0.6)
+    expect(sub.edges.some((e) => e.source === role!.id && e.target === mul.id && e.targetHandle === 'b')).toBe(true)
   })
 
   it('leaves an already-wired speed port alone instead of auto-exposing it', () => {
@@ -918,7 +930,7 @@ describe('graphStore — loadGraph normalization', () => {
     expect(buttons[0]).toMatchObject({ label: 'Play / Pause', pullup: true })
     expect(bank.data.outputs).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: `button-${buttons[0].id}`, label: 'Play / Pause' }),
-      expect.objectContaining({ id: 'add-button', label: 'Connect button…' }),
+      expect.objectContaining({ id: 'add-button', label: 'Add button…' }),
     ]))
     expect(state.edges).toContainEqual(expect.objectContaining({
       source: 'bank', sourceHandle: `button-${buttons[0].id}`, target: 'controls', targetHandle: 'playPause',
@@ -991,6 +1003,17 @@ describe('graphStore — loadGraph normalization', () => {
     expect(dataOf('rtc').properties).toEqual({ timeSource: 'DS3231' })
     expect(dataOf('sd').properties).toEqual({ sdCsPin: 10 })
     expect(dataOf('amp').properties).toEqual({ i2sBclk: 26, i2sLrc: 25, i2sDout: 22 })
+  })
+
+  it('loads a Clock\'s old minute offset as the matching fixed-offset zone', () => {
+    const india = node('india', 'RTCInput', { timeSource: 'NTP', timezoneOffsetMinutes: 330 })
+    const odd = node('odd', 'RTCInput', { timeSource: 'NTP', timezoneOffsetMinutes: 135 })
+    const chosen = node('chosen', 'RTCInput', { timeSource: 'NTP', timezoneOffsetMinutes: 60, timeZone: 'Europe/Paris' })
+    useGraphStore.getState().loadGraph([india, odd, chosen], [])
+
+    expect(dataOf('india').properties).toEqual({ timeSource: 'NTP', timeZone: 'UTC+05:30' })
+    expect(dataOf('odd').properties).toEqual({ timeSource: 'NTP', timeZone: 'UTC+02:15' })
+    expect(dataOf('chosen').properties).toEqual({ timeSource: 'NTP', timeZone: 'Europe/Paris' })
   })
 
   it('does not backfill retired effect property shapes on load', () => {
@@ -2345,12 +2368,12 @@ describe('graphStore — group input roles', () => {
     useGraphStore.getState().addGroupInput()
     const s = useGraphStore.getState()
     const gi = s.nodes.find((n) => n.data.nodeType === 'GroupInput')!
-    expect(gi.data.properties.paramId).toBe('energy')
+    expect(gi.data.properties.paramId).toBe('reactivity')
     expect(s.selectedNodeId).toBe(gi.id)
   })
 
   it('setGroupInputRole keeps float edges for float roles but retypes + unwires for palette', () => {
-    reset([groupInput('gi', 'energy'), node('bm', 'BrightnessMod')], [edge('e', 'gi', 'out', 'bm', 'brightness')])
+    reset([groupInput('gi', 'reactivity'), node('bm', 'BrightnessMod')], [edge('e', 'gi', 'out', 'bm', 'brightness')])
 
     useGraphStore.getState().setGroupInputRole('gi', 'speed')   // float → float
     expect(useGraphStore.getState().nodes[0].data.properties.paramId).toBe('speed')

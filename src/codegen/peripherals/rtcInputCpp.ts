@@ -11,6 +11,9 @@ import { rtcI2cPinsForProfile } from '../../build/pins/rtcPins'
 import { ds3231HelperCpp, rtcHelperCpp } from './rtcCpp'
 import { networkSketchCpp } from './networkCpp'
 import { rtcModuleIn } from '../../state/peripherals/rtcModule'
+import {
+  clockTimeZone, parsePosixTimeZone, posixTimeZoneFor, type PosixTimeZone,
+} from '../../state/peripherals/timeZones'
 import type { ControlInputEmission } from '../controlInputCpp'
 
 export const RTC_CONTROL_OUTPUTS: Record<string, 'bool' | 'float'> = {
@@ -21,6 +24,28 @@ export const RTC_CONTROL_OUTPUTS: Record<string, 'bool' | 'float'> = {
 
 export function rtcTimeSource(properties: Record<string, unknown>): string {
   return String(properties.timeSource ?? 'Compile Time')
+}
+
+/**
+ * A Clock's time zone for the sketch: the POSIX string the ESP cores are
+ * handed, and its parsed rule, which the UNO R4 WiFi branch evaluates itself.
+ * The string comes from the app's own table, never the saved text, and is
+ * parsed again here so nothing outside the subset reaches C++; an id nothing
+ * names runs as UTC, as the preview does.
+ */
+export function rtcTimeZoneCpp(properties: Record<string, unknown>): { posix: string; zone: PosixTimeZone } {
+  const posix = posixTimeZoneFor(clockTimeZone(properties))
+  const zone = posix ? parsePosixTimeZone(posix) : null
+  return posix && zone ? { posix, zone } : { posix: 'UTC0', zone: { standardOffset: 0, daylight: null } }
+}
+
+/** Seconds east of UTC at the instant `utc` names, as a C++ expression. */
+function zoneOffsetCpp(zone: PosixTimeZone, utc: string): string {
+  if (!zone.daylight) return String(zone.standardOffset)
+  const { offset, start, end } = zone.daylight
+  return `_rtcTzOffset(${utc}, ${zone.standardOffset}, ${offset}, `
+    + `${start.month}, ${start.week}, ${start.weekday}, ${start.seconds}, `
+    + `${end.month}, ${end.week}, ${end.weekday}, ${end.seconds})`
 }
 
 /** The struct a display reads. Scalar ports stay on `RTC_CONTROL_OUTPUTS`. */
@@ -40,7 +65,7 @@ export function rtcInputLoopCpp(id: string, p: Record<string, unknown>, v: (port
   const startHour = rawInt(p.startHour, 12)
   const startMinute = rawInt(p.startMinute, 0)
   const startSecond = rawInt(p.startSecond, 0)
-  const timezoneOffsetMinutes = rawInt(p.timezoneOffsetMinutes, 0)
+  const timeZone = rtcTimeZoneCpp(p)
   const ntpServer = cppStringLiteral(p.ntpServer ?? 'pool.ntp.org')
   const ntp = source === 'NTP'
   const ds3231 = source === 'DS3231'
@@ -100,12 +125,17 @@ export function rtcInputLoopCpp(id: string, p: Record<string, unknown>, v: (port
   ln(`  }`)
   if (ntp) {
     ln(`  _netEnsureConnected();`)
-    // The ESP cores keep civil time themselves once configTime has named the
-    // server; the UNO R4 WiFi (WiFiS3) has the socket but no SNTP client, so
-    // the second branch runs the exchange itself and holds the epoch it got.
+    // The ESP cores keep civil time themselves once they have the server and
+    // the zone's POSIX string, daylight saving included; the UNO R4 WiFi
+    // (WiFiS3) has the socket but no SNTP client, so the second branch runs
+    // the exchange itself, holds the epoch it got and applies the zone's rule.
     ln(`#if FLS_NET_SUPPORTED && FLS_NET_SNTP`)
     ln(`  if (_netConnected() && !_rtcNtpConfigured_${id}) {`)
-    ln(`    configTime(${timezoneOffsetMinutes * 60}, 0, ${ntpServer});`)
+    ln(`#if defined(ESP32)`)
+    ln(`    configTzTime(${cppStringLiteral(timeZone.posix)}, ${ntpServer});`)
+    ln(`#else`)
+    ln(`    configTime(${cppStringLiteral(timeZone.posix)}, ${ntpServer});`)
+    ln(`#endif`)
     ln(`    _rtcNtpConfigured_${id} = true;`)
     ln(`  }`)
     ln(`  time_t _rtcEpoch_${id} = time(nullptr);`)
@@ -160,7 +190,8 @@ export function rtcInputLoopCpp(id: string, p: Record<string, unknown>, v: (port
     ln(`    }`)
     ln(`  }`)
     ln(`  if (_rtcNtpEpoch_${id} != 0) {`)
-    ln(`    int64_t _rtcNtpLocal_${id} = (int64_t)_rtcNtpEpoch_${id} + (int64_t)((uint32_t)(millis() - _rtcNtpAtMs_${id}) / 1000u) + (${timezoneOffsetMinutes * 60});`)
+    ln(`    int64_t _rtcNtpUtc_${id} = (int64_t)_rtcNtpEpoch_${id} + (int64_t)((uint32_t)(millis() - _rtcNtpAtMs_${id}) / 1000u);`)
+    ln(`    int64_t _rtcNtpLocal_${id} = _rtcNtpUtc_${id} + ${zoneOffsetCpp(timeZone.zone, `_rtcNtpUtc_${id}`)};`)
     ln(`    int32_t _rtcNtpDays_${id} = (int32_t)(_rtcNtpLocal_${id} / 86400);`)
     ln(`    uint32_t _rtcNtpSecondsOfDay_${id} = (uint32_t)(_rtcNtpLocal_${id} % 86400);`)
     ln(`    int16_t _rtcNtpYear_${id}; uint8_t _rtcNtpMonth_${id}, _rtcNtpDay_${id};`)

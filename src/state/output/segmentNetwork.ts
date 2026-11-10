@@ -15,7 +15,13 @@ export type NetworkPreset = (typeof NETWORK_PRESETS)[number]
 export const NETWORK_MAX_NODES = 64
 export const NETWORK_MAX_EDGES = 128
 export const NETWORK_LEDS_PER_EDGE = { min: 2, max: 100, default: 14 } as const
-/** The positioned-string ceiling; `ledsPerEdge` is clamped so a network fits. */
+/**
+ * A network's LED ceiling; `ledsPerEdge` is clamped so a network fits. It
+ * stayed at 300 when other strings rose to `MAX_LED_RUN`: the clamp is
+ * silent (the slider offers 100 per edge on any network), so raising it would
+ * re-lay a saved network that asks for more than it gets, on a build that is
+ * already soldered, and move a Ripple node's rings with it.
+ */
 export const NETWORK_MAX_LEDS = 300
 
 export interface SegmentNetwork {

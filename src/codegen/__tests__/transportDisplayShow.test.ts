@@ -5,6 +5,7 @@ import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { DEFAULT_BUTTON_EDGE_SETTINGS } from '../../state/player/transportBridge'
 import { assertWireable } from '../../test-utils/assertWireable'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((n) => n.type === nodeType)!
@@ -73,11 +74,11 @@ describe('fixed touch routing in generative shows', () => {
       node('first', 'ControlMap'),
     ]
     const knob = node('knob', 'PotInput', { pin: 33 })
-    const button = node('button', 'ButtonInput', { pin: 32 })
+    const button = node('button', 'ButtonBank', { buttons: singleButtonRow(32) })
     const nodes = [output(), ...controls, knob, button, panel()]
     const edges = [edge('panel-touch', 'controls', 'first', 'controlsIn'),
       edge('first', 'controls', 'last', 'controlsIn'), edge('last', 'controls', 'out', 'controls'),
-      edge('knob', 'value', 'last', 'brightness'), edge('button', 'pressed', 'last', 'brightnessDown')]
+      edge('knob', 'value', 'last', 'brightness'), edge('button', FIRST_BUTTON_HANDLE, 'last', 'brightnessDown')]
     const normalNodes = [...nodes, node('solid', 'SolidColor'), touchNode()]
     const normalEdges = [...edges, edge('solid', 'frame', 'out', 'frame')]
     assertWireable(normalNodes, normalEdges)
@@ -93,7 +94,7 @@ describe('fixed touch routing in generative shows', () => {
       expect(cpp).toContain('n_last_controls = n_first_controls;')
       expect(cpp).toContain('float n_knob_value = analogRead(33) / DS_ANALOG_FULL_SCALE;')
       expect(cpp).toContain('pinMode(32, INPUT_PULLUP);')
-      expect(cpp).toContain(`.update(n_button_pressed, _pcNow_last, true, ${debounceMs}u, ${repeatDelayMs}u, ${repeatIntervalMs}u)`)
+      expect(cpp).toContain(`.update(n_button_button_1, _pcNow_last, true, ${debounceMs}u, ${repeatDelayMs}u, ${repeatIntervalMs}u)`)
       expect(cpp).toContain('n_last_controls.brightnessDelta -= 0.125f;')
       expect(cpp).toContain('n_last_controls.brightness = constrain(n_knob_value, 0.0f, 1.0f);')
       expect(cpp).toContain('if (n_last_controls.hasBrightness) _ledLevel_out = constrain(n_last_controls.brightness, 0.0f, 1.0f);')
@@ -119,9 +120,9 @@ describe('fixed touch routing in generative shows', () => {
     // Two patterns, so there is somewhere for a step to go.
     const nodes = [
       node('collection', 'PatternCollection', { patternIds: ['p', 'p'] }), node('show', 'PatternSlideshow'),
-      output(), node('button', 'ButtonInput', { pin: 32 }), touchNode(),
+      output(), node('button', 'ButtonBank', { buttons: singleButtonRow(32) }), touchNode(),
     ]
-    const edges = [...frameEdges, edge('button', 'pressed', 'show', 'patternNext')]
+    const edges = [...frameEdges, edge('button', FIRST_BUTTON_HANDLE, 'show', 'patternNext')]
     assertWireable(nodes, edges)
     const cpp = generateShowSketch(nodes, edges, groups)
     const loop = cpp.slice(cpp.indexOf('void loop() {'))
@@ -131,7 +132,7 @@ describe('fixed touch routing in generative shows', () => {
     // default as one through Player Controls; a hard-coded 0 ms let the
     // contact's bounce step the show several patterns on one press.
     const { debounceMs, repeatDelayMs, repeatIntervalMs } = DEFAULT_BUTTON_EDGE_SETTINGS
-    expect(loop).toContain(`_pcE_show_direct_patternNext.update(n_button_pressed, _pcNow_show_direct, true, ${debounceMs}u, ${repeatDelayMs}u, ${repeatIntervalMs}u)`)
+    expect(loop).toContain(`_pcE_show_direct_patternNext.update(n_button_button_1, _pcNow_show_direct, true, ${debounceMs}u, ${repeatDelayMs}u, ${repeatIntervalMs}u)`)
     expect(loop).toContain('n_show_direct_controls.patternSteps += 1;')
     expect(loop).toContain('_selUpdate(_sel_show, PATTERN_COUNT, n_show_direct_controls.patternSteps);')
   })

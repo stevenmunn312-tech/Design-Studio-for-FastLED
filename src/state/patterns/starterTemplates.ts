@@ -6,7 +6,7 @@ import { isHardwareOnlyNodeType } from '../../build/hardware'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { retargetHardwarePins } from '../../build/pins/pinRetarget'
 import { audioCapabilityIntent } from '../audio/audioCapabilities'
-import { buttonBankOutputs } from '../player/buttonBank'
+import { FIRST_BUTTON_HANDLE, buttonBankHandle, buttonBankOutputs, normalizeButtonBankEntries } from '../player/buttonBank'
 import { estimatePowerLoad } from '../../utils/validateGraph'
 import type { StudioNode, StudioEdge } from '../graphStore'
 
@@ -62,7 +62,10 @@ function starterHardware(specs: readonly NodeSpec[]): string[] {
   }
   if (count('MicInput')) parts.push('An I2S microphone (INMP441)')
   if (count('PotInput')) parts.push(plural(count('PotInput'), 'A potentiometer', 'potentiometers'))
-  if (count('ButtonInput')) parts.push(plural(count('ButtonInput'), 'A push button', 'push buttons'))
+  // One Button node can hold several, so count its rows, not the nodes.
+  const buttons = specs.filter((spec) => spec.type === 'ButtonBank')
+    .reduce((sum, spec) => sum + Math.max(1, normalizeButtonBankEntries(spec.properties?.buttons).length), 0)
+  if (buttons) parts.push(plural(buttons, 'A push button', 'push buttons'))
   if (count('EncoderInput')) parts.push('A rotary encoder')
   if (count('InfoDisplay')) parts.push('A small OLED screen')
   if (count('SDCard')) parts.push('A microSD card module')
@@ -184,6 +187,13 @@ function buildGraph(nodeSpecs: NodeSpec[], edgeSpecs: EdgeSpec[]): { nodes: Stud
   const nodes: StudioNode[] = nodeSpecs.map((spec) => {
     const def = LIBRARY_DEF.get(spec.type)
     if (!def) throw new Error(`Unknown template node type: ${spec.type}`)
+    const properties = Object.fromEntries(Object.entries({
+      ...resolveDefaultProperties(def.type, def.defaultProperties),
+      ...(spec.properties ?? {}),
+    }).map(([key, value]) => [
+      key,
+      typeof value === 'string' && value.startsWith('$') ? idFor(value.slice(1)) : value,
+    ]))
     return {
       id: idFor(spec.id),
       type: 'studioNode',
@@ -195,19 +205,13 @@ function buildGraph(nodeSpecs: NodeSpec[], edgeSpecs: EdgeSpec[]): { nodes: Stud
         label: def.label,
         nodeType: def.type,
         category: def.category,
-        properties: Object.fromEntries(Object.entries({
-          ...resolveDefaultProperties(def.type, def.defaultProperties),
-          ...(spec.properties ?? {}),
-        }).map(([key, value]) => [
-          key,
-          typeof value === 'string' && value.startsWith('$') ? idFor(value.slice(1)) : value,
-        ])),
+        properties,
         inputs: def.inputs,
-        // A Button Bank mints its outputs from its properties, the way
+        // A Button mints its outputs from its properties, the way
         // `loadGraph` derives them, or `build()` hands back a graph whose
         // edges leave sockets its own node does not declare.
         outputs: def.type === 'ButtonBank'
-          ? buttonBankOutputs((spec.properties ?? {}).buttons)
+          ? buttonBankOutputs(properties.buttons)
           : def.outputs,
       },
     }
@@ -218,7 +222,8 @@ function buildGraph(nodeSpecs: NodeSpec[], edgeSpecs: EdgeSpec[]): { nodes: Stud
   const edges: StudioEdge[] = edgeSpecs.map((spec) => {
     const srcNode = nodeById.get(spec.source)
     const srcDef = srcNode ? LIBRARY_DEF.get(String(srcNode.data.nodeType)) : undefined
-    const srcPort = srcDef?.outputs.find((p) => p.id === spec.sourceHandle)
+    const srcPort = [...((srcNode?.data.outputs as { id: string; dataType: string }[] | undefined) ?? []), ...(srcDef?.outputs ?? [])]
+      .find((p) => p.id === spec.sourceHandle)
     const stroke = portColor(srcPort?.dataType ?? 'float')
     return {
       id: `e-${idFor(spec.source)}-${idFor(spec.target)}-${spec.sourceHandle}-${spec.targetHandle}`,
@@ -515,7 +520,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     nodeSpecs: [
       { id: 'pattern', type: 'Plasma', col: 0, row: 0 },
       { id: 'pot', type: 'PotInput', col: 0, row: 1 },
-      { id: 'button', type: 'ButtonInput', col: 0, row: 2 },
+      { id: 'button', type: 'ButtonBank', col: 0, row: 2 },
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 0 },
       tutorialNote(
         'guide', -1, 0,
@@ -526,7 +531,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     edgeSpecs: [
       { source: 'pattern', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
       { source: 'pot', sourceHandle: 'value', target: 'out', targetHandle: 'brightness' },
-      { source: 'button', sourceHandle: 'pressed', target: 'out', targetHandle: 'ledToggle' },
+      { source: 'button', sourceHandle: FIRST_BUTTON_HANDLE, target: 'out', targetHandle: 'ledToggle' },
     ],
   }),
   template({
@@ -582,9 +587,21 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     nodeSpecs: [
       { id: 'audio', type: 'Audio', properties: { sourceId: audioCapabilityIntent('decoder') }, col: 0, row: 0 },
       { id: 'collection', type: 'PatternCollection', col: 0, row: 1 },
-      { id: 'play', type: 'ButtonInput', col: 0, row: 2 },
-      { id: 'prev', type: 'ButtonInput', col: 0, row: 3 },
-      { id: 'next', type: 'ButtonInput', col: 0, row: 4 },
+      // One Button with a row per job; the template's retarget gives each
+      // row a free pin on the chosen board.
+      {
+        id: 'buttons',
+        type: 'ButtonBank',
+        col: 0,
+        row: 2,
+        properties: {
+          buttons: [
+            { id: 'play', label: 'Play / Pause', pin: -1, pullup: true },
+            { id: 'previous', label: 'Previous', pin: -1, pullup: true },
+            { id: 'next', label: 'Next', pin: -1, pullup: true },
+          ],
+        },
+      },
       { id: 'controls', type: 'ControlMap', col: 1, row: 2 },
       { id: 'master', type: 'PatternMaster', col: 2, row: 0 },
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 3, row: 0 },
@@ -605,9 +622,9 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     edgeSpecs: [
       { source: 'audio', sourceHandle: 'audio', target: 'master', targetHandle: 'audio' },
       { source: 'collection', sourceHandle: 'patternset', target: 'master', targetHandle: 'patternset' },
-      { source: 'play', sourceHandle: 'pressed', target: 'controls', targetHandle: 'playPause' },
-      { source: 'prev', sourceHandle: 'pressed', target: 'controls', targetHandle: 'previous' },
-      { source: 'next', sourceHandle: 'pressed', target: 'controls', targetHandle: 'next' },
+      { source: 'buttons', sourceHandle: buttonBankHandle('play'), target: 'controls', targetHandle: 'playPause' },
+      { source: 'buttons', sourceHandle: buttonBankHandle('previous'), target: 'controls', targetHandle: 'previous' },
+      { source: 'buttons', sourceHandle: buttonBankHandle('next'), target: 'controls', targetHandle: 'next' },
       { source: 'controls', sourceHandle: 'controls', target: 'master', targetHandle: 'controls' },
       { source: 'master', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
       { source: 'master', sourceHandle: 'display', target: 'oled', targetHandle: 'display' },

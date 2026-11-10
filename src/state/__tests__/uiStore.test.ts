@@ -313,12 +313,12 @@ describe('uiStore.setStatus auto-clear', () => {
       hardwareShelfTarget: null,
     })
 
-    useUiStore.getState().openHardwareShelf('ButtonInput')
+    useUiStore.getState().openHardwareShelf('ButtonBank')
     expect(useUiStore.getState()).toMatchObject({
       workspaceMode: 'hardware',
       hardwarePaneTab: 'hardware',
       sidebarOpen: true,
-      hardwareShelfTarget: 'ButtonInput',
+      hardwareShelfTarget: 'ButtonBank',
     })
 
     useUiStore.getState().clearHardwareShelfTarget()

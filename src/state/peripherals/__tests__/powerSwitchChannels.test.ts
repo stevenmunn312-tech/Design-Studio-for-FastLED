@@ -19,6 +19,7 @@ import {
   powerSwitchActiveHigh, powerSwitchChannelCount, powerSwitchChannels, powerSwitchInputs, powerSwitchPinKeys,
   powerSwitchPwmHz,
 } from '../powerSwitch'
+import { FIRST_BUTTON_HANDLE, singleButtonRow, buttonPressKey } from '../../player/buttonBank'
 
 const LR7843 = 'lr7843-mosfet-module'
 const MOSFETTI = 'monkmakes-mosfetti'
@@ -113,35 +114,35 @@ describe('power switch channels', () => {
 
 describe('Mosfetti firmware', () => {
   it('switches each channel from its own On, held off through setup', () => {
-    const buttons = ['a', 'b', 'c', 'd'].map((letter, index) => node(`btn${letter}`, 'ButtonInput', { pin: 32 + index }))
+    const buttons = ['a', 'b', 'c', 'd'].map((letter, index) => node(`btn${letter}`, 'ButtonBank', { buttons: singleButtonRow(32 + index) }))
     const sw = node('sw', 'PowerSwitchOutput', { partId: MOSFETTI, ...FOUR_PINS })
     const cpp = generateCpp([...buttons, sw], [
-      edge('a', 'btna', 'pressed', 'sw', 'on'),
-      edge('b', 'btnb', 'pressed', 'sw', 'on2'),
-      edge('c', 'btnc', 'pressed', 'sw', 'on3'),
-      edge('d', 'btnd', 'pressed', 'sw', 'on4'),
+      edge('a', 'btna', FIRST_BUTTON_HANDLE, 'sw', 'on'),
+      edge('b', 'btnb', FIRST_BUTTON_HANDLE, 'sw', 'on2'),
+      edge('c', 'btnc', FIRST_BUTTON_HANDLE, 'sw', 'on3'),
+      edge('d', 'btnd', FIRST_BUTTON_HANDLE, 'sw', 'on4'),
     ])
     for (const [pin, letter] of [[16, 'a'], [17, 'b'], [18, 'c'], [19, 'd']] as const) {
       const latch = cpp.indexOf(`digitalWrite(${pin}, LOW);`)
       expect(latch).toBeGreaterThanOrEqual(0)
       expect(cpp.indexOf(`pinMode(${pin}, OUTPUT);`)).toBeGreaterThan(latch)
-      expect(cpp).toContain(`digitalWrite(${pin}, n_btn${letter}_pressed ? HIGH : LOW);`)
+      expect(cpp).toContain(`digitalWrite(${pin}, n_btn${letter}_button_1 ? HIGH : LOW);`)
     }
     expect(cpp).not.toContain('flsPwm')
   })
 
   it('dims a channel at the Mosfetti\'s 1 kHz and leaves the others switched', () => {
     const pot = node('pot', 'PotInput', { pin: 34 })
-    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const button = node('btn', 'ButtonBank', { buttons: singleButtonRow(12) })
     const sw = node('sw', 'PowerSwitchOutput', { partId: MOSFETTI, ...FOUR_PINS })
     const cpp = generateCpp([pot, button, sw], [
       edge('level', 'pot', 'value', 'sw', 'level2'),
-      edge('on', 'btn', 'pressed', 'sw', 'on'),
+      edge('on', 'btn', FIRST_BUTTON_HANDLE, 'sw', 'on'),
     ])
     expect(cpp).toContain('flsPwmBegin(17, 0, 1000);')
     expect(cpp).toContain('uint8_t duty = flsPwmDuty((float)(n_pot_value), true);')
     expect(cpp).toContain('static int16_t n_sw_2_pwmDuty = -1;')
-    expect(cpp).toContain('digitalWrite(16, n_btn_pressed ? HIGH : LOW);')
+    expect(cpp).toContain('digitalWrite(16, n_btn_button_1 ? HIGH : LOW);')
     expect(cpp.match(/static void flsPwmBegin/g)).toHaveLength(1)
   })
 
@@ -186,12 +187,12 @@ describe('powerSwitchPwmPlan', () => {
 
 describe('Mosfetti preview', () => {
   it('publishes each channel\'s load under its own key', () => {
-    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const button = node('btn', 'ButtonBank', { buttons: singleButtonRow(12) })
     const sw = node('sw', 'PowerSwitchOutput', { partId: MOSFETTI, level3: 0.25 })
-    const edges = [edge('a', 'btn', 'pressed', 'sw', 'on'), edge('c', 'btn', 'pressed', 'sw', 'on3')]
-    useHardwareInputStore.getState().setButton('btn', true)
+    const edges = [edge('a', 'btn', FIRST_BUTTON_HANDLE, 'sw', 'on'), edge('c', 'btn', FIRST_BUTTON_HANDLE, 'sw', 'on3')]
+    useHardwareInputStore.getState().setButton(buttonPressKey('btn'), true)
     const outputs = evaluateGraphFull([button, sw], edges, 0).outputs.get('sw')
-    useHardwareInputStore.getState().setButton('btn', false)
+    useHardwareInputStore.getState().setButton(buttonPressKey('btn'), false)
     expect(outputs?.load).toBe(1)
     expect(outputs?.load2).toBe(0)
     expect(outputs?.load3).toBe(0.25)
@@ -282,14 +283,14 @@ describe('the YYNMOS-4 (LR7843 revision)', () => {
 
   it('dims at its own 500 Hz and holds every channel off through setup', () => {
     const pot = node('pot', 'PotInput', { pin: 34 })
-    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const button = node('btn', 'ButtonBank', { buttons: singleButtonRow(12) })
     const yy = node('yy', 'PowerSwitchOutput', { partId: YYNMOS4, ...FOUR_PINS })
     const cpp = generateCpp([pot, button, yy], [
-      edge('on', 'btn', 'pressed', 'yy', 'on'),
+      edge('on', 'btn', FIRST_BUTTON_HANDLE, 'yy', 'on'),
       edge('level', 'pot', 'value', 'yy', 'level2'),
     ])
     expect(cpp).toContain('flsPwmBegin(17, 0, 500);')
-    expect(cpp).toContain('digitalWrite(16, n_btn_pressed ? HIGH : LOW);')
+    expect(cpp).toContain('digitalWrite(16, n_btn_button_1 ? HIGH : LOW);')
     for (const pin of [16, 18, 19]) {
       const latch = cpp.indexOf(`digitalWrite(${pin}, LOW);`)
       expect(latch).toBeGreaterThanOrEqual(0)
@@ -298,13 +299,13 @@ describe('the YYNMOS-4 (LR7843 revision)', () => {
   })
 
   it('previews each channel\'s load under its own key', () => {
-    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const button = node('btn', 'ButtonBank', { buttons: singleButtonRow(12) })
     const yy = node('yy', 'PowerSwitchOutput', { partId: YYNMOS4, level4: 0.5 })
-    useHardwareInputStore.getState().setButton('btn', true)
+    useHardwareInputStore.getState().setButton(buttonPressKey('btn'), true)
     const outputs = evaluateGraphFull([button, yy], [
-      edge('a', 'btn', 'pressed', 'yy', 'on'), edge('d', 'btn', 'pressed', 'yy', 'on4'),
+      edge('a', 'btn', FIRST_BUTTON_HANDLE, 'yy', 'on'), edge('d', 'btn', FIRST_BUTTON_HANDLE, 'yy', 'on4'),
     ], 0).outputs.get('yy')
-    useHardwareInputStore.getState().setButton('btn', false)
+    useHardwareInputStore.getState().setButton(buttonPressKey('btn'), false)
     expect([outputs?.load, outputs?.load2, outputs?.load3, outputs?.load4]).toEqual([1, 0, 0, 0.5])
   })
 })

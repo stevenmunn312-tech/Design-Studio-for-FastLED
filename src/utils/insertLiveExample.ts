@@ -3,6 +3,7 @@ import { canAddNodeType, SINGLETON_NODE_TYPES, useGraphStore } from '../state/gr
 import type { StudioEdge, StudioNode } from '../state/graphStore'
 import { NODE_LIBRARY, portColor } from '../state/nodeLibrary'
 import { resolveDefaultProperties } from '../state/nodeDefaults'
+import { buttonBankOutputs } from '../state/player/buttonBank'
 
 const HISTORY_LIMIT = 100
 const MEASUREMENT_SETTLE_MS = 600
@@ -131,6 +132,11 @@ export function insertLiveExample(
     const bench = isHardwareOnlyNodeType(spec.type)
       ? { hidden: true, selectable: false, draggable: false }
       : {}
+    const properties = resolveDefaultProperties(definition.type, {
+      ...definition.defaultProperties,
+      ...spec.properties,
+      ...(providerId ? { sourceId: providerId } : {}),
+    })
     addedNodes.push({
       id,
       type: 'studioNode',
@@ -140,13 +146,10 @@ export function insertLiveExample(
         label: definition.label,
         nodeType: definition.type,
         category: definition.category,
-        properties: resolveDefaultProperties(definition.type, {
-          ...definition.defaultProperties,
-          ...spec.properties,
-          ...(providerId ? { sourceId: providerId } : {}),
-        }),
+        properties,
         inputs: definition.inputs,
-        outputs: definition.outputs,
+        // A Button mints a port per row, as a load derives them.
+        outputs: definition.type === 'ButtonBank' ? buttonBankOutputs(properties.buttons) : definition.outputs,
       },
     })
   }
@@ -177,7 +180,8 @@ export function insertLiveExample(
 
     const sourceNode = allNodes.find((node) => node.id === source)
     const sourceDefinition = NODE_LIBRARY.find((entry) => entry.type === sourceNode?.data.nodeType)
-    const sourcePort = sourceDefinition?.outputs.find((port) => port.id === spec.sourceHandle)
+    const sourcePort = [...((sourceNode?.data.outputs as { id: string; dataType: string }[] | undefined) ?? []), ...(sourceDefinition?.outputs ?? [])]
+      .find((port) => port.id === spec.sourceHandle)
     addedEdges.push({
       id: `e-help-${stamp}-${index}`,
       source,

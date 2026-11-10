@@ -13,6 +13,7 @@ import { applyDisplayTemplate } from '../../../state/displays/displayTemplates'
 import { createDisplayDocument } from '../../../state/displays/displayEditor'
 import { CUSTOM_DESIGN_LAYOUT } from '../../../state/displays/transportDisplay'
 import { buildGraphDiagnostics } from '../../../utils/validateGraph'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -43,12 +44,12 @@ describe('a wire the build cannot read', () => {
     useGraphStore.getState().loadGraph([
       node('player', 'PatternMaster'),
       node('out', 'MatrixOutput', { form: 'strip', ledCount: 30, dataPin: 27 }),
-      node('btn', 'ButtonInput', { pin: 4 }),
+      node('btn', 'ButtonBank', { buttons: singleButtonRow(4) }),
       node('sd', 'SDCard'),
       node('amp', 'Amplifier'),
     ], [
       edge('f', 'player', 'frame', 'out', 'frame'),
-      edge('lamp', 'btn', 'pressed', 'out', 'ledToggle'),
+      edge('lamp', 'btn', FIRST_BUTTON_HANDLE, 'out', 'ledToggle'),
     ], { activeGraphId: ROOT_GRAPH_ID, graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } } })
   })
 

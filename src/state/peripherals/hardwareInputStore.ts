@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 // Live, transient state for the interactive hardware-input node widgets
-// (ButtonInput/PotInput/EncoderInput bodies in StudioNode). This is run-state,
+// (Button rows, PotInput and EncoderInput bodies in StudioNode). This is run-state,
 // not a saved node property — it isn't persisted or undo-tracked, and the
 // evaluator reads it directly via getState() the same way it reads
 // useAudioStore for MicInput, rather than going through graphStore.

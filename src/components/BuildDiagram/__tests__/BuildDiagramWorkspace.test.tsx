@@ -9,6 +9,7 @@ import { MODULE_PAD_HOLE_RADIUS, POWER_FEED_PAIR_GAP, peripheralPadRadius } from
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { TFT_TRANSPORT_PINS } from '../../../state/displays/tftSurface'
 import { partPinLabelForProperty } from '../../../build/parts/partCatalogue'
+import { singleButtonRow } from '../../../state/player/buttonBank'
 
 function matrixNode(dataPin = 14, width = 16, height = 16, id = 'out', extra: Record<string, unknown> = {}) {
   return {
@@ -42,13 +43,13 @@ function microphoneNode() {
   }
 }
 
-function inputNode(id: string, nodeType: 'ButtonInput' | 'PotInput' | 'EncoderInput', properties: Record<string, number>) {
+function inputNode(id: string, nodeType: 'ButtonBank' | 'PotInput' | 'EncoderInput', properties: Record<string, unknown>) {
   return {
     id,
     type: 'studioNode',
     position: { x: 0, y: 0 },
     data: {
-      label: nodeType.replace('Input', ''),
+      label: nodeType === 'ButtonBank' ? 'Button' : nodeType.replace('Input', ''),
       nodeType,
       category: 'input',
       properties,
@@ -821,7 +822,7 @@ describe('BuildDiagramWorkspace', () => {
     useGraphStore.setState({
       nodes: [
         matrixNode(),
-        inputNode('button', 'ButtonInput', { pin: 4 }),
+        inputNode('button', 'ButtonBank', { buttons: singleButtonRow(4) }),
         inputNode('pot', 'PotInput', { pin: 5 }),
         inputNode('encoder', 'EncoderInput', { pinA: 6, pinB: 7, pinSW: 8 }),
       ] as never[],
@@ -831,7 +832,7 @@ describe('BuildDiagramWorkspace', () => {
     const diagram = container.querySelector('svg[data-build-export="current-view"]')
 
     for (const wire of [
-      'button-input:button:pin',
+      'button-input:button:buttons.1.pin',
       'button-input:button-ground',
       'pot-input:pot:pin',
       'pot-input:pot-3v3',
@@ -846,11 +847,11 @@ describe('BuildDiagramWorkspace', () => {
   })
 
   it('names the pin and its use when the pointer is over a signal wire', () => {
-    useGraphStore.setState({ nodes: [matrixNode(), inputNode('button', 'ButtonInput', { pin: 4 })] as never[] })
+    useGraphStore.setState({ nodes: [matrixNode(), inputNode('button', 'ButtonBank', { buttons: singleButtonRow(4) })] as never[] })
     selectDevKit()
     const { container, queryByRole } = render(<BuildDiagramWorkspace />)
     const diagram = container.querySelector('svg[data-build-export="current-view"]')!
-    const wire = diagram.querySelector('[data-wire="button-input:button:pin"]')!
+    const wire = diagram.querySelector('[data-wire="button-input:button:buttons.1.pin"]')!
     const group = wire.closest('[data-wire-tip]')!
     const tip = group.getAttribute('data-wire-tip')!
     // The wire names the pad it lands on, as printed on the part.
@@ -914,7 +915,7 @@ describe('BuildDiagramWorkspace', () => {
     useGraphStore.setState({
       nodes: [
         matrixNode(),
-        inputNode('button', 'ButtonInput', { pin: 4 }),
+        inputNode('button', 'ButtonBank', { buttons: singleButtonRow(4) }),
         inputNode('pot', 'PotInput', { pin: 5 }),
         inputNode('encoder', 'EncoderInput', { pinA: 6, pinB: 7, pinSW: 8 }),
       ] as never[],
@@ -944,7 +945,7 @@ describe('BuildDiagramWorkspace', () => {
     const artwork = diagram?.querySelector('[data-component-render="button-module"]')
     const boardTop = Number(artwork?.getAttribute('y'))
     const boardHeight = Number(artwork?.getAttribute('height'))
-    const sigY = Number(diagram?.querySelector('[data-terminal="button-input:button-button-input:button:pin"] circle')?.getAttribute('cy'))
+    const sigY = Number(diagram?.querySelector('[data-terminal="button-input:button-button-input:button:buttons.1.pin"] circle')?.getAttribute('cy'))
     expect((sigY - boardTop) / boardHeight).toBeCloseTo(742.7 / 1024, 3)
 
     // The stub symbol has to clear the board edge instead of drawing over it.
@@ -1159,7 +1160,7 @@ describe('BuildDiagramWorkspace', () => {
         sdCardNode(),
         spiDisplayNode({ csPin: 4, dcPin: 8, resetPin: 9, sckPin: 15, mosiPin: 3 }),
         microphoneNode(),
-        inputNode('button', 'ButtonInput', { pin: 2 }),
+        inputNode('button', 'ButtonBank', { buttons: singleButtonRow(2) }),
         inputNode('pot', 'PotInput', { pin: 1 }),
         inputNode('encoder', 'EncoderInput', { pinA: 43, pinB: 44, pinSW: 47 }),
       ] as never[],
@@ -1240,7 +1241,7 @@ describe('BuildDiagramWorkspace', () => {
         matrixNode(),
         microphoneNode(),
         inputNode('pot', 'PotInput', { pin: 5 }),
-        inputNode('button', 'ButtonInput', { pin: 4 }),
+        inputNode('button', 'ButtonBank', { buttons: singleButtonRow(4) }),
         inputNode('encoder', 'EncoderInput', { pinA: 6, pinB: 7, pinSW: 8 }),
       ] as never[],
     })
@@ -1318,8 +1319,8 @@ describe('BuildDiagramWorkspace', () => {
     useGraphStore.setState({
       nodes: [
         matrixNode(),
-        inputNode('b1', 'ButtonInput', { pin: 4 }),
-        inputNode('b2', 'ButtonInput', { pin: 9 }),
+        inputNode('b1', 'ButtonBank', { buttons: singleButtonRow(4) }),
+        inputNode('b2', 'ButtonBank', { buttons: singleButtonRow(9) }),
         inputNode('pot', 'PotInput', { pin: 5 }),
         inputNode('encoder', 'EncoderInput', { pinA: 6, pinB: 7, pinSW: 8 }),
       ] as never[],
@@ -1680,7 +1681,7 @@ describe('BuildDiagramWorkspace', () => {
   it('draws battery-only power and keeps it off the Controls sheet', () => {
     useGraphStore.setState({ nodes: [
       boardNode('espressif-esp32-s3-devkitc-1'),
-      inputNode('button', 'ButtonInput', { pin: 4 }),
+      inputNode('button', 'ButtonBank', { buttons: singleButtonRow(4) }),
       batteryNode('pack', 'BatteryPack', { partId: 'samsung-inr18650-35e', series: 4, parallel: 2 }),
       batteryNode('bms', 'BatteryModule', { partId: 'hx-4s-f30a-bms-balance' }),
     ] as never[] })

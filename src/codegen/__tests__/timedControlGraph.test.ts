@@ -10,6 +10,7 @@ import { generateShowSketch } from '../showGenerator'
 import { buildShowPlayer } from '../../utils/showUpload'
 import { findDisplayGeneratorIssues, findOutputRuntimeIssues } from '../../utils/validateGraph'
 import { useNetworkCredentialsStore } from '../../state/peripherals/networkCredentials'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -62,13 +63,13 @@ describe('time-dependent control sources', () => {
   })
 
   it('uses the reset wire and ignores a backward animation jump', () => {
-    const button = node('button', 'ButtonInput', { pin: 5 })
+    const button = node('button', 'ButtonBank', { buttons: singleButtonRow(5) })
     const clk = node('clk', 'Clock', { bpm: 128, beatsPerBar: 4, subdivision: 2 })
-    const edges = [edge('button', 'pressed', 'clk', 'reset')]
+    const edges = [edge('button', FIRST_BUTTON_HANDLE, 'clk', 'reset')]
     const graph = createControlGraph([button, clk], edges)
     expect(graph.resolve('clk', 'beat', 'bool')).not.toBeNull()
     const loop = controlGraphCpp(graph).loop.join('\n')
-    expect(loop).toContain('n_button_pressed')
+    expect(loop).toContain('n_button_button_1')
     expect(loop).toContain('_clkOrigin_clk')
     expect(loop).not.toContain('_controlTime')
     const normal = generateCpp([button, clk], edges)
@@ -115,7 +116,7 @@ describe('time-dependent control sources', () => {
     const loop = compiled.loop.join('\n')
     expect(loop).toContain('_rtcNtpConfigured_rtc')
     expect(loop).toContain('#if FLS_NET_SUPPORTED && FLS_NET_SNTP')
-    expect(loop).toContain('configTime(0, 0, "time.nist.gov");')
+    expect(loop).toContain('configTzTime("UTC0", "time.nist.gov");')
     expect(loop).toContain('if (_netConnected() && !_rtcNtpConfigured_second)')
     // A core with the socket but no SNTP client (WiFiS3) runs the exchange itself.
     expect(loop).toContain('#elif FLS_NET_SUPPORTED')

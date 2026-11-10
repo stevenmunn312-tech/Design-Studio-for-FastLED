@@ -4,7 +4,7 @@
 import type { StudioNode } from '../graphStore'
 import { NODE_LIBRARY } from '../nodeLibrary'
 
-export const AUDIO_ROLES = new Set(['bass', 'mids', 'treble', 'kick', 'snare', 'hihat', 'vocals', 'energy', 'beat', 'silence'])
+export const AUDIO_ROLES = new Set(['bass', 'mids', 'treble', 'kick', 'snare', 'hihat', 'vocals', 'reactivity', 'beat', 'silence'])
 
 const NODE_DEF = new Map(NODE_LIBRARY.map((def) => [def.type, def]))
 

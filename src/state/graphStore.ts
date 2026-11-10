@@ -147,6 +147,7 @@ const isStereoVuRailCountKey = (key: string): boolean =>
   (STEREO_VU_RAIL_COUNT_KEYS as readonly string[]).includes(key)
 import { audioCapabilityIntent, type AudioCapabilityKind } from './audio/audioCapabilities'
 import type { RtcTimeSource } from './peripherals/rtc'
+import { fixedOffsetZoneId } from './peripherals/timeZones'
 import {
   INTEGRATED_BOARD_PROFILE_KEY,
   integratedTouchDisplayForBoard,
@@ -456,7 +457,7 @@ interface GraphState {
    *  "all" chip (selects every section) and its clear-back-to-any toggle. */
   setPatternSections: (collectionNodeId: string, groupId: string, sections: string[]) => void
   /** Add a GroupInput node to the current subgraph so a pattern can expose a role
-   *  knob (energy/speed/palette) for show modulation. Only acts inside a group. */
+   *  knob (reactivity/speed/palette) for show modulation. Only acts inside a group. */
   addGroupInput: () => void
   /** Set a GroupInput's show role: its `paramId` (what the generator drives) plus
    *  its output port dataType (`palette` for the palette role, else `float`). */
@@ -549,6 +550,14 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     // dropped rather than drawn as rows that do nothing; pre-1.0, not migrated.
     const retired = RETIRED_NETWORK_PROPERTY_KEYS[nodeType]
     if (retired) for (const key of retired) delete properties[key]
+    // A Clock's fixed minute offset, from before it took a time zone: kept as
+    // the matching fixed-offset zone, so a saved clock reads the same time.
+    if (nodeType === 'RTCInput' && 'timezoneOffsetMinutes' in properties) {
+      if (properties.timeZone === undefined) {
+        properties.timeZone = fixedOffsetZoneId(Number(properties.timezoneOffsetMinutes))
+      }
+      delete properties.timezoneOffsetMinutes
+    }
     // An IR receiver mints one output per learned key, so a damaged or
     // truncated `buttons` list would take live wires down with it. The handles
     // its edges already leave from are passed in as required, which is what
@@ -3268,8 +3277,8 @@ export const useGraphStore = create<GraphState>()(
             target: consumer.target!, targetHandle: consumer.targetHandle,
           } as StudioEdge)))
 
-          // ── Auto-expose speed/energy/palette as show-input roles ──────────
-          // A node's `speed`/`energy`/`paletteIn` port already falls back to its
+          // ── Auto-expose speed/reactivity/palette as show-input roles ──────
+          // A node's `speed`/`reactivity`/`paletteIn` port already falls back to its
           // own property when unwired (same mechanism the GroupInput role system
           // uses), so wiring one in here is dormant until a PerformanceGenerator
           // with "use group inputs" actually drives it — the pattern behaves
@@ -3279,10 +3288,10 @@ export const useGraphStore = create<GraphState>()(
 
           const roleInputNodes: StudioNode[] = []
           const roleEdges: StudioEdge[] = []
-          const roleInputId: Partial<Record<'speed' | 'energy' | 'palette', string>> = {}
+          const roleInputId: Partial<Record<'speed' | 'reactivity' | 'palette', string>> = {}
           let roleY = 40
 
-          const ensureRoleInput = (role: 'speed' | 'energy' | 'palette', dataType: 'float' | 'palette') => {
+          const ensureRoleInput = (role: 'speed' | 'reactivity' | 'palette', dataType: 'float' | 'palette') => {
             const existing = roleInputId[role]
             if (existing) return existing
             const id = `groupin-${groupId}-${role}`
@@ -3301,10 +3310,10 @@ export const useGraphStore = create<GraphState>()(
             return id
           }
 
-          // speed/energy: unwired ports get a shared per-role GroupInput
+          // speed/reactivity: unwired ports get a shared per-role GroupInput
           // multiplied against the node's own slider value, so the section's
           // 0–1 signal scales (never overrides) what the pattern already does.
-          for (const role of ['speed', 'energy'] as const) {
+          for (const role of ['speed', 'reactivity'] as const) {
             selected
               .filter((n) => (n.data.inputs as { id: string }[] | undefined)?.some((p) => p.id === role))
               .filter((n) => isPortFree(n.id, role))
@@ -3403,7 +3412,7 @@ export const useGraphStore = create<GraphState>()(
           const isRestorableNode = (node: StudioNode) => {
             const type = studioNodeType(node)
             if (type === 'GroupInput' || type === 'GroupOutput') return false
-            // Auto-exposed speed/energy group roles synthesize helper Math nodes;
+            // Auto-exposed speed/reactivity group roles synthesize helper Math nodes;
             // strip those back out so ungroup restores the authored graph rather
             // than leaking grouping internals onto the canvas.
             if (type === 'Math' && node.id.startsWith('groupmul-')) return false
@@ -3746,7 +3755,7 @@ export const useGraphStore = create<GraphState>()(
             position: { x: 40, y: 40 + s.nodes.length * 16 },
             data: {
               label: 'Input', nodeType: 'GroupInput', category: 'composite',
-              properties: { paramId: 'energy' },   // defaults to a role; change via the node's dropdown
+              properties: { paramId: 'reactivity' },   // defaults to a role; change via the node's dropdown
               inputs: [], outputs: [{ id: 'out', label: 'Input', dataType: 'float' }],
             },
           } as unknown as StudioNode

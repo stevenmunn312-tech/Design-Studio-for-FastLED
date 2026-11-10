@@ -54,7 +54,7 @@ export const NODE_WIDTH_OVERRIDES: Record<string, number> = {
 
 /** Node types whose body carries a live HardwareInputBody widget. */
 export const HARDWARE_INPUT_WIDGET_TYPES: ReadonlySet<string> = new Set([
-  'ButtonInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
+  'TouchButtonInput', 'PotInput', 'EncoderInput',
   'MotionInput', 'LightInput', 'PowerMonitorInput', 'EnvironmentInput', 'TemperatureInput',
   'DistanceInput', 'JoystickInput', 'MotionVectorInput', 'KeypadInput', 'TouchPadInput',
   'PresenceInput',
@@ -64,8 +64,9 @@ export const HARDWARE_INPUT_WIDGET_TYPES: ReadonlySet<string> = new Set([
 // (export-only outputs). Rendered as a muted note at the bottom of the body
 // so the fallback reads as deliberate, not broken. The audio nodes surface
 // their own state (FFTAnalyzerBody's MIC LIVE / TEST SIGNAL / SILENT pill,
-// BeatDetectBody's LIVE / PREVIEW badge); ButtonInput/PotInput/EncoderInput
-// get a live widget (HardwareInputBody) instead of a note.
+// BeatDetectBody's LIVE / PREVIEW badge); PotInput/EncoderInput get a live
+// widget (HardwareInputBody), and each Button row its own press control
+// (ButtonBankBody), instead of a note.
 export const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
   DMXInput: {
     text: 'preview listens for Art-Net through the build tools; firmware uses the selected DMX source',
@@ -105,7 +106,7 @@ export const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
   },
   RTCInput: {
     text: 'preview follows the configured source; only sync state is simulated',
-    title: 'The preview clock matches the configured source: a Manual seed runs forward from when the preview started, NTP shows UTC plus the configured offset, and Compile Time stands in for the build stamp using the browser clock. Preview cannot know real network state, so it always reports synced.',
+    title: 'The preview clock matches the configured source: a Manual seed runs forward from when the preview started, NTP shows the time in the chosen zone, daylight saving included, and Compile Time stands in for the build stamp using the browser clock. Preview cannot know real network state, so it always reports synced.',
   },
   MidiInput: {
     text: 'preview-only — no embedded MIDI equivalent',

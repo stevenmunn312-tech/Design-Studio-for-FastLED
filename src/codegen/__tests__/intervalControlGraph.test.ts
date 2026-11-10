@@ -24,7 +24,7 @@ describe('Interval controls', () => {
     for (const line of controlGraphCpp(graph).loop) expect(source).toContain(line)
     expect(source.match(/static uint32_t _iv_timer =/g)).toHaveLength(1)
     expect(source).toContain('_pcE_controls_ledToggle.update(n_timer_pulse, _pcNow_controls, false, 0u,')
-    expect(source).toContain('_pcE_controls_brightnessDown.update(n_button_pressed, _pcNow_controls, true, 30u,')
+    expect(source).toContain('_pcE_controls_brightnessDown.update(n_button_button_1, _pcNow_controls, true, 30u,')
     if (mode === 'player') expect(source).toContain('float t = posMs / 1000.0f;')
     if (mode !== 'normal') {
       const routing = mode === 'show' ? showControlRouting(nodes, edges) : playerControlGraph(nodes, edges)

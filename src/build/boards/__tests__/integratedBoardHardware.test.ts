@@ -12,6 +12,7 @@ import { findBoardPinCompatibility, findPinConflicts, findExactBoardPinIssues } 
 import { assignPartPins } from '../../parts/partPinAssignment'
 import { NO_PIN } from '../boardGpio'
 import { ROOT_BOARD_NODE_ID } from '../../hardware'
+import { singleButtonRow } from '../../../state/player/buttonBank'
 
 const CYD = CYD_TOUCH_DISPLAY.boardProfileId
 const CYD_FQBN = 'esp32:esp32:esp32'
@@ -161,7 +162,7 @@ describe('soldered pins survive the pin walk', () => {
       // Both start on pins the panel is soldered to, which is what arriving
       // from another board looks like.
       node('leds', 'MatrixOutput', { dataPin: 14, chipset: 'WS2812B' }),
-      node('button', 'ButtonInput', { pin: 13 }),
+      node('button', 'ButtonBank', { buttons: singleButtonRow(13) }),
     ]
     const { nodes } = retargetHardwarePins(before, boardProfileById(CYD), CYD_FQBN, CLASSIC)
     expect(findPinConflicts(nodes, [])).toEqual([])
@@ -209,8 +210,8 @@ describe('soldered pins survive the pin walk', () => {
     expect(first.ok && [22, 27].includes(first.pins.pin)).toBe(true)
 
     const bothTaken = [
-      node('a', 'ButtonInput', { pin: 22 }),
-      node('b', 'ButtonInput', { pin: 27 }),
+      node('a', 'ButtonBank', { buttons: singleButtonRow(22) }),
+      node('b', 'ButtonBank', { buttons: singleButtonRow(27) }),
     ]
     const full = assignPartPins(profile, CYD_FQBN, bothTaken, [{ key: 'pin' }])
     expect(full.ok).toBe(false)
@@ -237,7 +238,7 @@ describe('soldered pins survive the pin walk', () => {
     ], CYD_FQBN)).toEqual({ errors: [], warnings: [] })
     expect(findBoardPinCompatibility([
       node('board', 'Board', { profileId: CYD }),
-      node('button', 'ButtonInput', { pin: 15 }),
+      node('button', 'ButtonBank', { buttons: singleButtonRow(15) }),
     ], CYD_FQBN).warnings.join(' ')).toMatch(/pin 15/)
   })
 })

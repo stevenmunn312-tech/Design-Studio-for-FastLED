@@ -5,6 +5,7 @@ import { createDisplayDocument } from '../../state/displays/displayEditor'
 import { addDisplayWidget, updateDisplayWidget } from '../../state/displays/displayEditor'
 import type { DisplayDocumentRegistry } from '../../state/displays/displayDocument'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}, ports: { inputs?: unknown[]; outputs?: unknown[] } = {}): StudioNode {
   return {
@@ -259,9 +260,9 @@ describe('normal-sketch codegen for the custom Display node', () => {
 
   // The wire is the same signal as the property, and reaches the same latch.
   it('takes a wired Enabled as the panel gate', () => {
-    const button = node('btn', 'ButtonInput', { pin: 12 }, { outputs: [{ id: 'pressed', label: 'Pressed', dataType: 'bool' }] })
+    const button = node('btn', 'ButtonBank', { buttons: singleButtonRow(12) }, { outputs: [{ id: FIRST_BUTTON_HANDLE, label: 'Button 1', dataType: 'bool' }] })
     const src = generateCpp([output, panel(), touch(), button],
-      [edge('gate', 'btn', 'pressed', 'tft', 'enabled'), edge('e', 'tft-touch', 'widget:toggle:out', 'out', 'enabled')],
+      [edge('gate', 'btn', FIRST_BUTTON_HANDLE, 'tft', 'enabled'), edge('e', 'tft-touch', 'widget:toggle:out', 'out', 'enabled')],
       {}, { displayDocuments: documents })
     expect(src).toContain('_cdPanelOn_tft = _cdOn_tft;')
     expect(src).toContain('if (_cdPanelOn_tft) lv_indev_read(_cdIndev_tft);')

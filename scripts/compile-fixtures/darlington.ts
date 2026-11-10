@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import { generateCpp } from '../../src/codegen/cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../src/state/nodeLibrary'
 import type { StudioEdge, StudioNode } from '../../src/state/graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../src/state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -23,13 +24,13 @@ const edge = (id: string, source: string, sourceHandle: string, target: string, 
 
 // A button held down drives channels 1 and 8; a solid colour keeps the LED output alive.
 const driver = generateCpp([
-  node('btn', 'ButtonInput', { pin: 15 }),
+  node('btn', 'ButtonBank', { buttons: singleButtonRow(15) }),
   node('drv', 'DarlingtonDriverOutput', { partId: 'uln2803a-dip18' }),
   node('fill', 'SolidColor', { r: 255, g: 200, b: 60 }),
   node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
 ], [
-  edge('c1', 'btn', 'pressed', 'drv', 'channel1'),
-  edge('c8', 'btn', 'pressed', 'drv', 'channel8'),
+  edge('c1', 'btn', FIRST_BUTTON_HANDLE, 'drv', 'channel1'),
+  edge('c8', 'btn', FIRST_BUTTON_HANDLE, 'drv', 'channel8'),
   edge('frame', 'fill', 'frame', 'out', 'frame'),
 ])
 
@@ -37,7 +38,7 @@ const fixtures = { driver }
 for (const [name, source] of Object.entries(fixtures)) {
   // Channels 1 and 8 follow the button; the six unwired ones fold to a held LOW.
   const loop = source.slice(source.indexOf('void loop()'))
-  const writes = loop.match(/digitalWrite\(\d+, n_btn_pressed \? HIGH : LOW\);/g)?.length ?? 0
+  const writes = loop.match(/digitalWrite\(\d+, n_btn_button_1 \? HIGH : LOW\);/g)?.length ?? 0
   const held = loop.match(/digitalWrite\(\d+, LOW\);/g)?.length ?? 0
   const modes = source.match(/pinMode\(\d+, OUTPUT\);/g)?.length ?? 0
   if (writes !== 2 || held !== 6 || modes !== 8) {

@@ -10,6 +10,7 @@ import { isPropertyEnabled, libraryDefaults, NODE_LIBRARY, propertyLabel, proper
 import {
   powerSwitchInputs, powerSwitchOffersRgb, powerSwitchRgb, powerSwitchRgbLeads, powerSwitchRgbLevels, powerSwitchRgbShown,
 } from '../powerSwitch'
+import { FIRST_BUTTON_HANDLE, singleButtonRow, buttonPressKey } from '../../player/buttonBank'
 
 const LR7843 = 'lr7843-mosfet-module'
 const MOSFETTI = 'monkmakes-mosfetti'
@@ -45,7 +46,7 @@ function outputs(nodes: StudioNode[], edges: StudioEdge[]) {
   return evaluateGraphFull(nodes, edges, 0).outputs.get('sw') as Record<string, unknown>
 }
 
-afterEach(() => useHardwareInputStore.getState().setButton('btn', false))
+afterEach(() => useHardwareInputStore.getState().setButton(buttonPressKey('btn'), false))
 
 describe('which boards carry an RGB strip', () => {
   it('needs three dimmable channels', () => {
@@ -121,10 +122,10 @@ describe('the RGB strip in the preview', () => {
   })
 
   it('lights the colour field once On is wired, and lets channel 4 run on its own', () => {
-    const nodes = [node('btn', 'ButtonInput', { pin: 12 }), strip({ color: '#00ff40', level4: 0.25 })]
-    const edges = [edge('on', 'btn', 'pressed', 'sw', 'on'), edge('on4', 'btn', 'pressed', 'sw', 'on4')]
+    const nodes = [node('btn', 'ButtonBank', { buttons: singleButtonRow(12) }), strip({ color: '#00ff40', level4: 0.25 })]
+    const edges = [edge('on', 'btn', FIRST_BUTTON_HANDLE, 'sw', 'on'), edge('on4', 'btn', FIRST_BUTTON_HANDLE, 'sw', 'on4')]
     expect(outputs(nodes, edges)).toMatchObject({ stripColor: { r: 0, g: 0, b: 0 }, load4: 0 })
-    useHardwareInputStore.getState().setButton('btn', true)
+    useHardwareInputStore.getState().setButton(buttonPressKey('btn'), true)
     expect(outputs(nodes, edges)).toMatchObject({ stripColor: { r: 0, g: 255, b: 64 }, load: 0, load2: 1, load4: 0.25 })
   })
 })
@@ -149,9 +150,9 @@ describe('the RGB strip in firmware', () => {
   })
 
   it('reads the colour field while Color is unwired, gated by a wired On', () => {
-    const cpp = generateCpp([node('btn', 'ButtonInput', { pin: 12 }), strip({ color: '#00ff40' })], [edge('on', 'btn', 'pressed', 'sw', 'on')])
+    const cpp = generateCpp([node('btn', 'ButtonBank', { buttons: singleButtonRow(12) }), strip({ color: '#00ff40' })], [edge('on', 'btn', FIRST_BUTTON_HANDLE, 'sw', 'on')])
     expect(cpp).toContain('CRGB _c=CRGB(0, 255, 64);')
-    expect(cpp).toContain('uint8_t duty = flsPwmDuty((n_btn_pressed) ? (float)(_c.g/255.0f*_br) : 0.0f, true);')
+    expect(cpp).toContain('uint8_t duty = flsPwmDuty((n_btn_button_1) ? (float)(_c.g/255.0f*_br) : 0.0f, true);')
   })
 
   it('reads no colour for a strip nothing can light', () => {

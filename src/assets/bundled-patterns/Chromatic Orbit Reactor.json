@@ -225,11 +225,12 @@
           "nodeType": "GravityWell",
           "category": "pattern",
           "properties": {
-            "energy": 0.82,
-            "speed": 0.72,
+            "reactivity": 0.82,
+            "speed": 0.36,
             "r": 40,
             "g": 180,
-            "b": 255
+            "b": 255,
+            "colorSource": "solid"
           },
           "inputs": [
             {
@@ -238,7 +239,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -392,6 +393,43 @@
           ],
           "outputs": []
         }
+      },
+      {
+        "id": "well-speed-half",
+        "type": "studioNode",
+        "position": {
+          "x": 780,
+          "y": 230
+        },
+        "data": {
+          "label": "Math",
+          "nodeType": "Math",
+          "category": "math",
+          "properties": {
+            "mathOp": "multiply",
+            "a": 0,
+            "b": 0.5
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "float"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
       }
     ],
     "edges": [
@@ -454,7 +492,7 @@
         "source": "fft",
         "sourceHandle": "mids",
         "target": "well",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -462,8 +500,8 @@
         "id": "edge-7-fft-well",
         "source": "fft",
         "sourceHandle": "treble",
-        "target": "well",
-        "targetHandle": "speed",
+        "target": "well-speed-half",
+        "targetHandle": "a",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -500,6 +538,15 @@
         "sourceHandle": "frame",
         "target": "group-output",
         "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "e-well-speed-half",
+        "source": "well-speed-half",
+        "sourceHandle": "result",
+        "target": "well",
+        "targetHandle": "speed",
         "type": "glowEdge",
         "reconnectable": "target"
       }

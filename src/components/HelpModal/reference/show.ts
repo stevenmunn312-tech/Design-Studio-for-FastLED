@@ -1,3 +1,4 @@
+import { FIRST_BUTTON_HANDLE } from '../../../state/player/buttonBank'
 import { example, MATRIX } from './example'
 import { AUDIO_REACTIVE_CATEGORY_ID } from '../../../state/patterns/bundledPatterns'
 import type { NodeReferenceMap } from './types'
@@ -75,7 +76,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       featured: 'ControlMap',
       title: 'A play button and a volume knob for the player',
       nodes: {
-        play: ['ButtonInput'],
+        play: ['ButtonBank'],
         volume: ['PotInput'],
         controls: ['ControlMap'],
         patterns: ['PatternCollection'],
@@ -83,7 +84,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         card: ['SDCard'],
         amp: ['Amplifier'],
       },
-      wires: ['play.pressed > controls.playPause', 'volume.value > controls.volume', 'controls.controls > player.controls', 'patterns.patternset > player.patternset'],
+      wires: [`play.${FIRST_BUTTON_HANDLE} > controls.playPause`, 'volume.value > controls.volume', 'controls.controls > player.controls', 'patterns.patternset > player.patternset'],
       explanation: 'Player Controls takes a Button on Play / Pause and a Potentiometer on Volume, and sends both to the Music Player on one Controls wire. Add more buttons on the other rows without adding more wires to the player.',
       preview: SHOW_OUTCOME + ' The Button then pauses and resumes it, and the knob sets the music volume of the {output} show.',
       workflow: true,
@@ -106,7 +107,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       featured: 'PlayerParticles',
       title: 'Golden sparks on every beat, at the press of a button',
       nodes: {
-        sparks: ['ButtonInput'],
+        sparks: ['ButtonBank'],
         gold: ['Color', { color: '#ffb020' }],
         fx: ['PlayerParticles', { style: 'swirl', intensity: 0.85 }],
         mic: ['MicInput'],
@@ -115,7 +116,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         card: ['SDCard'],
         amp: ['Amplifier'],
       },
-      wires: ['sparks.pressed > fx.enabled', 'gold.color > fx.color', 'fx.particleFx > player.particleFx', 'mic.audio > player.audio', 'patterns.patternset > player.patternset'],
+      wires: [`sparks.${FIRST_BUTTON_HANDLE} > fx.enabled`, 'gold.color > fx.color', 'fx.particleFx > player.particleFx', 'mic.audio > player.audio', 'patterns.patternset > player.patternset'],
       explanation: 'Player Particles sets up a golden spark burst and hands it to the Music Player. The Button enables the overlay while held, so a performer can add sparks to the beat on demand.',
       preview: 'Once patterns play on the {output}, hold the Button node and golden sparks burst on the beat.',
       workflow: true,
@@ -337,10 +338,10 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       title: 'A slideshow with a skip button',
       nodes: {
         patterns: ['PatternCollection'],
-        skip: ['ButtonInput'],
+        skip: ['ButtonBank'],
         slideshow: ['PatternSlideshow', { order: 'Random', minTime: 20, maxTime: 20, transitionSec: 1.5 }],
       },
-      wires: ['patterns.patternset > slideshow.patternset', 'skip.pressed > slideshow.patternNext'],
+      wires: ['patterns.patternset > slideshow.patternset', `skip.${FIRST_BUTTON_HANDLE} > slideshow.patternNext`],
       explanation: 'Pattern Slideshow shows a random pattern from the collection every twenty seconds, blending over a second and a half. A Button on Next Pattern lets anyone skip ahead.',
       preview: 'Once the collection holds patterns, the {output} shows one for twenty seconds before blending to the next. Press the Button node to skip.',
       workflow: true,

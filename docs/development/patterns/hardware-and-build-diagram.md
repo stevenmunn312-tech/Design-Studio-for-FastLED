@@ -15,8 +15,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   properties or treat every duplicate number as a conflict. Matching I2C/SPI
   lines and parallel LED outputs may share, but I2S remains exclusive. Test
   proposed LED pins with `outputMirrorLeaders`, and never exempt unrelated
-  hardware on a mirror's pin. Nested Button Bank rows pass their collector key
+  hardware on a mirror's pin. Nested Button rows pass their collector key
   (`buttons.<id>.pin`) separately from their GPIO capability key (`pin`).
+  On a board change a Button's rows are placed after every part with a pin
+  plan (`retargetButtonBankPins` runs last in `retargetHardwarePins`), so a
+  row cannot take a pin the new board fixes for a card or an I2S trio; until
+  then only the pins a row remembers for that board (`userPinsByBoard`) are
+  claimed. A single button is a one-row Button, so this order is what every
+  button gets.
   Existing conflicting selections stay visible, and the custom GPIO entry
   keeps its warning as the advanced wiring escape hatch.
 
@@ -400,7 +406,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   than presenting it as a direct connection.
   Its
   outputs are the keys someone has learned, derived from `buttons` the way a
-  Button Bank derives its own: an IR key is an identity in a saved mapping
+  Button derives its own: an IR key is an identity in a saved mapping
   rather than a pin, so the node grows one output port per key
   (`irRemoteOutputs` in `irRemote.ts`) but still costs exactly one GPIO however
   many keys exist — `collectPinUses` (`src/build/hardwareManifest.ts`) pushes a
@@ -417,7 +423,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   wires from Learn to that new key, retaining edge identities and destinations
   in the same undo step as the mapping (`learnIrRemoteButton`). A canceled or
   rejected save leaves those wires alone. `liveExamples.test.ts` keeps
-  that socket, and Button Bank's Connect button… socket, out of every live
+  that socket, and a Button's Add button… socket, out of every live
   example. Registration touches
   `nodeLibrary.ts` (pin property, `gpioRequirementForProperty`),
   `pinRetarget.ts` (`PART_PIN_PLANS.IRRemoteInput`) and `performanceDeck.ts`

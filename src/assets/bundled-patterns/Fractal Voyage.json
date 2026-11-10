@@ -728,8 +728,8 @@
           "category": "pattern",
           "properties": {
             "hue": 0,
-            "energy": 0.7,
-            "speed": 1,
+            "reactivity": 0.7,
+            "speed": 0.5,
             "palette": "ultraviolet"
           },
           "inputs": [
@@ -744,7 +744,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -767,7 +767,7 @@
             }
           ],
           "exposedInputs": [
-            "energy",
+            "reactivity",
             "paletteIn"
           ]
         },
@@ -1398,7 +1398,7 @@
           "category": "math",
           "properties": {
             "mathOp": "multiply",
-            "a": 1,
+            "a": 0.5,
             "b": 1
           },
           "inputs": [
@@ -1805,7 +1805,7 @@
         "source": "SongStructure-1790688420661",
         "sourceHandle": "valence",
         "target": "BeatKaleidoscope-1790686567440",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "reconnectable": "target",
         "style": {
           "stroke": "#9aa0a6"

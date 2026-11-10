@@ -1,3 +1,4 @@
+import { FIRST_BUTTON_HANDLE } from '../../../state/player/buttonBank'
 import { example, RING } from './example'
 import type { NodeReferenceMap } from './types'
 
@@ -292,12 +293,12 @@ export const MATH_REFERENCE: NodeReferenceMap = {
       title: 'Colours that roam only while you hold the button',
       nodes: {
         roam: ['NoiseSignal', { speed: 0.5, min: 0, max: 1 }],
-        hold: ['ButtonInput'],
+        hold: ['ButtonBank'],
         gate: ['Switch', { a: 0 }],
         lamp: ['Rainbow', { speed: 0.2, deltaHue: 3 }],
         tint: ['HueShift'],
       },
-      wires: ['roam.value > gate.b', 'hold.pressed > gate.sel', 'gate.result > tint.shift', 'lamp.frame > tint.frame'],
+      wires: ['roam.value > gate.b', `hold.${FIRST_BUTTON_HANDLE} > gate.sel`, 'gate.result > tint.shift', 'lamp.frame > tint.frame'],
       explanation: 'Noise LFO wanders round the colour wheel, but Switch passes it to Hue Shift only while the Button is held; otherwise it sends A, a fallback of 0. Let go and the rainbow snaps back to its own colours.',
       preview: 'The {output} shows a gentle rainbow. Hold the press control on the Button node and the colours start drifting; release it and they return.',
     }),

@@ -50,7 +50,7 @@ export const NORMALIZED_OUTPUTS: Readonly<Record<string, readonly string[]>> = {
   StereoLevels: ['left', 'right', 'balance'],
   BeatPhase: ['phase', 'bar'],
   PercussionDetect: ['kick', 'snare', 'hihat'],
-  AudioFeatures: ['vocals', 'energy'],
+  AudioFeatures: ['vocals', 'energy', 'level'],
   PitchDetect: ['velocity', 'confidence', 'keyConfidence'],
   SongStructure: ['measurePhase', 'buildupProgress', 'dropImpact', 'arousal'],
   PotInput: ['value'],

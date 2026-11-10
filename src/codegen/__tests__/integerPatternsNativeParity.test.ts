@@ -16,7 +16,7 @@ import {
   powTableCpp, pridePixel, prismPixel, prismPixelCpp, shockFrame, shockPixel, shockPixelCpp, stormFrameCpp,
   stormPixel, stormPixelCpp, twinklePixel,
   BLOOM_CRISP_TABLE, RINGS_CRISP_TABLE, TURBULENT_CRISP_TABLE, WELL_CRISP_TABLE, bloomFrame, bloomPixel, bloomPixelCpp,
-  ringsFrame, ringsPixel, ringsPixelCpp, turbulentFrame, turbulentPixel, turbulentPixelCpp, wellFrame, wellPixel, wellPixelCpp,
+  ringsFrame, ringsPixel, ringsPixelCpp, turbulentFrame, turbulentPixel, turbulentPixelCpp, wellFrame, wellIndex, wellPixel, wellPixelCpp, WELL_INDEX_CPP,
   wordTableCpp,
   ATAN16_HELPER_CPP, KALEIDO_PIXEL_CPP, atan2_16, kaleidoFrame, kaleidoPixel,
   EMBER_PIXEL_CPP, MOSAIC_PIXEL_CPP, WAVES_PIXEL_CPP, emberFrame, emberPixel, mosaicCell, wavesFrame, wavesPixel,
@@ -207,8 +207,8 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
       const native = runNative(W, H, [
         powTableCpp('_gwCrisp_n', WELL_CRISP_TABLE),
         `int32_t _gwX=${f.wx},_gwY=${f.wy},_gwInvM=${f.invMax},_gwK=${f.k},_gwP=${f.phase}; uint8_t _gwF=${f.floor},_gwG=${f.gain};`,
-      ], wellPixelCpp('n'), '"%u ",_gwV')
-      expect(grid(W, H, (x, y) => [wellPixel(x, y, f)])).toEqual(native)
+      ], [...wellPixelCpp('n'), WELL_INDEX_CPP], '"%u %u ",_gwIdx,_gwV')
+      expect(grid(W, H, (x, y) => [wellIndex(x, y, f), wellPixel(x, y, f)])).toEqual(native)
     }
   }, 60_000)
 

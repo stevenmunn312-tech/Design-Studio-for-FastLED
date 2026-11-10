@@ -142,7 +142,7 @@ for (const [name, source] of Object.entries(fixtures)) {
   if (!source.includes('bool _netConnected()')) throw new Error(`${name}: missing the network bootstrap`)
 }
 if (!fixtures.static.includes('ETH.config(IPAddress(192, 168, 1, 60)')) throw new Error('static: missing ETH.config')
-if (!fixtures.ntp.includes('configTime(')) throw new Error('ntp: missing the NTP sync')
+if (!/configT(?:z)?Time\(/.test(fixtures.ntp)) throw new Error('ntp: missing the NTP sync')
 // The network starts in setup. Both clients use the shared host helper, so
 // the panel cannot remove Ethernet's MISO regardless of initialization order.
 for (const name of ['c3-panel', 's3']) {

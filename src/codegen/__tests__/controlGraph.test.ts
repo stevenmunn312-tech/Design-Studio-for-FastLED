@@ -9,6 +9,7 @@ import { evaluateGraphFull } from '../../state/graphEvaluator'
 import { addDisplayWidget, createDisplayDocument } from '../../state/displays/displayEditor'
 import { displayDocumentPorts } from '../../state/displays/displayRegistry'
 import { assertWireable } from '../../test-utils/assertWireable'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -22,22 +23,22 @@ const edge = (source: string, sourceHandle: string, target: string, targetHandle
 
 describe('typed control graph', () => {
   it('shares Toggle On/Off state commands between normal and template control paths', () => {
-    const nodes = [node('on', 'ButtonInput'), node('off', 'ButtonInput'), node('press', 'ButtonInput'),
+    const nodes = [node('on', 'ButtonBank', { buttons: singleButtonRow(0) }), node('off', 'ButtonBank', { buttons: singleButtonRow(0) }), node('press', 'ButtonBank', { buttons: singleButtonRow(0) }),
       node('toggle', 'Trigger', { triggerOp: 'toggle', initialState: true })]
-    const edges = [edge('on', 'pressed', 'toggle', 'on'), edge('off', 'pressed', 'toggle', 'off'), edge('press', 'pressed', 'toggle', 'trigger')]
+    const edges = [edge('on', FIRST_BUTTON_HANDLE, 'toggle', 'on'), edge('off', FIRST_BUTTON_HANDLE, 'toggle', 'off'), edge('press', FIRST_BUTTON_HANDLE, 'toggle', 'trigger')]
     const graph = createControlGraph(nodes, edges)
     expect(graph.resolve('toggle', 'out', 'bool')).toEqual({ nodeId: 'toggle', port: 'out', type: 'bool' })
     expect([...graph.errors]).toEqual([])
     const emitted = controlGraphCpp(graph).loop
     const normal = generateCpp(nodes, edges)
     for (const line of emitted) expect(normal).toContain(line)
-    expect(emitted.join('\n')).toContain('if (n_off_pressed) n_toggle_out = false; else if (n_on_pressed) n_toggle_out = true;')
+    expect(emitted.join('\n')).toContain('if (n_off_button_1) n_toggle_out = false; else if (n_on_button_1) n_toggle_out = true;')
     expect(emitted.join('\n')).toContain('static bool n_toggle_out = true;')
   })
   it.each([true, false])('respects button polarity for pullup=%s in every shared emitter', (pullup) => {
-    const graph = createControlGraph([node('button', 'ButtonInput', { pin: 12, pullup }),
+    const graph = createControlGraph([node('button', 'ButtonBank', { buttons: singleButtonRow(12, { pullup }) }),
       node('encoder', 'EncoderInput', { pinSW: 13, pullup })], [])
-    graph.resolve('button', 'pressed', 'bool')
+    graph.resolve('button', FIRST_BUTTON_HANDLE, 'bool')
     graph.resolve('encoder', 'pressed', 'bool')
     const cpp = controlGraphCpp(graph)
     expect(cpp.setup).toContain(`  pinMode(12, ${pullup ? 'INPUT_PULLUP' : 'INPUT'});`)
@@ -96,10 +97,10 @@ describe('typed control graph', () => {
 
   it('shares the StepValue state machine between normal and template control paths', () => {
     const nodes = [
-      node('button', 'ButtonInput'),
+      node('button', 'ButtonBank', { buttons: singleButtonRow(0) }),
       node('step', 'StepValue', { initial: 0.25, minimum: 0, maximum: 1, step: 0.25, wrap: true }),
     ]
-    const edges = [edge('button', 'pressed', 'step', 'increase')]
+    const edges = [edge('button', FIRST_BUTTON_HANDLE, 'step', 'increase')]
     const graph = createControlGraph(nodes, edges)
     expect(graph.resolve('step', 'value', 'float')).toEqual({ nodeId: 'step', port: 'value', type: 'float' })
     const emitted = controlGraphCpp(graph).loop
@@ -138,7 +139,7 @@ describe('typed control graph', () => {
 
   it('rejects wrong types, missing sources, unknown handles and unsupported nodes', () => {
     for (const [nodes, id, port, type] of [
-      [[node('button', 'ButtonInput')], 'button', 'pressed', 'float'],
+      [[node('button', 'ButtonBank', { buttons: singleButtonRow(0) })], 'button', FIRST_BUTTON_HANDLE, 'float'],
       [[node('math', 'Math')], 'math', 'value', 'float'],
       [[node('smooth', 'Smooth')], 'smooth', 'result', 'float'],
       [[], 'missing', 'value', 'float'],

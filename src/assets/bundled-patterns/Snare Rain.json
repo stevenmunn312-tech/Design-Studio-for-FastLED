@@ -217,8 +217,8 @@
      "nodeType": "RainRipples",
      "category": "pattern",
      "properties": {
-      "energy": 0.8,
-      "speed": 0.75,
+      "reactivity": 0.8,
+      "speed": 0.375,
       "palette": "ice",
       "count": 8,
       "decay": 0.85,
@@ -233,7 +233,7 @@
        "dataType": "bool"
       },
       {
-       "id": "energy",
+       "id": "reactivity",
        "label": "Energy",
        "dataType": "float"
       },
@@ -269,8 +269,8 @@
      "nodeType": "KickShock",
      "category": "pattern",
      "properties": {
-      "energy": 0.85,
-      "speed": 0.9,
+      "reactivity": 0.85,
+      "speed": 0.45,
       "tiles": 1,
       "palette": "citrus",
       "count": 5,
@@ -296,7 +296,7 @@
        "dataType": "float"
       },
       {
-       "id": "energy",
+       "id": "reactivity",
        "label": "Energy",
        "dataType": "float"
       },
@@ -637,7 +637,7 @@
     "source": "feat",
     "sourceHandle": "energy",
     "target": "ripple",
-    "targetHandle": "energy",
+    "targetHandle": "reactivity",
     "type": "glowEdge",
     "reconnectable": "target"
    },
@@ -673,7 +673,7 @@
     "source": "feat",
     "sourceHandle": "energy",
     "target": "shock",
-    "targetHandle": "energy",
+    "targetHandle": "reactivity",
     "type": "glowEdge",
     "reconnectable": "target"
    },

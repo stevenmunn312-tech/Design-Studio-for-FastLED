@@ -1,3 +1,4 @@
+import { FIRST_BUTTON_HANDLE } from '../../../state/player/buttonBank'
 import { example, MATRIX, RING, STRIP } from './example'
 import type { NodeReferenceMap } from './types'
 
@@ -54,10 +55,10 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       nodes: {
         sea: ['Pacifica', { palette: 'ocean' }],
         dimmer: ['PotInput'],
-        blackout: ['ButtonInput'],
+        blackout: ['ButtonBank'],
         output: ['MatrixOutput', MATRIX(16, 16)],
       },
-      wires: ['sea.frame > output.frame', 'dimmer.value > output.brightness', 'blackout.pressed > output.ledToggle'],
+      wires: ['sea.frame > output.frame', 'dimmer.value > output.brightness', `blackout.${FIRST_BUTTON_HANDLE} > output.ledToggle`],
       explanation: 'The LED Matrix takes Pacifica on its Frame input and two controls of its own: a Potentiometer as its dimmer and a Button that toggles blackout with each press. No extra nodes are needed for either.',
       preview: 'The {output} shows Pacifica at half brightness. Turn the knob to dim it, and press the Button node to black it out and back.',
     }),
@@ -110,12 +111,12 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       featured: 'RelayOutput',
       title: 'One button for the LEDs and the lamp',
       nodes: {
-        button: ['ButtonInput'],
+        button: ['ButtonBank'],
         power: ['Trigger', { triggerOp: 'toggle', initialState: true }],
         relay: ['RelayOutput', { in1Pin: 5 }],
         glow: ['Pride2015', { speed: 0.35 }],
       },
-      wires: ['button.pressed > power.trigger', 'power.out > relay.channel1', 'power.out > output.enabled', 'glow.frame > output.frame'],
+      wires: [`button.${FIRST_BUTTON_HANDLE} > power.trigger`, 'power.out > relay.channel1', 'power.out > output.enabled', 'glow.frame > output.frame'],
       explanation: 'A Trigger set to Toggle turns each press of the Button into on or off. The same state switches channel 1 of the Relay Module — and the lamp plugged into it — and the LED output’s Enabled input, so one button turns the whole display on and off together.',
       preview: 'The {output} shows Pride 2015 with the relay on. Press the Button node to switch both off, and again to switch both on.',
     }),
@@ -286,13 +287,13 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       featured: 'DFPlayerOutput',
       title: 'A doorbell that chimes and flashes',
       nodes: {
-        bell: ['ButtonInput'],
+        bell: ['ButtonBank'],
         ring: ['Trigger', { triggerOp: 'oneShot', holdTime: 3 }],
         chime: ['DFPlayerOutput', { uartRxPin: 16, uartTxPin: 17, busyPin: 27, track: 1, volume: 0.8, audioOutput: 'Speaker' }],
         flash: ['BeatFlash', { decay: 0.9, intensity: 1, colorSource: 'palette', palette: 'sunset' }],
         hall: ['Breathe', { palette: 'amethyst', bpm: 8 }],
       },
-      wires: ['bell.pressed > ring.trigger', 'ring.out > chime.play', 'bell.pressed > flash.beat', 'hall.frame > flash.frame'],
+      wires: [`bell.${FIRST_BUTTON_HANDLE} > ring.trigger`, 'ring.out > chime.play', `bell.${FIRST_BUTTON_HANDLE} > flash.beat`, 'hall.frame > flash.frame'],
       explanation: 'A One Shot Trigger turns each press of the Button into three seconds of Play, so file 0001 plays through on the DFPlayer Mini after the button is let go; wired straight to Play, the chime would stop on release. The same press fires Beat Flash on the LEDs, so the doorbell is seen as well as heard.',
       preview: 'The {output} breathes softly in violet. Press the Button node to flash it gold. The browser is silent; on the board the chime plays.',
     }),

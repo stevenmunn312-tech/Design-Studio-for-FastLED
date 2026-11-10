@@ -17,6 +17,7 @@ import { useUploadStore } from '../../../state/upload/uploadStore'
 import { NODE_LIBRARY, libraryDefaults } from '../../../state/nodeLibrary'
 import { findDeployBlockingErrors } from '../../../utils/validateGraph'
 import { uploadBlockReason } from '../../../utils/uploadBlockReason'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -111,8 +112,8 @@ describe('repair journey: touch Controls on an LED output, on a Music Player bui
   // normal sketch does, so a switch there is a build rather than a card.
   it('honours a wire into the driven output Enabled', () => {
     useGraphStore.setState((s) => ({
-      nodes: [...s.nodes, node('btn', 'ButtonInput', { pin: 33 })],
-      edges: [...s.edges.filter((entry) => entry.id !== 'lamp'), edge('press', 'btn', 'pressed', 'out', 'enabled')],
+      nodes: [...s.nodes, node('btn', 'ButtonBank', { buttons: singleButtonRow(33) })],
+      edges: [...s.edges.filter((entry) => entry.id !== 'lamp'), edge('press', 'btn', FIRST_BUTTON_HANDLE, 'out', 'enabled')],
     }))
     const { queryByText } = render(<GraphHealthDrawer />)
     expect(queryByText('Output firmware cannot honour these controls')).toBeNull()

@@ -6,6 +6,7 @@ import { generateCpp } from '../../src/codegen/cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../src/state/nodeLibrary'
 import { partDerivedInputs } from '../../src/build/parts/partPorts'
 import type { StudioEdge, StudioNode } from '../../src/state/graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../src/state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -60,32 +61,32 @@ function mosfetti(pins: [number, number, number, number], properties: Record<str
  */
 function mixed(buttonPin: number, potPin: number, lrPin: number, mfPins: [number, number, number, number], dataPin: number) {
   return sketch([
-    node('btn', 'ButtonInput', { pin: buttonPin }),
+    node('btn', 'ButtonBank', { buttons: singleButtonRow(buttonPin) }),
     node('pot', 'PotInput', { pin: potPin }),
     node('sw', 'PowerSwitchOutput', { ...PART, signalPin: lrPin }),
     mosfetti(mfPins),
   ], [
     edge('lr', 'pot', 'value', 'sw', 'level'),
-    edge('a', 'btn', 'pressed', 'mf', 'on'),
+    edge('a', 'btn', FIRST_BUTTON_HANDLE, 'mf', 'on'),
     edge('b', 'pot', 'value', 'mf', 'level2'),
     edge('d', 'pot', 'value', 'mf', 'level4'),
   ], dataPin)
 }
 
 // Classic ESP32: button on GPIO 12, pot on GPIO 34 (ADC1), switches on 25/26.
-const button = () => node('btn', 'ButtonInput', { pin: 12 })
+const button = () => node('btn', 'ButtonBank', { buttons: singleButtonRow(12) })
 const pot = () => node('pot', 'PotInput', { pin: 34 })
 
 const fixtures: Record<string, { source: string; pwm: number }> = {
   // Level at 1 and unwired: the switch must stay the on/off firmware it was.
   plain: {
     source: sketch([button(), node('sw', 'PowerSwitchOutput', { ...PART, signalPin: 25 })],
-      [edge('on', 'btn', 'pressed', 'sw', 'on')]),
+      [edge('on', 'btn', FIRST_BUTTON_HANDLE, 'sw', 'on')]),
     pwm: 0,
   },
   'level-field': {
     source: sketch([button(), node('sw', 'PowerSwitchOutput', { ...PART, signalPin: 25, level: 0.4 })],
-      [edge('on', 'btn', 'pressed', 'sw', 'on')]),
+      [edge('on', 'btn', FIRST_BUTTON_HANDLE, 'sw', 'on')]),
     pwm: 1,
   },
   'level-wired': {
@@ -100,7 +101,7 @@ const fixtures: Record<string, { source: string; pwm: number }> = {
       node('sw', 'PowerSwitchOutput', { ...PART, signalPin: 25 }),
       node('sw2', 'PowerSwitchOutput', { ...PART, signalPin: 26 }),
     ], [
-      edge('on', 'btn', 'pressed', 'sw', 'on'),
+      edge('on', 'btn', FIRST_BUTTON_HANDLE, 'sw', 'on'),
       edge('level', 'pot', 'value', 'sw', 'level'),
       edge('level2', 'pot', 'value', 'sw2', 'level'),
     ]),
@@ -109,11 +110,11 @@ const fixtures: Record<string, { source: string; pwm: number }> = {
   // ESP8266 (NodeMCU): button D5 (14), pot A0 (17), switch D1 (5), LEDs D2 (4).
   'gated-esp8266': {
     source: sketch([
-      node('btn', 'ButtonInput', { pin: 14 }),
+      node('btn', 'ButtonBank', { buttons: singleButtonRow(14) }),
       node('pot', 'PotInput', { pin: 17 }),
       node('sw', 'PowerSwitchOutput', { ...PART, signalPin: 5 }),
     ], [
-      edge('on', 'btn', 'pressed', 'sw', 'on'),
+      edge('on', 'btn', FIRST_BUTTON_HANDLE, 'sw', 'on'),
       edge('level', 'pot', 'value', 'sw', 'level'),
     ], 4),
     pwm: 1,
@@ -121,11 +122,11 @@ const fixtures: Record<string, { source: string; pwm: number }> = {
   // Raspberry Pi Pico: button GP14, pot GP26 (ADC0), switch GP15, LEDs GP2.
   'gated-rp2040': {
     source: sketch([
-      node('btn', 'ButtonInput', { pin: 14 }),
+      node('btn', 'ButtonBank', { buttons: singleButtonRow(14) }),
       node('pot', 'PotInput', { pin: 26 }),
       node('sw', 'PowerSwitchOutput', { ...PART, signalPin: 15 }),
     ], [
-      edge('on', 'btn', 'pressed', 'sw', 'on'),
+      edge('on', 'btn', FIRST_BUTTON_HANDLE, 'sw', 'on'),
       edge('level', 'pot', 'value', 'sw', 'level'),
     ], 2),
     pwm: 1,
@@ -133,11 +134,11 @@ const fixtures: Record<string, { source: string; pwm: number }> = {
   // Arduino Uno: button D2, pot A0 (14), switch D9 (a timer PWM pin), LEDs D6.
   'gated-avr': {
     source: sketch([
-      node('btn', 'ButtonInput', { pin: 2 }),
+      node('btn', 'ButtonBank', { buttons: singleButtonRow(2) }),
       node('pot', 'PotInput', { pin: 14 }),
       node('sw', 'PowerSwitchOutput', { ...PART, signalPin: 9 }),
     ], [
-      edge('on', 'btn', 'pressed', 'sw', 'on'),
+      edge('on', 'btn', FIRST_BUTTON_HANDLE, 'sw', 'on'),
       edge('level', 'pot', 'value', 'sw', 'level'),
     ], 6),
     pwm: 1,
@@ -147,9 +148,9 @@ const fixtures: Record<string, { source: string; pwm: number }> = {
   // field and gated by On, D left unwired and held off.
   mosfetti: {
     source: sketch([button(), pot(), mosfetti([16, 17, 18, 19], { level3: 0.4 })], [
-      edge('a', 'btn', 'pressed', 'mf', 'on'),
+      edge('a', 'btn', FIRST_BUTTON_HANDLE, 'mf', 'on'),
       edge('b', 'pot', 'value', 'mf', 'level2'),
-      edge('c', 'btn', 'pressed', 'mf', 'on3'),
+      edge('c', 'btn', FIRST_BUTTON_HANDLE, 'mf', 'on3'),
     ]),
     pwm: 2,
   },
@@ -168,9 +169,9 @@ const fixtures: Record<string, { source: string; pwm: number }> = {
     source: sketch([button(), pot(), node('yy', 'PowerSwitchOutput', {
       ...YYNMOS4, signalPin: 16, signal2Pin: 17, signal3Pin: 18, signal4Pin: 19, level3: 0.4,
     })], [
-      edge('a', 'btn', 'pressed', 'yy', 'on'),
+      edge('a', 'btn', FIRST_BUTTON_HANDLE, 'yy', 'on'),
       edge('b', 'pot', 'value', 'yy', 'level2'),
-      edge('c', 'btn', 'pressed', 'yy', 'on3'),
+      edge('c', 'btn', FIRST_BUTTON_HANDLE, 'yy', 'on3'),
     ]),
     pwm: 2,
   },
@@ -183,8 +184,8 @@ const fixtures: Record<string, { source: string; pwm: number }> = {
     })], [
       edge('rgb', 'hue', 'color', 'yy', 'color'),
       edge('dim', 'pot', 'value', 'yy', 'brightness'),
-      edge('on', 'btn', 'pressed', 'yy', 'on'),
-      edge('on4', 'btn', 'pressed', 'yy', 'on4'),
+      edge('on', 'btn', FIRST_BUTTON_HANDLE, 'yy', 'on'),
+      edge('on4', 'btn', FIRST_BUTTON_HANDLE, 'yy', 'on4'),
     ]),
     pwm: 4,
   },
@@ -192,10 +193,10 @@ const fixtures: Record<string, { source: string; pwm: number }> = {
   // field, switched by the button; D (D10) unwired and held off.
   'mosfetti-rgb-avr': {
     source: sketch([
-      node('btn', 'ButtonInput', { pin: 2 }),
+      node('btn', 'ButtonBank', { buttons: singleButtonRow(2) }),
       mosfetti([3, 5, 6, 10], { loadType: 'rgb', color: '#ff6000', brightness: 0.8 }),
     ], [
-      edge('on', 'btn', 'pressed', 'mf', 'on'),
+      edge('on', 'btn', FIRST_BUTTON_HANDLE, 'mf', 'on'),
     ], 7),
     pwm: 3,
   },
@@ -203,11 +204,11 @@ const fixtures: Record<string, { source: string; pwm: number }> = {
   // example uses; LEDs move to D7. A switched, B dimmed.
   'mosfetti-avr': {
     source: sketch([
-      node('btn', 'ButtonInput', { pin: 2 }),
+      node('btn', 'ButtonBank', { buttons: singleButtonRow(2) }),
       node('pot', 'PotInput', { pin: 14 }),
       mosfetti([3, 5, 6, 10]),
     ], [
-      edge('a', 'btn', 'pressed', 'mf', 'on'),
+      edge('a', 'btn', FIRST_BUTTON_HANDLE, 'mf', 'on'),
       edge('b', 'pot', 'value', 'mf', 'level2'),
     ], 7),
     pwm: 1,

@@ -364,11 +364,11 @@ export function playerControlsFromGraph(
       const source = edge ? byId.get(edge.source) : undefined
       if (!edge || !source) continue
       const props = source.data.properties
-      if (source.data.nodeType === 'ButtonInput' && edge.sourceHandle === 'pressed') {
-        result[action] = { kind: 'button', pin: sanitizePin(props.pin, 0), pullup: props.pullup !== false }
-      } else if (source.data.nodeType === 'ButtonBank') {
+      if (source.data.nodeType === 'ButtonBank') {
         const button = buttonBankEntryForHandle(props.buttons, edge.sourceHandle)
-        if (button) result[action] = { kind: 'button', pin: sanitizePin(button.pin, 0), pullup: button.pullup }
+        // A row with no GPIO yet (-1) is never pressed, as in the normal
+        // sketch; sanitised, it would have read GPIO0, a strapping pin.
+        if (button && button.pin >= 0) result[action] = { kind: 'button', pin: sanitizePin(button.pin, 0), pullup: button.pullup }
       } else if (source.data.nodeType === 'PotInput' && edge.sourceHandle === 'value') {
         result[action] = { kind: 'pot', pin: sanitizePin(props.pin, 4) }
       } else if (source.data.nodeType === 'EncoderInput' && edge.sourceHandle === 'pressed') {
@@ -882,10 +882,10 @@ export function generatePlayerSketch(
     : ''
 
   // Role params ("Use group inputs"): each render_pN takes extra floats fed
-  // from globals the event stream updates (e.g. SET_ENERGY → energy).
+  // from globals the event stream updates (e.g. SET_ENERGY → reactivity).
   const roleParams = collection ? renderers!.params : []
   const argList = roleParams.map((pName) => `, ${pName}`).join('')
-  const hasEnergy = roleParams.includes('energy')
+  const hasReactivity = roleParams.includes('reactivity')
   const hasSpeed = roleParams.includes('speed')
   const hasPalette = roleParams.includes('palette')
   // Through a transition the outgoing pattern keeps the role values it had when
@@ -895,7 +895,7 @@ export function generatePlayerSketch(
   // renderPattern takes the values it renders with from its caller.
   const outgoingRoles = transitions && !genericPlayer ? roleParams : []
   const prevRole = (role: string) => `prev${role[0].toUpperCase()}${role.slice(1)}`
-  const extraParams = paramNames.filter((name) => name !== 'energy' && name !== 'speed' && name !== 'palette')
+  const extraParams = paramNames.filter((name) => name !== 'reactivity' && name !== 'speed' && name !== 'palette')
   // SET_SPEED carries a 0–2 multiplier; the `speed` role takes 0–1 unless the
   // patterns want the multiplier itself. A SET_PARAM slot named `speed` is the
   // same channel, so it takes the same scaling (showStateAt routes it likewise).
@@ -912,17 +912,17 @@ export function generatePlayerSketch(
   const brightnessCase = rampPlayer
     ? `    case CMD_SET_BRIGHTNESS: {\n      float to = ev.params[0];\n      if (ev.paramCount > 1) rampBrightness.begin(ev.t, to, ev.params[1]);\n      else { rampBrightness.from = to; rampBrightness.to = to; rampBrightness.t = ev.t; rampBrightness.rampMs = 0; ${brightnessNow('to')} }\n      break;\n    }`
     : `    case CMD_SET_BRIGHTNESS:${hasControls ? ' showBrightness = constrain(ev.params[0] / 255.0f, 0.0f, 1.0f); applyPlayerBrightness();' : ` ${isHub75 ? `dma_display->setBrightness8((uint8_t)ev.params[0]);${hasStereoVu ? ' FastLED.setBrightness((uint8_t)ev.params[0]);' : ''}` : 'FastLED.setBrightness((uint8_t)ev.params[0]);'}`} break;`
-  const energyCase = !hasEnergy ? '' : rampPlayer
-    ? `\n    case CMD_SET_ENERGY: {\n      float to = ev.params[0];\n      if (ev.paramCount > 1) rampEnergy.begin(ev.t, to, ev.params[1]);\n      else { rampEnergy.from = to; rampEnergy.to = to; rampEnergy.t = ev.t; rampEnergy.rampMs = 0; energy = to; }\n      break;\n    }`
-    : '\n    case CMD_SET_ENERGY:     energy = ev.params[0]; break;'
+  const reactivityCase = !hasReactivity ? '' : rampPlayer
+    ? `\n    case CMD_SET_ENERGY: {\n      float to = ev.params[0];\n      if (ev.paramCount > 1) rampReactivity.begin(ev.t, to, ev.params[1]);\n      else { rampReactivity.from = to; rampReactivity.to = to; rampReactivity.t = ev.t; rampReactivity.rampMs = 0; reactivity = to; }\n      break;\n    }`
+    : '\n    case CMD_SET_ENERGY:     reactivity = ev.params[0]; break;'
   const paramCase = !paramPlayer ? '' : `
     case CMD_SET_PARAM: {
       float to = ev.params[1];
       uint8_t which = (uint8_t)ev.params[0];
 ${paramSlots.map((name, index) => {
-    const declared = validParamName(name) && (name === 'energy' ? hasEnergy : name === 'speed' ? hasSpeed : name !== 'palette')
+    const declared = validParamName(name) && (name === 'reactivity' ? hasReactivity : name === 'speed' ? hasSpeed : name !== 'palette')
     if (!declared) return ''
-    const ramp = name === 'speed' ? 'rampSpeed' : name === 'energy' ? 'rampEnergy' : `rampParam_${name}`
+    const ramp = name === 'speed' ? 'rampSpeed' : name === 'reactivity' ? 'rampReactivity' : `rampParam_${name}`
     const scale = name === 'speed' && normSpeed('to') !== 'to' ? `to = ${normSpeed('to')}; ` : ''
     const write = rampPlayer
       ? `if (ev.paramCount > 2) ${ramp}.begin(ev.t, to, ev.params[2]); else { ${ramp}.from = to; ${ramp}.to = to; ${ramp}.t = ev.t; ${ramp}.rampMs = 0; ${name} = to; }`
@@ -933,9 +933,9 @@ ${paramSlots.map((name, index) => {
     }`
   const rampGlobals = !rampPlayer ? '' : `${sampleRampCpp()}
 static ShowRamp rampBrightness = {0, 0, 0, 0};
-${hasSpeed ? `static ShowRamp rampSpeed = {${renderers?.rawSpeed ? '1.0f, 1.0f' : '0.5f, 0.5f'}, 0, 0};\n` : ''}${hasEnergy ? 'static ShowRamp rampEnergy = {0, 0, 0, 0};\n' : ''}${extraParams.map((name) => `static ShowRamp rampParam_${name} = {0, 0, 0, 0};\n`).join('')}`
+${hasSpeed ? `static ShowRamp rampSpeed = {${renderers?.rawSpeed ? '1.0f, 1.0f' : '0.5f, 0.5f'}, 0, 0};\n` : ''}${hasReactivity ? 'static ShowRamp rampReactivity = {0, 0, 0, 0};\n' : ''}${extraParams.map((name) => `static ShowRamp rampParam_${name} = {0, 0, 0, 0};\n`).join('')}`
   const rampSample = !rampPlayer ? '' : `  if (rampBrightness.rampMs > 0) { float b = rampBrightness.sample(posMs); ${brightnessNow('b')} }
-${hasSpeed ? '  if (rampSpeed.rampMs > 0) speed = rampSpeed.sample(posMs);\n' : ''}${hasEnergy ? '  if (rampEnergy.rampMs > 0) energy = rampEnergy.sample(posMs);\n' : ''}${extraParams.map((name) => `  if (rampParam_${name}.rampMs > 0) ${name} = rampParam_${name}.sample(posMs);\n`).join('')}`
+${hasSpeed ? '  if (rampSpeed.rampMs > 0) speed = rampSpeed.sample(posMs);\n' : ''}${hasReactivity ? '  if (rampReactivity.rampMs > 0) reactivity = rampReactivity.sample(posMs);\n' : ''}${extraParams.map((name) => `  if (rampParam_${name}.rampMs > 0) ${name} = rampParam_${name}.sample(posMs);\n`).join('')}`
   const liveRoleArgs = outgoingRoles.length ? argList : ''
   const prevRoleArgs = outgoingRoles.map((role) => `, ${prevRole(role)}`).join('')
   const entryFlags = renderers?.entryReset ?? []
@@ -1717,10 +1717,10 @@ uint32_t   burstStart = 0;        // ms the current particle burst began
 float      burstIntensity = 0.0f; // 0–1 spark brightness (0 = no burst)
 CRGB       burstColor = CRGB(255, 128, 0);
 uint8_t    burstStyle = 0;        // particle motion style (see PARTICLE_STYLES)
-${hasEnergy ? 'float      energy    = 0.0f;      // SET_ENERGY → energy group-input role\n' : ''}${hasSpeed ? (renderers?.rawSpeed
+${hasReactivity ? 'float      reactivity = 0.0f;     // SET_ENERGY → reactivity group-input role\n' : ''}${hasSpeed ? (renderers?.rawSpeed
     ? 'float      speed     = 1.0f;      // SET_SPEED (0–2 multiplier) → speed group-input role\n'
     : 'float      speed     = 0.5f;      // SET_SPEED (normalised 0–1) → speed group-input role\n') : ''}${hasPalette ? 'CRGBPalette16 palette = RainbowColors_p;  // SET_PALETTE → palette group-input role\n' : ''}${extraParams.map((name) => `float      ${name} = 0.0f;\n`).join('')}${outgoingRoles.length ? `// Role values the outgoing pattern keeps through a transition (CMD_TRANSITION).
-${hasEnergy ? 'float      prevEnergy;\n' : ''}${hasSpeed ? 'float      prevSpeed;\n' : ''}${hasPalette ? 'CRGBPalette16 prevPalette;\n' : ''}${outgoingRoles.filter((role) => role !== 'energy' && role !== 'speed' && role !== 'palette').map((role) => `float      ${prevRole(role)};\n`).join('')}` : ''}${rampGlobals}${reactiveAudio ? `
+${hasReactivity ? 'float      prevReactivity;\n' : ''}${hasSpeed ? 'float      prevSpeed;\n' : ''}${hasPalette ? 'CRGBPalette16 prevPalette;\n' : ''}${outgoingRoles.filter((role) => role !== 'reactivity' && role !== 'speed' && role !== 'palette').map((role) => `float      ${prevRole(role)};\n`).join('')}` : ''}${rampGlobals}${reactiveAudio ? `
 // Shared audio contract consumed by compiled FFT/beat/percussion/features nodes.
 float     _audioBass = 0, _audioMids = 0, _audioTreble = 0, _audioBpm = 120;
 float     _audioLeftLevel = 0, _audioRightLevel = 0;
@@ -2195,7 +2195,7 @@ ${outgoingRoles.map((role) => `      ${prevRole(role).padEnd(13)} = ${role};\n`)
       burstIntensity = ev.params[0] / 255.0f;
       burstColor     = CHSV((uint8_t)ev.params[1], 217, 255);
       burstStyle     = (uint8_t)ev.params[2];
-      break;${energyCase}${paramCase}
+      break;${reactivityCase}${paramCase}
   }
 }
 

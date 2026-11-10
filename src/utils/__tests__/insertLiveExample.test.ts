@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { FIRST_BUTTON_HANDLE } from '../../state/player/buttonBank'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { useGraphStore } from '../../state/graphStore'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
@@ -29,13 +30,13 @@ const example: LiveExampleSpec = {
 const buttonExample: LiveExampleSpec = {
   title: 'Button beat flash',
   nodes: [
-    { key: 'button', type: 'ButtonInput', dx: -650, dy: -120 },
+    { key: 'button', type: 'ButtonBank', dx: -650, dy: -120 },
     { key: 'noise', type: 'Noise', dx: -355, dy: 110, properties: { noiseType: 'worley' } },
     { key: 'flash', type: 'BeatFlash', dx: -35, dy: -55 },
     { key: 'out', type: 'MatrixOutput', dx: 340, dy: -215 },
   ],
   edges: [
-    { source: 'button', sourceHandle: 'pressed', target: 'flash', targetHandle: 'beat' },
+    { source: 'button', sourceHandle: FIRST_BUTTON_HANDLE, target: 'flash', targetHandle: 'beat' },
     { source: 'noise', sourceHandle: 'frame', target: 'flash', targetHandle: 'frame' },
     { source: 'flash', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
@@ -158,7 +159,7 @@ const audioFeaturesExample: LiveExampleSpec = {
   edges: [
     { source: 'mic', sourceHandle: 'audio', target: 'features', targetHandle: 'audio' },
     { source: 'features', sourceHandle: 'vocals', target: 'aurora', targetHandle: 'vocals' },
-    { source: 'features', sourceHandle: 'energy', target: 'aurora', targetHandle: 'energy' },
+    { source: 'features', sourceHandle: 'energy', target: 'aurora', targetHandle: 'reactivity' },
     { source: 'features', sourceHandle: 'silence', target: 'aurora', targetHandle: 'silence' },
     { source: 'aurora', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
@@ -352,14 +353,14 @@ describe('insertLiveExample', () => {
     expect(edgePaths(state.edges)).toEqual(expect.arrayContaining(['kick->kick', 'snare->snare', 'hihat->hihat']))
   })
 
-  it('adds the Audio Features example with vocals, energy, and silence routed to Vocal Aurora', () => {
+  it('adds the Audio Features example with vocals, energy into reactivity, and silence routed to Vocal Aurora', () => {
     const result = insertLiveExample(audioFeaturesExample, { x: 1000, y: 500 })
     const state = useGraphStore.getState()
 
     expect(state.nodes).toHaveLength(4)
     expect(state.edges).toHaveLength(5)
     expect(result.skippedConnections).toEqual([])
-    expect(edgePaths(state.edges)).toEqual(expect.arrayContaining(['vocals->vocals', 'energy->energy', 'silence->silence']))
+    expect(edgePaths(state.edges)).toEqual(expect.arrayContaining(['vocals->vocals', 'energy->reactivity', 'silence->silence']))
   })
 
   it('adds the Audio to Hue example with FFT bands converted through HSV to RGB', () => {

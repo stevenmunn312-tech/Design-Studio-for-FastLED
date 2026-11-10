@@ -8,6 +8,7 @@ import { libraryDefaults, NODE_LIBRARY } from '../../nodeLibrary'
 import {
   powerSwitchDims, powerSwitchDuty, powerSwitchGate, powerSwitchLoad, powerSwitchPwmHz,
 } from '../powerSwitch'
+import { FIRST_BUTTON_HANDLE, singleButtonRow, buttonPressKey } from '../../player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
@@ -76,17 +77,17 @@ describe('the LR7843 dimming contract', () => {
 
 describe('PowerSwitchOutput firmware', () => {
   it('keeps the plain switch byte for byte at full Level', () => {
-    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const button = node('btn', 'ButtonBank', { buttons: singleButtonRow(12) })
     const sw = node('sw', 'PowerSwitchOutput', { partId: LR7843, signalPin: 25 })
-    const cpp = generateCpp([button, sw], [edge('on', 'btn', 'pressed', 'sw', 'on')])
-    expect(cpp).toContain('digitalWrite(25, n_btn_pressed ? HIGH : LOW);')
+    const cpp = generateCpp([button, sw], [edge('on', 'btn', FIRST_BUTTON_HANDLE, 'sw', 'on')])
+    expect(cpp).toContain('digitalWrite(25, n_btn_button_1 ? HIGH : LOW);')
     expect(cpp).not.toContain('flsPwm')
   })
 
   it('dims from the Level field while On is on', () => {
-    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const button = node('btn', 'ButtonBank', { buttons: singleButtonRow(12) })
     const sw = node('sw', 'PowerSwitchOutput', { partId: LR7843, signalPin: 25, level: 0.4 })
-    const cpp = generateCpp([button, sw], [edge('on', 'btn', 'pressed', 'sw', 'on')])
+    const cpp = generateCpp([button, sw], [edge('on', 'btn', FIRST_BUTTON_HANDLE, 'sw', 'on')])
     // Held off before the pin is an output, handed to PWM still off.
     const latch = cpp.indexOf('digitalWrite(25, LOW);')
     const output = cpp.indexOf('pinMode(25, OUTPUT);')
@@ -95,8 +96,8 @@ describe('PowerSwitchOutput firmware', () => {
     expect(output).toBeGreaterThan(latch)
     expect(begin).toBeGreaterThan(output)
     expect(cpp).toContain('flsPwmWrite(25, 0, flsPwmDuty(0.0f, true));')
-    expect(cpp).toContain('uint8_t duty = flsPwmDuty((n_btn_pressed) ? (float)(0.4) : 0.0f, true);')
-    expect(cpp).not.toContain('digitalWrite(25, n_btn_pressed')
+    expect(cpp).toContain('uint8_t duty = flsPwmDuty((n_btn_button_1) ? (float)(0.4) : 0.0f, true);')
+    expect(cpp).not.toContain('digitalWrite(25, n_btn_button_1')
     // The shim is emitted once, at file scope.
     expect(cpp.match(/static void flsPwmBegin/g)).toHaveLength(1)
   })
@@ -107,12 +108,12 @@ describe('PowerSwitchOutput firmware', () => {
     const levelOnly = generateCpp([pot, alone], [edge('level', 'pot', 'value', 'sw', 'level')])
     expect(levelOnly).toContain('uint8_t duty = flsPwmDuty((float)(n_pot_value), true);')
 
-    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const button = node('btn', 'ButtonBank', { buttons: singleButtonRow(12) })
     const gated = generateCpp([pot, button, alone], [
       edge('level', 'pot', 'value', 'sw', 'level'),
-      edge('on', 'btn', 'pressed', 'sw', 'on'),
+      edge('on', 'btn', FIRST_BUTTON_HANDLE, 'sw', 'on'),
     ])
-    expect(gated).toContain('uint8_t duty = flsPwmDuty((n_btn_pressed) ? (float)(n_pot_value) : 0.0f, true);')
+    expect(gated).toContain('uint8_t duty = flsPwmDuty((n_btn_button_1) ? (float)(n_pot_value) : 0.0f, true);')
   })
 
   it('gives each dimmed switch its own core-2 LEDC channel', () => {
@@ -131,14 +132,14 @@ describe('PowerSwitchOutput firmware', () => {
 
 describe('PowerSwitchOutput preview', () => {
   it('publishes the same load the firmware drives', () => {
-    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const button = node('btn', 'ButtonBank', { buttons: singleButtonRow(12) })
     const sw = node('sw', 'PowerSwitchOutput', { partId: LR7843, level: 0.4 })
-    const edges = [edge('on', 'btn', 'pressed', 'sw', 'on')]
-    useHardwareInputStore.getState().setButton('btn', false)
+    const edges = [edge('on', 'btn', FIRST_BUTTON_HANDLE, 'sw', 'on')]
+    useHardwareInputStore.getState().setButton(buttonPressKey('btn'), false)
     expect(load([button, sw], edges)).toBe(0)
-    useHardwareInputStore.getState().setButton('btn', true)
+    useHardwareInputStore.getState().setButton(buttonPressKey('btn'), true)
     expect(load([button, sw], edges)).toBe(0.4)
-    useHardwareInputStore.getState().setButton('btn', false)
+    useHardwareInputStore.getState().setButton(buttonPressKey('btn'), false)
   })
 
   it('stays off with nothing wired, whatever Level says', () => {

@@ -570,16 +570,17 @@ describe('HardwarePane', () => {
   })
 
   // An empty bank wired the module on the bench to nothing until the canvas.
-  it('adds a Button bank with one button already on a pin', () => {
+  // One shelf entry, Button, covers a single button and a panel of them.
+  it('adds a Button with one row already on a pin', () => {
     render(<HardwarePane />)
-    addPart('Inputs', 'Button bank')
+    addPart('Inputs', 'Button')
     const bank = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'ButtonBank')!
     const buttons = bank.data.properties.buttons as { id: string; label: string; pin: number; assignedPin?: number }[]
     expect(buttons).toHaveLength(1)
-    expect(buttons[0]).toMatchObject({ id: 'button-1', label: 'Button 1' })
+    expect(buttons[0]).toMatchObject({ id: '1', label: 'Button 1' })
     expect(buttons[0].pin).toBeGreaterThanOrEqual(0)
     expect(buttons[0].assignedPin).toBe(buttons[0].pin)
-    expect((bank.data.outputs as { id: string }[]).map((port) => port.id)).toEqual(['button-button-1', 'add-button'])
+    expect((bank.data.outputs as { id: string }[]).map((port) => port.id)).toEqual(['button-1', 'add-button'])
   })
 
   it('opens a board-aware pin popup and reveals the signal node automatically', () => {

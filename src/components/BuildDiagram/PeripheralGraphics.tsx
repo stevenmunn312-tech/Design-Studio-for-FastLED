@@ -59,7 +59,6 @@ import {
  * kind — and why adding a part no longer means adding a picture here.
  */
 const BUNDLED_RENDERS: Record<string, { href: string; id: string }> = {
-  ButtonInput: { href: buttonModuleRender, id: 'button-module' },
   ButtonBank: { href: buttonModuleRender, id: 'button-module' },
   PotInput: { href: potentiometerModuleRender, id: 'potentiometer-module' },
   EncoderInput: { href: encoderModuleRender, id: 'encoder-module' },

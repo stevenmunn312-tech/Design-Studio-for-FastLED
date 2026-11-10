@@ -1,3 +1,5 @@
+import { clockTimeZone, timeZoneOffsetSeconds } from './timeZones'
+
 export interface RtcSnapshot {
   hour: number
   minute: number
@@ -103,8 +105,9 @@ export function readRtcSnapshot(now: Date = rtcClockSource()): RtcSnapshot {
 // board will show. Manual runs a seeded software clock forward from boot (and
 // reports invalid for an impossible seed, exactly like `_rtcValidDateTime`),
 // but remains explicitly stale because it has no persistent authority;
-// NTP shows UTC shifted by the configured offset, which is the wall clock
-// `configTime(offset, 0, server)` produces on-device. Compile Time seeds from
+// NTP shows UTC in the Clock's time zone, by the same POSIX rule the board
+// is handed (`configTzTime` on the ESP32, state/peripherals/timeZones.ts),
+// daylight saving included. Compile Time seeds from
 // the build stamp on hardware, so the browser's local clock is its closest
 // preview, but it is likewise stale. A physical DS3231 cannot be read by the
 // browser, so preview models a
@@ -182,9 +185,8 @@ export function rtcPreviewSnapshot(
       return { ...snapshotFromUtc(new Date(seed + elapsed * 1000)), synced: false, stale: true }
     }
     case 'NTP': {
-      const offsetMinutes = Number(props.timezoneOffsetMinutes ?? 0)
-      const offset = Number.isFinite(offsetMinutes) ? offsetMinutes : 0
-      return { ...snapshotFromUtc(new Date(now.getTime() + offset * 60_000)), synced: true, stale: false }
+      const offset = timeZoneOffsetSeconds(clockTimeZone(props), now.getTime())
+      return { ...snapshotFromUtc(new Date(now.getTime() + offset * 1000)), synced: true, stale: false }
     }
     case 'DS3231':
       // Browser-side simulation of a connected, trustworthy module. The

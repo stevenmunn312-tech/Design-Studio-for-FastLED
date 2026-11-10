@@ -38,9 +38,14 @@ export type RingDirection = 'cw' | 'ccw'
 export type CorkscrewDirection = RingDirection
 
 /** Composition-canvas and LED-count bounds, shared by every caller so the
- *  preview, the validator and the generator clamp identically. */
-export const MAX_LED_RUN = 300
+ *  preview, the validator and the generator clamp identically. A chain may be
+ *  as long as the largest matrix has LEDs: a string's canvas is N x 1, so its
+ *  render buffers are no larger than that matrix's, and a ring's or
+ *  corkscrew's canvas stays within the matrix sides whatever its count.
+ *  Whether a given board holds it is the RAM estimate's question
+ *  (`estimateFirmwareRam`), and data lanes split the send. */
 export const MAX_MATRIX_SIDE = 64
+export const MAX_LED_RUN = MAX_MATRIX_SIDE * MAX_MATRIX_SIDE
 
 function int(value: unknown, fallback: number, min: number, max: number): number {
   const parsed = Math.round(Number(value))

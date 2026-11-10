@@ -11,6 +11,38 @@
  */
 export const RTC_CPP_FORWARD = 'struct _RtcDateTime;\nstruct _RtcDateTimeValue;'
 
+/**
+ * A POSIX `Mm.w.d/time` daylight-saving rule, for a core that keeps no civil
+ * time of its own (the UNO R4 WiFi's NTP branch). The ESP cores take the same
+ * zone string through `configTzTime`/`configTime`. Offsets are seconds east
+ * of UTC. The preview runs `posixUtcOffsetSeconds` (state/peripherals/
+ * timeZones.ts), the same arithmetic.
+ */
+const RTC_TIME_ZONE_RULE_CPP: readonly string[] = [
+  '// The UTC second a POSIX "Mm.w.d/time" switch happens in `year`: weekday',
+  '// `wday` of week `week` (5 = the last) of `month`, at `atSeconds` of the',
+  '// local time in force before it (`offsetBefore`, seconds east of UTC).',
+  'int64_t _rtcTzSwitchUtc(int16_t year, uint8_t month, uint8_t week, uint8_t wday, int32_t atSeconds, int32_t offsetBefore) {',
+  '  const int32_t first = _rtcDaysFromCivil(year, month, 1);',
+  '  int32_t day = first + (int32_t)((wday + 7 - _rtcWeekdayFromDays(first)) % 7) + (int32_t)(week - 1) * 7;',
+  '  if (day > first + (int32_t)_rtcDaysInMonth(year, month) - 1) day -= 7;',
+  '  return (int64_t)day * 86400 + atSeconds - offsetBefore;',
+  '}',
+  '',
+  '// Seconds east of UTC at `utc`: daylight time from the start switch (read on',
+  '// standard time) to the end switch (read on daylight time), wrapping the new',
+  '// year south of the equator.',
+  'int32_t _rtcTzOffset(int64_t utc, int32_t stdOffset, int32_t dstOffset, uint8_t startMonth, uint8_t startWeek, uint8_t startWday, int32_t startAt, uint8_t endMonth, uint8_t endWeek, uint8_t endWday, int32_t endAt) {',
+  '  int16_t year; uint8_t month, day;',
+  '  _rtcCivilFromDays((int32_t)((utc + stdOffset) / 86400), year, month, day);',
+  '  const int64_t start = _rtcTzSwitchUtc(year, startMonth, startWeek, startWday, startAt, stdOffset);',
+  '  const int64_t end = _rtcTzSwitchUtc(year, endMonth, endWeek, endWday, endAt, dstOffset);',
+  '  const bool daylight = start < end ? (utc >= start && utc < end) : (utc < end || utc >= start);',
+  '  return daylight ? dstOffset : stdOffset;',
+  '}',
+  '',
+]
+
 export function rtcHelperCpp(): string[] {
   return [
     '// ── RTC software clock helpers ────────────────────────────────────────────',
@@ -126,8 +158,10 @@ export function rtcHelperCpp(): string[] {
     '  return true;',
     '}',
     '',
+    ...RTC_TIME_ZONE_RULE_CPP,
   ]
 }
+
 
 /** Minimal DS3231 reader built on Arduino Wire. Keeping the register decoder in
  * generated code avoids a third-party RTClib dependency and works with every

@@ -664,6 +664,16 @@ export function wellPixel(x: number, y: number, f: WellFrame): number {
   return v > 255 ? 255 : v
 }
 
+/** Palette Color: the distance from the well as a palette index, held at the
+ *  last entry past the half diagonal. Sets `uint8_t _gwIdx` after `wellPixelCpp`. */
+export const WELL_INDEX_CPP = `uint8_t _gwIdx=_gd>=256?255:(uint8_t)((_gd*255)>>8);`
+
+export function wellIndex(x: number, y: number, f: WellFrame): number {
+  const dx = x * 16 - f.wx, dy = y * 16 - f.wy
+  const d = (isqrt32(dx * dx + dy * dy) * f.invMax) >> 12
+  return d >= 256 ? 255 : (d * 255) >> 8
+}
+
 // ── MidrangeBloom ─────────────────────────────────────────────────────────────
 // Centred coordinates in 1/256 of the half size; the swirl reads their squares
 // directly, the bloom an integer radius.

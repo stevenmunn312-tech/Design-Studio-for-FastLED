@@ -42,6 +42,7 @@ import {
   type TftController,
 } from './displays/tftSurface'
 import { JUGGLE_COUNT } from '../nodes/generative/juggle'
+import { COLOR_TRAILS_TRAIL_LENGTH, colorTrailsPropertyEnabled } from '../nodes/audioReactive/colorTrails'
 import { RAINBOW_AXES, SPIRAL_ARMS } from '../nodes/generative/limits'
 import { KALEIDOSCOPE_SEGMENTS } from '../nodes/composite/kaleidoscope'
 import { ARRAY_COPIES } from '../nodes/composite/limits'
@@ -50,8 +51,10 @@ import { FEEDBACK_TRANSFORMS } from '../nodes/shared/integerPatterns'
 import { WARP_MOTIONS } from '../nodes/composite/frameWarpMotion'
 import { BOID_COLOR_MODES, BOID_PALETTE_MODES, BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../nodes/simulations/limits'
 import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
+import { TEXT_SIZE } from '../nodes/shared/font'
 import { PATH_SHAPES } from '../nodes/shapes/customPath'
 import { RTC_YEAR_MAX, RTC_YEAR_MIN } from './peripherals/rtc'
+import { TIME_ZONE_LABELS, TIME_ZONE_OPTIONS, isKnownTimeZone } from './peripherals/timeZones'
 import { DECODER_MAX_VOLUME } from '../build/parts/partFields'
 import { MASTER_SPEED_MIN, MASTER_SPEED_MAX } from './player/masterSpeed'
 import { MUSIC_PLAYER_MIN_HOLD_SEC } from './player/musicPlayerTiming'
@@ -60,6 +63,7 @@ import { PARTICLE_STYLES } from './player/particleStyles'
 import { WIREFRAME_MODEL_OPTIONS } from '../nodes/shapes/wireframeModel'
 import { isLinearForm, LED_OUTPUT_FORMS, LED_OUTPUT_FORM_LABELS, MAX_LED_RUN, MAX_MATRIX_SIDE, outputForm } from './output/ledOutputForm'
 import { RENDER_RESOLUTIONS } from './output/renderScale'
+import { MAX_STEREO_VU_RAIL_LEDS } from './audio/stereoVuSizing'
 import { POSITION_PRESETS, POSITIONS_MM_PER_UNIT_MAX, STRIP_LAYOUTS, usesNetwork, usesPositions } from './output/stringPositions'
 import { NETWORK_LEDS_PER_EDGE, NETWORK_MAX_NODES, NETWORK_PRESETS } from './output/segmentNetwork'
 import { RIPPLE_BEHAVIOURS, RIPPLE_LIFETIME_SEC, RIPPLE_WIDTH } from '../nodes/shared/rippleNetwork'
@@ -583,8 +587,9 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   separation: { control: 'slider', min: 0, max: 1, step: 0.01 },
   gate:       { control: 'slider', min: 0, max: 1, step: 0.01 },
   density:    { control: 'slider', min: 0, max: 1, step: 0.01 },
-  // Audio-reactivity amount on the spectral pattern nodes (was `intensity`).
-  energy:     { control: 'slider', min: 0, max: 1, step: 0.01 },
+  // How strongly the audio moves an audio-reactive pattern (was `intensity`,
+  // then `energy`, which read as Audio Features' Energy output).
+  reactivity: { control: 'slider', min: 0, max: 1, step: 0.01 },
   brightness: { control: 'slider', min: 0, max: 1, step: 0.01 },
   boost:      { control: 'slider', min: 0, max: 1, step: 0.01 },
   // Beat Flash overdrive — 1 = the pre-existing flash brightness, up to 2x hotter.
@@ -613,6 +618,8 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
 const N01: PropertyControl = { control: 'slider', min: 0, max: 1, step: 0.01 }
 // Shape, Text, Clock Display and Line: positions as 0–1 or pixels (positionUnits.ts).
 const POSITION_UNITS_META: PropertyControl = { control: 'select', options: POSITION_UNITS, labels: POSITION_UNIT_LABELS }
+// Text and Clock Display: whole pixels per font pixel (font.ts textSize).
+const TEXT_SIZE_META: PropertyControl = { control: 'slider', min: TEXT_SIZE.min, max: TEXT_SIZE.max, step: 1 }
 const TOUCH_CALIBRATION_META: Record<string, PropertyControl> = {
   touchXMin: { control: 'slider', min: 0, max: 4095, step: 1 },
   touchXMax: { control: 'slider', min: 0, max: 4095, step: 1 },
@@ -716,7 +723,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   RTCInput: {
     timeSource: { control: 'select', options: ['Compile Time', 'Manual', 'NTP', 'DS3231'] },
-    timezoneOffsetMinutes: { control: 'slider', min: -720, max: 840, step: 15 },
+    timeZone: { control: 'select', options: TIME_ZONE_OPTIONS, labels: TIME_ZONE_LABELS },
     startMonth: { control: 'slider', min: 1, max: 12, step: 1 },
     startDay: { control: 'slider', min: 1, max: 31, step: 1 },
     startHour: { control: 'slider', min: 0, max: 23, step: 1 },
@@ -765,11 +772,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     y: N01,
     // Cells a second; negative scrolls the other way.
     scroll: { control: 'slider', min: -20, max: 20, step: 0.5 },
+    size: TEXT_SIZE_META,
   },
   ClockDisplay: {
     units: POSITION_UNITS_META,
     x: N01,
     y: N01,
+    size: TEXT_SIZE_META,
     radius: { control: 'slider', min: 2, max: 16, step: 0.5 },
     durationSec: { control: 'slider', min: 0, max: CLOCK_TIMER_MAX_SEC, step: 1, entry: 'number' },
   },
@@ -781,6 +790,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
     // DANCE_FLASH_GAPS in nodes/audioReactive/danceFlash.ts; a test holds the two equal.
     gap: { control: 'select', options: ['30 s', '1–2 min', '2–5 min'] },
+    colorSource: { control: 'select', options: ['solid', 'palette'] },
   },
   FFTAnalyzer:       {
     bands:     { control: 'slider', min: 8, max: 32, step: 1 },
@@ -836,7 +846,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
       numeric: true,
       options: [...new Set(Object.values(CLOCKED_DATA_RATES_MHZ).flat())].sort((a, b) => a - b).map(String),
     },
-    ledCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
+    // Up to the largest matrix's LED count, too wide a range to drag.
+    ledCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1, entry: 'number' },
     // A full turn either way, so a ring can be rotated to wherever its data-in
     // pad physically ended up without reaching for a negative number.
     ringStartAngle: { control: 'slider', min: 0, max: 359, step: 1 },
@@ -863,8 +874,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     tilesY: { control: 'slider', min: 1, max: 16, step: 1 },
   },
   StereoVuMeter: {
-    leftLedCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
-    rightLedCount: { control: 'slider', min: 1, max: MAX_LED_RUN, step: 1 },
+    // A rail is its own length, not an LED output's (state/audio/stereoVuSizing.ts).
+    leftLedCount: { control: 'slider', min: 1, max: MAX_STEREO_VU_RAIL_LEDS, step: 1, entry: 'number' },
+    rightLedCount: { control: 'slider', min: 1, max: MAX_STEREO_VU_RAIL_LEDS, step: 1, entry: 'number' },
     leftDataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     rightDataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     leftClockPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -928,16 +940,19 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   ColorTrails: {
     injectionMode:{ control: 'select', options: ['Moving Line', 'Rainbow Border', 'Both'] },
     flowMode:     { control: 'select', options: ['Scrolling', 'Morphing 2D'] },
+    flowSpeed:    { control: 'slider', min: -2, max: 2, step: 0.01 },
+    flowStrength: { control: 'slider', min: 0.1, max: 1, step: 0.01 },
+    flowScale:    { control: 'slider', min: 0.1, max: 4, step: 0.01 },
     xSpeed:       { control: 'slider', min: -2, max: 2, step: 0.01 },
-    xAmplitude:   { control: 'slider', min: 0.1, max: 1, step: 0.01 },
-    xFrequency:   { control: 'slider', min: 0.1, max: 4, step: 0.01 },
+    xStrength:    { control: 'slider', min: 0.1, max: 1, step: 0.01 },
+    xScale:       { control: 'slider', min: 0.1, max: 4, step: 0.01 },
     ySpeed:       { control: 'slider', min: -2, max: 2, step: 0.01 },
-    yAmplitude:   { control: 'slider', min: 0.1, max: 1, step: 0.01 },
-    yFrequency:   { control: 'slider', min: 0.1, max: 4, step: 0.01 },
+    yStrength:    { control: 'slider', min: 0.1, max: 1, step: 0.01 },
+    yScale:       { control: 'slider', min: 0.1, max: 4, step: 0.01 },
     displacement: { control: 'slider', min: 0, max: 4, step: 0.05 },
     endpointSpeed:{ control: 'slider', min: 0, max: 2, step: 0.01 },
     colorSpeed:   { control: 'slider', min: 0, max: 1, step: 0.01 },
-    persistence:  { control: 'slider', min: 0.9, max: 0.9999, step: 0.0001 },
+    trailLength:  { control: 'slider', ...COLOR_TRAILS_TRAIL_LENGTH },
   },
   Animartrix: {
     effect:      { control: 'select', options: ANIMARTRIX_EFFECTS },
@@ -1018,9 +1033,15 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     decay:     { control: 'slider', min: 0.3, max: 3, step: 0.05 },
     blendMode: { control: 'select', options: ['add', 'max'] },
   },
-  EmberPulse:       { speed: N01 },
+  EmberPulse: {
+    speed: N01,
+    colorSource: { control: 'select', options: ['heat', 'palette'] },
+  },
   TurbulentBloom:   { speed: N01 },
-  GravityWell:      { speed: N01 },
+  GravityWell: {
+    speed: N01,
+    colorSource: { control: 'select', options: ['solid', 'palette'] },
+  },
   RainRipples: {
     speed: N01,
     count:     { control: 'slider', min: 2, max: 16, step: 1 },
@@ -1072,7 +1093,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     speed: N01, spawn: N01, trail: N01, bed: N01,
     seed:     { control: 'slider', min: 0, max: 9999, step: 1 },
     count:    { control: 'slider', min: 1, max: MAX_STRING_PARTICLES, step: 1 },
-    ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1 },
+    ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1, entry: 'number' },
     track:    { control: 'select', options: [...STRING_TRACKS] },
     mode:     { control: 'select', options: [...STRING_PARTICLE_MODES] },
   },
@@ -1235,13 +1256,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     i2sLrclk: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     i2sDout:  { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
-  ButtonInput: {
-    pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
-  },
   TouchButtonInput: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
-  // ButtonBank stores pins inside its row collection, but the shared hardware
+  // A Button stores pins inside its row collection, but the shared hardware
   // picker still asks for the electrical contract under the logical `pin` key.
   ButtonBank: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -1506,7 +1524,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   // No slider for the ends, so Pixels take an expression such as max_x;
   // `propertyMetaFor` draws 0–1 as a slider.
   Line: { units: POSITION_UNITS_META, thickness: { control: 'slider', min: 0.5, max: 6, step: 0.1 } },
-  // A fraction of half the shorter side: past 1 the point leaves the canvas.
+  // A fraction of half the shorter side (a strip's length): past 1 the point
+  // leaves the canvas.
   Path: {
     scale: { control: 'slider', min: 0.1, max: 1, step: 0.01 },
     speed: { control: 'slider', min: -FOURIER_SPEED_MAX, max: FOURIER_SPEED_MAX, step: 0.01 },
@@ -1610,7 +1629,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     thickness: N01,
     arcStart: { control: 'slider', min: 0, max: 359, step: 1 },
     arcSweep: { control: 'slider', min: 10, max: 360, step: 1 },
-    ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1 },
+    ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1, entry: 'number' },
   },
   Automaton: {
     automatonType: { control: 'select', options: [...AUTOMATON_TYPES] },
@@ -1851,6 +1870,12 @@ export function propertyOptions(
   if (nodeType === 'Ease' && key === 'easeType' && properties.easeType === 'inOutApprox') {
     return [...meta.options, 'inOutApprox']
   }
+  // A saved offset the list does not name (the old slider took any quarter
+  // hour) still reads, and shows, as itself.
+  if (nodeType === 'RTCInput' && key === 'timeZone' && isKnownTimeZone(properties.timeZone)
+    && !meta.options.includes(String(properties.timeZone))) {
+    return [...meta.options, String(properties.timeZone)]
+  }
   return meta.options
 }
 
@@ -1865,8 +1890,8 @@ export function propertyOptions(
 export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   seed: '0 runs free (Math.random each time); any other value reproduces the exact same result on every run.',
   clampInputs: "Clamps a wired float input to this node's slider range, so an unbounded upstream signal can't exceed it.",
-  energy: 'How strongly the audio changes the picture: 0 = calm base motion, 1 = fully reactive.',
-  timezoneOffsetMinutes: 'Fixed local offset from UTC for NTP-synced firmware time. Preview still reads the browser clock.',
+  reactivity: 'How strongly the audio changes the picture: 0 = calm base motion, 1 = fully reactive.',
+  timeZone: 'Where the board keeps NTP time. A city zone follows its daylight-saving dates, on the board and in the preview; a fixed UTC offset never changes.',
   dmxPort: 'ESP32 UART used by esp_dmx for DMX512 receive.',
   requireSync: 'Keeps the schedule inactive until the upstream Clock reports a real NTP sync.',
   dateTimeFormat: 'Which part of the clock reading the text shows. An invalid clock shows dashes, never a plausible time.',
@@ -1925,7 +1950,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   serialDebug: "Prints processor/conditioner stats to the serial monitor ~10×/sec, for checking mic wiring on-device. Firmware-only — no visible effect here.",
   pullup: "On wires the pin INPUT_PULLUP (idle high, press pulls low) — the common no-extra-parts wiring. Off wires it plain INPUT, which needs an external pull-down resistor or the pin will float when not pressed.",
   resetOnPress: 'Zeros the running position count every time the integrated push-button is pressed, instead of only ever counting up/down.',
-  scaleWithMatrix: "Scales the radius with the matrix's shorter side (tuned against a 16px reference) so the same value looks proportionally similar across different matrix sizes. Off keeps radius as an exact pixel count.",
+  scaleWithMatrix: "Scales the radius with the matrix's shorter side, or a one-row strip's length (tuned against a 16px reference), so the same value looks proportionally similar across different matrix sizes. Off keeps radius as an exact pixel count.",
   bass: 'Bass level (0–1) used while the Bass input is unwired. Wire an analyser output to drive it live.',
   mids: 'Mids level (0–1) used while the Mids input is unwired. Wire an analyser output to drive it live.',
   treble: 'Treble level (0–1) used while the Treble input is unwired. Wire an analyser output to drive it live.',
@@ -2268,8 +2293,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   AudioFeatures: {
     gate: 'How loud the sound must be before Silence turns off, on the Loudness scale (0–1). Raise it if room noise keeps the patch awake between songs. It also trims weak vocal readings.',
-    sensitivity: 'Scales the energy and vocal estimates (0–1). Raise it on quiet sources.',
-    smoothing: 'Share kept every 60th of a second (0–0.95), at any frame rate. Higher gives calmer vocals, energy and silence, slower response.',
+    sensitivity: 'Scales the energy and vocal estimates, and sets Level\'s gain on Loudness: 0 passes it through, 0.5 multiplies it by 6.4, 1 by about 41. Raise it on quiet sources.',
+    smoothing: 'Share kept every 60th of a second (0–0.95), at any frame rate. Higher gives calmer vocals, energy and silence, slower response. Level has its own fixed easing.',
   },
   Vibe: {
     gain: 'Scales the three relative levels and their smoothed copies. Spikes compare the two, so gain never changes them.',
@@ -2333,9 +2358,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     radius: 'Pixels each way the blur reaches, 1 to 4. Edges are clamped, not wrapped.',
   },
   ShapeField: {
-    size: 'Radius or half-height as a fraction of the matrix’s shorter side.',
-    softness: 'Fill-edge softness as a fraction of the matrix’s shorter side.',
-    range: 'As a fraction of the matrix’s shorter side. Distance: how far either side of the outline the field ramps from 1 to 0. Falloff: how far beyond the outline it reaches 1.',
+    size: 'Radius or half-height as a fraction of the matrix’s shorter side, or of a one-row strip’s length.',
+    softness: 'Fill-edge softness as a fraction of the matrix’s shorter side, or of a one-row strip’s length.',
+    range: 'As a fraction of the matrix’s shorter side, or of a one-row strip’s length. Distance: how far either side of the outline the field ramps from 1 to 0. Falloff: how far beyond the outline it reaches 1.',
     shape: 'Rectangle, ellipse (a circle at aspect 1) or polygon, as on Shape, or a rose or superformula. Polygon uses Sides, rectangle and ellipse use Aspect, rose uses Petals, and the superformula its lobes and exponents.',
     fieldMode: 'Fill is 1 inside and 0 outside with a soft edge; distance ramps across the outline; falloff is 0 on the shape and rises to 1 at Range beyond it, so a tiny circle gives the distance from a point.',
     cx: 'Centre of the shape, left to right (0 to 1).',
@@ -2440,7 +2465,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     customPoints: 'x,y pairs from -1 to 1, 3 to 128 points, joined by a smooth closed curve through every one. Anything else draws the circle.',
     t: 'How far round the curve the point is, as a fraction of a turn: 0 and 1 are the start. It wraps, so a steadily rising signal goes round and round.',
     speed: 'Turns of the curve per second while T is unwired, starting from T. Negative runs backwards; 0 holds the point at T.',
-    scale: 'Size of the curve as a fraction of half the shorter side of the matrix.',
+    scale: 'Size of the curve as a fraction of half the shorter side of the matrix, or of a one-row strip’s length.',
     thickness: 'Diameter of the moving point in pixels.',
   },
   FourierEpicycles: {
@@ -2449,7 +2474,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     maxHarmonics: 'Most circles a wired Harmonics can use: the largest terms of the outline\'s Fourier series, sizing the table baked into the sketch. Unwired, Harmonics sizes the table itself.',
     harmonics: 'Circles in use, largest first. Fractions fade the next one in, so animating it grows a circle into the outline.',
     speed: 'Turns of the outline per second. Negative runs backwards.',
-    scale: 'Size as a fraction of half the shorter side of the canvas.',
+    scale: 'Size as a fraction of half the shorter side of the canvas, or of a one-row strip’s length.',
     thickness: 'Pen width in pixels.',
     persistence: 'How long the trail lasts: 1 halves it every 2 seconds, 0 leaves none. Each step along the slider shortens it by the same ratio, whatever the frame rate.',
     showCircles: 'Draw the rotating circles as dim guides.',
@@ -2525,6 +2550,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     y: 'Vertical position of the clock: 0 (just off the top) to 1 (just off the bottom), or a pixel row when Units is Pixels.',
     hAlign: 'Which part of the digits sits at X: left edge, centre or right edge. Digital modes only.',
     vAlign: 'Which part of the digits sits at Y: top, middle or bottom. Digital modes only.',
+    size: 'Pixel scale of the digits, 1 to 4, as Text\'s Size: each pixel of the 3×5 font is drawn this many pixels square. Every mode with digits, and the date under an analogue face.',
   },
   MicInput: {
     gain: 'Multiplies the microphone signal before analysis; 1 is unity, raise it for a quiet room.',
@@ -2543,9 +2569,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     i2sBclk: 'Bit clock (BCK) the board drives to the ADC.',
     i2sLrclk: 'Word-select (LRCK/WS) clock the board drives to the ADC.',
     i2sDout: 'Data pin the ADC returns PCM samples on.',
-  },
-  ButtonInput: {
-    pin: 'GPIO the button contact is wired to; the other side goes to ground when Pull-up is on.',
   },
   TouchButtonInput: {
     pin: 'GPIO wired to the module SIG pad. The module drives it high while touched, so no pull-up.',
@@ -2655,9 +2678,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   DanceFlash: {
     gap: 'Quiet time between flashes: about 30 s (20–40 s), 1–2 min, or 2–5 min. The first flash comes a few seconds after start whichever you pick.',
+    colorSource: 'Solid draws the silhouette in the R, G, B colour; Palette runs the palette down it, head to foot. A wired palette always does.',
+    palette: 'Palette the silhouette runs through from head to foot, when Color is Palette.',
   },
   KickShock: {
-    speed: 'Ring travel rate (0–1); reactivity multiplies it. Kick rings are slow and wide, snare fast and thin.',
+    speed: 'Ring travel rate (0–1; 0.5 is the default pace, 1 twice as fast); reactivity multiplies it. Kick rings are slow and wide, snare fast and thin.',
     tiles: 'Repeats the shockwave in an N×N grid of cells (1–8).',
     count: 'Most rings alive at once (2–16); older rings are recycled. Fixed at build time.',
     decay: 'Ring lifetime multiplier (0.3–3); above 1 lingers, travel distance stays the same.',
@@ -2666,10 +2691,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   BeatKaleidoscope: {
     hue: 'Palette start offset in degrees (0–360); wire an audio hue into Hue to colour-shift with the music.',
-    speed: 'Rotation rate (0–1); each beat adds wedges and a spin kick that decays.',
+    speed: 'Rotation rate (0–1; 0.5 is the default pace, 1 twice as fast); each beat adds wedges and a spin kick that decays.',
   },
   SpectraMosaic: {
-    speed: 'Diagonal sweep rate (0–1); reactivity multiplies it.',
+    speed: 'Diagonal sweep rate (0–1; 0.5 is the default pace, 1 twice as fast); reactivity multiplies it.',
     tiles: 'Grid size N×N (2–8). Bass lights the top-left cells, treble the bottom-right, mids all.',
   },
   PercussionBlobs: {
@@ -2679,7 +2704,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     blendMode: 'Add merges overlapping blobs into one field; Max keeps them separate.',
   },
   RainRipples: {
-    speed: 'Ripple expansion rate (0–1); faster ripples also live shorter.',
+    speed: 'Ripple expansion rate (0–1; 0.5 is the default pace, 1 twice as fast); faster ripples also live shorter.',
     count: 'Most ripples alive at once (2–16); each Trigger pulse starts one. Fixed at build time.',
     decay: 'Ripple lifetime multiplier (0.3–3).',
     thickness: 'Ripple band width multiplier (0.25–3).',
@@ -2692,16 +2717,20 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   ColorTrails: {
     injectionMode: 'What paints colour in: a moving line, a rainbow border, or both.',
     flowMode: 'Scrolling slides fixed noise profiles; Morphing 2D evolves them over time.',
+    flowSpeed: 'How fast both noise profiles scroll (−2–2); negative reverses them.',
+    flowStrength: 'How far rows and columns shift per step (0.1–1).',
+    flowScale: 'How quickly both profiles vary across the matrix (0.1–4); higher gives finer currents.',
+    independentAxes: 'Set the column (X) and row (Y) flow apart: swaps the shared Flow speed, strength and scale for a set on each axis.',
     xSpeed: 'How fast the column profile scrolls (−2–2); negative reverses it.',
-    xAmplitude: 'How far columns shift per step (0.1–1).',
-    xFrequency: 'How quickly the column profile varies across the matrix (0.1–4).',
+    xStrength: 'How far columns shift per step (0.1–1).',
+    xScale: 'How quickly the column profile varies across the matrix (0.1–4).',
     ySpeed: 'How fast the row profile scrolls (−2–2); negative reverses it.',
-    yAmplitude: 'How far rows shift per step (0.1–1).',
-    yFrequency: 'How quickly the row profile varies down the matrix (0.1–4).',
+    yStrength: 'How far rows shift per step (0.1–1).',
+    yScale: 'How quickly the row profile varies down the matrix (0.1–4).',
     displacement: 'Overall shift strength (0–4), capped at one pixel per frame; bass boosts it.',
     endpointSpeed: 'How fast the line endpoints wander (0–2); mids speed them up.',
     colorSpeed: 'How fast the palette sweeps along the line (0–1); treble speeds it up.',
-    persistence: 'Share of the trail kept per frame (0.9–0.9999); 0.999 fades in seconds, 0.9999 in minutes.',
+    trailLength: 'Seconds for the trail to fade to half (0.1–120), at any frame rate. The flow also blurs trails, so a long one lasts until the currents smear it out.',
     seed: 'Picks the noise profiles the trails follow. Every value, 0 included, gives the same flow on every run: it chooses a profile rather than seeding randomness.',
     bass: 'Bass level (0–1) when unwired; raises displacement up to 2.5×.',
     mids: 'Mids level (0–1) when unwired; speeds the endpoints up to 2.5×.',
@@ -2883,7 +2912,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     hAlign: 'Which part of the text sits at X: its left edge, centre or right edge.',
     vAlign: 'Which part of the text sits at Y: its top, middle or bottom.',
     scrollAxis: 'Scroll sideways or up and down.',
-    letterSpacing: 'Blank columns between letters, in pixels.',
+    letterSpacing: 'Blank columns between letters, in font pixels: Size makes the gap grow with the letters.',
+    size: 'Pixel scale, 1 to 4: each pixel of the 3×5 font is drawn this many pixels square, so 2 is 6×10 letters for a 32-row panel. Gaps and line spacing grow with it.',
   },
   Line: {
     units: 'How the ends are read: 0–1, where 0 is the first pixel and 1 the last, or Pixels, which take expressions such as center_x or max_x.',
@@ -2899,7 +2929,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     cx: 'Centre X: 0 (just off the left edge) to 1 (just off the right), or a pixel column when Units is Pixels.',
     cy: 'Centre Y: 0 (just off the top) to 1 (just off the bottom), or a pixel row when Units is Pixels.',
     size: 'Half-height in pixels; for a polygon, the distance from centre to a corner. With Scale with matrix on, it is pixels on a 16-pixel matrix and grows or shrinks with the matrix.',
-    scaleWithMatrix: 'Grow or shrink Size with the matrix\'s shorter side, tuned against 16 pixels, so the shape keeps its proportion on any panel. Off keeps Size as an exact pixel count.',
+    scaleWithMatrix: 'Grow or shrink Size with the matrix\'s shorter side, or a one-row strip\'s length, tuned against 16 pixels, so the shape keeps its proportion on any panel. Off keeps Size as an exact pixel count.',
     aspect: 'Width as a multiple of height for rectangles and ellipses. 1 is square.',
     sides: 'Corners on the polygon. Fractions morph smoothly, so 3.5 is halfway to a square.',
     rotation: 'Turn the shape, in degrees.',
@@ -3250,7 +3280,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     minTime: 'Minimum seconds a pattern stays before the show may switch on a beat.',
     paletteMode: 'Mood picks a palette per song section, Cycle rotates palettes, Fixed keeps one palette.',
     fixedPalette: 'The palette used for the whole show when Palette Mode is Fixed.',
-    useGroupInputs: 'Feed each pattern\'s energy, speed and palette inputs from the music so patterns follow the song. Any other Group Input with a plain name gets its own lane in Edit lanes.',
+    useGroupInputs: 'Feed each pattern\'s reactivity, speed and palette inputs from the music so patterns follow the song. Any other Group Input with a plain name gets its own lane in Edit lanes.',
     showInMainPreview: 'Also draw the running show in the main preview. Off keeps the main preview on the graph while the body plays.',
   },
   SDCard: {
@@ -3374,37 +3404,41 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     bass: 'Bass level (0–1) when unwired: picks the palette colour and sets brightness.',
   },
   BassRings: {
-    speed: 'Base ring travel rate (0–1); bass and reactivity multiply it.',
+    speed: 'Base ring travel rate (0–1; 0.5 is the default pace, 1 twice as fast); bass and reactivity multiply it.',
   },
   MidrangeWaves: {
-    speed: 'Base wave motion rate (0–1); mids and reactivity multiply it.',
+    speed: 'Base wave motion rate (0–1; 0.5 is the default pace, 1 twice as fast); mids and reactivity multiply it.',
   },
   MidrangeBloom: {
-    speed: 'Base bloom rotation rate (0–1); mids and reactivity multiply it.',
+    speed: 'Base bloom rotation rate (0–1; 0.5 is the default pace, 1 twice as fast); mids and reactivity multiply it.',
   },
   TrebleSparks: {
     density: 'How many sparks spawn per frame as a share of the matrix (0–1); treble multiplies it.',
   },
   TreblePrism: {
-    speed: 'Base shard motion rate (0–1); treble and reactivity multiply it.',
+    speed: 'Base shard motion rate (0–1; 0.5 is the default pace, 1 twice as fast); treble and reactivity multiply it.',
   },
   AudioCascade: {
-    speed: 'Base ribbon flow rate (0–1); all three bands and reactivity multiply it.',
+    speed: 'Base ribbon flow rate (0–1; 0.5 is the default pace, 1 twice as fast); all three bands and reactivity multiply it.',
   },
   VocalAurora: {
-    speed: 'Curtain drift rate (0–1); vocal level speeds it up. Silence input dims the frame to black.',
+    speed: 'Curtain drift rate (0–1; 0.5 is the default pace, 1 twice as fast); vocal level speeds it up. Silence input dims the frame to black.',
   },
   EmberPulse: {
-    speed: 'Flicker rate (0–1). Bass heats the centre columns, treble the edges; each beat bursts.',
+    speed: 'Flicker rate (0–1; 0.5 is the default pace, 1 twice as fast). Bass heats the centre columns, treble the edges; each beat bursts.',
+    colorSource: 'Heat colours the fire with FastLED’s HeatColor ramp, black through red and yellow to white; Palette reads the heat through the palette instead, coolest to hottest. A wired palette always does.',
+    palette: 'Palette the heat runs through, coolest first, when Color is Palette.',
   },
   TurbulentBloom: {
-    speed: 'Base turbulence rate (0–1); treble drives fast jitter, mids slow drift, bass pulses brightness.',
+    speed: 'Base turbulence rate (0–1; 0.5 is the default pace, 1 twice as fast); treble drives fast jitter, mids slow drift, bass pulses brightness.',
   },
   GravityWell: {
-    speed: 'Well orbit and ring wave rate (0–1); bass packs more rings toward the well.',
+    speed: 'Well orbit and ring wave rate (0–1; 0.5 is the default pace, 1 twice as fast); bass packs more rings toward the well.',
+    colorSource: 'Palette colours the rings by their distance from the well; Solid uses the R, G, B colour. A wired palette always colours, and a wired Color replaces both.',
+    palette: 'Palette the rings take by distance from the well, nearest first, when Color is Palette.',
   },
   PrismStorm: {
-    speed: 'Shard drift rate (0–1); mids speed it up, treble sharpens the grain, each hi-hat hit snaps the angle.',
+    speed: 'Shard drift rate (0–1; 0.5 is the default pace, 1 twice as fast); mids speed it up, treble sharpens the grain, each hi-hat hit snaps the angle.',
   },
   SampleHold: {
     value: 'Number latched on each Trigger pulse, when nothing is wired into Value.',
@@ -3419,7 +3453,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     sourceId: 'Which audio provider this node reads, chosen in the body: microphone, line input or music player.',
   },
   ButtonBank: {
-    buttons: 'The buttons, each with a name and GPIO, edited in the body. Every entry becomes an output port.',
+    buttons: 'The buttons, each with a name, a GPIO and a pull-up, edited in the body. Every entry becomes an output port, true while that button is held.',
   },
   RGBToHSV: {
     r: 'Red of the colour to convert, 0 to 255, when neither the Color port nor R is wired.',
@@ -3449,15 +3483,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
 export function propertyDescription(nodeType: string, key: string): string | undefined {
   return PROPERTY_DESCRIPTIONS_OVERRIDES[nodeType]?.[key] ?? PROPERTY_DESCRIPTIONS[key]
 }
-
-/*
- * On an audio-reactive pattern `energy` is how strongly the audio moves the
- * picture, not a loudness level like Audio Features' Energy output, so it is
- * shown as reactivity. Every pattern that carries the property reads it so.
- */
-const REACTIVITY_LABELS = Object.fromEntries(AUDIO_REACTIVE_DEFINITIONS
-  .filter((definition) => definition.defaultProperties?.energy !== undefined)
-  .map((definition) => [definition.type, { energy: 'reactivity' }]))
 
 /** The two colour triples of a gradient or blend node, named by channel and end. */
 const COLOR_PAIR_LABELS: Record<string, string> = {
@@ -3768,6 +3793,9 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     flashMode: 'mode',
     colorSource: 'color',
   },
+  DanceFlash: { colorSource: 'color' },
+  EmberPulse: { colorSource: 'color' },
+  GravityWell: { colorSource: 'color' },
   // On the pool patterns decay, thickness and size are multipliers of a
   // ring's or blob's lifetime, width and radius, not rates.
   KickShock: {
@@ -3796,12 +3824,17 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   ColorTrails: {
     injectionMode: 'injection',
     flowMode: 'flow',
+    flowSpeed: 'flow speed',
+    flowStrength: 'flow strength',
+    flowScale: 'flow scale',
+    independentAxes: 'independent axes',
     xSpeed: 'X speed',
-    xAmplitude: 'X amplitude',
-    xFrequency: 'X frequency',
+    xStrength: 'X strength',
+    xScale: 'X scale',
     ySpeed: 'Y speed',
-    yAmplitude: 'Y amplitude',
-    yFrequency: 'Y frequency',
+    yStrength: 'Y strength',
+    yScale: 'Y scale',
+    trailLength: 'trail length (s)',
     endpointSpeed: 'endpoint speed',
     colorSpeed: 'color speed',
     // Not a random seed: 0 is a profile like any other (see its tooltip).
@@ -3994,7 +4027,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   RTCInput: {
     timeSource: 'time source',
     ntpServer: 'NTP server',
-    timezoneOffsetMinutes: 'UTC offset (min)',
+    timeZone: 'time zone',
     startYear: 'year',
     startMonth: 'month',
     startDay: 'day',
@@ -4092,9 +4125,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
 }
 
 /** Per-node overrides for a property's displayed label (defaults to the raw key). */
-export const PROPERTY_LABELS: Record<string, Record<string, string>> = Object.fromEntries(
-  [...new Set([...Object.keys(REACTIVITY_LABELS), ...Object.keys(EXPLICIT_PROPERTY_LABELS)])]
-    .map((type) => [type, { ...REACTIVITY_LABELS[type], ...EXPLICIT_PROPERTY_LABELS[type] }]))
+export const PROPERTY_LABELS: Record<string, Record<string, string>> = EXPLICIT_PROPERTY_LABELS
 
 /**
  * Display text for a node's property row (StudioNode's inline editors).
@@ -4120,7 +4151,7 @@ export function propertyLabel(nodeType: string, key: string, properties?: Record
 // properties use expressions when their ordinary editor is a free-entry number;
 // bounded sliders stay deliberately simple and predictable.
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
-  'MatrixOutput', 'MicInput', 'LineInput', 'ButtonInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
+  'MatrixOutput', 'MicInput', 'LineInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
   'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput', 'WebRemoteInput',
   'MidiInput', 'SDCard', 'EthernetModule', 'RtcModule', 'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
@@ -4255,7 +4286,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   RTCInput: [
     { key: 'source', label: 'Clock Source', keys: ['timeSource'] },
-    { key: 'network', label: 'NTP', keys: ['ntpServer', 'timezoneOffsetMinutes'] },
+    { key: 'network', label: 'NTP', keys: ['ntpServer', 'timeZone'] },
     { key: 'manualStart', label: 'Manual Start', keys: ['startYear', 'startMonth', 'startDay', 'startHour', 'startMinute', 'startSecond'] },
   ],
   // Enable and Require Synced Time decide whether the schedule runs at all,
@@ -4366,19 +4397,22 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'response', label: 'Response', keys: ['gain', 'smoothing', 'tilt'] },
     { key: 'peaks', label: 'Peak Dots', keys: ['peakHold', 'peakGravity'] },
     { key: 'waterfall', label: 'Waterfall', keys: ['waterfallSpeed'] },
-    { key: 'threeBand', label: 'Three Band', keys: ['energy', 'speed', 'mirror'] },
+    { key: 'threeBand', label: 'Three Band', keys: ['reactivity', 'speed', 'mirror'] },
   ],
   ClockDisplay: [
-    { key: 'display', label: 'Display', keys: ['displayMode', 'units', 'x', 'y', 'hAlign', 'vAlign', 'radius', 'scaleWithMatrix'] },
+    { key: 'display', label: 'Display', keys: ['displayMode', 'units', 'x', 'y', 'hAlign', 'vAlign', 'size', 'radius', 'scaleWithMatrix'] },
     { key: 'transport', label: 'Transport', keys: ['run', 'reset', 'durationSec'] },
   ],
   ColorTrails: [
     { key: 'audio', label: 'Audio', keys: ['bass', 'mids', 'treble'] },
     { key: 'style', label: 'Style', keys: ['injectionMode', 'flowMode'] },
-    { key: 'xFlow', label: 'Column Flow', keys: ['xSpeed', 'xAmplitude', 'xFrequency'] },
-    { key: 'yFlow', label: 'Row Flow', keys: ['ySpeed', 'yAmplitude', 'yFrequency'] },
+    // Linked, Flow shows its three rows and the axis groups drop out;
+    // Independent axes swaps them (colorTrailsPropertyEnabled).
+    { key: 'flow', label: 'Flow', keys: ['flowSpeed', 'flowStrength', 'flowScale', 'independentAxes'] },
+    { key: 'xFlow', label: 'Column Flow', keys: ['xSpeed', 'xStrength', 'xScale'] },
+    { key: 'yFlow', label: 'Row Flow', keys: ['ySpeed', 'yStrength', 'yScale'] },
     { key: 'motion', label: 'Motion', keys: ['displacement', 'endpointSpeed'] },
-    { key: 'color', label: 'Color & Trails', keys: ['colorSpeed', 'persistence', 'palette'] },
+    { key: 'color', label: 'Color & Trails', keys: ['colorSpeed', 'trailLength', 'palette'] },
     { key: 'randomness', label: 'Randomness', keys: ['seed'] },
   ],
   Animartrix: [
@@ -4482,7 +4516,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   Text: [
-    { key: 'text', label: 'Text', keys: ['text', 'letterSpacing', 'wrap'] },
+    { key: 'text', label: 'Text', keys: ['text', 'size', 'letterSpacing', 'wrap'] },
     { key: 'position', label: 'Position', keys: ['units', 'x', 'y', 'hAlign', 'vAlign'] },
     { key: 'scroll', label: 'Scroll', keys: ['scroll', 'scrollAxis'] },
   ],
@@ -4534,7 +4568,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   KickShock: [
     { key: 'drums', label: 'Drums', keys: ['kick', 'snare', 'hihat'] },
-    { key: 'motion', label: 'Motion', keys: ['energy', 'speed'] },
+    { key: 'motion', label: 'Motion', keys: ['reactivity', 'speed'] },
     { key: 'rings', label: 'Rings', keys: ['count', 'decay', 'thickness', 'spawnSpread', 'tiles'] },
     { key: 'color', label: 'Color', keys: ['palette', 'blendMode'] },
   ],
@@ -4544,13 +4578,13 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'color', label: 'Color', keys: ['palette', 'blendMode'] },
   ],
   RainRipples: [
-    { key: 'motion', label: 'Motion', keys: ['energy', 'speed'] },
+    { key: 'motion', label: 'Motion', keys: ['reactivity', 'speed'] },
     { key: 'ripples', label: 'Ripples', keys: ['count', 'decay', 'thickness', 'spawnSpread'] },
     { key: 'color', label: 'Color', keys: ['palette', 'blendMode'] },
   ],
   SpectraMosaic: [
     { key: 'audio', label: 'Audio', keys: ['bass', 'mids', 'treble'] },
-    { key: 'motion', label: 'Motion', keys: ['energy', 'speed', 'tiles'] },
+    { key: 'motion', label: 'Motion', keys: ['reactivity', 'speed', 'tiles'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   FormatNumber: [
@@ -4618,7 +4652,6 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   LineInput: new Set(['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout']),
   DMXInput: new Set(['dmxTxPin', 'dmxRxPin', 'dmxEnablePin']),
   MidiInput: new Set(['midiRxPin']),
-  ButtonInput: new Set(['pin']),
   TouchButtonInput: new Set(['pin']),
   ButtonBank: new Set(['pin']),
   PotInput: new Set(['pin']),
@@ -4714,7 +4747,7 @@ export function gpioRequirementForProperty(
   // Trig is driven, Echo is read; the module drives Echo both ways, so no pull-up.
   if (nodeType === 'DistanceInput') return { capability: key === 'trigPin' ? 'digitalOutput' : 'digitalInput', pullup: false }
   if (nodeType === 'EncoderInput') return { capability: 'digitalInput', pullup: encoderUsesPullup(props) }
-  if (nodeType === 'ButtonInput' || nodeType === 'ButtonBank') {
+  if (nodeType === 'ButtonBank') {
     return { capability: 'digitalInput', pullup: props.pullup !== false }
   }
   if (nodeType === 'DMXInput' && key === 'dmxRxPin') {
@@ -5216,6 +5249,7 @@ export function showsDisabledProperties(nodeType: string): boolean {
 export function isPropertyEnabled(
   nodeType: string, key: string, properties: Record<string, unknown>, wiredInputs?: ReadonlySet<string>,
 ): boolean {
+  if (nodeType === 'ColorTrails') return colorTrailsPropertyEnabled(key, properties)
   if (nodeType === 'PatternMaster' && key === 'bluetoothName') return properties.musicSource === 'Bluetooth'
   if (nodeType === 'PatternMaster' && RADIO_GROUP_KEYS.has(key)) return properties.musicSource === 'Internet Radio'
   // A channel the selected board does not have has no pin to wire and no load to dim.
@@ -5272,7 +5306,7 @@ export function isPropertyEnabled(
     }
   }
   if (nodeType === 'RTCInput') {
-    if (key === 'ntpServer' || key === 'timezoneOffsetMinutes') return String(properties.timeSource ?? 'Compile Time') === 'NTP'
+    if (key === 'ntpServer' || key === 'timeZone') return String(properties.timeSource ?? 'Compile Time') === 'NTP'
     if (key.startsWith('start')) return String(properties.timeSource ?? 'Compile Time') === 'Manual'
   }
   if (nodeType === 'ScheduleTrigger') {
@@ -5398,6 +5432,8 @@ export function isPropertyEnabled(
     // Scale with matrix sizes the analogue face, so it goes with Radius.
     if (key === 'radius' || key === 'scaleWithMatrix') return analog
     if (key === 'hAlign' || key === 'vAlign') return !analog
+    // Plain Analog draws no digits; Analog + Date draws the date at Size.
+    if (key === 'size') return mode !== 'Analog'
     if (key === 'durationSec') return mode === 'Timer'
     if (key === 'run' || key === 'reset') return transport
   }
@@ -5508,12 +5544,15 @@ export function isPropertyEnabled(
     if (key === 'bassWeight' || key === 'midsWeight' || key === 'trebleWeight') return weighted
     if (key === 'hueStart' || key === 'hueSpan') return !weighted
   }
-  // Beat Flash reads its R, G, B or its palette, as Color chooses.
-  if (nodeType === 'BeatFlash') {
-    const palette = properties.colorSource === 'palette'
+  // Beat Flash and Dance Flash read their R, G, B or their palette, as Color
+  // chooses; Gravity Well too, with Palette its default.
+  if (nodeType === 'BeatFlash' || nodeType === 'DanceFlash' || nodeType === 'GravityWell') {
+    const palette = (properties.colorSource ?? (nodeType === 'GravityWell' ? 'palette' : 'solid')) === 'palette'
     if (key === 'palette') return palette
     if (key === 'r' || key === 'g' || key === 'b') return !palette
   }
+  // Ember Pulse reads its palette only on Palette; Heat is the HeatColor ramp.
+  if (nodeType === 'EmberPulse' && key === 'palette') return properties.colorSource === 'palette'
   if (nodeType === 'SpectrumVisualizer') {
     const style = String(properties.style ?? 'Bars')
     const threeBand = style === 'Three Band'
@@ -5521,7 +5560,7 @@ export function isPropertyEnabled(
     if (key === 'peakHold' || key === 'peakGravity') return style !== 'Waterfall' && !threeBand
     // Three Band eases its unwired bands with Smoothing; it has no Tilt.
     if (key === 'tilt') return !threeBand
-    if (key === 'energy' || key === 'speed' || key === 'mirror') return threeBand
+    if (key === 'reactivity' || key === 'speed' || key === 'mirror') return threeBand
   }
   if (nodeType === 'FrameWarp' && key === 'motionSpeed') return String(properties.motion ?? 'swirl') !== 'none'
   if (nodeType === 'FrameFeedback') {

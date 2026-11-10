@@ -13,6 +13,7 @@ import { findDeployBlockingErrors, findPinConflicts } from '../../../utils/valid
 import { buildHardwareManifest, collectPinUses } from '../../../build/hardwareManifest'
 import { itemLayouts } from '../../../components/BuildDiagram/physicalDiagramLayout'
 import { splitAcrossPinsForGraph } from '../../../build/pins/splitAcrossPins'
+import { singleButtonRow } from '../../player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {
@@ -107,7 +108,7 @@ describe('lane pins as claims', () => {
   })
 
   it('reports a lane pin another part holds', () => {
-    const conflicts = findPinConflicts([split, node('btn', 'ButtonInput', { pin: 6 })])
+    const conflicts = findPinConflicts([split, node('btn', 'ButtonBank', { buttons: singleButtonRow(6) })])
     expect(conflicts.join('\n')).toMatch(/lane 3 data pin/)
   })
 

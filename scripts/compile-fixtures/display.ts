@@ -11,6 +11,7 @@ import { assertWireable } from '../../src/test-utils/assertWireable'
 import { addDisplayScreen, createDisplayDocument, addDisplayWidget, adoptDisplayWidgets, displayContainerInnerBounds } from '../../src/state/displays/displayEditor'
 import { applyDisplayTemplate } from '../../src/state/displays/displayTemplates'
 import { displayWidgetSources } from '../../src/state/displays/displayRegistry'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../src/state/player/buttonBank'
 import type { DisplayDocument, DisplayDocumentRegistry } from '../../src/state/displays/displayDocument'
 import { customDisplayAssetByteLength, customDisplayAssetRequests } from '../../src/state/displays/customDisplayResources'
 import { CYD_TOUCH_DISPLAY } from '../../src/build/boards/integratedBoardHardware'
@@ -659,9 +660,9 @@ const sketches: Record<string, string> = {
   }),
   'isolated-tft': generateCpp([board(), fixedPanel(), rtc()], [edge('rtc', 'display', 'fixed-tft', 'display')]),
   headless: generateShowSketch(
-    [board(), output(), node('button', 'ButtonInput', { pin: 2 }), controls('patternNext'),
+    [board(), output(), node('button', 'ButtonBank', { buttons: singleButtonRow(2) }), controls('patternNext'),
       node('collection', 'PatternCollection', { patternIds: ['pattern', 'pattern'] }), node('show', 'PatternSlideshow')],
-    [edge('button', 'pressed', 'controls', 'patternNext'), edge('controls', 'controls', 'show', 'controls'),
+    [edge('button', FIRST_BUTTON_HANDLE, 'controls', 'patternNext'), edge('controls', 'controls', 'show', 'controls'),
       edge('collection', 'patternset', 'show', 'patternset'), edge('show', 'frame', 'out', 'frame')],
     groups,
   ),

@@ -303,7 +303,7 @@ control generators share this reader through `controlInputCpp`.
 `TouchButtonInput` is the exact Seeed Grove Touch Sensor (SKU 101020037) built
 around a TTP223-BA6. It publishes one `touched` boolean. The fitted board is in
 the factory momentary, active-high mode, so firmware configures SIG as plain
-`INPUT` and reads HIGH while touched; it must not reuse `ButtonInput`'s optional
+`INPUT` and reads HIGH while touched; it must not reuse a Button row's optional
 internal pull-up because the sensor actively drives the line. The catalogue's
 `touchSensor` block owns polarity, mode, 2.0–5.5 V range and 60–220 ms response
 range. The Build Diagram powers VCC from 3V3 so SIG remains in the controller's
@@ -481,16 +481,20 @@ use `BoardPinPicker`, which filters by required capability, distinguishes
 recommended and caution pins, detects conflicts across root hardware, and
 allows an explicit custom GPIO. The part's other settings come from
 `PART_FIELDS` (`src/build/parts/partFields.ts`): selects, number fields
-bounded through `ClampedNumberInput`, and toggles such as a Button's or an
-Encoder's internal pull-up, which is a wiring fact and so lives beside the pin
-as it does on each Button Bank row. A bare encoder (the SR1230) hides that
+bounded through `ClampedNumberInput`, and toggles such as an Encoder's
+internal pull-up, which is a wiring fact and so lives beside the pin as it
+does on each Button row. A bare encoder (the SR1230) hides that
 toggle: its catalogue `encoder` block says it has no pull-ups of its own, so
 `encoderUsesPullup` always answers yes, and its pulses and detents set how much
 each transition adds to Position. Every field carries its
 `propertyDescription` as its tooltip.
 
-`ButtonBank` is the compact graph form for several independent momentary
-buttons. Its final hollow output is a UI-only invitation. Connecting that
+`ButtonBank` is the Button node, labelled Button, for one or several
+independent momentary buttons; a single button is a one-row Button, so there
+is no separate one-button node and a button grows a second without
+rewiring the first. It starts with one row, Button 1 (`firstButtonBankRow`),
+on a pin the board's plan hands out. Its final hollow output, Add button…, is
+a UI-only invitation. Connecting that
 socket materializes a stable boolean output, copies the destination input's
 label (for example **Play / Pause**), allocates a free board-compatible GPIO,
 and exposes another empty socket in the same undoable transaction. Disconnecting

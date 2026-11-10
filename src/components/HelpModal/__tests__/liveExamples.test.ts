@@ -40,7 +40,8 @@ describe('node-reference live examples', () => {
         // IR Remote mints one output per learned key — its library entry
         // declares only the trailing Learn socket, which an example must
         // never wire.
-        const sourceButtons = (source?.properties as Record<string, unknown> | undefined)?.buttons
+        // A Button's rows default to one, so an example may leave them unset.
+        const sourceButtons = ({ ...libraryDefaults(source?.type ?? ''), ...(source?.properties ?? {}) } as Record<string, unknown>).buttons
         const sourceOutputs = source?.type === 'IRRemoteInput'
           ? irRemoteOutputs(sourceButtons)
           : source?.type === 'ButtonBank' ? buttonBankOutputs(sourceButtons, false)

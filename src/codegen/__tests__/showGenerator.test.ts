@@ -10,6 +10,7 @@ import { POLINE_HELPER_CPP } from '../helpers/polineHelperCpp'
 import { NODE_LIBRARY, libraryDefaults, propertyMeta } from '../../state/nodeLibrary'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import type { GroupRegistry } from '../../state/graphEvaluator'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../state/player/buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}, inputs: unknown[] = [], outputs: unknown[] = []): StudioNode {
   return { id, type: 'studioNode', position: { x: 0, y: 0 },
@@ -76,13 +77,13 @@ describe('showGenerator', () => {
       node('stray', 'PatternSlideshow'),
       node('stray-out', 'MatrixOutput', { width: 4, height: 4, dataPin: 3 }),
       ...nodes,
-      node('btn', 'ButtonInput', { pin: 12 }),
+      node('btn', 'ButtonBank', { buttons: singleButtonRow(12) }),
       node('ctl', 'ControlMap', { controls: ['patternNext'] }),
     ]
     const mixedEdges = [
       edge('stray-frame', 'stray', 'frame', 'stray-out', 'frame'),
       ...edges,
-      edge('press', 'btn', 'pressed', 'ctl', 'patternNext'),
+      edge('press', 'btn', FIRST_BUTTON_HANDLE, 'ctl', 'patternNext'),
       edge('command', 'ctl', 'controls', 'pm', 'controls'),
     ]
 
@@ -594,11 +595,11 @@ describe('showGenerator', () => {
   })
 
   it('takes a wired Beat over the Audio wire\'s beat, as the Music Player does', () => {
-    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const button = node('btn', 'ButtonBank', { buttons: singleButtonRow(12) })
     const show = withSlideshow(
       { audioReactive: true, minTime: 5, maxTime: 30, beatTransitions: true },
       [micBoard, ...audioSource('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 }), button],
-      [edge('ea', 'mic', 'audio', 'pm', 'audio'), edge('eb', 'btn', 'pressed', 'pm', 'beat')],
+      [edge('ea', 'mic', 'audio', 'pm', 'audio'), edge('eb', 'btn', FIRST_BUTTON_HANDLE, 'pm', 'beat')],
     )
     const cpp = generateShowSketch(show.nodes, show.edges, groups)
     const beatNow = cpp.match(/const bool beatNow = (.+);/)
@@ -609,12 +610,12 @@ describe('showGenerator', () => {
   })
 
   it('waits on a wired Beat with no audio host, and lets Player Particles burst on it', () => {
-    const button = node('btn', 'ButtonInput', { pin: 12 })
+    const button = node('btn', 'ButtonBank', { buttons: singleButtonRow(12) })
     const fx = node('fx', 'PlayerParticles', { enabled: true, intensity: 0.8, energyGate: 0.4 })
     const show = withSlideshow(
       { audioReactive: true, minTime: 5, maxTime: 30, beatTransitions: true },
       [micBoard, button, fx],
-      [edge('eb', 'btn', 'pressed', 'pm', 'beat'), edge('ef', 'fx', 'particleFx', 'pm', 'particleFx')],
+      [edge('eb', 'btn', FIRST_BUTTON_HANDLE, 'pm', 'beat'), edge('ef', 'fx', 'particleFx', 'pm', 'particleFx')],
     )
     const cpp = generateShowSketch(show.nodes, show.edges, groups)
     expect(cpp).not.toContain('_audioBeat')
@@ -779,8 +780,8 @@ describe('showGenerator', () => {
     // The preview reads these wires; the sketch once baked the node's fields,
     // so Help's "a button enables the sparks" did nothing on the board.
     const particleFx = node('pfx', 'PlayerParticles', { enabled: false, style: 'fireworks', intensity: 0.5 })
-    const sparks = node('sparks', 'ButtonInput', { pin: 12 })
-    const roll = node('roll', 'ButtonInput', { pin: 13 })
+    const sparks = node('sparks', 'ButtonBank', { buttons: singleButtonRow(12) })
+    const roll = node('roll', 'ButtonBank', { buttons: singleButtonRow(13) })
     const knob = node('knob', 'PotInput', { pin: 4 })
     const gold = node('gold', 'Color', { color: '#ffb020' })
     const cpp = generateShowSketch(
@@ -789,8 +790,8 @@ describe('showGenerator', () => {
       [...edges,
         edge('ea', 'mic', 'audio', 'pm', 'audio'),
         edge('efx', 'pfx', 'particleFx', 'pm', 'particleFx'),
-        edge('een', 'sparks', 'pressed', 'pfx', 'enabled'),
-        edge('ers', 'roll', 'pressed', 'pfx', 'randomStyle'),
+        edge('een', 'sparks', FIRST_BUTTON_HANDLE, 'pfx', 'enabled'),
+        edge('ers', 'roll', FIRST_BUTTON_HANDLE, 'pfx', 'randomStyle'),
         edge('ein', 'knob', 'value', 'pfx', 'intensity'),
         edge('eco', 'gold', 'color', 'pfx', 'color')],
       groups,
@@ -798,24 +799,24 @@ describe('showGenerator', () => {
 
     // Enabled off on the node, but wired: the overlay ships and the button gates it.
     expect(cpp).toContain('void particleOverlay(')
-    expect(cpp).toContain('if (_audioBeat && (n_sparks_pressed)) {')
-    expect(cpp).toContain('if (n_sparks_pressed) particleOverlay(burstStart, burstStyle, burstColor.r, burstColor.g, burstColor.b, burstIntensity, now);')
+    expect(cpp).toContain('if (_audioBeat && (n_sparks_button_1)) {')
+    expect(cpp).toContain('if (n_sparks_button_1) particleOverlay(burstStart, burstStyle, burstColor.r, burstColor.g, burstColor.b, burstIntensity, now);')
     // Intensity follows the knob while sparks draw.
     expect(cpp).toContain('burstIntensity = constrain(n_knob_value, 0.0f, 1.0f);')
     expect(cpp).toContain('  if (burstStart != 0) burstIntensity = constrain(n_knob_value, 0.0f, 1.0f);')
     // Colour and style roll when a burst starts.
     expect(cpp).toContain('burstColor = n_gold_color;')
-    expect(cpp).toContain('burstStyle = ((n_roll_pressed) ? random8(17) : 3);')
+    expect(cpp).toContain('burstStyle = ((n_roll_button_1) ? random8(17) : 3);')
     expect(cpp).toContain('switch (burstStyle)')
   })
 
   describe('buildPatternRenderers — group-input roles', () => {
-    // A group whose brightness is driven by an `energy` GroupInput.
-    const energyGroups = {
+    // A group whose brightness is driven by a `reactivity` GroupInput.
+    const reactivityGroups = {
       ge: {
         nodes: [
           node('white', 'SolidColor', { r: 255, g: 255, b: 255 }, [], [{ id: 'frame', dataType: 'frame' }]),
-          node('gi', 'GroupInput', { paramId: 'energy' }, [], [{ id: 'out', dataType: 'float' }]),
+          node('gi', 'GroupInput', { paramId: 'reactivity' }, [], [{ id: 'out', dataType: 'float' }]),
           node('bm', 'BrightnessMod', {}, [{ id: 'frame', dataType: 'frame' }, { id: 'brightness', dataType: 'float' }], [{ id: 'frame', dataType: 'frame' }]),
           node('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
         ],
@@ -828,19 +829,19 @@ describe('showGenerator', () => {
     } as unknown as GroupRegistry
 
     it('threads role params into render_pN and resolves the GroupInput to the param', () => {
-      const r = buildPatternRenderers(['ge'], energyGroups, ['energy'])
-      expect(r.params).toEqual(['energy'])
-      expect(r.functions[0]).toContain('void render_p0(uint32_t ms, float energy)')
-      expect(r.functions[0]).toContain('= energy;')   // GroupInput → param
-      const withAudio = buildPatternRenderers(['ge'], energyGroups, ['energy'], true)
-      expect(withAudio.functions[0]).toContain('= energy;') // explicit show role wins over audio alias
+      const r = buildPatternRenderers(['ge'], reactivityGroups, ['reactivity'])
+      expect(r.params).toEqual(['reactivity'])
+      expect(r.functions[0]).toContain('void render_p0(uint32_t ms, float reactivity)')
+      expect(r.functions[0]).toContain('= reactivity;')   // GroupInput → param
+      const withAudio = buildPatternRenderers(['ge'], reactivityGroups, ['reactivity'], true)
+      expect(withAudio.functions[0]).toContain('= reactivity;') // explicit show role wins over audio alias
     })
 
     it('strips group inputs and keeps the bare signature when roles are off', () => {
-      const r = buildPatternRenderers(['ge'], energyGroups)
+      const r = buildPatternRenderers(['ge'], reactivityGroups)
       expect(r.params).toEqual([])
       expect(r.functions[0]).toContain('void render_p0(uint32_t ms)')
-      expect(r.functions[0]).not.toContain('float energy')
+      expect(r.functions[0]).not.toContain('float reactivity')
       expect(r.functions[0]).not.toContain('n_gi_out')
     })
 
@@ -861,9 +862,9 @@ describe('showGenerator', () => {
       },
     } as unknown as GroupRegistry
 
-    it('threads energy + speed in order and resolves a speed GroupInput to the param', () => {
-      const r = buildPatternRenderers(['gs'], speedGroups, ['energy', 'speed'])
-      // No pattern reads energy, so only speed is threaded.
+    it('threads reactivity + speed in order and resolves a speed GroupInput to the param', () => {
+      const r = buildPatternRenderers(['gs'], speedGroups, ['reactivity', 'speed'])
+      // No pattern reads reactivity, so only speed is threaded.
       expect(r.params).toEqual(['speed'])
       expect(r.functions[0]).toContain('void render_p0(uint32_t ms, float speed)')
       expect(r.functions[0]).toContain('= speed;')   // GroupInput → speed param
@@ -963,11 +964,11 @@ describe('showGenerator', () => {
       expect(cpp).toContain('_sum += 0.0f;')              // no invented hardware signal
     })
 
-    it('follows host audio with an undriven energy role and binds no retired band names', () => {
+    it('follows host audio with an undriven reactivity role and binds no retired band names', () => {
       const inputGroups = {
         gi: {
           nodes: [
-            node('in', 'GroupInput', { paramId: 'energy' }, [], [{ id: 'out', dataType: 'float' }]),
+            node('in', 'GroupInput', { paramId: 'reactivity' }, [], [{ id: 'out', dataType: 'float' }]),
             node('old', 'GroupInput', { paramId: 'bass' }, [], [{ id: 'out', dataType: 'float' }]),
             node('bp', 'BassPulse', {}, [{ id: 'bass', dataType: 'float' }], [{ id: 'frame', dataType: 'frame' }]),
             node('go', 'GroupOutput'),
@@ -1036,6 +1037,95 @@ describe('show sketch output geometry', () => {
     expect(cpp).toContain('#define WIDTH    60')
     expect(cpp).toContain('#define HEIGHT   1')
   })
+
+  // A 5 m reel at 144/m is 720 LEDs, and a chain may reach the matrix total.
+  it('takes a long string its whole length, up to the matrix total', () => {
+    for (const ledCount of [720, 4096]) {
+      const cpp = show({ form: 'strip', ledCount, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' })
+      expect(cpp).toContain(`#define WIDTH    ${ledCount}`)
+      expect(cpp).toContain('#define HEIGHT   1')
+      expect(cpp).toContain('#define NUM_LEDS (WIDTH * HEIGHT)')
+    }
+    // Past it, the run stops at the cap rather than at 300.
+    expect(show({ form: 'strip', ledCount: 9000, dataPin: 5 })).toContain('#define WIDTH    4096')
+  })
+
+  /*
+   * A string's WIDTH is its length, so an array a pattern sizes by WIDTH or
+   * NUM_LEDS on the loop stack grows with the chain: at 720 LEDs Waveform's
+   * two float columns alone took 5.6 KB of the ESP32's 8 KB loop task. Every
+   * pattern, field and composite node, at each option of the selects that
+   * pick what it emits, is collected into a show on a 4096-LED string, and no
+   * function-local declaration may size an array by the canvas. A `static`
+   * one is counted by the RAM estimate instead.
+   */
+  it('puts no canvas-sized array on the loop stack of any collected pattern', () => {
+    // A statement that starts with a type declares; each declarator split at
+    // top-level commas is checked for a size naming the canvas.
+    const declares = /^(?:const\s+)?(?:float|double|int|unsigned|long|short|char|bool|CRGB|CHSV|u?int(?:8|16|32|64)_t)\s+(.*)$/s
+    const sizedByCanvas = /^\w+\s*\[[^\]]*\b(?:WIDTH|HEIGHT|NUM_LEDS|RENDER_WIDTH|RENDER_HEIGHT|RENDER_LEDS)\b/
+    const declarators = (text: string) => {
+      const parts: string[] = []
+      let depth = 0, start = 0
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i]
+        if (ch === '(' || ch === '[' || ch === '{') depth++
+        else if (ch === ')' || ch === ']' || ch === '}') depth--
+        else if (ch === ',' && depth === 0) { parts.push(text.slice(start, i)); start = i + 1 }
+      }
+      return [...parts, text.slice(start)].map((part) => part.trim())
+    }
+    const stackArrays = (cpp: string) => cpp.split('\n')
+      .filter((line) => /^\s/.test(line))
+      .flatMap((line) => line.split(/[;{}]/))
+      .flatMap((statement) => {
+        const match = declares.exec(statement.trim())
+        return match ? declarators(match[1]).filter((part) => sizedByCanvas.test(part)) : []
+      })
+    // The check itself, on the shapes it has to catch and the one it must not.
+    expect(stackArrays('  float _yc=(HEIGHT-1)*0.5f,_wvV[WIDTH],_wvY[WIDTH];')).toEqual(['_wvV[WIDTH]', '_wvY[WIDTH]'])
+    expect(stackArrays('      uint8_t _rule=(uint8_t)constrain((int)floorf(x),0,255), _row[WIDTH];')).toEqual(['_row[WIDTH]'])
+    expect(stackArrays('static float g[NUM_LEDS];')).toEqual([])
+    expect(stackArrays('  { static float _a[NUM_LEDS]; float _v = _a[WIDTH-1];')).toEqual([])
+
+    const libNode = (id: string, nodeType: string, properties: Record<string, unknown> = {}) => {
+      const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)
+      return node(id, nodeType, { ...libraryDefaults(nodeType), ...properties }, def?.inputs ?? [], def?.outputs ?? [])
+    }
+    const offenders: string[] = []
+    let cases = 0
+    for (const def of NODE_LIBRARY) {
+      if (!['pattern', 'composite', 'field'].includes(def.category)) continue
+      const port = def.outputs.find((output) => output.dataType === 'frame' || output.dataType === 'field')
+      if (!port) continue
+      const variants: Record<string, unknown>[] = [{}]
+      for (const key of Object.keys(libraryDefaults(def.type))) {
+        const meta = propertyMeta(def.type, key)
+        if (meta?.control === 'select' && !/palette/i.test(key)) variants.push(...meta.options.map((option) => ({ [key]: option })))
+      }
+      for (const variant of variants) {
+        cases++
+        const nodes = [libNode('n', def.type, variant)]
+        const edges: StudioEdge[] = []
+        let frame = ['n', port.id]
+        if (port.dataType === 'field') {
+          nodes.push(libNode('paint', 'FieldToFrame'))
+          edges.push(edge('paint', 'n', port.id, 'paint', 'field'))
+          frame = ['paint', 'frame']
+        }
+        const groups = { p: { nodes: [...nodes, node('go', 'GroupOutput')], edges: [...edges, edge('go', frame[0], frame[1], 'go', 'frame')] } }
+        const cpp = generateShowSketch([
+          node('pc', 'PatternCollection', { patternIds: ['p'] }),
+          node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 0 }),
+          node('out', 'MatrixOutput', { form: 'strip', ledCount: 4096, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
+        ], [edge('e1', 'pc', 'patternset', 'pm', 'patternset'), edge('e2', 'pm', 'frame', 'out', 'frame')], groups as unknown as GroupRegistry)
+        const found = stackArrays(cpp)
+        if (found.length) offenders.push(`${def.type} ${JSON.stringify(variant)}: ${found.join(' | ')}`)
+      }
+    }
+    expect(cases).toBeGreaterThan(200)
+    expect(offenders).toEqual([])
+  }, 60_000)
 
   it('still takes a matrix its grid', () => {
     const cpp = show({ form: 'matrix', width: 32, height: 8, dataPin: 5 })
@@ -1404,11 +1494,11 @@ describe('displays in a show controller', () => {
     // Three buttons and no screen at all: the cursor, the bundle type and the
     // show's own advance all have to exist without a display asking for them.
     const controlNodes = [
-      node('btn', 'ButtonInput', { pin: 12 }),
+      node('btn', 'ButtonBank', { buttons: singleButtonRow(12) }),
       node('ctl', 'ControlMap', { controls: ['patternNext'] }),
     ]
     const controlEdges = [
-      edge('press', 'btn', 'pressed', 'ctl', 'patternNext'),
+      edge('press', 'btn', FIRST_BUTTON_HANDLE, 'ctl', 'patternNext'),
       edge('cmd', 'ctl', 'controls', 'pm', 'controls'),
     ]
 

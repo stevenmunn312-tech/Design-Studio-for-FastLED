@@ -138,11 +138,11 @@ today:
 
 ```ts
 const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set([
-  'Board', 'MicInput', 'LineInput', 'ButtonInput', 'ButtonBank', 'PotInput', …
+  'Board', 'MicInput', 'LineInput', 'ButtonBank', 'PotInput', …
 ])
 ```
 
-`ButtonInput` is hidden from the node library. Someone who added a button from
+The Button (`ButtonBank`) is hidden from the node library. Someone who added a button from
 Hardware, saw a Button node in their graph, and later searches the library for
 "button" finds nothing — then finds it in Help, which confirms it exists and
 still does not say where it came from.

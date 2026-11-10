@@ -37,7 +37,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   stage's ranges are sized to a laptop microphone at gain 1 hearing music in
   the room (median frame near 0.09, peaks near 0.34), which is far below the
   meter's line-level full scale, so a line input or the player just holds
-  the stage open. Audio Features' Silence reads the same loudness, eased by
+  the stage open. That is why the stage keeps raw Loudness and its own Smooth
+  while Audio Features' Level output (`nodes/audio/audioLevel.ts`) is what
+  a 0–1 input should take: Loudness times a Sensitivity gain set on a room
+  recording, eased over 0.15 s, then clamped. Moving the stage onto Level
+  would change its tuned ranges and stack a second smoother on its own.
+  Audio Features' Silence reads the same loudness, eased by
   its Smoothing, against a Gate on that scale (`AUDIO_SILENCE`), and the
   release builder's silence gate rides on it; a test payload without channel
   meters therefore reads as silence, so rating and release fixtures carry
@@ -171,6 +176,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   (`t*spd*0.8` → `phase*0.8`); terms not multiplied by a rate (a palette
   scroll on bare `t`, particle ages) stay on `t`. A new node with a `speed` or
   level-modulated rate uses the helper on both sides from the start.
+- The audio patterns in `AUDIO_SPEED_NODE_TYPES`
+  (`nodes/audioReactive/audioSpeed.ts`) run at twice their Speed slider,
+  through `audioSpeedRate` and `audioSpeedRateCpp`, so the rate of 1 they were
+  tuned at sits at 0.5 and 1 runs twice as fast. Doubling is exact in binary,
+  so content converts losslessly: a saved value is halved; a wired one by
+  halving what sets it (a Map Range's Out Min and Out Max, the constant of a
+  group's `groupmul` Math), or by a Math ×0.5 on the wire when the source also
+  feeds something else. Unwired, the sketch folds the doubled literal, so it
+  emits the same number as before.
 - Most numeric node inputs are **not** normalised: `num()` in
   `graphEvaluator.ts` passes a wired value straight through, so a raw 0–1 signal
   (an audio band, say) wired into Fire's `sparking` (0–255),
@@ -324,6 +338,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   pattern whose band ports are levels shows on drop through 0.5 band
   defaults. Band and drum ports are `defaultExposedInputs`: they are what
   an audio pattern is for.
+- A band pattern (any pattern with bass, mids or treble ports) also takes an
+  optional Audio input, declared last. While it carries audio, each band port
+  left unwired reads its third of the spectrum, eased, exactly as FFT
+  Analyzer at its defaults would send it (`audioReactive/audioBands.ts`:
+  `audioBands` wraps the pass's `num`, `audioBandsCpp` the emitter's `f`, so
+  the `num(id, 'bass', …)` and `f('bass', …)` calls keep their shape for the
+  fallback parse). A wired band wins, and Audio unwired changes nothing.
+  Call `audioBandsCpp` before the emitter writes a line: it emits the easing
+  block at the node's top level. An Audio wire carrying nothing (a group's
+  unbound input) counts as unwired in the preview, because the sketch drops
+  that wire when it expands the group. Drop-wiring needs nothing extra: a
+  placed band pattern reaches back to the only audio source.
 - A string renders on a canvas one row tall, so a pattern that rises, falls
   or sizes itself by the shorter side has nothing to work with there. Fire
   and Digital Rain default to an `auto` direction that runs along a string
@@ -332,6 +358,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   The sketch resolves `auto` at generation time from the one canvas it
   renders, and from each pass's own `WIDTH`/`HEIGHT` (`IS_ROW_STRING_CPP`,
   folded per template instance) when outputs render on canvases of their own.
+  Centred coordinates follow a narrower rule: only an axis exactly one pixel
+  across changes. `centeredX`/`centeredY` (`state/evaluator/formula.ts`, C++
+  twin `centeredCpp`) read it as 0, its centre, where the matrix formula gave
+  -1 and every centred field sampled its bottom edge; and Shape Field, Path,
+  Fourier Epicycles and Scale with matrix size by `sizingSide`
+  (`SIZING_SIDE_CPP`), the strip's length where the shorter side is one
+  pixel. Two rows and up keep the matrix formulas exactly, so no matrix
+  render moves. A strip is the slice through the middle of the 2D pattern:
+  a circle Path lights where its curve crosses that row.
 - A trail is one knob, `trail`, with one meaning: 0 leaves none and 1 the
   longest. It is a half-life on a log scale, applied by the time that has
   passed, not a share taken off each frame. Confetti, Juggle, Scanner, Flow
@@ -361,6 +396,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   spends its cubed `1 - decay³` per 60th of a second through `timedFadeAmount`
   and `timedFadeCpp`, the same clock and byte carry, so its saved values keep
   their look and still reach black (rounding per frame had stalled them).
+  Color Trails keeps its own fade, inside its integer column pass, because
+  its trails run to minutes: its Trail length is a half-life in seconds
+  (`nodes/audioReactive/colorTrails.ts`), converted from the old per-frame
+  Persistence exactly at 60 fps by `colorTrailsHalfLife`.
   Frame Feedback's ade works the same way, 1 - fade per 60th of a
   second, but carries the unspent fade per ring slot rather than through the
   shared clock: an echo chain is delayFrames passes long, and one carry spent

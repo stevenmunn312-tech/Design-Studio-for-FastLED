@@ -252,14 +252,25 @@ export function dancePreviewTick(seed: number): number {
   return Math.ceil((clock.nextAt + DANCE_FLASH_HOLD_MS / 2000) * 60)
 }
 
-/** Copy `base` and replace the fitted silhouette's pixels. */
+/**
+ * Palette Color runs the palette down the figure, head to foot: art row
+ * `sy` (0–15) reads this index as an amount, `(_sy*255)/15` in the sketch.
+ */
+export function danceFlashPaletteIndex(sy: number): number {
+  return Math.trunc((sy * 255) / (DANCE_SIZE - 1))
+}
+
+/**
+ * Copy `base` and replace the fitted silhouette's pixels with `color`, or
+ * with the colour `color` gives each art row (0 at the top, 15 at the foot).
+ */
 export function stampDanceFlash(
   base: Frame | null,
   width: number,
   height: number,
   figure: number,
   mirror: boolean,
-  color: RGB,
+  color: RGB | ((artRow: number) => RGB),
 ): Frame {
   const frame = base ? cloneFrame(base) : blankFrame(width, height)
   for (let y = 0; y < height; y++) {
@@ -267,9 +278,10 @@ export function stampDanceFlash(
     for (let x = 0; x < width; x++) {
       if (!danceLit(figure, x, y, width, height, mirror)) continue
       const pixel = row[x]
-      pixel.r = color.r
-      pixel.g = color.g
-      pixel.b = color.b
+      const c = typeof color === 'function' ? color(danceSource(x, y, width, height, mirror)!.sy) : color
+      pixel.r = c.r
+      pixel.g = c.g
+      pixel.b = c.b
     }
   }
   return frame

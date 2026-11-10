@@ -110,34 +110,6 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  ButtonInput: {
-    overview: [
-      'Button reads one momentary push-button as a true/false signal. Pressed is true for as long as the button is held, and false otherwise.',
-      'In the preview, the press control on the node stands in for the button, so you can try a trigger patch before anything is wired. On the board the pin uses INPUT_PULLUP by default: wire the button between the pin and ground and a press reads LOW.',
-      'Pressed is a level, not a single pulse. Feed it to Select inputs and switches directly, or through Trigger when you want a toggle, a one-shot, or a count of presses.',
-    ],
-    steps: [
-      'Wire one leg of the button to the GPIO shown and the other to ground.',
-      'Keep Pull-Up on unless your circuit already has its own resistor.',
-    ],
-    outputs: {
-      pressed: 'True while the button is held down.',
-    },
-    propertyNote: 'Pin and Pull-Up describe the wiring for the uploaded sketch. In the browser, the press control on the node drives Pressed.',
-    example: example({
-      featured: 'ButtonInput',
-      title: 'Hold the button to stoke the fire',
-      nodes: {
-        button: ['ButtonInput'],
-        stoke: ['Switch', { a: 0.3, b: 1 }],
-        fire: ['Fire', { fireStyle: 'classic', palette: 'fire', cooling: 70 }],
-      },
-      wires: ['button.pressed > stoke.sel', 'stoke.result > fire.intensity'],
-      explanation: 'Button drives the Select input of Switch, which hands Fire a low intensity of 0.3 at rest and full intensity while the button is held. The fire settles back to embers the moment you let go.',
-      preview: 'The {output} shows a low campfire. Hold the press control on the Button node and the flames roar up the matrix; release it and they die back down.',
-    }),
-  },
-
   TouchButtonInput: {
     overview: [
       'Touch Button reads a capacitive touch module, the Seeed Grove Touch Sensor. Touched is true while a finger is on, or very near, the pad.',
@@ -204,18 +176,19 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
 
   ButtonBank: {
     overview: [
-      'Button Bank collects several push-buttons into one node. Each button you add in its body gets a name, a pin and an output of its own, so a control panel reads as one tidy block instead of a column of separate Button nodes.',
-      'Drag from Connect button… to a node’s input to add a button and wire it in one move. Every output behaves exactly like a Button: true while held, with the pin pulled up and a press reading LOW.',
-      'In the preview, each button row in the body has its own press control.',
+      'Button reads momentary push-buttons as true/false signals. It starts with one button, Button 1, and each button has a name, a pin and an output of its own: true for as long as that button is held, and false otherwise.',
+      'Drag from Add button… to a node’s input to add another button wired to it in one move, so one button grows into a control panel without rewiring the first. On the board each pin uses INPUT_PULLUP by default: wire the button between the pin and ground and a press reads LOW.',
+      'An output is a level, not a single pulse. Feed it to Select inputs and switches directly, or through Trigger when you want a toggle, a one-shot, or a count of presses. In the preview, each button’s press control on the node stands in for it, so you can try a patch before anything is wired.',
     ],
     steps: [
-      'Add the bank from the Hardware tab. It arrives with Button 1 already on a free pin; add a button in the body for each further physical button, and name each after what it does.',
-      'Wire each button between its GPIO and ground.',
+      'Add a Button from the Hardware tab. It arrives with Button 1 already on a free pin.',
+      'Wire one leg of each button to its GPIO and the other to ground. Keep Pull-up on unless your circuit already has its own resistor.',
+      'For a second button, drag from Add button… to the input it should drive, then name it after what it does.',
     ],
     outputs: {
       'add-button': 'Drag from here to an input to add a new button already wired to it.',
     },
-    propertyNote: 'Every button’s name and pin are edited in the body. Each one becomes an output port named after it.',
+    propertyNote: 'Every button’s name, pin and pull-up are edited in the body, and each becomes an output port named after it. In the browser, its press control on the node drives it.',
     example: example({
       featured: 'ButtonBank',
       title: 'Two buttons that flick through palettes',
@@ -234,8 +207,8 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
         `bank.${buttonBankHandle('forward')} > palettes.next`,
         'palettes.palette > plasma.paletteIn',
       ],
-      explanation: 'Button Bank holds two named buttons. Next palette and Previous palette step Palette Bank through four palettes, wrapping at either end, and Plasma blends smoothly into each new one.',
-      preview: 'The {output} shows a synthwave plasma. Press Next palette on the Button Bank node and the colours melt into embers, then a lagoon, then a meadow.',
+      explanation: 'One Button node holds two named buttons. Next palette and Previous palette step Palette Bank through four palettes, wrapping at either end, and Plasma blends smoothly into each new one.',
+      preview: 'The {output} shows a synthwave plasma. Press Next palette on the Button node and the colours melt into embers, then a lagoon, then a meadow.',
     }),
   },
 
@@ -793,7 +766,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'The preview runs the clock the chosen source will produce on the board, so a Manual time starts ticking from the moment you enter it.',
     ],
     steps: [
-      'Choose a time source. For NTP, set the UTC offset here and the Wi-Fi in the Board’s Network settings. For a DS3231, add the module from the Hardware tab’s Clocks shelf, or with Add DS3231 on the node, and wire it to the I2C pins the Build Diagram shows.',
+      'Choose a time source. For NTP, choose the time zone here and set the Wi-Fi in the Board’s Network settings. A city zone changes its clocks on its daylight-saving dates; a fixed UTC offset never does. For a DS3231, add the module from the Hardware tab’s Clocks shelf, or with Add DS3231 on the node, and wire it to the I2C pins the Build Diagram shows.',
       'Wire DateTime to Clock Display, Format Date/Time or a Schedule Trigger, and Display to a panel.',
     ],
     outputs: {
@@ -812,7 +785,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       secondsOfDay: 'Seconds since midnight, 0 to 86399. Handy for smooth daily cycles.',
       weekend: 'True on Saturday and Sunday.',
     },
-    propertyNote: 'Only the fields for the chosen source are used: the server and UTC offset for NTP and the start fields for Manual. A DS3231’s pins are the module’s, on the Hardware tab.',
+    propertyNote: 'Only the fields for the chosen source are used: the server and time zone for NTP and the start fields for Manual. A DS3231’s pins are the module’s, on the Hardware tab.',
     example: example({
       featured: 'RTCInput',
       title: 'White light that follows the sun',

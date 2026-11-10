@@ -2,6 +2,7 @@ import { example, MATRIX, RING, SAMPLE_IMAGE, STRIP } from './example'
 import type { NodeReferenceMap } from './types'
 
 const BASE_INPUT = 'An optional frame drawn underneath. Unwired, the background is black.'
+const BAND_AUDIO_INPUT = 'Optional. Wire Audio here and each band left unwired follows its third of the spectrum, as FFT Analyzer at its defaults would send it, so one wire from the microphone is enough. A wired band still wins; use FFT Analyzer for gain, smoothing or tilt.'
 
 export const PATTERN_REFERENCE: NodeReferenceMap = {
   SolidColor: {
@@ -82,6 +83,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Text draws words in a bitmap font, still or scrolling. Type the text on the node, or wire text in from Text Value, Format Number or Format Date/Time.',
       'X and Y place it, with the alignment choosing which part of the text sits there. Units reads them as 0 to 1, from just off one edge to just off the other, or as pixels, 0 the first and max_x the last. Scroll moves it in pixels per second along either axis, and Wrap repeats it across the opposite edge so a scrolling line never leaves a gap.',
       'A new line in the typed text starts a second row. Wired text is drawn at run time in the built-in font. Base draws the text over another frame; unwired, the background is black.',
+      'The font is 3 by 5 pixels. Size 2 to 4 draws each of its pixels as a square that many pixels across, gaps included, so larger panels such as a 32 by 32 or 64 by 32 HUB75 get readable letters.',
     ],
     inputs: {
       base: 'A frame to draw the text over. The letters cover it in solid colour.',
@@ -106,7 +108,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Clock Display draws the time on the LEDs: digital in several formats, an analogue face, or either with the date. It also has a Stopwatch and a countdown Timer that need no clock at all.',
       'Wire Clock’s DateTime into it for the clock modes. It shows dashes until the clock is valid, synced and not stale, so a build never shows a believable wrong time.',
-      'X and Y place it, 0 to 1 across the matrix or, with Units set to Pixels, on a pixel. Run, Reset and Duration control the stopwatch and timer, and Done pulses when the timer reaches zero. Base draws the clock over another frame.',
+      'X and Y place it, 0 to 1 across the matrix or, with Units set to Pixels, on a pixel. Size scales the digits from 1 to 4, as on Text. Run, Reset and Duration control the stopwatch and timer, and Done pulses when the timer reaches zero. Base draws the clock over another frame.',
     ],
     inputs: {
       dateTime: 'The time from Clock’s DateTime output.',
@@ -953,6 +955,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Bass Pulse fills the frame with one colour that brightens and moves along the palette with the bass.',
       'It is the simplest bass visual: a whole build that thumps with the kick.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'BassPulse',
       title: 'A ring that thumps with the kick',
@@ -973,13 +978,16 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Bass Rings draws concentric rings that travel outward and swell and brighten with the bass.',
       'Reactivity sets how strongly the bass changes the picture, from calm drifting rings to a full pulse.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'BassRings',
       title: 'Speaker-cone rings',
       nodes: {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.6 }],
-        rings: ['BassRings', { palette: 'synthwave', energy: 0.8 }],
+        rings: ['BassRings', { palette: 'synthwave', reactivity: 0.8 }],
       },
       wires: ['mic.audio > fft.audio', 'fft.bass > rings.bass'],
       explanation: 'FFT Analyzer feeds the bass level to Bass Rings, whose rings push outward and brighten like a speaker cone on each kick.',
@@ -992,13 +1000,16 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Midrange Waves draws flowing horizontal waves whose height and speed follow the midrange — vocals, guitars and keys.',
       'It suits melodic music, where the bass is steady and the interest is in the middle.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'MidrangeWaves',
       title: 'Waves that rise with the vocals',
       nodes: {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.7 }],
-        waves: ['MidrangeWaves', { palette: 'ocean', energy: 0.75 }],
+        waves: ['MidrangeWaves', { palette: 'ocean', reactivity: 0.75 }],
       },
       wires: ['mic.audio > fft.audio', 'fft.mids > waves.mids'],
       explanation: 'FFT Analyzer’s mids drive Midrange Waves, so the ocean-coloured waves swell when the singer or the guitars come in.',
@@ -1011,13 +1022,16 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Midrange Bloom draws palette contours that bloom outward and turn with midrange energy, like a flower opening.',
       'It answers the melody — vocals, guitars, keys — rather than the drums, so it suits songs where the tune carries the energy. Reactivity sets how far the mids open it.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'MidrangeBloom',
       title: 'A flower that opens with the melody',
       nodes: {
         mic: ['MicInput'],
         voice: ['FrequencyBand', { lowHz: 250, highHz: 2500, gain: 1.4 }],
-        bloom: ['MidrangeBloom', { palette: 'rosegold', energy: 0.8 }],
+        bloom: ['MidrangeBloom', { palette: 'rosegold', reactivity: 0.8 }],
       },
       wires: ['mic.audio > voice.audio', 'voice.level > bloom.mids'],
       output: RING(24),
@@ -1031,6 +1045,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Treble Sparks scatters glittering sparks whose number follows the treble — hi-hats, cymbals, the air at the top of a mix.',
       'Density sets the base rate, which the treble multiplies.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'TrebleSparks',
       title: 'Sparks off the cymbals',
@@ -1050,13 +1067,16 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Treble Prism draws sharp diagonal shards that shimmer and move with the treble.',
       'Cymbals and hi-hats make the shards flicker and slide; a quiet top end lets them drift slowly. Raise FFT Analyzer’s Tilt so the treble registers strongly enough.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'TreblePrism',
       title: 'Crystal shards that shimmer on the hi-hats',
       nodes: {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.5, tilt: 0.5 }],
-        prism: ['TreblePrism', { palette: 'amethyst', energy: 0.8 }],
+        prism: ['TreblePrism', { palette: 'amethyst', reactivity: 0.8 }],
       },
       wires: ['mic.audio > fft.audio', 'fft.treble > prism.treble'],
       explanation: 'FFT Analyzer’s treble drives Treble Prism, so its amethyst shards flicker and slide with the high end of the music.',
@@ -1069,13 +1089,16 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Audio Cascade layers ribbons of colour driven by all three bands at once: a glow from the bass, flow from the mids, and shimmer from the treble.',
       'It is a complete music visual in one node.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'AudioCascade',
       title: 'Bass, mids and treble in one cascade',
       nodes: {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.65 }],
-        cascade: ['AudioCascade', { palette: 'rainbow', energy: 0.75 }],
+        cascade: ['AudioCascade', { palette: 'rainbow', reactivity: 0.75 }],
       },
       wires: ['mic.audio > fft.audio', 'fft.bass > cascade.bass', 'fft.mids > cascade.mids', 'fft.treble > cascade.treble'],
       explanation: 'FFT Analyzer feeds each band to its own input on Audio Cascade, which glows with the bass, flows with the mids and shimmers with the treble.',
@@ -1112,10 +1135,12 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Dance Flash briefly stamps a silhouette over the frame you give it: a DJ at the decks, a man dancing, a woman dancing, or the two of them together. The pictures are drawn at 16×16 and scaled to the largest square the matrix holds, centred, so a wide or tall panel shows the same pose without squashing it.',
       'It stays quiet for the Gap, about 30 seconds, one to two minutes, or two to five minutes (the default), then flashes for a fraction of a second. Each flash picks one of the four poses and may mirror it left to right. Leave Beat unwired and the flashes keep their own time. Wire a beat and a due flash waits for the next one, so it lands in the music.',
+      'Color chooses how the figure is lit: Solid (the default) draws it in the R, G and B colour, and Palette runs the palette down it from head to foot.',
     ],
     inputs: {
       frame: 'The picture the silhouette flashes over. Unwired, it flashes on black.',
       beat: 'Optional. When wired, a flash waits for the next beat instead of using its own timer.',
+      paletteIn: 'Optional. A wired palette runs down the figure whatever Color says.',
     },
     example: example({
       featured: 'DanceFlash',
@@ -1155,7 +1180,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   VocalAurora: {
     overview: [
       'Vocal Aurora hangs curtains of light like the northern lights, which brighten and move faster with the vocals and fade to black in silence.',
-      'Wire Audio Features: Vocals shapes the curtains and Silence dims the frame. Reactivity sets how strongly the vocals move them; leave it on its setting, or wire Loudness if a quiet verse should calm the curtains. Energy adapts to the recent peak, so it would keep them fully reactive through a quiet verse.',
+      'Wire Audio Features: Vocals shapes the curtains and Silence dims the frame. Reactivity sets how strongly the vocals move them; leave it on its setting, or wire Level if a quiet verse should calm the curtains. Energy adapts to the recent peak, so it would keep them fully reactive through a quiet verse.',
     ],
     inputs: {
       silence: 'True dims the frame to black, usually from Audio Features.',
@@ -1191,7 +1216,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
         beat: ['BeatDetect'],
         fft: ['FFTAnalyzer', { smoothing: 0.75 }],
         hue: ['AudioHue'],
-        scope: ['BeatKaleidoscope', { palette: 'ultraviolet', energy: 0.8 }],
+        scope: ['BeatKaleidoscope', { palette: 'ultraviolet', reactivity: 0.8 }],
       },
       wires: [
         'mic.audio > beat.audio',
@@ -1212,6 +1237,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Spectra Mosaic tiles the matrix into a grid. Bass lights the top-left cells, treble the bottom-right, and the mids sweep across them all diagonally.',
       'Tiles sets the grid size, from 2×2 to 8×8.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'SpectraMosaic',
       title: 'A mosaic lit corner to corner by the music',
@@ -1249,9 +1277,12 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   EmberPulse: {
     overview: [
       'Ember Pulse is a fire that burns from the bottom in columns: bass heats the centre columns, treble the edges, and every beat sends a burst up.',
+      'Color chooses how the heat is lit: Heat (the default) is FastLED’s HeatColor ramp, black through red and yellow to white, and Palette reads the heat through a palette instead, coolest to hottest.',
     ],
     inputs: {
       beat: 'Each rising edge sends a burst of heat up the columns.',
+      paletteIn: 'Optional. A wired palette colours the heat whatever Color says.',
+      audio: BAND_AUDIO_INPUT,
     },
     example: example({
       featured: 'EmberPulse',
@@ -1260,7 +1291,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.6 }],
         beat: ['BeatDetect'],
-        embers: ['EmberPulse', { energy: 0.8 }],
+        embers: ['EmberPulse', { reactivity: 0.8 }],
       },
       wires: ['mic.audio > fft.audio', 'mic.audio > beat.audio', 'fft.bass > embers.bass', 'fft.mids > embers.mids', 'fft.treble > embers.treble', 'beat.beat > embers.beat'],
       explanation: 'FFT Analyzer’s bands heat Ember Pulse’s columns — bass in the middle, treble at the sides — and Beat Detect sends a burst of flame up on every beat.',
@@ -1272,6 +1303,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Turbulent Bloom draws a radial bloom warped by turbulence: bass pulses its brightness, mids drift it slowly, and treble adds fast fine jitter.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'TurbulentBloom',
       title: 'A bloom stirred by the music',
@@ -1290,10 +1324,12 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   GravityWell: {
     overview: [
       'Gravity Well draws rings that bunch up as they approach a drifting well, like light bent by gravity. Bass packs more rings toward the well.',
-      'It uses one colour, from its fields or a wired colour.',
+      'Color chooses how the rings are lit: Palette (the default) colours them by their distance from the well, and Solid uses the R, G and B colour.',
     ],
     inputs: {
-      color: 'Ring colour. Replaces the R, G and B fields.',
+      paletteIn: 'Optional. A wired palette colours the rings whatever Color says.',
+      color: 'Ring colour. Replaces the palette and the R, G and B fields.',
+      audio: BAND_AUDIO_INPUT,
     },
     example: example({
       featured: 'GravityWell',
@@ -1301,7 +1337,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       nodes: {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.6 }],
-        well: ['GravityWell', { r: 160, g: 120, b: 255, energy: 0.8 }],
+        well: ['GravityWell', { colorSource: 'solid', r: 160, g: 120, b: 255, reactivity: 0.8 }],
       },
       wires: ['mic.audio > fft.audio', 'fft.bass > well.bass'],
       explanation: 'FFT Analyzer’s bass drives Gravity Well, so the violet rings crowd tighter round the drifting well on every kick, like spacetime bending.',
@@ -1335,6 +1371,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Hi-Hat Shards draws noise shards with a direction, which snap to a new angle on every hi-hat hit. Mids speed the drift and treble sharpens the grain.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'PrismStorm',
       title: 'Shards that snap on the hi-hat',
@@ -1355,6 +1394,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Audio Flow scrolls a noise field sideways and lets the music move it: mids set how fast it flows, bass how bright it glows, and treble shifts its colours and how far it bobs up and down.',
       'Scale sets how broad the shapes are.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'AudioFlow',
       title: 'A river of colour carried by the music',
@@ -1374,10 +1416,12 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Color Trails, adapted from a Stefan Petrick prototype, paints colour into the frame and lets it drift and smear along noise profiles, leaving long fluid trails.',
       'Injection chooses what paints the colour: a moving line, a rainbow border, or both. Flow chooses between sliding fixed profiles and morphing them over time. Bass raises the displacement, mids speed the endpoints and treble speeds the colour sweep.',
-      'Persistence near 1 makes trails last for seconds or minutes.',
+      'Flow speed, strength and scale move the rows and columns alike. Turn on Independent axes to set the column (X) and row (Y) currents apart, for instance scrolling them in opposite directions.',
+      'Trail length is how many seconds the colour takes to fade to half; long trails last until the currents smear them out.',
     ],
     inputs: {
       beat: 'Each beat briefly brightens the injected colour and throws the line wider.',
+      audio: BAND_AUDIO_INPUT,
     },
     example: example({
       featured: 'ColorTrails',
@@ -1402,6 +1446,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     ],
     inputs: {
       beat: 'A beat pulse that kicks the animation.',
+      audio: BAND_AUDIO_INPUT,
     },
     example: example({
       featured: 'Animartrix',

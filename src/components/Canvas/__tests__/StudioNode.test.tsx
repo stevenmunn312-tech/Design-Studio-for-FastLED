@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../../state/player/buttonBank'
 import { act, render, fireEvent, within, waitFor } from '@testing-library/react'
 import type { NodeProps, Node } from '@xyflow/react'
 import StudioNode from '../StudioNode'
@@ -331,8 +332,8 @@ describe('StudioNode', () => {
     useUiStore.setState({
       connectionDrag: {
         sourceNodeId: 'button',
-        sourceNodeType: 'ButtonInput',
-        sourcePortId: 'pressed',
+        sourceNodeType: 'ButtonBank',
+        sourcePortId: FIRST_BUTTON_HANDLE,
         sourceDataType: 'bool',
       },
     })
@@ -582,7 +583,7 @@ describe('StudioNode', () => {
     act(() => {
       useGraphStore.setState({
         nodes: [{ ...n, data: { ...n.data, exposedInputs: [] } }],
-        edges: [{ id: 'next-wire', source: 'btn', sourceHandle: 'pressed', target: n.id, targetHandle: 'next' }],
+        edges: [{ id: 'next-wire', source: 'btn', sourceHandle: FIRST_BUTTON_HANDLE, target: n.id, targetHandle: 'next' }],
       })
     })
     expect(view.container.querySelector('[data-handle="target:next"]')).toBeTruthy()
@@ -721,7 +722,7 @@ describe('StudioNode', () => {
 
     expect(getByText('Play / Pause')).toBeTruthy()
     expect(getByText('GPIO 12')).toBeTruthy()
-    expect(getByText('Connect button…')).toBeTruthy()
+    expect(getByText('Add button…')).toBeTruthy()
     expect(getByRole('button', { name: 'Press Play / Pause' })).toBeTruthy()
     const button = container.querySelector('[data-handle="source:button-play"]') as HTMLElement
     const trailing = container.querySelector('[data-handle="source:add-button"]') as HTMLElement
@@ -1597,12 +1598,12 @@ describe('StudioNode', () => {
     expect(getByText('LIVE')).toBeTruthy()
   })
 
-  // ButtonInput/PotInput/EncoderInput render a live interactive widget
-  // (HardwareInputBody) instead of a fixed value, so their pressed/value/
-  // position ports actually respond in preview.
+  // A Button's rows and PotInput/EncoderInput render a live interactive
+  // widget (ButtonBankBody, HardwareInputBody) instead of a fixed value, so
+  // their button/value/position ports actually respond in preview.
   it('renders a live widget on hardware-input nodes', () => {
-    expect(renderNode(makeNode('ButtonInput', { pin: 0, pullup: true }))
-      .getByText('press')).toBeTruthy()
+    expect(renderNode(makeNode('ButtonBank', { buttons: singleButtonRow(0) }))
+      .getByRole('button', { name: 'Press Button 1' })).toBeTruthy()
     expect(renderNode(makeNode('PotInput', { pin: 34 }))
       .getByText('0.50')).toBeTruthy()
     expect(renderNode(makeNode('EncoderInput', { pinA: 32, pinB: 33, pinSW: 25, pullup: true }))
@@ -1625,8 +1626,8 @@ describe('StudioNode', () => {
   it('keeps hardware-input widgets visible when UI FX are off', () => {
     useUiStore.setState({ uiEffectsEnabled: false })
 
-    expect(renderNode(makeNode('ButtonInput', { pin: 0, pullup: true }))
-      .getByText('press')).toBeTruthy()
+    expect(renderNode(makeNode('ButtonBank', { buttons: singleButtonRow(0) }))
+      .getByRole('button', { name: 'Press Button 1' })).toBeTruthy()
     expect(renderNode(makeNode('PotInput', { pin: 34 }))
       .getByText('0.50')).toBeTruthy()
     expect(renderNode(makeNode('EncoderInput', { pinA: 32, pinB: 33, pinSW: 25, pullup: true }))
@@ -1823,15 +1824,15 @@ describe('StudioNode', () => {
     expect(container.querySelector('input[type="text"]')).toBeNull()   // no raw paramId field
     const select = container.querySelector('select') as HTMLSelectElement
     expect(select.value).toBe('')   // param0 isn't a role → "— input —"
-    expect(Array.from(select.options).map((o) => o.value)).toEqual(['', 'energy', 'speed', 'palette'])
+    expect(Array.from(select.options).map((o) => o.value)).toEqual(['', 'reactivity', 'speed', 'palette'])
     fireEvent.change(select, { target: { value: 'speed' } })
     expect(useGraphStore.getState().nodes[0].data.properties.paramId).toBe('speed')
   })
 
   it('reflects an existing role and reverts to a plain input id', () => {
-    const { container } = renderNode(groupInput('energy'))
+    const { container } = renderNode(groupInput('reactivity'))
     const select = container.querySelector('select') as HTMLSelectElement
-    expect(select.value).toBe('energy')
+    expect(select.value).toBe('reactivity')
     fireEvent.change(select, { target: { value: '' } })   // back to a plain input
     expect(useGraphStore.getState().nodes[0].data.properties.paramId).toBe('param0')
   })

@@ -4,6 +4,7 @@ import { generateCpp } from '../../../codegen/cppGenerator'
 import { compileCppSnippet } from '../../../test-utils/cppSnippet'
 import { resetEvaluatorState } from '../../../state/evaluator/memory'
 import type { StudioEdge, StudioNode } from '../../../state/graphStore'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../../state/player/buttonBank'
 
 const node = (id: string, nodeType: string, category: string, properties: Record<string, unknown> = {}) => ({
   id, type: 'studioNode', position: { x: 0, y: 0 },
@@ -23,7 +24,7 @@ const LEVELS = [false, false, true, true, false, true, false, false, true, true]
 
 function previewRun(props: Record<string, unknown>, wired: { trigger?: boolean; min?: number }): number[] {
   return LEVELS.map((level) => SIGNAL_EVALUATORS.Random!({
-    incoming: new Map(wired.trigger ? [['r:trigger', { srcId: 'b', srcPort: 'pressed' }]] : []),
+    incoming: new Map(wired.trigger ? [['r:trigger', { srcId: 'b', srcPort: FIRST_BUTTON_HANDLE }]] : []),
     input: (_id: string, port: string, fallback: unknown) => (port === 'trigger' && wired.trigger ? level : fallback),
     num: (_id: string, port: string, p: Record<string, unknown>, key: string, def: number) =>
       port === 'min' && wired.min !== undefined ? wired.min : Number(p[key] ?? def),
@@ -48,16 +49,16 @@ describe('Random with a trigger', () => {
   })
 
   it('draws on the same frames on the board', () => {
-    const cpp = generateCpp([node('b', 'ButtonInput', 'input', { pin: 4 }), node('r', 'Random', 'signal', { min: 2, max: 4 }),
+    const cpp = generateCpp([node('b', 'ButtonBank', 'input', { buttons: singleButtonRow(4) }), node('r', 'Random', 'signal', { min: 2, max: 4 }),
       ...sink()], [
-      edge('e1', 'b', 'r', 'pressed', 'trigger'), ...sinkEdges()
+      edge('e1', 'b', 'r', FIRST_BUTTON_HANDLE, 'trigger'), ...sinkEdges()
     ])
     const lines = cpp.split('\n').filter((line) => /_rnd\w*_r\b/.test(line) || /^\s*float n_r_value =/.test(line))
     expect(lines.join('\n')).toContain('static float _rnd_r = 0.0f;')
     let draws = 0
-    const step = compileCppSnippet(lines, ['n_b_pressed', 'random16'], ['n_r_value'])
+    const step = compileCppSnippet(lines, ['n_b_button_1', 'random16'], ['n_r_value'])
     const flashed = LEVELS.map((level, i) => step(i * 16, {
-      n_b_pressed: level, random16: (() => { draws++; return (draws * 9973) % 65536 }) as never,
+      n_b_button_1: level, random16: (() => { draws++; return (draws * 9973) % 65536 }) as never,
     }).n_r_value as number)
     expect(draws).toBe(4)
     const changes = flashed.map((v, i) => i === 0 || v !== flashed[i - 1])

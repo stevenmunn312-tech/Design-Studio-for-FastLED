@@ -102,6 +102,14 @@ identity (`ethernet` static, `control-graph` show-ntp, player-ntp and
 show-ethernet, the `board-links` runs) and a DS3231 Clock reading its
 module (no fixture yet).
 
+Also from 2026-11-10, uncompiled: the Clock's time zone (`configTzTime` on
+an ESP32 and `configTime(tz, server)` on an ESP8266, through `control-graph`
+show-ntp and player-ntp, now on Europe/Paris; `_rtcTzOffset` on an UNO R4
+WiFi NTP clock, no fixture yet) and long strings (a 720- and a 4096-LED
+string with Waveform's line style and an elementary Automaton, which lost
+their stack arrays, no fixture yet) before a long chain is trusted on
+hardware.
+
 #### Inputs, hardware, graph and code
 
 - [ ] **Category: Move DMX512 and DIN MIDI hardware to bench parts (Med, M).**
@@ -114,101 +122,6 @@ module (no fixture yet).
   (and verified renders) for the MAX485 board and the MIDI FeatherWing, and a
   UART allocator. Meanwhile `midiUartValidationIssues` refuses a DIN UART the
   radar, DMX512, the DFPlayer or a second jack already reads.
-- [ ] **Button: Make Button a one-row Button Bank (Med, M).** Button Bank is a
-  strict superset (per-row name, pin, pull-up, identical `pinMode` and
-  `digitalRead` code). Make Button a bank that starts with one row and offers
-  "Add button", so one node and one shelf entry cover both and a single
-  button grows without rewiring. Evidence `src/state/player/buttonBank.ts:7`,
-  `src/codegen/controlInputCpp.ts:56`. Still open: retiring `ButtonInput`
-  reaches about 36 source files (player and show firmware bindings, pin
-  retargeting, board links, templates, the deck) and 59 test files. The bench
-  now adds a Button Bank with its first row on a pin
-  (`firstButtonBankRow`), which the merged Button would reuse.
-- [ ] **RTC Clock: Handle daylight saving time (Med, M).** NTP time is UTC
-  plus a fixed minute offset, so clocks and Schedule Triggers are an hour off
-  for half the year in DST regions. Offer a region/time-zone picker that
-  emits a POSIX TZ string (`configTzTime` on ESP32). Evidence
-  `src/state/peripherals/rtc.ts`, `src/codegen/peripherals/rtcInputCpp.ts`.
-  Still open. The shape: a curated zone list mapping labels to POSIX strings;
-  a pure POSIX-rule evaluator for the preview (`Mm.w.d/time` rules) held to
-  `Intl` in tests; `configTzTime` on ESP32 and `configTime(tz, server)` on
-  ESP8266 in the `FLS_NET_SNTP` branch; and a generated rule function for the
-  UNO R4 WiFi branch, which runs its own SNTP and applies the offset itself.
-
-#### Audio and audio-reactive
-
-- [ ] **Category: Rename the `energy` property and port to `reactivity`
-  (Med, M).** Every audio pattern relabels `energy` as "reactivity"
-  (`src/state/nodeLibrary.ts:3301`), so the stored id matches Audio
-  Features' peak-relative Energy output and invites Energy → Reactivity
-  wiring (about 20 bundled-pattern edges and the Vocal Aurora help example
-  do this). Rename the id and port (pre-1.0, so no migration needed) so
-  choosing Energy or Loudness becomes a deliberate wire. Left open: the
-  fourteen promoted saved graphs (`bundledSavedAudioPatterns.ts`) must stay
-  byte for byte, and several carry `energy` properties and edges, so a
-  rename needs a decision on how their copies are converted; the show
-  engines' `useGroupInputs` also feed a pattern's `energy` input by name.
-- [ ] **Category: Remap Speed so the current look sits mid-slider (Med, M).**
-  BassRings, MidrangeWaves, MidrangeBloom, TreblePrism, AudioCascade,
-  KickShock, VocalAurora, BeatKaleidoscope, SpectraMosaic, EmberPulse,
-  TurbulentBloom, GravityWell, RainRipples and PrismStorm default `speed`
-  to 1.0 on a 0–1 slider, leaving no room to go faster. Remap so the
-  current look is 0.5 (internal rate = 2 × slider) and update saved values
-  and bundled patterns. Evidence `src/state/nodeLibrary.ts:583`. Left open:
-  many bundled patterns wire Map Range or audio levels into these speeds,
-  and the promoted graphs cannot be edited, so a remap changes tuned looks
-  unless every wired range is halved too; needs a by-ear check.
-- [ ] **Category: Add an optional Audio input to the band patterns (Med,
-  M).** Every band pattern needs Mic → FFT Analyzer → pattern. Spectrum
-  Visualizer's Three Band style already falls back to the spectrum thirds
-  when its band ports are unwired. Give the band patterns an optional Audio
-  input with the same fallback so a first patch is one wire; keep FFT
-  Analyzer for gain, smoothing and tilt. Evidence
-  `src/nodes/audioReactive/evaluate.ts:1158`. Left open (size): about
-  fourteen evaluators and emitters. Three Band now eases its unwired thirds
-  (keepOver in `nodes/shared/envelopeClock.ts`) and FFT Analyzer analyses at
-  a fixed 24-bin split (`FFT_ANALYSIS_BANDS`); a shared helper doing both
-  with per-node state, the port declared last so splicing is unchanged, and
-  `dropConnections` auto-wiring it would make a first patch one wire.
-- [ ] **Category: Standardise colour inputs on Palette plus optional Color
-  (Low, M).** Gravity Well uses a Color port plus R/G/B and no palette,
-  Beat Flash uses a `'none'` palette sentinel plus R/G/B, Dance Flash is
-  R/G/B only, and Ember Pulse is a fixed HeatColor ramp. Move all four to a
-  Palette port plus an optional Color port. Evidence
-  `src/state/nodeLibrary.ts:740`. Beat Flash is done: a Color select
-  (Solid, Palette) replaced the `'none'` sentinel and gates R/G/B. Dance
-  Flash and Ember Pulse remain (the HeatColor ramp is a look choice), and
-  Gravity Well is blocked as below.
-- [ ] **Audio Features: Apply Sensitivity and smoothing to Loudness (Med,
-  S).** Loudness is the raw meter and real music sits at 0.02–0.2 of its
-  scale, so wired into a 0–1 input it barely moves and the help tells users
-  to add a Smooth node. Apply Sensitivity as a gain plus about 0.15 s of
-  smoothing. Evidence `src/nodes/audio/evaluate.ts:294`. Left open: the
-  shared energy stage (`energyDynamics.ts`) reads each pattern's own Audio
-  Features Loudness, whose Sensitivity varies 0.5–0.65 across the bundled
-  patterns, through its own 0.15 s Smooth, with ranges set by ear for the
-  raw meter. A gain would retune 86 patterns and a second smoother would
-  stack lag (the 0.6 s delay Steve heard). Needs a decision: a separate
-  eased output, or moving the stage onto it and retuning by ear.
-- [ ] **Gravity Well: Replace R/G/B ports with a palette (Med, S).** It is
-  the only band pattern with no palette; a Color port overrides three R/G/B
-  float ports. Swap the R/G/B ports for a palette and keep the optional
-  Color port, or fold it into Bass Rings as a "lensing" style. Evidence
-  `src/nodes/audioReactive/definitions.ts:457`. Left open: the promoted
-  Event Horizon graph (byte for byte) colours its well with unwired R/G/B
-  80/160/255, so dropping R/G/B recolours it; a Solid/Palette select like
-  Beat Flash's would keep it, but a saved node without the key would read
-  differently from a new one. Needs a decision on that graph.
-- [ ] **Color Trails: Cut the tuning knobs (Med, M).** Twelve knobs over 15
-  inputs, with separate X and Y speed, amplitude and frequency, and a
-  Persistence slider (0.9–0.9999, step 0.0001) the help explains in
-  minutes. Link X and Y by default (one Flow speed, strength and scale plus
-  an "independent axes" toggle), and replace Persistence with a Trail
-  length in seconds. Evidence `src/state/nodeLibrary.ts:899`. Left open:
-  all four bundled Color Trails tune X and Y differently (often opposite
-  signs), so each would need the independent toggle and a conversion of
-  Persistence (0.9988–0.99935 per frame) into seconds; the trail-length
-  curve wants a by-ear check.
 
 #### Effects and signals
 
@@ -239,48 +152,6 @@ module (no fixture yet).
   same gap (unwired it always passes A). Left to the Colour and maths list's
   owner, which is also folding Gate into Switch. Evidence
   `src/nodes/composite/definitions.ts:365`.
-
-#### Fields and shapes
-
-- [ ] **Category: Fix centred fields on a 1-row strip (Med, M).** Strips,
-  rings and corkscrews are `height: 1`, where `centeredY(0, 1)` is -1, so
-  every centred field samples only the bottom of its circle. Geometry Field's
-  Lissajous renders near-black, Shape Field's default circle is a sub-pixel
-  speck (it sizes by the short side), and Path and Fourier cannot move (reach
-  is 0). Centre on pixel centres, `(y+0.5-H/2)/(H/2)`, and use the long side
-  when one dimension is 1. `src/state/evaluator/formula.ts:28`.
-  Gradient Field is done (it measures in pixels from its pivot, so its radial
-  centre sits on a strip's row). Still to do: `centeredX/Y` is shared with
-  Custom Formula and every emitter's `cx/cy` line; Shape Field, Path, Fourier
-  and Shape's new Scale with matrix (`matrixSizeScale`) all size by the short
-  side, which is 1 on a strip.
-- [ ] **Text: Add an integer size (Med, M).** The only font is 3x5, tiny on
-  32x32 or 64x32 HUB75 panels. Add an integer `size` (pixel scale 1-4),
-  shared with Clock Display's digits. `src/nodes/shared/font.ts:10`.
-  Touches `textBlockLayout` widths and heights, `renderTextInto` and the
-  scroll totals in the preview, and both sketch paths (the baked column
-  arrays and the wired `_fontCol` loop, each with wrap and scroll), plus
-  Clock Display's `blitText` and its clock glyph table.
-#### Outputs and shows
-
-- [ ] **LED output: Lift the 300-LED cap on strings, rings and corkscrews
-  (Med, M).** `MAX_LED_RUN` stops them at 300 while a matrix may reach 4096,
-  though one 5 m reel at 144/m is 720. Raise the chain cap toward the matrix
-  total (data lanes already split long chains), or document why it is 300.
-  Evidence `src/state/output/ledOutputForm.ts:42`. Not a constant change: a
-  string's canvas is `ledCount` x 1, so `WIDTH` grows with the cap, and some
-  emitted pattern code sizes per-column arrays by `WIDTH` on the loop stack
-  (Spectrum Visualizer's wave `_wvV[WIDTH], _wvY[WIDTH]` floats in
-  `src/nodes/audioReactive/codegen.ts:199`, 8 bytes per LED; the 1-D
-  automaton's `_row[WIDTH]` in `src/nodes/field/codegen.ts:394`) or as static
-  columns (`_svLevel` and friends, 16 bytes per column). At 720 LEDs the
-  stack arrays alone pass 5 KB of an 8 KB loop task. Move those to static or
-  heap storage (or cap them by a column count), raise `MAX_LED_RUN`, make
-  `ledCount` a typed number (`entry: 'number'`, a 1-4096 slider cannot be
-  dragged), and confirm with compiles of a long string through the sweep in
-  `showGenerator.test.ts` before trusting it on hardware.
-  `NETWORK_MAX_LEDS` and the positioned-string `MAX_LEDS` are separate 300
-  caps.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 

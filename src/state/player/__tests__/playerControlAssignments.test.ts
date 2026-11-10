@@ -9,6 +9,7 @@ import {
 } from '../playerControlAssignments'
 import { findUnusablePlayerControlWarnings } from '../../../utils/validateGraph'
 import { assertWireable } from '../../../test-utils/assertWireable'
+import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../buttonBank'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const def = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -56,10 +57,10 @@ describe('wiring a Player Controls node', () => {
   beforeEach(() => useGraphStore.getState().loadGraph([], []))
 
   it('lands an ordinary connection on the function port', () => {
-    useGraphStore.getState().loadGraph([node('btn', 'ButtonInput'), node('pc', 'ControlMap')], [])
+    useGraphStore.getState().loadGraph([node('btn', 'ButtonBank', { buttons: singleButtonRow(0) }), node('pc', 'ControlMap')], [])
 
     useGraphStore.getState().onConnect({
-      source: 'btn', sourceHandle: 'pressed', target: 'pc', targetHandle: 'next',
+      source: 'btn', sourceHandle: FIRST_BUTTON_HANDLE, target: 'pc', targetHandle: 'next',
     })
 
     const state = useGraphStore.getState()
@@ -71,8 +72,8 @@ describe('wiring a Player Controls node', () => {
   // wired it loads without the dead wire rather than with one to nowhere.
   it('drops a saved wire into the retired Confirm row', () => {
     useGraphStore.getState().loadGraph(
-      [node('btn', 'ButtonInput'), node('pc', 'ControlMap')],
-      [{ id: 'old', source: 'btn', sourceHandle: 'pressed', target: 'pc', targetHandle: 'patternConfirm' } as StudioEdge],
+      [node('btn', 'ButtonBank', { buttons: singleButtonRow(0) }), node('pc', 'ControlMap')],
+      [{ id: 'old', source: 'btn', sourceHandle: FIRST_BUTTON_HANDLE, target: 'pc', targetHandle: 'patternConfirm' } as StudioEdge],
     )
     expect(useGraphStore.getState().edges).toEqual([])
   })
@@ -99,8 +100,8 @@ describe('a wired row nothing downstream can act on', () => {
 
   it('says nothing about a row its destination honours', () => {
     expect(warnings(
-      [node('btn', 'ButtonInput'), node('pc', 'ControlMap'), node('player', 'PatternMaster')],
-      [edge('a', 'btn', 'pressed', 'pc', 'next'), edge('b', 'pc', 'controls', 'player', 'controls')],
+      [node('btn', 'ButtonBank', { buttons: singleButtonRow(0) }), node('pc', 'ControlMap'), node('player', 'PatternMaster')],
+      [edge('a', 'btn', FIRST_BUTTON_HANDLE, 'pc', 'next'), edge('b', 'pc', 'controls', 'player', 'controls')],
     )).toEqual([])
   })
 
@@ -108,8 +109,8 @@ describe('a wired row nothing downstream can act on', () => {
   // pattern cursor has nothing to move: the next SET_PATTERN overwrites it.
   it('names a pattern row on a Performance Generator', () => {
     const found = warnings(
-      [node('btn', 'ButtonInput'), node('pc', 'ControlMap'), node('perf', 'PerformanceGenerator')],
-      [edge('a', 'btn', 'pressed', 'pc', 'patternNext'), edge('b', 'pc', 'controls', 'perf', 'controls')],
+      [node('btn', 'ButtonBank', { buttons: singleButtonRow(0) }), node('pc', 'ControlMap'), node('perf', 'PerformanceGenerator')],
+      [edge('a', 'btn', FIRST_BUTTON_HANDLE, 'pc', 'patternNext'), edge('b', 'pc', 'controls', 'perf', 'controls')],
     )
     expect(found).toHaveLength(1)
     expect(found[0]).toContain('Next Pattern')
@@ -128,8 +129,8 @@ describe('a wired row nothing downstream can act on', () => {
   // Nothing to judge against yet; the node body says where Controls go.
   it('judges nothing while Controls goes nowhere', () => {
     expect(warnings(
-      [node('btn', 'ButtonInput'), node('pc', 'ControlMap')],
-      [edge('a', 'btn', 'pressed', 'pc', 'patternNext')],
+      [node('btn', 'ButtonBank', { buttons: singleButtonRow(0) }), node('pc', 'ControlMap')],
+      [edge('a', 'btn', FIRST_BUTTON_HANDLE, 'pc', 'patternNext')],
     )).toEqual([])
   })
 
@@ -137,9 +138,9 @@ describe('a wired row nothing downstream can act on', () => {
   // arithmetic and wrong for a physical control.
   it('names a button on a continuous row and a knob on a press', () => {
     const found = warnings(
-      [node('btn', 'ButtonInput'), node('knob', 'PotInput'), node('pc', 'ControlMap'), node('player', 'PatternMaster')],
+      [node('btn', 'ButtonBank', { buttons: singleButtonRow(0) }), node('knob', 'PotInput'), node('pc', 'ControlMap'), node('player', 'PatternMaster')],
       [
-        edge('a', 'btn', 'pressed', 'pc', 'volume'),
+        edge('a', 'btn', FIRST_BUTTON_HANDLE, 'pc', 'volume'),
         edge('b', 'knob', 'value', 'pc', 'playPause'),
         edge('c', 'pc', 'controls', 'player', 'controls'),
       ],
