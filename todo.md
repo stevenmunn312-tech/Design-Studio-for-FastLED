@@ -261,21 +261,6 @@ module (no fixture yet).
   scroll totals in the preview, and both sketch paths (the baked column
   arrays and the wired `_fontCol` loop, each with wrap and scroll), plus
   Clock Display's `blitText` and its clock glyph table.
-#### Generative and simulations
-
-- [ ] **Category: Move the rest of simulation motion onto the clock (Med, M).**
-  Done: every trail fades by elapsed time through the shared `trail` knob,
-  and Starfield, Digital Rain and Flow Field scale their per-frame steps by
-  `passFrames` (`src/nodes/shared/passClock.ts`, firmware `passFramesCpp`).
-  Still per pass, against "never per pass" in
-  `docs/development/patterns/graph-and-nodes.md:285`: String Particles moves
-  and life, Formula Points' logistic map and attractor iterations (a count a
-  frame), and every Particles mode (`rate` is a per-frame chance, `decay` a
-  per-frame share of life, and twenty bodies of per-frame velocities and
-  drag). The same `passFrames` scaling fits each; drag and decay need
-  `Math.pow(k, frames)` rather than a multiply, and each mode wants checking
-  by eye. Evidence `src/nodes/simulations/evaluate.ts` (evalParticles,
-  evalStringParticles, evalFormulaPoints).
 #### Outputs and shows
 
 - [ ] **LED output: Lift the 300-LED cap on strings, rings and corkscrews

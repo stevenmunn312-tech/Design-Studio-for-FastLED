@@ -1746,7 +1746,12 @@ describe('generateCpp', () => {
     expect(ring).toContain('float _cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f,_rad=min(_cx,_cy);')
     expect(ring).toContain('_sp_nix[_k]=_y*WIDTH+_x;')
     // Drift respawns a dead slot; meteors fire on a rising trigger, over a bed.
-    expect(row).toContain('if(_sp_nl[_i]<=0&&_rnd()<_sp)')
+    expect(row).toContain('if(_sp_nl[_i]<=0&&_rnd()<_spc)')
+    // Its chance, moves and life run on the 60ths since the last frame.
+    expect(row).toContain('float _spc=(_pf_n==1.0f?(_sp):1.0f-powf(1.0f-(_sp),_pf_n));')
+    expect(row).toContain('_sp_np[_i]+_sp_nv[_i]*_step*_sp_nl[_i]*_pf_n')
+    expect(row).toContain('_sp_nl[_i]-=_sp_ndec[_sp_nk[_i]]*_pf_n;')
+    expect(row).toContain('float _drag=powf(0.92f,_pf_n);')
     expect(row).not.toContain('_tr&&!_sp_nprev')
     const meteors = sp({ track: 'row', mode: 'meteors' }, true)
     expect(meteors).toContain('if(_tr&&!_sp_nprev)')
@@ -1974,9 +1979,15 @@ describe('generateCpp', () => {
     const lum = generateCpp([node('n', 'Particles', 'pattern', { particleType: 'luminova', count: 5 }), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
     expect(lum).toContain('const int _PN=240;')
     expect(lum).toContain('static bool _pa_nem[8];')
-    expect(lum).toContain('for(int i=0;i<5;i++){ if(!_pa_nem[i])')
+    expect(lum).toContain('for(int i=0;i<5;i++) if(!_pa_nem[i])')
     expect(lum).toContain('for(int j=5;j<_PN;j++) if(_pa_nl[j]<=0.04f)')
-    expect(lum).toContain('if(i<5) _pa_nl[i]=1; else _pa_nl[i]*=constrain(0.92,0.0f,1.0f)*0.96f;')
+    // The trail fades by the frames passed, then each emitter steps once per
+    // frame owed, laying a dot already faded for the frames since.
+    expect(lum).toContain('float _paKeep=powf(constrain(0.92,0.0f,1.0f)*0.96f,_pf_n);')
+    expect(lum).toContain('for(int j=5;j<_PN;j++) if(_pa_nl[j]>0.04f) _pa_nl[j]*=_paKeep;')
+    expect(lum).toContain('for(int _st=0;_st<_ps_n_dots;_st++){ float _age=(float)(_ps_n_dots-1-_st), _at=t-_age/60.0f;')
+    expect(lum).toContain('_pa_nl[j]=powf(_paLife,_age+1.0f);')
+    expect(lum).toContain('if(i<5) _pa_nl[i]=1; }')
     expect(lum).toContain('*1.5f);')
     const other = generateCpp([node('n', 'Particles', 'pattern', { particleType: 'fountain' }), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
     expect(other).toContain('const int _PN=120;')
@@ -3993,8 +4004,11 @@ describe('generateCpp — Particles modes', () => {
       // Colour comes from life at render time; the pool keeps none.
       expect(cpp).not.toContain('_pa_ppr[')
       expect(cpp).not.toContain('_pc=')
-      // Rate is declared only where a spawn reads it.
-      expect(cpp.includes('float _rate='), m).toBe(particleModeUsesRate(m))
+      // Rate is declared only where a spawn reads it, as a chance over the
+      // frames since the last one or, for a spawn count, as itself.
+      expect(/float _(rate|paChance|paBurst)=/.test(cpp), m).toBe(particleModeUsesRate(m))
+      // Every mode steps on the 60ths of a second since its last frame.
+      expect(cpp).toContain('float _pf_pp = _pf_ppT < 0.0f ? 1.0f :')
       // additive render of every live particle at its life brightness
       expect(cpp).toContain('float _k=min(1.0f,_pa_ppl[i]), _sx=_pa_ppx[i], _sy=_pa_ppy[i];')
       expect(cpp).toContain('float _cov=constrain(')
@@ -4022,10 +4036,29 @@ describe('generateCpp — Particles modes', () => {
     expect(gen('fireworks')).toContain('int _n=14+random8()/32;')
   })
 
-  it('comet is time-driven (needs t)', () => {
+  it('comet is time-driven (needs t), laying each dot owed at its own moment', () => {
     const cpp = gen('comet')
     expect(cpp).toContain('float t = millis()')
-    expect(cpp).toContain('sin(t*0.9f)')
+    expect(cpp).toContain('for(int _age=_ps_pp_dots-1;_age>=0;_age--){ float _at=t-_age/60.0f;')
+    expect(cpp).toContain('sin(_at*0.9f)')
+    expect(cpp).toContain('_pa_ppl[i]=powf(_paLife,_age+1.0f);')
+    // It fades its dots before laying new ones, so it has no update loop.
+    expect(cpp).not.toContain('for(int i=0;i<_PN;i++){ if(_pa_ppl[i]<=0.04f) continue;\n')
+  })
+
+  it('scales velocities by the frames passed and keeps drag and decay over them', () => {
+    const fountain = gen('fountain')
+    expect(fountain).toContain('if(random8()<(uint8_t)(_paChance*255))')
+    expect(fountain).toContain('_pa_ppx[i]+=_pa_ppvx[i]*_pf_pp; _pa_ppy[i]+=_pa_ppvy[i]*_pf_pp; _pa_ppvy[i]+=0.02f*_paGrav*_pf_pp; _pa_ppl[i]*=_paKeep;')
+    expect(fountain).toContain('float _paKeep=powf(constrain(0.92,0.0f,1.0f),_pf_pp);')
+    const fireworks = gen('fireworks')
+    expect(fireworks).toContain('float _paDrag=powf(0.965f,_pf_pp);')
+    expect(fireworks).toContain('float _paBurst=(_pf_pp==1.0f?(constrain(0.5,0.0f,1.0f)*0.12f):1.0f-powf(1.0f-(constrain(0.5,0.0f,1.0f)*0.12f),_pf_pp));')
+    expect(fireworks).toContain('float _paKeep=powf(constrain(0.92,0.0f,1.0f)*0.985f,_pf_pp);')
+    expect(gen('chase')).toContain('_pa_ppvx[i]=_pa_ppvx[i]*_paDrag+dx/d*0.025f*_pf_pp;')
+    expect(gen('pinwheel')).toContain('float _paTurn=0.035f*_pf_pp;')
+    // A mode that never reads Decay declares no keep.
+    expect(gen('bounce')).not.toContain('_paKeep')
   })
 
   it('time-driven displays emit the shared animation clock', () => {
@@ -4126,9 +4159,13 @@ describe('Formula Points codegen', () => {
     expect(cpp).toContain('(uint32_t)_i*6408326u') // golden angle as a 16-bit angle in 1/256ths
   })
 
-  it('logisticMap is not time-driven (no needsT) and reads chaos through its port', () => {
+  it('logisticMap iterates on the clock and reads chaos through its port', () => {
     const cpp = gen('logisticMap', { chaos: 3.9 })
-    expect(cpp).not.toContain('float t = millis()')
+    // `count` iterations a 60th of a second, the fraction carried over.
+    expect(cpp).toContain('float t = millis()')
+    expect(cpp).toContain('float _ps_fp_itO = _ps_fp_itC + fmaxf(0.0f, (float)_fp_fpN) * _pf_fp;')
+    expect(cpp).toContain('for(int _i=0;_i<_ps_fp_it-_fp_fpN;_i++) _fp_fpx=_r*_fp_fpx*(1.0f-_fp_fpx);')
+    expect(cpp).toContain('for(int _i=max(0,_fp_fpN-_ps_fp_it);_i<_fp_fpN;_i++){')
     // Unwired, the knob folds to its own literal and costs nothing; the
     // clamp that used to be applied here in TypeScript is emitted instead,
     // so it still holds when something is driving the port.
@@ -4147,6 +4184,9 @@ describe('Formula Points codegen', () => {
     expect(classic).toContain('sinf(1.4f*_fp_fpay)-cosf(-2.3f*_fp_fpax)')
     const web = gen('attractor', { preset: 'web' })
     expect(web).toContain('sinf(-0.827f*_fp_fpay)-cosf(-1.637f*_fp_fpax)')
+    // Every iteration owed this frame is drawn, coloured by its place in a frame's run.
+    expect(web).toContain('for(int _i=0;_i<_ps_fp_it;_i++){')
+    expect(web).toContain('(uint8_t)(((float)(_i%_fp_fpN)/_fp_fpN)*255.0f)')
   })
 
   it('attractor and the trail variants fade the persistent buffer on the trail clock', () => {

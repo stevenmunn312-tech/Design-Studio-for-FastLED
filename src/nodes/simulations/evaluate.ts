@@ -1,9 +1,9 @@
 import { FORMULA_POINTS_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
-import { particleMode, particlePoolSize } from './particleModes'
+import { PARTICLE_DECAY_SCALE, particleMode, particlePoolSize } from './particleModes'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
 import { speedPhase } from '../shared/speedClock'
 import { fadeBytesToBlackBy, fadeFrameToBlackBy, trailFadeAmount, trailKeep } from '../shared/trailFade'
-import { passFrames } from '../shared/passClock'
+import { keepOver, passChance, passFrames, passSteps } from '../shared/passClock'
 import { particleRadius } from './particleScale'
 import { fireDirection, type FireDirection } from './fireDirection'
 import { curlFlow } from '../../state/evaluator/curl'
@@ -11,7 +11,7 @@ import {
   FIRE_SMOKE_SCALE_ACROSS, FIRE_SMOKE_SCALE_ALONG, FIRE_SMOKE_SPEED, fireSmokeDim, fireStyle,
 } from '../../state/evaluator/fireSmoke'
 import {
-  LUMINOVA_BLUR, LUMINOVA_NOISE_LANE, LUMINOVA_NOISE_SEPARATION, LUMINOVA_NOISE_SPEED, LUMINOVA_STEP, LUMINOVA_TRAIL_DECAY,
+  LUMINOVA_BLUR, LUMINOVA_NOISE_LANE, LUMINOVA_NOISE_SEPARATION, LUMINOVA_NOISE_SPEED, LUMINOVA_STEP,
   LUMINOVA_TURN, LUMINOVA_WANDER, luminovaEmitters,
 } from '../../state/evaluator/luminova'
 import { MAX_STRING_PARTICLES, STRING_PARTICLE_DECAY, ringTrackLeds, stringTrack, trackIndices, trackSplat, wrapTrack, type StringTrack } from '../../state/evaluator/stringTrack'
@@ -197,21 +197,34 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
   const cap = particlePoolSize(mode)
   const add = (p: Particle) => { if (particles.length < cap) particles.push(p) }
 
+  // Every step below was written per frame: velocities, accelerations and
+  // counts are multiplied by the pass's `frames`, drag and decay are kept
+  // over them (`keepOver`), and a spawn's chance is the chance of coming up
+  // at least once in them (`passChance`). At one frame each is the old step.
+  const frames = passFrames(nodeId, t)
+  const chance = passChance(rate, frames)
+  const lifeKept = decay * (PARTICLE_DECAY_SCALE[particleMode(mode)] ?? 1)
+  const keep = keepOver(lifeKept, frames)
+  // Trail dots for the modes that lay one a frame: each one owed this pass,
+  // oldest first, at its own moment, already faded for the frames since.
+  const dotsOwed = () => passSteps(`${nodeId}:dots`, 1, frames)
+  const dotLife = (age: number) => keepOver(lifeKept, age + 1)
+
   switch (mode) {
     case 'drops': {
       // Drops fall from the top and bounce off the floor, losing energy.
-      if (rnd() < rate) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: (rnd() - 0.5) * 0.4 * spread, vy: rnd() * 0.2, life: 1 })
+      if (rnd() < chance) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: (rnd() - 0.5) * 0.4 * spread, vy: rnd() * 0.2, life: 1 })
       for (const p of particles) {
-        p.vy += 0.045 * gravity; p.x += p.vx; p.y += p.vy
+        p.vy += 0.045 * gravity * frames; p.x += p.vx * frames; p.y += p.vy * frames
         if (p.y >= H - 1) { p.y = H - 1; p.vy *= -0.55 * bounce; p.vx *= 0.8; p.life *= 0.9 }
-        p.life *= decay
+        p.life *= keep
       }
       particles = particles.filter(p => p.life > 0.05)
       break
     }
     case 'fireworks': {
       // Occasional radial burst from a random point; gravity + drag pull it apart.
-      if (rnd() < rate * 0.12) {
+      if (rnd() < passChance(rate * 0.12, frames)) {
         const cx = rnd() * W, cy = rnd() * H * 0.5 + H * 0.1
         const n = 14 + Math.floor(rnd() * 8)
         for (let i = 0; i < n; i++) {
@@ -220,62 +233,66 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
           add({ x: cx, y: cy, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: 1 })
         }
       }
-      for (const p of particles) { p.vy += 0.022 * gravity; p.vx *= 0.965; p.vy *= 0.965; p.x += p.vx; p.y += p.vy; p.life *= decay * 0.985 }
+      const drag = keepOver(0.965, frames)
+      for (const p of particles) { p.vy += 0.022 * gravity * frames; p.vx *= drag; p.vy *= drag; p.x += p.vx * frames; p.y += p.vy * frames; p.life *= keep }
       particles = particles.filter(p => p.life > 0.05)
       break
     }
     case 'sparkle': {
       // Sparkle rain — random twinkles drizzle down and fade.
       const spawn = Math.max(1, Math.round(rate * W * 0.8))
-      for (let i = 0; i < spawn; i++) if (rnd() < rate) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: rnd() * H * 0.3, vx: 0, vy: rnd() * 0.25 + 0.05, life: 1 })
-      for (const p of particles) { p.y += p.vy; p.life *= decay * 0.9 }
+      for (let i = 0; i < spawn; i++) if (rnd() < chance) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: rnd() * H * 0.3, vx: 0, vy: rnd() * 0.25 + 0.05, life: 1 })
+      for (const p of particles) { p.y += p.vy * frames; p.life *= keep }
       particles = particles.filter(p => p.life > 0.05 && p.y < H)
       break
     }
     case 'comet': {
-      // A head traces a Lissajous path; each frame drops a fading trail dot.
-      const hx = (W - 1) * (0.5 + 0.45 * Math.sin(t * 0.9))
-      const hy = (H - 1) * (0.5 + 0.45 * Math.sin(t * 0.6 + 1.3))
-      add({ x: hx, y: hy, vx: 0, vy: 0, life: 1 })
-      for (const p of particles) p.life *= decay
+      // A head traces a Lissajous path, dropping a fading trail dot each frame.
+      for (const p of particles) p.life *= keep
+      for (let age = dotsOwed() - 1; age >= 0; age--) {
+        const at = t - age / 60
+        const hx = (W - 1) * (0.5 + 0.45 * Math.sin(at * 0.9))
+        const hy = (H - 1) * (0.5 + 0.45 * Math.sin(at * 0.6 + 1.3))
+        add({ x: hx, y: hy, vx: 0, vy: 0, life: dotLife(age) })
+      }
       particles = particles.filter(p => p.life > 0.04)
       break
     }
     case 'snow': {
       // Snow drifts down with a gentle horizontal sway; recycles at the floor.
-      if (rnd() < rate) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: 0, vy: rnd() * 0.12 + 0.05, life: 0.7 + rnd() * 0.3, seed: rnd() * 6.28 })
-      for (const p of particles) { p.y += p.vy; p.x += Math.sin(t * 1.5 + (p.seed ?? 0)) * 0.12 }
+      if (rnd() < chance) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: 0, vy: rnd() * 0.12 + 0.05, life: 0.7 + rnd() * 0.3, seed: rnd() * 6.28 })
+      for (const p of particles) { p.y += p.vy * frames; p.x += Math.sin(t * 1.5 + (p.seed ?? 0)) * 0.12 * frames }
       particles = particles.filter(p => p.y < H)
       break
     }
     case 'rain': {
       // Fast wind-blown streaks from the top.
-      if (rnd() < rate) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: (rnd() - 0.5) * 0.18, vy: rnd() * 0.45 + 0.35, life: 1 })
-      for (const p of particles) { p.x += p.vx; p.y += p.vy; p.life *= decay * 0.995 }
+      if (rnd() < chance) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: 0, vx: (rnd() - 0.5) * 0.18, vy: rnd() * 0.45 + 0.35, life: 1 })
+      for (const p of particles) { p.x += p.vx * frames; p.y += p.vy * frames; p.life *= keep }
       particles = particles.filter(p => p.y < H && p.life > 0.05)
       break
     }
     case 'embers': {
       // Warm motes lift from the floor and wander as they cool.
-      if (rnd() < rate) add({ x: rnd() * W, y: H - 1, vx: (rnd() - 0.5) * 0.12, vy: -(rnd() * 0.18 + 0.04), life: 1, seed: rnd() * 6.28 })
-      for (const p of particles) { p.x += p.vx + Math.sin(t * 2 + (p.seed ?? 0)) * 0.05; p.y += p.vy; p.life *= decay * 0.985 }
+      if (rnd() < chance) add({ x: rnd() * W, y: H - 1, vx: (rnd() - 0.5) * 0.12, vy: -(rnd() * 0.18 + 0.04), life: 1, seed: rnd() * 6.28 })
+      for (const p of particles) { p.x += (p.vx + Math.sin(t * 2 + (p.seed ?? 0)) * 0.05) * frames; p.y += p.vy * frames; p.life *= keep }
       particles = particles.filter(p => p.y >= 0 && p.life > 0.05)
       break
     }
     case 'bubbles': {
       // Buoyant dots rise from below with a broad side-to-side wobble.
-      if (rnd() < rate) add({ x: rnd() * W, y: H - 1, vx: 0, vy: -(rnd() * 0.16 + 0.06), life: 1, seed: rnd() * 6.28 })
-      for (const p of particles) { p.x += Math.sin(t * 3 + (p.seed ?? 0)) * 0.1; p.y += p.vy }
+      if (rnd() < chance) add({ x: rnd() * W, y: H - 1, vx: 0, vy: -(rnd() * 0.16 + 0.06), life: 1, seed: rnd() * 6.28 })
+      for (const p of particles) { p.x += Math.sin(t * 3 + (p.seed ?? 0)) * 0.1 * frames; p.y += p.vy * frames }
       particles = particles.filter(p => p.y >= 0)
       break
     }
     case 'vortex': {
       // Particles spiral around the centre while being pulled slowly inward.
-      if (rnd() < rate) add({ x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, life: 1 })
+      if (rnd() < chance) add({ x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, life: 1 })
       const cx = (W - 1) / 2, cy = (H - 1) / 2
       for (const p of particles) {
         const dx = p.x - cx, dy = p.y - cy, d = Math.max(0.5, Math.hypot(dx, dy))
-        p.x += (-dy / d) * 0.24 - dx * 0.006; p.y += (dx / d) * 0.24 - dy * 0.006; p.life *= decay * 0.995
+        p.x += ((-dy / d) * 0.24 - dx * 0.006) * frames; p.y += ((dx / d) * 0.24 - dy * 0.006) * frames; p.life *= keep
       }
       particles = particles.filter(p => p.life > 0.05)
       break
@@ -292,15 +309,20 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
         const q: Particle = { x: rnd() * W, y: rnd() * H, vx: 0, vy: 0, life: 1, seed: rnd() * 6.28, emitter: true }
         emitters.push(q); particles.push(q)
       }
-      emitters.forEach((q, i) => {
-        const n = _snoise2(t * LUMINOVA_NOISE_SPEED + i * LUMINOVA_NOISE_SEPARATION, i * LUMINOVA_NOISE_LANE) * 0.5 + 0.5
-        q.seed = (q.seed ?? 0) + LUMINOVA_TURN + (n - 0.5) * LUMINOVA_WANDER
-        q.x = (((q.x + Math.cos(q.seed) * LUMINOVA_STEP) % W) + W) % W
-        q.y = (((q.y + Math.sin(q.seed) * LUMINOVA_STEP) % H) + H) % H
-        q.life = 1
-        add({ x: q.x, y: q.y, vx: 0, vy: 0, life: 1 })
-      })
-      for (const q of particles) if (!q.emitter) q.life *= decay * LUMINOVA_TRAIL_DECAY
+      for (const q of particles) if (!q.emitter) q.life *= keep
+      // The emitters step once per frame owed, each step at its own moment.
+      const steps = dotsOwed()
+      for (let step = 0; step < steps; step++) {
+        const age = steps - 1 - step, at = t - age / 60
+        emitters.forEach((q, i) => {
+          const n = _snoise2(at * LUMINOVA_NOISE_SPEED + i * LUMINOVA_NOISE_SEPARATION, i * LUMINOVA_NOISE_LANE) * 0.5 + 0.5
+          q.seed = (q.seed ?? 0) + LUMINOVA_TURN + (n - 0.5) * LUMINOVA_WANDER
+          q.x = (((q.x + Math.cos(q.seed) * LUMINOVA_STEP) % W) + W) % W
+          q.y = (((q.y + Math.sin(q.seed) * LUMINOVA_STEP) % H) + H) % H
+          q.life = 1
+          add({ x: q.x, y: q.y, vx: 0, vy: 0, life: dotLife(age) })
+        })
+      }
       particles = particles.filter((q) => q.emitter || q.life > 0.05)
       break
     }
@@ -310,31 +332,35 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
       while (particles.length < N) add({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.12, vy: (rnd() - 0.5) * 0.12, life: 0.45 + rnd() * 0.55, seed: rnd() * 6.28 })
       if (particles.length > N) particles = particles.slice(0, N)
       const spanX = Math.max(1, W - 1), spanY = Math.max(1, H - 1)
-      for (const p of particles) { p.x = (p.x + p.vx + Math.sin(t + (p.seed ?? 0)) * 0.035 + spanX) % spanX; p.y = (p.y + p.vy + Math.cos(t * 0.8 + (p.seed ?? 0)) * 0.035 + spanY) % spanY; p.life = 0.65 + Math.sin(t * 3 + (p.seed ?? 0)) * 0.35 }
+      for (const p of particles) { p.x = (p.x + p.vx * frames + Math.sin(t + (p.seed ?? 0)) * 0.035 * frames + spanX) % spanX; p.y = (p.y + p.vy * frames + Math.cos(t * 0.8 + (p.seed ?? 0)) * 0.035 * frames + spanY) % spanY; p.life = 0.65 + Math.sin(t * 3 + (p.seed ?? 0)) * 0.35 }
       break
     }
     case 'meteor': {
       // A bright diagonal head continuously lays down a fading tail.
-      const span = Math.max(1, Math.max(W, H) - 1), phase = (t * Math.max(2, W * 0.45)) % span
-      add({ x: phase * (W - 1) / span, y: phase * (H - 1) / span, vx: 0, vy: 0, life: 1 })
-      for (const p of particles) p.life *= decay * 0.96
+      for (const p of particles) p.life *= keep
+      const span = Math.max(1, Math.max(W, H) - 1)
+      for (let age = dotsOwed() - 1; age >= 0; age--) {
+        const phase = ((t - age / 60) * Math.max(2, W * 0.45)) % span
+        add({ x: phase * (W - 1) / span, y: phase * (H - 1) / span, vx: 0, vy: 0, life: dotLife(age) })
+      }
       particles = particles.filter(p => p.life > 0.04)
       break
     }
     case 'tornado': {
       // Rising motes tighten into a rotating funnel.
-      if (rnd() < rate) add({ x: W / 2, y: H - 1, vx: 0, vy: -(rnd() * 0.16 + 0.06), life: 1, seed: rnd() * 6.28 })
-      for (const p of particles) { p.y += p.vy; const h = Math.max(0, Math.min(1, 1 - p.y / H)); p.x = W / 2 + Math.sin(t * 5 + (p.seed ?? 0) + p.y * 0.7) * (0.5 + h * W * 0.35); p.life *= decay * 0.995 }
+      if (rnd() < chance) add({ x: W / 2, y: H - 1, vx: 0, vy: -(rnd() * 0.16 + 0.06), life: 1, seed: rnd() * 6.28 })
+      for (const p of particles) { p.y += p.vy * frames; const h = Math.max(0, Math.min(1, 1 - p.y / H)); p.x = W / 2 + Math.sin(t * 5 + (p.seed ?? 0) + p.y * 0.7) * (0.5 + h * W * 0.35); p.life *= keep }
       particles = particles.filter(p => p.y >= 0 && p.life > 0.05)
       break
     }
     case 'pinwheel': {
       // Curved spokes stream out from the centre.
-      if (rnd() < rate) {
+      if (rnd() < chance) {
         const a = rnd() * Math.PI * 2
         add({ x: W / 2, y: H / 2, vx: Math.cos(a) * 0.18, vy: Math.sin(a) * 0.18, life: 1 })
       }
-      for (const p of particles) { const vx = p.vx - p.vy * 0.035, vy = p.vy + p.vx * 0.035; p.vx = vx; p.vy = vy; p.x += vx; p.y += vy; p.life *= decay * 0.99 }
+      const turn = 0.035 * frames
+      for (const p of particles) { const vx = p.vx - p.vy * turn, vy = p.vy + p.vx * turn; p.vx = vx; p.vy = vy; p.x += vx * frames; p.y += vy * frames; p.life *= keep }
       particles = particles.filter(p => p.life > 0.05 && p.x >= 0 && p.x < W && p.y >= 0 && p.y < H)
       break
     }
@@ -343,30 +369,31 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
       const N = Math.max(2, Math.min(80, Math.round(count)))
       while (particles.length < N) add({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.5, vy: (rnd() - 0.5) * 0.5, life: 1 })
       if (particles.length > N) particles = particles.slice(0, N)
-      for (const p of particles) { p.x += p.vx; p.y += p.vy; if (p.x <= 0 || p.x >= W - 1) { p.x = Math.max(0, Math.min(W - 1, p.x)); p.vx *= -1 } if (p.y <= 0 || p.y >= H - 1) { p.y = Math.max(0, Math.min(H - 1, p.y)); p.vy *= -1 } p.life = 1 }
+      for (const p of particles) { p.x += p.vx * frames; p.y += p.vy * frames; if (p.x <= 0 || p.x >= W - 1) { p.x = Math.max(0, Math.min(W - 1, p.x)); p.vx *= -1 } if (p.y <= 0 || p.y >= H - 1) { p.y = Math.max(0, Math.min(H - 1, p.y)); p.vy *= -1 } p.life = 1 }
       break
     }
     case 'chase': {
       // Particles chase a moving point, overshooting into loose loops.
-      if (rnd() < rate) add({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.1, vy: (rnd() - 0.5) * 0.1, life: 1 })
+      if (rnd() < chance) add({ x: rnd() * W, y: rnd() * H, vx: (rnd() - 0.5) * 0.1, vy: (rnd() - 0.5) * 0.1, life: 1 })
       const ax = (W - 1) * (0.5 + 0.35 * Math.sin(t * 0.7)), ay = (H - 1) * (0.5 + 0.35 * Math.cos(t * 0.9))
-      for (const p of particles) { const dx = ax - p.x, dy = ay - p.y, d = Math.max(1, Math.hypot(dx, dy)); p.vx = p.vx * 0.97 + dx / d * 0.025; p.vy = p.vy * 0.97 + dy / d * 0.025; p.x += p.vx; p.y += p.vy; p.life *= decay * 0.998 }
+      const drag = keepOver(0.97, frames)
+      for (const p of particles) { const dx = ax - p.x, dy = ay - p.y, d = Math.max(1, Math.hypot(dx, dy)); p.vx = p.vx * drag + dx / d * 0.025 * frames; p.vy = p.vy * drag + dy / d * 0.025 * frames; p.x += p.vx * frames; p.y += p.vy * frames; p.life *= keep }
       particles = particles.filter(p => p.life > 0.05)
       break
     }
     case 'waterfall': {
       // Dense drops accelerate down a narrow central stream and splash outward.
       const spawn = Math.max(1, Math.round(rate * 3))
-      for (let i = 0; i < spawn; i++) if (rnd() < rate) add({ x: W * 0.5 + (rnd() - 0.5) * 0.3 * W * spread, y: 0, vx: (rnd() - 0.5) * 0.08, vy: rnd() * 0.2 + 0.12, life: 1 })
-      for (const p of particles) { p.vy += 0.025 * gravity; p.x += p.vx; p.y += p.vy; if (p.y >= H - 1) { p.y = H - 1; p.vy *= -0.3 * bounce; p.vx += (rnd() - 0.5) * 0.35; p.life *= 0.7 } p.life *= decay * 0.995 }
+      for (let i = 0; i < spawn; i++) if (rnd() < chance) add({ x: W * 0.5 + (rnd() - 0.5) * 0.3 * W * spread, y: 0, vx: (rnd() - 0.5) * 0.08, vy: rnd() * 0.2 + 0.12, life: 1 })
+      for (const p of particles) { p.vy += 0.025 * gravity * frames; p.x += p.vx * frames; p.y += p.vy * frames; if (p.y >= H - 1) { p.y = H - 1; p.vy *= -0.3 * bounce; p.vx += (rnd() - 0.5) * 0.35; p.life *= 0.7 } p.life *= keep }
       particles = particles.filter(p => p.life > 0.05 && p.y < H)
       break
     }
     case 'fountain':
     default: {
       // Sparks rise from the bottom, arc under gravity, and fade.
-      if (rnd() < rate) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: H - 1, vx: (rnd() - 0.5) * 0.6 * spread, vy: -(rnd() * 0.5 + 0.1), life: 1 })
-      for (const p of particles) { p.x += p.vx; p.y += p.vy; p.vy += 0.02 * gravity; p.life *= decay }
+      if (rnd() < chance) add({ x: W / 2 + (rnd() - 0.5) * W * spread, y: H - 1, vx: (rnd() - 0.5) * 0.6 * spread, vy: -(rnd() * 0.5 + 0.1), life: 1 })
+      for (const p of particles) { p.x += p.vx * frames; p.y += p.vy * frames; p.vy += 0.02 * gravity * frames; p.life *= keep }
       particles = particles.filter(p => p.life > 0.04 && p.y >= 0)
       break
     }
@@ -453,7 +480,11 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
       let x = st.logisticX ?? 0.5
       const r = Math.max(0, Math.min(4, p.chaos))
       const frame = blankFrame(W, H)
-      for (let i = 0; i < count; i++) {
+      // `count` iterations a 60th of a second: a slower pass runs the ones it
+      // owes first and draws the last `count`, so the map churns on the clock.
+      const steps = passSteps(`${key}:iterations`, count, passFrames(key, t))
+      for (let i = 0; i < steps - count; i++) x = r * x * (1 - x)
+      for (let i = Math.max(0, count - steps); i < count; i++) {
         x = r * x * (1 - x)
         const ang = (i / count) * Math.PI * 2
         const rad = 0.5 * x
@@ -471,13 +502,16 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
       let ax = st.attractorX ?? 0.1, ay = st.attractorY ?? 0.1
       const buf = formulaPointsTrailBuf(st, W, H)
       fadeFrameToBlackBy(buf, trailFadeAmount(key, t, p.trail))
-      for (let i = 0; i < count; i++) {
+      // `count` iterations a 60th of a second, every one drawn into the
+      // fading trail, coloured by its place in its own frame's run.
+      const steps = passSteps(`${key}:iterations`, count, passFrames(key, t))
+      for (let i = 0; i < steps; i++) {
         const nx = Math.sin(a * ay) - Math.cos(b * ax)
         const ny = Math.sin(c * ax) - Math.cos(d * ay)
         ax = nx; ay = ny
         const px = ((ax + 2) / 4) * (W - 1)
         const py = ((ay + 2) / 4) * (H - 1)
-        splat(buf, px, py, samplePalette(p.palette, i / count))
+        splat(buf, px, py, samplePalette(p.palette, (i % count) / count))
       }
       st.attractorX = ax; st.attractorY = ay; st.frame = buf
       formulaPointsState.set(key, st)
@@ -697,6 +731,10 @@ function evalStringParticles(nodeId: string, o: StringParticleOptions, spawn: nu
   const step = Math.max(0, speed) * 0.6
   const spawnP = clamp01(spawn)
   fadeBytesToBlackBy(trail, trailFadeAmount(nodeId, t, trailLen))
+  // Moves, spawn chances and life were each written per frame; they run on
+  // the 60ths of a second this pass spans, so a 30 fps string keeps pace.
+  const frames = passFrames(nodeId, t)
+  const debrisDrag = keepOver(0.92, frames)
 
   const free = () => { for (let i = 0; i < pc; i++) if (life[i] <= 0) return i; return -1 }
   const place = (i: number, k: number, p: number, v: number, l: number, h: number) => {
@@ -705,7 +743,7 @@ function evalStringParticles(nodeId: string, o: StringParticleOptions, spawn: nu
   const dir = () => (rnd() < 0.5 ? -1 : 1)
 
   if (o.mode === 'meteors') {
-    if (rnd() < spawnP * 0.3) {
+    if (rnd() < passChance(spawnP * 0.3, frames)) {
       const i = free()
       if (i >= 0) place(i, SP_AMBIENT, rnd() * len, dir() * 0.3, 0.6, rnd())
     }
@@ -721,20 +759,21 @@ function evalStringParticles(nodeId: string, o: StringParticleOptions, spawn: nu
       }
     }
   } else {
+    const chance = passChance(spawnP, frames)
     for (let i = 0; i < pc; i++) {
-      if (life[i] <= 0 && rnd() < spawnP) place(i, SP_DRIFT, rnd() * len, dir(), 1, rnd())
+      if (life[i] <= 0 && rnd() < chance) place(i, SP_DRIFT, rnd() * len, dir(), 1, rnd())
     }
   }
   s.prev = trigger
 
   for (let i = 0; i < pc; i++) {
     if (life[i] <= 0) continue
-    if (kind[i] === SP_DRIFT) pos[i] = wrapTrack(pos[i] + vel[i] * step * life[i], len)
+    if (kind[i] === SP_DRIFT) pos[i] = wrapTrack(pos[i] + vel[i] * step * life[i] * frames, len)
     else {
-      pos[i] = wrapTrack(pos[i] + vel[i], len)
-      if (kind[i] === SP_DEBRIS) vel[i] *= 0.92
+      pos[i] = wrapTrack(pos[i] + vel[i] * frames, len)
+      if (kind[i] === SP_DEBRIS) vel[i] *= debrisDrag
     }
-    life[i] -= STRING_PARTICLE_DECAY[kind[i]]
+    life[i] -= STRING_PARTICLE_DECAY[kind[i]] * frames
     if (life[i] <= 0) { life[i] = 0; continue }
     // Power drives colour and brightness together: a fading particle washes out
     // toward white and dims as it goes.
