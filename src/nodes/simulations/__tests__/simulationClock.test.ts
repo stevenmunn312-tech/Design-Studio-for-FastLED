@@ -80,6 +80,55 @@ describe('simulations at 60 fps', () => {
     expect(sixty('FormulaPoints', { formulaType: 'logisticMap', count: 40, chaos: 3.7 }, 16, 16)).toBe('36f8b1e2')
     expect(sixty('FormulaPoints', { formulaType: 'attractor', count: 80, preset: 'swirl', trail: 0.5 }, 16, 16)).toBe('96bbbea7')
   })
+
+  /*
+   * Recorded from the per-pass code before String Particles' deposits, Boids,
+   * Fire, Reaction Diffusion and Formula Points' Lissajous and rose dot moved
+   * onto the clock, 120 passes each.
+   */
+  it('draws the rest of String Particles as it did', () => {
+    expect([
+      sixty('StringParticles', { mode: 'drift', spawn: 0.7, count: 24, seed: 9, track: 'column', trail: 0.8, speed: 0.9 }, 6, 24),
+      sixty('StringParticles', { mode: 'drift', spawn: 0.2, count: 8, seed: 2, track: 'ring', ringLeds: 24, trail: 0.3 }, 12, 12),
+      sixty('StringParticles', { mode: 'meteors', spawn: 0.9, count: 40, seed: 6, track: 'row', bed: 0.4, trail: 0.7 }, 40, 1, (k) => k % 30 < 2),
+    ]).toEqual(['dc7ccae9', 'f281eb41', '72f81b49'])
+  })
+
+  it.each([
+    ['solid', { colorMode: 'solid', r: 200, g: 90, b: 40 }],
+    ['heading', { colorMode: 'heading' }],
+    ['density', { colorMode: 'density', count: 40, visualRange: 6 }],
+    ['cycle', { colorMode: 'cycle', separation: 1, alignment: 0.2, cohesion: 0.9 }],
+  ] as const)('draws Boids %s as it did', (name, props) => {
+    const RECORDED: Record<string, string> = { solid: '2ebde1bb', heading: '31ed7c8c', density: '2aceb103', cycle: '93718368' }
+    expect(sixty('Boids', { count: 24, seed: 5, speed: 0.6, ...props }, 16, 16)).toBe(RECORDED[name])
+  })
+
+  it.each([
+    ['classic', { fireStyle: 'classic' }],
+    ['smoke', { fireStyle: 'smoke', intensity: 0.4 }],
+    ['fire2012', { fireStyle: 'fire2012', cooling: 70, sparking: 150 }],
+    ['sideways', { fireStyle: 'classic', direction: 'left', turbulence: 2, mirror: true }],
+    ['sideways2012', { fireStyle: 'fire2012', direction: 'down', turbulence: 0, mirror: true }],
+  ] as const)('draws Fire %s as it did', (name, props) => {
+    const RECORDED: Record<string, string> = { classic: 'a71f63f3', smoke: 'e26d35ec', fire2012: '4a2d2b29', sideways: '4140aee5', sideways2012: '4a3007cb' }
+    expect(sixty('Fire', { seed: 7, ...props }, 12, 16)).toBe(RECORDED[name])
+  })
+
+  it('draws Reaction Diffusion as it did', () => {
+    expect([
+      sixty('ReactionDiffusion', { seed: 3 }, 16, 16),
+      sixty('ReactionDiffusion', { seed: 8, rdPreset: 'custom', feed: 0.03, kill: 0.057, steps: 13 }, 12, 10),
+    ]).toEqual(['b1393dc7', 'e64bb879'])
+  })
+
+  it('draws Formula Points\' Lissajous and rose as they did', () => {
+    expect([
+      sixty('FormulaPoints', { formulaType: 'lissajousPath', speed: 0.7, freqA: 5, freqB: 4, trail: 0.6 }, 16, 16),
+      sixty('FormulaPoints', { formulaType: 'rosePath', speed: 0.4, petals: 7, trail: 0.9, dotSize: 1.6 }, 16, 16),
+      sixty('FormulaPoints', { formulaType: 'lissajousPath', speed: 1, trail: 0 }, 16, 16),
+    ]).toEqual(['6259bc67', '278293f2', '47952979'])
+  })
 })
 
 describe('simulations at 30 fps keep the pace of 60', () => {
