@@ -44,24 +44,48 @@ function hash(f: Frame): string {
 describe('sized shapes on a 60-LED strip', () => {
   const W = 60, H = 1
 
-  it('moves Path\'s point along the strip, which had no room to move', () => {
-    // A circle crosses the middle row at a turn of 0 and of a half.
+  it('sweeps Path\'s point along the strip, flat on the row', () => {
+    // One row runs flat (flatPathRow): the circle's point is lit at every
+    // turn, where it had lit only at the two turns its curve crossed the row.
+    for (const t of [0, 0.1, 0.25, 0.4, 0.5, 0.75]) {
+      expect(litColumns(frame('Path', { t, speed: 0 }, W, H)).length, `turn ${t}`).toBeGreaterThan(0)
+    }
     const start = litColumns(frame('Path', { t: 0, speed: 0 }, W, H))
     const half = litColumns(frame('Path', { t: 0.5, speed: 0 }, W, H))
-    expect(start.length).toBeGreaterThan(0)
-    expect(half.length).toBeGreaterThan(0)
     expect(centroid(start) - centroid(half)).toBeGreaterThan(40)
+    // It rides the row's middle: on a pixel centre it is the full colour.
+    const quarter = frame('Path', { t: 0.25, speed: 0 }, W, H)
+    expect(quarter[0][29]).toEqual({ r: 255, g: 220, b: 80 })
     // Unwired, Speed carries it round: half a turn in two seconds.
     expect(litColumns(frame('Path', {}, W, H, 120))).toEqual(half)
   })
 
-  it('draws Fourier Epicycles\' circles and trail across the strip, and moves them', () => {
-    const frames = fourierFrames('strip-fourier', { persistence: 0 }, 90, W, H)
+  it('sweeps Fourier Epicycles\' pen and trail along the strip, without guide circles', () => {
+    const frames = fourierFrames('strip-fourier', { persistence: 0 }, 240, W, H)
     const lit = frames.map((f) => litColumns(f))
+    // The pen is on the row in every frame, and moves.
     expect(lit.every((xs) => xs.length > 0)).toBe(true)
-    expect(new Set(lit.map((xs) => xs.join(','))).size).toBeGreaterThan(20)
-    // The guide circles reach well past the middle.
+    expect(new Set(lit.map((xs) => xs.join(','))).size).toBeGreaterThan(60)
+    // A whole turn of the heart sweeps most of its width.
     expect(Math.max(...lit.flat()) - Math.min(...lit.flat())).toBeGreaterThan(30)
+    // A row shows a circle only as two stray points, so none is drawn.
+    const hidden = fourierFrames('strip-fourier-nocircles', { persistence: 0, showCircles: false }, 240, W, H)
+    expect(hidden.map(hash)).toEqual(frames.map(hash))
+  })
+
+  it('runs Path and Fourier Epicycles flat in a one-row sketch, and leaves a matrix sketch alone', () => {
+    const sketch = (nodeType: string, width: number, height: number) => generateCpp(
+      [node('s', nodeType), node('out', 'MatrixOutput', { form: height === 1 ? 'strip' : 'matrix', width, height, ledCount: width * height })],
+      [{ id: 'e', source: 's', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }] as StudioEdge[])
+    expect(sketch('Path', 60, 1)).toContain('    float _sy = 0.5f;')
+    expect(sketch('Path', 16, 16)).toContain('    float _sy = (HEIGHT - 1) * 0.5f - _py * _ext;')
+    const strip = sketch('FourierEpicycles', 60, 1), matrix = sketch('FourierEpicycles', 16, 16)
+    // The flat-row flag specialises away: each sketch keeps only its own arm.
+    expect(strip).toContain('*penX=cx+x; *penY=cy;')
+    expect(strip).toMatch(/_fePen\(_fe_s,\s*\d+,\s*_hw,\s*_hfr,\s*_turn,\s*_ext,\s*_cx,\s*_cy,\s*0,/)
+    expect(matrix).toContain('*penX=cx+x; *penY=cy-y;')
+    expect(matrix).toMatch(/_fePen\(_fe_s,\s*\d+,\s*_hw,\s*_hfr,\s*_turn,\s*_ext,\s*_cx,\s*_cy,\s*buf_s,/)
+    for (const cpp of [strip, matrix]) expect(cpp).not.toContain('bool flat')
   })
 
   it('scales a Shape with the strip\'s length while Scale with matrix is on', () => {

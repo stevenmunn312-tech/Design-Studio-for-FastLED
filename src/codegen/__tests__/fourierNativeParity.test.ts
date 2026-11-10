@@ -16,7 +16,6 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { generateCpp } from '../cppGenerator'
-import { FOURIER_HELPER_CPP } from '../helpers/fourierHelperCpp'
 import { LIB8TION_HOST_CPP } from '../../nodes/shared/lib8tion'
 import { evalFourierEpicycles } from '../../nodes/shapes/evaluate'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
@@ -58,28 +57,35 @@ static void fadeToBlackBy(CRGB* b,int n,uint8_t by) { for(int i=0;i<n;i++){ b[i]
 ${LIB8TION_HOST_CPP}`
 
 describe.skipIf(!HAS_GPP)('Fourier Epicycles native parity', () => {
+  // The 60x1 strip runs flat (flatPathRow): no circles, the pen on the row.
   it.each([
-    ['heart', 16, 240, 0.2, 32, true, true],
-    ['star', 32, 300, 0.35, 12.5, true, false],
-    ['infinity', 24, 120, -0.6, 32, false, true],
-  ] as const)('draws %s on %i×%i like the preview after %i frames', (outline, size, frames, speed, harmonics, showCircles, showPen) => {
+    ['heart', 16, 16, 240, 0.2, 32, true, true],
+    ['star', 32, 32, 300, 0.35, 12.5, true, false],
+    ['infinity', 24, 24, 120, -0.6, 32, false, true],
+    ['heart', 60, 1, 150, 0.3, 32, true, true],
+  ] as const)('draws %s on %i×%i like the preview after %i frames', (outline, W, H, frames, speed, harmonics, showCircles, showPen) => {
     const properties = { outline, maxHarmonics: 32, harmonics, speed, showCircles, showPen }
     const sketch = generateCpp(
-      [node('fe', 'FourierEpicycles', properties), node('out', 'MatrixOutput', { form: 'matrix', width: size, height: size, dataPin: 5 })],
+      [node('fe', 'FourierEpicycles', properties), node('out', 'MatrixOutput', { form: 'matrix', width: W, height: H, dataPin: 5 })],
       [{ id: 'e', source: 'fe', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' } as unknown as StudioEdge],
     )
     const lines = sketch.split('\n')
     const start = lines.findIndex((line) => line.startsWith('  { /* Fourier Epicycles'))
     const end = lines.indexOf('  }', start)
     expect(start).toBeGreaterThanOrEqual(0)
+    // The helpers as the sketch emits them: specialised for this canvas,
+    // which drops the flat-row flag and keeps only the arm it takes.
+    const helperStart = sketch.indexOf('static inline uint8_t _feScale(')
+    const helpers = sketch.slice(helperStart, sketch.indexOf('\n}\n', sketch.indexOf('static void _feTrail(')) + 2)
+    expect(helperStart).toBeGreaterThanOrEqual(0)
 
     const dir = mkdtempSync(path.join(tmpdir(), 'fourier-parity-'))
     try {
       const source = path.join(dir, 'fourier.cpp'), binary = path.join(dir, 'fourier')
       writeFileSync(source, [
         FASTLED_STAND_IN,
-        `#define WIDTH ${size}`, `#define HEIGHT ${size}`, '#define NUM_LEDS (WIDTH*HEIGHT)',
-        FOURIER_HELPER_CPP,
+        `#define WIDTH ${W}`, `#define HEIGHT ${H}`, '#define NUM_LEDS (WIDTH*HEIGHT)',
+        helpers,
         'static CRGB buf_fe[NUM_LEDS];',
         'static void frame(float t) {', ...lines.slice(start, end + 1), '}',
         `int main() { for(int i=0;i<${frames};i++) frame(i/60.0f);`,
@@ -90,17 +96,17 @@ describe.skipIf(!HAS_GPP)('Fourier Epicycles native parity', () => {
 
       let preview: Frame = []
       for (let i = 0; i < frames; i++) {
-        preview = evalFourierEpicycles(`native-${outline}`, null, {
+        preview = evalFourierEpicycles(`native-${outline}-${W}x${H}`, null, {
           outline, customPoints: '', maxHarmonics: 32, harmonics, speed, scale: 0.8, thickness: 1.25,
           persistence: 1, color: { r: 255, g: 220, b: 80 }, showCircles, showPen,
-        }, Math.fround(i / 60), size, size)
+        }, Math.fround(i / 60), W, H)
       }
       const differing = native.filter(([r, g, b], i) => {
-        const px = preview[Math.floor(i / size)][i % size]
+        const px = preview[Math.floor(i / W)][i % W]
         return px.r !== r || px.g !== g || px.b !== b
       }).length
-      expect(native.filter(([r]) => r > 0).length).toBeGreaterThan(size)
-      expect(differing).toBeLessThanOrEqual(Math.floor(size * size * 0.01))
+      expect(native.filter(([r]) => r > 0).length).toBeGreaterThan(H === 1 ? W / 4 : W)
+      expect(differing).toBeLessThanOrEqual(Math.floor(W * H * 0.01))
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

@@ -43,7 +43,7 @@ import { gradientMixMode, mixGradientColors, type GradientMixMode } from '../../
 import { polarRepeat } from '../../state/evaluator/polar'
 import { polarFrame, polarPixel, wireVertexQ8, wireframeEdgeQ8 } from '../shared/integerPatterns'
 import { isqrt32 } from '../shared/lib8tion'
-import { sizingSide } from '../shared/stringCanvas'
+import { flatPathRow, sizingSide } from '../shared/stringCanvas'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 import { CLOCK_TIMER_MAX_SEC } from './clockTimer'
 import { type PositionUnits, centerAxis, clockCenterAxis, lineAxis, positionUnits, textAxisStart } from './positionUnits'
@@ -171,10 +171,16 @@ export function evalFourierEpicycles(
   let turnF = speedPhaseFloat(nodeId, t, Math.max(-FOURIER_SPEED_MAX, Math.min(FOURIER_SPEED_MAX, p.speed)))
   turnF -= Math.floor(turnF)
   const turn = Math.trunc(turnF * 65536) & 0xffff
+  // One row runs flat (shared/stringCanvas.ts): the pen and its trail keep
+  // only their horizontal motion and sweep the strip. The guide circles are
+  // not drawn there: a row shows a circle only as the two points where it
+  // crosses, so thirty-odd circles scattered dots over the sweep.
+  const flat = flatPathRow(H)
+  const penRow = (y: number) => (flat ? cy : cy - y)
   const pen = fourierPenQ8(table, whole, frac, turn, extent, (x, y, r) => {
-    if (p.showCircles && r >= FOURIER_RING_MIN_Q8) fourierRing(W, H, cx + x, cy - y, r, p.color, add)
+    if (p.showCircles && !flat && r >= FOURIER_RING_MIN_Q8) fourierRing(W, H, cx + x, cy - y, r, p.color, add)
   })
-  const penX = cx + pen.x, penY = cy - pen.y
+  const penX = cx + pen.x, penY = penRow(pen.y)
 
   // Fade, then draw the pen's path since last frame along the outline itself,
   // so a slow frame rate leaves the curve rather than dots or corner-cutting
@@ -195,7 +201,7 @@ export function evalFourierEpicycles(
       : FOURIER_TRAIL_STEPS_MAX
     for (let i = 1; i <= steps; i++) {
       const at = i === steps ? pen : fourierPenQ8(table, whole, frac, (st.turn + Math.trunc(delta * i / steps)) & 0xffff, extent)
-      fourierDisc(W, H, cx + at.x, cy - at.y, radius, p.color, lighten)
+      fourierDisc(W, H, cx + at.x, penRow(at.y), radius, p.color, lighten)
     }
   }
   st.turn = turn
@@ -814,9 +820,12 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const cx = (W - 1) / 2, cy = (H - 1) / 2
     const radius = thickness * 0.5
     // Half the shorter side, or of a strip's length, where the shorter side
-    // is one pixel and left the point no room to move.
+    // is one pixel and left the point no room to move. One row runs flat
+    // (shared/stringCanvas.ts), so the point sweeps the strip instead of
+    // lighting only where the path crosses the row; it rides the row's
+    // middle, 0.5, where `cy` (0) would put it on the edge at 60% brightness.
     const extent = Math.max(0, sizingSide(W, H) * 0.5 * scale - radius)
-    splatDisc(frame, cx + p.x * extent, cy - p.y * extent, radius, color)
+    splatDisc(frame, cx + p.x * extent, flatPathRow(H) ? 0.5 : cy - p.y * extent, radius, color)
     return { frame }
   },
   // Discrete Fourier epicycles of an outline — see
