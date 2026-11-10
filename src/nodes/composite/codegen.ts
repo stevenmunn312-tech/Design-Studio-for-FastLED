@@ -10,14 +10,13 @@ import { timedFadeCpp } from '../shared/trailFadeCpp'
 import { TRAIL_MIN_STEP } from '../shared/trailFade'
 import { TRAILS_REFERENCE_FPS } from './trails'
 import {
-  ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, FEEDBACK_TRANSFORMS, KALEIDO_SOURCE_CPP, arrayCopyCpp, blendMix8Cpp, feedbackFrameCpp, feedbackSourceCpp,
-  sampleFrameQ8Cpp, wallpaperFrameCpp,
+  ARRAY_OVER_CPP, ARRAY_SOURCE_CPP, FEEDBACK_TRANSFORMS, arrayCopyCpp, blendMix8Cpp, feedbackFrameCpp, feedbackSourceCpp,
+  kaleidoSourceCpp, sampleFrameQ8Cpp, wallpaperFrameCpp,
 } from '../shared/integerPatterns'
-import { KALEIDOSCOPE_SEGMENTS } from './kaleidoscope'
 import { transformZoomCpp } from './transformZoom'
 import { ARRAY_COPIES } from './limits'
 import { BLEND_NODE_MODES, FEEDBACK_BLEND_MODES } from './blendModes'
-import { diagonalFoldCpp } from './mirror'
+import { diagonalFoldCpp, mirrorGlows, radialTurnCpp, radialWedgeCpp } from './mirror'
 import { WARP_MOTIONS, warpPushCpp } from './frameWarpMotion'
 
 export const COMPOSITE_EMITTERS: NodeEmitters = {
@@ -367,31 +366,41 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     const ob = ownBuf()
     ln(`  ${seedFrom('frame')} for(int _i=0;_i<NUM_LEDS;_i++){${ob}[_i].r=255-${ob}[_i].r;${ob}[_i].g=255-${ob}[_i].g;${ob}[_i].b=255-${ob}[_i].b;}`)
   },
-  // Wedge mirror — folds each pixel's polar angle into a single segment,
-  // reflects it about the segment's midline, and samples the source there.
-  // Mirrors evalKaleidoscope in kaleidoscope.ts: same W/2,H/2 centre, the
-  // same two-step fold, and floorf(v+0.5f) to match JS Math.round, so the
-  // preview and the flashed sketch produce identical frames.
-  Kaleidoscope({ ln, f, ownBuf, srcBuf, needsAtan16 }) {
-    const ob = ownBuf()
-    const src = srcBuf('frame')
-    if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Kaleidoscope: no input`); return }
-    // `segments` is wireable, so the wedge angle is computed per frame.
-    const seg = f('segments', 'segments', 6)
-    needsAtan16.v = true
-    // Integer kernel (shared/integerPatterns.ts): the wedge in 16-bit angle units.
-    ln(`  { int32_t _kW=(int32_t)(65536.0f/constrain((float)(${seg}),${KALEIDOSCOPE_SEGMENTS.min}.0f,${KALEIDOSCOPE_SEGMENTS.max}.0f));`)
-    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    for (const line of KALEIDO_SOURCE_CPP) ln(`      ${line}`)
-    ln(`      ${ob}[_y*WIDTH+_x]=_kSrc<0?CRGB::Black:${src}[_kSrc];`)
-    ln(`    } }`)
-  },
-  Mirror({ p, ln, f, channelColor, ownBuf, srcBuf }) {
+  // Radial: the wedge fold (the old Kaleidoscope) — folds each pixel's polar
+  // angle into a single segment, reflects it about the segment's midline, and
+  // samples the source there, through the same integer kernel the evaluator
+  // runs. Its turn is emitted only while Rotation or Spin can move it, so an
+  // unturned fold is the Kaleidoscope's block.
+  Mirror({ node, id, p, ln, f, channelColor, ownBuf, srcBuf, incoming, needsT, needsAtan16 }) {
     const ob = ownBuf()
     const src = srcBuf('frame')
     if (!src) { ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black); // Mirror: no input`); return }
     const mode = String(p.mirrorMode ?? 'horizontal')
-    const glow = Boolean(p.glow)
+    if (mode === 'radial') {
+      needsAtan16.v = true
+      // `segments` is wireable, so the wedge angle is computed per frame.
+      ln(`  { ${radialWedgeCpp(f('segments', 'segments', 6))}`)
+      const moves = (port: string) => incoming.has(`${node.id}:${port}`) || Number(p[port] ?? 0) !== 0
+      const spins = moves('spin')
+      const turned = spins || moves('rotation')
+      if (turned) {
+        // Spin integrates on the speed clock, as Tile Symmetry's does; a
+        // fixed Rotation alone needs no clock and leaves the block still.
+        let phase = '0.0f'
+        if (spins) {
+          needsT.v = true
+          ln(`    float _spin=constrain(${f('spin', 'spin', 0)},-360.0f,360.0f);`)
+          phase = speedPhaseCpp(ln, phaseTag(id), '_spin')
+        }
+        ln(`    ${radialTurnCpp(f('rotation', 'rotation', 0), phase)}`)
+      }
+      ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+      for (const line of kaleidoSourceCpp(turned)) ln(`      ${line}`)
+      ln(`      ${ob}[_y*WIDTH+_x]=_kSrc<0?CRGB::Black:${src}[_kSrc];`)
+      ln(`    } }`)
+      return
+    }
+    const glow = mirrorGlows(p)
     ln(`  { for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     // base = the mirrored source pixel (min-side of the reflection)
     ln(`    int _sx=_x,_sy=_y;`)

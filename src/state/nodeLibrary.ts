@@ -43,7 +43,7 @@ import {
 } from './displays/tftSurface'
 import { JUGGLE_COUNT } from '../nodes/generative/juggle'
 import { RAINBOW_AXES, SPIRAL_ARMS } from '../nodes/generative/limits'
-import { KALEIDOSCOPE_SEGMENTS } from '../nodes/composite/kaleidoscope'
+import { MIRROR_MODES, MIRROR_SEGMENTS, mirrorGlows } from '../nodes/composite/mirror'
 import { ARRAY_COPIES } from '../nodes/composite/limits'
 import { BLEND_NODE_MODES, FEEDBACK_BLEND_MODES } from '../nodes/composite/blendModes'
 import { FEEDBACK_TRANSFORMS } from '../nodes/shared/integerPatterns'
@@ -476,7 +476,7 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   // Blend's modes, derived from the byte kernel so a mode cannot be offered
   // that the preview and sketch do not run (nodes with fewer override it).
   blendMode:      { control: 'select', options: BLEND_NODE_MODES },
-  mirrorMode:     { control: 'select', options: ['horizontal', 'vertical', 'quad', 'diagonal'] },
+  mirrorMode:     { control: 'select', options: [...MIRROR_MODES] },
   glowAmount:     { control: 'slider', min: 0, max: 1, step: 0.01 },
   easeType:       { control: 'select', options: EASE_PICKER_TYPES },
   triggerOp:      { control: 'select', options: ['debounce', 'changed', 'toggle', 'oneShot', 'pulseDivider', 'delay'] },
@@ -1051,7 +1051,12 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   Rainbow:         { speed: N01, axis: { control: 'select', options: [...RAINBOW_AXES] } },
   RadialBurst:     { speed: N01, rings: { control: 'slider', min: 1, max: 32, step: 1 } },
   Spiral:          { speed: N01, arms: { control: 'slider', min: SPIRAL_ARMS.min, max: SPIRAL_ARMS.max, step: 1 } },
-  Kaleidoscope:    { segments: { control: 'slider', min: KALEIDOSCOPE_SEGMENTS.min, max: KALEIDOSCOPE_SEGMENTS.max, step: 1 } },
+  // Radial's fold: its wedges, and Tile Symmetry's Rotation and Spin.
+  Mirror: {
+    segments: { control: 'slider', min: MIRROR_SEGMENTS.min, max: MIRROR_SEGMENTS.max, step: 1 },
+    rotation: { control: 'slider', min: -180, max: 180, step: 1 },
+    spin: { control: 'slider', min: -360, max: 360, step: 5 },
+  },
   Starfield:       {
     speed: N01,
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
@@ -3034,9 +3039,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     arms: 'Number of spiral arms.',
     palette: 'Colour by distance from the centre, slowly scrolling.',
   },
-  Kaleidoscope: {
-    segments: 'Mirror wedges around the centre, 2 or more; each wedge repeats the source.',
-  },
   Blobs: {
     speed: 'How fast the blobs wander, 0 still to 1 fastest.',
     size: 'Blob size as a share of the shorter side, or of the length on a string; larger blobs merge sooner.',
@@ -3176,7 +3178,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     blendMode: 'How copies stack: lighten keeps the brighter, add sums light (a full frame soon turns white), over paints the first on top.',
   },
   Mirror: {
-    mirrorMode: 'Which half is copied where: left to right, top to bottom, both, or across the diagonal from corner to corner, which follows a wide panel too.',
+    mirrorMode: 'Which half is copied where: left to right, top to bottom, both, or across the diagonal from corner to corner, which follows a wide panel too. Radial folds the picture into mirrored wedges round the centre, like a kaleidoscope.',
+    segments: 'Radial only: mirror wedges around the centre, 2 or more; each wedge repeats the source.',
+    rotation: 'Radial only: turns the wedges, in degrees.',
+    spin: 'Radial only: keeps the wedges turning, in degrees per second.',
     glow: 'Blends the hidden half in as a bloom instead of discarding it.',
     glowAmount: 'How strongly the hidden half shows through. 0 is a clean mirror.',
     r: 'Red of the glow tint, 0 to 255. White (255,255,255) leaves the glow uncoloured.',
@@ -4889,7 +4894,7 @@ export const BUNDLED_TITLES: Readonly<Record<string, { prop: string; labels: Rec
   },
   Mirror: {
     prop: 'mirrorMode',
-    labels: { horizontal: 'Mirror · Horizontal', vertical: 'Mirror · Vertical', quad: 'Mirror · Quad', diagonal: 'Mirror · Diagonal' },
+    labels: { horizontal: 'Mirror · Horizontal', vertical: 'Mirror · Vertical', quad: 'Mirror · Quad', diagonal: 'Mirror · Diagonal', radial: 'Mirror · Radial' },
   },
   FieldMath: {
     prop: 'fieldOp',
@@ -5444,8 +5449,12 @@ export function isPropertyEnabled(
     if (key === 'networkPreset' || key === 'ledsPerEdge') return usesNetwork(properties)
     if (key === 'network') return usesNetwork(properties) && properties.networkPreset === 'custom'
   }
-  if (nodeType === 'Mirror' && key === 'glowAmount') {
-    return properties.glow === true
+  if (nodeType === 'Mirror') {
+    // Radial folds into wedges, which have no single partner to glow with.
+    const radial = properties.mirrorMode === 'radial'
+    if (key === 'glow') return !radial
+    if (key === 'glowAmount') return mirrorGlows(properties)
+    if (key === 'segments' || key === 'rotation' || key === 'spin') return radial
   }
   if (nodeType === 'Trigger') {
     const op = String(properties.triggerOp ?? 'debounce')

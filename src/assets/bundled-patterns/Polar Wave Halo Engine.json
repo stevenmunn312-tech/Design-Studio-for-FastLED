@@ -347,11 +347,19 @@
           "y": -40
         },
         "data": {
-          "label": "Kaleidoscope",
-          "nodeType": "Kaleidoscope",
-          "category": "pattern",
+          "label": "Mirror",
+          "nodeType": "Mirror",
+          "category": "composite",
           "properties": {
-            "segments": 8
+            "mirrorMode": "radial",
+            "glow": false,
+            "glowAmount": 0.35,
+            "segments": 8,
+            "rotation": 0,
+            "spin": 0,
+            "r": 255,
+            "g": 255,
+            "b": 255
           },
           "inputs": [
             {
@@ -360,8 +368,43 @@
               "dataType": "frame"
             },
             {
+              "id": "color",
+              "label": "Tint",
+              "dataType": "color"
+            },
+            {
+              "id": "glowAmount",
+              "label": "Glow",
+              "dataType": "float"
+            },
+            {
               "id": "segments",
               "label": "Segments",
+              "dataType": "float"
+            },
+            {
+              "id": "rotation",
+              "label": "Rotation",
+              "dataType": "float"
+            },
+            {
+              "id": "spin",
+              "label": "Spin",
+              "dataType": "float"
+            },
+            {
+              "id": "r",
+              "label": "R",
+              "dataType": "float"
+            },
+            {
+              "id": "g",
+              "label": "G",
+              "dataType": "float"
+            },
+            {
+              "id": "b",
+              "label": "B",
               "dataType": "float"
             }
           ],

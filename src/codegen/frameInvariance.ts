@@ -33,7 +33,7 @@ export const FRAME_INVARIANT_NODE_TYPES: ReadonlySet<string> = new Set([
   'GradientField', 'ShapeField', 'FractalField', 'FrameToField', 'FieldToFrame',
   'FieldMath', 'FieldLevels', 'FieldWarp', 'FieldFormula',
   'Blur2D', 'Blend', 'Mask', 'FrameTransform', 'BrightnessMod', 'HueShift', 'Gamma',
-  'Saturation', 'Array', 'Invert', 'Mirror', 'Kaleidoscope', 'FrameWarp',
+  'Saturation', 'Array', 'Invert', 'Mirror', 'FrameWarp',
 ])
 
 /**
@@ -45,7 +45,7 @@ export const FRAME_INVARIANT_NODE_TYPES: ReadonlySet<string> = new Set([
  */
 export const COSTLY_INVARIANT_NODE_TYPES: ReadonlySet<string> = new Set([
   'Shape', 'Line', 'Path', 'ShapeField', 'FractalField', 'GradientField', 'FieldFormula',
-  'FieldWarp', 'FrameWarp', 'Kaleidoscope', 'Mirror', 'Blur2D',
+  'FieldWarp', 'FrameWarp', 'Mirror', 'Blur2D',
 ])
 
 /**

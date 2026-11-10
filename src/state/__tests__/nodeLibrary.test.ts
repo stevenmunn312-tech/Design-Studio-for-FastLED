@@ -6,7 +6,7 @@ import { SHIM_NAMES } from '../../nodes/shared/fastledShims'
 import { EASE_TYPES, SWEEP_EASE_TYPES } from '../../nodes/math/easing'
 import { STEP_VALUE_ABS_LIMIT } from '../../nodes/shared/stepValue'
 import { SPIRAL_ARMS } from '../../nodes/generative/limits'
-import { KALEIDOSCOPE_SEGMENTS } from '../../nodes/composite/kaleidoscope'
+import { MIRROR_SEGMENTS } from '../../nodes/composite/mirror'
 import { FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from '../../nodes/simulations/limits'
 import { CLOCK_TIMER_MAX_SEC } from '../../nodes/shapes/clockTimer'
 import { PLAYER_CONTROL_FUNCTIONS, playerControlActionPortsFor } from '../player/playerControlAssignments'
@@ -253,7 +253,7 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('Blobs', 'count')).toMatchObject({ control: 'slider', min: 1, max: 6 })
     // The rest name the same constant the preview and the sketch bound to.
     expect(propertyMeta('Spiral', 'arms')).toMatchObject({ min: SPIRAL_ARMS.min, max: SPIRAL_ARMS.max })
-    expect(propertyMeta('Kaleidoscope', 'segments')).toMatchObject({ min: KALEIDOSCOPE_SEGMENTS.min, max: KALEIDOSCOPE_SEGMENTS.max })
+    expect(propertyMeta('Mirror', 'segments')).toMatchObject({ min: MIRROR_SEGMENTS.min, max: MIRROR_SEGMENTS.max })
     expect(propertyMeta('FlowField', 'count')).toMatchObject({ min: FLOW_FIELD_COUNT.min, max: FLOW_FIELD_COUNT.max })
     expect(propertyMeta('Starfield', 'count')).toMatchObject({ min: STARFIELD_COUNT.min, max: STARFIELD_COUNT.max })
     expect(propertyMeta('ReactionDiffusion', 'steps')).toMatchObject({ min: 1, max: REACTION_DIFFUSION_MAX_STEPS })
@@ -265,7 +265,7 @@ describe('nodeLibrary', () => {
 
   it('bounds every number a beginner would otherwise type freely', () => {
     for (const [nodeType, key] of [
-      ['Spiral', 'arms'], ['Kaleidoscope', 'segments'], ['Shape', 'size'],
+      ['Spiral', 'arms'], ['Mirror', 'segments'], ['Shape', 'size'],
       ['ClockDisplay', 'durationSec'], ['Amplifier', 'maxVolume'],
       ['RTCInput', 'startYear'], ['Text', 'scroll'], ['Path', 'scale'], ['FrameFeedback', 'angle'],
     ]) {

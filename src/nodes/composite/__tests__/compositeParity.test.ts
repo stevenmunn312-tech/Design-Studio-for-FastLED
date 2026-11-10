@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { COMPOSITE_EVALUATORS } from '../evaluate'
 import { generateCpp } from '../../../codegen/cppGenerator'
 import { compileCppSnippet } from '../../../test-utils/cppSnippet'
-import { feedbackFrame, feedbackSource } from '../../shared/integerPatterns'
+import { feedbackFrame, feedbackSource, kaleidoSource } from '../../shared/integerPatterns'
 import type { RGB } from '../../../state/palettes/ledColor'
 import type { EvalContext } from '../../../state/evaluator/types'
 import type { StudioNode, StudioEdge } from '../../../state/graphStore'
@@ -197,6 +197,46 @@ describe('Mirror', () => {
         expect(board(properties, src), `${mirrorMode} glow ${glow}`).toEqual(preview(properties, src).flat())
       }
     }
+  })
+
+  // Radial, the old Kaleidoscope: its kernel's C++ is held to this preview by
+  // integerPatternsNativeParity.test.ts, turned and unturned.
+  const radial = (properties: Record<string, unknown>, src: RGB[][], t = 0, key = `radial-${run++}`) => COMPOSITE_EVALUATORS.Mirror!({
+    input: (_id: string, port: string) => (port === 'frame' ? src : null),
+    num: (_id: string, _port: string, p: Record<string, unknown>, k: string, def: number) => Number(p[k] ?? def),
+    t, stateKey: () => key, W: src[0].length, H: src.length,
+  } as unknown as EvalContext, 'fx', { mirrorMode: 'radial', ...properties }, studio, 'Mirror').frame as RGB[][]
+
+  it('folds radially through the Kaleidoscope kernel, unturned at rotation 0', () => {
+    const src = frameOf(9, 6)
+    for (const segments of [2, 6, 16]) {
+      const wedge = Math.trunc(65536 / segments)
+      const expected = Array.from({ length: 6 }, (_, y) => Array.from({ length: 9 }, (_, x) => {
+        const i = kaleidoSource(x, y, 9, 6, wedge)
+        return i < 0 ? { r: 0, g: 0, b: 0 } : src[Math.trunc(i / 9)][i % 9]
+      }))
+      expect(radial({ segments }, src)).toEqual(expected)
+      expect(radial({ segments, rotation: 0, spin: 0 }, src)).toEqual(expected)
+    }
+  })
+
+  it('turns the radial fold by Rotation, a whole wedge coming back round', () => {
+    const src = frameOf(8, 8)
+    const still = radial({ segments: 4 }, src)
+    expect(radial({ segments: 4, rotation: 45 }, src)).not.toEqual(still)
+    expect(radial({ segments: 4, rotation: 90 }, src)).toEqual(still)
+    expect(radial({ segments: 4, rotation: -90 }, src)).toEqual(still)
+  })
+
+  it('keeps the radial fold turning by Spin on the speed clock', () => {
+    const src = frameOf(8, 8)
+    // 22.5 degrees a second for two seconds is the 45-degree Rotation.
+    expect(radial({ segments: 8, spin: 22.5 }, src, 2)).toEqual(radial({ segments: 8, rotation: 45 }, src))
+  })
+
+  it('has no glow radially, whatever the glow fields say', () => {
+    const src = frameOf(6, 6)
+    expect(radial({ segments: 5, glow: true, glowAmount: 1 }, src)).toEqual(radial({ segments: 5 }, src))
   })
 
   it('folds a wide panel across its own corner-to-corner diagonal', () => {

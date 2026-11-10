@@ -63,13 +63,13 @@ describe('frame-invariant node types', () => {
   })
 
   it('admits a node only when every source is admitted', () => {
-    const nodes = [node('a', 'GradientFrame'), node('p', 'Plasma'), node('m', 'Mask'), node('k', 'Kaleidoscope')]
+    const nodes = [node('a', 'GradientFrame'), node('p', 'Plasma'), node('m', 'Mask'), node('k', 'Mirror', { mirrorMode: 'radial' })]
     const ids = frameInvariantNodeIds(nodes, [
       edge('1', 'a', 'frame', 'k', 'frame'),
       edge('2', 'p', 'frame', 'm', 'frame'), edge('3', 'a', 'frame', 'm', 'mask'),
     ])
     expect([...ids].sort()).toEqual(['a', 'k'])
-    const bypassed = node('k', 'Kaleidoscope', { bypassed: true })
+    const bypassed = node('k', 'Mirror', { mirrorMode: 'radial', bypassed: true })
     expect(frameInvariantNodeIds([nodes[0], bypassed], [edge('1', 'a', 'frame', 'k', 'frame')]).has('k')).toBe(false)
   })
 })
@@ -91,11 +91,11 @@ describe('emitted-block check', () => {
       ({ id, nodeType, block: [text], ownsBuffer: true })
     const edges = [edge('1', 'a', 'frame', 'k', 'frame'), edge('2', 'k', 'frame', 'out', 'frame')]
     const candidates = new Set(['a', 'k'])
-    expect([...frozenNodeIds([block('a', 'SolidColor'), block('k', 'Kaleidoscope')], edges, candidates)].sort()).toEqual(['a', 'k'])
+    expect([...frozenNodeIds([block('a', 'SolidColor'), block('k', 'Mirror')], edges, candidates)].sort()).toEqual(['a', 'k'])
     // The output reading `a` directly does not freeze, so neither does `a`.
     expect(frozenNodeIds([block('a', 'SolidColor')], [edge('1', 'a', 'frame', 'out', 'frame')], candidates).size).toBe(0)
     // A source that reads the time keeps its reader live too.
-    expect(frozenNodeIds([block('a', 'SolidColor', '  fill_solid(buf_a, NUM_LEDS, CHSV(t, 255, 255));'), block('k', 'Kaleidoscope')], edges, candidates).size).toBe(0)
+    expect(frozenNodeIds([block('a', 'SolidColor', '  fill_solid(buf_a, NUM_LEDS, CHSV(t, 255, 255));'), block('k', 'Mirror')], edges, candidates).size).toBe(0)
   })
 })
 
@@ -117,10 +117,10 @@ describe('the normal sketch', () => {
   })
 
   it('counts the buffer a frozen node then keeps', () => {
-    const nodes = [node('g', 'GradientFrame'), node('k', 'Kaleidoscope'), output()]
+    const nodes = [node('g', 'GradientFrame'), node('k', 'Mirror', { mirrorMode: 'radial' }), output()]
     const edges = [edge('1', 'g', 'frame', 'k', 'frame'), edge('2', 'k', 'frame', 'out', 'frame')]
     expect(generateCpp(nodes, edges)).toContain('CRGB buf_k[NUM_LEDS];   // keeps its pixels between frames')
-    const live = [node('p', 'Plasma'), node('k', 'Kaleidoscope'), output()]
+    const live = [node('p', 'Plasma'), node('k', 'Mirror', { mirrorMode: 'radial' }), output()]
     const liveEdges = [edge('1', 'p', 'frame', 'k', 'frame'), edge('2', 'k', 'frame', 'out', 'frame')]
     expect(generateCpp(live, liveEdges)).toContain('CRGB* const buf_k = leds;')
     // One more 8×8 CRGB frame than the same chain fed by a moving source.
@@ -130,7 +130,7 @@ describe('the normal sketch', () => {
   it('leaves a collected pattern live in a show', () => {
     const groups = {
       still: {
-        nodes: [node('g', 'GradientFrame'), node('k', 'Kaleidoscope'), node('go', 'GroupOutput')],
+        nodes: [node('g', 'GradientFrame'), node('k', 'Mirror', { mirrorMode: 'radial' }), node('go', 'GroupOutput')],
         edges: [edge('1', 'g', 'frame', 'k', 'frame'), edge('2', 'k', 'frame', 'go', 'frame')],
       },
     } as unknown as GroupRegistry

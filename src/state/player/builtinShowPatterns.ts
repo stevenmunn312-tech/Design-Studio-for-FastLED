@@ -18,7 +18,9 @@ export const BUILTIN_SHOW_PATTERNS: Readonly<Record<string, { nodeType: string; 
   Noise2D:       { nodeType: 'Noise', props: { noiseType: 'sine' } },
   RadialBurst:   { nodeType: 'RadialBurst' },
   Spiral:        { nodeType: 'Spiral' },
-  Kaleidoscope:  { nodeType: 'Kaleidoscope' },
+  // Mirror's radial fold, the node this name once had; with no source
+  // wired it draws black, as that node did.
+  Kaleidoscope:  { nodeType: 'Mirror', props: { mirrorMode: 'radial' } },
   Particles:     { nodeType: 'Particles' },
   Simplex2D:     { nodeType: 'Noise', props: { noiseType: 'simplex' } },
   GradientFrame: { nodeType: 'GradientFrame' },
