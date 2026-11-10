@@ -8,6 +8,8 @@
 // rather than folded into `vortex`: it was a fixed Count population turning
 // rigidly with no decay, and vortex is a Rate-spawned, decaying population
 // pulled inward at a constant tangential speed, so no one knob covers it.
+import { LUMINOVA_TRAIL_DECAY } from '../../state/evaluator/luminova'
+
 export const PARTICLE_MODES = [
   'fountain', 'drops', 'fireworks', 'sparkle', 'comet', 'snow',
   'rain', 'embers', 'bubbles', 'vortex', 'fireflies',
@@ -25,6 +27,17 @@ export function particleMode(value: unknown): ParticleMode {
  */
 export function particlePoolSize(mode: string): number {
   return mode === 'luminova' ? 240 : 120
+}
+
+/**
+ * The share of its life a particle keeps each 60th of a second is Decay times
+ * its mode's own factor, kept over the frames a pass spans (`keepOver`). A
+ * mode missing here never reads Decay.
+ */
+export const PARTICLE_DECAY_SCALE: Readonly<Partial<Record<ParticleMode, number>>> = {
+  fountain: 1, drops: 1, fireworks: 0.985, sparkle: 0.9, comet: 1, rain: 0.995, embers: 0.985,
+  vortex: 0.995, meteor: 0.96, tornado: 0.995, pinwheel: 0.99, chase: 0.998, waterfall: 0.995,
+  luminova: LUMINOVA_TRAIL_DECAY,
 }
 
 /** Modes that hold a fixed population from Count and never read Rate. */

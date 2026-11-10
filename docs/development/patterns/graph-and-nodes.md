@@ -310,7 +310,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   frame multiplies each step by `passFrames` (`src/nodes/shared/passClock.ts`,
   firmware twin `passFramesCpp`), the 60ths of a second since its previous
   pass: 1 on the first, so a 60 fps run is unchanged, and at most a quarter
-  second after a stall. Starfield, Digital Rain and Flow Field move this way.
+  second after a stall. Starfield, Digital Rain, Flow Field, Particles,
+  String Particles and Formula Points' logistic map and attractor move this
+  way. A per-frame factor follows the clock by its kind, through the helpers
+  beside `passFrames` and their C++ twins: a share kept each frame (drag, a
+  life's decay) is raised to the frames (`keepOver`), a per-frame chance
+  becomes the chance of at least one in them (`passChance`), and a count of
+  iterations carries its fraction to the next pass (`passSteps`). A trail
+  laid one dot a frame (comet, meteor, Luminova) lays each dot it owes at its
+  own moment, already faded for the frames since, so a 30 fps trail has the
+  60 fps dots. The preview reads a tick of exactly a 60th as one frame (in
+  floating point it is a hair under), so a 60 fps run steps byte for byte
+  as the per-frame code did; `simulationClock.test.ts` holds that to frames
+  recorded before the move.
 - A pattern's Beat input fires on its rising edge, never on every frame it
   reads true: a Kick envelope or a Vibe spike held high for a few frames is
   one flash, not a strobe. Beat Flash, Beat Kaleidoscope and Ember Pulse keep
@@ -378,7 +390,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `count`. Moving a node onto it changes the meaning of its saved values,
   so convert bundled and help values to the same half-life at 60 fps
   (`trailFromRetention` does it for a per-frame share). Particles `decay` is
-  still a per-frame share of each particle's life, not a trail. A node
+  still the share of each particle's life kept per 60th of a second, not a
+  trail. A node
   whose slider already meant a share per frame can keep it instead: Trails
   spends its cubed `1 - decay³` per 60th of a second through `timedFadeAmount`
   and `timedFadeCpp`, the same clock and byte carry, so its saved values keep
@@ -744,6 +757,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   unit label went with the mode. A knob only one value reads is gated by `isPropertyEnabled`,
   and an emitter whose value needs a different block delegates to its own
   function (`fire2012Cpp`, `threeBandCpp`) before destructuring the context.
+  A select value that only approximated another becomes a built-in preset
+  instead (`BUILT_IN_PRESETS` in `nodePresets.ts`, listed first in the node
+  menu's Load preset): Noise's Simplex and Noise 3D are fbm settings
+  (`NOISE_PRESETS`), matched by rendering before and after for spread,
+  feature size and pace, with the Contrast knob fbm needed because it
+  normalises its octaves. Its sine types moved to Plasma's Style, each with
+  the speed and scale range it had, so a converted graph moves as it did.
+  A removed value reads as the node's default (`noiseType()` gives fbm).
   Bundled content is converted, not migrated: pre-1.0, a save holding a
   removed type shows it as unknown. A node that another already computes
   exactly is removed rather than merged: Lerp was Map Range with In 0–1 (its

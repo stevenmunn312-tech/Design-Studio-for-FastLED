@@ -6,23 +6,24 @@ import { NODE_LIBRARY } from '../nodeLibrary'
  * The built-in patterns a show without a Pattern Collection names, each as the
  * studio node that draws it. The preview evaluates these nodes and the SD
  * performance player compiles the same nodes, so the two cannot drift. The
- * performance generator emits legacy names (NoiseField/Simplex2D) folded into
- * `Noise`. Order is the editor's option order.
+ * performance generator emits legacy names: NoiseField and Noise2D are now
+ * Plasma's Sine Grid and Sine 2D, and Simplex2D is Noise's Simplex preset.
+ * Order is the editor's option order.
  */
 export const BUILTIN_SHOW_PATTERNS: Readonly<Record<string, { nodeType: string; props?: Record<string, unknown> }>> = {
   SolidColor:    { nodeType: 'SolidColor', props: { r: 0, g: 150, b: 255 } },
-  NoiseField:    { nodeType: 'Noise', props: { noiseType: 'field' } },
+  NoiseField:    { nodeType: 'Plasma', props: { plasmaStyle: 'sineGrid' } },
   Plasma:        { nodeType: 'Plasma' },
   Fire:          { nodeType: 'Fire' },
   Fire2012:      { nodeType: 'Fire', props: { fireStyle: 'fire2012', palette: 'heat' } },
-  Noise2D:       { nodeType: 'Noise', props: { noiseType: 'sine' } },
+  Noise2D:       { nodeType: 'Plasma', props: { plasmaStyle: 'sine2d' } },
   RadialBurst:   { nodeType: 'RadialBurst' },
   Spiral:        { nodeType: 'Spiral' },
   // Mirror's radial fold, the node this name once had; with no source
   // wired it draws black, as that node did.
   Kaleidoscope:  { nodeType: 'Mirror', props: { mirrorMode: 'radial' } },
   Particles:     { nodeType: 'Particles' },
-  Simplex2D:     { nodeType: 'Noise', props: { noiseType: 'simplex' } },
+  Simplex2D:     { nodeType: 'Noise', props: { noiseType: 'fbm', octaves: 4, scale: 0.5, contrast: 1.85 } },
   GradientFrame: { nodeType: 'GradientFrame' },
 }
 

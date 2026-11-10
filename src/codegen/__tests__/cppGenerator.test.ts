@@ -906,10 +906,10 @@ describe('generateCpp', () => {
 
   it('scales Noise speed per noiseType variant', () => {
     const worley = node('w', 'Noise', 'pattern', { noiseType: 'worley', speed: 1, scale: 1 })
-    const simplex = node('s', 'Noise', 'pattern', { noiseType: 'simplex', speed: 1, scale: 1 })
+    const gabor = node('g', 'Noise', 'pattern', { noiseType: 'gabor', speed: 1, scale: 1 })
     const noise4d = node('n4', 'Noise', 'pattern', { noiseType: 'noise4d', speed: 1, scale: 1 })
     expect(generateCpp([worley, outputNode], [edge('e', 'w', 'out', 'frame', 'frame')])).toContain('* 5.000f)')
-    expect(generateCpp([simplex, outputNode], [edge('e', 's', 'out', 'frame', 'frame')])).toContain('* 3.000f)')
+    expect(generateCpp([gabor, outputNode], [edge('e', 'g', 'out', 'frame', 'frame')])).toContain('* 1.500f)')
     expect(generateCpp([noise4d, outputNode], [edge('e', 'n4', 'out', 'frame', 'frame')])).toContain('* 2.000f)')
   })
 
@@ -1151,8 +1151,8 @@ describe('generateCpp', () => {
     expect(mk('modulo')).toContain('((n_wb_result) == 0.0f ? 0.0f : fmodf(fmodf(n_wa_result, n_wb_result) + (n_wb_result), n_wb_result))')
   })
 
-  it('emits NoiseField coloured through its palette', () => {
-    const nf = node('nf', 'Noise', 'pattern', { noiseType: 'field', speed: 1, scale: 1, palette: 'ocean' })
+  it('emits Plasma Sine Grid coloured through its palette', () => {
+    const nf = node('nf', 'Plasma', 'pattern', { plasmaStyle: 'sineGrid', speed: 1, scale: 1, palette: 'ocean' })
     const cpp = generateCpp([nf, outputNode], [edge('e', 'nf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('ColorFromPalette(paldef_ocean')
     expect(cpp).not.toContain('CHSV((uint8_t)((_v')  // no longer hardcoded hue
@@ -1421,7 +1421,7 @@ describe('generateCpp', () => {
     const particles = generateCpp([node('p', 'Particles', 'pattern', { seed: 321 })], [])
     expect(particles).toContain('random16_set_seed(321u)')
 
-    const noiseCpp = generateCpp([node('n', 'Noise', 'pattern', { noiseType: 'simplex', seed: 9 })], [])
+    const noiseCpp = generateCpp([node('n', 'Noise', 'pattern', { noiseType: 'fbm', seed: 9 })], [])
     expect(noiseCpp).toContain('float _spd=')
     // The preview's seedOffset seeds the phase clock, as speedPhase(key, t + offset) does.
     expect(noiseCpp).toContain(`(t + ${floatLit(seedOffset(9, 0), 6)}) * (_spd)`)
@@ -1487,13 +1487,13 @@ describe('generateCpp', () => {
   })
 
   it('maps a Simplex2D palette property to its FastLED constant', () => {
-    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'lava' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'fbm', palette: 'lava' })
     const cpp = generateCpp([sx, outputNode], [edge('e1', 'sx', 'out', 'frame', 'frame')])
     expect(cpp).toContain('ColorFromPalette(paldef_lava')
   })
 
   it('emits custom named palettes for generated firmware', () => {
-    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'synthwave' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'fbm', palette: 'synthwave' })
     const cpp = generateCpp([sx, outputNode], [edge('e1', 'sx', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGBPalette16 paldef_synthwave(')
     expect(cpp).toContain('ColorFromPalette(paldef_synthwave')
@@ -1501,7 +1501,7 @@ describe('generateCpp', () => {
 
   it('resolves a connected PaletteSelector into the consuming node', () => {
     const sel = node('sel', 'PaletteSelector', 'color', { palette: 'ocean' })
-    const sx  = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'rainbow' })
+    const sx  = node('sx', 'Noise', 'pattern', { noiseType: 'fbm', palette: 'rainbow' })
     const cpp = generateCpp([sel, sx, outputNode], [
       edge('e1', 'sel', 'sx', 'palette', 'paletteIn'),
       edge('e2', 'sx', 'out', 'frame', 'frame'),
@@ -1647,7 +1647,7 @@ describe('generateCpp', () => {
 
   it('emits a blended CRGBPalette16 for PaletteBlend', () => {
     const pb = node('pb', 'PaletteBlend', 'color', { paletteA: 'heat', paletteB: 'ocean', amount: 0.5 })
-    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'fbm' })
     const cpp = generateCpp([pb, sx, outputNode], [
       edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
       edge('e2', 'sx', 'out', 'frame', 'frame'),
@@ -1689,7 +1689,7 @@ describe('generateCpp', () => {
     expect(wrapped).toContain('field_n[_y*WIDTH+_x]=_wrapXMix(field_n[_y*WIDTH+_x],_fv*_fnInv,_x);')
     expect(wrapped.match(/for\(int _y=0;_y<HEIGHT;_y\+\+\) for\(int _x=0;_x<WIDTH;_x\+\+\)/g)).toHaveLength(2)
 
-    for (const noiseType of ['field', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma', 'sine']) {
+    for (const noiseType of ['fbm', 'noise4d', 'worley', 'plasma', 'gabor']) {
       const cpp = emit('Noise', 'pattern', { noiseType, wrapX: true })
       expect(cpp, noiseType).toContain('_wrapXMix(field_n[')
       expect(cpp, noiseType).toContain('(_x+WIDTH)')
@@ -1699,13 +1699,13 @@ describe('generateCpp', () => {
 
   it('emits noise shaping, Worley modes and curl flow, leaving the defaults as they were', () => {
     const noise = (props: Record<string, unknown>) => generateCpp([node('n', 'Noise', 'pattern', props), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
-    expect(noise({ noiseType: 'simplex' })).not.toContain('fabsf(2.0f*constrain')
-    expect(noise({ noiseType: 'simplex', noiseShape: 'ridged' }))
+    expect(noise({ noiseType: 'fbm' })).not.toContain('fabsf(2.0f*constrain')
+    expect(noise({ noiseType: 'fbm', noiseShape: 'ridged' }))
       .toContain('field_n[_i]=(1.0f-fabsf(2.0f*constrain(field_n[_i],0.0f,1.0f)-1.0f));')
-    expect(noise({ noiseType: 'simplex', noiseShape: 'billow' }))
+    expect(noise({ noiseType: 'fbm', noiseShape: 'billow' }))
       .toContain('field_n[_i]=fabsf(2.0f*constrain(field_n[_i],0.0f,1.0f)-1.0f);')
     // With wrapX the shape runs after both passes have been blended.
-    const wrapped = noise({ noiseType: 'simplex', noiseShape: 'billow', wrapX: true })
+    const wrapped = noise({ noiseType: 'fbm', noiseShape: 'billow', wrapX: true })
     expect(wrapped.indexOf('_wrapXMix(field_n[')).toBeLessThan(wrapped.indexOf('field_n[_i]=fabsf('))
 
     const f1 = noise({ noiseType: 'worley' })
@@ -1751,7 +1751,12 @@ describe('generateCpp', () => {
     expect(ring).toContain('float _cx=(WIDTH-1)/2.0f,_cy=(HEIGHT-1)/2.0f,_rad=min(_cx,_cy);')
     expect(ring).toContain('_sp_nix[_k]=_y*WIDTH+_x;')
     // Drift respawns a dead slot; meteors fire on a rising trigger, over a bed.
-    expect(row).toContain('if(_sp_nl[_i]<=0&&_rnd()<_sp)')
+    expect(row).toContain('if(_sp_nl[_i]<=0&&_rnd()<_spc)')
+    // Its chance, moves and life run on the 60ths since the last frame.
+    expect(row).toContain('float _spc=(_pf_n==1.0f?(_sp):1.0f-powf(1.0f-(_sp),_pf_n));')
+    expect(row).toContain('_sp_np[_i]+_sp_nv[_i]*_step*_sp_nl[_i]*_pf_n')
+    expect(row).toContain('_sp_nl[_i]-=_sp_ndec[_sp_nk[_i]]*_pf_n;')
+    expect(row).toContain('float _drag=powf(0.92f,_pf_n);')
     expect(row).not.toContain('_tr&&!_sp_nprev')
     const meteors = sp({ track: 'row', mode: 'meteors' }, true)
     expect(meteors).toContain('if(_tr&&!_sp_nprev)')
@@ -1982,9 +1987,15 @@ describe('generateCpp', () => {
     const lum = generateCpp([node('n', 'Particles', 'pattern', { particleType: 'luminova', count: 5 }), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
     expect(lum).toContain('const int _PN=240;')
     expect(lum).toContain('static bool _pa_nem[8];')
-    expect(lum).toContain('for(int i=0;i<5;i++){ if(!_pa_nem[i])')
+    expect(lum).toContain('for(int i=0;i<5;i++) if(!_pa_nem[i])')
     expect(lum).toContain('for(int j=5;j<_PN;j++) if(_pa_nl[j]<=0.04f)')
-    expect(lum).toContain('if(i<5) _pa_nl[i]=1; else _pa_nl[i]*=constrain(0.92,0.0f,1.0f)*0.96f;')
+    // The trail fades by the frames passed, then each emitter steps once per
+    // frame owed, laying a dot already faded for the frames since.
+    expect(lum).toContain('float _paKeep=powf(constrain(0.92,0.0f,1.0f)*0.96f,_pf_n);')
+    expect(lum).toContain('for(int j=5;j<_PN;j++) if(_pa_nl[j]>0.04f) _pa_nl[j]*=_paKeep;')
+    expect(lum).toContain('for(int _st=0;_st<_ps_n_dots;_st++){ float _age=(float)(_ps_n_dots-1-_st), _at=t-_age/60.0f;')
+    expect(lum).toContain('_pa_nl[j]=powf(_paLife,_age+1.0f);')
+    expect(lum).toContain('if(i<5) _pa_nl[i]=1; }')
     expect(lum).toContain('*1.5f);')
     const other = generateCpp([node('n', 'Particles', 'pattern', { particleType: 'fountain' }), outputNode], [edge('e', 'n', 'out', 'frame', 'frame')])
     expect(other).toContain('const int _PN=120;')
@@ -2006,7 +2017,7 @@ describe('generateCpp', () => {
 
   it('emits Harmony Palette as runtime hue bands with baked band tables', () => {
     const hp = node('hp', 'HarmonyPalette', 'color', { hue: 40, harmony: 'analogous' })
-    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'fbm' })
     const cpp = generateCpp([hp, sx, outputNode], [
       edge('e1', 'hp', 'sx', 'palette', 'paletteIn'),
       edge('e2', 'sx', 'out', 'frame', 'frame'),
@@ -2036,7 +2047,7 @@ describe('generateCpp', () => {
     // cast to a blend the preview never shows.
     const pb = node('pb', 'PaletteBlend', 'color', { paletteA: 'heat', paletteB: 'ocean', amount: 0.5 })
     const lvl = node('lvl', 'PotInput', 'input', {})
-    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'fbm' })
     const cpp = generateCpp([pb, lvl, sx, outputNode], [
       edge('e0', 'lvl', 'pb', 'value', 'amount'),
       edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
@@ -2050,7 +2061,7 @@ describe('generateCpp', () => {
     // others. Each declaration is 48 bytes of RAM, so an ungated bank would
     // spend the catalogue on a graph that names three.
     const pb = node('pb', 'PaletteBank', 'color', { palettes: ['ocean', 'lava', 'forest'] })
-    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'fbm' })
     const cpp = generateCpp([pb, sx, outputNode], [
       edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
       edge('e2', 'sx', 'out', 'frame', 'frame'),
@@ -2073,7 +2084,7 @@ describe('generateCpp', () => {
   it('selects a Palette Bank position from a wired Index on each change', () => {
     const pb = node('pb', 'PaletteBank', 'color', { palettes: ['ocean', 'lava', 'forest'] })
     const knob = node('k', 'PotInput', 'input', {})
-    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'fbm' })
     const cpp = generateCpp([pb, knob, sx, outputNode], [
       edge('e0', 'k', 'pb', 'value', 'select'),
       edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
@@ -2088,7 +2099,7 @@ describe('generateCpp', () => {
   it('eases a Palette Bank change with FastLED\'s palette blend on a 10 ms clock', () => {
     const bank = (blend: number) => {
       const pb = node('pb', 'PaletteBank', 'color', { palettes: ['ocean', 'lava'], blend })
-      const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+      const sx = node('sx', 'Noise', 'pattern', { noiseType: 'fbm' })
       return generateCpp([pb, sx, outputNode], [
         edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
         edge('e2', 'sx', 'out', 'frame', 'frame'),
@@ -2110,7 +2121,7 @@ describe('generateCpp', () => {
   it('wraps a Palette Bank press at both ends and cancels opposing presses', () => {
     const pb = node('pb', 'PaletteBank', 'color', { palettes: ['ocean', 'lava'] })
     const btn = node('btn', 'ButtonBank', 'input', { buttons: singleButtonRow(4) })
-    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'fbm' })
     const cpp = generateCpp([pb, btn, sx, outputNode], [
       edge('e0', 'btn', 'pb', FIRST_BUTTON_HANDLE, 'next'),
       edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
@@ -2130,7 +2141,7 @@ describe('generateCpp', () => {
     const pb = node('pb', 'PaletteBank', 'color', { palettes: ['ocean', 'lava'] })
     const tick = node('tick', 'Interval', 'signal', { interval: 5 })
     const btn = node('btn', 'ButtonBank', 'input', { buttons: singleButtonRow(4) })
-    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'fbm' })
     const cpp = generateCpp([pb, tick, btn, sx, outputNode], [
       edge('e0', 'tick', 'pb', 'pulse', 'next'),
       edge('e1', 'btn', 'pb', FIRST_BUTTON_HANDLE, 'previous'),
@@ -2158,7 +2169,7 @@ describe('generateCpp', () => {
     // Everything downstream reads a palette, so an empty bank renders the
     // library default rather than refusing to build. Graph Health says so.
     const pb = node('pb', 'PaletteBank', 'color', { palettes: [] })
-    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'fbm' })
     const cpp = generateCpp([pb, sx, outputNode], [
       edge('e1', 'pb', 'sx', 'palette', 'paletteIn'),
       edge('e2', 'sx', 'out', 'frame', 'frame'),
@@ -2172,7 +2183,7 @@ describe('generateCpp', () => {
     const c1 = node('c1', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 0, s: 1, v: 1 })
     const c2 = node('c2', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 120, s: 1, v: 1 })
     const cp = node('cp', 'CustomPalette', 'color', {})
-    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'rainbow' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'fbm', palette: 'rainbow' })
     const cpp = generateCpp([c1, c2, cp, sx, outputNode], [
       edge('e1', 'c1', 'cp', 'color', 'color0'),
       edge('e2', 'c2', 'cp', 'color', 'color1'),
@@ -2189,7 +2200,7 @@ describe('generateCpp', () => {
       colors: ['#000000', '#ffffff', '#ff0000'],
       positions: [0, 0.25, 1],
     })
-    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'rainbow' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'fbm', palette: 'rainbow' })
     const cpp = generateCpp([cp, sx, outputNode], [
       edge('e1', 'cp', 'sx', 'palette', 'paletteIn'),
       edge('e2', 'sx', 'out', 'frame', 'frame'),
@@ -2208,7 +2219,7 @@ describe('generateCpp', () => {
     }
     const img = node('img', 'Image', 'pattern', { image })
     const extract = node('extract', 'PaletteFromImage', 'color', { count: 2 })
-    const noise = node('noise', 'Noise', 'pattern', { noiseType: 'simplex' })
+    const noise = node('noise', 'Noise', 'pattern', { noiseType: 'fbm' })
     const cpp = generateCpp([img, extract, noise, outputNode], [
       edge('e1', 'img', 'extract', 'image', 'image'),
       edge('e2', 'extract', 'noise', 'palette', 'paletteIn'),
@@ -2222,7 +2233,7 @@ describe('generateCpp', () => {
 
   it('bakes a poline palette into a CRGBPalette16 used downstream', () => {
     const pl = node('pl', 'Poline', 'color', { anchorA: '#ff0000', anchorB: '#0000ff', anchorC: '#00ff00', points: 4, position: 'sinusoidal' })
-    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'rainbow' })
+    const sx = node('sx', 'Noise', 'pattern', { noiseType: 'fbm', palette: 'rainbow' })
     const cpp = generateCpp([pl, sx, outputNode], [
       edge('e1', 'pl', 'sx', 'palette', 'paletteIn'),
       edge('e2', 'sx', 'out', 'frame', 'frame'),
@@ -2333,7 +2344,7 @@ describe('generateCpp', () => {
 
     it('declares each named palette once across several consumers', () => {
       const a = node('a', 'Noise', 'pattern', { noiseType: 'plasma', palette: 'ocean' })
-      const b = node('b', 'Noise', 'pattern', { noiseType: 'simplex', palette: 'ocean' })
+      const b = node('b', 'Noise', 'pattern', { noiseType: 'fbm', palette: 'ocean' })
       const c = node('c', 'Noise', 'pattern', { noiseType: 'worley', palette: 'lava' })
       const cpp = generateCpp(
         [a, b, c, outputNode],
@@ -3177,7 +3188,7 @@ describe('Float Field codegen', () => {
   })
 
   it('Noise declares a raw field buffer and remaps it through the palette', () => {
-    const nz = node('nz', 'Noise', 'pattern', { noiseType: 'simplex', speed: 0.4, scale: 0.5, palette: 'ocean' })
+    const nz = node('nz', 'Noise', 'pattern', { noiseType: 'fbm', speed: 0.4, scale: 0.5, palette: 'ocean' })
     const f2f = node('f2f', 'FieldToFrame', 'pattern', { palette: 'ocean', brightness: 1 })
     const cpp = generateCpp(
       [nz, f2f, outputNode],
@@ -4038,8 +4049,11 @@ describe('generateCpp — Particles modes', () => {
       // Colour comes from life at render time; the pool keeps none.
       expect(cpp).not.toContain('_pa_ppr[')
       expect(cpp).not.toContain('_pc=')
-      // Rate is declared only where a spawn reads it.
-      expect(cpp.includes('float _rate='), m).toBe(particleModeUsesRate(m))
+      // Rate is declared only where a spawn reads it, as a chance over the
+      // frames since the last one or, for a spawn count, as itself.
+      expect(/float _(rate|paChance|paBurst)=/.test(cpp), m).toBe(particleModeUsesRate(m))
+      // Every mode steps on the 60ths of a second since its last frame.
+      expect(cpp).toContain('float _pf_pp = _pf_ppT < 0.0f ? 1.0f :')
       // additive render of every live particle at its life brightness
       expect(cpp).toContain('float _k=min(1.0f,_pa_ppl[i]), _sx=_pa_ppx[i], _sy=_pa_ppy[i];')
       expect(cpp).toContain('float _cov=constrain(')
@@ -4067,10 +4081,29 @@ describe('generateCpp — Particles modes', () => {
     expect(gen('fireworks')).toContain('int _n=14+random8()/32;')
   })
 
-  it('comet is time-driven (needs t)', () => {
+  it('comet is time-driven (needs t), laying each dot owed at its own moment', () => {
     const cpp = gen('comet')
     expect(cpp).toContain('float t = millis()')
-    expect(cpp).toContain('sin(t*0.9f)')
+    expect(cpp).toContain('for(int _age=_ps_pp_dots-1;_age>=0;_age--){ float _at=t-_age/60.0f;')
+    expect(cpp).toContain('sin(_at*0.9f)')
+    expect(cpp).toContain('_pa_ppl[i]=powf(_paLife,_age+1.0f);')
+    // It fades its dots before laying new ones, so it has no update loop.
+    expect(cpp).not.toContain('for(int i=0;i<_PN;i++){ if(_pa_ppl[i]<=0.04f) continue;\n')
+  })
+
+  it('scales velocities by the frames passed and keeps drag and decay over them', () => {
+    const fountain = gen('fountain')
+    expect(fountain).toContain('if(random8()<(uint8_t)(_paChance*255))')
+    expect(fountain).toContain('_pa_ppx[i]+=_pa_ppvx[i]*_pf_pp; _pa_ppy[i]+=_pa_ppvy[i]*_pf_pp; _pa_ppvy[i]+=0.02f*_paGrav*_pf_pp; _pa_ppl[i]*=_paKeep;')
+    expect(fountain).toContain('float _paKeep=powf(constrain(0.92,0.0f,1.0f),_pf_pp);')
+    const fireworks = gen('fireworks')
+    expect(fireworks).toContain('float _paDrag=powf(0.965f,_pf_pp);')
+    expect(fireworks).toContain('float _paBurst=(_pf_pp==1.0f?(constrain(0.5,0.0f,1.0f)*0.12f):1.0f-powf(1.0f-(constrain(0.5,0.0f,1.0f)*0.12f),_pf_pp));')
+    expect(fireworks).toContain('float _paKeep=powf(constrain(0.92,0.0f,1.0f)*0.985f,_pf_pp);')
+    expect(gen('chase')).toContain('_pa_ppvx[i]=_pa_ppvx[i]*_paDrag+dx/d*0.025f*_pf_pp;')
+    expect(gen('pinwheel')).toContain('float _paTurn=0.035f*_pf_pp;')
+    // A mode that never reads Decay declares no keep.
+    expect(gen('bounce')).not.toContain('_paKeep')
   })
 
   it('time-driven displays emit the shared animation clock', () => {
@@ -4171,9 +4204,13 @@ describe('Formula Points codegen', () => {
     expect(cpp).toContain('(uint32_t)_i*6408326u') // golden angle as a 16-bit angle in 1/256ths
   })
 
-  it('logisticMap is not time-driven (no needsT) and reads chaos through its port', () => {
+  it('logisticMap iterates on the clock and reads chaos through its port', () => {
     const cpp = gen('logisticMap', { chaos: 3.9 })
-    expect(cpp).not.toContain('float t = millis()')
+    // `count` iterations a 60th of a second, the fraction carried over.
+    expect(cpp).toContain('float t = millis()')
+    expect(cpp).toContain('float _ps_fp_itO = _ps_fp_itC + fmaxf(0.0f, (float)_fp_fpN) * _pf_fp;')
+    expect(cpp).toContain('for(int _i=0;_i<_ps_fp_it-_fp_fpN;_i++) _fp_fpx=_r*_fp_fpx*(1.0f-_fp_fpx);')
+    expect(cpp).toContain('for(int _i=max(0,_fp_fpN-_ps_fp_it);_i<_fp_fpN;_i++){')
     // Unwired, the knob folds to its own literal and costs nothing; the
     // clamp that used to be applied here in TypeScript is emitted instead,
     // so it still holds when something is driving the port.
@@ -4192,6 +4229,9 @@ describe('Formula Points codegen', () => {
     expect(classic).toContain('sinf(1.4f*_fp_fpay)-cosf(-2.3f*_fp_fpax)')
     const web = gen('attractor', { preset: 'web' })
     expect(web).toContain('sinf(-0.827f*_fp_fpay)-cosf(-1.637f*_fp_fpax)')
+    // Every iteration owed this frame is drawn, coloured by its place in a frame's run.
+    expect(web).toContain('for(int _i=0;_i<_ps_fp_it;_i++){')
+    expect(web).toContain('(uint8_t)(((float)(_i%_fp_fpN)/_fp_fpN)*255.0f)')
   })
 
   it('attractor and the trail variants fade the persistent buffer on the trail clock', () => {

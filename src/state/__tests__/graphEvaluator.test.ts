@@ -1841,7 +1841,7 @@ describe('evaluateGraph', () => {
   it('PaletteBlend interpolates between two palettes', () => {
     const driveSimplex = (amount: number) => {
       const pb = node('pb', 'PaletteBlend', 'color', { paletteA: 'heat', paletteB: 'ocean', amount })
-      const sx = noise('sx', 'simplex')
+      const sx = noise('sx', 'fbm')
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph(
         [pb, sx, out],
@@ -1857,7 +1857,7 @@ describe('evaluateGraph', () => {
     // Sampled at 15/15, a wrapping lookup lands back on the first stop, so the
     // blend's brightest entry used to come out as heat's black.
     const pb = node('pb', 'PaletteBlend', 'color', { paletteA: 'heat', paletteB: 'ocean', amount: 0 })
-    const sx = noise('sx', 'simplex')
+    const sx = noise('sx', 'fbm')
     const out = node('out', 'MatrixOutput', 'output', {})
     const { outputs } = evaluateGraphFull(
       [pb, sx, out],
@@ -2320,7 +2320,9 @@ describe('evaluateGraph', () => {
       return JSON.stringify(evaluateGraph(nodes, edges, 30, 16, 16))
     }
     expect(frameOf('noise-default', {})).toBe(frameOf('noise-fbm', { noiseType: 'fbm' }))
-    expect(frameOf('noise-default-2', {})).not.toBe(frameOf('noise-grid', { noiseType: 'field' }))
+    expect(frameOf('noise-default-2', {})).not.toBe(frameOf('noise-cells', { noiseType: 'worley' }))
+    // A type the merge removed, read from an old save, draws fBm too.
+    expect(frameOf('noise-default-3', {})).toBe(frameOf('noise-simplex', { noiseType: 'fbm' }))
   })
 
   it('Blobs sizes by the length of a string, so a strip is not left near black', () => {
@@ -2395,7 +2397,7 @@ describe('evaluateGraph', () => {
     }
 
     it('joins the edges of every Noise variant without a seam', () => {
-      for (const noiseType of ['field', 'simplex', 'noise3d', 'noise4d', 'worley', 'plasma', 'sine']) {
+      for (const noiseType of ['fbm', 'noise4d', 'worley', 'plasma', 'gabor']) {
         const wrapped = fieldOf('Noise', 'pattern', { noiseType, speed: 0.4, scale: 0.6, wrapX: true })
         const { seam, inner } = seamGap(wrapped)
         expect(seam, noiseType).toBeLessThanOrEqual(inner * 2 + 0.02)
@@ -2786,7 +2788,7 @@ describe('evaluateGraph', () => {
     const c1 = node('c1', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 0, s: 1, v: 1 })
     const c2 = node('c2', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 160, s: 1, v: 1 })
     const cp = node('cp', 'CustomPalette', 'color', {})
-    const sx = noise('sx', 'simplex', { palette: 'rainbow' })
+    const sx = noise('sx', 'fbm', { palette: 'rainbow' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const wired = evaluateGraph(
       [c1, c2, cp, sx, out],
@@ -2798,7 +2800,7 @@ describe('evaluateGraph', () => {
       ], 0, 4, 4,
     )
     const presetOnly = evaluateGraph(
-      [noise('sx', 'simplex', { palette: 'rainbow' }), out],
+      [noise('sx', 'fbm', { palette: 'rainbow' }), out],
       [edge('e', 'sx', 'frame', 'out', 'frame')], 0, 4, 4,
     )
     expect(wired).not.toEqual(presetOnly)   // custom colors changed the output
@@ -2808,19 +2810,18 @@ describe('evaluateGraph', () => {
     // Guards against the NoiseField bug (advertised a palette but ignored it).
     // The noise variants live behind the bundled `Noise` node via `noiseType`.
     const patterns: Array<{ type: string; extra?: Record<string, unknown> }> = [
-      { type: 'Noise', extra: { noiseType: 'field' } },
-      { type: 'Noise', extra: { noiseType: 'simplex' } },
-      { type: 'Noise', extra: { noiseType: 'noise3d' } },
       { type: 'Noise', extra: { noiseType: 'noise4d' } },
       { type: 'Noise', extra: { noiseType: 'worley' } },
       { type: 'Noise', extra: { noiseType: 'plasma' } },
       { type: 'Noise', extra: { noiseType: 'fbm' } },
       { type: 'Noise', extra: { noiseType: 'gabor' } },
+      { type: 'Plasma', extra: { plasmaStyle: 'sineGrid' } },
+      { type: 'Plasma', extra: { plasmaStyle: 'sine2d' } },
       { type: 'PaletteGradient' }, { type: 'Blobs' }, { type: 'FlowField' },
       { type: 'AudioFlow' }, { type: 'ColorTrails' }, { type: 'MidrangeWaves' }, { type: 'MidrangeBloom' }, { type: 'AudioCascade' }, { type: 'ReactionDiffusion' }, { type: 'CustomFormula' },
     ]
     for (const { type, extra } of patterns) {
-      const label = type + (extra?.noiseType ? `-${extra.noiseType}` : '')
+      const label = type + (extra?.noiseType ? `-${extra.noiseType}` : '') + (extra?.plasmaStyle ? `-${extra.plasmaStyle}` : '')
       const render = (palette: string) => {
         // Unique ids so stateful nodes don't share state between the two runs.
         const gen = node(`${label}-${palette}`, type, 'pattern', { palette, formula: 'sin(x*4+y*3)*0.5+0.5', ...extra })
@@ -3005,7 +3006,7 @@ describe('evaluateGraph', () => {
   it('a Poline palette drives a pattern, varying with its anchors', () => {
     const run = (anchorA: string, anchorB: string, anchorC = '#20ffd0') => {
       const pl = node('pl', 'Poline', 'color', { anchorA, anchorB, anchorC, points: 4, position: 'sinusoidal' })
-      const sx = noise('sx', 'simplex', { speed: 0, palette: 'rainbow' })
+      const sx = noise('sx', 'fbm', { speed: 0, palette: 'rainbow' })
       const out = node('out', 'MatrixOutput', 'output', {})
       return evaluateGraph(
         [pl, sx, out],
@@ -3024,7 +3025,7 @@ describe('evaluateGraph', () => {
   it('a wired anchor colour overrides the Poline hex default', () => {
     const c = node('c', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 96, s: 1, v: 1 })
     const pl = node('pl', 'Poline', 'color', { anchorA: '#ff0000', anchorB: '#0000ff', anchorC: '#20ffd0', points: 4, position: 'linear' })
-    const sx = noise('sx', 'simplex', { speed: 0, palette: 'rainbow' })
+    const sx = noise('sx', 'fbm', { speed: 0, palette: 'rainbow' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edgesBase = [edge('e2', 'pl', 'palette', 'sx', 'paletteIn'), edge('e3', 'sx', 'frame', 'out', 'frame')]
     const withoutWire = evaluateGraph([pl, sx, out], edgesBase, 0, 6, 6)
@@ -3034,11 +3035,11 @@ describe('evaluateGraph', () => {
 
   it('Simplex2D uses a connected palette over its own property', () => {
     // Baseline: Simplex with palette property 'heat', no connection.
-    const heat = withOutput(noise('sx', 'simplex', { palette: 'heat' }))
+    const heat = withOutput(noise('sx', 'fbm', { palette: 'heat' }))
     const heatProp = evaluateGraph(heat.nodes, heat.edges, 0, W, H)
     // Same node defaulting to 'rainbow' but driven by a PaletteSelector('heat').
     const sel  = node('sel', 'PaletteSelector', 'color', { palette: 'heat' })
-    const sx   = noise('sx', 'simplex', { palette: 'rainbow' })
+    const sx   = noise('sx', 'fbm', { palette: 'rainbow' })
     const w = withOutput(sx, [sel], [edge('e1', 'sel', 'palette', 'sx', 'paletteIn')])
     const wired = evaluateGraph(w.nodes, w.edges, 0, W, H)
     // The connected palette wins, so the wired frame matches the heat baseline.
@@ -3046,8 +3047,8 @@ describe('evaluateGraph', () => {
   })
 
   it('falls back to the palette property when paletteIn is unconnected', () => {
-    const o = withOutput(noise('sx', 'simplex', { palette: 'ocean' }))
-    const r = withOutput(noise('sx', 'simplex', { palette: 'rainbow' }))
+    const o = withOutput(noise('sx', 'fbm', { palette: 'ocean' }))
+    const r = withOutput(noise('sx', 'fbm', { palette: 'rainbow' }))
     const ocean   = evaluateGraph(o.nodes, o.edges, 0, W, H)
     const rainbow = evaluateGraph(r.nodes, r.edges, 0, W, H)
     // Different palettes produce different frames.
@@ -4075,7 +4076,7 @@ describe('noise shaping, Worley modes and curl flow', () => {
 
   it('shapes Noise and Field Noise fields without touching the default', () => {
     for (const [type, cat, props] of [
-      ['Noise', 'pattern', { noiseType: 'simplex', speed: 0.4, scale: 0.6 }],
+      ['Noise', 'pattern', { noiseType: 'fbm', speed: 0.4, scale: 0.6 }],
       ['Noise', 'pattern', { noiseType: 'worley', speed: 0.4, scale: 0.6 }],
       ['FieldNoise', 'field', { speed: 0.4, scale: 0.6, octaves: 3 }],
     ] as const) {
@@ -5264,7 +5265,7 @@ describe('deterministic seeds', () => {
 
   it('Noise seeds choose different deterministic phase offsets', () => {
     const run = (id: string, seed: number) => {
-      const { nodes, edges } = withOutput(noise(id, 'simplex', { seed, palette: 'rainbow' }))
+      const { nodes, edges } = withOutput(noise(id, 'fbm', { seed, palette: 'rainbow' }))
       return evaluateGraph(nodes, edges, 3, 8, 8)
     }
     expect(run('seedNoiseA', 7)).toEqual(run('seedNoiseB', 7))
@@ -5384,7 +5385,7 @@ describe('FieldNoise and FrameToField', () => {
   }
 
   it('Noise exposes a raw field output that round-trips through FieldToFrame', () => {
-    const nz = noise('nzf', 'simplex', { speed: 0.45, scale: 0.4, palette: 'ocean' })
+    const nz = noise('nzf', 'fbm', { speed: 0.45, scale: 0.4, palette: 'ocean' })
     const f2f = node('nzf2f', 'FieldToFrame', 'pattern', { palette: 'ocean', brightness: 1 })
     const out = node('nzout', 'MatrixOutput', 'output', {})
     const { outputs } = evaluateGraphFull(

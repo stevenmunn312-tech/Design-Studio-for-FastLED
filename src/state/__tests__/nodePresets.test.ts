@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   defaultPropertiesForNodeType,
   presettableProperties,
+  presetsForNodeType,
   useNodePresets,
   variationProperties,
 } from '../nodePresets'
@@ -32,7 +33,7 @@ describe('nodePresets', () => {
 
   it('randomizes slider and select values inside their metadata bounds', () => {
     const next = variationProperties('Noise', {
-      noiseType: 'simplex',
+      noiseType: 'fbm',
       speed: 0.5,
       scale: 0.5,
       palette: 'rainbow',
@@ -64,6 +65,30 @@ describe('nodePresets', () => {
       dataPin: 18,
       chipset: 'WS2812B',
     })).toEqual({})
+  })
+
+  it('lists the shipped Noise presets, named after the types they replace, before the user\'s own', () => {
+    useNodePresets.getState().savePreset('Noise', 'A cloud', { noiseType: 'worley', speed: 0.2 })
+    const presets = presetsForNodeType('Noise')
+    expect(presets.map((preset) => preset.name)).toEqual(['Noise 3D', 'Simplex', 'A cloud'])
+    expect(presets[1]).toMatchObject({
+      builtIn: true,
+      properties: { noiseType: 'fbm', octaves: 4, speed: 1, scale: 0.5, contrast: 1.85 },
+    })
+    expect(presets[0].properties).toEqual({ noiseType: 'fbm', octaves: 3, speed: 0.45, scale: 0.5, contrast: 1.25 })
+    // Each one sets only values its own slider can hold.
+    for (const preset of presets.slice(0, 2)) {
+      for (const [key, value] of Object.entries(preset.properties)) {
+        const meta = propertyMeta('Noise', key)
+        if (meta?.control === 'slider') {
+          expect(Number(value), key).toBeGreaterThanOrEqual(meta.min)
+          expect(Number(value), key).toBeLessThanOrEqual(meta.max)
+        } else if (meta?.control === 'select') expect(meta.options, key).toContain(value)
+      }
+    }
+    // Shipped presets are not saved with the user's.
+    expect(JSON.parse(localStorage.getItem('design-studio-for-fastled.node-presets.v1') ?? '[]')).toHaveLength(1)
+    expect(presetsForNodeType('Plasma')).toEqual([])
   })
 
   it('exposes library defaults for reset operations', () => {

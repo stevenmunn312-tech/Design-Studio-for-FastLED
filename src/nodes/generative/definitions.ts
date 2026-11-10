@@ -9,8 +9,9 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     // Bundled noise generators — `noiseType` selects the algorithm. The
     // variants share the same speed/scale/palette controls, expose a raw scalar
     // `field`, and also map that field through a palette to the normal `frame`
-    // output. See PROPERTY_META.noiseType. `octaves` belongs to fbm and
-    // `frequency`/`orientation` to gabor (isPropertyEnabled gates them).
+    // output. See NOISE_TYPES (noiseTypes.ts). `octaves` belongs to fbm and
+    // `frequency`/`orientation` to gabor (isPropertyEnabled gates them);
+    // `contrast` spreads every type's field about its middle.
     type: 'Noise',
     label: 'Noise',
     category: 'pattern',
@@ -33,10 +34,12 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     ],
     defaultProperties: {
       noiseType: 'fbm', speed: 0.5, scale: 0.5, palette: 'rainbow', seed: 0, wrapX: false, noiseShape: 'plain', worleyMode: 'f1',
-      octaves: 4, frequency: 1.2, orientation: 45,
+      octaves: 4, frequency: 1.2, orientation: 45, contrast: 1,
     },
   },
   {
+    // The classic plasma, or Sine Grid and Sine 2D, the sine styles that were
+    // Noise types (PLASMA_STYLES in noiseTypes.ts).
     type: 'Plasma',
     label: 'Plasma',
     category: 'pattern',
@@ -48,7 +51,7 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     ],
     propertyInputs: { speed: 'speed', scale: 'scale', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, scale: 0.5, palette: 'rainbow' },
+    defaultProperties: { plasmaStyle: 'classic', speed: 0.5, scale: 0.5, palette: 'rainbow' },
   },
   {
     // FastLED fill_rainbow — a scrolling hue sweep; `deltaHue` sets the spread
@@ -351,7 +354,7 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
 
 export const GENERATIVE_DESCRIPTIONS: Record<string, string> = {
   Noise: 'Noise from fBm clouds to Worley cells and Gabor bands, as frame and field.',
-  Plasma: 'Animated plasma interference pattern through a palette.',
+  Plasma: 'Plasma interference, a sine grid or layered sine waves, through a palette.',
   Rainbow: 'FastLED fill_rainbow — a scrolling hue sweep across the matrix.',
   Pride2015: 'Shifting rainbow with a breathing brightness wave.',
   Pacifica: 'Layered ocean waves through a palette, with whitecap sparkle.',

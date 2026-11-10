@@ -232,7 +232,7 @@ describe('renderShowFrame', () => {
     const groups = {
       g1: {
         nodes: [
-          mk('noise', 'Noise', { noiseType: 'field', palette: 'rainbow' }, [{ id: 'paletteIn', dataType: 'palette' }], [{ id: 'frame', dataType: 'frame' }]),
+          mk('noise', 'Noise', { noiseType: 'fbm', palette: 'rainbow' }, [{ id: 'paletteIn', dataType: 'palette' }], [{ id: 'frame', dataType: 'frame' }]),
           mk('gi', 'GroupInput', { paramId: 'palette' }, [], [{ id: 'out', dataType: 'palette' }]),
           mk('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
         ],

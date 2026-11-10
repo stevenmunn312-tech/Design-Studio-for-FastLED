@@ -2,14 +2,14 @@ import { rateCpp, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { trailFadeCpp, trailKeepCpp } from '../shared/trailFadeCpp'
-import { passFramesCpp } from '../shared/passClockCpp'
+import { keepOverCpp, passChanceCpp, passFramesCpp, passStepsCpp } from '../shared/passClockCpp'
 import { CURL_EPS, CURL_GAIN } from '../../state/evaluator/curl'
 import {
   FIRE_SMOKE_DEPTH, FIRE_SMOKE_SCALE_ACROSS, FIRE_SMOKE_SCALE_ALONG, FIRE_SMOKE_SPEED, INOISE_UNIT, fireStyle,
 } from '../../state/evaluator/fireSmoke'
 import {
   LUMINOVA_BLUR, LUMINOVA_MAX, LUMINOVA_NOISE_LANE, LUMINOVA_NOISE_SEPARATION, LUMINOVA_NOISE_SPEED, LUMINOVA_STEP,
-  LUMINOVA_TRAIL_DECAY, LUMINOVA_TURN, LUMINOVA_WANDER, luminovaEmitters,
+  LUMINOVA_TURN, LUMINOVA_WANDER, luminovaEmitters,
 } from '../../state/evaluator/luminova'
 import { MAX_STRING_PARTICLES, STRING_PARTICLE_DECAY, ringTrackLeds, stringTrack } from '../../state/evaluator/stringTrack'
 import {
@@ -17,7 +17,7 @@ import {
 } from '../shared/rippleNetwork'
 import { particleRadius } from './particleScale'
 import { FIRE_ALONG_CPP, fireDirection, fireDirectionChoice } from './fireDirection'
-import { particleMode, particlePoolSize } from './particleModes'
+import { PARTICLE_DECAY_SCALE, particleMode, particlePoolSize } from './particleModes'
 import { BOID_PALETTE_MODES } from './limits'
 import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
@@ -183,7 +183,8 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
   Particles({ node, id, p, ln, f, ownBuf, width, height, paletteExpr, needsT }) {
     const ob = ownBuf()
     const mode = particleMode(p.particleType)
-    if (['comet', 'snow', 'embers', 'bubbles', 'fireflies', 'meteor', 'tornado', 'chase', 'luminova'].includes(mode)) needsT.v = true
+    // Every mode steps by the 60ths of a second since its last frame.
+    needsT.v = true
     // Both are 0–1 sliders and both are wireable; bounded here as in the
     // preview, since a rate over 1 wraps the uint8_t spawn test round to 0 and
     // a decay over 1 lets particles live forever.
@@ -207,6 +208,11 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     // Every particle is coloured by its life when drawn, so the pool holds no colour.
     ln(`    static float ${A}x[_PN], ${A}y[_PN], ${A}vx[_PN], ${A}vy[_PN], ${A}l[_PN], ${A}s[_PN]; static bool ${A}init=false;`)
     if (seed) ln(`    static bool ${A}seeded=false; if(!${A}seeded){ random16_set_seed(${seed}u); ${A}seeded=true; }`)
+    // Each step below was written per frame and runs on the clock, as the
+    // preview's does: velocities and counts times the frames, drag and decay
+    // kept over them, a spawn's chance the chance of one in them.
+    const pf = passFramesCpp(ln, phaseTag(id))
+    const lifeKept = `${decayL}${(PARTICLE_DECAY_SCALE[mode] ?? 1) === 1 ? '' : `*${floatLit(PARTICLE_DECAY_SCALE[mode] ?? 1)}`}`
 
     /*
      * The spawn/update variants read different knobs — one mode scales its
@@ -232,92 +238,104 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
       const bounceF = '_paBounce'
       const spawnX = `(WIDTH*0.5f+(random8()/255.0f-0.5f)*WIDTH*${spreadF})`
       if (mode === 'fountain')
-        ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=HEIGHT-1; ${A}vx[i]=(random8()/255.0f-0.5f)*0.6f*${spreadF}; ${A}vy[i]=-(random8()/255.0f*0.5f+0.1f); ${A}l[i]=1; break; } }`)
+        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=HEIGHT-1; ${A}vx[i]=(random8()/255.0f-0.5f)*0.6f*${spreadF}; ${A}vy[i]=-(random8()/255.0f*0.5f+0.1f); ${A}l[i]=1; break; } }`)
       else if (mode === 'drops')
-        ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.4f*${spreadF}; ${A}vy[i]=random8()/255.0f*0.2f; ${A}l[i]=1; break; } }`)
+        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.4f*${spreadF}; ${A}vy[i]=random8()/255.0f*0.2f; ${A}l[i]=1; break; } }`)
       else if (mode === 'fireworks') {
-        ln(`    if(random8()<(uint8_t)(_rate*0.12f*255)){ int _n=14+random8()/32; float _cx=random8()/255.0f*WIDTH, _cy=random8()/255.0f*HEIGHT*0.5f+HEIGHT*0.1f;`)
+        ln(`    if(random8()<(uint8_t)(_paBurst*255)){ int _n=14+random8()/32; float _cx=random8()/255.0f*WIDTH, _cy=random8()/255.0f*HEIGHT*0.5f+HEIGHT*0.1f;`)
         ln(`      for(int k=0;k<_n;k++) for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ float _a=(k/(float)_n)*6.2831f+random8()/255.0f*0.3f, _sp=random8()/255.0f*0.5f+0.35f; ${A}x[i]=_cx; ${A}y[i]=_cy; ${A}vx[i]=cos(_a)*_sp; ${A}vy[i]=sin(_a)*_sp; ${A}l[i]=1; break; } }`)
       } else if (mode === 'sparkle')
-        ln(`    { int _sp=max(1,(int)floorf(_rate*WIDTH*0.8f+0.5f)); for(int k=0;k<_sp;k++) if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=random8()/255.0f*HEIGHT*0.3f; ${A}vx[i]=0; ${A}vy[i]=random8()/255.0f*0.25f+0.05f; ${A}l[i]=1; break; } } }`)
-      else if (mode === 'comet')
-        ln(`    { float _hx=(WIDTH-1)*(0.5f+0.45f*sin(t*0.9f)), _hy=(HEIGHT-1)*(0.5f+0.45f*sin(t*0.6f+1.3f)); for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=_hx; ${A}y[i]=_hy; ${A}vx[i]=0; ${A}vy[i]=0; ${A}l[i]=1; break; } }`)
+        ln(`    { int _sp=max(1,(int)floorf(_rate*WIDTH*0.8f+0.5f)); for(int k=0;k<_sp;k++) if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=random8()/255.0f*HEIGHT*0.3f; ${A}vx[i]=0; ${A}vy[i]=random8()/255.0f*0.25f+0.05f; ${A}l[i]=1; break; } } }`)
+      else if (mode === 'comet' || mode === 'meteor') {
+        ln(`    for(int i=0;i<_PN;i++) if(${A}l[i]>0.04f) ${A}l[i]*=_paKeep;`)
+        const dots = passStepsCpp(ln, `${phaseTag(id)}_dots`, '1.0f', pf)
+        ln(`    for(int _age=${dots}-1;_age>=0;_age--){ float _at=t-_age/60.0f;`)
+        if (mode === 'comet') ln(`      float _hx=(WIDTH-1)*(0.5f+0.45f*sin(_at*0.9f)), _hy=(HEIGHT-1)*(0.5f+0.45f*sin(_at*0.6f+1.3f));`)
+        else ln(`      float _span=max(1.0f,max(WIDTH,HEIGHT)-1.0f),_phase=fmodf(_at*max(2.0f,WIDTH*0.45f),_span), _hx=_phase*(WIDTH-1)/_span, _hy=_phase*(HEIGHT-1)/_span;`)
+        ln(`      for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=_hx; ${A}y[i]=_hy; ${A}vx[i]=0; ${A}vy[i]=0; ${A}l[i]=powf(_paLife,_age+1.0f); break; } }`)
+      }
       else if (mode === 'snow')
-        ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vy[i]=random8()/255.0f*0.12f+0.05f; ${A}l[i]=0.7f+random8()/255.0f*0.3f; ${A}s[i]=random8()/255.0f*6.28f; break; } }`)
+        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vy[i]=random8()/255.0f*0.12f+0.05f; ${A}l[i]=0.7f+random8()/255.0f*0.3f; ${A}s[i]=random8()/255.0f*6.28f; break; } }`)
       else if (mode === 'rain')
-        ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.18f; ${A}vy[i]=random8()/255.0f*0.45f+0.35f; ${A}l[i]=1; break; } }`)
+        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=${spawnX}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.18f; ${A}vy[i]=random8()/255.0f*0.45f+0.35f; ${A}l[i]=1; break; } }`)
       else if (mode === 'embers')
-        ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=HEIGHT-1; ${A}vx[i]=(random8()/255.0f-0.5f)*0.12f; ${A}vy[i]=-(random8()/255.0f*0.18f+0.04f); ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; break; } }`)
+        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=HEIGHT-1; ${A}vx[i]=(random8()/255.0f-0.5f)*0.12f; ${A}vy[i]=-(random8()/255.0f*0.18f+0.04f); ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; break; } }`)
       else if (mode === 'bubbles')
-        ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=HEIGHT-1; ${A}vy[i]=-(random8()/255.0f*0.16f+0.06f); ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; break; } }`)
+        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=HEIGHT-1; ${A}vy[i]=-(random8()/255.0f*0.16f+0.06f); ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; break; } }`)
       else if (mode === 'vortex')
-        ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}l[i]=1; break; } }`)
+        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}l[i]=1; break; } }`)
       else if (mode === 'luminova') {
         const N = luminovaEmitters(countP)
+        const steps = passStepsCpp(ln, `${phaseTag(id)}_dots`, '1.0f', pf)
         ln(`    { static bool ${A}em[${LUMINOVA_MAX}];`)
         ln(`      for(int i=${N};i<${LUMINOVA_MAX};i++) if(${A}em[i]){ ${A}em[i]=false; ${A}l[i]=0; }`)
-        ln(`      for(int i=0;i<${N};i++){ if(!${A}em[i]){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; ${A}em[i]=true; }`)
-        ln(`        float _n=inoise8((uint16_t)((t*${floatLit(LUMINOVA_NOISE_SPEED)}+i*${floatLit(LUMINOVA_NOISE_SEPARATION)})*256.0f),(uint16_t)(i*${floatLit(LUMINOVA_NOISE_LANE)}*256.0f))/255.0f;`)
+        ln(`      for(int i=0;i<${N};i++) if(!${A}em[i]){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; ${A}em[i]=true; }`)
+        ln(`      for(int j=${N};j<_PN;j++) if(${A}l[j]>0.04f) ${A}l[j]*=_paKeep;`)
+        ln(`      for(int _st=0;_st<${steps};_st++){ float _age=(float)(${steps}-1-_st), _at=t-_age/60.0f;`)
+        ln(`      for(int i=0;i<${N};i++){`)
+        ln(`        float _n=inoise8((uint16_t)((_at*${floatLit(LUMINOVA_NOISE_SPEED)}+i*${floatLit(LUMINOVA_NOISE_SEPARATION)})*256.0f),(uint16_t)(i*${floatLit(LUMINOVA_NOISE_LANE)}*256.0f))/255.0f;`)
         ln(`        ${A}s[i]+=${floatLit(LUMINOVA_TURN)}+(_n-0.5f)*${floatLit(LUMINOVA_WANDER)};`)
         ln(`        ${A}x[i]=fmodf(fmodf(${A}x[i]+cos(${A}s[i])*${floatLit(LUMINOVA_STEP)},(float)WIDTH)+WIDTH,(float)WIDTH); ${A}y[i]=fmodf(fmodf(${A}y[i]+sin(${A}s[i])*${floatLit(LUMINOVA_STEP)},(float)HEIGHT)+HEIGHT,(float)HEIGHT); ${A}l[i]=1;`)
-        ln(`        for(int j=${N};j<_PN;j++) if(${A}l[j]<=0.04f){ ${A}x[j]=${A}x[i]; ${A}y[j]=${A}y[i]; ${A}vx[j]=0; ${A}vy[j]=0; ${A}l[j]=1; break; } } }`)
+        ln(`        for(int j=${N};j<_PN;j++) if(${A}l[j]<=0.04f){ ${A}x[j]=${A}x[i]; ${A}y[j]=${A}y[i]; ${A}vx[j]=0; ${A}vy[j]=0; ${A}l[j]=powf(_paLife,_age+1.0f); break; } } } }`)
       } else if (mode === 'fireflies')
         ln(`    { int _target=${countP}; for(int i=0;i<_target;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.12f; ${A}vy[i]=(random8()/255.0f-0.5f)*0.12f; ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; } for(int i=_target;i<_PN;i++) ${A}l[i]=0; }`)
-      else if (mode === 'meteor')
-        ln(`    { float _span=max(1.0f,max(WIDTH,HEIGHT)-1.0f),_phase=fmodf(t*max(2.0f,WIDTH*0.45f),_span); for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=_phase*(WIDTH-1)/_span; ${A}y[i]=_phase*(HEIGHT-1)/_span; ${A}l[i]=1; break; } }`)
       else if (mode === 'tornado')
-        ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=WIDTH/2.0f; ${A}y[i]=HEIGHT-1; ${A}vy[i]=-(random8()/255.0f*0.16f+0.06f); ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; break; } }`)
+        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=WIDTH/2.0f; ${A}y[i]=HEIGHT-1; ${A}vy[i]=-(random8()/255.0f*0.16f+0.06f); ${A}s[i]=random8()/255.0f*6.28f; ${A}l[i]=1; break; } }`)
       else if (mode === 'pinwheel')
-        ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ float _a=random8()/255.0f*6.2831f; ${A}x[i]=WIDTH/2.0f; ${A}y[i]=HEIGHT/2.0f; ${A}vx[i]=cos(_a)*0.18f; ${A}vy[i]=sin(_a)*0.18f; ${A}l[i]=1; break; } }`)
+        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ float _a=random8()/255.0f*6.2831f; ${A}x[i]=WIDTH/2.0f; ${A}y[i]=HEIGHT/2.0f; ${A}vx[i]=cos(_a)*0.18f; ${A}vy[i]=sin(_a)*0.18f; ${A}l[i]=1; break; } }`)
       else if (mode === 'bounce')
         ln(`    { int _target=${countP}; for(int i=0;i<_target;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.5f; ${A}vy[i]=(random8()/255.0f-0.5f)*0.5f; ${A}l[i]=1; } for(int i=_target;i<_PN;i++) ${A}l[i]=0; }`)
       else if (mode === 'chase')
-        ln(`    if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.1f; ${A}vy[i]=(random8()/255.0f-0.5f)*0.1f; ${A}l[i]=1; break; } }`)
+        ln(`    if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=random8()/255.0f*WIDTH; ${A}y[i]=random8()/255.0f*HEIGHT; ${A}vx[i]=(random8()/255.0f-0.5f)*0.1f; ${A}vy[i]=(random8()/255.0f-0.5f)*0.1f; ${A}l[i]=1; break; } }`)
       else if (mode === 'waterfall')
-        ln(`    { int _sp=max(1,(int)floorf(_rate*3+0.5f)); for(int k=0;k<_sp;k++) if(random8()<(uint8_t)(_rate*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=WIDTH*0.5f+(random8()/255.0f-0.5f)*0.3f*WIDTH*${spreadF}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.08f; ${A}vy[i]=random8()/255.0f*0.2f+0.12f; ${A}l[i]=1; break; } } }`)
+        ln(`    { int _sp=max(1,(int)floorf(_rate*3+0.5f)); for(int k=0;k<_sp;k++) if(random8()<(uint8_t)(_paChance*255)){ for(int i=0;i<_PN;i++) if(${A}l[i]<=0.04f){ ${A}x[i]=WIDTH*0.5f+(random8()/255.0f-0.5f)*0.3f*WIDTH*${spreadF}; ${A}y[i]=0; ${A}vx[i]=(random8()/255.0f-0.5f)*0.08f; ${A}vy[i]=random8()/255.0f*0.2f+0.12f; ${A}l[i]=1; break; } } }`)
 
       // ── update ──
-      ln(`    for(int i=0;i<_PN;i++){ if(${A}l[i]<=0.04f) continue;`)
+      if (mode === 'fireworks') ln(`    float _paDrag=${keepOverCpp('0.965f', pf)};`)
+      else if (mode === 'chase') ln(`    float _paDrag=${keepOverCpp('0.97f', pf)};`)
+      else if (mode === 'pinwheel') ln(`    float _paTurn=0.035f*${pf};`)
+      // Comet and meteor faded their trail dots before laying the new ones.
+      if (mode !== 'comet' && mode !== 'meteor') ln(`    for(int i=0;i<_PN;i++){ if(${A}l[i]<=0.04f) continue;`)
       if (mode === 'fountain')
-        ln(`      ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; ${A}vy[i]+=0.02f*${gravityF}; ${A}l[i]*=${decayL}; if(${A}y[i]<0) ${A}l[i]=0; }`)
+        ln(`      ${A}x[i]+=${A}vx[i]*${pf}; ${A}y[i]+=${A}vy[i]*${pf}; ${A}vy[i]+=0.02f*${gravityF}*${pf}; ${A}l[i]*=_paKeep; if(${A}y[i]<0) ${A}l[i]=0; }`)
       else if (mode === 'drops')
-        ln(`      ${A}vy[i]+=0.045f*${gravityF}; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; if(${A}y[i]>=HEIGHT-1){ ${A}y[i]=HEIGHT-1; ${A}vy[i]*=-0.55f*${bounceF}; ${A}vx[i]*=0.8f; ${A}l[i]*=0.9f; } ${A}l[i]*=${decayL}; }`)
+        ln(`      ${A}vy[i]+=0.045f*${gravityF}*${pf}; ${A}x[i]+=${A}vx[i]*${pf}; ${A}y[i]+=${A}vy[i]*${pf}; if(${A}y[i]>=HEIGHT-1){ ${A}y[i]=HEIGHT-1; ${A}vy[i]*=-0.55f*${bounceF}; ${A}vx[i]*=0.8f; ${A}l[i]*=0.9f; } ${A}l[i]*=_paKeep; }`)
       else if (mode === 'fireworks')
-        ln(`      ${A}vy[i]=(${A}vy[i]+0.022f*${gravityF})*0.965f; ${A}vx[i]*=0.965f; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; ${A}l[i]*=${decayL}*0.985f; }`)
+        ln(`      ${A}vy[i]=(${A}vy[i]+0.022f*${gravityF}*${pf})*_paDrag; ${A}vx[i]*=_paDrag; ${A}x[i]+=${A}vx[i]*${pf}; ${A}y[i]+=${A}vy[i]*${pf}; ${A}l[i]*=_paKeep; }`)
       else if (mode === 'sparkle')
-        ln(`      ${A}y[i]+=${A}vy[i]; ${A}l[i]*=${decayL}*0.9f; if(${A}y[i]>=HEIGHT) ${A}l[i]=0; }`)
-      else if (mode === 'comet')
-        ln(`      ${A}l[i]*=${decayL}; }`)
+        ln(`      ${A}y[i]+=${A}vy[i]*${pf}; ${A}l[i]*=_paKeep; if(${A}y[i]>=HEIGHT) ${A}l[i]=0; }`)
       else if (mode === 'snow')
-        ln(`      ${A}y[i]+=${A}vy[i]; ${A}x[i]+=sin(t*1.5f+${A}s[i])*0.12f; if(${A}y[i]>=HEIGHT) ${A}l[i]=0; }`)
+        ln(`      ${A}y[i]+=${A}vy[i]*${pf}; ${A}x[i]+=sin(t*1.5f+${A}s[i])*0.12f*${pf}; if(${A}y[i]>=HEIGHT) ${A}l[i]=0; }`)
       else if (mode === 'rain')
-        ln(`      ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; ${A}l[i]*=${decayL}*0.995f; if(${A}y[i]>=HEIGHT) ${A}l[i]=0; }`)
+        ln(`      ${A}x[i]+=${A}vx[i]*${pf}; ${A}y[i]+=${A}vy[i]*${pf}; ${A}l[i]*=_paKeep; if(${A}y[i]>=HEIGHT) ${A}l[i]=0; }`)
       else if (mode === 'embers')
-        ln(`      ${A}x[i]+=${A}vx[i]+sin(t*2+${A}s[i])*0.05f; ${A}y[i]+=${A}vy[i]; ${A}l[i]*=${decayL}*0.985f; if(${A}y[i]<0) ${A}l[i]=0; }`)
+        ln(`      ${A}x[i]+=(${A}vx[i]+sin(t*2+${A}s[i])*0.05f)*${pf}; ${A}y[i]+=${A}vy[i]*${pf}; ${A}l[i]*=_paKeep; if(${A}y[i]<0) ${A}l[i]=0; }`)
       else if (mode === 'bubbles')
-        ln(`      ${A}x[i]+=sin(t*3+${A}s[i])*0.1f; ${A}y[i]+=${A}vy[i]; if(${A}y[i]<0) ${A}l[i]=0; }`)
+        ln(`      ${A}x[i]+=sin(t*3+${A}s[i])*0.1f*${pf}; ${A}y[i]+=${A}vy[i]*${pf}; if(${A}y[i]<0) ${A}l[i]=0; }`)
       else if (mode === 'vortex')
-        ln(`      { float dx=${A}x[i]-(WIDTH-1)/2.0f,dy=${A}y[i]-(HEIGHT-1)/2.0f,d=max(0.5f,sqrtf(dx*dx+dy*dy)); ${A}x[i]+=-dy/d*0.24f-dx*0.006f; ${A}y[i]+=dx/d*0.24f-dy*0.006f; ${A}l[i]*=${decayL}*0.995f; } }`)
+        ln(`      { float dx=${A}x[i]-(WIDTH-1)/2.0f,dy=${A}y[i]-(HEIGHT-1)/2.0f,d=max(0.5f,sqrtf(dx*dx+dy*dy)); ${A}x[i]+=(-dy/d*0.24f-dx*0.006f)*${pf}; ${A}y[i]+=(dx/d*0.24f-dy*0.006f)*${pf}; ${A}l[i]*=_paKeep; } }`)
       else if (mode === 'luminova')
-        ln(`      if(i<${luminovaEmitters(countP)}) ${A}l[i]=1; else ${A}l[i]*=${decayL}*${floatLit(LUMINOVA_TRAIL_DECAY)}; }`)
+        ln(`      if(i<${luminovaEmitters(countP)}) ${A}l[i]=1; }`)
       else if (mode === 'fireflies')
-        ln(`      { float sx=max(1.0f,WIDTH-1.0f),sy=max(1.0f,HEIGHT-1.0f); ${A}x[i]=fmodf(${A}x[i]+${A}vx[i]+sin(t+${A}s[i])*0.035f+sx,sx); ${A}y[i]=fmodf(${A}y[i]+${A}vy[i]+cos(t*0.8f+${A}s[i])*0.035f+sy,sy); ${A}l[i]=0.65f+sin(t*3+${A}s[i])*0.35f; } }`)
-      else if (mode === 'meteor')
-        ln(`      ${A}l[i]*=${decayL}*0.96f; }`)
+        ln(`      { float sx=max(1.0f,WIDTH-1.0f),sy=max(1.0f,HEIGHT-1.0f); ${A}x[i]=fmodf(${A}x[i]+${A}vx[i]*${pf}+sin(t+${A}s[i])*0.035f*${pf}+sx,sx); ${A}y[i]=fmodf(${A}y[i]+${A}vy[i]*${pf}+cos(t*0.8f+${A}s[i])*0.035f*${pf}+sy,sy); ${A}l[i]=0.65f+sin(t*3+${A}s[i])*0.35f; } }`)
       else if (mode === 'tornado')
-        ln(`      ${A}y[i]+=${A}vy[i]; { float h=max(0.0f,min(1.0f,1-${A}y[i]/HEIGHT)); ${A}x[i]=WIDTH/2.0f+sin(t*5+${A}s[i]+${A}y[i]*0.7f)*(0.5f+h*WIDTH*0.35f); } ${A}l[i]*=${decayL}*0.995f; if(${A}y[i]<0) ${A}l[i]=0; }`)
+        ln(`      ${A}y[i]+=${A}vy[i]*${pf}; { float h=max(0.0f,min(1.0f,1-${A}y[i]/HEIGHT)); ${A}x[i]=WIDTH/2.0f+sin(t*5+${A}s[i]+${A}y[i]*0.7f)*(0.5f+h*WIDTH*0.35f); } ${A}l[i]*=_paKeep; if(${A}y[i]<0) ${A}l[i]=0; }`)
       else if (mode === 'pinwheel')
-        ln(`      { float vx=${A}vx[i]-${A}vy[i]*0.035f,vy=${A}vy[i]+${A}vx[i]*0.035f; ${A}vx[i]=vx; ${A}vy[i]=vy; ${A}x[i]+=vx; ${A}y[i]+=vy; ${A}l[i]*=${decayL}*0.99f; if(${A}x[i]<0||${A}x[i]>=WIDTH||${A}y[i]<0||${A}y[i]>=HEIGHT) ${A}l[i]=0; } }`)
+        ln(`      { float vx=${A}vx[i]-${A}vy[i]*_paTurn,vy=${A}vy[i]+${A}vx[i]*_paTurn; ${A}vx[i]=vx; ${A}vy[i]=vy; ${A}x[i]+=vx*${pf}; ${A}y[i]+=vy*${pf}; ${A}l[i]*=_paKeep; if(${A}x[i]<0||${A}x[i]>=WIDTH||${A}y[i]<0||${A}y[i]>=HEIGHT) ${A}l[i]=0; } }`)
       else if (mode === 'bounce')
-        ln(`      ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; if(${A}x[i]<=0||${A}x[i]>=WIDTH-1){ ${A}x[i]=max(0.0f,min(WIDTH-1.0f,${A}x[i])); ${A}vx[i]*=-1; } if(${A}y[i]<=0||${A}y[i]>=HEIGHT-1){ ${A}y[i]=max(0.0f,min(HEIGHT-1.0f,${A}y[i])); ${A}vy[i]*=-1; } ${A}l[i]=1; }`)
+        ln(`      ${A}x[i]+=${A}vx[i]*${pf}; ${A}y[i]+=${A}vy[i]*${pf}; if(${A}x[i]<=0||${A}x[i]>=WIDTH-1){ ${A}x[i]=max(0.0f,min(WIDTH-1.0f,${A}x[i])); ${A}vx[i]*=-1; } if(${A}y[i]<=0||${A}y[i]>=HEIGHT-1){ ${A}y[i]=max(0.0f,min(HEIGHT-1.0f,${A}y[i])); ${A}vy[i]*=-1; } ${A}l[i]=1; }`)
       else if (mode === 'chase')
-        ln(`      { float ax=(WIDTH-1)*(0.5f+0.35f*sin(t*0.7f)),ay=(HEIGHT-1)*(0.5f+0.35f*cos(t*0.9f)),dx=ax-${A}x[i],dy=ay-${A}y[i],d=max(1.0f,sqrtf(dx*dx+dy*dy)); ${A}vx[i]=${A}vx[i]*0.97f+dx/d*0.025f; ${A}vy[i]=${A}vy[i]*0.97f+dy/d*0.025f; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; ${A}l[i]*=${decayL}*0.998f; } }`)
+        ln(`      { float ax=(WIDTH-1)*(0.5f+0.35f*sin(t*0.7f)),ay=(HEIGHT-1)*(0.5f+0.35f*cos(t*0.9f)),dx=ax-${A}x[i],dy=ay-${A}y[i],d=max(1.0f,sqrtf(dx*dx+dy*dy)); ${A}vx[i]=${A}vx[i]*_paDrag+dx/d*0.025f*${pf}; ${A}vy[i]=${A}vy[i]*_paDrag+dy/d*0.025f*${pf}; ${A}x[i]+=${A}vx[i]*${pf}; ${A}y[i]+=${A}vy[i]*${pf}; ${A}l[i]*=_paKeep; } }`)
       else if (mode === 'waterfall')
-        ln(`      ${A}vy[i]+=0.025f*${gravityF}; ${A}x[i]+=${A}vx[i]; ${A}y[i]+=${A}vy[i]; if(${A}y[i]>=HEIGHT-1){ ${A}y[i]=HEIGHT-1; ${A}vy[i]*=-0.3f*${bounceF}; ${A}vx[i]+=(random8()/255.0f-0.5f)*0.35f; ${A}l[i]*=0.7f; } ${A}l[i]*=${decayL}*0.995f; }`)
+        ln(`      ${A}vy[i]+=0.025f*${gravityF}*${pf}; ${A}x[i]+=${A}vx[i]*${pf}; ${A}y[i]+=${A}vy[i]*${pf}; if(${A}y[i]>=HEIGHT-1){ ${A}y[i]=HEIGHT-1; ${A}vy[i]*=-0.3f*${bounceF}; ${A}vx[i]+=(random8()/255.0f-0.5f)*0.35f; ${A}l[i]*=0.7f; } ${A}l[i]*=_paKeep; }`)
     }
 
     for (const [name, expr] of [
       ['_rate', rate],
+      ['_paChance', passChanceCpp(rate, pf)],
+      ['_paBurst', passChanceCpp(`${rate}*0.12f`, pf)],
+      ['_paLife', lifeKept],
+      ['_paKeep', keepOverCpp(lifeKept, pf)],
       ['_paSpread', `constrain(${f('spread', 'spread', 1)},0.0f,2.0f)`],
       ['_paGrav', `constrain(${f('gravity', 'gravity', 1)},0.0f,3.0f)`],
       ['_paBounce', `constrain(${f('bounce', 'bounce', 1)},0.0f,1.5f)`],
@@ -386,7 +404,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     if (usesCount) ln(`  int ${count}=(int)constrain(${f('count', 'count', 60)}, 1.0f, 300.0f);`)
     if (usesSpeed) ln(`  float ${speedVar}=constrain(${f('speed', 'speed', 0.3)}, 0.0f, 1.0f);`)
     if (usesTrail) ln(`  float ${trailVar}=${f('trail', 'trail', 0.46)};`)
-    if (usesTrail || formulaType === 'phyllotaxis') needsT.v = true
+    if (usesTrail || ['phyllotaxis', 'logisticMap'].includes(formulaType)) needsT.v = true
 
     // Splats one soft disc of `colorExpr` at (xExpr, yExpr), float pixels,
     // into `buf`: the integer splat in shared/integerPatterns.ts. Its own
@@ -401,9 +419,13 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
       case 'logisticMap': {
         ln(`  { // Formula Points: logisticMap`)
         ln(`    static float ${A}x=0.5f;`)
+        // `count` iterations a 60th of a second: those a slow frame owes run
+        // first, and the last `count` are drawn, as the preview does.
+        const steps = passStepsCpp(ln, `${phaseTag(id)}_it`, `(float)${count}`, passFramesCpp(ln, phaseTag(id)))
         ln(`    float _r=constrain(${f('chaos', 'chaos', 3.8)}, 0.0f, 4.0f);`)
         ln(`    fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
-        ln(`    for(int _i=0;_i<${count};_i++){`)
+        ln(`    for(int _i=0;_i<${steps}-${count};_i++) ${A}x=_r*${A}x*(1.0f-${A}x);`)
+        ln(`    for(int _i=max(0,${count}-${steps});_i<${count};_i++){`)
         ln(`      ${A}x=_r*${A}x*(1.0f-${A}x);`)
         ln(`      float _ang=((float)_i/${count})*6.2831853f, _rad=0.5f*${A}x;`)
         splat(`(0.5f+_rad*cosf(_ang))*(WIDTH-1)`, `(0.5f+_rad*sinf(_ang))*(HEIGHT-1)`, `ColorFromPalette(${pal},(uint8_t)(${A}x*255.0f))`, ob)
@@ -426,11 +448,13 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
         ln(`  { // Formula Points: attractor (de Jong, ${presetName})`)
         ln(`    static float ${A}ax=0.1f, ${A}ay=0.1f;`)
         trailFadeCpp(ln, phaseTag(id), trailVar, ob)
-        ln(`    for(int _i=0;_i<${count};_i++){`)
+        // `count` iterations a 60th of a second, every one drawn.
+        const steps = passStepsCpp(ln, `${phaseTag(id)}_it`, `(float)${count}`, passFramesCpp(ln, phaseTag(id)))
+        ln(`    for(int _i=0;_i<${steps};_i++){`)
         ln(`      float _nx=sinf(${floatLit(pa)}*${A}ay)-cosf(${floatLit(pb)}*${A}ax);`)
         ln(`      float _ny=sinf(${floatLit(pc)}*${A}ax)-cosf(${floatLit(pd)}*${A}ay);`)
         ln(`      ${A}ax=_nx; ${A}ay=_ny;`)
-        splat(`((${A}ax+2.0f)/4.0f)*(WIDTH-1)`, `((${A}ay+2.0f)/4.0f)*(HEIGHT-1)`, `ColorFromPalette(${pal},(uint8_t)(((float)_i/${count})*255.0f))`, ob)
+        splat(`((${A}ax+2.0f)/4.0f)*(WIDTH-1)`, `((${A}ay+2.0f)/4.0f)*(HEIGHT-1)`, `ColorFromPalette(${pal},(uint8_t)(((float)(_i%${count})/${count})*255.0f))`, ob)
         ln(`    }`)
         ln(`  }`)
         break
@@ -627,22 +651,27 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`    float _step=max(0.0f,${speed})*0.6f,_sp=constrain(${f('spawn', 'spawn', 0.5)},0.0f,1.0f);`)
     ln(`    float _tl=${f('trail', 'trail', 0.46)};`)
     trailFadeCpp(ln, phaseTag(id), '_tl', `${A}tr`, '    ', '_len')
+    // Moves, spawn chances and life run on the 60ths of a second since the
+    // last frame, as the preview's do.
+    const pf = passFramesCpp(ln, phaseTag(id))
     ln(`    auto _rnd=[]()->float{ return random16()/65535.0f; };`)
     ln(`    auto _dir=[&]()->float{ return _rnd()<0.5f?-1.0f:1.0f; };`)
     ln(`    auto _free=[&]()->int{ for(int _i=0;_i<_n;_i++) if(${A}l[_i]<=0) return _i; return -1; };`)
     ln(`    auto _place=[&](int _i,uint8_t _kd,float _pp,float _vv,float _ll,float _hh){ ${A}k[_i]=_kd; ${A}p[_i]=_pp; ${A}v[_i]=_vv; ${A}l[_i]=_ll; ${A}h[_i]=_hh; };`)
     if (meteors) {
-      ln(`    if(_rnd()<_sp*0.3f){ int _i=_free(); if(_i>=0){ float _pp=_rnd()*_len,_vv=_dir()*0.3f,_hh=_rnd(); _place(_i,1,_pp,_vv,0.6f,_hh); } }`)
+      ln(`    if(_rnd()<${passChanceCpp('_sp*0.3f', pf)}){ int _i=_free(); if(_i>=0){ float _pp=_rnd()*_len,_vv=_dir()*0.3f,_hh=_rnd(); _place(_i,1,_pp,_vv,0.6f,_hh); } }`)
       ln(`    if(_tr&&!${A}prev){ int _i=_free(); if(_i>=0){ float _pp=_rnd()*_len,_vv=_dir()*(1.0f+_step*2.0f),_hh=_rnd(); _place(_i,2,_pp,_vv,1.0f,_hh);`)
       ln(`      for(int _d=0;_d<3;_d++){ int _j=_free(); if(_j>=0){ float _rr=_rnd(); _place(_j,3,_pp,-_vv*(0.2f+_rr*0.4f),0.7f,_hh); } } } }`)
     } else {
-      ln(`    for(int _i=0;_i<_n;_i++){ if(${A}l[_i]<=0&&_rnd()<_sp){ float _pp=_rnd()*_len,_vv=_dir(),_hh=_rnd(); _place(_i,0,_pp,_vv,1.0f,_hh); } }`)
+      ln(`    float _spc=${passChanceCpp('_sp', pf)};`)
+      ln(`    for(int _i=0;_i<_n;_i++){ if(${A}l[_i]<=0&&_rnd()<_spc){ float _pp=_rnd()*_len,_vv=_dir(),_hh=_rnd(); _place(_i,0,_pp,_vv,1.0f,_hh); } }`)
     }
     ln(`    ${A}prev=_tr;`)
+    ln(`    float _drag=${keepOverCpp('0.92f', pf)};`)
     ln(`    for(int _i=0;_i<_n;_i++){ if(${A}l[_i]<=0) continue;`)
-    ln(`      if(${A}k[_i]==0) ${A}p[_i]=fmodf(fmodf(${A}p[_i]+${A}v[_i]*_step*${A}l[_i],(float)_len)+_len,(float)_len);`)
-    ln(`      else { ${A}p[_i]=fmodf(fmodf(${A}p[_i]+${A}v[_i],(float)_len)+_len,(float)_len); if(${A}k[_i]==3) ${A}v[_i]*=0.92f; }`)
-    ln(`      ${A}l[_i]-=${A}dec[${A}k[_i]]; if(${A}l[_i]<=0){ ${A}l[_i]=0; continue; }`)
+    ln(`      if(${A}k[_i]==0) ${A}p[_i]=fmodf(fmodf(${A}p[_i]+${A}v[_i]*_step*${A}l[_i]*${pf},(float)_len)+_len,(float)_len);`)
+    ln(`      else { ${A}p[_i]=fmodf(fmodf(${A}p[_i]+${A}v[_i]*${pf},(float)_len)+_len,(float)_len); if(${A}k[_i]==3) ${A}v[_i]*=_drag; }`)
+    ln(`      ${A}l[_i]-=${A}dec[${A}k[_i]]*${pf}; if(${A}l[_i]<=0){ ${A}l[_i]=0; continue; }`)
     ln(`      CRGB _b=ColorFromPalette(${pal},(uint8_t)(constrain(${A}h[_i],0.0f,1.0f)*255.0f));`)
     ln(`      uint8_t _wq=(uint8_t)((1.0f-${A}l[_i])*0.5f*255.0f), _lq=(uint8_t)(${A}l[_i]*255.0f);`)
     ln(`      uint8_t _c[3]={ scale8(_b.r+scale8(255-_b.r,_wq),_lq), scale8(_b.g+scale8(255-_b.g,_wq),_lq), scale8(_b.b+scale8(255-_b.b,_wq),_lq) };`)

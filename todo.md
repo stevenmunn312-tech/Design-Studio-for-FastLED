@@ -123,35 +123,6 @@ hardware.
   UART allocator. Meanwhile `midiUartValidationIssues` refuses a DIN UART the
   radar, DMX512, the DFPlayer or a second jack already reads.
 
-#### Generative and simulations
-
-- [ ] **Category: Move the rest of simulation motion onto the clock (Med, M).**
-  Done: every trail fades by elapsed time through the shared `trail` knob,
-  and Starfield, Digital Rain and Flow Field scale their per-frame steps by
-  `passFrames` (`src/nodes/shared/passClock.ts`, firmware `passFramesCpp`).
-  Still per pass, against "never per pass" in
-  `docs/development/patterns/graph-and-nodes.md:285`: String Particles moves
-  and life, Formula Points' logistic map and attractor iterations (a count a
-  frame), and every Particles mode (`rate` is a per-frame chance, `decay` a
-  per-frame share of life, and twenty bodies of per-frame velocities and
-  drag). The same `passFrames` scaling fits each; drag and decay need
-  `Math.pow(k, frames)` rather than a multiply, and each mode wants checking
-  by eye. Evidence `src/nodes/simulations/evaluate.ts` (evalParticles,
-  evalStringParticles, evalFormulaPoints).
-- [ ] **Category: Merge the overlapping Noise types and fold the sine family
-  into Plasma (Med, M).** Noise has four near-duplicate cloud types (simplex,
-  noise3d, fbm, plasma) and the sine family is spread over Plasma and Noise
-  `field`, `sine`, `plasma`. Keep fbm (octaves), noise4d (looping), worley,
-  gabor and plasma-fractal in Noise; make simplex and noise3d fbm presets; fold
-  `field` and `sine` into Plasma, which gains `scale`. Each type also has its
-  own speed and scale range, so nine types means nine slider calibrations.
-  Done so far: Noise defaults to fbm, `field` reads "Sine Grid", and Plasma
-  has `scale` (0.5 is the classic size). Left: the merge itself, which moves
-  saved `field`/`sine`/`simplex`/`noise3d` graphs onto other nodes or presets
-  and needs a choice of preset values by eye. While there, simplex, noise3d,
-  noise4d and plasma-fractal still wrap their value (`wrap01`), cutting seams
-  through non-cyclic palettes such as lava; fbm clamps. Evidence
-  `src/nodes/generative/evaluate.ts:299`, `src/nodes/shared/speedRange.ts:52`.
 
 ## 4. Bench and community testing (non-blocking, in parallel)
 
