@@ -1150,6 +1150,10 @@ export function trailColumnPassCpp(src: string, dst: string): string {
 // 1/16 pixel from doubled offsets about (W/2, H/2), the source rounded to the
 // nearest pixel. A turn of 0 is no step at all, so an unturned fold is the
 // Kaleidoscope's, pixel for pixel.
+//
+// On a one-row canvas the folded source always lands below the row (the wedge
+// is the fold's upper half), which drew a strip black. There the source stays
+// on the row, so the fold is a horizontal remap that the turn keeps moving.
 
 /** The source pixel index for (x, y), or -1 outside the canvas; `turn16` turns the fold, 65536 a turn. */
 export function kaleidoSource(x: number, y: number, W: number, H: number, wedge: number, turn16 = 0): number {
@@ -1158,7 +1162,7 @@ export function kaleidoSource(x: number, y: number, W: number, H: number, wedge:
   let a = ((atan2_16(dy, dx) - turn16) & 0xffff) % wedge
   if (a > Math.trunc(wedge / 2)) a = wedge - a
   const sx = (W * 8 + ((d * sin16(a + 16384)) >> 15) + 8) >> 4
-  const sy = (H * 8 + ((d * sin16(a)) >> 15) + 8) >> 4
+  const sy = H === 1 ? 0 : (H * 8 + ((d * sin16(a)) >> 15) + 8) >> 4
   return sx < 0 || sx >= W || sy < 0 || sy >= H ? -1 : sy * W + sx
 }
 
@@ -1173,7 +1177,7 @@ export function kaleidoSourceCpp(turned: boolean): string[] {
     `int32_t _kdx=2*_x-WIDTH,_kdy=2*_y-HEIGHT;`,
     ...isqrtCpp('kd', '(_kdx*_kdx+_kdy*_kdy)<<6', '_kdR'),
     `int32_t _ka=(int32_t)(${angle}%_kW); if(_ka>_kW/2) _ka=_kW-_ka;`,
-    `int32_t _ksx=(WIDTH*8+(((int32_t)_kdR*sin16((uint16_t)(_ka+16384)))>>15)+8)>>4,_ksy=(HEIGHT*8+(((int32_t)_kdR*sin16((uint16_t)_ka))>>15)+8)>>4;`,
+    `int32_t _ksx=(WIDTH*8+(((int32_t)_kdR*sin16((uint16_t)(_ka+16384)))>>15)+8)>>4,_ksy=(HEIGHT==1)?0:(HEIGHT*8+(((int32_t)_kdR*sin16((uint16_t)_ka))>>15)+8)>>4;`,
     `int _kSrc=(_ksx<0||_ksx>=WIDTH||_ksy<0||_ksy>=HEIGHT)?-1:(int)(_ksy*WIDTH+_ksx);`,
   ]
 }

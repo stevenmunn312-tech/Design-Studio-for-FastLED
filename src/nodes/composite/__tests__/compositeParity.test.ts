@@ -220,6 +220,20 @@ describe('Mirror', () => {
     }
   })
 
+  // The fold's wedge is its upper half, so on one row every source used to
+  // land below the canvas and a strip drew black.
+  it('lights a one-row strip, the source held on the row and moved by Spin', () => {
+    const src = frameOf(30, 1)
+    const lit = (f: RGB[][]) => f[0].filter((c) => c.r || c.g || c.b).length
+    for (const segments of [2, 6]) {
+      const still = radial({ segments }, src)
+      // The far-left pixel folds a full half-width out, off the canvas, as
+      // it does on a matrix's middle row.
+      expect(lit(still), `${segments} segments`).toBeGreaterThanOrEqual(29)
+      expect(radial({ segments, spin: 30 }, src, 1)).not.toEqual(still)
+    }
+  })
+
   it('turns the radial fold by Rotation, a whole wedge coming back round', () => {
     const src = frameOf(8, 8)
     const still = radial({ segments: 4 }, src)
