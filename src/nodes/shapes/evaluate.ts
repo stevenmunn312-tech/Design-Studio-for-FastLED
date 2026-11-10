@@ -43,6 +43,7 @@ import { gradientMixMode, mixGradientColors, type GradientMixMode } from '../../
 import { polarRepeat } from '../../state/evaluator/polar'
 import { polarFrame, polarPixel, wireVertexQ8, wireframeEdgeQ8 } from '../shared/integerPatterns'
 import { isqrt32 } from '../shared/lib8tion'
+import { sizingSide } from '../shared/stringCanvas'
 import { ellipseSd, morphPolygonSd, rectSd } from '../../state/evaluator/sdf'
 import { CLOCK_TIMER_MAX_SEC } from './clockTimer'
 import { type PositionUnits, centerAxis, clockCenterAxis, lineAxis, positionUnits, textAxisStart } from './positionUnits'
@@ -50,13 +51,13 @@ import { type PositionUnits, centerAxis, clockCenterAxis, lineAxis, positionUnit
 // Shape's `size` and ClockDisplay's `radius` were tuned as raw pixel counts
 // against a 16x16 matrix (this module's own DEFAULT_W/DEFAULT_H).
 // scaleWithMatrix (opt-in per node, see nodeLibrary.ts) scales that radius
-// proportionally by the target matrix's shorter side, so the same slider
-// value reads as "the same relative size" on any matrix instead of shrinking
-// to a speck on a large panel or overflowing a small strip. Mirrored by
-// cppGenerator.ts's own matrix-scale expression — keep the reference size in
-// sync between the two.
+// proportionally by the target matrix's shorter side, or a one-row strip's
+// length (`sizingSide`), so the same slider value reads as "the same relative
+// size" on any matrix instead of shrinking to a speck on a large panel or on
+// a strip. Mirrored by codegen.ts's withMatrixScale — keep the reference size
+// in sync between the two.
 function matrixSizeScale(W: number, H: number): number {
-  return Math.min(W, H) / Math.min(DEFAULT_W, DEFAULT_H)
+  return sizingSide(W, H) / Math.min(DEFAULT_W, DEFAULT_H)
 }
 
 interface ClockDisplayState {
@@ -160,7 +161,7 @@ export function evalFourierEpicycles(
   const table = fourierTableQ(fourierTable(p.outline, p.customPoints, p.maxHarmonics))
   const scale = Math.max(FOURIER_SCALE_MIN, Math.min(1, p.scale))
   const radiusF = Math.max(FOURIER_THICKNESS_MIN, Math.min(FOURIER_THICKNESS_MAX, p.thickness)) * 0.5
-  const extent = Math.trunc(Math.max(0, Math.min(W, H) * 0.5 * scale - radiusF) * 256)
+  const extent = Math.trunc(Math.max(0, sizingSide(W, H) * 0.5 * scale - radiusF) * 256)
   const radius = Math.trunc(radiusF * 256)
   const cx = W * 128, cy = H * 128
   const h = Math.max(1, Math.min(table.length, p.harmonics))
@@ -799,7 +800,9 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const p = table ? customPathPoint(table, tt) : pathPoint(shape, tt)
     const cx = (W - 1) / 2, cy = (H - 1) / 2
     const radius = thickness * 0.5
-    const extent = Math.max(0, Math.min(W, H) * 0.5 * scale - radius)
+    // Half the shorter side, or of a strip's length, where the shorter side
+    // is one pixel and left the point no room to move.
+    const extent = Math.max(0, sizingSide(W, H) * 0.5 * scale - radius)
     splatDisc(frame, cx + p.x * extent, cy - p.y * extent, radius, color)
     return { frame }
   },

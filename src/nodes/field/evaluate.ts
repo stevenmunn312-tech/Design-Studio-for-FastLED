@@ -1,4 +1,5 @@
 import { makeShims, SHIM_NAMES } from '../shared/fastledShims'
+import { sizingSide } from '../shared/stringCanvas'
 import { compileFieldFormula, fieldFormulaReadsPrev } from '../shared/formulaLang'
 import { GEOMETRY_FIELD_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
@@ -488,12 +489,13 @@ export interface ShapeFieldParams {
 export function evalShapeField(p: ShapeFieldParams, W = DEFAULT_W, H = DEFAULT_H): Field {
   const { shape, fieldMode } = p
   const out = allocField(W * H)
-  const shortSide = Math.max(1, Math.min(W, H))
-  const radius = Math.max(1e-4, p.size * shortSide)
+  // The shorter side, or a strip's length (shared/stringCanvas.ts).
+  const side = Math.max(1, sizingSide(W, H))
+  const radius = Math.max(1e-4, p.size * side)
   const stretch = Math.max(0.01, p.aspect)
   const petals = Math.max(1, p.petals)
-  const softPx = Math.max(0, p.softness) * shortSide
-  const rangePx = Math.max(1e-4, p.range * shortSide)
+  const softPx = Math.max(0, p.softness) * side
+  const rangePx = Math.max(1e-4, p.range * side)
   const centerX = clamp01(p.cx) * Math.max(0, W - 1) + 0.5
   const centerY = clamp01(p.cy) * Math.max(0, H - 1) + 0.5
   const radians = (-p.rotation * Math.PI) / 180

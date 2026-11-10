@@ -5977,7 +5977,8 @@ describe('ClockDisplay (codegen)', () => {
 
     const scaled = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Analog', radius: 6, scaleWithMatrix: true })
     const scaledCpp = generateCpp([scaled, outputNode], [edge('e1', 'clk', 'out', 'frame', 'frame')])
-    expect(scaledCpp).toContain('float _clkRad_clk = max(2.0f, 6*(min(WIDTH,HEIGHT)/16.0f));')
+    // The shorter side, or a one-row strip's length (sizingSide).
+    expect(scaledCpp).toContain('float _clkRad_clk = max(2.0f, 6*((min(WIDTH,HEIGHT)==1?max(WIDTH,HEIGHT):min(WIDTH,HEIGHT))/16.0f));')
   })
 
   // Wiring the time but not the valid flag used to preview a running clock and

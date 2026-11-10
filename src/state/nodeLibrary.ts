@@ -1504,7 +1504,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   // No slider for the ends, so Pixels take an expression such as max_x;
   // `propertyMetaFor` draws 0–1 as a slider.
   Line: { units: POSITION_UNITS_META, thickness: { control: 'slider', min: 0.5, max: 6, step: 0.1 } },
-  // A fraction of half the shorter side: past 1 the point leaves the canvas.
+  // A fraction of half the shorter side (a strip's length): past 1 the point
+  // leaves the canvas.
   Path: {
     scale: { control: 'slider', min: 0.1, max: 1, step: 0.01 },
     speed: { control: 'slider', min: -FOURIER_SPEED_MAX, max: FOURIER_SPEED_MAX, step: 0.01 },
@@ -1923,7 +1924,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   serialDebug: "Prints processor/conditioner stats to the serial monitor ~10×/sec, for checking mic wiring on-device. Firmware-only — no visible effect here.",
   pullup: "On wires the pin INPUT_PULLUP (idle high, press pulls low) — the common no-extra-parts wiring. Off wires it plain INPUT, which needs an external pull-down resistor or the pin will float when not pressed.",
   resetOnPress: 'Zeros the running position count every time the integrated push-button is pressed, instead of only ever counting up/down.',
-  scaleWithMatrix: "Scales the radius with the matrix's shorter side (tuned against a 16px reference) so the same value looks proportionally similar across different matrix sizes. Off keeps radius as an exact pixel count.",
+  scaleWithMatrix: "Scales the radius with the matrix's shorter side, or a one-row strip's length (tuned against a 16px reference), so the same value looks proportionally similar across different matrix sizes. Off keeps radius as an exact pixel count.",
   bass: 'Bass level (0–1) used while the Bass input is unwired. Wire an analyser output to drive it live.',
   mids: 'Mids level (0–1) used while the Mids input is unwired. Wire an analyser output to drive it live.',
   treble: 'Treble level (0–1) used while the Treble input is unwired. Wire an analyser output to drive it live.',
@@ -2330,9 +2331,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     radius: 'Pixels each way the blur reaches, 1 to 4. Edges are clamped, not wrapped.',
   },
   ShapeField: {
-    size: 'Radius or half-height as a fraction of the matrix’s shorter side.',
-    softness: 'Fill-edge softness as a fraction of the matrix’s shorter side.',
-    range: 'As a fraction of the matrix’s shorter side. Distance: how far either side of the outline the field ramps from 1 to 0. Falloff: how far beyond the outline it reaches 1.',
+    size: 'Radius or half-height as a fraction of the matrix’s shorter side, or of a one-row strip’s length.',
+    softness: 'Fill-edge softness as a fraction of the matrix’s shorter side, or of a one-row strip’s length.',
+    range: 'As a fraction of the matrix’s shorter side, or of a one-row strip’s length. Distance: how far either side of the outline the field ramps from 1 to 0. Falloff: how far beyond the outline it reaches 1.',
     shape: 'Rectangle, ellipse (a circle at aspect 1) or polygon, as on Shape, or a rose or superformula. Polygon uses Sides, rectangle and ellipse use Aspect, rose uses Petals, and the superformula its lobes and exponents.',
     fieldMode: 'Fill is 1 inside and 0 outside with a soft edge; distance ramps across the outline; falloff is 0 on the shape and rises to 1 at Range beyond it, so a tiny circle gives the distance from a point.',
     cx: 'Centre of the shape, left to right (0 to 1).',
@@ -2437,7 +2438,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     customPoints: 'x,y pairs from -1 to 1, 3 to 128 points, joined by a smooth closed curve through every one. Anything else draws the circle.',
     t: 'How far round the curve the point is, as a fraction of a turn: 0 and 1 are the start. It wraps, so a steadily rising signal goes round and round.',
     speed: 'Turns of the curve per second while T is unwired, starting from T. Negative runs backwards; 0 holds the point at T.',
-    scale: 'Size of the curve as a fraction of half the shorter side of the matrix.',
+    scale: 'Size of the curve as a fraction of half the shorter side of the matrix, or of a one-row strip’s length.',
     thickness: 'Diameter of the moving point in pixels.',
   },
   FourierEpicycles: {
@@ -2446,7 +2447,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     maxHarmonics: 'Most circles a wired Harmonics can use: the largest terms of the outline\'s Fourier series, sizing the table baked into the sketch. Unwired, Harmonics sizes the table itself.',
     harmonics: 'Circles in use, largest first. Fractions fade the next one in, so animating it grows a circle into the outline.',
     speed: 'Turns of the outline per second. Negative runs backwards.',
-    scale: 'Size as a fraction of half the shorter side of the canvas.',
+    scale: 'Size as a fraction of half the shorter side of the canvas, or of a one-row strip’s length.',
     thickness: 'Pen width in pixels.',
     persistence: 'How long the trail lasts: 1 halves it every 2 seconds, 0 leaves none. Each step along the slider shortens it by the same ratio, whatever the frame rate.',
     showCircles: 'Draw the rotating circles as dim guides.',
@@ -2896,7 +2897,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     cx: 'Centre X: 0 (just off the left edge) to 1 (just off the right), or a pixel column when Units is Pixels.',
     cy: 'Centre Y: 0 (just off the top) to 1 (just off the bottom), or a pixel row when Units is Pixels.',
     size: 'Half-height in pixels; for a polygon, the distance from centre to a corner. With Scale with matrix on, it is pixels on a 16-pixel matrix and grows or shrinks with the matrix.',
-    scaleWithMatrix: 'Grow or shrink Size with the matrix\'s shorter side, tuned against 16 pixels, so the shape keeps its proportion on any panel. Off keeps Size as an exact pixel count.',
+    scaleWithMatrix: 'Grow or shrink Size with the matrix\'s shorter side, or a one-row strip\'s length, tuned against 16 pixels, so the shape keeps its proportion on any panel. Off keeps Size as an exact pixel count.',
     aspect: 'Width as a multiple of height for rectangles and ellipses. 1 is square.',
     sides: 'Corners on the polygon. Fractions morph smoothly, so 3.5 is halfway to a square.',
     rotation: 'Turn the shape, in degrees.',

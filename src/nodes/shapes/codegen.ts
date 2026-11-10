@@ -33,13 +33,13 @@ import {
 // Shape's `size` and ClockDisplay's `radius` were tuned as raw pixel
 // counts against a 16x16 matrix (graphEvaluator.ts's DEFAULT_W/DEFAULT_H).
 // scaleWithMatrix (opt-in per node) scales that radius proportionally by the
-// target matrix's shorter side, using the WIDTH/HEIGHT *macro names* (not
-// baked JS numbers) so it tracks the supersampled render resolution — mirrors
-// graphEvaluator.ts's matrixSizeScale(); keep the reference size (16) in sync.
-// Returns `radiusExpr` unchanged when the toggle is off, so existing sketches
-// generate byte-identical code.
+// target matrix's shorter side, or a one-row strip's length (`sizingSide`),
+// using the WIDTH/HEIGHT *macro names* (not baked JS numbers) so it tracks the
+// supersampled render resolution — mirrors evaluate.ts's matrixSizeScale();
+// keep the reference size (16) in sync. Returns `radiusExpr` unchanged when
+// the toggle is off, so existing sketches generate byte-identical code.
 function withMatrixScale(radiusExpr: string, p: Record<string, unknown>): string {
-  return p.scaleWithMatrix ? `${radiusExpr}*(min(WIDTH,HEIGHT)/16.0f)` : radiusExpr
+  return p.scaleWithMatrix ? `${radiusExpr}*(${SIZING_SIDE_CPP}/16.0f)` : radiusExpr
 }
 
 // Every character the Clock Display can print, in every mode (digits, the
@@ -56,6 +56,7 @@ import { SPI_BUS_CPP } from '../../codegen/helpers/spiBusCpp'
 import { CLOCK_TIMER_MAX_SEC } from './clockTimer'
 import { FONT_CPP_MARKER, WIRED_TEXT_MAX, fontCppHelper } from '../shared/fontCpp'
 import { centerAxisCpp, clockCenterAxisCpp, lineAxisCpp, positionUnits, textAxisStartCpp } from './positionUnits'
+import { SIZING_SIDE_CPP } from '../shared/stringCanvas'
 
 export const SHAPES_EMITTERS: NodeEmitters = {
   SDVideo({ nodes, props, id, f, ln, ownBuf, needsT, needsSdVideo, globalLines, setupLines, p }) {
@@ -300,7 +301,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ln(`    ${pathExpr}`)
     }
     ln(`    float _rad = max(0.25f, ${f('thickness', 'thickness', thickness)} * 0.5f);`)
-    ln(`    float _ext = max(0.0f, min((float)WIDTH, (float)HEIGHT) * 0.5f * ${f('scale', 'scale', scale)} - _rad);`)
+    ln(`    float _ext = max(0.0f, (float)${SIZING_SIDE_CPP} * 0.5f * ${f('scale', 'scale', scale)} - _rad);`)
     ln(`    float _sx = (WIDTH - 1) * 0.5f + _px * _ext;`)
     ln(`    float _sy = (HEIGHT - 1) * 0.5f - _py * _ext;`)
     ln(`    int _x0 = max(0, (int)floorf(_sx - _rad - 1.0f)), _x1 = min(WIDTH - 1, (int)ceilf(_sx + _rad + 1.0f));`)
@@ -331,7 +332,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     // (fourierHelperCpp.ts), in 1/256 pixel and 16-bit turns.
     ln(`    float _scale=constrain(${f('scale', 'scale', 0.8)},${floatLit(FOURIER_SCALE_MIN)},1.0f);`)
     ln(`    float _rad=constrain(${f('thickness', 'thickness', 1.25)},${floatLit(FOURIER_THICKNESS_MIN)},${floatLit(FOURIER_THICKNESS_MAX)})*0.5f;`)
-    ln(`    int32_t _ext=(int32_t)(fmaxf(0.0f,min(WIDTH,HEIGHT)*0.5f*_scale-_rad)*256.0f), _rad8=(int32_t)(_rad*256.0f), _cx=WIDTH*128, _cy=HEIGHT*128;`)
+    ln(`    int32_t _ext=(int32_t)(fmaxf(0.0f,${SIZING_SIDE_CPP}*0.5f*_scale-_rad)*256.0f), _rad8=(int32_t)(_rad*256.0f), _cx=WIDTH*128, _cy=HEIGHT*128;`)
     ln(`    float _h=constrain(${f('harmonics', 'harmonics', 32)},1.0f,${table.length}.0f); int _hw=(int)_h, _hfr=(int)((_h-_hw)*256.0f);`)
     const ph = speedPhaseCpp(ln, phaseTag(id), `constrain(${f('speed', 'speed', 0.2)},${floatLit(-FOURIER_SPEED_MAX)},${floatLit(FOURIER_SPEED_MAX)})`)
     ln(`    float _turnF=${ph}; _turnF-=floorf(_turnF); uint16_t _turn=(uint16_t)(int32_t)(_turnF*65536.0f);`)

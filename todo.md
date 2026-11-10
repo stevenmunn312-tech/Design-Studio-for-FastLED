@@ -242,18 +242,6 @@ module (no fixture yet).
 
 #### Fields and shapes
 
-- [ ] **Category: Fix centred fields on a 1-row strip (Med, M).** Strips,
-  rings and corkscrews are `height: 1`, where `centeredY(0, 1)` is -1, so
-  every centred field samples only the bottom of its circle. Geometry Field's
-  Lissajous renders near-black, Shape Field's default circle is a sub-pixel
-  speck (it sizes by the short side), and Path and Fourier cannot move (reach
-  is 0). Centre on pixel centres, `(y+0.5-H/2)/(H/2)`, and use the long side
-  when one dimension is 1. `src/state/evaluator/formula.ts:28`.
-  Gradient Field is done (it measures in pixels from its pivot, so its radial
-  centre sits on a strip's row). Still to do: `centeredX/Y` is shared with
-  Custom Formula and every emitter's `cx/cy` line; Shape Field, Path, Fourier
-  and Shape's new Scale with matrix (`matrixSizeScale`) all size by the short
-  side, which is 1 on a strip.
 - [ ] **Text: Add an integer size (Med, M).** The only font is 3x5, tiny on
   32x32 or 64x32 HUB75 panels. Add an integer `size` (pixel scale 1-4),
   shared with Clock Display's digits. `src/nodes/shared/font.ts:10`.
