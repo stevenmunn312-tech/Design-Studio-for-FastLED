@@ -2,6 +2,7 @@ import { example, MATRIX, RING, SAMPLE_IMAGE, STRIP } from './example'
 import type { NodeReferenceMap } from './types'
 
 const BASE_INPUT = 'An optional frame drawn underneath. Unwired, the background is black.'
+const BAND_AUDIO_INPUT = 'Optional. Wire Audio here and each band left unwired follows its third of the spectrum, as FFT Analyzer at its defaults would send it, so one wire from the microphone is enough. A wired band still wins; use FFT Analyzer for gain, smoothing or tilt.'
 
 export const PATTERN_REFERENCE: NodeReferenceMap = {
   SolidColor: {
@@ -953,6 +954,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Bass Pulse fills the frame with one colour that brightens and moves along the palette with the bass.',
       'It is the simplest bass visual: a whole build that thumps with the kick.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'BassPulse',
       title: 'A ring that thumps with the kick',
@@ -973,6 +977,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Bass Rings draws concentric rings that travel outward and swell and brighten with the bass.',
       'Reactivity sets how strongly the bass changes the picture, from calm drifting rings to a full pulse.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'BassRings',
       title: 'Speaker-cone rings',
@@ -992,6 +999,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Midrange Waves draws flowing horizontal waves whose height and speed follow the midrange — vocals, guitars and keys.',
       'It suits melodic music, where the bass is steady and the interest is in the middle.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'MidrangeWaves',
       title: 'Waves that rise with the vocals',
@@ -1011,6 +1021,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Midrange Bloom draws palette contours that bloom outward and turn with midrange energy, like a flower opening.',
       'It answers the melody — vocals, guitars, keys — rather than the drums, so it suits songs where the tune carries the energy. Reactivity sets how far the mids open it.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'MidrangeBloom',
       title: 'A flower that opens with the melody',
@@ -1031,6 +1044,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Treble Sparks scatters glittering sparks whose number follows the treble — hi-hats, cymbals, the air at the top of a mix.',
       'Density sets the base rate, which the treble multiplies.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'TrebleSparks',
       title: 'Sparks off the cymbals',
@@ -1050,6 +1066,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Treble Prism draws sharp diagonal shards that shimmer and move with the treble.',
       'Cymbals and hi-hats make the shards flicker and slide; a quiet top end lets them drift slowly. Raise FFT Analyzer’s Tilt so the treble registers strongly enough.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'TreblePrism',
       title: 'Crystal shards that shimmer on the hi-hats',
@@ -1069,6 +1088,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Audio Cascade layers ribbons of colour driven by all three bands at once: a glow from the bass, flow from the mids, and shimmer from the treble.',
       'It is a complete music visual in one node.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'AudioCascade',
       title: 'Bass, mids and treble in one cascade',
@@ -1212,6 +1234,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Spectra Mosaic tiles the matrix into a grid. Bass lights the top-left cells, treble the bottom-right, and the mids sweep across them all diagonally.',
       'Tiles sets the grid size, from 2×2 to 8×8.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'SpectraMosaic',
       title: 'A mosaic lit corner to corner by the music',
@@ -1252,6 +1277,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     ],
     inputs: {
       beat: 'Each rising edge sends a burst of heat up the columns.',
+      audio: BAND_AUDIO_INPUT,
     },
     example: example({
       featured: 'EmberPulse',
@@ -1272,6 +1298,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Turbulent Bloom draws a radial bloom warped by turbulence: bass pulses its brightness, mids drift it slowly, and treble adds fast fine jitter.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'TurbulentBloom',
       title: 'A bloom stirred by the music',
@@ -1294,6 +1323,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     ],
     inputs: {
       color: 'Ring colour. Replaces the R, G and B fields.',
+      audio: BAND_AUDIO_INPUT,
     },
     example: example({
       featured: 'GravityWell',
@@ -1335,6 +1365,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'Hi-Hat Shards draws noise shards with a direction, which snap to a new angle on every hi-hat hit. Mids speed the drift and treble sharpens the grain.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'PrismStorm',
       title: 'Shards that snap on the hi-hat',
@@ -1355,6 +1388,9 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Audio Flow scrolls a noise field sideways and lets the music move it: mids set how fast it flows, bass how bright it glows, and treble shifts its colours and how far it bobs up and down.',
       'Scale sets how broad the shapes are.',
     ],
+    inputs: {
+      audio: BAND_AUDIO_INPUT,
+    },
     example: example({
       featured: 'AudioFlow',
       title: 'A river of colour carried by the music',
@@ -1378,6 +1414,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     ],
     inputs: {
       beat: 'Each beat briefly brightens the injected colour and throws the line wider.',
+      audio: BAND_AUDIO_INPUT,
     },
     example: example({
       featured: 'ColorTrails',
@@ -1402,6 +1439,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     ],
     inputs: {
       beat: 'A beat pulse that kicks the animation.',
+      audio: BAND_AUDIO_INPUT,
     },
     example: example({
       featured: 'Animartrix',

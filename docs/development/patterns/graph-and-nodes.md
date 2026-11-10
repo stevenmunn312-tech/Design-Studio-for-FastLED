@@ -312,6 +312,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   pattern whose band ports are levels shows on drop through 0.5 band
   defaults. Band and drum ports are `defaultExposedInputs`: they are what
   an audio pattern is for.
+- A band pattern (any pattern with bass, mids or treble ports) also takes an
+  optional Audio input, declared last. While it carries audio, each band port
+  left unwired reads its third of the spectrum, eased, exactly as FFT
+  Analyzer at its defaults would send it (`audioReactive/audioBands.ts`:
+  `audioBands` wraps the pass's `num`, `audioBandsCpp` the emitter's `f`, so
+  the `num(id, 'bass', …)` and `f('bass', …)` calls keep their shape for the
+  fallback parse). A wired band wins, and Audio unwired changes nothing.
+  Call `audioBandsCpp` before the emitter writes a line: it emits the easing
+  block at the node's top level. An Audio wire carrying nothing (a group's
+  unbound input) counts as unwired in the preview, because the sketch drops
+  that wire when it expands the group. Drop-wiring needs nothing extra: a
+  placed band pattern reaches back to the only audio source.
 - A string renders on a canvas one row tall, so a pattern that rises, falls
   or sizes itself by the shorter side has nothing to work with there. Fire
   and Digital Rain default to an `auto` direction that runs along a string
