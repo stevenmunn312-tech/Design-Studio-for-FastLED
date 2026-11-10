@@ -6,7 +6,7 @@ import {
   peripheralGroundPadIndex, peripheralPowerNet, peripheralPowerPadIndex,
   peripheralSignalPadIndex,
 } from '../../../components/BuildDiagram/physicalDiagramLayout'
-import { findDeployBlockingErrors, findMidiUartErrors, findPresenceSensorErrors } from '../../../utils/validateGraph'
+import { findDeployBlockingErrors, findPresenceSensorErrors, findUartErrors } from '../../../utils/validateGraph'
 import type { StudioEdge, StudioNode } from '../../graphStore'
 import { evaluateGraphFull } from '../../graphEvaluator'
 import { useHardwareInputStore } from '../hardwareInputStore'
@@ -133,33 +133,36 @@ describe('firmware', () => {
 })
 
 describe('validation and wiring', () => {
-  it('requires an ESP32 and keeps UART1 clear of a DMX512 receiver', () => {
+  it('requires an ESP32 and leaves DMX512 the UART it does not hold', () => {
     const sensor = node('radar', 'PresenceInput')
     expect(findDeployBlockingErrors([sensor], [], 'arduino:avr:uno').join('\n'))
       .toContain('remappable ESP32 hardware UART')
-    const dmx1 = node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxPort: 1 })
-    expect(findDeployBlockingErrors([sensor, dmx1], [], 'esp32:esp32:esp32').join('\n'))
-      .toContain('both use UART1')
-    const dmx2 = node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxPort: 2 })
-    expect(findPresenceSensorErrors([sensor, dmx2], 'esp32:esp32:esp32')).toEqual([])
+    const dmx = [node('dmx', 'DMXInput', { inputMode: 'DMX512' }), node('max485', 'DmxTransceiver')]
+    expect(findUartErrors([sensor, ...dmx], 'esp32:esp32:esp32')).toEqual([])
+    expect(findPresenceSensorErrors([sensor, ...dmx], 'esp32:esp32:esp32')).toEqual([])
+    // A chip with UART1 alone has nothing left once the radar takes it.
+    expect(findDeployBlockingErrors([sensor, ...dmx], [], 'esp32:esp32:esp32c3').join('\n'))
+      .toContain('No UART left for DMX512')
   })
 
-  // A DIN MIDI node defaults to UART1, which is the radar's fixed port.
+  // The radar's fixed UART1 is the one a DIN MIDI interface meets first.
   it('keeps DIN MIDI off a UART another reader owns', () => {
     const sensor = node('radar', 'PresenceInput')
-    const din = node('midi', 'MidiInput', { midiSource: 'DIN (UART)', midiUart: 1 })
-    expect(findMidiUartErrors([sensor, din], 'esp32:esp32:esp32').join('\n')).toContain('DIN MIDI shares UART1')
-    expect(findDeployBlockingErrors([sensor, din], [], 'esp32:esp32:esp32').join('\n')).toContain('DIN MIDI shares UART1')
-    const din2 = node('midi', 'MidiInput', { midiSource: 'DIN (UART)', midiUart: 2 })
-    expect(findMidiUartErrors([sensor, din2], 'esp32:esp32:esp32')).toEqual([])
+    const wing = node('wing', 'MidiInterface')
+    const din = node('midi', 'MidiInput', { midiSource: 'DIN (UART)' })
+    expect(findUartErrors([sensor, wing, din], 'esp32:esp32:esp32')).toEqual([])
+    expect(findUartErrors([sensor, wing, din], 'esp32:esp32:esp32c3').join('\n')).toContain('No UART left for DIN MIDI')
     // Web MIDI reads no UART at all.
-    expect(findMidiUartErrors([sensor, node('web', 'MidiInput', { midiUart: 1 })], 'esp32:esp32:esp32')).toEqual([])
-    // DMX512 on the same port, the DFPlayer's port on this chip, and a second jack all clash.
-    const dmx2 = node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxPort: 2 })
-    expect(findMidiUartErrors([din2, dmx2], 'esp32:esp32:esp32').join('\n')).toContain('cannot read from the same UART')
-    expect(findMidiUartErrors([din2, node('mp3', 'DFPlayerOutput')], 'esp32:esp32:esp32').join('\n')).toContain('UART2')
-    expect(findMidiUartErrors([din2, node('midi-b', 'MidiInput', { midiSource: 'DIN (UART)', midiUart: 2 })], 'esp32:esp32:esp32').join('\n'))
-      .toContain('only some of the jack')
+    expect(findUartErrors([sensor, wing, node('web', 'MidiInput')], 'esp32:esp32:esp32c3')).toEqual([])
+    // DMX512 and the DFPlayer take the other UARTs, and the jack has none left.
+    const dmx = [node('dmx', 'DMXInput', { inputMode: 'DMX512' }), node('max485', 'DmxTransceiver')]
+    expect(findUartErrors([sensor, ...dmx, wing, din], 'esp32:esp32:esp32').join('\n'))
+      .toContain('No UART left for DIN MIDI')
+    expect(findUartErrors([sensor, node('mp3', 'DFPlayerOutput'), wing, din], 'esp32:esp32:esp32').join('\n'))
+      .toContain('the DFPlayer Mini has UART2')
+    // A second jack is the count rule's: every DIN node reads the first.
+    expect(findDeployBlockingErrors([wing, node('wing-b', 'MidiInterface'), din], [], 'esp32:esp32:esp32').join('\n'))
+      .toContain('Only one MIDI interface can be read')
   })
 
   it('claims one RX pin and draws 5 V, ground, and the sensor TX pad', () => {

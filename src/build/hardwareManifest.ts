@@ -47,8 +47,9 @@ import {
 import { DARLINGTON_PART_ID, darlingtonPinKeys, darlingtonSpec } from '../state/peripherals/darlingtonDriver'
 import { PD_TRIGGER_PART_ID, converterSourceFor, pdTriggerSpec, pdTriggerVoltage } from '../state/peripherals/pdTrigger'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/peripherals/powerMonitor'
-import { DMX_TRANSCEIVER_PART_ID, dmxUsesTransceiver } from '../state/peripherals/dmxTransceiver'
-import { MIDI_BAUD, MIDI_DIN_PART_ID, midiUsesUart } from '../state/peripherals/midiSource'
+import { DMX_TRANSCEIVER_NODE_TYPE, DMX_TRANSCEIVER_PART_ID } from '../state/peripherals/dmxTransceiver'
+import { MIDI_BAUD, MIDI_DIN_PART_ID, MIDI_INTERFACE_NODE_TYPE } from '../state/peripherals/midiSource'
+import { allocateUarts, type UartDevice } from './pins/uartAssignment'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_UART_PORT, presenceSensorSpec } from '../state/peripherals/presenceSensor'
 import { touchButtonSpec } from '../state/peripherals/touchButton'
 import {
@@ -201,8 +202,8 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'CoolingFanOutput',
   'PwmDriverOutput',
   'DarlingtonDriverOutput',
-  'DMXInput',
-  'MidiInput',
+  DMX_TRANSCEIVER_NODE_TYPE,
+  MIDI_INTERFACE_NODE_TYPE,
   'EthernetModule',
   'PowerConverter',
   'PdTriggerSource',
@@ -352,14 +353,15 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         push(node, `${baseLabel} I2S LRCLK`, 'i2sLrclk', props.i2sLrclk)
         push(node, `${baseLabel} I2S DOUT`, 'i2sDout', props.i2sDout)
         break
-      case 'DMXInput':
-        if (!dmxUsesTransceiver(props)) break
+      // Wired whether or not a DMX512 or DIN node reads them yet, like the
+      // DS3231: the part is on the bench. The UART is not a pin
+      // (pins/uartAssignment.ts).
+      case DMX_TRANSCEIVER_NODE_TYPE:
         push(node, `${baseLabel} TX pin`, 'dmxTxPin', props.dmxTxPin)
         push(node, `${baseLabel} RX pin`, 'dmxRxPin', props.dmxRxPin)
         push(node, `${baseLabel} enable pin`, 'dmxEnablePin', props.dmxEnablePin)
         break
-      case 'MidiInput':
-        if (!midiUsesUart(props)) break
+      case MIDI_INTERFACE_NODE_TYPE:
         push(node, `${baseLabel} RX pin`, 'midiRxPin', props.midiRxPin)
         break
       case 'MatrixOutput':
@@ -870,20 +872,26 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
    *
    * Every part the workbench owns belongs on a wiring diagram. Board is the one
    * exclusion — it is the thing everything else is wired *to*, drawn as the
-   * controller rather than as a peripheral — and DMXInput and MidiInput are the
-   * additions, since they are graph-side inputs that still claim UART pins, and
-   * only in DMX512 or DIN mode, the ones with an interface to draw. An RTC on a
-   * non-DS3231 source claims no pins and is not a part on the bench, which
-   * `collectPinUses` already encodes, so it falls out here too.
+   * controller rather than as a peripheral. The DMX transceiver and the MIDI
+   * interface are bench parts, so a DMX or MIDI library node never draws
+   * anything itself, whatever its source.
    */
   const hardwareNodes = nodes.filter((node) => {
     const nodeType = node.data.nodeType
     if (nodeType === 'Board') return false
-    if (nodeType === 'DMXInput') return dmxUsesTransceiver(node.data.properties as Record<string, unknown>)
-    if (nodeType === 'MidiInput') return midiUsesUart(node.data.properties as Record<string, unknown>)
     if (!isHardwareNodeType(nodeType)) return false
     return true
   })
+  // Which UART each serial part opens: the same answer the firmware and the
+  // validator read (pins/uartAssignment.ts).
+  const uartAllocation = allocateUarts(nodes, selectedFqbn)
+  const uartFact = (device: UartDevice, reader: string, baud: string) => {
+    const port = uartAllocation.ports.get(device)
+    if (port) return `UART${port} receive at ${baud}, allocated automatically`
+    if (!uartAllocation.uarts) return 'Needs an ESP32-family board for its UART'
+    if (uartAllocation.conflicts.some((conflict) => conflict.device === device)) return 'No UART left: every UART on this board is taken'
+    return `A UART is allocated once a ${reader} reads it`
+  }
 
   const items = hardwareNodes.map((node) => {
     const pins = pinUsesByNodeId.get(node.id) ?? []
@@ -1504,7 +1512,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           reasons: wired ? undefined : [`${physicalBoard?.label ?? 'The selected board'} does not have two free pins for Trig and Echo.`],
         }
       }
-      case 'DMXInput': {
+      case DMX_TRANSCEIVER_NODE_TYPE: {
         // Three GPIOs to the transceiver; the bus side (B, A, GND) goes to the
         // XLR cable, not to the controller, so it travels as facts.
         const entry = partById(DMX_TRANSCEIVER_PART_ID)
@@ -1516,6 +1524,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           supported: missing.length === 0,
           facts: {
             partId: DMX_TRANSCEIVER_PART_ID,
+            uart: uartFact('dmx', 'DMX node set to DMX512', '250 kbaud'),
             supply: '5 V',
             rxLevel: 'RO to RX through 1 kΩ, RX to GND through 2 kΩ (5 V down to 3.3 V)',
             enable: 'RE and DE bridged, on one GPIO',
@@ -1527,10 +1536,10 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             : [`${physicalBoard?.label ?? 'The selected board'} does not have the DMX512 TX, RX and enable pins configured.`],
         }
       }
-      case 'MidiInput': {
+      case MIDI_INTERFACE_NODE_TYPE: {
         // One GPIO: the wing's MIDI_RX pad carries the optocoupler output to
-        // the board's RX. The DIN cable plugs into the wing, and the node only
-        // listens, so MIDI_TX stays unwired.
+        // the board's RX. The DIN cable plugs into the wing, and the MIDI nodes
+        // only listen, so MIDI_TX stays unwired.
         const entry = partById(MIDI_DIN_PART_ID)
         const wired = pins.some((pin) => pin.propertyKey === 'midiRxPin')
         return {
@@ -1539,7 +1548,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           supported: wired,
           facts: {
             partId: MIDI_DIN_PART_ID,
-            uart: `UART${String((node.data.properties as Record<string, unknown>).midiUart ?? 1)} receive at ${MIDI_BAUD} baud; MIDI_TX unwired`,
+            uart: `${uartFact('midi', 'MIDI node set to DIN', `${MIDI_BAUD} baud`)}; MIDI_TX unwired`,
             midiCable: 'MIDI IN is the left DIN socket',
           },
           reasons: wired ? undefined : [`${physicalBoard?.label ?? 'The selected board'} does not have a MIDI RX pin configured.`],

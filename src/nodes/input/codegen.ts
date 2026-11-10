@@ -15,8 +15,10 @@ import type { NodeEmitters, NodeEmitter } from '../../codegen/emitContext'
 import { rtcInputLoopCpp } from '../../codegen/peripherals/rtcInputCpp'
 import { webRemoteFirmware } from '../../codegen/peripherals/webRemoteCpp'
 import { boardNetworkIdentity, networkBoardIn } from '../../state/peripherals/boardNetwork'
-import { dmxListenPort, dmxListenUniverse, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
-import { MIDI_BAUD, midiChannel, midiUartPort, midiUsesUart } from '../../state/peripherals/midiSource'
+import { dmxListenPort, dmxListenUniverse, dmxTransceiverIn, sacnMulticastGroup } from '../../state/peripherals/dmxTransceiver'
+import { midiChannel, midiInterfaceIn, midiUsesUart } from '../../state/peripherals/midiSource'
+import { firmwareUartPorts } from '../../build/pins/uartAssignment'
+import { uartPortDeclarationCpp } from '../../codegen/peripherals/uartPortCpp'
 
 /** The outputs of this node something reads. */
 const wiredPorts = (nodeId: string, edges: readonly { source: string; sourceHandle?: string | null }[]): Set<string> =>
@@ -102,20 +104,27 @@ export const INPUT_EMITTERS: NodeEmitters = {
   },
   // `_dmxLive_` is the Live output: true from a packet until the source goes
   // quiet (1 s on the wire; 2 s on the network, the helper's window).
-  DMXInput({ id, p, ln, v, intProp, setupLines, globalLines }) {
+  DMXInput({ id, p, ln, v, nodes, setupLines, globalLines }) {
     const inputMode = String(p.inputMode ?? 'Art-Net')
     const universe = dmxListenUniverse(p)
     globalLines.push(`uint8_t _dmxData_${id}[512] = {0};`)
     globalLines.push(`bool _dmxLive_${id} = false;`)
     globalLines.push(`uint32_t _dmxLastPacketMs_${id} = 0;`)
 
-    if (inputMode === 'DMX512') {
-      const dmxPort = intProp(p.dmxPort, 1, 1, 2)
-      const txPin = sanitizePin(p.dmxTxPin, 17)
-      const rxPin = sanitizePin(p.dmxRxPin, 16)
-      const enPin = sanitizePin(p.dmxEnablePin, 21)
+    // DMX512 reads the transceiver on the bench, on its three GPIOs and the
+    // UART the allocator gave it. With none on the bench there is nothing to
+    // read, so the node rests at no data (the validator refuses the build).
+    const transceiver = inputMode === 'DMX512' ? dmxTransceiverIn(nodes) : null
+    if (inputMode === 'DMX512' && !transceiver) {
+      ln(`  // DMX512: no DMX transceiver on the bench, so there is no line to read.`)
+    } else if (inputMode === 'DMX512') {
+      const wiring = transceiver!.data.properties as Record<string, unknown>
+      const txPin = sanitizePin(wiring.dmxTxPin, 17)
+      const rxPin = sanitizePin(wiring.dmxRxPin, 16)
+      const enPin = sanitizePin(wiring.dmxEnablePin, 21)
       globalLines.push(`#if defined(ESP32)`)
-      globalLines.push(`static dmx_port_t _dmxPort_${id} = (dmx_port_t)${dmxPort};`)
+      globalLines.push(...uartPortDeclarationCpp(firmwareUartPorts(nodes, 'dmx'),
+        (port) => `static dmx_port_t _dmxPort_${id} = (dmx_port_t)${port};  // the UART the allocator gave DMX512`))
       globalLines.push(`#endif`)
       setupLines.push(`#if defined(ESP32)`)
       setupLines.push(`  dmx_config_t _dmxConfig_${id} = DMX_CONFIG_DEFAULT;`)
@@ -272,42 +281,24 @@ export const INPUT_EMITTERS: NodeEmitters = {
     ln(`  bool ${v('live')} = _ddpLastMs_${id} != 0 && millis() - _ddpLastMs_${id} <= 2000u;`)
   },
   // Web MIDI never deploys: the outputs rest at their idle defaults. A DIN
-  // jack is a UART at 31250 baud, parsed byte by byte with running status:
-  // note on/off for the watched key (a note-on at velocity 0 is off) and the
-  // watched controller, on one channel or any.
-  MidiInput({ id, p, ln, v, intProp, setupLines, globalLines }) {
+  // node reads the bench's MIDI interface through the one reader every DIN
+  // node on the board shares (peripherals/midiDinCpp.ts), which keeps this
+  // node's note velocity and CC value; with no interface it rests idle too.
+  MidiInput({ id, p, ln, v, intProp, nodes, midiDinReaders }) {
     if (!midiUsesUart(p)) {
       ln(`  float ${v('note')} = 0.0f; bool ${v('gate')} = false; float ${v('cc')} = 0.0f;  // Web MIDI is preview-only`)
       return
     }
-    const uart = midiUartPort(p)
-    const rxPin = sanitizePin(p.midiRxPin, 16)
-    const note = intProp(p.note, 60, 0, 127)
-    const cc = intProp(p.cc, 1, 0, 127)
-    const channel = midiChannel(p.channel)
-    globalLines.push(`#if defined(ESP32)`)
-    globalLines.push(`HardwareSerial _midiSerial_${id}(${uart});`)
-    globalLines.push(`#endif`)
-    globalLines.push(`static float _midiVel_${id} = 0.0f, _midiCc_${id} = 0.0f; static uint8_t _midiStatus_${id} = 0, _midiData_${id}[2], _midiCount_${id} = 0;`)
-    setupLines.push(`#if defined(ESP32)`)
-    setupLines.push(`  _midiSerial_${id}.begin(${MIDI_BAUD}, SERIAL_8N1, ${rxPin}, -1);  // DIN MIDI in`)
-    setupLines.push(`#endif`)
-    ln(`#if defined(ESP32)`)
-    ln(`  while (_midiSerial_${id}.available() > 0) {`)
-    ln(`    uint8_t _b = (uint8_t)_midiSerial_${id}.read();`)
-    ln(`    if (_b >= 0xF8) continue;  // real-time messages never disturb running status`)
-    ln(`    if (_b & 0x80) { _midiStatus_${id} = _b < 0xF0 ? _b : 0; _midiCount_${id} = 0; continue; }`)
-    ln(`    if (!_midiStatus_${id}) continue;`)
-    ln(`    _midiData_${id}[_midiCount_${id}++] = _b;`)
-    ln(`    uint8_t _kind = _midiStatus_${id} & 0xF0, _ch = (_midiStatus_${id} & 0x0F) + 1;`)
-    ln(`    uint8_t _need = (_kind == 0xC0 || _kind == 0xD0) ? 1 : 2;`)
-    ln(`    if (_midiCount_${id} < _need) continue;`)
-    ln(`    _midiCount_${id} = 0;`)
-    ln(`    if (${channel} != 0 && _ch != ${channel}) continue;`)
-    ln(`    if ((_kind == 0x90 || _kind == 0x80) && _midiData_${id}[0] == ${note}) _midiVel_${id} = (_kind == 0x90 && _midiData_${id}[1] > 0) ? _midiData_${id}[1] / 127.0f : 0.0f;`)
-    ln(`    else if (_kind == 0xB0 && _midiData_${id}[0] == ${cc}) _midiCc_${id} = _midiData_${id}[1] / 127.0f;`)
-    ln(`  }`)
-    ln(`#endif`)
+    if (!midiInterfaceIn(nodes)) {
+      ln(`  float ${v('note')} = 0.0f; bool ${v('gate')} = false; float ${v('cc')} = 0.0f;  // DIN MIDI: no MIDI interface on the bench`)
+      return
+    }
+    midiDinReaders.push({
+      id,
+      note: intProp(p.note, 60, 0, 127),
+      cc: intProp(p.cc, 1, 0, 127),
+      channel: midiChannel(p.channel),
+    })
     ln(`  float ${v('note')} = _midiVel_${id}; bool ${v('gate')} = _midiVel_${id} > 0.0f; float ${v('cc')} = _midiCc_${id};`)
   },
 }

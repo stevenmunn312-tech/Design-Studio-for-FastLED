@@ -292,9 +292,10 @@ streams without a command, so the board needs only one receive GPIO: sensor TX
 to the node's RX pin; sensor RX and OUT remain unwired. Firmware validates all
 four header bytes, follows the frame's little-endian length, accepts both basic
 and engineering reports, and expires a stale report after one second. One
-shared parser owns ESP32 UART1, so validation permits one sensor and refuses a
-DMX512 receiver configured on the same UART; DMX may move to UART2 on a board
-that provides it. The browser
+shared parser owns ESP32 UART1, so validation permits one sensor. The UART
+allocator (`src/build/pins/uartAssignment.ts`) then gives a DMX transceiver or
+DIN MIDI interface on the same board the UART left over, and refuses one when
+none is (a one-UART chip). The browser
 models the same outputs with moving/still latches and a distance slider across
 the catalogued 6 m range. The Build Diagram powers VCC from 5 V and wires the
 3.3 V UART TX directly to the ESP32 receive pin. Normal, slideshow, and player

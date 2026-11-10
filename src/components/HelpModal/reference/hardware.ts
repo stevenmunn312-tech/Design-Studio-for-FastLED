@@ -31,6 +31,60 @@ export const HARDWARE_REFERENCE: NodeReferenceMap = {
     }),
   },
 
+  DmxTransceiver: {
+    overview: [
+      'DMX Transceiver is the MAX485 RS-485 board a wired DMX512 line arrives through, from the XLR cable of a lighting desk.',
+      'It has no outputs of its own: a DMX / Art-Net node set to DMX512 reads it, the way a Clock reads its DS3231, so the universe arrives in one place. Studio gives it three free pins and a UART no other part on the board reads, so there is no port to pick.',
+      'The board runs on 5 V, so its RO pad reaches the controller through a 1 kΩ / 2 kΩ divider, and RE is bridged to DE so one pin holds it listening.',
+    ],
+    steps: [
+      'Add the MAX485 DMX transceiver from the Hardware tab’s DMX & MIDI shelf. If the graph has no DMX node yet, one set to DMX512 comes with it.',
+      'Wire RO, DI and DE as the Build Diagram shows, with the divider on RO and the RE–DE jumper, and the XLR cable to A, B and GND.',
+      'Keep the fitted 120 Ω terminator only if this is the last device on the DMX line.',
+    ],
+    outcome: 'The board reads the desk’s universe over the cable. In the preview the DMX node still listens for Art-Net, since the browser cannot hear the wire.',
+    example: example({
+      featured: 'DmxTransceiver',
+      title: 'A desk fader on a cable',
+      nodes: {
+        max485: ['DmxTransceiver'],
+        dmx: ['DMXInput', { inputMode: 'DMX512', universe: 1 }],
+        fader: ['DMXChannel', { channel: 5 }],
+        fire: ['Fire'],
+        level: ['BrightnessMod'],
+      },
+      wires: ['dmx.dmx > fader.dmx', 'fire.frame > level.frame', 'fader.value > level.brightness'],
+      explanation: 'The DMX Transceiver carries no wires: the DMX / Art-Net node set to DMX512 reads it. Channel 5 of the desk’s universe, picked out by DMX Channel, fades a fire up and down through Brightness.',
+      preview: 'With nothing sending, channel 5 reads 0 and the {output} is dark. The preview listens for Art-Net, so send universe 1 from an app to try it; the board reads the same channel off the cable.',
+    }),
+  },
+
+  MidiInterface: {
+    overview: [
+      'MIDI Interface is Adafruit’s MIDI FeatherWing: two DIN-5 sockets and an H11L1MS optocoupler that keeps a keyboard’s cable isolated from the board.',
+      'It has no outputs of its own: every MIDI node set to DIN reads it, through one shared reader, so several nodes can watch different keys on the one jack. Studio gives it a free RX pin and a UART no other part on the board reads.',
+      'Only 3.3V, GND and MIDI_RX are wired. The optocoupler pulls MIDI_RX up to the wing’s own 3.3 V, so it needs no divider.',
+    ],
+    steps: [
+      'Add the MIDI FeatherWing from the Hardware tab’s DMX & MIDI shelf. If the graph has no MIDI node yet, one set to DIN comes with it.',
+      'Wire 3.3V, GND and MIDI_RX as the Build Diagram shows.',
+      'Plug the keyboard’s MIDI OUT into the left socket, MIDI IN.',
+    ],
+    outcome: 'A keyboard plays the finished build with no computer. In the preview the MIDI nodes still read Web MIDI and their own pads.',
+    example: example({
+      featured: 'MidiInterface',
+      title: 'Strike sparks from a keyboard',
+      nodes: {
+        wing: ['MidiInterface'],
+        keys: ['MidiInput', { midiSource: 'DIN (UART)', note: 48, cc: 74 }],
+        sparks: ['Lightning', { color: '#ffd27a' }],
+      },
+      wires: ['keys.gate > sparks.trigger', 'keys.note > sparks.intensity'],
+      explanation: 'The MIDI Interface carries no wires: the MIDI node set to DIN reads the jack through it. Each press of the C below middle C strikes a warm spark, and how hard it is played sets how bright the spark flashes.',
+      preview: 'The {output} is dark until a key is played. Press the MIDI node’s Play note pad, or a key on a Web MIDI controller, to strike a spark.',
+    }),
+  },
+
   EthernetModule: {
     overview: [
       'Ethernet adds a W5500 wired network module, so the board reaches the network over an RJ45 cable instead of Wi-Fi. Every network node uses it when it is on the bench: Art-Net and sACN, DDP, the Web Remote, NTP clock sync, Frame Stream and internet radio.',

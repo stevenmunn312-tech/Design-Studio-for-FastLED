@@ -12,7 +12,7 @@ if (!Element.prototype.setPointerCapture) Element.prototype.setPointerCapture = 
 // would a keyboard.
 describe('MidiInputBody stand-in controller', () => {
   it('plays its note while the pad is held and sets its CC from the slider', () => {
-    render(<MidiInputBody note={64} cc={11} channel={5} />)
+    render(<MidiInputBody nodeId="midi" note={64} cc={11} channel={5} din={false} />)
     const pad = screen.getByRole('button', { name: 'Play note 64' })
 
     fireEvent.pointerDown(pad, { pointerId: 1 })
@@ -30,7 +30,7 @@ describe('MidiInputBody stand-in controller', () => {
   })
 
   it('plays on channel 1 when the node listens to every channel', () => {
-    render(<MidiInputBody note={65} cc={12} channel={0} />)
+    render(<MidiInputBody nodeId="midi" note={65} cc={12} channel={0} din={false} />)
     const pad = screen.getByRole('button', { name: 'Play note 65' })
     fireEvent.pointerDown(pad, { pointerId: 1 })
     expect(midiReading(useMidiStore.getState(), 1, 65, 12).velocity).toBeGreaterThan(0)

@@ -647,8 +647,9 @@ Unless a future row says otherwise, treat the following as experimental:
     sketch joins Wi-Fi, receives a universe from a real controller or desk,
     and drives the matrix.
   - **DMX512 firmware** (ESP32 only): a generated sketch reads a real DMX line
-    through an RS-485 transceiver on the configured UART pins. The Build
-    Diagram draws that transceiver as the common "C25B" MAX485 module
+    through the DMX transceiver bench part, on its assigned pins and a UART the
+    allocator picks. The Build Diagram draws that transceiver as the common
+    "C25B" MAX485 module
     (`max485-rs485-module`) on **5 V**, its rated supply: TX to DI, the enable
     GPIO to DE with RE bridged to it, and RO to RX through a divider (1 kΩ
     from RO to RX, 2 kΩ from RX to GND), since RO swings to 5 V. The module's
@@ -812,7 +813,8 @@ Unless a future row says otherwise, treat the following as experimental:
   Playing is the active-low BUSY pin with the controller pull-up enabled.
   Classic ESP32 and ESP32-S3 open UART2, leaving UART1 for a presence sensor.
   S2, C3, C6 and H2 have only UART1, so Graph Health refuses a presence sensor
-  or a DMX512 input on that same port. Speaker mode uses SPK1/SPK2. Line Out
+  beside it, and the UART allocator has none left for a DMX transceiver or MIDI
+  interface. Speaker mode uses SPK1/SPK2. Line Out
   records that DAC_L/DAC_R feed a power amplifier; the module still drives both
   electrically, so leave the unused pair unwired. Add a 1 kΩ resistor between
   the controller TX and the module RX. Supply is 3.2–5 V, 5 V recommended, and
@@ -932,7 +934,7 @@ Unless a future row says otherwise, treat the following as experimental:
   ESP32 board/FQBN, RX GPIO and build engine, with moving, stationary, combined
   and absent targets checked at two measured distances. The row must also
   confirm recovery after disconnecting/reconnecting sensor TX and record
-  whether a concurrently configured DMX receiver uses UART2.
+  whether a DMX transceiver on the same board was given UART2.
 - **Adafruit BH1750 ambient-light sensing.** `LightInput` with the BH1750
   module has software, preview, generated-firmware, manifest and Build Diagram
   coverage in the normal, slideshow and player generators, and

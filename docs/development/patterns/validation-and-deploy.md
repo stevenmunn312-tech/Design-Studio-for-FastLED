@@ -33,6 +33,16 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Keep this lookup independent of validation and code generation: importing
   those modules from the graph store can initialize the evaluator recursively.
 
+- A library node whose source needs a bench part (a Clock on DS3231, DMX on
+  DMX512, MIDI on DIN) is judged against that part in one walk for the gate and
+  Graph Health (`rtcModuleValidationIssues`, `serialPartValidationIssues`): a
+  wired reader with no part on its board is an error whose repair adds it
+  (`add-rtc-module`, `add-bench-part` → `addProviderPartToBoard`), a part nothing
+  reads is a warning, and a second DMX transceiver or MIDI interface is an
+  error. UART clashes are not per-device rules any more: `uartValidationIssues`
+  reports the allocator's conflicts (`build/pins/uartAssignment.ts`), the same
+  answer the firmware and Build Diagram read.
+
 - The RAM budget (`estimateFirmwareRam`, `findFirmwareRamBudgetIssue`) prices
   a show's collected patterns only when it is given the group registry. Pass
   `groups` at every caller. Without it a Pattern Collection costs nothing and

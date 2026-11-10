@@ -14,6 +14,7 @@ import type { Hub75Hardware } from './output/hub75Cpp'
 import type { PlayerControlButtonEmit } from './player/playerControlsCpp'
 import type { StereoVuEmit } from './audio/stereoVuMeterCpp'
 import type { IrRemoteProjectNode } from './peripherals/irRemoteCpp'
+import type { MidiDinReader } from './peripherals/midiDinCpp'
 import type { SegmentDisplayEmit } from './displays/segmentDisplayCpp'
 import type { InfoDisplayEmit } from './displays/infoDisplayCpp'
 import type { TftDisplayEmit } from './displays/tftDisplayCpp'
@@ -131,6 +132,8 @@ export interface SketchEmitContext {
   customDisplayPublication: string[]
   pinSetupLines: Set<string>
   irNodes: IrRemoteProjectNode[]
+  /** The DIN-mode MIDI nodes the one jack reader serves, collected as each is emitted. */
+  midiDinReaders: MidiDinReader[]
   setupLines: string[]
   globalLines: string[]
   needsMapFloat: boolean[]

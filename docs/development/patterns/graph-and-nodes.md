@@ -729,11 +729,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   registered port reads as this one's, so switching mode moves the port) and
   the sACN multicast join; the universe both sides listen to is
   `dmxListenUniverse`, which reads sACN's missing universe 0 as 1. A firmware source that never deploys (Web MIDI)
-  and one that does (a DIN jack on a UART) share the MIDI node:
+  and one that does (a DIN jack) share the MIDI node:
   `midiUsesUart` (`state/peripherals/midiSource.ts`) is what the emitter,
-  the preview-only warning, the pin walk and the row gating ask, and
-  `midiUartPort` the UART that `midiUartValidationIssues` keeps clear of the
-  radar's UART1, DMX512, the DFPlayer and a second jack. The preview applies
+  the preview-only warning, the board partition and validation ask. The jack
+  itself is the `MidiInterface` bench part, whose UART the allocator
+  (`build/pins/uartAssignment.ts`) keeps clear of the radar, DMX512 and the
+  DFPlayer; see [hardware](hardware-and-build-diagram.md). The preview applies
   the sketch's Channel filter: `MidiEngine` keeps per-channel maps beside the
   any-channel ones and `midiReading` picks between them, so the evaluator and
   the node body read the same value. The body's note pad and CC slider send

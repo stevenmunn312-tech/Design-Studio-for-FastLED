@@ -8,11 +8,14 @@ import { withAssignedPins } from '../../build/pins/pinRetarget'
 import { micModuleFor } from '../../state/peripherals/micModules'
 import { micSupportedForBoard, micUnsupportedMessage } from '../../build/pins/micPinDefaults'
 import {
-  boardPartitionOf, ensureRootAudioNode, ensureRootClockNode, rootGraphNodes, useGraphStore, type StudioNode,
+  boardPartitionOf, ensureRootAudioNode, ensureRootClockNode, ensureRootReaderNode, rootGraphNodes, useGraphStore,
+  type StudioNode,
 } from '../../state/graphStore'
 import { selectedPhysicalBoardProfile, type PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { boardNodesIn } from '../../build/boardPartition'
-import { RTC_MODULE_NODE_TYPE, rtcModuleIn } from '../../state/peripherals/rtcModule'
+import { RTC_MODULE_NODE_TYPE } from '../../state/peripherals/rtcModule'
+import { DMX_TRANSCEIVER_NODE_TYPE } from '../../state/peripherals/dmxTransceiver'
+import { MIDI_INTERFACE_NODE_TYPE } from '../../state/peripherals/midiSource'
 import { useUploadStore } from '../../state/upload/uploadStore'
 import { sdSpiPinsForBoard } from '../../build/pins/sdPinDefaults'
 import { displayHasTouch } from '../../build/parts/partCatalogue'
@@ -32,8 +35,10 @@ import type { NodeDefinition, StatusLevel } from '../../types'
 import type { PlacementBox } from './floatingPlacement'
 import type { BenchParts } from './useBenchParts'
 
-/** Input parts reached only through a library node: Audio's and the Clock's providers. */
-const PROVIDER_PART_TYPES: ReadonlySet<string> = new Set([MIC_NODE_TYPE, 'LineInput', RTC_MODULE_NODE_TYPE])
+/** Input parts reached only through a library node: Audio's, the Clock's, DMX's and MIDI's providers. */
+const PROVIDER_PART_TYPES: ReadonlySet<string> = new Set([
+  MIC_NODE_TYPE, 'LineInput', RTC_MODULE_NODE_TYPE, DMX_TRANSCEIVER_NODE_TYPE, MIDI_INTERFACE_NODE_TYPE,
+])
 
 export interface InputPartActionInputs {
   addNode: (node: StudioNode, centreOnDrop?: boolean) => void
@@ -132,9 +137,15 @@ export function inputPartActions({
     // only through an Audio node, so the first one brings that node with it.
     const audioAdded = [MIC_NODE_TYPE, 'LineInput'].includes(entry.nodeType)
       && ensureRootAudioNode(entry.nodeType === MIC_NODE_TYPE ? 'microphone' : 'line-in') !== null
-    // A DS3231 is read by a Clock, so the first one brings a Clock set to it.
+    // A DS3231 is read by a Clock, so the first one brings a Clock set to it;
+    // a DMX transceiver and a MIDI interface bring their nodes the same way.
     const clockAdded = entry.nodeType === RTC_MODULE_NODE_TYPE && ensureRootClockNode('DS3231') !== null
-    const companion = audioAdded ? 'an Audio node' : clockAdded ? 'a Clock node' : null
+    const dmxAdded = entry.nodeType === DMX_TRANSCEIVER_NODE_TYPE
+      && ensureRootReaderNode('DMXInput', { inputMode: 'DMX512' }) !== null
+    const midiAdded = entry.nodeType === MIDI_INTERFACE_NODE_TYPE
+      && ensureRootReaderNode('MidiInput', { midiSource: 'DIN (UART)' }) !== null
+    const companion = audioAdded ? 'an Audio node' : clockAdded ? 'a Clock node'
+      : dmxAdded ? 'a DMX node set to DMX512' : midiAdded ? 'a MIDI node set to DIN' : null
     const pins = [...Object.values(assignedPins), ...(bankPin?.ok ? [bankPin.pins.pin] : [])]
     setStatus(
       pins.length
@@ -151,30 +162,43 @@ export function inputPartActions({
   return { inputPartBlocker, addInputPart }
 }
 
-export type AddRtcModuleResult = { ok: true; label: string; pins: number[] } | { ok: false; reason: string }
+export type AddProviderPartResult = { ok: true; label: string; pins: number[] } | { ok: false; reason: string }
+export type AddRtcModuleResult = AddProviderPartResult
+
+/** The bench parts a library node reads, added by a repair or a node's own button. */
+export type ProviderPartNodeType = typeof RTC_MODULE_NODE_TYPE | typeof DMX_TRANSCEIVER_NODE_TYPE | typeof MIDI_INTERFACE_NODE_TYPE
+
+/** What a status line calls each, short. */
+export const PROVIDER_PART_NAMES: Readonly<Record<ProviderPartNodeType, string>> = {
+  [RTC_MODULE_NODE_TYPE]: 'DS3231',
+  [DMX_TRANSCEIVER_NODE_TYPE]: 'DMX transceiver',
+  [MIDI_INTERFACE_NODE_TYPE]: 'MIDI interface',
+}
 
 /**
- * Put a DS3231 on a board's bench for the Clocks set to read one: the repair
- * on Graph Health's "has no DS3231" card and the Clock's own button. It joins
- * the board's one I2C bus exactly as the shelf entry does, and lands on the
- * board named (the primary when none is), whichever board the bench shows.
+ * Put a DS3231, DMX transceiver or MIDI interface on a board's bench for the
+ * library nodes set to read one: the repair on Graph Health's "has no ..."
+ * card and the reading node's own button. It takes its pins exactly as the
+ * shelf entry does, and lands on the board named (the primary when none is),
+ * whichever board the bench shows.
  */
-export function addRtcModuleToBoard(boardId?: string): AddRtcModuleResult {
+export function addProviderPartToBoard(nodeType: ProviderPartNodeType, boardId?: string): AddProviderPartResult {
   const state = useGraphStore.getState()
   const root = rootGraphNodes(state)
   const boards = boardNodesIn(root)
   const board = boards.find((entry) => entry.id === boardId) ?? boards[0]
   const partition = board ? boardPartitionOf(state, board.id).nodes : root
-  if (rtcModuleIn(partition)) return { ok: false, reason: 'The board already has a DS3231' }
-  const entry = INPUT_PARTS.find((candidate) => candidate.nodeType === RTC_MODULE_NODE_TYPE)
-  const definition = NODE_LIBRARY.find((candidate) => candidate.type === RTC_MODULE_NODE_TYPE)
-  if (!entry || !definition) return { ok: false, reason: 'The DS3231 is not in the parts catalogue' }
+  const name = PROVIDER_PART_NAMES[nodeType]
+  if (partition.some((node) => node.data.nodeType === nodeType)) return { ok: false, reason: `The board already has a ${name}` }
+  const entry = INPUT_PARTS.find((candidate) => candidate.nodeType === nodeType)
+  const definition = NODE_LIBRARY.find((candidate) => candidate.type === nodeType)
+  if (!entry || !definition) return { ok: false, reason: `The ${name} is not in the parts catalogue` }
   const profile = selectedPhysicalBoardProfile(partition)
   const fqbn = profile?.compatibleFqbns[0] ?? useUploadStore.getState().selectedFqbn
   const assigned = assignHardwarePartPins(profile, fqbn, partition, entry.pinRequests, entry.nodeType, entry.properties ?? {})
   if (!assigned.ok) return { ok: false, reason: assigned.reason }
   state.addNode({
-    id: `${RTC_MODULE_NODE_TYPE}-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+    id: `${nodeType}-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
     type: 'studioNode',
     position: { x: 0, y: 0 },
     hidden: true,
@@ -199,6 +223,11 @@ export function addRtcModuleToBoard(boardId?: string): AddRtcModuleResult {
     },
   } as StudioNode)
   return { ok: true, label: entry.label, pins: Object.values(assigned.pins) }
+}
+
+/** A DS3231 for the Clocks set to read one; see `addProviderPartToBoard`. */
+export function addRtcModuleToBoard(boardId?: string): AddRtcModuleResult {
+  return addProviderPartToBoard(RTC_MODULE_NODE_TYPE, boardId)
 }
 
 export interface BenchPartActionInputs {

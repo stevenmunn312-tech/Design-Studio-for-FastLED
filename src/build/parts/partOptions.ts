@@ -205,6 +205,30 @@ export const PART_OPTIONS: Record<string, {
       },
     ],
   },
+  // One module each: named, not chosen. The DMX node and the MIDI node keep
+  // the source choice; these say which board the wire runs through.
+  DmxTransceiver: {
+    property: 'partId',
+    options: [
+      {
+        id: 'max485-rs485-module',
+        label: 'MAX485 RS-485 module',
+        summary: 'DMX512 in from an XLR line, on 5 V',
+        note: 'Power from 5 V. RO reaches the board through a 1 kΩ / 2 kΩ divider, and RE is bridged to DE so one GPIO drives both. Keep the fitted 120 Ω terminator only on the last device in the DMX chain.',
+      },
+    ],
+  },
+  MidiInterface: {
+    property: 'partId',
+    options: [
+      {
+        id: 'adafruit-midi-featherwing',
+        label: 'Adafruit MIDI FeatherWing',
+        summary: 'Opto-isolated DIN-5 MIDI in, on 3.3 V',
+        note: 'Power from 3.3 V. Only 3.3V, GND and MIDI_RX are wired; the optocoupler output needs no divider. Plug the keyboard into the left socket, MIDI IN.',
+      },
+    ],
+  },
   SDCard: {
     property: 'partId',
     options: [

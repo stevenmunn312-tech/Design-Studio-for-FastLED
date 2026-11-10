@@ -327,20 +327,22 @@ describe('Frame Stream and DIN MIDI', () => {
     engine.handleMessage(new Uint8Array([0x82, 63, 0]))
     engine.handleMessage(new Uint8Array([0xb1, 9, 0]))
     // The sketch filters the same way.
-    expect(generateCpp([node('d', 'MidiInput', { midiSource: 'DIN (UART)', channel: 3 })], [])).toContain('if (3 != 0 && _ch != 3) continue;')
+    expect(generateCpp([node('w', 'MidiInterface'), node('d', 'MidiInput', { midiSource: 'DIN (UART)', channel: 3 })], []))
+      .toContain('if (ch == 3 && (kind == 0x90 || kind == 0x80) && d0 == 60) _midiVel_d')
   })
 
-  it('reads a DIN jack on a UART in firmware, and stays preview-only on Web MIDI', () => {
+  it('reads the bench\'s DIN jack in firmware, and stays preview-only on Web MIDI', () => {
     const web = node('m', 'MidiInput')
     expect(generateCpp([web], [])).toContain('// Web MIDI is preview-only')
     expect(midiUsesUart(web.data.properties as Record<string, unknown>)).toBe(false)
-    const din = node('d', 'MidiInput', { midiSource: 'DIN (UART)', midiUart: 2, midiRxPin: 17, note: 64, cc: 7, channel: 3 })
-    const cpp = generateCpp([din], [])
-    expect(cpp).toContain('HardwareSerial _midiSerial_d(2);')
-    expect(cpp).toContain('_midiSerial_d.begin(31250, SERIAL_8N1, 17, -1);')
-    expect(cpp).toContain('if (3 != 0 && _ch != 3) continue;')
-    expect(cpp).toContain('_midiData_d[0] == 64')
-    expect(cpp).toContain('_midiData_d[0] == 7')
+    const din = node('d', 'MidiInput', { midiSource: 'DIN (UART)', note: 64, cc: 7, channel: 3 })
+    const cpp = generateCpp([node('w', 'MidiInterface', { midiRxPin: 17 }), din], [])
+    expect(cpp).toContain('static HardwareSerial _midiDin(1);')
+    expect(cpp).toContain('_midiDin.begin(31250, SERIAL_8N1, 17, -1);')
+    expect(cpp).toContain('if (ch == 3 && (kind == 0x90 || kind == 0x80) && d0 == 64)')
+    expect(cpp).toContain('if (ch == 3 && kind == 0xB0 && d0 == 7)')
+    // With no interface on the bench there is nothing to read.
+    expect(generateCpp([din], [])).toContain('// DIN MIDI: no MIDI interface on the bench')
     expect(findPreviewOnlyWarnings([web, node('k', 'Constant')], [edge('m', 'note', 'k', 'value')])).toHaveLength(1)
     expect(findPreviewOnlyWarnings([din, node('k', 'Constant')], [edge('d', 'note', 'k', 'value')])).toHaveLength(0)
   })

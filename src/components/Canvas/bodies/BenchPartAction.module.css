@@ -1,0 +1,32 @@
+.action {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: calc(var(--space-0) * 1.75);
+}
+
+.button {
+  border: 1px solid color-mix(in srgb, var(--node-accent) 58%, color-mix(in srgb, var(--text-primary) 18%, transparent));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--node-accent) 20%, rgba(8, 12, 18, 0.88));
+  color: color-mix(in srgb, var(--text-primary) 92%, transparent);
+  padding: var(--space-0) calc(var(--space-0) * 1.75);
+  font: 700 var(--fs-label)/1.2 var(--font-code, monospace);
+  cursor: pointer;
+}
+
+.button:hover,
+.button:focus-visible {
+  border-color: color-mix(in srgb, var(--node-accent) 82%, white);
+  outline: none;
+}
+
+.action span {
+  min-width: 0;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--text-primary) 50%, transparent);
+  font-size: var(--fs-ui);
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -80,7 +80,8 @@ whatever comes back through `normalizeDmxChannels`.
 
 **Preview is Art-Net only, in both modes.** A node set to `DMX512` still shows
 the helper's Art-Net feed if one is running, and its body says so outright
-("Preview listens for Art-Net only; firmware uses the selected DMX512 pins").
+("Preview listens for Art-Net or sACN only; firmware reads the DMX transceiver
+on the bench").
 The alternative — a helper-side USB-DMX dongle path — is a hardware-support
 project, not a slice of this one.
 
@@ -127,7 +128,8 @@ The rest of the network identity is the Board's too, in its Network group:
 `wifiHostname` (empty is `fastled-board`, `fastled-board-2` and so on, from the
 board's id), `useDhcp`, and `staticIp` / `staticGateway` / `staticSubnet` /
 `staticDns` (enabled only when `useDhcp` is off). The DMX node keeps only its
-protocol settings (mode, universe, UDP port, DMX512 wiring) and its body names
+protocol settings (mode, universe, UDP port; DMX512's wiring is the
+transceiver's, below) and its body names
 the network it joins, with a button to the Board's settings.
 
 **One board, one network identity.** `_netEnsureConnected()` is emitted once
@@ -142,13 +144,28 @@ See [wired Ethernet](wired-ethernet.md).
 
 ## The transceiver
 
-DMX512 needs a part between the XLR cable and the UART, and the app names it:
-`src/state/peripherals/dmxTransceiver.ts` holds the one module, the common "C25B" MAX485
-board (`max485-rs485-module`, a verified Blender asset), and the rule that
-only DMX512 mode has one. It is deliberately not a `PART_OPTIONS` row, which
-would put the module's picture on the node in Art-Net mode too.
+DMX512 needs a part between the XLR cable and the UART. Since 2026-11-10 it is
+a bench part of its own, the way a Clock reads its DS3231 and Audio its
+Microphone: `DmxTransceiver` (`src/state/peripherals/dmxTransceiver.ts`), the
+common "C25B" MAX485 board (`max485-rs485-module`, a verified Blender asset),
+added from the Hardware tab's DMX & MIDI shelf, hidden on the canvas and with no
+ports. It carries the three GPIOs (`dmxTxPin`, `dmxRxPin`, `dmxEnablePin`),
+taken from the board's free pins and moved with it on a board change. The
+`DMXInput` keeps the source choice and the outputs, and set to DMX512 it reads
+the transceiver on its board; Art-Net and sACN need no part. Adding the
+transceiver brings a DMX node set to DMX512 when the graph has none.
 
-The Build Diagram draws a DMX512 input as that module (`dmx-input`): TX to DI,
+Its UART is not a setting. `src/build/pins/uartAssignment.ts` allocates one per
+serial reader on the board: the presence sensor's fixed UART1 and the
+DFPlayer's fixed port first, then the transceiver takes the lowest UART still
+free (UART1, or UART2 beside a radar on a classic ESP32 or S3), and a DIN MIDI
+interface after it. The firmware, the Build Diagram's `uart` fact and the
+validator all read that one answer. The generator compiles for whichever ESP32
+the sketch is built on, so the port is declared under
+`CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S3` with the one-UART
+chips' port in the `#else`, as the DFPlayer driver does.
+
+The Build Diagram draws the transceiver as that module (`dmx-input`): TX to DI,
 RX to RO, the enable GPIO to DE, and a short jumper from RE to DE
 (`transceiverEnableBridgePads`), since RE is active low and DE active high, and
 one line drives both. The bus side goes to the cable rather than the controller,
@@ -178,10 +195,15 @@ pin. The part stays experimental until a bench row confirms it
 `validateGraph.ts` blocks upload for: DMX512 on a non-ESP32 target (esp_dmx is
 ESP32-only), Art-Net or NTP on a board with no Wi-Fi radio (`fqbnHasWifi` in
 `src/state/peripherals/networkCapability.ts`: the ESP cores except the H2 and
-P4, and the Arduino UNO R4 WiFi; a wired Ethernet link lifts the gate), and DMX UART pins that
-collide with any other GPIO role — the DMX pins join the shared pin-conflict
-namespace rather than getting their own check. Missing SSID and disagreeing
-Wi-Fi settings are warnings. Each has a repair line in the Graph Health drawer.
+P4, and the Arduino UNO R4 WiFi; a wired Ethernet link lifts the gate), and the
+transceiver's pins colliding with any other GPIO role — they join the shared
+pin-conflict namespace rather than getting their own check. A wired DMX512 node
+with no transceiver on its board is an error whose repair, **Add a DMX
+transceiver**, puts one on free pins (also a button on the node); a second
+transceiver is an error, and one nothing reads is a warning. A board with no
+UART left for it (a C3 whose only spare UART the radar holds, say) is an error
+naming the holders. Missing SSID and disagreeing Wi-Fi settings are warnings.
+Each has a repair line in the Graph Health drawer.
 
 ## Deliberately out of v1
 

@@ -62,8 +62,11 @@ categories are:
   Grove capacitive touch sensor, demodulating IR receiver, potentiometer,
   encoder module, bare SR1230 encoder, PIR motion sensor,
   HLK-LD2410C radar presence sensor, ambient-light sensor, INA219 power monitor,
-  and DS3231 RTC module (a Clock set to DS3231 reads it; the first one adds a
-  Clock to the graph if there is none);
+  DS3231 RTC module (a Clock set to DS3231 reads it; the first one adds a
+  Clock to the graph if there is none), MAX485 DMX transceiver (a DMX node set
+  to DMX512 reads it) and MIDI FeatherWing (every MIDI node set to DIN reads
+  it); each of the last two adds its node set to that source if there is none,
+  and takes a UART Studio picks so it never shares one with another part;
 - **Storage** — supported microSD modules;
 - **Amplifiers & DACs** — the I2S stage on the board's pins (a MAX98357A
   speaker amplifier, or a PCM5102A or UDA1334A DAC), and the analog power
@@ -261,7 +264,8 @@ using unwired. The onboard speaker amplifier can draw about 200 mA.
 
 One player per board. Classic ESP32 and ESP32-S3 use UART2, so a presence
 sensor can keep UART1. Boards with only UART1, such as the ESP32-C3, cannot
-host this player and a presence sensor or a DMX512 input on UART1 together.
+host this player beside a presence sensor, a DMX transceiver or a MIDI
+interface: each needs a UART of its own, and Studio hands them out for you.
 The player is in the normal sketch only, and it stays experimental until a
 module has been played on a board.
 
@@ -405,8 +409,9 @@ Distance Sensor) and Connected outputs. Connected is false when no report has
 arrived for a second, which is how an unplugged radar differs from an empty
 room. In preview, toggle Moving and Still, drag the distance slider, and use
 Unplug to read the radar as missing. Only one sensor can be
-active because the generated reader owns UART1. If a DMX512 input also uses
-UART1, Graph Health asks you to move DMX to UART2 on a board that provides it.
+active because the generated reader owns UART1. A DMX transceiver or MIDI
+interface on the same board takes UART2 instead; a board with only UART1 has
+none left for them, and Graph Health says so.
 The feature requires an
 ESP32-family target and remains experimental until the support matrix records
 a compile and a physical comparison against the module's OUT indicator.
@@ -701,7 +706,10 @@ Some components appear in both views because they carry a signal:
 - microphone, line-in, and input/sensor parts produce graph data, the
   microphone and line-in through the library's Audio node;
 - a DS3231 RTC module is read through the library's Clock node, set to the
-  DS3231 time source; Compile Time, Manual and NTP clocks need no part; and
+  DS3231 time source; Compile Time, Manual and NTP clocks need no part;
+- a DMX transceiver is read through the library's DMX / Art-Net node set to
+  DMX512, and a MIDI interface through MIDI nodes set to DIN; Art-Net, sACN and
+  Web MIDI need no part; and
 - an LED output consumes a frame.
 
 Auxiliary displays also have graph nodes: fixed panels consume display data,

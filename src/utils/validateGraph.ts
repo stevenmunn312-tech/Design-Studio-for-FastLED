@@ -18,7 +18,7 @@ import { paletteBankBlend, paletteBankEntries } from '../state/palettes/paletteB
 import type { SignalRangeMismatch } from '../nodes/shared/signalRange'
 import { playerControlFunction } from '../state/player/playerControlAssignments'
 import { hasAudioOutputStage, i2sAudioStage, isClassicEsp32Fqbn, powerAmplifierFeed, powerAmplifierSource, powerAmplifierStage } from '../state/audio/audioOutput'
-import { dfPlayerUartPort } from '../state/peripherals/dfPlayer'
+import { allocateUarts, UART_DEVICE_LABELS } from '../build/pins/uartAssignment'
 import { resolveShowTarget } from '../state/player/showTarget'
 import { stereoVuTotalLeds } from '../state/audio/stereoVuSizing'
 import { evaluateScalarExpression, SCALAR_EXPRESSION_HELP } from '../nodes/shared/scalarExpression'
@@ -94,7 +94,7 @@ import {
   normalizeIrRemoteButtons,
 } from '../state/peripherals/irRemote'
 import { STEP_VALUE_DEFAULTS } from '../nodes/shared/stepValue'
-import { PRESENCE_UART_PORT, presenceSupportedForFqbn } from '../state/peripherals/presenceSensor'
+import { presenceSupportedForFqbn } from '../state/peripherals/presenceSensor'
 import { buzzerIsPassive } from '../state/peripherals/buzzer'
 import { ETHERNET_NODE_TYPE, ethernetSpiHostForFqbn, wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import { networkUsedIn, usesNetwork } from '../codegen/peripherals/networkCpp'
@@ -111,7 +111,8 @@ import { BOARD_LINK_OUT_NODE_TYPE, isBoardLinkNodeType, outputPortDataType } fro
 import { WEB_REMOTE_NODE_TYPE, normalizeWebRemoteControls } from '../state/peripherals/webRemote'
 import { fqbnHasWifi, fqbnServesWebRemote } from '../state/peripherals/networkCapability'
 import { particleMode, particlePoolSize } from '../nodes/simulations/particleModes'
-import { midiUartPort, midiUsesUart } from '../state/peripherals/midiSource'
+import { dinMidiInputs, MIDI_INTERFACE_NODE_TYPE, midiUsesUart } from '../state/peripherals/midiSource'
+import { DMX_TRANSCEIVER_NODE_TYPE, dmx512Inputs } from '../state/peripherals/dmxTransceiver'
 import {
   formatLightSensorAddress, lightSensorAddress, lightSensorAddressOptions, lightSensorTransport,
 } from '../state/peripherals/lightSensor'
@@ -1706,10 +1707,12 @@ export function findBoardCompatibilityErrors(nodes: StudioNode[], selectedFqbn: 
   if (selectedFqbn && nodes.some((node) => node.data.nodeType === 'DFPlayerOutput') && !selectedFqbn.startsWith('esp32:')) {
     errors.push('DFPlayer Mini firmware currently requires an ESP32-family board for its assignable UART')
   }
-  if (selectedFqbn && nodes.some((node) =>
-    node.data.nodeType === 'DMXInput' && String((node.data.properties as Record<string, unknown>).inputMode ?? 'Art-Net') === 'DMX512'
-  ) && !selectedFqbn.startsWith('esp32:')) {
+  if (selectedFqbn && dmx512Inputs(nodes).length > 0 && !selectedFqbn.startsWith('esp32:')) {
     errors.push('DMX512 firmware input requires an ESP32-family board because the generated sketch uses esp_dmx')
+  }
+  // The shared DIN reader opens an ESP32 HardwareSerial on the allocated UART.
+  if (selectedFqbn && dinMidiInputs(nodes).length > 0 && !selectedFqbn.startsWith('esp32:')) {
+    errors.push('DIN MIDI firmware input requires an ESP32-family board for its hardware UART')
   }
   // The Web Remote and an internet radio Music Player name their board in
   // their own findings (webRemoteValidationIssues, radioPlayerValidationIssues).
@@ -1842,11 +1845,12 @@ export function findDeployBlockingErrors(
     ...findPatternCountErrors(nodes, edges),
     ...findAudioCapabilityErrors(nodes, edges),
     ...findRtcModuleErrors(nodes, edges),
+    ...findSerialPartErrors(nodes, edges),
     ...findStereoVuMeterErrors(nodes, edges),
     ...findIrRemoteErrors(nodes, edges, selectedFqbn),
     ...findPresenceSensorErrors(nodes, selectedFqbn),
-    ...findDfPlayerErrors(nodes, selectedFqbn),
-    ...findMidiUartErrors(nodes, selectedFqbn),
+    ...findDfPlayerErrors(nodes),
+    ...findUartErrors(nodes, selectedFqbn),
     ...findBluetoothPlayerErrors(nodes, edges, selectedFqbn),
     ...findRadioPlayerErrors(nodes, edges, selectedFqbn),
     ...findBuzzerErrors(nodes, selectedFqbn),
@@ -1910,6 +1914,7 @@ export type GraphDiagnosticAction =
   | 'renew-board-link-key'
   | 'set-panel-layout'
   | 'add-rtc-module'
+  | 'add-bench-part'
 
 /**
  * Everything a repairing action needs to perform what it names.
@@ -1956,6 +1961,9 @@ export type GraphRepair =
   | { kind: 'set-panel-layout'; panelId: string; layout: string }
   /** A DS3231 to put on the board's bench, for the Clocks that read one. */
   | { kind: 'add-rtc-module'; boardId?: string }
+  /** A DMX transceiver or MIDI interface to put on the board's bench, for the
+   *  DMX512 or DIN node that reads it. */
+  | { kind: 'add-bench-part'; nodeType: 'DmxTransceiver' | 'MidiInterface'; boardId?: string }
 
 /** One button on a card: what it names, and the repair it performs. */
 export interface GraphDiagnosticFix {
@@ -2329,21 +2337,7 @@ function presenceSensorValidationIssues(nodes: StudioNode[], selectedFqbn: strin
       })
     }
   }
-  const conflictingDmx = nodes.filter((node) => {
-    if (node.data.nodeType !== 'DMXInput') return false
-    const props = node.data.properties as Record<string, unknown>
-    return String(props.inputMode ?? 'Art-Net') === 'DMX512'
-      && Math.round(Number(props.dmxPort ?? 1)) === PRESENCE_UART_PORT
-  })
-  if (sensors.length > 0 && conflictingDmx.length > 0) {
-    issues.push({
-      id: 'presence-dmx-uart', severity: 'error', category: 'pins',
-      title: `Presence Sensor and DMX512 both use UART${PRESENCE_UART_PORT}`,
-      message: `${sensors.map(nodeLabel).join(', ')} and ${conflictingDmx.map(nodeLabel).join(', ')} cannot read two protocols from the same UART peripheral.`,
-      fix: 'Set the DMX input to UART2 on a board that provides it, or remove one of the two receivers.',
-      nodeIds: [...sensors, ...conflictingDmx].map((node) => node.id), nodeLabel: `UART${PRESENCE_UART_PORT}`,
-    })
-  }
+  // Its UART1 against the board's other serial readers is uartValidationIssues'.
   return issues
 }
 
@@ -2526,93 +2520,147 @@ export function findPresenceSensorErrors(nodes: StudioNode[], selectedFqbn = '')
 }
 
 /**
- * One DFPlayer owns one hardware UART. Classic ESP32 and S3 open UART2.
- * Chips with only UART1 share that port with a presence sensor and with
- * DMX512 left on UART1.
+ * One DFPlayer owns one hardware UART, the one `uartValidationIssues` checks
+ * against the board's other serial readers.
  */
-function dfPlayerValidationIssues(nodes: StudioNode[], selectedFqbn: string): GraphDiagnostic[] {
+function dfPlayerValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
   const players = nodes.filter((node) => node.data.nodeType === 'DFPlayerOutput')
-  if (players.length === 0) return []
-  const issues: GraphDiagnostic[] = []
-  if (players.length > 1) {
-    issues.push({
-      id: 'dfplayer-count', severity: 'error', category: 'connection',
-      title: 'Only one DFPlayer Mini can be active',
-      message: `${players.map(nodeLabel).join(', ')} add ${players.length} players, but the generated driver owns one UART.`,
-      fix: 'Keep one DFPlayer Mini in the root Hardware workbench and remove the others.',
-      nodeIds: players.map((node) => node.id), nodeLabel: 'DFPlayer Mini',
-    })
-  }
-  const port = dfPlayerUartPort(selectedFqbn)
-  if (port === null) return issues
-  const presence = port === 1 ? nodes.filter((node) => node.data.nodeType === 'PresenceInput') : []
-  const dmx = nodes.filter((node) => {
-    if (node.data.nodeType !== 'DMXInput') return false
-    const props = node.data.properties as Record<string, unknown>
-    return String(props.inputMode ?? 'Art-Net') === 'DMX512'
-      && Math.round(Number(props.dmxPort ?? 1)) === port
-  })
-  const rivals = [...presence, ...dmx]
-  if (rivals.length === 0) return issues
-  const detail = presence.length > 0
-    ? 'The presence sensor already owns UART1 on this board, and the DFPlayer uses that same port because this chip has no UART2.'
-    : `DMX512 is set to UART${port}, which is the port the DFPlayer driver opens on this board.`
-  issues.push({
-    id: 'dfplayer-uart', severity: 'error', category: 'pins',
-    title: `DFPlayer Mini and another device both use UART${port}`,
-    message: `${players.map(nodeLabel).join(', ')} cannot share UART${port}. ${detail}`,
-    fix: port === 2
-      ? 'Set the DMX input to UART1, or remove the DFPlayer Mini.'
-      : 'Choose a classic ESP32 or ESP32-S3, whose DFPlayer driver takes UART2, or remove one of the two devices.',
-    nodeIds: [...players, ...rivals].map((node) => node.id),
-    nodeLabel: `UART${port}`,
-  })
-  return issues
+  if (players.length <= 1) return []
+  return [{
+    id: 'dfplayer-count', severity: 'error', category: 'connection',
+    title: 'Only one DFPlayer Mini can be active',
+    message: `${players.map(nodeLabel).join(', ')} add ${players.length} players, but the generated driver owns one UART.`,
+    fix: 'Keep one DFPlayer Mini in the root Hardware workbench and remove the others.',
+    nodeIds: players.map((node) => node.id), nodeLabel: 'DFPlayer Mini',
+  }]
 }
 
-export function findDfPlayerErrors(nodes: StudioNode[], selectedFqbn = ''): string[] {
-  return dfPlayerValidationIssues(nodes, selectedFqbn).map(validationIssueMessage)
+export function findDfPlayerErrors(nodes: StudioNode[]): string[] {
+  return dfPlayerValidationIssues(nodes).map(validationIssueMessage)
 }
+
+const sentenceCase = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
 
 /**
- * A DIN MIDI jack reads a whole UART, so it shares its port with nothing: not
- * the presence sensor's fixed UART1, not DMX512 or the DFPlayer on the same
- * port, and not a second DIN MIDI node, which would split the bytes between
- * two readers. The default UART1 is the presence sensor's, so this is the
- * clash a new MIDI node meets first.
+ * Every serial reader on the board gets a UART of its own, from the one
+ * allocator the firmware and the Build Diagram also read
+ * (build/pins/uartAssignment.ts). The radar and the DFPlayer open fixed
+ * ports; the DMX transceiver and the MIDI interface take what is left, so the
+ * only clashes left are a fixed port another fixed reader holds (the DFPlayer
+ * beside the radar on a chip with no UART2) and a board with no UART left.
+ * A second jack is not a UART clash: every DIN node reads the one interface,
+ * and a second interface is `serialPartValidationIssues`' count error.
  */
-function midiUartValidationIssues(nodes: StudioNode[], selectedFqbn: string): GraphDiagnostic[] {
-  const props = (node: StudioNode) => node.data.properties as Record<string, unknown>
-  const midi = nodes.filter((node) => node.data.nodeType === 'MidiInput' && midiUsesUart(props(node)))
-  const dfPort = dfPlayerUartPort(selectedFqbn)
+function uartValidationIssues(nodes: StudioNode[], selectedFqbn: string): GraphDiagnostic[] {
+  const allocation = allocateUarts(nodes, selectedFqbn)
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const labels = (ids: readonly string[]) => ids.flatMap((id) => {
+    const node = byId.get(id)
+    return node ? [nodeLabel(node)] : []
+  }).join(', ')
+  return allocation.conflicts.map((conflict): GraphDiagnostic => {
+    const device = UART_DEVICE_LABELS[conflict.device]
+    const nodeIds = [...conflict.nodeIds, ...conflict.holders.flatMap((holder) => holder.nodeIds)]
+    if (conflict.port !== null) {
+      const holder = conflict.holders[0]
+      return {
+        id: `${conflict.device}-uart`, severity: 'error', category: 'pins',
+        title: `${sentenceCase(device.replace(/^the /, ''))} and another device both use UART${conflict.port}`,
+        message: `${labels(conflict.nodeIds)} cannot share UART${conflict.port}. ${sentenceCase(holder ? UART_DEVICE_LABELS[holder.device] : 'another reader')} already owns UART${conflict.port} on this board, and ${device} opens that same port because this chip has no UART2.`,
+        fix: 'Choose a classic ESP32 or ESP32-S3, which has a UART2, or remove one of the two devices.',
+        nodeIds, nodeLabel: `UART${conflict.port}`,
+      }
+    }
+    const spare = allocation.uarts?.length === 1
+      ? 'this board’s only spare UART, UART1, is taken'
+      : 'both of this board’s spare UARTs are taken'
+    const held = conflict.holders.map((holder) => `${UART_DEVICE_LABELS[holder.device]} has UART${holder.port}`).join(' and ')
+    const otherwise = conflict.device === 'dmx' ? 'switch the DMX node to Art-Net or sACN' : 'set the MIDI nodes to Web MIDI'
+    return {
+      id: `uart-${conflict.device}`, severity: 'error', category: 'pins',
+      title: `No UART left for ${device}`,
+      message: `${sentenceCase(device)} needs a UART of its own, and ${spare}${held ? `: ${held}` : ''}.`,
+      fix: allocation.uarts?.length === 1
+        ? `Choose a classic ESP32 or ESP32-S3, which has a second UART, remove another serial part, or ${otherwise}.`
+        : `Remove another serial part from the bench, or ${otherwise}.`,
+      nodeIds, nodeLabel: 'UART',
+    }
+  })
+}
+
+export function findUartErrors(nodes: StudioNode[], selectedFqbn = ''): string[] {
+  return uartValidationIssues(nodes, selectedFqbn).map(validationIssueMessage)
+}
+
+/** The DMX transceiver and the MIDI interface: bench parts a library node reads. */
+const SERIAL_PROVIDERS = [
+  {
+    nodeType: DMX_TRANSCEIVER_NODE_TYPE, name: 'DMX transceiver', partName: 'MAX485 DMX transceiver',
+    readers: dmx512Inputs, readerNoun: 'DMX node set to DMX512', propertyKey: 'inputMode', source: 'DMX512',
+    otherwise: 'choose Art-Net or sACN as the firmware source', id: 'dmx-transceiver',
+  },
+  {
+    nodeType: MIDI_INTERFACE_NODE_TYPE, name: 'MIDI interface', partName: 'MIDI FeatherWing',
+    readers: dinMidiInputs, readerNoun: 'MIDI node set to DIN', propertyKey: 'midiSource', source: 'DIN',
+    otherwise: 'set the source to Web MIDI', id: 'midi-interface',
+  },
+] as const
+
+/**
+ * A DMX node set to DMX512 and a MIDI node set to DIN against the part each
+ * reads, judged as one walk for the deploy gate and Graph Health, as a Clock
+ * is judged against its DS3231.
+ *
+ * A wired reader with no part on the bench is an error whose repair adds the
+ * part: the sketch would open a UART nothing is wired to. A part nothing reads
+ * is a warning, like a DS3231 no Clock reads. A second part is an error: the
+ * board reads one, so the second would be wired for nothing.
+ */
+function serialPartValidationIssues(nodes: StudioNode[], edges: StudioEdge[]): GraphDiagnostic[] {
   const issues: GraphDiagnostic[] = []
-  for (const port of [1, 2] as const) {
-    const readers = midi.filter((node) => midiUartPort(props(node)) === port)
-    if (readers.length === 0) continue
-    const rivals = nodes.filter((node) =>
-      (node.data.nodeType === 'PresenceInput' && port === PRESENCE_UART_PORT)
-      || (node.data.nodeType === 'DFPlayerOutput' && port === dfPort)
-      || (node.data.nodeType === 'DMXInput' && String(props(node).inputMode ?? 'Art-Net') === 'DMX512'
-        && Math.round(Number(props(node).dmxPort ?? 1)) === port))
-    if (rivals.length === 0 && readers.length < 2) continue
-    const other = port === 1 ? 2 : 1
-    issues.push({
-      id: `midi-uart${port}`, severity: 'error', category: 'pins',
-      title: `DIN MIDI shares UART${port}`,
-      message: rivals.length > 0
-        ? `${readers.map(nodeLabel).join(', ')} and ${rivals.map(nodeLabel).join(', ')} cannot read from the same UART peripheral.`
-        : `${readers.map(nodeLabel).join(', ')} all read UART${port}, so each would get only some of the jack's bytes.`,
-      fix: `Set the MIDI node's UART to ${other} on a board that provides it, or remove one of the devices.`,
-      nodeIds: [...readers, ...rivals].map((node) => node.id),
-      nodeLabel: `UART${port}`,
-      propertyKey: 'midiUart',
-    })
+  // The partition's Board, so the repair adds the part to this board.
+  const boardId = nodes.find((node) => node.data.nodeType === 'Board')?.id
+  for (const provider of SERIAL_PROVIDERS) {
+    const parts = nodes.filter((node) => node.data.nodeType === provider.nodeType)
+    const readers: StudioNode[] = provider.readers(nodes)
+    if (parts.length > 1) {
+      issues.push({
+        id: `${provider.id}-count`, severity: 'error', category: 'connection',
+        title: `Only one ${provider.name} can be read`,
+        message: `${parts.map(nodeLabel).join(', ')} put ${parts.length} on this board, but every ${provider.readerNoun} reads the first, so the others are wired for nothing.`,
+        fix: `Keep one ${provider.name} on this board’s bench and remove the others.`,
+        nodeIds: parts.map((node) => node.id), nodeLabel: provider.partName,
+      })
+    }
+    if (parts.length === 0) {
+      for (const reader of readers.filter((node) => edges.some((edge) => edge.source === node.id))) {
+        issues.push({
+          id: `${reader.id}-${provider.id}`, severity: 'error', category: 'connection',
+          title: `${nodeLabel(reader)} has no ${provider.name} to read`,
+          message: `Its source is ${provider.source}, and there is no ${provider.name} on the bench.`,
+          fix: `Add a ${provider.partName}, or ${provider.otherwise}.`,
+          nodeIds: [reader.id], nodeLabel: nodeLabel(reader), propertyKey: provider.propertyKey,
+          action: 'add-bench-part',
+          repair: { kind: 'add-bench-part', nodeType: provider.nodeType, ...(boardId ? { boardId } : {}) },
+        })
+      }
+    } else if (readers.length === 0) {
+      issues.push({
+        id: `${parts[0].id}-${provider.id}-unused`, severity: 'warning', category: 'board',
+        title: `Nothing reads the ${provider.name}`,
+        message: `The ${provider.name} is on the bench, but no ${provider.readerNoun} reads it, so the sketch never opens it.`,
+        fix: `Set a node’s source to ${provider.source}, or remove the ${provider.name} from the Hardware tab.`,
+        nodeIds: [parts[0].id], nodeLabel: nodeLabel(parts[0]),
+      })
+    }
   }
   return issues
 }
 
-export function findMidiUartErrors(nodes: StudioNode[], selectedFqbn = ''): string[] {
-  return midiUartValidationIssues(nodes, selectedFqbn).map(validationIssueMessage)
+export function findSerialPartErrors(nodes: StudioNode[], edges: StudioEdge[]): string[] {
+  return serialPartValidationIssues(nodes, edges)
+    .filter((issue) => issue.severity === 'error')
+    .map(validationIssueMessage)
 }
 
 /**
@@ -4073,13 +4121,14 @@ export function buildGraphDiagnostics(
   // disconnected-node warnings so the actual authored repair is prominent.
   diagnostics.push(...irRemoteValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...presenceSensorValidationIssues(nodes, options.selectedFqbn ?? ''))
-  diagnostics.push(...dfPlayerValidationIssues(nodes, options.selectedFqbn ?? ''))
-  diagnostics.push(...midiUartValidationIssues(nodes, options.selectedFqbn ?? ''))
+  diagnostics.push(...dfPlayerValidationIssues(nodes))
+  diagnostics.push(...uartValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...bluetoothPlayerValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...radioPlayerValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...buzzerValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...ethernetValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...rtcModuleValidationIssues(nodes, edges))
+  diagnostics.push(...serialPartValidationIssues(nodes, edges))
   diagnostics.push(...webRemoteValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...i2cBusValidationIssues(nodes))
   diagnostics.push(...stepValueValidationIssues(nodes))
@@ -4620,14 +4669,21 @@ export function buildGraphDiagnostics(
   }
 
   if (options.selectedFqbn && !options.selectedFqbn.startsWith('esp32:')) {
-    for (const node of nodes.filter((entry) =>
-      entry.data.nodeType === 'DMXInput' && String((entry.data.properties as Record<string, unknown>).inputMode ?? 'Art-Net') === 'DMX512'
-    )) {
+    for (const node of dmx512Inputs(nodes)) {
       diagnostics.push({
         id: `${node.id}-board-dmx512`, severity: 'error', category: 'board',
         title: 'DMX512 input is incompatible with the selected board',
         message: 'The generated DMX512 receiver uses esp_dmx, which is ESP32-only.',
         fix: 'Choose an ESP32-family board in Board & Port, or switch the DMX node to Art-Net mode.',
+        nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
+      })
+    }
+    for (const node of dinMidiInputs(nodes)) {
+      diagnostics.push({
+        id: `${node.id}-board-midi-din`, severity: 'error', category: 'board',
+        title: 'DIN MIDI input is incompatible with the selected board',
+        message: 'The generated DIN MIDI reader opens an ESP32 hardware UART.',
+        fix: 'Choose an ESP32-family board in Board & Port, or set the MIDI node to Web MIDI.',
         nodeIds: [node.id], nodeLabel: nodeLabel(node), action: 'choose-board',
       })
     }
@@ -5084,6 +5140,8 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findNetworkConfigWarnings(nodes))
   warnings.push(...findEthernetWarnings(nodes, selectedFqbn))
   warnings.push(...rtcModuleValidationIssues(nodes, edges)
+    .filter((issue) => issue.severity === 'warning').map(validationIssueMessage))
+  warnings.push(...serialPartValidationIssues(nodes, edges)
     .filter((issue) => issue.severity === 'warning').map(validationIssueMessage))
   warnings.push(...webRemoteValidationIssues(nodes, selectedFqbn)
     .filter((issue) => issue.severity === 'warning').map(validationIssueMessage))

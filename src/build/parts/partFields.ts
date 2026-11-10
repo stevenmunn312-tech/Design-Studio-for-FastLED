@@ -80,6 +80,17 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
   PdTriggerSource: [
     { key: 'requestedVoltage', label: 'Requested V', kind: 'select', options: pdTriggerSpec(PD_TRIGGER_PART_ID).selectableVoltagesV.map(String) },
   ],
+  // The transceiver's three GPIOs, which a DMX node set to DMX512 reads
+  // through. Its UART is allocated, so there is no field for it.
+  DmxTransceiver: [
+    { key: 'dmxRxPin', label: 'RO', kind: 'pin' },
+    { key: 'dmxTxPin', label: 'DI', kind: 'pin' },
+    { key: 'dmxEnablePin', label: 'DE/RE', kind: 'pin' },
+  ],
+  // The wing's MIDI_RX, which every MIDI node set to DIN reads through.
+  MidiInterface: [
+    { key: 'midiRxPin', label: 'MIDI_RX', kind: 'pin' },
+  ],
   // The DS3231's own I2C pair, which a Clock set to DS3231 reads through.
   RtcModule: [
     { key: 'sdaPin', label: 'SDA', kind: 'pin' },

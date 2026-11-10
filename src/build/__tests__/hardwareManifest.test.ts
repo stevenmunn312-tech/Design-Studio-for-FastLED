@@ -408,49 +408,53 @@ describe('hardwareManifest', () => {
     expect(ldr?.pins.map((pin) => pin.pin)).toEqual([4])
   })
 
-  it('draws a DMX512 input as its transceiver, and holds it back until all three pins are set', () => {
+  it('draws the DMX transceiver on the bench, and holds it back until all three pins are set', () => {
     const complete = buildHardwareManifest([
-      node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxTxPin: 17, dmxRxPin: 16, dmxEnablePin: 21 }),
+      node('max485', 'DmxTransceiver', { dmxTxPin: 17, dmxRxPin: 16, dmxEnablePin: 21 }),
+      node('dmx', 'DMXInput', { inputMode: 'DMX512' }),
     ], [], 'esp32:esp32:esp32')
-    const item = [...complete.primaryItems, ...complete.unsupportedItems].find((entry) => entry.sourceNodeId === 'dmx')!
+    const items = [...complete.primaryItems, ...complete.unsupportedItems]
+    const item = items.find((entry) => entry.sourceNodeId === 'max485')!
     expect(item.kind).toBe('dmx-input')
     expect(item.supported).toBe(true)
     expect(item.facts.partId).toBe('max485-rs485-module')
+    expect(item.facts.uart).toBe('UART1 receive at 250 kbaud, allocated automatically')
     expect(item.pins.map((pin) => pin.propertyKey)).toEqual(['dmxTxPin', 'dmxRxPin', 'dmxEnablePin'])
+    // The DMX node itself is a library node and draws nothing.
+    expect(items.some((entry) => entry.sourceNodeId === 'dmx')).toBe(false)
 
     const partial = buildHardwareManifest([
-      node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxRxPin: 16 }),
+      node('max485', 'DmxTransceiver', { dmxRxPin: 16 }),
     ], [], 'esp32:esp32:esp32s3')
-    expect(partial.unsupportedItems.map((entry) => entry.sourceNodeType)).toEqual(['DMXInput'])
+    expect(partial.unsupportedItems.map((entry) => entry.sourceNodeType)).toEqual(['DmxTransceiver'])
     expect(partial.unsupportedItems[0].kind).toBe('dmx-input')
     expect(partial.unsupportedItems[0].supported).toBe(false)
   })
 
-  it('draws a DIN MIDI input as the MIDI FeatherWing on its RX pin', () => {
+  it('draws the MIDI interface on its RX pin, with the UART it was given', () => {
+    const wing = node('wing', 'MidiInterface', { midiRxPin: 16 })
     const manifest = buildHardwareManifest([
-      node('midi', 'MidiInput', { midiSource: 'DIN (UART)', midiRxPin: 16 }),
+      wing, node('radar', 'PresenceInput'), node('midi', 'MidiInput', { midiSource: 'DIN (UART)' }),
     ], [], 'esp32:esp32:esp32')
-    const item = [...manifest.primaryItems, ...manifest.unsupportedItems].find((entry) => entry.sourceNodeId === 'midi')!
+    const item = [...manifest.primaryItems, ...manifest.unsupportedItems].find((entry) => entry.sourceNodeId === 'wing')!
     expect(item.kind).toBe('midi-input')
     expect(item.supported).toBe(true)
     expect(item.facts.partId).toBe('adafruit-midi-featherwing')
+    // The radar holds UART1, so the jack is read on UART2.
+    expect(item.facts.uart).toBe('UART2 receive at 31250 baud, allocated automatically; MIDI_TX unwired')
     expect(item.pins.map((pin) => pin.propertyKey)).toEqual(['midiRxPin'])
+    // On the bench before any node reads it: wired, with no UART yet.
+    const idle = buildHardwareManifest([wing], [], 'esp32:esp32:esp32').primaryItems[0]
+    expect(idle.facts.uart).toBe('A UART is allocated once a MIDI node set to DIN reads it; MIDI_TX unwired')
   })
 
-  it('draws nothing for a Web MIDI input, which has no hardware', () => {
+  it('draws nothing for a MIDI or DMX node, which are library nodes', () => {
     const manifest = buildHardwareManifest([
-      node('midi', 'MidiInput', { midiSource: 'Web MIDI', midiRxPin: 16 }),
+      node('midi', 'MidiInput', { midiSource: 'DIN (UART)' }),
+      node('dmx', 'DMXInput', { inputMode: 'DMX512' }),
+      node('net', 'MidiInput', { midiSource: 'Web MIDI' }),
     ], [], 'esp32:esp32:esp32')
-    expect([...manifest.primaryItems, ...manifest.unsupportedItems]
-      .some((entry) => entry.sourceNodeId === 'midi')).toBe(false)
-  })
-
-  it('draws nothing for an Art-Net input, which has no hardware', () => {
-    const manifest = buildHardwareManifest([
-      node('dmx', 'DMXInput', { inputMode: 'Art-Net', dmxTxPin: 17, dmxRxPin: 16, dmxEnablePin: 21 }),
-    ], [], 'esp32:esp32:esp32')
-    expect([...manifest.primaryItems, ...manifest.unsupportedItems]
-      .some((entry) => entry.sourceNodeId === 'dmx')).toBe(false)
+    expect([...manifest.primaryItems, ...manifest.unsupportedItems]).toEqual([])
   })
 
   it('does not pass SPI or HUB75 outputs into the one-wire build planner', () => {

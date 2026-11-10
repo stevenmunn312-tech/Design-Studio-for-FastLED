@@ -429,8 +429,9 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
   },
   {
     // Scene-wide DMX source. Browser preview reads helper-backed Art-Net;
-    // generated firmware uses the selected input mode (Art-Net over Wi-Fi, or
-    // DMX512 over an ESP32 transceiver).
+    // generated firmware uses the selected input mode: Art-Net or sACN over
+    // the Board's network, or DMX512 through the DMX transceiver on the bench,
+    // which is the provider and carries the wiring (state/peripherals/dmxTransceiver.ts).
     type: 'DMXInput',
     label: 'DMX / Art-Net',
     category: 'input',
@@ -443,10 +444,6 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       inputMode: 'Art-Net',
       universe: 0,
       udpPort: 6454,
-      dmxPort: 1,
-      dmxTxPin: 17,
-      dmxRxPin: 16,
-      dmxEnablePin: 21,
     },
   },
   {
@@ -533,10 +530,11 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       { id: 'cc', label: 'CC', dataType: 'float' },
     ],
     // `midiSource` picks the firmware side: Web MIDI deploys as the idle
-    // default (preview-only), while a DIN jack on a UART (31250 baud through
-    // the MIDI FeatherWing's H11L1MS opto-isolator) is read on the board. The preview
+    // default (preview-only), while DIN reads the MIDI interface on the bench
+    // (31250 baud through the MIDI FeatherWing's H11L1MS opto-isolator), which
+    // carries the wiring (state/peripherals/midiSource.ts). The preview
     // follows the browser's Web MIDI either way.
-    defaultProperties: { note: 60, cc: 1, channel: 0, midiSource: 'Web MIDI', midiUart: 1, midiRxPin: 16 },
+    defaultProperties: { note: 60, cc: 1, channel: 0, midiSource: 'Web MIDI' },
   },
   {
     // Pixels from the network: DDP (Distributed Display Protocol, UDP 4048),
@@ -584,5 +582,5 @@ export const INPUT_DESCRIPTIONS: Record<string, string> = {
   DMXInput: 'DMX from Art-Net or sACN over the network, or wired DMX512 on an ESP32.',
   PowerMonitorInput: 'Measures volts, amps and watts over I2C and reports them to displays.',
   RTCInput: 'Time of day from the build stamp, a typed start, NTP, or a DS3231 module.',
-  MidiInput: 'Note velocity, gate and a CC from Web MIDI, or a DIN jack on a UART in firmware.',
+  MidiInput: 'Note velocity, gate and a CC from Web MIDI, or the bench\'s DIN jack in firmware.',
 }
