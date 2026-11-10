@@ -180,15 +180,6 @@ Generator playing only in the main preview, and the Music Player and
 Music-synced SD Show starters opening with twenty Exceptional patterns and
 the demo track analysed. What is left:
 
-- [ ] **See the 5x8 fixed-display font on glass (S).** Landed 2026-11-11
-  with no Font property: every OLED and colour TFT fixed layout now draws
-  in 5x8 with lower case (`displayFont.ts`). Judged on
-  `npm run gen:display-sheets` only. Check on a 128x64 OLED and a 240x320
-  TFT that 16-pixel rows read well, and that a 20-character OLED row is
-  enough for track titles.
-- [ ] **Look at the new fonts on LEDs (S).** The 4x6, 5x8 and 6x8 glyphs
-  were judged as text renders only. In 4x6, `0` and `O` share a drawing and
-  `m` and `w` are compromises.
 - [x] **Pattern cost: steadier render weight (S).** Done 2026-11-11. Render
   weight is timed in its own pass on a fixed 32x32 grid, about 5% between
   scans. RAM is banded against the chosen board's internal-RAM budget, per
@@ -196,19 +187,6 @@ the demo track analysed. What is left:
   firmware a pattern generates, fitted to four compiled show sketches
   (`patternFlash.ts`); the fit is within 10% on large collections and 50% on
   the smallest.
-- [ ] **Compile the 2026-11-11 work before the freeze (S).** A Text and a
-  Clock Display in each new font (typed and wired, with an AVR leg: a wired
-  font table is 376 to 564 bytes of RAM there), a matrix wired bottom-left
-  and vertical with four lanes (`lanes.ts`, which also compiles the
-  column-cut lanes), and the twenty-pattern Music-synced SD Show starter on
-  a 4 MB ESP32, whose fit is unmeasured.
-- [ ] **Live Stream ignores panel and custom layouts (Low, S).** The stream
-  carries serpentine, start corner and first run for the whole grid, never
-  the panels or custom XY table, so it mis-maps those layouts. Carry the
-  table in `StreamLayout`.
-- [ ] **Demo track copies pile up (Low, S).** Each open of the Music-synced
-  SD Show starter stores another copy of the demo MP3 in the browser's
-  music store.
 
 
 ## 4. Bench and community testing (non-blocking, in parallel)

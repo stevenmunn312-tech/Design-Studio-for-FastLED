@@ -985,6 +985,13 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Live Stream maps a panel layout and a custom XY map the way a flashed
+  sketch does. It had streamed both as one plain matrix, so tiled and
+  custom-wired outputs showed a scrambled picture.
+- The demo track is no longer stored again in the browser each time a show
+  starter is opened. It is read from the app, so a project that holds it also
+  plays it in a browser that never opened the starter. Copies stored by
+  earlier opens are left in place.
 - The built-in Simplex2D show pattern runs at the pace it had before Noise's
   types merged, at every show speed, in the preview and on the board. It had
   run 2.5 times slower.

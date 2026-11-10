@@ -145,10 +145,7 @@ async function scanDemoTrack(wanted: boolean | undefined, generation: number) {
   // Analysed with the generator's own settings, as the library's drop zone does.
   const generator = rootGraphNodes(useGraphStore.getState())
     .find((node) => node.data.nodeType === 'PerformanceGenerator')
-  music.addFiles(
-    [new File([track], DEMO_TRACK_FILE, { type: 'audio/mpeg' })],
-    performanceOptionsFromProperties(generator?.data.properties ?? {}),
-  )
+  music.addDemoTrack(track, performanceOptionsFromProperties(generator?.data.properties ?? {}))
 }
 
 export function startTemplate(template: StarterTemplate, options?: StartFlowOptions) {

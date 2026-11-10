@@ -1,4 +1,5 @@
 import type { SongAnalysis, ShowFile } from '../../types/showFile'
+import { DEMO_TRACK_FILE, fetchDemoTrack } from './demoTrack'
 
 /** JSON-safe half of a Music Library entry. The audio bytes live in
  * IndexedDB: putting multi-megabyte tracks in the project/localStorage JSON
@@ -15,6 +16,12 @@ export interface PersistedMusicEntry {
   edited?: boolean
   error?: string
 }
+
+/** The Music Library entry id of the bundled demo track, in every project
+ * that holds it. Its bytes ship with the app, so they are fetched from there
+ * and never written to IndexedDB: a per-project id stored another copy of the
+ * MP3 each time a show starter was opened. */
+export const DEMO_MUSIC_ENTRY_ID = `demo:${DEMO_TRACK_FILE}`
 
 const DB_NAME = 'design-studio-for-fastled.music.v1'
 const STORE_NAME = 'files'
@@ -84,6 +91,7 @@ function openDatabase(): Promise<IDBDatabase | null> {
 
 export async function saveMusicFile(id: string, file: File): Promise<void> {
   memoryFiles.set(id, file)
+  if (id === DEMO_MUSIC_ENTRY_ID) return
   const db = await openDatabase()
   if (!db) return
   await new Promise<void>((resolve) => {
@@ -99,6 +107,11 @@ export async function saveMusicFile(id: string, file: File): Promise<void> {
 export async function loadMusicFile(id: string): Promise<Blob | null> {
   const cached = memoryFiles.get(id)
   if (cached) return cached
+  if (id === DEMO_MUSIC_ENTRY_ID) {
+    const track = await fetchDemoTrack().catch(() => null)
+    if (track) memoryFiles.set(id, track)
+    return track
+  }
   const db = await openDatabase()
   if (!db) return null
   const result = await new Promise<Blob | null>((resolve) => {

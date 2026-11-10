@@ -8,7 +8,9 @@ import {
   effectiveLocks, locksForEventChanges, normalizeLocks, regenerateKeepingLocks, type ShowLock,
 } from './showLocks'
 import { recordPerfTask } from '../../dev/perfMonitor'
+import { DEMO_TRACK_FILE } from './demoTrack'
 import {
+  DEMO_MUSIC_ENTRY_ID,
   loadMusicFile,
   registerMusicLibraryPersistence,
   saveMusicFile,
@@ -74,7 +76,9 @@ interface MusicState {
 
   /** Adds songs and starts analysing them — there is no second step. */
   addFiles:       (files: File[], options?: Partial<PerformanceOptions>) => void
-  analyzeAll:     (options?: Partial<PerformanceOptions>) => Promise<void>
+  /** Adds the bundled demo track under its one shared id, once per library. */
+  addDemoTrack:   (track: Blob, options?: Partial<PerformanceOptions>) => void
+  analyzeAll:    (options?: Partial<PerformanceOptions>) => Promise<void>
   /** Re-queue every song whose analysis failed. */
   retryFailed:    (options?: Partial<PerformanceOptions>) => Promise<void>
   removeEntry:    (id: string) => void
@@ -114,6 +118,15 @@ function persistedEntries(entries: MusicEntry[]): PersistedMusicEntry[] {
   }))
 }
 
+/** Appends entries, keeps their audio and starts analysing them. */
+function addEntries(newEntries: MusicEntry[], options: Partial<PerformanceOptions>) {
+  useMusicStore.setState(s => ({ entries: [...s.entries, ...newEntries] }))
+  for (const entry of newEntries) void saveMusicFile(entry.id, entry.file)
+  // Dropping a song *is* the request to analyse it, so there is no second
+  // step to remember. A run already in flight picks these up next pass.
+  void useMusicStore.getState().analyzeAll(options)
+}
+
 export const useMusicStore = create<MusicState>((set, get) => ({
   entries: [],
 
@@ -127,11 +140,18 @@ export const useMusicStore = create<MusicState>((set, get) => ({
         show:     null,
         status:   'pending' as const,
       }))
-    set(s => ({ entries: [...s.entries, ...newEntries] }))
-    for (const entry of newEntries) void saveMusicFile(entry.id, entry.file)
-    // Dropping a song *is* the request to analyse it, so there is no second
-    // step to remember. A run already in flight picks these up next pass.
-    void get().analyzeAll(options)
+    addEntries(newEntries, options)
+  },
+
+  addDemoTrack: (track, options = {}) => {
+    if (get().entries.some(e => e.id === DEMO_MUSIC_ENTRY_ID)) return
+    addEntries([{
+      id:       DEMO_MUSIC_ENTRY_ID,
+      file:     new File([track], DEMO_TRACK_FILE, { type: 'audio/mpeg' }),
+      analysis: null,
+      show:     null,
+      status:   'pending',
+    }], options)
   },
 
   analyzeAll: async (options = {}) => {

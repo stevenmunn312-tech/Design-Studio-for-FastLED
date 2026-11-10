@@ -3,6 +3,7 @@ import { starterShowPatterns } from '../../state/patterns/starterShowPatterns'
 import { usePatternLibrary } from '../../state/patterns/patternLibrary'
 import { useMusicStore } from '../../state/player/musicStore'
 import { DEMO_TRACK_FILE } from '../../state/player/demoTrack'
+import { DEMO_MUSIC_ENTRY_ID } from '../../state/player/musicLibraryPersistence'
 import {
   landOnStartingWorkspace,
   openBlankProject,
@@ -154,6 +155,9 @@ describe('startFlow', () => {
       release(mp3())
       await settle()
       expect(demoNames()).toEqual([DEMO_TRACK_FILE])
+      // Under the one id every project shares, so its bytes are not stored
+      // again for each starter opened.
+      expect(useMusicStore.getState().entries[0].id).toBe(DEMO_MUSIC_ENTRY_ID)
     })
 
     it('is not fetched for a starter with no Music Library', async () => {
