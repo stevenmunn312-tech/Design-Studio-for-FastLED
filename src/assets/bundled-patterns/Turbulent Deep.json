@@ -139,7 +139,7 @@
      "nodeType": "TurbulentBloom",
      "category": "pattern",
      "properties": {
-      "energy": 0.85,
+      "reactivity": 0.85,
       "speed": 0.85,
       "palette": "peacock"
      },
@@ -160,7 +160,7 @@
        "dataType": "float"
       },
       {
-       "id": "energy",
+       "id": "reactivity",
        "label": "Energy",
        "dataType": "float"
       },
@@ -196,7 +196,7 @@
      "nodeType": "BassRings",
      "category": "pattern",
      "properties": {
-      "energy": 0.8,
+      "reactivity": 0.8,
       "speed": 0.85,
       "palette": "laguna"
      },
@@ -207,7 +207,7 @@
        "dataType": "float"
       },
       {
-       "id": "energy",
+       "id": "reactivity",
        "label": "Energy",
        "dataType": "float"
       },
@@ -594,7 +594,7 @@
     "source": "feat",
     "sourceHandle": "energy",
     "target": "bloom",
-    "targetHandle": "energy",
+    "targetHandle": "reactivity",
     "type": "glowEdge",
     "reconnectable": "target"
    },
@@ -612,7 +612,7 @@
     "source": "feat",
     "sourceHandle": "energy",
     "target": "rings",
-    "targetHandle": "energy",
+    "targetHandle": "reactivity",
     "type": "glowEdge",
     "reconnectable": "target"
    },

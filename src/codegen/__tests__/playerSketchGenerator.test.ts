@@ -137,33 +137,33 @@ describe('playerSketchGenerator', () => {
       return sketch.slice(start, sketch.indexOf('break;', start))
     }
 
-    const collection = generatePlayerSketch({}, rendering(2, ['energy', 'speed', 'palette']), { transitionIds: [0] })
-    expect(transitionArm(collection)).toMatch(/\bprevEnergy\s+= energy;\s+prevSpeed\s+= speed;\s+prevPalette\s+= palette;/)
-    expect(collection).toContain('    renderPattern(prevPatternId, t, prevEnergy, prevSpeed, prevPalette);')
-    expect(collection).toContain('    renderPattern(patternId, t, energy, speed, palette);')
+    const collection = generatePlayerSketch({}, rendering(2, ['reactivity', 'speed', 'palette']), { transitionIds: [0] })
+    expect(transitionArm(collection)).toMatch(/\bprevReactivity\s+= reactivity;\s+prevSpeed\s+= speed;\s+prevPalette\s+= palette;/)
+    expect(collection).toContain('    renderPattern(prevPatternId, t, prevReactivity, prevSpeed, prevPalette);')
+    expect(collection).toContain('    renderPattern(patternId, t, reactivity, speed, palette);')
     expect(collection).not.toMatch(/renderPattern\((?:prevPatternId|patternId), t\);/)
     // A palette parameter needs the prototype after FastLED.h.
-    const prototype = 'void renderPattern(uint8_t pid, float t, float energy, float speed, const CRGBPalette16& palette);'
+    const prototype = 'void renderPattern(uint8_t pid, float t, float reactivity, float speed, const CRGBPalette16& palette);'
     expect(collection.indexOf(prototype)).toBeGreaterThan(collection.indexOf('#include <FastLED.h>'))
 
     // Built-in show patterns take speed and palette only, so only those are kept.
     const builtin = generatePlayerSketch({}, { ...rendering(2, ['speed', 'palette']), rawSpeed: true }, { transitionIds: [0] })
     expect(builtin).toContain('    renderPattern(prevPatternId, t, prevSpeed, prevPalette);')
-    expect(builtin).not.toContain('prevEnergy')
+    expect(builtin).not.toContain('prevReactivity')
 
     // One pattern is called directly, with the same values.
-    const single = generatePlayerSketch({}, rendering(1, ['energy', 'speed', 'palette']), { transitionIds: [0] })
-    expect(single).toContain('    render_p0((uint32_t)(t * 1000.0f), prevEnergy, prevSpeed, prevPalette);')
+    const single = generatePlayerSketch({}, rendering(1, ['reactivity', 'speed', 'palette']), { transitionIds: [0] })
+    expect(single).toContain('    render_p0((uint32_t)(t * 1000.0f), prevReactivity, prevSpeed, prevPalette);')
     expect(single).not.toContain('renderPattern')
 
     // Nothing to keep without a transition, without role values, or in a Music
     // Player, whose role values no show event changes.
     for (const sketch of [
-      generatePlayerSketch({}, rendering(2, ['energy', 'speed', 'palette']), { transitionIds: [] }),
+      generatePlayerSketch({}, rendering(2, ['reactivity', 'speed', 'palette']), { transitionIds: [] }),
       generatePlayerSketch({}, rendering(2, []), { transitionIds: [0] }),
-      generatePlayerSketch({}, rendering(2, ['energy', 'speed', 'palette']), { genericPlayer: true }),
+      generatePlayerSketch({}, rendering(2, ['reactivity', 'speed', 'palette']), { genericPlayer: true }),
     ]) {
-      expect(sketch).not.toMatch(/prev(?:Energy|Speed|Palette)/)
+      expect(sketch).not.toMatch(/prev(?:Reactivity|Speed|Palette)/)
       expect(sketch).toContain('renderPattern(patternId, t);')
     }
   })

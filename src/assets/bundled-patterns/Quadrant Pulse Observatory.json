@@ -376,7 +376,7 @@
           "nodeType": "KickShock",
           "category": "pattern",
           "properties": {
-            "energy": 0.86,
+            "reactivity": 0.86,
             "speed": 0.78,
             "palette": "volcano",
             "count": 10,
@@ -402,7 +402,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -487,7 +487,7 @@
           "nodeType": "VocalAurora",
           "category": "pattern",
           "properties": {
-            "energy": 0.78,
+            "reactivity": 0.78,
             "speed": 0.56,
             "palette": "aurora"
           },
@@ -498,7 +498,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -837,7 +837,7 @@
         "source": "features",
         "sourceHandle": "energy",
         "target": "shock",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -864,7 +864,7 @@
         "source": "features",
         "sourceHandle": "energy",
         "target": "aurora",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target"
       },

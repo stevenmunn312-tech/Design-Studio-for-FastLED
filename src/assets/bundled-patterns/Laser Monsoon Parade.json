@@ -216,7 +216,7 @@
           "nodeType": "TreblePrism",
           "category": "pattern",
           "properties": {
-            "energy": 0.9,
+            "reactivity": 0.9,
             "speed": 0.92,
             "r": 200,
             "g": 120,
@@ -229,7 +229,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -609,7 +609,7 @@
         "source": "smooth-p9-fft-bass",
         "sourceHandle": "result",
         "target": "p9-prism",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target"
       },

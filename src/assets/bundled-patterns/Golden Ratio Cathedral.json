@@ -748,7 +748,7 @@
      "nodeType": "TreblePrism",
      "category": "pattern",
      "properties": {
-      "energy": 0.6,
+      "reactivity": 0.6,
       "speed": 0.8,
       "palette": "opal"
      },
@@ -759,7 +759,7 @@
        "dataType": "float"
       },
       {
-       "id": "energy",
+       "id": "reactivity",
        "label": "Energy",
        "dataType": "float"
       },

@@ -156,7 +156,7 @@
           "nodeType": "VocalAurora",
           "category": "pattern",
           "properties": {
-            "energy": 0.75,
+            "reactivity": 0.75,
             "speed": 0.8,
             "palette": "aurora"
           },
@@ -167,7 +167,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -461,7 +461,7 @@
         "source": "feat",
         "sourceHandle": "energy",
         "target": "aurora",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {

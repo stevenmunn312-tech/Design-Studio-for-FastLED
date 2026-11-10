@@ -78,6 +78,16 @@ the format/support freeze after the control and display workflow stabilizes.
   manual timeline edits to that show. The baked-spectrum SD player sketch
   compiled for `esp32:esp32:esp32s3` on arduino-cli (1,162,643 B flash,
   49,164 B RAM).
+- 2026-11-10: renamed the audio-reactive patterns' `energy` property and input
+  port to `reactivity`, with no migration, so a wire from Audio Features'
+  Energy (or Loudness) into it is a deliberate choice rather than a matching
+  name. The group-input role the show engines feed by name followed: V1
+  roles are `reactivity`, `speed` and `palette`, and an undriven
+  `reactivity` follows the mean audio band. A saved pattern that still says
+  `energy` keeps its slider value only as an unread property and loses its
+  wire. The show file's `SET_ENERGY` command keeps its name: it carries the
+  song section's energy, which now drives the `reactivity` role. Bundled
+  patterns, the promoted saved graphs and the Help examples were converted.
 
 ## Version scheme
 

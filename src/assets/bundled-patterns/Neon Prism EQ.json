@@ -211,7 +211,7 @@
           "nodeType": "TreblePrism",
           "category": "pattern",
           "properties": {
-            "energy": 0.7,
+            "reactivity": 0.7,
             "speed": 1,
             "palette": "synthwave"
           },
@@ -222,7 +222,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -411,7 +411,7 @@
         "source": "feat",
         "sourceHandle": "energy",
         "target": "prism",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {

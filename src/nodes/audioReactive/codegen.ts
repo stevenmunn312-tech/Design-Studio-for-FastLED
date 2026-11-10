@@ -45,7 +45,7 @@ function threeBandCpp({ node, id, p, ln, f, ownBuf, incoming, paletteExpr, needs
     if (incoming.has(`${node.id}:${port}`)) return f(port, port, 0)
     return `_svTB_${id}[${i}]`
   }
-  const energy = f('energy', 'energy', 0.7)
+  const energy = f('reactivity', 'reactivity', 0.7)
   const speed = f('speed', 'speed', 0.6)
   const pal = paletteExpr(node.id, 'paletteIn', p)
   const mirror = p.mirror !== false
@@ -235,7 +235,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const bass = f('bass', 'bass', 0.5)
-    const energy = f('energy', 'energy', 0.7)
+    const energy = f('reactivity', 'reactivity', 0.7)
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
@@ -263,7 +263,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const mids = f('mids', 'mids', 0.5)
-    const energy = f('energy', 'energy', 0.7)
+    const energy = f('reactivity', 'reactivity', 0.7)
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
@@ -285,7 +285,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const mids = f('mids', 'mids', 0.5)
-    const energy = f('energy', 'energy', 0.7)
+    const energy = f('reactivity', 'reactivity', 0.7)
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
@@ -334,7 +334,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const treble = f('treble', 'treble', 0.5)
-    const energy = f('energy', 'energy', 0.7)
+    const energy = f('reactivity', 'reactivity', 0.7)
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
@@ -359,7 +359,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const bass = f('bass', 'bass', 0.5)
     const mids = f('mids', 'mids', 0.5)
     const treble = f('treble', 'treble', 0.5)
-    const energy = f('energy', 'energy', 0.7)
+    const energy = f('reactivity', 'reactivity', 0.7)
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
@@ -487,7 +487,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const kick = f('kick', 'kick', 0)
     const snare = f('snare', 'snare', 0)
     const hihat = f('hihat', 'hihat', 0)
-    const energy = f('energy', 'energy', 0.7)
+    const energy = f('reactivity', 'reactivity', 0.7)
     const speed = f('speed', 'speed', 1)
     const tiles = f('tiles', 'tiles', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -539,7 +539,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const vocals = f('vocals', 'vocals', 0)
-    const energy = f('energy', 'energy', 0.7)
+    const energy = f('reactivity', 'reactivity', 0.7)
     const silence = boolExpr(node.id, 'silence')
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -572,7 +572,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const ob = ownBuf()
     const beat = boolExpr(node.id, 'beat')
     const hue = f('hue', 'hue', 0)
-    const energy = f('energy', 'energy', 0.7)
+    const energy = f('reactivity', 'reactivity', 0.7)
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { // BeatKaleidoscope`)
@@ -606,7 +606,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const bass = f('bass', 'bass', 0.5)
     const mids = f('mids', 'mids', 0.5)
     const treble = f('treble', 'treble', 0.5)
-    const energy = f('energy', 'energy', 0.7)
+    const energy = f('reactivity', 'reactivity', 0.7)
     const speed = f('speed', 'speed', 1)
     const tiles = f('tiles', 'tiles', 4)
     const pal = paletteExpr(node.id, 'paletteIn', p)
@@ -693,7 +693,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const mids = f('mids', 'mids', 0.5)
     const treble = f('treble', 'treble', 0.5)
     const beat = boolExpr(node.id, 'beat')
-    const energy = f('energy', 'energy', 0.7)
+    const energy = f('reactivity', 'reactivity', 0.7)
     const speed = f('speed', 'speed', 1)
     ln(`  { // EmberPulse`)
     // A rising beat edge adds a burst; it keeps 0.9 every 60th of a second.
@@ -717,7 +717,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const bass = f('bass', 'bass', 0.5)
     const mids = f('mids', 'mids', 0.5)
     const treble = f('treble', 'treble', 0.5)
-    const energy = f('energy', 'energy', 0.7)
+    const energy = f('reactivity', 'reactivity', 0.7)
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { // TurbulentBloom`)
@@ -742,7 +742,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const bass = f('bass', 'bass', 0.5)
-    const energy = f('energy', 'energy', 0.7)
+    const energy = f('reactivity', 'reactivity', 0.7)
     const speed = f('speed', 'speed', 1)
     const colorE = channelColor('color', 80, 160, 255)
     ln(`  { // GravityWell`)
@@ -769,7 +769,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     needsT.v = true
     const ob = ownBuf()
     const trigger = boolExpr(node.id, 'trigger')
-    const energy = f('energy', 'energy', 0.7)
+    const energy = f('reactivity', 'reactivity', 0.7)
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     /*
@@ -818,7 +818,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const treble = f('treble', 'treble', 0.5)
     const mids = f('mids', 'mids', 0.5)
     const hihat = f('hihat', 'hihat', 0)
-    const energy = f('energy', 'energy', 0.7)
+    const energy = f('reactivity', 'reactivity', 0.7)
     const speed = f('speed', 'speed', 1)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  { // PrismStorm`)

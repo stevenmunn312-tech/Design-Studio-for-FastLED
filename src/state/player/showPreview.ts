@@ -27,7 +27,7 @@ export interface ShowState {
   patternIndex: number
   palette: string
   speed: number
-  energy: number       // 0–1 section energy — drives the `energy` group-input role
+  energy: number       // 0–1 section energy (SET_ENERGY) — drives the `reactivity` group-input role
   brightness: number   // 0–255
   /** Named inputs sampled with the same ramp rule as the roles. */
   params: Record<string, number>
@@ -78,7 +78,7 @@ function buildShowIndex(show: ShowFile): ShowEventIndex {
         // A slot named for a role is that role's channel, as in the sketch.
         const name = show.params?.[Number(ev.params.index)]
         if (name === 'speed') st = { ...st, speed: Number(ev.params.value) }
-        else if (name === 'energy') st = { ...st, energy: Number(ev.params.value) }
+        else if (name === 'reactivity') st = { ...st, energy: Number(ev.params.value) }
         break
       }
       case 'TRANSITION':     transitions.push(ev); break
@@ -124,10 +124,10 @@ export function showStateAt(show: ShowFile, timeMs: number): ShowState {
   const speed = blankRampChannel(DEFAULT_SHOW_STATE.speed)
   const energy = blankRampChannel(DEFAULT_SHOW_STATE.energy)
   const brightness = blankRampChannel(DEFAULT_SHOW_STATE.brightness)
-  // A slot named `speed` or `energy` drives that role's channel, so SET_PARAM
+  // A slot named `speed` or `reactivity` drives that role's channel, so SET_PARAM
   // and SET_SPEED on it agree and the role scaling below applies to both.
   const channels: Record<string, RampChannel> = {}
-  for (const name of names) if (name !== 'speed' && name !== 'energy') channels[name] = blankRampChannel(0)
+  for (const name of names) if (name !== 'speed' && name !== 'reactivity') channels[name] = blankRampChannel(0)
   for (const event of show.events) {
     if (event.t > timeMs) break
     switch (event.cmd) {
@@ -149,7 +149,7 @@ export function showStateAt(show: ShowFile, timeMs: number): ShowState {
         break
       case 'SET_PARAM': {
         const name = names[Number(event.params.index)]
-        const channel = name === 'speed' ? speed : name === 'energy' ? energy : name ? channels[name] : undefined
+        const channel = name === 'speed' ? speed : name === 'reactivity' ? energy : name ? channels[name] : undefined
         if (channel) applyRamp(channel, event.t, Number(event.params.value), rampMsOf(event))
         break
       }
@@ -308,10 +308,10 @@ function renderStateFrame(
 ): Frame {
   const groupId = stateGroupId(show, st)
   const palette = isStudioPalette(st.palette) ? st.palette : 'rainbow'
-  // Without the show driving it, the `energy` role follows the baked envelope's
-  // mean band level, matching showGenerator's ENERGY_FROM_AUDIO.
+  // Without the show driving it, the `reactivity` role follows the baked envelope's
+  // mean band level, matching showGenerator's REACTIVITY_FROM_AUDIO.
   const audioInputs: Record<string, PortValue> = audioOverride
-    ? { energy: (audioOverride.micBass + audioOverride.micMids + audioOverride.micTreble) / 3 }
+    ? { reactivity: (audioOverride.micBass + audioOverride.micMids + audioOverride.micTreble) / 3 }
     : {}
   // SET_SPEED is a 0–2 multiplier; the `speed` role wants 0–1, so normalise it
   // (matched by the firmware player's CMD_SET_SPEED → speed normalisation). The
@@ -321,7 +321,7 @@ function renderStateFrame(
   const groupInputs: Record<string, PortValue> = {
     ...audioInputs,
     ...namedInputs,
-    ...(useGroupInputs ? { energy: st.energy, speed: Math.min(1, st.speed / 2), palette } : {}),
+    ...(useGroupInputs ? { reactivity: st.energy, speed: Math.min(1, st.speed / 2), palette } : {}),
   }
   return groupId
     ? renderGroupFrame(groupId, timeMs, W, H, groups, groupInputs, audioOverride, trusted)
@@ -367,7 +367,7 @@ function particleOverlayAt(show: ShowFile, timeMs: number, W: number, H: number)
 /** Render the show's LED frame at a playback position (ms). `groups` is the live
  *  group registry (collection shows). When `useGroupInputs` is on, the section
  *  energy, (normalised) speed, and palette are fed to the patterns'
- *  `energy`/`speed`/`palette` group-input roles. `trusted` mirrors the active
+ *  `reactivity`/`speed`/`palette` group-input roles. `trusted` mirrors the active
  *  workspace trust boundary: untrusted collection patterns may render ordinary
  *  nodes, but their Formula and Code preview logic remains disabled. */
 export function renderShowFrame(

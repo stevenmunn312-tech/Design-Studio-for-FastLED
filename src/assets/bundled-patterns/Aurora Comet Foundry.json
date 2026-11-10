@@ -286,7 +286,7 @@
           "nodeType": "BassRings",
           "category": "pattern",
           "properties": {
-            "energy": 0.74,
+            "reactivity": 0.74,
             "speed": 0.74,
             "r": 100,
             "g": 200,
@@ -299,7 +299,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -668,7 +668,7 @@
         "source": "smooth-p5-fft-mids",
         "sourceHandle": "result",
         "target": "p5-particles",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target"
       },

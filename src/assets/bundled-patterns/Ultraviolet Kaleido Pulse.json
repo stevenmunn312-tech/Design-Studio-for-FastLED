@@ -338,7 +338,7 @@
           "category": "pattern",
           "properties": {
             "hue": 0,
-            "energy": 0.75,
+            "reactivity": 0.75,
             "speed": 1,
             "palette": "ultraviolet"
           },
@@ -354,7 +354,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -719,7 +719,7 @@
         "source": "feat",
         "sourceHandle": "energy",
         "target": "bk",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {

@@ -303,7 +303,7 @@
             "peakGravity": 1.8,
             "waterfallSpeed": 10,
             "palette": "rainbow",
-            "energy": 0.86,
+            "reactivity": 0.86,
             "speed": 0.7,
             "mirror": true
           },
@@ -364,7 +364,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Reactivity",
               "dataType": "float"
             },
@@ -399,7 +399,7 @@
           "nodeType": "TreblePrism",
           "category": "pattern",
           "properties": {
-            "energy": 0.94,
+            "reactivity": 0.94,
             "speed": 0.86,
             "r": 120,
             "g": 220,
@@ -412,7 +412,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -747,7 +747,7 @@
         "source": "smooth-a-fft-bass",
         "sourceHandle": "result",
         "target": "a-bars",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -783,7 +783,7 @@
         "source": "smooth-a-fft-bass",
         "sourceHandle": "result",
         "target": "a-prism",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target"
       },

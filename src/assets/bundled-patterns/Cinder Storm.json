@@ -292,7 +292,7 @@
           "nodeType": "EmberPulse",
           "category": "pattern",
           "properties": {
-            "energy": 0.8,
+            "reactivity": 0.8,
             "speed": 1
           },
           "inputs": [
@@ -317,7 +317,7 @@
               "dataType": "bool"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -602,7 +602,7 @@
         "source": "feat",
         "sourceHandle": "energy",
         "target": "ember",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {

@@ -292,7 +292,7 @@
      "category": "pattern",
      "properties": {
       "hue": 0,
-      "energy": 0.7,
+      "reactivity": 0.7,
       "speed": 0.9,
       "palette": "ultraviolet"
      },
@@ -308,7 +308,7 @@
        "dataType": "float"
       },
       {
-       "id": "energy",
+       "id": "reactivity",
        "label": "Energy",
        "dataType": "float"
       },
@@ -800,7 +800,7 @@
     "source": "drive",
     "sourceHandle": "result",
     "target": "kal",
-    "targetHandle": "energy",
+    "targetHandle": "reactivity",
     "type": "glowEdge",
     "reconnectable": "target"
    }

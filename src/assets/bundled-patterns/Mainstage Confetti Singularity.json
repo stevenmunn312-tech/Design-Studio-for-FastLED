@@ -268,7 +268,7 @@
           "nodeType": "AudioCascade",
           "category": "pattern",
           "properties": {
-            "energy": 0.8,
+            "reactivity": 0.8,
             "speed": 0.72,
             "palette": "rainbow"
           },
@@ -289,7 +289,7 @@
               "dataType": "float"
             },
             {
-              "id": "energy",
+              "id": "reactivity",
               "label": "Energy",
               "dataType": "float"
             },
@@ -695,7 +695,7 @@
         "source": "smooth-p10-fft-bass",
         "sourceHandle": "result",
         "target": "p10-cascade",
-        "targetHandle": "energy",
+        "targetHandle": "reactivity",
         "type": "glowEdge",
         "reconnectable": "target"
       },

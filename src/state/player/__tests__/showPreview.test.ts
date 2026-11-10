@@ -40,11 +40,11 @@ describe('showStateAt', () => {
     expect(showStateAt(show, 1500).brightness).toBe(0)
   })
 
-  it('routes a SET_PARAM slot named speed or energy to that role channel', () => {
+  it('routes a SET_PARAM slot named speed or reactivity to that role channel', () => {
     // The sketch scales a `speed` slot like SET_SPEED; the preview does the
     // same by reading it as the speed channel, which the role mapping halves.
     const named: ShowFile = {
-      ...show, params: ['speed', 'gain', 'energy'],
+      ...show, params: ['speed', 'gain', 'reactivity'],
       events: [
         { t: 0, cmd: 'SET_PARAM', params: { index: 0, value: 2 } },
         { t: 0, cmd: 'SET_PARAM', params: { index: 1, value: 0.25 } },
@@ -153,16 +153,16 @@ describe('renderShowFrame', () => {
     expect(untrusted.flat().every((px) => px.r + px.g + px.b === 0)).toBe(true)
   })
 
-  it('feeds section energy to the energy group-input role only when enabled', () => {
+  it('feeds section energy to the reactivity group-input role only when enabled', () => {
     const mk = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: unknown[] = [], outputs: unknown[] = []) =>
       ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'pattern', properties, inputs, outputs } })
     // A group whose white frame is dimmed by a BrightnessMod driven by the
-    // `energy` GroupInput, so a lower energy → a darker frame (when enabled).
+    // `reactivity` GroupInput, so a lower energy → a darker frame (when enabled).
     const groups = {
       g1: {
         nodes: [
           mk('white', 'SolidColor', { r: 255, g: 255, b: 255 }, [], [{ id: 'frame', dataType: 'frame' }]),
-          mk('gi', 'GroupInput', { paramId: 'energy' }, [], [{ id: 'out', dataType: 'float' }]),
+          mk('gi', 'GroupInput', { paramId: 'reactivity' }, [], [{ id: 'out', dataType: 'float' }]),
           mk('bm', 'BrightnessMod', {}, [{ id: 'frame', dataType: 'frame' }, { id: 'brightness', dataType: 'float' }], [{ id: 'frame', dataType: 'frame' }]),
           mk('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
         ],
@@ -298,10 +298,10 @@ describe('renderShowFrame', () => {
     expect(sum(quiet)).toBe(0)                     // silent bass → dark
   })
 
-  it('drives an undriven energy role from baked audio and binds no retired band names', () => {
+  it('drives an undriven reactivity role from baked audio and binds no retired band names', () => {
     const mk = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: unknown[] = [], outputs: unknown[] = []) =>
       ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'pattern', properties, inputs, outputs } })
-    const makeGroup = (role: 'energy' | 'bass', dataType: 'float') => ({
+    const makeGroup = (role: 'reactivity' | 'bass', dataType: 'float') => ({
       nodes: [
         mk('white', 'SolidColor', { r: 255, g: 255, b: 255 }, [], [{ id: 'frame', dataType: 'frame' }]),
         mk('gi', 'GroupInput', { paramId: role }, [], [{ id: 'out', dataType }]),
@@ -314,7 +314,7 @@ describe('renderShowFrame', () => {
         { id: 'e3', source: 'bm', sourceHandle: 'frame', target: 'go', targetHandle: 'frame' },
       ],
     })
-    const groups = { energy: makeGroup('energy', 'float'), bass: makeGroup('bass', 'float') } as unknown as Parameters<typeof renderShowFrame>[4]
+    const groups = { reactivity: makeGroup('reactivity', 'float'), bass: makeGroup('bass', 'float') } as unknown as Parameters<typeof renderShowFrame>[4]
     const showFor = (pattern: string, bass: number): ShowFile => ({
       version: 2, songTitle: 'Roles', durationMs: 1000, bpm: 120, patternSet: [pattern],
       audio: { version: 3, rateHz: 10, bass: [bass], mids: [0], treble: [0], leftLevel: [0], rightLevel: [0], channelCount: 1, spectrum: '' },
@@ -325,8 +325,8 @@ describe('renderShowFrame', () => {
     })
     const sum = (f: ReturnType<typeof renderShowFrame>) => f.flat().reduce((a, px) => a + px.r + px.g + px.b, 0)
 
-    expect(sum(renderShowFrame(showFor('energy', 1), 0, 4, 4, groups))).toBeGreaterThan(0)
-    expect(sum(renderShowFrame(showFor('energy', 0), 0, 4, 4, groups))).toBe(0)
+    expect(sum(renderShowFrame(showFor('reactivity', 1), 0, 4, 4, groups))).toBeGreaterThan(0)
+    expect(sum(renderShowFrame(showFor('reactivity', 0), 0, 4, 4, groups))).toBe(0)
     // A retired band name is an ordinary unbound input: the audio does not move it.
     expect(sum(renderShowFrame(showFor('bass', 1), 0, 4, 4, groups)))
       .toBe(sum(renderShowFrame(showFor('bass', 0), 0, 4, 4, groups)))
@@ -462,8 +462,8 @@ describe('renderShowFrame', () => {
     const collection = callsAt({ version: 2, songTitle: 'C', durationMs: 4000, bpm: 120, patternSet: ['a', 'b'], events: boundary({ index: 0 }, { index: 1 }) }, 1500)
       .map((call) => call[8])
     expect(collection).toEqual([
-      { energy: 0.2, speed: 0.25, palette: 'ocean' },
-      { energy: 0.9, speed: 0.75, palette: 'forest' },
+      { reactivity: 0.2, speed: 0.25, palette: 'ocean' },
+      { reactivity: 0.9, speed: 0.75, palette: 'forest' },
     ])
   })
 

@@ -582,8 +582,9 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   separation: { control: 'slider', min: 0, max: 1, step: 0.01 },
   gate:       { control: 'slider', min: 0, max: 1, step: 0.01 },
   density:    { control: 'slider', min: 0, max: 1, step: 0.01 },
-  // Audio-reactivity amount on the spectral pattern nodes (was `intensity`).
-  energy:     { control: 'slider', min: 0, max: 1, step: 0.01 },
+  // How strongly the audio moves an audio-reactive pattern (was `intensity`,
+  // then `energy`, which read as Audio Features' Energy output).
+  reactivity: { control: 'slider', min: 0, max: 1, step: 0.01 },
   brightness: { control: 'slider', min: 0, max: 1, step: 0.01 },
   boost:      { control: 'slider', min: 0, max: 1, step: 0.01 },
   // Beat Flash overdrive — 1 = the pre-existing flash brightness, up to 2x hotter.
@@ -1863,7 +1864,7 @@ export function propertyOptions(
 export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   seed: '0 runs free (Math.random each time); any other value reproduces the exact same result on every run.',
   clampInputs: "Clamps a wired float input to this node's slider range, so an unbounded upstream signal can't exceed it.",
-  energy: 'How strongly the audio changes the picture: 0 = calm base motion, 1 = fully reactive.',
+  reactivity: 'How strongly the audio changes the picture: 0 = calm base motion, 1 = fully reactive.',
   timezoneOffsetMinutes: 'Fixed local offset from UTC for NTP-synced firmware time. Preview still reads the browser clock.',
   dmxPort: 'ESP32 UART used by esp_dmx for DMX512 receive.',
   requireSync: 'Keeps the schedule inactive until the upstream Clock reports a real NTP sync.',
@@ -3246,7 +3247,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     minTime: 'Minimum seconds a pattern stays before the show may switch on a beat.',
     paletteMode: 'Mood picks a palette per song section, Cycle rotates palettes, Fixed keeps one palette.',
     fixedPalette: 'The palette used for the whole show when Palette Mode is Fixed.',
-    useGroupInputs: 'Feed each pattern\'s energy, speed and palette inputs from the music so patterns follow the song. Any other Group Input with a plain name gets its own lane in Edit lanes.',
+    useGroupInputs: 'Feed each pattern\'s reactivity, speed and palette inputs from the music so patterns follow the song. Any other Group Input with a plain name gets its own lane in Edit lanes.',
     showInMainPreview: 'Also draw the running show in the main preview. Off keeps the main preview on the graph while the body plays.',
   },
   SDCard: {
@@ -3445,15 +3446,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
 export function propertyDescription(nodeType: string, key: string): string | undefined {
   return PROPERTY_DESCRIPTIONS_OVERRIDES[nodeType]?.[key] ?? PROPERTY_DESCRIPTIONS[key]
 }
-
-/*
- * On an audio-reactive pattern `energy` is how strongly the audio moves the
- * picture, not a loudness level like Audio Features' Energy output, so it is
- * shown as reactivity. Every pattern that carries the property reads it so.
- */
-const REACTIVITY_LABELS = Object.fromEntries(AUDIO_REACTIVE_DEFINITIONS
-  .filter((definition) => definition.defaultProperties?.energy !== undefined)
-  .map((definition) => [definition.type, { energy: 'reactivity' }]))
 
 /** The two colour triples of a gradient or blend node, named by channel and end. */
 const COLOR_PAIR_LABELS: Record<string, string> = {
@@ -4085,9 +4077,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
 }
 
 /** Per-node overrides for a property's displayed label (defaults to the raw key). */
-export const PROPERTY_LABELS: Record<string, Record<string, string>> = Object.fromEntries(
-  [...new Set([...Object.keys(REACTIVITY_LABELS), ...Object.keys(EXPLICIT_PROPERTY_LABELS)])]
-    .map((type) => [type, { ...REACTIVITY_LABELS[type], ...EXPLICIT_PROPERTY_LABELS[type] }]))
+export const PROPERTY_LABELS: Record<string, Record<string, string>> = EXPLICIT_PROPERTY_LABELS
 
 /**
  * Display text for a node's property row (StudioNode's inline editors).
@@ -4359,7 +4349,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'response', label: 'Response', keys: ['gain', 'smoothing', 'tilt'] },
     { key: 'peaks', label: 'Peak Dots', keys: ['peakHold', 'peakGravity'] },
     { key: 'waterfall', label: 'Waterfall', keys: ['waterfallSpeed'] },
-    { key: 'threeBand', label: 'Three Band', keys: ['energy', 'speed', 'mirror'] },
+    { key: 'threeBand', label: 'Three Band', keys: ['reactivity', 'speed', 'mirror'] },
   ],
   ClockDisplay: [
     { key: 'display', label: 'Display', keys: ['displayMode', 'units', 'x', 'y', 'hAlign', 'vAlign', 'radius', 'scaleWithMatrix'] },
@@ -4527,7 +4517,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   KickShock: [
     { key: 'drums', label: 'Drums', keys: ['kick', 'snare', 'hihat'] },
-    { key: 'motion', label: 'Motion', keys: ['energy', 'speed'] },
+    { key: 'motion', label: 'Motion', keys: ['reactivity', 'speed'] },
     { key: 'rings', label: 'Rings', keys: ['count', 'decay', 'thickness', 'spawnSpread', 'tiles'] },
     { key: 'color', label: 'Color', keys: ['palette', 'blendMode'] },
   ],
@@ -4537,13 +4527,13 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'color', label: 'Color', keys: ['palette', 'blendMode'] },
   ],
   RainRipples: [
-    { key: 'motion', label: 'Motion', keys: ['energy', 'speed'] },
+    { key: 'motion', label: 'Motion', keys: ['reactivity', 'speed'] },
     { key: 'ripples', label: 'Ripples', keys: ['count', 'decay', 'thickness', 'spawnSpread'] },
     { key: 'color', label: 'Color', keys: ['palette', 'blendMode'] },
   ],
   SpectraMosaic: [
     { key: 'audio', label: 'Audio', keys: ['bass', 'mids', 'treble'] },
-    { key: 'motion', label: 'Motion', keys: ['energy', 'speed', 'tiles'] },
+    { key: 'motion', label: 'Motion', keys: ['reactivity', 'speed', 'tiles'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   FormatNumber: [
@@ -5510,7 +5500,7 @@ export function isPropertyEnabled(
     if (key === 'peakHold' || key === 'peakGravity') return style !== 'Waterfall' && !threeBand
     // Three Band eases its unwired bands with Smoothing; it has no Tilt.
     if (key === 'tilt') return !threeBand
-    if (key === 'energy' || key === 'speed' || key === 'mirror') return threeBand
+    if (key === 'reactivity' || key === 'speed' || key === 'mirror') return threeBand
   }
   if (nodeType === 'FrameWarp' && key === 'motionSpeed') return String(properties.motion ?? 'swirl') !== 'none'
   if (nodeType === 'FrameFeedback') {

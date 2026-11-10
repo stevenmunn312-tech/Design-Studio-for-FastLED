@@ -137,17 +137,6 @@ module (no fixture yet).
 
 #### Audio and audio-reactive
 
-- [ ] **Category: Rename the `energy` property and port to `reactivity`
-  (Med, M).** Every audio pattern relabels `energy` as "reactivity"
-  (`src/state/nodeLibrary.ts:3301`), so the stored id matches Audio
-  Features' peak-relative Energy output and invites Energy → Reactivity
-  wiring (about 20 bundled-pattern edges and the Vocal Aurora help example
-  do this). Rename the id and port (pre-1.0, so no migration needed) so
-  choosing Energy or Loudness becomes a deliberate wire. Left open: the
-  fourteen promoted saved graphs (`bundledSavedAudioPatterns.ts`) must stay
-  byte for byte, and several carry `energy` properties and edges, so a
-  rename needs a decision on how their copies are converted; the show
-  engines' `useGroupInputs` also feed a pattern's `energy` input by name.
 - [ ] **Category: Remap Speed so the current look sits mid-slider (Med, M).**
   BassRings, MidrangeWaves, MidrangeBloom, TreblePrism, AudioCascade,
   KickShock, VocalAurora, BeatKaleidoscope, SpectraMosaic, EmberPulse,

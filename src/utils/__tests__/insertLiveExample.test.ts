@@ -158,7 +158,7 @@ const audioFeaturesExample: LiveExampleSpec = {
   edges: [
     { source: 'mic', sourceHandle: 'audio', target: 'features', targetHandle: 'audio' },
     { source: 'features', sourceHandle: 'vocals', target: 'aurora', targetHandle: 'vocals' },
-    { source: 'features', sourceHandle: 'energy', target: 'aurora', targetHandle: 'energy' },
+    { source: 'features', sourceHandle: 'energy', target: 'aurora', targetHandle: 'reactivity' },
     { source: 'features', sourceHandle: 'silence', target: 'aurora', targetHandle: 'silence' },
     { source: 'aurora', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
   ],
@@ -352,14 +352,14 @@ describe('insertLiveExample', () => {
     expect(edgePaths(state.edges)).toEqual(expect.arrayContaining(['kick->kick', 'snare->snare', 'hihat->hihat']))
   })
 
-  it('adds the Audio Features example with vocals, energy, and silence routed to Vocal Aurora', () => {
+  it('adds the Audio Features example with vocals, energy into reactivity, and silence routed to Vocal Aurora', () => {
     const result = insertLiveExample(audioFeaturesExample, { x: 1000, y: 500 })
     const state = useGraphStore.getState()
 
     expect(state.nodes).toHaveLength(4)
     expect(state.edges).toHaveLength(5)
     expect(result.skippedConnections).toEqual([])
-    expect(edgePaths(state.edges)).toEqual(expect.arrayContaining(['vocals->vocals', 'energy->energy', 'silence->silence']))
+    expect(edgePaths(state.edges)).toEqual(expect.arrayContaining(['vocals->vocals', 'energy->reactivity', 'silence->silence']))
   })
 
   it('adds the Audio to Hue example with FFT bands converted through HSV to RGB', () => {
