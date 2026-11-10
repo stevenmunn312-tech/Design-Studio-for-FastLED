@@ -124,16 +124,6 @@ module (no fixture yet).
   retargeting, board links, templates, the deck) and 59 test files. The bench
   now adds a Button Bank with its first row on a pin
   (`firstButtonBankRow`), which the merged Button would reuse.
-- [ ] **RTC Clock: Handle daylight saving time (Med, M).** NTP time is UTC
-  plus a fixed minute offset, so clocks and Schedule Triggers are an hour off
-  for half the year in DST regions. Offer a region/time-zone picker that
-  emits a POSIX TZ string (`configTzTime` on ESP32). Evidence
-  `src/state/peripherals/rtc.ts`, `src/codegen/peripherals/rtcInputCpp.ts`.
-  Still open. The shape: a curated zone list mapping labels to POSIX strings;
-  a pure POSIX-rule evaluator for the preview (`Mm.w.d/time` rules) held to
-  `Intl` in tests; `configTzTime` on ESP32 and `configTime(tz, server)` on
-  ESP8266 in the `FLS_NET_SNTP` branch; and a generated rule function for the
-  UNO R4 WiFi branch, which runs its own SNTP and applies the offset itself.
 
 #### Audio and audio-reactive
 

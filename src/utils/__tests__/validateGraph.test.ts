@@ -2495,6 +2495,26 @@ describe('a wired network stands in for the radio', () => {
   })
 })
 
+describe('an NTP Clock\'s time zone', () => {
+  const clock = (id: string, timeZone: string) => node(id, 'RTCInput', { timeSource: 'NTP', ntpServer: 'pool.ntp.org', timeZone })
+  const shared = (warnings: string[]) => warnings.some((warning) => warning.includes('share one time zone'))
+
+  it('warns about a zone this version cannot read', () => {
+    const { warnings } = validateGraph([clock('rtc', 'Mars/Olympus_Mons')], [])
+    expect(warnings.some((warning) => warning.includes('time zone this version does not know'))).toBe(true)
+    expect(validateGraph([clock('rtc', 'UTC+05:45')], []).warnings.join('\n')).not.toContain('time zone')
+  })
+
+  it('warns when an ESP board\'s clocks name different zones, which its one TZ cannot hold', () => {
+    const esp = node('board', 'Board', { profileId: 'esp32-generic-devkit-38pin' })
+    expect(shared(validateGraph([esp, clock('a', 'Europe/London'), clock('b', 'Europe/Paris')], []).warnings)).toBe(true)
+    expect(shared(validateGraph([esp, clock('a', 'Europe/London'), clock('b', 'Europe/London')], []).warnings)).toBe(false)
+    // The UNO R4 WiFi applies each clock's rule itself.
+    const r4 = node('board', 'Board', { profileId: 'arduino-uno-r4-wifi' })
+    expect(shared(validateGraph([r4, clock('a', 'Europe/London'), clock('b', 'Europe/Paris')], []).warnings)).toBe(false)
+  })
+})
+
 describe('a sketch holds at most 255 patterns', () => {
   const ids = (count: number) => Array.from({ length: count }, (_, index) => `p${index}`)
   const show = (count: number) => {

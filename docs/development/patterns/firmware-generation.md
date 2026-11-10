@@ -347,6 +347,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   returns a FastLED type the `.ino` prototype hoist would move above the
   include. See [Web Remote](../../design/web-remote.md).
 
+- An NTP Clock's zone reaches C++ as a POSIX TZ string from
+  `state/peripherals/timeZones.ts`'s table, parsed again by
+  `rtcTimeZoneCpp` before it is written, never as saved text. `configTzTime`
+  sets the ESP chip's one process-wide `TZ`, so per-clock zones only hold on
+  the UNO R4 WiFi, where `_rtcTzOffset` applies each rule; validation warns
+  for the ESP case. Change `_rtcTzOffset` and `posixUtcOffsetSeconds`
+  together (`rtcTimeZoneCpp.test.ts` runs both on the host).
+
 - A clocked chipset's data rate reaches C++ only as `DATA_RATE_MHZ(n)` after
   the colour order in `fastledSetupCpp`'s `addLeds`, and only when `n` is in
   the chipset's `CLOCKED_DATA_RATES_MHZ` list and differs from FastLED's

@@ -35,9 +35,10 @@ the time (see "Preview mirrors the configured source").
 
 Consequence to keep in mind: `RTCInput` is **not** a singleton. Two software
 sources are two independent clocks, while two DS3231 sources read the same
-module. The per-node model is intentional (two schedules on different timezone
-offsets is a real installation shape), but it means "the current time" is
-per-node, not per-scene.
+module. The per-node model is intentional (a Manual rehearsal clock beside a
+real one is a real installation shape), but it means "the current time" is
+per-node, not per-scene. Two NTP clocks in different time zones work on the
+UNO R4 WiFi only: an ESP core holds one zone per chip (see "Time zones" below).
 
 ### A library Clock, and the DS3231 as its provider
 
@@ -76,15 +77,17 @@ without migration, so an old DS3231 clock asks for its module once.
 The first three run the **same** free-running software clock: a `millis()` delta
 accumulated into a 64-bit millisecond counter over a civil-date base. NTP is a
 correction layered on top, not a separate path. On the ESP cores
-(`FLS_NET_SNTP`), `configTime(offset, 0, server)` is issued once the Wi-Fi
-link is up, and thereafter the sketch reads `time(nullptr)` and lets the
+(`FLS_NET_SNTP`), `configTzTime(tz, server)` (ESP32) or `configTime(tz, server)`
+(ESP8266) is issued once the Wi-Fi link is up, with the zone's POSIX string,
+and thereafter the sketch reads `localtime_r(time(nullptr))` and lets the
 platform's own SNTP client keep it fresh; an epoch below `946684800`
 (2000-01-01) is treated as "not synced yet." The Arduino UNO R4 WiFi has the
 socket but no SNTP client in `WiFiS3`, so there the RTC runs a small SNTP
 exchange of its own over `WiFiUDP`: one 48-byte request every 10 s until the
 first reply, then every 15 minutes, with the reply's transmit timestamp rebased
-from 1900 to 1970 and carried forward by `millis()` between replies; the civil
-date comes from the same `_rtcCivilFromDays` helper the software clock uses.
+from 1900 to 1970 and carried forward by `millis()` between replies; the zone's
+rule is applied by `_rtcTzOffset` and the civil date comes from the same
+`_rtcCivilFromDays` helper the software clock uses.
 
 NTP is available in every firmware output. The normal sketch, the generative
 show and the SD player all take their network from
@@ -122,12 +125,28 @@ battery-backed time while keeping first-time setup inside Studio.
 This path is experimental until the support matrix records a physical hardware
 run.
 
-### Timezone model: a fixed offset, no DST
+### Time zones: POSIX rules, daylight saving included
 
-`timezoneOffsetMinutes` shifts UTC. There are no DST rules and no zone database.
-A sketch that must follow DST has to be reflashed, or have its offset driven
-from something else. Recording it here so nobody reads the NTP support as
-"handles timezones."
+An NTP Clock's `timeZone` is an id from `state/peripherals/timeZones.ts`: a
+curated IANA zone (`Europe/London`) mapped to its POSIX TZ string
+(`GMT0BST,M3.5.0/1,M10.5.0`), or a fixed offset (`UTC`, `UTC+05:30`) for
+anyone the list leaves out. There is no zone database on the board; the
+string carries the one rule. Only the `Mm.w.d/time` form with times inside the
+day is used, so zones whose rules need more (Israel, Chile, Egypt, Morocco)
+are reached through a fixed offset rather than a rule that is wrong part of
+the year. `timeZones.test.ts` holds every curated rule, and every city its
+label names, to `Intl` across two years of switches, so a tzdata change
+(British Columbia's permanent daylight time in 2026 was one) fails a test
+rather than shipping a wrong hour.
+
+The ESP cores take the string and keep local time themselves; the UNO R4
+WiFi applies it with the generated `_rtcTzOffset`, which a host `g++` test
+holds to the preview's `posixUtcOffsetSeconds`. The ESP cores hold one zone
+for the whole chip, so Graph Health warns when an ESP board's NTP clocks name
+different zones. The string is resolved from the app's table and parsed again
+before it reaches C++; an id nothing names runs as UTC in both runtimes, with
+a warning. A save from before the picker loads its minute offset as the
+matching fixed-offset zone.
 
 ### Preview mirrors the configured source
 
@@ -139,8 +158,8 @@ source* will produce on-device, not simply the browser's clock:
   reports an impossible seed as fully invalid, matching `_rtcValidDateTime`.
   It remains unsynced/stale because it is a rehearsal source, not persistent
   timekeeping.
-- **NTP** shows UTC plus the configured offset, which is the wall clock
-  `configTime` produces.
+- **NTP** shows the time in the Clock's zone, daylight saving included, by
+  the same POSIX rule the board is handed.
 - **DS3231** uses browser-local time as a deliberate healthy-module simulation;
   a browser cannot inspect the board's I²C bus. The node body says so explicitly.
 - **Compile Time** previews as the browser's local clock. The build stamp isn't
@@ -242,7 +261,8 @@ the full rationale.
 
 ## Deliberately out of scope
 
-- **Other RTC hardware** (DS1307, PCF8523, RV-3028), DST rules, and any timezone database.
+- **Other RTC hardware** (DS1307, PCF8523, RV-3028), and a full timezone
+  database on the board (one zone's POSIX rule is all it carries).
 - **Sunrise/sunset** (needs a location and an almanac) and **date-range
   schedules** ("December only") — the day gate is weekday-based.
 - **A shared scene clock resource.** Per-node clocks, as above.

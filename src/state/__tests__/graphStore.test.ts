@@ -993,6 +993,17 @@ describe('graphStore — loadGraph normalization', () => {
     expect(dataOf('amp').properties).toEqual({ i2sBclk: 26, i2sLrc: 25, i2sDout: 22 })
   })
 
+  it('loads a Clock\'s old minute offset as the matching fixed-offset zone', () => {
+    const india = node('india', 'RTCInput', { timeSource: 'NTP', timezoneOffsetMinutes: 330 })
+    const odd = node('odd', 'RTCInput', { timeSource: 'NTP', timezoneOffsetMinutes: 135 })
+    const chosen = node('chosen', 'RTCInput', { timeSource: 'NTP', timezoneOffsetMinutes: 60, timeZone: 'Europe/Paris' })
+    useGraphStore.getState().loadGraph([india, odd, chosen], [])
+
+    expect(dataOf('india').properties).toEqual({ timeSource: 'NTP', timeZone: 'UTC+05:30' })
+    expect(dataOf('odd').properties).toEqual({ timeSource: 'NTP', timeZone: 'UTC+02:15' })
+    expect(dataOf('chosen').properties).toEqual({ timeSource: 'NTP', timeZone: 'Europe/Paris' })
+  })
+
   it('does not backfill retired effect property shapes on load', () => {
     const hue = node('ah', 'AudioHue', { bass: 0.5, mids: 0.5, treble: 0.5 })
     const circle = node('c', 'Circle', { radius: 6 })
