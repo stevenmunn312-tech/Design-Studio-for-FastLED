@@ -9,6 +9,39 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Text and Clock Display have a Font select. Alongside the original 3×5
+  capitals there are 4×6, 5×8 and bold 6×8 fonts with lower case and full
+  keyboard punctuation; preview and firmware draw the same glyphs. Existing
+  graphs keep the 3×5 font and generate the same firmware as before. Clock
+  Display leaves a one-pixel column between digits in the new fonts.
+- LED matrix: choose the corner the first LED sits in (Start corner) and
+  whether the first run is a row or a column (First run), alongside
+  Serpentine, so a panel wired from any corner in either direction maps
+  correctly without a custom map. The Build Diagram rings LED 0 on each
+  matrix and draws the direction of its first run, and data lanes on a
+  matrix wired by columns are cut on whole columns. Existing projects are
+  unchanged.
+- Pattern Insights shows an estimated cost for each pattern: a render weight
+  relative to a plain Plasma pattern, and the firmware RAM it would take on
+  the project's canvas. Both are estimates for comparing patterns, not
+  measurements from a board. The Pattern Collection picker shows the cost,
+  sorts by render weight or estimated RAM, and has a Hide heavy chip.
+  Existing scores are rescanned to pick up the render weight.
+- Adding patterns to a Pattern Collection offers to run Pattern Insights on
+  any that have no current Studio Score. The patterns are added either way,
+  and the scan can be stopped.
+- Adding an SD card reader on the Hardware tab adds an Audio node set to
+  Audio Decoder when the project has none.
+- The Music Player and Music-synced SD Show starters open with twenty of the
+  best built-in audio-reactive patterns in their Pattern Collection, and the
+  SD Show starter opens with the demo track already analysed into a show.
+  The Music Player starter previously loaded all 100 audio patterns.
+- The Performance Generator's show plays only in the main LED preview; the
+  node's "Show in main LED preview" switch and its own small canvas are
+  removed.
+- The app reloads itself when an update replaces the files behind it, so a
+  new build shows on first launch instead of the second, and a popup opened
+  just after an update no longer blanks the window.
 - Checks offers Connect Audio on a Stereo VU Meter with no Audio input when
   an Audio node is on the canvas, and no longer adds a second "is
   disconnected" card for the same missing wire.

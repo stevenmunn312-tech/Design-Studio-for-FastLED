@@ -170,53 +170,44 @@ Fourier on a 60x1 strip (`FLAT_PATH_ROW_CPP`), and radial Mirror on a strip.
 
 ### Requested 2026-11-10
 
-Each of these adds a property or changes a starter, so land them before the
-HW-18 format freeze.
+Landed 2026-11-11, all uncompiled and none seen on hardware: the Font select
+on Text and Clock Display (3x5, 4x6, 5x8, bold 6x8; glyphs drawn for this
+project because FastLED's console fonts carry no licence), the offer to run
+Pattern Insights on unrated patterns added to a collection, estimated cost
+per pattern (render weight and firmware RAM), the LED matrix start corner
+and first run, the Audio node an SD card reader brings, the Performance
+Generator playing only in the main preview, and the Music Player and
+Music-synced SD Show starters opening with twenty Exceptional patterns and
+the demo track analysed. What is left:
 
-- [ ] **Bitmap fonts for LED text: Font select on Text and Clock Display
-  (M).** LED matrix, OLED and fixed TFT text all draw one 3x5 uppercase font
-  ([font.ts](src/nodes/shared/font.ts)). Add two or three more `BitmapFont`
-  tables, 5x8 first, with lowercase, and a Font property on Text and Clock
-  Display. FastLED 3.10.9 ships console fonts (4x6, 5x8, 5x12, 6x8, 7x9)
-  under `src/fl/font/`, marked beta with advice to copy them, so copy the
-  glyph data into TypeScript rather than including the headers: preview and
-  firmware then read one table. Check the fonts' licence first (raster-fonts
-  by way of WLED). Needed with it: upper-casing becomes a per-font flag
-  (`textColumns` forces it today), [fontCpp.ts](src/nodes/shared/fontCpp.ts)
-  emits only the fonts and glyphs a graph uses, and the row packing is
-  checked for glyphs wider than three columns.
-- [ ] **Bitmap fonts on OLED and fixed TFT displays (S).** The same Font
-  select on the fixed-display text layouts; `oledSurface.ts` and
-  `tftSurface.ts` already take a `font` argument. Follows the item above.
-- [ ] **Pattern Collection: offer to rate unrated patterns (S).** When
-  patterns are added to a Pattern Collection and some have no Studio Score,
-  ask whether Studio should run Pattern Insights on them.
-- [ ] **Pattern Insights: performance and memory cost per pattern (M).**
-  Show what each library pattern costs, so a heavy pattern can be avoided
-  when memory or frame rate is tight: estimated render time per frame and
-  firmware RAM (state buffers, lookup tables) and flash, by matrix size.
-  Decide the source first: an estimate from the node list, a timed preview
-  render, or figures taken from compiled fixtures. Sortable and filterable
-  in the Pattern Collection picker.
-- [ ] **LED matrix: start corner and wiring direction (M).** Let the user
-  say where LED 0 sits and which way the first row runs, for example
-  Serpentine (back and forth), Bottom-Left, Horizontal. Today the matrix
-  layout has only the `serpentine` switch. Preview mapping, the generated
-  XY function and the Build Diagram must agree.
-- [ ] **SD reader dropped on Hardware adds an Audio node (S).** Dropping an
-  SD card reader on the bench adds an Audio node to the root graph, set to
-  Audio decoder, when the graph has none.
-- [ ] **Performance Generator plays only in the main preview (S).** Remove
-  the node's own "Show in main LED preview" checkbox, the "Playing in the
-  main LED preview" line and the "Controls in the player under the LED
-  preview" line; the main preview is the only place it plays.
-- [ ] **Performance Generator and Music Player starters arrive populated
-  (M).** Opening the Performance Generator starter fills its Pattern
-  Collection with the audio-reactive patterns rated Exceptional and scans
-  the built-in MP3 in the Music Library node. The Music Player starter adds
-  only the Exceptional patterns too. Open question: bundled patterns carry
-  no shipped Studio Score (ratings are computed per machine and matrix
-  size), so either ship a curated list or rate on first open.
+- [ ] **Bitmap fonts on OLED and fixed TFT displays (M).** Not a select
+  away: the OLED row pitch (`infoDisplay.ts`), the TFT body and heading
+  scales (`transportDisplay.ts`), the single `OLED_FONT_W`/`TFT_FONT_W`
+  constants and the capitals-only draw routine all assume the 3x5 font.
+  Needs the fixed layouts re-measured per font. `oledSurface.ts` and
+  `tftSurface.ts` already take a font and handle lower case.
+- [ ] **Look at the new fonts on LEDs (S).** The 4x6, 5x8 and 6x8 glyphs
+  were judged as text renders only. In 4x6, `0` and `O` share a drawing and
+  `m` and `w` are compromises.
+- [ ] **Pattern cost: steadier render weight (S).** The weight is timed
+  during the rating render, so it varies about 15% between scans and reads
+  higher on small grids; band edges move with grid size to compensate. A
+  short timing pass at a fixed 32x32 would give one number per pattern.
+  Flash is not estimated, and the RAM bands are per LED rather than against
+  the chosen board's budget.
+- [ ] **Compile the 2026-11-11 work before the freeze (S).** A Text and a
+  Clock Display in each new font (typed and wired, with an AVR leg: a wired
+  font table is 376 to 564 bytes of RAM there), a matrix wired bottom-left
+  and vertical with four lanes (`lanes.ts`, which also compiles the
+  column-cut lanes), and the twenty-pattern Music-synced SD Show starter on
+  a 4 MB ESP32, whose fit is unmeasured.
+- [ ] **Live Stream ignores panel and custom layouts (Low, S).** The stream
+  carries serpentine, start corner and first run for the whole grid, never
+  the panels or custom XY table, so it mis-maps those layouts. Carry the
+  table in `StreamLayout`.
+- [ ] **Demo track copies pile up (Low, S).** Each open of the Music-synced
+  SD Show starter stores another copy of the demo MP3 in the browser's
+  music store.
 
 
 ## 4. Bench and community testing (non-blocking, in parallel)
