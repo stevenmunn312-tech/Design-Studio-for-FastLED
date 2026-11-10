@@ -8,7 +8,7 @@ import { denormRate, NOISE_SPEED_MAX, NOISE_SCALE_MAX, PLASMA_SCALE_MAX, PLASMA_
 import { noiseType as noiseTypeOf, plasmaStyle, type NoiseType } from './noiseTypes'
 import { speedPhase } from '../shared/speedClock'
 import { passFrames } from '../shared/passClock'
-import { fadeFrameToBlackBy, trailFadeAmount } from '../shared/trailFade'
+import { fadeFrameToBlackBy, trailFadeSteps } from '../shared/trailFade'
 import {
   burstFrame, burstPixel, pacificaFrame, sineFieldFrame, sineFieldSum, pacificaPixel, plasmaFrame, spiralFrame, spiralPixel, plasmaIndex, prideFrame, pridePixel, twinkleFrame, twinklePixel, whitecap,
 } from '../shared/integerPatterns'
@@ -151,7 +151,7 @@ function evalScanner(
     scannerState.set(key, s)
   }
   const frame = s.frame
-  fadeFrameToBlackBy(frame, trailFadeAmount(key, t, trail))
+  fadeFrameToBlackBy(frame, trailFadeSteps(key, t, trail))
   const phase = (speedPhase(key, t, speed) % 2 + 2) % 2
   const travel = phase <= 1 ? phase : 2 - phase
   const pos = travel * Math.max(0, span - 1)
@@ -186,7 +186,7 @@ function evalConfetti(
   }
 
   const frame = state.frame
-  fadeFrameToBlackBy(frame, trailFadeAmount(nodeId, t, trail))
+  fadeFrameToBlackBy(frame, trailFadeSteps(nodeId, t, trail))
 
   const area = W * H
   const amount = clamp01(density)
@@ -220,7 +220,7 @@ function evalJuggle(
   }
 
   const frame = state.frame
-  fadeFrameToBlackBy(frame, trailFadeAmount(nodeId, t, trail))
+  fadeFrameToBlackBy(frame, trailFadeSteps(nodeId, t, trail))
 
   const dots = juggleDotCount(count)
   const laneY = (i: number) =>

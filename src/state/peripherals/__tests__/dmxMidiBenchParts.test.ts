@@ -129,6 +129,36 @@ describe('the DMX transceiver and MIDI interface as bench parts', () => {
       .filter((error) => /transceiver|interface/i.test(error))).toEqual([])
   })
 
+  it('refuses a wired DIN node inside a collected pattern, which no jack reader reaches', () => {
+    const pattern = (source: string) => ({
+      nodes: [
+        node('keys', 'MidiInput', { midiSource: source }), node('fill', 'SolidColor'), node('fade', 'BrightnessMod'),
+        node('end', 'GroupOutput'),
+      ],
+      edges: [edge('fill', 'frame', 'fade', 'frame'), edge('keys', 'cc', 'fade', 'brightness'), edge('fade', 'frame', 'end', 'frame')],
+    })
+    const groups = { din: pattern('DIN (UART)'), web: pattern('Web MIDI'), nested: {
+      nodes: [node('inner', 'Group', { groupId: 'din' }), node('end', 'GroupOutput')],
+      edges: [edge('inner', 'frame', 'end', 'frame')],
+    } }
+    const show = (patternIds: string[]) => [
+      node('board-root', 'Board', { profileId: DEVKIT }), node('wing', 'MidiInterface'),
+      node('pc', 'PatternCollection', { patternIds }), node('master', 'PatternMaster'),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ]
+    const wires = [edge('pc', 'patterns', 'master', 'patterns'), edge('master', 'frame', 'out', 'frame')]
+    const refused = (patternIds: string[], edges = wires) =>
+      findDeployBlockingErrors(show(patternIds), edges, CLASSIC, undefined, groups)
+        .filter((error) => error.includes('DIN MIDI cannot be read inside a collected pattern'))
+    expect(refused(['din', 'web'])).toEqual([expect.stringContaining('One pattern in')])
+    expect(refused(['din', 'nested'])).toEqual([expect.stringContaining('2 patterns in')])
+    expect(buildGraphDiagnostics(show(['din']), wires, { selectedFqbn: CLASSIC, groups })
+      .find((issue) => issue.id === 'pc-pattern-midi-din')).toMatchObject({ severity: 'error', nodeIds: ['pc'] })
+    // Web MIDI rests idle by design, and an unwired collection is not compiled.
+    expect(refused(['web'])).toEqual([])
+    expect(refused(['din'], [])).toEqual([])
+  })
+
   it('warns about a part nothing reads, and refuses a second one', () => {
     const idle = dmxGraph([node('max485', 'DmxTransceiver'), node('wing', 'MidiInterface')])
     const art = idle.nodes.map((entry) => entry.id === 'dmx' ? node('dmx', 'DMXInput', { inputMode: 'Art-Net' }) : entry)

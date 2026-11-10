@@ -345,7 +345,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     const flat = `${FLAT_PATH_ROW_CPP}?true:false`
     const rings = p.showCircles !== false ? `${FLAT_PATH_ROW_CPP}?0:${ob}` : '0'
     ln(`    _fePen(${A},${table.length},_hw,_hfr,_turn,_ext,_cx,_cy,${flat},${rings},WIDTH,HEIGHT,_col,&_penX,&_penY);`)
-    // Persistence is a half-life (trailFadeCpp), the evaluator's trailFadeAmount.
+    // Persistence is a half-life (trailFadeCpp), the evaluator's trailFadeSteps.
     trailFadeCpp(ln, phaseTag(id), f('persistence', 'persistence', 1), `${A}trail`)
     ln(`    _feTrail(${A}trail,WIDTH,HEIGHT,${A},${table.length},_hw,_hfr,_turn,_ext,_cx,_cy,${flat},_penX,_penY,_rad8,_col,&${A}turn,&${A}x,&${A}y,&${A}has);`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${ob}[_i]+=${A}trail[_i];`)

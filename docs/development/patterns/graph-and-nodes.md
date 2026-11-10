@@ -397,14 +397,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   learned one node did the opposite on the next. A per-frame share put every
   visible difference at one end (at 60 fps, keeping 0.9 already halved a
   trail in a tenth of a second), and the trail length moved with the frame
-  rate. `trailFadeAmount` and `fadeFrameToBlackBy` (`src/nodes/shared/trailFade.ts`)
+  rate. `trailFadeSteps` and `fadeFrameToBlackBy` (`src/nodes/shared/trailFade.ts`)
   and their firmware twin `trailFadeCpp` map 1 to a 2 s half-life and 0 to
   none at all, with each step along the slider lengthening the trail by the
   same ratio. They carry the unspent fade between frames and spend it at least
   `TRAIL_MIN_STEP` bytes at a time, because FastLED's flooring
   `fadeToBlackBy` takes about half a level extra on every call: spent a byte
   per frame, a 2 s trail lost a quarter of its length and dim tails died in a
-  few frames. A trail held as floats (Flow Field, Game of Life) has nothing to
+  few frames. The same floor is why the fade is stepped a 60th of a second at
+  a time, never once per pass: a pass two 60ths long fades twice, by the bytes
+  two 60 fps passes would spend, so every frame rate spends the same bytes
+  (one fade a pass floored half as often at 30 fps and drew a short trail up
+  to 8% brighter with a quarter more lit pixels). A pass over
+  `MAX_STEP_FRAMES` 60ths long fades once for all of it. A trail held as floats (Flow Field, Game of Life) has nothing to
   floor and multiplies by `trailKeep`/`trailKeepCpp` instead; a byte trail
   shorter than the canvas (String Particles' track) passes its length as
   `count`. Moving a node onto it changes the meaning of its saved values,
@@ -413,7 +418,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   still the share of each particle's life kept per 60th of a second, not a
   trail. A node
   whose slider already meant a share per frame can keep it instead: Trails
-  spends its cubed `1 - decay³` per 60th of a second through `timedFadeAmount`
+  spends its cubed `1 - decay³` per 60th of a second through `timedFadeSteps`
   and `timedFadeCpp`, the same clock and byte carry, so its saved values keep
   their look and still reach black (rounding per frame had stalled them).
   Color Trails keeps its own fade, inside its integer column pass, because

@@ -41,7 +41,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   reads is a warning, and a second DMX transceiver or MIDI interface is an
   error. UART clashes are not per-device rules any more: `uartValidationIssues`
   reports the allocator's conflicts (`build/pins/uartAssignment.ts`), the same
-  answer the firmware and Build Diagram read.
+  answer the firmware and Build Diagram read. Those walks see the board's own
+  graph, not a collected pattern's: a show or Music Player compiles each
+  pattern alone, as a render function with no setup and no globals of its
+  own, so a part reader inside one has nothing to read. A wired MIDI node set
+  to DIN in a wired collection's pattern is therefore an error on the
+  collection (`collectedDinMidiValidationIssues`), where it used to build and
+  rest idle on the board.
 
 - The RAM budget (`estimateFirmwareRam`, `findFirmwareRamBudgetIssue`) prices
   a show's collected patterns only when it is given the group registry. Pass

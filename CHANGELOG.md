@@ -921,6 +921,16 @@ versioning (`0.y.z`) until the first stable release.
   strip black.
 - Two DIN MIDI nodes on one board no longer split the jack's bytes between
   them.
+- Short trails are as bright at 30 fps as at 60: Confetti, Juggle, Scanner,
+  Trails, Ripple, String Particles, Formula Points and Fourier Epicycles
+  drew a trail up to 8% brighter, with up to a quarter more lit pixels, on a
+  board running at half the frame rate.
+- Graph Health and the deploy gate refuse a MIDI node set to DIN inside a
+  collected pattern. A show or Music Player built it without a jack reader,
+  so it sat idle on the board while the preview played.
+- Help's node cards show long names in full, such as DMX Transceiver, MIDI
+  Interface and DC-DC Converter, in smaller type instead of cutting them
+  off.
 - Centred patterns work on one-row strips, rings and corkscrews: Geometry
   Field's Lissajous no longer renders near-black, Shape Field's default
   circle is no longer a speck, Path and Fourier Epicycles have room to move,

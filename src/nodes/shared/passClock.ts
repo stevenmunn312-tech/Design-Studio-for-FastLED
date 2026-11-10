@@ -51,7 +51,7 @@ export function keepOver(keep: number, frames: number): number {
 }
 
 /** Slack that keeps a run of passes a hair under a 60th each from dropping a step. */
-const STEP_SLACK = 1e-3
+export const STEP_SLACK = 1e-3
 
 const stepCarry = instanceState('passStepCarry', new Map<string, number>())
 

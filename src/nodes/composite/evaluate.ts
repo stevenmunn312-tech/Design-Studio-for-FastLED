@@ -21,7 +21,7 @@ import {
 } from './frameTransform'
 import { wallpaperGroupIndex, wallpaperSpinRate } from '../../state/evaluator/symmetry'
 import { speedPhase } from '../shared/speedClock'
-import { TRAIL_MIN_STEP, fadeFrameToBlackBy, timedFadeAmount } from '../shared/trailFade'
+import { TRAIL_MIN_STEP, fadeFrameToBlackBy, timedFadeSteps } from '../shared/trailFade'
 import { TRAILS_REFERENCE_FPS } from './trails'
 import { gammaVideoTable } from './gamma'
 import { transformZoom } from './transformZoom'
@@ -324,7 +324,7 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     const buf = prev && prev.length === H && prev[0]?.length === W
       ? prev
       : rawBlankFrame(W, H)
-    fadeFrameToBlackBy(buf, timedFadeAmount(key, t, (dt) => Math.pow(keep60, dt * TRAILS_REFERENCE_FPS)))
+    fadeFrameToBlackBy(buf, timedFadeSteps(key, t, (dt) => Math.pow(keep60, dt * TRAILS_REFERENCE_FPS)))
     for (let y = 0; y < H; y++) {
       const row = buf[y], srcRow = src[y]
       for (let x = 0; x < W; x++) {

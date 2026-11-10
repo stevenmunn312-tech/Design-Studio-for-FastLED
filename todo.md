@@ -148,20 +148,19 @@ Fourier on a 60x1 strip (`FLAT_PATH_ROW_CPP`), and radial Mirror on a strip.
 
 #### Found while landing the follow-up pass
 
-- [ ] **Trails: short byte trails read brighter at 30 fps (Low, S).** The
-  shared byte fade (`trailFade.ts`) floors each step, and 60 fps pays that
-  twice as often, so below a trail of about 0.85 a 30 fps board draws a trail
-  up to 8% brighter with about 12% more lit pixels. It affects every
-  byte-trail node. Fold the floor into the per-second rate, or carry the
-  remainder.
-- [ ] **DIN MIDI inside a show or SD-player pattern reads idle (Low, S).** An
-  extracted pattern has no MIDI interface to see, so its DIN nodes get no
-  messages; before the bench parts it emitted its own reader into the
-  pattern. Give the show and SD-player sketches the board's shared reader, or
-  refuse DIN MIDI inside an exported pattern.
-- [ ] **Help cards cut long part names (Low, S).** "DMX Transcei...", "MIDI
-  Interfa..." and "DC-DC Conver..." truncate on their Help cards. Wrap the
-  title or shorten the label.
+- [x] **Trails: short byte trails read brighter at 30 fps (Low, S).** The
+  shared byte fade (`trailFade.ts`) now steps a 60th of a second at a time,
+  so every frame rate spends the same `fadeToBlackBy` bytes. Uncompiled: add
+  a byte-trail node (Confetti, Trails, String Particles, Fourier) to the
+  pre-freeze compile pass.
+- [x] **DIN MIDI inside a show or SD-player pattern reads idle (Low, S).**
+  Refused: Graph Health and the deploy gate flag a wired DIN node inside a
+  collected pattern. Giving the show and SD-player sketches the board's
+  shared reader stays open as a feature if anyone asks for it; it also needs
+  the UART allocator to see readers inside patterns.
+- [x] **Help cards cut long part names (Low, S).** A card title steps down
+  to 11px before it is cut. Sixteen longer titles, mostly variant names
+  such as "Mirror · Horizontal", are still cut at that size.
 
 
 ## 4. Bench and community testing (non-blocking, in parallel)

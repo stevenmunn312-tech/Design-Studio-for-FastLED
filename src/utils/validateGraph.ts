@@ -1846,6 +1846,7 @@ export function findDeployBlockingErrors(
     ...findAudioCapabilityErrors(nodes, edges),
     ...findRtcModuleErrors(nodes, edges),
     ...findSerialPartErrors(nodes, edges),
+    ...findCollectedDinMidiErrors(nodes, edges, groups),
     ...findStereoVuMeterErrors(nodes, edges),
     ...findIrRemoteErrors(nodes, edges, selectedFqbn),
     ...findPresenceSensorErrors(nodes, selectedFqbn),
@@ -2661,6 +2662,44 @@ export function findSerialPartErrors(nodes: StudioNode[], edges: StudioEdge[]): 
   return serialPartValidationIssues(nodes, edges)
     .filter((issue) => issue.severity === 'error')
     .map(validationIssueMessage)
+}
+
+/**
+ * A wired MIDI node set to DIN inside a collected pattern.
+ *
+ * A show or Music Player compiles each collected pattern on its own, as a
+ * render function: the pattern cannot see the bench's MIDI interface, and the
+ * host sketch has no jack reader to hand it, so the node would rest idle on
+ * the board while the preview played. Refused rather than built silent. Only
+ * a wired collection counts, as only that one is compiled.
+ */
+function collectedDinMidiValidationIssues(nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {}): GraphDiagnostic[] {
+  const issues: GraphDiagnostic[] = []
+  for (const collection of nodes) {
+    if (collection.data.nodeType !== 'PatternCollection' || !edges.some((edge) => edge.source === collection.id)) continue
+    const ids = (collection.data.properties as Record<string, unknown>).patternIds
+    if (!Array.isArray(ids)) continue
+    const reading = ids.filter((id) => {
+      const group = typeof id === 'string' ? groups[id] : undefined
+      if (!group) return false
+      const flat = expandGroups(group.nodes, group.edges, groups)
+      return dinMidiInputs(flat.nodes).some((node) => flat.edges.some((edge) => edge.source === node.id))
+    }).length
+    if (reading === 0) continue
+    issues.push({
+      id: `${collection.id}-pattern-midi-din`, severity: 'error', category: 'show',
+      title: 'DIN MIDI cannot be read inside a collected pattern',
+      message: `${reading === 1 ? 'One pattern' : `${reading} patterns`} in ${nodeLabel(collection)} ${reading === 1 ? 'reads' : 'read'} a MIDI node set to DIN. `
+        + 'A show or Music Player draws each collected pattern on its own, out of reach of the MIDI interface, so the node would read nothing on the board.',
+      fix: 'Open the pattern and set its MIDI node to Web MIDI, or take the pattern out of the collection.',
+      nodeIds: [collection.id], nodeLabel: nodeLabel(collection),
+    })
+  }
+  return issues
+}
+
+export function findCollectedDinMidiErrors(nodes: StudioNode[], edges: StudioEdge[], groups: GroupRegistry = {}): string[] {
+  return collectedDinMidiValidationIssues(nodes, edges, groups).map(validationIssueMessage)
 }
 
 /**
@@ -4129,6 +4168,7 @@ export function buildGraphDiagnostics(
   diagnostics.push(...ethernetValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...rtcModuleValidationIssues(nodes, edges))
   diagnostics.push(...serialPartValidationIssues(nodes, edges))
+  diagnostics.push(...collectedDinMidiValidationIssues(nodes, edges, options.groups))
   diagnostics.push(...webRemoteValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...i2cBusValidationIssues(nodes))
   diagnostics.push(...stepValueValidationIssues(nodes))

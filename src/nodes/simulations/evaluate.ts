@@ -2,7 +2,7 @@ import { FORMULA_POINTS_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../s
 import { PARTICLE_DECAY_SCALE, particleMode, particlePoolSize } from './particleModes'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
 import { speedPhase } from '../shared/speedClock'
-import { fadeBytesToBlackBy, fadeFrameToBlackBy, trailFadeAmount, trailKeep, trailSurvives } from '../shared/trailFade'
+import { fadeBytesToBlackBy, fadeFrameToBlackBy, trailFadeSteps, trailKeep, trailSurvives } from '../shared/trailFade'
 import { PASS_FPS, keepOver, passFrames, passStepFrames, passSteps } from '../shared/passClock'
 import { particleRadius } from './particleScale'
 import { fireDirection, type FireDirection } from './fireDirection'
@@ -527,7 +527,7 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
       const [a, b, c, d] = DE_JONG_PRESETS[p.preset] ?? DE_JONG_PRESETS.classic
       let ax = st.attractorX ?? 0.1, ay = st.attractorY ?? 0.1
       const buf = formulaPointsTrailBuf(st, W, H)
-      fadeFrameToBlackBy(buf, trailFadeAmount(key, t, p.trail))
+      fadeFrameToBlackBy(buf, trailFadeSteps(key, t, p.trail))
       // `count` iterations a 60th of a second, every one drawn into the
       // fading trail, coloured by its place in its own frame's run.
       const steps = passSteps(`${key}:iterations`, count, passFrames(key, t))
@@ -555,7 +555,7 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
       // the frames since, so a 30 fps trail has the 60 fps dots. A pass that
       // owes none leaves the trail as it stands, unfaded, as String Particles'.
       const owed = passSteps(`${key}:dots`, 1, passFrames(key, t))
-      if (owed > 0) fadeFrameToBlackBy(buf, trailFadeAmount(key, t, p.trail))
+      if (owed > 0) fadeFrameToBlackBy(buf, trailFadeSteps(key, t, p.trail))
       const keepPerFrame = owed > 1 ? trailSurvives(p.trail, 1 / PASS_FPS) : 1
       for (let age = owed - 1; age >= 0; age--) {
         const phase = (age === 0 ? spin : spin - p.speed * (age / PASS_FPS)) * max
@@ -724,7 +724,7 @@ function evalRipple(key: string, props: Record<string, unknown>, trigger: boolea
 
   // Fade the trail in place, then draw each head over `width` LEDs behind it.
   const frame = s.frame
-  fadeFrameToBlackBy(frame, trailFadeAmount(key, t, trail))
+  fadeFrameToBlackBy(frame, trailFadeSteps(key, t, trail))
   for (const r of s.ripples) {
     const life = 1 - r.ageSec / lifetime
     const c = samplePalette(palette, r.hue)
@@ -767,7 +767,7 @@ function evalStringParticles(nodeId: string, o: StringParticleOptions, spawn: nu
   // blinks out between deposits.
   const frames = passFrames(nodeId, t)
   const owed = passSteps(`${nodeId}:dots`, 1, frames)
-  if (owed > 0) fadeBytesToBlackBy(trail, trailFadeAmount(nodeId, t, trailLen))
+  if (owed > 0) fadeBytesToBlackBy(trail, trailFadeSteps(nodeId, t, trailLen))
   const debrisDrag = keepOver(0.92, frames)
   // What a deposit laid a frame ago has kept of its light since.
   const depositKeep = owed > 1 ? trailSurvives(trailLen, 1 / PASS_FPS) : 1

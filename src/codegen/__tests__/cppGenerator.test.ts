@@ -4280,7 +4280,7 @@ describe('Formula Points codegen', () => {
   it('attractor and the trail variants fade the persistent buffer on the trail clock', () => {
     const cpp = gen('attractor', { trail: 0.53 })
     expect(cpp).toContain('float _fp_fpT=0.53;')
-    expect(cpp).toContain('static double _trail_fpT = -1.0, _trail_fpOwed = 0.0;')
+    expect(cpp).toContain('static double _trail_fpT = -1.0, _trail_fpOwed = 0.0, _trail_fpFrames = 0.0;')
     expect(cpp).toContain('fadeToBlackBy(buf_fp, NUM_LEDS, _by);')
     // The fade needs the clock even where nothing else in the variant does.
     expect(cpp).toMatch(/float t = /)
@@ -5740,7 +5740,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     const cpp = generateCpp([sc, outputNode], [edge('e1', 'sc', 'out', 'frame', 'frame')])
     // The tail is the buffer fading on the trail clock, so it persists.
     expect(cpp).toContain('CRGB buf_sc[NUM_LEDS];   // keeps its pixels between frames')
-    expect(cpp).toContain('static double _trail_scT = -1.0, _trail_scOwed = 0.0;')
+    expect(cpp).toContain('static double _trail_scT = -1.0, _trail_scOwed = 0.0, _trail_scFrames = 0.0;')
     expect(cpp).toContain('fadeToBlackBy(buf_sc, NUM_LEDS, _by);')
     expect(cpp).toContain('float _travel=_ph<=1.0f?_ph:2.0f-_ph;')
     // The beam lights the whole span it crossed since the last frame.
@@ -5756,7 +5756,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     const cpp = generateCpp([cf, outputNode], [edge('e1', 'cf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('CRGB buf_cf[NUM_LEDS];   // keeps its pixels between frames')
     expect(cpp).toContain('_tr=0.35;')
-    expect(cpp).toContain('static double _trail_cfT = -1.0, _trail_cfOwed = 0.0;')
+    expect(cpp).toContain('static double _trail_cfT = -1.0, _trail_cfOwed = 0.0, _trail_cfFrames = 0.0;')
     expect(cpp).toContain('fadeToBlackBy(buf_cf, NUM_LEDS, _by);')
     // Density alone sets the spawn count; the denormalised Speed is the hue
     // drift of 0.08 turns (20.4 of 255), rounded as Math.round is.
@@ -5772,7 +5772,7 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('CRGB buf_jg[NUM_LEDS];   // keeps its pixels between frames')
     expect(cpp).toContain('const int _dots=1;')
     expect(cpp).toContain('_tr=0.39;')
-    expect(cpp).toContain('static double _trail_jgT = -1.0, _trail_jgOwed = 0.0;')
+    expect(cpp).toContain('static double _trail_jgT = -1.0, _trail_jgOwed = 0.0, _trail_jgFrames = 0.0;')
     expect(cpp).toContain('fadeToBlackBy(buf_jg, NUM_LEDS, _by);')
     expect(cpp).toContain('float _phase=0.0f;')
     expect(cpp).toContain('float _travel=sinf(_phase_jg*(2.5f+_d*0.35f)+_d*0.9f+_phase)*0.5f+0.5f;')

@@ -37,7 +37,7 @@ the [pattern node expansion](../plans/pattern-node-expansion.md).
 - `scale` (0.1–1) sizes the outline as a fraction of half the shorter canvas
   side. `thickness` (0.5–4 px) is the pen width.
 - `persistence` (0–1) is the trail's half-life on a log scale, through the
-  shared `trailFadeAmount`/`trailFadeCpp` (see
+  shared `trailFadeSteps`/`trailFadeCpp` (see
   [graph and nodes](../development/patterns/graph-and-nodes.md)): 1, the
   default, halves the trail every 2 seconds and 0 leaves none, faded by the
   time that has passed rather than per frame. It was a per-frame share whose

@@ -151,6 +151,8 @@ const PROP_PIN_W = 16       // .propRow pin column, reserved on every row
 const PROP_COL_GAP = 6      // .propRow column-gap
 const BADGE_PX = 6.12       // 9px JetBrains Mono + 0.08em tracking
 const TITLE_PX = 9.1        // 14px Audiowide average advance
+const TITLE_SIZES = [14, 13, 12, 11] as const // .headerTitle's 14px, then the steps a long title shrinks through
+const titleAdvance = (size: number) => (TITLE_PX * size) / TITLE_SIZES[0]
 const COMMENT_EDITOR_H = 92 // .commentEditor min-height
 const CODE_LABEL_H = 16     // .codeLabel line (+8px margin-top)
 const CODE_GLOBAL_H = 56    // Global editor min-height (+8px margin-top)
@@ -759,7 +761,12 @@ function headerSvg(def: NodeDefinition, w: number, accent: string, props: Record
   parts.push(`<path d="M0,${HEADER_H} L0,${RADIUS} Q0,0 ${RADIUS},0 L${w - RADIUS},0 Q${w},0 ${w},${RADIUS} L${w},${HEADER_H} Z" fill="${accent}"/>`)
   // box-shadow: 0 4px 12px accent@18% — the glow the header throws on the body.
   parts.push(`<rect x="1" y="${HEADER_H}" width="${w - 2}" height="12" fill="url(#headerGlow)" opacity="0.18"/>`)
-  parts.push(`<text x="${BODY_PAD}" y="21" font-family=${JSON.stringify(DISPLAY)} font-size="14" font-weight="600" fill="#000">${esc(truncate(title, titleMax, TITLE_PX))}</text>`)
+  // The canvas cuts a long title off at the header's width. A card is the
+  // node's picture in Help, so a title that would be cut steps down in size
+  // until it fits, and is only cut once it would not fit at the smallest.
+  const titleSize = TITLE_SIZES.find((size) => title.length * titleAdvance(size) <= titleMax) ?? TITLE_SIZES[TITLE_SIZES.length - 1]
+  const titleY = 21 - (TITLE_SIZES[0] - titleSize) * 0.35
+  parts.push(`<text x="${BODY_PAD}" y="${titleY}" font-family=${JSON.stringify(DISPLAY)} font-size="${titleSize}" font-weight="600" fill="#000">${esc(truncate(title, titleMax, titleAdvance(titleSize)))}</text>`)
   for (const [x, bw, label] of [[tagX, tagW, tag]] as const) {
     parts.push(`<rect x="${x}" y="8" width="${bw}" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>`)
     parts.push(`<text x="${x + bw / 2}" y="19.5" text-anchor="middle" font-family=${JSON.stringify(MONO)} font-size="9" letter-spacing="0.08em" fill="#000">${esc(label)}</text>`)

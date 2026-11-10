@@ -1,5 +1,6 @@
 import { instanceState } from '../../state/evaluator/memory'
 import type { Frame } from '../../state/palettes/ledColor'
+import { MAX_STEP_FRAMES, PASS_FPS, STEP_SLACK } from './passClock'
 
 /*
  * Trail length on a time scale people can hear in a slider.
@@ -21,9 +22,19 @@ import type { Frame } from '../../state/palettes/ledColor'
  * half a level extra on every application, which over the 120 frames of a
  * 2 s trail ate a quarter of its length and killed dim tails in a few frames.
  * A slow fade is therefore saved up and applied `TRAIL_MIN_STEP` bytes at a
- * time, a step too small to see. A trail held as floats has no bytes to
- * floor, so it multiplies by `trailKeep` directly. The firmware twin is
- * `trailFadeCpp.ts`.
+ * time, a step too small to see.
+ *
+ * The floor is also why the fade is stepped a 60th of a second at a time and
+ * never once per pass: a pass that spans two 60ths fades twice, by the bytes
+ * two 60 fps passes would have spent. Fading once for the whole pass floored
+ * half as often at 30 fps, which drew a short trail up to 8% brighter, with
+ * up to a quarter more lit pixels, than the same trail at 60 fps. Stepped,
+ * the bytes depend only on how many 60ths have gone by, so every frame rate
+ * spends the same ones. A pass more than `MAX_STEP_FRAMES` 60ths long (under
+ * 15 fps, or resuming) fades once for all of it instead of catching up.
+ *
+ * A trail held as floats has no bytes to floor, so it multiplies by
+ * `trailKeep` directly. The firmware twin is `trailFadeCpp.ts`.
  */
 export const TRAIL_HALF_LIFE = { longest: 2, shortest: 1 / 240 } as const
 export const TRAIL_MIN_STEP = 8
@@ -53,17 +64,18 @@ export function trailFromRetention(retain: number, fps = 60): number {
   return Math.max(0, Math.min(1, v))
 }
 
-interface TrailClock { lastT: number; owed: number }
+interface TrailClock { lastT: number; owed: number; frames: number }
 const trailClocks = instanceState('trailFade', new Map<string, TrailClock>())
 const keepClocks = instanceState('trailKeep', new Map<string, number>())
 
 /**
- * The `fadeToBlackBy` byte for this pass: the fade owed for the time since
- * the node's previous pass (none on its first), plus what earlier passes
- * saved up, once that reaches `TRAIL_MIN_STEP`; 0 until then.
+ * The `fadeToBlackBy` bytes for this pass, in order: a 60th of a second's
+ * fade for each whole 60th since the node's previous pass (none on its
+ * first), each spent once what is saved up reaches `TRAIL_MIN_STEP`. Empty
+ * when the pass owes no fade.
  */
-export function trailFadeAmount(key: string, t: number, trail: number): number {
-  return timedFadeAmount(key, t, (dt) => trailSurvives(trail, dt))
+export function trailFadeSteps(key: string, t: number, trail: number): number[] {
+  return timedFadeSteps(key, t, (dt) => trailSurvives(trail, dt))
 }
 
 /**
@@ -79,43 +91,56 @@ export function trailKeep(key: string, t: number, trail: number): number {
 }
 
 /**
- * The same saved-up `fadeToBlackBy` byte for a node whose own slider sets
+ * The same saved-up `fadeToBlackBy` bytes for a node whose own slider sets
  * `keepOver(dt)`, the share of light that survives `dt` seconds. The
  * firmware twin is `timedFadeCpp`.
  */
-export function timedFadeAmount(key: string, t: number, keepOver: (dt: number) => number): number {
+export function timedFadeSteps(key: string, t: number, keepOver: (dt: number) => number): number[] {
   const clock = trailClocks.get(key)
   if (!clock) {
-    trailClocks.set(key, { lastT: t, owed: 0 })
-    return 0
+    trailClocks.set(key, { lastT: t, owed: 0, frames: 0 })
+    return []
   }
-  const dt = Math.max(0, t - clock.lastT)
+  clock.frames += Math.max(0, t - clock.lastT) * PASS_FPS
   clock.lastT = t
+  let steps = Math.floor(clock.frames + STEP_SLACK)
+  clock.frames -= steps
+  // Too far behind to catch up a 60th at a time: one fade for the whole gap.
+  let dt = 1 / PASS_FPS
+  if (steps > MAX_STEP_FRAMES) { dt = steps / PASS_FPS; steps = 1 }
   let keep = keepOver(dt)
   if (!(keep >= 0)) keep = 1
-  clock.owed += (1 - keep) * 256
-  if (clock.owed < TRAIL_MIN_STEP) return 0
-  const by = Math.min(255, Math.floor(clock.owed))
-  clock.owed = by === 255 ? 0 : clock.owed - by
-  return by
+  const spent: number[] = []
+  for (; steps > 0; steps--) {
+    clock.owed += (1 - keep) * 256
+    if (clock.owed < TRAIL_MIN_STEP) continue
+    const by = Math.min(255, Math.floor(clock.owed))
+    clock.owed = by === 255 ? 0 : clock.owed - by
+    spent.push(by)
+  }
+  return spent
 }
 
-/** FastLED's `fadeToBlackBy(leds, n, by)` on a preview frame, in place. */
-export function fadeFrameToBlackBy(frame: Frame, by: number): void {
-  if (by <= 0) return
-  const keep = 256 - by
-  for (const row of frame) {
-    for (const px of row) {
-      px.r = (px.r * keep) >> 8
-      px.g = (px.g * keep) >> 8
-      px.b = (px.b * keep) >> 8
+/** FastLED's `fadeToBlackBy(leds, n, by)` on a preview frame, in place, once for each byte in `steps`. */
+export function fadeFrameToBlackBy(frame: Frame, steps: number | readonly number[]): void {
+  for (const by of typeof steps === 'number' ? [steps] : steps) {
+    if (by <= 0) continue
+    const keep = 256 - by
+    for (const row of frame) {
+      for (const px of row) {
+        px.r = (px.r * keep) >> 8
+        px.g = (px.g * keep) >> 8
+        px.b = (px.b * keep) >> 8
+      }
     }
   }
 }
 
 /** The same arithmetic on a flat run of colour bytes, such as an RGB trail. */
-export function fadeBytesToBlackBy(bytes: Uint8Array, by: number): void {
-  if (by <= 0) return
-  const keep = 256 - by
-  for (let i = 0; i < bytes.length; i++) bytes[i] = (bytes[i] * keep) >> 8
+export function fadeBytesToBlackBy(bytes: Uint8Array, steps: number | readonly number[]): void {
+  for (const by of typeof steps === 'number' ? [steps] : steps) {
+    if (by <= 0) continue
+    const keep = 256 - by
+    for (let i = 0; i < bytes.length; i++) bytes[i] = (bytes[i] * keep) >> 8
+  }
 }

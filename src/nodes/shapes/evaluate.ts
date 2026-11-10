@@ -5,7 +5,7 @@ import type { ImagePaletteSource } from '../../state/palettes/imagePalette'
 import { hexToRgb } from '../../state/palettes/polinePalette'
 import { denormRate, SPEED_MAX } from '../shared/speedRange'
 import { speedPhase, speedPhaseFloat } from '../shared/speedClock'
-import { trailFadeAmount } from '../shared/trailFade'
+import { fadeBytesToBlackBy, trailFadeSteps } from '../shared/trailFade'
 import { type Frame, type RGB, type Palette, samplePalette } from '../../state/palettes/ledColor'
 import { resolveWireframeMesh, projectWireframeVertices } from './wireframeModel'
 import { pathPoint } from './pathShapes'
@@ -189,8 +189,7 @@ export function evalFourierEpicycles(
   // Persistence is a half-life on a log scale (shared/trailFade.ts): 1 is the
   // longest trail, 0 none, faded by the time that has passed, as the sketch's
   // fadeToBlackBy does.
-  const by = trailFadeAmount(nodeId, t, Math.max(0, Math.min(1, p.persistence)))
-  if (by > 0) for (let i = 0; i < N * 3; i++) trail[i] = (trail[i] * (256 - by)) >> 8
+  fadeBytesToBlackBy(trail, trailFadeSteps(nodeId, t, Math.max(0, Math.min(1, p.persistence))))
   const delta = (((turn - st.turn) & 0xffff) << 16) >> 16
   if (!st.has || Math.abs(delta) > FOURIER_TRAIL_JUMP_A16) {
     fourierDisc(W, H, penX, penY, radius, p.color, lighten)

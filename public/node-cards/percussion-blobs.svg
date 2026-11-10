@@ -12,7 +12,7 @@
 <rect x="0" y="0" width="260" height="483" rx="8" fill="url(#tint-pattern)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L252,0 Q260,0 260,8 L260,32 Z" fill="#47c9ea"/>
 <rect x="1" y="32" width="258" height="12" fill="url(#headerGlow)" opacity="0.18"/>
-<text x="8" y="21" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="14" font-weight="600" fill="#000">Percussion Blo…</text>
+<text x="8" y="20.65" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="13" font-weight="600" fill="#000">Percussion Blobs</text>
 <rect x="155.6" y="8" width="26.4" height="16" rx="8" fill="rgba(0,0,0,0.14)" stroke="rgba(255,255,255,0.14)"/>
 <text x="168.79999999999998" y="19.5" text-anchor="middle" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="9" letter-spacing="0.08em" fill="#000">PAT</text>
 <circle cx="192" cy="16" r="2" fill="rgba(255,255,255,0.96)" opacity="0.2"/>
