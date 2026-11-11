@@ -184,6 +184,21 @@ normal['envelope-beat-phase'] = (() => {
     ['mul', 'result', 'out', 'brightness'], ['fill', 'frame', 'out', 'frame']])
 })()
 
+// The drum patterns play their demo kit while no drum port is wired.
+normal['demo-drums-kick-shock'] = frame('KickShock', {})
+normal['demo-drums-percussion-blobs'] = frame('PercussionBlobs', {})
+// The Clock's time zone on an ESP8266, whose core takes the zone with the server.
+normal['clock-zone-esp8266'] = (() => {
+  const out = matrix({ width: 8, height: 8 })
+  out.data.exposedInputs = ['brightness']
+  const nodes = [node('board', 'Board', { profileId: 'esp8266-lolin-d1-mini' }),
+    node('clock', 'RTCInput', { timeSource: 'NTP', ntpServer: 'pool.ntp.org', timeZone: 'Europe/Paris' }),
+    node('seconds', 'MapRange', { inMin: 0, inMax: 59, outMin: 0, outMax: 1, clamp: true }),
+    node('fill', 'SolidColor', { r: 255, g: 180, b: 60 }), out]
+  return graph('esp8266:esp8266:d1_mini', nodes, [['clock', 'second', 'seconds', 'value'],
+    ['seconds', 'result', 'out', 'brightness'], ['fill', 'frame', 'out', 'frame']])
+})()
+
 // ── Patterns, fields and simulations ───────────────────────────────────────
 normal['code-ab'] = graph(CLASSIC, [classicBoard(), node('hue', 'Constant', { value: 0.6 }), node('level', 'Constant', { value: 0.8 }),
   node('code', 'Code', { code: 'fill_solid(leds, NUM_LEDS, CHSV((uint8_t)(a * 255), 255, (uint8_t)(b * 255)));' }), matrix()],
@@ -398,6 +413,10 @@ const required: Record<string, string[]> = {
   'dmx-beside-dfplayer': ['_dmxBegin('],
   'mirror-radial-strip': ['#define HEIGHT   1'],
   'hub75-size-2': ['MatrixPanel_I2S_DMA'],
+  'demo-drums-kick-shock': ['_ksDemoKick'],
+  'demo-drums-percussion-blobs': ['_pbDemoKick'],
+  'clock-zone-esp8266': ['configTime('],
+  'audio-features-level': ['float _audioLoudness = 0.0f;'],
 }
 for (const [name, symbols] of Object.entries(required)) {
   const missing = symbols.filter((symbol) => !fixtures[name].source.includes(symbol))
