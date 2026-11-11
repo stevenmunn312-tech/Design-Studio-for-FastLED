@@ -298,9 +298,7 @@ MAPPED_BOARDS = {
     "feather-s3": "esp32:esp32:adafruit_feather_esp32s3", "qtpy-s2": "esp32:esp32:adafruit_qtpy_esp32s2",
     "lolin-c3-mini": "esp32:esp32:lolin_c3_mini", "lolin-s2-mini": "esp32:esp32:lolin_s2_mini",
     "lolin-s3": "esp32:esp32:lolin_s3", "d1": "esp8266:esp8266:d1", "huzzah": "esp8266:esp8266:huzzah",
-    "pico-w": "rp2040:rp2040:rpipicow", "pico-2-w": "rp2040:rp2040:rpipico2w", "micro": "arduino:avr:micro",
-    "pro-micro": "SparkFun:avr:promicro", "r4-minima": "arduino:renesas_uno:minima",
-    "feather-nrf52840": "adafruit:nrf52:feather52840", "xiao-nrf52840": "Seeeduino:nrf52:xiaonRF52840",
+    "pico-2-w": "rp2040:rp2040:rpipico2w", "micro": "arduino:avr:micro", "pro-micro": "SparkFun:avr:promicro",
 }
 
 
@@ -404,7 +402,7 @@ ARDUINO_CLI_ONLY_FAMILIES: dict[str, str] = {
 
 
 # Third-party cores the helper has no package index for: a user adds the URL, a runner cannot.
-NO_INDEX_CORES = {"SparkFun:avr", "Seeeduino:nrf52"}
+NO_INDEX_CORES = {"SparkFun:avr"}
 
 
 def candidates() -> list[Leg]:

@@ -125,6 +125,12 @@ def test_arduino_fqbn_replaces_stale_physical_options_without_duplicates():
     )
 
 
+def test_arduino_fqbn_leaves_the_partition_menu_alone_where_the_core_has_no_huge_app():
+    assert toolchain._arduino_fqbn("esp32:esp32:lolin_s3") == "esp32:esp32:lolin_s3"
+    assert toolchain._arduino_fqbn("esp32:esp32:adafruit_feather_esp32_v2") == "esp32:esp32:adafruit_feather_esp32_v2"
+    assert toolchain._arduino_fqbn("esp32:esp32:lolin_s2_mini") == "esp32:esp32:lolin_s2_mini:PartitionScheme=huge_app"
+
+
 def test_arduino_fqbn_names_the_stm32duino_board_and_chip():
     assert toolchain._arduino_fqbn("STMicroelectronics:stm32:blackpill_f411ce") == (
         "STMicroelectronics:stm32:GenF4:pnum=BLACKPILL_F411CE"
