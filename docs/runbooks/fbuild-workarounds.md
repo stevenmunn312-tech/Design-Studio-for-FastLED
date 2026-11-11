@@ -86,7 +86,7 @@ an internal record.
 | 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.26** | Re-archive with a response file, then continue | **No — fixed in 2.5.44** ([#1656](https://github.com/FastLED/fbuild/issues/1656)); no leg of the 2.5.51 run needed it, workaround removed 2026-11-10 |
 | 13 | Windows: every daemon compile opens a visible console window that takes focus | **2.5.44** (also 2.5.37) | None possible: zccache is fbuild's only compile backend | **No — fixed in 2.5.45** ([#1722](https://github.com/FastLED/fbuild/issues/1722), by #1723 with zccache 1.15.6): no window opened during a compile in the desktop app on 2.5.51, 2026-11-11 |
 | 14 | Daemon refuses to start after the last one exited | **2.5.51** | Run the build once more after 15 s, then say plainly that nothing was compiled | Yes — seen once, 2026-11-11, not reproduced and not reported; see §14 |
-| 15 | ESP8266: the core's network libraries are not linked | **2.5.51** | Build ESP8266 sketches that include one with arduino-cli | Yes — found 2026-11-11, report drafted and not posted; see §15 |
+| 15 | ESP8266: the core's network libraries are not linked | **2.5.51** | Build ESP8266 sketches that include one with arduino-cli | Yes — [#1994](https://github.com/FastLED/fbuild/issues/1994), filed 2026-11-11; see §15 |
 
 ---
 
@@ -1149,7 +1149,9 @@ is alive and what it is. That is the evidence an upstream report needs.
 
 ## 15. ESP8266 sketches that use Wi-Fi do not link
 
-**Found on 2.5.51 (2026-11-11). Report drafted in `tmp/fbuild-main/drafts/`, not posted.**
+**Found on 2.5.51 and reported 2026-11-11 as [#1994](https://github.com/FastLED/fbuild/issues/1994).** The ESP8266 build adds the
+bundled libraries' headers to the include path and never compiles their
+sources (`esp8266/orchestrator.rs`).
 
 **Symptom.** An ESP8266 sketch that includes `ESP8266WiFi.h`,
 `ESP8266WebServer.h`, `ESP8266mDNS.h` or `WiFiUdp.h` compiles and then fails:
