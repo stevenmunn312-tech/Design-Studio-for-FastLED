@@ -336,7 +336,10 @@ def install_arduino_cores(legs: list[Leg], say) -> bool:
 
 
 # Boards built on arduino-cli alone, though the fbuild scaffold declares them.
-ARDUINO_CLI_ONLY: dict[str, str] = {}
+ARDUINO_CLI_ONLY: dict[str, str] = {
+    # Its only legs are Wi-Fi sketches. A plain sketch builds and flashes on fbuild (bench, 2026-11-11).
+    "esp8266:esp8266:d1_mini": "fbuild 2.5.51 does not link the ESP8266 core's network libraries (runbook §15)",
+}
 
 
 def candidates() -> list[Leg]:

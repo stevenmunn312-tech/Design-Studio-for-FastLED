@@ -444,6 +444,9 @@ chooses the supported combinations from whatever is on record at release.
   corrected to `esp32-h2-devkitm-1` the same day. The Espressif Python still
   holds 2.5.45. An ESP8266 flashes through fbuild (§7): a LOLIN D1 mini,
   2026-11-11. Left:
+  - fbuild does not link the ESP8266 core's network libraries (§15), so an
+    ESP8266 sketch that uses Wi-Fi builds with arduino-cli. The report is
+    drafted in `tmp/fbuild-main/drafts/` and not posted.
   - 21 offered boards have no fbuild environment (`_PIO_BOARDS`) and build
     with arduino-cli through `_engine_for_board`: the XIAO, LOLIN and
     Adafruit ESP32 variants, Pico W and Pico 2 W, three more ESP8266 boards,

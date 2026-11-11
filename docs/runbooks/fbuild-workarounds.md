@@ -86,6 +86,7 @@ an internal record.
 | 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.26** | Re-archive with a response file, then continue | **No — fixed in 2.5.44** ([#1656](https://github.com/FastLED/fbuild/issues/1656)); no leg of the 2.5.51 run needed it, workaround removed 2026-11-10 |
 | 13 | Windows: every daemon compile opens a visible console window that takes focus | **2.5.44** (also 2.5.37) | None possible: zccache is fbuild's only compile backend | **No — fixed in 2.5.45** ([#1722](https://github.com/FastLED/fbuild/issues/1722), by #1723 with zccache 1.15.6): no window opened during a compile in the desktop app on 2.5.51, 2026-11-11 |
 | 14 | Daemon refuses to start after the last one exited | **2.5.51** | Run the build once more after 15 s, then say plainly that nothing was compiled | Yes — seen once, 2026-11-11, not reproduced and not reported; see §14 |
+| 15 | ESP8266: the core's network libraries are not linked | **2.5.51** | Build ESP8266 sketches that include one with arduino-cli | Yes — found 2026-11-11, report drafted and not posted; see §15 |
 
 ---
 
@@ -1143,3 +1144,29 @@ switch to arduino-cli.
 **If it happens again.** Before retrying, read
 `~/.fbuild/prod/zccache/<version>/.writer.lock` and check whether that process
 is alive and what it is. That is the evidence an upstream report needs.
+
+---
+
+## 15. ESP8266 sketches that use Wi-Fi do not link
+
+**Found on 2.5.51 (2026-11-11). Report drafted in `tmp/fbuild-main/drafts/`, not posted.**
+
+**Symptom.** An ESP8266 sketch that includes `ESP8266WiFi.h`,
+`ESP8266WebServer.h`, `ESP8266mDNS.h` or `WiFiUdp.h` compiles and then fails:
+
+```text
+build error: build failed: xtensa-lx106-elf-gcc link failed:
+undefined reference to `_ZN10WiFiClientC1Ev'
+```
+
+An eight-line sketch calling `WiFi.begin` reproduces it in a project with no
+libraries, on NodeMCU and D1 mini alike. A sketch with no network include
+builds, flashes and runs (§7). No earlier fbuild leg built an ESP8266 Wi-Fi
+sketch, so it is not known whether older releases linked them.
+
+**Impact.** The Web Remote, Art-Net, sACN, NTP and board links on an ESP8266.
+
+**Workaround.** `_engine_for_board` in [`backend/toolchain.py`](../../backend/toolchain.py)
+sends an ESP8266 sketch with such an include to arduino-cli where it is
+installed. The same function sends every board the scaffold does not declare
+there too. With no arduino-cli the fbuild link error stands.

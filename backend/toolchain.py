@@ -214,15 +214,26 @@ def _active_engine() -> str:
     return "fbuild" if _FBUILD_BIN else "arduino-cli"
 
 
-def _engine_for_board(fqbn: str) -> str:
-    """The engine that builds this board: `_active_engine`, unless that is
-    fbuild and fbuild has no environment for the board.
+# fbuild 2.5.51 does not link the ESP8266 core's network libraries: a sketch
+# that includes one fails at link with undefined references to WiFiClient,
+# ESP8266WebServer and the rest (NodeMCU and D1 mini alike, 2026-11-11).
+_ESP8266_NETWORK_INCLUDE = re.compile(r"^[ \t]*#include[ \t]*<(?:ESP8266\w+|WiFi\w*)\.h>", re.M)
+
+
+def _engine_for_board(fqbn: str, ino: str = "") -> str:
+    """The engine that builds this sketch for this board: `_active_engine`,
+    unless that is fbuild and fbuild cannot build it.
 
     The app offers boards the fbuild scaffold does not declare (`_PIO_BOARDS`).
     With fbuild the default engine they would all stop on "no fbuild board
-    mapping", so they build with arduino-cli where it is installed."""
+    mapping". An ESP8266 sketch that uses Wi-Fi would stop at link. Both build
+    with arduino-cli where it is installed."""
     engine = _active_engine()
-    if engine == "fbuild" and _ARDUINO_CLI and ":".join(fqbn.split(":")[:3]) not in _PIO_BOARDS:
+    if engine != "fbuild" or not _ARDUINO_CLI:
+        return engine
+    if ":".join(fqbn.split(":")[:3]) not in _PIO_BOARDS:
+        return "arduino-cli"
+    if fqbn.startswith("esp8266:") and _ESP8266_NETWORK_INCLUDE.search(ino):
         return "arduino-cli"
     return engine
 

@@ -993,6 +993,8 @@ versioning (`0.y.z`) until the first stable release.
   LOLIN S2 mini and Pico W) build with arduino-cli where it is installed.
   They had stopped on "no fbuild board mapping" since fbuild became the
   default engine. The LOLIN D1 mini now builds with fbuild.
+- An ESP8266 sketch that uses Wi-Fi builds with arduino-cli where it is
+  installed. fbuild fails to link it.
 - The LED preview no longer stays black after the computer sleeps or locks.
   It lost its graphics context and now redraws without it.
 - Patterns that failed to compile on Adafruit SAMD boards (Feather M0 and M4,

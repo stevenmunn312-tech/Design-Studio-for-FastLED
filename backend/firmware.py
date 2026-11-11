@@ -1429,7 +1429,7 @@ def upload(payload: dict = Body(...)):
         return JSONResponse({"ok": False, "error": "arduino-cli not found"}, status_code=400)
     ino = payload.get("ino") or ""
     fqbn = (payload.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
-    engine = toolchain._engine_for_board(fqbn)
+    engine = toolchain._engine_for_board(fqbn, ino)
     port = (payload.get("port") or "").strip()
     try:
         files = toolchain._sketch_files_from(payload.get("files"))
@@ -1501,7 +1501,7 @@ def compile_check(payload: dict = Body(...)):
 
     ino = (payload.get("ino") or "").strip()
     fqbn = (payload.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
-    engine = toolchain._engine_for_board(fqbn)
+    engine = toolchain._engine_for_board(fqbn, ino)
     if not ino:
         return JSONResponse({"ok": False, "error": "no sketch to compile"}, status_code=400)
     # The SD player is flashed from its own workspace (see `_build_flash`).
@@ -1678,7 +1678,7 @@ def compile_binary(payload: dict = Body(...)):
 
     ino = (payload.get("ino") or "").strip()
     fqbn = (payload.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
-    engine = toolchain._engine_for_board(fqbn)
+    engine = toolchain._engine_for_board(fqbn, ino)
     if not ino:
         return JSONResponse({"ok": False, "error": "no sketch to compile"}, status_code=400)
     # The SD player is flashed from its own workspace (see `_build_flash`).

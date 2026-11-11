@@ -1212,6 +1212,11 @@ def test_a_board_fbuild_does_not_declare_builds_with_arduino_cli(monkeypatch):
     assert toolchain._engine_for_board("esp32:esp32:esp32s3:PSRAM=opi") == "fbuild"
     assert toolchain._engine_for_board("esp8266:esp8266:d1_mini") == "fbuild"
     assert toolchain._engine_for_board("esp32:esp32:lolin_s2_mini") == "arduino-cli"
+    # fbuild 2.5.51 cannot link the ESP8266 core's network libraries.
+    wifi = "#include <FastLED.h>\n#include <ESP8266WiFi.h>\nvoid setup() {}\n"
+    assert toolchain._engine_for_board("esp8266:esp8266:d1_mini", wifi) == "arduino-cli"
+    assert toolchain._engine_for_board("esp8266:esp8266:d1_mini", "#include <FastLED.h>\n") == "fbuild"
+    assert toolchain._engine_for_board("esp32:esp32:esp32", "#include <WiFi.h>\n") == "fbuild"
     # A saved choice of fbuild still cannot build a board it has no environment for.
     monkeypatch.setattr(toolchain, "_load_config", lambda: {"engine": "fbuild"})
     assert toolchain._engine_for_board("rp2040:rp2040:rpipicow") == "arduino-cli"
