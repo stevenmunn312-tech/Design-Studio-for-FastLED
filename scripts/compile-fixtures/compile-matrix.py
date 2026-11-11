@@ -365,6 +365,12 @@ ARDUINO_CLI_ONLY: dict[str, str] = {
 }
 
 
+# Fixture families built on arduino-cli alone, on a board whose other legs fbuild builds.
+ARDUINO_CLI_ONLY_FAMILIES: dict[str, str] = {
+    "uno-r4-wifi": "fbuild 2.5.51 does not find the UNO R4 WiFi core's WiFiS3 library (runbook §16)",
+}
+
+
 def candidates() -> list[Leg]:
     """Every fixture leg on both engines; fbuild only for boards its scaffold declares."""
     legs = [
@@ -377,7 +383,8 @@ def candidates() -> list[Leg]:
     ]
     fbuild_boards = set(toolchain._PIO_BOARDS) - set(ARDUINO_CLI_ONLY)
     return [replace(leg, engine=engine) for engine in ENGINES for leg in legs
-            if engine == "arduino-cli" or ":".join(leg.board.split(":")[:3]) in fbuild_boards]
+            if engine == "arduino-cli" or (":".join(leg.board.split(":")[:3]) in fbuild_boards
+                                           and leg.family not in ARDUINO_CLI_ONLY_FAMILIES)]
 
 
 # The generator behind each family's fixtures.

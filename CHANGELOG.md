@@ -995,6 +995,8 @@ versioning (`0.y.z`) until the first stable release.
   default engine. The LOLIN D1 mini now builds with fbuild.
 - An ESP8266 sketch that uses Wi-Fi builds with arduino-cli where it is
   installed. fbuild fails to link it.
+- An Arduino UNO R4 WiFi sketch that uses the network builds with arduino-cli
+  where it is installed. fbuild does not find the board's WiFiS3 library.
 - The LED preview no longer stays black after the computer sleeps or locks.
   It lost its graphics context and now redraws without it.
 - Patterns that failed to compile on Adafruit SAMD boards (Feather M0 and M4,

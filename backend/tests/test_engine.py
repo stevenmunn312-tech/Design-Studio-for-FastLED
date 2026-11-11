@@ -1217,6 +1217,11 @@ def test_a_board_fbuild_does_not_declare_builds_with_arduino_cli(monkeypatch):
     assert toolchain._engine_for_board("esp8266:esp8266:d1_mini", wifi) == "arduino-cli"
     assert toolchain._engine_for_board("esp8266:esp8266:d1_mini", "#include <FastLED.h>\n") == "fbuild"
     assert toolchain._engine_for_board("esp32:esp32:esp32", "#include <WiFi.h>\n") == "fbuild"
+    # Nor find the UNO R4 WiFi core's WiFiS3 library.
+    r4 = "#include <FastLED.h>\n#include <WiFiS3.h>\nvoid setup() {}\n"
+    assert toolchain._engine_for_board("arduino:renesas_uno:unor4wifi", r4) == "arduino-cli"
+    assert toolchain._engine_for_board("arduino:renesas_uno:unor4wifi", "#include <FastLED.h>\n") == "fbuild"
+    assert "UNO R4 WiFi network library" in toolchain._engine_switch_note("arduino:renesas_uno:unor4wifi", r4)
     # The log says why a build left fbuild, and says nothing when it did not.
     assert "cannot link ESP8266 Wi-Fi" in toolchain._engine_switch_note("esp8266:esp8266:d1_mini", wifi)
     assert "no environment for esp32:esp32:lolin_s2_mini" in toolchain._engine_switch_note("esp32:esp32:lolin_s2_mini")

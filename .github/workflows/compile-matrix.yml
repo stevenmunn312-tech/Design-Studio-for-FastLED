@@ -116,6 +116,10 @@ jobs:
         shell: bash
         env:
           UV_PYTHON_PREFERENCE: only-system  # the 3.10 set up above, never a download
+          # fbuild refuses to start with under 5 GB free beside its cache. A
+          # shard holding the ESP32 toolchains restored from cache had 4.98 GB
+          # and built nothing; 2 GB still stops a runner that is really full.
+          FBUILD_MIN_DISK_BYTES: "2147483648"
         run: |
           only=()
           for text in ${{ inputs.only }}; do only+=(--only "$text"); done

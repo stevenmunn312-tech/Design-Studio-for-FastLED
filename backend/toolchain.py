@@ -218,6 +218,9 @@ def _active_engine() -> str:
 # that includes one fails at link with undefined references to WiFiClient,
 # ESP8266WebServer and the rest (NodeMCU and D1 mini alike, 2026-11-11).
 _ESP8266_NETWORK_INCLUDE = re.compile(r"^[ \t]*#include[ \t]*<(?:ESP8266\w+|WiFi\w*)\.h>", re.M)
+# Nor does it find the UNO R4 WiFi core's bundled WiFiS3 library: the include
+# itself fails with "WiFiS3.h: No such file or directory" (2026-11-12).
+_UNO_R4_NETWORK_INCLUDE = re.compile(r"^[ \t]*#include[ \t]*<WiFi\w*\.h>", re.M)
 
 
 def _engine_for_board(fqbn: str, ino: str = "") -> str:
@@ -226,8 +229,9 @@ def _engine_for_board(fqbn: str, ino: str = "") -> str:
 
     The app offers boards the fbuild scaffold does not declare (`_PIO_BOARDS`).
     With fbuild the default engine they would all stop on "no fbuild board
-    mapping". An ESP8266 sketch that uses Wi-Fi would stop at link. Both build
-    with arduino-cli where it is installed."""
+    mapping". An ESP8266 sketch that uses Wi-Fi would stop at link, and an
+    UNO R4 WiFi one at its WiFiS3 include. All three build with arduino-cli
+    where it is installed."""
     return "arduino-cli" if _engine_switch_note(fqbn, ino) else _active_engine()
 
 
@@ -241,6 +245,8 @@ def _engine_switch_note(fqbn: str, ino: str = "") -> str:
         return f"  [engine] fbuild has no environment for {fqbn}: building with arduino-cli.\n"
     if fqbn.startswith("esp8266:") and _ESP8266_NETWORK_INCLUDE.search(ino):
         return "  [engine] fbuild cannot link ESP8266 Wi-Fi sketches yet: building with arduino-cli.\n"
+    if fqbn.startswith("arduino:renesas_uno:unor4wifi") and _UNO_R4_NETWORK_INCLUDE.search(ino):
+        return "  [engine] fbuild cannot find the UNO R4 WiFi network library yet: building with arduino-cli.\n"
     return ""
 
 
