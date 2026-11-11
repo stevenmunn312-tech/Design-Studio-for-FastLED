@@ -649,6 +649,14 @@ const screensDesign = (spectrum: boolean) => {
   let design = createDisplayDocument('screens', 240, 320)
   for (const type of ['Slider', 'Button', 'Text Entry', 'Text', 'Chart'] as const) design = addDisplayWidget(design, type)
   if (spectrum) design = addDisplayWidget(design, 'Spectrum')
+  // A second Slider and a Dial on a log scale, appended so no index above
+  // moves. Each sets the other, so both the reading and the position
+  // conversions are compiled.
+  for (const type of ['Slider', 'Dial'] as const) {
+    design = addDisplayWidget(design, type)
+    const widget = design.widgets.at(-1)!
+    widget.properties = { ...widget.properties, scale: 'log', min: 0.1, max: 10, initial: 1 }
+  }
   const more = addDisplayScreen(design, 'More')
   design = addDisplayWidget(more.document, 'Text', more.screenId!)
   const goes = design.widgets.find((entry) => entry.type === 'Button')!
@@ -670,6 +678,8 @@ const screensWires = [
   edge('math', 'result', 'custom-tft', 'widget:chart:value'),
   edge('math', 'result', 'format', 'value'),
   edge('format', 'text', 'custom-tft', 'widget:text-2:value'),
+  edge('custom-tft-touch', 'widget:slider-2:out', 'custom-tft', 'widget:dial:set'),
+  edge('custom-tft-touch', 'widget:dial:out', 'custom-tft', 'widget:slider-2:set'),
 ]
 const screensNormalNodes = [
   ...screensParts(screensNormalDocument), node('fill', 'SolidColor'),
@@ -879,11 +889,12 @@ const requiredSymbols: Record<string, readonly string[]> = {
   // in the normal sketch, the Spectrum reading the sketch's 32-bin array.
   'screens-normal': ['float _cdScreenValue = (float)(n_custom_tft_touch_widget_slider_out);', 'lv_screen_load(_cdScreens_screens[_cdScreenIndex]);',
     'lv_keyboard_create(', '_cdSetText(_cd_screens[3], n_custom_tft_touch_widget_text_entry_out)',
-    '_cdChartSample(_cd_screens[4], ', '_cdSpectrumSample(_cd_screens[5], _audioSpectrum, 16);'],
+    '_cdChartSample(_cd_screens[4], ', '_cdSpectrumSample(_cd_screens[5], _audioSpectrum, 16);',
+    '_rsLogValue(', '_rsLogPosition('],
   // The same in a show, beside Show Status picturing the running pattern.
   'screens-show': ['float _cdScreenValue = (float)(n_custom_tft_touch_widget_slider_out);', 'lv_screen_load(_cdScreens_screens[_cdScreenIndex]);',
     'lv_keyboard_create(', '_cdSetText(_cd_screens[3], n_custom_tft_touch_widget_text_entry_out)',
-    '_cdChartSample(_cd_screens[4], ', '_tftPicture(_tft_status_tft, '],
+    '_cdChartSample(_cd_screens[4], ', '_tftPicture(_tft_status_tft, ', '_rsLogValue(', '_rsLogPosition('],
   'ili9341-fixed': [sharedTouchRead, '_spiBusBegin(12, 13, 11);', '_tftBegin(_tft_ili_panel'],
   'ili9341-sd-video': ['_spiBusBegin(SDV_SCK, SDV_MISO, SDV_MOSI);', sharedTouchRead],
   'ili9341-custom': ['lv_display_create(320, 240)', sharedTouchRead, '_spiBusBegin(12, 13, 11);'],

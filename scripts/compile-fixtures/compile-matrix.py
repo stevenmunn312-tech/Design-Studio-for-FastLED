@@ -215,6 +215,19 @@ def long_string_legs() -> list[Leg]:
             for name in manifest_names(folder, "long-strings")]
 
 
+def v1_variant_legs() -> list[Leg]:
+    """The v1 targeted pass: one sketch per node setting no other gate reaches, each on the board its manifest names."""
+    folder = ROOT / "artifacts" / "v1-variants-compile"
+    manifest_names(folder, "v1-variants")
+    try:
+        entries = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return [Leg("v1-variants", "compile-presence-smoke.py", folder / f"{name}.ino",
+                entry["fqbn"], entry["fqbn"].split(":")[2], "v1-variants")
+            for name, entry in sorted(entries.items())]
+
+
 def power_switch_legs() -> list[Leg]:
     folder = ROOT / "backend" / "sketches" / "power-switch-fixtures"
     targets = {name: CLASSIC for name in ("plain", "level-field", "level-wired", "gated", "mosfetti", "mixed", "yynmos4",
@@ -375,7 +388,7 @@ def candidates() -> list[Leg]:
     """Every fixture leg on both engines; fbuild only for boards its scaffold declares."""
     legs = [
         *display_legs(), *custom_board_legs(), *control_graph_legs(), *ir_legs(), *ethernet_legs(),
-        *board_link_legs(), *clock_sync_legs(), *uno_r4_wifi_legs(), *long_string_legs(), *power_switch_legs(), *peripheral_legs(), *samd51_legs(), *dmx_legs(), *family_legs(), *pattern_node_legs(),
+        *board_link_legs(), *clock_sync_legs(), *uno_r4_wifi_legs(), *long_string_legs(), *v1_variant_legs(), *power_switch_legs(), *peripheral_legs(), *samd51_legs(), *dmx_legs(), *family_legs(), *pattern_node_legs(),
         *corpus_legs("dead-code", "dead-code-compile"),
         *corpus_legs("pattern-collections", "pattern-collections-compile"),
         *corpus_legs("show-sequencing", "show-sequencing-compile"),
@@ -391,6 +404,7 @@ def candidates() -> list[Leg]:
 GENERATORS = {"display": "display", "custom-board": "custom-board", "control-graph": "control-graph", "ir": "ir",
               "ethernet": "ethernet", "board-links": "board-links", "power-switch": "power-switch",
               "clock-sync": "clock-sync", "uno-r4-wifi": "uno-r4-wifi", "long-strings": "long-strings",
+              "v1-variants": "v1-variants",
               "pattern-node": "pattern-node", "samd51": "samd51", "dmx": "dmx", "families": "families", "dead-code": "dead-code", "pattern-collections": "pattern-collections",
               "show-sequencing": "show-sequencing", "lanes": "lanes", "led-drivers": "led-drivers",
               **{family: family for family in (
