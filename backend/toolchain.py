@@ -214,6 +214,19 @@ def _active_engine() -> str:
     return "fbuild" if _FBUILD_BIN else "arduino-cli"
 
 
+def _engine_for_board(fqbn: str) -> str:
+    """The engine that builds this board: `_active_engine`, unless that is
+    fbuild and fbuild has no environment for the board.
+
+    The app offers boards the fbuild scaffold does not declare (`_PIO_BOARDS`).
+    With fbuild the default engine they would all stop on "no fbuild board
+    mapping", so they build with arduino-cli where it is installed."""
+    engine = _active_engine()
+    if engine == "fbuild" and _ARDUINO_CLI and ":".join(fqbn.split(":")[:3]) not in _PIO_BOARDS:
+        return "arduino-cli"
+    return engine
+
+
 # ── fbuild project scaffold ───────────────────────────────────────────────────
 # fbuild runs a persistent background daemon bound to whichever project
 # directory first started it, so (unlike arduino-cli) each compile can't use a
@@ -582,6 +595,7 @@ _PIO_BOARDS: dict[str, dict] = {
     },
     "esp32:esp32:esp32h2": {"platform": "espressif32", "board": "esp32-h2-devkitm-1"},
     "esp8266:esp8266:nodemcuv2": {"platform": "espressif8266", "board": "nodemcuv2"},
+    "esp8266:esp8266:d1_mini": {"platform": "espressif8266", "board": "d1_mini"},
     "teensy:avr:teensy41": {"platform": "teensy", "board": "teensy41"},
     "teensy:avr:teensy40": {"platform": "teensy", "board": "teensy40"},
     "teensy:avr:teensyMM": {"platform": "teensy", "board": "teensymm"},

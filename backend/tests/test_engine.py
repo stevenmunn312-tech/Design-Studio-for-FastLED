@@ -1203,3 +1203,21 @@ def test_fbuild_build_does_not_repeat_an_ordinary_compile_error(monkeypatch):
     assert len(runs) == 1
     assert "exit code: 1" in log
     assert "Trying once more" not in log
+
+
+def test_a_board_fbuild_does_not_declare_builds_with_arduino_cli(monkeypatch):
+    monkeypatch.setattr(toolchain, "_load_config", lambda: {})
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "fbuild")
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "arduino-cli")
+    assert toolchain._engine_for_board("esp32:esp32:esp32s3:PSRAM=opi") == "fbuild"
+    assert toolchain._engine_for_board("esp8266:esp8266:d1_mini") == "fbuild"
+    assert toolchain._engine_for_board("esp32:esp32:lolin_s2_mini") == "arduino-cli"
+    # A saved choice of fbuild still cannot build a board it has no environment for.
+    monkeypatch.setattr(toolchain, "_load_config", lambda: {"engine": "fbuild"})
+    assert toolchain._engine_for_board("rp2040:rp2040:rpipicow") == "arduino-cli"
+    # With no arduino-cli there is nothing to fall back to: fbuild reports the gap.
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", None)
+    assert toolchain._engine_for_board("rp2040:rp2040:rpipicow") == "fbuild"
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "arduino-cli")
+    monkeypatch.setattr(toolchain, "_load_config", lambda: {"engine": "arduino-cli"})
+    assert toolchain._engine_for_board("esp32:esp32:esp32s3") == "arduino-cli"

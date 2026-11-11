@@ -1429,6 +1429,7 @@ def upload(payload: dict = Body(...)):
         return JSONResponse({"ok": False, "error": "arduino-cli not found"}, status_code=400)
     ino = payload.get("ino") or ""
     fqbn = (payload.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
+    engine = toolchain._engine_for_board(fqbn)
     port = (payload.get("port") or "").strip()
     try:
         files = toolchain._sketch_files_from(payload.get("files"))
@@ -1500,6 +1501,7 @@ def compile_check(payload: dict = Body(...)):
 
     ino = (payload.get("ino") or "").strip()
     fqbn = (payload.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
+    engine = toolchain._engine_for_board(fqbn)
     if not ino:
         return JSONResponse({"ok": False, "error": "no sketch to compile"}, status_code=400)
     # The SD player is flashed from its own workspace (see `_build_flash`).
@@ -1676,6 +1678,7 @@ def compile_binary(payload: dict = Body(...)):
 
     ino = (payload.get("ino") or "").strip()
     fqbn = (payload.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
+    engine = toolchain._engine_for_board(fqbn)
     if not ino:
         return JSONResponse({"ok": False, "error": "no sketch to compile"}, status_code=400)
     # The SD player is flashed from its own workspace (see `_build_flash`).
@@ -1796,6 +1799,7 @@ async def upload_show(
     except ValueError as exc:
         return JSONResponse({"ok": False, "error": f"meta is not valid JSON: {exc}"}, status_code=400)
     fqbn = (info.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
+    engine = toolchain._engine_for_board(fqbn)
     port = (info.get("port") or "").strip()
     flash_mb = toolchain._flash_mb_from(info)
     usb_cdc = toolchain._usb_cdc_from(info)

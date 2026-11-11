@@ -584,6 +584,8 @@ export default function LEDPreview() {
   }, [effectivePreview3d])
 
   const shapeCanvas = activeShape !== null
+  // Set once WebGL is lost or unusable; the grid then draws with Canvas 2D.
+  const [canvas2d, setCanvas2d] = useState(false)
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -956,7 +958,7 @@ export default function LEDPreview() {
       // A shaped output draws through Canvas 2D: its emitters sit at arbitrary
       // points, not on the shader's grid. The canvas element is keyed on the
       // shape so a context of the other kind is never asked of the same element.
-      if (shapeCanvas) {
+      if (shapeCanvas || canvas2d) {
         glRef.current = null
         ctx = canvas.getContext('2d')
       } else {
@@ -966,10 +968,20 @@ export default function LEDPreview() {
         } catch {
           glRef.current = null
           ctx = canvas.getContext('2d')
+          // WebGL answered and then failed: this canvas has no 2D context left.
+          if (!ctx) setCanvas2d(true)
         }
       }
       animRef.current = requestAnimationFrame(loop)
     }
+
+    // The GPU can take a WebGL context away (sleep, a locked screen, a driver
+    // reset). Draw calls on a lost context do nothing and raise nothing, so
+    // the preview would stay black, and a canvas that has held a WebGL
+    // context can never give a 2D one. So the canvas is replaced and drawn
+    // with Canvas 2D from then on: the browser may never restore the context.
+    const leaveWebGL = () => { if (!disposed) setCanvas2d(true) }
+    canvas.addEventListener('webglcontextlost', leaveWebGL)
 
     if (typeof window.requestIdleCallback === 'function') {
       idleId = window.requestIdleCallback(startRenderer, { timeout: 500 })
@@ -979,13 +991,14 @@ export default function LEDPreview() {
 
     return () => {
       disposed = true
+      canvas.removeEventListener('webglcontextlost', leaveWebGL)
       if (idleId !== null) window.cancelIdleCallback(idleId)
       if (fallbackId !== null) window.clearTimeout(fallbackId)
       cancelAnimationFrame(animRef.current)
       glRef.current?.destroy()
       glRef.current = null
     }
-  }, [shapeCanvas])
+  }, [shapeCanvas, canvas2d])
 
   // Revoke every playlist object URL on unmount.
   useEffect(() => {
@@ -1451,7 +1464,7 @@ export default function LEDPreview() {
               style={effectivePreview3d ? { transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`, cursor: drag.current ? 'grabbing' : 'grab' } : undefined}
             >
               <canvas
-                key={shapeCanvas ? 'shape' : 'grid'}
+                key={shapeCanvas ? 'shape' : canvas2d ? 'grid-2d' : 'grid'}
                 ref={canvasRef}
                 width={canvasBufW}
                 height={canvasBufH}
