@@ -87,6 +87,7 @@ an internal record.
 | 13 | Windows: every daemon compile opens a visible console window that takes focus | **2.5.44** (also 2.5.37) | None possible: zccache is fbuild's only compile backend | **No — fixed in 2.5.45** ([#1722](https://github.com/FastLED/fbuild/issues/1722), by #1723 with zccache 1.15.6): no window opened during a compile in the desktop app on 2.5.51, 2026-11-11 |
 | 14 | Daemon refuses to start after the last one exited | **2.5.51** | Run the build once more after 15 s, then say plainly that nothing was compiled | Yes — seen once, 2026-11-11, not reproduced and not reported; see §14 |
 | 15 | ESP8266: the core's network libraries are not linked | **2.5.51** | Build ESP8266 sketches that include one with arduino-cli | Yes — [#1994](https://github.com/FastLED/fbuild/issues/1994), filed 2026-11-11; see §15 |
+| 16 | UNO R4 WiFi: the core's bundled `WiFiS3.h` is not found | **2.5.51** | Build UNO R4 WiFi sketches that include it with arduino-cli | Yes — found 2026-11-12, report drafted and not posted; see §16 |
 
 ---
 
@@ -1178,3 +1179,33 @@ there too. With no arduino-cli the fbuild link error stands.
 **Checked on hardware 2026-11-11.** A Web Remote sketch (ESP8266WiFi,
 ESP8266WebServer, ESP8266mDNS) for a LOLIN D1 mini was routed to arduino-cli by
 the desktop app with fbuild as the engine, built in 19 s and flashed.
+
+---
+
+## 16. UNO R4 WiFi sketches that use the network do not compile
+
+**Found on 2.5.51 (2026-11-12). Report drafted in `tmp/fbuild-main/drafts/`, not posted.**
+
+**Symptom.** An Arduino UNO R4 WiFi sketch that includes `WiFiS3.h`, the
+network library bundled with the Renesas core, stops at the include:
+
+```text
+build error: build failed: compilation failed for ...\src\main.ino.cpp:
+.fbuild/build/arduino_renesas_uno_unor4wifi/release/src/main.ino.cpp:3:10: fatal error: WiFiS3.h: No such file or directory
+```
+
+Both `uno-r4-wifi` fixtures failed this way on a GitHub `windows-latest`
+runner (run 43035986760). The same board's sketches with no network include
+build on fbuild (`ir/normal@renesas`, `families/pattern@renesas`), and both
+fixtures build with arduino-cli on core 1.6.0. It looks like the ESP8266 gap
+in §15 one step earlier: there the bundled libraries' headers were found and
+their sources never compiled; here the headers are not on the include path.
+No smaller reproduction has been tried yet.
+
+**Impact.** NTP, Art-Net, sACN and DDP on an Arduino UNO R4 WiFi.
+
+**Workaround.** `_engine_for_board` in [`backend/toolchain.py`](../../backend/toolchain.py)
+sends an UNO R4 WiFi sketch that includes a `WiFi*.h` header to arduino-cli
+where it is installed, and the compile matrix keeps the `uno-r4-wifi` family
+off fbuild (`ARDUINO_CLI_ONLY_FAMILIES`). With no arduino-cli the fbuild error
+stands.

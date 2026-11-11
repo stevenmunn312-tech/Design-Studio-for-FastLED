@@ -456,8 +456,10 @@ Unless a future row says otherwise, treat the following as experimental:
 - **Several boards in one project** (root todo, D-03): a second controller
   on the bench, its own parts and sketch, and the clock-sync protocol that
   keeps boards on one animation clock and one show pattern over UDP
-  ([design](../design/multi-board.md)). Generated and tested against the
-  preview only; no multi-board sketch has been compiled or run, and the
+  ([design](../design/multi-board.md)). Both boards of a clock-sync pair
+  compile on both engines
+  ([record](../reports/compile/v1-targeted-pass-compile-checks.md), 2026-11-12);
+  none has run on hardware, and the
   bench row is in the [bench backlog](../plans/bench-backlog.md#network-and-data-links).
 - **Board links over ESP-NOW** (root todo, D-13): numbers, switches, presses,
   colours, text, times and panel fields sent between the boards of one project

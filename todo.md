@@ -31,7 +31,9 @@ one at a time, since overlapping runs corrupt its cache. Fix what fails, and
 record the results under [compile checks](docs/index.md#compile-checks). This
 is a targeted pass, not the full matrix; that is step 5. The six fixtures
 known to be missing were written on 2026-11-12 and are named on their lines;
-a named family runs with `compile-matrix.py --only <family>/`.
+a named family runs with `compile-matrix.py --only <family>/`. Ticked lines
+are recorded in the
+[targeted pass record](docs/reports/compile/v1-targeted-pass-compile-checks.md).
 
 ### 2.1 Inputs, controls and data links
 
@@ -49,7 +51,7 @@ a named family runs with `compile-matrix.py --only <family>/`.
 - [ ] DMX512 beside a radar and a DFPlayer, so the UART allocator moves it.
 - [ ] A log Slider and Dial on an LVGL screen (`_rsLogValue`,
   `_rsLogPosition`).
-- [ ] Custom screens, `display` screens-normal and screens-show: two screens
+- [x] Custom screens, `display` screens-normal and screens-show: two screens
   moved by a Go to screen button and a wired Screen input, a Text Entry, a
   Chart, a Spectrum in the normal sketch (a show refuses one) and Show Status
   in the show.
@@ -61,14 +63,13 @@ a named family runs with `compile-matrix.py --only <family>/`.
 - [ ] The Clock time zone: `configTzTime` on an ESP32 and
   `configTime(tz, server)` on an ESP8266, through `control-graph` show-ntp and
   player-ntp (now on Europe/Paris).
-- [ ] A DS3231 Clock reading its module, `control-graph` normal-ds3231 and
+- [x] A DS3231 Clock reading its module, `control-graph` normal-ds3231 and
   show-ds3231.
-- [ ] An Arduino UNO R4 WiFi through WiFiS3, `uno-r4-wifi`: ntp-zone (NTP in a
+- [x] An Arduino UNO R4 WiFi through WiFiS3, `uno-r4-wifi`: ntp-zone (NTP in a
   daylight-saving zone, `_rtcTzOffset`) and artnet-static (Art-Net beside NTP
-  on a named board at a static address). The `ARDUINO_UNOWIFIR4` define,
-  `WiFiS3.h`, `setHostname` and the DNS-second `config` order are assumed from
-  the core.
-- [ ] Both boards of a two-board clock-sync project, `clock-sync`: leader and
+  on a named board at a static address). Arduino CLI only: fbuild does not
+  find `WiFiS3.h` (step 3).
+- [x] Both boards of a two-board clock-sync project, `clock-sync`: leader and
   follower running one pattern, then the same collection show.
 - [ ] Schedule Trigger's DateTime.
 - [ ] The Power Switch RGB strip (`yynmos4-rgb`, `mosfetti-rgb-avr`).
@@ -133,7 +134,7 @@ a named family runs with `compile-matrix.py --only <family>/`.
 - [ ] The LED matrix start corner and first run.
 - [ ] Output Gamma: single output, two outputs, show controller, SD player and
   a mapped ring.
-- [ ] A 720-LED and a 4096-LED string, `long-strings`, each with Waveform's
+- [x] A 720-LED and a 4096-LED string, `long-strings`, each with Waveform's
   line style and an elementary Automaton (they lost their stack arrays).
 
 ## 3. fbuild upkeep
@@ -162,6 +163,11 @@ replaced by the sketch's own receiver.
 - [ ] Steve reviews the two drafts in `tmp/fbuild-main/drafts/` (the RP2040
   and RP2350 flash count including the `.heap` reservation, and the
   `.eh_frame` size), then they are posted upstream.
+- [ ] fbuild does not find the UNO R4 WiFi core's `WiFiS3.h` (§16, found
+  2026-11-12), so those sketches build with arduino-cli. Reduce it to a
+  minimal project, recheck on the release that carries #1995, then Steve
+  reviews the draft (`uno-r4-wifi-wifis3-not-found.md`) and it is posted.
+  It does not hold the release.
 - [ ] When an fbuild release carries upstream #1995, the fix for
   [#1994](https://github.com/FastLED/fbuild/issues/1994) (open on 2026-11-12,
   after 2.5.51): move the pin, drop `_ESP8266_NETWORK_INCLUDE` and the D1 mini

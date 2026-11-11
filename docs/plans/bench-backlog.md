@@ -266,13 +266,14 @@ chooses the supported combinations from whatever is on record at release.
   primary leading, running the same pattern and then the same collection
   show: the follower's clock offset settles and the two stay on one pattern
   through transitions, and the follower resumes its own picks five seconds
-  after the leader is unplugged. Compile both partitions first; no
-  multi-board sketch has compiled yet.
+  after the leader is unplugged. Both partitions compile, as a pattern and
+  as a show, on both engines
+  ([record](../reports/compile/v1-targeted-pass-compile-checks.md), 2026-11-12).
 - **D-03 UNO R4 WiFi networking:** NTP sync and Art-Net receive through
-  WiFiS3 on an Arduino UNO R4 WiFi: first compile on arduino-cli (the
-  `ARDUINO_UNOWIFIR4` define, `WiFiS3.h`, `setHostname` and the
-  DNS-second `config` order are assumed from the core), then an NTP-synced
-  Clock Display and a desk-driven Art-Net universe.
+  WiFiS3 on an Arduino UNO R4 WiFi: an NTP-synced Clock Display and a
+  desk-driven Art-Net universe. Both compile on arduino-cli, core 1.6.0
+  ([record](../reports/compile/v1-targeted-pass-compile-checks.md), 2026-11-12);
+  fbuild does not find `WiFiS3.h`, so the app builds these with arduino-cli.
 - **D-05 wired Ethernet:** the WIZ850io on a real network: link-up, DHCP and
   static addressing, Art-Net over the cable, NTP sync, and cable pull/replug
   recovery; the row's requirements are in the support matrix.

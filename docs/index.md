@@ -189,6 +189,7 @@ Development compiles on Arduino CLI alone for now; `--engine fbuild` or
 - [Touch-pad compile checks](reports/compile/touch-pad-compile-checks.md)
 - [VL53L0X compile checks](reports/compile/vl53l0x-compile-checks.md)
 - [VL53L1X compile checks](reports/compile/vl53l1x-compile-checks.md)
+- [v1 targeted compile pass](reports/compile/v1-targeted-pass-compile-checks.md)
 
 ### Physical bench and bring-up
 
