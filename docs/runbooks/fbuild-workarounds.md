@@ -1151,7 +1151,9 @@ is alive and what it is. That is the evidence an upstream report needs.
 
 **Found on 2.5.51 and reported 2026-11-11 as [#1994](https://github.com/FastLED/fbuild/issues/1994).** The ESP8266 build adds the
 bundled libraries' headers to the include path and never compiles their
-sources (`esp8266/orchestrator.rs`).
+sources (`esp8266/orchestrator.rs`). Upstream confirmed it and fixed it in
+[#1995](https://github.com/FastLED/fbuild/pull/1995), not yet merged or
+released on 2026-11-12; the workaround stays until the pin can move.
 
 **Symptom.** An ESP8266 sketch that includes `ESP8266WiFi.h`,
 `ESP8266WebServer.h`, `ESP8266mDNS.h` or `WiFiUdp.h` compiles and then fails:

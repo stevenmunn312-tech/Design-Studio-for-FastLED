@@ -451,7 +451,10 @@ chooses the supported combinations from whatever is on record at release.
   - fbuild does not link the ESP8266 core's network libraries (§15), so an
     ESP8266 sketch that uses Wi-Fi builds with arduino-cli, reported as
     [#1994](https://github.com/FastLED/fbuild/issues/1994).
-    Drop `_ESP8266_NETWORK_INCLUDE` when a release carries the fix.
+    Fixed upstream by #1995 (open on 2026-11-12, after 2.5.51). When a
+    release carries it: move the pin, drop `_ESP8266_NETWORK_INCLUDE` and the
+    D1 mini entry in `ARDUINO_CLI_ONLY`, rebuild the Wi-Fi legs, and flash a
+    Web Remote to the D1 mini through fbuild, which upstream asked for.
   - 21 offered boards have no fbuild environment (`_PIO_BOARDS`) and build
     with arduino-cli through `_engine_for_board`: the XIAO, LOLIN and
     Adafruit ESP32 variants, Pico W and Pico 2 W, three more ESP8266 boards,
