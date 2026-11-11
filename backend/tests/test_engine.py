@@ -1224,14 +1224,14 @@ def test_a_board_fbuild_does_not_declare_builds_with_arduino_cli(monkeypatch):
     assert "UNO R4 WiFi network library" in toolchain._engine_switch_note("arduino:renesas_uno:unor4wifi", r4)
     # The log says why a build left fbuild, and says nothing when it did not.
     assert "cannot link ESP8266 Wi-Fi" in toolchain._engine_switch_note("esp8266:esp8266:d1_mini", wifi)
-    assert "no environment for esp32:esp32:lolin_s2_mini" in toolchain._engine_switch_note("esp32:esp32:lolin_s2_mini")
+    assert "no environment for esp32:esp32:nodemcu-32s" in toolchain._engine_switch_note("esp32:esp32:nodemcu-32s")
     assert toolchain._engine_switch_note("esp8266:esp8266:d1_mini", "#include <FastLED.h>\n") == ""
     # A saved choice of fbuild still cannot build a board it has no environment for.
     monkeypatch.setattr(toolchain, "_load_config", lambda: {"engine": "fbuild"})
-    assert toolchain._engine_for_board("rp2040:rp2040:rpipicow") == "arduino-cli"
+    assert toolchain._engine_for_board("esp32:esp32:nodemcu-32s") == "arduino-cli"
     # With no arduino-cli there is nothing to fall back to: fbuild reports the gap.
     monkeypatch.setattr(toolchain, "_ARDUINO_CLI", None)
-    assert toolchain._engine_for_board("rp2040:rp2040:rpipicow") == "fbuild"
+    assert toolchain._engine_for_board("esp32:esp32:nodemcu-32s") == "fbuild"
     monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "arduino-cli")
     monkeypatch.setattr(toolchain, "_load_config", lambda: {"engine": "arduino-cli"})
     assert toolchain._engine_for_board("esp32:esp32:esp32s3") == "arduino-cli"
