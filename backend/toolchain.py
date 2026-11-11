@@ -294,6 +294,14 @@ _arduino_bluetooth_lock = threading.Lock()
 # has no native HUB75 driver, so a HUB75 MatrixOutput route needs this DMA
 # library instead. Vendored the same lazy way as ESP32-audioI2S above.
 _FBUILD_HUB75_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "ESP32-HUB75-MatrixPanel-DMA"
+_HUB75_VERSION = "3.0.14"
+_HUB75_HEADER = "ESP32-HUB75-MatrixPanel-I2S-DMA.h"
+_HUB75_INCLUDE = f"#include <{_HUB75_HEADER}>"
+# The name Arduino's Library Manager lists the same library under.
+_HUB75_ARDUINO_NAME = "ESP32 HUB75 LED MATRIX PANEL DMA Display"
+# The library's own switch for building without Adafruit GFX, which no
+# generated sketch calls. fbuild sets it for every ESP32 environment.
+_HUB75_BUILD_FLAG = "-DNO_GFX=1"
 # SAMD51 INMP441 capture uses Adafruit's receive-capable ZeroI2S driver and
 # its ZeroDMA dependency. Both are fetched only when a generated sketch names
 # ZeroI2S, just like the other optional hardware libraries below.
@@ -1264,7 +1272,7 @@ def _ensure_fbuild_hub75_lib():
     # than floating.
     rc = yield from _run_phase(
         "vendor ESP32-HUB75-MatrixPanel-DMA",
-        ["git", "clone", "--progress", "--branch", "3.0.14", "--depth", "1",
+        ["git", "clone", "--progress", "--branch", _HUB75_VERSION, "--depth", "1",
          "https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA.git", str(_FBUILD_HUB75_LIB_DIR)],
     )
     if rc != 0:
@@ -1452,6 +1460,46 @@ def _arduino_user_libraries_dir() -> Path | None:
 def _arduino_irremote_matches_pin() -> bool:
     libraries = _arduino_user_libraries_dir()
     return libraries is not None and _irremote_checkout_matches_pin(libraries / "IRremote")
+
+
+def _arduino_hub75_matches_pin() -> bool:
+    """True when the sketchbook holds the pinned HUB75 DMA release, under whatever folder name."""
+    libraries = _arduino_user_libraries_dir()
+    if libraries is None:
+        return False
+    try:
+        headers = list(libraries.glob(f"*/src/{_HUB75_HEADER}"))
+    except OSError:
+        return False
+    for header in headers:
+        try:
+            versions = {
+                line.partition("=")[2].strip()
+                for line in (header.parent.parent / "library.properties").read_text(encoding="utf-8").splitlines()
+                if line.startswith("version=")
+            }
+        except (OSError, UnicodeDecodeError):
+            continue
+        if versions == {_HUB75_VERSION}:
+            return True
+    return False
+
+
+def _ensure_arduino_hub75_lib():
+    """Install the pinned HUB75 DMA release the first time an Arduino CLI sketch includes it."""
+    if _arduino_hub75_matches_pin():
+        return 0
+    rc = yield from _run_phase(
+        f"install ESP32-HUB75-MatrixPanel-DMA {_HUB75_VERSION}",
+        _ARDUINO_BASE + ["lib", "install", f"{_HUB75_ARDUINO_NAME}@{_HUB75_VERSION}", "--no-deps"],
+    )
+    if rc != 0:
+        yield (
+            f"[error] failed to install ESP32-HUB75-MatrixPanel-DMA {_HUB75_VERSION}. Check the network connection or run "
+            f"'arduino-cli lib install \"{_HUB75_ARDUINO_NAME}@{_HUB75_VERSION}\" --no-deps' and try again.\n"
+        )
+        return rc
+    return 0
 
 
 def _ensure_arduino_irremote_lib():

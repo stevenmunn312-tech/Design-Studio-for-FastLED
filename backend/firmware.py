@@ -286,6 +286,11 @@ def _compile_upload(
             rc = yield from toolchain._ensure_arduino_irremote_lib()
             if rc != 0:
                 return rc, "compile"
+        uses_hub75 = any(toolchain._HUB75_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+        if uses_hub75:
+            rc = yield from toolchain._ensure_arduino_hub75_lib()
+            if rc != 0:
+                return rc, "compile"
         uses_zero_i2s = any(toolchain._ZERO_I2S_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
         if uses_zero_i2s:
             rc = yield from toolchain._ensure_arduino_zero_i2s_lib()
@@ -328,6 +333,9 @@ def _compile_upload(
             # recipes need the define; setting only cpp.extra_flags configures the
             # caller but leaves the runtime compiled with its default catalogue.
             extra_flags = f"{extra_flags} -DLV_CONF_INCLUDE_SIMPLE"
+        if uses_hub75:
+            # Installed without Adafruit GFX, so the library must not include it.
+            extra_flags = f"{extra_flags} {toolchain._HUB75_BUILD_FLAG}"
         compile_args += [
             "--build-property", f"compiler.c.extra_flags={extra_flags}",
             "--build-property", f"compiler.cpp.extra_flags={extra_flags}",
@@ -719,7 +727,7 @@ def _compile_upload_fbuild(
             yield from toolchain._ensure_fbuild_project()
             if "#include <Audio.h>" in ino:
                 yield from toolchain._ensure_fbuild_audio_lib()
-            if "#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>" in ino:
+            if toolchain._HUB75_INCLUDE in ino:
                 yield from toolchain._ensure_fbuild_hub75_lib()
             if toolchain._ZERO_I2S_INCLUDE in ino:
                 yield from toolchain._ensure_fbuild_zero_i2s_lib()
