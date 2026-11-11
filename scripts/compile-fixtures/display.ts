@@ -636,7 +636,76 @@ for (const [nodes, edges, design] of [
   if (errors.length) throw new Error(`ILI9341 fixture has invalid display wiring: ${errors.join('; ')}`)
 }
 
+/*
+ * D-02 screens and widgets: a design with two screens, moved by a Go to
+ * screen button and by the panel's wired Screen input, a Text Entry whose
+ * typed text reaches a Text, a Chart filling at its interval and a Spectrum
+ * following a microphone. A show analyses no live audio and refuses a
+ * Spectrum, so its design leaves that widget out; it adds a second panel on
+ * Show Status, which pictures the slideshow's pattern. Documents of their
+ * own, so the widget indices the other fixtures name do not move.
+ */
+const screensDesign = (spectrum: boolean) => {
+  let design = createDisplayDocument('screens', 240, 320)
+  for (const type of ['Slider', 'Button', 'Text Entry', 'Text', 'Chart'] as const) design = addDisplayWidget(design, type)
+  if (spectrum) design = addDisplayWidget(design, 'Spectrum')
+  const more = addDisplayScreen(design, 'More')
+  design = addDisplayWidget(more.document, 'Text', more.screenId!)
+  const goes = design.widgets.find((entry) => entry.type === 'Button')!
+  goes.properties = { ...goes.properties, goTo: more.screenId! }
+  return design
+}
+const screensNormalDocument = screensDesign(true)
+const screensShowDocument = screensDesign(false)
+const screensParts = (design: DisplayDocument) => [
+  board(), output(),
+  panel('custom-tft', { displayId: 'screens', widgetSources: displayWidgetSources(design) }), touch('custom-tft'),
+  math(), format(),
+]
+const screensWires = [
+  // The slider picks the screen: 0 is the first, 1 is More.
+  edge('custom-tft-touch', 'widget:slider:out', 'custom-tft', 'screen'),
+  edge('custom-tft-touch', 'widget:text-entry:out', 'custom-tft', 'widget:text:value'),
+  edge('custom-tft-touch', 'widget:slider:out', 'math', 'a'),
+  edge('math', 'result', 'custom-tft', 'widget:chart:value'),
+  edge('math', 'result', 'format', 'value'),
+  edge('format', 'text', 'custom-tft', 'widget:text-2:value'),
+]
+const screensNormalNodes = [
+  ...screensParts(screensNormalDocument), node('fill', 'SolidColor'),
+  // I2S pins clear of the panel and the LED data pin.
+  node('mic', 'MicInput', { i2sWs: 39, i2sSck: 40, i2sSd: 41 }), node('audio', 'Audio', { sourceId: 'mic' }),
+]
+const screensNormalEdges = [
+  ...screensWires, edge('fill', 'frame', 'out', 'frame'),
+  edge('audio', 'audio', 'custom-tft', 'widget:spectrum:value'),
+]
+const screensShowNodes = [
+  ...screensParts(screensShowDocument),
+  panel('status-tft', {
+    tftLayout: 'Show Status', csPin: 16, dcPin: 17, resetPin: 18, backlightPin: 21, touchCsPin: 1, touchIrqPin: 2,
+  }),
+  node('collection', 'PatternCollection', { patternIds: ['pattern', 'pattern'] }), node('show', 'PatternSlideshow'),
+]
+const screensShowEdges = [
+  ...screensWires,
+  edge('collection', 'patternset', 'show', 'patternset'), edge('show', 'frame', 'out', 'frame'),
+  edge('show', 'display', 'status-tft', 'display'),
+]
+for (const [name, nodes, edges, design] of [
+  ['screens-normal', screensNormalNodes, screensNormalEdges, screensNormalDocument],
+  ['screens-show', screensShowNodes, screensShowEdges, screensShowDocument],
+] as const) {
+  assertWireable(nodes, edges, { screens: design })
+  const { errors } = findDisplayGeneratorIssues(nodes, edges, { screens: design }, groups)
+  if (errors.length) throw new Error(`${name} has invalid display wiring: ${errors.join('; ')}`)
+}
+
 const sketches: Record<string, string> = {
+  'screens-normal': generateCpp(screensNormalNodes, screensNormalEdges, {}, displayOptions({ screens: screensNormalDocument })),
+  'screens-show': generateShowSketch(screensShowNodes, screensShowEdges, groups, {
+    ...displayOptions({ screens: screensShowDocument }), patternNames: { show: ['Aurora Drift', 'Ember Cascade'] },
+  }),
   'ili9341-fixed': generateCpp(iliFixedNodes, iliFixedEdges),
   'ili9341-sd-video': generateCpp(iliVideoNodes, iliVideoEdges),
   'ili9341-custom': generateCpp(iliCustomNodes, iliCustomEdges, {}, displayOptions({ 'ili-led': iliLedDocument })),
@@ -729,6 +798,8 @@ const sketches: Record<string, string> = {
  * — so check them the way the app checks a user's graph.
  */
 const fixtureGraphs: Record<string, { nodes: StudioNode[]; edges: StudioEdge[] }> = {
+  'screens-normal': { nodes: screensNormalNodes, edges: screensNormalEdges },
+  'screens-show': { nodes: screensShowNodes, edges: screensShowEdges },
   'ili9341-fixed': { nodes: iliFixedNodes, edges: iliFixedEdges },
   'ili9341-sd-video': { nodes: iliVideoNodes, edges: iliVideoEdges },
   'ili9341-custom': { nodes: iliCustomNodes, edges: iliCustomEdges },
@@ -804,6 +875,15 @@ for (const entry of catalogueDisplays()) {
 const sharedTouchRead = '_xptPoint(6, 5, 255, 255, 200,'
 
 const requiredSymbols: Record<string, readonly string[]> = {
+  // The wired Screen input, the keyboard and its typed text, the Chart and,
+  // in the normal sketch, the Spectrum reading the sketch's 32-bin array.
+  'screens-normal': ['float _cdScreenValue = (float)(n_custom_tft_touch_widget_slider_out);', 'lv_screen_load(_cdScreens_screens[_cdScreenIndex]);',
+    'lv_keyboard_create(', '_cdSetText(_cd_screens[3], n_custom_tft_touch_widget_text_entry_out)',
+    '_cdChartSample(_cd_screens[4], ', '_cdSpectrumSample(_cd_screens[5], _audioSpectrum, 16);'],
+  // The same in a show, beside Show Status picturing the running pattern.
+  'screens-show': ['float _cdScreenValue = (float)(n_custom_tft_touch_widget_slider_out);', 'lv_screen_load(_cdScreens_screens[_cdScreenIndex]);',
+    'lv_keyboard_create(', '_cdSetText(_cd_screens[3], n_custom_tft_touch_widget_text_entry_out)',
+    '_cdChartSample(_cd_screens[4], ', '_tftPicture(_tft_status_tft, '],
   'ili9341-fixed': [sharedTouchRead, '_spiBusBegin(12, 13, 11);', '_tftBegin(_tft_ili_panel'],
   'ili9341-sd-video': ['_spiBusBegin(SDV_SCK, SDV_MISO, SDV_MOSI);', sharedTouchRead],
   'ili9341-custom': ['lv_display_create(320, 240)', sharedTouchRead, '_spiBusBegin(12, 13, 11);'],

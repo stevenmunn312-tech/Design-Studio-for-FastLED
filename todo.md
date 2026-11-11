@@ -29,23 +29,11 @@ Everything below landed between 2026-11-09 and 2026-11-11 and has only unit
 and host tests behind it. Compile one fixture for each line with Arduino CLI,
 one at a time, since overlapping runs corrupt its cache. Fix what fails, and
 record the results under [compile checks](docs/index.md#compile-checks). This
-is a targeted pass, not the full matrix; that is step 5.
+is a targeted pass, not the full matrix; that is step 5. The six fixtures
+known to be missing were written on 2026-11-12 and are named on their lines;
+a named family runs with `compile-matrix.py --only <family>/`.
 
-### 2.1 Add the fixtures that do not exist yet
-
-- [ ] A DS3231 Clock reading its module.
-- [ ] An NTP clock with a time zone on an Arduino UNO R4 WiFi (`_rtcTzOffset`).
-- [ ] A 720-LED and a 4096-LED string, each with Waveform's line style and an
-  elementary Automaton (they lost their stack arrays).
-- [ ] Both partitions of a two-board clock-sync project (no multi-board sketch
-  with clock sync has compiled yet).
-- [ ] NTP sync and Art-Net receive through WiFiS3 on an Arduino UNO R4 WiFi
-  (the `ARDUINO_UNOWIFIR4` define, `WiFiS3.h`, `setHostname` and the DNS-second
-  `config` order are assumed from the core).
-- [ ] A custom-screen design with two screens moved by a Go to screen button
-  and a wired Screen input, a Text Entry, a Chart, a Spectrum and Show Status.
-
-### 2.2 Inputs, controls and data links
+### 2.1 Inputs, controls and data links
 
 - [ ] DMX Live and DDP Live.
 - [ ] Presence `connected` and mm.
@@ -61,21 +49,31 @@ is a targeted pass, not the full matrix; that is step 5.
 - [ ] DMX512 beside a radar and a DFPlayer, so the UART allocator moves it.
 - [ ] A log Slider and Dial on an LVGL screen (`_rsLogValue`,
   `_rsLogPosition`).
-- [ ] The custom-screen fixture from 2.1.
+- [ ] Custom screens, `display` screens-normal and screens-show: two screens
+  moved by a Go to screen button and a wired Screen input, a Text Entry, a
+  Chart, a Spectrum in the normal sketch (a show refuses one) and Show Status
+  in the show.
 
-### 2.3 Clock, network and power
+### 2.2 Clock, network and power
 
 - [ ] The Board network identity: `ethernet` static, `control-graph` show-ntp,
   player-ntp and show-ethernet, and the `board-links` runs.
 - [ ] The Clock time zone: `configTzTime` on an ESP32 and
   `configTime(tz, server)` on an ESP8266, through `control-graph` show-ntp and
   player-ntp (now on Europe/Paris).
-- [ ] The DS3231 Clock and both UNO R4 WiFi fixtures from 2.1.
-- [ ] The two-board clock-sync fixture from 2.1.
+- [ ] A DS3231 Clock reading its module, `control-graph` normal-ds3231 and
+  show-ds3231.
+- [ ] An Arduino UNO R4 WiFi through WiFiS3, `uno-r4-wifi`: ntp-zone (NTP in a
+  daylight-saving zone, `_rtcTzOffset`) and artnet-static (Art-Net beside NTP
+  on a named board at a static address). The `ARDUINO_UNOWIFIR4` define,
+  `WiFiS3.h`, `setHostname` and the DNS-second `config` order are assumed from
+  the core.
+- [ ] Both boards of a two-board clock-sync project, `clock-sync`: leader and
+  follower running one pattern, then the same collection show.
 - [ ] Schedule Trigger's DateTime.
 - [ ] The Power Switch RGB strip (`yynmos4-rgb`, `mosfetti-rgb-avr`).
 
-### 2.4 Audio
+### 2.3 Audio
 
 - [ ] Demo drums, the envelope clock and Beat Phase.
 - [ ] The audio Speed doubling and 2.0 clamps (Bass Cathedral Collapse,
@@ -94,7 +92,7 @@ is a targeted pass, not the full matrix; that is step 5.
 - [ ] The Music Player and Music-synced SD Show starters, each with twenty
   patterns.
 
-### 2.5 Patterns, fields and simulations
+### 2.4 Patterns, fields and simulations
 
 - [ ] The Code node's a/b block.
 - [ ] Saturation Keep Brightness.
@@ -123,7 +121,7 @@ is a targeted pass, not the full matrix; that is step 5.
 - [ ] The Simplex2D show clock and the Kaleidoscope show pattern
   (`performance` player).
 
-### 2.6 Text, layout and output
+### 2.5 Text, layout and output
 
 - [ ] Text Base, and Path speed.
 - [ ] Text and the analog clock in Pixels, and a 0-1 Line.
@@ -135,7 +133,8 @@ is a targeted pass, not the full matrix; that is step 5.
 - [ ] The LED matrix start corner and first run.
 - [ ] Output Gamma: single output, two outputs, show controller, SD player and
   a mapped ring.
-- [ ] The 720-LED and 4096-LED string fixtures from 2.1.
+- [ ] A 720-LED and a 4096-LED string, `long-strings`, each with Waveform's
+  line style and an elementary Automaton (they lost their stack arrays).
 
 ## 3. fbuild upkeep
 

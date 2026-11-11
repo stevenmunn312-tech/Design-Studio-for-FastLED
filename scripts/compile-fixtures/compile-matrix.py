@@ -124,7 +124,7 @@ def manifest_names(folder: Path, generator: str) -> list[str]:
 
 def display_legs() -> list[Leg]:
     folder = ROOT / "artifacts" / "display-compile"
-    s3 = ["normal", "show", "player", "isolated-tft", "headless", "disabled", "multi-panel", "shared-design",
+    s3 = ["screens-normal", "screens-show", "normal", "show", "player", "isolated-tft", "headless", "disabled", "multi-panel", "shared-design",
           "part-families", "part-families-i2c", "part-parallel", "telemetry",
           "ili9341-fixed", "ili9341-custom", "ili9341-show", "ili9341-player", "ili9341-calibration", "ili9341-sd-video",
           "template-led", "template-player"]
@@ -147,7 +147,8 @@ def custom_board_legs() -> list[Leg]:
 def control_graph_legs() -> list[Leg]:
     folder = ROOT / "artifacts" / "control-graph-compile"
     return [Leg("control-graph", "compile-display-smoke.py", folder / f"{mode}.ino")
-            for mode in ("normal", "show", "player", "show-ntp", "player-ntp", "show-ethernet")]
+            for mode in ("normal", "show", "player", "show-ntp", "player-ntp", "show-ethernet",
+                         "normal-ds3231", "show-ds3231")]
 
 
 def ir_legs() -> list[Leg]:
@@ -190,6 +191,28 @@ def board_link_legs() -> list[Leg]:
                "run5-board2-esp8266-follows": ("esp8266:esp8266:d1_mini", "esp8266")}
     return [Leg("board-links", "compile-display-smoke.py", folder / f"{name}.ino", fqbn, tag)
             for name, (fqbn, tag) in targets.items()]
+
+
+def clock_sync_legs() -> list[Leg]:
+    """D-03: the leader and the follower of a two-board clock-sync project, as a pattern and as a show."""
+    folder = ROOT / "artifacts" / "clock-sync-compile"
+    return [Leg("clock-sync", "compile-display-smoke.py", folder / f"{name}.ino", CLASSIC, "classic")
+            for name in manifest_names(folder, "clock-sync")]
+
+
+def uno_r4_wifi_legs() -> list[Leg]:
+    """D-03: NTP with a time zone, and Art-Net at a static address, through WiFiS3."""
+    folder = ROOT / "backend" / "sketches" / "uno-r4-wifi-fixtures"
+    return [Leg("uno-r4-wifi", "compile-presence-smoke.py", folder / f"{name}.ino",
+                "arduino:renesas_uno:unor4wifi", "renesas", "uno-r4-wifi")
+            for name in manifest_names(folder, "uno-r4-wifi")]
+
+
+def long_string_legs() -> list[Leg]:
+    """A 720-LED and a 4096-LED string: Waveform's line style and an elementary Automaton."""
+    folder = ROOT / "backend" / "sketches" / "long-string-fixtures"
+    return [Leg("long-strings", "compile-presence-smoke.py", folder / f"{name}.ino", CLASSIC, "esp32", "long-strings")
+            for name in manifest_names(folder, "long-strings")]
 
 
 def power_switch_legs() -> list[Leg]:
@@ -346,7 +369,7 @@ def candidates() -> list[Leg]:
     """Every fixture leg on both engines; fbuild only for boards its scaffold declares."""
     legs = [
         *display_legs(), *custom_board_legs(), *control_graph_legs(), *ir_legs(), *ethernet_legs(),
-        *board_link_legs(), *power_switch_legs(), *peripheral_legs(), *samd51_legs(), *dmx_legs(), *family_legs(), *pattern_node_legs(),
+        *board_link_legs(), *clock_sync_legs(), *uno_r4_wifi_legs(), *long_string_legs(), *power_switch_legs(), *peripheral_legs(), *samd51_legs(), *dmx_legs(), *family_legs(), *pattern_node_legs(),
         *corpus_legs("dead-code", "dead-code-compile"),
         *corpus_legs("pattern-collections", "pattern-collections-compile"),
         *corpus_legs("show-sequencing", "show-sequencing-compile"),
@@ -360,6 +383,7 @@ def candidates() -> list[Leg]:
 # The generator behind each family's fixtures.
 GENERATORS = {"display": "display", "custom-board": "custom-board", "control-graph": "control-graph", "ir": "ir",
               "ethernet": "ethernet", "board-links": "board-links", "power-switch": "power-switch",
+              "clock-sync": "clock-sync", "uno-r4-wifi": "uno-r4-wifi", "long-strings": "long-strings",
               "pattern-node": "pattern-node", "samd51": "samd51", "dmx": "dmx", "families": "families", "dead-code": "dead-code", "pattern-collections": "pattern-collections",
               "show-sequencing": "show-sequencing", "lanes": "lanes", "led-drivers": "led-drivers",
               **{family: family for family in (

@@ -62,13 +62,15 @@ function withColourAndPattern(mode: 'show' | 'player', fixture: ReturnType<typeo
 /**
  * Local clock chain for every mode.
  *
- * Compile Time has no pins, so it does not share the OLED's I2C bus. The
- * segment module is the clock layout. The button fans out to the clock reset.
+ * Compile Time has no pins, so it does not share the OLED's I2C bus. A DS3231
+ * clock reads the module on the bench, which sits on that bus (SDA 8, SCL 9),
+ * so the sketch starts one bus for both parts. The segment module is the
+ * clock layout. The button fans out to the clock reset.
  * The player refuses a direct Enabled wire on the LED output, so that build
  * gates the panel instead.
  */
 function withLocalClock<T extends { nodes: StudioNode[]; edges: StudioEdge[] }>(
-  mode: 'normal' | 'show' | 'player', graph: T, timeSource: 'Compile Time' | 'NTP', ethernet: boolean,
+  mode: 'normal' | 'show' | 'player', graph: T, timeSource: 'Compile Time' | 'NTP' | 'DS3231', ethernet: boolean,
 ): T {
   const consumer = mode === 'player' ? 'panel' : 'out'
   return {
@@ -77,6 +79,7 @@ function withLocalClock<T extends { nodes: StudioNode[]; edges: StudioEdge[] }>(
       // An Ethernet module on the S3 takes HSPI pins the show fixture leaves
       // free (the player's SD card and amplifier sit on 10-16).
       ...(ethernet ? [node('eth', 'EthernetModule', { sckPin: 12, mosiPin: 11, misoPin: 13, csPin: 10, intPin: 14, resetPin: 15 })] : []),
+      ...(timeSource === 'DS3231' ? [node('rtc-module', 'RtcModule', { sdaPin: 8, sclPin: 9 })] : []),
       node('rtc', 'RTCInput', timeSource === 'NTP'
         // A zone with daylight saving, so the build carries its rule.
         ? { timeSource, ntpServer: 'pool.ntp.org', timeZone: 'Europe/Paris' }
@@ -108,6 +111,10 @@ const variants = [
   { file: 'show-ntp', mode: 'show', clock: 'NTP', ethernet: false },
   { file: 'player-ntp', mode: 'player', clock: 'NTP', ethernet: false },
   { file: 'show-ethernet', mode: 'show', clock: 'NTP', ethernet: true },
+  // A Clock reading the DS3231 on the bench, through each of the two emitters
+  // that read one: the normal sketch's and the control graph's.
+  { file: 'normal-ds3231', mode: 'normal', clock: 'DS3231', ethernet: false },
+  { file: 'show-ds3231', mode: 'show', clock: 'DS3231', ethernet: false },
 ] as const
 for (const { file, mode, clock, ethernet } of variants) {
   const fixture = nestedControlFixture(mode)
@@ -181,6 +188,13 @@ for (const { file, mode, clock, ethernet } of variants) {
     }
   } else if (source.includes('_netEnsureConnected')) {
     throw new Error(`${file}: a local clock emitted network code`)
+  }
+  if (clock === 'DS3231') {
+    // The chip read and one bus start on the pins it shares with the OLED.
+    const missing = ['_rtcReadDs3231(', 'Wire.begin(8, 9)'].filter((symbol) => !source.includes(symbol))
+    if (missing.length) throw new Error(`${file}: the DS3231 read was not emitted (missing ${missing.join(', ')})`)
+  } else if (source.includes('_rtcReadDs3231(')) {
+    throw new Error(`${file}: a clock with no module reads a DS3231`)
   }
   writeFileSync(resolve(outputDir, `${file}.ino`), source, 'utf8')
   manifest[file] = { bytes: Buffer.byteLength(source), sha256: createHash('sha256').update(source).digest('hex') }
