@@ -78,7 +78,7 @@ an internal record.
 | 4 | No size line on a no-op incremental build | 2.4.0 | Read fbuild's own size cache | **No — our #1277, fixed in 2.5.16, workaround removed 2026-08-27** |
 | 5 | No size summary on hard linker overflow | **2.5.26** | Parse `ld` + `Memory:` lines | Yes — [#1658](https://github.com/FastLED/fbuild/issues/1658), filed 2026-10-07 |
 | 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | **No — fixed in 2.5.17, guard removed 2026-09-03 (it hid #11)** |
-| 7 | `deploy` unimplemented for some compilable platforms | **2.5.26** | Fall back to arduino-cli | Yes — [#1657](https://github.com/FastLED/fbuild/issues/1657), filed 2026-10-07; ESP8266 still has no deployer on upstream `main` as of 2.5.37 |
+| 7 | `deploy` unimplemented for some compilable platforms | **2.5.26** | Fall back to arduino-cli | **No for ESP8266 — fixed in 2.5.45** ([#1657](https://github.com/FastLED/fbuild/issues/1657)): a LOLIN D1 mini flashed and ran through fbuild 2.5.51 on 2026-11-11. The hint stays for any other platform without a deployer |
 | 8 | Dep scanner misses transitive `SPI` in a vendored lib | 2.4.0 | Stub out the offending file | **No — FastLED guarded it in #3815, workaround removed 2026-08-27** |
 | 9 | ESP32 no-op build costs 181.5s (AVR, ESP8266, STM32: 0.4s) | **2.5.21** | None — measured, not worked around | **No — our [#1411](https://github.com/FastLED/fbuild/issues/1411), closed 2026-09-03; re-measured on 2.5.26, see below** |
 | 10 | Every directory in `lib/` is compiled, used or not | **2.5.26** | Hide unused libraries for the run | **No — fixed upstream in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1410](https://github.com/FastLED/fbuild/issues/1410)); workaround removed 2026-10-08 |
@@ -365,6 +365,14 @@ problem is fixed* when RAM had merely stopped being measurable.
 ---
 
 ## 7. `deploy` is unimplemented for platforms fbuild can compile
+
+**ESP8266 fixed in 2.5.45; proven on hardware 2026-11-11.** A LOLIN D1 mini
+(`esp8266:esp8266:d1_mini`, COM8) built and flashed through the desktop app
+on fbuild 2.5.51: 278,183 bytes of flash, 27,676 of RAM, esptool v5.3.0,
+282,272 bytes written in 18.7 s, hash verified, and the sketch ran (a Juggle
+on 9 LEDs). The `[engine-gap]` hint below is not ESP8266-specific and stays
+for any platform fbuild can build but not flash. What follows is the record
+of the fault.
 
 **Reported upstream 2026-10-07 as [#1657](https://github.com/FastLED/fbuild/issues/1657).**
 On upstream `main` as of 2.5.37, the daemon's deploy dispatch
