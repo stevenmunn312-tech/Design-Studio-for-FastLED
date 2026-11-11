@@ -1148,8 +1148,10 @@ Notes:
   Art-Net/sACN/DDP receive on the UNO R4 WiFi are **experimental**: the sketch
   joins through `WiFiS3` with the same bootstrap and, because that core has no
   SNTP client, the RTC runs its own SNTP exchange over `WiFiUDP`. It is
-  generated but has not been compiled or bench-tested; the compile is deferred
-  to the pre-v1 hardware pass. The Web Remote stays ESP-only (it needs the
+  compiled on arduino-cli with core 1.6.0
+  ([record](../reports/compile/v1-targeted-pass-compile-checks.md), 2026-11-12)
+  and has not been bench-tested; fbuild does not find `WiFiS3.h`, so the app
+  builds these sketches with arduino-cli. The Web Remote stays ESP-only (it needs the
   core web server), and the W5500 module is still refused on the R4.
 - NTP inside generative-show and SD-player firmware is **experimental**: it
   compiles (D-03, 13 October 2026, over Wi-Fi and over the WIZ850io) through
