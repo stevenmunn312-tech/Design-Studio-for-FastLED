@@ -83,7 +83,7 @@ an internal record.
 | 10 | Every directory in `lib/` is compiled, used or not | **2.5.26** | Hide unused libraries for the run | **No — fixed upstream in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1410](https://github.com/FastLED/fbuild/issues/1410)); workaround removed 2026-10-08 |
 | 11 | A build over the board's limits reports success | **2.5.26** | Refuse it on the measured percentage | **Partly fixed in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1409](https://github.com/FastLED/fbuild/issues/1409)): oversize flash now fails, and RAM overflow fails only on AVR. Keep the refusal for ESP32 RAM |
 | 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.26** | Re-archive with a response file, then continue | **No — fixed in 2.5.44** ([#1656](https://github.com/FastLED/fbuild/issues/1656)); no leg of the 2.5.51 run needed it, workaround removed 2026-11-10 |
-| 13 | Windows: every daemon compile opens a visible console window that takes focus | **2.5.44** (also 2.5.37) | None possible: zccache is fbuild's only compile backend | Until the next release — [#1722](https://github.com/FastLED/fbuild/issues/1722), filed and fixed on `main` 2026-10-24 by #1723 (zccache 1.15.6): the embedded zccache 1.14.14 spawns through running-process 4.10.14, which omits `CREATE_NO_WINDOW` ([running-process#1214](https://github.com/zackees/running-process/issues/1214), fixed in 4.10.16 / zccache 1.15.6) |
+| 13 | Windows: every daemon compile opens a visible console window that takes focus | **2.5.44** (also 2.5.37) | None possible: zccache is fbuild's only compile backend | **No — fixed in 2.5.45** ([#1722](https://github.com/FastLED/fbuild/issues/1722), by #1723 with zccache 1.15.6): no window opened during a compile in the desktop app on 2.5.51, 2026-11-11 |
 
 ---
 
@@ -838,9 +838,10 @@ generated source is byte-identical:
 Both engines agree to within a few hundred bytes on each change. The C6 and
 H2 figures include dropping `-DFL_NO_EXCEPT=`.
 
-Not covered by a headless run: the console-window check (§13) and an ESP8266
-`deploy` on hardware (§7). `backend/.venv` and the Espressif Python on the
-laptop still hold 2.5.45.
+Not covered by a headless run: the console-window check (§13), which passed
+in the desktop app the next day (bundled fbuild 2.5.51, no window during a
+compile), and an ESP8266 `deploy` on hardware (§7), still to do. The
+Espressif Python on the laptop still holds 2.5.45.
 
 ---
 

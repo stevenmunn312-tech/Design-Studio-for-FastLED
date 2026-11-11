@@ -438,12 +438,9 @@ chooses the supported combinations from whatever is on record at release.
   sketch's own receiver
   ([record](docs/runbooks/fbuild-workarounds.md#fastled-3109-and-fbuild-2551-run-10-november-2026)).
   The LVGL archive recovery (§12), the SAMD51 FastLED patches and the SAMD51
-  `-DARDUINO_ARCH_SAMD`/`EIC_IRQn`/software-SPI flags are removed. Left:
-  - **Release blocker for fbuild on Windows:** check with a short build on a
-    desktop that no console window opens per compile (§13,
-    [#1722](https://github.com/FastLED/fbuild/issues/1722), fixed by #1723 in
-    2.5.45). A headless runner cannot show it. `backend/.venv` and the
-    Espressif Python still hold 2.5.45, so install the 2.5.51 pin first.
+  `-DARDUINO_ARCH_SAMD`/`EIC_IRQn`/software-SPI flags are removed, and no
+  console window opens per compile on Windows (§13, checked in the desktop
+  app on 2026-11-11). The Espressif Python still holds 2.5.45. Left:
   - ESP8266 `deploy` (§7, [#1657](https://github.com/FastLED/fbuild/issues/1657)):
     2.5.45 added a deployer; flash a board through fbuild, then drop the
     Arduino CLI fallback.
