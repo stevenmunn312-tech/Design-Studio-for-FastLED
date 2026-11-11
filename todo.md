@@ -443,6 +443,11 @@ chooses the supported combinations from whatever is on record at release.
   app on 2026-11-11). The ESP32-H2 builds on fbuild since its board id was
   corrected to `esp32-h2-devkitm-1` the same day. The Espressif Python still
   holds 2.5.45. Left:
+  - 21 offered boards have no fbuild environment (`_PIO_BOARDS`) and build
+    with arduino-cli through `_engine_for_board`: the XIAO, LOLIN and
+    Adafruit ESP32 variants, Pico W and Pico 2 W, three more ESP8266 boards,
+    the nRF52 boards, Micro, Pro Micro and Uno R4 Minima. Map and compile
+    each one fbuild knows.
   - ESP8266 `deploy` (§7, [#1657](https://github.com/FastLED/fbuild/issues/1657)):
     2.5.45 added a deployer; flash a board through fbuild, then drop the
     Arduino CLI fallback.

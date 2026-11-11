@@ -989,6 +989,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Boards fbuild has no environment for (22 of the 61 offered, such as the
+  LOLIN S2 mini and Pico W) build with arduino-cli where it is installed.
+  They had stopped on "no fbuild board mapping" since fbuild became the
+  default engine. The LOLIN D1 mini now builds with fbuild.
+- The LED preview no longer stays black after the computer sleeps or locks.
+  It lost its graphics context and now redraws without it.
 - Patterns that failed to compile on Adafruit SAMD boards (Feather M0 and M4,
   Grand Central, Matrix Portal) with "call of overloaded 'max' is ambiguous"
   now build.
