@@ -682,6 +682,27 @@ _PIO_BOARDS: dict[str, dict] = {
     },
     "arduino:renesas_uno:unor4wifi": {"platform": "renesas-ra", "board": "uno_r4_wifi"},
     "adafruit:nrf52:pca10056": {"platform": "nordicnrf52", "board": "nrf52840_dk"},
+    # Offered boards mapped on 2026-11-12, each to the board id fbuild 2.5.51
+    # ships a manifest for. The manifest carries the flash size and USB mode,
+    # so none needs a variant here.
+    "esp32:esp32:XIAO_ESP32C3": {"platform": "espressif32", "board": "seeed_xiao_esp32c3"},
+    "esp32:esp32:XIAO_ESP32C6": {"platform": "espressif32", "board": "seeed_xiao_esp32c6"},
+    "esp32:esp32:adafruit_feather_esp32_v2": {"platform": "espressif32", "board": "adafruit_feather_esp32_v2"},
+    "esp32:esp32:adafruit_feather_esp32s2": {"platform": "espressif32", "board": "adafruit_feather_esp32s2"},
+    "esp32:esp32:adafruit_feather_esp32s3": {"platform": "espressif32", "board": "adafruit_feather_esp32s3"},
+    "esp32:esp32:adafruit_qtpy_esp32s2": {"platform": "espressif32", "board": "adafruit_qtpy_esp32s2"},
+    "esp32:esp32:lolin_c3_mini": {"platform": "espressif32", "board": "lolin_c3_mini"},
+    "esp32:esp32:lolin_s2_mini": {"platform": "espressif32", "board": "lolin_s2_mini"},
+    "esp32:esp32:lolin_s3": {"platform": "espressif32", "board": "lolin_s3"},
+    "esp8266:esp8266:d1": {"platform": "espressif8266", "board": "d1"},
+    "esp8266:esp8266:huzzah": {"platform": "espressif8266", "board": "huzzah"},
+    "rp2040:rp2040:rpipicow": {"platform": "raspberrypi", "board": "rpipicow"},
+    "rp2040:rp2040:rpipico2w": {"platform": "raspberrypi", "board": "rpipico2w"},
+    "arduino:avr:micro": {"platform": "atmelavr", "board": "micro"},
+    "SparkFun:avr:promicro": {"platform": "atmelavr", "board": "sparkfun_promicro16"},
+    "arduino:renesas_uno:minima": {"platform": "renesas-ra", "board": "uno_r4_minima"},
+    "adafruit:nrf52:feather52840": {"platform": "nordicnrf52", "board": "adafruit_feather_nrf52840"},
+    "Seeeduino:nrf52:xiaonRF52840": {"platform": "nordicnrf52", "board": "xiaoble"},
 }
 
 # arduino-cli's FQBN "menu option" suffix (e.g. `PSRAM=opi`) -> our PSRAM id.

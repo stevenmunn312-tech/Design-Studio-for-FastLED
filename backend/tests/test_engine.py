@@ -1211,7 +1211,7 @@ def test_a_board_fbuild_does_not_declare_builds_with_arduino_cli(monkeypatch):
     monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "arduino-cli")
     assert toolchain._engine_for_board("esp32:esp32:esp32s3:PSRAM=opi") == "fbuild"
     assert toolchain._engine_for_board("esp8266:esp8266:d1_mini") == "fbuild"
-    assert toolchain._engine_for_board("esp32:esp32:lolin_s2_mini") == "arduino-cli"
+    assert toolchain._engine_for_board("esp32:esp32:nodemcu-32s") == "arduino-cli"
     # fbuild 2.5.51 cannot link the ESP8266 core's network libraries.
     wifi = "#include <FastLED.h>\n#include <ESP8266WiFi.h>\nvoid setup() {}\n"
     assert toolchain._engine_for_board("esp8266:esp8266:d1_mini", wifi) == "arduino-cli"

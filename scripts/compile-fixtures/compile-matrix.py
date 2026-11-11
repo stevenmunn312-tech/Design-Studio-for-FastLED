@@ -291,6 +291,25 @@ def family_legs() -> list[Leg]:
     return [Leg("families", "compile-presence-smoke.py", sketch, fqbn, tag, "family") for tag, fqbn in targets.items()]
 
 
+# The offered boards given an fbuild environment on 2026-11-12, by matrix tag.
+MAPPED_BOARDS = {
+    "xiao-c3": "esp32:esp32:XIAO_ESP32C3", "xiao-c6": "esp32:esp32:XIAO_ESP32C6",
+    "feather-esp32-v2": "esp32:esp32:adafruit_feather_esp32_v2", "feather-s2": "esp32:esp32:adafruit_feather_esp32s2",
+    "feather-s3": "esp32:esp32:adafruit_feather_esp32s3", "qtpy-s2": "esp32:esp32:adafruit_qtpy_esp32s2",
+    "lolin-c3-mini": "esp32:esp32:lolin_c3_mini", "lolin-s2-mini": "esp32:esp32:lolin_s2_mini",
+    "lolin-s3": "esp32:esp32:lolin_s3", "d1": "esp8266:esp8266:d1", "huzzah": "esp8266:esp8266:huzzah",
+    "pico-w": "rp2040:rp2040:rpipicow", "pico-2-w": "rp2040:rp2040:rpipico2w", "micro": "arduino:avr:micro",
+    "pro-micro": "SparkFun:avr:promicro", "r4-minima": "arduino:renesas_uno:minima",
+    "feather-nrf52840": "adafruit:nrf52:feather52840", "xiao-nrf52840": "Seeeduino:nrf52:xiaonRF52840",
+}
+
+
+def mapped_board_legs() -> list[Leg]:
+    """The ordinary pattern sketch on each board mapped to an fbuild environment after the full run."""
+    sketch = ROOT / "backend" / "sketches" / "family-fixtures" / "pattern.ino"
+    return [Leg("boards", "compile-presence-smoke.py", sketch, fqbn, tag, "board") for tag, fqbn in MAPPED_BOARDS.items()]
+
+
 def pattern_node_legs() -> list[Leg]:
     """Every pattern-node phase on classic ESP32; Phase 8 also on S3; the RAM-priced phases also on ESP8266."""
     folder = ROOT / "backend" / "sketches" / "pattern-node-fixtures"
@@ -384,11 +403,15 @@ ARDUINO_CLI_ONLY_FAMILIES: dict[str, str] = {
 }
 
 
+# Third-party cores the helper has no package index for: a user adds the URL, a runner cannot.
+NO_INDEX_CORES = {"SparkFun:avr", "Seeeduino:nrf52"}
+
+
 def candidates() -> list[Leg]:
     """Every fixture leg on both engines; fbuild only for boards its scaffold declares."""
     legs = [
         *display_legs(), *custom_board_legs(), *control_graph_legs(), *ir_legs(), *ethernet_legs(),
-        *board_link_legs(), *clock_sync_legs(), *uno_r4_wifi_legs(), *long_string_legs(), *v1_variant_legs(), *power_switch_legs(), *peripheral_legs(), *samd51_legs(), *dmx_legs(), *family_legs(), *pattern_node_legs(),
+        *board_link_legs(), *clock_sync_legs(), *uno_r4_wifi_legs(), *long_string_legs(), *v1_variant_legs(), *power_switch_legs(), *peripheral_legs(), *samd51_legs(), *dmx_legs(), *family_legs(), *mapped_board_legs(), *pattern_node_legs(),
         *corpus_legs("dead-code", "dead-code-compile"),
         *corpus_legs("pattern-collections", "pattern-collections-compile"),
         *corpus_legs("show-sequencing", "show-sequencing-compile"),
@@ -396,7 +419,8 @@ def candidates() -> list[Leg]:
     ]
     fbuild_boards = set(toolchain._PIO_BOARDS) - set(ARDUINO_CLI_ONLY)
     return [replace(leg, engine=engine) for engine in ENGINES for leg in legs
-            if engine == "arduino-cli" or (":".join(leg.board.split(":")[:3]) in fbuild_boards
+            if (engine == "arduino-cli" and ":".join(leg.board.split(":")[:2]) not in NO_INDEX_CORES)
+            or (engine == "fbuild" and ":".join(leg.board.split(":")[:3]) in fbuild_boards
                                            and leg.family not in ARDUINO_CLI_ONLY_FAMILIES)]
 
 
@@ -405,7 +429,7 @@ GENERATORS = {"display": "display", "custom-board": "custom-board", "control-gra
               "ethernet": "ethernet", "board-links": "board-links", "power-switch": "power-switch",
               "clock-sync": "clock-sync", "uno-r4-wifi": "uno-r4-wifi", "long-strings": "long-strings",
               "v1-variants": "v1-variants",
-              "pattern-node": "pattern-node", "samd51": "samd51", "dmx": "dmx", "families": "families", "dead-code": "dead-code", "pattern-collections": "pattern-collections",
+              "pattern-node": "pattern-node", "samd51": "samd51", "dmx": "dmx", "families": "families", "boards": "families", "dead-code": "dead-code", "pattern-collections": "pattern-collections",
               "show-sequencing": "show-sequencing", "lanes": "lanes", "led-drivers": "led-drivers",
               **{family: family for family in (
                   "buzzer", "cooling-fan", "darlington", "dfplayer", "distance", "encoder", "environment", "ina226",
