@@ -178,7 +178,7 @@ describe('Dance Flash firmware', () => {
       edge('e2', 'dance', 'frame', 'out', 'frame'),
     ])
     expect(cpp).toContain(`0x${DANCE_ROWS[0][0].toString(16).padStart(4, '0')}`)
-    expect(cpp).toContain('int _dfS=max(1,min(WIDTH,HEIGHT)); int _dfOx=(WIDTH-_dfS)/2,_dfOy=(HEIGHT-_dfS)/2;')
+    expect(cpp).toContain('int _dfS=fl::max(1,fl::min(WIDTH,HEIGHT)); int _dfOx=(WIDTH-_dfS)/2,_dfOy=(HEIGHT-_dfS)/2;')
     expect(cpp).toContain('(_fx*16)/_dfS')
     expect(cpp).toContain('[(_fy+_dfOy)*WIDTH+_fx+_dfOx]=_dfCol_dance;')
     expect(cpp).toContain('if(_dfMir_dance) _sx=15-_sx;')

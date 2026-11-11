@@ -1,6 +1,7 @@
 import { controlGraphCpp } from './controlGraph'
 import { cppCode } from './cppReachability'
 import { finishCpp } from './cppCleanup'
+import { withQualifiedMinMax } from './cppMinMax'
 import { specializeCpp, specializeSwitch } from './cppSpecialize'
 import { withBootEntropy } from './bootEntropyCpp'
 
@@ -1526,10 +1527,10 @@ ${genericPlayer ? '' : `  // A show file can name the playing pattern on both si
     // Random transitions and particle styles differ after each power-up,
     // unless the Music Player's Seed asks for a repeatable sequence.
     const seeded = withBootEntropy(finished, opts.seed ?? 0)
-    return withLedDriver(
+    return withQualifiedMinMax(withLedDriver(
       withLoopPacing(seeded === finished ? finished : specializeCpp(seeded, facts)),
       c.ledDriver,
-    )
+    ))
   }
 
   const requiresCpp = bluetooth

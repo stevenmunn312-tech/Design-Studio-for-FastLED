@@ -214,4 +214,4 @@ describe('Text and Clock Display at size 1', () => {
 })
 
 const PREVIEW_HASHES = '9285c90d ea9668fd de52a05d cbe369cd 077f6a4d c22913fd 75e37b9b e79b0e47 e79b0e47 67e9992c ba711729 5071ccff 46c2e59c'
-const SKETCH_HASHES = '90c8c058 1f80010e 8069850c cace44df f3b771ee 8f97646a 3910ebe5 f816e50f f816e50f 5dbd637a ccd7b1db bb9f75d5 d591be16'
+const SKETCH_HASHES = '90c8c058 1f80010e 8069850c cace44df f3b771ee 8f97646a aa125f57 1105757d 1105757d 9d1e5860 8a50848f 1c392b97 ef07c152'

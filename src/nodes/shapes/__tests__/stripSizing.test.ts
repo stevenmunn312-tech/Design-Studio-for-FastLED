@@ -3,6 +3,7 @@ import { evaluateGraphFull } from '../../../state/graphEvaluator'
 import { generateCpp } from '../../../codegen/cppGenerator'
 import { NODE_LIBRARY, libraryDefaults } from '../../../state/nodeLibrary'
 import { evalFourierEpicycles, type FourierEpicyclesParams } from '../evaluate'
+import { qualifyMinMaxCalls } from '../../../codegen/cppMinMax'
 import { SIZING_SIDE_CPP } from '../../shared/stringCanvas'
 import type { Frame } from '../../../state/palettes/ledColor'
 import type { StudioEdge, StudioNode } from '../../../state/graphStore'
@@ -99,9 +100,9 @@ describe('sized shapes on a 60-LED strip', () => {
   it('reaches by the same side in the sketch', () => {
     const cpp = (nodeType: string, props: Record<string, unknown> = {}) => generateCpp([node('s', nodeType, props), node('out', 'MatrixOutput')],
       [{ id: 'e', source: 's', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }] as StudioEdge[])
-    expect(cpp('Path')).toContain(`float _ext = max(0.0f, (float)${SIZING_SIDE_CPP} * 0.5f * 0.8 - _rad);`)
-    expect(cpp('FourierEpicycles')).toContain(`int32_t _ext=(int32_t)(fmaxf(0.0f,${SIZING_SIDE_CPP}*0.5f*_scale-_rad)*256.0f)`)
-    expect(cpp('Shape')).toContain(`float _size=max(0.5f,6)*(${SIZING_SIDE_CPP}/16.0f),`)
+    expect(cpp('Path')).toContain(qualifyMinMaxCalls(`float _ext = max(0.0f, (float)${SIZING_SIDE_CPP} * 0.5f * 0.8 - _rad);`))
+    expect(cpp('FourierEpicycles')).toContain(qualifyMinMaxCalls(`int32_t _ext=(int32_t)(fmaxf(0.0f,${SIZING_SIDE_CPP}*0.5f*_scale-_rad)*256.0f)`))
+    expect(cpp('Shape')).toContain(qualifyMinMaxCalls(`float _size=max(0.5f,6)*(${SIZING_SIDE_CPP}/16.0f),`))
   })
 })
 

@@ -185,6 +185,7 @@ import { bufferAliasCpp, bufferDeclCpp } from './renderBuffers'
 import { type EmittedNodeBlock, firstFrameOnlyCpp, frameInvariantNodeIds, frozenNodeIds } from './frameInvariance'
 import { shareScratchBuffers } from './scratchSharing'
 import { finishCpp } from './cppCleanup'
+import { withQualifiedMinMax } from './cppMinMax'
 import { boardCppFacts, specializeCpp } from './cppSpecialize'
 import { withBootEntropy } from './bootEntropyCpp'
 import { SHOW_PIPELINE_NOTES } from '../nodes/show/codegen'
@@ -1786,10 +1787,10 @@ export function generateCpp(
   const seeded = withBootEntropy(finished)
   // Last, on the finished text, so the Board's LED driver meets every output's
   // `addLeds` line the way the show and player generators' passes do.
-  return withLedDriver(
+  return withQualifiedMinMax(withLedDriver(
     withLoopPacing(seeded === finished ? finished : specializeCpp(seeded, boardCppFacts(capabilityNodes))),
     selectedLedDriver(capabilityNodes),
-  )
+  ))
 }
 
 const FASTLED_INCLUDE = '#include <FastLED.h>'

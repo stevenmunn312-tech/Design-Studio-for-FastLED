@@ -132,6 +132,7 @@ import { engineFrameOutputs, resolveBuildMode } from '../state/upload/buildMode'
 import { audioFeaturesInCode } from './audio/audioEngineCpp'
 import { cppCode } from './cppReachability'
 import { finishCpp } from './cppCleanup'
+import { withQualifiedMinMax } from './cppMinMax'
 import { boardCppFacts, specializeCpp, specializeSwitch } from './cppSpecialize'
 
 const nodeType = (n: StudioNode) => (n.data as { nodeType?: string }).nodeType
@@ -1806,8 +1807,8 @@ export function generateShowSketch(
   // Last, because every marker above sits below the include.
   if (entropySeeds.length) L.splice(fastLedIncludeAt, 0, ...ESP_RANDOM_INCLUDE_CPP)
 
-  return withLedDriver(
+  return withQualifiedMinMax(withLedDriver(
     withLoopPacing(finishCpp(specializeCpp(withTelemetryGlobals(L).join('\n'), boardCppFacts(nodes)))),
     selectedLedDriver(nodes),
-  )
+  ))
 }

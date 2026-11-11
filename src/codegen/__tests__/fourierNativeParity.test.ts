@@ -42,6 +42,7 @@ const FASTLED_STAND_IN = `#include <cstdio>
 #include <algorithm>
 #include <cstdlib>
 using std::min; using std::max;
+namespace fl { using std::min; using std::max; }
 #define constrain(a,l,h) ((a)<(l)?(l):((a)>(h)?(h):(a)))
 struct CRGB {
   uint8_t r=0,g=0,b=0;

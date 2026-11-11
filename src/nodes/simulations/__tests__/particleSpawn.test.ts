@@ -16,6 +16,6 @@ describe('Particles spawn counts', () => {
     ['waterfall', '_rate*3'],
   ])('%s rounds its spawn count as the preview does', (particleType, product) => {
     const cpp = generateCpp([node('p', 'Particles', 'pattern', { particleType }), node('out', 'MatrixOutput', 'output', { width: 16, height: 16 })], [wire])
-    expect(cpp).toContain(`int _sp=max(1,(int)floorf(${product}+0.5f));`)
+    expect(cpp).toContain(`int _sp=fl::max(1,(int)floorf(${product}+0.5f));`)
   })
 })

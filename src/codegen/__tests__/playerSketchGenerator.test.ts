@@ -538,7 +538,7 @@ describe('playerSketchGenerator', () => {
       expect(sketch).not.toContain('paceLevel')
       expect(sketch).toContain('(minHold + (maxHold - minHold) * (holdU)) * 1000.0f')
       // A wired Min Time of 0 s on the device would chain transitions back to back.
-      expect(sketch).toMatch(/const float minHold = max\(1\.0f, constrain\(/)
+      expect(sketch).toMatch(/const float minHold = fl::max\(1\.0f, constrain\(/)
       if (hasControls) expect(sketch).toContain('rotateLeadMs = selActive != patternId ? transitionMs : 0;\n      paceReset();')
     })
 

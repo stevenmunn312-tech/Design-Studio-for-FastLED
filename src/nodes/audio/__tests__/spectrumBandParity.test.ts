@@ -20,7 +20,7 @@ function firmwareBands(cpp: string, spectrum: number[]): number[] {
   if (!loop) throw new Error('resample loop not found')
   const bands = Number(loop[1])
   const decls = loop[2].replace(/\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*\/\s*(\d+)/g, 'Math.trunc(($1)/$2)')
-    .replace(/\bmax\(/g, 'Math.max(')
+    .replace(/(?:\bfl::)?\bmax\(/g, 'Math.max(')
   const edges = new Function('_b', `let ${decls}; return [_lo, _hi]`) as (b: number) => [number, number]
   return Array.from({ length: bands }, (_, b) => {
     const [lo, hi] = edges(b)

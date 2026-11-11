@@ -132,7 +132,7 @@ describe('normal sketch Stereo VU Meter generation', () => {
 
   it('emits elapsed-time ballistics, deterministic shuffle, and per-instance history', () => {
     const cpp = sketch({ visualizationPolicy: 'Shuffle' })
-    expect(cpp).toContain('float dt = min(0.25f, (now - s.lastMs) / 1000.0f)')
+    expect(cpp).toContain('float dt = fl::min(0.25f, (now - s.lastMs) / 1000.0f)')
     expect(cpp).toContain('mode = c.policy == 1 ? (c.mode + steps) % 12 : c.shuffle[steps % 12]')
     expect(cpp).toContain('float _vuLeftHistory_side_vu[VU_LEFT_LEDS_side_vu]')
     expect(cpp).toContain('float _vuRightHistory_side_vu[VU_RIGHT_LEDS_side_vu]')

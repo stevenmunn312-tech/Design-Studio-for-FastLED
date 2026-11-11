@@ -56,6 +56,6 @@ describe('Gamma node', () => {
       node('out', 'MatrixOutput', 'output', { width: 4, height: 4 })], [
       edge('e1', 'src', 'g', 'frame', 'frame'), edge('e2', 'g', 'out', 'frame', 'frame'),
     ])
-    expect(cpp).toContain('napplyGamma_video(buf_g, NUM_LEDS, max(0.1f, 2.4));')
+    expect(cpp).toContain('napplyGamma_video(buf_g, NUM_LEDS, fl::max(0.1f, 2.4));')
   })
 })

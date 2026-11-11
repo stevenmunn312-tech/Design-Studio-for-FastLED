@@ -62,7 +62,7 @@ describe('audio pattern Speed', () => {
 
   it('emits the old literal unwired and doubles a wired slider in the sketch', () => {
     const unwired = generateCpp([node('br', 'BassRings', { speed: 0.5 }), out()], [edge('e', 'br', 'frame', 'out', 'frame')])
-    expect(unwired).toContain('float _spd = min(2.0f, max(0.0f, 1));')
+    expect(unwired).toContain('float _spd = fl::min(2.0f, fl::max(0.0f, 1));')
     const wired = generateCpp(
       [node('lfo', 'Math', { mathOp: 'add', a: 0.2, b: 0.1 }), node('ks', 'KickShock'), out()],
       [edge('w', 'lfo', 'result', 'ks', 'speed'), edge('e', 'ks', 'frame', 'out', 'frame')],

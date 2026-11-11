@@ -47,7 +47,7 @@ describe('Frame → Field conversion', () => {
       [edge('c', 'frame', 'f', 'frame'), edge('f', 'field', 'p', 'field'), edge('p', 'frame', 'out', 'frame')],
     )
     expect(cpp('average')).toContain('.r+buf_c[_i].g+buf_c[_i].b)/3.0f/255.0f;')
-    expect(cpp('max')).toContain('max(buf_c[_i].r,max(buf_c[_i].g,buf_c[_i].b))/255.0f;')
+    expect(cpp('max')).toContain('fl::max(buf_c[_i].r,fl::max(buf_c[_i].g,buf_c[_i].b))/255.0f;')
     expect(cpp('luma')).toContain('(0.299f*buf_c[_i].r+0.587f*buf_c[_i].g+0.114f*buf_c[_i].b)/255.0f;')
   })
 })

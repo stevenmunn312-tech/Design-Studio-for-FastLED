@@ -244,6 +244,17 @@ def dmx_legs() -> list[Leg]:
     return [Leg("dmx", "compile-presence-smoke.py", sketch, fqbn, tag, "dmx") for tag, fqbn in targets.items()]
 
 
+def family_legs() -> list[Leg]:
+    """An ordinary pattern sketch on every non-ESP32 family: each core declares `min` and `max` its own way."""
+    sketch = ROOT / "backend" / "sketches" / "family-fixtures" / "pattern.ino"
+    manifest_names(sketch.parent, "families")
+    targets = {"avr": UNO, "megaavr": "arduino:megaavr:nona4809", "esp8266": ESP8266, "teensy": "teensy:avr:teensy41",
+               "stm32": "STMicroelectronics:stm32:blackpill_f411ce", "rp2040": "rp2040:rp2040:rpipico",
+               "renesas": "arduino:renesas_uno:unor4wifi", "samd": "adafruit:samd:adafruit_feather_m0",
+               "samd51": "adafruit:samd:adafruit_feather_m4"}
+    return [Leg("families", "compile-presence-smoke.py", sketch, fqbn, tag, "family") for tag, fqbn in targets.items()]
+
+
 def pattern_node_legs() -> list[Leg]:
     """Every pattern-node phase on classic ESP32; Phase 8 also on S3; the RAM-priced phases also on ESP8266."""
     folder = ROOT / "backend" / "sketches" / "pattern-node-fixtures"
@@ -332,7 +343,7 @@ def candidates() -> list[Leg]:
     """Every fixture leg on both engines; fbuild only for boards its scaffold declares."""
     legs = [
         *display_legs(), *custom_board_legs(), *control_graph_legs(), *ir_legs(), *ethernet_legs(),
-        *board_link_legs(), *power_switch_legs(), *peripheral_legs(), *samd51_legs(), *dmx_legs(), *pattern_node_legs(),
+        *board_link_legs(), *power_switch_legs(), *peripheral_legs(), *samd51_legs(), *dmx_legs(), *family_legs(), *pattern_node_legs(),
         *corpus_legs("dead-code", "dead-code-compile"),
         *corpus_legs("pattern-collections", "pattern-collections-compile"),
         *corpus_legs("show-sequencing", "show-sequencing-compile"),
@@ -346,7 +357,7 @@ def candidates() -> list[Leg]:
 # The generator behind each family's fixtures.
 GENERATORS = {"display": "display", "custom-board": "custom-board", "control-graph": "control-graph", "ir": "ir",
               "ethernet": "ethernet", "board-links": "board-links", "power-switch": "power-switch",
-              "pattern-node": "pattern-node", "samd51": "samd51", "dmx": "dmx", "dead-code": "dead-code", "pattern-collections": "pattern-collections",
+              "pattern-node": "pattern-node", "samd51": "samd51", "dmx": "dmx", "families": "families", "dead-code": "dead-code", "pattern-collections": "pattern-collections",
               "show-sequencing": "show-sequencing", "lanes": "lanes", "led-drivers": "led-drivers",
               **{family: family for family in (
                   "buzzer", "cooling-fan", "darlington", "dfplayer", "distance", "encoder", "environment", "ina226",

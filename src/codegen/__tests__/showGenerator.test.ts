@@ -551,8 +551,8 @@ describe('showGenerator', () => {
   it('draws a hold between Min Time and Max Time with the Music Player\'s pacing', () => {
     const show = withSlideshow({ audioReactive: true, minTime: 5, maxTime: 30, dwellsAndBursts: true })
     const cpp = generateShowSketch(show.nodes, show.edges, groups)
-    expect(cpp).toContain('const float minHold = max(1.0f, constrain(5.0000f, 0.0f, 86400.0f));')
-    expect(cpp).toContain('const float maxHold = max(minHold, constrain(30.0000f, 0.0f, 86400.0f));')
+    expect(cpp).toContain('const float minHold = fl::max(1.0f, constrain(5.0000f, 0.0f, 86400.0f));')
+    expect(cpp).toContain('const float maxHold = fl::max(minHold, constrain(30.0000f, 0.0f, 86400.0f));')
     expect(cpp).toContain('const uint32_t transitionMs = (uint32_t)(constrain(1.0000f, 0.0f, 86400.0f) * 1000.0f);')
     expect(cpp).toContain('if (now - phaseStart >= paceHoldMs()) {')
     // The next hold is drawn when the transition lands, as the preview does.
@@ -658,8 +658,8 @@ describe('showGenerator', () => {
       edge('w-min', 'pot', 'value', 'pm', 'minTime'),
     ])
     const cpp = generateShowSketch(timed.nodes, timed.edges, groups)
-    expect(cpp).toMatch(/const float minHold = max\(1\.0f, constrain\(\S*n_pot_value\S*, 0\.0f, 86400\.0f\)\);/)
-    expect(cpp).toMatch(/const float maxHold = max\(minHold, constrain\(8\.0000f, 0\.0f, 86400\.0f\)\);/)
+    expect(cpp).toMatch(/const float minHold = fl::max\(1\.0f, constrain\(\S*n_pot_value\S*, 0\.0f, 86400\.0f\)\);/)
+    expect(cpp).toMatch(/const float maxHold = fl::max\(minHold, constrain\(8\.0000f, 0\.0f, 86400\.0f\)\);/)
     expect(cpp).toContain('if (now - phaseStart >= paceHoldMs()) {')
   })
 
@@ -672,7 +672,7 @@ describe('showGenerator', () => {
     ])
     const cpp = generateShowSketch(show.nodes, show.edges, groups)
     expect(cpp).toContain('float n_pot_value = analogRead(4) / DS_ANALOG_FULL_SCALE;')
-    expect(cpp).toMatch(/const float minHold = max\(1\.0f, constrain\(\S*n_pot_value\S*, 0\.0f, 86400\.0f\)\);/)
+    expect(cpp).toMatch(/const float minHold = fl::max\(1\.0f, constrain\(\S*n_pot_value\S*, 0\.0f, 86400\.0f\)\);/)
     expect(cpp).toContain('if (now - phaseStart >= paceHoldMs()) {')
     // A wired Transition opens the fade a property of zero would have cut.
     expect(cpp).toContain('float p = transitionMs > 0 ? (float)(now - phaseStart) / transitionMs : 1.0f;')

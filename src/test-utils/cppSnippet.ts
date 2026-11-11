@@ -81,7 +81,8 @@ const RUNTIME = {
  * named `outputs` as they stand at the end of the pass.
  */
 export function compileCppSnippet(lines: readonly string[], inputs: readonly string[], outputs: readonly string[]) {
-  let body = lines.join('\n')
+  // The harness supplies min and max itself; the sketch names FastLED's.
+  let body = lines.join('\n').replace(/\bfl::(?=(?:min|max)\b)/g, '')
   const statics: string[] = []
   body = body.replace(new RegExp(`static\\s+(?:const\\s+)?${TYPE}\\s+([^;]+);`, 'g'), (_, declarators: string) => {
     for (const declarator of splitTopLevel(declarators)) {
