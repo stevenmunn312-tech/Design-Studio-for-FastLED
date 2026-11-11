@@ -125,11 +125,13 @@ and known traps; [CLAUDE.md](../CLAUDE.md) routes agents to the same files.
 
 ## Active plans
 
-[Root todo](../todo.md) owns cross-project ordering. These documents own detailed
+[Root todo](../todo.md) owns the ordered steps that release v1. These documents own detailed
 rollout steps or explicitly proposed work, not a second copy of the root checklist.
 
 - [App review — 24 September 2026](plans/2026-09-24-app-review.md)
 - [Battery power](plans/battery-power.md)
+- [Bench and community testing backlog](plans/bench-backlog.md)
+- [Deferred until after v1](plans/post-v1.md)
 - [Hardware expansion roadmap](plans/hardware-expansion-roadmap.md)
 - [Pattern node expansion — tiling, warp, Turing and Fourier nodes](plans/pattern-node-expansion.md)
 - [Power conversion and supply protection](plans/power-conversion-and-protection.md)
@@ -221,6 +223,7 @@ gates are separate documents.
 Historical context, not current task status.
 
 - [> **Archived 2026-09-24.** This is the backlog as it stood before it was](archive/hardware-todo-to-2026-09-24.md)
+- [v1.0.0 backlog: completed items to 2026-11-12](archive/todo-completed-to-2026-11-12.md)
 
 ## Maintaining these docs
 

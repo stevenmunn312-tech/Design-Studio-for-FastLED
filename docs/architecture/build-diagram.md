@@ -334,7 +334,7 @@ those paths. Its cautions and their disposition:
 Both passes are source reviews, not a substitute for professional review of
 a specific installation. The battery, converter and PD-trigger families have
 now had their independent review; they leave experimental only when their
-bench rows in `todo.md` hold evidence and
+rows in the [bench backlog](../plans/bench-backlog.md) hold evidence and
 [the support matrix](../release/beta-support-matrix.md) says so.
 
 ## Current Scope

@@ -458,7 +458,7 @@ Unless a future row says otherwise, treat the following as experimental:
   keeps boards on one animation clock and one show pattern over UDP
   ([design](../design/multi-board.md)). Generated and tested against the
   preview only; no multi-board sketch has been compiled or run, and the
-  bench row is in the root todo, section 4.
+  bench row is in the [bench backlog](../plans/bench-backlog.md#network-and-data-links).
 - **Board links over ESP-NOW** (root todo, D-13): numbers, switches, presses,
   colours, text, times and panel fields sent between the boards of one project
   over authenticated ESP-NOW broadcast, so one board can run the LEDs and music
@@ -1152,7 +1152,7 @@ Notes:
 - NTP inside generative-show and SD-player firmware is **experimental**: it
   compiles (D-03, 13 October 2026, over Wi-Fi and over the WIZ850io) through
   the same bootstrap the normal sketch uses, but no show or player build has
-  synced on hardware yet. The bench row is in the root todo, HW-13.
+  synced on hardware yet. The bench row is in the [bench backlog](../plans/bench-backlog.md#firmware-and-show-matrix), HW-13.
 - Art-Net input (see above) is gated by the identical radio check and shares
   this same open hardware-validation gap, the UNO R4 WiFi row included.
 - Compile Time and Manual need no network and are not blocked on any board.

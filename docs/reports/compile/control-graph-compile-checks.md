@@ -254,7 +254,8 @@ The helper pins player audio to 3.0.12. All three use
 Each report's full source hash matches the fixture manifest. The wired build is
 smaller than the Wi-Fi one because nothing in it references `WiFi.begin`, so
 the station driver is not linked. All three pass on Arduino CLI; fbuild remains
-on hold. No hardware was flashed; the bench row is in the root todo, HW-13.
+on hold. No hardware was flashed; the bench row is in the
+[bench backlog](../../plans/bench-backlog.md#firmware-and-show-matrix), HW-13.
 
 The full Vitest run passes 7,364 tests across 426 files, with 20 tests and five
 files skipped. ESLint and the production build pass. This closes the v1 part of

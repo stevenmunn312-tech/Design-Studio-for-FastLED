@@ -27,7 +27,7 @@ import type { GraphDiagnostic } from './validateGraph'
  * The most slots one board sends, and the most of them that are text. The
  * frame is at most 250 bytes, and a heartbeat carries every number slot and
  * one text slot; these keep both inside it. A bound to confirm at the first
- * bench run (root todo, section 4), not a measured ceiling.
+ * bench run (docs/plans/bench-backlog.md), not a measured ceiling.
  */
 export const BOARD_LINK_MAX_SLOTS = 64
 export const BOARD_LINK_MAX_TEXT_SLOTS = 8

@@ -322,8 +322,8 @@ enclosures, so antennas stay clear. Grounds need no bond for a radio link.
 5. Validation and the Upload tab warning.
 6. Help and guides, an experimental row in the
    [support matrix](../release/beta-support-matrix.md), and this note's status.
-7. Compile at the v1 freeze with the rest of the matrix; the bench row is in
-   the root todo, section 4.
+7. Compile at the v1 freeze with the rest of the matrix; the bench runs are in
+   the [bench record](../reports/bench/board-link-bench.md).
 
 ## Limits
 

@@ -1,6 +1,6 @@
 # Board links over ESP-NOW — bench record
 
-The D-13 bench row in the root todo, section 4, run on real boards. Design
+The D-13 bench row, run on real boards. Design
 and limits are in [board links](../../design/board-links.md); the compiles
 behind these sketches are in the
 [compile checks](../compile/board-link-compile-checks.md). Support scope

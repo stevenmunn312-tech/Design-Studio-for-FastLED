@@ -3,7 +3,7 @@
 > **Status: complete.** Both boards of each of the three D-13 bench runs passed
 > on 24 October 2026. This is compile evidence only; board links stay
 > experimental in the [support matrix](../../release/beta-support-matrix.md)
-> until the bench row in the root todo, section 4, is recorded.
+> until its bench row is recorded ([bench record](../bench/board-link-bench.md)).
 
 Each pair is one root graph cut by `boardPartition`, as the Upload tab cuts
 it, so a fixture is the sketch that board would be flashed with. The pins are

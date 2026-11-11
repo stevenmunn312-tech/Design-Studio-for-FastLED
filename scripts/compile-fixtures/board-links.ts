@@ -1,6 +1,6 @@
 /**
  * Generate the board-link (D-13) compile fixtures: each board's sketch for the
- * three bench runs in the root todo, section 4, and the two shapes of a board
+ * three bench runs in docs/reports/bench/board-link-bench.md, and the two shapes of a board
  * off Wi-Fi that follows a linked board's network. See docs/design/board-links.md.
  *
  * Each pair is one root graph cut by `boardPartition`, exactly as the Upload

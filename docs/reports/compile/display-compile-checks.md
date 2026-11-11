@@ -299,7 +299,8 @@ Against the previous report for each fixture:
 - **Every custom-screen fixture with a previous report is about 64 KiB lower in
   static RAM** on both engines (65,474–65,888 bytes), because ESP32 builds now
   take LVGL's pool from the heap. Free heap after `lv_init()` should be
-  unchanged; the CYD re-measure is owed (root todo, section 4).
+  unchanged; the CYD re-measure is owed
+  ([bench backlog](../../plans/bench-backlog.md#controls-displays-and-boards)).
 - **Fixtures without a custom screen did not change:** `headless`,
   `part-families-i2c`, `part-parallel` and `classic-esp32-fixed` are
   byte-identical on both engines, `isolated-tft` on Arduino CLI, and

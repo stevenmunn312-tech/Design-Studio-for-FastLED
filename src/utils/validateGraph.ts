@@ -1030,8 +1030,8 @@ export function estimateFirmwareRam(
  * buffers of 1.6 KB, the dynamic RX and TX buffers, the management queues and
  * the driver's own state), which Arduino-core measurements put at a 40-50 KB
  * fall in free heap on `WiFi.mode(WIFI_STA)`. The top of that range, because a
- * budget errs high. The figure awaits the board-link bench row (root todo,
- * section 4), which records what a linked render board really pays; replace
+ * budget errs high. The figure awaits the board-link bench row
+ * (docs/plans/bench-backlog.md), which records what a linked render board really pays; replace
  * it with that measurement. See docs/design/board-links.md, "Limits".
  */
 export const BOARD_LINK_WIFI_DRIVER_RAM_BYTES = 50 * 1024

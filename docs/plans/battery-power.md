@@ -20,7 +20,7 @@ them.
 
 ## Reference builds
 
-These are Steve's own builds, and each becomes a bench row in the root todo.
+These are Steve's own builds, and each becomes a row in the [bench backlog](bench-backlog.md).
 
 | Build | Pack | Boards |
 | --- | --- | --- |

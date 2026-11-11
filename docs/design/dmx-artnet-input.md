@@ -248,5 +248,5 @@ Each has a repair line in the Graph Health drawer.
 ## Follow-ups
 
 Hardware validation and remaining topology/network evidence are consolidated in
-[root todo, HW-13](../../todo.md). Existing recorded support belongs to the
+[bench backlog, HW-13](../plans/bench-backlog.md#firmware-and-show-matrix). Existing recorded support belongs to the
 [support matrix](../release/beta-support-matrix.md).

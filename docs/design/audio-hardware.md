@@ -1,6 +1,7 @@
 # Audio hardware — microphones and amplifiers
 
-Active execution and acceptance are tracked in [root todo, HW-19/HW-20](../../todo.md).
+The software is complete; the HW-19 and HW-20 bench rows are in the
+[bench backlog](../plans/bench-backlog.md#audio).
 This document retains the feature contract, not a second checklist.
 
 

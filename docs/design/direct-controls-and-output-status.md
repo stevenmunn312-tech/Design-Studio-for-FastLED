@@ -3,7 +3,7 @@
 Status: implemented 2026-09-24 — steps 1–11 are landed in software, and
 representative normal/show/player compilation is done on both engines. The
 step 10 bench readings, including widget feedback under playback, are
-community-testing rows in the root todo; see the foot of the checklist.
+community-testing rows in the [bench backlog](../plans/bench-backlog.md); see the foot of the checklist.
 Target: Hardware, ahead of v1.0.0. Behaviour below is a mix of
 implemented and specified; the checklist at the foot says which is which.
 
@@ -739,7 +739,7 @@ drifts — a list beside one generator says nothing about the other two.
 **Implemented, 2026-09-24.** Software and compilation are complete. The bench
 readings from step 10 (real touch, panel enable and re-enable, LED and status
 response, widget feedback under playback) are community-testing rows in the
-root todo, and the feature is experimental until they land. Under the backlog's
+[bench backlog](../plans/bench-backlog.md), and the feature is experimental until they land. Under the backlog's
 rules, missing hardware evidence no longer holds a design open.
 
 ## Reference workflows
