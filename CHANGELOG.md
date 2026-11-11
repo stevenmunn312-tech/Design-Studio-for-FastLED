@@ -989,6 +989,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Patterns that failed to compile on Adafruit SAMD boards (Feather M0 and M4,
+  Grand Central, Matrix Portal) with "call of overloaded 'max' is ambiguous"
+  now build.
+- The ESP32-H2 builds with fbuild. It had stopped on "unknown board
+  'esp32-h2-devkitc-1'".
 - A DMX512 input compiles again. Its library does not build on the current
   ESP32 core, so the sketch now reads the DMX line itself; there is no
   library to install on either build engine.

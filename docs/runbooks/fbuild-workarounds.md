@@ -22,8 +22,9 @@ an internal record.
   window per compile, #1722, §13) and the ESP8266 `deploy` and bootable-image
   fixes (#1729, #1733, for #1657, §7). The Arduino Nano ESP32
   ([#1760](https://github.com/FastLED/fbuild/issues/1760)) builds on
-  2.5.51. ESP32-H2 is built on Arduino CLI only: 2.5.45 had no
-  `esp32-h2-devkitc-1`, not rechecked since.
+  2.5.51. The ESP32-H2 builds on fbuild since 2026-11-11: the scaffold had
+  named `esp32-h2-devkitc-1`, a board that does not exist, where fbuild and
+  PlatformIO call the dev kit `esp32-h2-devkitm-1`.
 - **ESP32 platform pin:** `_FBUILD_ESP32_PLATFORM` in `backend/toolchain.py`,
   pioarduino 55.03.312-1 (Arduino core 3.3.12, ESP-IDF 5.5.5), the release the
   helper pins Arduino CLI to (`_PINNED_CORES`), since 2026-10-27. A bare
@@ -837,6 +838,14 @@ generated source is byte-identical:
 
 Both engines agree to within a few hundred bytes on each change. The C6 and
 H2 figures include dropping `-DFL_NO_EXCEPT=`.
+
+Two faults the run could not see were found in the desktop app the next day
+and fixed. A pattern calling `min` or `max` did not compile on an Adafruit
+SAMD board on either engine: FastLED puts `fl::min` and `fl::max` in the
+global namespace beside the core's own templates, and no non-ESP32 fixture
+called either. Sketches now name `fl::min` and `fl::max`, and a `families`
+fixture builds an ordinary pattern on every non-ESP32 family (8 of 8 on
+Arduino CLI). The ESP32-H2 stopped on an unknown board id, as above.
 
 Not covered by a headless run: the console-window check (§13), which passed
 in the desktop app the next day (bundled fbuild 2.5.51, no window during a

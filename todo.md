@@ -440,12 +440,12 @@ chooses the supported combinations from whatever is on record at release.
   The LVGL archive recovery (§12), the SAMD51 FastLED patches and the SAMD51
   `-DARDUINO_ARCH_SAMD`/`EIC_IRQn`/software-SPI flags are removed, and no
   console window opens per compile on Windows (§13, checked in the desktop
-  app on 2026-11-11). The Espressif Python still holds 2.5.45. Left:
+  app on 2026-11-11). The ESP32-H2 builds on fbuild since its board id was
+  corrected to `esp32-h2-devkitm-1` the same day. The Espressif Python still
+  holds 2.5.45. Left:
   - ESP8266 `deploy` (§7, [#1657](https://github.com/FastLED/fbuild/issues/1657)):
     2.5.45 added a deployer; flash a board through fbuild, then drop the
     Arduino CLI fallback.
-  - ESP32-H2 is still built on Arduino CLI alone (`ARDUINO_CLI_ONLY` in
-    `compile-matrix.py`); recheck whether 2.5.51 has `esp32-h2-devkitc-1`.
   - The SAMD51 environments still repeat `-D__SAMD51__` and the MCU define
     for library sources; try one build without them.
   - §5 ([#1658](https://github.com/FastLED/fbuild/issues/1658)) and
