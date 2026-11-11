@@ -1170,3 +1170,7 @@ sketch, so it is not known whether older releases linked them.
 sends an ESP8266 sketch with such an include to arduino-cli where it is
 installed. The same function sends every board the scaffold does not declare
 there too. With no arduino-cli the fbuild link error stands.
+
+**Checked on hardware 2026-11-11.** A Web Remote sketch (ESP8266WiFi,
+ESP8266WebServer, ESP8266mDNS) for a LOLIN D1 mini was routed to arduino-cli by
+the desktop app with fbuild as the engine, built in 19 s and flashed.
