@@ -222,11 +222,9 @@ def test_write_fbuild_ini_emits_a_section_per_board_and_psram_variant(tmp_path, 
     assert "platform = espressif32\n" not in text
     assert "platform = atmelavr" in uno_section
 
-    # fbuild must carry the SAMD51 identity into vendored library TUs, not just
-    # the sketch, or FastLED falls through to its unsupported generic Arduino
-    # pin implementation.
+    # fbuild 2.5.51 carries the SAMD51 identity into library sources itself.
     feather_m4_section = text.split("[env:adafruit_samd_adafruit_feather_m4]")[1].split("[env:")[0]
-    assert "-D__SAMD51J19A__" in feather_m4_section
+    assert "__SAMD51" not in feather_m4_section
     # FastLED 3.10.9 builds on SAMD51 as released: no alias or SPI override.
     assert "EIC_IRQn" not in feather_m4_section
     assert "FASTLED_FORCE_SOFTWARE_SPI" not in feather_m4_section

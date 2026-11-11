@@ -645,22 +645,9 @@ _PIO_BOARDS: dict[str, dict] = {
     "arduino:samd:arduino_zero_native": {"platform": "atmelsam", "board": "zeroUSB"},
     "adafruit:samd:adafruit_feather_m0": {"platform": "atmelsam", "board": "adafruit_feather_m0"},
     "adafruit:samd:adafruit_qtpy_m0": {"platform": "atmelsam", "board": "adafruit_qtpy_m0"},
-    # fbuild's atmelsam adapter drops the board's MCU defines when compiling
-    # vendored local-library unity files. Repeat the exact MCU identity here
-    # so FastLED selects its SAMD51 implementation in both the sketch TU and
-    # library TUs.
-    "adafruit:samd:adafruit_feather_m4": {
-        "platform": "atmelsam", "board": "adafruit_feather_m4",
-        "build_flags": ["-D__SAMD51__", "-D__SAMD51J19A__"],
-    },
-    "adafruit:samd:adafruit_grandcentral_m4": {
-        "platform": "atmelsam", "board": "adafruit_grandcentral_m4",
-        "build_flags": ["-D__SAMD51__", "-D__SAMD51P20A__"],
-    },
-    "adafruit:samd:adafruit_matrixportal_m4": {
-        "platform": "atmelsam", "board": "adafruit_matrixportal_m4",
-        "build_flags": ["-D__SAMD51__", "-D__SAMD51J19A__"],
-    },
+    "adafruit:samd:adafruit_feather_m4": {"platform": "atmelsam", "board": "adafruit_feather_m4"},
+    "adafruit:samd:adafruit_grandcentral_m4": {"platform": "atmelsam", "board": "adafruit_grandcentral_m4"},
+    "adafruit:samd:adafruit_matrixportal_m4": {"platform": "atmelsam", "board": "adafruit_matrixportal_m4"},
     # STM32duino names no board by these ids: arduino-cli picks a series board
     # (GenF1, GenF4, Nucleo_144) and the chip by its `pnum` menu value.
     # `_arduino_fqbn` swaps them in; the app and fbuild keep the short ids.
