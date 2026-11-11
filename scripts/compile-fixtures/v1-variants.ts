@@ -368,6 +368,10 @@ checked('gamma-player', gammaPlayer, groups)
 fixtures['gamma-player'] = { fqbn: S3, source: buildShowPlayer(gammaPlayer.nodes, gammaPlayer.edges, groups, {
   patternSet: ['plasma', 'noise'], bakedAudio: false, genericPlayer: true, preferredTrack: '',
 }) }
+// The Music Player's Seed: a fixed seed in place of the boot entropy.
+fixtures['player-seed'] = { fqbn: S3, source: buildShowPlayer(gammaPlayer.nodes, gammaPlayer.edges, groups, {
+  patternSet: ['plasma', 'noise'], bakedAudio: false, genericPlayer: true, preferredTrack: '', seed: 7,
+}) }
 
 // A slideshow pattern whose Audio Cascade reads the show's audio through the
 // group's own input, with a microphone on the board.
@@ -416,6 +420,7 @@ const required: Record<string, string[]> = {
   'demo-drums-kick-shock': ['_ksDemoKick'],
   'demo-drums-percussion-blobs': ['_pbDemoKick'],
   'clock-zone-esp8266': ['configTime('],
+  'player-seed': ['randomSeed(7u);'],
   'audio-features-level': ['float _audioLoudness = 0.0f;'],
 }
 for (const [name, symbols] of Object.entries(required)) {
