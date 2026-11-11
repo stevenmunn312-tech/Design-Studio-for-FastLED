@@ -36,6 +36,11 @@ describe('withoutUnreadLocals and warning silencers', () => {
     expect(result.match(/\(void\)cx/g) ?? []).toHaveLength(1)
   })
 
+  it('drops an unread constexpr local whole, leaving no qualifiers behind', () => {
+    const source = ['float pass() {', '  static constexpr int RENDER_LEDS = W * H;', '  return 1.0f;', '}'].join('\n')
+    expect(withoutUnreadLocals(source)).toBe(['float pass() {', '  return 1.0f;', '}'].join('\n'))
+  })
+
   it('keeps a silenced variable that something else reads', () => {
     const source = 'void loop() { float a=x*2.0f; (void)a; out[0]=a; }'
     expect(withoutUnreadLocals(source)).toBe(source)

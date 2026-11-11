@@ -384,6 +384,12 @@ ARDUINO_CLI_ONLY_FAMILIES: dict[str, str] = {
 }
 
 
+# Sketches built on fbuild alone: the helper vendors the library for that engine only.
+FBUILD_ONLY_SKETCHES: dict[tuple[str, str], str] = {
+    ("v1-variants", "hub75-size-2"): "the HUB75 DMA library is vendored for fbuild only (docs/design/hub75-output.md)",
+}
+
+
 def candidates() -> list[Leg]:
     """Every fixture leg on both engines; fbuild only for boards its scaffold declares."""
     legs = [
@@ -396,7 +402,8 @@ def candidates() -> list[Leg]:
     ]
     fbuild_boards = set(toolchain._PIO_BOARDS) - set(ARDUINO_CLI_ONLY)
     return [replace(leg, engine=engine) for engine in ENGINES for leg in legs
-            if engine == "arduino-cli" or (":".join(leg.board.split(":")[:3]) in fbuild_boards
+            if (engine == "arduino-cli" and (leg.family, leg.sketch.stem) not in FBUILD_ONLY_SKETCHES)
+            or (engine == "fbuild" and ":".join(leg.board.split(":")[:3]) in fbuild_boards
                                            and leg.family not in ARDUINO_CLI_ONLY_FAMILIES)]
 
 

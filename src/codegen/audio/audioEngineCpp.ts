@@ -29,14 +29,18 @@ function graphUsesNodeType(type: string, nodes: readonly StudioNode[], groups: G
 export const graphUsesVibe = (nodes: readonly StudioNode[], groups: GroupRegistry = {}): boolean =>
   graphUsesNodeType('Vibe', nodes, groups)
 
-/** Whether any Audio Features node has its Loudness output wired. Loudness
- *  costs the host an RMS per frame, so it is published only when read. */
+/** Whether any Audio Features node has an output wired that reads the host's
+ *  loudness: Loudness itself, and Level and Silence, which are derived from
+ *  it. Loudness costs the host an RMS per frame, so it is published only
+ *  when read. */
+const LOUDNESS_OUTPUTS: ReadonlySet<string | null | undefined> = new Set(['loudness', 'level', 'silence'])
+
 export function graphUsesLoudness(
   nodes: readonly StudioNode[], edges: readonly StudioEdge[], groups: GroupRegistry = {},
 ): boolean {
   const reads = (graphNodes: readonly StudioNode[], graphEdges: readonly StudioEdge[]) => {
     const features = new Set(graphNodes.filter((node) => node.data.nodeType === 'AudioFeatures').map((node) => node.id))
-    return graphEdges.some((edge) => edge.sourceHandle === 'loudness' && features.has(edge.source))
+    return graphEdges.some((edge) => LOUDNESS_OUTPUTS.has(edge.sourceHandle) && features.has(edge.source))
   }
   return reads(nodes, edges) || Object.values(groups).some((group) => reads(group.nodes, group.edges))
 }

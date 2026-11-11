@@ -140,8 +140,12 @@ describe('Audio Features Level', () => {
     const read = graph('level', 'vocals')
     expect(read).toContain(audioLevelCpp('n_af_feat_level', 'n_af_loudness', '_afSens_af', '_afafDt'))
     expect(read).toContain('float n_af_level = constrain(n_af_feat_level, 0.0f, 1.0f);')
+    // Level and Silence read the host's loudness, so the host publishes it.
+    expect(read).toContain('float _audioLoudness = 0.0f;')
+    expect(graph('silence', 'vocals')).toContain('float _audioLoudness = 0.0f;')
     const unread = graph('vocals', 'vocals')
     expect(unread).not.toContain('n_af_feat_level')
     expect(unread).not.toContain('n_af_level')
+    expect(unread).not.toContain('_audioLoudness')
   })
 })
