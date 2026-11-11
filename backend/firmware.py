@@ -592,6 +592,52 @@ def _drain_compile(gen):
         return lines, stop.value
 
 
+# fbuild compiles through a background daemon it starts itself. When the daemon
+# does not come up, fbuild says so in these words and attempts no compile.
+_FBUILD_DAEMON_DOWN = "daemon did not become healthy"
+_FBUILD_DAEMON_RETRY_WAIT_S = 15.0
+
+
+def _fbuild_build(label, env, sink):
+    """Run `fbuild build`, once more if fbuild's daemon did not start.
+
+    Seen on 2.5.51: a daemon that had just exited left its compiler cache
+    marked as in use, and the next build's daemon refused to start for some
+    minutes. Nothing was wrong with the sketch, so one retry after a pause is
+    worth more than a failed build, and a second failure gets a plain line in
+    place of fbuild's diagnostics alone. The first attempt's exit line is held
+    back: the upload UI reads any nonzero exit marker as the final result.
+    """
+    phase_label = f"{label} · compile"
+    args = [toolchain._FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"]
+    phase = toolchain._run_phase(phase_label, args, sink=sink, cwd=toolchain._FBUILD_PROJECT_DIR)
+    held = []
+    try:
+        while True:
+            line = next(phase)
+            if line.startswith(f"[{phase_label} exit code:") and not line.startswith(f"[{phase_label} exit code: 0 "):
+                held.append(line)
+            else:
+                yield line
+    except StopIteration as stop:
+        rc = stop.value
+    daemon_down = rc != 0 and any(_FBUILD_DAEMON_DOWN in line for line in sink)
+    if not daemon_down or toolchain._build_was_cancelled():
+        yield from held
+        return rc
+    yield "\n  [engine] fbuild's background service did not start. Trying once more…\n"
+    time.sleep(_FBUILD_DAEMON_RETRY_WAIT_S)
+    first_attempt = len(sink)
+    rc = yield from toolchain._run_phase(phase_label, args, sink=sink, cwd=toolchain._FBUILD_PROJECT_DIR)
+    if rc != 0 and any(_FBUILD_DAEMON_DOWN in line for line in sink[first_attempt:]):
+        yield (
+            "  [engine-gap] fbuild's background service is not starting, so nothing was compiled. "
+            "This is not a fault in your design. Try again in a minute, or switch the build engine "
+            "to arduino-cli in Board & Port.\n"
+        )
+    return rc
+
+
 @toolchain._reports_total_time
 def _compile_upload_fbuild(
     label, ino, fqbn, port, flash_mb=None, usb_cdc=False, reuse_compiled: bool = False,
@@ -682,10 +728,7 @@ def _compile_upload_fbuild(
                 toolchain._write_fbuild_main(ino, files)
             else:
                 toolchain._write_fbuild_main(ino)
-            rc = yield from toolchain._run_phase(
-                f"{label} · compile", [toolchain._FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"],
-                sink=compile_lines, cwd=toolchain._FBUILD_PROJECT_DIR,
-            )
+            rc = yield from _fbuild_build(label, env, compile_lines)
             if rc != 0:
                 if _looks_like_overflow(compile_lines):
                     yield _overflow_message(fqbn, compile_lines)

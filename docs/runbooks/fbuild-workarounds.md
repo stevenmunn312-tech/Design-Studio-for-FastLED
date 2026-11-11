@@ -85,6 +85,7 @@ an internal record.
 | 11 | A build over the board's limits reports success | **2.5.26** | Refuse it on the measured percentage | **Partly fixed in 2.5.28** ([#1473](https://github.com/FastLED/fbuild/pull/1473), closing [#1409](https://github.com/FastLED/fbuild/issues/1409)): oversize flash now fails, and RAM overflow fails only on AVR. Keep the refusal for ESP32 RAM |
 | 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.26** | Re-archive with a response file, then continue | **No — fixed in 2.5.44** ([#1656](https://github.com/FastLED/fbuild/issues/1656)); no leg of the 2.5.51 run needed it, workaround removed 2026-11-10 |
 | 13 | Windows: every daemon compile opens a visible console window that takes focus | **2.5.44** (also 2.5.37) | None possible: zccache is fbuild's only compile backend | **No — fixed in 2.5.45** ([#1722](https://github.com/FastLED/fbuild/issues/1722), by #1723 with zccache 1.15.6): no window opened during a compile in the desktop app on 2.5.51, 2026-11-11 |
+| 14 | Daemon refuses to start after the last one exited | **2.5.51** | Run the build once more after 15 s, then say plainly that nothing was compiled | Yes — seen once, 2026-11-11, not reproduced and not reported; see §14 |
 
 ---
 
@@ -1101,3 +1102,36 @@ above is measured from the run that needed no recovery.
 
 **Upstream ask.** Archive through a response file on Windows, as the compiler drivers
 already do for long link lines.
+
+---
+
+## 14. The daemon refuses to start after the last one exited
+
+**Seen once on 2.5.51 (2026-11-11), in the desktop app. Not reproduced, not reported.**
+
+**Symptom.** A build fails in about 50 s without compiling anything:
+
+```text
+daemon error: daemon did not become healthy after 3 spawn attempts (10s each).
+WARN zccache::core::cache_root_lock: cache root already has a live writer; refusing to start a second one
+```
+
+**What the log showed.** The daemon that built the previous sketch
+self-evicted after 30 s idle, logging `zccache backend flush on exit timed out
+after 4s`, and exited. A build two minutes later started three daemons, and
+each refused the compiler cache as still in use. The same build 40 minutes
+later worked. Every daemon exit in the log carries that flush timeout, and a
+rebuild 60 s after an exit worked, so the timeout alone is not the cause.
+Whether the old daemon outlived its exit line or another process held the
+cache is not known.
+
+**Workaround.** `_fbuild_build` in [`backend/firmware.py`](../../backend/firmware.py)
+runs the build once more after 15 s when fbuild reports `daemon did not become
+healthy`, holding back the first attempt's exit line so the upload UI does not
+read it as the result. If the second attempt fails the same way, the log says
+that nothing was compiled, that the design is not at fault, and to retry or
+switch to arduino-cli.
+
+**If it happens again.** Before retrying, read
+`~/.fbuild/prod/zccache/<version>/.writer.lock` and check whether that process
+is alive and what it is. That is the evidence an upstream report needs.

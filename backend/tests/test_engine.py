@@ -1149,3 +1149,57 @@ def test_vendoring_is_skipped_when_upstream_is_already_cached(monkeypatch, tmp_p
     monkeypatch.setattr(toolchain, "_run_phase", must_not_clone)
 
     assert list(toolchain._ensure_fbuild_audio_lib()) == []
+
+
+def _fbuild_with_phases(monkeypatch, outcomes):
+    """Run an fbuild compile whose successive `fbuild build` runs end as `outcomes` say."""
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "fbuild")
+    monkeypatch.setattr(toolchain, "_ensure_fbuild_project", lambda: iter(()))
+    monkeypatch.setattr(toolchain, "_fbuild_env_for_fqbn", lambda *args, **kwargs: "uno")
+    monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
+    monkeypatch.setattr(toolchain, "_build_was_cancelled", lambda: False)
+    monkeypatch.setattr(firmware, "_FBUILD_DAEMON_RETRY_WAIT_S", 0)
+    runs = []
+
+    def fake_phase(label, args, sink=None, cwd=None, tool_env=None):
+        text, rc = outcomes[len(runs)]
+        runs.append(args)
+        for line in (text, f"[{label} exit code: {rc} · 1s]\n"):
+            if sink is not None:
+                sink.append(line)
+            yield line
+        return rc
+
+    monkeypatch.setattr(toolchain, "_run_phase", fake_phase)
+    lines, result = firmware._drain_compile(firmware._compile_upload_fbuild("Sketch", "void setup(){}", "arduino:avr:uno", ""))
+    return "".join(lines), result, runs
+
+
+_DAEMON_DOWN = "ERROR daemon error: daemon did not become healthy after 3 spawn attempts (10s each).\n"
+_BUILT = "Flash: 4.75KB / 31.50KB (15.1%)\nRAM: 444 bytes / 2.00KB (21.7%)\n"
+
+
+def test_fbuild_build_runs_again_when_its_daemon_did_not_start(monkeypatch):
+    log, result, runs = _fbuild_with_phases(monkeypatch, [(_DAEMON_DOWN, 1), (_BUILT, 0)])
+    assert result[0] == 0
+    assert len(runs) == 2 and runs[0] == runs[1]
+    assert "Trying once more" in log
+    # The upload UI reads a nonzero exit marker as the final result.
+    assert "exit code: 1" not in log
+    assert "[engine-gap]" not in log
+
+
+def test_fbuild_build_says_plainly_when_its_daemon_stays_down(monkeypatch):
+    log, result, runs = _fbuild_with_phases(monkeypatch, [(_DAEMON_DOWN, 1), (_DAEMON_DOWN, 1)])
+    assert result == (1, "compile")
+    assert len(runs) == 2
+    assert "[engine-gap] fbuild's background service is not starting" in log
+    assert "switch the build engine to arduino-cli" in log
+
+
+def test_fbuild_build_does_not_repeat_an_ordinary_compile_error(monkeypatch):
+    log, result, runs = _fbuild_with_phases(monkeypatch, [("main.ino:3: error: 'x' was not declared\n", 1)])
+    assert result == (1, "compile")
+    assert len(runs) == 1
+    assert "exit code: 1" in log
+    assert "Trying once more" not in log
