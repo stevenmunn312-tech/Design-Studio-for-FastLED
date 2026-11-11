@@ -228,14 +228,20 @@ def _engine_for_board(fqbn: str, ino: str = "") -> str:
     With fbuild the default engine they would all stop on "no fbuild board
     mapping". An ESP8266 sketch that uses Wi-Fi would stop at link. Both build
     with arduino-cli where it is installed."""
-    engine = _active_engine()
-    if engine != "fbuild" or not _ARDUINO_CLI:
-        return engine
+    return "arduino-cli" if _engine_switch_note(fqbn, ino) else _active_engine()
+
+
+def _engine_switch_note(fqbn: str, ino: str = "") -> str:
+    """The log line for a build `_engine_for_board` moves from fbuild to
+    arduino-cli, or "" when it moves nothing. One place decides both, so the
+    log never names a reason the choice did not use."""
+    if _active_engine() != "fbuild" or not _ARDUINO_CLI:
+        return ""
     if ":".join(fqbn.split(":")[:3]) not in _PIO_BOARDS:
-        return "arduino-cli"
+        return f"  [engine] fbuild has no environment for {fqbn}: building with arduino-cli.\n"
     if fqbn.startswith("esp8266:") and _ESP8266_NETWORK_INCLUDE.search(ino):
-        return "arduino-cli"
-    return engine
+        return "  [engine] fbuild cannot link ESP8266 Wi-Fi sketches yet: building with arduino-cli.\n"
+    return ""
 
 
 # ── fbuild project scaffold ───────────────────────────────────────────────────

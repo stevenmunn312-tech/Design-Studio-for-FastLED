@@ -638,6 +638,14 @@ def _fbuild_build(label, env, sink):
     return rc
 
 
+def _engine_switch_lines(fqbn, ino=""):
+    """The line saying a build left fbuild for arduino-cli, when one did. An
+    empty string is never yielded: a zero-length chunk can end the stream."""
+    note = toolchain._engine_switch_note(fqbn, ino)
+    if note:
+        yield note
+
+
 @toolchain._reports_total_time
 def _compile_upload_fbuild(
     label, ino, fqbn, port, flash_mb=None, usb_cdc=False, reuse_compiled: bool = False,
@@ -1457,6 +1465,7 @@ def upload(payload: dict = Body(...)):
         return StreamingResponse(stream(), media_type="text/plain")
 
     def stream():
+        yield from _engine_switch_lines(fqbn, ino)
         with _sketch_workspace(toolchain.SKETCH, ino, **_files_kw(files)) as sketch_dir:
             rc, phase = yield from _compile_upload(
                 "Sketch", sketch_dir, fqbn, port, usb_cdc=usb_cdc,
@@ -1714,6 +1723,7 @@ def compile_binary(payload: dict = Body(...)):
                     if env else None
                 )
             else:
+                yield from _engine_switch_lines(fqbn, ino)
                 with _sketch_workspace(toolchain.SKETCH, ino, **_files_kw(files)) as sketch_dir:
                     rc, _phase = yield from _compile_upload(
                         "Export binary", sketch_dir, fqbn, "", output_dir=out_dir,
@@ -1829,6 +1839,7 @@ async def upload_show(
         use_port = port if target_port is None else target_port
         if engine == "fbuild":
             return (yield from _compile_upload_fbuild(label, ino, fqbn, use_port, flash_mb, usb_cdc))
+        yield from _engine_switch_lines(fqbn, ino)
         with _sketch_workspace(PLAYER_SKETCH if label == "Player" else label.split()[0].lower(), ino) as sketch_dir:
             return (yield from _compile_upload(
                 label, sketch_dir, fqbn, use_port, usb_cdc=usb_cdc,

@@ -183,7 +183,11 @@ chooses the supported combinations from whatever is on record at release.
 - **D-02 Web Remote:** the phone page on an ESP32 and an ESP8266 on a real
   Wi-Fi network, reached by its `.local` name, every control type driving the
   LEDs, a held button released by the timeout, and a reconnect after Wi-Fi drops
-  ([design](docs/design/web-remote.md)).
+  ([design](docs/design/web-remote.md)). Part done 2026-11-11 on a LOLIN D1
+  mini (FastLED 3.10.9, built by arduino-cli): the page loaded at
+  `fastled-board.local` in desktop Chrome, showed live, and its Speed and Count
+  sliders drove a Juggle on 9 LEDs. Still to do: a phone, an ESP32, the other
+  control types, the held-button timeout and the reconnect.
 - **Custom boards:** one custom layout compared against its board's documented
   pinout, then representative projects flashed. The software compile is
   recorded
