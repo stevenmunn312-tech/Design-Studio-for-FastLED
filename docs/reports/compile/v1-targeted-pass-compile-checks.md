@@ -89,7 +89,7 @@ All twelve pass on Arduino CLI. Ten pass on fbuild.
 ## The rest of step 2, 12 November 2026
 
 Every line of step 2 that had no compile behind it, built on GitHub
-`windows-latest` runners with `every` on. 426 legs pass: 423 on Arduino CLI
+`windows-latest` runners with `every` on. 427 legs pass: 424 on Arduino CLI
 1.5.1 (ESP32 core 3.3.12) and 3 on fbuild 2.5.51, with FastLED 3.10.9.
 
 The new family is `v1-variants`: 95 sketches from
@@ -115,6 +115,7 @@ one waits cancels the first.
 | [43069083943](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43069083943) | `1bb65960` | Five of the legs the lost runner held |
 | [43073898275](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43073898275) | `1bb65960` | The other sixteen, and three variants added after the first run |
 | [43085616039](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43085616039) | `ad9bc689` | The seeded Music Player variant |
+| [43106921475](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43106921475) | `2274d138` | The HUB75 variant on both engines, after the helper learned to install its library for Arduino CLI |
 
 ### Result by family
 
@@ -135,7 +136,7 @@ one waits cancels the first.
 | `encoder` | 3 | Encoder clicks, bare and as a module, in the normal sketch and slideshow |
 | `motion` | 4 | The accelerometer in the normal sketch, slideshow and player |
 | `display` | 2 | Custom screens, now with a log Slider and Dial |
-| `v1-variants` | 97 | The table below |
+| `v1-variants` | 98 | The table below |
 
 Per-leg hashes and sizes for these families are in each run's
 `compile-matrix-record` artifact.
@@ -145,7 +146,7 @@ Per-leg hashes and sizes for these families are in each run's
 `esp32` is `esp32:esp32:esp32`, `esp32s3` an ESP32-S3 (the two starters on the
 N16R8 FQBN with the 16 MB partition scheme), `uno` `arduino:avr:uno` and
 `d1_mini` `esp8266:esp8266:d1_mini`. The two sketches fixed after the first
-run also pass on fbuild.
+run and `hub75-size-2` also pass on fbuild.
 
 | Sketch | Board | Engine | Source SHA-256 prefix | Flash | RAM |
 | --- | --- | --- | --- | ---: | ---: |
@@ -196,7 +197,7 @@ run also pass on fbuild.
 | `gamma-show` | esp32 | Arduino CLI | `55123688009c` | 307,879 | 28,660 |
 | `gamma-single` | esp32 | Arduino CLI | `81158d09cf03` | 304,443 | 25,144 |
 | `gamma-two-outputs` | esp32 | Arduino CLI | `76d7a525ba10` | 306,319 | 25,304 |
-| `hub75-size-2` | esp32 | fbuild | `da70728763fb` | 269,548 | 28,232 |
+| `hub75-size-2` | esp32 | Arduino CLI | `da70728763fb` | 258,191 | 28,080 |
 | `keypad-keys-digit` | esp32 | Arduino CLI | `9f8a3acfd0da` | 302,667 | 23,944 |
 | `midi-din-pair` | esp32 | Arduino CLI | `6d3e289dfcd1` | 322,275 | 24,264 |
 | `mirror-radial-rotation-only` | esp32 | Arduino CLI | `4bf32ebf48b1` | 305,051 | 26,936 |
@@ -256,10 +257,12 @@ run also pass on fbuild.
   body read the LED count, it removed `int RENDER_LEDS = ...;` and left
   `static constexpr` behind. Plasma into a matrix and a strip was enough.
   Fixed in `a5c7d5ea`.
-- **A HUB75 sketch does not build on the Arduino CLI engine.** The helper
-  vendors the DMA library for fbuild only, so Arduino CLI stops at
-  `ESP32-HUB75-MatrixPanel-I2S-DMA.h`. `hub75-size-2` passes on fbuild and the
-  matrix keeps it there. The gap is open in the [root todo](../../../todo.md).
+- **A HUB75 sketch did not build on the Arduino CLI engine.** The helper
+  vendored the DMA library for fbuild only, so Arduino CLI stopped at
+  `ESP32-HUB75-MatrixPanel-I2S-DMA.h`. It now installs the same pinned
+  release, 3.0.14, the first time a sketch includes the header, without
+  Adafruit GFX and with the library's `NO_GFX` switch. Fixed in `2274d138`;
+  `hub75-size-2` passes on both engines.
 - **DMX512, a radar and a DFPlayer do not fit one classic ESP32.** The deploy
   gate refuses the third UART, so the allocator is compiled as two sketches,
   DMX512 beside each of the others.

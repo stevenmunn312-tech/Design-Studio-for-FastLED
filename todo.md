@@ -35,7 +35,7 @@ a named family runs with `compile-matrix.py --only <family>/`. The rest were
 compiled on GitHub on 2026-11-12, most through the `v1-variants` family, and
 every ticked line is recorded in the
 [targeted pass record](docs/reports/compile/v1-targeted-pass-compile-checks.md).
-Two lines stay open.
+One line stays open.
 
 ### 2.1 Inputs, controls and data links
 
@@ -133,11 +133,9 @@ Two lines stay open.
 
 - [x] Text Base, and Path speed.
 - [x] Text and the analog clock in Pixels, and a 0-1 Line.
-- [x] Text and Clock Display at Size 2 on a 64x32 HUB75, on fbuild.
-- [ ] A HUB75 sketch on the Arduino CLI engine. The helper vendors the DMA
-  library for fbuild only, so the build stops at
-  `ESP32-HUB75-MatrixPanel-I2S-DMA.h`. Install the library for arduino-cli,
-  or build HUB75 sketches with fbuild whichever engine is chosen.
+- [x] Text and Clock Display at Size 2 on a 64x32 HUB75. It did not build on
+  the Arduino CLI engine, which had no HUB75 library. Fixed: the helper
+  installs the pinned release on first use.
 - [x] The Font select on Text and Clock Display: 3x5, 4x6, 5x8 and bold 6x8.
 - [x] Strip centring and long-side sizing: a 60x1 strip with Geometry Field, a
   formula reading `r`, Shape Field, Path and Fourier (`FLAT_PATH_ROW_CPP`).

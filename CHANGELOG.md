@@ -1001,6 +1001,8 @@ versioning (`0.y.z`) until the first stable release.
   loudness they are derived from was published only for the Loudness output.
 - A sketch with two LED outputs of different shapes now compiles when no node
   reads the LED count. The cleanup left half a declaration behind.
+- A HUB75 sketch now builds on the Arduino CLI engine. The helper installs
+  the pinned HUB75 library on first use, as it already did for fbuild.
 - The LED preview no longer stays black after the computer sleeps or locks.
   It lost its graphics context and now redraws without it.
 - Patterns that failed to compile on Adafruit SAMD boards (Feather M0 and M4,

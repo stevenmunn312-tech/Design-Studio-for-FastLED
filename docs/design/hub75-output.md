@@ -140,8 +140,10 @@ Follows the existing `ESP32-audioI2S` pattern
 project's `lib/` on first use, pinned to tag `3.0.14` (the newest
 non-prerelease release as of 2026-08-08) rather than tracking a
 branch (the audio-lib vendoring hit a real regression from doing that — see
-`todo.md`'s hardware-validation entry from 2026-07-28). `arduino-cli` should
-be able to pull it through its own library manager as a fallback engine.
+`todo.md`'s hardware-validation entry from 2026-07-28). On `arduino-cli`,
+`_ensure_arduino_hub75_lib` installs the same release from the Library
+Manager on first use, with `--no-deps` and `-DNO_GFX=1` so it builds without
+Adafruit GFX, as it does on fbuild.
 
 ### Codegen (implemented in all five sketch generators — `src/codegen/`)
 
