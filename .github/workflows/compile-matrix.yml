@@ -22,6 +22,10 @@ on:
       only:
         description: Build only legs whose name contains one of these space-separated texts (blank for all)
         default: ""
+      every:
+        description: Build every chosen leg, not only those that prove something no other leg does
+        type: boolean
+        default: false
 
 concurrency:
   group: compile-matrix-${{ github.ref }}
@@ -115,6 +119,7 @@ jobs:
         run: |
           only=()
           for text in ${{ inputs.only }}; do only+=(--only "$text"); done
+          if [ "${{ inputs.every }}" = "true" ]; then only+=(--every); fi
           python scripts/compile-fixtures/compile-matrix.py --engine "${{ inputs.engine || 'all' }}" --install-cores             --shard "${{ matrix.shard }}" "${only[@]}"
 
       # The run folder plus every fbuild log and report beside the sketches,
