@@ -325,9 +325,7 @@ def install_arduino_cores(legs: list[Leg], say) -> bool:
 
 
 # Boards built on arduino-cli alone, though the fbuild scaffold declares them.
-ARDUINO_CLI_ONLY = {
-    "esp32:esp32:esp32h2": "fbuild had no esp32-h2-devkitc-1 board definition at 2.5.45; not rechecked on 2.5.51",
-}
+ARDUINO_CLI_ONLY: dict[str, str] = {}
 
 
 def candidates() -> list[Leg]:

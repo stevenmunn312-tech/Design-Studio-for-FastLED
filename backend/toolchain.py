@@ -580,7 +580,7 @@ _PIO_BOARDS: dict[str, dict] = {
         "build_flags": ["-DBOARD_USES_HW_GPIO_NUMBERS"],
         "arduino_options": {"PinNumbers": "byGPIONumber", "PartitionScheme": "default"},
     },
-    "esp32:esp32:esp32h2": {"platform": "espressif32", "board": "esp32-h2-devkitc-1"},
+    "esp32:esp32:esp32h2": {"platform": "espressif32", "board": "esp32-h2-devkitm-1"},
     "esp8266:esp8266:nodemcuv2": {"platform": "espressif8266", "board": "nodemcuv2"},
     "teensy:avr:teensy41": {"platform": "teensy", "board": "teensy41"},
     "teensy:avr:teensy40": {"platform": "teensy", "board": "teensy40"},
