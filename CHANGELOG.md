@@ -997,6 +997,10 @@ versioning (`0.y.z`) until the first stable release.
   installed. fbuild fails to link it.
 - An Arduino UNO R4 WiFi sketch that uses the network builds with arduino-cli
   where it is installed. fbuild does not find the board's WiFiS3 library.
+- A sketch that reads only Audio Features' Level or Silence now compiles. The
+  loudness they are derived from was published only for the Loudness output.
+- A sketch with two LED outputs of different shapes now compiles when no node
+  reads the LED count. The cleanup left half a declaration behind.
 - The LED preview no longer stays black after the computer sleeps or locks.
   It lost its graphics context and now redraws without it.
 - Patterns that failed to compile on Adafruit SAMD boards (Feather M0 and M4,

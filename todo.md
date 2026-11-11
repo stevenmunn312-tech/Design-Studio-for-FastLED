@@ -31,25 +31,29 @@ one at a time, since overlapping runs corrupt its cache. Fix what fails, and
 record the results under [compile checks](docs/index.md#compile-checks). This
 is a targeted pass, not the full matrix; that is step 5. The six fixtures
 known to be missing were written on 2026-11-12 and are named on their lines;
-a named family runs with `compile-matrix.py --only <family>/`. Ticked lines
-are recorded in the
+a named family runs with `compile-matrix.py --only <family>/`. The rest were
+compiled on GitHub on 2026-11-12, most through the `v1-variants` family, and
+every ticked line is recorded in the
 [targeted pass record](docs/reports/compile/v1-targeted-pass-compile-checks.md).
+Two lines stay open.
 
 ### 2.1 Inputs, controls and data links
 
-- [ ] DMX Live and DDP Live.
-- [ ] Presence `connected` and mm.
-- [ ] Keypad keys and Digit.
-- [ ] Touch Pad pads.
-- [ ] Accel Shake.
-- [ ] Encoder clicks (`CtlDetent` with `lroundf`).
-- [ ] Button rows (`ssr`, `board-links`, `control-graph`, the Player Buttons
+- [x] DMX Live and DDP Live.
+- [x] Presence `connected` and mm.
+- [x] Keypad keys and Digit.
+- [x] Touch Pad pads.
+- [x] Accel Shake.
+- [x] Encoder clicks (`CtlDetent` with `lroundf`).
+- [x] Button rows (`ssr`, `board-links`, `control-graph`, the Player Buttons
   and Screen starter).
-- [ ] A DMX512 node on a classic ESP32 and on an ESP32-C3, whose one spare
+- [x] A DMX512 node on a classic ESP32 and on an ESP32-C3, whose one spare
   UART takes the `CONFIG_IDF_TARGET_*` branch.
-- [ ] Two DIN MIDI nodes sharing `midiDinCpp`'s reader.
-- [ ] DMX512 beside a radar and a DFPlayer, so the UART allocator moves it.
-- [ ] A log Slider and Dial on an LVGL screen (`_rsLogValue`,
+- [x] Two DIN MIDI nodes sharing `midiDinCpp`'s reader.
+- [x] DMX512 beside a radar, and beside a DFPlayer, so the UART allocator
+  moves it. All three together are refused: a classic ESP32 has two spare
+  UARTs.
+- [x] A log Slider and Dial on an LVGL screen (`_rsLogValue`,
   `_rsLogPosition`).
 - [x] Custom screens, `display` screens-normal and screens-show: two screens
   moved by a Go to screen button and a wired Screen input, a Text Entry, a
@@ -58,11 +62,11 @@ are recorded in the
 
 ### 2.2 Clock, network and power
 
-- [ ] The Board network identity: `ethernet` static, `control-graph` show-ntp,
+- [x] The Board network identity: `ethernet` static, `control-graph` show-ntp,
   player-ntp and show-ethernet, and the `board-links` runs.
-- [ ] The Clock time zone: `configTzTime` on an ESP32 and
+- [x] The Clock time zone: `configTzTime` on an ESP32 and
   `configTime(tz, server)` on an ESP8266, through `control-graph` show-ntp and
-  player-ntp (now on Europe/Paris).
+  player-ntp (now on Europe/Paris) and `v1-variants` clock-zone-esp8266.
 - [x] A DS3231 Clock reading its module, `control-graph` normal-ds3231 and
   show-ds3231.
 - [x] An Arduino UNO R4 WiFi through WiFiS3, `uno-r4-wifi`: ntp-zone (NTP in a
@@ -71,69 +75,77 @@ are recorded in the
   find `WiFiS3.h` (step 3).
 - [x] Both boards of a two-board clock-sync project, `clock-sync`: leader and
   follower running one pattern, then the same collection show.
-- [ ] Schedule Trigger's DateTime.
-- [ ] The Power Switch RGB strip (`yynmos4-rgb`, `mosfetti-rgb-avr`).
+- [x] Schedule Trigger's DateTime.
+- [x] The Power Switch RGB strip (`yynmos4-rgb`, `mosfetti-rgb-avr`).
 
 ### 2.3 Audio
 
-- [ ] Demo drums, the envelope clock and Beat Phase.
-- [ ] The audio Speed doubling and 2.0 clamps (Bass Cathedral Collapse,
+- [x] Demo drums, the envelope clock and Beat Phase.
+- [x] The audio Speed doubling and 2.0 clamps (Bass Cathedral Collapse,
   Chromatic Orbit Reactor, Beat Temple).
-- [ ] The `reactivity` role in the show and SD player (`show-sequencing`
+- [x] The `reactivity` role in the show and SD player (`show-sequencing`
   ramped-param player with a `SET_ENERGY` ramp).
-- [ ] The band patterns' `audioBandsCpp` block: an ESP32-S3 and microphone
+- [x] The band patterns' `audioBandsCpp` block: an ESP32-S3 and microphone
   into Ember Pulse on Palette, Gravity Well, Hi-Hat Shards and AnimARTrix.
-- [ ] A Slideshow group feeding Audio Cascade.
-- [ ] The same band-pattern graph with no microphone.
-- [ ] Dance Flash and Ember Pulse on Palette.
-- [ ] Gravity Well `_gwIdx`.
-- [ ] Audio Features Level.
-- [ ] The Audio node an SD card reader brings.
-- [ ] The Music Player seed.
-- [ ] The Music Player and Music-synced SD Show starters, each with twenty
-  patterns.
+- [x] A Slideshow group feeding Audio Cascade.
+- [x] The same band-pattern graph with no microphone.
+- [x] Dance Flash and Ember Pulse on Palette.
+- [x] Gravity Well `_gwIdx`.
+- [x] Audio Features Level. It did not compile alone: the host published
+  `_audioLoudness` only for the Loudness output. Fixed.
+- [x] The Audio node an SD card reader brings.
+- [x] The Music Player seed.
+- [x] The Music Player and the Player Buttons and Screen starters, each with
+  twenty patterns.
+- [ ] The Music-synced SD Show starter with twenty patterns. It needs an
+  analysed track; its generator compiles through `dead-code/performance-*`.
 
 ### 2.4 Patterns, fields and simulations
 
-- [ ] The Code node's a/b block.
-- [ ] Saturation Keep Brightness.
-- [ ] Frame Warp motion.
-- [ ] The shared trail knob.
-- [ ] A byte-trail node (Confetti, Trails, String Particles or Fourier) for
+- [x] The Code node's a/b block.
+- [x] Saturation Keep Brightness.
+- [x] Frame Warp motion.
+- [x] The shared trail knob.
+- [x] A byte-trail node (Confetti, Trails, String Particles or Fourier) for
   the 60 Hz fade step.
-- [ ] Color Trails' half-life fade, linked and independent.
-- [ ] Game of Life's period-2 reseed.
-- [ ] Plasma Scale, Plasma Sine Grid and Sine 2D.
-- [ ] Noise Contrast, and Plasma Fractal on lava.
-- [ ] Frame Transform: a Smooth rotate such as Psydance, and an Exact rate
+- [x] Color Trails' half-life fade, linked and independent.
+- [x] Game of Life's period-2 reseed.
+- [x] Plasma Scale, Plasma Sine Grid and Sine 2D.
+- [x] Noise Contrast, and Plasma Fractal on lava.
+- [x] Frame Transform: a Smooth rotate such as Psydance, and an Exact rate
   such as Laser Monsoon Parade.
-- [ ] Field Transform: Lissajous Lattice's wired tiles and spin, and Golden
+- [x] Field Transform: Lissajous Lattice's wired tiles and spin, and Golden
   Ratio Cathedral.
-- [ ] Shape Field's rose with spin, and its superformula.
-- [ ] Mirror Radial turned and rotation-only (Prism Fracture, Chromasonic
+- [x] Shape Field's rose with spin, and its superformula.
+- [x] Mirror Radial turned and rotation-only (Prism Fracture, Chromasonic
   Vortex), and radial Mirror on a strip.
-- [ ] The Math Switch literal.
-- [ ] Particles: luminova, comet, fireworks, chase and waterfall.
-- [ ] String Particles on a ring, with drift and meteors.
-- [ ] Formula Points: logistic, attractor, Lissajous and rose.
-- [ ] Fire classic, smoke and Fire2012 on the clock.
-- [ ] Boids in density mode, with `_bnx`/`_bny`/`_bnn` as statics.
-- [ ] Reaction Diffusion on the clock.
-- [ ] The Simplex2D show clock and the Kaleidoscope show pattern
+- [x] The Math Switch literal.
+- [x] Particles: luminova, comet, fireworks, chase and waterfall.
+- [x] String Particles on a ring, with drift and meteors.
+- [x] Formula Points: logistic, attractor, Lissajous and rose.
+- [x] Fire classic, smoke and Fire2012 on the clock.
+- [x] Boids in density mode, with `_bnx`/`_bny`/`_bnn` as statics.
+- [x] Reaction Diffusion on the clock.
+- [x] The Simplex2D show clock and the Kaleidoscope show pattern
   (`performance` player).
 
 ### 2.5 Text, layout and output
 
-- [ ] Text Base, and Path speed.
-- [ ] Text and the analog clock in Pixels, and a 0-1 Line.
-- [ ] Text and Clock Display at Size 2 on a 64x32 HUB75.
-- [ ] The Font select on Text and Clock Display: 3x5, 4x6, 5x8 and bold 6x8.
-- [ ] Strip centring and long-side sizing: a 60x1 strip with Geometry Field, a
+- [x] Text Base, and Path speed.
+- [x] Text and the analog clock in Pixels, and a 0-1 Line.
+- [x] Text and Clock Display at Size 2 on a 64x32 HUB75, on fbuild.
+- [ ] A HUB75 sketch on the Arduino CLI engine. The helper vendors the DMA
+  library for fbuild only, so the build stops at
+  `ESP32-HUB75-MatrixPanel-I2S-DMA.h`. Install the library for arduino-cli,
+  or build HUB75 sketches with fbuild whichever engine is chosen.
+- [x] The Font select on Text and Clock Display: 3x5, 4x6, 5x8 and bold 6x8.
+- [x] Strip centring and long-side sizing: a 60x1 strip with Geometry Field, a
   formula reading `r`, Shape Field, Path and Fourier (`FLAT_PATH_ROW_CPP`).
-- [ ] The same strip on an AVR, for the `min`/`max` macros.
-- [ ] The LED matrix start corner and first run.
-- [ ] Output Gamma: single output, two outputs, show controller, SD player and
-  a mapped ring.
+- [x] The same strip on an AVR, for the `min`/`max` macros.
+- [x] The LED matrix start corner and first run.
+- [x] Output Gamma: single output, two outputs, show controller, SD player and
+  a mapped ring. Two outputs did not compile: the unread-local cleanup left
+  `static constexpr` behind. Fixed.
 - [x] A 720-LED and a 4096-LED string, `long-strings`, each with Waveform's
   line style and an elementary Automaton (they lost their stack arrays).
 
