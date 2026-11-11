@@ -149,11 +149,17 @@ def build_esptool() -> Path:
 
 
 def locate_fbuild_tool(name: str) -> Path:
+    """The fbuild binary installed beside the packaging interpreter, else one on PATH.
+
+    The interpreter's own copy is the pinned release its package metadata
+    describes. PATH can hold another Python's older fbuild, which was once
+    bundled in place of the pin.
+    """
+    candidate = Path(sys.executable).parent / executable_name(name)
+    if candidate.is_file():
+        return candidate
     found = shutil.which(executable_name(name)) or shutil.which(name)
     if not found:
-        candidate = Path(sys.executable).resolve().parent / executable_name(name)
-        if candidate.is_file():
-            return candidate
         raise SystemExit(f"{name} is missing; install backend/requirements.txt before packaging")
     return Path(found).resolve()
 
