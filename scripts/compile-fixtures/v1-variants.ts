@@ -369,8 +369,10 @@ fixtures['gamma-player'] = { fqbn: S3, source: buildShowPlayer(gammaPlayer.nodes
   patternSet: ['plasma', 'noise'], bakedAudio: false, genericPlayer: true, preferredTrack: '',
 }) }
 // The Music Player's Seed: a fixed seed in place of the boot entropy.
-fixtures['player-seed'] = { fqbn: S3, source: buildShowPlayer(gammaPlayer.nodes, gammaPlayer.edges, groups, {
-  patternSet: ['plasma', 'noise'], bakedAudio: false, genericPlayer: true, preferredTrack: '', seed: 7,
+const seededNodes = gammaPlayer.nodes.map((entry) => (entry.id === 'master'
+  ? { ...entry, data: { ...entry.data, properties: { ...entry.data.properties, seed: 7 } } } as StudioNode : entry))
+fixtures['player-seed'] = { fqbn: S3, source: buildShowPlayer(seededNodes, gammaPlayer.edges, groups, {
+  patternSet: ['plasma', 'noise'], bakedAudio: false, genericPlayer: true, preferredTrack: '',
 }) }
 
 // A slideshow pattern whose Audio Cascade reads the show's audio through the
