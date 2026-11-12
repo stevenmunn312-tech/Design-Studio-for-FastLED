@@ -161,10 +161,13 @@ replaced by the sketch's own receiver.
   Minima, Feather nRF52840 and XIAO nRF52840 do not, and stay on arduino-cli
   through `_engine_for_board`
   ([runbook](docs/runbooks/fbuild-workarounds.md#boards-mapped-on-12-november-2026)).
-- [ ] Draft upstream reports for the four boards that do not build, and
-  compile a network sketch on the Pico 2 W and one newly mapped ESP32 board.
-  The Feather nRF52840 does not link on arduino-cli either (FastLED and the
-  TinyUSB `Serial`).
+- [x] Draft upstream reports for the four boards that do not build: Pico W,
+  UNO R4 Minima, Feather nRF52840 and XIAO nRF52840, in
+  `tmp/fbuild-main/drafts/`. None is reduced to a minimal project yet.
+- [ ] Compile a network sketch on the Pico 2 W and one newly mapped ESP32
+  board.
+- [ ] The Feather nRF52840 does not link on arduino-cli either: FastLED
+  reaches the TinyUSB `Serial`, which the sketch does not pull in.
 - [x] Build one SAMD51 environment without the repeated `-D__SAMD51__` and MCU
   define for library sources. It passes at the same sizes; removed.
 - [x] Recheck the three unpatched vendored libraries in `lib/` on 2.5.51: a
@@ -184,8 +187,8 @@ replaced by the sketch's own receiver.
   helper now subtracts it where the linked image shows it was counted.
 - [ ] Steve reviews the drafts in `tmp/fbuild-main/drafts/` (the RP2040
   and RP2350 flash count including the `.heap` reservation, the ESP32-S3
-  size figures, and `lib-deps-on-2.5.51.md`), then they are posted
-  upstream.
+  size figures, `lib-deps-on-2.5.51.md` and the four board reports), then
+  they are posted upstream. Each lists what to check first.
 - [ ] fbuild does not find the UNO R4 WiFi core's `WiFiS3.h` (§16, found
   2026-11-12), so those sketches build with arduino-cli. Reduce it to a
   minimal project, recheck on the release that carries #1995, then Steve
