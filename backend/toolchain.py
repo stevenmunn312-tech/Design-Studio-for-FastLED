@@ -556,6 +556,8 @@ def _remove_build_cache_tree(path: Path) -> None:
 _FBUILD_ESP32_PLATFORM = (
     "https://github.com/pioarduino/platform-espressif32/releases/download/55.03.312-1/platform-espressif32.zip"
 )
+_NRF52_NO_LTO = "build_unflags = -flto"
+
 _PIO_BOARDS: dict[str, dict] = {
     "esp32:esp32:esp32s3": {
         "platform": "espressif32", "board": "esp32-s3-devkitc-1",
@@ -672,8 +674,7 @@ _PIO_BOARDS: dict[str, dict] = {
     # ships a manifest for. The manifest carries the flash size and USB mode,
     # so none needs a variant here. Four more were tried and stay on
     # arduino-cli (runbook, "Boards mapped on 12 November 2026"): Pico W, UNO
-    # R4 Minima, Feather nRF52840 and XIAO nRF52840. The nRF52840 DK left the
-    # map the same day: a FastLED sketch fails in LTO on it as on the Feather.
+    # R4 Minima and XIAO nRF52840.
     "esp32:esp32:XIAO_ESP32C3": {"platform": "espressif32", "board": "seeed_xiao_esp32c3"},
     "esp32:esp32:XIAO_ESP32C6": {"platform": "espressif32", "board": "seeed_xiao_esp32c6"},
     # The Arduino core gives these two boards no "Huge APP" partition menu entry.
@@ -690,6 +691,17 @@ _PIO_BOARDS: dict[str, dict] = {
     "esp8266:esp8266:huzzah": {"platform": "espressif8266", "board": "huzzah"},
     "rp2040:rp2040:rpipico2w": {"platform": "raspberrypi", "board": "rpipico2w"},
     "arduino:avr:micro": {"platform": "atmelavr", "board": "micro"},
+    # fbuild 2.5.51 compiles the Adafruit nRF52 core with link-time
+    # optimisation, which the core is not written for: its FreeRTOS port loads
+    # `pxCurrentTCB` and `__isr_vector` through `ldr rN, =symbol` in naked
+    # functions, and in one LTO unit the literal pool lands out of range
+    # ("offset out of range") once the image holds more than a blink.
+    "adafruit:nrf52:pca10056": {
+        "platform": "nordicnrf52", "board": "nrf52840_dk", "ini_lines": [_NRF52_NO_LTO],
+    },
+    "adafruit:nrf52:feather52840": {
+        "platform": "nordicnrf52", "board": "adafruit_feather_nrf52840", "ini_lines": [_NRF52_NO_LTO],
+    },
     "SparkFun:avr:promicro": {"platform": "atmelavr", "board": "sparkfun_promicro16"},
 }
 
@@ -1035,7 +1047,11 @@ def _write_fbuild_ini() -> None:
 
         lines += env_block(
             None, None,
-            extra_lines=["board_build.partitions = huge_app.csv"] if is_esp32 else [],
+            extra_lines=[
+                *(["board_build.partitions = huge_app.csv"] if is_esp32 else []),
+                # A board's own lines, such as a flag fbuild must not apply.
+                *meta.get("ini_lines", []),
+            ],
         )
         # One env per flash size the board is actually sold in, so a bigger
         # module is measured and partitioned against its own flash rather than

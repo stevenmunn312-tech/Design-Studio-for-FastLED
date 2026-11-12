@@ -222,6 +222,10 @@ def test_write_fbuild_ini_emits_a_section_per_board_and_psram_variant(tmp_path, 
     assert "platform = espressif32\n" not in text
     assert "platform = atmelavr" in uno_section
 
+    # The Adafruit nRF52 core does not link under fbuild's LTO.
+    for env in ("adafruit_nrf52_pca10056", "adafruit_nrf52_feather52840"):
+        assert "build_unflags = -flto" in text.split(f"[env:{env}]")[1].split("[env:")[0]
+    assert "build_unflags" not in uno_section
     # fbuild 2.5.51 carries the SAMD51 identity into library sources itself.
     feather_m4_section = text.split("[env:adafruit_samd_adafruit_feather_m4]")[1].split("[env:")[0]
     assert "__SAMD51" not in feather_m4_section

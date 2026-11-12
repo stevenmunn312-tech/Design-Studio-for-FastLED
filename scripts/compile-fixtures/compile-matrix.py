@@ -299,6 +299,7 @@ MAPPED_BOARDS = {
     "lolin-c3-mini": "esp32:esp32:lolin_c3_mini", "lolin-s2-mini": "esp32:esp32:lolin_s2_mini",
     "lolin-s3": "esp32:esp32:lolin_s3", "d1": "esp8266:esp8266:d1", "huzzah": "esp8266:esp8266:huzzah",
     "pico-2-w": "rp2040:rp2040:rpipico2w", "micro": "arduino:avr:micro", "pro-micro": "SparkFun:avr:promicro",
+    "feather-nrf52840": "adafruit:nrf52:feather52840", "nrf52840-dk": "adafruit:nrf52:pca10056",
 }
 
 
@@ -403,6 +404,9 @@ ARDUINO_CLI_ONLY_FAMILIES: dict[str, str] = {
 
 # Third-party cores the helper has no package index for: a user adds the URL, a runner cannot.
 NO_INDEX_CORES = {"SparkFun:avr"}
+# Cores a FastLED sketch does not link on with arduino-cli: on the Adafruit nRF52
+# core FastLED reaches the TinyUSB `Serial`, which the sketch does not pull in.
+ARDUINO_CLI_UNLINKABLE_CORES = {"adafruit:nrf52"}
 
 
 def candidates() -> list[Leg]:
@@ -417,7 +421,7 @@ def candidates() -> list[Leg]:
     ]
     fbuild_boards = set(toolchain._PIO_BOARDS) - set(ARDUINO_CLI_ONLY)
     return [replace(leg, engine=engine) for engine in ENGINES for leg in legs
-            if (engine == "arduino-cli" and ":".join(leg.board.split(":")[:2]) not in NO_INDEX_CORES)
+            if (engine == "arduino-cli" and ":".join(leg.board.split(":")[:2]) not in NO_INDEX_CORES | ARDUINO_CLI_UNLINKABLE_CORES)
             or (engine == "fbuild" and ":".join(leg.board.split(":")[:3]) in fbuild_boards
                                            and leg.family not in ARDUINO_CLI_ONLY_FAMILIES)]
 
