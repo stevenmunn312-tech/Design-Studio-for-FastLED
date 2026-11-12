@@ -967,7 +967,13 @@ engines, built locally.
   fbuild 2.5.44) is gone.
 - fbuild's RAM figure is `.dram0.data` + `.dram0.bss` + `.dram0.dummy`, to
   the byte. The last is a placeholder with no data, so the line reads 22.5%
-  where the static RAM is 7.1%. The helper passes the figure on as it is.
+  where the static RAM is 7.1%. The helper takes it back out
+  (`_without_ram_placeholder` in [`backend/firmware.py`](../../backend/firmware.py)):
+  it reads the three section sizes from the linked `firmware.elf` and
+  subtracts the placeholder only when they sum to fbuild's figure, so a
+  release that stops counting it changes nothing. The capacity meter and
+  the upload log are corrected; the compile matrix records fbuild's own
+  figure.
 - fbuild's flash figure is 44,000 bytes more than the `firmware.bin` it
   wrote. Which sections make that up is not identified.
 - The image is 19 KB larger than Arduino CLI's: about 22 KB of SD,

@@ -179,9 +179,9 @@ replaced by the sketch's own receiver.
   Arduino CLI's. They no longer do: 6,468 bytes against 5,036 on FastLED
   3.10.9. What remains is in fbuild's own totals
   ([runbook](docs/runbooks/fbuild-workarounds.md#esp32-s3-size-figures-on-2551)).
-- [ ] Decide whether the capacity meter should correct fbuild's ESP32-S3
-  RAM figure, which counts the 50 KB `.dram0.dummy` placeholder (22.5% shown
-  for 7.1% used).
+- [x] Correct fbuild's ESP32-S3 RAM figure in the capacity meter. It counted
+  the 50 KB `.dram0.dummy` placeholder (22.5% shown for 7.1% used); the
+  helper now subtracts it where the linked image shows it was counted.
 - [ ] Steve reviews the drafts in `tmp/fbuild-main/drafts/` (the RP2040
   and RP2350 flash count including the `.heap` reservation, the ESP32-S3
   size figures, and `lib-deps-on-2.5.51.md`), then they are posted

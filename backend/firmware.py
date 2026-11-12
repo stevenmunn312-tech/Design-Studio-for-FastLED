@@ -485,6 +485,64 @@ def _fbuild_size_bytes_report(lines):
     return result
 
 
+def _elf32_section_sizes(path: Path) -> dict[str, int]:
+    """Section name to size for a little-endian ELF32 image; empty when the
+    file is missing or is not one."""
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return {}
+    if len(data) < 52 or data[:6] != b"\x7fELF\x01\x01":
+        return {}
+    shoff = int.from_bytes(data[32:36], "little")
+    shentsize, shnum, shstrndx = (int.from_bytes(data[at:at + 2], "little") for at in (46, 48, 50))
+    if shentsize < 40 or shstrndx >= shnum or shoff + shentsize * shnum > len(data):
+        return {}
+
+    def header(index: int) -> tuple[int, int, int]:
+        at = shoff + index * shentsize
+        return tuple(int.from_bytes(data[at + field:at + field + 4], "little") for field in (0, 16, 20))
+
+    _, names_at, names_size = header(shstrndx)
+    names = data[names_at:names_at + names_size]
+    sizes: dict[str, int] = {}
+    for index in range(shnum):
+        name_at, _, size = header(index)
+        end = names.find(b"\0", name_at)
+        if 0 <= name_at < len(names) and end >= 0:
+            sizes[names[name_at:end].decode("ascii", "replace")] = size
+    return sizes
+
+
+# fbuild's ESP32 RAM total adds `.dram0.dummy` to the data and bss it should
+# count. The section is the linker script's placeholder for the part of the
+# shared region the IRAM sections occupy and holds nothing, so on an ESP32-S3
+# the line read 22.5% for a sketch using 7.1% (runbook, "ESP32-S3 size figures
+# on 2.5.51"). The sum is checked against the image before anything is
+# subtracted, so a release that stops counting it is left alone.
+_RAM_PLACEHOLDER_SECTION = ".dram0.dummy"
+_RAM_COUNTED_SECTIONS = (".dram0.data", ".dram0.bss", _RAM_PLACEHOLDER_SECTION)
+# The printed line rounds to a hundredth of a kilobyte.
+_RAM_PLACEHOLDER_TOLERANCE = 16
+
+
+def _without_ram_placeholder(sizes: dict, fqbn: str, flash_mb, usb_cdc: bool) -> dict:
+    """`sizes` with the placeholder taken out of fbuild's RAM figure, where the
+    image this env last linked shows the figure includes it."""
+    ram = sizes.get("ram")
+    env = toolchain._fbuild_env_for_fqbn(fqbn, flash_mb, usb_cdc)
+    if not ram or not env:
+        return sizes
+    sections = _elf32_section_sizes(
+        toolchain._FBUILD_PROJECT_DIR / ".fbuild" / "build" / env / "release" / "firmware.elf")
+    placeholder = sections.get(_RAM_PLACEHOLDER_SECTION, 0)
+    counted = sum(sections.get(name, 0) for name in _RAM_COUNTED_SECTIONS)
+    if not placeholder or abs(ram["usedBytes"] - counted) > _RAM_PLACEHOLDER_TOLERANCE:
+        return sizes
+    used = counted - placeholder
+    return {**sizes, "ram": {**ram, "usedBytes": used, "percent": round(used * 100 / ram["limitBytes"])}}
+
+
 _FBUILD_SIZE_CACHE = ".firmware_size_cache.json"
 
 
@@ -751,6 +809,10 @@ def _compile_upload_fbuild(
                 return rc, "compile"
 
             report = _fbuild_size_report(compile_lines)
+            printed = _fbuild_size_bytes_report(compile_lines)
+            corrected = _without_ram_placeholder(printed, fqbn, flash_mb, usb_cdc)
+            if corrected is not printed:
+                report["ram"] = corrected["ram"]["percent"]
             over = _over_capacity(report)
             if over:
                 yield _overflow_message(
@@ -1542,6 +1604,8 @@ def compile_check(payload: dict = Body(...)):
         # a build that actually succeeded.
         if rc == 0 and sizes.get("flash") is None and sizes.get("ram") is None:
             sizes = _fbuild_cached_sizes(fqbn, flash_mb, usb_cdc)
+        if rc == 0:
+            sizes = _without_ram_placeholder(sizes, fqbn, flash_mb, usb_cdc)
         # A genuine overflow is usually a hard linker failure with no size
         # summary at all (see `_fbuild_overflow_estimate`) — derive the actual
         # over-100% percentage from the linker's own error instead of leaving

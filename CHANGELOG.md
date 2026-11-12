@@ -1003,6 +1003,8 @@ versioning (`0.y.z`) until the first stable release.
   reads the LED count. The cleanup left half a declaration behind.
 - Fourteen more boards build with fbuild: the XIAO, LOLIN and Adafruit
   ESP32 variants, WeMos D1, HUZZAH ESP8266, Pico 2 W, Micro and Pro Micro.
+- The capacity meter no longer overstates RAM on an ESP32-S3 built with
+  fbuild, which counted a 50 KB placeholder section as used memory.
 - A HUB75 sketch now builds on the Arduino CLI engine. The helper installs
   the pinned HUB75 library on first use, as it already did for fbuild.
 - The LED preview no longer stays black after the computer sleeps or locks.
