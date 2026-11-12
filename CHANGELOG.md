@@ -376,6 +376,15 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- Juggle no longer has a Trail control: it draws its dots fresh each frame,
+  and a Trails node spliced after it gives them tails, so there is one fade to
+  set instead of two stacked ones that washed overlapping dots out to white.
+  A saved Trail value, and any wire into the old Trail input, is dropped on
+  load. The bundled patterns that used it carry a Trails node with the
+  matching decay, so they look as before. The Juggle starter's note and
+  checklist now say to set the spliced Trails' Decay to 0.3.
+- A Comment note grows to fit its text instead of cutting it off at four
+  lines, so the starters' checklist notes read in full.
 - Firmware builds against FastLED 3.10.9 (3.10.8 before) and fbuild 2.5.51
   (2.5.45 before). 3.10.9 builds ESP32-C3 and C6 as released, so the
   helper no longer passes them `-DFL_NO_EXCEPT=`.

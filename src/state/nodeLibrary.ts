@@ -3092,7 +3092,6 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Juggle: {
     speed: 'How fast the dots sweep back and forth, 0 still to 1 fastest.',
     count: 'Number of dots, 1 (Sinelon) to 8, each in its own row.',
-    trail: 'How long the trail lasts: 0 leaves none, 1 halves it about every 2 s, and each step along the slider lengthens it by the same ratio.',
     palette: 'Colours the dots cycle through as they move.',
   },
   RadialBurst: {

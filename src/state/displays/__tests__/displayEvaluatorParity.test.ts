@@ -155,8 +155,8 @@ describe('display evaluator parity', () => {
 
   it('uses a Touch slider output as a direct Juggle Speed property input', () => {
     const custom = screen()
-    const controlled = node('juggle-controlled', 'Juggle', { speed: 0, count: 4, trail: 0.1 })
-    const manual = node('juggle-manual', 'Juggle', { speed: 0.7, count: 4, trail: 0.1 })
+    const controlled = node('juggle-controlled', 'Juggle', { speed: 0, count: 4 })
+    const manual = node('juggle-manual', 'Juggle', { speed: 0.7, count: 4 })
     useDisplayRuntimeStore.getState().touchDisplayWidget('panel', 'slider', 0.7)
 
     const controlledFrame = evaluateGraphFull(

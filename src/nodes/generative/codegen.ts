@@ -353,13 +353,14 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
   },
   Juggle({ node, id, p, ln, f, ownBuf, incoming, paletteExpr, needsT }) {
     needsT.v = true
-    const ob = ownBuf({ persists: true })
+    // Drawn fresh each frame, as the preview does; Trails after it makes tails.
+    const ob = ownBuf()
     const speed = rateCpp(f('speed', 'speed', 0.5), SPEED_MAX.Juggle)
     const dots = juggleDotCount(Number(p.count ?? JUGGLE_COUNT.default))
     const seed = seedProp(p)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     ln(`  {`)
-    ln(`    float _spd=${speed}, _tr=${f('trail', 'trail', 0.39)};`)
+    ln(`    float _spd=${speed};`)
     const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
     if (incoming.has(`${node.id}:count`)) {
       ln(`    const float _count=${f('count', 'count', JUGGLE_COUNT.default)};`)
@@ -367,7 +368,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     } else {
       ln(`    const int _dots=${dots};`)
     }
-    trailFadeCpp(ln, phaseTag(id), '_tr', ob)
+    ln(`    fill_solid(${ob},NUM_LEDS,CRGB::Black);`)
     // The preview's per-dot phase, seedOffset(seed, d), reduced a turn at a
     // time: it only feeds sines, and float holds the remainder exactly enough.
     if (seed) {

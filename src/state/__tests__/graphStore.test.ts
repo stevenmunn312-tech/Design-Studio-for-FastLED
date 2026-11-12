@@ -890,6 +890,20 @@ describe('graphStore — loadGraph normalization', () => {
     expect(dataOf('perf').properties.minTime).toBe(12)
   })
 
+  it("drops Juggle's retired Trail value and the wire into it on load", () => {
+    // Juggle's tails come from a Trails node now. A save from before carries
+    // its own Trail, and maybe a wire into that input; neither has anywhere
+    // to go, and the other wires stay.
+    useGraphStore.getState().loadGraph(
+      [node('juggle', 'Juggle', { speed: 0.4, trail: 0.6 }), node('knob', 'Math'), node('count', 'Math')],
+      [edge('trail-wire', 'knob', 'result', 'juggle', 'trail'), edge('count-wire', 'count', 'result', 'juggle', 'count')],
+    )
+
+    expect(dataOf('juggle').properties).not.toHaveProperty('trail')
+    expect(dataOf('juggle').properties.speed).toBe(0.4)
+    expect(useGraphStore.getState().edges.map((e) => e.id)).toEqual(['count-wire'])
+  })
+
   it('does not reinterpret retired pre-v1 node types', () => {
     const animated = node('animated', 'AnimatedImage', { playbackRate: 2 })
     const string = node('string', 'LedStringOutput', { ledCount: 120 })
@@ -1506,7 +1520,7 @@ describe('graphStore — custom display documents', () => {
     reset([
       node('screen', 'TransportDisplay', { displayId: 'panel' }),
       node('touch', 'TouchInput', { panelId: 'screen' }),
-      node('juggle', 'Juggle', { speed: 0.5, count: 4, trail: 0.78, palette: 'rainbow' }),
+      node('juggle', 'Juggle', { speed: 0.5, count: 4, palette: 'rainbow' }),
     ])
     useGraphStore.getState().setDisplayDocument(addDisplayWidget(createDisplayDocument('panel'), 'Slider'))
 
@@ -1555,7 +1569,7 @@ describe('graphStore — custom display documents', () => {
     reset([
       node('screen', 'TransportDisplay', { displayId: 'panel' }),
       node('touch', 'TouchInput', { panelId: 'screen' }),
-      node('juggle', 'Juggle', { speed: 0.5, count: 4, trail: 0.78, palette: 'rainbow' }),
+      node('juggle', 'Juggle', { speed: 0.5, count: 4, palette: 'rainbow' }),
     ])
     const document = updateDisplayWidget(
       addDisplayWidget(createDisplayDocument('panel'), 'Slider'),
@@ -1584,8 +1598,8 @@ describe('graphStore — custom display documents', () => {
     reset([
       node('screen', 'TransportDisplay', { displayId: 'panel' }),
       node('touch', 'TouchInput', { panelId: 'screen' }),
-      node('juggle-a', 'Juggle', { speed: 0.5, count: 4, trail: 0.78, palette: 'rainbow' }),
-      node('juggle-b', 'Juggle', { speed: 0.5, count: 4, trail: 0.78, palette: 'rainbow' }),
+      node('juggle-a', 'Juggle', { speed: 0.5, count: 4, palette: 'rainbow' }),
+      node('juggle-b', 'Juggle', { speed: 0.5, count: 4, palette: 'rainbow' }),
     ], [
       edge('existing', 'touch', 'widget:slider:out', 'juggle-a', 'speed'),
     ])

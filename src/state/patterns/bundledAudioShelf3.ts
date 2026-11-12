@@ -134,7 +134,7 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       studioNode('hue', 'AudioHue', -880, 40, { mode: 'weighted', bassWeight: 0.5, midsWeight: 0.3, trebleWeight: 0.2 }),
       studioNode('count', 'MapRange', -880, 220, { inMin: 0.05, inMax: 0.95, outMin: 3, outMax: 8 }),
       studioNode('shift', 'MapRange', -880, 380, { inMin: 0, inMax: 360, outMin: 0, outMax: 1 }),
-      studioNode('juggle', 'Juggle', -520, 40, { speed: 0.55, trail: 0.43, palette: 'lava', seed: 19 }),
+      studioNode('juggle', 'Juggle', -520, 40, { speed: 0.55, palette: 'lava', seed: 19 }),
       studioNode('trails', 'Trails', -220, 40, { decay: 0.11 }),
       studioNode('tint', 'HueShift', 360, 40),
       studioNode('boost', 'Saturation', 640, 40, { amount: 1.63, keepBrightness: true }),

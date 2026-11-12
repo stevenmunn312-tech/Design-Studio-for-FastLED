@@ -718,6 +718,8 @@ span.connectionBlocked {
 .commentEditor {
   width: 100%;
   min-height: 92px;
+  /* Grows to its text, so a starter's checklist note is never cut off. */
+  field-sizing: content;
   resize: vertical;
   background: transparent;
   border: 1px dashed var(--line);
