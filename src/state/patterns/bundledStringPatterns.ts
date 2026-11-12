@@ -1,7 +1,6 @@
 import type { StudioEdge, StudioNode } from '../graphStore'
 import type { SavedPattern } from './patternLibrary'
 import { NODE_LIBRARY } from '../nodeLibrary'
-import { trailsDecayForTrail } from '../../nodes/composite/trails'
 
 type Seed = Omit<SavedPattern, 'id' | 'createdAt' | 'categoryId' | 'bundled'>
 type Engine = { type: string; props?: Record<string, unknown> }
@@ -98,12 +97,6 @@ function build(recipe: Recipe, audio: boolean): Seed {
   }
 }
 
-/**
- * The Trails finish that gives a Juggle recipe the tails Juggle's own Trail
- * knob (0 none, 1 longest) gave it before Juggle drew bare dots.
- */
-const juggleTails = (trail: number): Engine => ({ type: 'Trails', props: { decay: trailsDecayForTrail(trail) } })
-
 const ocean: Recipe['colors'] = ['#001a40', '#008aaf', '#a4fff0']
 const ember: Recipe['colors'] = ['#240004', '#ff3500', '#ffd080']
 const forest: Recipe['colors'] = ['#001b0b', '#24b55a', '#d4ff91']
@@ -114,8 +107,8 @@ const candy: Recipe['colors'] = ['#320046', '#ff247c', '#ffc848']
 const standard: Recipe[] = [
   { name: 'String Ocean Drift', colors: ocean, base: { type: 'Pacifica', props: { speed: 0.18, scale: 0.38 } } },
   { name: 'String Ember Scanner', colors: ember, base: { type: 'Scanner', props: { speed: 0.28, width: 3, trail: 0.64, axis: 'horizontal' } } },
-  { name: 'String Moon Comet', colors: ice, base: { type: 'Juggle', props: { count: 1, speed: 0.22, seed: 101 } }, finish: juggleTails(0.5) },
-  { name: 'String Carnival Juggle', colors: candy, base: { type: 'Juggle', props: { count: 7, speed: 0.48, seed: 102 } }, finish: juggleTails(0.33) },
+  { name: 'String Moon Comet', colors: ice, base: { type: 'Juggle', props: { count: 1, speed: 0.22, trail: 0.5, seed: 101 } } },
+  { name: 'String Carnival Juggle', colors: candy, base: { type: 'Juggle', props: { count: 7, speed: 0.48, trail: 0.33, seed: 102 } } },
   { name: 'String Forest Fireflies', colors: forest, base: { type: 'TwinkleFox', props: { speed: 0.2, density: 0.28, seed: 103 } } },
   { name: 'String Ice Diamonds', colors: ice, base: { type: 'TwinkleFox', props: { speed: 0.65, density: 0.55, seed: 104 } } },
   { name: 'String Sunset Confetti', colors: ember, base: { type: 'Confetti', props: { speed: 0.3, density: 0.12, trail: 0.45, seed: 105 } } },
@@ -128,15 +121,15 @@ const standard: Recipe[] = [
   { name: 'String Rose Heartbeat', colors: candy, base: { type: 'Breathe', props: { curve: 'heartbeat', bpm: 58, minLevel: 0.28 } } },
   { name: 'String Whitecap Stars', colors: ocean, base: { type: 'Pacifica', props: { speed: 0.26 } }, overlay: { type: 'TwinkleFox', props: { speed: 0.45, density: 0.16, seed: 108 } }, amount: 0.5 },
   { name: 'String Lantern Chase', colors: ember, base: { type: 'Candle', props: { mode: 'perPixel', warmth: 0.9 } }, overlay: { type: 'Scanner', props: { width: 2, speed: 0.32, trail: 0.56 } }, amount: 0.65 },
-  { name: 'String Neon Duet', colors: violet, base: { type: 'Scanner', props: { speed: 0.23, width: 2 } }, overlay: { type: 'Juggle', props: { count: 2, speed: 0.55, seed: 109 } }, amount: 0.8, finish: juggleTails(0.5) },
+  { name: 'String Neon Duet', colors: violet, base: { type: 'Scanner', props: { speed: 0.23, width: 2 } }, overlay: { type: 'Juggle', props: { count: 2, speed: 0.55, trail: 0.5, seed: 109 } }, amount: 0.8 },
   { name: 'String Frosted Confetti', colors: ice, base: { type: 'Plasma', props: { plasmaStyle: 'sineGrid', speed: 0.08, scale: 0.24 } }, overlay: { type: 'Confetti', props: { density: 0.13, trail: 0.32, seed: 111 } } },
-  { name: 'String Rainbow Spark Train', colors: candy, base: { type: 'Rainbow', props: { speed: 0.45, deltaHue: 18 } }, overlay: { type: 'Juggle', props: { count: 3, speed: 0.62, seed: 112 } }, amount: 0.7, finish: juggleTails(0.39) },
+  { name: 'String Rainbow Spark Train', colors: candy, base: { type: 'Rainbow', props: { speed: 0.45, deltaHue: 18 } }, overlay: { type: 'Juggle', props: { count: 3, speed: 0.62, seed: 112 } }, amount: 0.7 },
   { name: 'String Midnight Jewels', colors: violet, base: { type: 'TwinkleFox', props: { speed: 0.12, density: 0.35, seed: 113 } }, finish: { type: 'Trails', props: { decay: 0.16 } } },
 ]
 
 const audio: Recipe[] = [
   { name: 'String Bass Runner', colors: ember, base: { type: 'Scanner', props: { width: 3, trail: 0.55 } }, mod: [{ source: 'bass', port: 'speed', range: [0.12, 0.8] }] },
-  { name: 'String Vocal Comet', colors: ice, base: { type: 'Juggle', props: { count: 1, seed: 201 } }, mod: [{ source: 'vocals', port: 'speed', range: [0.1, 0.65] }], finish: juggleTails(0.47) },
+  { name: 'String Vocal Comet', colors: ice, base: { type: 'Juggle', props: { count: 1, trail: 0.47, seed: 201 } }, mod: [{ source: 'vocals', port: 'speed', range: [0.1, 0.65] }] },
   { name: 'String Treble Diamonds', colors: ice, base: { type: 'TwinkleFox', props: { speed: 0.58, seed: 202 } }, mod: [{ source: 'treble', port: 'density', range: [0.06, 0.85] }] },
   { name: 'String Snare Sprinkles', colors: candy, base: { type: 'Confetti', props: { speed: 0.6, trail: 0.3, seed: 203 } }, mod: [{ source: 'mids', port: 'density', range: [0.03, 0.53] }] },
   { name: 'String Bass Tide', colors: ocean, base: { type: 'Pacifica' }, mod: [{ source: 'bass', port: 'scale', range: [0.12, 0.65] }, { source: 'energy', port: 'speed', range: [0.08, 0.5] }] },
@@ -145,15 +138,15 @@ const audio: Recipe[] = [
   { name: 'String Singing Candles', colors: ember, base: { type: 'Candle', props: { mode: 'perPixel', warmth: 0.8 } }, mod: [{ source: 'vocals', port: 'flicker', range: [0.1, 0.9] }] },
   { name: 'String Midrange Marble', colors: forest, base: { type: 'Plasma', props: { plasmaStyle: 'sineGrid' } }, mod: [{ source: 'mids', port: 'scale', range: [0.08, 0.65] }, { source: 'energy', port: 'speed', range: [0.06, 0.55] }] },
   { name: 'String Pulse Plasma', colors: violet, base: { type: 'Plasma' }, finish: { type: 'BrightnessMod' }, mod: [{ source: 'mids', port: 'speed', range: [0.08, 0.7] }, { source: 'bass', target: 'finish', port: 'brightness', range: [0.15, 1] }] },
-  { name: 'String Bass Dot Choir', colors: ember, base: { type: 'Juggle', props: { speed: 0.4, seed: 205 } }, mod: [{ source: 'bass', port: 'count', range: [1, 9] }, { source: 'treble', target: 'finish', port: 'decay', range: [trailsDecayForTrail(0.57), trailsDecayForTrail(0.27)] }], finish: juggleTails(0.39) },
+  { name: 'String Bass Dot Choir', colors: ember, base: { type: 'Juggle', props: { speed: 0.4, seed: 205 } }, mod: [{ source: 'bass', port: 'count', range: [1, 9] }, { source: 'treble', port: 'trail', range: [0.57, 0.27] }] },
   { name: 'String Wide Kick Scanner', colors: violet, base: { type: 'Scanner', props: { speed: 0.3 } }, mod: [{ source: 'bass', port: 'width', range: [1, 12] }, { source: 'mids', port: 'trail', range: [0.49, 0.66] }] },
   { name: 'String Firefly Crescendo', colors: forest, base: { type: 'TwinkleFox', props: { seed: 206 } }, mod: [{ source: 'energy', port: 'density', range: [0.08, 0.9] }, { source: 'vocals', port: 'speed', range: [0.1, 0.65] }] },
   { name: 'String Confetti Sustain', colors: violet, base: { type: 'Confetti', props: { density: 0.24, seed: 207 } }, mod: [{ source: 'bass', port: 'trail', range: [0.22, 0.57] }, { source: 'treble', port: 'speed', range: [0.18, 0.8] }] },
   { name: 'String Vocal Whitecaps', colors: ocean, base: { type: 'Pacifica', props: { speed: 0.18 } }, overlay: { type: 'TwinkleFox', props: { speed: 0.48, seed: 208 } }, mod: [{ source: 'vocals', port: 'scale', range: [0.15, 0.7] }, { source: 'treble', target: 'overlay', port: 'density', range: [0.02, 0.6] }] },
   { name: 'String Drum Lanterns', colors: ember, base: { type: 'Candle', props: { mode: 'perPixel', warmth: 0.85 } }, overlay: { type: 'Scanner', props: { width: 3 } }, amount: 0.8, mod: [{ source: 'bass', target: 'overlay', port: 'speed', range: [0.08, 0.75] }, { source: 'mids', port: 'flicker', range: [0.15, 0.85] }] },
-  { name: 'String Stereo Neon Dance', colors: violet, base: { type: 'Scanner', props: { width: 2 } }, overlay: { type: 'Juggle', props: { count: 3, seed: 209 } }, amount: 0.75, mod: [{ source: 'bass', port: 'speed', range: [0.1, 0.65] }, { source: 'treble', target: 'overlay', port: 'speed', range: [0.15, 0.85] }], finish: juggleTails(0.39) },
+  { name: 'String Stereo Neon Dance', colors: violet, base: { type: 'Scanner', props: { width: 2 } }, overlay: { type: 'Juggle', props: { count: 3, seed: 209 } }, amount: 0.75, mod: [{ source: 'bass', port: 'speed', range: [0.1, 0.65] }, { source: 'treble', target: 'overlay', port: 'speed', range: [0.15, 0.85] }] },
   { name: 'String Frost Percussion', colors: ice, base: { type: 'Plasma', props: { plasmaStyle: 'sineGrid', speed: 0.12, scale: 0.24 } }, overlay: { type: 'Confetti', props: { seed: 211 } }, mod: [{ source: 'mids', target: 'overlay', port: 'density', range: [0.02, 0.43] }, { source: 'bass', port: 'scale', range: [0.1, 0.5] }] },
-  { name: 'String Festival Spark Train', colors: candy, base: { type: 'Rainbow', props: { deltaHue: 14 } }, overlay: { type: 'Juggle', props: { count: 4, seed: 212 } }, amount: 0.8, mod: [{ source: 'energy', port: 'speed', range: [0.08, 0.6] }, { source: 'bass', target: 'overlay', port: 'count', range: [1, 10] }], finish: juggleTails(0.39) },
+  { name: 'String Festival Spark Train', colors: candy, base: { type: 'Rainbow', props: { deltaHue: 14 } }, overlay: { type: 'Juggle', props: { count: 4, seed: 212 } }, amount: 0.8, mod: [{ source: 'energy', port: 'speed', range: [0.08, 0.6] }, { source: 'bass', target: 'overlay', port: 'count', range: [1, 10] }] },
   { name: 'String Quiet Song Jewels', colors: violet, base: { type: 'TwinkleFox', props: { speed: 0.16, density: 0.4, seed: 213 } }, finish: { type: 'BrightnessMod' }, mod: [{ source: 'energy', target: 'finish', port: 'brightness', range: [0.04, 1] }, { source: 'vocals', port: 'density', range: [0.1, 0.65] }] },
 ]
 

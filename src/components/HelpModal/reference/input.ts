@@ -240,7 +240,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
           ],
         }],
         step: ['StepValue', { initial: 0.5, minimum: 0.05, maximum: 1, step: 0.05, wrap: false }],
-        pattern: ['Juggle', { palette: 'rainbow', count: 6 }],
+        pattern: ['Juggle', { palette: 'rainbow', count: 6, trail: 0.39 }],
       },
       wires: [
         `remote.${irRemoteButtonHandle('up')} > step.increase`,

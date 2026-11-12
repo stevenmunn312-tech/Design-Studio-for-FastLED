@@ -36,16 +36,16 @@ function Host({ node, onEscape }: { node: StudioNodeT; onEscape: () => void }) {
 
 describe('StudioNode slider value editor', () => {
   it('abandons a typed value on Escape without closing the layer beneath', () => {
-    const node = makeNode('Juggle', { speed: 0.5, count: 4, palette: 'rainbow' })
+    const node = makeNode('Juggle', { speed: 0.5, count: 4, trail: 0.78, palette: 'rainbow' })
     useGraphStore.setState({ nodes: [node], edges: [] })
     const onEscape = vi.fn()
     const view = render(<Host node={node} onEscape={onEscape} />)
-    fireEvent.doubleClick(view.getByLabelText('speed value'))
-    const editor = view.getByLabelText('speed value') as HTMLInputElement
+    fireEvent.doubleClick(view.getByLabelText('trail value'))
+    const editor = view.getByLabelText('trail value') as HTMLInputElement
     expect(editor.type).toBe('text')
     fireEvent.change(editor, { target: { value: '0.9' } })
     fireEvent.keyDown(editor, { key: 'Escape' })
-    expect((view.getByLabelText('speed value') as HTMLInputElement).type).toBe('range')
+    expect((view.getByLabelText('trail value') as HTMLInputElement).type).toBe('range')
     expect(onEscape).not.toHaveBeenCalled()
   })
 })

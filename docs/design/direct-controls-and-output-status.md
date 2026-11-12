@@ -216,7 +216,7 @@ and the firmware's `CtlEdge`/`CtlDetent` structs.
 | LED output `ledToggle`/`brightnessUp`/`brightnessDown` | ✓ | ✓ | ✗ (use Player Controls) |
 | LED output `controls` bundle | ✓ | ✓ | ✓ |
 | Display panel `enabled` | ✓ | ✓ | ✓ |
-| Juggle `speed`/`count`/`palette` | ✓ | ✓ | ✓ |
+| Juggle `speed`/`count`/`trail`/`palette` | ✓ | ✓ | ✓ |
 | Pattern player transport actions (Play/Pause etc.) | N/A | N/A | ✓ (direct or via Player Controls) |
 | Pattern slideshow actions (Next Pattern etc.) | N/A | ✓ (direct or via Player Controls) | N/A |
 | Pattern slideshow `interval` | ✓ | ✓ | N/A |

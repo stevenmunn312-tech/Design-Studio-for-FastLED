@@ -267,7 +267,7 @@ describe('StudioNode', () => {
   })
 
   it('exposes Juggle property sockets from the menu and context menu, preserving their type colours', () => {
-    const n = makeNode('Juggle', { speed: 0.5, count: 4, palette: 'rainbow' })
+    const n = makeNode('Juggle', { speed: 0.5, count: 4, trail: 0.78, palette: 'rainbow' })
     useGraphStore.setState({ nodes: [n], edges: [] })
     function ConnectedNode() {
       const current = useGraphStore((s) => s.nodes[0])
@@ -282,9 +282,9 @@ describe('StudioNode', () => {
     expect(handle).toBeTruthy()
     expect(handle.parentElement?.contains(view.getByLabelText('count value'))).toBe(true)
     const color = handle.style.background
-    fireEvent.contextMenu(view.getByLabelText('speed value'))
-    fireEvent.click(view.getByRole('menuitem', { name: /Expose input: Speed/ }))
-    expect(view.container.querySelector('[data-handle="target:speed"]')).toBeTruthy()
+    fireEvent.contextMenu(view.getByLabelText('trail value'))
+    fireEvent.click(view.getByRole('menuitem', { name: /Expose input: Trail/ }))
+    expect(view.container.querySelector('[data-handle="target:trail"]')).toBeTruthy()
     act(() => useGraphStore.setState({ edges: [{ id: 'count-wire', source: 'knob', sourceHandle: 'value', target: n.id, targetHandle: 'count' }] }))
     expect((view.container.querySelector('[data-handle="target:count"]') as HTMLElement).style.background).toBe(color)
     expect((view.getByLabelText('count value') as HTMLInputElement).disabled).toBe(true)
@@ -393,7 +393,7 @@ describe('StudioNode', () => {
   })
 
   it('warns on normalized float sources that need Map Range for a wider property target', () => {
-    const n = makeNode('Juggle', { speed: 0.5, count: 4, palette: 'rainbow' })
+    const n = makeNode('Juggle', { speed: 0.5, count: 4, trail: 0.78, palette: 'rainbow' })
     useGraphStore.setState({ nodes: [n], edges: [] })
     useUiStore.setState({
       connectionDrag: {

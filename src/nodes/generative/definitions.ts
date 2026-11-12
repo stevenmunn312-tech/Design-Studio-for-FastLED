@@ -287,9 +287,8 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { cutRate: 0.5, brightness: 0.8 },
   },
   {
-    // DemoReel-style juggling dots — multiple sine-driven palette dots, drawn
-    // fresh each frame. `count = 1` gives the Sinelon-style case. Tails come
-    // from splicing a Trails node after it, not from Juggle itself.
+    // DemoReel-style juggling dots — multiple sine-driven palette dots on a
+    // fading persistent buffer. `count = 1` gives the Sinelon-style case.
     type: 'Juggle',
     label: 'Juggle',
     category: 'pattern',
@@ -298,10 +297,11 @@ export const GENERATIVE_DEFINITIONS: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
       { id: 'count', label: 'Count', dataType: 'float' },
+      { id: 'trail', label: 'Trail', dataType: 'float' },
     ],
-    propertyInputs: { speed: 'speed', count: 'count', palette: 'paletteIn' },
+    propertyInputs: { speed: 'speed', count: 'count', trail: 'trail', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { speed: 0.5, count: JUGGLE_COUNT.default, palette: 'rainbow', seed: 0 },
+    defaultProperties: { speed: 0.5, count: JUGGLE_COUNT.default, trail: 0.39, palette: 'rainbow', seed: 0 },
   },
 
   // ── More pattern nodes ─────────────────────────────────────────────────
@@ -369,7 +369,7 @@ export const GENERATIVE_DESCRIPTIONS: Record<string, string> = {
   Sunrise: 'A dawn ramp from night blue to warm white, on a timer or a progress input.',
   DigitalRain: 'Falling streams of light with bright heads and fading tails, in any direction.',
   TVSimulator: 'Flickering television light: quick scene cuts between coloured blocks.',
-  Juggle: 'N sine-driven dots; count 1 gives the Sinelon case. Splice in Trails for tails.',
+  Juggle: 'N sine-driven dots with trails; count 1 gives the Sinelon case.',
   RadialBurst: 'Rings bursting from the center.',
   Spiral: 'Rotating spiral arms.',
   Blobs: 'Metaballs — merging lava-lamp blobs.',

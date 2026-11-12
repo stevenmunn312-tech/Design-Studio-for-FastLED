@@ -199,7 +199,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `sizeof` is safe on those.
 - **A node that reads last frame's pixels back out of its own buffer must say
   so:** `ownBuf({ persists: true })` or `ownField(port, { persists: true })`.
-  That covers a fade or accumulate (Trails, Confetti, Color Trails), a
+  That covers a fade or accumulate (Trails, Confetti, Juggle, Color Trails), a
   scroll (the Spectrum waterfall), a partial or occasional write (DDP, SD
   Video), state kept in the buffer (Reaction Diffusion's V) and a Field
   Formula that reads `prev` (decided per formula text, so the RAM estimate

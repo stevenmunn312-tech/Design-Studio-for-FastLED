@@ -536,7 +536,6 @@ const LIBRARY_DEF = new Map(NODE_LIBRARY.map((def) => [def.type, def]))
 // labels, and port definitions stay canonical across save/load. Programmatic
 // group-family nodes keep their saved shape.
 function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: StudioNode[]; edges: StudioEdge[] } {
-  const typeById = new Map(nodes.map((n) => [n.id, (n.data as StudioNodeData).nodeType]))
   const normalizedNodes = nodes.map((n) => {
     const data = n.data as StudioNodeData
     const nodeType = data.nodeType
@@ -606,8 +605,7 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
   })
   return {
     nodes: syncAutomaticStereoVuLedCounts(normalizedNodes),
-    edges: edges.filter((e) => !RETIRED_TARGET_HANDLES.has(e.targetHandle ?? '')
-      && !RETIRED_PROPERTY_KEYS[typeById.get(e.target) ?? '']?.includes(e.targetHandle ?? '')).map((e) => ({ ...e })),
+    edges: edges.filter((e) => !RETIRED_TARGET_HANDLES.has(e.targetHandle ?? '')).map((e) => ({ ...e })),
   }
 }
 
@@ -637,9 +635,6 @@ const RETIRED_PROPERTY_KEYS: Readonly<Record<string, readonly string[]>> = {
   // The switch that kept a show out of the main LED preview, from when the
   // node body had a canvas of its own to draw it in instead.
   PerformanceGenerator: ['showInMainPreview'],
-  // Juggle's own fade, from before its tails came only from a Trails node
-  // spliced after it; a wire into the old Trail input goes with it.
-  Juggle: ['trail'],
 }
 
 /**

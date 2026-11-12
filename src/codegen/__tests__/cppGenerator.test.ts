@@ -5768,31 +5768,35 @@ describe('Pride2015 / Pacifica (codegen)', () => {
     expect(cpp).toContain('buf_cf[_i] += ColorFromPalette(paldef_party, random8() + _drift);')
   })
 
-  it('Juggle draws fresh multi-dot palette motion each frame and supports the Sinelon count=1 case', () => {
-    const jg = node('jg', 'Juggle', 'pattern', { speed: 0.5, count: 1, palette: 'rainbow' })
+  it('Juggle emits fading multi-dot palette motion and supports the Sinelon count=1 case', () => {
+    const jg = node('jg', 'Juggle', 'pattern', { speed: 0.5, count: 1, trail: 0.39, palette: 'rainbow' })
     const cpp = generateCpp([jg, outputNode], [edge('e1', 'jg', 'out', 'frame', 'frame')])
-    // No fade of its own: tails come from a Trails node spliced after it.
-    expect(cpp).not.toContain('keeps its pixels between frames')
-    expect(cpp).not.toContain('_trail_jg')
+    expect(cpp).toContain('CRGB buf_jg[NUM_LEDS];   // keeps its pixels between frames')
     expect(cpp).toContain('const int _dots=1;')
-    expect(cpp).toContain('fill_solid(buf_jg,NUM_LEDS,CRGB::Black);')
+    expect(cpp).toContain('_tr=0.39;')
+    expect(cpp).toContain('static double _trail_jgT = -1.0, _trail_jgOwed = 0.0, _trail_jgFrames = 0.0;')
+    expect(cpp).toContain('fadeToBlackBy(buf_jg, NUM_LEDS, _by);')
     expect(cpp).toContain('float _phase=0.0f;')
     expect(cpp).toContain('float _travel=sinf(_phase_jg*(2.5f+_d*0.35f)+_d*0.9f+_phase)*0.5f+0.5f;')
     expect(cpp).toContain('ColorFromPalette(paldef_rainbow, (uint8_t)fmodf((_travel*0.35f+_d/(float)_dots)*255.0f, 255.0f));')
   })
 
-  it('Juggle reads live Count and Speed wires instead of baking their saved values', () => {
-    const jg = node('jg', 'Juggle', 'pattern', { speed: 0, count: 1 })
+  it('Juggle reads live Count, Speed and Trail wires instead of baking their saved values', () => {
+    const jg = node('jg', 'Juggle', 'pattern', { speed: 0, count: 1, trail: 1 })
     const count = node('count', 'Math', 'math', { a: 3.6, b: 0 })
     const speed = node('speed', 'Math', 'math', { a: 0.7, b: 0 })
-    const cpp = generateCpp([jg, count, speed, outputNode], [
+    const trail = node('trail', 'Math', 'math', { a: 0.1, b: 0 })
+    const cpp = generateCpp([jg, count, speed, trail, outputNode], [
       edge('frame', 'jg', 'out', 'frame', 'frame'),
       edge('count-wire', 'count', 'jg', 'result', 'count'),
       edge('speed-wire', 'speed', 'jg', 'result', 'speed'),
+      edge('trail-wire', 'trail', 'jg', 'result', 'trail'),
     ])
     expect(cpp).toContain('const float _count=n_count_result;')
     expect(cpp).toContain('isfinite(_count) ? (int)roundf(constrain(_count,1.0f,8.0f)) : 4')
     expect(cpp).toContain('n_speed_result')
+    expect(cpp).toContain('_tr=n_trail_result;')
+    expect(cpp).toContain('constrain((double)(_tr), 0.0, 1.0)')
     expect(cpp.indexOf('float n_count_result')).toBeLessThan(cpp.indexOf('const float _count='))
     expect(cpp).not.toContain('const int _dots=1;')
   })
