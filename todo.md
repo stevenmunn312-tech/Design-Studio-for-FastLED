@@ -175,11 +175,16 @@ replaced by the sketch's own receiver.
 - [ ] Add a fixture for §5
   ([#1658](https://github.com/FastLED/fbuild/issues/1658)) and one for
   [#1673](https://github.com/FastLED/fbuild/issues/1673).
-- [ ] Find why fbuild ESP32 images carry about 255 KB more `.eh_frame` than
-  Arduino CLI's.
+- [x] Find why fbuild ESP32 images carry about 255 KB more `.eh_frame` than
+  Arduino CLI's. They no longer do: 6,468 bytes against 5,036 on FastLED
+  3.10.9. What remains is in fbuild's own totals
+  ([runbook](docs/runbooks/fbuild-workarounds.md#esp32-s3-size-figures-on-2551)).
+- [ ] Decide whether the capacity meter should correct fbuild's ESP32-S3
+  RAM figure, which counts the 50 KB `.dram0.dummy` placeholder (22.5% shown
+  for 7.1% used).
 - [ ] Steve reviews the drafts in `tmp/fbuild-main/drafts/` (the RP2040
-  and RP2350 flash count including the `.heap` reservation, the
-  `.eh_frame` size, and `lib-deps-on-2.5.51.md`), then they are posted
+  and RP2350 flash count including the `.heap` reservation, the ESP32-S3
+  size figures, and `lib-deps-on-2.5.51.md`), then they are posted
   upstream.
 - [ ] fbuild does not find the UNO R4 WiFi core's `WiFiS3.h` (§16, found
   2026-11-12), so those sketches build with arduino-cli. Reduce it to a

@@ -948,6 +948,38 @@ Central M4 and Matrix Portal M4 have no leg and are assumed to follow.
 
 ---
 
+## ESP32-S3 size figures on 2.5.51
+
+Measured on 2026-11-12: one sketch (`family-fixtures/pattern.ino`) on
+`esp32:esp32:esp32s3`, FastLED 3.10.9 and arduino-esp32 3.3.12 on both
+engines, built locally.
+
+| | fbuild 2.5.51 | Arduino CLI 1.5.1 |
+| --- | ---: | ---: |
+| Reported flash | 385,152 | 322,047 |
+| Reported RAM | 73,704 | 23,344 |
+| `firmware.bin` | 341,152 | not kept |
+| `.eh_frame` | 6,468 | 5,036 |
+| `.dram0.data` + `.dram0.bss` | 23,272 | 23,344 |
+| `.dram0.dummy` (no load) | 50,432 | 47,872 |
+
+- The 255 KB of extra `.eh_frame` seen on 2026-10-24 (FastLED 3.10.5,
+  fbuild 2.5.44) is gone.
+- fbuild's RAM figure is `.dram0.data` + `.dram0.bss` + `.dram0.dummy`, to
+  the byte. The last is a placeholder with no data, so the line reads 22.5%
+  where the static RAM is 7.1%. The helper passes the figure on as it is.
+- fbuild's flash figure is 44,000 bytes more than the `firmware.bin` it
+  wrote. Which sections make that up is not identified.
+- The image is 19 KB larger than Arduino CLI's: about 22 KB of SD,
+  filesystem and RMT receive code the sketch does not use.
+
+So a byte count is comparable across engines only loosely, and an ESP32-S3
+RAM percentage from fbuild is not the sketch's. A report is drafted in
+`tmp/fbuild-main/drafts/esp32-eh-frame-size-NOTE.md`. Only the S3 was
+measured.
+
+---
+
 ## Upgrade record to 2.5.37
 
 The pin moved from 2.5.26 to 2.5.37 on 2026-10-07, from a review of the
