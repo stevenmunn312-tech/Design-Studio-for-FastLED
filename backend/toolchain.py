@@ -668,12 +668,12 @@ _PIO_BOARDS: dict[str, dict] = {
         "arduino_board": "STMicroelectronics:stm32:Nucleo_144", "arduino_options": {"pnum": "NUCLEO_F439ZI"},
     },
     "arduino:renesas_uno:unor4wifi": {"platform": "renesas-ra", "board": "uno_r4_wifi"},
-    "adafruit:nrf52:pca10056": {"platform": "nordicnrf52", "board": "nrf52840_dk"},
     # Offered boards mapped on 2026-11-12, each to the board id fbuild 2.5.51
     # ships a manifest for. The manifest carries the flash size and USB mode,
     # so none needs a variant here. Four more were tried and stay on
     # arduino-cli (runbook, "Boards mapped on 12 November 2026"): Pico W, UNO
-    # R4 Minima, Feather nRF52840 and XIAO nRF52840.
+    # R4 Minima, Feather nRF52840 and XIAO nRF52840. The nRF52840 DK left the
+    # map the same day: a FastLED sketch fails in LTO on it as on the Feather.
     "esp32:esp32:XIAO_ESP32C3": {"platform": "espressif32", "board": "seeed_xiao_esp32c3"},
     "esp32:esp32:XIAO_ESP32C6": {"platform": "espressif32", "board": "seeed_xiao_esp32c6"},
     # The Arduino core gives these two boards no "Huge APP" partition menu entry.

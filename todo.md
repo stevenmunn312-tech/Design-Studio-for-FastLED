@@ -163,7 +163,11 @@ replaced by the sketch's own receiver.
   ([runbook](docs/runbooks/fbuild-workarounds.md#boards-mapped-on-12-november-2026)).
 - [x] Draft upstream reports for the four boards that do not build: Pico W,
   UNO R4 Minima, Feather nRF52840 and XIAO nRF52840, in
-  `tmp/fbuild-main/drafts/`. None is reduced to a minimal project yet.
+  `tmp/fbuild-main/drafts/`, each reduced to a two-file project. The nRF52840
+  failure needs FastLED and also hits the nRF52840 DK, whose mapping is
+  removed.
+- [ ] Find whether the nRF52840 LTO failure (`offset out of range`) is
+  FastLED's or fbuild's: build with LTO off and read the rejected assembly.
 - [ ] Compile a network sketch on the Pico 2 W and one newly mapped ESP32
   board.
 - [ ] The Feather nRF52840 does not link on arduino-cli either: FastLED
@@ -190,8 +194,8 @@ replaced by the sketch's own receiver.
   size figures, `lib-deps-on-2.5.51.md` and the four board reports), then
   they are posted upstream. Each lists what to check first.
 - [ ] fbuild does not find the UNO R4 WiFi core's `WiFiS3.h` (§16, found
-  2026-11-12), so those sketches build with arduino-cli. Reduce it to a
-  minimal project, recheck on the release that carries #1995, then Steve
+  2026-11-12), so those sketches build with arduino-cli. It is reduced to a
+  three-line sketch. Recheck on the release that carries #1995, then Steve
   reviews the draft (`uno-r4-wifi-wifis3-not-found.md`) and it is posted.
   It does not hold the release.
 - [ ] When an fbuild release carries upstream #1995, the fix for

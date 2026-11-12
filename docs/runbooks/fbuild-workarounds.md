@@ -922,6 +922,21 @@ Four do not build, and stay on arduino-cli with no mapping:
 None of the four is reported upstream yet; the logs are in the run's
 `compile-matrix-record` artifact.
 
+**Reduced the same day**, each to a project of two files built locally on
+2.5.51 (`tmp/fbuild-repro/`):
+
+- The Pico W and the UNO R4 Minima fail on a bare blink. The Pico 2 W builds
+  the same blink. The Minima stops at whichever core file compiles first
+  (`common_data.h` locally, `bsp_api.h` on the runner): the variant's FSP
+  include directories are missing.
+- `WiFiS3.h` (§16) is not found by a three-line sketch.
+- `xiaoblesense` is unknown as well as `xiaoble`.
+- The nRF52840 failure needs FastLED: a blink links on the Feather and on
+  `nrf52840_dk`, and a five-line FastLED 3.10.9 sketch fails in LTO on both.
+  The nRF52840 DK had been mapped since before this pass with no compile leg,
+  so its mapping is removed too and it builds with arduino-cli. Whether the
+  fault is FastLED's or fbuild's is open.
+
 Three things this did not establish. Only the plain pattern sketch was built,
 so a network sketch on the newly mapped boards is untried: the two ESP8266
 boards fall under §15 like every ESP8266, and the Pico 2 W's Wi-Fi may fail
