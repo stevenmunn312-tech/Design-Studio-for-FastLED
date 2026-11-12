@@ -294,3 +294,155 @@ is the authority; these are its steps.
 - [ ] Commit the version bump and changelog.
 - [ ] Create the annotated tag `v1.0.0` on that commit.
 - [ ] Push the commit and the tag together.
+
+## Review issues (2026-11-13)
+
+App issues found while checking the 12 "Learn the Studio" tutorial scripts
+against the app (episodes 1 to 12). Paths are under `src/` unless they start
+with `backend/`. The ticked items were fixed during the review.
+
+### Fixed during the review
+
+- [x] Juggle had its own Trail, which blew the LEDs out to white once a Trails
+  node was spliced after it. Juggle's Trail is gone; tails come from Trails,
+  and the starter note asks for Decay 0.3 (e7491a05).
+- [x] Comment notes clipped their text; they now grow to fit it (e7491a05).
+- [x] Node cards (Help) still showed the old Juggle; regenerated (560e50f6).
+
+### Safety
+
+- [x] The Stream Receiver sketch ignores the board's power cap: it runs at
+  brightness 255 with no `setMaxPowerInVoltsAndMilliamps`, while the main
+  sketch and the Wiring Test both apply the cap
+  (`codegen/sketches/streamReceiverGenerator.ts:132-137`). At 256 LEDs that
+  is about 15 A of full white.
+
+### Hardware tab and pins
+  Fixed: the receiver applies the Board cap (not on HUB75).
+
+- [x] On the ESP32-S3 DevKitC-1 the Data Pin picker offers GPIO 33–37 as
+  "Often connected to octal flash/PSRAM — check your module", but the board's
+  own pinout marks 35–37 as Not available (N8R8 octal PSRAM).
+  Fixed: `boardPinTable` withdraws pins the exact board reserves, with its reason.
+- [x] On the classic ESP32 the INMP441 landed on WS 25, SCK 26, SD 33, while
+  `build/pins/micPinDefaults.ts:54` lists 32/33/34 for that chip. Check which
+  is meant, and that the table and the assignment agree.
+  Not a bug: the board profile's audited pins (25/26/33) win over the chip-level fallback table by design (`micPinsFromProfile`).
+- [x] The parts on the bench are pictures only: knobs, buttons and encoders
+  can be worked only on their graph nodes. The Dimmer and Blackout card still
+  says "Turn the knob on the Hardware tab" (`state/patterns/starterTemplates.ts:524`).
+
+### Starters and recipes
+  Fixed the card copy (slider on the Potentiometer node, Button node, Encoder dial).
+
+- [x] Browse a Slideshow promises "Step through patterns on screen", but it
+  opens with an empty collection: dark LEDs and an OLED that says NO PATTERNS
+  until patterns are added.
+  Fixed: both slideshow starters open with five standard patterns.
+- [x] Loading a starter switches the board's power cap on at 15400 mA (the
+  full-white ceiling, `state/patterns/starterTemplates.ts:269-283`), while
+  Checks tells you to enter your supply's rating (20 A for the same panel).
+  Pick one rule.
+  Fixed: turning the cap on starts it at the full-white draw, as starters do; Checks says so.
+- [x] Starters move the LED data pin (Dimmer and Blackout to pin 2, Browse a
+  Slideshow to pin 1) away from the board's usual pin.
+  Fixed: the output keeps the bench's pin, then the board's FastLED pin, before the pool order.
+- [x] A Quick recipe added to a project that already has an LED output brings a
+  second output, and its microphone takes over the project's Audio node
+  (`components/Sidebar.tsx:901-950`). Consider warning, or offering a new
+  project.
+
+### Player Controls and Checks
+  Fixed: a recipe reuses the project's LED output and Audio source.
+
+- [x] Help describes a Player Controls node that "starts almost empty" with a
+  "Connect control…" socket and a job picker (`components/Help/HelpModal.tsx:547`).
+  The node shows four default rows, and "Connect control" exists nowhere else.
+  Fixed.
+- [x] Player Controls' idle hint, "Wire Controls into a Music Player or
+  Performance Generator", leaves out the Pattern Slideshow and the LED output
+  (`PlayerControlsBody.tsx`).
+  Fixed: names all four consumers.
+- [x] A Checks message suggests "the Pattern Selection Up / Down rows for
+  buttons" (`validateGraph.ts:4092`); those rows are called Previous / Next
+  Pattern.
+  Fixed: uses the real row names.
+- [x] "Output firmware cannot honour these controls" puts the actual cause
+  ("Button.button-1: control graph requires float") at the end of its Next
+  step, after generic advice (`validateGraph.ts:5133-5142`).
+  Fixed: the readable cause leads.
+- [x] Checks flags a button doing a knob's job only through Player Controls; a
+  button wired straight to the LED output's Brightness gets no warning.
+
+### Power and the Build Diagram
+  Fixed: the kind check also covers direct wires.
+
+- [x] Printed Build Diagram sheets lose every element drawn with
+  `filter="url(#component-shadow)"`: the 74AHCT125, its 330 Ω resistor and the
+  USB badge on Signal wiring, and the PSU on Power. The filter id repeats
+  across SVGs, and in print the first copy sits in a hidden subtree
+  (`PhysicalAssemblyDiagram.tsx:190, 420, 533`; `PowerDistribution.tsx:300`).
+  The on-screen diagram is fine. Seen with emulated print media.
+  Fixed: per-sheet ids.
+- [x] The printed Power sheet's crop starts with the bottom of the shared-nets
+  callout showing.
+  Fixed: cropped sheets clip.
+- [x] The status bar never shows that a cap is set: `.compact .note` is hidden
+  (`HardwareReadiness.module.css:41-43`), so "capped" appears only in the
+  readout's tooltip.
+  Fixed: the compact strip shows `cap N A`.
+- [x] The Parts card's "As required" quantity overlaps its label ("As
+  requirecopper") in the narrow panel.
+  Fixed.
+- [x] Power feed positions are given in mm along an assumed 60 LEDs/m run
+  ("centre @ 2134 mm") for a 16 × 16 panel about 16 cm across.
+  Fixed: feeds are named by LED ("LED 129").
+- [x] The Build Diagram's Selected item says "ESP32-S3" rather than the exact
+  board name.
+
+### Upload
+  Fixed.
+
+- [x] The Compiler row doubles the engine name: "Using fbuild fbuild 2.5.45"
+  (`components/Upload/MatrixOutputDeployPopup.tsx:393-394` plus the helper's
+  version string).
+  Fixed.
+- [x] Starting Live Stream immediately opens the hardware validation report
+  (`MatrixOutputDeployPopup.tsx:546`), interrupting the live feedback.
+  Fixed: no dialog; the report card offers Live stream while streaming.
+- [x] Live Stream is enabled before the Stream Receiver has been flashed
+  (`MatrixOutputDeployPopup.tsx:1073`).
+  Fixed: Live Stream waits until the port last took this output's exact receiver.
+- [x] The receiver sketch's comment points to "✎ Live Stream control on the LED
+  output" (`streamReceiverGenerator.ts:98`), which no longer exists.
+  Fixed.
+- [x] The Upload target line says "ESP32-S3" (the generic FQBN label,
+  `state/upload/uploadStore.ts:79`) where the Hardware tab says "Espressif
+  ESP32-S3-DevKitC-1".
+  Fixed.
+- [x] The build-tools-off hint is the source-checkout sentence; desktop-build
+  users see a different one (`utils/buildTools.ts:101-105`). Check that each
+  build shows the right one.
+  Checked: each build shows the right one; it now also recognises 127.0.0.1.
+- [x] Without `/api/system-info`, the report's Host OS says "exact build not
+  exposed by the browser".
+
+### Groups, library and Stage
+  Not a bug: no browser API exposes the build, and the field must be completed before the report is ready.
+
+- [x] A Group node's body shows its internal `groupId group-…` as a property
+  row.
+  Fixed.
+- [x] Grouping a selection that includes Audio says "Grouped 3 node(s)" although
+  Audio is left outside the group (`components/Canvas/GroupControls.tsx:63-66`).
+  Fixed in all three places that group.
+- [x] Pattern Insights says scores and stars "sort the pattern library", but the
+  library rows stay in stored order (`components/Sidebar.tsx:1113-1120`).
+  Fixed the copy: scores and stars sort the collection picker, not the library.
+- [x] Stars can be given only after a full scan of every pattern (about 143
+  with a fresh library), which took 40 to 120 s
+  (`PatternRatingsPopup.tsx:388-392`).
+  Fixed: stars work before and during a scan.
+- [x] Stage hides the menu bar, so the 3D toggle can't be reached there, and
+  Record isn't available in Stage.
+  Fixed: Stage has its own 3D toggle and Record button.
