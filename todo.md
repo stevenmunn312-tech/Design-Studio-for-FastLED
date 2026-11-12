@@ -168,8 +168,9 @@ replaced by the sketch's own receiver.
   FastLED's or fbuild's. It is fbuild's: its `-flto` breaks the Adafruit
   core's FreeRTOS port. The nRF52840 environments unflag it, and the DK and
   the Feather build (§17).
-- [ ] Compile a network sketch on the Pico 2 W and one newly mapped ESP32
-  board.
+- [x] Compile a network sketch on a newly mapped ESP32 board. An NTP clock
+  over Wi-Fi builds on the XIAO ESP32-C3 and the Feather ESP32 V2, both
+  engines. The Pico 2 W needs none: the app emits no Wi-Fi code for RP2040.
 - [ ] The Feather nRF52840 does not link on arduino-cli either: FastLED
   reaches the TinyUSB `Serial`, which the sketch does not pull in.
 - [x] Build one SAMD51 environment without the repeated `-D__SAMD51__` and MCU

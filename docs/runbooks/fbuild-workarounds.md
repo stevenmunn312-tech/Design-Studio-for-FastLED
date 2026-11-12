@@ -954,10 +954,14 @@ None of the four is reported upstream yet; the logs are in the run's
   FreeRTOS port; with `-flto` unflagged both boards build and both are
   mapped ([§17](#17-nrf52840-sketches-fail-at-link-under-lto)).
 
-Three things this did not establish. Only the plain pattern sketch was built,
-so a network sketch on the newly mapped boards is untried: the two ESP8266
-boards fall under §15 like every ESP8266, and the Pico 2 W's Wi-Fi may fail
-the way the Pico W's driver does. Nothing was flashed. And the two
+A network sketch followed: an NTP clock over Wi-Fi
+(`v1-variants/clock-zone-xiao-c3`, `clock-zone-feather-esp32-v2`) builds on
+both engines ([run 43147053635](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43147053635)): 1,101,005 and 977,797 bytes of
+flash on fbuild. The two ESP8266 boards fall under §15 like every ESP8266,
+and the Pico 2 W has no network sketch to try, since the app emits no Wi-Fi
+code for RP2040.
+
+Two things this did not establish. Nothing was flashed. And the two
 third-party cores with no package index in the helper, SparkFun AVR and
 Seeeduino nRF52, have no arduino-cli leg.
 
