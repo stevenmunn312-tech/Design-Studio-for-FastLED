@@ -154,25 +154,33 @@ State and section numbers are in the
 passed 65 of 66 legs on 2026-11-10; the one failure was the DMX library, since
 replaced by the sketch's own receiver.
 
-- [ ] Map each of the 21 offered boards that has no fbuild environment
-  (`_PIO_BOARDS`) and that fbuild knows, then compile each one: the XIAO, LOLIN
-  and Adafruit ESP32 variants, Pico W and Pico 2 W, three more ESP8266 boards,
-  the nRF52 boards, Micro, Pro Micro and Uno R4 Minima. The rest stay on
-  arduino-cli through `_engine_for_board`.
-- [ ] Build one SAMD51 environment without the repeated `-D__SAMD51__` and MCU
-  define for library sources. Remove them if it passes.
-- [ ] Recheck the three unpatched vendored libraries in `lib/` on 2.5.51: a
+- [x] Map each offered board that has no fbuild environment (`_PIO_BOARDS`)
+  and that fbuild knows, then compile each one. Eighteen were tried on
+  2026-11-12 and fourteen build: the XIAO, LOLIN and Adafruit ESP32 variants,
+  two more ESP8266 boards, Pico 2 W, Micro and Pro Micro. Pico W, Uno R4
+  Minima, Feather nRF52840 and XIAO nRF52840 do not, and stay on arduino-cli
+  through `_engine_for_board`
+  ([runbook](docs/runbooks/fbuild-workarounds.md#boards-mapped-on-12-november-2026)).
+- [ ] Draft upstream reports for the four boards that do not build, and
+  compile a network sketch on the Pico 2 W and one newly mapped ESP32 board.
+  The Feather nRF52840 does not link on arduino-cli either (FastLED and the
+  TinyUSB `Serial`).
+- [x] Build one SAMD51 environment without the repeated `-D__SAMD51__` and MCU
+  define for library sources. It passes at the same sizes; removed.
+- [x] Recheck the three unpatched vendored libraries in `lib/` on 2.5.51: a
   GitHub `lib_deps` ignoring its `#ref`, the ignored HUB75 pin, and every
-  `lib_deps` library compiled whether used or not (§1). Unvendor what is
-  fixed; draft an upstream report for what is not.
+  `lib_deps` library compiled whether used or not (§1). Nothing is fixed, and
+  the registry now resolves only mirrored packages, so everything stays
+  vendored. Report drafted.
 - [ ] Add a fixture for §5
   ([#1658](https://github.com/FastLED/fbuild/issues/1658)) and one for
   [#1673](https://github.com/FastLED/fbuild/issues/1673).
 - [ ] Find why fbuild ESP32 images carry about 255 KB more `.eh_frame` than
   Arduino CLI's.
-- [ ] Steve reviews the two drafts in `tmp/fbuild-main/drafts/` (the RP2040
-  and RP2350 flash count including the `.heap` reservation, and the
-  `.eh_frame` size), then they are posted upstream.
+- [ ] Steve reviews the drafts in `tmp/fbuild-main/drafts/` (the RP2040
+  and RP2350 flash count including the `.heap` reservation, the
+  `.eh_frame` size, and `lib-deps-on-2.5.51.md`), then they are posted
+  upstream.
 - [ ] fbuild does not find the UNO R4 WiFi core's `WiFiS3.h` (§16, found
   2026-11-12), so those sketches build with arduino-cli. Reduce it to a
   minimal project, recheck on the release that carries #1995, then Steve

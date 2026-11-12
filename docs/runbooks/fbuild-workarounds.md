@@ -155,6 +155,24 @@ rewriting `platformio.ini` per sketch, changes the environment's configuration
 between builds. Moving one pair out of four is not worth either cost; revisit when
 the downloader and pin problems above are fixed upstream.
 
+**Rechecked on 2.5.51 (2026-11-12): nothing to unvendor.** Three throwaway
+projects, each a blink:
+
+- A GitHub URL with a `#ref` still fails the same way:
+  `https://github.com/schreibfaul1/ESP32-audioI2S.git#3.0.12` downloads a
+  `main.zip` that is an HTML page (`invalid Zip archive: Could not find EOCD`).
+- The HUB75 entry no longer resolves at all, so its pin cannot be tested:
+  `is not in fbuild's registry index; only packages mirrored to fbuild's
+  bucket resolve`. The ZeroDMA entry that built on 2.5.37 fails the same way.
+  `fastled/FastLED` resolves to 3.10.8, and `fastled/FastLED@3.10.9` matches
+  no version.
+- A `lib_deps` library is still compiled for a sketch that does not include
+  it: a blink with `fastled/FastLED` declared builds `libfastled.a`.
+
+So the registry covers less than it did, and every vendored library stays in
+`lib/`. A report is drafted in `tmp/fbuild-main/drafts/lib-deps-on-2.5.51.md`
+for Steve to review.
+
 **Note for anyone driving fbuild by hand.** The daemon binds to the project directory it
 was first started in, so `fbuild build` run from another directory is answered against
 the *original* project's config (`invalid environment 'uno': config error: environment
@@ -830,8 +848,9 @@ commit `f3b91e4`): 189 legs, Arduino CLI 1.5.1 with 123 and fbuild 2.5.51 with
 - **SAMD51 builds FastLED as released** ([run 42875384967](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/42875384967),
   `samd51/mic@samd51`, Feather M4 with the ZeroI2S microphone): 105,724 bytes
   of flash on Arduino CLI; 99,072 and 6,769 of RAM on fbuild.
-  `_patch_fastled_samd51_build` is gone, the fbuild SAMD51 environments keep
-  only `-D__SAMD51__` and the MCU define, and the sketch no longer aliases
+  `_patch_fastled_samd51_build` is gone, the fbuild SAMD51 environments kept
+  only `-D__SAMD51__` and the MCU define (removed on 2026-11-12, see
+  [boards mapped](#boards-mapped-on-12-november-2026)), and the sketch no longer aliases
   `PORT_PMUX_PMUXO_A`/`EIC_IRQn` or forces software SPI. The first attempt
   failed in the app's own code: the cleanup pass removed a member of a
   `final` class, fixed in `recordBodies`.
@@ -862,6 +881,70 @@ Not covered by a headless run: the console-window check (§13), which passed
 in the desktop app the next day (bundled fbuild 2.5.51, no window during a
 compile), and an ESP8266 `deploy` on hardware (§7), still to do. The
 Espressif Python on the laptop still holds 2.5.45.
+
+---
+
+## Boards mapped on 12 November 2026
+
+Eighteen offered boards had no fbuild environment and built with arduino-cli
+through `_engine_for_board`. fbuild 2.5.51 knows a board id for each, so all
+eighteen were mapped and the `boards` matrix family compiled the ordinary
+pattern sketch on each
+([run 43112785365](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43112785365), sources `cd63ed46`). Fourteen build
+and keep their mapping:
+
+| Board | FQBN | fbuild board id | Flash | RAM |
+| --- | --- | --- | ---: | ---: |
+| Seeed XIAO ESP32-C3 | `esp32:esp32:XIAO_ESP32C3` | `seeed_xiao_esp32c3` | 400,384 | 72,489 |
+| Seeed XIAO ESP32-C6 | `esp32:esp32:XIAO_ESP32C6` | `seeed_xiao_esp32c6` | 351,652 | 18,995 |
+| Adafruit Feather ESP32 V2 | `esp32:esp32:adafruit_feather_esp32_v2` | `adafruit_feather_esp32_v2` | 334,326 | 24,044 |
+| Adafruit Feather ESP32-S2 | `esp32:esp32:adafruit_feather_esp32s2` | `adafruit_feather_esp32s2` | 363,090 | 50,760 |
+| Adafruit Feather ESP32-S3 | `esp32:esp32:adafruit_feather_esp32s3` | `adafruit_feather_esp32s3` | 461,189 | 108,401 |
+| Adafruit QT Py ESP32-S2 | `esp32:esp32:adafruit_qtpy_esp32s2` | `adafruit_qtpy_esp32s2` | 363,080 | 50,760 |
+| LOLIN C3 Mini | `esp32:esp32:lolin_c3_mini` | `lolin_c3_mini` | 409,068 | 74,025 |
+| LOLIN S2 Mini | `esp32:esp32:lolin_s2_mini` | `lolin_s2_mini` | 356,362 | 50,749 |
+| LOLIN S3 | `esp32:esp32:lolin_s3` | `lolin_s3` | 405,012 | 80,753 |
+| WeMos D1 | `esp8266:esp8266:d1` | `d1` | 271,718 | 27,791 |
+| Adafruit HUZZAH ESP8266 | `esp8266:esp8266:huzzah` | `huzzah` | 271,718 | 27,791 |
+| Raspberry Pi Pico 2 W | `rp2040:rp2040:rpipico2w` | `rpipico2w` | 864,993 | 82,534 |
+| Arduino Micro | `arduino:avr:micro` | `micro` | 10,926 | 531 |
+| SparkFun Pro Micro | `SparkFun:avr:promicro` | `sparkfun_promicro16` | 10,916 | 531 |
+
+Four do not build, and stay on arduino-cli with no mapping:
+
+| Board | fbuild board id tried | Failure on 2.5.51 |
+| --- | --- | --- |
+| Raspberry Pi Pico W | `rpipicow` | Link: `undefined reference to 'cyw43_pinMode'`, `'cyw43_digitalWrite'` and `'init_cyw43_wifi'`. The core's CYW43 driver is not linked. The Pico 2 W links |
+| Arduino UNO R4 Minima | `uno_r4_minima` | Compiling the core: `Arduino.h:5: fatal error: bsp_api.h: No such file or directory`. The UNO R4 WiFi builds |
+| Adafruit Feather nRF52840 | `adafruit_feather_nrf52840` | Link, in LTO: `Error: offset out of range`, then `lto-wrapper failed` |
+| Seeed XIAO nRF52840 | `xiaoble` | `config error: unknown board 'xiaoble' (no built-in defaults)`. The id is in the daemon binary and has no manifest |
+
+None of the four is reported upstream yet; the logs are in the run's
+`compile-matrix-record` artifact.
+
+Three things this did not establish. Only the plain pattern sketch was built,
+so a network sketch on the newly mapped boards is untried: the two ESP8266
+boards fall under §15 like every ESP8266, and the Pico 2 W's Wi-Fi may fail
+the way the Pico W's driver does. Nothing was flashed. And the two
+third-party cores with no package index in the helper, SparkFun AVR and
+Seeeduino nRF52, have no arduino-cli leg.
+
+**Arduino CLI on the same boards.** Mapping a board makes `_arduino_fqbn`
+add the `huge_app` partition scheme, and the Arduino core gives the Feather
+ESP32 V2 and the LOLIN S3 no such menu entry: `invalid value 'huge_app' for
+option 'PartitionScheme'`. Both carry `arduino_huge_app: False` and build
+with the core's default table
+([run 43118129835](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43118129835)). The Feather nRF52840 does not link
+on arduino-cli either: FastLED's `io_arduino.hpp` reaches
+`Adafruit_USBD_CDC::operator bool()` and `Serial`, which the sketch does not
+pull in.
+
+**SAMD51 without the repeated defines.** The three SAMD51 environments
+repeated `-D__SAMD51__` and the chip define for library sources. Without
+them the three Feather M4 legs pass at the same sizes as before
+(`samd51/mic@samd51`: 99,072 bytes of flash, 6,769 of RAM;
+[run 43118266357](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43118266357)), so the flags are removed. The Grand
+Central M4 and Matrix Portal M4 have no leg and are assumed to follow.
 
 ---
 

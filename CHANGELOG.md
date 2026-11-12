@@ -1001,6 +1001,8 @@ versioning (`0.y.z`) until the first stable release.
   loudness they are derived from was published only for the Loudness output.
 - A sketch with two LED outputs of different shapes now compiles when no node
   reads the LED count. The cleanup left half a declaration behind.
+- Fourteen more boards build with fbuild: the XIAO, LOLIN and Adafruit
+  ESP32 variants, WeMos D1, HUZZAH ESP8266, Pico 2 W, Micro and Pro Micro.
 - A HUB75 sketch now builds on the Arduino CLI engine. The helper installs
   the pinned HUB75 library on first use, as it already did for fbuild.
 - The LED preview no longer stays black after the computer sleeps or locks.
