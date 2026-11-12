@@ -376,6 +376,30 @@ describe('uploadStore', () => {
     expect(useDeviceTelemetryStore.getState().nodeLabels).toEqual(['Field Formula'])
   })
 
+  it('records the Stream Receiver a port runs, and forgets it when anything else is flashed', async () => {
+    const { useUploadStore } = await freshStores()
+    const { useStreamReceiverRecord } = await import('../../output/streamReceiverRecord')
+    useStreamReceiverRecord.setState({ receivers: {} })
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false },
+      selectedFqbn: 'esp32:esp32:esp32s3',
+      selectedPort: 'COM7',
+    })
+    mocks.uploadSketch.mockImplementation(async (_code, _fqbn, _port, onLog) => {
+      onLog('Upload complete\n')
+    })
+    try {
+      await useUploadStore.getState().runUpload('// receiver', undefined, { cache: false, streamReceiver: 'abc123' })
+      expect(useStreamReceiverRecord.getState().receivers).toEqual({ COM7: 'abc123' })
+
+      await useUploadStore.getState().runUpload('void loop() {}')
+      expect(useStreamReceiverRecord.getState().receivers).toEqual({})
+    } finally {
+      mocks.uploadSketch.mockReset()
+      mocks.uploadSketch.mockResolvedValue(undefined)
+    }
+  })
+
   it('returns a successful upload to the normal Upload state after five seconds', async () => {
     vi.useFakeTimers()
     try {

@@ -11,6 +11,7 @@ import { uploadBlockReason, type UploadBlockAction } from '../../utils/uploadBlo
 import { useUploadStore, boardByFqbn, engineReady } from '../../state/upload/uploadStore'
 import { useNetworkCredentialsStore } from '../../state/peripherals/networkCredentials'
 import { useStreamStore } from '../../state/output/streamStore'
+import { streamReceiverSignature, useStreamReceiverRecord } from '../../state/output/streamReceiverRecord'
 import { useMusicStore } from '../../state/player/musicStore'
 import { useProjectStore } from '../../state/projectStore'
 import { useCapacityStore } from '../../state/upload/capacityStore'
@@ -507,6 +508,16 @@ export default function MatrixOutputDeployPopup({
   const hasReadinessIssues = readinessIssues.length > 0
 
   const streamLayout = useMemo(() => streamLayoutForGraph(nodes, nodeId), [nodes, nodeId])
+  // The receiver this output needs, and whether the selected port last took
+  // exactly that one. Frames sent to a pattern sketch, or to a receiver built
+  // for another size, pins or wiring, light nothing or the wrong LEDs.
+  const receiverSketch = useMemo(() => generateStreamReceiverSketch(nodes, nodeId), [nodes, nodeId])
+  const receiverSignature = receiverSketch ? streamReceiverSignature(receiverSketch) : null
+  const flashedReceiver = useStreamReceiverRecord((s) => (selectedPort ? s.receivers[selectedPort] : undefined))
+  const receiverReady = !!receiverSignature && flashedReceiver === receiverSignature
+  const receiverNotReadyNote = flashedReceiver
+    ? 'Flash the Stream Receiver again: this output needs a different receiver from the one last flashed (size, pins, wiring or power cap changed).'
+    : 'Flash the Stream Receiver first; Live Stream starts once the board runs it.'
   async function offerValidationAfter(action: HardwareValidationAction, operation: Promise<void> | void) {
     await operation
     if (useUploadStore.getState().status.phase !== 'done') return
@@ -530,7 +541,12 @@ export default function MatrixOutputDeployPopup({
 
   function handleFlashReceiver() {
     const sketch = generateStreamReceiverSketch(nodes, nodeId)
-    if (sketch) runUpload(sketch, usePsram ? psramChoice?.opt : undefined, { cache: false })
+    if (sketch) {
+      void runUpload(sketch, usePsram ? psramChoice?.opt : undefined, {
+        cache: false,
+        streamReceiver: streamReceiverSignature(sketch),
+      })
+    }
   }
   function handleFlashWiringTest() {
     const sketch = generateWiringDiagnosticSketch(nodes, nodeId)
@@ -542,7 +558,7 @@ export default function MatrixOutputDeployPopup({
   }
   function handleToggleStream() {
     if (streaming) { stopStreaming(); return }
-    if (!selectedPort || !streamLayout) return
+    if (!selectedPort || !streamLayout || !receiverReady) return
     // No report dialog here: it would cover the board the user is now
     // watching. The Share a report… card above stays one click away.
     void startStreaming(selectedPort, streamLayout)
@@ -1071,7 +1087,7 @@ export default function MatrixOutputDeployPopup({
 
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn} ${streaming ? styles.streamBtnActive : ''}`}
-            disabled={!outputNode || !canBuild || busy || (checkingCapacity && !streaming) || streamStarting || !helperReady || !portDetected}
+            disabled={!outputNode || !canBuild || busy || (checkingCapacity && !streaming) || streamStarting || !helperReady || !portDetected || (!streaming && !receiverReady)}
             onClick={handleToggleStream}
             title={
               !outputNode
@@ -1082,14 +1098,17 @@ export default function MatrixOutputDeployPopup({
                   ? 'Start the build tools to enable live streaming'
                   : !portDetected
                     ? port.detail
-                    : 'Push live preview frames to a board already running the Stream Receiver sketch'
+                    : !receiverReady
+                      ? receiverNotReadyNote
+                      : 'Push live preview frames to the Stream Receiver on this board'
             }
           >
             <Icon name="broadcast" /> {streamStarting ? 'Opening stream…' : streaming ? `Streaming — ${streamFps} fps` : 'Live Stream'}
           </button>
           </div>
-          {liveStreamNotes.length > 0 && (
+          {(liveStreamNotes.length > 0 || (outputNode && !streaming && !receiverReady)) && (
             <div className={styles.streamNote}>
+              {outputNode && !streaming && !receiverReady && <div>{receiverNotReadyNote}</div>}
               {liveStreamNotes.map((note) => <div key={note}>{note}</div>)}
             </div>
           )}

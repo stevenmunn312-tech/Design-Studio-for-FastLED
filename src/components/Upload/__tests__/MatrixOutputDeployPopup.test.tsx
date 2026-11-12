@@ -10,6 +10,7 @@ import { useUploadStore } from '../../../state/upload/uploadStore'
 import { useMusicStore } from '../../../state/player/musicStore'
 import { useProjectStore } from '../../../state/projectStore'
 import { useStreamStore } from '../../../state/output/streamStore'
+import { streamReceiverSignature, useStreamReceiverRecord } from '../../../state/output/streamReceiverRecord'
 import { useCapacityStore } from '../../../state/upload/capacityStore'
 import { generateCpp } from '../../../codegen/cppGenerator'
 import { generateWiringDiagnosticSketch } from '../../../codegen/sketches/wiringDiagnosticGenerator'
@@ -556,6 +557,40 @@ describe('MatrixOutputDeployPopup', () => {
 
     fireEvent.click(wiringButton)
     expect(runUpload).toHaveBeenCalledWith('// wiring diagnostic', undefined, { cache: false })
+  })
+
+  it("holds Live Stream until this output's receiver is the last thing flashed to the port", () => {
+    buildableGraph()
+    const runUpload = vi.fn()
+    const start = vi.fn()
+    useStreamStore.setState({ start })
+    useStreamReceiverRecord.setState({ receivers: {} })
+    useUploadStore.setState({
+      helper: { ok: true, engine: 'fbuild', fbuild: true, arduinoCli: false, fbuildVersion: '2.4.0' },
+      selectedPort: 'COM7',
+      portsScanned: true,
+      ports: [{ address: 'COM7', label: 'USB Serial', protocol: 'serial', boards: [{ name: 'ESP32-S3' }] }],
+      runUpload,
+    })
+
+    const { getByRole, getByText } = render(<MatrixOutputDeployPopup />)
+    const live = getByRole('button', { name: 'Live Stream' }) as HTMLButtonElement
+    expect(live.disabled).toBe(true)
+    expect(getByText(/Flash the Stream Receiver first/)).toBeTruthy()
+
+    fireEvent.click(getByRole('button', { name: 'Flash Stream Receiver' }))
+    const signature = streamReceiverSignature('// stream receiver')
+    expect(runUpload).toHaveBeenCalledWith('// stream receiver', undefined, { cache: false, streamReceiver: signature })
+
+    // What uploadStore records once that flash finishes.
+    act(() => useStreamReceiverRecord.getState().recordFlash('COM7', signature))
+    expect(live.disabled).toBe(false)
+    fireEvent.click(live)
+    expect(start).toHaveBeenCalled()
+
+    // Any other sketch through the port replaces the receiver.
+    act(() => useStreamReceiverRecord.getState().recordFlash('COM7', null))
+    expect(live.disabled).toBe(true)
   })
 
   function buildableGraph() {

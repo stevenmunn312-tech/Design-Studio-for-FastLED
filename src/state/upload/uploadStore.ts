@@ -9,6 +9,7 @@ import { useProjectStore } from '../projectStore'
 import { useUiStore } from '../uiStore'
 import { PRIMARY_UPLOAD_TARGET_KEY } from '../uploadTargets'
 import { useStreamStore } from '../output/streamStore'
+import { useStreamReceiverRecord } from '../output/streamReceiverRecord'
 import { useGraphStore, rootGraphEdges, rootGraphNodes } from '../graphStore'
 import { primaryBoardId } from '../../build/boardPartition'
 import { boardLinkFingerprint } from './boardLinkFlash'
@@ -484,7 +485,9 @@ interface UploadState {
   // which shouldn't clobber the cached pattern sketch.
   // `flashedLink` overrides the board link the sketch was generated
   // against, for a re-upload of a cached sketch.
-  runUpload: (code: string, fqbnOpt?: string, opts?: { cache?: boolean; reuseCompiled?: boolean; flashedLink?: number }) => Promise<void>
+  // `streamReceiver` is the signature of a Stream Receiver sketch, recorded
+  // against the port so Live Stream knows the board can take its frames.
+  runUpload: (code: string, fqbnOpt?: string, opts?: { cache?: boolean; reuseCompiled?: boolean; flashedLink?: number; streamReceiver?: string }) => Promise<void>
   runLastUpload: () => Promise<void>
   runShowUpload: (payload: { player: string; files: ShowUploadFile[]; fqbnOpt?: string }) => Promise<void>
 
@@ -821,6 +824,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       // `top` report counts.
       if (settled.phase === 'done') useDeviceTelemetryStore.getState().setNodeLabels(telemetryNodeLabels(code))
       if (settled.phase === 'done' && projectUpload) recordFlashedLink(boardKey, selectedFqbn, selectedPort, flashedLink)
+      if (settled.phase === 'done') useStreamReceiverRecord.getState().recordFlash(selectedPort, opts?.streamReceiver ?? null)
       // Pop the output/serial console open whenever an upload finishes, not
       // just on failure, so the result is always visible without an extra click.
       set({ consoleOpen: true })
@@ -987,6 +991,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       // A show or player sketch times no nodes.
       if (final.phase !== 'error') useDeviceTelemetryStore.getState().setNodeLabels([])
       if (final.phase !== 'error') recordFlashedLink(boardKey, selectedFqbn, selectedPort, flashedLink)
+      if (final.phase !== 'error') useStreamReceiverRecord.getState().recordFlash(selectedPort, null)
     } catch (err) {
       get().appendLog(`\n[error] ${err}\n`)
       set({ status: { phase: 'error', message: 'Error — helper offline?' }, consoleOpen: true })

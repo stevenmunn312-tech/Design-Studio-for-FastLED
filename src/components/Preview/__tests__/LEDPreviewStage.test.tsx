@@ -26,6 +26,12 @@ describe('Stage controls', () => {
     expect(toggle.getAttribute('aria-pressed')).toBe('true')
   })
 
+  it('offers Record inside Stage', () => {
+    useUiStore.setState({ stageMode: true, uiEffectsEnabled: true })
+    render(<LEDPreview />)
+    expect(screen.getByRole('button', { name: /Record/ })).toBeTruthy()
+  })
+
   it('keeps the 3D toggle out of the docked preview header', () => {
     useUiStore.setState({ stageMode: false })
     render(<LEDPreview />)

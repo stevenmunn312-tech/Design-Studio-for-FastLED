@@ -28,6 +28,10 @@ export interface StarterTemplate {
    *  show starter opens with something lit rather than an empty collection
    *  and a black output. */
   showPatterns?: boolean
+  /** Fill the starter's Pattern Collection on load with a few standard
+   *  patterns (`starterSlideshowPatterns`), so a slideshow starter has
+   *  something to step through before the user builds a pattern. */
+  slideshowPatterns?: boolean
   /** Add the bundled demo track to the starter's Music Library on load and
    *  analyse it, so its Performance Generator opens with a show to play. */
   demoTrack?: boolean
@@ -111,7 +115,7 @@ function tutorialNote(
 }
 
 function template(
-  options: Pick<StarterTemplate, 'id' | 'name' | 'description' | 'completionSteps' | 'recommended' | 'activateMicrophone' | 'showPatterns' | 'demoTrack'> & {
+  options: Pick<StarterTemplate, 'id' | 'name' | 'description' | 'completionSteps' | 'recommended' | 'activateMicrophone' | 'showPatterns' | 'slideshowPatterns' | 'demoTrack'> & {
     nodeSpecs: NodeSpec[]
     edgeSpecs: EdgeSpec[]
     level: StarterLevel
@@ -126,6 +130,7 @@ function template(
     completionSteps: options.completionSteps,
     ...(options.recommended ? { recommended: true } : {}),
     ...(options.showPatterns ? { showPatterns: true } : {}),
+    ...(options.slideshowPatterns ? { slideshowPatterns: true } : {}),
     ...(options.demoTrack ? { demoTrack: true } : {}),
     guide: {
       level: options.level,
@@ -563,9 +568,10 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     preview: 'Step through patterns on screen; the OLED view is previewed too.',
     name: 'Browse a Slideshow',
     description: 'A slideshow you can turn through, with an OLED showing what is playing.',
+    slideshowPatterns: true,
     completionSteps: [
-      'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
-      'Add a few pattern groups so there is something to browse between.',
+      'Spin the dial on the Encoder node to step through the five patterns already in the collection.',
+      'Build a pattern of your own, select its nodes, create a Group, then add it to the Pattern Collection.',
       'Set the encoder and OLED GPIOs on the Hardware tab, then spin the dial on the Encoder node to step through the patterns.',
       'Check capacity — a browser bakes a thumbnail per pattern into flash — then upload.',
     ],
@@ -659,9 +665,10 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     preview: 'Runs in the browser — nothing to plug in to start.',
     name: 'Pattern Slideshow',
     description: 'Cycle a collection of patterns on a timer — no music, no card, nothing to plug in but the LEDs.',
+    slideshowPatterns: true,
     completionSteps: [
-      'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
-      'Add a few pattern groups and set the hold times and order on the Pattern Slideshow.',
+      'Watch the five patterns already in the collection play in turn, then set the hold times and order on the Pattern Slideshow.',
+      'Build a pattern of your own, select its nodes, create a Group, then add it to the Pattern Collection.',
       'Optionally add a Microphone or Line Input on the Hardware tab and turn on audio reactivity.',
       'Check the LED output pins and capacity, then upload the sketch.',
     ],
@@ -671,7 +678,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 0 },
       tutorialNote(
         'guide', 0, -1,
-        'SLIDESHOW \nAdd patterns to the collection and they play in turn.\nNo card, no amplifier, no music — set a hold time and go.',
+        'SLIDESHOW \nThe patterns in the collection play in turn; add your own beside them.\nNo card, no amplifier, no music — set a hold time and go.',
         TRY_COLOR,
       ),
     ],

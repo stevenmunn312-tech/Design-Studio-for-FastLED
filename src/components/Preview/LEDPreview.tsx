@@ -1381,6 +1381,17 @@ export default function LEDPreview() {
                       ? 'Wake lock unavailable'
                       : 'Screen may sleep'}
               </span>
+              {/* Capturing a live performance is a Stage job too. The
+                  dialog portals to the document, which is what Stage's
+                  fullscreen shows, so it opens here as it does docked. */}
+              <button
+                type="button"
+                className={`${styles.stage3dBtn} ${styles.stageRecordBtn}`}
+                onClick={() => setRecordOpen(true)}
+                title="Record or export the preview as PNG, GIF, or WebM"
+              >
+                <i aria-hidden="true" /> Record
+              </button>
               {/* Stage hides the menu bar, so the 3D toggle it carries is
                   repeated here: the README promises it inside Stage. */}
               <button

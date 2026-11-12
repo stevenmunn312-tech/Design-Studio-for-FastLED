@@ -242,6 +242,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   sends cannot stop or change a newer session, and a late successful open is
   closed. Keep sends local to their session and clear their in-flight state
   on both success and rejection.
+- Live Stream starts only when the selected port last took this output's
+  exact receiver. `uploadStore` records each finished upload in
+  `streamReceiverRecord.ts`: a receiver flash stores its sketch signature,
+  any other sketch or show clears the port. Anything the receiver bakes in
+  (size, pins, wiring, power cap) changes the signature, so a stale receiver
+  asks to be flashed again rather than lighting the wrong LEDs.
 
 - Time and Wave in a template share one `_controlTime` snapshot. The slideshow
   emits its animation clock before the control graph, then resolves a wired

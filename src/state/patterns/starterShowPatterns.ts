@@ -1,4 +1,4 @@
-import { AUDIO_BUNDLED_PATTERNS } from './bundledPatterns'
+import { AUDIO_BUNDLED_PATTERNS, STANDARD_BUNDLED_PATTERNS } from './bundledPatterns'
 import { BUNDLED_EXCEPTIONAL_AUDIO_NAMES } from './bundledExceptionalAudio'
 import { patternFormTags } from './patternTags'
 import type { SavedPattern } from './patternLibrary'
@@ -26,10 +26,25 @@ export function starterShowPatterns(): SavedPattern[] {
   const byName = new Map(AUDIO_BUNDLED_PATTERNS.map((pattern) => [pattern.name, pattern]))
   return BUNDLED_EXCEPTIONAL_AUDIO_NAMES
     .map((name) => byName.get(name))
-    .filter((pattern): pattern is SavedPattern => {
-      if (!pattern) return false
-      const tags = patternFormTags(pattern.bestOn)
-      return tags.length === 0 || tags.includes('matrix')
-    })
+    .filter((pattern): pattern is SavedPattern => !!pattern && playsOnMatrix(pattern))
     .slice(0, STARTER_SHOW_SIZE)
+}
+
+/** How many patterns a slideshow starter opens with: enough to step through,
+ *  few enough that a browser's baked thumbnails stay small. */
+export const STARTER_SLIDESHOW_SIZE = 5
+
+/**
+ * The patterns a slideshow starter's Pattern Collection opens with: the head
+ * of the standard (non-audio) shelf, so they move with no microphone and the
+ * starter shows something to step through before any pattern is built.
+ */
+export function starterSlideshowPatterns(): SavedPattern[] {
+  return STANDARD_BUNDLED_PATTERNS.filter(playsOnMatrix).slice(0, STARTER_SLIDESHOW_SIZE)
+}
+
+/** Every starter plays on a matrix, where a string-only pattern is one lit row. */
+function playsOnMatrix(pattern: SavedPattern): boolean {
+  const tags = patternFormTags(pattern.bestOn)
+  return tags.length === 0 || tags.includes('matrix')
 }

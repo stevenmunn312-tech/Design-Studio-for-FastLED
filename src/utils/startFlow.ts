@@ -1,7 +1,8 @@
 import { rootGraphNodes, useGraphStore } from '../state/graphStore'
 import { useAudioStore } from '../state/audio/audioStore'
 import { STARTER_TEMPLATES, buildBoardAwareStarter, type StarterTemplate } from '../state/patterns/starterTemplates'
-import { starterShowPatterns } from '../state/patterns/starterShowPatterns'
+import { starterShowPatterns, starterSlideshowPatterns } from '../state/patterns/starterShowPatterns'
+import type { SavedPattern } from '../state/patterns/patternLibrary'
 import { useMusicStore } from '../state/player/musicStore'
 import { waitForMusicLibraryRestore } from '../state/player/musicLibraryPersistence'
 import { DEMO_TRACK_FILE, fetchDemoTrack } from '../state/player/demoTrack'
@@ -92,18 +93,19 @@ export function landOnStartingWorkspace() {
 
 /**
  * A show starter's or example's Pattern Collection opens holding the starter
- * show. Pattern Master runs on the wall clock until a track plays, so this
- * is what the LED output shows the moment the project lands; an empty
- * collection opened black. Through `addPatternsToCollection`, as the picker
+ * show, and a slideshow starter's a few standard patterns. Pattern Master
+ * runs on the wall clock until a track plays, so this is what the LED output
+ * shows the moment the project lands; an empty collection opened black (and
+ * a Pattern Browser's OLED said NO PATTERNS). Through `addPatternsToCollection`, as the picker
  * adds them, so each is a copy that remembers its library pattern and Update
  * from library still works.
  */
-function seedCollection(wanted: boolean | undefined) {
-  if (!wanted) return
+function seedCollection(patterns: (() => SavedPattern[]) | undefined) {
+  if (!patterns) return
   const graph = useGraphStore.getState()
   const collection = graph.nodes.find((node) => node.data.nodeType === 'PatternCollection')
   if (!collection) return
-  graph.addPatternsToCollection(collection.id, starterShowPatterns())
+  graph.addPatternsToCollection(collection.id, patterns())
 }
 
 /**
@@ -157,7 +159,9 @@ export function startTemplate(template: StarterTemplate, options?: StartFlowOpti
     useUploadStore.getState().selectedFqbn,
   )
   useGraphStore.getState().loadGraph(nodes, edges)
-  seedCollection(template.showPatterns)
+  seedCollection(template.showPatterns ? starterShowPatterns
+    : template.slideshowPatterns ? starterSlideshowPatterns
+      : undefined)
   finishStartFlow(
     template.id,
     `Loaded "${template.name}" starter`,
@@ -276,7 +280,7 @@ export async function openExampleProject(example: LiveExampleSpec, projectName: 
   const graph = useGraphStore.getState()
   graph.loadGraph([], [])
   const result = insertLiveExample(example, { x: 0, y: 0 })
-  seedCollection(example.showPatterns)
+  seedCollection(example.showPatterns ? starterShowPatterns : undefined)
   // As a starter is: every part, the LED output included, takes the board's
   // pins. Through the store action the wired LED output would count as a
   // fixture and keep its library default, which an SD Card's chip select then

@@ -223,6 +223,19 @@ describe('BoardNodeBody', () => {
     expect(screen.queryByText(/Auto detected 8 MB OPI PSRAM/)).toBeNull()
   })
 
+  it('starts a newly enabled power cap at the full-white draw, as starters do', () => {
+    const board = boardNode('b1')
+    board.data.properties = { ...board.data.properties, powerLimit: false, milliamps: 2000 }
+    reset([board, matrixNode('out')])
+
+    render(<BoardNodeBody nodeId="b1" />)
+    fireEvent.click(screen.getByLabelText('Enable global power cap'))
+
+    const settings = controllerSettings(useGraphStore.getState().nodes)
+    expect(settings.powerLimit).toBe(true)
+    expect(settings.milliamps).toBe(15400)
+  })
+
   it('shows the continuous power supply required by the LED load', () => {
     const board = boardNode('b1')
     board.data.properties = {

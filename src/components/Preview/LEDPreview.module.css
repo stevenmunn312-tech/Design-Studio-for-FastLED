@@ -418,7 +418,8 @@
   border-color: rgba(255, 92, 92, 0.7);
   background: var(--bg-node-hover);
 }
-.recordBtn i {
+.recordBtn i,
+.stageRecordBtn i {
   width: 7px;
   height: 7px;
   border-radius: 50%;

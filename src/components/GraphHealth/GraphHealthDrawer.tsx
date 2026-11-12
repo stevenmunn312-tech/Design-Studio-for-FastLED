@@ -329,7 +329,7 @@ export default function GraphHealthDrawer() {
       if (board) useUiStore.getState().setActiveBoardId(board.id)
       useUiStore.getState().openHardwareBoardMenu()
       setStatus(!card || card.category === 'power'
-        ? 'On the Board, tick Enable global power cap and enter your supply’s rating'
+        ? 'On the Board, tick Enable global power cap; it starts at the full-white draw, so lower it if your supply is smaller'
         : card.fix, 'info')
       return
     }

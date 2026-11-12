@@ -37,6 +37,7 @@ interface Props { nodeId: string }
 
 export default function BoardNodeBody({ nodeId }: Props) {
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
+  const updateNodeProperties = useGraphStore((s) => s.updateNodeProperties)
   const selectBoardProfile = useGraphStore((s) => s.selectBoardProfile)
   const pinProperty = useGraphStore((s) => s.pinProperty)
   const unpinProperty = useGraphStore((s) => s.unpinProperty)
@@ -319,7 +320,16 @@ export default function BoardNodeBody({ nodeId }: Props) {
 
         <label className={styles.checkField}>
           <input type="checkbox" checked={settings.powerLimit} aria-label="Enable global power cap"
-            onChange={(event) => updateNodeProperty(nodeId, 'powerLimit', event.target.checked)} />
+            onChange={(event) => {
+              // Turned on, the cap starts at the full-white draw, the figure a
+              // starter sets, so it never dims a supply sized for full white;
+              // a smaller supply lowers it.
+              if (event.target.checked && power) {
+                updateNodeProperties(nodeId, { powerLimit: true, milliamps: power.recommendedMa })
+              } else {
+                updateNodeProperty(nodeId, 'powerLimit', event.target.checked)
+              }
+            }} />
           <span>Enable global power cap</span>
         </label>
 

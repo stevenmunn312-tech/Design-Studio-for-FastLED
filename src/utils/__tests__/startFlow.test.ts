@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { starterShowPatterns } from '../../state/patterns/starterShowPatterns'
+import { starterShowPatterns, starterSlideshowPatterns, STARTER_SLIDESHOW_SIZE } from '../../state/patterns/starterShowPatterns'
 import { usePatternLibrary } from '../../state/patterns/patternLibrary'
 import { useMusicStore } from '../../state/player/musicStore'
 import { DEMO_TRACK_FILE } from '../../state/player/demoTrack'
@@ -121,6 +121,19 @@ describe('startFlow', () => {
     expect(graph.trusted).toBe(true)
     const library = new Set(usePatternLibrary.getState().patterns.map((pattern) => pattern.id))
     for (const pattern of show) expect(library.has(pattern.id), pattern.name).toBe(true)
+  })
+
+  it.each(['slideshow-browse', 'pattern-slideshow'])('opens the %s starter with standard patterns to step through', (id) => {
+    startTemplateById(id)
+    const graph = useGraphStore.getState()
+    const collection = graph.nodes.find((node) => node.data.nodeType === 'PatternCollection')!
+    const patternIds = (collection.data.properties as { patternIds: string[] }).patternIds
+    const seeded = starterSlideshowPatterns()
+    expect(seeded).toHaveLength(STARTER_SLIDESHOW_SIZE)
+    // Non-audio, so they move with no microphone.
+    expect(seeded.every((pattern) => pattern.categoryId === 'standard')).toBe(true)
+    expect(patternIds.map((groupId) => graph.graphs[groupId]?.name)).toEqual(seeded.map((pattern) => pattern.name))
+    expect(graph.trusted).toBe(true)
   })
 
   /*
