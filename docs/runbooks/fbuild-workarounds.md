@@ -933,7 +933,7 @@ nRF52840 builds since the §17 workaround:
 | Raspberry Pi Pico W | `rpipicow` | Link: `undefined reference to 'cyw43_pinMode'`, `'cyw43_digitalWrite'` and `'init_cyw43_wifi'`. The core's CYW43 driver is not linked. The Pico 2 W links |
 | Arduino UNO R4 Minima | `uno_r4_minima` | Compiling the core: `Arduino.h:5: fatal error: bsp_api.h: No such file or directory`. The UNO R4 WiFi builds |
 | Adafruit Feather nRF52840 | `adafruit_feather_nrf52840` | Link, in LTO: `Error: offset out of range`, then `lto-wrapper failed` |
-| Seeed XIAO nRF52840 | `xiaoble` | `config error: unknown board 'xiaoble' (no built-in defaults)`. The id is in the daemon binary and has no manifest |
+| Seeed XIAO nRF52840 | `xiaoble_adafruit` | Compiling the core: `Uart.h:27:10: fatal error: variant.h: No such file or directory`. The board names the `Seeed_XIAO_nRF52840` variant, which the Adafruit framework fbuild fetches (1.10601.0) does not carry. `xiaoble`, tried first, is not a board id ([#293](https://github.com/FastLED/fbuild/issues/293)) |
 
 None of the four is reported upstream yet; the logs are in the run's
 `compile-matrix-record` artifact.
@@ -946,7 +946,11 @@ None of the four is reported upstream yet; the logs are in the run's
   (`common_data.h` locally, `bsp_api.h` on the runner): the variant's FSP
   include directories are missing.
 - `WiFiS3.h` (§16) is not found by a three-line sketch.
-- `xiaoblesense` is unknown as well as `xiaoble`.
+- The XIAO nRF52840's id is `xiaoble_adafruit`, not `xiaoble`. fbuild accepts
+  it and a blink stops at `variant.h`. Naming maxgerhardt's
+  `platform-nordicnrf52` fork as the platform, where #293 says the board
+  comes from, changes nothing: fbuild builds with its own Adafruit framework
+  either way.
 - The nRF52840 failure needs FastLED: a blink links on the Feather and on
   `nrf52840_dk`, and a five-line FastLED 3.10.9 sketch fails in LTO on both.
   The nRF52840 DK had been mapped since before this pass with no compile leg,
@@ -1044,7 +1048,7 @@ workaround can be retired, CHANGED that it fails another way. On 2.5.51
 | `nrf52-lto` | §17 | PRESENT |
 | `pico-w` | Boards mapped | PRESENT |
 | `r4-minima` | Boards mapped | PRESENT |
-| `xiaoble` | Boards mapped | PRESENT |
+| `xiaoble` | Boards mapped | PRESENT (`variant.h`, with the id `xiaoble_adafruit`) |
 | `lib-deps-git-ref` | §1 | PRESENT |
 | `lib-deps-registry` | §1 | PRESENT |
 

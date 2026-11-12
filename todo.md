@@ -162,7 +162,7 @@ replaced by the sketch's own receiver.
   do not, and stay on arduino-cli through `_engine_for_board`
   ([runbook](docs/runbooks/fbuild-workarounds.md#boards-mapped-on-12-november-2026)).
 - [x] Draft upstream reports for the four boards that do not build: Pico W,
-  UNO R4 Minima, Feather nRF52840 and XIAO nRF52840, in
+  UNO R4 Minima, Feather nRF52840 and XIAO nRF52840 (`xiaoble_adafruit`), in
   `tmp/fbuild-main/drafts/`, each reduced to a two-file project.
 - [x] Find whether the nRF52840 LTO failure (`offset out of range`) is
   FastLED's or fbuild's. It is fbuild's: its `-flto` breaks the Adafruit

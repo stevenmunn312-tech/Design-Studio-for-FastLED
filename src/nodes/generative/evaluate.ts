@@ -210,17 +210,12 @@ function evalConfetti(
 }
 
 function evalJuggle(
-  nodeId: string, speed: number, count: number, trail: number, t: number, palette: Palette, seed = 0,
+  nodeId: string, speed: number, count: number, t: number, palette: Palette, seed = 0,
   W = DEFAULT_W, H = DEFAULT_H,
 ): Frame {
-  let state = sparkState.get(nodeId)
-  if (!state || state.w !== W || state.h !== H) {
-    state = { frame: rawBlankFrame(W, H), w: W, h: H }
-    sparkState.set(nodeId, state)
-  }
-
-  const frame = state.frame
-  fadeFrameToBlackBy(frame, trailFadeSteps(nodeId, t, trail))
+  // Drawn fresh each pass: the dots alone. A Trails node after Juggle gives
+  // them tails, so there is one fade to set, not two stacked.
+  const frame = blankFrame(W, H)
 
   const dots = juggleDotCount(count)
   const laneY = (i: number) =>
@@ -608,9 +603,8 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
   Juggle({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.Juggle)
     const count = num(id, 'count', props, 'count', JUGGLE_COUNT.default)
-    const trail = num(id, 'trail', props, 'trail', 0.39)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')
-    return { frame: evalJuggle(stateKey(id), speed, count, trail, t, palette, normalizedSeed(props.seed), W, H) }
+    return { frame: evalJuggle(stateKey(id), speed, count, t, palette, normalizedSeed(props.seed), W, H) }
   },
   RadialBurst({ num, pal, t, W, H, stateKey }, id, props) {
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.RadialBurst)

@@ -19,6 +19,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -74,7 +75,7 @@ PROBES = [
     Probe("pico-w", "boards mapped", "raspberrypi", "rpipicow", BLINK, r"undefined reference to `cyw43_"),
     Probe("r4-minima", "boards mapped", "renesas-ra", "uno_r4_minima", BLINK,
           r"(?:bsp_api|common_data)\.h: No such file"),
-    Probe("xiaoble", "boards mapped", "nordicnrf52", "xiaoble", BLINK, r"unknown board 'xiaoble'"),
+    Probe("xiaoble", "boards mapped", "nordicnrf52", "xiaoble_adafruit", BLINK, r"variant\.h: No such file"),
     Probe("lib-deps-git-ref", "§1", "espressif32", "esp32dev", BLINK, r"invalid Zip archive",
           lib_deps="https://github.com/schreibfaul1/ESP32-audioI2S.git#3.0.12", command="install"),
     Probe("lib-deps-registry", "§1", "atmelavr", "uno", BLINK, r"not in fbuild's registry index",
@@ -111,8 +112,13 @@ def run(probe: Probe, binary: str) -> tuple[str, str]:
     args = [binary, probe.command, str(project), "-e", probe.board]
     if probe.command == "build":
         args = [binary, str(project), "build", "-e", probe.board, "-v", "--no-timestamp"]
-    result = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
-    log = result.stdout + result.stderr
+    for attempt in range(2):
+        result = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
+        log = result.stdout + result.stderr
+        # §14: the daemon can refuse to start just after the last one exited.
+        if "daemon did not become healthy" not in log:
+            break
+        time.sleep(15)
     (project / "build.log").write_text(log, encoding="utf-8")
     hit = re.search(probe.present, log)
     if result.returncode == 0:

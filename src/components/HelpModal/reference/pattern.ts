@@ -630,17 +630,19 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   Juggle: {
     overview: [
-      'Juggle sends dots swinging back and forth on sine waves, each with a fading trail. With Count at 1 it is FastLED’s Sinelon: one dot gliding along a string.',
-      'Each dot moves at a slightly different rate, so with several the pattern keeps changing. Trail sets how long the trails are.',
+      'Juggle sends dots swinging back and forth on sine waves. With Count at 1 it is FastLED’s Sinelon: one dot gliding along a string.',
+      'Each dot moves at a slightly different rate, so with several the pattern keeps changing. Juggle draws the dots alone; splice a Trails node after it to give them fading tails, and set their length with its Decay.',
     ],
     example: example({
       featured: 'Juggle',
       title: 'Sinelon: one dot gliding along a string',
       nodes: {
-        sinelon: ['Juggle', { count: 1, trail: 0.5, speed: 0.6, palette: 'ultraviolet' }],
+        sinelon: ['Juggle', { count: 1, speed: 0.6, palette: 'ultraviolet' }],
+        tail: ['Trails', { decay: 0.49 }],
       },
+      wires: ['sinelon.frame > tail.frame'],
       output: STRIP(60),
-      explanation: 'Juggle with a single dot is the classic Sinelon. It glides back and forth along the string, slowing at each end like a pendulum, and its colour drifts through the ultraviolet palette.',
+      explanation: 'Juggle with a single dot is the classic Sinelon. It glides back and forth along the string, slowing at each end like a pendulum, and its colour drifts through the ultraviolet palette. Trails after it leaves the fading tail.',
       preview: 'The {output} shows one violet dot with a long tail swinging from end to end.',
     }),
   },

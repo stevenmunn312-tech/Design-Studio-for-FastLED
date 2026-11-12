@@ -579,8 +579,9 @@ describe('nodeLibrary', () => {
 
   it('Juggle exposes normalized speed, palette input, and a bounded dot count', () => {
     const jg = NODE_LIBRARY.find((n) => n.type === 'Juggle')
-    expect(jg?.inputs.map((p) => p.id)).toEqual(['speed', 'paletteIn', 'count', 'trail'])
-    expect(jg?.defaultProperties).toMatchObject({ speed: 0.5, count: 4, trail: 0.39, palette: 'rainbow' })
+    expect(jg?.inputs.map((p) => p.id)).toEqual(['speed', 'paletteIn', 'count'])
+    expect(jg?.defaultProperties).toMatchObject({ speed: 0.5, count: 4, palette: 'rainbow' })
+    expect(jg?.defaultProperties).not.toHaveProperty('trail')
     expect(propertyMeta('Juggle', 'speed')).toMatchObject({ control: 'slider', min: 0, max: 1 })
     expect(propertyMeta('Juggle', 'count')).toMatchObject({ control: 'slider', min: 1, max: 8 })
   })

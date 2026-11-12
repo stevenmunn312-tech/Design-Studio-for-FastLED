@@ -5628,18 +5628,27 @@ describe('Pride2015 and Pacifica', () => {
     expect(lingering).toBeGreaterThan(fleeting)
   })
 
-  it('Juggle accumulates over time and responds to the palette', () => {
+  it('Juggle moves over time and responds to the palette', () => {
     const juggleFrame = (id: string, props: Record<string, unknown>, tick: number) => {
       const gen = node(id, 'Juggle', 'pattern', props)
       const { nodes, edges } = withOutput(gen)
       return evaluateGraph(nodes, edges, tick, W, H)!
     }
-    const a = structuredClone(juggleFrame('juggle-a', { speed: 1, count: 4, trail: 0.9, palette: 'rainbow' }, 0))
-    const b = juggleFrame('juggle-a', { speed: 1, count: 4, trail: 0.9, palette: 'rainbow' }, 30)
+    const a = structuredClone(juggleFrame('juggle-a', { speed: 1, count: 4, palette: 'rainbow' }, 0))
+    const b = juggleFrame('juggle-a', { speed: 1, count: 4, palette: 'rainbow' }, 30)
     expect(a).not.toEqual(b)
-    const rainbow = juggleFrame('juggle-rainbow', { speed: 1, count: 4, trail: 0.9, palette: 'rainbow' }, 20)
-    const lava = juggleFrame('juggle-lava', { speed: 1, count: 4, trail: 0.9, palette: 'lava' }, 20)
+    const rainbow = juggleFrame('juggle-rainbow', { speed: 1, count: 4, palette: 'rainbow' }, 20)
+    const lava = juggleFrame('juggle-lava', { speed: 1, count: 4, palette: 'lava' }, 20)
     expect(rainbow).not.toEqual(lava)
+  })
+
+  it("Juggle draws only this frame's dots, leaving tails to a Trails node", () => {
+    const gen = node('juggle-bare', 'Juggle', 'pattern', { speed: 1, count: 1, palette: 'rainbow' })
+    const { nodes, edges } = withOutput(gen)
+    for (let tick = 0; tick < 50; tick += 5) evaluateGraph(nodes, edges, tick, W, H)
+    const lit = evaluateGraph(nodes, edges, 60, W, H)!.flat().filter((px) => px.r + px.g + px.b > 0).length
+    // One dot and its four neighbours, however long it has been moving.
+    expect(lit).toBeLessThanOrEqual(5)
   })
 
   it('Juggle count widens the lit coverage; count 1 covers the Sinelon case', () => {
@@ -5651,8 +5660,8 @@ describe('Pride2015 and Pacifica', () => {
         .flat()
         .filter(px => px.r + px.g + px.b > 30).length
     }
-    const sinelonish = litCount('juggle-one', { speed: 1, count: 1, trail: 0.88, palette: 'rainbow' })
-    const juggling = litCount('juggle-four', { speed: 1, count: 4, trail: 0.88, palette: 'rainbow' })
+    const sinelonish = litCount('juggle-one', { speed: 1, count: 1, palette: 'rainbow' })
+    const juggling = litCount('juggle-four', { speed: 1, count: 4, palette: 'rainbow' })
     expect(juggling).toBeGreaterThan(sinelonish)
   })
 
@@ -5660,8 +5669,8 @@ describe('Pride2015 and Pacifica', () => {
     [1, 1], [3.6, 4], [8, 8], [500, 8], [-10, 1],
   ])('Juggle wired count %s renders as %s dots and restores its manual count on disconnect', (value, expected) => {
     const source = node('juggle-count-source', 'Math', 'math', { a: value, b: 0, mathOp: 'add' })
-    const gen = node(`wired-juggle-${value}`, 'Juggle', 'pattern', { count: 2, trail: 0 })
-    const reference = node(`reference-juggle-${value}`, 'Juggle', 'pattern', { count: expected, trail: 0 })
+    const gen = node(`wired-juggle-${value}`, 'Juggle', 'pattern', { count: 2 })
+    const reference = node(`reference-juggle-${value}`, 'Juggle', 'pattern', { count: expected })
     const wired = withOutput(gen)
     const manual = withOutput(reference)
     const control = edge('count-control', source.id, 'result', gen.id, 'count')
@@ -5673,16 +5682,15 @@ describe('Pride2015 and Pacifica', () => {
     expect(gen.data.properties.count).toBe(2)
   })
 
-  it('Juggle wires Speed and Trail through the same path as their manual values', () => {
-    const gen = node('juggle-wired-parameters', 'Juggle', 'pattern', { speed: 0, trail: 1, count: 4 })
-    const reference = node('juggle-manual-parameters', 'Juggle', 'pattern', { speed: 0.7, trail: 0.1, count: 4 })
+  it('Juggle wires Speed through the same path as its manual value', () => {
+    const gen = node('juggle-wired-parameters', 'Juggle', 'pattern', { speed: 0, count: 4 })
+    const reference = node('juggle-manual-parameters', 'Juggle', 'pattern', { speed: 0.7, count: 4 })
     const speed = node('juggle-speed-source', 'Math', 'math', { a: 0.7, b: 0 })
-    const trail = node('juggle-trail-source', 'Math', 'math', { a: 0.1, b: 0 })
     const wired = withOutput(gen)
     const manual = withOutput(reference)
-    const controls = [edge('speed-control', speed.id, 'result', gen.id, 'speed'), edge('trail-control', trail.id, 'result', gen.id, 'trail')]
+    const controls = [edge('speed-control', speed.id, 'result', gen.id, 'speed')]
     for (const tick of [0, 10, 20]) {
-      expect(evaluateGraph([speed, trail, ...wired.nodes], [...wired.edges, ...controls], tick, W, H))
+      expect(evaluateGraph([speed, ...wired.nodes], [...wired.edges, ...controls], tick, W, H))
         .toEqual(evaluateGraph(manual.nodes, manual.edges, tick, W, H))
     }
   })
