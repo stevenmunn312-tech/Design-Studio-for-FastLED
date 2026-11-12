@@ -94,11 +94,17 @@ jobs:
         shell: bash
         run: echo "slug=$(echo '${{ matrix.shard }}' | tr '/' '-')" >> "$GITHUB_OUTPUT"
 
-      # fbuild's toolchains and compiler cache and the Arduino cores, per shard, since
-      # each shard builds its own boards. Not its esptool installs: those are
-      # uv environments tied to an interpreter path on the runner that made
-      # them, and restored onto another runner they fail with "No Python at".
-      - uses: actions/cache@v4
+      # fbuild's toolchains and compiler cache and the Arduino cores. Not its
+      # esptool installs: those are uv environments tied to an interpreter path on
+      # the runner that made them, and restored onto another runner they fail
+      # with "No Python at".
+      #
+      # One cache, restored by every shard and saved by one. A shard's cache is
+      # about 7.8 GB and the repository keeps 10 GB, so a cache for each shard of
+      # each commit took over a quarter of an hour to save after every job and
+      # was evicted by the next. Bump `builds-v4` to refresh it.
+      - id: builds
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.fbuild/prod/cache
@@ -106,10 +112,9 @@ jobs:
             !~/.fbuild/prod/cache/toolchains/pioarduino-esptool
             !~/.fbuild/prod/cache/toolchains/tasmota-esptool
             ~/AppData/Local/Arduino15/packages
-            ~/AppData/Local/Arduino15/staging
-          key: builds-v3-${{ hashFiles('backend/requirements.txt') }}-${{ steps.name.outputs.slug }}-${{ github.sha }}
+          key: builds-v4-${{ hashFiles('backend/requirements.txt') }}
           restore-keys: |
-            builds-v3-${{ hashFiles('backend/requirements.txt') }}-${{ steps.name.outputs.slug }}-
+            builds-v4-
             builds-v3-${{ hashFiles('backend/requirements.txt') }}-
 
       - name: Build shard ${{ matrix.shard }}
@@ -125,6 +130,19 @@ jobs:
           for text in ${{ inputs.only }}; do only+=(--only "$text"); done
           if [ "${{ inputs.every }}" = "true" ]; then only+=(--every); fi
           python scripts/compile-fixtures/compile-matrix.py --engine "${{ inputs.engine || 'all' }}" --install-cores             --shard "${{ matrix.shard }}" "${only[@]}"
+
+      # Saved by the first shard of a whole-matrix run only, and only when no
+      # cache of this key exists: a run of a few named legs never saves.
+      - if: ${{ always() && inputs.only == '' && startsWith(matrix.shard, '1/') && steps.builds.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.fbuild/prod/cache
+            ~/.fbuild/prod/zccache
+            !~/.fbuild/prod/cache/toolchains/pioarduino-esptool
+            !~/.fbuild/prod/cache/toolchains/tasmota-esptool
+            ~/AppData/Local/Arduino15/packages
+          key: builds-v4-${{ hashFiles('backend/requirements.txt') }}
 
       # The run folder plus every fbuild log and report beside the sketches,
       # at the paths summary.json names.
