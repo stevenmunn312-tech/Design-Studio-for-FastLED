@@ -179,9 +179,13 @@ replaced by the sketch's own receiver.
   `lib_deps` library compiled whether used or not (§1). Nothing is fixed, and
   the registry now resolves only mirrored packages, so everything stays
   vendored. Report drafted.
-- [ ] Add a fixture for §5
+- [x] Add a fixture for §5
   ([#1658](https://github.com/FastLED/fbuild/issues/1658)) and one for
   [#1673](https://github.com/FastLED/fbuild/issues/1673).
+  `scripts/compile-fixtures/fbuild-probes.py` rebuilds nine known faults and
+  reports each as present or gone. On 2.5.51 a failed link prints an overflow
+  line, so §5 is partly fixed upstream; #1673 is read as a setting, since
+  showing it needs long paths turned off.
 - [x] Find why fbuild ESP32 images carry about 255 KB more `.eh_frame` than
   Arduino CLI's. They no longer do: 6,468 bytes against 5,036 on FastLED
   3.10.9. What remains is in fbuild's own totals

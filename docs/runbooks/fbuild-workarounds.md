@@ -312,6 +312,20 @@ largest byte count.
 112% of RAM" instead of "build failed" is a large UX difference, and fbuild already has
 both numbers in hand.
 
+**Changed on 2.5.51 (2026-11-12).** The same overflow now ends with a line of
+fbuild's own:
+
+```text
+RAM: dram0_0_seg overflowed by 121400 bytes (region 341760 bytes); requires 463160 bytes (135.5%)
+```
+
+It is not the `RAM: used / limit (pct%)` shape of a successful build, so
+`_fbuild_size_bytes_report` still reads nothing from it and
+`_fbuild_overflow_estimate` still supplies the figure (137%, against the
+320 KB budget line where fbuild measures the 341,760-byte region). The
+workaround stays and still works; it could be replaced by reading this line.
+The `overflow-no-size` probe below reports it.
+
 **Re-confirmed on 2.5.21 (2026-09-03).** A deliberate DRAM overflow on an ESP32-S3 — 400 KB
 of `.bss` on a 320 KB part, in a project with no libraries — fails in 198s with exit 1 and
 **no `Flash:` or `RAM:` line anywhere in the log**:
@@ -1001,6 +1015,38 @@ So a byte count is comparable across engines only loosely, and an ESP32-S3
 RAM percentage from fbuild is not the sketch's. A report is drafted in
 `tmp/fbuild-main/drafts/esp32-eh-frame-size-NOTE.md`. Only the S3 was
 measured.
+
+---
+
+## Probes
+
+`scripts/compile-fixtures/fbuild-probes.py` rebuilds each fault a two-file
+project can show and says whether it is still there. Run it after moving the
+fbuild pin, with the helper's interpreter so it uses the fbuild beside it:
+
+```text
+backend/.venv/Scripts/python scripts/compile-fixtures/fbuild-probes.py
+```
+
+PRESENT means the build fails as this runbook describes, GONE that the
+workaround can be retired, CHANGED that it fails another way. On 2.5.51
+(2026-11-12):
+
+| Probe | Where | Result |
+| --- | --- | --- |
+| `overflow-no-size` | §5, #1658 | GONE: a failed link now prints an overflow line |
+| `esp8266-wifi-link` | §15, #1994 | PRESENT |
+| `wifis3` | §16 | PRESENT |
+| `nrf52-lto` | §17 | PRESENT |
+| `pico-w` | Boards mapped | PRESENT |
+| `r4-minima` | Boards mapped | PRESENT |
+| `xiaoble` | Boards mapped | PRESENT |
+| `lib-deps-git-ref` | §1 | PRESENT |
+| `lib-deps-registry` | §1 | PRESENT |
+
+`long-paths` only reads the Windows `LongPathsEnabled` setting
+([#1673](https://github.com/FastLED/fbuild/issues/1673)): a probe cannot
+turn it off to show the failure without changing the machine.
 
 ---
 
