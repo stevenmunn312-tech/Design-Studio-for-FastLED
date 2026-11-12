@@ -26,6 +26,10 @@ on:
         description: Build every chosen leg, not only those that prove something no other leg does
         type: boolean
         default: false
+      save_cache:
+        description: Save the build cache from the first shard of this run, when none exists for its key
+        type: boolean
+        default: false
 
 concurrency:
   group: compile-matrix-${{ github.ref }}
@@ -115,7 +119,6 @@ jobs:
           key: builds-v4-${{ hashFiles('backend/requirements.txt') }}
           restore-keys: |
             builds-v4-
-            builds-v3-${{ hashFiles('backend/requirements.txt') }}-
 
       - name: Build shard ${{ matrix.shard }}
         shell: bash
@@ -131,9 +134,10 @@ jobs:
           if [ "${{ inputs.every }}" = "true" ]; then only+=(--every); fi
           python scripts/compile-fixtures/compile-matrix.py --engine "${{ inputs.engine || 'all' }}" --install-cores             --shard "${{ matrix.shard }}" "${only[@]}"
 
-      # Saved by the first shard of a whole-matrix run only, and only when no
-      # cache of this key exists: a run of a few named legs never saves.
-      - if: ${{ always() && inputs.only == '' && startsWith(matrix.shard, '1/') && steps.builds.outputs.cache-hit != 'true' }}
+      # Saved by the first shard of a whole-matrix run, and only when no cache
+      # of this key exists: a run of a few named legs saves only when asked to
+      # with `save_cache`.
+      - if: ${{ always() && (inputs.only == '' || inputs.save_cache) && startsWith(matrix.shard, '1/') && steps.builds.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v4
         with:
           path: |
