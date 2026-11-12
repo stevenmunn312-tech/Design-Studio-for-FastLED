@@ -199,6 +199,18 @@ normal['clock-zone-esp8266'] = (() => {
     ['seconds', 'result', 'out', 'brightness'], ['fill', 'frame', 'out', 'frame']])
 })()
 
+// The same clock over Wi-Fi on two ESP32 boards mapped to fbuild on 2026-11-12.
+for (const [name, fqbn] of [['xiao-c3', 'esp32:esp32:XIAO_ESP32C3'], ['feather-esp32-v2', 'esp32:esp32:adafruit_feather_esp32_v2']]) {
+  const out = matrix({ width: 8, height: 8 })
+  out.data.exposedInputs = ['brightness']
+  const nodes = [node('board', 'Board'),
+    node('clock', 'RTCInput', { timeSource: 'NTP', ntpServer: 'pool.ntp.org', timeZone: 'Europe/Paris' }),
+    node('seconds', 'MapRange', { inMin: 0, inMax: 59, outMin: 0, outMax: 1, clamp: true }),
+    node('fill', 'SolidColor', { r: 255, g: 180, b: 60 }), out]
+  normal[`clock-zone-${name}`] = graph(fqbn, nodes, [['clock', 'second', 'seconds', 'value'],
+    ['seconds', 'result', 'out', 'brightness'], ['fill', 'frame', 'out', 'frame']])
+}
+
 // ── Patterns, fields and simulations ───────────────────────────────────────
 normal['code-ab'] = graph(CLASSIC, [classicBoard(), node('hue', 'Constant', { value: 0.6 }), node('level', 'Constant', { value: 0.8 }),
   node('code', 'Code', { code: 'fill_solid(leds, NUM_LEDS, CHSV((uint8_t)(a * 255), 255, (uint8_t)(b * 255)));' }), matrix()],
@@ -422,6 +434,8 @@ const required: Record<string, string[]> = {
   'demo-drums-kick-shock': ['_ksDemoKick'],
   'demo-drums-percussion-blobs': ['_pbDemoKick'],
   'clock-zone-esp8266': ['configTime('],
+  'clock-zone-xiao-c3': ['configTzTime(', '#include <WiFi.h>'],
+  'clock-zone-feather-esp32-v2': ['configTzTime(', '#include <WiFi.h>'],
   'player-seed': ['randomSeed(7u);'],
   'audio-features-level': ['float _audioLoudness = 0.0f;'],
 }
