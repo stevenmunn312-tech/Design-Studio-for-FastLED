@@ -88,6 +88,7 @@ an internal record.
 | 14 | Daemon refuses to start after the last one exited | **2.5.51** | Run the build once more after 15 s, then say plainly that nothing was compiled | Yes — seen once, 2026-11-11, not reproduced and not reported; see §14 |
 | 15 | ESP8266: the core's network libraries are not linked | **2.5.51** | Build ESP8266 sketches that include one with arduino-cli | Yes — [#1994](https://github.com/FastLED/fbuild/issues/1994), filed 2026-11-11; see §15 |
 | 16 | UNO R4 WiFi: the core's bundled `WiFiS3.h` is not found | **2.5.51** | Build UNO R4 WiFi sketches that include it with arduino-cli | Yes — found 2026-11-12, report drafted and not posted; see §16 |
+| 17 | nRF52840: `-flto` breaks the Adafruit core's FreeRTOS port at link | **2.5.51** | `build_unflags = -flto` on the nRF52840 environments | Yes — found 2026-11-12, report drafted, see §17 |
 
 ---
 
@@ -910,7 +911,8 @@ and keep their mapping:
 | Arduino Micro | `arduino:avr:micro` | `micro` | 10,926 | 531 |
 | SparkFun Pro Micro | `SparkFun:avr:promicro` | `sparkfun_promicro16` | 10,916 | 531 |
 
-Four do not build, and stay on arduino-cli with no mapping:
+Four did not build. Three stay on arduino-cli with no mapping; the Feather
+nRF52840 builds since the §17 workaround:
 
 | Board | fbuild board id tried | Failure on 2.5.51 |
 | --- | --- | --- |
@@ -934,8 +936,9 @@ None of the four is reported upstream yet; the logs are in the run's
 - The nRF52840 failure needs FastLED: a blink links on the Feather and on
   `nrf52840_dk`, and a five-line FastLED 3.10.9 sketch fails in LTO on both.
   The nRF52840 DK had been mapped since before this pass with no compile leg,
-  so its mapping is removed too and it builds with arduino-cli. Whether the
-  fault is FastLED's or fbuild's is open.
+  so it failed the same way. The cause is fbuild's LTO against the core's
+  FreeRTOS port; with `-flto` unflagged both boards build and both are
+  mapped ([§17](#17-nrf52840-sketches-fail-at-link-under-lto)).
 
 Three things this did not establish. Only the plain pattern sketch was built,
 so a network sketch on the newly mapped boards is untried: the two ESP8266
@@ -1345,3 +1348,39 @@ sends an UNO R4 WiFi sketch that includes a `WiFi*.h` header to arduino-cli
 where it is installed, and the compile matrix keeps the `uno-r4-wifi` family
 off fbuild (`ARDUINO_CLI_ONLY_FAMILIES`). With no arduino-cli the fbuild error
 stands.
+
+---
+
+## 17. nRF52840 sketches fail at link under LTO
+
+**Symptom.** On fbuild 2.5.51 any FastLED sketch for an nRF52840 board
+compiles and then stops at link:
+
+```text
+...\release\.lto-tmp\cccVAI6f.s:8866: Error: offset out of range
+lto-wrapper.exe: fatal error: ...\arm-none-eabi-gcc.exe returned 1 exit status
+```
+
+A blink links.
+
+**Cause.** fbuild compiles the Adafruit nRF52 core with `-flto`; the core's
+own `platform.txt` does not. Its FreeRTOS port
+(`cores/nRF5/freertos/portable/GCC/nrf52/port.c`) has naked functions that
+load an address with `ldr rN, =symbol`: `vPortStartFirstTask`
+(`__isr_vector`), `SVC_Handler` and `PendSV_Handler` (`pxCurrentTCB`). LTO
+emits the program as one unit, and once it is larger than a blink the literal
+pool lands out of range of those loads. The three rejected lines were read by
+running the same LTO code generation by hand with `-save-temps`, since fbuild
+removes `.lto-tmp` after the failure. Nothing in FastLED or the sketch is
+involved.
+
+**Workaround.** The two nRF52840 entries in `_PIO_BOARDS` carry
+`build_unflags = -flto` (`_NRF52_NO_LTO` in
+[`backend/toolchain.py`](../../backend/toolchain.py)). With it the pattern
+sketch builds on the Feather nRF52840 (72,950 bytes) and the nRF52840 DK
+(73,062) ([run 43134207021](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43134207021)).
+
+**Assessment.** A wrong default rather than a missing feature. The report is
+drafted in `tmp/fbuild-main/drafts/feather-nrf52840-lto-offset-out-of-range.md`.
+fbuild reports 235,520 bytes of RAM for every nRF52840 image, blink or not,
+so that figure is not the sketch's.

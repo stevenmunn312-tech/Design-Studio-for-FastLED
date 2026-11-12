@@ -157,17 +157,17 @@ replaced by the sketch's own receiver.
 - [x] Map each offered board that has no fbuild environment (`_PIO_BOARDS`)
   and that fbuild knows, then compile each one. Eighteen were tried on
   2026-11-12 and fourteen build: the XIAO, LOLIN and Adafruit ESP32 variants,
-  two more ESP8266 boards, Pico 2 W, Micro and Pro Micro. Pico W, Uno R4
-  Minima, Feather nRF52840 and XIAO nRF52840 do not, and stay on arduino-cli
-  through `_engine_for_board`
+  two more ESP8266 boards, Pico 2 W, Micro and Pro Micro. The Feather
+  nRF52840 builds with LTO unflagged. Pico W, Uno R4 Minima and XIAO nRF52840
+  do not, and stay on arduino-cli through `_engine_for_board`
   ([runbook](docs/runbooks/fbuild-workarounds.md#boards-mapped-on-12-november-2026)).
 - [x] Draft upstream reports for the four boards that do not build: Pico W,
   UNO R4 Minima, Feather nRF52840 and XIAO nRF52840, in
-  `tmp/fbuild-main/drafts/`, each reduced to a two-file project. The nRF52840
-  failure needs FastLED and also hits the nRF52840 DK, whose mapping is
-  removed.
-- [ ] Find whether the nRF52840 LTO failure (`offset out of range`) is
-  FastLED's or fbuild's: build with LTO off and read the rejected assembly.
+  `tmp/fbuild-main/drafts/`, each reduced to a two-file project.
+- [x] Find whether the nRF52840 LTO failure (`offset out of range`) is
+  FastLED's or fbuild's. It is fbuild's: its `-flto` breaks the Adafruit
+  core's FreeRTOS port. The nRF52840 environments unflag it, and the DK and
+  the Feather build (§17).
 - [ ] Compile a network sketch on the Pico 2 W and one newly mapped ESP32
   board.
 - [ ] The Feather nRF52840 does not link on arduino-cli either: FastLED

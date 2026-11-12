@@ -1001,8 +1001,11 @@ versioning (`0.y.z`) until the first stable release.
   loudness they are derived from was published only for the Loudness output.
 - A sketch with two LED outputs of different shapes now compiles when no node
   reads the LED count. The cleanup left half a declaration behind.
-- Fourteen more boards build with fbuild: the XIAO, LOLIN and Adafruit
-  ESP32 variants, WeMos D1, HUZZAH ESP8266, Pico 2 W, Micro and Pro Micro.
+- Fifteen more boards build with fbuild: the XIAO, LOLIN and Adafruit
+  ESP32 variants, WeMos D1, HUZZAH ESP8266, Pico 2 W, Micro, Pro Micro and
+  the Feather nRF52840.
+- An nRF52840 DK sketch no longer fails at link with fbuild (`offset out of
+  range`): its environment is built without link-time optimisation.
 - The capacity meter no longer overstates RAM on an ESP32-S3 built with
   fbuild, which counted a 50 KB placeholder section as used memory.
 - A HUB75 sketch now builds on the Arduino CLI engine. The helper installs
