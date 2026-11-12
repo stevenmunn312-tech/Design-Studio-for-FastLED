@@ -15,8 +15,6 @@ import styles from './BuildDiagramWorkspace.module.css'
  * The hit path is marked as pan background: grabbing a wire should still pan the
  * sheet, exactly as grabbing the empty space beside it does.
  */
-const WIRE_BLOOM_FILTER_ID = 'wire-bloom'
-
 export function HoverWire({ tip, ...path }: SVGProps<SVGPathElement> & { tip: string }) {
   return (
     <g className={styles.wireHover} data-wire-tip={tip}>
@@ -31,10 +29,13 @@ export function HoverWire({ tip, ...path }: SVGProps<SVGPathElement> & { tip: st
  * purpose: most wires are straight horizontal or vertical runs whose bounding
  * box has zero height or width, and a bounding-box filter region would then be
  * empty and make the hovered wire vanish instead of glow.
+ *
+ * The id is the owning sheet's own (several sheets share a page when printing);
+ * the sheet hands it to CSS as `--wire-bloom-filter`.
  */
-export function WireBloomFilter({ height }: { height: number }) {
+export function WireBloomFilter({ id, height }: { id: string; height: number }) {
   return (
-    <filter id={WIRE_BLOOM_FILTER_ID} filterUnits="userSpaceOnUse" x={-2000} y={-2000} width={6000} height={height + 4000}>
+    <filter id={id} filterUnits="userSpaceOnUse" x={-2000} y={-2000} width={6000} height={height + 4000}>
       <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="bloom" />
       <feMerge>
         <feMergeNode in="bloom" />

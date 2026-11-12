@@ -244,6 +244,13 @@ function buildGraph(nodeSpecs: NodeSpec[], edgeSpecs: EdgeSpec[]): { nodes: Stud
   return { nodes, edges }
 }
 
+function withFirstLedDataPin(nodes: StudioNode[], dataPin: number): StudioNode[] {
+  const first = nodes.find((node) => node.data.nodeType === 'MatrixOutput')
+  return nodes.map((node) => node === first
+    ? { ...node, data: { ...node.data, properties: { ...node.data.properties, dataPin } } }
+    : node)
+}
+
 /**
  * Build a starter against the board already selected for this project.
  *
@@ -261,7 +268,15 @@ export function buildBoardAwareStarter(
   const board = currentNodes.find((node) => node.data.nodeType === 'Board')
   const profile = selectedPhysicalBoardProfile(currentNodes)
   const fqbn = profile?.compatibleFqbns[0] ?? selectedFqbn
-  const nodes = board ? [...built.nodes, board] : built.nodes
+  // The LED data lead is already soldered to a pin on this bench. The
+  // starter's output takes that pin, and the allocator keeps it while the
+  // board still offers it, rather than moving the lead with every starter.
+  const benchDataPin = currentNodes.find((node) => node.data.nodeType === 'MatrixOutput')
+    ?.data.properties?.dataPin
+  const starterNodes = typeof benchDataPin === 'number'
+    ? withFirstLedDataPin(built.nodes, benchDataPin)
+    : built.nodes
+  const nodes = board ? [...starterNodes, board] : starterNodes
   const retargeted = retargetHardwarePins(nodes, profile, fqbn).nodes
   const power = estimatePowerLoad(retargeted)
   if (!board || !power) return { ...built, nodes: retargeted }
@@ -521,7 +536,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     description: 'A knob and a button on the bench dimming and blacking out the LEDs — no player, no card, just wires.',
     completionSteps: [
       'Set the potentiometer and button GPIOs on the Hardware tab, and the LED output pin and size.',
-      'Turn the knob on the Hardware tab to watch the preview dim, and press the button to black it out.',
+      'Drag the slider on the Potentiometer node to watch the preview dim, and press the Button node to black it out.',
       'Swap Plasma for any pattern you like — the dimming wires do not care what is being rendered.',
       'Check capacity, then upload; the same two controls work on the board.',
     ],
@@ -551,7 +566,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     completionSteps: [
       'Build a pattern, select its nodes, create a Group, then connect that Group frame to Pattern Collection.',
       'Add a few pattern groups so there is something to browse between.',
-      'Set the encoder and OLED GPIOs on the Hardware tab, then turn to step through the patterns.',
+      'Set the encoder and OLED GPIOs on the Hardware tab, then spin the dial on the Encoder node to step through the patterns.',
       'Check capacity — a browser bakes a thumbnail per pattern into flash — then upload.',
     ],
     nodeSpecs: [

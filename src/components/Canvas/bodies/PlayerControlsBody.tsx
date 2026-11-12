@@ -1,7 +1,23 @@
 import { rootGraphEdges, rootGraphNodes, useGraphStore } from '../../../state/graphStore'
 import { controlChainDestinations } from '../../../codegen/player/playerDisplays'
-import { nodeDisplayLabel } from '../../../state/nodeLibrary'
+import { NODE_LIBRARY, nodeDisplayLabel } from '../../../state/nodeLibrary'
 import styles from './PlayerControlsBody.module.css'
+
+/**
+ * Every node a Controls wire can end at, read from the definitions: a node
+ * takes the bundle when it declares a `controls` input of that type. Player
+ * Controls itself chains through Controls In, so it is not among them. The
+ * LED output keeps its code name only in code.
+ */
+const CONTROLS_CONSUMERS = NODE_LIBRARY
+  .filter((def) => def.inputs.some((port) => port.id === 'controls' && port.dataType === 'playercontrols'))
+  .map((def) => (def.type === 'MatrixOutput' ? 'LED output' : def.label))
+
+const PLAYER_CONTROLS_IDLE_HINT = `Wire Controls into a ${
+  CONTROLS_CONSUMERS.length > 1
+    ? `${CONTROLS_CONSUMERS.slice(0, -1).join(', ')} or ${CONTROLS_CONSUMERS[CONTROLS_CONSUMERS.length - 1]}`
+    : CONTROLS_CONSUMERS.join('')
+}`
 
 /**
  * Where this node's Controls go.
@@ -29,7 +45,7 @@ export default function PlayerControlsBody({ nodeId }: { nodeId: string }) {
     <div className={`nodrag ${styles.target}`} aria-label="Controls destination">
       {targets
         ? <><span className={styles.arrow} aria-hidden>→</span> {targets}</>
-        : <span className={styles.idle}>Wire Controls into a Music Player or Performance Generator</span>}
+        : <span className={styles.idle}>{PLAYER_CONTROLS_IDLE_HINT}</span>}
     </div>
   )
 }

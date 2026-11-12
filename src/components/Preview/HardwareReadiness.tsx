@@ -79,6 +79,8 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
 
   const amps = power.worstCaseMa / 1000
   const capped = power.configuredMa !== null
+  // "cap 2 A" / "cap 2.5 A": the figure the firmware holds to, without padding.
+  const capText = capped ? `cap ${Number((power.configuredMa! / 1000).toFixed(2))} A` : null
   // A cap is the answer to a large fixture, not a problem with it.
   const powerLevel = 'ok'
   const internalKb = ram ? Math.round(ram.internalBytes / 1024) : null
@@ -102,7 +104,9 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
       }>
         <em className={styles.label}>Power</em>
         <strong>{amps < 10 ? amps.toFixed(2) : amps.toFixed(1)} A</strong>
-        {capped && <span className={styles.note}>capped</span>}
+        {/* Kept in the status bar too: the worst case reads as a problem on
+          * its own, and the cap is what says it is already handled. */}
+        {capText && <span className={`${styles.note} ${styles.capNote}`}>{capText}</span>}
       </span>
 
       {/* The chip's click always leads to the next useful thing, which differs

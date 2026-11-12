@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import GroupControls from '../GroupControls'
 import { useGraphStore, ROOT_GRAPH_ID } from '../../../state/graphStore'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
+import { useUiStore } from '../../../state/uiStore'
 import type { StudioNode } from '../../../state/graphStore'
 
 function node(id: string, nodeType: string, selected = false): StudioNode {
@@ -63,5 +64,29 @@ describe('GroupControls — Ctrl/Cmd+G', () => {
     render(<GroupControls />)
     fireEvent.keyDown(window, { key: 'g', metaKey: true })
     expect(screen.getByRole('dialog', { name: 'Create group' })).toBeTruthy()
+  })
+})
+
+describe('GroupControls — status after grouping', () => {
+  const createGroup = async () => {
+    render(<GroupControls />)
+    fireEvent.click(screen.getByText(/Group \d/))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create Group' })) })
+    return useUiStore.getState().statusText
+  }
+
+  it('counts the nodes it grouped and names the Audio it left outside', async () => {
+    reset([node('a', 'Rainbow', true), node('b', 'Fire', true), node('au', 'Audio', true)])
+    const text = await createGroup()
+    expect(text).toMatch(/^Grouped 2 nodes into “New Group”/)
+    expect(text).toContain('Left out Audio')
+    expect(useGraphStore.getState().nodes.some((n) => n.id === 'au')).toBe(true)
+  })
+
+  it('says nothing was grouped when only scene sources are selected', async () => {
+    reset([node('au', 'Audio', true)])
+    const text = await createGroup()
+    expect(text).toMatch(/^Nothing to group: Audio/)
+    expect(useGraphStore.getState().nodes.some((n) => n.data.nodeType === 'Group')).toBe(false)
   })
 })

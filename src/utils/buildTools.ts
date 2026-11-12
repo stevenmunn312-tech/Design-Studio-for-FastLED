@@ -15,13 +15,22 @@ import { BACKEND_URL } from './backendClient'
  * the same process as the helper. A Vite dev or preview server has its own
  * origin.
  */
-export function servedByBuildTools(): boolean {
-  if (typeof window === 'undefined') return false
+export function servedByBuildTools(pageUrl = typeof window === 'undefined' ? undefined : window.location.href): boolean {
+  if (!pageUrl) return false
   try {
-    return window.location.origin === new URL(BACKEND_URL).origin
+    return loopbackOrigin(new URL(pageUrl)) === loopbackOrigin(new URL(BACKEND_URL))
   } catch {
     return false
   }
+}
+
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+/** An origin with every loopback name read as one, since the launcher's
+ *  `localhost:8008` is the same process when opened as `127.0.0.1:8008`. */
+function loopbackOrigin(url: URL): string {
+  const host = LOOPBACK_HOSTS.has(url.hostname) ? 'loopback' : url.hostname
+  return `${url.protocol}//${host}:${url.port}`
 }
 
 /** The "not running" sentence, with the way to start them for this setup. */

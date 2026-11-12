@@ -213,3 +213,42 @@ describe('HardwareReadiness — the frame chip', () => {
     expect(chip.getAttribute('title')).toContain('ESP32-S3')
   })
 })
+
+describe('HardwareReadiness — the power chip', () => {
+  const nodeOf = (id: string, nodeType: string, properties: Record<string, unknown>) => ({
+    id, type: 'studioNode', position: { x: 0, y: 0 },
+    data: { label: id, nodeType, category: 'output', properties, inputs: [], outputs: [] },
+  })
+  const withBoard = (boardProps: Record<string, unknown>) => {
+    setGraph()
+    useGraphStore.setState({
+      nodes: [
+        nodeOf('board', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1', ...boardProps }),
+        nodeOf('matrix', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, chipset: 'WS2812B', dataPin: 5 }),
+      ] as never[],
+    })
+  }
+
+  beforeEach(() => {
+    localStorage.clear()
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3', openConsole: vi.fn() })
+    useCapacityStore.getState().clear()
+  })
+
+  it('names the cap in the status bar, where every other note is hidden', () => {
+    // The worst case alone reads as a supply problem; the cap is what says the
+    // firmware already holds the draw down, and it used to live only in the tooltip.
+    withBoard({ powerLimit: true, milliamps: 2500 })
+    const { getByTitle } = render(<HardwareReadiness compact />)
+    const chip = getByTitle(/cap keeps it within your supply/)
+    const note = chip.querySelector('span')
+    expect(note?.textContent).toBe('cap 2.5 A')
+    expect(note?.className).toMatch(/capNote/)
+  })
+
+  it('says nothing about a cap that is off', () => {
+    withBoard({ powerLimit: false, milliamps: 2500 })
+    const { getByTitle } = render(<HardwareReadiness compact />)
+    expect(getByTitle(/Worst case/).textContent).not.toMatch(/cap/)
+  })
+})

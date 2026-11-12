@@ -42,6 +42,12 @@
   display: none;
 }
 
+/* The one note the status bar keeps: without it a capped fixture shows only
+ * its uncapped worst case there, and "capped" lived in a tooltip. */
+.compact .capNote {
+  display: inline;
+}
+
 .item {
   display: inline-flex;
   align-items: baseline;

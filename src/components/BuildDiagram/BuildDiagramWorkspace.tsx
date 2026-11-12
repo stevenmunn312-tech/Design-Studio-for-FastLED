@@ -13,7 +13,7 @@ import {
   fingerprintValue,
   type BuildExportMode,
 } from '../../build/buildProfile'
-import { calculateElectricalPlan, planProblems } from '../../build/power/electricalPlan'
+import { calculateElectricalPlan, injectionLocation, planProblems } from '../../build/power/electricalPlan'
 import { customBoardEndpointFingerprint, customBoardGeometry, customBoardPowerPad } from '../../build/boards/customBoardGeometry'
 import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv } from '../../build/buildExports'
 import { boardPinForUse, boardPinLabelForUse, buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
@@ -1113,7 +1113,7 @@ export default function BuildDiagramWorkspace() {
                         <li>Power feeds: {output.recommendedFeedCount} individually fused feeds from the assigned {electricalPlan.totals?.supplies.some((supply) => supply.converter) ? 'converter distribution zone' : 'PSU distribution zone'}</li>
                         {output.injections.map((injection) => (
                           <li key={injection.id}>
-                            {injection.role} @ {injection.positionMm} mm: {formatCurrentMa(injection.designCurrentMa)} / {injection.pixelCount} px,
+                            {injection.role} @ {injectionLocation(injection)}: {formatCurrentMa(injection.designCurrentMa)} / {injection.pixelCount} px,
                             {' '}{injection.conductor ? `AWG ${injection.conductor.awg}` : 'wire unresolved'},
                             {' '}{injection.fuse.ratingMa ? `${formatCurrentMa(injection.fuse.ratingMa)} fuse` : 'fuse unresolved'},
                             {' '}{injection.supplyId?.replace('supply-', electricalPlan.totals?.supplies.some((supply) => supply.converter) ? 'Converter ' : 'PSU ') ?? `${electricalPlan.totals?.supplies.some((supply) => supply.converter) ? 'Converter' : 'PSU'} unresolved`}
@@ -1361,7 +1361,7 @@ export default function BuildDiagramWorkspace() {
           connectionRows={exportConnectionRows}
           bomRows={exportBomRows}
           projectName={sheetProjectName}
-          targetLabel={selectedTarget?.label ?? selectedFqbn}
+          targetLabel={exactBoard?.label ?? selectedTarget?.label ?? selectedFqbn}
           exportScope={exportMode}
           exportScopeLabel={exportMode === 'complete-build'
             ? 'Complete build — every configured hardware item'

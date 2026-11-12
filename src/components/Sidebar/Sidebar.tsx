@@ -899,16 +899,29 @@ function Sidebar() {
   }
 
   const handleRecipeDrop = (recipe: RecipeCard) => {
-    const usesMicrophone = recipe.nodes.some((node) => node.type === 'MicInput')
-    if (usesMicrophone && useUiStore.getState().testSignal) useUiStore.getState().toggleTestSignal()
     const existing = useGraphStore.getState().nodes
-    const singletonByType = new Map(existing.map((node) => [String(node.data.nodeType), node]))
+    // The first node of each type, so a reused LED output is the project's
+    // primary one.
+    const firstByType = new Map([...existing].reverse().map((node) => [String(node.data.nodeType), node]))
+    // A recipe joins the project rather than rebuilding its bench. The
+    // project's Audio node keeps the source it already has (a recipe used to
+    // re-point it at a new microphone, silencing a decoder or line input),
+    // and its LED output is reused rather than joined by a second one, which
+    // the recipe's frame is left to be wired into.
+    const reuseAudio = firstByType.has('Audio')
+    const reused = (type: string) => (SINGLETON_NODE_TYPES.has(type) || type === 'MatrixOutput') && firstByType.has(type)
+    const usesMicrophone = !reuseAudio && recipe.nodes.some((node) => node.type === 'MicInput')
+    if (usesMicrophone && useUiStore.getState().testSignal) useUiStore.getState().toggleTestSignal()
     const omittedSingletons = new Set<string>()
+    const reusedKeys = new Set<string>()
     const nodeIdByKey = new Map<string, string>()
     for (const spec of recipe.nodes) {
-      if (SINGLETON_NODE_TYPES.has(spec.type) && singletonByType.has(spec.type)) {
-        const existingNode = singletonByType.get(spec.type)
+      // The recipe's microphone only feeds its own Audio node.
+      if (reuseAudio && spec.type === 'MicInput') continue
+      if (reused(spec.type)) {
+        const existingNode = firstByType.get(spec.type)
         if (existingNode) nodeIdByKey.set(spec.key, existingNode.id)
+        reusedKeys.add(spec.key)
         if (spec.type === 'MatrixOutput') omittedSingletons.add(spec.type)
         continue
       }
@@ -942,7 +955,7 @@ function Sidebar() {
       })
       rememberRecent(spec.type)
     }
-    for (const spec of recipe.nodes.filter((node) => node.type === 'Audio')) {
+    for (const spec of recipe.nodes.filter((node) => node.type === 'Audio' && !reusedKeys.has(node.key))) {
       const audioId = nodeIdByKey.get(spec.key)
       const sourceRef = typeof spec.props?.sourceId === 'string' && spec.props.sourceId.startsWith('$')
         ? nodeIdByKey.get(spec.props.sourceId.slice(1))

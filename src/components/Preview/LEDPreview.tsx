@@ -433,6 +433,7 @@ export default function LEDPreview() {
   }, [stageMatrixFullscreen, tileLayoutTilesX, tileLayoutTilesY, canvasBufW, canvasBufH])
 
   const preview3d = useUiStore((s) => s.preview3d)
+  const togglePreview3d = useUiStore((s) => s.togglePreview3d)
   const previewStyle = useUiStore((s) => s.previewStyle)
   const spectrumVisualizerMode = useUiStore((s) => s.spectrumVisualizerMode)
   const setSpectrumVisualizerMode = useUiStore((s) => s.setSpectrumVisualizerMode)
@@ -1380,6 +1381,23 @@ export default function LEDPreview() {
                       ? 'Wake lock unavailable'
                       : 'Screen may sleep'}
               </span>
+              {/* Stage hides the menu bar, so the 3D toggle it carries is
+                  repeated here: the README promises it inside Stage. */}
+              <button
+                type="button"
+                className={`${styles.stage3dBtn} ${effectivePreview3d ? styles.stage3dBtnActive : ''}`}
+                onClick={togglePreview3d}
+                aria-label="Toggle 3D preview"
+                aria-pressed={effectivePreview3d}
+                disabled={!uiEffectsEnabled}
+                title={
+                  !uiEffectsEnabled
+                    ? 'Disabled while UI FX are off'
+                    : effectivePreview3d ? 'Switch to 2D view' : 'Switch to 3D view (drag to orbit)'
+                }
+              >
+                {effectivePreview3d ? '3D On' : '3D Off'}
+              </button>
               <button
                 type="button"
                 className={styles.fullscreenStageBtn}

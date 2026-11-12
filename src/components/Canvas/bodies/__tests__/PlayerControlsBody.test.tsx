@@ -56,4 +56,18 @@ describe('PlayerControlsBody', () => {
 
     expect(screen.getByText(/Wire Controls into/)).toBeTruthy()
   })
+
+  // The hint names every node a Controls wire can end at, and only those.
+  it('names every Controls destination while idle', () => {
+    useGraphStore.getState().loadGraph([node('controls', 'ControlMap')], [])
+
+    render(<PlayerControlsBody nodeId="controls" />)
+
+    const hint = screen.getByLabelText('Controls destination').textContent ?? ''
+    for (const name of ['Music Player', 'Performance Generator', 'Pattern Slideshow', 'LED output']) {
+      expect(hint).toContain(name)
+    }
+    expect(hint).not.toContain('Player Controls')
+    expect(hint).not.toContain('LED Matrix')
+  })
 })

@@ -1897,6 +1897,35 @@ describe('BuildDiagramWorkspace', () => {
     expect(crops).toHaveLength(supplyCount)
     expect(crops[1].y).toBe(crops[0].y + crops[0].height)
 
+    // The page letterboxes a cropped sheet and an SVG clips only at its
+    // viewport, so each crop clips its own drawing to the band: otherwise the
+    // shared-net callout above the first zone printed at the top of its page.
+    for (const sheet of printSheets.slice(1)) {
+      const [x, y, width, height] = (sheet.getAttribute('viewBox') ?? '').split(' ')
+      const clipRef = sheet.querySelector(':scope > g[clip-path]')?.getAttribute('clip-path')
+      const clip = sheet.querySelector(`clipPath#${clipRef?.match(/^url\(#(.+)\)$/)?.[1]} rect`)
+      expect([clip?.getAttribute('x'), clip?.getAttribute('y'), clip?.getAttribute('width'), clip?.getAttribute('height')])
+        .toEqual([x, y, width, height])
+      expect(sheet.querySelector('[data-common-net-callout]')?.closest('g[clip-path]')).toBeTruthy()
+    }
+    expect(wiring.querySelector('clipPath')).toBeNull()
+
+    // Every filter a sheet uses is that sheet's own. With one shared id the
+    // print copies resolved it to the on-screen sheet, which print hides, and
+    // the level shifter, resistor, USB badge and PSU vanished from paper.
+    const screenSheet = container.querySelector('svg[data-build-export="current-view"]')
+    const allSheets = [screenSheet, ...printSheets].filter((sheet): sheet is Element => !!sheet)
+    const ids = allSheets.flatMap((sheet) => Array.from(sheet.querySelectorAll('[id]')).map((node) => node.id))
+    expect(new Set(ids).size).toBe(ids.length)
+    for (const sheet of allSheets) {
+      const filtered = Array.from(sheet.querySelectorAll('[filter]'))
+      expect(filtered.length).toBeGreaterThan(0)
+      for (const node of filtered) {
+        const id = node.getAttribute('filter')?.match(/^url\(#(.+)\)$/)?.[1]
+        expect(id && sheet.querySelector(`filter[id="${id}"]`)).toBeTruthy()
+      }
+    }
+
     // The schedules a builder ticks off print too; before this they were CSV-only.
     const tables = printDocument?.querySelectorAll('table') ?? []
     expect(tables).toHaveLength(2)

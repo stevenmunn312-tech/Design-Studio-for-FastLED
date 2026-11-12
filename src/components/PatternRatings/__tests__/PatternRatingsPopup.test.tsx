@@ -68,6 +68,32 @@ describe('Pattern Insights popup', () => {
     expect(view.getByText(/No current verdicts/)).toBeTruthy()
   })
 
+  it('lets the user star and tag a pattern before any scan has judged it', () => {
+    const view = render(<PatternRatingsPopup />)
+    expect(view.getByText('Not scanned')).toBeTruthy()
+    fireEvent.click(view.getByRole('button', { name: '4 stars' }))
+    expect(usePatternRatingStore.getState().userRatingsByPatternId[pattern.id]).toBe(4)
+    expect(view.getByText('4/5 yours')).toBeTruthy()
+    expect(view.getByText('Best displayed on')).toBeTruthy()
+  })
+
+  it('keeps the stars on a pattern the critic skipped', () => {
+    const context = { gridW: 16, gridH: 16, groups: getGroupRegistry() }
+    usePatternRatingStore.setState({
+      ratingsByPatternId: { [pattern.id]: {
+        patternId: pattern.id, name: pattern.name, bundled: false, overall: 0,
+        intent: 'ambient', inferredIntent: 'ambient', verdict: 'fundamentally-weak', verdictLabel: 'Not assessed',
+        summary: '', strengths: [], improvements: [], criteria: [], audioReactive: false, skipped: true,
+        cacheKey: patternRatingKey(pattern, context, 'ambient'),
+      } },
+      intentOverridesByPatternId: { [pattern.id]: 'ambient' },
+    })
+    const view = render(<PatternRatingsPopup />)
+    expect(view.getByText(/Not assessed\. Choose Scan patterns/)).toBeTruthy()
+    fireEvent.click(view.getByRole('button', { name: '2 stars' }))
+    expect(usePatternRatingStore.getState().userRatingsByPatternId[pattern.id]).toBe(2)
+  })
+
   it('draws a large result set through the lightweight thumbnail path only once', () => {
     const putImageData = vi.fn()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({

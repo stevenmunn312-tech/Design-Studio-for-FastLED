@@ -146,7 +146,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   which kinds a bundle reaches, and `unusablePlayerControlIssues` in
   `validateGraph.ts` warns on a wired row none of them can act on, and on a
   button wired to a continuous row or a knob to a press — `portsCompatible`
-  lets bool and float interconvert, which is wrong for a physical control. A
+  lets bool and float interconvert, which is wrong for a physical control.
+  The same kind rule (`controlKindMismatch`) also judges a control wired
+  straight into a job-named input on a node that takes Controls, such as the
+  LED output's Brightness; Enabled is not judged. A
   chain plugged into nothing yet is not judged. `ControlChainSink` in
   `codegen/player/playerDisplays.ts` is an *alias* of the destination union
   rather than a second copy. `sharedControlSourceIssues` warns when one source

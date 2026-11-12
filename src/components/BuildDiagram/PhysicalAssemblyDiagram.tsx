@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties } from 'react'
+import { useId, useRef, type CSSProperties } from 'react'
 import type { ElectricalPlanSummary } from '../../build/power/electricalPlan'
 import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { POWER_PATH_KINDS, type HardwareManifestItem } from '../../build/hardwareManifest'
@@ -168,13 +168,23 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const viewTop = crop?.y ?? 0
   const viewHeight = crop?.height ?? canvasHeight
   const wireTooltip = useRef<WireTooltipHandle>(null)
+  // Per-instance ids. The print document draws this sheet several times on one
+  // page, after the on-screen copy; with shared ids every `url(#…)` resolved to
+  // the first copy, which print hides, and Chrome then dropped each filtered
+  // element (the level shifter, resistor, USB badge and PSU) from the paper.
+  const idBase = useId().replace(/[^a-zA-Z0-9_-]/g, '')
+  const shadowId = `component-shadow-${idBase}`
+  const shadowFilter = `url(#${shadowId})`
+  const bloomId = `wire-bloom-${idBase}`
+  const cropClipId = `crop-${idBase}`
+  const descId = `physical-diagram-desc-${idBase}`
 
   return (
     <svg
       className={styles.physicalDiagram}
       viewBox={`${frame.x} ${viewTop} ${frame.width} ${viewHeight}`}
       width={frame.width}
-      style={{ '--physical-diagram-width': `${frame.width}px` } as CSSProperties}
+      style={{ '--physical-diagram-width': `${frame.width}px`, '--wire-bloom-filter': `url(#${bloomId})` } as CSSProperties}
       height={viewHeight}
       role="img"
       data-build-export={exportScope}
@@ -182,15 +192,19 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       // title as a native tooltip over the whole sheet, which covered the
       // wire tooltip a moment after it appeared.
       aria-label="Generated physical LED controller wiring diagram"
-      aria-describedby="physical-diagram-desc"
+      aria-describedby={descId}
       {...wireTooltipHandlers(wireTooltip)}
     >
-      <desc id="physical-diagram-desc">Every visible wire terminates at a labelled controller, audio input, level-shifter, LED, protection, distribution, capacitor, or supply terminal.</desc>
+      <desc id={descId}>Every visible wire terminates at a labelled controller, audio input, level-shifter, LED, protection, distribution, capacitor, or supply terminal.</desc>
       <defs>
-        <filter id="component-shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="5" stdDeviation="6" floodColor="#111" floodOpacity=".22" /></filter>
-        <WireBloomFilter height={canvasHeight} />
-        <linearGradient id="supply-body" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#405248" /><stop offset="1" stopColor="#171d1a" /></linearGradient>
+        <filter id={shadowId} x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="5" stdDeviation="6" floodColor="#111" floodOpacity=".22" /></filter>
+        <WireBloomFilter id={bloomId} height={canvasHeight} />
+        {/* The page letterboxes a cropped sheet, and an SVG only clips at its
+            viewport, so without this the strip beside the band (the shared-net
+            callout above a zone, the next zone below it) prints too. */}
+        {crop && <clipPath id={cropClipId}><rect x={frame.x} y={viewTop} width={frame.width} height={viewHeight} /></clipPath>}
       </defs>
+      <g clipPath={crop ? `url(#${cropClipId})` : undefined}>
 
       <rect data-pan-background="true" x={frame.x} width={frame.width} height={canvasHeight} fill="#f4f4f1" />
       <g opacity=".23">
@@ -417,7 +431,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         {usesThreeVolt && controller3v3 && <NetStub x={controller3v3.x} y={controller3v3.y} kind="v3v3" direction={controller3v3.side} lead={26} wireId="controller-3v3-rail" />}
       </g>
 
-      {layers.levelShifter && outputLayouts.length > 0 && <g filter="url(#component-shadow)">
+      {layers.levelShifter && outputLayouts.length > 0 && <g filter={shadowFilter}>
         {outputLayouts.map((layout) => (
           <g key={`${layout.item.id}-resistor`} data-data-resistor-for={layout.item.id} transform={`translate(${dataResistorX(layout.x)} ${outputDataTerminalY(layout) - (DATA_RESISTOR_HEIGHT / 2)})`}>
             <text x={DATA_RESISTOR_WIDTH / 2} y="12" textAnchor="middle" className={styles.physicalComponentLabel}>330Ω</text>
@@ -522,15 +536,15 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         />
       )}
       {batteryLayout && <BatteryAssembly items={items} plan={plan} band={batteryLayout} />}
-      {showPowerDistribution && <PowerDistributionSections plan={plan} bands={powerZoneBands(items, plan, layers)} />}
+      {showPowerDistribution && <PowerDistributionSections plan={plan} bands={powerZoneBands(items, plan, layers)} shadowFilter={shadowFilter} />}
 
       {controllerSupply ? (
-        <ControllerConverterGraphic supply={controllerSupply} boardProfile={boardProfile} x={(controllerUsb?.x ?? CONTROLLER_SLOT_CENTER_X) - 92} y={592} />
+        <ControllerConverterGraphic supply={controllerSupply} boardProfile={boardProfile} shadowFilter={shadowFilter} x={(controllerUsb?.x ?? CONTROLLER_SLOT_CENTER_X) - 92} y={592} />
       ) : !controllerUsb && boardProfile.hasUsb === false ? (
         <PowerPinControllerNote boardProfile={boardProfile} x={CONTROLLER_SLOT_CENTER_X - 92} y={592} />
       ) : !controllerUsb ? (
         <CustomControllerPowerNote boardProfile={boardProfile} x={CONTROLLER_SLOT_CENTER_X - 92} y={592} />
-      ) : <g filter="url(#component-shadow)" transform={`translate(${controllerUsb.x - 92} 592)`}>
+      ) : <g filter={shadowFilter} transform={`translate(${controllerUsb.x - 92} 592)`}>
         <rect width="184" height="62" rx="12" fill="#e9ecea" stroke="#879092" strokeWidth="2" />
         <path d="M138 19h30v24h-30l-12-12z" fill="#aeb7ba" stroke="#5f696c" />
         {/* Deliberately does not name the connector type. Board renders are
@@ -592,6 +606,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           </g>
         </g>
         <WireLabel x={306} y={4}>SHARED NET — SEE CALLOUT</WireLabel>
+      </g>
       </g>
       <WireTooltip ref={wireTooltip} />
     </svg>

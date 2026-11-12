@@ -16,6 +16,13 @@ const DIGITAL_IO: readonly GpioCapability[] = ['digitalInput', 'digitalOutput', 
  * WROOM module, and both boards share `esp32:esp32:esp32`. A pin this profile
  * exposes and does not reserve is a real pad, so the picker and the chip
  * check treat it as ordinary digital GPIO.
+ *
+ * The reverse holds too: a pin the chip table offers can be one this profile
+ * reserves. The ESP32-S3 table only warns that GPIO33-37 are often octal
+ * flash/PSRAM, but the DevKitC-1 profile names its N8R8 module, on which
+ * GPIO35-37 are taken. The profile's reason replaces the generic warning and
+ * the pin moves to the caution list with no capabilities, where the board
+ * pinout already shows it as not available.
  */
 export function boardPinTable(profile: PhysicalBoardProfile | undefined, fqbn: string): BoardGpio | undefined {
   if (profile?.custom) return profile.custom.gpio
@@ -27,11 +34,16 @@ export function boardPinTable(profile: PhysicalBoardProfile | undefined, fqbn: s
     const standing = boardPinVerdict(profile, pin.gpio).standing
     return standing === 'safe' || standing === 'caution'
   })
-  if (rescued.length === 0) return table
+  const reserved = table.recommended.flatMap((note) => {
+    const verdict = boardPinVerdict(profile, note.pin)
+    return verdict.standing === 'reserved' ? [{ pin: note.pin, note: verdict.reason, capabilities: [] }] : []
+  })
+  if (rescued.length === 0 && reserved.length === 0) return table
   const rescuedGpios = new Set(rescued.map((pin) => pin.gpio))
+  const reservedGpios = new Set(reserved.map((note) => note.pin))
   return {
     recommended: [
-      ...table.recommended,
+      ...table.recommended.filter((note) => !reservedGpios.has(note.pin)),
       ...rescued.map((pin) => ({
         pin: pin.gpio as number,
         label: pin.label,
@@ -39,7 +51,10 @@ export function boardPinTable(profile: PhysicalBoardProfile | undefined, fqbn: s
         capabilities: DIGITAL_IO,
       })),
     ].sort((left, right) => left.pin - right.pin),
-    caution: table.caution.filter((note) => !rescuedGpios.has(note.pin)),
+    caution: [
+      ...table.caution.filter((note) => !rescuedGpios.has(note.pin)),
+      ...reserved,
+    ].sort((left, right) => left.pin - right.pin),
     maxPin: table.maxPin,
   }
 }

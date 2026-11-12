@@ -236,10 +236,14 @@ describe('soldered pins survive the pin walk', () => {
       node('board', 'Board', { profileId: CYD }),
       fitted(),
     ], CYD_FQBN)).toEqual({ errors: [], warnings: [] })
-    expect(findBoardPinCompatibility([
+    // Any other part on a panel pin is still reported, once, by the exact
+    // board check rather than as a chip-table caveat as well.
+    const button = [
       node('board', 'Board', { profileId: CYD }),
       node('button', 'ButtonBank', { buttons: singleButtonRow(15) }),
-    ], CYD_FQBN).warnings.join(' ')).toMatch(/pin 15/)
+    ]
+    expect(findBoardPinCompatibility(button, CYD_FQBN)).toEqual({ errors: [], warnings: [] })
+    expect(findExactBoardPinIssues(button).errors.join(' ')).toMatch(/pin 15/)
   })
 })
 

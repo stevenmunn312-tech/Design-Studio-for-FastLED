@@ -199,6 +199,7 @@
 }
 
 .fullscreenStageBtn,
+.stage3dBtn,
 .exitStageBtn {
   display: inline-flex;
   align-items: center;
@@ -230,6 +231,18 @@
   opacity: 0.68;
 }
 
+.stage3dBtnActive {
+  border-color: var(--accent-ui);
+  color: var(--accent-ui);
+}
+
+.stage3dBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.stage3dBtn:not(:disabled):hover,
+.stage3dBtn:focus-visible,
 .exitStageBtn:hover,
 .exitStageBtn:focus-visible {
   border-color: var(--accent-ui);

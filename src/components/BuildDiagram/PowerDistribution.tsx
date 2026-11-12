@@ -1,6 +1,6 @@
 // The power section of the physical assembly diagram: supply, main fuse,
 // fuse block and the feed harness to each LED output.
-import type { SupplyRecommendation, ElectricalPlanSummary } from '../../build/power/electricalPlan'
+import { injectionLocation, type SupplyRecommendation, type ElectricalPlanSummary } from '../../build/power/electricalPlan'
 import { type FuseBlockCircuitCount, fuseBlockAllocations } from '../../build/power/powerDistribution'
 import { partById, partRenderSrc } from '../../build/parts/partCatalogue'
 import psuRender from '../../assets/components/5v-psu.webp'
@@ -186,7 +186,12 @@ function leftRailGeometry(leftColumnFeedCount: number) {
   return (rank: number) => Math.round(LEFT_RAIL_X - (rank * step))
 }
 
-export function PowerDistributionSections({ plan, bands }: { plan: ElectricalPlanSummary; bands: PowerZoneBand[] }) {
+export function PowerDistributionSections({ plan, bands, shadowFilter }: {
+  plan: ElectricalPlanSummary
+  bands: PowerZoneBand[]
+  /** `url(#…)` of the owning sheet's drop-shadow filter; ids are per sheet. */
+  shadowFilter?: string
+}) {
   const injections = plan.outputs.flatMap((output) => output.injections)
   const sections = (plan.totals?.supplies ?? []).map((supply, index) => {
     const assigned = injections.filter((injection) => injection.supplyId === supply.id)
@@ -297,7 +302,7 @@ export function PowerDistributionSections({ plan, bands }: { plan: ElectricalPla
             height={SUPPLY_RENDER_HEIGHT}
             preserveAspectRatio="xMidYMid meet"
             className={styles.physicalBoardRender}
-            filter="url(#component-shadow)"
+            filter={shadowFilter}
           />
           <circle cx={psuPositive.x} cy={psuPositive.y} r="6" fill="#d84938" stroke="#f0a093" strokeWidth="2" data-terminal={`${supply.id}-positive`}>
             <title>{supply.converter ? `Converter ${supply.converter.terminals.filter((terminal) => terminal.includes('+')).slice(-1)[0] ?? 'positive'} output` : 'PSU +5 V output terminal'}</title>
@@ -421,7 +426,7 @@ export function PowerDistributionSections({ plan, bands }: { plan: ElectricalPla
           const rowY = sectionLayout.firstBranchY + (index * POWER_BRANCH_ROW_SPACING)
           const fuseText = injection.fuse.ratingMa ? formatAmps(injection.fuse.ratingMa) : 'RATED'
           const wireText = injection.conductor ? `AWG ${injection.conductor.awg}` : 'WIRE TBD'
-          const destination = `${injection.outputTitle} · ${injection.role.toUpperCase()} @ ${injection.positionMm} mm`
+          const destination = `${injection.outputTitle} · ${injection.role.toUpperCase()} @ ${injectionLocation(injection)}`
           const feedLabel = `${destination} · ${formatAmps(injection.designCurrentMa)} · ${wireText} · 500 mm`
           const fitFeedLabel = feedLabel.length * APPROX_WIRE_LABEL_CHARACTER_WIDTH > FEED_LABEL_MAX_WIDTH
           const block = blocks.find((candidate) => index >= candidate.firstFeedIndex && index < candidate.firstFeedIndex + candidate.assignedFeedCount)!
@@ -513,10 +518,10 @@ export function PowerDistributionSections({ plan, bands }: { plan: ElectricalPla
             {/* Polarity is carried by the wire colours, the legend and the
                 capacitor note, so the pair stays free of per-row pin text. */}
             <circle cx={LED_TERMINAL_X} cy={rowY} r="6" fill="#d84938" stroke="#f0a093" data-terminal={`${injection.id}-led-positive`}>
-              <title>{injection.outputTitle} +5 V injection · {injection.role.toUpperCase()} @ {injection.positionMm} mm</title>
+              <title>{injection.outputTitle} +5 V injection · {injection.role.toUpperCase()} @ {injectionLocation(injection)}</title>
             </circle>
             <circle cx={LED_TERMINAL_X} cy={groundRowY} r="6" fill="#202425" stroke="#aeb6b7" data-terminal={`${injection.id}-led-ground`}>
-              <title>{injection.outputTitle} ground return · {injection.role.toUpperCase()} @ {injection.positionMm} mm</title>
+              <title>{injection.outputTitle} ground return · {injection.role.toUpperCase()} @ {injectionLocation(injection)}</title>
             </circle>
           </g>
         })}

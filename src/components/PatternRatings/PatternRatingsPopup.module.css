@@ -153,6 +153,25 @@
 .card_good { border-left-color: var(--good, var(--paint-4ade80)); }
 .card_ok { border-left-color: var(--warn, var(--paint-fbbf24)); }
 .card_bad { border-left-color: var(--bad, var(--paint-f87171)); }
+/* Not judged yet: neutral, since no verdict exists to colour it by. */
+.card_unscanned { border-left-color: color-mix(in srgb, var(--text-primary) 14%, transparent); }
+
+/* The stars and form tags on a card with no verdict body to sit in. */
+.personalOnly {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0 calc(var(--space-0) * 3.5) calc(var(--space-0) * 3.5);
+}
+
+.unscannedNote {
+  flex: 0 0 auto;
+  padding: calc(var(--space-0) * 3) calc(var(--space-0) * 3.5);
+  color: var(--text-secondary);
+  border: 1px dashed color-mix(in srgb, var(--text-primary) 10%, transparent);
+  border-radius: 12px;
+  font-size: var(--fs-caption);
+}
 
 .cardHead {
   display: flex;

@@ -15,6 +15,8 @@ import { useMusicStore } from '../../state/player/musicStore'
 import { useProjectStore } from '../../state/projectStore'
 import { useCapacityStore } from '../../state/upload/capacityStore'
 import { bakeBrowserThumbnails } from '../../utils/browserThumbnails'
+import { engineVersionNumber } from '../../utils/backendClient'
+import { exactBoardLabel } from '../../build/boards/boardProfiles'
 import { collectionPatternNames } from '../../utils/patternNames'
 import { generateCpp } from '../../codegen/cppGenerator'
 import { generateShowSketch } from '../../codegen/showGenerator'
@@ -230,7 +232,7 @@ export default function MatrixOutputDeployPopup({
   // "Board 2 · ESP32-S3 DevKit · COM7": which board is being built, once
   // there is more than one to tell apart.
   const boardPrefix = boards.length > 1 && activeBoard ? `${boardOrdinalLabel(boards, activeBoard.id)} · ` : ''
-  const target = `${boardPrefix}${board?.label ?? 'No board'} · ${port.text}`
+  const target = `${boardPrefix}${exactBoardLabel(nodes, selectedFqbn) ?? board?.label ?? 'No board'} · ${port.text}`
   const portDetected = port.state === 'connected'
   const helperReady = !!helper
   const coreReady = !!board && (usingFbuild || installedCores.includes(board.core))
@@ -390,8 +392,8 @@ export default function MatrixOutputDeployPopup({
                 action: openCliPopup,
               }
           : usingFbuild
-            ? { label: 'Compiler', state: 'ready' as ReadinessState, detail: `Using fbuild${helper.fbuildVersion ? ` ${helper.fbuildVersion}` : ''}` }
-            : { label: 'Compiler', state: 'ready' as ReadinessState, detail: `Using arduino-cli${helper.version ? ` ${helper.version}` : ''}` }
+            ? { label: 'Compiler', state: 'ready' as ReadinessState, detail: ['Using fbuild', engineVersionNumber(helper.fbuildVersion)].filter(Boolean).join(' ') }
+            : { label: 'Compiler', state: 'ready' as ReadinessState, detail: ['Using arduino-cli', engineVersionNumber(helper.version)].filter(Boolean).join(' ') }
 
     const coreRow = helper === undefined
       ? { label: 'Board support', state: 'checking' as ReadinessState, detail: 'Checking the board support package…' }
@@ -541,10 +543,9 @@ export default function MatrixOutputDeployPopup({
   function handleToggleStream() {
     if (streaming) { stopStreaming(); return }
     if (!selectedPort || !streamLayout) return
-    void (async () => {
-      await startStreaming(selectedPort, streamLayout)
-      if (useStreamStore.getState().streaming) setValidationAction('live-stream')
-    })()
+    // No report dialog here: it would cover the board the user is now
+    // watching. The Share a report… card above stays one click away.
+    void startStreaming(selectedPort, streamLayout)
   }
 
   const readySongs = readySongCount(entries)
@@ -1043,7 +1044,7 @@ export default function MatrixOutputDeployPopup({
               <strong>Tried it on your hardware?</strong>
               <span>A quick report of what worked helps grow the list of tested builds.</span>
             </div>
-            <button className={styles.validationCardButton} onClick={() => setValidationAction(suggestedAction)}>
+            <button className={styles.validationCardButton} onClick={() => setValidationAction(streaming ? 'live-stream' : suggestedAction)}>
               Share a report…
             </button>
           </div>

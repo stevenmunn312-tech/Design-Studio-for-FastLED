@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { boardProfileById } from '../../boards/boardProfiles'
 import { ensureBuildProfile } from '../../buildProfile'
-import { calculateElectricalPlan, planProblems } from '../electricalPlan'
+import { calculateElectricalPlan, injectionLocation, planProblems } from '../electricalPlan'
 import { buildHardwareManifest } from '../../hardwareManifest'
 import type { StudioNode } from '../../../state/graphStore'
 
@@ -53,13 +53,16 @@ describe('electricalPlan', () => {
         connectorMinimumMa: 15000,
         fuse: expect.objectContaining({ ratingMa: 15000 }),
         injections: [
-          expect.objectContaining({ role: 'start', designCurrentMa: 3840, maximumCurrentMa: 5000, positionMm: 0, fuse: expect.objectContaining({ ratingMa: 7500 }) }),
-          expect.objectContaining({ role: 'center', designCurrentMa: 7680, maximumCurrentMa: 10000, positionMm: 2134, fuse: expect.objectContaining({ ratingMa: 15000 }) }),
-          expect.objectContaining({ role: 'end', designCurrentMa: 3840, maximumCurrentMa: 5000, positionMm: 4267, fuse: expect.objectContaining({ ratingMa: 7500 }) }),
+          expect.objectContaining({ role: 'start', designCurrentMa: 3840, maximumCurrentMa: 5000, positionMm: 0, ledIndex: 1, fuse: expect.objectContaining({ ratingMa: 7500 }) }),
+          expect.objectContaining({ role: 'center', designCurrentMa: 7680, maximumCurrentMa: 10000, positionMm: 2134, ledIndex: 129, fuse: expect.objectContaining({ ratingMa: 15000 }) }),
+          expect.objectContaining({ role: 'end', designCurrentMa: 3840, maximumCurrentMa: 5000, positionMm: 4267, ledIndex: 256, fuse: expect.objectContaining({ ratingMa: 7500 }) }),
         ],
       }),
     ])
     expect(plan.unresolved).toEqual([])
+    // A 16 x 16 panel is about 16 cm across; its feeds are named by the LED
+    // they land on, never by metres of an assumed 60/m strip.
+    expect(plan.outputs[0].injections.map(injectionLocation)).toEqual(['LED 1', 'LED 129', 'LED 256'])
   })
 
   it('names a power-plan problem in readiness instead of blaming the board', () => {

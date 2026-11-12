@@ -1705,6 +1705,17 @@ export function boardProfileMatchesFqbn(profile: PhysicalBoardProfile, fqbn: str
   return profile.targetFamilies.includes(targetFamilyFromFqbn(fqbn))
 }
 
+/** The exact board name ("Espressif ESP32-S3-DevKitC-1") while the Board
+ *  node's profile builds for this upload target, so a surface naming the
+ *  target says what the Hardware tab says rather than the generic FQBN label
+ *  ("ESP32-S3"). Undefined with no profile chosen or one for another target. */
+export function exactBoardLabel(nodes: readonly {
+  data: { nodeType?: unknown; properties?: unknown }
+}[], fqbn: string): string | undefined {
+  const profile = selectedPhysicalBoardProfile(nodes)
+  return profile && boardProfileMatchesFqbn(profile, fqbn) ? profile.label : undefined
+}
+
 /** What the board's pin data rests on, for printed and exported records. A
  *  custom board is the user's own schematic and never claims verification. */
 export function boardDataProvenance(profile: PhysicalBoardProfile): string {

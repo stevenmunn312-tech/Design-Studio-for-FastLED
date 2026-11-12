@@ -101,7 +101,14 @@ export interface PowerInjectionPlan {
   itemId: string
   outputTitle: string
   role: PowerInjectionRole
+  /**
+   * Distance along an assumed 60 LEDs/m strip. Only an estimate for a strip,
+   * and meaningless for a matrix or panel, whose chain folds back on itself:
+   * name a feed to a builder with `injectionLocation` instead.
+   */
   positionMm: number
+  /** 1-based LED along the data chain (from DIN) that this feed lands on. */
+  ledIndex: number
   pixelCount: number
   designCurrentMa: number
   maximumCurrentMa: number
@@ -328,6 +335,15 @@ function allocatePixels(pixelCount: number, roles: PowerInjectionRole[]): number
   return allocations
 }
 
+/**
+ * Where a feed lands, in words a builder can find on any output form: the LED
+ * counted along the data chain from DIN. A distance would need the real pitch
+ * and a straight run; a 16 x 16 panel is 16 cm across, not 4 m of strip.
+ */
+export function injectionLocation(injection: Pick<PowerInjectionPlan, 'ledIndex'>): string {
+  return `LED ${injection.ledIndex}`
+}
+
 function calculateInjections(
   itemId: string,
   outputTitle: string,
@@ -394,6 +410,7 @@ function calculateInjections(
       outputTitle,
       role,
       positionMm: roles.length <= 1 ? 0 : Math.round((physicalLengthMm * index) / (roles.length - 1)),
+      ledIndex: roles.length <= 1 ? 1 : 1 + Math.round(((pixelCount - 1) * index) / (roles.length - 1)),
       pixelCount: pixels[index],
       designCurrentMa,
       maximumCurrentMa: role === 'center' ? centerLimit : endLimit,

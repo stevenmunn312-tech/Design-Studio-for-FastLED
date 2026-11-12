@@ -150,8 +150,9 @@ describe('fixed touch output routing validation', () => {
     expect(findOutputRuntimeIssues(nodes, edges).errors).toEqual([
       expect.stringContaining('cannot evaluate the wire feeding brightness'),
     ])
+    // The card names the input by the label the node shows, and leads with why.
     expect(buildGraphDiagnostics(nodes, edges)).toContainEqual(expect.objectContaining({
-      severity: 'error', message: expect.stringContaining('cannot evaluate the wire feeding brightness'),
+      severity: 'error', message: expect.stringMatching(/^Complex ?Wave .*cannot evaluate the wire feeding Brightness\.$/),
     }))
   })
 

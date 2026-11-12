@@ -222,6 +222,10 @@ export function editableProperties(
       && !(isHardwareNodeType(nodeType)
         && (isGpioPinProperty(nodeType, k) || isHardwarePartField(nodeType, k)))
       && !(isGroupInput && k === 'paramId')
+      // A Group node's `groupId` names the subgraph it opens; it is minted by
+      // the store and never typed. As a text row it read `group-17…`, and
+      // editing it orphaned the group's contents.
+      && !(nodeType === 'Group' && k === 'groupId')
       && !(hasRGB && (k === 'r' || k === 'g' || k === 'b'))
       && !(pairChannels.has(k) && !exposedKeys.has(k))
       // A property the current mode does not use is hidden, not shown

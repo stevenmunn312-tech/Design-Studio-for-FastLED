@@ -1059,7 +1059,7 @@
 }
 
 .wireHover:hover > path:first-child {
-  filter: url(#wire-bloom);
+  filter: var(--wire-bloom-filter);
   opacity: 1;
 }
 
@@ -1347,6 +1347,13 @@
 }
 
 .partsTable {
+  /* One column grid shared by every row (each row is a subgrid), so a word
+     quantity such as "As required" widens the whole quantity column instead
+     of overrunning its own row's label at a fixed 34px. In a panel too narrow
+     for that, the column falls back to wrapping the word. */
+  display: grid;
+  grid-template-columns: minmax(34px, auto) minmax(0, 1fr) 28px;
+  column-gap: var(--space-1);
   margin-top: calc(var(--space-0) * 2.5);
   overflow: hidden;
   border: 1px solid var(--paint-3c4448);
@@ -1371,7 +1378,8 @@
 
 .partsRow {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 28px;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   gap: var(--space-1);
   align-items: center;
   min-height: 35px;

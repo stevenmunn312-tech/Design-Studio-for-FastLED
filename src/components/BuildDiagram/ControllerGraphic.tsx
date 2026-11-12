@@ -32,9 +32,11 @@ import {
  * OUT+ and the board's 5 V input pin carry the same CTRL 5V label, the way
  * the shared rails already meet elsewhere on the sheet.
  */
-export function ControllerConverterGraphic({ supply, boardProfile, x, y }: {
+export function ControllerConverterGraphic({ supply, boardProfile, shadowFilter, x, y }: {
   supply: ControllerSupplyPlan
   boardProfile: PhysicalBoardProfile
+  /** `url(#…)` of the owning sheet's drop-shadow filter; ids are per sheet. */
+  shadowFilter?: string
   x: number
   y: number
 }) {
@@ -65,7 +67,7 @@ export function ControllerConverterGraphic({ supply, boardProfile, x, y }: {
         height={height}
         preserveAspectRatio="xMidYMid meet"
         className={styles.physicalBoardRender}
-        filter="url(#component-shadow)"
+        filter={shadowFilter}
       />
       <text x={x + (CONVERTER_SHEET_WIDTH / 2)} y={y + height + 44} textAnchor="middle" className={styles.physicalComponentLabel}>
         {`${supply.source.kind === 'battery' ? 'BATT' : `${supply.sourceVoltage} V`} → ${supply.outputVoltage} V BUCK`}

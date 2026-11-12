@@ -16,6 +16,7 @@ import { controllerSettings } from './controllerSettings'
 import { targetFamilyFromFqbn, type BuildTargetFamily } from './buildProfile'
 import {
   boardPinForGpio,
+  exactBoardLabel,
   selectedPhysicalBoardProfile,
   type PhysicalBoardPinProfile,
   type PhysicalBoardProfile,
@@ -1727,7 +1728,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
   const controller: HardwareManifestItem = {
     id: 'controller',
     kind: 'controller',
-    title: board?.label ?? (selectedFqbn || 'No board target selected'),
+    title: exactBoardLabel(nodes, selectedFqbn) ?? board?.label ?? (selectedFqbn || 'No board target selected'),
     subtitle: selectedFqbn ? `Target family: ${targetFamily}` : 'Select a board target in the LED output setup',
     supported: true,
     pins: [],

@@ -1,6 +1,6 @@
 import { boardDataProvenance, type PhysicalBoardProfile } from './boards/boardProfiles'
 import type { BuildProfile } from './buildProfile'
-import type { ElectricalPlanSummary } from './power/electricalPlan'
+import { injectionLocation, type ElectricalPlanSummary } from './power/electricalPlan'
 import { boardPinLabelForUse, POWER_PATH_KINDS, type HardwareManifest, type HardwareManifestItem, type HardwarePinUse } from './hardwareManifest'
 import { fuseBlockAllocations } from './power/powerDistribution'
 import { partById, sharedPadsAcrossBoards } from './parts/partCatalogue'
@@ -308,7 +308,7 @@ export function buildConnectionRows(
       rows.push({ from: supplyLabel, fromTerminal: 'GND', to: distribution, toTerminal: 'Common negative bus', purpose: `DC supply return, ${trunkWire} copper` })
     }
     for (const injection of supplyInjections) {
-      const destination = `${injection.outputTitle} ${injection.role} injection @ ${injection.positionMm} mm`
+      const destination = `${injection.outputTitle} ${injection.role} injection @ ${injectionLocation(injection)}`
       const fuse = `${destination} ${injection.fuse.ratingMa ?? 'rated'} mA branch fuse`
       const capacitor = `${destination} 1000 uF 6.3 V electrolytic capacitor`
       rows.push({ from: distribution, fromTerminal: '+5V bus', to: fuse, toTerminal: 'Input', purpose: `${injection.designCurrentMa} mA protected branch` })
@@ -476,7 +476,7 @@ export function buildBomRows(
   }
   for (const output of outputs) {
     for (const injection of output.injections) {
-      const location = `${injection.role} @ ${injection.positionMm} mm`
+      const location = `${injection.role} @ ${injectionLocation(injection)}`
       rows.push({ quantity: '1 run', item: `${output.title} ${location} feed conductor`, specification: injection.conductor ? `AWG ${injection.conductor.awg} / ${injection.conductor.crossSectionMm2} mm2 ${injection.conductor.material} minimum, ${injection.conductor.oneWayLengthMm} mm one-way, ${injection.conductor.voltageDrop} V calculated drop` : 'Unresolved conductor size', status: injection.conductor ? 'calculated' : 'unresolved' })
       rows.push({ quantity: '1', item: `${output.title} ${location} connector`, specification: injection.connectorMinimumMa ? `${injection.connectorMinimumMa} mA minimum continuous rating` : 'Unresolved connector rating', status: injection.connectorMinimumMa ? 'calculated' : 'unresolved' })
       rows.push({ quantity: '1', item: `${output.title} ${location} branch fuse`, specification: injection.fuse.ratingMa ? `${injection.fuse.ratingMa} mA` : injection.fuse.unresolvedReason ?? 'Unresolved fuse rating', status: injection.fuse.ratingMa ? 'calculated' : 'unresolved' })

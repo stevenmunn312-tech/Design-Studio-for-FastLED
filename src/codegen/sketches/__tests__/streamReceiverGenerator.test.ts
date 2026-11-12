@@ -129,6 +129,15 @@ describe('generateStreamReceiverSketch', () => {
     expect(sketch).not.toContain('FastLED.setBrightness(200);')
   })
 
+  it('keeps the Board power cap while streaming at full brightness', () => {
+    const board = node('board', 'Board', 'output', { powerLimit: true, milliamps: 1500 })
+    const sketch = generateStreamReceiverSketch([board, outputNode])!
+    expect(sketch).toContain('FastLED.setMaxPowerInVoltsAndMilliamps(5, 1500);')
+    expect(generateStreamReceiverSketch([outputNode])!).not.toContain('setMaxPowerInVoltsAndMilliamps')
+    const hub75 = node('out', 'MatrixOutput', 'output', { width: 8, height: 8, chipset: 'HUB75' })
+    expect(generateStreamReceiverSketch([board, hub75])!).not.toContain('setMaxPowerInVoltsAndMilliamps')
+  })
+
   it('holds a configured I2S amplifier quiet while receiving LED frames', () => {
     const amplifier = node('amp', 'Amplifier', 'output', {
       model: 'max98357a-i2s-amplifier',

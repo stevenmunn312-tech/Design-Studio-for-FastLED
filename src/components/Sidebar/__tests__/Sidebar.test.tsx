@@ -156,6 +156,35 @@ describe('Sidebar equipment rack', () => {
     expect(startAudio).toHaveBeenCalledOnce()
   })
 
+  it('adds a recipe to a project without a second LED output or a new audio source', () => {
+    const studio = (id: string, nodeType: string, properties: Record<string, unknown> = {}) => ({
+      id, type: 'studioNode', position: { x: 0, y: 0 },
+      data: { label: nodeType, nodeType, category: 'output', properties, inputs: [], outputs: [] },
+    })
+    useGraphStore.setState({
+      nodes: [
+        studio('line', 'LineInput'),
+        studio('audio', 'Audio', { sourceId: 'line' }),
+        studio('out', 'MatrixOutput'),
+      ] as never,
+      edges: [],
+    })
+    const { getByRole, getByText } = render(<Sidebar />)
+
+    fireEvent.click(getByRole('button', { name: /Quick recipes/i }))
+    fireEvent.click(getByText('Live spectrum'))
+
+    const nodes = useGraphStore.getState().nodes
+    expect(nodes.filter((node) => node.data.nodeType === 'MatrixOutput')).toHaveLength(1)
+    expect(nodes.some((node) => node.data.nodeType === 'MicInput')).toBe(false)
+    expect(nodes.find((node) => node.id === 'audio')?.data.properties.sourceId).toBe('line')
+    // The recipe hears the project's own source and leaves its output to be wired.
+    const edges = useGraphStore.getState().edges
+    expect(edges.some((edge) => edge.source === 'audio')).toBe(true)
+    expect(edges.some((edge) => edge.target === 'out')).toBe(false)
+    expect(startAudio).not.toHaveBeenCalled()
+  })
+
   it('shows a completed rating in place of the bundled label', () => {
     const pattern = { ...savedPattern('pat-1', 'Aurora'), bundled: true }
     usePatternLibrary.setState({ patterns: [pattern] })

@@ -26,6 +26,10 @@ describe('colour swatches', () => {
 })
 
 describe('editableProperties', () => {
+  it('never draws a Group node its internal subgraph id', () => {
+    expect(editableProperties('Group', { groupId: 'group-1731500000000' })).toEqual([])
+  })
+
   it('hides a row the current mode does not use, and its empty group with it', () => {
     const crossfade = editableProperties('Transition', { ...libraryDefaults('Transition'), transitionType: 'crossfade' })
       .map(([key]) => key)

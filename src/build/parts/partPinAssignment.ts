@@ -31,6 +31,13 @@ export interface PartPinRequest {
    * how the old hardcoded default came to be wrong.
    */
   capability?: GpioCapability
+  /**
+   * Pins to try before the board's pool order, best first: the pin the part
+   * already holds, or the board's own suggestion for this role. Each must
+   * still be free, unreserved, capable and one the pool offers, so a
+   * preference can only reorder the pool, never widen it.
+   */
+  preferred?: readonly number[]
 }
 
 /** What a part's pins resolved to, or why they could not. */
@@ -125,7 +132,8 @@ export function assignPartPins(
       const note = notes.get(pin)
       return Boolean(note && pinWarningForCapability(note, request.capability))
     })
-    const ordered = [...clean, ...warned]
+    const preferred = (request.preferred ?? []).filter((pin) => candidates.includes(pin))
+    const ordered = [...preferred, ...clean, ...warned]
     const pin = ordered.find((candidate) =>
       Number.isFinite(candidate)
       && !taken.has(candidate)

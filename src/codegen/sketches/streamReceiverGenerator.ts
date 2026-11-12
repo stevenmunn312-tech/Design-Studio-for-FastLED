@@ -2,7 +2,7 @@ import type { StudioNode } from '../../state/graphStore'
 import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from '../cppGenerator'
 import { sanitizePin } from '../hardwarePins'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../../state/nodeLibrary'
-import { ledPropsWithController } from '../../build/controllerSettings'
+import { controllerSettings, ledPropsWithController } from '../../build/controllerSettings'
 import { outputForm, outputGridDims } from '../../state/output/ledOutputForm'
 import { buildXYTable } from '../../state/output/xyLayout'
 import { amplifierIdleCpp } from '../audio/amplifierIdle'
@@ -87,6 +87,7 @@ export function generateStreamReceiverSketch(nodes: StudioNode[], outputNodeId?:
   const dataPin = sanitizePin(p.dataPin, 5)
   const combined = ledPropsWithController(p, nodes)
   const hw = ledHardwareFromProps(combined)
+  const controller = controllerSettings(nodes)
   const isHub75 = hw.chipset === HUB75_CHIPSET
   const hub75Hw = isHub75 ? hub75HardwareFromProps(combined, layout.width, layout.height) : null
   const amplifierIdle = amplifierIdleCpp(nodes)
@@ -95,8 +96,8 @@ export function generateStreamReceiverSketch(nodes: StudioNode[], outputNodeId?:
   const lines: string[] = []
   lines.push('// Design Studio for FastLED — generic live-stream receiver (Adalight protocol).')
   lines.push('// Flash this once; the studio then pushes frames over serial at runtime')
-  lines.push('// via the ✎ Live Stream control on the LED output. Re-flash only if')
-  lines.push('// the output geometry, chipset, pins, color order/correction, or wiring change.')
+  lines.push("// with Live Stream in the LED output's Upload panel. Re-flash only if the")
+  lines.push('// output geometry, chipset, pins, color order/correction, wiring or power cap change.')
   if (streamReceiverCapabilityNotes(nodes).length > 0) {
     lines.push('// Stereo VU rails intentionally stay off: this pixel receiver has no audio engine.')
   }
@@ -135,6 +136,13 @@ export function generateStreamReceiverSketch(nodes: StudioNode[], outputNodeId?:
   // preview, especially at lower master levels. Keep the transport receiver
   // neutral; color order/correction still belong to the physical controller.
   else lines.push(...fastledSetupCpp(hw, { brightness: 255 }))
+  // The power cap is a supply limit, not a look: it stays on so a streamed
+  // full-white frame cannot draw more than the Board allows, exactly as the
+  // main sketch and the Wiring Test do. HUB75 registers no FastLED controller
+  // for the limiter to throttle — mirrors cppGenerator.ts's same gate.
+  if (controller.powerLimit && !isHub75) {
+    lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${controller.volts}, ${controller.milliamps});`)
+  }
   lines.push(...displays.setup)
   lines.push('}')
   lines.push('')

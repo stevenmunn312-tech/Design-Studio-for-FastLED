@@ -16,7 +16,8 @@ import { PALETTE_BUILDER_NODE_TYPES, tftTransportForProps } from '../state/nodeL
 import { formatSignalRange, outputSignalRange, signalRangeMismatch } from '../nodes/shared/signalRange'
 import { paletteBankBlend, paletteBankEntries } from '../state/palettes/paletteBank'
 import type { SignalRangeMismatch } from '../nodes/shared/signalRange'
-import { playerControlFunction } from '../state/player/playerControlAssignments'
+import { playerControlFunction, type PlayerControlFunction } from '../state/player/playerControlAssignments'
+import { buttonBankEntryForHandle } from '../state/player/buttonBank'
 import { hasAudioOutputStage, i2sAudioStage, isClassicEsp32Fqbn, powerAmplifierFeed, powerAmplifierSource, powerAmplifierStage } from '../state/audio/audioOutput'
 import { allocateUarts, UART_DEVICE_LABELS } from '../build/pins/uartAssignment'
 import { resolveShowTarget } from '../state/player/showTarget'
@@ -1343,6 +1344,12 @@ export function findBoardPinCompatibility(nodes: StudioNode[], selectedFqbn: str
     // chip table the way it wins over imported pin data. A pair the user moved
     // is checked like any other output line.
     if (use.boardDefault && busAssignmentFor(use.nodeType, use.propertyKey).kind === 'i2c') continue
+    // A pin the chip offers but the exact board reserves is
+    // `findExactBoardPinIssues`' error, in the board's own words.
+    // `boardPinTable` withdraws it so the picker stops offering it; reporting
+    // that withdrawal here as well would say it twice.
+    if (profile && boardPinVerdict(profile, use.pin).standing === 'reserved'
+      && !boardGpioInfo(selectedFqbn)?.caution.some((pin) => pin.pin === use.pin)) continue
     const unavailable = gpio.caution.find((pin) => pin.pin === use.pin)
     if (unavailable) {
       errors.push(`${use.label} uses pin ${use.pin}, which is unavailable on the selected board: ${unavailable.note}`)
@@ -4017,10 +4024,8 @@ export function findSignalRangeHints(nodes: StudioNode[], edges: StudioEdge[]): 
  * A press is one event, so a button wired to both Brightness Up and
  * Brightness Down sends +step and -step in the same frame and nets to
  * nothing; a pair that does not cancel is still one press doing two things,
- * which no physical control can be read as doing. The picker declines to mint
- * a second port from a source that already has one, so this catches the ways
- * a graph arrives at it anyway — a load, a paste, or a wire dragged onto a
- * port some other control had already minted.
+ * which no physical control can be read as doing. Every row is a port that
+ * accepts the wire, so nothing stops it being drawn; this is where it is said.
  */
 function sharedControlSourceIssues(nodes: StudioNode[], edges: StudioEdge[]): string[] {
   const byId = new Map(nodes.map((node) => [node.id, node]))
@@ -4049,7 +4054,111 @@ function sharedControlSourceIssues(nodes: StudioNode[], edges: StudioEdge[]): st
 }
 
 /**
- * A wired Player Controls row that nothing downstream can act on.
+ * The buttons that do a continuous job in steps, by that job's id: up then
+ * down, or previous then next.
+ *
+ * Only the pairing lives here. The words come from the node the wire lands
+ * on, so advice names rows the author can find there — Previous Pattern and
+ * Next Pattern for Pattern Selection, not a "Pattern Selection Up" that no
+ * node has.
+ */
+const CONTINUOUS_CONTROL_STEPPERS: Readonly<Record<string, readonly [string, string]>> = {
+  volume: ['volumeUp', 'volumeDown'],
+  brightness: ['brightnessUp', 'brightnessDown'],
+  patternSelect: ['patternPrevious', 'patternNext'],
+}
+
+const LIBRARY_BY_TYPE = new Map(NODE_LIBRARY.map((definition) => [definition.type, definition]))
+
+interface PortLike { id: string; label: string; dataType: string }
+
+/** An input as this node declares it: its own minted ports first, then the library's. */
+function declaredInput(node: StudioNode, id: string | null | undefined): PortLike | undefined {
+  const own = (node.data as { inputs?: readonly PortLike[] }).inputs?.find((port) => port.id === id)
+  return own ?? LIBRARY_BY_TYPE.get(node.data.nodeType)?.inputs.find((port) => port.id === id)
+}
+
+/** An output in words, including a Button's rows, which live in its properties. */
+function outputPortName(node: StudioNode, handle: string | null | undefined): string {
+  const own = (node.data as { outputs?: readonly PortLike[] }).outputs
+  const library = LIBRARY_BY_TYPE.get(node.data.nodeType)?.outputs ?? []
+  const button = node.data.nodeType === 'ButtonBank'
+    ? buttonBankEntryForHandle((node.data.properties as Record<string, unknown>).buttons, handle) : undefined
+  const ports = own?.length ? own : library
+  const port = button?.label ?? ports.find((entry) => entry.id === handle)?.label
+  return port && (button || ports.length > 1) ? `${nodeLabel(node)}’s ${port}` : nodeLabel(node)
+}
+
+/**
+ * Whether an input is one of the jobs a physical control is given.
+ *
+ * Player Controls has a row per job, and every node a Controls wire can end
+ * at also takes some jobs as wires of their own — an LED output's Brightness,
+ * Music Player's Volume and Next. A port named for a job, of that job's type,
+ * on a node that reads the Controls bundle means that job, which is what lets
+ * one rule judge both.
+ */
+function controlJobInput(target: StudioNode, handle: string | null | undefined): PlayerControlFunction | undefined {
+  const entry = playerControlFunction(handle)
+  if (!entry) return undefined
+  if (target.data.nodeType === 'ControlMap') return entry
+  if (declaredInput(target, 'controls')?.dataType !== 'playercontrols') return undefined
+  return declaredInput(target, entry.id)?.dataType === entry.dataType ? entry : undefined
+}
+
+/**
+ * A press driving a level, or a level driving a press.
+ *
+ * `portsCompatible` lets bool and float interconvert, which is right for
+ * arithmetic and wrong for a physical control: a button on Volume or on an
+ * LED output's Brightness jumps between off and full — and rests at off, so
+ * the fixture stays dark until somebody holds the button — while a knob on
+ * Play / Pause fires each time it passes halfway.
+ */
+function controlKindMismatch(
+  target: StudioNode,
+  edge: StudioEdge,
+  source: StudioNode | undefined,
+): { title: string; message: string; fix: string } | null {
+  const entry = controlJobInput(target, edge.targetHandle)
+  if (!entry || !source) return null
+  // A Button's rows are read from its properties as well as its ports.
+  const sourceType = outputPortDataType(source, edge.sourceHandle)
+  if ((sourceType !== 'bool' && sourceType !== 'float') || sourceType === entry.dataType) return null
+  const job = `${declaredInput(target, entry.id)?.label ?? entry.label} on ${nodeLabel(target)}`
+  if (entry.kind === 'momentary') {
+    return {
+      title: 'A knob is doing a button’s job',
+      message: `${job} is driven by a knob, so it fires each time the knob passes halfway.`,
+      fix: 'Use a button.',
+    }
+  }
+  const steppers = (CONTINUOUS_CONTROL_STEPPERS[entry.id] ?? [])
+    .map((id) => declaredInput(target, id)?.label)
+    .filter((label): label is string => !!label)
+  // An output's or player's own step inputs are hidden until exposed or wired.
+  const hidden = target.data.nodeType === 'ControlMap' ? '' : ' (Expose input shows them)'
+  return {
+    title: 'A button is doing a knob’s job',
+    message: `${job} is driven by a press, so it only jumps between off and full.`,
+    fix: steppers.length === 2
+      ? `Use a knob, or the ${steppers[0]} and ${steppers[1]} rows${hidden} for buttons.`
+      : 'Use a knob or a slider.',
+  }
+}
+
+interface PlayerControlIssue {
+  nodeId: string
+  nodeLabel: string
+  edgeId: string
+  title: string
+  message: string
+  fix: string
+}
+
+/**
+ * A wired Player Controls row that nothing downstream can act on, or a
+ * control of the wrong kind on any control job.
  *
  * Every function is a port on the node, so a wire can land on one whose job
  * the bundle's destination does not have — Volume on a chain that reaches
@@ -4058,48 +4167,112 @@ function sharedControlSourceIssues(nodes: StudioNode[], edges: StudioEdge[]): st
  * failure that leaves someone pressing a button and blaming their soldering.
  * A bundle that reaches nothing yet is not judged: the node body says so.
  *
- * A button on a continuous row, or a knob on a press, is said here too.
- * `portsCompatible` lets bool and float interconvert, which is right for
- * arithmetic and wrong for a physical control: a button on Volume jumps
- * between silent and full, and a knob on Play / Pause fires at halfway.
+ * The kind rule (`controlKindMismatch`) is judged wherever a job is wired:
+ * on a Player Controls row, and straight into the node that does the job.
  */
-function unusablePlayerControlIssues(nodes: StudioNode[], edges: StudioEdge[]): Array<{ nodeId: string; message: string }> {
+function unusablePlayerControlIssues(nodes: StudioNode[], edges: StudioEdge[]): PlayerControlIssue[] {
   const byId = new Map(nodes.map((node) => [node.id, node]))
-  const issues: Array<{ nodeId: string; message: string }> = []
-  for (const control of nodes) {
-    if (control.data.nodeType !== 'ControlMap') continue
-    const wired = edges.filter((edge) => edge.target === control.id && playerControlFunction(edge.targetHandle))
-    if (wired.length === 0) continue
-    const reachable = controlChainSinks(control.id, edges, byId)
-    const names = [...controlChainDestinations(control.id, edges, byId)]
-      .map((id) => byId.get(id)).filter((node): node is StudioNode => !!node).map(nodeLabel).sort()
-    for (const edge of wired) {
-      const entry = playerControlFunction(edge.targetHandle)!
-      if (reachable.size > 0 && !entry.destinations.some((destination) => reachable.has(destination))) {
+  const issues: PlayerControlIssue[] = []
+  const reached = new Map<string, { sinks: Set<string>; names: string[] }>()
+  const reach = (control: StudioNode) => {
+    let found = reached.get(control.id)
+    if (!found) {
+      found = {
+        sinks: controlChainSinks(control.id, edges, byId),
+        names: [...controlChainDestinations(control.id, edges, byId)]
+          .map((id) => byId.get(id)).filter((node): node is StudioNode => !!node).map(nodeLabel).sort(),
+      }
+      reached.set(control.id, found)
+    }
+    return found
+  }
+  for (const edge of edges) {
+    const target = byId.get(edge.target)
+    const entry = target && controlJobInput(target, edge.targetHandle)
+    if (!target || !entry) continue
+    if (target.data.nodeType === 'ControlMap') {
+      const { sinks, names } = reach(target)
+      if (sinks.size > 0 && !entry.destinations.some((destination) => sinks.has(destination))) {
         issues.push({
-          nodeId: control.id,
-          message: `${entry.label} on ${nodeLabel(control)} does nothing: its Controls reach ${names.join(', ')}, which cannot act on it.`,
+          nodeId: target.id, nodeLabel: nodeLabel(target), edgeId: edge.id,
+          title: 'A control here does nothing',
+          message: `${entry.label} on ${nodeLabel(target)} does nothing: its Controls reach ${names.join(', ')}, which cannot act on it.`,
+          fix: 'Move the wire to a row the destination can act on, or wire Controls to a node that has this job.',
         })
         continue
       }
-      const source = byId.get(edge.source)
-      // A Button's rows are read from its properties as well as its ports.
-      const sourceType = source ? outputPortDataType(source, edge.sourceHandle) : null
-      if ((sourceType === 'bool' || sourceType === 'float') && sourceType !== entry.dataType) {
-        issues.push({
-          nodeId: control.id,
-          message: entry.kind === 'continuous'
-            ? `${entry.label} on ${nodeLabel(control)} is driven by a press, so it only jumps between off and full. Use a knob, or the ${entry.label} Up / Down rows for buttons.`
-            : `${entry.label} on ${nodeLabel(control)} is driven by a knob, so it fires each time the knob passes halfway. Use a button.`,
-        })
-      }
     }
+    const mismatch = controlKindMismatch(target, edge, byId.get(edge.source))
+    if (mismatch) issues.push({ nodeId: target.id, nodeLabel: nodeLabel(target), edgeId: edge.id, ...mismatch })
   }
   return issues
 }
 
 export function findUnusablePlayerControlWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
-  return unusablePlayerControlIssues(nodes, edges).map((issue) => issue.message)
+  return unusablePlayerControlIssues(nodes, edges).map((issue) => `${issue.message} ${issue.fix}`)
+}
+
+/** The control graph's typed refusal, as the routing walks append it. */
+const CONTROL_GRAPH_TYPE_CAUSE = /\.([A-Za-z0-9_:-]+): control graph requires (bool|float|color); this source or port is unsupported\./
+const CONTROL_VALUE_WORDS: Record<string, string> = { bool: 'on / off', float: 'a level', color: 'a colour' }
+
+/**
+ * A firmware refusal that leads with its cause.
+ *
+ * The routing walks headline the consumer ("LED Matrix: a generated show
+ * controller cannot evaluate the wire feeding brightness."), follow it with
+ * general advice, and append the control graph's own reason last, in its
+ * terms ("Button.button-1: control graph requires float; …"). Read in that
+ * order the one sentence that says what is wrong arrives after the advice
+ * for every other case. This finds that reason, says it in the canvas's
+ * words — the row and port labels the author sees — and puts it first. When
+ * the reason is a button on a level, or a knob on a press, the fix is the
+ * same rule's fix rather than the general advice.
+ */
+function controlGraphCause(
+  text: string,
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+): { message: string; fix?: string; edgeIds: string[] } | null {
+  const match = CONTROL_GRAPH_TYPE_CAUSE.exec(text)
+  if (!match) return null
+  const before = text.slice(0, match.index)
+  // The walk names a node by its label, or its id when it has none.
+  const source = nodes
+    .map((node) => ({ node, name: String(node.data.label || node.id) }))
+    .filter(({ name }) => name && before.endsWith(name))
+    .sort((a, b) => b.name.length - a.name.length)[0]
+  if (!source) return null
+  const [, port, required] = match
+  const rest = `${before.slice(0, before.length - source.name.length)} ${text.slice(match.index + match[0].length)}`
+    .replace(/\s+/g, ' ').trim()
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const wires = edges.filter((edge) => edge.source === source.node.id && (edge.sourceHandle ?? '') === port)
+  const wire = wires.find((edge) => {
+    const target = byId.get(edge.target)
+    return target && declaredInput(target, edge.targetHandle)?.dataType === required
+  }) ?? wires[0]
+  const target = wire && byId.get(wire.target)
+  const kind = wire && target ? controlKindMismatch(target, wire, source.node) : null
+  const inputLabel = wire && target ? declaredInput(target, wire.targetHandle)?.label : undefined
+  const split = rest.match(/^(.+?[.!?])(?:\s+(\S[\s\S]*))?$/)
+  const advice = split?.[2]
+  // The walk names the input by its id; the node shows its label.
+  const headline = (split?.[1] ?? rest).replace(
+    `the wire feeding ${wire?.targetHandle}.`, `the wire feeding ${inputLabel ?? wire?.targetHandle}.`)
+  if (kind) return { message: `${kind.message} ${headline}`.trim(), fix: kind.fix, edgeIds: [wire!.id] }
+  const from = outputPortName(source.node, port)
+  const actual = outputPortDataType(source.node, port)
+  const into = target ? `${inputLabel ?? wire!.targetHandle} on ${nodeLabel(target)}` : ''
+  const want = CONTROL_VALUE_WORDS[required] ?? required
+  const cause = actual && CONTROL_VALUE_WORDS[actual]
+    ? `${from} sends ${CONTROL_VALUE_WORDS[actual]}, but ${into || 'the input it feeds'} needs ${want}.`
+    : `${from} is not something this build can read as ${want}${into ? ` for ${into}` : ''}.`
+  return {
+    message: `${cause} ${headline}`.trim(),
+    ...(advice ? { fix: advice } : {}),
+    edgeIds: wire ? [wire.id] : [],
+  }
 }
 
 export function findSharedControlSourceWarnings(nodes: StudioNode[], edges: StudioEdge[]): string[] {
@@ -4360,11 +4533,12 @@ export function buildGraphDiagnostics(
   for (const [index, issue] of unusablePlayerControlIssues(nodes, edges).entries()) {
     diagnostics.push({
       id: `unusable-player-control-${index}`, severity: 'warning', category: 'connection',
-      title: 'A control here does nothing',
+      title: issue.title,
       message: issue.message,
-      fix: 'Move the wire to a row the destination can act on, or wire Controls to a node that has this job.',
+      fix: issue.fix,
       nodeIds: [issue.nodeId],
-      nodeLabel: 'Player Controls',
+      nodeLabel: issue.nodeLabel,
+      edgeIds: [issue.edgeId],
     })
   }
   for (const bank of nodes.filter((node) => node.data.nodeType === 'PaletteBank')) {
@@ -5029,7 +5203,15 @@ export function buildGraphDiagnostics(
    * do after saying what is wrong. Splitting at the first sentence lets the
    * card lead with that remedy instead of pointing back at its own message.
    */
-  const problemAndRepair = (text: string, fallback: string): { message: string; fix: string } => {
+  // Wires a firmware refusal already names, so the kind warning on the same
+  // wire does not say it a second time beneath it.
+  const firmwareCauseEdges = new Set<string>()
+  const problemAndRepair = (text: string, fallback: string): { message: string; fix: string; edgeIds?: string[] } => {
+    const cause = controlGraphCause(text, nodes, edges)
+    if (cause) {
+      cause.edgeIds.forEach((id) => firmwareCauseEdges.add(id))
+      return { message: cause.message, fix: cause.fix ?? fallback, ...(cause.edgeIds.length ? { edgeIds: cause.edgeIds } : {}) }
+    }
     const split = text.match(/^(.+?[.!?])\s+(\S[\s\S]*)$/)
     return split ? { message: split[1], fix: split[2] } : { message: text, fix: fallback }
   }
@@ -5141,6 +5323,12 @@ export function buildGraphDiagnostics(
     nodeLabel: 'Output controls',
     ...outputTarget(message),
   }))
+  for (let index = diagnostics.length - 1; index >= 0; index--) {
+    const diagnostic = diagnostics[index]
+    if (diagnostic.id.startsWith('unusable-player-control-') && diagnostic.edgeIds?.some((id) => firmwareCauseEdges.has(id))) {
+      diagnostics.splice(index, 1)
+    }
+  }
 
   const perfGen = generator
   if (perfGen && incoming.has(`${perfGen.id}:patternset`)) {

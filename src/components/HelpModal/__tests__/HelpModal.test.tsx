@@ -260,15 +260,17 @@ describe('HelpModal session state', () => {
     expect(view.getByText(/the design owns the touch/)).toBeTruthy()
     expect(view.getByText(/companion Touch node/)).toBeTruthy()
     expect(view.getByText(/named action directly/)).toBeTruthy()
-    // Player Controls mints a port per job, and the picker narrows three ways.
-    expect(view.getByText(/Connect control…/)).toBeTruthy()
+    // Player Controls shows its default rows and exposes the rest; Checks
+    // flags the wires that connect without working, three ways.
+    expect(view.getByText(/it shows the rows a panel usually has/)).toBeTruthy()
+    expect(view.queryByText(/Connect control…/)).toBeNull()
     expect(view.getByText('By what it is')).toBeTruthy()
     expect(view.getByText('By where the cable ends')).toBeTruthy()
     expect(view.getByText('One job per control')).toBeTruthy()
     // Readings can come from the panel's own source rather than a cable.
     expect(view.getByText(/listing what the panel/)).toBeTruthy()
     // Direct property wires and template auto-wiring are the current model.
-    expect(view.getByText(/Expose input/)).toBeTruthy()
+    expect(view.getAllByText(/Expose input/).length).toBeGreaterThan(0)
     expect(view.getByText(/Connect template controls/)).toBeTruthy()
 
     const page = view.getByRole('tabpanel')

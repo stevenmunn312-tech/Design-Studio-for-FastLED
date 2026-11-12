@@ -857,6 +857,17 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Build Diagram
 
+- Every SVG id is per sheet. Print renders the screen sheet and each print
+  sheet in one document, and `url(#id)` resolves to the first match, which
+  print hides; a shared `component-shadow` id blanked every part drawn with
+  it. `PhysicalAssemblyDiagram` derives its ids from `useId()` and passes the
+  shadow filter down (`shadowFilter`); CSS reads the wire bloom through
+  `--wire-bloom-filter`. A cropped sheet also clips to its crop: the page
+  letterboxes the viewBox and an SVG clips only at its viewport, so the
+  neighbouring zone's callout printed above the band.
+- Power feed points are named by LED along the data chain
+  (`injectionLocation`: "LED 129"), never by `positionMm`, which assumes a
+  60/m strip and means nothing on a folded panel.
 - A library node can be a diagram item. `buildHardwareManifest` draws what
   `isHardwareNodeType` owns plus the graph-side nodes that claim GPIO
   (`DMXInput`, `MidiInput`), each named in the `hardwareNodes` filter. A new

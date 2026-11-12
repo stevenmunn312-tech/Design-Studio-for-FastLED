@@ -23,6 +23,16 @@ export interface BackendHealth {
   fbuildVersion?: string | null
 }
 
+/** The bare version of the active build engine. The helper passes on each
+ *  tool's own version banner (`fbuild 2.5.45`, `arduino-cli  Version: 1.3.1
+ *  Commit: …`), which already names the tool, so a caller that prints the
+ *  engine name beside it would say it twice. */
+export function engineVersionNumber(raw: string | null | undefined): string | null {
+  const text = raw?.trim()
+  if (!text) return null
+  return text.match(/\d+(?:\.\d+)+[\w.+-]*/)?.[0] ?? text
+}
+
 export interface SerialPort {
   address: string
   label: string

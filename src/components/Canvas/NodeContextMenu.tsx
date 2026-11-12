@@ -13,6 +13,7 @@ import { saveGroupToLibrary, usePatternLibrary } from '../../state/patterns/patt
 import { useUiStore } from '../../state/uiStore'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import CreateGroupDialog, { type CreateGroupResult } from './CreateGroupDialog'
+import { createGroupFromSelection } from './groupStatus'
 import { runTidy } from '../../utils/tidyGraph'
 import styles from './NodeContextMenu.module.css'
 
@@ -24,7 +25,7 @@ interface Props {
 }
 
 export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
-  const { duplicateNode, removeNodeCompletely, disconnectNode, copyNode, ungroupNode, createGroup, updateNodeProperties, setAllNodesMinimized } = useGraphStore()
+  const { duplicateNode, removeNodeCompletely, disconnectNode, copyNode, ungroupNode, updateNodeProperties, setAllNodesMinimized } = useGraphStore()
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const requestPrompt = useUiStore((s) => s.requestPrompt)
   const setStatus = useUiStore((s) => s.setStatus)
@@ -147,36 +148,10 @@ export default function NodeContextMenu({ nodeId, x, y, onClose }: Props) {
   // Mirrors GroupControls' "⊞ Group" dialog flow so grouping + saving to the
   // library can happen in one action from a multi-selection's right-click menu,
   // instead of select → group → reopen the node menu → Save to Library.
-  const handleCreateGroup = async (name: string, { saveToLibrary, bestOn, exposePaletteNodeIds }: CreateGroupResult) => {
-    const groupId = createGroup(name, selectedIds, { saveToLibrary, exposePaletteNodeIds })
-    let savedToLibrary = false
-    let replacedLibraryPattern = false
-    if (saveToLibrary) {
-      const trimmedName = name.trim()
-      const replacing = patterns.some((pattern) => pattern.name.trim().toLocaleLowerCase() === trimmedName.toLocaleLowerCase())
-      const ok = !replacing || await requestConfirm({
-        title: 'Replace library pattern?',
-        message: `A library pattern named “${trimmedName}” already exists. Replace it?`,
-        confirmLabel: 'Replace',
-        cancelLabel: 'Cancel',
-        tone: 'danger',
-      })
-      if (ok) {
-        const result = saveGroupToLibrary(`groupnode-${groupId}`, { replaceByName: replacing, bestOn })
-        savedToLibrary = !!result
-        replacedLibraryPattern = !!result?.replaced
-      }
-    }
-    setStatus(
-      `Grouped ${selectedIds.length} node(s) into “${name}”${
-        savedToLibrary
-          ? replacedLibraryPattern ? ' and replaced its library copy' : ' and saved to library'
-          : ''
-      }`,
-      'success',
-    )
+  const handleCreateGroup = async (name: string, result: CreateGroupResult) => {
     setShowGroupDialog(false)
     onClose()
+    await createGroupFromSelection(name, selectedIds, result)
   }
 
   useEffect(() => {

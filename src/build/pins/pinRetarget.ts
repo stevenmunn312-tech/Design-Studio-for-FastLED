@@ -92,6 +92,15 @@ interface PartPinPlan {
   /** Capability each key demands, when allocated from the general pool. */
   requests?: PartPinRequest[]
   /**
+   * Pins to try first for each key, when allocated from the general pool.
+   * Without it a movable pin lands on the pool's first free pad, so a part
+   * that already sat on a good pin was moved for no reason.
+   */
+  preferred?: (
+    profile: PhysicalBoardProfile | undefined,
+    properties: Record<string, unknown>,
+  ) => Record<string, number[]>
+  /**
    * Where the pins come from when the profile names no peripheral entry.
    *
    * A profile knows which pads a specific board exposes and an FQBN only names
@@ -117,6 +126,20 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
       { key: 'dataPin', capability: 'digitalOutput' },
       { key: 'clockPin', capability: 'digitalOutput' },
     ],
+    // The data lead stays where it is while the board offers that pin, then
+    // goes to the board's own FastLED pin, as a newly added output does
+    // (`nextFreeLedDataPin`). A starter or a board change used to move it to
+    // the pool's first pad instead.
+    preferred: (profile, properties) => {
+      const led = profile?.peripheralPins?.fastLedData
+      const current = Number(properties.dataPin)
+      return {
+        dataPin: [
+          ...(Number.isFinite(current) ? [current] : []),
+          ...(led ? [led.recommendedDefault, ...led.commonAlternatives] : []),
+        ],
+      }
+    },
   },
   MicInput: {
     keys: ['i2sWs', 'i2sSck', 'i2sSd'],
@@ -520,10 +543,14 @@ function planKeys(plan: PartPinPlan, properties: Record<string, unknown>): strin
 function planRequests(
   plan: PartPinPlan,
   properties: Record<string, unknown>,
+  profile?: PhysicalBoardProfile,
 ): PartPinRequest[] | undefined {
   if (!plan.requests) return undefined
   const keys = new Set(planKeys(plan, properties))
-  return plan.requests.filter((request) => keys.has(request.key))
+  const preferred = plan.preferred?.(profile, properties) ?? {}
+  return plan.requests
+    .filter((request) => keys.has(request.key))
+    .map((request) => preferred[request.key]?.length ? { ...request, preferred: preferred[request.key] } : request)
 }
 
 function peripheralPins(
@@ -877,7 +904,7 @@ function retargetPartPins(
             && other.data.nodeType !== 'ButtonBank'),
           ...claimedAsNodes(claimed),
         ],
-        (planRequests(plan, properties) ?? []).filter((request) => movable.includes(request.key)),
+        (planRequests(plan, properties, profile) ?? []).filter((request) => movable.includes(request.key)),
       )
       next = assigned.ok ? assigned.pins : null
     }

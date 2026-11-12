@@ -4,12 +4,11 @@ import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 import { autoConnectPlacedNode, canAddNodeType, useGraphStore } from '../../state/graphStore'
 import { NODE_LIBRARY, CATEGORIES, NODE_DESCRIPTIONS, portsCompatible } from '../../state/nodeLibrary'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
-import { saveGroupToLibrary, usePatternLibrary } from '../../state/patterns/patternLibrary'
-import { useUiStore } from '../../state/uiStore'
 import { runTidy } from '../../utils/tidyGraph'
 import type { NodeDefinition, NodePort } from '../../types'
 import { isHardwareLibraryHiddenNodeType } from '../../build/hardware'
 import CreateGroupDialog, { type CreateGroupResult } from './CreateGroupDialog'
+import { createGroupFromSelection } from './groupStatus'
 import styles from './CanvasContextMenu.module.css'
 
 const FFT_BAND_IDS = ['bass', 'mids', 'treble'] as const
@@ -210,10 +209,7 @@ interface Props {
 }
 
 export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onPlaced, startInPicker, onClose }: Props) {
-  const { addNode, onConnect, clipboard, pasteNode, selectAllNodes, deleteSelection, createGroup, nodes } = useGraphStore()
-  const requestConfirm = useUiStore((s) => s.requestConfirm)
-  const setStatus = useUiStore((s) => s.setStatus)
-  const patterns = usePatternLibrary((s) => s.patterns)
+  const { addNode, onConnect, clipboard, pasteNode, selectAllNodes, deleteSelection, nodes } = useGraphStore()
   const menuRef = useRef<HTMLDivElement>(null)
   const [mode, setMode] = useState<'main' | 'picker'>(connectFrom || startInPicker ? 'picker' : 'main')
   const [query, setQuery] = useState('')
@@ -386,36 +382,10 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
 
   const act = (fn: () => void) => { fn(); onClose() }
 
-  const handleCreateGroup = async (name: string, { saveToLibrary, bestOn, exposePaletteNodeIds }: CreateGroupResult) => {
-    const groupId = createGroup(name, selectedIds, { saveToLibrary, exposePaletteNodeIds })
-    let savedToLibrary = false
-    let replacedLibraryPattern = false
-    if (saveToLibrary) {
-      const trimmedName = name.trim()
-      const replacing = patterns.some((pattern) => pattern.name.trim().toLocaleLowerCase() === trimmedName.toLocaleLowerCase())
-      const ok = !replacing || await requestConfirm({
-        title: 'Replace library pattern?',
-        message: `A library pattern named “${trimmedName}” already exists. Replace it?`,
-        confirmLabel: 'Replace',
-        cancelLabel: 'Cancel',
-        tone: 'danger',
-      })
-      if (ok) {
-        const result = saveGroupToLibrary(`groupnode-${groupId}`, { replaceByName: replacing, bestOn })
-        savedToLibrary = !!result
-        replacedLibraryPattern = !!result?.replaced
-      }
-    }
-    setStatus(
-      `Grouped ${selectedIds.length} node(s) into “${name}”${
-        savedToLibrary
-          ? replacedLibraryPattern ? ' and replaced its library copy' : ' and saved to library'
-          : ''
-      }`,
-      'success',
-    )
+  const handleCreateGroup = async (name: string, result: CreateGroupResult) => {
     setShowGroupDialog(false)
     onClose()
+    await createGroupFromSelection(name, selectedIds, result)
   }
 
   if (showGroupDialog) {

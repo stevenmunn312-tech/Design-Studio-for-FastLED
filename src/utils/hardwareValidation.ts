@@ -1,5 +1,5 @@
 import type { StudioEdge, StudioNode } from '../state/graphStore'
-import type { BackendHealth, CompileCheckResult } from './backendClient'
+import { engineVersionNumber, type BackendHealth, type CompileCheckResult } from './backendClient'
 import { boardByFqbn } from '../state/upload/uploadStore'
 import { MIC_SAMPLE_RATE } from '../audio/micAnalysis'
 import { controllerSettings } from '../build/controllerSettings'
@@ -675,7 +675,9 @@ export function formatHardwareValidationReport(submission: HardwareValidationSub
     ['Browser', submission.browser],
     ['User agent', profile.environment.userAgent],
     ['Board', `${profile.controller.board} (${profile.controller.fqbn})`],
-    ['Build engine', `${profile.controller.engine} ${profile.controller.engineVersion}`],
+    // The raw banner stays in the profile (configuration keys hash it); the
+    // row shows only its version, since the banner already names the engine.
+    ['Build engine', `${profile.controller.engine} ${engineVersionNumber(profile.controller.engineVersion) ?? 'unknown'}`],
     ['LED target', `${LED_OUTPUT_FORM_LABELS[m.form]} · ${m.chipset} · ${m.colorOrder} · ${m.width}×${m.height}`],
     ['Layout', `${m.layout} · pixel serpentine: ${m.serpentine ? 'yes' : 'no'}${m.startCorner === undefined && m.firstRun === undefined ? '' : ` · LED 0 ${m.startCorner ?? 'top-left'} · first run ${m.firstRun ?? 'horizontal'}`}`],
     ['Pins', `data ${m.dataPin}${m.clockPin == null ? '' : ` · clock ${m.clockPin}`}`],

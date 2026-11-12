@@ -140,11 +140,38 @@ function CostLine({ rating, ram, flash }: { rating: PatternRating; ram: PatternR
   )
 }
 
+/** The user's own stars and form tags. Neither reads Studio's verdict, so
+ *  both are offered on every card: before a scan, while one runs, and on a
+ *  pattern the critic skipped or could not render. */
+function PersonalRow({ pattern, userRating, onUserRating, onTagChange }: {
+  pattern: SavedPattern
+  userRating: number
+  onUserRating: (id: string, value: number) => void
+  onTagChange: (id: string, bestOn: PatternFormTag[]) => void
+}) {
+  return (
+    <>
+      <StarRating value={userRating} onChange={(value) => onUserRating(pattern.id, value)} name={pattern.name} />
+      <div className={styles.tagRow}>
+        <span className={styles.tagLabel}>Best displayed on</span>
+        <PatternTagChips
+          name={pattern.name}
+          value={patternFormTags(pattern.bestOn)}
+          disabled={pattern.bundled}
+          onChange={(next) => onTagChange(pattern.id, next)}
+        />
+      </div>
+    </>
+  )
+}
+
 interface RatingCardProps {
   pattern: SavedPattern
-  rating: PatternRating
+  /** Absent until a scan has judged this pattern. */
+  rating?: PatternRating
   ram: PatternRamEstimate
-  flash: PatternFlashEstimate
+  /** Computed only for a judged pattern: it generates the pattern's C++. */
+  flash?: PatternFlashEstimate
   checked: boolean
   userRating: number
   rescanning: boolean
@@ -158,6 +185,26 @@ function RatingCard({
   pattern, rating, ram, flash, checked, userRating, rescanning,
   onToggle, onUserRating, onIntentChange, onTagChange,
 }: RatingCardProps) {
+  const personal = <PersonalRow pattern={pattern} userRating={userRating} onUserRating={onUserRating} onTagChange={onTagChange} />
+  if (!rating) {
+    return (
+      <article className={`${styles.card} ${styles.card_unscanned}`}>
+        <header className={styles.cardHead}>
+          <input
+            type="checkbox"
+            className={styles.cardCheck}
+            checked={checked}
+            onChange={() => onToggle(pattern.id)}
+            aria-label={`Select "${pattern.name}" for a new Pattern Collection`}
+          />
+          <span className={styles.name}>{pattern.name}</span>
+          {pattern.bundled && <span className={styles.bundledTag}>included</span>}
+          <span className={styles.verdictLabel}>Not scanned</span>
+        </header>
+        <div className={styles.personalOnly}>{personal}</div>
+      </article>
+    )
+  }
   const tier = ratingTier(rating.overall)
   const unscored = rating.failed || rating.skipped
   return (
@@ -177,12 +224,15 @@ function RatingCard({
         <span className={`${styles.overall} ${styles[tier]}`}>{unscored ? '—' : rating.overall}</span>
       </header>
 
-      {rating.failed || rating.skipped ? (
-        <div className={styles.failNote}>
-          {rating.failed
-            ? `Couldn’t render this pattern${rating.error ? `: ${rating.error}` : ''}`
-            : 'Not assessed. Choose Scan patterns when you are ready to review and trust executable Formula or Code nodes.'}
-        </div>
+      {unscored ? (
+        <>
+          <div className={styles.failNote}>
+            {rating.failed
+              ? `Couldn’t render this pattern${rating.error ? `: ${rating.error}` : ''}`
+              : 'Not assessed. Choose Scan patterns when you are ready to review and trust executable Formula or Code nodes.'}
+          </div>
+          <div className={styles.personalOnly}>{personal}</div>
+        </>
       ) : (
         <div className={styles.cardBody}>
           <div className={styles.momentRail}>
@@ -208,19 +258,9 @@ function RatingCard({
             </div>
 
             <p className={styles.summary}>{rating.summary}</p>
-            <StarRating value={userRating} onChange={(value) => onUserRating(pattern.id, value)} name={pattern.name} />
+            {personal}
 
-            <div className={styles.tagRow}>
-              <span className={styles.tagLabel}>Best displayed on</span>
-              <PatternTagChips
-                name={pattern.name}
-                value={patternFormTags(pattern.bestOn)}
-                disabled={pattern.bundled}
-                onChange={(next) => onTagChange(pattern.id, next)}
-              />
-            </div>
-
-            <CostLine rating={rating} ram={ram} flash={flash} />
+            {flash && <CostLine rating={rating} ram={ram} flash={flash} />}
 
             <div className={styles.notesGrid}>
               <div>
@@ -346,11 +386,11 @@ export default function PatternRatingsPopup() {
       <div ref={dialogRef} className={styles.popup} role="dialog" aria-modal="true" aria-labelledby="pattern-insights-title" tabIndex={-1}>
         <header className={styles.header}>
           <div>
-            <div className={styles.kicker}>Library sorting</div>
+            <div className={styles.kicker}>Library ratings</div>
             <h2 id="pattern-insights-title">Pattern Insights</h2>
             <p>
               Studio judges execution against each pattern’s intent; your stars remain entirely your own.
-              Score, stars and Best displayed on sort the pattern library and the collection picker — no show or slideshow plays by them.
+              Score and stars sort the collection picker, Best displayed on filters it, and the library shows them as badges — no show or slideshow plays by them.
             </p>
           </div>
           <button className={styles.closeBtn} onClick={handleClose} aria-label="Close Pattern Insights">×</button>
@@ -376,28 +416,34 @@ export default function PatternRatingsPopup() {
         <div className={styles.list}>
           {patterns.length === 0 ? (
             <div className={styles.empty}>Save a pattern to the library before asking Studio for a critique.</div>
-          ) : ratings.length === 0 ? (
-            <div className={styles.empty}>No current verdicts. Scan the library when you are ready to run and judge its patterns.</div>
-          ) : patterns.map((pattern) => {
-            const rating = ratingById.get(pattern.id)
-            if (!rating) return null
-            return (
-              <RatingCard
-                key={pattern.id}
-                pattern={pattern}
-                rating={rating}
-                ram={ramByPatternId.get(pattern.id) ?? patternRamEstimate(pattern, firmwareDims, ramBudget)}
-                flash={patternFlashEstimate(pattern, context.groups)}
-                checked={selected.has(pattern.id)}
-                userRating={userRatings[pattern.id] ?? 0}
-                rescanning={rescanningId === pattern.id}
-                onToggle={toggleSelected}
-                onUserRating={setUserRating}
-                onIntentChange={changeIntent}
-                onTagChange={tagPattern}
-              />
-            )
-          })}
+          ) : (
+            <>
+              {ratings.length === 0 && (
+                <div className={styles.unscannedNote}>
+                  No current verdicts. Scan the library when you are ready to run and judge its patterns; your stars and tags work now.
+                </div>
+              )}
+              {patterns.map((pattern) => {
+                const rating = ratingById.get(pattern.id)
+                return (
+                  <RatingCard
+                    key={pattern.id}
+                    pattern={pattern}
+                    rating={rating}
+                    ram={ramByPatternId.get(pattern.id) ?? patternRamEstimate(pattern, firmwareDims, ramBudget)}
+                    flash={rating ? patternFlashEstimate(pattern, context.groups) : undefined}
+                    checked={selected.has(pattern.id)}
+                    userRating={userRatings[pattern.id] ?? 0}
+                    rescanning={rescanningId === pattern.id}
+                    onToggle={toggleSelected}
+                    onUserRating={setUserRating}
+                    onIntentChange={changeIntent}
+                    onTagChange={tagPattern}
+                  />
+                )
+              })}
+            </>
+          )}
         </div>
       </div>
     </div>
