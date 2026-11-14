@@ -97,9 +97,9 @@
 
 .lastStart {
   padding: var(--space-0) calc(var(--space-0) * 2.5);
-  border: 1px solid rgba(0, 191, 255, 0.18);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 18%, transparent);
   border-radius: var(--radius-control);
-  background: rgba(0, 191, 255, 0.08);
+  background: color-mix(in srgb, var(--accent-ui) 8%, transparent);
   color: var(--paint-a6ebff);
   font-family: var(--font-body);
   font-size: var(--fs-label);
@@ -132,18 +132,18 @@
 }
 
 .card:hover {
-  border-color: rgba(0, 191, 255, 0.28);
+  border-color: color-mix(in srgb, var(--accent-ui) 28%, transparent);
 }
 
 .cardRemembered {
-  border-color: rgba(0, 191, 255, 0.34);
+  border-color: color-mix(in srgb, var(--accent-ui) 34%, transparent);
 }
 
 /* The recommended first patch: twice the width, first in reading order, and
    the only card with a filled action, so where to begin is not a question. */
 .featuredCard {
   grid-column: span 2;
-  border-color: rgba(0, 191, 255, 0.34);
+  border-color: color-mix(in srgb, var(--accent-ui) 34%, transparent);
 }
 
 .featuredCard:focus-visible,
@@ -313,7 +313,7 @@
 .lastBadge {
   padding: calc(var(--space-0) * 0.75) var(--space-1);
   border-radius: var(--radius-control);
-  background: rgba(0, 191, 255, 0.12);
+  background: color-mix(in srgb, var(--accent-ui) 12%, transparent);
   color: var(--accent-ui);
   font-family: var(--font-body);
   font-size: var(--fs-label);

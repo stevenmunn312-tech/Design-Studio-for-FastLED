@@ -530,7 +530,7 @@
   content: '';
   position: absolute;
   inset: -12px;
-  border: 1px solid rgba(90, 209, 255, 0.16);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 16%, transparent);
   border-radius: 14px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 1.8%, transparent), rgba(255, 255, 255, 0));

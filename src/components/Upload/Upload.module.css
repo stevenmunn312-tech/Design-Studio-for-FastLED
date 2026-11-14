@@ -690,7 +690,7 @@
   padding: calc(var(--space-0) * 2.5) calc(var(--space-0) * 3);
   border: 1px solid rgba(156, 232, 255, 0.16);
   border-radius: 12px;
-  background: rgba(0, 191, 255, 0.055);
+  background: color-mix(in srgb, var(--accent-ui) 5.5%, transparent);
   color: var(--text-secondary);
 }
 
@@ -959,9 +959,9 @@
 }
 
 .wizardStepActive {
-  border-color: rgba(0, 191, 255, 0.28) !important;
+  border-color: color-mix(in srgb, var(--accent-ui) 28%, transparent) !important;
   background:
-    linear-gradient(180deg, rgba(0, 191, 255, 0.12), color-mix(in srgb, var(--text-primary) 2%, transparent)),
+    linear-gradient(180deg, color-mix(in srgb, var(--accent-ui) 12%, transparent), color-mix(in srgb, var(--text-primary) 2%, transparent)),
     color-mix(in srgb, var(--text-primary) 2.5%, transparent);
   color: var(--text-primary);
 }
@@ -1066,9 +1066,9 @@
 }
 
 .presetBtnActive {
-  border-color: rgba(0, 191, 255, 0.28) !important;
+  border-color: color-mix(in srgb, var(--accent-ui) 28%, transparent) !important;
   color: var(--text-primary);
-  background: rgba(0, 191, 255, 0.1);
+  background: color-mix(in srgb, var(--accent-ui) 10%, transparent);
 }
 
 .textArea {

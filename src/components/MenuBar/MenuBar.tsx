@@ -148,7 +148,15 @@ export default function MenuBar() {
     lastStartChoice: s.lastStartChoice,
   })))
 
-  const THEME_LABEL: Record<AppTheme, string> = { dark: 'Dark', solarized: 'Solarized', light: 'Light' }
+  const THEME_LABEL: Record<AppTheme, string> = {
+    dark: 'Dark',
+    midnight: 'Midnight',
+    nord: 'Nord',
+    dracula: 'Dracula',
+    gruvbox: 'Gruvbox',
+    solarized: 'Solarized',
+    light: 'Light',
+  }
   // "Balanced", not "Build": Build Diagram is a workspace tab, and a layout
   // preset sharing its name read as a second way to open it.
   const LAYOUT_PRESET_LABEL: Record<LayoutPresetId, string> = { build: 'Balanced', tune: 'Tune', preview: 'Preview' }

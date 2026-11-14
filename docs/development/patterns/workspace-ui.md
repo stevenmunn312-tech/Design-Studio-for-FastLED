@@ -367,6 +367,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   palette there; chrome states use `--accent-ui` and `--accent-ui-text`, never
   a category accent. `src/themes/__tests__/definedTokens.test.ts` fails the
   build when a `var(--x)` is read that nothing declares.
+- A studio theme is an `AppTheme` id in `THEMES`, a `THEME_LABEL` in the View
+  menu and a `[data-theme="id"]` block in `tokens.css`. A dark theme sets only
+  the surfaces, text, `--accent-ui` pair and rules; a light theme must also
+  remap the dark `--paint-*` surfaces, as `light` does. Chrome tints are
+  `color-mix(in srgb, var(--accent-ui) N%, transparent)`, never a literal
+  accent `rgba`, or they stay cyan in every theme. Keep `--text-secondary` at
+  4.5:1 or better on `--bg-node-hover`.
 - A CSS Modules `composes:` base must not set anything a composer overrides,
   `z-index` above all. The composed class ties the composer on specificity and
   its file can load later, so the base value wins. `sharedOverlay` in

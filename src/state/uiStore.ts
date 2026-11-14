@@ -21,7 +21,7 @@ import {
 } from './layoutPresets'
 
 export type StagePresentationStatus = 'idle' | 'requesting' | 'active' | 'unavailable'
-export type AppTheme = 'dark' | 'solarized' | 'light'
+export type AppTheme = 'dark' | 'midnight' | 'nord' | 'dracula' | 'gruvbox' | 'solarized' | 'light'
 export type NewProjectDecision = 'yes' | 'no' | 'cancel'
 export type AppDialogTone = 'default' | 'danger'
 export type StartChoice = string | 'blank' | null
@@ -461,7 +461,14 @@ interface UiState {
 }
 
 
-export const THEMES: AppTheme[] = ['dark', 'solarized', 'light']
+export const THEMES: AppTheme[] = ['dark', 'midnight', 'nord', 'dracula', 'gruvbox', 'solarized', 'light']
+
+/** A stored theme this build no longer offers falls back to Dark rather than
+ *  setting a `data-theme` that no token block answers. */
+function loadTheme(): AppTheme {
+  const stored = load<unknown>(THEME_KEY, 'dark')
+  return THEMES.includes(stored as AppTheme) ? stored as AppTheme : 'dark'
+}
 
 // Tracks the pending status auto-clear so a newer message cancels the older
 // timer instead of being wiped when a stale one fires.
@@ -594,7 +601,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   fitViewRequest: { nonce: 0 },
   locatedEdgeIds: [],
   nodeFlash: { nodeId: null, nonce: 0 },
-  theme: load<AppTheme>(THEME_KEY, 'dark'),
+  theme: loadTheme(),
   reducedMotion: load<boolean>(MOTION_KEY, false),
   highContrast: load<boolean>(CONTRAST_KEY, false),
   helpOpen: false,

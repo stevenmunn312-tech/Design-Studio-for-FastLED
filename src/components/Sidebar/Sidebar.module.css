@@ -590,7 +590,7 @@
 }
 
 .recipeCard:hover {
-  border-color: rgba(90, 209, 255, 0.18);
+  border-color: color-mix(in srgb, var(--accent-ui) 18%, transparent);
 }
 
 .recipeKicker {
@@ -625,7 +625,7 @@
   align-self: flex-start;
   margin-top: calc(var(--space-0) * 0.5);
   padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.5);
-  border: 1px solid rgba(90, 209, 255, 0.18);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 18%, transparent);
   border-radius: var(--radius-control);
   color: color-mix(in srgb, var(--accent-output) 68%, white);
   font-family: var(--font-body);

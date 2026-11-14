@@ -455,11 +455,11 @@ function Key({ children }: { children: React.ReactNode }) {
 
 function UsingNodesArticle() {
   return (
-    <article className={`${styles.article} ${styles.usingNodesArticle}`} style={{ '--node-accent': '#5ad1ff' } as React.CSSProperties}>
+    <article className={`${styles.article} ${styles.usingNodesArticle}`} style={{ '--node-accent': 'var(--accent-ui)' } as React.CSSProperties}>
       <div className={styles.breadcrumb}>Node reference <span>/</span> Introduction</div>
       <header className={styles.articleHeader}>
         <div>
-          <div className={styles.eyebrow}><i style={{ background: '#5ad1ff' }} />Getting started</div>
+          <div className={styles.eyebrow}><i style={{ background: 'var(--accent-ui)' }} />Getting started</div>
           <h1>Using Nodes</h1>
           <p>Start with the small set of canvas actions used in every design: add nodes, connect compatible ports, edit values, and organise a growing patch.</p>
         </div>

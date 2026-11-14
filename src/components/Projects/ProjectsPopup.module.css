@@ -60,13 +60,13 @@
 }
 
 .primaryBtn {
-  background: rgba(0, 191, 255, 0.12);
-  border: 1px solid rgba(0, 191, 255, 0.34);
+  background: color-mix(in srgb, var(--accent-ui) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 34%, transparent);
   color: var(--accent-ui);
 }
 .primaryBtn:hover {
-  background: rgba(0, 191, 255, 0.18);
-  border-color: rgba(0, 191, 255, 0.5);
+  background: color-mix(in srgb, var(--accent-ui) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent-ui) 50%, transparent);
 }
 
 .secondaryBtn,
@@ -117,7 +117,7 @@
 }
 
 .rowActive {
-  border-color: rgba(0, 191, 255, 0.24);
+  border-color: color-mix(in srgb, var(--accent-ui) 24%, transparent);
 }
 
 .rowInfo {
@@ -146,8 +146,8 @@
   font-size: var(--fs-label);
   font-weight: 700;
   color: var(--accent-ui);
-  background: rgba(0, 191, 255, 0.12);
-  border: 1px solid rgba(0, 191, 255, 0.24);
+  background: color-mix(in srgb, var(--accent-ui) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 24%, transparent);
 }
 
 .rowMeta {

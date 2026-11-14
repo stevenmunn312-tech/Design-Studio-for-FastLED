@@ -126,7 +126,7 @@
 
 .suggestionCard:hover {
   background: color-mix(in srgb, var(--text-primary) 6%, transparent);
-  border-color: rgba(90, 209, 255, 0.2);
+  border-color: color-mix(in srgb, var(--accent-ui) 20%, transparent);
   color: var(--text-primary);
 }
 

@@ -9,6 +9,9 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Four more studio themes in View → Theme: Midnight (true black for dark rooms
+  and OLED screens), Nord, Dracula and Gruvbox. Popup highlights and the Help
+  getting-started accent now follow the theme's accent instead of staying cyan.
 - Hardware: the TPS61023 1S 5 V boost module has a Feeds setting. Set to
   Controller, it powers the board's 5 V pin from a single lithium cell in
   place of USB, and the Build Diagram draws it under the board with its

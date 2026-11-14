@@ -484,6 +484,83 @@
   --active-shadow: rgba(0, 20, 26, 0.38);
 }
 
+/* Dark themes keep the default status colours and paint palette; only the
+   chrome surfaces, text, accent and rules move. Secondary text clears 4.5:1 on
+   --bg-node-hover, and --accent-ui-text clears it on --accent-ui. */
+[data-theme="midnight"] {
+  --bg-primary: #000000;
+  --bg-panel: #0a0a0c;
+  --bg-node: #141418;
+  --bg-node-hover: #1c1c22;
+  --bg-deep: #000000;
+  --bg-canvas: #000000;
+  --surface-recessed: #050506;
+  --text-primary: #e6e6e6;
+  --text-secondary: #9c9ca4;
+  --line: rgba(255, 255, 255, 0.12);
+  --divider: rgba(255, 255, 255, 0.06);
+  --chrome-border: rgba(255, 255, 255, 0.09);
+  --chrome-shadow: rgba(0, 0, 0, 0.5);
+  --active-shadow: rgba(0, 0, 0, 0.62);
+}
+
+[data-theme="nord"] {
+  --bg-primary: #2e3440;
+  --bg-panel: #3b4252;
+  --bg-node: #434c5e;
+  --bg-node-hover: #4c566a;
+  --bg-deep: #272c36;
+  --bg-canvas: #2e3440;
+  --surface-recessed: #292e39;
+  --accent-ui: #88c0d0;
+  --accent-ui-text: #2e3440;
+  --text-primary: #eceff4;
+  --text-secondary: #c8cfdb;
+  --line: rgba(216, 222, 233, 0.16);
+  --divider: rgba(216, 222, 233, 0.08);
+  --chrome-border: rgba(216, 222, 233, 0.11);
+  --chrome-shadow: rgba(15, 18, 24, 0.3);
+  --active-shadow: rgba(15, 18, 24, 0.42);
+}
+
+[data-theme="dracula"] {
+  --bg-primary: #282a36;
+  --bg-panel: #2f3140;
+  --bg-node: #383a4a;
+  --bg-node-hover: #44475a;
+  --bg-deep: #21222c;
+  --bg-canvas: #282a36;
+  --surface-recessed: #23242f;
+  --accent-ui: #bd93f9;
+  --accent-ui-text: #1e1f29;
+  --text-primary: #f8f8f2;
+  --text-secondary: #bcc0da;
+  --line: rgba(248, 248, 242, 0.12);
+  --divider: rgba(248, 248, 242, 0.06);
+  --chrome-border: rgba(248, 248, 242, 0.09);
+  --chrome-shadow: rgba(12, 12, 18, 0.32);
+  --active-shadow: rgba(12, 12, 18, 0.44);
+}
+
+[data-theme="gruvbox"] {
+  --bg-primary: #282828;
+  --bg-panel: #32302f;
+  --bg-node: #3c3836;
+  --bg-node-hover: #504945;
+  --bg-deep: #1d2021;
+  --bg-canvas: #282828;
+  --surface-recessed: #242322;
+  --accent-ui: #fabd2f;
+  --accent-ui-text: #282828;
+  --text-primary: #ebdbb2;
+  --text-secondary: #c9b99a;
+  --line: rgba(235, 219, 178, 0.13);
+  --divider: rgba(235, 219, 178, 0.07);
+  --chrome-border: rgba(235, 219, 178, 0.1);
+  --chrome-shadow: rgba(0, 0, 0, 0.3);
+  --active-shadow: rgba(0, 0, 0, 0.42);
+}
+
 [data-theme="light"] {
   --bg-primary: #eef0f4;
   --bg-panel: #ffffff;
