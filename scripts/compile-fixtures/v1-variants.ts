@@ -9,16 +9,20 @@
  * written, and the manifest names the board each one builds on.
  */
 import { createHash } from 'node:crypto'
-import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { generateCpp } from '../../src/codegen/cppGenerator'
 import { generateShowSketch } from '../../src/codegen/showGenerator'
+import { generateShow, performanceOptionsFromProperties } from '../../src/codegen/performanceGenerator'
+import { DEMO_TRACK_FILE } from '../../src/state/player/demoTrack'
 import { buildShowPlayer } from '../../src/utils/showUpload'
 import type { GroupRegistry } from '../../src/state/graphEvaluator'
 import { NODE_LIBRARY, libraryDefaults } from '../../src/state/nodeLibrary'
 import { BUNDLED_PATTERNS } from '../../src/state/patterns/bundledPatterns'
 import { starterShowPatterns } from '../../src/state/patterns/starterShowPatterns'
 import { STARTER_TEMPLATES, buildBoardAwareStarter } from '../../src/state/patterns/starterTemplates'
+import { wiredPatternCollection, wiredTransitionStyles } from '../../src/state/patterns/patternCollectionWiring'
+import type { ShowFile, SongAnalysis } from '../../src/types/showFile'
 import type { StudioEdge, StudioNode } from '../../src/state/graphStore'
 import { useNetworkCredentialsStore } from '../../src/state/peripherals/networkCredentials'
 import { findBoardPinCompatibility, findDeployBlockingErrors, findExactBoardPinIssues, findPinConflicts } from '../../src/utils/validateGraph'
@@ -403,10 +407,10 @@ const cascadeShow = graph(CLASSIC, [classicBoard(), ...classicMic(),
 checked('slideshow-audio-cascade', cascadeShow, cascadeGroups)
 fixtures['slideshow-audio-cascade'] = { fqbn: CLASSIC, source: generateShowSketch(cascadeShow.nodes, cascadeShow.edges, cascadeGroups) }
 
-// The two Music Player starters as the app builds them for an ESP32-S3, each
-// with the twenty starter show patterns in its collection.
+// A starter as the app builds it for an ESP32-S3, with the twenty starter show
+// patterns in its collection.
 const S3_N16R8 = 'esp32:esp32:esp32s3:PSRAM=opi,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB'
-for (const id of ['generative-show', 'player-transport']) {
+function starterGraph(id: string) {
   const starter = STARTER_TEMPLATES.find((entry) => entry.id === id)
   if (!starter) throw new Error(`no starter ${id}`)
   const patterns = starterShowPatterns()
@@ -419,8 +423,48 @@ for (const id of ['generative-show', 'player-transport']) {
   const edges = built.edges.filter((entry) => live.has(entry.source) && live.has(entry.target))
   const registry = Object.fromEntries(patterns.map((pattern) => [pattern.id, pattern.subgraph])) as unknown as GroupRegistry
   checked(`starter-${id}`, { fqbn: S3_N16R8, nodes, edges }, registry)
+  return { nodes, edges, registry, ids }
+}
+
+// The two Music Player starters.
+for (const id of ['generative-show', 'player-transport']) {
+  const { nodes, edges, registry, ids } = starterGraph(id)
   fixtures[`starter-${id}`] = { fqbn: S3_N16R8, source: buildShowPlayer(nodes, edges, registry, {
     patternSet: ids, bakedAudio: false, genericPlayer: true, preferredTrack: '',
+  }) }
+}
+
+// The Music-synced SD Show starter, flashed as the app flashes it: the bundled
+// demo track's analysis (scripts/analyse-demo-track.ts writes it, since Node
+// decodes no MP3), then the Performance Generator's own show written against
+// the collection, and the player built for that show.
+{
+  const { nodes, edges, registry } = starterGraph('music-sync-sd-show')
+  const generator = nodes.find((entry) => entry.data.nodeType === 'PerformanceGenerator')
+  if (!generator) throw new Error('starter-music-sync-sd-show: no Performance Generator')
+  const analysis = JSON.parse(readFileSync(resolve('scripts/compile-fixtures/data/demo-track-analysis.json'), 'utf8')) as SongAnalysis
+  const title = DEMO_TRACK_FILE.replace(/\.[^/.]+$/, '')
+  if (analysis.title !== title) throw new Error(`starter-music-sync-sd-show: the analysis is of ${analysis.title}, not ${title}`)
+  const profiles = wiredPatternCollection(nodes, edges, generator.id)
+  // The generator draws its picks at random; a fixed sequence keeps the sketch
+  // the same from one run to the next.
+  const random = Math.random
+  let seed = 7
+  Math.random = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000
+  let show: ShowFile
+  try {
+    show = generateShow(analysis, performanceOptionsFromProperties(generator.data.properties), profiles.ids,
+      profiles.sectionTags, wiredTransitionStyles(nodes, edges, generator.id),
+      { weights: profiles.weights, energy: profiles.energyTags })
+  } finally {
+    Math.random = random
+  }
+  if (new Set(show.events.filter((event) => event.cmd === 'SET_PATTERN').map((event) => event.params.index)).size < 2) {
+    throw new Error('starter-music-sync-sd-show: the show never changes pattern')
+  }
+  fixtures['starter-music-sync-sd-show'] = { fqbn: S3_N16R8, source: buildShowPlayer(nodes, edges, registry, {
+    patternSet: show.patternSet, bakedAudio: !!show.audio, preferredTrack: title.replace(/[^a-zA-Z0-9_\- ]/g, '_'), genericPlayer: false,
+    shows: [show], fqbn: S3_N16R8, psramAllowed: true,
   }) }
 }
 
