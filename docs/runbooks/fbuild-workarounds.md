@@ -87,8 +87,8 @@ an internal record.
 | 13 | Windows: every daemon compile opens a visible console window that takes focus | **2.5.44** (also 2.5.37) | None possible: zccache is fbuild's only compile backend | **No — fixed in 2.5.45** ([#1722](https://github.com/FastLED/fbuild/issues/1722), by #1723 with zccache 1.15.6): no window opened during a compile in the desktop app on 2.5.51, 2026-11-11 |
 | 14 | Daemon refuses to start after the last one exited | **2.5.51** | Run the build once more after 15 s, then say plainly that nothing was compiled | Yes — seen once, 2026-11-11, not reproduced and not reported; see §14 |
 | 15 | ESP8266: the core's network libraries are not linked | **2.5.51** | Build ESP8266 sketches that include one with arduino-cli | Yes — [#1994](https://github.com/FastLED/fbuild/issues/1994), filed 2026-11-11; see §15 |
-| 16 | UNO R4 WiFi: the core's bundled `WiFiS3.h` is not found | **2.5.51** | Build UNO R4 WiFi sketches that include it with arduino-cli | Yes — found 2026-11-12, report drafted and not posted; see §16 |
-| 17 | nRF52840: `-flto` breaks the Adafruit core's FreeRTOS port at link | **2.5.51** | `build_unflags = -flto` on the nRF52840 environments | Yes — found 2026-11-12, report drafted, see §17 |
+| 16 | UNO R4 WiFi: the core's bundled `WiFiS3.h` is not found | **2.5.51** | Build UNO R4 WiFi sketches that include it with arduino-cli | Yes — found 2026-11-12, reported as [#2020](https://github.com/FastLED/fbuild/issues/2020); see §16 |
+| 17 | nRF52840: `-flto` breaks the Adafruit core's FreeRTOS port at link | **2.5.51** | `build_unflags = -flto` on the nRF52840 environments | Yes — found 2026-11-12, reported as [#2016](https://github.com/FastLED/fbuild/issues/2016); see §17 |
 
 ---
 
@@ -171,8 +171,9 @@ projects, each a blink:
   it: a blink with `fastled/FastLED` declared builds `libfastled.a`.
 
 So the registry covers less than it did, and every vendored library stays in
-`lib/`. A report is drafted in `tmp/fbuild-main/drafts/lib-deps-on-2.5.51.md`
-for Steve to review.
+`lib/`. Reported on 2026-11-14: the `#ref` as [#2018](https://github.com/FastLED/fbuild/issues/2018), and the entries the
+index does not hold as [#2019](https://github.com/FastLED/fbuild/issues/2019). The mirror-only registry is intended
+(2.5.48, [#1829](https://github.com/FastLED/fbuild/issues/1829)).
 
 **Note for anyone driving fbuild by hand.** The daemon binds to the project directory it
 was first started in, so `fbuild build` run from another directory is answered against
@@ -935,8 +936,15 @@ nRF52840 builds since the §17 workaround:
 | Adafruit Feather nRF52840 | `adafruit_feather_nrf52840` | Link, in LTO: `Error: offset out of range`, then `lto-wrapper failed` |
 | Seeed XIAO nRF52840 | `xiaoble_adafruit` | Compiling the core: `Uart.h:27:10: fatal error: variant.h: No such file or directory`. The board names the `Seeed_XIAO_nRF52840` variant, which the Adafruit framework fbuild fetches (1.10601.0) does not carry. `xiaoble`, tried first, is not a board id ([#293](https://github.com/FastLED/fbuild/issues/293)) |
 
-None of the four is reported upstream yet; the logs are in the run's
-`compile-matrix-record` artifact.
+All four were rebuilt on 2.5.51 and reported on 2026-11-14; the logs are in
+the run's `compile-matrix-record` artifact.
+
+| Board | Issue | Cause found in fbuild's source |
+| --- | --- | --- |
+| Raspberry Pi Pico W | [#2014](https://github.com/FastLED/fbuild/issues/2014) | `rpipicow.json` lacks `-DPICO_CYW43_SUPPORTED=1 -DCYW43_PIN_WL_DYNAMIC=1`, which `rpipico2w.json` has. With both as `build_flags` the blink links (536,372 bytes) |
+| Arduino UNO R4 Minima | [#2015](https://github.com/FastLED/fbuild/issues/2015) | `uno_r4_minima.json` has no `build` block, so no variant and no FSP includes |
+| Adafruit Feather nRF52840 | [#2016](https://github.com/FastLED/fbuild/issues/2016) | `-flto` in `nrf52840.json`'s release profile (§17) |
+| Seeed XIAO nRF52840 | [#2017](https://github.com/FastLED/fbuild/issues/2017) | The variant is not in the framework. No FastLED CI run for the board was found to compare |
 
 **Reduced the same day**, each to a project of two files built locally on
 2.5.51 (`tmp/fbuild-repro/`):
@@ -1027,9 +1035,13 @@ engines, built locally.
   filesystem and RMT receive code the sketch does not use.
 
 So a byte count is comparable across engines only loosely, and an ESP32-S3
-RAM percentage from fbuild is not the sketch's. A report is drafted in
-`tmp/fbuild-main/drafts/esp32-eh-frame-size-NOTE.md`. Only the S3 was
-measured.
+RAM percentage from fbuild is not the sketch's. Reported on 2026-11-14 as
+[#2013](https://github.com/FastLED/fbuild/issues/2013): `parse_esp32_size_sysv` counts every `.dram0.` section, so the
+`.dram0.dummy` placeholder lands in RAM and, through the data term, in flash.
+An empty sketch on an S3 reads 63,164 bytes of RAM for 21,436 and 319,872 of
+flash for a 278,144-byte image; a C3 does the same, and a classic ESP32 has
+no such section and reads right. The RP2040 and RP2350 `.heap` count is
+[#2012](https://github.com/FastLED/fbuild/issues/2012).
 
 ---
 
@@ -1384,7 +1396,7 @@ the desktop app with fbuild as the engine, built in 19 s and flashed.
 
 ## 16. UNO R4 WiFi sketches that use the network do not compile
 
-**Found on 2.5.51 (2026-11-12). Report drafted in `tmp/fbuild-main/drafts/`, not posted.**
+**Found on 2.5.51 (2026-11-12). Reported on 2026-11-14 as [#2020](https://github.com/FastLED/fbuild/issues/2020).** #1995 changes only the ESP8266 builder, so it is not expected to cover this.
 
 **Symptom.** An Arduino UNO R4 WiFi sketch that includes `WiFiS3.h`, the
 network library bundled with the Renesas core, stops at the include:
@@ -1441,7 +1453,8 @@ involved.
 sketch builds on the Feather nRF52840 (72,950 bytes) and the nRF52840 DK
 (73,062) ([run 43134207021](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43134207021)).
 
-**Assessment.** A wrong default rather than a missing feature. The report is
-drafted in `tmp/fbuild-main/drafts/feather-nrf52840-lto-offset-out-of-range.md`.
+**Assessment.** A wrong default rather than a missing feature. Reported on
+2026-11-14 as [#2016](https://github.com/FastLED/fbuild/issues/2016); upstream already removes the flag for its GCC 7
+toolchain (`without_release_lto`).
 fbuild reports 235,520 bytes of RAM for every nRF52840 image, blink or not,
 so that figure is not the sketch's.

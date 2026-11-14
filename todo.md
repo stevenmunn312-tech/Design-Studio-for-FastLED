@@ -73,15 +73,14 @@ replaced by the sketch's own receiver.
 - [x] Correct fbuild's ESP32-S3 RAM figure in the capacity meter. It counted
   the 50 KB `.dram0.dummy` placeholder (22.5% shown for 7.1% used); the
   helper now subtracts it where the linked image shows it was counted.
-- [ ] Steve reviews the drafts in `tmp/fbuild-main/drafts/` (the RP2040
-  and RP2350 flash count including the `.heap` reservation, the ESP32-S3
-  size figures, `lib-deps-on-2.5.51.md` and the four board reports), then
-  they are posted upstream. Each lists what to check first.
-- [ ] fbuild does not find the UNO R4 WiFi core's `WiFiS3.h` (§16, found
-  2026-11-12), so those sketches build with arduino-cli. It is reduced to a
-  three-line sketch. Recheck on the release that carries #1995, then Steve
-  reviews the draft (`uno-r4-wifi-wifis3-not-found.md`) and it is posted.
-  It does not hold the release.
+- [x] Steve reviews the drafts in `tmp/fbuild-main/drafts/`, then they are
+  posted upstream. Reviewed, rebuilt on 2.5.51 and posted on 2026-11-14 as
+  [#2012](https://github.com/FastLED/fbuild/issues/2012) to [#2020](https://github.com/FastLED/fbuild/issues/2020)
+  ([runbook](docs/runbooks/fbuild-workarounds.md#boards-mapped-on-12-november-2026)).
+- [ ] fbuild does not find the UNO R4 WiFi core's `WiFiS3.h` (§16,
+  [#2020](https://github.com/FastLED/fbuild/issues/2020)), so those sketches build with arduino-cli. Run
+  `fbuild-probes.py` on the next release and drop the workarounds whose
+  probes read GONE. It does not hold the release.
 - [ ] When an fbuild release carries upstream #1995, the fix for
   [#1994](https://github.com/FastLED/fbuild/issues/1994) (open on 2026-11-12,
   after 2.5.51): move the pin, drop `_ESP8266_NETWORK_INCLUDE` and the D1 mini
