@@ -89,7 +89,7 @@ All twelve pass on Arduino CLI. Ten pass on fbuild.
 ## The rest of step 2, 12 November 2026
 
 Every line of step 2 that had no compile behind it, built on GitHub
-`windows-latest` runners with `every` on. 427 legs pass: 424 on Arduino CLI
+`windows-latest` runners with `every` on. 428 legs pass: 425 on Arduino CLI
 1.5.1 (ESP32 core 3.3.12) and 3 on fbuild 2.5.51, with FastLED 3.10.9.
 
 The new family is `v1-variants`: 95 sketches from
@@ -116,6 +116,7 @@ one waits cancels the first.
 | [43073898275](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43073898275) | `1bb65960` | The other sixteen, and three variants added after the first run |
 | [43085616039](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43085616039) | `ad9bc689` | The seeded Music Player variant |
 | [43106921475](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43106921475) | `2274d138` | The HUB75 variant on both engines, after the helper learned to install its library for Arduino CLI |
+| [43610267760](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43610267760) | `a0e7d3a7` | The Music-synced SD Show starter, added on 14 November 2026 |
 
 ### Result by family
 
@@ -136,14 +137,14 @@ one waits cancels the first.
 | `encoder` | 3 | Encoder clicks, bare and as a module, in the normal sketch and slideshow |
 | `motion` | 4 | The accelerometer in the normal sketch, slideshow and player |
 | `display` | 2 | Custom screens, now with a log Slider and Dial |
-| `v1-variants` | 98 | The table below |
+| `v1-variants` | 99 | The table below |
 
 Per-leg hashes and sizes for these families are in each run's
 `compile-matrix-record` artifact.
 
 ### The variant sketches
 
-`esp32` is `esp32:esp32:esp32`, `esp32s3` an ESP32-S3 (the two starters on the
+`esp32` is `esp32:esp32:esp32`, `esp32s3` an ESP32-S3 (the three starters on the
 N16R8 FQBN with the 16 MB partition scheme), `uno` `arduino:avr:uno` and
 `d1_mini` `esp8266:esp8266:d1_mini`. The two sketches fixed after the first
 run and `hub75-size-2` also pass on fbuild.
@@ -226,6 +227,7 @@ run and `hub75-size-2` also pass on fbuild.
 | `start-corner-bottom-right-vertical` | esp32 | Arduino CLI | `63114cffb5e8` | 303,199 | 25,096 |
 | `start-corner-top-right-rows` | esp32 | Arduino CLI | `2af9f55040df` | 303,199 | 25,096 |
 | `starter-generative-show` | esp32s3 | Arduino CLI | `71884e3e6895` | 1,213,183 | 102,812 |
+| `starter-music-sync-sd-show` | esp32s3 | Arduino CLI | `539be4834ecb` | 1,220,879 | 77,876 |
 | `starter-player-transport` | esp32s3 | Arduino CLI | `ef81dc64e999` | 1,247,335 | 106,644 |
 | `string-particles-ring-drift` | esp32 | Arduino CLI | `eb3db36b58a2` | 316,183 | 26,312 |
 | `string-particles-ring-meteors` | esp32 | Arduino CLI | `0f9167e0ecc4` | 317,319 | 26,312 |
@@ -266,13 +268,18 @@ run and `hub75-size-2` also pass on fbuild.
 - **DMX512, a radar and a DFPlayer do not fit one classic ESP32.** The deploy
   gate refuses the third UART, so the allocator is compiled as two sketches,
   DMX512 beside each of the others.
+- **The Music-synced SD Show starter is built for a real show.** Node decodes
+  no MP3, so `scripts/analyse-demo-track.ts` decodes the bundled demo track
+  with ffmpeg, runs the app's song analyser and commits the analysis
+  (`scripts/compile-fixtures/data/demo-track-analysis.json`). The fixture
+  writes the Performance Generator's show from it against the twenty starter
+  patterns, with a fixed random sequence, and builds the player for that
+  show. Rerun the script after a change to the analyser or the track.
 - **The five strip sketches fit an Arduino Uno**, the largest at 9,222 bytes of
   flash and 603 bytes of static RAM.
 
 ### Not established here
 
-- The Music-synced SD Show starter as its own sketch: it needs an analysed
-  track. Its generator is covered by the `dead-code/performance-*` legs.
 - Anything on fbuild beyond the three variants named above; the full matrix
   on both engines is step 5.
 - Whether any of it runs: nothing here was flashed.
