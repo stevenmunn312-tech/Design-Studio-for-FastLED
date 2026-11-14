@@ -2,6 +2,7 @@ import type { ElectricalPlanSummary } from '../../build/power/electricalPlan'
 import { POWER_PATH_KINDS, type HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/power/powerDistribution'
 import { partById, partPinLabelForProperty, sharedPadsAcrossBoards } from '../../build/parts/partCatalogue'
+import { CONVERTER_SHEET_WIDTH } from './controllerGeometry'
 import { oledTransportFor, type OledTransport } from '../../state/displays/oledSurface'
 import { irReceiverModuleFor } from '../../state/peripherals/irModules'
 import { receiveDividerSource } from '../../build/pins/receiveDivider'
@@ -1617,9 +1618,35 @@ export function diagramContentBottom(items: HardwareManifestItem[], layers: Diag
   return Math.max(0, shifterBottom, ...layouts.map((layout) => layout.y + layout.height))
 }
 
-/** Single owner of where the PSU zones start, shared by the renderer and the height. */
-export function powerSectionStartY(items: HardwareManifestItem[], layers: DiagramHeightLayers = ALL_HEIGHT_LAYERS) {
-  return Math.max(670, diagramContentBottom(items, layers) + POWER_SECTION_GAP)
+/** Top of the controller's power slot: the USB block, or the converter drawn in its place. */
+export const CONTROLLER_POWER_SLOT_Y = 592
+/** From a controller converter's render down to its last caption line, plus clearance. */
+const CONTROLLER_CONVERTER_CAPTION_DROP = 73 + 14
+
+/**
+ * Bottom of the controller converter's drawing, or 0 on a sheet that draws
+ * none. Its height follows the module's render, so a squarer module than the
+ * LM2596 reaches further down the sheet.
+ */
+export function controllerConverterBottom(items: HardwareManifestItem[], plan?: ElectricalPlanSummary): number {
+  const supply = plan?.controllerSupply
+  if (!supply || !items.some((item) => item.id === supply.itemId)) return 0
+  const render = partById(supply.partId)?.render
+  if (!render) return 0
+  return Math.ceil(CONTROLLER_POWER_SLOT_Y + (render.heightPx * (CONVERTER_SHEET_WIDTH / render.widthPx)) + CONTROLLER_CONVERTER_CAPTION_DROP)
+}
+
+/**
+ * Single owner of where the PSU zones start, shared by the renderer and the
+ * height. The zones span the sheet, so they also start below a controller
+ * converter, which hangs under the board in the left column.
+ */
+export function powerSectionStartY(
+  items: HardwareManifestItem[],
+  layers: DiagramHeightLayers = ALL_HEIGHT_LAYERS,
+  plan?: ElectricalPlanSummary,
+) {
+  return Math.max(670, diagramContentBottom(items, layers) + POWER_SECTION_GAP, controllerConverterBottom(items, plan))
 }
 
 /** Gap below each PSU zone box, and the strip below the last one. */
@@ -1677,7 +1704,7 @@ export function batteryBand(
   if (!layers.powerDistribution || !plan.battery) return undefined
   if (!items.some((item) => item.id === plan.battery?.packItemId && item.kind === 'battery-pack')) return undefined
   return {
-    y: powerSectionStartY(items, layers),
+    y: powerSectionStartY(items, layers, plan),
     height: batteryAssemblyHeight(plan.battery.modules?.length ?? 0, plan.battery.pack?.series ?? 1),
   }
 }
@@ -1697,7 +1724,7 @@ export function powerZoneBands(
 ): PowerZoneBand[] {
   const injections = plan.outputs.flatMap((output) => output.injections)
   const battery = batteryBand(items, plan, layers)
-  let y = battery ? battery.y + battery.height : powerSectionStartY(items, layers)
+  let y = battery ? battery.y + battery.height : powerSectionStartY(items, layers, plan)
   return (plan.totals?.supplies ?? []).map((supply) => {
     const feedCount = injections.filter((injection) => injection.supplyId === supply.id).length
     const height = powerDistributionSectionLayout(feedCount).sectionHeight + POWER_SECTION_SPACING
@@ -1727,6 +1754,6 @@ export function physicalAssemblyDiagramHeight(
   const bands = powerZoneBands(items, plan, layers)
   const bottom = bands.length > 0
     ? bands[bands.length - 1].y + bands[bands.length - 1].height
-    : battery ? battery.y + battery.height : powerSectionStartY(items, layers)
+    : battery ? battery.y + battery.height : powerSectionStartY(items, layers, plan)
   return bottom + POWER_SECTION_SPACING
 }

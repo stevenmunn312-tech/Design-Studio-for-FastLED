@@ -9,6 +9,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- Hardware: the TPS61023 1S 5 V boost module has a Feeds setting. Set to
+  Controller, it powers the board's 5 V pin from a single lithium cell in
+  place of USB, and the Build Diagram draws it under the board with its
+  input fuse. Left on LED rail it works as before. A battery build with no
+  controller supply now names the converter that fits its pack.
 - Text and Clock Display have a Font select. Alongside the original 3×5
   capitals there are 4×6, 5×8 and bold 6×8 fonts with lower case and full
   keyboard punctuation; preview and firmware draw the same glyphs. Existing

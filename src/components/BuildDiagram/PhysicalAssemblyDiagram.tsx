@@ -118,7 +118,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const controllerSupply = plan.controllerSupply && items.some((item) => item.id === plan.controllerSupply?.itemId)
     ? plan.controllerSupply
     : undefined
-  const powerSectionY = powerSectionStartY(items, layers)
+  const powerSectionY = powerSectionStartY(items, layers, plan)
   const batteryLayout = batteryBand(items, plan, layers)
   const showPowerDistribution = layers.powerDistribution && (outputLayouts.length > 0 || Boolean(batteryLayout))
   const usesThreeVolt = peripheralLayouts.some((layout) => peripheralPowerNet(layout.item) === 'v3v3')

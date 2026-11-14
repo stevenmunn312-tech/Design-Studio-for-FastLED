@@ -157,6 +157,12 @@ physical protection, balancing, charging or regulated-output board. A combined
 board needs only one entry; Studio reads its functions from the catalogue.
 Add the required 5 V LED-rail buck converters under **Power conversion**.
 
+To run the controller from the pack as well, add a converter that feeds the
+board's 5 V pin. On a 4S pack that is the LM2596. On a single cell, add a
+**TPS61023 1S 5 V boost module** and set its **Feeds** field to
+**Controller**; a second one left on **LED rail** powers the LEDs. Without
+one, the plan keeps the controller on USB and says which converter fits.
+
 Build Diagram calculates the protected minimum, full-charge and worst-case
 ceiling voltages. It sizes pack current, the main fuse and battery wire for
 uncapped full white at minimum voltage, then checks every converter at the

@@ -763,6 +763,32 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelectorAll('[data-component-render="lm2596-buck-module"]')).toHaveLength(1)
   })
 
+  it('draws a 1S boost set to feed the controller in the controller power slot', () => {
+    useGraphStore.setState({
+      nodes: [
+        batteryNode('pack', 'BatteryPack', { partId: 'samsung-inr18650-35e', series: 1, parallel: 1 }),
+        batteryNode('charger', 'BatteryModule', { partId: 'tp4056-usbc-charge-protect-module' }),
+        batteryNode('boost', 'PowerConverter', { partId: 'tps61023-1s-5v-boost-module', feeds: 'Controller' }),
+      ] as never[],
+    })
+    selectDevKit()
+    const { container } = render(<BuildDiagramWorkspace />)
+    const diagram = container.querySelector('svg[data-build-export="current-view"]')
+
+    const converter = diagram?.querySelector('[data-controller-converter="tps61023-1s-5v-boost-module"]')
+    expect(converter?.textContent).toContain('BATT → 5 V BOOST')
+    // Fixed output: nothing to set with a meter.
+    expect(converter?.querySelector('[data-converter-set-output]')).toBeNull()
+    expect(diagram?.querySelector('[data-wire="controller-usb-power"]')).toBeNull()
+    // Its pads are one row along the bottom edge, so every stub leaves downward.
+    const stubs = Array.from(converter?.querySelectorAll('[data-net-stub-for^="controller-converter-"]') ?? [])
+    expect(stubs.map((stub) => stub.getAttribute('data-net-stub'))).toEqual(['vbat', 'gnd', 'v5', 'gnd'])
+    expect(stubs.every((stub) => stub.getAttribute('data-net-stub-direction') === 'down')).toBe(true)
+    const xs = stubs.map((stub) => Number(stub.getAttribute('data-net-stub-x')))
+    expect([...xs].sort((a, b) => a - b)).toEqual(xs)
+    expect(diagram?.querySelectorAll('[data-component-render="tps61023-1s-5v-boost-module"]')).toHaveLength(1)
+  })
+
   it('powers a board with no USB through its 5V pad on the 5 V net', () => {
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:wt32-eth01' })
     selectBoard('wt32-eth01')

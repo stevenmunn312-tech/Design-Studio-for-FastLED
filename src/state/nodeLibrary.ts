@@ -1963,6 +1963,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   reportTelemetry: 'Prints free heap, PSRAM, frame rate and touch response to Serial every couple of seconds, for the telemetry card in the Upload tab to record. A bench instrument: leave it off for a finished build. ESP32 and ESP8266 only — other boards have no Serial.printf to report with.',
   layout: 'How a grid maps to physical LED wiring order — plain matrix, tiled panels, or a custom index permutation. Chain forms use their own authoring geometry instead.',
   chipset: 'The addressable LED chipset driving this output — must match the physical part. HUB75 scan panels are their own form rather than a chipset; see docs/design/hub75-output.md.',
+  feeds: "What this converter powers: the 5 V LED rail, or the controller through its 5 V input pin in place of USB. Offered only by a module rated for either.",
   sourceVoltage: "The DC supply feeding the converter, in volts. It must sit inside the module's input range and above its output by the module's dropout.",
   dataLink: 'How the one-wire pixel signal reaches the LEDs. Direct is ordinary short wiring; NLED Pixel Data Extender inserts its matched TX/RX pair and a twisted A/B/ground run for long distance.',
   form: 'What this output physically is — a string, matrix, ring, corkscrew, or HUB75 scan panel. Everything else on the node follows from it.',

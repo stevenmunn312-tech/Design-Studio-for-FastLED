@@ -114,7 +114,8 @@ export const HARDWARE_REFERENCE: NodeReferenceMap = {
 
   PowerConverter: {
     overview: [
-      'DC-DC Converter turns a higher DC supply into 5 V. The LM2596 module powers the controller through its 5 V pin in place of USB; the Mean Well SD-100 makes isolated 5 V power zones for the LEDs from 12 V or 24 V.',
+      'DC-DC Converter turns a DC supply into 5 V. The LM2596 module powers the controller through its 5 V pin in place of USB; the Mean Well SD-100 makes isolated 5 V power zones for the LEDs from 12 V or 24 V.',
+      'The TPS61023 boost runs from a single lithium cell and can do either job: its Feeds setting chooses the LED rail or the controller.',
       'Source Volts must sit inside the module’s input range and above its output by the dropout. The Build Diagram draws the converter with its input and output protection and checks it against the load.',
       'When the bench already says what feeds it, the converter takes that instead of a typed value: a Battery Pack is its source, and so is a single USB-C PD trigger, at the voltage the trigger requests. Its settings then show the source rather than asking for it.',
     ],

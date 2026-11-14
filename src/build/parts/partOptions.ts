@@ -11,7 +11,7 @@
 // misrepresentation this model exists to remove — so a part with one supported
 // module states its name instead of pretending to offer alternatives.
 
-import { deratedCurrentMa, ENCLOSURE_AMBIENT_C, powerConverterModules } from '../../state/peripherals/powerConverter'
+import { CONVERTER_FEED_LABELS, converterRoles, deratedCurrentMa, ENCLOSURE_AMBIENT_C, powerConverterModules } from '../../state/peripherals/powerConverter'
 import { partById, type PartCatalogueEntry } from './partCatalogue'
 import { IR_RECEIVER_MODULES } from '../../state/peripherals/irModules'
 import { MIC_MODULES } from '../../state/peripherals/micModules'
@@ -109,7 +109,8 @@ export const PART_OPTIONS: Record<string, {
     options: powerConverterModules().map((module) => ({
       id: module.partId,
       label: module.label,
-      summary: `${module.spec.role === 'controller' ? 'Controller' : 'LED rail'} · ${module.spec.inputMinV}-${module.spec.inputMaxV} V in, ${module.spec.outputSetV} V ${Number((deratedCurrentMa(module.spec) / 1000).toFixed(1))} A at ${ENCLOSURE_AMBIENT_C} °C`,
+      // A module with a Feeds choice says so in few words: the menu line is short.
+      summary: `${converterRoles(module.spec).length > 1 ? 'LEDs or board' : CONVERTER_FEED_LABELS[module.spec.role]} ·${module.spec.inputMinV}-${module.spec.inputMaxV} V in, ${module.spec.outputSetV} V ${Number((deratedCurrentMa(module.spec) / 1000).toFixed(1))} A at ${ENCLOSURE_AMBIENT_C} °C`,
     })),
   },
   BatteryPack: {

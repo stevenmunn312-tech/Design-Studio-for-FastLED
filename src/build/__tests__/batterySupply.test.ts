@@ -62,6 +62,55 @@ describe('battery power planning', () => {
     expect(plan.controllerPowerPath).toMatch(/5 V output from the battery pack/)
   })
 
+  it('powers the board from one cell through a boost set to feed the controller', () => {
+    const boost = node('ctrl', 'PowerConverter', { partId: 'tps61023-1s-5v-boost-module', feeds: 'Controller' })
+    const { manifest, plan } = planFor([
+      pack(1, 1),
+      module('charger', 'tp4056-usbc-charge-protect-module'),
+      boost,
+    ])
+    const powerIn = board!.pins!.find((pin) => pin.role === 'power-in')!
+
+    expect(manifest.primaryItems.find((item) => item.id.endsWith('ctrl'))?.facts.role).toBe('controller')
+    expect(plan.blockers).toEqual([])
+    expect([...plan.warnings].map((entry) => entry.id)).not.toContain('battery-controller-usb')
+    expect([...plan.warnings].map((entry) => entry.id)).not.toContain('battery-no-load')
+    // 5 V x 1 A / 0.9 efficiency / 2.5 V protected minimum
+    expect(plan.controllerSupply).toEqual(expect.objectContaining({
+      partId: 'tps61023-1s-5v-boost-module',
+      sourceVoltage: 2.5,
+      outputVoltage: 5,
+      inputCurrentMa: 2223,
+      powerInPinLabel: powerIn.label,
+    }))
+    expect(plan.battery?.mainFuse.ratingMa).toBe(3000)
+    expect(plan.controllerPowerPath).toContain('battery pack to 5 V')
+    expect(plan.recommendations.join(' ')).not.toMatch(/with a meter before it is connected/)
+    expect(buildConnectionRows(manifest.primaryItems, plan, board)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ to: 'TPS61023 1S 5 V boost module', toTerminal: 'VIN+' }),
+      expect.objectContaining({ from: 'TPS61023 1S 5 V boost module', fromTerminal: 'VOUT+', toTerminal: powerIn.label, purpose: 'Controller power at 5 V' }),
+    ]))
+  })
+
+  it('keeps a boost on the LED rail unless it is set to feed the controller', () => {
+    const rail = planFor([
+      pack(1, 1),
+      module('charger', 'tp4056-usbc-charge-protect-module'),
+      converter('tps61023-1s-5v-boost-module'),
+      output(2, 2),
+    ]).plan
+    expect(rail.controllerSupply).toBeUndefined()
+    expect(rail.totals?.supplies[0].converter?.partId).toBe('tps61023-1s-5v-boost-module')
+    expect(rail.warnings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'battery-controller-usb', detail: expect.stringContaining('add a TPS61023 1S 5 V boost module set to feed the controller') }),
+    ]))
+
+    // A choice the module does not offer reads as the module's own role.
+    const buck = node('rail', 'PowerConverter', { partId: 'dgxby-20a-5v-buck-converter', feeds: 'Controller' })
+    const manifest = planFor([pack(4, 5), module('bms', 'hx-4s-f30a-bms-balance'), buck, output(16, 16)]).manifest
+    expect(manifest.primaryItems.find((item) => item.kind === 'power-converter')?.facts.role).toBe('led-rail')
+  })
+
   it('plans one 20 A buck for a 16x16 full-white load at pack minimum voltage', () => {
     const { plan } = planFor([
       pack(4, 5),

@@ -26,8 +26,10 @@ import {
   connectionPinLabel,
 } from './signalPresentation'
 
+type ConverterPad = 'IN+' | 'IN-' | 'OUT+' | 'OUT-'
+
 /**
- * The buck converter that powers the controller, drawn under the board in the
+ * The converter that powers the controller, drawn under the board in the
  * USB block's place. It joins the board by symbol, not by a wire across it:
  * OUT+ and the board's 5 V input pin carry the same CTRL 5V label, the way
  * the shared rails already meet elsewhere on the sheet.
@@ -42,16 +44,41 @@ export function ControllerConverterGraphic({ supply, boardProfile, shadowFilter,
 }) {
   const entry = partById(supply.partId)
   const render = entry?.render
-  const padsMm = CONVERTER_PAD_MM[supply.partId]
-  if (!entry || !render?.pxPerMm || !padsMm) return null
+  if (!entry || !render?.pxPerMm) return null
   const pxPerMm = render.pxPerMm
   const scale = CONVERTER_SHEET_WIDTH / render.widthPx
   const height = render.heightPx * scale
   const marginPx = (render.widthPx - (entry.dimensionsMm.width * pxPerMm)) / 2
-  const pad = (name: keyof typeof padsMm) => ({
-    x: x + ((marginPx + (padsMm[name][0] * pxPerMm)) * scale),
-    y: y + ((marginPx + (padsMm[name][1] * pxPerMm)) * scale),
-  })
+  // Pads measured from the model's drawing where the table has them, else the
+  // catalogue's own terminal positions: input pair first, output pair last.
+  const padsMm = CONVERTER_PAD_MM[supply.partId]
+  const positions = entry.powerConverter?.terminalPositions
+  const ratioOf = (name: ConverterPad): [number, number] | undefined => {
+    if (padsMm) {
+      return [
+        (marginPx + (padsMm[name][0] * pxPerMm)) / render.widthPx,
+        (marginPx + (padsMm[name][1] * pxPerMm)) / render.heightPx,
+      ]
+    }
+    const terminals = supply.terminals
+    const index = name === 'IN+' ? 0 : name === 'IN-' ? 1
+      : terminals.map((terminal, at) => at > 1 && terminal.includes(name === 'OUT+' ? '+' : '-')).lastIndexOf(true)
+    return positions?.[index]
+  }
+  const ratios = { 'IN+': ratioOf('IN+'), 'IN-': ratioOf('IN-'), 'OUT+': ratioOf('OUT+'), 'OUT-': ratioOf('OUT-') }
+  if (!ratios['IN+'] || !ratios['IN-'] || !ratios['OUT+'] || !ratios['OUT-']) return null
+  const pad = (name: ConverterPad) => ({ x: x + (ratios[name]![0] * CONVERTER_SHEET_WIDTH), y: y + (ratios[name]![1] * height) })
+  // The measured table's pads sit at the board corners: positive up, negative
+  // down. A single row of pads sends every stub off the nearer edge instead,
+  // long enough to clear the board, so no stub is drawn across the module.
+  const stub = (name: ConverterPad, positive: boolean) => {
+    if (padsMm) return { direction: positive ? 'up' as const : 'down' as const, lead: positive ? 14 : 12 }
+    const down = ratios[name]![1] >= 0.5
+    return { direction: down ? 'down' as const : 'up' as const, lead: Math.round(((down ? 1 - ratios[name]![1] : ratios[name]![1]) * height) + 6) }
+  }
+  // Stub labels under a bottom pad row need the captions one line lower.
+  const captionY = y + height + (padsMm ? 0 : 12)
+  const boost = /boost/i.test(entry.powerConverter?.topology ?? '')
   const controllerPin = controllerRender(boardProfile) && supply.powerInAnchorId
     ? renderTerminalPoint(controllerRender(boardProfile)!, supply.powerInAnchorId)
     : undefined
@@ -69,21 +96,21 @@ export function ControllerConverterGraphic({ supply, boardProfile, shadowFilter,
         className={styles.physicalBoardRender}
         filter={shadowFilter}
       />
-      <text x={x + (CONVERTER_SHEET_WIDTH / 2)} y={y + height + 44} textAnchor="middle" className={styles.physicalComponentLabel}>
-        {`${supply.source.kind === 'battery' ? 'BATT' : `${supply.sourceVoltage} V`} → ${supply.outputVoltage} V BUCK`}
+      <text x={x + (CONVERTER_SHEET_WIDTH / 2)} y={captionY + 44} textAnchor="middle" className={styles.physicalComponentLabel}>
+        {`${supply.source.kind === 'battery' ? 'BATT' : `${supply.sourceVoltage} V`} → ${supply.outputVoltage} V ${boost ? 'BOOST' : 'BUCK'}`}
       </text>
       {supply.adjustable && (
-        <text data-converter-set-output x={x + (CONVERTER_SHEET_WIDTH / 2)} y={y + height + 59} textAnchor="middle" className={styles.physicalMetaLabel}>
+        <text data-converter-set-output x={x + (CONVERTER_SHEET_WIDTH / 2)} y={captionY + 59} textAnchor="middle" className={styles.physicalMetaLabel}>
           {`SET ${supply.outputVoltage.toFixed(1)} V BEFORE CONNECTING`}
         </text>
       )}
-      <text x={x + (CONVERTER_SHEET_WIDTH / 2)} y={y + height + 73} textAnchor="middle" className={styles.physicalMetaLabel}>
+      <text x={x + (CONVERTER_SHEET_WIDTH / 2)} y={captionY + 73} textAnchor="middle" className={styles.physicalMetaLabel}>
         {`${fuse} INPUT FUSE AT THE SOURCE`}
       </text>
-      <NetStub x={pad('IN+').x} y={pad('IN+').y} kind={supply.source.kind === 'battery' ? 'vbat' : 'v12'} direction="up" lead={14} wireId="controller-converter-input-positive" label={supply.source.kind === 'battery' ? '+BATT' : `+${supply.sourceVoltage}V SRC`} />
-      <NetStub x={pad('IN-').x} y={pad('IN-').y} kind="gnd" direction="down" lead={12} wireId="controller-converter-input-ground" />
-      <NetStub x={pad('OUT+').x} y={pad('OUT+').y} kind="v5" direction="up" lead={14} wireId="controller-converter-output" label="CTRL 5V" />
-      <NetStub x={pad('OUT-').x} y={pad('OUT-').y} kind="gnd" direction="down" lead={12} wireId="controller-converter-output-ground" />
+      <NetStub x={pad('IN+').x} y={pad('IN+').y} kind={supply.source.kind === 'battery' ? 'vbat' : 'v12'} {...stub('IN+', true)} wireId="controller-converter-input-positive" label={supply.source.kind === 'battery' ? '+BATT' : `+${supply.sourceVoltage}V SRC`} />
+      <NetStub x={pad('IN-').x} y={pad('IN-').y} kind="gnd" {...stub('IN-', false)} wireId="controller-converter-input-ground" />
+      <NetStub x={pad('OUT+').x} y={pad('OUT+').y} kind="v5" {...stub('OUT+', true)} wireId="controller-converter-output" label="CTRL 5V" />
+      <NetStub x={pad('OUT-').x} y={pad('OUT-').y} kind="gnd" {...stub('OUT-', false)} wireId="controller-converter-output-ground" />
       {controllerPin && (
         <g data-terminal="controller-power-in">
           <circle cx={controllerPin.x} cy={controllerPin.y} r="5" fill="#d84938" stroke="#f0a093" strokeWidth="2" />

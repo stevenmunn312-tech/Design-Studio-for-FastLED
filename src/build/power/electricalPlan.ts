@@ -834,7 +834,7 @@ function controllerSupplyRecommendations(supply: ControllerSupplyPlan, boardHasU
       ? [`Set the ${supply.label} to ${supply.outputVoltage} V with a meter before it is connected to the controller: it ships at an arbitrary output.`]
       : []),
     `Keep the controller and every 5 V module on its pin under the converter's ${formatRuleCurrent(supply.continuousCurrentMa)} continuous rating.`,
-    `Fuse the converter's input at the ${supply.sourceVoltage} V source${supply.inputFuse.ratingMa ? ` (${formatRuleCurrent(supply.inputFuse.ratingMa)})` : ''}; its negative joins the common ground.`,
+    `Fuse the converter's input at the ${planSourceLabel(supply.source)}${supply.inputFuse.ratingMa ? ` (${formatRuleCurrent(supply.inputFuse.ratingMa)})` : ''}; its negative joins the common ground.`,
     ...(boardHasUsb
       ? ["Do not plug in USB while the converter powers the board unless the board's documentation says its 5 V pin is diode-isolated from USB; two supplies on one rail can back-feed the computer."]
       : []),

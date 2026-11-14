@@ -705,6 +705,17 @@ joins it to the board by a matching `CTRL 5V` symbol on OUT+ and on the
 board's pin, rather than a wire across the board. The module sits in no
 peripheral row. See [power conversion and protection](../plans/power-conversion-and-protection.md).
 
+A module rated for either job lists both in its catalogue `roles`, and the
+converter's **Feeds** field (`feeds`, read through `converterRoleFor`) chooses
+between them; `role` stays the one a new converter takes. The TPS61023 1S 5 V
+boost is the first: left on **LED rail** it makes a 5 V zone, and set to
+**Controller** it powers the board from a single cell, where the LM2596
+cannot hold 5 V. Every reader takes the role from the manifest item
+(`facts.role`), never from the part, so one bench can hold one of each. A
+controller converter without a measured `CONVERTER_PAD_MM` entry is drawn
+from its catalogue `terminalPositions`, and the power zones start below it
+(`controllerConverterBottom`).
+
 The same hardware-only node also offers the isolated Mean Well SD-100A-5 and
 SD-100B-5 with the `led-rail` role. One selected model becomes the type used
 for every generated 5 V power zone: feeds are packed only while the converter

@@ -665,7 +665,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   upstream-source budget; different source voltages, mixed rail models and
   out-of-range sources block the electrical plan. The Build Diagram follows
   terminals 1 V+, 2 V-, 3 FG, 4-5 -V and 6-7 +V, including the isolated-output
-  ground bond; converter outputs are never paralleled. See
+  ground bond; converter outputs are never paralleled. A converter's role
+  is read from its manifest item (`facts.role`) or `converterRoleFor(spec,
+  properties.feeds)`, never `spec.role` alone: a module whose catalogue block
+  lists `roles` (the TPS61023 boost) is an LED-rail or a controller converter
+  per node, and `spec.role` is only its default. See
   [hardware nodes](../../architecture/hardware-model.md#converting-a-12-v-or-24-v-source-to-5-v).
 - **Lithium battery source (hardware-only):** `BatteryPack` selects the exact
   cell plus series/parallel counts, while each `BatteryModule` selects one board

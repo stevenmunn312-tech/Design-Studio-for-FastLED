@@ -518,6 +518,15 @@ def read_part(part_dir: Path) -> dict | None:
                 "adjustable": bool(converter.get("adjustable", False)),
                 "terminals": terminals,
             }
+            # A module good for either job lists both; the bench then chooses
+            # per converter, and `role` stays the one a new converter takes.
+            roles = converter.get("roles")
+            if (isinstance(roles, list) and role in roles and len(set(roles)) == len(roles) > 1
+                    and all(name in ("controller", "led-rail") for name in roles)):
+                entry["powerConverter"]["roles"] = roles
+            elif roles is not None:
+                print(f"  ! {part_id}: powerConverter roles must be distinct known roles including its role — dropped",
+                      file=sys.stderr)
             terminal_positions = converter.get("terminalPositions")
             if (isinstance(terminal_positions, list)
                     and len(terminal_positions) == len(terminals)

@@ -12,7 +12,8 @@ import {
 } from '../../state/peripherals/battery'
 import { recommendConductor, recommendFuse, recommendFuseClass, standardFuseRatingFor, type ConductorRecommendation, type FuseClassRule, type FuseRecommendation } from './electricalRules'
 import type { ElectricalPlanIssue, ElectricalPlanTotals, ControllerSupplyPlan } from './electricalPlan'
-import type { PlanSource } from './planSource'
+import { sourceWindowIssues, type PlanSource } from './planSource'
+import { converterRoles, powerConverterModules } from '../../state/peripherals/powerConverter'
 
 export interface BatteryPlanModule {
   itemId: string
@@ -156,7 +157,15 @@ export function planBattery(
   const hasLedLoad = (totals?.designCurrentMa ?? 0) > 0
   const hasRail = Boolean(output || manifest.primaryItems.some((item) => item.kind === 'power-converter' && item.facts.role === 'led-rail'))
   if (hasLedLoad && !hasRail) blockers.push(issue('battery-led-without-rail', 'blocking', 'LED rail', 'Battery pack and LED outputs need a 5 V rail converter or a board with a 5 V output.'))
-  if (!controllerSupply && !output) warnings.push(issue('battery-controller-usb', 'warning', 'Controller power', 'Battery is present, but no battery-fed controller converter or module output is on the bench. Controller remains on USB.'))
+  if (!controllerSupply && !output) {
+    // Name the converters that can feed the controller from this pack, so
+    // the warning says what to add rather than only what is missing.
+    const fitting = powerConverterModules()
+      .filter((candidate) => converterRoles(candidate.spec).includes('controller')
+        && !sourceWindowIssues(candidate.partId, candidate.label, candidate.spec, source).some((entry) => entry.severity === 'blocking'))
+      .map((candidate) => candidate.label)
+    warnings.push(issue('battery-controller-usb', 'warning', 'Controller power', `Battery is present, but no battery-fed controller converter or module output is on the bench. Controller remains on USB.${fitting.length > 0 ? ` To run it from this pack, add a ${fitting.join(' or ')} set to feed the controller.` : ''}`))
+  }
   if (!hasLedLoad && !controllerSupply) warnings.push(issue('battery-no-load', 'warning', 'Battery load', 'Battery pack is present, but no planned load draws from it.'))
   if (manifest.primaryItems.some((item) => item.kind === 'pd-trigger')) warnings.push(issue('pd-trigger-battery', 'warning', 'Power source', 'USB-C PD trigger and battery pack are both present. Battery pack is used as the DC source.'))
 

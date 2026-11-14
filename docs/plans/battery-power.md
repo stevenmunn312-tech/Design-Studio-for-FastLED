@@ -68,6 +68,13 @@ discharge it, which the plan never uses for the LED load.
   bond, and a common-negative one draws IN− and OUT− as one net.
 - A board's `output` function is planned as a rail converter, so LED feeds
   are packed into it the same way they are packed into a buck.
+- The controller runs from the pack through a `controller`-role converter:
+  the LM2596 on a 4S pack, or the TPS61023 boost with **Feeds** set to
+  Controller on a 1S pack. The boost's input is sized for its full 1 A
+  output at the pack's protected minimum, about 2.2 A, and that counts
+  toward the battery main fuse beside the LED rail. A TP4056 board's 3 A
+  protection therefore carries the controller boost alone, and blocks at
+  `battery-main-fuse` once an LED-rail boost is added to it.
 
 ### The source window
 

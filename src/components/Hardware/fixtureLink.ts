@@ -1,5 +1,5 @@
 import { oledTransportForProps, segmentControllerForProps, tftTransportForProps } from '../../state/nodeLibrary'
-import { powerConverterModuleFor } from '../../state/peripherals/powerConverter'
+import { converterRoleFor, powerConverterModuleFor } from '../../state/peripherals/powerConverter'
 import { powerSwitchChannelCount } from '../../state/peripherals/powerSwitch'
 
 /**
@@ -18,7 +18,8 @@ export function fixtureLinkLabel(
 ): string {
   // These runs flow toward a load rather than out from a board signal pin.
   if (nodeType === 'PowerConverter') {
-    return powerConverterModuleFor(properties.partId)?.spec.role === 'led-rail'
+    const module = powerConverterModuleFor(properties.partId)
+    return module && converterRoleFor(module.spec, properties.feeds) === 'led-rail'
       ? `DC source through the ${partLabel} to the 5 V LED rail`
       : `5 V from the ${partLabel} into the board`
   }

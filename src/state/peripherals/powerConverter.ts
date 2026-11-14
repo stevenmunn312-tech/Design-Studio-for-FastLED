@@ -46,6 +46,28 @@ export function powerConverterModuleFor(partId: unknown): PowerConverterModule |
   return modules.find((module) => module.partId === partId) ?? modules[0]
 }
 
+export type PowerConverterRole = PartPowerConverterSpec['role']
+
+/** The `feeds` property's values, which are also what its field shows. */
+export const CONVERTER_FEED_LABELS: Record<PowerConverterRole, string> = {
+  'led-rail': 'LED rail',
+  controller: 'Controller',
+}
+
+/** Every job the catalogue lets this module do; most modules have one. */
+export function converterRoles(spec: PartPowerConverterSpec): PowerConverterRole[] {
+  return spec.roles?.length ? spec.roles : [spec.role]
+}
+
+/**
+ * What this converter feeds. The saved `feeds` choice stands only where the
+ * module's catalogue entry offers it, so a choice left over from another
+ * module, or none, reads as the module's own role.
+ */
+export function converterRoleFor(spec: PartPowerConverterSpec, feeds: unknown): PowerConverterRole {
+  return converterRoles(spec).find((role) => CONVERTER_FEED_LABELS[role] === feeds) ?? spec.role
+}
+
 /** A common nominal source inside the selected module's documented range. */
 export function defaultSourceVoltageFor(partId: unknown): number {
   const spec = powerConverterModuleFor(partId)?.spec

@@ -21,6 +21,12 @@ import { i2sAudioStage } from '../../../state/audio/audioOutput'
 import { resolvePartIdentity } from '../../../build/parts/partOptions'
 import { encoderIsBare } from '../../../state/peripherals/encoder'
 import { converterSourceFor } from '../../../state/peripherals/pdTrigger'
+import {
+  CONVERTER_FEED_LABELS,
+  converterRoleFor,
+  converterRoles,
+  powerConverterModuleFor,
+} from '../../../state/peripherals/powerConverter'
 
 // A physical part's settings, shown in the hardware view rather than on its
 // signal node. Hardware-only parts and graph-visible inputs/outputs share this
@@ -67,7 +73,12 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
     return source.kind === 'battery' ? 'battery pack'
       : source.kind === 'pd-trigger' ? `${source.voltage} V from the USB-C PD trigger` : ''
   })
-  const props = { ...libraryDefaults(nodeType), ...savedProps }
+  const props: Record<string, unknown> = { ...libraryDefaults(nodeType), ...savedProps }
+  // A converter that can do either job says which; the field shows the job the
+  // plan reads, so a choice the selected module does not offer never shows.
+  const converterSpec = nodeType === 'PowerConverter' ? powerConverterModuleFor(props.partId)?.spec : undefined
+  const converterChoosesFeed = Boolean(converterSpec && converterRoles(converterSpec).length > 1)
+  if (converterSpec) props.feeds = CONVERTER_FEED_LABELS[converterRoleFor(converterSpec, props.feeds)]
   const nodeLabel = useGraphStore((s) => rootGraphNodes(s).find((n) => n.id === nodeId)?.data.label ?? nodeType)
   const declaredFields = PART_FIELDS[nodeType] ?? []
   const pinKeys = [...new Set([
@@ -85,6 +96,7 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
   const otherFields = declaredFields
     .filter((field) => field.kind !== 'pin')
     .filter((field) => !(converterSource && field.key === 'sourceVoltage'))
+    .filter((field) => !(nodeType === 'PowerConverter' && field.key === 'feeds' && !converterChoosesFeed))
     // A bare encoder's contacts float without the pull-up, so it is not a choice.
     .filter((field) => !(nodeType === 'EncoderInput' && field.key === 'pullup' && encoderIsBare(props)))
   const buttonEntries = nodeType === 'ButtonBank' ? normalizeButtonBankEntries(props.buttons) : []

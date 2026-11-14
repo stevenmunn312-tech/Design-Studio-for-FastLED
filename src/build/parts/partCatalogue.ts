@@ -355,6 +355,8 @@ export interface PartPixelDataExtenderSpec {
 export interface PartPowerConverterSpec {
   /** `controller` powers only the controller and 5 V peripherals; `led-rail` is the LED supply. */
   role: 'controller' | 'led-rail'
+  /** Every job the module may be given, when more than one; `role` is the one a new converter takes. */
+  roles?: Array<'controller' | 'led-rail'>
   topology: string
   inputMinV: number
   inputMaxV: number

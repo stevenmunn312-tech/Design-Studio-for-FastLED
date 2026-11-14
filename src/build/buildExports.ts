@@ -153,7 +153,7 @@ export function buildConnectionRows(
     rows.push({ from: source, fromTerminal: supply.source.kind === 'battery' ? '+BATT' : '+', to: fuse, toTerminal: 'Input', purpose: `Converter input positive, fused at the source; ${wire}` })
     rows.push({ from: fuse, fromTerminal: 'Output', to: supply.label, toTerminal: terminals.inputPositive, purpose: `Converter input positive; ${wire}` })
     rows.push({ from: source, fromTerminal: supply.source.kind === 'battery' ? 'P- / GND' : '-', to: supply.label, toTerminal: terminals.inputNegative, purpose: `Converter input negative; ${wire}` })
-    rows.push({ from: supply.label, fromTerminal: terminals.outputPositive, to: controller, toTerminal: supply.powerInPinLabel ?? '5 V input', purpose: `Controller power at ${supply.outputVoltage} V; set the converter's output before connecting` })
+    rows.push({ from: supply.label, fromTerminal: terminals.outputPositive, to: controller, toTerminal: supply.powerInPinLabel ?? '5 V input', purpose: `Controller power at ${supply.outputVoltage} V${supply.adjustable ? "; set the converter's output before connecting" : ''}` })
     rows.push({ from: supply.label, fromTerminal: terminals.outputNegative, to: 'Common ground bus', toTerminal: 'GND', purpose: 'Converter negative; joins the controller and LED grounds' })
   } else if (battery?.output?.spec.output) {
     const output = battery.output.spec.output
@@ -411,7 +411,7 @@ export function buildBomRows(
       rows.push({
         quantity: '1',
         item: `Recommended ${plan.totals.source.voltage} V DC source`,
-        specification: `${formatAmps(plan.totals.source.recommendedCurrentMa)}, ${plan.totals.source.recommendedWattage} W continuous for the converter inputs${plan.controllerSupply ? ' and controller buck' : ''}`,
+        specification: `${formatAmps(plan.totals.source.recommendedCurrentMa)}, ${plan.totals.source.recommendedWattage} W continuous for the converter inputs${plan.controllerSupply ? ' and controller converter' : ''}`,
         status: 'calculated',
       })
     }

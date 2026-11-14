@@ -612,7 +612,9 @@ Unless a future row says otherwise, treat the following as experimental:
 - **Powering the controller from a buck converter.** The LM2596 module
   (`PowerConverter`) changes only the Build Diagram, connection list and BOM;
   the firmware is unchanged. No bench run of a board powered through its 5 V
-  pin from the module has been recorded.
+  pin from the module has been recorded. The TPS61023 1S boost set to feed
+  the controller plans the same path from a single cell, and has no bench
+  run either.
 - **Powering the LED rail from an isolated converter.** The Mean Well
   SD-100A-5 and SD-100B-5 (`PowerConverter`) replace generic 5 V PSUs in the
   calculated power zones. The plan applies 40 °C derating, source-side fuses

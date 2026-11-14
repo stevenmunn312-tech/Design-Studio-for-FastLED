@@ -176,7 +176,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     nodeType: 'PowerConverter',
     partId: 'power-converter',
     label: 'DC-DC converter',
-    hint: 'Powers the controller or the 5 V LED rail from a higher-voltage source',
+    hint: 'Powers the controller or the 5 V LED rail from a battery or other DC source',
     footprint: partDimensionsMm(DEFAULT_POWER_CONVERTER_PART_ID, { width: 43.18, height: 21.08 }),
     render: partRenderSrc(DEFAULT_POWER_CONVERTER_PART_ID) ?? undefined,
   },

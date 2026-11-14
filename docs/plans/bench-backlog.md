@@ -195,6 +195,11 @@ chooses the supported combinations from whatever is on record at release.
   boost, charge and protection module powering about ten LEDs. Measure pack
   minimum and full voltage, charge current, 5 V full-white output, protection
   disconnect, fuse operation, temperatures and runtime.
+- **D-05 1S controller boost:** a Samsung INR18650-35E cell through the
+  TP4056 charge and protection board and a TPS61023 boost set to feed the
+  controller, into the board's 5 V pin. Record the 5 V pin voltage and cell
+  current with Wi-Fi active, from full charge down to the protection
+  disconnect.
 - **D-05 4S 16×16 battery build:** Samsung INR18650-35E cells with the
   HX-4S-F30A BMS, IP2368 charger and DGXBY 20 A buck powering a 16×16 matrix.
   Verify B0 through B4 sense order and the P- return; record charge ceiling,

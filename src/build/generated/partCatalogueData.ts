@@ -4098,6 +4098,10 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
         "VOUT+",
         "VOUT-"
       ],
+      "roles": [
+        "led-rail",
+        "controller"
+      ],
       "terminalPositions": [
         [
           0.204,

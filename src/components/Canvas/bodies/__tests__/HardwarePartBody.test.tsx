@@ -92,6 +92,21 @@ describe('HardwarePartBody', () => {
     expect(view.getByText('Source: battery pack')).toBeTruthy()
   })
 
+  it('lets a converter rated for either job choose what it feeds', () => {
+    setPart('PowerConverter')
+    // The LM2596 only powers the controller, so there is nothing to choose.
+    const buck = render(<HardwarePartBody nodeId="part" nodeType="PowerConverter" />)
+    expect(buck.queryByLabelText('Feeds')).toBeNull()
+    buck.unmount()
+
+    useGraphStore.getState().updateNodeProperty('part', 'partId', 'tps61023-1s-5v-boost-module')
+    const boost = render(<HardwarePartBody nodeId="part" nodeType="PowerConverter" />)
+    const feeds = boost.getByLabelText('Feeds') as HTMLSelectElement
+    expect(feeds.value).toBe('LED rail')
+    fireEvent.change(feeds, { target: { value: 'Controller' } })
+    expect(useGraphStore.getState().nodes[0].data.properties.feeds).toBe('Controller')
+  })
+
   it('renders all four SD SPI assignments and no audio settings', () => {
     // Audio output is derived from the parts present, and volume belongs with
     // the output — so the card is left with the one thing it owns.

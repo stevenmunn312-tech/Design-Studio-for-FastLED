@@ -1,4 +1,5 @@
 import { PD_TRIGGER_PART_ID, pdTriggerSpec } from '../../state/peripherals/pdTrigger'
+import { CONVERTER_FEED_LABELS } from '../../state/peripherals/powerConverter'
 /**
  * The settings a hardware-only part carries, beyond the module it is.
  *
@@ -69,8 +70,9 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
     { key: 'i2sDout', label: 'DIN', kind: 'pin' },
     { key: 'maxVolume', label: 'Max volume (0–21)', kind: 'number', min: 0, max: DECODER_MAX_VOLUME },
   ],
-  // Labelled as WIZnet prints them in its pinout; the board itself prints none.
+  // `feeds` is shown only for a module whose catalogue entry offers both jobs.
   PowerConverter: [
+    { key: 'feeds', label: 'Feeds', kind: 'select', options: Object.values(CONVERTER_FEED_LABELS) },
     { key: 'sourceVoltage', label: 'Source V', kind: 'number', min: 5, max: 48 },
   ],
   BatteryPack: [

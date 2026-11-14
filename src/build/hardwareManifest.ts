@@ -80,7 +80,7 @@ import {
   MPR121_PART_ID, formatTouchPadAddress, touchPadAddress, touchPadElectrodeCount,
 } from '../state/peripherals/touchPad'
 import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec, ethernetSpiHostForFqbn } from '../state/peripherals/ethernetModule'
-import { DEFAULT_SOURCE_VOLTAGE, powerConverterModuleFor } from '../state/peripherals/powerConverter'
+import { converterRoleFor, DEFAULT_SOURCE_VOLTAGE, powerConverterModuleFor } from '../state/peripherals/powerConverter'
 import { batteryCellSpec, batteryModuleSpec, packFacts } from '../state/peripherals/battery'
 import {
   DIRECT_PIXEL_DATA_LINK,
@@ -979,8 +979,9 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
       }
       case 'IRRemoteInput':
         return buildPeripheralItem(node, 'ir-input', 'Demodulating IR receiver', pins)
-      // On the power path, not the signal path: no pins. Its role and ratings
-      // are the catalogue's, so the plan reads them from the part id.
+      // On the power path, not the signal path: no pins. Its ratings are the
+      // catalogue's, read by the plan from the part id; its role is the
+      // catalogue's too, unless the module offers a choice and `feeds` makes it.
       case 'PowerConverter': {
         const props = node.data.properties as Record<string, unknown>
         const module = powerConverterModuleFor(props.partId)
@@ -995,7 +996,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           supported: Boolean(module),
           facts: {
             partId: module?.partId ?? String(props.partId ?? ''),
-            role: module?.spec.role ?? 'controller',
+            role: module ? converterRoleFor(module.spec, props.feeds) : 'controller',
             sourceVoltage,
             source: hasBatteryPack ? 'battery pack'
               : converterSource.kind === 'pd-trigger' ? `${sourceVoltage} V from the USB-C PD trigger`
