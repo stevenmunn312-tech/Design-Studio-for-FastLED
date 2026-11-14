@@ -95,20 +95,23 @@ Exit: per-platform launch and install, helper discovery, permissions, offline
 and recovery evidence
 ([desktop distribution](docs/release/desktop-distribution.md#signing-and-publishing)).
 
-- [ ] Relaunch the offline PWA from a clean browser profile.
+- [x] Relaunch the offline PWA from a clean browser profile. Passes in
+  Chromium, 2026-11-14.
 - [ ] Sign the Windows launcher and bundled executables with Authenticode, or
   publish through the [Microsoft Store](docs/release/microsoft-store.md) MSIX,
   which the Store signs.
 - [ ] Run the Windows package on a clean account or machine, through launch
   and an upload.
-- [ ] Reconcile the fbuild 2.5.4 tools the macOS bundle substitutes with the
+- [x] Reconcile the fbuild 2.5.4 tools the macOS bundle substitutes with the
   pinned Python dependency
   ([package workflow](docs/release/desktop-distribution.md#github-package-workflow)).
+  The 2.5.51 wheel's tools run on both Mac runners; the bundle carries them.
 - [ ] Give the macOS package its application layout, code signing, hardened
   runtime and notarization.
 - [ ] Run the macOS package on a clean machine, Apple Silicon and Intel.
 - [ ] Run the Linux package on a clean machine.
-- [ ] Record a checksum and a provenance record for every archive.
+- [x] Record a checksum and a provenance record for every archive. The
+  package workflow writes a SHA-256 file and a GitHub attestation for each.
 
 ## 5. Freeze the code and run the full compile matrix
 

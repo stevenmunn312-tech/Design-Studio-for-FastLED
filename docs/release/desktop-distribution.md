@@ -147,6 +147,24 @@ This closes the cross-platform build/launch-smoke check, but it is not a
 substitute for signing/notarization, a clean end-user account launch, default
 browser behavior, physical serial-port discovery, or a hardware upload.
 
+On 2026-11-14, at `93a464f8`, all four targets were packaged and
+launch-smoked again on GitHub-hosted runners (run [`43616796120`](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43616796120)).
+The macOS bundles now carry the pinned wheel's own `fbuild` and
+`fbuild-daemon` (2.5.51, `arm64` on the Apple Silicon runner and `x86_64` on
+the Intel one) instead of 2.5.4 built from source. Each archive has a SHA-256
+file and a GitHub provenance attestation; the Linux archive's checksum and
+attestation were checked after download.
+
+The same day the offline PWA was relaunched from a clean browser profile: a
+production build served on localhost, one online load in a new Chromium
+profile, the browser closed and the server stopped, then the browser started
+again on that profile with the network off. The service worker served the
+shell and controlled the page, Inter and Audiowide loaded, and the Field
+Transform Demo starter opened with its graph and a running LED preview. The
+only failed requests were the helper's, which was absent on purpose; the page
+logged no errors. Help and the runtime-cached images (node cards, board
+renders, display assets) were not opened.
+
 ## Signing and publishing
 
 The current output is an unsigned portable beta archive. A public release still
@@ -154,7 +172,8 @@ needs:
 
 - Authenticode signing for the Windows launcher and bundled executables;
 - macOS application layout, code signing, hardened runtime, and notarization;
-- checksums for every archive and an artifact provenance record;
+- checksums for every archive and an artifact provenance record (in place
+  since 2026-11-14: the workflow writes both);
 - a clean-machine launch/upload smoke per published platform; and
 - publication through the normal tagged-release process.
 
@@ -179,11 +198,15 @@ helper's default engine, but the smoke does not check the reported engine,
 because a saved preference can change it. A failed smoke lists each check that
 did not pass.
 
-The original `fbuild 2.5.4` packaging investigation found unusable macOS
-executables (the ARM binary was rejected by `dyld`, while the Intel host
-received the wrong CPU slice). The current workflow still compiles `fbuild` and
-`fbuild-daemon` from the exact `v2.5.4` source tag on each Mac runner, verifies
-that source before the build, and replaces only those two wheel-provided tools
-before packaging. This means the macOS bundle currently substitutes 2.5.4
-tools even though the Python dependency set pins 2.5.37; reconcile and re-smoke
-that exception before treating a new macOS package as a release candidate.
+Each package job attests its archives with
+`actions/attest-build-provenance`: GitHub signs which workflow run, commit and
+runner produced each file. Check one with
+`gh attestation verify <file> --repo <owner>/<repo>`.
+
+The `fbuild 2.5.4` wheel carried unusable macOS executables (the ARM binary
+was rejected by `dyld`, and the Intel host received the wrong CPU slice), so
+the macOS jobs built both tools from the `v2.5.4` source tag and bundled those
+in place of the pinned release. The 2.5.51 wheel's tools run on both Mac
+runners, so since 2026-11-14 the jobs print each tool's architecture and
+version and bundle the wheel's own. If a later pin's tools stop running, that
+step or the launch smoke fails.
