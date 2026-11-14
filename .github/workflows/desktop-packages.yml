@@ -31,6 +31,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 concurrency:
   group: desktop-packages-${{ github.ref }}
@@ -69,50 +71,15 @@ jobs:
       - name: Install desktop packaging dependencies
         run: python -m pip install -r backend/requirements-packaging.txt -c backend/constraints.txt
 
-      # fbuild 2.5.4's universal wheel contains unusable macOS executables:
-      # dyld rejects the ARM binary and the Intel host receives the wrong CPU
-      # slice. Cache the known-good source-built tools per architecture.
-      - name: Restore source-built macOS fbuild tools
-        id: fbuild-cache
-        if: ${{ startsWith(matrix.target, 'macos-') }}
-        uses: actions/cache@v5
-        with:
-          path: |
-            ${{ runner.temp }}/fbuild-v2.5.4/target/release/fbuild
-            ${{ runner.temp }}/fbuild-v2.5.4/target/release/fbuild-daemon
-          key: fbuild-v2.5.4-${{ matrix.target }}-7df3220d5a8ed0a6237d6ee2488e1ae1d47fd7c2
-
-      - name: Check out tagged fbuild source
-        if: ${{ startsWith(matrix.target, 'macos-') && steps.fbuild-cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        env:
-          FBUILD_COMMIT: 7df3220d5a8ed0a6237d6ee2488e1ae1d47fd7c2
-        run: |
-          source_dir="$RUNNER_TEMP/fbuild-v2.5.4"
-          git clone --depth 1 --branch v2.5.4 https://github.com/FastLED/fbuild.git "$source_dir"
-          test "$(git -C "$source_dir" rev-parse HEAD)" = "$FBUILD_COMMIT"
-
-      - name: Build working fbuild tools from tagged source
-        if: ${{ startsWith(matrix.target, 'macos-') && steps.fbuild-cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        env:
-          MACOSX_DEPLOYMENT_TARGET: "12.0"
-        run: |
-          source_dir="$RUNNER_TEMP/fbuild-v2.5.4"
-          cargo build \
-            --manifest-path "$source_dir/Cargo.toml" \
-            --release \
-            --locked \
-            --package fbuild-cli \
-            --package fbuild-daemon
-
-      - name: Install source-built macOS fbuild tools
+      # The fbuild wheel once carried macOS executables that did not run
+      # (2.5.4: dyld rejected the ARM binary, the Intel host got the wrong CPU
+      # slice), so this job built both tools from source. The pinned wheel's
+      # own tools are checked here instead, before anything is packaged.
+      - name: Check the wheel's macOS fbuild tools
         if: ${{ startsWith(matrix.target, 'macos-') }}
         shell: bash
         run: |
-          source_dir="$RUNNER_TEMP/fbuild-v2.5.4"
           for tool in fbuild fbuild-daemon; do
-            install -m 755 "$source_dir/target/release/$tool" "$(command -v "$tool")"
             file "$(command -v "$tool")"
           done
           fbuild --version
@@ -146,6 +113,17 @@ jobs:
           archives = [p for p in files if p.suffix != '.msix'];
           assert len(archives) == 1, f'expected one archive, found: {archives}';
           [p.with_name(p.name + '.sha256').write_text(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n', encoding='utf-8') for p in files]"
+
+      # The provenance record: GitHub signs which workflow run, commit and
+      # runner produced each file. Check one with
+      #   gh attestation verify <file> --repo <owner>/<repo>
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            release/desktop/DesignStudioForFastLED-*.zip
+            release/desktop/DesignStudioForFastLED-*.tar.gz
+            release/desktop/DesignStudioForFastLED-*.msix
 
       - name: Upload desktop archive
         uses: actions/upload-artifact@v6
