@@ -32,6 +32,28 @@ function probe(port: number): Promise<boolean> {
   })
 }
 
+/**
+ * Whether the page this server serves talks to the helper on `HELPER_PORT`.
+ *
+ * `VITE_BACKEND_URL` points the page somewhere else; the Browser-pane preview
+ * sets it to an unreachable address so a test session cannot autosave into the
+ * real Projects folder (`.claude/launch.json`). Such a server has no use for a
+ * helper, and starting one anyway took 8008 whenever the real helper
+ * restarted: the author's own dev tab then ran on a helper owned by another
+ * session, which died when that session's preview stopped.
+ */
+export function pageUsesLocalHelper(backendUrl: string | undefined): boolean {
+  if (!backendUrl) return true
+  try {
+    const url = new URL(backendUrl)
+    const port = url.port || (url.protocol === 'https:' ? '443' : '80')
+    return Number(port) === HELPER_PORT
+  } catch {
+    // The page cannot reach a malformed URL either; keep the old behaviour.
+    return true
+  }
+}
+
 export function uploadHelper(): Plugin {
   let child: ChildProcess | undefined
   let started = false
@@ -125,9 +147,13 @@ export function uploadHelper(): Plugin {
     watch.unref()
   }
 
-  async function start(logger: Logger) {
+  async function start(logger: Logger, backendUrl: string | undefined) {
     if (started) return
     started = true
+    if (!pageUsesLocalHelper(backendUrl)) {
+      logger.info(`  ➜  upload helper: not started (the page uses ${backendUrl})`)
+      return
+    }
 
     const running = await probe(HELPER_PORT)
     if (running) {
@@ -147,11 +173,11 @@ export function uploadHelper(): Plugin {
   return {
     name: 'fastled-upload-helper',
     configureServer(server) {
-      start(server.config.logger)
+      void start(server.config.logger, server.config.env.VITE_BACKEND_URL)
       server.httpServer?.once('close', stop)
     },
     configurePreviewServer(server) {
-      start(server.config.logger)
+      void start(server.config.logger, server.config.env.VITE_BACKEND_URL)
       server.httpServer?.once('close', stop)
     },
   }

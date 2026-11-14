@@ -40,6 +40,12 @@
   The probe is a TCP connect, which the kernel answers while the socket
   listens, so a long compile cannot trigger it. The helper has been seen
   alive with no listening socket (2026-10-28, 2026-10-30), cause unconfirmed.
+- **Only a server whose page talks to 8008 starts a helper.** With
+  `VITE_BACKEND_URL` pointing elsewhere (the Browser-pane preview sets
+  `http://127.0.0.1:1`), the plugin starts and watches nothing. Before
+  2026-11-15 the preview's watcher took 8008 whenever the real helper
+  restarted, and the author's 5173 tab then ran on a helper that died with
+  another session's preview.
 - Every route checks for a local `Origin`, GETs included: a cross-site page
   must not be able to run `arduino-cli board list` through `/api/serial/ports`.
   A GET with no `Origin` passes only when `Sec-Fetch-Site` is absent,
