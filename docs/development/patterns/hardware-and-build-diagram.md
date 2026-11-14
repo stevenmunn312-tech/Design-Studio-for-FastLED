@@ -328,6 +328,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   board conductors below the pack so labels never obscure connection paths.
   The Samsung cell reference render faces positive-left; `BatteryAssembly`
   mirrors each copy so the schematic reads B- on the left and B+ on the right.
+  Pack board titles wrap to two lines (`moduleTitleLines`) and are drawn last
+  over a halo, because catalogue names are wider than a board box and the bus
+  and charger wires rise through the space above it; `BATTERY_MODULE_ROW_PITCH`
+  leaves room for the second line.
 
 - **Two VL53 sensors on one I2C bus leave 0x29 free.** Every VL53L0X and VL53L1X
   wakes at 0x29, and the catalogue address list stays that power-on address.

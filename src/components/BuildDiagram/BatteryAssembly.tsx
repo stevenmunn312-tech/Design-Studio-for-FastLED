@@ -21,6 +21,31 @@ import styles from './BuildDiagramWorkspace.module.css'
 
 export const BATTERY_PAD_MM = 12
 
+/** About what one title line holds across a module box and half its gap, at the component label's size. */
+const MODULE_TITLE_LINE_CHARS = 26
+const MODULE_TITLE_LINE_HEIGHT = 18
+
+/**
+ * A pack board's title on one line, or two balanced lines when one would run
+ * into the neighbouring board's title. Boards sit a box and a narrow gap
+ * apart, and their catalogue names are longer than that.
+ */
+function moduleTitleLines(title: string): string[] {
+  if (title.length <= MODULE_TITLE_LINE_CHARS) return [title]
+  const words = title.split(' ')
+  let best: string[] = [title]
+  let bestLongest = title.length
+  for (let cut = 1; cut < words.length; cut++) {
+    const lines = [words.slice(0, cut).join(' '), words.slice(cut).join(' ')]
+    const longest = Math.max(lines[0].length, lines[1].length)
+    if (longest < bestLongest) {
+      best = lines
+      bestLongest = longest
+    }
+  }
+  return best
+}
+
 interface ModuleBox {
   item: HardwareManifestItem
   partId: string
@@ -207,7 +232,6 @@ export function BatteryAssembly({ items, plan, band }: {
         const branchFuseX = box.x - 28
         const branchFuseY = box.y + 34
         return <g key={box.item.id} data-battery-module={box.partId}>
-          <text x={box.x + (box.width / 2)} y={box.y - 7} textAnchor="middle" className={styles.physicalComponentLabel}>{box.item.title}</text>
           <rect x={box.x} y={box.y} width={box.width} height={box.height} rx="8" fill="#d8ddd9" stroke="#4d5852" />
           {render && <image data-component-render={box.partId} href={render} x={box.x + 8} y={box.y + 8} width={box.width - 16} height={box.height - 38} preserveAspectRatio="xMidYMid meet" className={styles.physicalBoardRender} />}
           {box.terminals.map((terminal, index) => {
@@ -240,6 +264,15 @@ export function BatteryAssembly({ items, plan, band }: {
           {module.spec.output && outputNegative && outputNegative.label !== protectedNegative?.label && <NetStub x={outputNegative.x} y={outputNegative.y} kind="gnd" direction="down" lead={20} wireId={`battery-output-negative:${box.partId}`} label={groundLabel} />}
         </g>
       })}
+      {/* Titles go on last, over a halo in the frame's colour: the bus and
+          charger wires rise through the space above the boxes. */}
+      {moduleBoxes.map((box) => (
+        <text key={box.item.id} data-battery-module-title={box.partId} textAnchor="middle" className={styles.physicalComponentLabel} stroke="#eef0e9" strokeWidth="5" strokeLinejoin="round" paintOrder="stroke">
+          {moduleTitleLines(box.item.title).map((line, index, lines) => (
+            <tspan key={line} x={box.x + (box.width / 2)} y={box.y - 7 - ((lines.length - 1 - index) * MODULE_TITLE_LINE_HEIGHT)}>{line}</tspan>
+          ))}
+        </text>
+      ))}
     </g>
   )
 }

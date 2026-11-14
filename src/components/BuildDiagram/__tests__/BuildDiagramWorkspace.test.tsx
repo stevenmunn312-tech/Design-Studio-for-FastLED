@@ -1736,6 +1736,13 @@ describe('BuildDiagramWorkspace', () => {
     expect(view.getByText(/Converter 1: DGXBY/)).toBeTruthy()
     const diagram = view.container.querySelector('svg[data-build-export="current-view"]')
     expect(diagram?.querySelector('[data-battery-assembly="true"]')).toBeTruthy()
+    // Board names are longer than a box, so each wraps rather than run into its neighbour.
+    const titles = Array.from(diagram?.querySelectorAll('[data-battery-module-title]') ?? [])
+      .map((title) => Array.from(title.querySelectorAll('tspan')).map((line) => line.textContent))
+    expect(titles).toEqual([
+      ['HX-4S-F30A 4S 30 A', 'BMS with balancing'],
+      ['IP2368 100 W', 'bidirectional 4S charger'],
+    ])
     expect(diagram?.querySelectorAll('[data-battery-tap]')).toHaveLength(5)
     expect(diagram?.querySelector('[data-battery-main-fuse]')).toBeTruthy()
     expect(diagram?.querySelector('[data-battery-terminal="hx-4s-f30a-bms-balance:B-"]')).toBeTruthy()

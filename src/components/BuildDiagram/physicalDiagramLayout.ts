@@ -1676,7 +1676,8 @@ export const BATTERY_PACK_HEIGHT = 210
 export const BATTERY_WIRE_CHANNEL_GAP = 4
 export const BATTERY_WIRE_CHANNEL_PITCH = 4
 export const BATTERY_MODULE_TOP = 126
-export const BATTERY_MODULE_ROW_PITCH = 154
+// A box, its pin captions, and room for the next row's two-line title.
+export const BATTERY_MODULE_ROW_PITCH = 168
 export const BATTERY_MODULE_HEIGHT = 120
 /** Pin caption below a module box. The terminal sits 12px up; the caption baseline is 14px under that. */
 export const BATTERY_MODULE_LABEL_DROP = 16
