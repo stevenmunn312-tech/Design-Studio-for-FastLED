@@ -256,6 +256,7 @@ def _compile_upload(
             "or switch the engine to fbuild.",
         ))
     fqbn = toolchain._arduino_fqbn(fqbn, flash_mb, usb_cdc)
+    toolchain._sync_serial_library_source(sketch_dir, fqbn)
     build_key = str(sketch_dir.resolve())
     build_identity = (fqbn, tuple(
         (path.name, path.read_text(encoding="utf-8"))

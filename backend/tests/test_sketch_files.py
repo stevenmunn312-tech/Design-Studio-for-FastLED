@@ -35,6 +35,20 @@ def test_workspace_writes_and_prunes_sibling_files(tmp_path, monkeypatch):
         assert not (folder / toolchain._SKETCH_FILES_MANIFEST).exists()
 
 
+def test_serial_library_source_follows_the_board(tmp_path):
+    source = tmp_path / toolchain._SERIAL_LIBRARY_SOURCE
+    toolchain._sync_serial_library_source(tmp_path, "adafruit:nrf52:feather52840")
+    assert "#include <Adafruit_TinyUSB.h>" in source.read_text(encoding="utf-8")
+    mtime = source.stat().st_mtime_ns
+    toolchain._sync_serial_library_source(tmp_path, "adafruit:nrf52:feather52840")
+    assert source.stat().st_mtime_ns == mtime
+    # The same folder, built next for a core that has no such header.
+    toolchain._sync_serial_library_source(tmp_path, "esp32:esp32:esp32")
+    assert not source.exists()
+    toolchain._sync_serial_library_source(tmp_path, "Seeeduino:nrf52:xiaonRF52840")
+    assert source.exists()
+
+
 def test_fbuild_main_writes_sibling_files_beside_it(tmp_path, monkeypatch):
     src = tmp_path / "src"
     src.mkdir()

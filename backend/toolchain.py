@@ -1707,6 +1707,34 @@ def _write_sketch_files(folder: Path, files: dict[str, str]) -> None:
         manifest.unlink()
 
 
+# Cores whose `Serial` is defined in a library rather than in the core: the
+# Adafruit nRF52 core and Seeed's fork of it keep it in Adafruit TinyUSB.
+# Arduino CLI links a library only when a sketch file includes it, and FastLED
+# reaches `Serial` from every sketch, so one that never includes the library
+# stops at `undefined reference to 'Serial'`. fbuild links it unasked.
+_SERIAL_LIBRARY_CORES = ("adafruit:nrf52:", "Seeeduino:nrf52:")
+_SERIAL_LIBRARY_SOURCE = "fls_core_serial.cpp"
+_SERIAL_LIBRARY_TEXT = (
+    "// Written by the Design Studio helper for Arduino CLI. This core defines\n"
+    "// `Serial` in its TinyUSB library, which is linked only when a sketch file\n"
+    "// includes it.\n"
+    "#ifdef USE_TINYUSB\n"
+    "#include <Adafruit_TinyUSB.h>\n"
+    "#endif\n"
+)
+
+
+def _sync_serial_library_source(folder: Path, fqbn: str) -> None:
+    """Keep the file that links a core's `Serial` library beside the sketch on
+    the cores that need it, and remove it on every other: a sketch folder is
+    reused when the board changes, and no other core has the header."""
+    source = folder / _SERIAL_LIBRARY_SOURCE
+    if fqbn.startswith(_SERIAL_LIBRARY_CORES):
+        _write_if_changed(source, _SERIAL_LIBRARY_TEXT)
+    else:
+        source.unlink(missing_ok=True)
+
+
 def _write_fbuild_main(ino: str, files: dict[str, str] | None = None) -> None:
     # fbuild <= 2.5.15 preprocessed `.ino` into `main.ino.cpp`, auto-inserting
     # function prototypes *before* any user #includes — that broke FastLED-typed
