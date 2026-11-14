@@ -27,7 +27,7 @@
 // they have. Remembering what they chose is how the app stops asking.
 
 import { darlingtonPinKeys } from '../../state/peripherals/darlingtonDriver'
-import type { StudioEdge, StudioNode } from '../../state/graphStore'
+import type { StudioNode } from '../../state/graphStore'
 import type { PhysicalBoardProfile } from '../boards/boardProfiles'
 import { assignPartPins, type PartPinRequest } from '../parts/partPinAssignment'
 import { micPinDefaultsForBoard, micPinIsDefault } from './micPinDefaults'
@@ -59,12 +59,24 @@ export const ASSIGNED_BOARD_KEY = 'assignedPinsBoard'
  *  board brings its own wiring back. */
 export const USER_PINS_KEY = 'userPinsByBoard'
 
+/**
+ * Property holding every pin the part last held on each board, the app's
+ * picks as well as the user's. The user's are kept outright through
+ * `USER_PINS_KEY`; this is what lets the app's own picks come back too, so an
+ * LED output on GPIO 13 of an ESP32 is on 13 again after a visit to an S3.
+ */
+export const PIN_HISTORY_KEY = 'pinsByBoard'
+
 type PinsByBoard = Record<string, Record<string, number>>
+
+function pinsByBoardAt(properties: Record<string, unknown>, key: string): PinsByBoard {
+  const stored = properties[key]
+  return stored && typeof stored === 'object' ? { ...(stored as PinsByBoard) } : {}
+}
 
 /** The user's own pin choices, per board. */
 export function userPinsByBoard(properties: Record<string, unknown>): PinsByBoard {
-  const stored = properties[USER_PINS_KEY]
-  return stored && typeof stored === 'object' ? { ...(stored as PinsByBoard) } : {}
+  return pinsByBoardAt(properties, USER_PINS_KEY)
 }
 
 /**
@@ -99,6 +111,8 @@ interface PartPinPlan {
   preferred?: (
     profile: PhysicalBoardProfile | undefined,
     properties: Record<string, unknown>,
+    /** Whether the part's current pins were chosen for another board. */
+    arriving: boolean,
   ) => Record<string, number[]>
   /**
    * Where the pins come from when the profile names no peripheral entry.
@@ -126,16 +140,18 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
       { key: 'dataPin', capability: 'digitalOutput' },
       { key: 'clockPin', capability: 'digitalOutput' },
     ],
-    // The data lead stays where it is while the board offers that pin, then
-    // goes to the board's own FastLED pin, as a newly added output does
-    // (`nextFreeLedDataPin`). A starter or a board change used to move it to
-    // the pool's first pad instead.
-    preferred: (profile, properties) => {
+    // On the same board the data lead stays where it is while the board
+    // offers that pin, so a starter keeps the bench's lead. Arriving from
+    // another board it goes where a newly added output would
+    // (`nextFreeLedDataPin`): the board's own FastLED pin, then its pool. The
+    // old board's GPIO says nothing about this one — an ESP32's 13 is an S3's
+    // SD card MISO.
+    preferred: (profile, properties, arriving) => {
       const led = profile?.peripheralPins?.fastLedData
       const current = Number(properties.dataPin)
       return {
         dataPin: [
-          ...(Number.isFinite(current) ? [current] : []),
+          ...(!arriving && Number.isFinite(current) ? [current] : []),
           ...(led ? [led.recommendedDefault, ...led.commonAlternatives] : []),
         ],
       }
@@ -544,13 +560,22 @@ function planRequests(
   plan: PartPinPlan,
   properties: Record<string, unknown>,
   profile?: PhysicalBoardProfile,
+  arriving = false,
+  /** The pins this part last held on this board, tried before anything else. */
+  previously: Record<string, number> = {},
 ): PartPinRequest[] | undefined {
   if (!plan.requests) return undefined
   const keys = new Set(planKeys(plan, properties))
-  const preferred = plan.preferred?.(profile, properties) ?? {}
+  const preferred = plan.preferred?.(profile, properties, arriving) ?? {}
   return plan.requests
     .filter((request) => keys.has(request.key))
-    .map((request) => preferred[request.key]?.length ? { ...request, preferred: preferred[request.key] } : request)
+    .map((request) => {
+      const pins = [
+        ...(typeof previously[request.key] === 'number' ? [previously[request.key]] : []),
+        ...(preferred[request.key] ?? []),
+      ]
+      return pins.length ? { ...request, preferred: pins } : request
+    })
 }
 
 function peripheralPins(
@@ -590,23 +615,6 @@ export interface RetargetResult {
   nodes: StudioNode[]
   /** How many parts actually moved, for the status line. */
   moved: number
-}
-
-interface RetargetOptions {
-  /**
-   * Root graph edges let retargeting distinguish a loose hardware part from an
-   * LED fixture that is already part of the running graph. Once an LED output
-   * has a frame/show wire, changing its data GPIO rewrites a physical cable
-   * fact, so the retargeter treats that one pin as user-owned.
-   */
-  edges?: readonly StudioEdge[]
-}
-
-function connectedMatrixOutputIds(edges: readonly StudioEdge[] | undefined): Set<string> {
-  if (!edges) return new Set()
-  return new Set(edges
-    .filter((edge) => edge.target && edge.targetHandle === 'frame')
-    .map((edge) => String(edge.target)))
 }
 
 /**
@@ -720,9 +728,8 @@ export function retargetHardwarePins(
    * it be remembered there and released everywhere else.
    */
   previousBoard?: string,
-  options: RetargetOptions = {},
 ): RetargetResult {
-  const parts = retargetPartPins(inputNodes, profile, fqbn, previousBoard, options)
+  const parts = retargetPartPins(inputNodes, profile, fqbn, previousBoard)
   const buttons = retargetButtonBankPins(parts.nodes, profile, fqbn, previousBoard)
   return { nodes: buttons.nodes, moved: parts.moved + buttons.moved }
 }
@@ -733,7 +740,6 @@ function retargetPartPins(
   profile: PhysicalBoardProfile | undefined,
   fqbn: string,
   previousBoard: string | undefined,
-  options: RetargetOptions,
 ): RetargetResult {
   /*
    * Memory is keyed on the *profile*, not the FQBN.
@@ -747,8 +753,7 @@ function retargetPartPins(
    * other as if their pinouts matched.
    */
   const boardKey = profile?.id ?? fqbn
-  const connectedOutputs = connectedMatrixOutputIds(options.edges)
-  const updates = new Map<string, { pins: Record<string, number>; memory: PinsByBoard; mine: string[] }>()
+  const updates = new Map<string, { pins: Record<string, number>; memory: PinsByBoard; history: PinsByBoard; mine: string[] }>()
   const claimed = new Set<number>()
   /*
    * Parts this pass has already answered for.
@@ -782,25 +787,6 @@ function retargetPartPins(
     const stampedFor = properties[ASSIGNED_BOARD_KEY]
     const remembered = userPinsByBoard(properties)[boardKey] ?? {}
     const out: Record<string, number> = { ...remembered }
-    /*
-     * A connected LED output is already a fixture, not a loose new part. Its
-     * data wire goes to the GPIO printed on the build diagram and soldered on
-     * the bench; silently moving it during a board change flashes firmware for
-     * a different cable than the one that exists.
-     *
-     * Only the data pin is locked here, and only for addressable outputs that
-     * are actually fed by the graph. A loose LED output can still receive the
-     * new board's suggested starting pin, and HUB75 stays on its ribbon-pin
-     * validation path.
-     */
-    if (
-      node.data.nodeType === 'MatrixOutput'
-      && connectedOutputs.has(node.id)
-      && outputForm(properties) !== 'hub75'
-    ) {
-      const pin = Number(properties.dataPin)
-      if (Number.isFinite(pin)) out.dataPin = pin
-    }
     /*
      * Live edits count only while this really is the board they were made on.
      * An unstamped node is *not* treated as belonging to the board being
@@ -862,17 +848,23 @@ function retargetPartPins(
     // which is where its pins were actually chosen.
     const stamped = properties[ASSIGNED_BOARD_KEY]
     const leaving = typeof stamped === 'string' ? stamped : previousBoard
+    const arriving = typeof leaving === 'string' && leaving !== boardKey
     const memory = userPinsByBoard(properties)
-    if (typeof leaving === 'string' && leaving !== boardKey) {
+    const history = pinsByBoardAt(properties, PIN_HISTORY_KEY)
+    if (arriving) {
       const chosen: Record<string, number> = {}
+      const held: Record<string, number> = {}
       for (const key of planKeys(plan, properties)) {
-        if (!isPinAppOwned(node.data.nodeType, properties, key, leaving, leaving)) {
-          const pin = Number(properties[key])
-          if (Number.isFinite(pin)) chosen[key] = pin
-        }
+        const pin = Number(properties[key])
+        if (!Number.isFinite(pin)) continue
+        held[key] = pin
+        if (!isPinAppOwned(node.data.nodeType, properties, key, leaving, leaving)) chosen[key] = pin
       }
       if (Object.keys(chosen).length > 0) {
         memory[leaving] = { ...memory[leaving], ...chosen }
+      }
+      if (Object.keys(held).length > 0) {
+        history[leaving] = { ...history[leaving], ...held }
       }
     }
 
@@ -904,7 +896,8 @@ function retargetPartPins(
             && other.data.nodeType !== 'ButtonBank'),
           ...claimedAsNodes(claimed),
         ],
-        (planRequests(plan, properties, profile) ?? []).filter((request) => movable.includes(request.key)),
+        (planRequests(plan, properties, profile, arriving, arriving ? history[boardKey] : undefined) ?? [])
+          .filter((request) => movable.includes(request.key)),
       )
       next = assigned.ok ? assigned.pins : null
     }
@@ -918,10 +911,12 @@ function retargetPartPins(
 
     const changed = Object.entries(resolved).filter(([key, pin]) => Number(properties[key]) !== pin)
     const memoryChanged = JSON.stringify(memory) !== JSON.stringify(userPinsByBoard(properties))
+      || JSON.stringify(history) !== JSON.stringify(pinsByBoardAt(properties, PIN_HISTORY_KEY))
     if (changed.length === 0 && !memoryChanged) continue
     updates.set(node.id, {
       pins: Object.fromEntries(changed),
       memory,
+      history,
       // Restored pins are the user's, so they must not be stamped as the app's
       // or the next board change would treat them as free to move.
       mine: Object.keys(mine),
@@ -950,6 +945,7 @@ function retargetPartPins(
             ...withAssignedPins(node.data.properties as Record<string, unknown>, appPlaced, boardKey),
             ...restored,
             [USER_PINS_KEY]: update.memory,
+            ...(Object.keys(update.history).length > 0 ? { [PIN_HISTORY_KEY]: update.history } : {}),
             [ASSIGNED_BOARD_KEY]: boardKey,
           },
         },

@@ -48,13 +48,17 @@ allocation respects capability, existing uses, and the selected part option.
 
 Changing boards retargets assignments made by Studio and preserves explicit
 user choices. User-selected pins are remembered by part and board so switching
-away and back restores the intended wiring.
+away and back restores the intended wiring, and every pin a part held on a
+board (`pinsByBoard`, the app's picks too) is tried first on returning there.
+A part arriving on a board it has not been on takes that board's pins, not the
+old board's GPIO numbers: an ESP32 LED output on 13 lands on the S3's first
+LED-capable pin, and is on 13 again back on the ESP32. A wired LED output follows the same
+rule: whether it has a Frame wire says nothing about who chose its data pin, and
+holding it in place left an ESP32 starter's GPIO 13 on an S3's SD MISO line.
 
-An LED output with a Frame/show wire is treated as an existing fixture: its
-`dataPin` is preserved during board retargeting rather than silently moved to
-the new board's starter GPIO. If that retained pin does not match the selected
-board's LED starter pins, Graph Health warns the user to confirm the physical
-data lead or choose a new pin.
+Opening a project is not a board change, even when its board differs from the
+project that was open before: its pins are the ones it was saved with
+(`workspaceLoadCount` in the graph store tells the two apart).
 
 ## Which parts appear in the graph
 

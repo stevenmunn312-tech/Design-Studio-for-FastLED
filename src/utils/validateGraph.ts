@@ -80,7 +80,6 @@ import { estimateWireTime, wireTimeAdvice } from './wireTime'
 import { findLedDriverErrors, ledDriverDiagnostics } from './ledDriverIssues'
 import type { LedDriverChoice } from '../build/ledDrivers'
 import { isHardwareManagedSignalNodeType, ledPitchMm } from '../build/hardware'
-import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY } from '../build/pins/pinRetarget'
 import { partOptionsFor, resolvePartIdentity } from '../build/parts/partOptions'
 import { displayHasTouch, partById } from '../build/parts/partCatalogue'
 import { designControlBundle } from '../state/displays/designControlBundle'
@@ -1377,65 +1376,6 @@ export function findBoardPinCompatibility(nodes: StudioNode[], selectedFqbn: str
     if (warning) warnings.push(`${use.label} uses pin ${use.pin}: ${warning}`)
   }
   return { errors: errors.sort(), warnings: warnings.sort() }
-}
-
-export interface RetainedLedDataPinIssue {
-  nodeId: string
-  nodeLabel: string
-  pin: number
-  boardLabel: string
-  message: string
-  fix: string
-}
-
-/**
- * Connected LED outputs keep their data pin through a board retarget. That is
- * the safest physical behaviour: the data lead already exists. When the kept
- * pin is not one of the newly selected board's LED starter pins, say so in the
- * editor so the author knows Studio intentionally preserved the wiring rather
- * than overlooking the board recommendation.
- */
-export function findRetainedLedDataPinWarnings(
-  nodes: StudioNode[],
-  edges: StudioEdge[],
-): RetainedLedDataPinIssue[] {
-  const profile = selectedBoardProfile(nodes)
-  if (!profile) return []
-  const connected = new Set(edges
-    .filter((edge) => edge.target && edge.targetHandle === 'frame')
-    .map((edge) => String(edge.target)))
-  const ledPins = profile.peripheralPins?.fastLedData
-  const boardLedPins = new Set([
-    ...(ledPins ? [ledPins.recommendedDefault, ...ledPins.commonAlternatives] : []),
-  ])
-
-  return nodes.flatMap((node) => {
-    if (node.data.nodeType !== 'MatrixOutput' || !connected.has(node.id)) return []
-    const props = node.data.properties as Record<string, unknown>
-    if (outputForm(props) === 'hub75') return []
-    const assignedBoard = props[ASSIGNED_BOARD_KEY]
-    if (typeof assignedBoard !== 'string' || assignedBoard === profile.id) return []
-    const assigned = props[ASSIGNED_PINS_KEY] as Record<string, unknown> | undefined
-    const pin = Number(props.dataPin)
-    if (!Number.isFinite(pin) || assigned?.dataPin !== pin) return []
-    if (boardLedPins.has(pin)) return []
-    const verdict = boardPinVerdict(profile, pin)
-    // Caution and reserved pins already get more specific board-pin diagnostics.
-    if (verdict.standing === 'caution' || verdict.standing === 'reserved') return []
-
-    const label = String(node.data.label ?? node.data.nodeType)
-    const message = `${label} kept GPIO ${pin} after the board change because its Frame input is already wired.`
-      + ` ${profile.label}'s LED starter pin is${boardLedPins.size > 1 ? ' usually one of' : ''}`
-      + ` ${boardLedPins.size > 0 ? [...boardLedPins].map((candidate) => `GPIO ${candidate}`).join(', ') : 'not listed in this profile'}.`
-    return [{
-      nodeId: node.id,
-      nodeLabel: label,
-      pin,
-      boardLabel: profile.label,
-      message,
-      fix: 'If the fixture data lead really goes to this GPIO, keep it. Otherwise move the data pin in the LED output wiring controls before uploading.',
-    }]
-  })
 }
 
 export function findMatrixLayoutErrors(nodes: StudioNode[]): string[] {
@@ -4648,20 +4588,6 @@ export function buildGraphDiagnostics(
       })
     })
   }
-  for (const issue of findRetainedLedDataPinWarnings(nodes, edges)) {
-    diagnostics.push({
-      id: `${issue.nodeId}-retained-data-pin`,
-      severity: 'warning',
-      category: 'pins',
-      title: 'LED output data pin was kept',
-      message: issue.message,
-      fix: issue.fix,
-      nodeIds: [issue.nodeId],
-      nodeLabel: issue.nodeLabel,
-      propertyKey: 'dataPin',
-    })
-  }
-
   const matrixOutputs = nodes.filter((node) => node.data.nodeType === 'MatrixOutput')
   const matrixOutput = matrixOutputs[0]
   const hub75Issues = findHub75ConfigIssues(nodes)
@@ -5460,7 +5386,6 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   warnings.push(...findScheduleIssues(nodes, edges).map((issue) => issue.message))
   warnings.push(...findPinRangeWarnings(nodes))
   warnings.push(...findBoardPinCompatibility(nodes, selectedFqbn).warnings)
-  warnings.push(...findRetainedLedDataPinWarnings(nodes, edges).map((issue) => issue.message))
   warnings.push(...findPlayerControlMappingWarnings(nodes, edges))
   warnings.push(...findSharedControlSourceWarnings(nodes, edges))
   warnings.push(...findUnusablePlayerControlWarnings(nodes, edges))

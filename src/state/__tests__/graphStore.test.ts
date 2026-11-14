@@ -7,6 +7,7 @@ import type { StudioNode, StudioEdge } from '../graphStore'
 import { useUiStore } from '../uiStore'
 import { clearPatternContentTrustForTests, reloadKnownContentForTests } from '../patterns/patternTrust'
 import { useNodeDefaults } from '../nodeDefaults'
+import { STARTER_TEMPLATES, buildBoardAwareStarter } from '../patterns/starterTemplates'
 import { addDisplayWidget, createDisplayDocument, removeDisplayWidget, updateDisplayWidget } from '../displays/displayEditor'
 import { applyDisplayTemplate } from '../displays/displayTemplates'
 import {
@@ -852,6 +853,64 @@ describe('graphStore — board-aware microphone wiring', () => {
     expect(useGraphStore.getState().retargetHardwarePins('teensy:avr:teensy40')).toBe(1)
     expect(useGraphStore.getState().nodes[0].data.properties).toMatchObject({
       i2sWs: 2, i2sSck: 3, i2sSd: 4, gain: 2,
+    })
+  })
+
+  it('moves a wired starter onto the new board\'s pins when the board changes', () => {
+    // The SD show starter on a classic ESP32 puts the LED data lead on GPIO 13,
+    // which on an S3 is the SD card's MISO. Keeping a wired output's pin
+    // through the change left the two on one pin.
+    const esp32 = node('board', 'Board', { profileId: 'esp32-generic-devkit-38pin' })
+    const starter = STARTER_TEMPLATES.find((entry) => entry.id === 'music-sync-sd-show')!
+    const built = buildBoardAwareStarter(starter, [esp32], 'esp32:esp32:esp32')
+    reset(built.nodes, built.edges)
+    useGraphStore.getState().updateNodeProperty('board', 'profileId', 'espressif-esp32-s3-devkitc-1')
+
+    useGraphStore.getState().retargetHardwarePins('esp32:esp32:esp32s3', 'esp32-generic-devkit-38pin')
+
+    const pins = buildGraphDiagnostics(useGraphStore.getState().nodes, useGraphStore.getState().edges)
+      .filter((issue) => issue.category === 'pins')
+    expect(pins).toEqual([])
+    const output = useGraphStore.getState().nodes.find((n) => n.data.nodeType === 'MatrixOutput')!
+    const card = useGraphStore.getState().nodes.find((n) => n.data.nodeType === 'SDCard')!
+    expect(output.data.properties.dataPin).not.toBe(card.data.properties.sdMisoPin)
+  })
+
+  /*
+   * Each board keeps its own LED pin. Arriving on a board for the first time
+   * takes that board's pin; an edit there is that board's; going back to a
+   * board puts back whatever it had, the app's pick or the user's.
+   */
+  describe.each([
+    ['set by hand', true],
+    ['picked by the app', false],
+  ])('an LED data pin on the ESP32 %s', (_, byHand) => {
+    const ESP32 = 'esp32-generic-devkit-38pin'
+    const S3 = 'espressif-esp32-s3-devkitc-1'
+    const dataPin = () => useGraphStore.getState().nodes.find((n) => n.id === 'out')!.data.properties.dataPin
+    const switchTo = (to: string, from: string) => {
+      useGraphStore.getState().updateNodeProperty('board', 'profileId', to)
+      useGraphStore.getState().retargetHardwarePins(to === S3 ? 'esp32:esp32:esp32s3' : 'esp32:esp32:esp32', from)
+    }
+
+    it('takes the S3 pin, keeps an S3 edit for the S3, and gives the ESP32 its 13 back', () => {
+      const output = node('out', 'MatrixOutput', {
+        form: 'strip', ledCount: 60, chipset: 'WS2812B', dataPin: 13,
+        ...(byHand ? {} : { assignedPins: { dataPin: 13 } }),
+        assignedPinsBoard: ESP32,
+      })
+      reset([node('board', 'Board', { profileId: ESP32 }), node('solid', 'SolidColor'), output],
+        [{ id: 'e', source: 'solid', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' } as StudioEdge])
+
+      switchTo(S3, ESP32)
+      expect(dataPin()).toBe(1)
+
+      useGraphStore.getState().updateNodeProperty('out', 'dataPin', 4)
+      switchTo(ESP32, S3)
+      expect(dataPin()).toBe(13)
+
+      switchTo(S3, ESP32)
+      expect(dataPin()).toBe(4)
     })
   })
 

@@ -300,6 +300,11 @@ interface GraphState {
   /** Values captured immediately before the last panic, so `restorePanic`
    *  can put them back. Null when no panic is in effect. */
   panicRestoreValues: { nodeId: string; propertyKey: string; value: unknown }[] | null
+  /** Counts `loadGraph` calls, session-only like `panicActive`. A board that
+   *  differs after a load is the loaded project's own board, not a board
+   *  change, so the retarget that follows board changes reads this to leave
+   *  a project's saved pins alone. */
+  workspaceLoadCount: number
 
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
@@ -1966,6 +1971,7 @@ export const useGraphStore = create<GraphState>()(
 
       panicActive: false,
       panicRestoreValues: null,
+      workspaceLoadCount: 0,
 
       pinProperty: (nodeId, propertyKey) =>
         set((s) => {
@@ -2737,7 +2743,6 @@ export const useGraphStore = create<GraphState>()(
           const allRootNodes = rootGraphNodes(s)
           const partition = boardPartition(allRootNodes, rootGraphEdges(s), useUiStore.getState().activeBoardId)
           const hardwareNodes = partition.nodes
-          const hardwareEdges = partition.edges
           // The Board node's profile knows which pads this exact board exposes,
           // where the FQBN only names the chip. Falls back to the FQBN table.
           const profile = selectedPhysicalBoardProfile(hardwareNodes)
@@ -2755,9 +2760,7 @@ export const useGraphStore = create<GraphState>()(
             })
             : hardwareNodes
 
-          const result = retargetHardwarePinsFor(withSavedMic, profile, fqbn, previousBoard, {
-            edges: hardwareEdges,
-          })
+          const result = retargetHardwarePinsFor(withSavedMic, profile, fqbn, previousBoard)
           moved += result.moved
           // No-op when nothing moved, so re-selecting the same effective
           // wiring doesn't push an empty step onto the undo stack.
@@ -2919,6 +2922,7 @@ export const useGraphStore = create<GraphState>()(
               displayDocuments,
               panicActive: false,
               panicRestoreValues: null,
+              workspaceLoadCount: useGraphStore.getState().workspaceLoadCount + 1,
             }
           }))
           noteLoadedBoardLink()

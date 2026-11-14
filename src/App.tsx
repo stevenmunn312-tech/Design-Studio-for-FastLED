@@ -390,23 +390,28 @@ export default function App() {
   // Follow every real board change by moving each part onto that board's pins:
   // the user's remembered per-board microphone wiring first, then whatever the
   // profile exposes, and never a pin the user has edited themselves. Loading a
-  // project is not itself a board change.
+  // project is not itself a board change: its pins are the ones it was saved
+  // with, so a load resets the key rather than comparing against the board
+  // the previous project had.
   const retargetHardwarePins = useGraphStore((s) => s.retargetHardwarePins)
+  const workspaceLoadCount = useGraphStore((s) => s.workspaceLoadCount)
   // Remembered per board: switching the active board from an ESP32 to an S3
   // is not a board change, so the key is reset rather than compared when the
   // board it was taken on is no longer the active one.
-  const lastBoardKey = useRef<{ boardId: string; key: string } | null>(null)
+  const lastBoardKey = useRef<{ boardId: string; key: string; loads: number } | null>(null)
   useEffect(() => {
     if (boardUnresolved) return
     const remembered = lastBoardKey.current
-    const previous = remembered && remembered.boardId === activeBoardId ? remembered.key : null
+    const previous = remembered && remembered.boardId === activeBoardId && remembered.loads === workspaceLoadCount
+      ? remembered.key
+      : null
     const boardFqbn = selectedBoardProfile?.compatibleFqbns[0] ?? selectedFqbn
     // Keyed on the profile: several profiles share one FQBN — `esp32:esp32:esp32`
     // belongs to both the 38-pin generic DevKit and the 30-pin DevKit v1 — so
     // watching the FQBN alone meant swapping between two boards with genuinely
     // different headers registered as no change and nothing was retargeted.
     const boardKey = selectedBoardProfile?.id ?? boardFqbn
-    lastBoardKey.current = { boardId: activeBoardId, key: boardKey }
+    lastBoardKey.current = { boardId: activeBoardId, key: boardKey, loads: workspaceLoadCount }
     if (selectedBoardProfile?.compatibleFqbns[0] && selectedBoardProfile.compatibleFqbns[0] !== selectedFqbn) {
       useUploadStore.getState().setSelectedFqbn(selectedBoardProfile.compatibleFqbns[0])
     }
@@ -415,7 +420,7 @@ export default function App() {
     if (moved > 0) {
       setStatus(`Moved ${moved} part${moved > 1 ? 's' : ''} onto this board's pins`, 'info')
     }
-  }, [activeBoardId, boardUnresolved, selectedBoardProfile, selectedFqbn, retargetHardwarePins, setStatus])
+  }, [activeBoardId, boardUnresolved, selectedBoardProfile, selectedFqbn, retargetHardwarePins, setStatus, workspaceLoadCount])
 
   // Keep the browser analysis gain and noise gate in sync with the selected
   // physical input.

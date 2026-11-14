@@ -5,7 +5,7 @@
  * scripts/assets/node-cards.ts (the reference card), so the card always says
  * what the canvas says.
  */
-import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY, USER_PINS_KEY } from '../../build/pins/pinRetarget'
+import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY, PIN_HISTORY_KEY, USER_PINS_KEY } from '../../build/pins/pinRetarget'
 import { isHardwareNodeType } from '../../build/hardware'
 import { isHardwarePartField } from '../../build/parts/partFields'
 import { isGpioPinProperty, isInternalProperty, isPropertyEnabled, NODE_LIBRARY, RADIO_GROUP_KEYS, showsDisabledProperties } from '../../state/nodeLibrary'
@@ -182,9 +182,10 @@ export function editableProperties(
       && !(nodeType === 'IRRemoteInput' && k === 'debug')
       && k !== 'font' && k !== 'image' && k !== 'animation' && k !== 'clip' && k !== 'mesh' && k !== 'code' && k !== 'globalCode' && k !== 'clampInputs' && k !== 'patternIds' && k !== 'patternSections' && k !== 'patternWeights' && k !== 'patternEnergy' && k !== 'patternEntry' && k !== 'sequence' && k !== 'transitions' && k !== 'previewHidden' && k !== 'bypassed' && k !== 'profileId' && k !== 'sourceId' && k !== 'buttons' && k !== 'controls' && k !== '_ledCountCustom'
     // Pin provenance is bookkeeping, not a setting: which pins the app
-    // assigned, which board for, and the user's own choices per board.
+    // assigned, which board for, the user's own choices per board, and every
+    // pin the part last held on each board.
     // It was rendering as `[object Object]` rows on every hardware node.
-    && k !== ASSIGNED_PINS_KEY && k !== ASSIGNED_BOARD_KEY && k !== USER_PINS_KEY
+    && k !== ASSIGNED_PINS_KEY && k !== ASSIGNED_BOARD_KEY && k !== USER_PINS_KEY && k !== PIN_HISTORY_KEY
       && !(nodeType === 'CustomPalette' && (k === 'colors' || k === 'positions'))
       && !(nodeType === 'Poline' && (k === 'anchorA' || k === 'anchorB' || k === 'anchorC'))
       // The Palette Bank body edits its palette list; as a text row the array
