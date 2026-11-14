@@ -81,7 +81,7 @@ import {
 } from '../state/peripherals/touchPad'
 import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec, ethernetSpiHostForFqbn } from '../state/peripherals/ethernetModule'
 import { converterRoleFor, DEFAULT_SOURCE_VOLTAGE, powerConverterModuleFor } from '../state/peripherals/powerConverter'
-import { batteryCellSpec, batteryModuleSpec, packFacts } from '../state/peripherals/battery'
+import { batteryCellSpec, batteryFunctions, batteryModuleSpecFor, packFacts } from '../state/peripherals/battery'
 import {
   DIRECT_PIXEL_DATA_LINK,
   NLED_PIXEL_DATA_EXTENDER_PART_ID,
@@ -1025,15 +1025,16 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const props = node.data.properties as Record<string, unknown>
         const partId = String(props.partId ?? '')
         const entry = partById(partId)
-        const spec = batteryModuleSpec(partId)
-        const functions = spec ? ['protection', 'balance', 'charger', 'output'].filter((key) => Boolean(spec[key as keyof typeof spec])) : []
+        // As wired: a combined board set to charge only is not the protection.
+        const spec = batteryModuleSpecFor(partId, props.use)
+        const functions = batteryFunctions(spec)
         return {
           ...buildPeripheralItem(node, 'battery-module', spec
             ? `${spec.series}S ${spec.chemistries.join('/')} · ${functions.join(', ')}`
             : 'Unknown pack electronics', pins),
           title: entry?.label ?? nodeLabel(node),
           supported: Boolean(spec),
-          facts: { partId, series: spec?.series, chemistries: spec?.chemistries ?? [], functions },
+          facts: { partId, use: String(props.use ?? ''), series: spec?.series, chemistries: spec?.chemistries ?? [], functions },
           reasons: spec ? undefined : ['This battery module is not in the catalogue.'],
         }
       }

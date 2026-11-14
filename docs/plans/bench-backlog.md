@@ -200,6 +200,12 @@ chooses the supported combinations from whatever is on record at release.
   controller, into the board's 5 V pin. Record the 5 V pin voltage and cell
   current with Wi-Fi active, from full charge down to the protection
   disconnect.
+- **D-05 1S ten LEDs and controller:** the same cell behind the 1S 10 A
+  protection board, the TP4056 board wired as a charger only, and two
+  TPS61023 boosts. Measure the board's outline and pad positions, its
+  over-charge and over-discharge thresholds and its over-current trip;
+  record full-white cell current at 4.2 V and near cut-off, charge current
+  through `C-`, and fuse and MOSFET temperatures.
 - **D-05 4S 16×16 battery build:** Samsung INR18650-35E cells with the
   HX-4S-F30A BMS, IP2368 charger and DGXBY 20 A buck powering a 16×16 matrix.
   Verify B0 through B4 sense order and the P- return; record charge ceiling,

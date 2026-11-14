@@ -163,6 +163,14 @@ board's 5 V pin. On a 4S pack that is the LM2596. On a single cell, add a
 **Controller**; a second one left on **LED rail** powers the LEDs. Without
 one, the plan keeps the controller on USB and says which converter fits.
 
+A TP4056 charge and protection board passes 3 A, which is enough for the
+controller boost alone. To run LEDs as well, add the **1S 10 A Li-ion
+protection board** to protect the cell, and keep the TP4056 board as the
+charger: its **Use** field reads **Charging only**. Added after the
+protection board, it is set that way for you. Wire its `B+` and `B-` to the
+fused `+BATT` bus and the protection board's `C-`, and leave its `OUT+` and
+`OUT-` pads unconnected.
+
 Build Diagram calculates the protected minimum, full-charge and worst-case
 ceiling voltages. It sizes pack current, the main fuse and battery wire for
 uncapped full white at minimum voltage, then checks every converter at the

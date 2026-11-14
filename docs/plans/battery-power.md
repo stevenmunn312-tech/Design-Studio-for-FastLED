@@ -34,6 +34,7 @@ Alternatives Steve also uses, modelled alongside:
 | --- | --- | --- |
 | About ten LEDs, separate boards | 1S Li-ion | [Boost to 5 V](https://www.aliexpress.com/item/1005008387293839.html), [charge and protection](https://www.aliexpress.com/item/1005007089641829.html) |
 | 16×16 matrix | 4S Li-ion | [20 A buck](https://www.aliexpress.com/item/1005003512778149.html), [BMS with balancing](https://www.aliexpress.com/item/1005004317506330.html), [4S charger](https://www.aliexpress.com/i/1005005354324584.html) |
+| About ten LEDs and the controller | 1S Li-ion | [10 A protection board](https://www.aliexpress.com/item/1005006041887055.html) (`1S 10A` variant), the charge and protection board above wired as a charger only, and two of the 5 V boosts: one for the LEDs, one for the controller |
 
 A standalone 4S balancer Steve uses,
 [this one](https://www.aliexpress.com/item/1005005050176741.html), is
@@ -75,6 +76,14 @@ discharge it, which the plan never uses for the LED load.
   toward the battery main fuse beside the LED rail. A TP4056 board's 3 A
   protection therefore carries the controller boost alone, and blocks at
   `battery-main-fuse` once an LED-rail boost is added to it.
+- A board that both protects and charges, and has no regulated output, has
+  a **Use** setting (`use`, read through `batteryModuleSpecFor`). Set to
+  Charging only, it stops counting as the pack's protection: its battery
+  pads go to +BATT and the protected negative, and its own output pads stay
+  unconnected. That is how the TP4056 board charges a pack protected by the
+  10 A board, which then carries ten LEDs and the controller on a 7.5 A main
+  fuse. The 10 A board shares the cell positive and prints its protected
+  negative as `C-`.
 
 ### The source window
 
@@ -139,7 +148,7 @@ two hours gets a warning.
 | Id | Severity | Condition |
 | --- | --- | --- |
 | `battery-pack-count` | blocking | More than one pack |
-| `battery-function-count` | blocking | Two boards provide the same function |
+| `battery-function-count` | blocking | Two boards provide the same function, as wired (a board set to Charging only provides no protection) |
 | `battery-module-orphan` | warning | A board with no pack |
 | `battery-no-protection` | blocking | No board protects the pack |
 | `battery-protection-unsupported` | blocking | Separate-port or positive-switched protection |

@@ -2,7 +2,7 @@
 // shelf, with whether the board can take one more and why not.
 import { assignHardwarePartPins } from '../../build/pins/i2cPinAssignment'
 import { assignPartPins } from '../../build/parts/partPinAssignment'
-import { partById, partRenderSrc } from '../../build/parts/partCatalogue'
+import { partRenderSrc } from '../../build/parts/partCatalogue'
 import { partRenderForNodeType } from '../../build/parts/partRenders'
 import { partOptionProperty, partOptionsFor } from '../../build/parts/partOptions'
 import { LED_OUTPUT_FORM_LABELS } from '../../state/output/ledOutputForm'
@@ -11,6 +11,9 @@ import {
   type FixturePartEntry, type InputPartEntry, fixturePinRequests, FIXTURE_PARTS, INPUT_PARTS, LED_OUTPUT_ENTRIES,
   LED_OUTPUT_NODE_TYPE,
 } from './hardwarePartCatalog'
+import {
+  BATTERY_MODULE_CHARGE_ONLY, batteryFunctions, batteryModuleCanChargeOnly, batteryModuleSpec, batteryModuleSpecFor,
+} from '../../state/peripherals/battery'
 import type { StudioNode } from '../../state/graphStore'
 import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 
@@ -52,7 +55,7 @@ export interface HardwareShelfInputs {
   hasPartOfType: (nodeType: string) => boolean
   inputPartBlocker: (entry: InputPartEntry) => string | null
   addInputPart: (entry: InputPartEntry) => void
-  addFixturePart: (entry: FixturePartEntry, moduleId?: string) => void
+  addFixturePart: (entry: FixturePartEntry, moduleId?: string, extraProperties?: Record<string, unknown>) => void
   addLedOutput: (entry: (typeof LED_OUTPUT_ENTRIES)[number]) => void
 }
 
@@ -80,14 +83,17 @@ export function hardwareShelfCategories({
     if (!fixture) return []
     const blocked = Boolean(fixture.singleton && hasPartOfType(fixture.nodeType))
     return partOptionsFor(nodeType).map((option) => {
-      const candidateFunctions = nodeType === 'BatteryModule'
-        ? Object.keys(partById(option.id)?.batteryModule ?? {}).filter((key) => ['protection', 'balance', 'charger', 'output'].includes(key))
-        : []
       const usedFunctions = nodeType === 'BatteryModule'
-        ? new Set(nodes.filter((node) => node.data.nodeType === 'BatteryModule').flatMap((node) =>
-            Object.keys(partById(String(node.data.properties.partId ?? ''))?.batteryModule ?? {})
-              .filter((key) => ['protection', 'balance', 'charger', 'output'].includes(key))))
+        ? new Set<string>(nodes.filter((node) => node.data.nodeType === 'BatteryModule').flatMap((node) =>
+            batteryFunctions(batteryModuleSpecFor(node.data.properties.partId, node.data.properties.use))))
         : new Set<string>()
+      // A charge-and-protect board joins a pack that is already protected as
+      // its charger alone, so it is offered while the charger role is free.
+      const candidateSpec = nodeType === 'BatteryModule' ? batteryModuleSpec(option.id) : undefined
+      const joinsAsCharger = batteryModuleCanChargeOnly(candidateSpec) && usedFunctions.has('protection')
+      const candidateFunctions = batteryFunctions(joinsAsCharger
+        ? batteryModuleSpecFor(option.id, BATTERY_MODULE_CHARGE_ONLY)
+        : candidateSpec)
       const functionBlocked = candidateFunctions.find((name) => usedFunctions.has(name))
       const pinRequests = fixturePinRequests(nodeType, option.id) ?? fixture.pinRequests
       const assigned = !blocked
@@ -108,7 +114,7 @@ export function hardwareShelfCategories({
         disabledReason: blocked
           ? `One ${fixture.label.toLowerCase()} per board`
           : functionBlocked ? `Bench already has ${functionBlocked}` : boardBlocked ?? pinBlocked,
-        onSelect: () => addFixturePart(fixture, option.id),
+        onSelect: () => addFixturePart(fixture, option.id, joinsAsCharger ? { use: BATTERY_MODULE_CHARGE_ONLY } : undefined),
       }
     })
   }

@@ -267,7 +267,7 @@ export function benchPartActions({
    * is now the only moment a module is chosen — the identity panel reports what
    * the part is and no longer offers to change it.
    */
-  const addFixturePart = (entry: FixturePartEntry, moduleId?: string) => {
+  const addFixturePart = (entry: FixturePartEntry, moduleId?: string, extraProperties?: Record<string, unknown>) => {
     const definition = NODE_LIBRARY.find((candidate) => candidate.type === entry.nodeType)
     if (!definition || (entry.singleton && hasPartOfType(entry.nodeType))) return
     const moduleProperty = partOptionProperty(entry.nodeType)
@@ -336,6 +336,7 @@ export function benchPartActions({
             : {}),
           ...(targetOutputId !== undefined ? { targetOutputId } : {}),
           ...vuSizing,
+          ...extraProperties,
         },
         inputs: partDerivedInputs(entry.nodeType, moduleId) ?? definition.inputs,
         outputs: definition.outputs,

@@ -92,6 +92,51 @@ describe('battery power planning', () => {
     ]))
   })
 
+  it('plans ten LEDs and the board on one cell behind a 10 A protection board', () => {
+    const build = (chargerUse?: string) => planFor([
+      pack(1, 1),
+      module('pcm', '1s-10a-liion-protection-board'),
+      node('charger', 'BatteryModule', { partId: 'tp4056-usbc-charge-protect-module', ...(chargerUse ? { use: chargerUse } : {}) }),
+      converter('tps61023-1s-5v-boost-module'),
+      node('ctrl', 'PowerConverter', { partId: 'tps61023-1s-5v-boost-module', feeds: 'Controller' }),
+      output(10, 1),
+    ])
+
+    // Two boards protecting one pack is refused until the charger board says it only charges.
+    expect(build().plan.blockers.map((entry) => entry.id)).toContain('battery-function-count')
+
+    const { manifest, plan } = build('Charging only')
+    expect(plan.blockers).toEqual([])
+    expect(plan.battery?.protection?.partId).toBe('1s-10a-liion-protection-board')
+    expect(plan.battery?.charger?.partId).toBe('tp4056-usbc-charge-protect-module')
+    expect(plan.battery?.charger?.spec.protection).toBeUndefined()
+    // The window follows the board that protects, not the charger board's own thresholds.
+    expect(plan.battery?.window).toEqual({ minV: 2.3, fullV: 4.2, ceilingV: 4.35 })
+    expect(plan.battery?.mainFuse.ratingMa).toBe(7500)
+    expect(plan.battery?.limitedBy).toBe('1 parallel cell')
+    expect(plan.controllerSupply?.partId).toBe('tps61023-1s-5v-boost-module')
+    expect(plan.recommendations).toEqual(expect.arrayContaining([
+      expect.stringContaining('Put the battery main fuse on B+'),
+      expect.stringContaining('Use protection C- as the one 0 V net'),
+      expect.stringContaining('only charges: connect its B+ to +BATT and its B- to protection C-'),
+    ]))
+    const rows = buildConnectionRows(manifest.primaryItems, plan, board)
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: '1S 10 A Li-ion protection board', fromTerminal: 'C-', to: 'TP4056 USB-C 1S charge and protection module', toTerminal: 'B-' }),
+    ]))
+  })
+
+  it('ignores a charge-only setting on a board that cannot be wired that way', () => {
+    // The IP5305T's 5 V output runs through its own protection.
+    const { plan } = planFor([
+      pack(1, 1),
+      node('bank', 'BatteryModule', { partId: 'ip5305t-1s-power-module', use: 'Charging only' }),
+      output(2, 1),
+    ])
+    expect(plan.battery?.protection?.partId).toBe('ip5305t-1s-power-module')
+    expect(plan.blockers.map((entry) => entry.id)).not.toContain('battery-no-protection')
+  })
+
   it('keeps a boost on the LED rail unless it is set to feed the controller', () => {
     const rail = planFor([
       pack(1, 1),

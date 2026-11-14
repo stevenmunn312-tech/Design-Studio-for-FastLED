@@ -312,7 +312,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - Battery protection wiring distinguishes cell terminals from protected output
   terminals. Resolve those pads from `powerTerminals` by role. Cell positive is
   `B+`, `+BAT` or `BAT+`. Protected positive is `P+` or `OUT+` when the board
-  prints one, otherwise the cell positive. A regulated `5V+` output is not that
+  prints one, otherwise the cell positive (the 1S 10 A board has only `B+`,
+  `B-` and `C-`, where `C-` is the protected negative). A regulated `5V+` output is not that
   pad. Pack positive lands on the cell positive. The main fuse leaves the
   protected positive and feeds the +BATT bus, and it is sized for the greater
   of full-white discharge and charge current, because the charger sits on the
@@ -684,7 +685,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   running current and runtime. The board's protected-negative pad is the sole 0 V net, B- is internal to the
   protected pack, and intermediate balance taps are sense leads. One board can
   provide several functions, so validate required functions across selected
-  boards without requiring one node per function. See
+  boards without requiring one node per function. Read a bench board's
+  functions through `batteryModuleSpecFor(partId, use)`, never
+  `batteryModuleSpec` alone: a charge-and-protect board set to Charging only
+  provides no protection, and the manifest, the plan and the shelf must agree
+  on that. `batteryModuleSpec` is the catalogue's answer, for asking what a
+  board could do. See
   [battery power](../../plans/battery-power.md).
 - **DMX transceiver (experimental):** the "C25B" MAX485 module is a bench part,
   `DmxTransceiver` (`src/state/peripherals/dmxTransceiver.ts`), drawn as

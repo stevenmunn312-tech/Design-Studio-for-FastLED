@@ -14,6 +14,11 @@ versioning (`0.y.z`) until the first stable release.
   place of USB, and the Build Diagram draws it under the board with its
   input fuse. Left on LED rail it works as before. A battery build with no
   controller supply now names the converter that fits its pack.
+- Hardware: a 1S 10 A Li-ion protection board joins Pack Electronics, so one
+  cell can power LEDs and the controller together. A board that both
+  protects and charges, such as the TP4056 module, has a Use setting:
+  Charging only wires it as the charger beside a higher-rated protection
+  board. Adding it to an already protected pack selects that for you.
 - Text and Clock Display have a Font select. Alongside the original 3×5
   capitals there are 4×6, 5×8 and bold 6×8 fonts with lower case and full
   keyboard punctuation; preview and firmware draw the same glyphs. Existing

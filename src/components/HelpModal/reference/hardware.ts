@@ -169,6 +169,7 @@ export const HARDWARE_REFERENCE: NodeReferenceMap = {
     overview: [
       'Pack Electronics is one physical board that does one or more jobs for a battery pack: protection, cell balancing, charging, or an integrated 5 V output.',
       'Choose the exact board on the bench; its functions and terminals come with it. A board that already does a job means you must not add a second board for it.',
+      'A board that both protects and charges has a Use setting. Charging only wires it as the charger beside a protection board with a higher rating, and leaves its own output pads unconnected.',
     ],
     steps: [
       'Add the board from the Hardware tab and choose the exact module.',

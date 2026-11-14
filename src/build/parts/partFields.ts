@@ -1,5 +1,6 @@
 import { PD_TRIGGER_PART_ID, pdTriggerSpec } from '../../state/peripherals/pdTrigger'
 import { CONVERTER_FEED_LABELS } from '../../state/peripherals/powerConverter'
+import { BATTERY_MODULE_USES } from '../../state/peripherals/battery'
 /**
  * The settings a hardware-only part carries, beyond the module it is.
  *
@@ -74,6 +75,10 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
   PowerConverter: [
     { key: 'feeds', label: 'Feeds', kind: 'select', options: Object.values(CONVERTER_FEED_LABELS) },
     { key: 'sourceVoltage', label: 'Source V', kind: 'number', min: 5, max: 48 },
+  ],
+  // Shown only for a board that both protects and charges.
+  BatteryModule: [
+    { key: 'use', label: 'Use', kind: 'select', options: BATTERY_MODULE_USES },
   ],
   BatteryPack: [
     { key: 'series', label: 'Series', kind: 'number', min: 1, max: 8 },

@@ -38,6 +38,40 @@ export function batteryModuleSpec(partId: unknown): PartBatteryModuleSpec | unde
   return partById(String(partId ?? ''))?.batteryModule
 }
 
+/** The `use` property's values, which are also what its field shows. */
+export const BATTERY_MODULE_USES = ['Protection and charging', 'Charging only'] as const
+export const BATTERY_MODULE_CHARGE_ONLY = BATTERY_MODULE_USES[1]
+
+/**
+ * A board that both protects and charges can be wired as a charger alone,
+ * beside a protection board with a higher rating: its battery pads go to the
+ * protected bus and its own protected output is left unused. A board with a
+ * regulated output cannot, since that output runs through its protection.
+ */
+export function batteryModuleCanChargeOnly(spec: PartBatteryModuleSpec | undefined): boolean {
+  return Boolean(spec?.protection && spec.charger && !spec.output)
+}
+
+/**
+ * The functions this board provides as it is wired on the bench. Every reader
+ * of a bench board's functions asks this, not `batteryModuleSpec`, so a board
+ * set to charge only is never also counted as the pack's protection.
+ */
+export function batteryModuleSpecFor(partId: unknown, use: unknown): PartBatteryModuleSpec | undefined {
+  const spec = batteryModuleSpec(partId)
+  if (!spec || use !== BATTERY_MODULE_CHARGE_ONLY || !batteryModuleCanChargeOnly(spec)) return spec
+  const chargerOnly = { ...spec }
+  delete chargerOnly.protection
+  return chargerOnly
+}
+
+const BATTERY_FUNCTION_KEYS = ['protection', 'balance', 'charger', 'output'] as const
+export type BatteryFunction = typeof BATTERY_FUNCTION_KEYS[number]
+
+export function batteryFunctions(spec: PartBatteryModuleSpec | undefined): BatteryFunction[] {
+  return spec ? BATTERY_FUNCTION_KEYS.filter((key) => Boolean(spec[key])) : []
+}
+
 export function batteryCellPartIds(): string[] {
   return Object.values(PART_CATALOGUE).filter((entry) => entry.batteryCell).map((entry) => entry.partId)
 }
@@ -105,7 +139,8 @@ export function prospectiveShortCircuitA(pack: BatteryPackFacts): number | undef
 const CELL_POSITIVE_NAMES = ['B+', '+BAT', 'BAT+']
 const CELL_NEGATIVE_NAMES = ['B-', '-BAT', 'BAT-', 'B0']
 const PROTECTED_POSITIVE_NAMES = ['P+', 'OUT+']
-const PROTECTED_NEGATIVE_NAMES = ['P-', 'OUT-']
+// `C-` is the charge-and-load negative on boards that share the cell positive.
+const PROTECTED_NEGATIVE_NAMES = ['P-', 'OUT-', 'C-']
 
 export interface ProtectionPads {
   cellPositive?: string

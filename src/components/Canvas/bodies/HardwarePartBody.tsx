@@ -21,6 +21,7 @@ import { i2sAudioStage } from '../../../state/audio/audioOutput'
 import { resolvePartIdentity } from '../../../build/parts/partOptions'
 import { encoderIsBare } from '../../../state/peripherals/encoder'
 import { converterSourceFor } from '../../../state/peripherals/pdTrigger'
+import { batteryModuleCanChargeOnly, batteryModuleSpec } from '../../../state/peripherals/battery'
 import {
   CONVERTER_FEED_LABELS,
   converterRoleFor,
@@ -97,6 +98,7 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
     .filter((field) => field.kind !== 'pin')
     .filter((field) => !(converterSource && field.key === 'sourceVoltage'))
     .filter((field) => !(nodeType === 'PowerConverter' && field.key === 'feeds' && !converterChoosesFeed))
+    .filter((field) => !(nodeType === 'BatteryModule' && field.key === 'use' && !batteryModuleCanChargeOnly(batteryModuleSpec(props.partId))))
     // A bare encoder's contacts float without the pull-up, so it is not a choice.
     .filter((field) => !(nodeType === 'EncoderInput' && field.key === 'pullup' && encoderIsBare(props)))
   const buttonEntries = nodeType === 'ButtonBank' ? normalizeButtonBankEntries(props.buttons) : []

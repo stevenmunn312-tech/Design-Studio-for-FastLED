@@ -2,7 +2,8 @@ import type { HardwareManifest, HardwareManifestItem } from '../hardwareManifest
 import { partById, type PartBatteryModuleSpec } from '../parts/partCatalogue'
 import {
   batteryCellSpec,
-  batteryModuleSpec,
+  batteryModuleSpecFor,
+  BATTERY_MODULE_CHARGE_ONLY,
   packFacts,
   packWindow,
   protectionPads,
@@ -53,7 +54,7 @@ function modulesFor(manifest: HardwareManifest): BatteryPlanModule[] {
   return manifest.items.flatMap((item) => {
     if (item.kind !== 'battery-module') return []
     const partId = String(item.facts.partId ?? '')
-    const spec = batteryModuleSpec(partId)
+    const spec = batteryModuleSpecFor(partId, item.facts.use)
     return spec ? [{ itemId: item.id, partId, label: item.title, spec }] : []
   })
 }
@@ -239,6 +240,10 @@ export function planBattery(
   if (pack.series > 1) recommendations.push('Connect balance leads in the board\'s printed B0-to-BS order, verify each step with a meter, then plug in the harness last.')
   const chargerSpec = charger?.spec.charger
   if (chargerSpec?.inputProtocols.includes('USB-C')) recommendations.push(`Use a USB-C PD charger rated at least ${chargerSpec.inputMaxW} W${chargerSpec.inputMaxW >= 100 ? ' and a 5 A e-marked cable' : ''}.`)
+  const chargesOnly = charger && manifest.items.some((item) => item.id === charger.itemId && item.facts.use === BATTERY_MODULE_CHARGE_ONLY)
+  if (chargesOnly && chargerSpec) {
+    recommendations.push(`${charger.label} only charges: connect its ${chargerSpec.batteryTerminals[0]} to +BATT and its ${chargerSpec.batteryTerminals[1]} to protection ${protectedNegative}, and leave its own protected output pads unconnected.`)
+  }
   if (chargerSpec?.bidirectional) recommendations.push(`${charger.label}'s USB-C port can discharge the pack; do not use that path for the LED load.`)
   if (balance?.spec.balance?.standbyMa) recommendations.push(`${balance.label} draws about ${balance.spec.balance.standbyMa} mA on standby; include that drain in storage plans.`)
   if (dischargeDesignCurrentMa > 30000) recommendations.push('Pack current exceeds 30 A. Have a professional with high-power, low-voltage experience check the build.')

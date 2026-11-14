@@ -107,6 +107,21 @@ describe('HardwarePartBody', () => {
     expect(useGraphStore.getState().nodes[0].data.properties.feeds).toBe('Controller')
   })
 
+  it('lets a board that protects and charges be wired as a charger only', () => {
+    setPart('BatteryModule')
+    // A BMS has no charger to fall back to, so it offers no choice.
+    const bms = render(<HardwarePartBody nodeId="part" nodeType="BatteryModule" />)
+    expect(bms.queryByLabelText('Use')).toBeNull()
+    bms.unmount()
+
+    useGraphStore.getState().updateNodeProperty('part', 'partId', 'tp4056-usbc-charge-protect-module')
+    const combined = render(<HardwarePartBody nodeId="part" nodeType="BatteryModule" />)
+    const use = combined.getByLabelText('Use') as HTMLSelectElement
+    expect(use.value).toBe('Protection and charging')
+    fireEvent.change(use, { target: { value: 'Charging only' } })
+    expect(useGraphStore.getState().nodes[0].data.properties.use).toBe('Charging only')
+  })
+
   it('renders all four SD SPI assignments and no audio settings', () => {
     // Audio output is derived from the parts present, and volume belongs with
     // the output — so the card is left with the one thing it owns.

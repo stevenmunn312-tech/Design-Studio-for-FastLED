@@ -51,6 +51,53 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "pxPerMm": 12.0
     }
   },
+  "1s-10a-liion-protection-board": {
+    "partId": "1s-10a-liion-protection-board",
+    "label": "1S 10 A Li-ion protection board",
+    "category": "battery",
+    "dimensionsMm": {
+      "width": 34.0,
+      "height": 15.0
+    },
+    "manufacturer": "generic (two KIA KND2803A MOSFETs)",
+    "logicVoltage": "none; power only",
+    "pinLabelsLeftToRight": [
+      "B-",
+      "B+",
+      "C-"
+    ],
+    "notes": [
+      "Three pads: B+ and B- to the cell, C- is the protected negative for both charge and load. The positive is common, so the load and charger positive also land on B+.",
+      "10 A is the seller's figure, with a 16 A over-current trip, and remains an HW-14 verification item. The listing gives 4.25-4.35 V over-charge and 2.3-2.5 V over-discharge; the plan uses the outer value of each.",
+      "The board outline is estimated from the listing photographs. Measure the part before relying on its drawn size."
+    ],
+    "batteryModule": {
+      "series": 1,
+      "chemistries": [
+        "li-ion"
+      ],
+      "protection": {
+        "continuousDischargeMa": 10000,
+        "continuousChargeMa": 10000,
+        "overchargeV": 4.35,
+        "overDischargeV": 2.3,
+        "port": "common",
+        "switchedLine": "negative",
+        "temperatureSensor": false,
+        "powerTerminals": [
+          "B+",
+          "B-",
+          "C-"
+        ]
+      }
+    },
+    "render": {
+      "file": "parts/1s-10a-liion-protection-board.webp",
+      "widthPx": 428,
+      "heightPx": 200,
+      "pxPerMm": 12.0
+    }
+  },
   "4s-15a-enhanced-bms": {
     "partId": "4s-15a-enhanced-bms",
     "label": "4S 15 A enhanced Li-ion BMS",
