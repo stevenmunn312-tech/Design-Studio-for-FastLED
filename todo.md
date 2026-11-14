@@ -22,6 +22,15 @@ Everything else moved out on 2026-11-12:
 - [ ] Land or drop every remaining merge, rename and removed property. None is
   open on 2026-11-12. From here a saved shape changes only to remove a pre-1.0
   leftover, until step 6 freezes the format.
+- [ ] Give project and pattern files a format version before the freeze.
+  `SavedProject` (`src/state/projectStore.ts`) and `SavedPattern` carry none;
+  only display documents have `schemaVersion`. Write `formatVersion: 1` on
+  save, and have `parseProjectFile` and the pattern import refuse or warn on a
+  higher number, because a v1 app otherwise sanitizes a newer file and drops
+  the nodes it does not know. The check must ship in v1 itself. Decide at the
+  same time whether View → Save JSON keeps writing a bare workspace
+  (`handleSaveJSON` in `MenuBar.tsx`) or writes the project format, so only
+  one shape is frozen.
 
 ## 3. fbuild upkeep
 
