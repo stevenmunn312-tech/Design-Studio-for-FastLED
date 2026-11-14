@@ -56,9 +56,11 @@ export default function ProjectsPopup() {
   const createBlankProject = (saveCurrentFirst: boolean) => {
     const defaultName = nextDefaultProjectName(projects.map((project) => project.name))
     if (saveCurrentFirst && currentProject) {
-      useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+      useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()), { userSave: true })
     }
-    const project = createProject(defaultName, blankWorkspace())
+    const project = createProject(defaultName, blankWorkspace(), {
+      replaces: saveCurrentFirst ? undefined : currentProject?.id,
+    })
     useGraphStore.getState().loadGraph([], [])
     useGraphStore.temporal.getState().clear()
     setStatus(`Created project "${project.name}"`, 'success')
@@ -113,7 +115,8 @@ export default function ProjectsPopup() {
       confirmLabel: 'Rename',
     })
     if (next === null || !next.trim()) return
-    renameProject(id, next)
+    // Naming a starter is keeping it, so it is no longer a draft.
+    renameProject(id, next, { draft: false })
     setStatus('Project renamed', 'success')
   }
 

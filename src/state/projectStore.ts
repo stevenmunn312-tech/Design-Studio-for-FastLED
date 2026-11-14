@@ -34,6 +34,13 @@ export interface SavedProject {
    * replace the file: see `reconcileProjectsFromDisk`.
    */
   diskBase?: number
+  /**
+   * Opened from a start choice (a starter or a help example) and never saved
+   * by the person. Autosave still writes it, so a reload keeps it, but leaving
+   * it with Continue without saving discards it instead of leaving a "Juggle
+   * 2", "Juggle 3"… behind every time a starter is tried.
+   */
+  draft?: true
 }
 
 interface PersistedState {
@@ -51,6 +58,7 @@ interface PersistedCurrentWorkspace {
   uploadTarget?: ProjectUploadTarget
   uploadTargets?: ProjectUploadTargets
   diskBase?: number
+  draft?: true
 }
 
 interface ProjectState {
@@ -60,13 +68,24 @@ interface ProjectState {
   createProject: (
     name: string,
     workspace?: PersistedWorkspace,
-    options?: { uploadTarget?: ProjectUploadTarget; uploadTargets?: ProjectUploadTargets },
+    options?: {
+      uploadTarget?: ProjectUploadTarget
+      uploadTargets?: ProjectUploadTargets
+      /** Open it as a draft: see `SavedProject.draft`. */
+      draft?: boolean
+      /** A draft the new project takes the place of: removed, and its name freed. */
+      replaces?: string
+    },
   ) => SavedProject
   upsertProject: (project: SavedProject) => SavedProject
-  renameProject: (id: string, name: string) => void
+  renameProject: (id: string, name: string, options?: { draft?: boolean }) => void
   deleteProject: (id: string) => SavedProject | null
+  /** Delete a project left with Continue without saving, if it is a draft. */
+  discardDraft: (id: string) => void
   switchProject: (id: string) => SavedProject | null
-  saveCurrentWorkspace: (workspace: PersistedWorkspace) => void
+  /** `userSave` is the person saving (Save, Save and continue), which keeps a
+   *  draft; autosave and the save before a switch leave it a draft. */
+  saveCurrentWorkspace: (workspace: PersistedWorkspace, options?: { userSave?: boolean }) => void
   /** Record the board and port one Board node (`boardId`) uploads to. The
    *  primary's is keyed by `PRIMARY_UPLOAD_TARGET_KEY` whatever its node id. */
   setProjectUploadTarget: (boardId: string, uploadTarget: ProjectUploadTarget, id?: string) => void
@@ -276,6 +295,7 @@ function loadCurrentWorkspaceSnapshot(): SavedProject | null {
       workspace: cloneWorkspace(workspace),
       ...normalizeProjectUploadTargets(parsed),
       ...(typeof parsed.diskBase === 'number' ? { diskBase: parsed.diskBase } : {}),
+      ...(parsed.draft === true ? { draft: true as const } : {}),
     }
   } catch {
     return null
@@ -303,6 +323,7 @@ function persistCurrentWorkspaceSnapshot(project: SavedProject | undefined): voi
       uploadTarget: project.uploadTarget,
       uploadTargets: project.uploadTargets,
       diskBase: project.diskBase,
+      draft: project.draft,
     }))
     browserCopySaved = true
   } catch {
@@ -333,7 +354,7 @@ function warnIfSavedNowhere() {
 function makeProject(
   name: string,
   workspace: PersistedWorkspace = blankWorkspace(),
-  targets?: { uploadTarget?: ProjectUploadTarget; uploadTargets?: ProjectUploadTargets },
+  targets?: { uploadTarget?: ProjectUploadTarget; uploadTargets?: ProjectUploadTargets; draft?: boolean },
 ): SavedProject {
   const now = Date.now()
   return {
@@ -343,6 +364,7 @@ function makeProject(
     updatedAt: now,
     workspace: cloneWorkspace(workspace),
     ...normalizeProjectUploadTargets(targets),
+    ...(targets?.draft ? { draft: true as const } : {}),
   }
 }
 
@@ -563,8 +585,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   createProject: (name, workspace = blankWorkspace(), options) => {
     const state = get()
-    const project = makeProject(uniqueProjectName(state.projects, name), workspace, options)
-    const projects = sortProjects([project, ...state.projects])
+    // Only the open draft, the one being left, is ever replaced.
+    const replaced = options?.replaces && options.replaces === state.currentProjectId
+      ? state.projects.find((project) => project.id === options.replaces && project.draft)
+      : undefined
+    const kept = replaced ? state.projects.filter((project) => project.id !== replaced.id) : state.projects
+    const project = makeProject(uniqueProjectName(kept, name), workspace, options)
+    const projects = sortProjects([project, ...kept])
     const next = buildState(
       projects,
       project.id,
@@ -574,6 +601,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     )
     persist(next)
     set(next)
+    if (replaced) queueProjectDelete(replaced.id)
     queueProjectUpsert(project)
     return project
   },
@@ -596,12 +624,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     return normalized
   },
 
-  renameProject: (id, name) => {
+  renameProject: (id, name, options) => {
     const nextName = trimName(name)
     if (!nextName) return
     const state = get()
-    const projects = state.projects.map((project) =>
-      project.id === id ? { ...project, name: nextName, updatedAt: Date.now() } : project)
+    const projects = state.projects.map((project) => {
+      if (project.id !== id) return project
+      const renamed: SavedProject = { ...project, name: nextName, updatedAt: Date.now() }
+      if (options?.draft === true) renamed.draft = true
+      else if (options?.draft === false) delete renamed.draft
+      return renamed
+    })
     const next = buildState(sortProjects(projects), state.currentProjectId, state.recentProjectIds)
     persist(next)
     set(next)
@@ -622,6 +655,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     return next.projects.find((project) => project.id === next.currentProjectId) ?? null
   },
 
+  discardDraft: (id) => {
+    const state = get()
+    // The open project is never discarded from under the canvas.
+    if (id === state.currentProjectId) return
+    if (!state.projects.some((project) => project.id === id && project.draft)) return
+    get().deleteProject(id)
+  },
+
   switchProject: (id) => {
     const state = get()
     const project = state.projects.find((entry) => entry.id === id) ?? null
@@ -636,12 +677,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     return project
   },
 
-  saveCurrentWorkspace: (workspace) => {
+  saveCurrentWorkspace: (workspace, options) => {
     const state = get()
     const now = Date.now()
     const snapshot = cloneWorkspace(workspace)
-    const projects = state.projects.map((project) =>
-      project.id === state.currentProjectId ? { ...project, workspace: snapshot, updatedAt: now } : project)
+    const projects = state.projects.map((project) => {
+      if (project.id !== state.currentProjectId) return project
+      const saved: SavedProject = { ...project, workspace: snapshot, updatedAt: now }
+      if (options?.userSave) delete saved.draft
+      return saved
+    })
     const next = buildState(sortProjects(projects), state.currentProjectId, state.recentProjectIds)
     persist(next)
     set({ projects: next.projects })

@@ -300,14 +300,66 @@ describe('opening a start choice as its own project', () => {
     expect(currentName()).toBe('Juggle')
   })
 
-  it('gives a second copy of a starter its own name', async () => {
+  it('gives a second copy of a saved starter its own name', async () => {
     useGraphStore.getState().loadGraph([], [])
     await openStarterProject('juggle')
+    useProjectStore.getState().saveCurrentWorkspace(blankWorkspace(), { userSave: true })
     useGraphStore.getState().loadGraph([], [])
     await openStarterProject('juggle')
 
     expect(currentName()).toBe('Juggle 2')
     expect(project('Juggle')).toBeTruthy()
+  })
+
+  /*
+   * A starter opens as a project so autosave has somewhere to write, but
+   * nobody chose to keep it. Trying starters one after another, declining
+   * each save, used to leave "Juggle", "Juggle 2", "Juggle 3"… behind.
+   */
+  describe('a starter nobody saved', () => {
+    const names = () => useProjectStore.getState().projects.map((entry) => entry.name).sort()
+
+    it('is replaced, not kept, when the next start choice declines the save', async () => {
+      useUiStore.setState({ requestNewProjectDecision: vi.fn().mockResolvedValue('no') })
+      await openStarterProject('juggle')
+      await openStarterProject('juggle')
+      await openStarterProject('fire')
+      await openStarterProject('juggle')
+
+      expect(names()).toEqual(['Juggle', 'My Lamp'])
+      expect(currentName()).toBe('Juggle')
+    })
+
+    it('is kept once saved, and stops being a draft', async () => {
+      const decide = vi.fn().mockResolvedValue('no')
+      useUiStore.setState({ requestNewProjectDecision: decide })
+      await openStarterProject('juggle')
+      decide.mockResolvedValue('yes')
+      await openStarterProject('juggle')
+
+      expect(names()).toEqual(['Juggle', 'Juggle 2', 'My Lamp'])
+      expect(project('Juggle')?.draft).toBeUndefined()
+      expect(project('Juggle 2')?.draft).toBe(true)
+    })
+
+    it('stays a draft through autosave', async () => {
+      useUiStore.setState({ requestNewProjectDecision: vi.fn().mockResolvedValue('no') })
+      await openStarterProject('juggle')
+      useProjectStore.getState().saveCurrentWorkspace(blankWorkspace())
+
+      expect(project('Juggle')?.draft).toBe(true)
+    })
+
+    it('includes a blank first-visit project the starter took over', async () => {
+      useProjectStore.setState({ projects: [], currentProjectId: '', recentProjectIds: [] })
+      useProjectStore.getState().createProject('New Project', blankWorkspace())
+      useGraphStore.getState().loadGraph([], [])
+      useUiStore.setState({ requestNewProjectDecision: vi.fn().mockResolvedValue('no') })
+      await openStarterProject('juggle')
+      await openStarterProject('juggle')
+
+      expect(names()).toEqual(['Juggle'])
+    })
   })
 
   /*
@@ -434,13 +486,22 @@ describe('opening a start choice as its own project', () => {
       expect(types()).toContain('Noise')
     })
 
-    it('numbers a second copy of the same example', async () => {
-      useUiStore.setState({ requestNewProjectDecision: vi.fn().mockResolvedValue('no') })
+    it('numbers a second copy of an example that was saved', async () => {
+      useUiStore.setState({ requestNewProjectDecision: vi.fn().mockResolvedValue('yes') })
       await openExampleProject(liveExampleForNode(musicPlayer), 'Music Player example')
       await openExampleProject(liveExampleForNode(musicPlayer), 'Music Player example')
 
       expect(currentName()).toBe('Music Player example 2')
       expect(project('Music Player example')).toBeTruthy()
+    })
+
+    it('replaces an example left without saving', async () => {
+      useUiStore.setState({ requestNewProjectDecision: vi.fn().mockResolvedValue('no') })
+      await openExampleProject(liveExampleForNode(musicPlayer), 'Music Player example')
+      await openExampleProject(liveExampleForNode(musicPlayer), 'Music Player example')
+
+      expect(currentName()).toBe('Music Player example')
+      expect(project('Music Player example 2')).toBeUndefined()
     })
   })
 })

@@ -652,7 +652,7 @@ export default function App() {
         }
         const { projects, currentProjectId } = useProjectStore.getState()
         if (projects.some((project) => project.id === currentProjectId)) {
-          useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+          useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()), { userSave: true })
           const current = projects.find((project) => project.id === currentProjectId)
           setStatus(current ? `Saved project "${current.name}"` : 'Saved project', 'success')
         } else {

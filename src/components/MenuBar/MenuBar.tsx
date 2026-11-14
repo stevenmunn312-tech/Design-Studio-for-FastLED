@@ -488,7 +488,7 @@ export default function MenuBar() {
       setStatus('No project open — use New Project or Save Project File As first', 'info')
       return false
     }
-    useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+    useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()), { userSave: true })
     setStatus(`Saved project "${currentProject.name}"`, 'success')
     return true
   }
@@ -516,10 +516,12 @@ export default function MenuBar() {
 
   const loadProjectWorkspace = (projectId: string, saveCurrentFirst = false) => {
     if (saveCurrentFirst && currentProject) {
-      useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+      useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()), { userSave: true })
     }
     const next = useProjectStore.getState().switchProject(projectId)
     if (!next) return false
+    // Left without saving: a starter nobody saved goes, rather than piling up.
+    if (!saveCurrentFirst && currentProject) useProjectStore.getState().discardDraft(currentProject.id)
     useGraphStore.getState().loadGraph(next.workspace.nodes, next.workspace.edges, next.workspace)
     useGraphStore.temporal.getState().clear()
     setStatus(`Opened project "${next.name}"`, 'success')
@@ -529,9 +531,11 @@ export default function MenuBar() {
   const createNewBlankProject = (saveCurrentFirst: boolean) => {
     const defaultName = nextDefaultProjectName(projects.map((project) => project.name))
     if (saveCurrentFirst && currentProject) {
-      useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+      useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()), { userSave: true })
     }
-    const project = useProjectStore.getState().createProject(defaultName, blankWorkspace())
+    const project = useProjectStore.getState().createProject(defaultName, blankWorkspace(), {
+      replaces: saveCurrentFirst ? undefined : currentProject?.id,
+    })
     useGraphStore.getState().loadGraph([], [])
     useGraphStore.temporal.getState().clear()
     landOnStartingWorkspace()
@@ -548,9 +552,10 @@ export default function MenuBar() {
       return false
     }
     if (options?.saveCurrentFirst && currentProject) {
-      useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+      useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()), { userSave: true })
     }
     const opened = useProjectStore.getState().upsertProject(project)
+    if (!options?.saveCurrentFirst && currentProject) useProjectStore.getState().discardDraft(currentProject.id)
     useGraphStore.getState().loadGraph(opened.workspace.nodes, opened.workspace.edges, opened.workspace)
     useGraphStore.temporal.getState().clear()
     setStatus(workspaceLoadStatus(`Opened project "${opened.name}"`, dropped), dropped > 0 ? 'info' : 'success')
@@ -599,6 +604,8 @@ export default function MenuBar() {
         )
         if (!saved) throw new Error('No save dialog available')
         const project = useProjectStore.getState().upsertProject(saved)
+        // Saving a draft under a name is saving it: the copy replaces it.
+        if (currentProject) useProjectStore.getState().discardDraft(currentProject.id)
         adoptLink()
         setStatus(`Saved as "${project.name}"`, 'success')
       } catch (error) {

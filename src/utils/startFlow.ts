@@ -218,24 +218,30 @@ function reusableBlankProject(): SavedProject | null {
  * own name. Instead the open project is offered a save and keeps what it had,
  * and the start choice opens as a project of its own. Returns false when the
  * person cancels.
+ *
+ * The new project is a draft until the person saves it, and a draft left with
+ * Continue without saving is replaced rather than kept: trying one starter
+ * after another leaves one project, not "Juggle 2", "Juggle 3"….
  */
 async function beginStartProject(name: string, options?: { carryUploadTarget?: boolean }): Promise<boolean> {
   const reusable = reusableBlankProject()
   if (reusable) {
-    if (reusable.name !== name) {
-      const others = useProjectStore.getState().projects.filter((project) => project.id !== reusable.id)
-      useProjectStore.getState().renameProject(reusable.id, uniqueProjectName(others, name))
-    }
+    const others = useProjectStore.getState().projects.filter((project) => project.id !== reusable.id)
+    useProjectStore.getState().renameProject(reusable.id, uniqueProjectName(others, name), { draft: true })
     return true
   }
   const { projects, currentProjectId } = useProjectStore.getState()
   const current = projects.find((project) => project.id === currentProjectId)
   const ui = useUiStore.getState()
+  let replaces = current?.draft ? current.id : undefined
   if (hasAuthoredWorkspaceContent(useGraphStore.getState())) {
     if (current) {
       const decision = await ui.requestNewProjectDecision(current.name, 'starting a new project', `new project "${name}"`)
       if (decision === 'cancel') return false
-      if (decision === 'yes') useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
+      if (decision === 'yes') {
+        useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()), { userSave: true })
+        replaces = undefined
+      }
     } else {
       // No project holds this graph, so nothing can save it.
       const ok = await ui.requestConfirm({
@@ -250,6 +256,8 @@ async function beginStartProject(name: string, options?: { carryUploadTarget?: b
   }
   useProjectStore.getState().createProject(name, blankWorkspace(), {
     uploadTarget: options?.carryUploadTarget ? current?.uploadTarget : undefined,
+    draft: true,
+    replaces,
   })
   return true
 }

@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
+import { useProjectStore } from '../../state/projectStore'
 import { useUiStore } from '../../state/uiStore'
 import styles from './NewProjectPrompt.module.css'
 
 export default function NewProjectPrompt() {
   const prompt = useUiStore((s) => s.newProjectPrompt)
   const resolveNewProjectDecision = useUiStore((s) => s.resolveNewProjectDecision)
+  // The prompt is always about the open project.
+  const draft = useProjectStore((s) => s.projects.find((project) => project.id === s.currentProjectId)?.draft === true)
   const primaryButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -31,6 +34,11 @@ export default function NewProjectPrompt() {
           <p className={styles.text}>
             Current project <strong>"{prompt.projectName}"</strong> can be saved before {prompt.actionLabel}.
           </p>
+          {draft && (
+            <p className={styles.text}>
+              It has not been saved yet, so continuing without saving discards it.
+            </p>
+          )}
           <p className={styles.text}>
             Destination: <strong>{prompt.destinationLabel}</strong>
           </p>
