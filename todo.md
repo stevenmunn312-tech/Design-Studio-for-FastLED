@@ -47,8 +47,11 @@ replaced by the sketch's own receiver.
 - [x] Compile a network sketch on a newly mapped ESP32 board. An NTP clock
   over Wi-Fi builds on the XIAO ESP32-C3 and the Feather ESP32 V2, both
   engines. The Pico 2 W needs none: the app emits no Wi-Fi code for RP2040.
-- [ ] The Feather nRF52840 does not link on arduino-cli either: FastLED
-  reaches the TinyUSB `Serial`, which the sketch does not pull in.
+- [x] The Feather nRF52840 does not link on arduino-cli either: FastLED
+  reaches the TinyUSB `Serial`, which the sketch does not pull in. Fixed: the
+  helper writes a source beside the sketch that includes the core's TinyUSB
+  library. The Feather and the nRF52840 DK build
+  ([runbook](docs/runbooks/fbuild-workarounds.md#boards-mapped-on-12-november-2026)).
 - [x] Build one SAMD51 environment without the repeated `-D__SAMD51__` and MCU
   define for library sources. It passes at the same sizes; removed.
 - [x] Recheck the three unpatched vendored libraries in `lib/` on 2.5.51: a

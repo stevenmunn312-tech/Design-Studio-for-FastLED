@@ -362,6 +362,7 @@ ARDUINO_CORES = {
     "arduino:megaavr": "1.8.8",
     "arduino:renesas_uno": "1.6.0",
     "adafruit:samd": "1.7.17",
+    "adafruit:nrf52": "1.7.0",
     "rp2040:rp2040": "6.1.0",
     "teensy:avr": "1.62.0",
     "STMicroelectronics:stm32": "2.12.0",

@@ -974,10 +974,17 @@ add the `huge_app` partition scheme, and the Arduino core gives the Feather
 ESP32 V2 and the LOLIN S3 no such menu entry: `invalid value 'huge_app' for
 option 'PartitionScheme'`. Both carry `arduino_huge_app: False` and build
 with the core's default table
-([run 43118129835](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43118129835)). The Feather nRF52840 does not link
+([run 43118129835](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43118129835)). The Feather nRF52840 did not link
 on arduino-cli either: FastLED's `io_arduino.hpp` reaches
-`Adafruit_USBD_CDC::operator bool()` and `Serial`, which the sketch does not
-pull in.
+`Adafruit_USBD_CDC::operator bool()` and `Serial`, which the Adafruit nRF52
+core defines in its TinyUSB library, and Arduino CLI links a library only
+when a sketch file includes it. Since 2026-11-14 the helper writes
+`fls_core_serial.cpp` beside the sketch on that core and on Seeed's fork of
+it (`_sync_serial_library_source`), holding the include. On core 1.7.0 the
+pattern sketch builds on the Feather nRF52840 (86,260 bytes of flash, 19,184
+of RAM) and the nRF52840 DK (86,324 and 19,184;
+[run 43612177408](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/43612177408)). The Seeed core has no
+package index in the helper, so the XIAO nRF52840 is not built.
 
 **SAMD51 without the repeated defines.** The three SAMD51 environments
 repeated `-D__SAMD51__` and the chip define for library sources. Without

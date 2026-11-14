@@ -137,6 +137,13 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   reuse identity (`_compiled_uploads`) covers the `.h` files as well as the
   `.ino`. Pass `files` only when there are any — the single-file calls keep
   their old shape, which is what the test fakes expect.
+- Arduino CLI links a core's bundled library only when a sketch file includes
+  it. The Adafruit nRF52 core and Seeed's fork define `Serial` in Adafruit
+  TinyUSB, and FastLED reaches `Serial` from every sketch, so
+  `_sync_serial_library_source` writes `fls_core_serial.cpp` beside the sketch
+  for those FQBNs and removes it for any other: a sketch folder is reused when
+  the board changes, and no other core has the header. The generated sketch
+  stays the same for every board. fbuild links the library unasked.
 - arduino-cli keys its own build cache (`~/.cache/arduino/sketches/<hash>`,
   `%LOCALAPPDATA%\arduino\sketches` on Windows) on a hash of the *sketch path*,
   so `backend/firmware.py`'s `_sketch_workspace(name, ino)` compiles from one reused
