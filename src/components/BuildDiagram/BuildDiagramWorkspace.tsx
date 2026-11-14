@@ -1216,7 +1216,7 @@ export default function BuildDiagramWorkspace() {
         </aside>,
       )}
 
-      <main className={styles.diagramPane}>
+      <main data-surface="dark" className={styles.diagramPane}>
         <BoardSelector />
         <div className={styles.diagramHeader}>
           <div>

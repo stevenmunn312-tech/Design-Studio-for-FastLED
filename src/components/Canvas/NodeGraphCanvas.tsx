@@ -1480,7 +1480,7 @@ function NodeGraphCanvasInner() {
           <MiniMap
             nodeColor={minimapNodeColor}
             nodeStrokeWidth={0}
-            maskColor="rgba(0,0,0,0.55)"
+            maskColor="color-mix(in srgb, var(--bg-deep) 70%, transparent)"
             style={{ width: MINIMAP_WIDTH, height: 150, background: 'var(--bg-panel)', border: '1px solid var(--line)' }}
             className={styles.minimap}
             onClick={onMiniMapClick}

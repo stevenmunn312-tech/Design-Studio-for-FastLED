@@ -114,7 +114,15 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-:root {
+/* Colour tokens. The second selector re-declares this default set, paints
+   included, on a `data-surface="dark"` element under the light theme. Two
+   kinds of surface need it: where LEDs are drawn (preview, Stage, a node's LED
+   strip), since light sources read only against dark, and a surface with its
+   own fixed scheme (the Build Diagram's paper sheet), which the light theme's
+   paint remap would otherwise flatten. */
+:root,
+[data-theme="light"] [data-surface="dark"] {
+  color: var(--text-primary);
   /* Backgrounds */
   --bg-primary: #0d0f12;
   --bg-panel: #161a1f;
@@ -410,7 +418,9 @@
   --paint-ffd7d7: #ffd7d7;
   --paint-ffd8e8: #ffd8e8;
   --paint-ffe29d: #ffe29d;
+}
 
+:root {
   /* Typography */
   --font-display: 'Audiowide', 'Inter', sans-serif;
   --font-body: 'Inter', sans-serif;
@@ -562,22 +572,42 @@
 }
 
 [data-theme="light"] {
-  --bg-primary: #eef0f4;
-  --bg-panel: #ffffff;
-  --bg-node: #f4f5f8;
-  --bg-node-hover: #e8eaef;
-  --bg-deep: #e5e8ef;
-  --bg-canvas: #eef0f4;
-  --surface-recessed: #e8ebf0;
-  --accent-ui: #087ea4;
+  /* Three steps of grey so panel, canvas and node separate without leaning on
+     shadows: canvas darkest, panels mid, nodes white. */
+  --bg-primary: #e9ecf1;
+  --bg-panel: #f7f8fa;
+  --bg-node: #ffffff;
+  --bg-node-hover: #edf0f5;
+  --bg-deep: #d6dbe4;
+  --bg-canvas: #e1e5ec;
+  --surface-recessed: #e4e8ee;
+  --accent-ui: #0b6f92;
   --accent-ui-text: #ffffff;
-  --text-primary: #1a1c2e;
-  --text-secondary: #5a5c72;
-  --line: rgba(0, 0, 0, 0.16);
-  --divider: rgba(0, 0, 0, 0.09);
-  --chrome-border: rgba(0, 0, 0, 0.12);
-  --chrome-shadow: rgba(30, 36, 52, 0.14);
-  --active-shadow: rgba(30, 36, 52, 0.22);
+  /* The default accents are hsl(h, 80%, 60%), tuned to glow on dark. On white
+     they wash out, so the same hues drop to hsl(h, 75%, 34%). */
+  --accent-recipes: #981616;
+  --accent-favourites: #984a16;
+  --accent-recent: #987e16;
+  --accent-input: #7e9816;
+  --accent-audio: #4a9816;
+  --accent-signal: #169816;
+  --accent-math: #16984a;
+  --accent-color: #16987e;
+  --accent-pattern: #167e98;
+  --accent-field: #164a98;
+  --accent-composite: #161698;
+  --accent-show: #4a1698;
+  --accent-output: #7e1698;
+  --accent-note: #98167e;
+  --accent-hardware: #566173;
+  --accent-library: #98164a;
+  --text-primary: #171a24;
+  --text-secondary: #4b5063;
+  --line: rgba(20, 28, 45, 0.22);
+  --divider: rgba(20, 28, 45, 0.11);
+  --chrome-border: rgba(20, 28, 45, 0.17);
+  --chrome-shadow: rgba(30, 36, 52, 0.16);
+  --active-shadow: rgba(30, 36, 52, 0.24);
   --paint-00050c: var(--surface-recessed);
   --paint-010203: var(--surface-recessed);
   --paint-020405: var(--surface-recessed);

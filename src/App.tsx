@@ -704,7 +704,7 @@ export default function App() {
   }, [setStatus])
 
   return (
-    <div className={`${styles.app} ${stageMode ? styles.appStage : ''} ${stageCursorHidden ? styles.appStageCursorHidden : ''}`}>
+    <div data-surface={stageMode ? 'dark' : undefined} className={`${styles.app} ${stageMode ? styles.appStage : ''} ${stageCursorHidden ? styles.appStageCursorHidden : ''}`}>
       <div className={styles.menuShell}><MenuBar /></div>
       {!stageMode && <TrustBanner />}
       <div className={`${styles.workspace} ${stageMode ? styles.workspaceStage : ''} ${workspaceMode === 'build' ? styles.workspaceBuild : ''}`}>

@@ -369,7 +369,7 @@
   border-radius: 0 8px 0 0;
   overflow: hidden;
   background: var(--bg-panel) !important;
-  box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 -10px 24px var(--chrome-shadow);
 }
 
 .controls :global(.react-flow__controls-button) {

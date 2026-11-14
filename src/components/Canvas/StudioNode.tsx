@@ -1714,7 +1714,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               ▸ preview
             </button>
           ) : (
-            <div className={styles.previewWrap}>
+            <div data-surface="dark" className={styles.previewWrap}>
               <NodePreview
                 nodeId={id}
                 kind={previewKind}
@@ -1748,7 +1748,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               ▸ part
             </button>
           ) : (
-            <div className={styles.previewWrap}>
+            <div data-surface="dark" className={styles.previewWrap}>
               <img
                 className={styles.partThumb}
                 src={partRender.src}
@@ -1780,7 +1780,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               ▸ preview
             </button>
           ) : (
-            <div className={styles.previewWrap}>
+            <div data-surface="dark" className={styles.previewWrap}>
               {outputShape.frameThumbnail ? (
                 <NodePreview
                   nodeId={id}

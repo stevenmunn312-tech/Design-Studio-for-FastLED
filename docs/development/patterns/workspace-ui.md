@@ -374,6 +374,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `color-mix(in srgb, var(--accent-ui) N%, transparent)`, never a literal
   accent `rgba`, or they stay cyan in every theme. Keep `--text-secondary` at
   4.5:1 or better on `--bg-node-hover`.
+- A light theme also darkens the `--accent-*` set (the defaults are tuned to
+  glow on dark) and steps its greys canvas, panel, node from darkest to white.
+  Its paint remap flattens anything drawn in fixed paints, so a surface that
+  must keep the default palette carries `data-surface="dark"`: `tokens.css`
+  re-declares the default colour tokens there. LED surfaces (the preview's
+  matrix and audio tools, Stage, a node's LED strip) carry it because LEDs
+  read only against dark; the Build Diagram pane carries it because its paper
+  sheet is a fixed scheme. A new LED or fixed-paint surface needs the
+  attribute, or it turns grey on grey under Light.
 - A CSS Modules `composes:` base must not set anything a composer overrides,
   `z-index` above all. The composed class ties the composer on specificity and
   its file can load later, so the base value wins. `sharedOverlay` in

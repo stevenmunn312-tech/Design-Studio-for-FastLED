@@ -344,6 +344,9 @@
 .canvasWrap {
   position: relative;
   isolation: isolate;
+  /* Same surface as the panel in a dark theme; under the light theme this is
+     a `data-surface="dark"` element, so it stays dark behind the LEDs. */
+  background: var(--bg-panel);
   padding: var(--space-3);
   /* The frame's heading sits 28px above the frame (.canvasFrameHeader), and
      this wrap clips. The canvas is sized to the padded box, so a height-limited

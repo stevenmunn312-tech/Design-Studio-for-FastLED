@@ -1335,7 +1335,7 @@ export default function LEDPreview() {
   }
 
   return (
-    <div className={`${styles.panel} ${stageMode ? styles.panelStage : ''} ${stageFullscreen ? styles.panelStageFullscreen : ''} ${stageMatrixFullscreen ? styles.panelStageMatrixFullscreen : ''}`}>
+    <div data-surface={stageMode ? 'dark' : undefined} className={`${styles.panel} ${stageMode ? styles.panelStage : ''} ${stageFullscreen ? styles.panelStageFullscreen : ''} ${stageMatrixFullscreen ? styles.panelStageMatrixFullscreen : ''}`}>
       <div
         className={`${styles.header} ${stageMode ? styles.headerStage : ''} ${stageQuiet ? styles.stageChromeQuiet : ''}`}
         inert={stageQuiet}
@@ -1450,6 +1450,7 @@ export default function LEDPreview() {
       </div>
       <div
         ref={canvasWrapRef}
+        data-surface="dark"
         className={`${styles.canvasWrap} ${effectivePreview3d ? styles.canvasWrap3d : ''}`}
         onDoubleClick={() => {
           void advanceStagePresentation()
@@ -1531,6 +1532,7 @@ export default function LEDPreview() {
       {/* Windowed Stage keeps this operator panel visible. Explicit fullscreen
           removes it through panelStageFullscreen so the output owns the screen. */}
       <div
+        data-surface="dark"
         className={`${styles.visualizer} ${expandedAudioTools ? '' : styles.visualizerIdle} ${stageQuiet ? styles.stageChromeQuiet : ''}`}
         inert={stageQuiet}
       >

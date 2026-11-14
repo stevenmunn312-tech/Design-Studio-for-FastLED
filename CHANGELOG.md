@@ -389,6 +389,10 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Changed
 
+- The Light theme is reworked. Nodes are white on a grey canvas with firmer
+  borders, and category colours are darkened so they read on white. LEDs keep
+  a dark backdrop in the preview, Stage and on each node, and the Build
+  Diagram sheet, the minimap and the group bar no longer turn grey or black.
 - Juggle no longer has a Trail control: it draws its dots fresh each frame,
   and a Trails node spliced after it gives them tails, so there is one fade to
   set instead of two stacked ones that washed overlapping dots out to white.

@@ -7,9 +7,8 @@
   align-items: center;
   gap: var(--space-1);
   padding: calc(var(--space-0) * 1.75) calc(var(--space-0) * 2.5);
-  background:
-    linear-gradient(180deg, rgba(10, 16, 23, 0.94), rgba(6, 10, 15, 0.82));
-  border: 1px solid rgba(169, 214, 255, 0.12);
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
   border-radius: var(--radius-control);
   font-size: 11px;
   color: var(--text-secondary);
