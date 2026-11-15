@@ -367,6 +367,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   palette there; chrome states use `--accent-ui` and `--accent-ui-text`, never
   a category accent. `src/themes/__tests__/definedTokens.test.ts` fails the
   build when a `var(--x)` is read that nothing declares.
+- The brand palette is the seven `--brand-*` tokens in `tokens.css`: white-LED
+  colour temperatures from candle (1900K) to sky (12000K), the same in every
+  theme. The logo is a 4x4 LED grid sweeping them corner to corner;
+  `scripts/assets/make-brand-icons.py` draws `public/icon.svg` and the PWA
+  icons from those tokens, then `make-desktop-icons.py` renders the launcher
+  and MSIX logos from `icon-512.png`. Never hand-edit the icons.
 - A studio theme is an `AppTheme` id in `THEMES`, a `THEME_LABEL` in the View
   menu and a `[data-theme="id"]` block in `tokens.css`. A dark theme sets only
   the surfaces, text, `--accent-ui` pair and rules; a light theme must also

@@ -57,13 +57,12 @@ Each license is shipped next to its files.
 
 ## Icons and branding assets
 
-- `public/icon.svg` is the source for the shipped PNG install icons:
-  `icon-192.png`, `icon-512.png`, `icon-maskable-192.png`, and
-  `icon-maskable-512.png`.
-- `public/design-studio-branding.svg`, `public/design-studio-ui.svg`,
-  `public/design-studio-mark.svg`, and `public/design-studio-pixel-brand.png` are
-  currently treated as project-authored repository assets with no separate
-  third-party attribution file in-tree.
+- `public/icon.svg` and the shipped PNG install icons (`icon-192.png`,
+  `icon-512.png`, `icon-maskable-192.png`, `icon-maskable-512.png`) are drawn
+  by the repo's own `scripts/assets/make-brand-icons.py` from the brand tokens
+  in `src/themes/tokens.css`.
+- `public/design-studio-pixel-brand.png` is a project-authored repository asset
+  with no separate third-party attribution file in-tree.
 - If any of those assets are replaced with external artwork, update this file
   before shipping the next release.
 

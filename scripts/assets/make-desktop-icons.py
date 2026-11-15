@@ -41,7 +41,9 @@ def tile(icon: Image.Image, width: int, height: int) -> Image.Image:
         return square(icon, width)
     canvas = Image.new("RGBA", (width, height), BACKGROUND)
     mark = square(icon, height)
-    canvas.paste(mark, ((width - height) // 2, 0), mark)
+    # Composite, not paste: paste with a mask also copies the icon's
+    # transparent rounded corners into the tile's alpha.
+    canvas.alpha_composite(mark, ((width - height) // 2, 0))
     return canvas
 
 

@@ -132,6 +132,18 @@
   --bg-canvas: #0d1117;
   --surface-recessed: #11161c;
 
+  /* Brand palette: the colour temperatures of white LEDs, candle to sky.
+     The logo (public/icon.svg) sweeps them corner to corner across its 4x4
+     LED grid; scripts/assets/make-brand-icons.py reads these values to draw
+     it, so change them here and rerun that script. Same in every theme. */
+  --brand-candle: #ff8912; /* 1900K */
+  --brand-warm-white: #ff9d3f; /* 2400K */
+  --brand-soft-white: #ffb46b; /* 3000K */
+  --brand-neutral: #ffcea6; /* 4000K */
+  --brand-daylight: #ffecdf; /* 5500K */
+  --brand-cool-white: #e3e9ff; /* 8000K */
+  --brand-sky: #bfd3ff; /* 12000K */
+
   /* Sidebar section accents sweep the hue wheel top to bottom at 24° per
      header — Quick recipes, Favourites, Recent, the 11 CATEGORIES, then the
      Pattern Library — all hsl(h, 80%, 60%). The category entries match
