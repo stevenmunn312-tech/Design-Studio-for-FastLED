@@ -71,14 +71,14 @@
   width: 9px;
   height: 9px;
   flex: 0 0 auto;
-  border: 1px solid color-mix(in srgb, var(--accent-output) 28%, transparent);
-  border-top-color: color-mix(in srgb, var(--accent-output) 82%, white);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 28%, transparent);
+  border-top-color: color-mix(in srgb, var(--accent-ui) 82%, white);
   border-radius: 50%;
   animation: capacitySpin 700ms linear infinite;
 }
 
 .checking strong {
-  color: color-mix(in srgb, var(--accent-output) 72%, white);
+  color: color-mix(in srgb, var(--accent-ui) 72%, white);
 }
 
 @keyframes capacitySpin {
@@ -124,10 +124,10 @@
  * missed, and this is the one control in the strip. */
 .action {
   padding: 0 calc(var(--space-0) * 1.5);
-  border: 1px solid color-mix(in srgb, var(--accent-output) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 55%, transparent);
   border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--accent-output) 14%, transparent);
-  color: color-mix(in srgb, var(--accent-output) 78%, white);
+  background: color-mix(in srgb, var(--accent-ui) 14%, transparent);
+  color: color-mix(in srgb, var(--accent-ui) 78%, white);
   font-weight: 600;
   font-size: var(--fs-ui);
   white-space: nowrap;
@@ -135,6 +135,6 @@
 
 .itemButton:hover .action,
 .itemButton:focus-visible .action {
-  background: color-mix(in srgb, var(--accent-output) 28%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 28%, transparent);
   color: white;
 }

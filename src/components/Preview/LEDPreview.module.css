@@ -770,9 +770,9 @@
   display: inline-flex;
   align-items: center;
   gap: calc(var(--space-0) * 1.75);
-  border: 1px solid color-mix(in srgb, var(--accent-output) 34%, var(--line));
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 34%, var(--line));
   border-radius: 7px;
-  background: color-mix(in srgb, var(--accent-output) 8%, var(--bg-panel));
+  background: color-mix(in srgb, var(--accent-ui) 8%, var(--bg-panel));
   color: var(--text-primary);
   font-family: var(--font-body);
   font-size: var(--fs-label);
@@ -785,12 +785,12 @@
 }
 
 .idleAddTrack:hover {
-  border-color: color-mix(in srgb, var(--accent-output) 62%, var(--line));
-  background: color-mix(in srgb, var(--accent-output) 14%, var(--bg-panel));
+  border-color: color-mix(in srgb, var(--accent-ui) 62%, var(--line));
+  background: color-mix(in srgb, var(--accent-ui) 14%, var(--bg-panel));
 }
 
 .idleAddTrack:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent-output) 74%, white);
+  outline: 2px solid color-mix(in srgb, var(--accent-ui) 74%, white);
   outline-offset: 2px;
 }
 
@@ -847,7 +847,7 @@
   align-items: center;
   justify-content: space-between;
   gap: calc(var(--space-0) * 2.5);
-  border: 1px solid color-mix(in srgb, var(--accent-output) 28%, var(--line));
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 28%, var(--line));
   border-radius: 7px;
   background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
   color: var(--text-primary);
@@ -858,7 +858,7 @@
 }
 
 .visualizerToggle i {
-  color: color-mix(in srgb, var(--accent-output) 72%, white);
+  color: color-mix(in srgb, var(--accent-ui) 72%, white);
   font-family: var(--font-body);
   font-size: 13px;
   font-style: normal;
@@ -867,8 +867,8 @@
 }
 
 .visualizerToggle:hover {
-  border-color: color-mix(in srgb, var(--accent-output) 58%, var(--line));
-  background: color-mix(in srgb, var(--accent-output) 7%, var(--bg-primary));
+  border-color: color-mix(in srgb, var(--accent-ui) 58%, var(--line));
+  background: color-mix(in srgb, var(--accent-ui) 7%, var(--bg-primary));
 }
 
 .visualizerToggle:hover i {
@@ -876,7 +876,7 @@
 }
 
 .visualizerToggle:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent-output) 74%, white);
+  outline: 2px solid color-mix(in srgb, var(--accent-ui) 74%, white);
   outline-offset: 2px;
 }
 
@@ -895,7 +895,7 @@
 }
 
 .musicControls {
-  --transport-accent: color-mix(in srgb, var(--accent-output) 72%, var(--accent-field));
+  --transport-accent: var(--accent-ui);
   --transport-accent-strong: color-mix(in srgb, var(--transport-accent) 58%, white);
   --transport-surface-top: color-mix(in srgb, var(--bg-node) 82%, transparent);
   --transport-surface-bottom: color-mix(in srgb, var(--bg-primary) 88%, black);
@@ -1100,7 +1100,7 @@
   border: none;
   border-radius: 50%;
   background: var(--transport-accent);
-  color: var(--paint-041317);
+  color: var(--accent-ui-text);
   cursor: pointer;
   flex: 0 0 auto;
   box-shadow:

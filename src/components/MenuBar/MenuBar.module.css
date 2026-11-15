@@ -356,7 +356,7 @@
 }
 
 .previewBtn {
-  border-color: color-mix(in srgb, var(--accent-output) 38%, var(--line));
+  border-color: color-mix(in srgb, var(--accent-ui) 38%, var(--line));
 }
 
 .btnPreviewActive {
@@ -376,7 +376,7 @@
 }
 
 .styleBtn {
-  border-color: color-mix(in srgb, var(--paint-ff5e9d) 38%, var(--line));
+  border-color: color-mix(in srgb, var(--accent-ui) 38%, var(--line));
 }
 
 .btnStyleActive {

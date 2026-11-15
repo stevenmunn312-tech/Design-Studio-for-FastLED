@@ -31,10 +31,10 @@
   align-items: center;
   justify-content: center;
   gap: calc(var(--space-0) * 1.25);
-  border: 1px dashed color-mix(in srgb, var(--accent-library) 34%, color-mix(in srgb, var(--text-primary) 8%, transparent));
+  border: 1px dashed color-mix(in srgb, var(--accent-ui) 34%, color-mix(in srgb, var(--text-primary) 8%, transparent));
   border-radius: 6px;
-  background: color-mix(in srgb, var(--accent-library) 6%, transparent);
-  color: color-mix(in srgb, var(--accent-library) 68%, white);
+  background: color-mix(in srgb, var(--accent-ui) 6%, transparent);
+  color: color-mix(in srgb, var(--accent-ui) 68%, white);
   font-family: var(--font-body);
   font-size: var(--fs-label);
   font-weight: 700;
@@ -42,8 +42,8 @@
 }
 
 .addPatterns:hover {
-  border-color: color-mix(in srgb, var(--accent-library) 62%, white);
-  background: color-mix(in srgb, var(--accent-library) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent-ui) 62%, white);
+  background: color-mix(in srgb, var(--accent-ui) 12%, transparent);
 }
 
 .clearAll {
@@ -79,7 +79,7 @@
 }
 
 .shareBtn:hover {
-  border-color: color-mix(in srgb, var(--accent-library) 62%, white);
+  border-color: color-mix(in srgb, var(--accent-ui) 62%, white);
   color: var(--text-primary);
 }
 
@@ -182,12 +182,12 @@
 
 .libraryBadgeStale {
   cursor: pointer;
-  color: var(--accent-library);
-  border-color: color-mix(in srgb, var(--accent-library) 45%, transparent);
+  color: var(--accent-ui);
+  border-color: color-mix(in srgb, var(--accent-ui) 45%, transparent);
 }
 
 .libraryBadgeStale:hover {
-  background: color-mix(in srgb, var(--accent-library) 12%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 12%, transparent);
 }
 
 .remove {

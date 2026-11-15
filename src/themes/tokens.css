@@ -212,7 +212,6 @@
   --paint-030507: #030507;
   --paint-040608: #040608;
   --paint-04110c: #04110c;
-  --paint-041317: #041317;
   --paint-05040a: #05040a;
   --paint-050708: #050708;
   --paint-05070a: #05070a;
@@ -409,7 +408,6 @@
   --paint-ff4d8d: #ff4d8d;
   --paint-ff5a6f: #ff5a6f;
   --paint-ff5c5c: #ff5c5c;
-  --paint-ff5e9d: #ff5e9d;
   --paint-ff5f56: #ff5f56;
   --paint-ff6b6b: #ff6b6b;
   --paint-ff9a5c: #ff9a5c;
@@ -628,7 +626,6 @@
   --paint-030507: var(--surface-recessed);
   --paint-040608: var(--surface-recessed);
   --paint-04110c: var(--surface-recessed);
-  --paint-041317: var(--surface-recessed);
   --paint-05040a: var(--surface-recessed);
   --paint-050708: var(--surface-recessed);
   --paint-05070a: var(--surface-recessed);
