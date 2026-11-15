@@ -149,11 +149,11 @@
      Pattern Library — all hsl(h, 80%, 60%). The category entries match
      CATEGORIES in nodeLibrary.ts, which carries the hex for canvas and SVG.
      Chrome uses only accent-ui; category colour identifies nodes and wires. */
-  --accent-ui: #5ad1ff;
-  --accent-ui-text: #07131a;
+  --accent-ui: var(--brand-soft-white);
+  --accent-ui-text: #1a1206;
   --preview-instrument-text: #e0e7ed;
   --preview-instrument-muted: #9fb0be;
-  --preview-instrument-accent: #72cde8;
+  --preview-instrument-accent: var(--brand-soft-white);
   --stage-bg-panel: #161a1f;
   --stage-bg-node: #1f242b;
   --accent-recipes: #ea4747;
@@ -329,7 +329,6 @@
   --paint-88652b: #88652b;
   --paint-8a2be2: #8a2be2;
   --paint-8a4dff: #8a4dff;
-  --paint-8adfff: #8adfff;
   --paint-8b3f16: #8b3f16;
   --paint-8b8b85: #8b8b85;
   --paint-8b97a5: #8b97a5;
@@ -593,7 +592,8 @@
   --bg-deep: #d6dbe4;
   --bg-canvas: #e1e5ec;
   --surface-recessed: #e4e8ee;
-  --accent-ui: #0b6f92;
+  /* Soft white darkened to read on white: 5.6:1 under white text. */
+  --accent-ui: #a35200;
   --accent-ui-text: #ffffff;
   /* The default accents are hsl(h, 80%, 60%), tuned to glow on dark. On white
      they wash out, so the same hues drop to hsl(h, 75%, 34%). */

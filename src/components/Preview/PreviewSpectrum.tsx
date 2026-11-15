@@ -9,6 +9,7 @@ import {
   type SpectrumVisualizerMode,
   type SpectrumVisualizerStyle,
 } from './spectrumVisualizerModes'
+import { KELVIN_SKY, KELVIN_SOFT_WHITE, kelvinColour } from '../../themes/brandPalette'
 import styles from './LEDPreview.module.css'
 
 const NUM_BANDS = 32
@@ -29,26 +30,27 @@ function smoothed(values: readonly number[]): number[] {
   })
 }
 
-function bandHue(index: number, count: number): number {
-  return 188 + (index / Math.max(1, count - 1)) * 148
+/** Bands sweep the brand palette: bass glows candle-warm, treble sky-cool. */
+function bandPosition(index: number, count: number): number {
+  return index / Math.max(1, count - 1)
 }
 
 function clearCanvas(ctx: CanvasRenderingContext2D, width: number, height: number) {
   ctx.clearRect(0, 0, width, height)
 }
 
-function barGradient(ctx: CanvasRenderingContext2D, x: number, y: number, height: number, hue: number) {
+function barGradient(ctx: CanvasRenderingContext2D, x: number, y: number, height: number, band: number) {
   const gradient = ctx.createLinearGradient(x, y, x, y + Math.max(1, height))
-  gradient.addColorStop(0, `hsl(${hue} 100% 88%)`)
-  gradient.addColorStop(0.34, `hsl(${hue + 18} 100% 68%)`)
-  gradient.addColorStop(1, `hsl(${hue + 42} 100% 54%)`)
+  gradient.addColorStop(0, kelvinColour(band, 0.6))
+  gradient.addColorStop(0.34, kelvinColour(band + 0.12, 0.15))
+  gradient.addColorStop(1, kelvinColour(band + 0.28, -0.05))
   return gradient
 }
 
-function drawPeakDot(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, hue: number) {
+function drawPeakDot(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, band: number) {
   ctx.save()
-  ctx.fillStyle = `hsl(${hue + 10} 100% 88%)`
-  ctx.shadowColor = `hsl(${hue + 16} 100% 62% / .9)`
+  ctx.fillStyle = kelvinColour(band + 0.07, 0.6)
+  ctx.shadowColor = kelvinColour(band + 0.11, 0.05, 0.9)
   ctx.shadowBlur = Math.max(5, radius * 3)
   ctx.beginPath()
   ctx.arc(x, y, radius, 0, Math.PI * 2)
@@ -72,16 +74,16 @@ function drawBars(
     const barHeight = Math.max(2, value * usable)
     const x = i * cell + (cell - barWidth) / 2
     const y = floor - barHeight
-    const hue = bandHue(i, values.length)
+    const band = bandPosition(i, values.length)
     ctx.save()
-    ctx.fillStyle = barGradient(ctx, x, y, barHeight, hue)
-    ctx.shadowColor = `hsl(${hue} 100% 58% / .32)`
+    ctx.fillStyle = barGradient(ctx, x, y, barHeight, band)
+    ctx.shadowColor = kelvinColour(band, 0, 0.32)
     ctx.shadowBlur = Math.min(12, barWidth * 1.8)
     ctx.beginPath()
     ctx.roundRect(x, y, barWidth, barHeight, [barWidth / 2, barWidth / 2, 1, 1])
     ctx.fill()
     ctx.restore()
-    drawPeakDot(ctx, x + barWidth / 2, floor - peaks[i] * usable, Math.max(1.3, Math.min(2.5, barWidth * 0.22)), hue)
+    drawPeakDot(ctx, x + barWidth / 2, floor - peaks[i] * usable, Math.max(1.3, Math.min(2.5, barWidth * 0.22)), band)
   })
 }
 
@@ -98,7 +100,7 @@ function drawMirror(
   const centre = height / 2
   const usable = Math.max(1, height * 0.44)
   ctx.save()
-  ctx.strokeStyle = 'rgba(126, 224, 255, .16)'
+  ctx.strokeStyle = kelvinColour(0.5, 0, 0.16)
   ctx.setLineDash([2, 5])
   ctx.beginPath()
   ctx.moveTo(0, centre)
@@ -108,17 +110,17 @@ function drawMirror(
   values.forEach((value, i) => {
     const halfHeight = Math.max(1, value * usable)
     const x = i * cell + (cell - barWidth) / 2
-    const hue = bandHue(i, values.length)
+    const band = bandPosition(i, values.length)
     const gradient = ctx.createLinearGradient(0, centre - halfHeight, 0, centre + halfHeight)
-    gradient.addColorStop(0, `hsl(${hue} 100% 70%)`)
-    gradient.addColorStop(0.5, `hsl(${hue + 30} 100% 50% / .72)`)
-    gradient.addColorStop(1, `hsl(${hue} 100% 70%)`)
+    gradient.addColorStop(0, kelvinColour(band, 0.2))
+    gradient.addColorStop(0.5, kelvinColour(band + 0.2, -0.15, 0.72))
+    gradient.addColorStop(1, kelvinColour(band, 0.2))
     ctx.fillStyle = gradient
     ctx.fillRect(x, centre - halfHeight, barWidth, halfHeight * 2)
     const peakY = peaks[i] * usable
     const dotRadius = Math.max(1.2, Math.min(2.3, barWidth * 0.2))
-    drawPeakDot(ctx, x + barWidth / 2, centre - peakY, dotRadius, hue)
-    drawPeakDot(ctx, x + barWidth / 2, centre + peakY, dotRadius, hue)
+    drawPeakDot(ctx, x + barWidth / 2, centre - peakY, dotRadius, band)
+    drawPeakDot(ctx, x + barWidth / 2, centre + peakY, dotRadius, band)
   })
 }
 
@@ -151,24 +153,24 @@ function ribbonPath(
 
 function drawRibbon(ctx: CanvasRenderingContext2D, values: readonly number[], width: number, height: number) {
   const fill = ctx.createLinearGradient(0, 0, width, 0)
-  fill.addColorStop(0, 'hsl(188 100% 54% / .22)')
-  fill.addColorStop(0.48, 'hsl(258 100% 62% / .38)')
-  fill.addColorStop(1, 'hsl(336 100% 58% / .32)')
+  fill.addColorStop(0, kelvinColour(0, 0, 0.22))
+  fill.addColorStop(0.48, kelvinColour(0.5, 0, 0.38))
+  fill.addColorStop(1, kelvinColour(1, 0, 0.32))
   ribbonPath(ctx, values, width, height, 0.88, 0)
   ctx.fillStyle = fill
   ctx.fill()
 
   const upper = values.map((value, i) => clamp01(value * 0.78 + Math.sin(i * 0.62) * 0.025))
   ribbonPath(ctx, upper, width, height, 0.88, 0)
-  ctx.strokeStyle = 'rgba(255, 112, 205, .88)'
-  ctx.shadowColor = 'rgba(255, 57, 183, .7)'
+  ctx.strokeStyle = kelvinColour(KELVIN_SKY, 0.2, 0.88)
+  ctx.shadowColor = kelvinColour(KELVIN_SKY, 0, 0.7)
   ctx.shadowBlur = 9
   ctx.lineWidth = 1.4
   ctx.stroke()
 
   ribbonPath(ctx, values, width, height, 0.88, 0)
-  ctx.strokeStyle = 'rgba(112, 225, 255, .9)'
-  ctx.shadowColor = 'rgba(48, 201, 255, .75)'
+  ctx.strokeStyle = kelvinColour(KELVIN_SOFT_WHITE, 0.2, 0.9)
+  ctx.shadowColor = kelvinColour(KELVIN_SOFT_WHITE, 0, 0.75)
   ctx.shadowBlur = 8
   ctx.lineWidth = 1.1
   ctx.stroke()
@@ -188,8 +190,8 @@ function drawOrbit(
   const inner = maxRadius * 0.34
   const extent = maxRadius - inner - 6
   const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, inner)
-  core.addColorStop(0, 'rgba(138, 93, 255, .24)')
-  core.addColorStop(0.58, 'rgba(0, 226, 255, .08)')
+  core.addColorStop(0, kelvinColour(KELVIN_SKY, 0, 0.24))
+  core.addColorStop(0.58, kelvinColour(KELVIN_SOFT_WHITE, 0, 0.08))
   core.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = core
   ctx.beginPath()
@@ -197,10 +199,10 @@ function drawOrbit(
   ctx.fill()
   values.forEach((value, i) => {
     const angle = -Math.PI / 2 + (i / values.length) * Math.PI * 2
-    const hue = bandHue(i, values.length)
+    const band = bandPosition(i, values.length)
     const outer = inner + Math.max(2, value * extent)
-    ctx.strokeStyle = `hsl(${hue} 100% 66% / .9)`
-    ctx.shadowColor = `hsl(${hue} 100% 56% / .48)`
+    ctx.strokeStyle = kelvinColour(band, 0.1, 0.9)
+    ctx.shadowColor = kelvinColour(band, 0, 0.48)
     ctx.shadowBlur = 6
     ctx.lineWidth = Math.max(1.4, Math.min(3.2, (Math.PI * inner * 2) / values.length * 0.38))
     ctx.beginPath()
@@ -208,7 +210,7 @@ function drawOrbit(
     ctx.lineTo(cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer)
     ctx.stroke()
     const peakRadius = inner + peaks[i] * extent
-    drawPeakDot(ctx, cx + Math.cos(angle) * peakRadius, cy + Math.sin(angle) * peakRadius, 1.65, hue)
+    drawPeakDot(ctx, cx + Math.cos(angle) * peakRadius, cy + Math.sin(angle) * peakRadius, 1.65, band)
   })
   ctx.shadowBlur = 0
 }
@@ -227,7 +229,8 @@ function drawWaterfall(
     const baseline = height - age * height * 0.92
     const amplitude = height * (0.32 - age * 0.14)
     const alpha = 0.88 - age * 0.72
-    const hue = 194 + age * 136
+    // Newest layer warm, receding layers cool toward sky.
+    const band = age
     ctx.beginPath()
     values.forEach((value, i) => {
       const x = (i / Math.max(1, values.length - 1)) * width
@@ -235,9 +238,9 @@ function drawWaterfall(
       if (i === 0) ctx.moveTo(x, y)
       else ctx.lineTo(x, y)
     })
-    ctx.strokeStyle = `hsl(${hue} 100% 66% / ${alpha})`
+    ctx.strokeStyle = kelvinColour(band, 0.1, alpha)
     ctx.lineWidth = layer === 0 ? 2 : 1
-    ctx.shadowColor = `hsl(${hue} 100% 56% / ${alpha * 0.55})`
+    ctx.shadowColor = kelvinColour(band, 0, alpha * 0.55)
     ctx.shadowBlur = layer < 4 ? 6 : 0
     ctx.stroke()
   }
@@ -260,7 +263,7 @@ function drawStacks(
   const segmentGap = Math.max(1.5, height * 0.012)
   const segmentH = Math.max(2, (height - segmentGap * (segments + 1)) / segments)
   for (let column = 0; column < columns; column++) {
-    const hue = bandHue(column, columns)
+    const band = bandPosition(column, columns)
     const active = Math.round(sampled[column] * segments)
     const peak = Math.min(segments - 1, Math.round(sampledPeaks[column] * (segments - 1)))
     for (let segment = 0; segment < segments; segment++) {
@@ -269,9 +272,9 @@ function drawStacks(
       const lit = segment < active
       const isPeak = segment === peak && sampledPeaks[column] > 0.02
       ctx.fillStyle = lit || isPeak
-        ? `hsl(${hue + segment * 2.4} 100% ${isPeak ? 86 : 58}% / ${isPeak ? 1 : 0.88})`
-        : `hsl(${hue} 80% 36% / .075)`
-      ctx.shadowColor = `hsl(${hue} 100% 58% / ${lit || isPeak ? 0.55 : 0})`
+        ? kelvinColour(band + segment * 0.016, isPeak ? 0.55 : 0, isPeak ? 1 : 0.88)
+        : kelvinColour(band, -0.5, 0.075)
+      ctx.shadowColor = kelvinColour(band, 0, lit || isPeak ? 0.55 : 0)
       ctx.shadowBlur = lit || isPeak ? 5 : 0
       ctx.beginPath()
       ctx.roundRect(x, y, Math.max(2, cellW - gapX), segmentH, 1.5)
@@ -295,7 +298,7 @@ function drawConstellation(
   history.slice(1, 10).forEach((layer, ageIndex) => {
     const alpha = 0.18 * (1 - ageIndex / 10)
     layer.forEach((value, i) => {
-      ctx.fillStyle = `hsl(${bandHue(i, layer.length)} 100% 68% / ${alpha})`
+      ctx.fillStyle = kelvinColour(bandPosition(i, layer.length), 0.15, alpha)
       ctx.beginPath()
       ctx.arc(xAt(i), floor - value * usable + ageIndex * 1.4, 1, 0, Math.PI * 2)
       ctx.fill()
@@ -310,27 +313,27 @@ function drawConstellation(
     else ctx.lineTo(x, y)
   })
   const line = ctx.createLinearGradient(0, 0, width, 0)
-  line.addColorStop(0, 'rgba(78, 222, 255, .42)')
-  line.addColorStop(0.52, 'rgba(151, 105, 255, .5)')
-  line.addColorStop(1, 'rgba(255, 88, 190, .46)')
+  line.addColorStop(0, kelvinColour(0, 0, 0.42))
+  line.addColorStop(0.52, kelvinColour(0.5, 0, 0.5))
+  line.addColorStop(1, kelvinColour(1, 0, 0.46))
   ctx.strokeStyle = line
   ctx.lineWidth = 1
   ctx.stroke()
 
   values.forEach((value, i) => {
-    const hue = bandHue(i, values.length)
+    const band = bandPosition(i, values.length)
     const x = xAt(i)
     const y = floor - value * usable
-    drawPeakDot(ctx, x, y, 1.5 + value * 1.6, hue)
+    drawPeakDot(ctx, x, y, 1.5 + value * 1.6, band)
     if (peaks[i] - value > 0.035) {
-      ctx.strokeStyle = `hsl(${hue} 100% 72% / .24)`
+      ctx.strokeStyle = kelvinColour(band, 0.25, 0.24)
       ctx.setLineDash([1, 3])
       ctx.beginPath()
       ctx.moveTo(x, y)
       ctx.lineTo(x, floor - peaks[i] * usable)
       ctx.stroke()
       ctx.setLineDash([])
-      drawPeakDot(ctx, x, floor - peaks[i] * usable, 1.25, hue)
+      drawPeakDot(ctx, x, floor - peaks[i] * usable, 1.25, band)
     }
   })
 }

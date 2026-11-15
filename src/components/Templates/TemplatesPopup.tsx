@@ -63,7 +63,7 @@ function TemplatePreview({ template }: { template: StarterTemplate }) {
             <g
               key={node.id}
               className={styles.previewNode}
-              style={{ '--preview-accent': CATEGORY_COLOR[node.category] ?? '#5ad1ff' } as CSSProperties}
+              style={{ '--preview-accent': CATEGORY_COLOR[node.category] ?? 'var(--accent-ui)' } as CSSProperties}
             >
               <rect x={x} y={y} width={nodeW} height={nodeH} rx="8" />
               <text x={x + nodeW / 2} y={y + nodeH / 2} dominantBaseline="middle" textAnchor="middle">

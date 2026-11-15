@@ -49,7 +49,7 @@
 
 .kicker {
   margin-bottom: var(--space-0);
-  color: var(--paint-8adfff);
+  color: var(--accent-ui);
   font-family: var(--font-body);
   font-size: var(--fs-label);
   letter-spacing: 0.2em;

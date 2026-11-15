@@ -61,8 +61,6 @@ Each license is shipped next to its files.
   `icon-512.png`, `icon-maskable-192.png`, `icon-maskable-512.png`) are drawn
   by the repo's own `scripts/assets/make-brand-icons.py` from the brand tokens
   in `src/themes/tokens.css`.
-- `public/design-studio-pixel-brand.png` is a project-authored repository asset
-  with no separate third-party attribution file in-tree.
 - If any of those assets are replaced with external artwork, update this file
   before shipping the next release.
 

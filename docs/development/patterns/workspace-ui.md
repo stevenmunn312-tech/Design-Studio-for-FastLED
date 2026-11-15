@@ -372,7 +372,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   theme. The logo is a 4x4 LED grid sweeping them corner to corner;
   `scripts/assets/make-brand-icons.py` draws `public/icon.svg` and the PWA
   icons from those tokens, then `make-desktop-icons.py` renders the launcher
-  and MSIX logos from `icon-512.png`. Never hand-edit the icons.
+  and MSIX logos from `icon-512.png`. Never hand-edit the icons. The default
+  `--accent-ui` is Soft white (Light darkens it to `#a35200`); the Preview's
+  glows pair Soft white with Sky, and its spectrum sweeps candle to sky
+  through `kelvinColour` in `src/themes/brandPalette.ts`, the canvas copy of
+  the tokens that `brandPalette.test.ts` keeps equal.
 - A studio theme is an `AppTheme` id in `THEMES`, a `THEME_LABEL` in the View
   menu and a `[data-theme="id"]` block in `tokens.css`. A dark theme sets only
   the surfaces, text, `--accent-ui` pair and rules; a light theme must also

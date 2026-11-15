@@ -509,7 +509,7 @@
   background: var(--paint-020405);
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 8%, transparent),
-    0 0 18px rgba(0, 240, 255, 0.08);
+    0 0 18px color-mix(in srgb, var(--brand-soft-white) 8%, transparent);
   image-rendering: pixelated;
 }
 
@@ -566,7 +566,7 @@
   align-items: center;
   gap: calc(var(--space-0) * 2.25);
   padding: calc(var(--space-0) * 1.25) var(--space-1);
-  border: 1px solid rgba(90, 209, 255, 0.18);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 18%, transparent);
   border-radius: var(--radius-control);
   background: rgba(3, 6, 10, 0.72);
   color: var(--preview-instrument-muted);
@@ -652,8 +652,8 @@
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--text-primary) 3.5%, transparent),
     0 14px 34px rgba(0, 0, 0, 0.58),
-    0 0 42px rgba(30, 116, 255, 0.12),
-    0 0 72px rgba(255, 35, 151, 0.08);
+    0 0 42px color-mix(in srgb, var(--brand-soft-white) 12%, transparent),
+    0 0 72px color-mix(in srgb, var(--brand-sky) 8%, transparent);
 }
 
 .canvasDiffusion {
@@ -664,9 +664,9 @@
      LINEAR-sampled glow pass, not this grade. */
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--text-primary) 4%, transparent),
-    0 0 42px rgba(255, 52, 181, 0.15),
-    0 0 88px rgba(126, 74, 255, 0.2),
-    0 0 142px rgba(0, 240, 255, 0.15);
+    0 0 42px color-mix(in srgb, var(--brand-sky) 15%, transparent),
+    0 0 88px color-mix(in srgb, var(--brand-daylight) 20%, transparent),
+    0 0 142px color-mix(in srgb, var(--brand-soft-white) 15%, transparent);
 }
 
 .canvasDiffusion3d {
@@ -674,16 +674,16 @@
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--text-primary) 3%, transparent),
     0 18px 44px rgba(0, 0, 0, 0.56),
-    0 0 52px rgba(255, 52, 181, 0.12),
-    0 0 102px rgba(126, 74, 255, 0.16),
-    0 0 148px rgba(0, 240, 255, 0.12);
+    0 0 52px color-mix(in srgb, var(--brand-sky) 12%, transparent),
+    0 0 102px color-mix(in srgb, var(--brand-daylight) 16%, transparent),
+    0 0 148px color-mix(in srgb, var(--brand-soft-white) 12%, transparent);
 }
 
 .canvasCrt {
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--text-primary) 4%, transparent),
-    0 0 22px rgba(255, 110, 210, 0.08),
-    0 0 60px rgba(0, 240, 255, 0.08);
+    0 0 22px color-mix(in srgb, var(--brand-sky) 8%, transparent),
+    0 0 60px color-mix(in srgb, var(--brand-soft-white) 8%, transparent);
 }
 
 .canvasWrap3d .canvas {
@@ -693,9 +693,9 @@
 .canvasWrap3d .canvasDiffusion3d {
   box-shadow:
     0 18px 44px rgba(0, 0, 0, 0.56),
-    0 0 52px rgba(255, 52, 181, 0.12),
-    0 0 102px rgba(126, 74, 255, 0.16),
-    0 0 148px rgba(0, 240, 255, 0.12);
+    0 0 52px color-mix(in srgb, var(--brand-sky) 12%, transparent),
+    0 0 102px color-mix(in srgb, var(--brand-daylight) 16%, transparent),
+    0 0 148px color-mix(in srgb, var(--brand-soft-white) 12%, transparent);
 }
 
 .visualizer {
@@ -1194,7 +1194,7 @@
 }
 
 .stagePatternKicker {
-  color: var(--paint-8adfff);
+  color: var(--preview-instrument-accent);
   font-family: var(--font-body);
   font-size: var(--fs-ui);
   font-weight: 700;
