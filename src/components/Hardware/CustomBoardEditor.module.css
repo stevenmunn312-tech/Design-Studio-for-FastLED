@@ -130,7 +130,7 @@
 .form input:focus-visible,
 .form select:focus-visible,
 .dialog button:focus-visible {
-  outline: 2px solid var(--accent-output);
+  outline: 2px solid var(--accent-ui);
   outline-offset: 1px;
 }
 
@@ -262,7 +262,7 @@
   flex-direction: column;
   gap: var(--space-1);
   padding: calc(var(--space-0) * 2.5);
-  border: 1px solid var(--accent-output);
+  border: 1px solid var(--accent-ui);
   border-radius: 8px;
   font-size: var(--fs-caption);
 }
@@ -288,8 +288,8 @@
 }
 
 .primary {
-  border: 1px solid var(--accent-output);
-  background: color-mix(in srgb, var(--accent-output) 26%, var(--bg-primary));
+  border: 1px solid var(--accent-ui);
+  background: color-mix(in srgb, var(--accent-ui) 26%, var(--bg-primary));
   color: var(--text-primary);
 }
 

@@ -67,11 +67,11 @@
 
 .segmentActive {
   color: var(--text-primary);
-  border-color: rgba(255, 92, 92, 0.6);
+  border-color: color-mix(in srgb, var(--accent-ui) 60%, transparent);
   background: var(--bg-node-hover);
 }
 
-.slider { flex: 1; min-width: 0; accent-color: var(--paint-ff5c5c); }
+.slider { flex: 1; min-width: 0; accent-color: var(--accent-ui); }
 
 .value {
   flex: 0 0 auto;
@@ -91,7 +91,7 @@
   color: var(--text-primary);
   cursor: pointer;
 }
-.checkRow input { accent-color: var(--paint-ff5c5c); }
+.checkRow input { accent-color: var(--accent-ui); }
 
 .hint { color: var(--text-secondary); font-size: 11px; }
 
@@ -113,7 +113,7 @@
 .progressBar i {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--paint-ff5c5c), var(--paint-ff9a5c));
+  background: linear-gradient(90deg, var(--brand-warm-white), var(--brand-soft-white));
   border-radius: inherit;
   transition: width 0.15s ease;
 }
@@ -136,15 +136,15 @@
 
 .primaryBtn {
   padding: calc(var(--space-0) * 1.75) var(--space-2);
-  border: 1px solid rgba(255, 92, 92, 0.6);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 60%, transparent);
   border-radius: 6px;
-  background: rgba(255, 92, 92, 0.16);
+  background: color-mix(in srgb, var(--accent-ui) 16%, transparent);
   color: var(--text-primary);
   font-weight: 600;
   cursor: pointer;
   transition: background 0.12s ease;
 }
-.primaryBtn:hover:not(:disabled) { background: rgba(255, 92, 92, 0.3); }
+.primaryBtn:hover:not(:disabled) { background: color-mix(in srgb, var(--accent-ui) 30%, transparent); }
 .primaryBtn:disabled { opacity: 0.5; cursor: default; }
 
 .secondaryBtn {

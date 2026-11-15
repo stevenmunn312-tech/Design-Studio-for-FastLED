@@ -149,10 +149,10 @@
   flex: 0 0 auto;
   appearance: none;
   padding: calc(var(--space-0) * 0.75) calc(var(--space-0) * 2.5);
-  border: 1px solid color-mix(in srgb, var(--accent-output) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 60%, transparent);
   border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--accent-output) 16%, transparent);
-  color: color-mix(in srgb, var(--accent-output) 80%, white);
+  background: color-mix(in srgb, var(--accent-ui) 16%, transparent);
+  color: color-mix(in srgb, var(--accent-ui) 80%, white);
   font-family: var(--font-body);
   font-size: var(--fs-ui);
   font-weight: 700;
@@ -160,10 +160,10 @@
   cursor: pointer;
 }
 .inlineActionBtn:not(:disabled):hover {
-  background: color-mix(in srgb, var(--accent-output) 30%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 30%, transparent);
   color: white;
 }
-.inlineActionBtn:focus-visible { outline: 2px solid var(--accent-output); outline-offset: 1px; }
+.inlineActionBtn:focus-visible { outline: 2px solid var(--accent-ui); outline-offset: 1px; }
 .inlineActionBtn:disabled { cursor: default; opacity: 0.8; }
 
 .capacityOk { color: var(--text-secondary); }
@@ -209,7 +209,7 @@
 
 .layerSummary::-webkit-details-marker { display: none; }
 .layerSummary:hover { background: color-mix(in srgb, var(--text-primary) 4%, transparent); }
-.layerSummary:focus-visible { outline: 2px solid var(--accent-output); outline-offset: 1px; }
+.layerSummary:focus-visible { outline: 2px solid var(--accent-ui); outline-offset: 1px; }
 
 .layerLabel {
   color: var(--text-secondary);
@@ -1100,7 +1100,7 @@
 
 .rangeInput {
   width: 100%;
-  accent-color: var(--accent-output);
+  accent-color: var(--accent-ui);
 }
 
 .rangeValue {
@@ -1229,7 +1229,7 @@
 }
 .noteWarn { color: var(--paint-ffcc00); }
 .linkBtn {
-  background: none; border: none; color: var(--accent-output);
+  background: none; border: none; color: var(--accent-ui);
   cursor: pointer; text-decoration: underline; font-size: inherit; padding: 0;
 }
 .linkBtn:disabled { opacity: 0.4; cursor: not-allowed; text-decoration: none; }
@@ -1315,7 +1315,7 @@
   text-align: center;
   font-size: var(--fs-body);
   font-weight: 700;
-  color: var(--accent-output);
+  color: var(--accent-ui);
   letter-spacing: 0.04em;
 }
 
@@ -1443,20 +1443,20 @@
   padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 0.75);
   background: none;
   border: 0;
-  color: var(--accent-output);
+  color: var(--accent-ui);
   font-size: var(--fs-ui);
   font-weight: 600;
   text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--accent-output) 52%, transparent);
+  text-decoration-color: color-mix(in srgb, var(--accent-ui) 52%, transparent);
   text-underline-offset: 3px;
   cursor: pointer;
 }
 .consoleCopyBtn:hover:not(:disabled) {
-  color: color-mix(in srgb, var(--accent-output) 70%, white);
+  color: color-mix(in srgb, var(--accent-ui) 70%, white);
   text-decoration-color: currentColor;
 }
 .consoleCopyBtn:focus-visible {
-  outline: 2px solid var(--accent-output);
+  outline: 2px solid var(--accent-ui);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -1615,6 +1615,6 @@
   cursor: pointer;
   user-select: none;
 }
-.cardReaderRow input { cursor: pointer; accent-color: var(--accent-output); }
+.cardReaderRow input { cursor: pointer; accent-color: var(--accent-ui); }
 .cardReaderRow em { font-style: normal; opacity: 0.65; }
 .cardReaderRow:hover { color: var(--text-primary); }

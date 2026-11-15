@@ -13,8 +13,8 @@
 }
 
 .itemMenuButton {
-  border: 1px solid color-mix(in srgb, var(--accent-output) 40%, var(--line));
-  background: color-mix(in srgb, var(--bg-panel) 82%, var(--accent-output) 10%);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 40%, var(--line));
+  background: color-mix(in srgb, var(--bg-panel) 82%, var(--accent-ui) 10%);
   color: var(--text-primary);
   border-radius: var(--radius-control);
   padding: var(--space-1) calc(var(--space-0) * 3.5);
@@ -24,7 +24,7 @@
 }
 
 .itemMenuButton:hover {
-  border-color: color-mix(in srgb, var(--accent-output) 65%, var(--line));
+  border-color: color-mix(in srgb, var(--accent-ui) 65%, var(--line));
 }
 
 /* The board strip sits above the stage in flow, so the bench shrinks under it
@@ -225,7 +225,7 @@
 
 .screenTarget rect:focus-visible {
   outline: none;
-  stroke: var(--accent-output);
+  stroke: var(--accent-ui);
   stroke-width: 6;
 }
 
@@ -495,7 +495,7 @@
 
 .viewControls button:hover:not(:disabled) {
   color: var(--text-primary);
-  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--line));
+  border-color: color-mix(in srgb, var(--accent-ui) 55%, var(--line));
 }
 
 .viewControls button:disabled {
@@ -533,7 +533,7 @@
 }
 
 .diagramLink:hover {
-  border-color: var(--accent-output);
+  border-color: var(--accent-ui);
 }
 
 .boardMenu {
@@ -585,8 +585,8 @@
 }
 
 .paneTabActive {
-  background: color-mix(in srgb, var(--bg-panel) 84%, var(--accent-output) 10%);
-  border-color: color-mix(in srgb, var(--accent-output) 42%, var(--divider));
+  background: color-mix(in srgb, var(--bg-panel) 84%, var(--accent-ui) 10%);
+  border-color: color-mix(in srgb, var(--accent-ui) 42%, var(--divider));
   color: var(--text-primary);
 }
 
@@ -664,7 +664,7 @@
   position: fixed;
   z-index: 1000;
   width: min(328px, calc(100vw - 32px));
-  border: 1px solid color-mix(in srgb, var(--accent-output) 42%, var(--line));
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 42%, var(--line));
   border-radius: 12px;
   background: var(--bg-panel);
   box-shadow: -14px 0 34px rgba(0, 0, 0, 0.34);
@@ -677,7 +677,7 @@
   justify-content: space-between;
   gap: calc(var(--space-0) * 3);
   padding: calc(var(--space-0) * 2.75) calc(var(--space-0) * 3) calc(var(--space-0) * 2.25);
-  border-bottom: 1px solid color-mix(in srgb, var(--accent-output) 24%, var(--divider));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-ui) 24%, var(--divider));
 }
 
 .inspectorHeader > div {
@@ -686,7 +686,7 @@
 }
 
 .inspectorHeader span {
-  color: var(--accent-output);
+  color: var(--accent-ui);
   font-family: var(--font-body);
   font-size: var(--fs-label);
   letter-spacing: 0.12em;
@@ -712,8 +712,8 @@
   cursor: pointer;
 }
 
-.inspectorClose:hover { color: var(--text-primary); border-color: var(--accent-output); }
-.inspectorClose:focus-visible { outline: 2px solid var(--accent-output); outline-offset: 2px; }
+.inspectorClose:hover { color: var(--text-primary); border-color: var(--accent-ui); }
+.inspectorClose:focus-visible { outline: 2px solid var(--accent-ui); outline-offset: 2px; }
 
 .inspectorBody {
   padding: var(--space-1) calc(var(--space-0) * 2.5) calc(var(--space-0) * 3);
@@ -825,6 +825,6 @@
 
 /* The output the side preview is currently showing. */
 .partSelected {
-  outline: 1px solid color-mix(in srgb, var(--accent-output) 70%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--accent-ui) 70%, transparent);
   outline-offset: 3px;
 }

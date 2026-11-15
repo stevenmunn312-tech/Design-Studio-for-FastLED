@@ -408,7 +408,7 @@
   align-items: center;
   gap: calc(var(--space-0) * 1.25);
   padding: calc(var(--space-0) * 0.75) calc(var(--space-0) * 2.25);
-  border: 1px solid rgba(255, 92, 92, 0.34);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 34%, transparent);
   border-radius: var(--radius-control);
   background: var(--bg-node);
   color: var(--text-primary);
@@ -418,7 +418,7 @@
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .recordBtn:hover {
-  border-color: rgba(255, 92, 92, 0.7);
+  border-color: color-mix(in srgb, var(--accent-ui) 70%, transparent);
   background: var(--bg-node-hover);
 }
 .recordBtn i,

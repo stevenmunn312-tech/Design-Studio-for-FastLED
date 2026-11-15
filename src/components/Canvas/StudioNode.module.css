@@ -863,7 +863,7 @@ span.connectionBlocked {
 .propRange {
   flex: 1 1 0;
   min-width: 0;
-  accent-color: var(--accent-output);
+  accent-color: var(--accent-ui);
   cursor: pointer;
 }
 

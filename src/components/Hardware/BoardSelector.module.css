@@ -38,16 +38,16 @@
 }
 
 .tab:hover {
-  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--line));
+  border-color: color-mix(in srgb, var(--accent-ui) 55%, var(--line));
 }
 
 .tab:focus-visible {
-  outline: 2px solid var(--accent-output);
+  outline: 2px solid var(--accent-ui);
   outline-offset: 1px;
 }
 
 .tabActive {
-  border-color: color-mix(in srgb, var(--accent-output) 70%, var(--line));
-  background: color-mix(in srgb, var(--bg-panel) 78%, var(--accent-output) 14%);
+  border-color: color-mix(in srgb, var(--accent-ui) 70%, var(--line));
+  background: color-mix(in srgb, var(--bg-panel) 78%, var(--accent-ui) 14%);
   color: var(--text-primary);
 }

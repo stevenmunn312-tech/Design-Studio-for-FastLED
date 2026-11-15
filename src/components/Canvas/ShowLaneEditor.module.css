@@ -108,7 +108,7 @@
   color: var(--text-secondary);
 }
 
-.scroll input { accent-color: var(--accent-show); }
+.scroll input { accent-color: var(--accent-ui); }
 
 /* ── Lanes ── */
 .lanesWrap {

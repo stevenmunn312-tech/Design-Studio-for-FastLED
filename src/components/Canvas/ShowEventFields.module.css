@@ -12,7 +12,7 @@
   font-size: var(--fs-label);
 }
 
-.field input[type='range'] { accent-color: var(--accent-show); min-width: 0; }
+.field input[type='range'] { accent-color: var(--accent-ui); min-width: 0; }
 
 .field select {
   grid-column: 2 / 4;

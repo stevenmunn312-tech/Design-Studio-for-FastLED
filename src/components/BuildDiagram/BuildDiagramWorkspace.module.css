@@ -81,12 +81,12 @@
 
 .sectionTab:hover {
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--accent-output) 12%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 12%, transparent);
 }
 
 .sectionTabActive {
-  border-color: color-mix(in srgb, var(--accent-output) 62%, var(--line));
-  background: color-mix(in srgb, var(--accent-output) 18%, var(--bg-panel));
+  border-color: color-mix(in srgb, var(--accent-ui) 62%, var(--line));
+  background: color-mix(in srgb, var(--accent-ui) 18%, var(--bg-panel));
   color: var(--text-primary);
 }
 
@@ -181,7 +181,7 @@
 .diagramCardActive,
 .hardwareRowActive .hardwareMain,
 .connectionRowActive {
-  border-color: color-mix(in srgb, var(--accent-output) 68%, var(--line));
+  border-color: color-mix(in srgb, var(--accent-ui) 68%, var(--line));
 }
 
 .optionTitle,
@@ -221,7 +221,7 @@
 .progressPill {
   padding: calc(var(--space-0) * 1.5) calc(var(--space-0) * 2.5);
   border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--accent-output) 18%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 18%, transparent);
   color: var(--text-primary);
   font-size: 0.85rem;
 }
@@ -280,9 +280,9 @@
 
 .iconButton:hover,
 .iconButtonActive {
-  border-color: var(--accent-output);
+  border-color: var(--accent-ui);
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--accent-output) 16%, var(--bg-panel));
+  background: color-mix(in srgb, var(--accent-ui) 16%, var(--bg-panel));
 }
 
 .iconButtonDone {
@@ -505,7 +505,7 @@
 }
 
 .wirePathActive {
-  stroke: color-mix(in srgb, var(--accent-output) 78%, white 10%);
+  stroke: color-mix(in srgb, var(--accent-ui) 78%, white 10%);
 }
 
 .wirePathDim {
@@ -592,7 +592,7 @@
 }
 
 .controllerPinSelected {
-  border-color: color-mix(in srgb, var(--accent-output) 70%, transparent);
+  border-color: color-mix(in srgb, var(--accent-ui) 70%, transparent);
   color: var(--text-primary);
   font-weight: 700;
 }
@@ -687,7 +687,7 @@
 }
 
 .exportModeButtonActive {
-  border-color: color-mix(in srgb, var(--accent-output) 68%, var(--line));
+  border-color: color-mix(in srgb, var(--accent-ui) 68%, var(--line));
   color: var(--text-primary);
 }
 

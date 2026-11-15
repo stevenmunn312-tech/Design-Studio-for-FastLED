@@ -54,7 +54,7 @@
 
 .stats span {
   padding: calc(var(--space-0) * 0.75) calc(var(--space-0) * 1.5);
-  border: 1px solid color-mix(in srgb, var(--accent-output) 24%, var(--line));
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 24%, var(--line));
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--bg-primary) 88%, black);
 }
@@ -85,7 +85,7 @@
 }
 
 .search:focus {
-  border-color: color-mix(in srgb, var(--accent-output) 58%, var(--line));
+  border-color: color-mix(in srgb, var(--accent-ui) 58%, var(--line));
 }
 
 .search::placeholder {
@@ -119,7 +119,7 @@
 }
 
 .categoryHeader:hover {
-  background: color-mix(in srgb, var(--accent-output) 7%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 7%, transparent);
 }
 
 .categoryCopy,
@@ -155,9 +155,9 @@
 .categoryCount {
   min-width: 19px;
   padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.25);
-  border: 1px solid color-mix(in srgb, var(--accent-output) 26%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 26%, transparent);
   border-radius: var(--radius-control);
-  color: var(--accent-output);
+  color: var(--accent-ui);
   font-family: var(--font-body);
   font-size: var(--fs-label);
   text-align: center;
@@ -214,8 +214,8 @@
 
 .item:hover:not(:disabled),
 .item:focus-visible {
-  border-color: color-mix(in srgb, var(--accent-output) 52%, var(--line));
-  background: color-mix(in srgb, var(--accent-output) 10%, var(--bg-primary));
+  border-color: color-mix(in srgb, var(--accent-ui) 52%, var(--line));
+  background: color-mix(in srgb, var(--accent-ui) 10%, var(--bg-primary));
   outline: none;
 }
 
@@ -247,7 +247,7 @@
 }
 
 .fallback {
-  color: color-mix(in srgb, var(--accent-output) 78%, white);
+  color: color-mix(in srgb, var(--accent-ui) 78%, white);
   font-family: var(--font-body);
   font-size: 22px;
   letter-spacing: -2px;

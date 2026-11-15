@@ -9,7 +9,7 @@
   width: 100%;
   min-width: 0;
   padding: calc(var(--space-0) * 1.5) var(--space-1);
-  border: 1px solid color-mix(in srgb, var(--accent-output) 28%, var(--line));
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 28%, var(--line));
   border-radius: 5px;
   background: var(--bg-primary);
   color: var(--text-primary);
@@ -21,7 +21,7 @@
 .select:focus-visible,
 .input:focus-visible,
 .knownButton:focus-visible {
-  outline: 2px solid var(--accent-output);
+  outline: 2px solid var(--accent-ui);
   outline-offset: 2px;
 }
 
@@ -39,7 +39,7 @@
   padding: calc(var(--space-0) * 1.25) var(--space-1);
   border: 1px solid var(--divider);
   border-radius: 5px;
-  background: color-mix(in srgb, var(--bg-panel) 88%, var(--accent-output) 8%);
+  background: color-mix(in srgb, var(--bg-panel) 88%, var(--accent-ui) 8%);
   color: var(--text-secondary);
   font: inherit;
   font-size: var(--fs-ui);
