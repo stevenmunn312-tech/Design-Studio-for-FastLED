@@ -8,8 +8,11 @@ still move quickly.
 
 `main` is the single development line toward LTS v1.0.0. On 2026-11-09 it was
 pointed at the former `Hardware` breaking-development branch, which is now
-retired; the last public-beta state is the `beta-final` tag. Before v1 ships,
-`main` does not require pre-1.0 save compatibility or migrations. The released v1 format
+retired; the last state of the 0.7 public-beta line is the `beta-final` tag.
+`v0.8.0` (2026-11-16) is the first public release cut from `main`; it does not
+migrate 0.7 saves. Before v1 ships, `main` does not require pre-1.0 save
+compatibility or migrations, and later 0.x releases may change the format
+again. The released v1 format
 becomes the new compatibility baseline. [Root todo HW-18](../../todo.md) tracks
 the format/support freeze after the control and display workflow stabilizes.
 

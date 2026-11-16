@@ -1,7 +1,7 @@
 # Documentation index
 
 This checkout documents `main`, the active development line toward v1.0.0.
-The last public beta is the `beta-final` tag; see
+The current public release is `v0.8.0`, cut from `main` on 2026-11-16; see
 [versioning and releases](release/versioning-and-releases.md) for the history. [README](../README.md) introduces the product and
 [CONTRIBUTING](../CONTRIBUTING.md) explains the contribution workflow.
 

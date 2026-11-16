@@ -10,6 +10,18 @@ Design Studio for FastLED is a live, node-based creative environment for LED str
 
 ![A complete Field Warp patch running in Design Studio for FastLED](docs/images/readme/design-studio-overview.webp)
 
+## What's new in 0.8
+
+Version 0.8.0 (2026-11-16) is the first release built from the line heading to v1.0. Highlights:
+
+- **A hardware workbench.** Pick the exact board, add the parts you own from the Hardware shelf, and get filtered pin pickers, bus-aware checks, power and fuse sizing, and a printable Build Diagram. A project can hold several boards.
+- **Displays and screens.** OLED, TFT, segment and MAX7219 displays with ready-made layouts, plus touch-screen designs with sliders, dials, charts, spectrum views and text entry. Web Remote serves a phone control page from an ESP32.
+- **Music everywhere.** The Music Player plays from SD, internet radio or Bluetooth, paces itself to the song's energy, and drives a Stereo VU Meter fixture. Song analysis now carries FastLED's 16 equalizer bins per frame.
+- **More to make with.** New pattern, field, palette and logic nodes, 100 bundled audio-reactive patterns, Pattern Insights cost estimates, library bundles for sharing, and new studio themes.
+- **A native Windows window.** The Windows desktop app opens in its own window instead of a browser tab.
+
+Projects saved by 0.7 or earlier are not migrated. Retired node types and properties are no longer recognised, so an older project can lose settings or show unsupported nodes; keep a copy of anything important before opening it in 0.8. See [Versioning and releases](docs/release/versioning-and-releases.md) and the [changelog](CHANGELOG.md).
+
 ## From idea to LEDs—without breaking your flow
 
 | Create | See | Perform | Deploy |
@@ -206,6 +218,10 @@ These builds have been tested end to end on real hardware, so you can start from
 | ESP8266 · 10×1 WS2812B strip · Windows 11 / Chrome · `arduino-cli` | Normal upload, Flash Wiring Test, and Live Stream |
 | Classic ESP32 Generic DevKit 38-pin · 16×16 WS2812B matrix · Windows 11 / Chrome · `fbuild` 2.5.16 | Normal live-graph upload |
 | Classic ESP-32D DevKit v1 30-pin · DS3231 · WS2812B matrix · Windows 11 / Chrome · `fbuild` | Set RTC from Studio, read it in firmware, and render Clock Display |
+| ESP32-S3 with OPI PSRAM · 60×1 and 65×1 WS2812B strings · Windows 11 / Chrome · `fbuild` 2.5.18 | Normal upload and Live Stream, with and without an INMP441 microphone driving the audio response |
+| ESP32-S3 · microSD · MAX98357A · 16×16 matrix plus a Stereo VU Meter pair · Windows 11 / Chrome · `fbuild` 2.5.21 | SD Music Player with all twelve VU visualizations, a fifteen-minute soak and power draw at the cap |
+| ESP32-S3 N16R8 · LDR light sensor · 32×1 WS2812B string · Windows 11 / Chrome · `fbuild` 2.5.21 | Light Sensor driving LED brightness |
+| ESP32-S3 · rotary encoder · ST7789 panel · 16×16 matrix · Windows 11 / Chrome · `arduino-cli` | Encoder choosing the slideshow pattern, with the panel naming it |
 
 The full, dated list is the [Beta support matrix](docs/release/beta-support-matrix.md). Other boards, parts and layouts are built to work too; they just haven't been bench-tested by this project yet. If something doesn't behave the way you expect, please [open a GitHub issue](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues): if it's a bug we'll fix it, and your build may join the tested list.
 

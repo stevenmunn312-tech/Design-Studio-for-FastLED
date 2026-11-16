@@ -7,6 +7,14 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-16
+
+The first release from `main`, the line heading to v1.0. Saves from 0.7 and
+earlier are not migrated: the retired node types, properties and workspace
+shapes listed in [versioning and releases](docs/release/versioning-and-releases.md)
+are no longer recognised, so an older project can lose settings or show
+unsupported nodes.
+
 ### Added
 
 - Four more studio themes in View → Theme: Midnight (true black for dark rooms
