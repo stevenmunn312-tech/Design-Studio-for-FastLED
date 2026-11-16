@@ -1058,17 +1058,18 @@ backend/.venv/Scripts/python scripts/compile-fixtures/fbuild-probes.py
 PRESENT means the build fails as this runbook describes, GONE that the
 workaround can be retired, CHANGED that it fails another way. `--fbuild PATH`
 probes another binary, such as a build of upstream `main`, without moving the
-pin. Results on 2.5.51 (2026-11-12) and on unreleased `main` at `bc50602e`
-(2.5.52, built from source on 2026-11-17):
+pin. Results on 2.5.51 (2026-11-12) and on unreleased `main` at `c0ea467f`
+(2.5.52, built from source on 2026-11-17; its `--version` hash can lag the
+checkout, so record the commit from Git):
 
-| Probe | Where | 2.5.51 | `main` `bc50602e` |
+| Probe | Where | 2.5.51 | `main` `c0ea467f` |
 | --- | --- | --- | --- |
 | `overflow-no-size` | §5, #1658 | GONE: a failed link now prints an overflow line | GONE |
 | `esp8266-wifi-link` | §15, #1994 | PRESENT | GONE |
 | `wifis3` | §16, #2020 | PRESENT | GONE |
 | `nrf52-lto` | §17, #2016 | PRESENT | PRESENT |
 | `pico-w` | Boards mapped, #2014 | PRESENT | GONE |
-| `r4-minima` | Boards mapped, #2015 | PRESENT | PRESENT |
+| `r4-minima` | Boards mapped, #2015 | PRESENT | GONE |
 | `xiaoble` | Boards mapped, #2017 | PRESENT (`variant.h`, with the id `xiaoble_adafruit`) | PRESENT |
 | `lib-deps-git-ref` | §1, #2018 | PRESENT | PRESENT |
 | `lib-deps-registry` | §1, #2019 | PRESENT | PRESENT |
