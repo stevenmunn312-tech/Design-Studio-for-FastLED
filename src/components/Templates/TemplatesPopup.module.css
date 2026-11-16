@@ -83,7 +83,7 @@
   padding: 0;
   border: none;
   background: none;
-  color: var(--accent-pattern);
+  color: var(--accent-ui);
   font: inherit;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -91,7 +91,7 @@
 }
 
 .guideLink:focus-visible {
-  outline: 2px solid var(--accent-pattern);
+  outline: 2px solid var(--accent-ui);
   outline-offset: 2px;
 }
 
@@ -100,7 +100,7 @@
   border: 1px solid color-mix(in srgb, var(--accent-ui) 18%, transparent);
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--accent-ui) 8%, transparent);
-  color: var(--paint-a6ebff);
+  color: var(--accent-ui);
   font-family: var(--font-body);
   font-size: var(--fs-label);
 }
@@ -148,15 +148,15 @@
 
 .featuredCard:focus-visible,
 .card:focus-visible {
-  outline: 2px solid var(--accent-pattern);
+  outline: 2px solid var(--accent-ui);
   outline-offset: 2px;
 }
 
 .startHereBadge {
   padding: calc(var(--space-0) * 0.5) var(--space-1);
   border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--accent-pattern) 18%, transparent);
-  color: var(--accent-pattern);
+  background: color-mix(in srgb, var(--accent-ui) 18%, transparent);
+  color: var(--accent-ui);
   font-family: var(--font-body);
   font-size: var(--fs-label);
 }
@@ -165,7 +165,7 @@
   margin: auto calc(var(--space-0) * 3.5) calc(var(--space-0) * 3.5);
   padding: var(--space-1) calc(var(--space-0) * 3);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--accent-pattern) 20%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 20%, transparent);
   color: var(--text-primary);
   text-align: center;
 }
@@ -196,7 +196,7 @@
 }
 
 .guide dt {
-  color: var(--paint-a6ebff);
+  color: var(--accent-ui);
   font-family: var(--font-body);
   font-size: var(--fs-label);
   padding-top: calc(var(--space-0) * 0.5);
@@ -210,7 +210,7 @@
 .sectionHeading {
   grid-column: 1 / -1;
   margin: calc(var(--space-0) * 1.5) 0 calc(var(--space-0) * -0.5);
-  color: var(--paint-a6ebff);
+  color: var(--accent-ui);
   font-family: var(--font-body);
   font-size: var(--fs-label);
   font-weight: 700;
