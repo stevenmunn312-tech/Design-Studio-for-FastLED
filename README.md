@@ -39,7 +39,7 @@ What makes the Studio useful:
 - **Hardware-aware guardrails.** The Checks drawer, filtered GPIO pickers, wiring diagnostics, board compatibility checks, power warnings, and measured flash/RAM capacity catch problems before upload.
 - **A plan for the physical build.** The Build Diagram turns the graph into wiring: a scale controller with its real pin map, power distribution and fuses, exportable parts and connection lists, and printable assembly sheets.
 - **Shareable results.** Record the preview as a PNG, GIF, or WebM clip straight from the workspace.
-- **Your work stays portable.** Use named projects, Project Files, Graph JSON, share links, recovery snapshots, and standalone `.ino` exports.
+- **Your work stays portable.** Use named projects, Project Files, share links, recovery snapshots, and standalone `.ino` exports.
 
 ## Start with a spark, not an empty canvas
 
@@ -200,7 +200,6 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 
 - **Project** — the everyday named, autosaved workspace.
 - **Project File** — a portable full workspace created with **Save Project File As**.
-- **Graph JSON** — raw graph interchange.
 - **Share Link** — a URL containing the workspace.
 - **Recovery Snapshot** — a recent browser-local restore point.
 - **Pattern** — a reusable saved Group in the Pattern Library.

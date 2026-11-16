@@ -170,6 +170,13 @@ describe('parseLibraryBundle', () => {
     expect(parsed.bundle?.patterns?.[0]).toMatchObject({ id: 'pat-bare', name: 'Glow' })
   })
 
+  it('reads a pattern file in the current format and refuses one in a later format', () => {
+    const current = { ...savedPattern('pat-v1', 'Glow'), formatVersion: 1 }
+    expect(parseLibraryBundle(JSON.stringify(current)).bundle?.patterns).toHaveLength(1)
+    const later = { ...savedPattern('pat-v2', 'Glow'), formatVersion: 2 }
+    expect(parseLibraryBundle(JSON.stringify(later)).error).toMatch(/newer Design Studio \(format 2/)
+  })
+
   it('reads a community patternJson with nested groups', () => {
     const community = {
       name: 'Shared',

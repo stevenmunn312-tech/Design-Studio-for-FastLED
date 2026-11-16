@@ -13,7 +13,6 @@ import { SHARE_URL_WARN_BYTES } from '../../../utils/shareGraph'
 import { useUploadStore } from '../../../state/upload/uploadStore'
 import { MIC_NO_BOARD_MESSAGE, micUnsupportedMessage } from '../../../build/pins/micPinDefaults'
 import { BOARD_PROFILES } from '../../../build/boards/boardProfiles'
-import { createDisplayDocument } from '../../../state/displays/displayEditor'
 import { usePerformanceDeckSession } from '../../../state/player/performanceDeckSessionStore'
 import { usePatternLibrary, type SavedPattern } from '../../../state/patterns/patternLibrary'
 import { exportLibraryBundle, bundledPatternFromLibrary } from '../../../state/library/libraryBundle'
@@ -680,37 +679,6 @@ describe('MenuBar file menu', () => {
     } finally {
       delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker
     }
-  })
-
-  it('imports custom display documents with Graph JSON and normalizes their asset ids', async () => {
-    const displayDocument = createDisplayDocument('screen')
-    displayDocument.widgets = [{
-      id: 'art', type: 'Image/Icon', label: 'Artwork',
-      bounds: { x: 0, y: 0, width: 48, height: 48 },
-      properties: { assetId: 'icon:power', tint: true },
-    }]
-    const imported = {
-      nodes: [{
-        id: 'screen', type: 'studioNode', position: { x: 0, y: 0 },
-        data: { label: 'Display', nodeType: 'TransportDisplay', category: 'output', properties: { displayId: 'screen' }, inputs: [], outputs: [] },
-      }],
-      edges: [],
-      displayDocuments: { arbitraryKey: displayDocument },
-    }
-
-    const { container, getByRole, getByText } = render(<MenuBar />)
-    const input = container.querySelector<HTMLInputElement>('input[accept=".json"]')
-    expect(input).toBeTruthy()
-    fireEvent.click(getByRole('button', { name: 'File menu' }))
-    fireEvent.click(getByText('Import Graph JSON…'))
-    fireEvent.change(input!, {
-      target: { files: [new File([JSON.stringify(imported)], 'display.json', { type: 'application/json' })] },
-    })
-
-    await waitFor(() => expect(useGraphStore.getState().displayDocuments.screen).toMatchObject({
-      displayId: 'screen',
-      widgets: [expect.objectContaining({ properties: { assetId: 'icon:power', tint: true } })],
-    }))
   })
 
   it('supports cancel before opening a recent project', () => {

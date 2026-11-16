@@ -4,6 +4,7 @@ import { cloneWorkspace } from '../state/workspacePersistence'
 import { normalizeDisplayDocuments } from '../state/displays/displayDocument'
 import { normalizeProjectUploadTargets } from '../state/uploadTargets'
 import { isWorkspacePayload, sanitizeWorkspacePayload } from './workspacePayload'
+import { NewerSaveFormatError, newerSaveFormat, withSaveFormat } from '../state/saveFormat'
 
 interface FilePickerAcceptType {
   description?: string
@@ -121,7 +122,7 @@ export function buildProjectSnapshot(
 }
 
 export function serializeProject(project: SavedProject): string {
-  return JSON.stringify(project, null, 2)
+  return JSON.stringify(withSaveFormat(project), null, 2)
 }
 
 export interface ParsedProjectFile {
@@ -132,43 +133,33 @@ export interface ParsedProjectFile {
 
 export function parseProjectFile(text: string, fallbackName: string): ParsedProjectFile {
   const parsed = JSON.parse(text) as unknown
-  const derivedName = trimProjectName(fallbackName) || 'Imported Project'
-  const now = Date.now()
-
-  // Never trust a project file's own `trusted` claim — force it false
-  // regardless of what the file says, so imported content can't self-declare
-  // its way past the trust gate (see todo.md's P0 trust item).
-  const accept = (workspace: unknown, project: Omit<SavedProject, 'workspace'>): ParsedProjectFile => {
-    if (!isWorkspacePayload(workspace)) throw new Error('Invalid project file')
-    const sanitized = sanitizeWorkspacePayload(workspace)
-    if (!sanitized) throw new Error('Invalid project file')
-    return {
-      dropped: sanitized.dropped,
-      project: { ...project, workspace: normalizeImportedWorkspace(sanitized.workspace) },
-    }
-  }
-
-  if (isWorkspacePayload(parsed)) {
-    return accept(parsed, {
-      id: makeProjectId(),
-      name: derivedName,
-      createdAt: now,
-      updatedAt: now,
-    })
-  }
-
-  if (!parsed || typeof parsed !== 'object') {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error('Invalid project file')
   }
+  // Refused before sanitizing: sanitizing would drop what a later format
+  // added, and the next autosave would write the loss back (saveFormat.ts).
+  const newer = newerSaveFormat(parsed)
+  if (newer !== null) throw new NewerSaveFormatError('project', newer)
 
   const candidate = parsed as Partial<SavedProject> & { workspace?: unknown }
-  return accept(candidate.workspace, {
-    id: typeof candidate.id === 'string' && candidate.id.trim() ? candidate.id : makeProjectId(),
-    name: trimProjectName(typeof candidate.name === 'string' ? candidate.name : derivedName) || derivedName,
-    createdAt: typeof candidate.createdAt === 'number' ? candidate.createdAt : now,
-    updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : now,
-    ...normalizeProjectUploadTargets(candidate),
-  })
+  if (!isWorkspacePayload(candidate.workspace)) throw new Error('Invalid project file')
+  const sanitized = sanitizeWorkspacePayload(candidate.workspace)
+  if (!sanitized) throw new Error('Invalid project file')
+  const derivedName = trimProjectName(fallbackName) || 'Imported Project'
+  const now = Date.now()
+  return {
+    dropped: sanitized.dropped,
+    project: {
+      id: typeof candidate.id === 'string' && candidate.id.trim() ? candidate.id : makeProjectId(),
+      name: trimProjectName(typeof candidate.name === 'string' ? candidate.name : derivedName) || derivedName,
+      createdAt: typeof candidate.createdAt === 'number' ? candidate.createdAt : now,
+      updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : now,
+      ...normalizeProjectUploadTargets(candidate),
+      // Never trust a project file's own `trusted` claim: imported content
+      // must not self-declare its way past the trust gate.
+      workspace: normalizeImportedWorkspace(sanitized.workspace),
+    },
+  }
 }
 
 export async function saveProjectWithNativePicker(project: SavedProject): Promise<SavedProject | null> {

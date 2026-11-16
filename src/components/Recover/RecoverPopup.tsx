@@ -50,7 +50,7 @@ export default function RecoverPopup() {
         </div>
         <div className={styles.hint}>
           Rolling recovery snapshots taken periodically while you work — a fallback for when undo
-          history has already been cleared (for example after a reload or a bad Graph JSON import).
+          history has already been cleared (for example after a reload or a bad project import).
         </div>
         {snapshots.length === 0 ? (
           <div className={styles.empty}>No recovery snapshots yet — they&apos;re taken automatically every couple of minutes while you have nodes on the canvas.</div>

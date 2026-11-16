@@ -12,6 +12,8 @@ import type { GroupRegistry } from '../graphEvaluator'
 import { listPatterns, savePatternToDisk, deletePatternFromDisk } from '../../utils/backendClient'
 import { patternFormTags, type PatternFormTag } from './patternTags'
 import { isContentKnown } from './patternTrust'
+import { readableSaves } from '../saveFormat'
+import { useUiStore } from '../uiStore'
 import {
   AUDIO_REACTIVE_CATEGORY_ID,
   BUNDLED_PATTERNS,
@@ -67,6 +69,9 @@ export interface SavedPattern {
   /** Set on a pattern that came in through a file, pasted JSON or a share link. */
   origin?: PatternOrigin
   importedAt?: number
+  /** The save format the file was written in; stamped on every write. See
+   *  saveFormat.ts. */
+  formatVersion?: number
 }
 
 export interface PatternCategory {
@@ -371,8 +376,17 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
     // among them was saved while the request was in flight, so the snapshot
     // cannot list it even once its own write has landed and left the journal.
     const knownIds = new Set(localPatterns().map((pattern) => pattern.id))
-    const disk = await listPatterns()
-    if (!disk) return  // helper offline — keep the localStorage copy as-is
+    const listed = await listPatterns()
+    if (!listed) return  // helper offline — keep the localStorage copy as-is
+    // A file a newer version wrote is left out, as if absent: loading it
+    // would drop what this version does not know (saveFormat.ts).
+    const { readable: disk, newer } = readableSaves(listed)
+    if (newer > 0) {
+      useUiStore.getState().setStatus(
+        `${newer} pattern${newer === 1 ? ' was' : 's were'} saved by a newer Design Studio and ${newer === 1 ? 'is' : 'are'} not shown. Update Design Studio to use ${newer === 1 ? 'it' : 'them'}.`,
+        'info',
+      )
+    }
 
     const initialJournal = loadSyncJournal()
     const deleteIds = new Set(initialJournal.pendingDeletes)

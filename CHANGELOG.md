@@ -7,6 +7,18 @@ versioning (`0.y.z`) until the first stable release.
 
 ## [Unreleased]
 
+### Added
+
+- Project and pattern files record their save format version. A file saved by
+  a newer Design Studio is refused with a message instead of opening with its
+  newer parts dropped, and the helper will not overwrite it from an older app.
+
+### Removed
+
+- File → Import Graph JSON and Export Graph JSON. Save Project File As and
+  Open Project File cover the same workspace; a bare graph JSON file no longer
+  opens as a project.
+
 ## [0.8.0] - 2026-11-16
 
 The first release from `main`, the line heading to v1.0. Saves from 0.7 and

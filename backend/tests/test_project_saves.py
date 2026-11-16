@@ -228,3 +228,35 @@ def test_overlapping_pattern_renames_leave_exactly_one_file(tmp_path, monkeypatc
     files = [f for f in tmp_path.iterdir() if f.suffix == ".json"]
     assert len(files) == 1
     assert json.loads(files[0].read_text(encoding="utf-8"))["id"] == "p-1"
+
+
+def test_older_format_cannot_overwrite_a_newer_project_file(tmp_path, monkeypatch):
+    # An older app loads a newer file without the parts it does not know, so
+    # its save would write the loss back (src/state/saveFormat.ts).
+    monkeypatch.setattr(storage, "_PROJECTS_DIR", tmp_path)
+    newer = {**project(23, 500), "formatVersion": 2, "laterField": True}
+    assert storage.save_project(newer)["ok"]
+    result = storage.save_project({**project(3, 900), "formatVersion": 1, "baseUpdatedAt": 500})
+    assert result == {"ok": False, "newerFormat": True, "file": result["file"]}
+    files = list(tmp_path.glob("*.json"))
+    assert len(files) == 1
+    assert json.loads(files[0].read_text()) == newer
+
+
+def test_same_or_later_format_still_saves_over_an_unversioned_project(tmp_path, monkeypatch):
+    monkeypatch.setattr(storage, "_PROJECTS_DIR", tmp_path)
+    assert storage.save_project(project(3, 500))["ok"]
+    assert storage.save_project({**project(23, 900), "formatVersion": 1, "baseUpdatedAt": 500})["ok"]
+    files = list(tmp_path.glob("*.json"))
+    assert json.loads(files[0].read_text())["formatVersion"] == 1
+
+
+def test_older_format_cannot_overwrite_a_newer_pattern_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(storage, "_PATTERNS_DIR", tmp_path)
+    newer = pattern("p-1", "Pulse", formatVersion=2)
+    assert storage.save_pattern(newer)["ok"]
+    result = storage.save_pattern(pattern("p-1", "Pulse renamed", formatVersion=1))
+    assert result == {"ok": False, "newerFormat": True, "file": result["file"]}
+    files = list(tmp_path.glob("*.json"))
+    assert len(files) == 1
+    assert json.loads(files[0].read_text()) == newer

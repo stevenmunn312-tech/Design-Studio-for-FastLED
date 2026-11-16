@@ -7,6 +7,7 @@
 import { splitSketchBundle } from '../codegen/sketchBundle'
 import type { SavedPattern } from '../state/patterns/patternLibrary'
 import type { SavedProject } from '../state/projectStore'
+import { withSaveFormat } from '../state/saveFormat'
 
 const ENV_URL = (import.meta.env as Record<string, string | undefined>).VITE_BACKEND_URL
 export const BACKEND_URL = (ENV_URL ?? 'http://localhost:8008').replace(/\/$/, '')
@@ -637,7 +638,7 @@ export async function savePatternToDisk(pattern: SavedPattern): Promise<boolean>
     const res = await fetch(`${BACKEND_URL}/api/patterns`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(pattern),
+      body: JSON.stringify(withSaveFormat(pattern)),
     })
     const data = await res.json()
     return !!data.ok
@@ -696,7 +697,7 @@ export async function saveProjectToDisk(
     const res = await fetch(`${BACKEND_URL}/api/projects`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(options.baseUpdatedAt === undefined ? project : { ...project, baseUpdatedAt: options.baseUpdatedAt }),
+      body: JSON.stringify(withSaveFormat(options.baseUpdatedAt === undefined ? project : { ...project, baseUpdatedAt: options.baseUpdatedAt })),
     })
     const data = await res.json()
     if (data.conflict) options.onConflict?.()
@@ -738,7 +739,7 @@ export async function saveProjectWithDialog(project: SavedProject): Promise<Save
     const res = await fetch(`${BACKEND_URL}/api/projects/dialog/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(project),
+      body: JSON.stringify(withSaveFormat(project)),
     })
     const data = await res.json() as { ok?: boolean; canceled?: boolean; project?: SavedProject }
     if (data.canceled) throw new DOMException('The user aborted a request.', 'AbortError')

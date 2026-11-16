@@ -6,7 +6,7 @@ import styles from './TrustBanner.module.css'
 
 /**
  * Persistent banner shown while the active workspace is untrusted (loaded
- * from a share link, an imported Graph JSON, or someone else's project file —
+ * from a share link or someone else's project file —
  * see the load paths that force `trusted: false` in graphStore.ts/App.tsx/
  * MenuBar.tsx) *and* the workspace actually holds something the trust flag
  * blocks. This is the workspace's single permission decision; load paths

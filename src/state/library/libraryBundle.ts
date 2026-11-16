@@ -33,6 +33,7 @@ import { NODE_LIBRARY } from '../nodeLibrary'
 import { resolveDefaultProperties } from '../nodeDefaults'
 import { sanitizeWorkspacePayload } from '../../utils/workspacePayload'
 import { SHARE_URL_WARN_BYTES } from '../../utils/shareGraph'
+import { newerSaveFormat, newerSaveFormatMessage } from '../saveFormat'
 
 export const LIBRARY_BUNDLE_KIND = 'fastled-library'
 export const LIBRARY_HASH_KEY = 'library'
@@ -392,6 +393,9 @@ export function parseLibraryBundle(input: unknown): LibraryBundleParse {
     return { bundle }
   }
 
+  // A pattern file from the Patterns folder carries the save format version.
+  const newer = newerSaveFormat(value)
+  if (newer !== null) return { error: newerSaveFormatMessage('pattern', newer) }
   const single = readBundledPattern(value)
   if (single) return { bundle: buildLibraryBundle({ patterns: [single] }) }
   return { error: 'Not a library bundle or pattern file' }

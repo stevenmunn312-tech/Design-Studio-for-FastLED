@@ -3,6 +3,7 @@ import { listProjects, saveProjectToDisk, deleteProjectFromDisk } from '../utils
 import type { PersistedWorkspace } from './workspacePersistence'
 import { blankWorkspace, cloneWorkspace } from './workspacePersistence'
 import { useUiStore } from './uiStore'
+import { readableSaves } from './saveFormat'
 import {
   normalizeProjectUploadTargets,
   normalizeUploadTarget,
@@ -41,6 +42,9 @@ export interface SavedProject {
    * 2", "Juggle 3"… behind every time a starter is tried.
    */
   draft?: true
+  /** The save format the file was written in; stamped on every write. See
+   *  saveFormat.ts. */
+  formatVersion?: number
 }
 
 interface PersistedState {
@@ -728,8 +732,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   refreshFromDisk: async () => {
     if (!DISK_SYNC) return []
-    const disk = await listProjects()
-    if (!disk) return []  // helper offline — keep the localStorage copy as-is
+    const listed = await listProjects()
+    if (!listed) return []  // helper offline — keep the localStorage copy as-is
+    // A file a newer version wrote is left out, as if absent: loading it
+    // would drop what this version does not know (saveFormat.ts).
+    const { readable: disk, newer } = readableSaves(listed)
+    if (newer > 0) {
+      useUiStore.getState().setStatus(
+        `${newer} project${newer === 1 ? ' was' : 's were'} saved by a newer Design Studio and ${newer === 1 ? 'is' : 'are'} not shown. Update Design Studio to open ${newer === 1 ? 'it' : 'them'}.`,
+        'info',
+      )
+    }
 
     // Replay unacknowledged deletions first, and filter the already-fetched
     // snapshot regardless of whether the retry succeeded, so a slow or failing

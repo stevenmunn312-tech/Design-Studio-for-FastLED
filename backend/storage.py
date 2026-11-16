@@ -188,6 +188,30 @@ def _projects_dir() -> Path:
     return _PROJECTS_DIR
 
 
+def _format_version(data) -> int:
+    """A save's format version (src/state/saveFormat.ts). A file written
+    before versions existed reads as 1."""
+    version = data.get("formatVersion") if isinstance(data, dict) else None
+    if isinstance(version, bool) or not isinstance(version, int):
+        return 1
+    return version
+
+
+def _newer_file_for_id(files, file_id: str, incoming: dict) -> Path | None:
+    """The file holding `file_id` when a newer app wrote it in a later format
+    than `incoming`. An older app must not overwrite it: it loaded the file
+    without the parts it does not know, so its save would drop them."""
+    for f in files:
+        try:
+            existing = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if (isinstance(existing, dict) and existing.get("id") == file_id
+                and _format_version(existing) > _format_version(incoming)):
+            return f
+    return None
+
+
 def _iter_pattern_files():
     try:
         return sorted(_patterns_dir().glob("*.json"))
@@ -437,6 +461,9 @@ def save_pattern(pattern: dict = Body(...)):
     if timestamp_error:
         return JSONResponse({"ok": False, "error": timestamp_error}, status_code=400)
     with _pattern_file_lock:
+        newer = _newer_file_for_id(_iter_pattern_files(), pid, pattern)
+        if newer:
+            return {"ok": False, "newerFormat": True, "file": newer.name}
         path = _unique_path(_sanitize_filename(name), pid)
         # Defence in depth: never write outside the patterns folder.
         if _patterns_dir().resolve() not in path.resolve().parents:
@@ -627,6 +654,9 @@ def save_project(project: dict = Body(...)):
     # `diskBase`). Bookkeeping for this check only, never written to the file.
     base = project.pop("baseUpdatedAt", None)
     with _project_file_lock:
+        newer = _newer_file_for_id(_iter_project_files(), pid, project)
+        if newer:
+            return {"ok": False, "newerFormat": True, "file": newer.name}
         # Autosave, explicit Save and pagehide can arrive out of order. Never
         # let an older snapshot replace the newer workspace already on disk.
         # Both sides go through `_timestamp` so a hand-edited file with a

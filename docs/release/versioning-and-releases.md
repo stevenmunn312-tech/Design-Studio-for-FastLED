@@ -16,6 +16,14 @@ again. The released v1 format
 becomes the new compatibility baseline. [Root todo HW-18](../../todo.md) tracks
 the format/support freeze after the control and display workflow stabilizes.
 
+Project and pattern files carry `formatVersion` (currently 1, from
+`src/state/saveFormat.ts`). A file without it predates versions and reads as 1.
+An app refuses a file with a higher number rather than dropping what it does
+not know: Open Project File and pattern import say so, the Projects and
+Patterns folders leave such files out of the list, and the helper will not
+overwrite one with an older format's save. Raise the number only together with
+a migration from the previous format.
+
 ### Pre-v1 cleanup record
 
 - 2026-09-24: removed the show-time bindings for pattern group inputs named
@@ -98,6 +106,10 @@ the format/support freeze after the control and display workflow stabilizes.
   saved graphs, shelf seeds and Help examples were converted (saved values
   halved, wired ranges halved or a Math ×0.5 added), and render the same
   frames as before.
+- 2026-11-17: removed File → Import Graph JSON and Export Graph JSON. A bare
+  workspace file is no longer a save shape: Open Project File reads only the
+  project format, which Save Project File As writes. Project and pattern files
+  gained `formatVersion: 1`.
 
 ## Version scheme
 

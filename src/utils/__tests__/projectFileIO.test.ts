@@ -1,18 +1,18 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { openProjectWithNativePicker, parseProjectFile, serializeProject } from '../projectFileIO'
 import { DEFAULT_DISPLAY_THEME, type DisplayDocument } from '../../state/displays/displayDocument'
+import { SAVE_FORMAT_VERSION } from '../../state/saveFormat'
+
+/** A project file around `workspace`. */
+function projectText(workspace: Record<string, unknown>, extra: Record<string, unknown> = {}): string {
+  return JSON.stringify({ id: 'proj-1', name: 'Rig', createdAt: 0, updatedAt: 0, workspace, ...extra })
+}
 
 // todo.md's P0 trust-boundary item: a project file must never be able to
 // self-declare its way past the trust gate by setting `trusted: true` in its
 // own JSON — parseProjectFile forces `trusted: false` unconditionally on
 // every project file it parses, regardless of what the file claims.
 describe('parseProjectFile — trust boundary', () => {
-  it('forces trusted:false on a bare-workspace file, even if the file claims trusted:true', () => {
-    const text = JSON.stringify({ nodes: [], edges: [], trusted: true })
-    const { project } = parseProjectFile(text, 'fallback')
-    expect(project.workspace.trusted).toBe(false)
-  })
-
   it('forces trusted:false on a full SavedProject file, even if the file claims trusted:true', () => {
     const text = JSON.stringify({
       id: 'proj-1',
@@ -25,14 +25,14 @@ describe('parseProjectFile — trust boundary', () => {
     expect(project.workspace.trusted).toBe(false)
   })
 
-  it('a bare-workspace file with no trusted field at all also comes back untrusted', () => {
-    const text = JSON.stringify({ nodes: [], edges: [] })
+  it('a project file with no trusted field at all also comes back untrusted', () => {
+    const text = projectText({ nodes: [], edges: [] })
     const { project } = parseProjectFile(text, 'fallback')
     expect(project.workspace.trusted).toBe(false)
   })
 
   it('keeps a sound file when a node is missing data, and counts what it drops', () => {
-    const text = JSON.stringify({
+    const text = projectText({
       nodes: [
         { id: 'ok', data: { nodeType: 'SolidColor' } },
         { id: 'broken' },
@@ -83,7 +83,7 @@ describe('parseProjectFile — display document boundary', () => {
   })
 
   it('normalizes imported display documents and drops invalid entries', () => {
-    const text = JSON.stringify({
+    const text = projectText({
       nodes: [], edges: [],
       displayDocuments: {
         arbitraryKey: {
@@ -109,7 +109,7 @@ describe('parseProjectFile — display document boundary', () => {
   })
 
   it('loads a missing registry as empty when the graph store consumes it', () => {
-    const { project } = parseProjectFile(JSON.stringify({ nodes: [], edges: [] }), 'fallback')
+    const { project } = parseProjectFile(projectText({ nodes: [], edges: [] }), 'fallback')
     expect(project.workspace.displayDocuments).toEqual({})
   })
 })
@@ -146,6 +146,27 @@ describe('parseProjectFile — upload targets', () => {
     const { project } = parseProjectFile(file({ uploadTargets: { 'board-root': primary, 'board-2': second } }), 'fallback')
     const again = parseProjectFile(serializeProject(project), 'fallback').project
     expect(again.uploadTargets).toEqual({ 'board-root': primary, 'board-2': second })
+  })
+})
+
+describe('parseProjectFile — save format version', () => {
+  it('writes the format version into every serialized project', () => {
+    const text = serializeProject({ id: 'p', name: 'P', createdAt: 0, updatedAt: 0, workspace: { nodes: [], edges: [] } })
+    expect(JSON.parse(text).formatVersion).toBe(SAVE_FORMAT_VERSION)
+  })
+
+  it('opens a file from before versions and one in the current format', () => {
+    expect(parseProjectFile(projectText({ nodes: [], edges: [] }), 'f').project.name).toBe('Rig')
+    expect(parseProjectFile(projectText({ nodes: [], edges: [] }, { formatVersion: SAVE_FORMAT_VERSION }), 'f').project.name).toBe('Rig')
+  })
+
+  it('refuses a file written in a later format instead of dropping what it does not know', () => {
+    const text = projectText({ nodes: [{ id: 'n', data: { nodeType: 'FutureNode' } }], edges: [] }, { formatVersion: SAVE_FORMAT_VERSION + 1 })
+    expect(() => parseProjectFile(text, 'f')).toThrow(/newer Design Studio/)
+  })
+
+  it('refuses a bare workspace, which only the removed Graph JSON export wrote', () => {
+    expect(() => parseProjectFile(JSON.stringify({ nodes: [], edges: [] }), 'f')).toThrow('Invalid project file')
   })
 })
 

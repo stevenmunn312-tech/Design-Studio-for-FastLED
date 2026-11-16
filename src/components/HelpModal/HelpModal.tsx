@@ -157,7 +157,6 @@ function QuickStartTab() {
         <div className={styles.definitionGrid}>
           <div><strong>Project</strong><span>Your named, autosaved workspace, including its graphs and groups.</span></div>
           <div><strong>Project file</strong><span>A full workspace copy for backup or moving to another machine.</span></div>
-          <div><strong>Graph JSON</strong><span>Raw graph interchange for development and advanced workflows.</span></div>
           <div><strong>Share link</strong><span>A URL containing a copy of the workspace at the time you create it.</span></div>
           <div><strong>Share to Community</strong><span>Packages the current workspace as a pattern to publish, rather than as a private link.</span></div>
           <div><strong>Recovery snapshot</strong><span>One of the recent rolling browser snapshots; use it after an unwanted edit or failed load.</span></div>

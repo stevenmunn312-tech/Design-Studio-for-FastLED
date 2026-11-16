@@ -42,7 +42,8 @@ import {
 } from '../../state/library/libraryBundle'
 import { usePatternLibrary } from '../../state/patterns/patternLibrary'
 import { downloadLibraryFile, libraryFileName } from '../../utils/libraryShare'
-import { isWorkspacePayload, sanitizeWorkspacePayload, workspaceLoadStatus } from '../../utils/workspacePayload'
+import { workspaceLoadStatus } from '../../utils/workspacePayload'
+import { NewerSaveFormatError } from '../../state/saveFormat'
 import { openCommunityTab, postToCommunityTab, suggestPatternFileName } from '../../utils/communityUpload'
 import { captureSharePreview } from '../../utils/sharePreviewCapture'
 import { enterStagePresentation, exitStagePresentation } from '../../utils/stagePresentation'
@@ -160,7 +161,6 @@ export default function MenuBar() {
   // "Balanced", not "Build": Build Diagram is a workspace tab, and a layout
   // preset sharing its name read as a second way to open it.
   const LAYOUT_PRESET_LABEL: Record<LayoutPresetId, string> = { build: 'Balanced', tune: 'Tune', preview: 'Preview' }
-  const importInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
   const libraryInputRef = useRef<HTMLInputElement>(null)
   const fileMenuRef = useRef<HTMLDivElement>(null)
@@ -289,22 +289,6 @@ export default function MenuBar() {
     })
   }
 
-  const handleSaveJSON = () => {
-    // Export the whole workspace so pattern-group subgraphs travel with the file.
-    const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck, displayDocuments } = useGraphStore.getState()
-    const json = JSON.stringify({
-      nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck, displayDocuments,
-    }, null, 2)
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `design-studio-for-fastled-${Date.now()}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-    setStatus('Graph JSON exported', 'success')
-  }
-
   const handleCopyShareLink = async () => {
     const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck, displayDocuments } = useGraphStore.getState()
     const url = buildShareUrl({
@@ -417,7 +401,6 @@ export default function MenuBar() {
     setStatus(`"${projectName}" is opening on the community site`, 'success')
   }
 
-  const handleLoadJSON = () => importInputRef.current?.click()
   const handleImportLibrary = () => libraryInputRef.current?.click()
 
   // Library bundles (and bare pattern files) add to the Pattern Library and
@@ -632,8 +615,8 @@ export default function MenuBar() {
         saveCurrentFirst: decision === 'yes',
         confirmedReplace: true,
       })
-    } catch {
-      setStatus('Failed to open project file — invalid file', 'error')
+    } catch (error) {
+      setStatus(error instanceof NewerSaveFormatError ? error.message : 'Failed to open project file — invalid file', 'error')
     }
   }
 
@@ -680,54 +663,6 @@ export default function MenuBar() {
     if (!file) return
     void openProjectText(() => file.text(), projectFileBaseName(file.name))
       .finally(() => { e.target.value = '' })
-  }
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    void (async () => {
-      if (useGraphStore.getState().nodes.length > 0) {
-        const ok = await requestConfirm({
-          title: 'Replace current workspace?',
-          message: 'Importing Graph JSON replaces your current project workspace. Any unsaved work will be lost. Continue?',
-          confirmLabel: 'Import Graph JSON',
-          cancelLabel: 'Cancel',
-          tone: 'danger',
-        })
-        if (!ok) {
-          e.target.value = ''
-          return
-        }
-      }
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        try {
-          const parsed: unknown = JSON.parse(ev.target?.result as string)
-          if (!isWorkspacePayload(parsed)) {
-            setStatus('Failed to import Graph JSON — invalid file', 'error')
-            return
-          }
-          const sanitized = sanitizeWorkspacePayload(parsed)
-          if (!sanitized) {
-            setStatus('Failed to import Graph JSON — invalid file', 'error')
-            return
-          }
-          const workspace = sanitized.workspace
-          // Never trust an imported file's own `trusted` claim — force it
-          // false regardless of what the JSON says (todo.md's P0 trust item).
-          useGraphStore.getState().loadGraph(workspace.nodes, workspace.edges, {
-            ...workspace,
-            trusted: false,
-          })
-          useGraphStore.temporal.getState().clear()
-          setStatus(workspaceLoadStatus('Graph JSON imported', sanitized.dropped), sanitized.dropped > 0 ? 'info' : 'success')
-        } catch {
-          setStatus('Failed to import Graph JSON — invalid file', 'error')
-        }
-      }
-      reader.readAsText(file)
-      e.target.value = ''
-    })()
   }
 
   return (
@@ -819,12 +754,6 @@ export default function MenuBar() {
                 <div className={styles.menuEmpty}>No recent projects yet</div>
               )}
               <div className={styles.menuDivider} />
-              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); handleLoadJSON() }}>
-                Import Graph JSON…
-              </button>
-              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); handleSaveJSON() }}>
-                Export Graph JSON…
-              </button>
               <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); handleImportLibrary() }}
                 title="Add patterns, palettes or collections from a library bundle or pattern file to this Studio">
                 Import Library Bundle…
@@ -1046,13 +975,6 @@ export default function MenuBar() {
           accept=".json,.fastled-project.json"
           style={{ display: 'none' }}
           onChange={handleProjectFileChange}
-        />
-        <input
-          ref={importInputRef}
-          type="file"
-          accept=".json"
-          style={{ display: 'none' }}
-          onChange={handleFileChange}
         />
         <input
           ref={libraryInputRef}
