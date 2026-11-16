@@ -36,6 +36,16 @@ State and section numbers are in the
 passed 65 of 66 legs on 2026-11-10; the one failure was the DMX library, since
 replaced by the sketch's own receiver.
 
+The two open items are release gates, decided 2026-11-17: the freeze (step 5)
+waits for an fbuild release that carries the fixes for
+[#2012](https://github.com/FastLED/fbuild/issues/2012) to
+[#2020](https://github.com/FastLED/fbuild/issues/2020) and
+[#1995](https://github.com/FastLED/fbuild/pull/1995), so the full matrix runs
+on the fbuild that v1 pins. Zach said on 2026-11-15 that the fixes would come
+within a couple of days; 2.5.51 (2026-11-04) is still the latest release on
+2026-11-17. A workaround whose fault that release does not fix stays, and is
+recorded as a limitation in step 6.
+
 - [x] Map each offered board that has no fbuild environment (`_PIO_BOARDS`)
   and that fbuild knows, then compile each one. Eighteen were tried on
   2026-11-12 and fourteen build: the XIAO, LOLIN and Adafruit ESP32 variants,
@@ -83,17 +93,19 @@ replaced by the sketch's own receiver.
   posted upstream. Reviewed, rebuilt on 2.5.51 and posted on 2026-11-14 as
   [#2012](https://github.com/FastLED/fbuild/issues/2012) to [#2020](https://github.com/FastLED/fbuild/issues/2020)
   ([runbook](docs/runbooks/fbuild-workarounds.md#boards-mapped-on-12-november-2026)).
-- [ ] fbuild does not find the UNO R4 WiFi core's `WiFiS3.h` (§16,
-  [#2020](https://github.com/FastLED/fbuild/issues/2020)), so those sketches build with arduino-cli. Run
-  `fbuild-probes.py` on the next release and drop the workarounds whose
-  probes read GONE. It does not hold the release.
-- [ ] When an fbuild release carries upstream #1995, the fix for
-  [#1994](https://github.com/FastLED/fbuild/issues/1994) (open on 2026-11-12,
-  after 2.5.51): move the pin, drop `_ESP8266_NETWORK_INCLUDE` and the D1 mini
-  entry in `ARDUINO_CLI_ONLY`, rebuild the Wi-Fi legs, and flash a Web Remote
-  to the D1 mini through fbuild, which upstream asked for. Until then an
-  ESP8266 sketch that uses Wi-Fi builds with arduino-cli (§15), which worked
-  on a D1 mini on 2026-11-11, so this step does not hold the release.
+- [ ] **Release gate.** Bump the fbuild pin to the release that carries the
+  fixes for #2012 to #2020, run `fbuild-probes.py` on it, and drop the
+  workarounds whose probes read GONE. Among them: fbuild does not find the
+  UNO R4 WiFi core's `WiFiS3.h` (§16,
+  [#2020](https://github.com/FastLED/fbuild/issues/2020)), so those sketches
+  build with arduino-cli until then.
+- [ ] **Release gate.** When an fbuild release carries upstream #1995, the
+  fix for [#1994](https://github.com/FastLED/fbuild/issues/1994) (open on
+  2026-11-12, after 2.5.51): move the pin, drop `_ESP8266_NETWORK_INCLUDE`
+  and the D1 mini entry in `ARDUINO_CLI_ONLY`, rebuild the Wi-Fi legs, and
+  flash a Web Remote to the D1 mini through fbuild, which upstream asked for.
+  Until then an ESP8266 sketch that uses Wi-Fi builds with arduino-cli (§15),
+  which worked on a D1 mini on 2026-11-11.
 
 ## 4. HW-17 · Distribution smoke tests
 
@@ -123,8 +135,8 @@ and recovery evidence
 
 No full matrix runs before this step, because every sketch keeps changing.
 
-- [ ] Declare the freeze: steps 1 to 4 are done and generated firmware stops
-  changing.
+- [ ] Declare the freeze: steps 1 to 4 are done, including the two fbuild
+  release gates in step 3, and generated firmware stops changing.
 - [ ] Read the current plan with
   `python scripts/compile-fixtures/compile-matrix.py --engine all --list`. On
   2026-10-27 it was 198 builds, 131 on Arduino CLI and 67 on fbuild, picked so
