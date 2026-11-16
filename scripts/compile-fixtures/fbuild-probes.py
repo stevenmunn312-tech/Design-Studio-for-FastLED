@@ -5,6 +5,7 @@ project can show has a probe here. Run it after moving the fbuild pin:
 
     backend/.venv/Scripts/python scripts/compile-fixtures/fbuild-probes.py
     backend/.venv/Scripts/python scripts/compile-fixtures/fbuild-probes.py --only wifis3 pico-w
+    backend/.venv/Scripts/python scripts/compile-fixtures/fbuild-probes.py --fbuild path/to/fbuild.exe
 
 A probe is PRESENT when the build fails the way the runbook describes, GONE
 when it builds (the workaround can be retired), and CHANGED when it fails
@@ -15,8 +16,10 @@ at a time with the fbuild beside this interpreter, never one found on PATH.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -90,10 +93,16 @@ def fbuild_binary() -> str:
     raise SystemExit(f"no fbuild beside {sys.executable}; run this with the helper's interpreter")
 
 
+def _clear_read_only(func, path, _exc_info) -> None:
+    """Some toolchains leave read-only objects, which Windows will not unlink."""
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
 def write_project(probe: Probe) -> Path:
     project = WORK / probe.name
     if project.exists():
-        shutil.rmtree(project)
+        shutil.rmtree(project, onerror=_clear_read_only)
     (project / "src").mkdir(parents=True)
     ini = [f"[env:{probe.board}]", f"platform = {probe.platform}", f"board = {probe.board}", "framework = arduino"]
     if probe.lib_deps:
@@ -154,11 +163,15 @@ def long_paths() -> tuple[str, str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--only", nargs="+", default=[], help="probe names to run")
+    parser.add_argument("--fbuild", type=Path,
+                        help="an fbuild binary to probe instead of the pinned one, such as a build of upstream main")
     args = parser.parse_args()
     unknown = set(args.only) - {probe.name for probe in PROBES} - {"long-paths"}
     if unknown:
         parser.error(f"unknown probe: {', '.join(sorted(unknown))}")
-    binary = fbuild_binary()
+    if args.fbuild and not args.fbuild.is_file():
+        parser.error(f"no fbuild at {args.fbuild}")
+    binary = str(args.fbuild.resolve()) if args.fbuild else fbuild_binary()
     version = subprocess.run([binary, "--version"], capture_output=True, text=True, check=False).stdout.strip()
     print(f"{version} ({binary})")
     WORK.mkdir(parents=True, exist_ok=True)

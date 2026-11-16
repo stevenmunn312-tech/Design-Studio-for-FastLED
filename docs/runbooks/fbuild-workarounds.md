@@ -1056,20 +1056,31 @@ backend/.venv/Scripts/python scripts/compile-fixtures/fbuild-probes.py
 ```
 
 PRESENT means the build fails as this runbook describes, GONE that the
-workaround can be retired, CHANGED that it fails another way. On 2.5.51
-(2026-11-12):
+workaround can be retired, CHANGED that it fails another way. `--fbuild PATH`
+probes another binary, such as a build of upstream `main`, without moving the
+pin. Results on 2.5.51 (2026-11-12) and on unreleased `main` at `bc50602e`
+(2.5.52, built from source on 2026-11-17):
 
-| Probe | Where | Result |
-| --- | --- | --- |
-| `overflow-no-size` | §5, #1658 | GONE: a failed link now prints an overflow line |
-| `esp8266-wifi-link` | §15, #1994 | PRESENT |
-| `wifis3` | §16 | PRESENT |
-| `nrf52-lto` | §17 | PRESENT |
-| `pico-w` | Boards mapped | PRESENT |
-| `r4-minima` | Boards mapped | PRESENT |
-| `xiaoble` | Boards mapped | PRESENT (`variant.h`, with the id `xiaoble_adafruit`) |
-| `lib-deps-git-ref` | §1 | PRESENT |
-| `lib-deps-registry` | §1 | PRESENT |
+| Probe | Where | 2.5.51 | `main` `bc50602e` |
+| --- | --- | --- | --- |
+| `overflow-no-size` | §5, #1658 | GONE: a failed link now prints an overflow line | GONE |
+| `esp8266-wifi-link` | §15, #1994 | PRESENT | GONE |
+| `wifis3` | §16, #2020 | PRESENT | GONE |
+| `nrf52-lto` | §17, #2016 | PRESENT | PRESENT |
+| `pico-w` | Boards mapped, #2014 | PRESENT | GONE |
+| `r4-minima` | Boards mapped, #2015 | PRESENT | PRESENT |
+| `xiaoble` | Boards mapped, #2017 | PRESENT (`variant.h`, with the id `xiaoble_adafruit`) | PRESENT |
+| `lib-deps-git-ref` | §1, #2018 | PRESENT | PRESENT |
+| `lib-deps-registry` | §1, #2019 | PRESENT | PRESENT |
+
+The size faults have no probe. On `main` `bc50602e` an empty sketch reads
+21,436 bytes of RAM on an ESP32-S3, equal to `.dram0.data` plus `.dram0.bss`
+([#2013](https://github.com/FastLED/fbuild/issues/2013) fixed; 63,164 on
+2.5.51), and 99,736 bytes of flash on a Pico against a 99,892-byte
+`firmware.bin`, without the 218,116-byte `.heap`
+([#2012](https://github.com/FastLED/fbuild/issues/2012) fixed). The helper's
+`.dram0.dummy` subtraction leaves such a figure alone, since it no longer
+matches the sum that includes the placeholder.
 
 `long-paths` only reads the Windows `LongPathsEnabled` setting
 ([#1673](https://github.com/FastLED/fbuild/issues/1673)): a probe cannot

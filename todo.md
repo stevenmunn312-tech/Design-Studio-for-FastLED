@@ -44,7 +44,10 @@ waits for an fbuild release that carries the fixes for
 on the fbuild that v1 pins. Zach said on 2026-11-15 that the fixes would come
 within a couple of days; 2.5.51 (2026-11-04) is still the latest release on
 2026-11-17. A workaround whose fault that release does not fix stays, and is
-recorded as a limitation in step 6.
+recorded as a limitation in step 6. Upstream `main` at `bc50602e` (2026-11-17)
+fixes #1994, #2012, #2013, #2014 and #2020 by probe; #2015 to #2019 are still
+open and their probes still read PRESENT
+([runbook](docs/runbooks/fbuild-workarounds.md#probes)).
 
 - [x] Map each offered board that has no fbuild environment (`_PIO_BOARDS`)
   and that fbuild knows, then compile each one. Eighteen were tried on
