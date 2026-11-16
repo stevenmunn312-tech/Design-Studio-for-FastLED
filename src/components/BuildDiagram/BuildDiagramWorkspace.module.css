@@ -1295,7 +1295,7 @@
 
 .powerSummaryLimit {
   margin-top: var(--space-1);
-  color: var(--paint-72dfd0);
+  color: var(--accent-ui);
   font-family: var(--font-body);
   font-size: 11px;
 }

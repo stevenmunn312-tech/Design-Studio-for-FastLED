@@ -434,7 +434,9 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       {layers.levelShifter && outputLayouts.length > 0 && <g filter={shadowFilter}>
         {outputLayouts.map((layout) => (
           <g key={`${layout.item.id}-resistor`} data-data-resistor-for={layout.item.id} transform={`translate(${dataResistorX(layout.x)} ${outputDataTerminalY(layout) - (DATA_RESISTOR_HEIGHT / 2)})`}>
-            <text x={DATA_RESISTOR_WIDTH / 2} y="12" textAnchor="middle" className={styles.physicalComponentLabel}>330Ω</text>
+            {/* On the incoming data wire, clear of the strip's GND stub label that
+                sits above the resistor at the LED terminals. */}
+            <text x={-6} y={(DATA_RESISTOR_HEIGHT / 2) - 5} textAnchor="end" className={styles.physicalComponentLabel} style={{ fontSize: 12 }}>330Ω</text>
             <image
               data-component-render="330ohm-blue-axial-resistor"
               href={resistorRender}
