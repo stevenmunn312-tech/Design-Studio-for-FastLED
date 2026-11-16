@@ -1629,3 +1629,106 @@
     break-inside: avoid;
   }
 }
+
+/* On screen, outside the Light theme, the sheet takes the app's own dark
+   surfaces instead of glaring white paper. Only sheet chrome changes: the
+   paper, the callout boxes tagged `data-sheet`, label text and the near-black
+   ground wires, which would vanish on dark. Part drawings, renders and wire
+   role colours keep their physical colours. Print and SVG export stay white:
+   the print sheets portal outside `.diagramPane`, and the export clones the
+   SVG's own attributes without this stylesheet. */
+@media screen {
+  :global(:root:not([data-theme="light"])) .diagramPane {
+    background: var(--bg-primary);
+  }
+
+  :global(:root:not([data-theme="light"])) .diagramHeader {
+    border-bottom-color: var(--line);
+    background: var(--bg-panel);
+  }
+
+  :global(:root:not([data-theme="light"])) .diagramHeader .panelTitle {
+    color: var(--text-primary);
+  }
+
+  :global(:root:not([data-theme="light"])) .diagramHeader .panelSubtitle {
+    color: var(--text-secondary);
+  }
+
+  :global(:root:not([data-theme="light"])) .diagramHeader .smallButton,
+  :global(:root:not([data-theme="light"])) .diagramHeader .resetButton {
+    border-color: color-mix(in srgb, var(--line) 78%, transparent);
+    background: color-mix(in srgb, var(--bg-panel) 82%, color-mix(in srgb, var(--text-primary) 3%, transparent));
+    color: var(--text-primary);
+  }
+
+  :global(:root:not([data-theme="light"])) .diagramHeader .smallButton:hover,
+  :global(:root:not([data-theme="light"])) .diagramHeader .resetButton:hover {
+    border-color: var(--accent-ui);
+    background: color-mix(in srgb, var(--accent-ui) 16%, var(--bg-panel));
+  }
+
+  :global(:root:not([data-theme="light"])) .diagramViewport {
+    border-color: var(--line);
+    background: var(--bg-canvas);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+  }
+
+  :global(:root:not([data-theme="light"])) .zoomPill {
+    color: var(--text-secondary);
+    background: color-mix(in srgb, var(--line) 24%, transparent);
+  }
+
+  :global(:root:not([data-theme="light"])) .diagramPane [data-sheet="paper"] {
+    fill: var(--bg-canvas);
+  }
+
+  :global(:root:not([data-theme="light"])) .diagramPane [data-sheet="panel"] {
+    fill: var(--bg-panel);
+  }
+
+  :global(:root:not([data-theme="light"])) .diagramPane [data-sheet="frame"] {
+    stroke: color-mix(in srgb, var(--text-secondary) 40%, transparent);
+  }
+
+  :global(:root:not([data-theme="light"])) .diagramPane [data-sheet="note"] {
+    fill: color-mix(in srgb, var(--warning) 6%, var(--bg-panel));
+    stroke: color-mix(in srgb, var(--warning) 38%, var(--line));
+  }
+
+  :global(:root:not([data-theme="light"])) .diagramPane [data-sheet="halo"] {
+    stroke: var(--bg-panel);
+  }
+
+  :global(:root:not([data-theme="light"])) .diagramPane .physicalComponentLabel,
+  :global(:root:not([data-theme="light"])) .diagramPane .physicalLegendTitle,
+  :global(:root:not([data-theme="light"])) .diagramPane .physicalPowerLabel,
+  :global(:root:not([data-theme="light"])) .diagramPane .physicalPowerValue,
+  :global(:root:not([data-theme="light"])) .diagramPane .physicalPolarity,
+  :global(:root:not([data-theme="light"])) .diagramPane .netStubLabel {
+    fill: var(--text-primary);
+  }
+
+  :global(:root:not([data-theme="light"])) .diagramPane .physicalMetaLabel,
+  :global(:root:not([data-theme="light"])) .diagramPane .physicalLegendMeta,
+  :global(:root:not([data-theme="light"])) .diagramPane .physicalWireLabel,
+  :global(:root:not([data-theme="light"])) .diagramPane .physicalBoardSilk,
+  :global(:root:not([data-theme="light"])) .diagramPane .physicalBoardSubSilk {
+    fill: var(--text-secondary);
+  }
+
+  :global(:root:not([data-theme="light"])) .diagramPane .groundWire,
+  :global(:root:not([data-theme="light"])) .diagramPane .mainGroundWire,
+  :global(:root:not([data-theme="light"])) .diagramPane .groundStubLead,
+  :global(:root:not([data-theme="light"])) .diagramPane .groundStubSymbol {
+    stroke: var(--text-secondary);
+  }
+
+  :global(:root:not([data-theme="light"])) .diagramPane .controllerGroundTerminal {
+    fill: var(--text-secondary);
+  }
+
+  :global(:root:not([data-theme="light"])) .diagramPane .dimWire {
+    stroke: color-mix(in srgb, var(--text-secondary) 35%, transparent);
+  }
+}

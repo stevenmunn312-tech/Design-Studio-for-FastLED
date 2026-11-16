@@ -147,7 +147,7 @@ export function BatteryAssembly({ items, plan, band }: {
 
   return (
     <g data-battery-assembly="true" data-pack-series={battery.pack.series} data-pack-parallel={battery.pack.parallel}>
-      <rect x={x} y={y} width="1052" height={band.height - BATTERY_FRAME_TRIM} rx="14" fill="#eef0e9" stroke="#65716a" strokeWidth="2" />
+      <rect x={x} y={y} width="1052" height={band.height - BATTERY_FRAME_TRIM} rx="14" fill="#eef0e9" stroke="#65716a" strokeWidth="2" data-sheet="panel" />
       <text x={x + 18} y={y + 27} className={styles.physicalPowerLabel}>BATTERY ASSEMBLY · {battery.pack.series}S{battery.pack.parallel}P · {battery.window.minV}-{battery.window.ceilingV} V</text>
       <text x={x + 18} y={y + 47} className={styles.physicalMetaLabel}>{zeroNet} IS SYSTEM 0 V · ONLY PROTECTION BOARD AND B0 SENSE MAY TOUCH {cellNegName}</text>
 
@@ -267,7 +267,7 @@ export function BatteryAssembly({ items, plan, band }: {
       {/* Titles go on last, over a halo in the frame's colour: the bus and
           charger wires rise through the space above the boxes. */}
       {moduleBoxes.map((box) => (
-        <text key={box.item.id} data-battery-module-title={box.partId} textAnchor="middle" className={styles.physicalComponentLabel} stroke="#eef0e9" strokeWidth="5" strokeLinejoin="round" paintOrder="stroke">
+        <text key={box.item.id} data-battery-module-title={box.partId} textAnchor="middle" className={styles.physicalComponentLabel} data-sheet="halo" stroke="#eef0e9" strokeWidth="5" strokeLinejoin="round" paintOrder="stroke">
           {moduleTitleLines(box.item.title).map((line, index, lines) => (
             <tspan key={line} x={box.x + (box.width / 2)} y={box.y - 7 - ((lines.length - 1 - index) * MODULE_TITLE_LINE_HEIGHT)}>{line}</tspan>
           ))}

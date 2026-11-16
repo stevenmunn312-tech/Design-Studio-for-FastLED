@@ -137,7 +137,7 @@ export function CommonNetCallout({ x, y, width, powerBelow = true, twelveVolt = 
 }) {
   return (
     <g data-common-net-callout="true" transform={`translate(${x} ${y})`}>
-      <rect width={width} height={COMMON_NET_CALLOUT_HEIGHT} rx="8" fill="#fffdf4" stroke="#c9bb86" strokeWidth="2" />
+      <rect data-sheet="note" width={width} height={COMMON_NET_CALLOUT_HEIGHT} rx="8" fill="#fffdf4" stroke="#c9bb86" strokeWidth="2" />
       <text x="16" y="22" className={styles.physicalLegendTitle}>SHARED NETS — SYMBOLS REPLACE DRAWN WIRES</text>
       <text className={styles.physicalLegendMeta}>
         <tspan x="16" y="42">Every GND symbol is one common net: bond controller, level shifter, peripheral and all PSU</tspan>

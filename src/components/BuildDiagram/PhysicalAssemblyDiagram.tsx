@@ -206,7 +206,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       </defs>
       <g clipPath={crop ? `url(#${cropClipId})` : undefined}>
 
-      <rect data-pan-background="true" x={frame.x} width={frame.width} height={canvasHeight} fill="#f4f4f1" />
+      <rect data-pan-background="true" data-sheet="paper" x={frame.x} width={frame.width} height={canvasHeight} fill="#f4f4f1" />
       <g opacity=".23">
         {Array.from({ length: 22 }, (_, index) => <line key={`v${index}`} x1={index * 52} y1="0" x2={index * 52} y2={canvasHeight} stroke="#afb4b4" strokeWidth=".7" />)}
         {Array.from({ length: Math.ceil(canvasHeight / 52) }, (_, index) => <line key={`h${index}`} x1="0" y1={index * 52} x2={CANVAS_WIDTH} y2={index * 52} stroke="#afb4b4" strokeWidth=".7" />)}
@@ -545,7 +545,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       ) : !controllerUsb ? (
         <CustomControllerPowerNote boardProfile={boardProfile} x={CONTROLLER_SLOT_CENTER_X - 92} y={592} />
       ) : <g filter={shadowFilter} transform={`translate(${controllerUsb.x - 92} 592)`}>
-        <rect width="184" height="62" rx="12" fill="#e9ecea" stroke="#879092" strokeWidth="2" />
+        <rect data-sheet="panel" width="184" height="62" rx="12" fill="#e9ecea" stroke="#879092" strokeWidth="2" />
         <path d="M138 19h30v24h-30l-12-12z" fill="#aeb7ba" stroke="#5f696c" />
         {/* Deliberately does not name the connector type. Board renders are
             visually normalised to USB-C, so a type here would assert something
@@ -591,7 +591,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
       })}
 
       <g transform="translate(30 28)">
-        <rect width="272" height="68" rx="8" fill="#ffffff" stroke="#d2d4d1" />
+        <rect data-sheet="panel" width="272" height="68" rx="8" fill="#ffffff" stroke="#d2d4d1" />
         <text x="16" y="24" className={styles.physicalLegendTitle}>GENERATED WIRING PLAN</text>
         <text x="16" y="45" className={styles.physicalLegendMeta}>{items.length + 1} graph devices · {connections.length} GPIO routes</text>
         <text x="16" y="60" className={styles.physicalLegendMeta}>{plan.ruleSetVersion}</text>

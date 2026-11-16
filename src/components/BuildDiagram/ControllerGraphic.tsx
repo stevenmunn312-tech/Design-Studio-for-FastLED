@@ -155,7 +155,7 @@ export function PowerPinControllerNote({ boardProfile, x, y }: { boardProfile: P
   return (
     <g data-controller-power="power-pin">
       <g transform={`translate(${x} ${y})`}>
-        <rect width="184" height="62" rx="12" fill="#e9ecea" stroke="#879092" strokeWidth="2" />
+        <rect data-sheet="panel" width="184" height="62" rx="12" fill="#e9ecea" stroke="#879092" strokeWidth="2" />
         <text x="18" y="27" className={styles.physicalComponentLabel}>5 V supply</text>
         <text x="18" y="46" className={styles.physicalMetaLabel}>{`into ${input?.label ?? '5 V input'} · no USB`}</text>
       </g>
@@ -184,7 +184,7 @@ export function CustomControllerPowerNote({ boardProfile, x, y }: { boardProfile
     : ['Controller power', 'unresolved · choose in custom board setup']
   return (
     <g data-controller-power={power} transform={`translate(${x} ${y})`}>
-      <rect width="184" height="62" rx="12" fill="#e9ecea" stroke={power === 'external' && input ? '#879092' : '#c9822b'} strokeWidth="2" strokeDasharray={power === 'external' && input ? undefined : '6 4'} />
+      <rect data-sheet="panel" width="184" height="62" rx="12" fill="#e9ecea" stroke={power === 'external' && input ? '#879092' : '#c9822b'} strokeWidth="2" strokeDasharray={power === 'external' && input ? undefined : '6 4'} />
       <text x="18" y="27" className={styles.physicalComponentLabel}>{title}</text>
       <text x="18" y="46" className={styles.physicalMetaLabel}>{detail}</text>
     </g>

@@ -260,7 +260,7 @@ export function PowerDistributionSections({ plan, bands, shadowFilter }: {
       }).join('')
 
       return <g key={supply.id} data-power-zone={supply.id} data-power-zone-y={sectionY} transform={`translate(0 ${sectionY})`}>
-        <rect x="24" y="0" width="1072" height={sectionHeight} rx="12" fill="none" stroke="#a9afac" strokeWidth="2" />
+        <rect data-sheet="frame" x="24" y="0" width="1072" height={sectionHeight} rx="12" fill="none" stroke="#a9afac" strokeWidth="2" />
         <text x="42" y="32" className={styles.physicalPowerLabel}>{supply.converter?.integrated ? 'PACK OUTPUT' : supply.converter ? 'CONVERTER' : 'PSU'} ZONE {supplyIndex + 1} · {supply.converter ? supply.converter.label : 'RECOMMENDED POWER SUPPLY'}</text>
         <text data-psu-recommendation={supply.recommendedCurrentMa} x="42" y="58" className={styles.physicalPowerValue}>
           {supply.converter

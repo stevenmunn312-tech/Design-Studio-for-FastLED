@@ -871,6 +871,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Build Diagram
 
+- The sheet's attributes are the white print sheet. On screen, outside the
+  Light theme, `BuildDiagramWorkspace.module.css` repaints only the chrome
+  dark: the paper and boxes tagged `data-sheet` (`paper`, `panel`, `note`,
+  `frame`, `halo`), label text, and near-black ground wires. Part drawings,
+  renders and wire-role colours keep their physical colours. Print sheets
+  portal outside `.diagramPane` and the SVG export clones bare attributes, so
+  both stay white. A new light-coloured box or label on the sheet needs a
+  `data-sheet` role or a class in that block, or it glares on screen.
 - Every SVG id is per sheet. Print renders the screen sheet and each print
   sheet in one document, and `url(#id)` resolves to the first match, which
   print hides; a shared `component-shadow` id blanked every part drawn with
