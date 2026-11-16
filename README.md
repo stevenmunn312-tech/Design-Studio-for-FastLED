@@ -8,7 +8,7 @@ Design Studio for FastLED is a live, node-based creative environment for LED str
 
 [Check beta releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-the-beta)
 
-![A complete Field Warp patch running in Design Studio for FastLED](docs/images/readme/design-studio-overview.webp)
+![A Field Transform patch running in Design Studio for FastLED: three noise fields bend one image, shown live on a 16×16 LED matrix](docs/images/readme/design-studio-overview.webp)
 
 ## What's new in 0.8
 
@@ -51,13 +51,13 @@ Most starters are deliberately simple: a pattern flows into an LED output. Chang
 
 | Build and preview a patch | Browse and collect reusable patterns |
 | --- | --- |
-| ![A Fire 2012 patch driving an LED Matrix](docs/images/readme/design-studio-patch.webp) | ![The Pattern Library open beside a live Field Warp patch](docs/images/readme/design-studio-pattern-library.webp) |
+| ![A Fire 2012 patch driving an LED Matrix](docs/images/readme/design-studio-patch.webp) | ![The Pattern Library open beside a live Field Transform patch](docs/images/readme/design-studio-pattern-library.webp) |
 
 ## Put the visuals center stage
 
 Press **Stage View** or **F10** to turn the workspace into a clean operator view. The output matrix becomes the focus while spectrum, transport, frame rate, memory, and signal state remain visible. Toggle the 3D presentation, cycle spectrum styles, or press **Esc** to return to the editor.
 
-![Stage View showing a full-screen live matrix and performance controls](docs/images/readme/design-studio-stage.png)
+![Stage View showing a full-screen live matrix and performance controls](docs/images/readme/design-studio-stage.webp)
 
 ## Get started
 
@@ -131,7 +131,7 @@ The workspace is four tabs, in the order the work is done — **Hardware**, **Gr
 - The **Graph** tab owns connections. Signal-carrying hardware appears there as a node; Board, SD Card, and amplifier/DAC stay on the Hardware tab only because they carry configuration rather than graph data.
 - The LED output node owns dimensions, frame routing, physical layout, color correction, dithering, and supersampling. The Board owns controller-wide brightness, power cap, overclock, PSRAM policy, and serial route.
 
-![The Hardware tab: the parts shelf beside an ESP32 board wired to an LED matrix at true scale](docs/images/readme/design-studio-hardware.webp)
+![The Hardware tab: the parts shelf beside an ESP32 board wired to buttons, an OLED, a microSD module, an I2S amplifier and an LED matrix at true scale](docs/images/readme/design-studio-hardware.webp)
 
 Changing boards retargets only pins Studio assigned; hand-picked pins are remembered per board. Use the board’s pinout button to verify headers, and open the **Build Diagram** tab when you need the full pin-level assembly and power plan rather than the Hardware tab's overview.
 
