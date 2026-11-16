@@ -404,7 +404,7 @@
 }
 
 .controls :global(.react-flow__controls-button:hover) {
-  background: color-mix(in srgb, var(--accent-output) 7%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 7%, transparent);
 }
 
 .controls :global(.react-flow__controls-button svg) {

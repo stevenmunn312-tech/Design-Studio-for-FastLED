@@ -25,15 +25,15 @@
   padding: var(--space-0) calc(var(--space-0) * 2.5);
   font-size: var(--fs-ui);
   font-family: var(--font-body);
-  border: 1px solid var(--accent-show);
+  border: 1px solid var(--accent-ui);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--accent-show) 14%, var(--bg-primary));
+  background: color-mix(in srgb, var(--accent-ui) 14%, var(--bg-primary));
   color: var(--text-primary);
   cursor: pointer;
 }
 
 .bakeBtn:hover:not(:disabled) {
-  border-color: var(--accent-show);
+  border-color: var(--accent-ui);
 }
 
 .bakeBtn:disabled,
@@ -50,9 +50,9 @@
   padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.75);
   font-size: var(--fs-label);
   border-radius: 9px;
-  background: color-mix(in srgb, var(--accent-show) 22%, var(--bg-primary));
-  color: var(--accent-show);
-  border: 1px solid var(--accent-show);
+  background: color-mix(in srgb, var(--accent-ui) 22%, var(--bg-primary));
+  color: var(--accent-ui);
+  border: 1px solid var(--accent-ui);
 }
 
 .progressWrap {
@@ -62,7 +62,7 @@
   padding: calc(var(--space-0) * 1.5) var(--space-1);
   border: 1px solid var(--divider);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--accent-show) 6%, var(--bg-primary));
+  background: color-mix(in srgb, var(--accent-ui) 6%, var(--bg-primary));
 }
 
 .progressMeta {
@@ -86,7 +86,7 @@
 .progressFill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-show) 60%, white), var(--accent-show));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent-ui) 60%, white), var(--accent-ui));
 }
 
 .progressNote {
@@ -122,19 +122,19 @@
 }
 
 .songOn {
-  background: color-mix(in srgb, var(--accent-show) 14%, var(--bg-primary));
+  background: color-mix(in srgb, var(--accent-ui) 14%, var(--bg-primary));
   color: var(--text-primary);
   font-weight: 600;
-  border-color: var(--accent-show);
-  box-shadow: inset 3px 0 0 var(--accent-show);
+  border-color: var(--accent-ui);
+  box-shadow: inset 3px 0 0 var(--accent-ui);
 }
 
 .song:hover,
-.songOn:hover { border-color: var(--accent-show); }
+.songOn:hover { border-color: var(--accent-ui); }
 
 .song:focus-visible,
 .songOn:focus-visible {
-  outline: 2px solid var(--accent-show);
+  outline: 2px solid var(--accent-ui);
   outline-offset: 2px;
 }
 
@@ -209,11 +209,11 @@
   cursor: pointer;
 }
 
-.tab:hover { border-color: var(--accent-show); color: var(--accent-show); }
+.tab:hover { border-color: var(--accent-ui); color: var(--accent-ui); }
 
 .tabOn {
-  background: color-mix(in srgb, var(--accent-show) 16%, var(--bg-primary));
-  border-color: var(--accent-show);
+  background: color-mix(in srgb, var(--accent-ui) 16%, var(--bg-primary));
+  border-color: var(--accent-ui);
   color: var(--text-primary);
   font-weight: 600;
 }
@@ -223,9 +223,9 @@
   padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.75);
   font-size: var(--fs-label);
   border-radius: 9px;
-  background: color-mix(in srgb, var(--accent-show) 22%, var(--bg-primary));
-  color: var(--accent-show);
-  border: 1px solid var(--accent-show);
+  background: color-mix(in srgb, var(--accent-ui) 22%, var(--bg-primary));
+  color: var(--accent-ui);
+  border: 1px solid var(--accent-ui);
 }
 
 .revert {
@@ -242,13 +242,13 @@
 .revert:hover { border-color: var(--error); color: var(--error); }
 
 .editedDot {
-  color: var(--accent-show);
+  color: var(--accent-ui);
   font-size: var(--fs-label);
 }
 
 .tab:focus-visible,
 .tabOn:focus-visible,
 .revert:focus-visible {
-  outline: 2px solid var(--accent-show);
+  outline: 2px solid var(--accent-ui);
   outline-offset: 2px;
 }

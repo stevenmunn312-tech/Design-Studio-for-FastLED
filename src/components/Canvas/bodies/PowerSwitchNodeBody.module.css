@@ -24,7 +24,7 @@
 .fill {
   position: absolute;
   inset: 0 auto 0 0;
-  background: var(--accent-output);
+  background: var(--accent-ui);
   opacity: 0.6;
 }
 

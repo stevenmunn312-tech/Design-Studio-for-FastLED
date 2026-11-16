@@ -65,7 +65,7 @@
 .mini:focus-visible,
 .link:hover:not(:disabled),
 .link:focus-visible {
-  color: var(--accent-output);
+  color: var(--accent-ui);
 }
 
 .mini:disabled,

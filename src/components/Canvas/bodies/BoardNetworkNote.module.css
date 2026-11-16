@@ -16,8 +16,8 @@
 
 .button {
   flex: none;
-  border: 1px solid color-mix(in srgb, var(--accent-output) 40%, var(--line));
-  background: color-mix(in srgb, var(--bg-panel) 82%, var(--accent-output) 10%);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 40%, var(--line));
+  background: color-mix(in srgb, var(--bg-panel) 82%, var(--accent-ui) 10%);
   color: var(--text-primary);
   border-radius: var(--radius-control);
   padding: 0.1rem 0.45rem;
@@ -27,5 +27,5 @@
 }
 
 .button:hover {
-  border-color: color-mix(in srgb, var(--accent-output) 65%, var(--line));
+  border-color: color-mix(in srgb, var(--accent-ui) 65%, var(--line));
 }

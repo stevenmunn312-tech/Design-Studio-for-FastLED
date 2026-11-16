@@ -15,7 +15,7 @@ import styles from './StatusBar.module.css'
 
 const LEVEL_COLOR: Record<StatusLevel, string> = {
   idle: 'var(--text-secondary)',
-  info: 'var(--accent-output)',
+  info: 'var(--accent-ui)',
   success: 'var(--success)',
   error: 'var(--error)',
 }

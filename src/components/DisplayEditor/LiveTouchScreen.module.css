@@ -55,8 +55,8 @@
 }
 
 .actions button:hover {
-  border-color: var(--accent-output);
-  color: var(--accent-output);
+  border-color: var(--accent-ui);
+  color: var(--accent-ui);
 }
 
 .close {

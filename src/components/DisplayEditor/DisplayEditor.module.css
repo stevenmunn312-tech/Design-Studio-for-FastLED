@@ -43,9 +43,9 @@
 }
 
 .orientationSwitch button[aria-pressed='true'] {
-  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--line));
-  background: color-mix(in srgb, var(--accent-output) 13%, var(--bg-node));
-  color: var(--accent-output);
+  border-color: color-mix(in srgb, var(--accent-ui) 55%, var(--line));
+  background: color-mix(in srgb, var(--accent-ui) 13%, var(--bg-node));
+  color: var(--accent-ui);
 }
 
 .breadcrumb button,
@@ -63,8 +63,8 @@
 
 .breadcrumb button:hover,
 .toolbar button:hover {
-  border-color: var(--accent-output);
-  color: var(--accent-output);
+  border-color: var(--accent-ui);
+  color: var(--accent-ui);
 }
 
 .toolbar button:disabled,
@@ -129,14 +129,14 @@
 }
 
 .screenTabs button:hover {
-  border-color: var(--accent-output);
-  color: var(--accent-output);
+  border-color: var(--accent-ui);
+  color: var(--accent-ui);
 }
 
 .screenTabs button[aria-selected='true'] {
-  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--line));
-  background: color-mix(in srgb, var(--accent-output) 13%, var(--bg-node));
-  color: var(--accent-output);
+  border-color: color-mix(in srgb, var(--accent-ui) 55%, var(--line));
+  background: color-mix(in srgb, var(--accent-ui) 13%, var(--bg-node));
+  color: var(--accent-ui);
 }
 
 .screenTabs button:disabled {
@@ -229,7 +229,7 @@
   gap: calc(var(--space-0) * 1.5);
   padding: calc(var(--space-0) * 1.5) var(--space-1);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--accent-output);
+  border-left: 3px solid var(--accent-ui);
   border-radius: 4px;
   background: var(--bg-node);
   color: var(--text-primary);
@@ -272,7 +272,7 @@
 
 .templateConnect:hover {
   background: var(--bg-node-hover);
-  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--line));
+  border-color: color-mix(in srgb, var(--accent-ui) 55%, var(--line));
 }
 
 .templateButton {
@@ -291,7 +291,7 @@
 
 .paletteList button:hover {
   background: var(--bg-node-hover);
-  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--line));
+  border-color: color-mix(in srgb, var(--accent-ui) 55%, var(--line));
 }
 
 .paletteList small {
@@ -357,7 +357,7 @@
 }
 
 .controlIconButton:hover {
-  border-color: color-mix(in srgb, var(--accent-output) 55%, var(--line));
+  border-color: color-mix(in srgb, var(--accent-ui) 55%, var(--line));
   background: var(--bg-node-hover);
   color: var(--text-primary);
 }
@@ -491,7 +491,7 @@
 /* Not raised: what draws over what is the design's own stacking order, and
    lifting the selection would hide a container's children behind it. */
 .widget.selected {
-  border-color: var(--accent-output);
+  border-color: var(--accent-ui);
 }
 
 .widget.collision {
@@ -507,7 +507,7 @@
   height: 11px;
   border: 2px solid var(--paint-091017);
   border-radius: 2px;
-  background: var(--accent-output);
+  background: var(--accent-ui);
   cursor: nwse-resize;
 }
 
@@ -612,7 +612,7 @@
   width: 100%;
   margin-top: calc(var(--space-0) * 2.5);
   padding: calc(var(--space-0) * 1.75);
-  border: 1px solid color-mix(in srgb, var(--accent-output) 45%, var(--line));
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 45%, var(--line));
   border-radius: 4px;
   background: transparent;
   color: var(--text-primary);
@@ -621,7 +621,7 @@
 
 .showWiring:hover,
 .showWiring:focus-visible {
-  background: color-mix(in srgb, var(--accent-output) 10%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 10%, transparent);
 }
 
 .delete {
@@ -654,8 +654,8 @@
 }
 
 .selectionActions button:hover:not(:disabled) {
-  border-color: var(--accent-output);
-  color: var(--accent-output);
+  border-color: var(--accent-ui);
+  color: var(--accent-ui);
 }
 
 .issues {
@@ -815,7 +815,7 @@
   overflow: auto;
   transform: translateX(-50%);
   padding: var(--space-2) calc(var(--space-0) * 4.5);
-  border: 1px solid color-mix(in srgb, var(--accent-output) 40%, var(--line));
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 40%, var(--line));
   border-radius: 8px;
   background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
@@ -862,7 +862,7 @@
 
 .startTemplate:hover,
 .startTemplate:focus-visible {
-  border-color: var(--accent-output);
+  border-color: var(--accent-ui);
   background: var(--bg-node-hover);
 }
 
@@ -901,7 +901,7 @@
 
 .startAlternative button:hover,
 .startAlternative button:focus-visible {
-  border-color: var(--accent-output);
+  border-color: var(--accent-ui);
 }
 
 /* A template without a preview render still takes a tile's full height, so

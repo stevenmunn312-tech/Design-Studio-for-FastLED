@@ -186,8 +186,8 @@
   cursor: pointer;
 }
 .knobLearnActive {
-  border-color: var(--accent-output);
-  color: var(--accent-output);
+  border-color: var(--accent-ui);
+  color: var(--accent-ui);
   animation: pulse 1s ease-in-out infinite;
 }
 

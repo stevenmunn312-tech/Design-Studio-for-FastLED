@@ -46,7 +46,7 @@
 
 .kicker {
   margin-bottom: calc(var(--space-0) * 1.25);
-  color: var(--accent-library, var(--paint-ff3385));
+  color: var(--accent-ui);
   font-family: var(--font-body);
   font-size: var(--fs-label);
   font-weight: 700;
@@ -115,7 +115,7 @@
 .progressTrack span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--paint-ff3385), var(--warning));
+  background: linear-gradient(90deg, var(--accent-ui), var(--warning));
   transition: width 0.18s ease-out;
 }
 
@@ -275,7 +275,7 @@
   font-size: var(--fs-ui);
 }
 
-.rescanning { color: var(--accent-library, var(--paint-ff3385)); font-family: var(--font-body); font-size: var(--fs-label); }
+.rescanning { color: var(--accent-ui); font-family: var(--font-body); font-size: var(--fs-label); }
 
 .summary { margin: calc(var(--space-0) * 2.5) 0 calc(var(--space-0) * 2.25); color: var(--text-primary); font-size: var(--fs-caption); font-weight: 600; line-height: 1.5; }
 

@@ -156,8 +156,8 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--paint-ff4d8d);
-  box-shadow: 0 0 6px var(--paint-ff4d8d), 0 0 16px rgba(255, 77, 141, 0.62);
+  background: var(--paint-ff5c5c);
+  box-shadow: 0 0 6px var(--paint-ff5c5c), 0 0 16px rgba(255, 92, 92, 0.62);
   animation: liveBreath 1.8s ease-in-out infinite;
 }
 

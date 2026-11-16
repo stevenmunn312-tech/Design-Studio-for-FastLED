@@ -6,7 +6,7 @@
   place-items: center;
   padding: calc(var(--space-0) * 5);
   background:
-    radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--accent-library) 10%, transparent), transparent 30%),
+    radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--accent-ui) 10%, transparent), transparent 30%),
     rgba(0, 0, 0, 0.72);
 }
 
@@ -16,7 +16,7 @@
   display: grid;
   grid-template-rows: auto auto auto auto minmax(120px, 1fr) auto;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--accent-library) 26%, color-mix(in srgb, var(--text-primary) 8%, transparent));
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 26%, color-mix(in srgb, var(--text-primary) 8%, transparent));
   border-radius: 16px;
   background:
     linear-gradient(180deg, rgba(22, 25, 30, 0.99), rgba(8, 11, 15, 0.99)),
@@ -40,7 +40,7 @@
 }
 
 .kicker {
-  color: var(--accent-library);
+  color: var(--accent-ui);
   font-family: var(--font-body);
   font-size: var(--fs-label);
   letter-spacing: 0.18em;
@@ -90,7 +90,7 @@
 
 .tools input[type="search"]:focus,
 .tools select:focus {
-  border-color: color-mix(in srgb, var(--accent-library) 66%, white);
+  border-color: color-mix(in srgb, var(--accent-ui) 66%, white);
 }
 
 .tools label {
@@ -162,8 +162,8 @@
 }
 
 .chipOn {
-  border-color: color-mix(in srgb, var(--accent-library) 58%, transparent);
-  background: color-mix(in srgb, var(--accent-library) 17%, transparent);
+  border-color: color-mix(in srgb, var(--accent-ui) 58%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 17%, transparent);
   color: var(--text-primary);
 }
 
@@ -196,7 +196,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: color-mix(in srgb, var(--accent-library) 72%, white);
+  color: color-mix(in srgb, var(--accent-ui) 72%, white);
   font: inherit;
   text-transform: inherit;
   cursor: pointer;
@@ -223,7 +223,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: color-mix(in srgb, var(--accent-library) 72%, white);
+  color: color-mix(in srgb, var(--accent-ui) 72%, white);
   font: inherit;
   letter-spacing: inherit;
   text-transform: inherit;
@@ -240,7 +240,7 @@
   overflow-y: auto;
   padding: var(--space-1) calc(var(--space-0) * 2.5);
   overscroll-behavior: contain;
-  scrollbar-color: color-mix(in srgb, var(--accent-library) 36%, transparent) color-mix(in srgb, var(--text-primary) 2.5%, transparent);
+  scrollbar-color: color-mix(in srgb, var(--accent-ui) 36%, transparent) color-mix(in srgb, var(--text-primary) 2.5%, transparent);
   scrollbar-width: thin;
 }
 
@@ -262,8 +262,8 @@
 }
 
 .row.selected {
-  border-color: color-mix(in srgb, var(--accent-library) 34%, transparent);
-  background: color-mix(in srgb, var(--accent-library) 9%, transparent);
+  border-color: color-mix(in srgb, var(--accent-ui) 34%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 9%, transparent);
 }
 
 .row.added {
@@ -393,14 +393,14 @@
 }
 
 .primary {
-  border: 1px solid color-mix(in srgb, var(--accent-library) 48%, transparent);
-  background: color-mix(in srgb, var(--accent-library) 14%, var(--bg-primary));
-  color: color-mix(in srgb, var(--accent-library) 72%, white);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 48%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 14%, var(--bg-primary));
+  color: color-mix(in srgb, var(--accent-ui) 72%, white);
 }
 
 .primary:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--accent-library) 72%, white);
-  background: color-mix(in srgb, var(--accent-library) 21%, var(--bg-primary));
+  border-color: color-mix(in srgb, var(--accent-ui) 72%, white);
+  background: color-mix(in srgb, var(--accent-ui) 21%, var(--bg-primary));
 }
 
 .primary:disabled {
@@ -457,7 +457,7 @@
 .progressTrack span {
   display: block;
   height: 100%;
-  background: var(--accent-library);
+  background: var(--accent-ui);
   transition: width 0.18s ease-out;
 }
 
@@ -472,8 +472,8 @@
   align-items: center;
   gap: calc(var(--space-0) * 2);
   padding: calc(var(--space-0) * 2) calc(var(--space-0) * 5);
-  border-top: 1px solid color-mix(in srgb, var(--accent-library) 22%, transparent);
-  background: color-mix(in srgb, var(--accent-library) 7%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--accent-ui) 22%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 7%, transparent);
   color: var(--text-secondary);
   font-family: var(--font-body);
   font-size: var(--fs-label);
@@ -499,7 +499,7 @@
 }
 
 .offer .offerRun {
-  border-color: color-mix(in srgb, var(--accent-library) 48%, transparent);
-  background: color-mix(in srgb, var(--accent-library) 14%, var(--bg-primary));
-  color: color-mix(in srgb, var(--accent-library) 72%, white);
+  border-color: color-mix(in srgb, var(--accent-ui) 48%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 14%, var(--bg-primary));
+  color: color-mix(in srgb, var(--accent-ui) 72%, white);
 }

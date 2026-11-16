@@ -23,8 +23,8 @@
 }
 
 .chip.on {
-  border-color: color-mix(in srgb, var(--accent-library) 58%, transparent);
-  background: color-mix(in srgb, var(--accent-library) 17%, transparent);
+  border-color: color-mix(in srgb, var(--accent-ui) 58%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 17%, transparent);
   color: var(--text-primary);
 }
 

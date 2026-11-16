@@ -3,7 +3,7 @@
   align-items: center;
   flex-shrink: 0;
   gap: calc(var(--space-0) * 0.75);
-  color: color-mix(in srgb, var(--accent-library) 74%, white);
+  color: color-mix(in srgb, var(--accent-ui) 74%, white);
   vertical-align: middle;
 }
 

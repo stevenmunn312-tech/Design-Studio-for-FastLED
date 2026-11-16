@@ -144,7 +144,7 @@
 }
 
 .suggestionWhy {
-  color: color-mix(in srgb, var(--accent-output) 62%, white);
+  color: color-mix(in srgb, var(--accent-ui) 62%, white);
   font-size: var(--fs-label);
   line-height: 1.3;
 }

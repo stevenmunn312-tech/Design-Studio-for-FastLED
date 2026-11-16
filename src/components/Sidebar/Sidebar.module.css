@@ -75,7 +75,7 @@
    was the one stop on a keyboard walk of the app with no visible focus. Same
    treatment as the Hardware shelf's search. */
 .searchInput:focus {
-  border-color: color-mix(in srgb, var(--accent-output) 58%, var(--line));
+  border-color: color-mix(in srgb, var(--accent-ui) 58%, var(--line));
 }
 
 .scroll {
@@ -648,9 +648,9 @@
 
 .shelfConfirmBtn {
   min-width: 42px;
-  border: 1px solid color-mix(in srgb, var(--accent-library) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 40%, transparent);
   border-radius: 5px;
-  background: color-mix(in srgb, var(--accent-library) 10%, var(--bg-primary));
+  background: color-mix(in srgb, var(--accent-ui) 10%, var(--bg-primary));
   color: var(--text-primary);
   font-family: var(--font-body);
   font-size: var(--fs-ui);
@@ -658,7 +658,7 @@
 }
 
 .shelfConfirmBtn:hover {
-  border-color: var(--accent-library);
+  border-color: var(--accent-ui);
 }
 
 .patternShelf {
@@ -699,14 +699,14 @@
 }
 
 .patternShelfDrop {
-  border-left-color: var(--accent-library);
-  background: color-mix(in srgb, var(--accent-library) 16%, var(--bg-primary));
+  border-left-color: var(--accent-ui);
+  background: color-mix(in srgb, var(--accent-ui) 16%, var(--bg-primary));
   color: var(--text-primary);
 }
 
 .shelfChevron {
   width: 10px;
-  color: var(--accent-library);
+  color: var(--accent-ui);
   font-family: var(--font-body);
 }
 
@@ -728,12 +728,12 @@
 }
 
 .patternItem:hover {
-  box-shadow: inset 2px 0 var(--accent-library);
+  box-shadow: inset 2px 0 var(--accent-ui);
 }
 
 .patternItemSelected,
 .patternItemSelected:hover {
-  background: color-mix(in srgb, var(--accent-library) 12%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 12%, transparent);
 }
 
 .patternRating {
@@ -766,7 +766,7 @@
 .patternOrigin {
   flex-shrink: 0;
   padding: 0 var(--space-0);
-  border: 1px solid color-mix(in srgb, var(--accent-library) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 40%, transparent);
   border-radius: var(--radius-control);
   color: var(--text-secondary);
   font-family: var(--font-body);
@@ -790,7 +790,7 @@
   padding: var(--space-0) calc(var(--space-0) * 1.5);
   resize: vertical;
   background: var(--bg-primary);
-  border: 1px solid color-mix(in srgb, var(--accent-library) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 40%, transparent);
   border-radius: 4px;
   color: var(--text-primary);
   font-family: var(--font-body);
@@ -809,7 +809,7 @@
   box-sizing: border-box;
   overflow: hidden;
   padding: calc(var(--space-0) * 1.5);
-  border: 1px solid color-mix(in srgb, var(--accent-library) 24%, color-mix(in srgb, var(--text-primary) 8%, transparent));
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 24%, color-mix(in srgb, var(--text-primary) 8%, transparent));
   border-radius: 9px;
   background: var(--bg-panel);
   box-shadow: 0 18px 44px var(--chrome-shadow);
@@ -850,7 +850,7 @@
 }
 
 .patternContextMenu > button:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent-library) 12%, color-mix(in srgb, var(--text-primary) 2.5%, transparent));
+  background: color-mix(in srgb, var(--accent-ui) 12%, color-mix(in srgb, var(--text-primary) 2.5%, transparent));
 }
 
 .patternContextMenu > button:disabled {
@@ -859,7 +859,7 @@
 }
 
 .patternContextMenu > button > span {
-  color: var(--accent-library);
+  color: var(--accent-ui);
   font-family: var(--font-body);
   text-align: center;
 }
@@ -880,7 +880,7 @@
 
 .patternContextMenu > .patternContextChecked {
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--accent-library) 10%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 10%, transparent);
 }
 
 .patternContextMenu > .patternContextDanger {

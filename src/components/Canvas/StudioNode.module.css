@@ -662,7 +662,7 @@ span.connectionBlocked {
 
 .propInput:focus {
   outline: none;
-  border-color: var(--accent-output);
+  border-color: var(--accent-ui);
 }
 
 .propInput[aria-invalid='true'] {
@@ -779,7 +779,7 @@ span.connectionBlocked {
 
 .propSelect:focus {
   outline: none;
-  border-color: var(--accent-output);
+  border-color: var(--accent-ui);
 }
 
 /* Board-aware GPIO picker (PinPickerField) — a select of known-good pins for

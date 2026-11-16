@@ -98,7 +98,7 @@
 }
 
 .badge_pending   { background: var(--bg-panel);            color: var(--text-secondary); }
-.badge_done      { background: rgba(0, 191, 255, 0.15);   color: var(--accent-output); }
+.badge_done      { background: rgba(0, 191, 255, 0.15);   color: var(--accent-ui); }
 .badge_error     { background: rgba(255, 51, 102, 0.15);  color: var(--error); }
 
 /* Pulse the "Analyzing…" badge to show work is in progress (the analyzer
@@ -175,7 +175,7 @@
 }
 
 .exportBtn {
-  background: var(--accent-show);
+  background: var(--accent-ui);
   color: black;
 }
 

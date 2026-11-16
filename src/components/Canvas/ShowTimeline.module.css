@@ -67,7 +67,7 @@
   cursor: pointer;
 }
 
-.btn:hover:not(:disabled) { border-color: var(--accent-show); color: var(--accent-show); }
+.btn:hover:not(:disabled) { border-color: var(--accent-ui); color: var(--accent-ui); }
 .btn:disabled { opacity: 0.4; cursor: default; }
 .del:hover:not(:disabled) { border-color: var(--error); color: var(--error); }
 
@@ -121,8 +121,8 @@
 .row:hover { border-color: var(--line); }
 
 .rowOn {
-  border-color: var(--accent-show);
-  background: color-mix(in srgb, var(--accent-show) 12%, var(--bg-primary));
+  border-color: var(--accent-ui);
+  background: color-mix(in srgb, var(--accent-ui) 12%, var(--bg-primary));
   color: var(--text-primary);
 }
 
@@ -152,6 +152,6 @@
 .row:focus-visible,
 .rowOn:focus-visible,
 .marker:focus-visible {
-  outline: 2px solid var(--accent-show);
+  outline: 2px solid var(--accent-ui);
   outline-offset: 1px;
 }

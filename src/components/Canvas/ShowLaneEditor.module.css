@@ -56,7 +56,7 @@
 
 .bar button:hover:not(:disabled),
 .inspector button:hover:not(:disabled) {
-  border-color: var(--accent-show);
+  border-color: var(--accent-ui);
 }
 
 .bar button:disabled {
@@ -67,7 +67,7 @@
 .bar button:focus-visible,
 .bar select:focus-visible,
 .inspector button:focus-visible {
-  outline: 2px solid var(--accent-show);
+  outline: 2px solid var(--accent-ui);
   outline-offset: 1px;
 }
 
@@ -81,7 +81,7 @@
 
 .play {
   min-width: 34px;
-  color: var(--accent-show) !important;
+  color: var(--accent-ui) !important;
 }
 
 .clock {
@@ -303,7 +303,7 @@
 .handle:focus-visible,
 .overlap:focus-visible,
 .lockButton:focus-visible {
-  outline: 2px solid var(--accent-show);
+  outline: 2px solid var(--accent-ui);
   outline-offset: 1px;
 }
 
@@ -441,7 +441,7 @@
   bottom: 0;
   width: 2px;
   margin-left: calc(var(--space-0) * -0.25);
-  background: var(--accent-show);
+  background: var(--accent-ui);
 }
 
 /* ── Inspector and key hints ── */

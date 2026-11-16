@@ -335,7 +335,7 @@
   margin: 0;
   padding: var(--space-1) calc(var(--space-0) * 2.5);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--accent-output) 10%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 10%, transparent);
   color: var(--text-secondary);
   font-size: var(--fs-caption);
   line-height: 1.4;

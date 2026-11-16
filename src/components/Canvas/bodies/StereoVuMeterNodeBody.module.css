@@ -11,7 +11,7 @@
   gap: var(--space-1);
   min-height: 64px;
   padding: calc(var(--space-0) * 1.75) calc(var(--space-0) * 3);
-  border: 1px solid color-mix(in srgb, var(--accent-output) 28%, var(--divider));
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 28%, var(--divider));
   border-radius: 7px;
   background: color-mix(in srgb, var(--bg-panel) 84%, var(--paint-020507));
 }

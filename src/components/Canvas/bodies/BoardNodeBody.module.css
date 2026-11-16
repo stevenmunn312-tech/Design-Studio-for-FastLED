@@ -44,7 +44,7 @@
 }
 
 .eyeBtn:hover:not(:disabled) {
-  border-color: var(--accent-output);
+  border-color: var(--accent-ui);
 }
 
 .eyeBtn:disabled {
@@ -70,7 +70,7 @@
 }
 
 .picker:focus-visible {
-  outline: 2px solid var(--accent-output);
+  outline: 2px solid var(--accent-ui);
   outline-offset: 1px;
 }
 
@@ -135,7 +135,7 @@
   gap: calc(var(--space-0) * 2.5);
   margin-top: calc(var(--space-0) * 3);
   padding-top: calc(var(--space-0) * 3);
-  border-top: 1px solid color-mix(in srgb, var(--accent-output) 28%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--accent-ui) 28%, transparent);
 }
 
 .settingsHeader { display: grid; gap: calc(var(--space-0) * 0.5); }
@@ -202,9 +202,9 @@
   display: grid;
   gap: calc(var(--space-0) * 0.75);
   padding: var(--space-1);
-  border: 1px solid color-mix(in srgb, var(--accent-output) 36%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 36%, transparent);
   border-radius: 5px;
-  background: color-mix(in srgb, var(--accent-output) 8%, transparent);
+  background: color-mix(in srgb, var(--accent-ui) 8%, transparent);
 }
 
 .powerRequirement > span,

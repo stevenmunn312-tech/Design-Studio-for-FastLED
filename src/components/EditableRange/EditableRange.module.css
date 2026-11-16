@@ -4,7 +4,7 @@
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  border: 1px solid var(--accent-output);
+  border: 1px solid var(--accent-ui);
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);

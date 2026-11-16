@@ -1392,7 +1392,7 @@ function NodeGraphCanvasInner() {
           style={{
             left: collectionDropCue.x,
             top: collectionDropCue.y,
-            '--cue-color': 'var(--accent-show)',
+            '--cue-color': 'var(--accent-ui)',
           } as React.CSSProperties}
           role="status"
         >
