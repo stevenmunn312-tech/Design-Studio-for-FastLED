@@ -1072,7 +1072,19 @@ checkout, so record the commit from Git):
 | `r4-minima` | Boards mapped, #2015 | PRESENT | GONE |
 | `xiaoble` | Boards mapped, #2017 | PRESENT (`variant.h`, with the id `xiaoble_adafruit`) | PRESENT |
 | `lib-deps-git-ref` | §1, #2018 | PRESENT | PRESENT |
-| `lib-deps-registry` | §1, #2019 | PRESENT | PRESENT |
+| `lib-deps-registry` | §1, #2019 | PRESENT | PRESENT; GONE on PR #2026 (`3cac5588`, open) |
+| `lib-deps-exact-pin` | §1 | PRESENT | PRESENT |
+
+`lib-deps-registry` builds Adafruit Zero DMA for a SAMD51 board, since it
+is SAMD-only. On #2019 Zach found two causes: names with spaces or
+punctuation never matched (#2026 fixes it), and the mirror stopped on
+2026-10-30, so FastLED 3.10.9 is not in it until upstream restarts the job.
+`lib-deps-exact-pin` shows a third fault, on 2.5.51 as well: a bare
+`@x.y.z` is parsed by the `semver` crate as `^x.y.z`, so `FastLED@3.10.7`
+unpacks 3.10.8 and HUB75 `@3.0.14` unpacks 3.1.0. PlatformIO reads a bare
+version as exact. The helper writes no `lib_deps`, so this only matters if a vendored library moves to
+the registry. Report drafted in
+`tmp/fbuild-main/drafts/lib-deps-exact-version-pin-ignored.md`.
 
 The size faults have no probe. On `main` `bc50602e` an empty sketch reads
 21,436 bytes of RAM on an ESP32-S3, equal to `.dram0.data` plus `.dram0.bss`

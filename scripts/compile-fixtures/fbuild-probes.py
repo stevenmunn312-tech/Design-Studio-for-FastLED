@@ -81,8 +81,18 @@ PROBES = [
     Probe("xiaoble", "boards mapped", "nordicnrf52", "xiaoble_adafruit", BLINK, r"variant\.h: No such file"),
     Probe("lib-deps-git-ref", "§1", "espressif32", "esp32dev", BLINK, r"invalid Zip archive",
           lib_deps="https://github.com/schreibfaul1/ESP32-audioI2S.git#3.0.12", command="install"),
-    Probe("lib-deps-registry", "§1", "atmelavr", "uno", BLINK, r"not in fbuild's registry index",
-          lib_deps="adafruit/Adafruit Zero DMA Library@1.1.4"),
+    # Zero DMA is SAMD-only, so it builds for a SAMD51 board once it resolves.
+    Probe("lib-deps-registry", "§1, #2019", "atmelsam", "adafruit_feather_m4",
+          "#include <Arduino.h>\n#include <Adafruit_ZeroDMA.h>\nAdafruit_ZeroDMA dma;\n"
+          "void setup() { dma.allocate(); }\nvoid loop() {}\n",
+          r"not in fbuild's registry index", lib_deps="adafruit/Adafruit Zero DMA Library@1.1.4"),
+    # PlatformIO reads a bare `@x.y.z` as that exact version; fbuild's semver
+    # parse reads it as `^x.y.z` and takes the newest compatible release.
+    Probe("lib-deps-exact-pin", "§1", "atmelavr", "uno",
+          "#include <Arduino.h>\n#include <FastLED.h>\n"
+          'static_assert(FASTLED_VERSION == 3010007, "pin ignored");\n'
+          "void setup() {}\nvoid loop() {}\n",
+          r"pin ignored", lib_deps="fastled/FastLED@3.10.7"),
 ]
 
 

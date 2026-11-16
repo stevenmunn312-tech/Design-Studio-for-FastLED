@@ -46,7 +46,10 @@ within a couple of days; 2.5.51 (2026-11-04) is still the latest release on
 2026-11-17. A workaround whose fault that release does not fix stays, and is
 recorded as a limitation in step 6. Upstream `main` at `c0ea467f` (2026-11-17)
 fixes #1994, #2012, #2013, #2014, #2015 and #2020 by probe; #2016 to #2019 are
-still open and their probes still read PRESENT
+still open and their probes still read PRESENT. Open PR #2026 makes the
+#2019 HUB75 and Zero DMA entries resolve; FastLED 3.10.9 waits for upstream to
+restart the mirror, and a bare `@x.y.z` pin resolves as `^x.y.z` (report
+drafted, not posted)
 ([runbook](docs/runbooks/fbuild-workarounds.md#probes)).
 
 - [x] Map each offered board that has no fbuild environment (`_PIO_BOARDS`)
