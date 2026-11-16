@@ -242,9 +242,11 @@
   opacity: 0.84;
 }
 
+/* Starter maps are a sketch of the patch, not the canvas: every node takes
+   the brand accent, and the wires keep their signal colours. */
 .previewNode rect {
-  fill: color-mix(in srgb, var(--preview-accent) 12%, rgba(18, 24, 31, 0.98));
-  stroke: color-mix(in srgb, var(--preview-accent) 38%, color-mix(in srgb, var(--text-primary) 8%, transparent));
+  fill: color-mix(in srgb, var(--accent-ui) 12%, rgba(18, 24, 31, 0.98));
+  stroke: color-mix(in srgb, var(--accent-ui) 38%, color-mix(in srgb, var(--text-primary) 8%, transparent));
   stroke-width: 1;
   filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.32));
 }

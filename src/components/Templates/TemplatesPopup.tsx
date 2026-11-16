@@ -1,5 +1,4 @@
-import { useEffect, useRef, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { CATEGORY_COLOR } from '../../state/nodeLibrary'
+import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { STARTER_TEMPLATES, type StarterTemplate } from '../../state/patterns/starterTemplates'
 import { useUiStore } from '../../state/uiStore'
 import { useEscapeLayer } from '../../hooks/useEscapeLayer'
@@ -63,7 +62,6 @@ function TemplatePreview({ template }: { template: StarterTemplate }) {
             <g
               key={node.id}
               className={styles.previewNode}
-              style={{ '--preview-accent': CATEGORY_COLOR[node.category] ?? 'var(--accent-ui)' } as CSSProperties}
             >
               <rect x={x} y={y} width={nodeW} height={nodeH} rx="8" />
               <text x={x + nodeW / 2} y={y + nodeH / 2} dominantBaseline="middle" textAnchor="middle">
