@@ -13,6 +13,19 @@ versioning (`0.y.z`) until the first stable release.
   a newer Design Studio is refused with a message instead of opening with its
   newer parts dropped, and the helper will not overwrite it from an older app.
 
+### Changed
+
+- Five patterns are rebuilt. Peacock Mosaic Drift is a staggered mosaic of
+  feather eyes that dilate with the bass, and Prism Fracture a crystal of
+  spectrum-shaded faces that the mids turn and the bass splits into shards;
+  both now rest subdued and brighten with the music like the rest of the
+  Audio Reactive shelf. Of the website's featured patterns, Stillwater Halo is
+  a ring of light breathing over rippling water, Tiled Aurora Silk a turning
+  hexagonal tiling of green, violet and rose, and Veil of Petals a flower that keeps
+  unfurling from a lit heart. A copy of the old Peacock Mosaic Drift or Prism
+  Fracture in a collection keeps the old graph until it is updated from the
+  library.
+
 ### Removed
 
 - File → Import Graph JSON and Export Graph JSON. Save Project File As and

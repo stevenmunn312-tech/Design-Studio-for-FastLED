@@ -21,7 +21,7 @@
         "type": "studioNode",
         "position": {
           "x": -900,
-          "y": 220
+          "y": 40
         },
         "data": {
           "label": "Audio",
@@ -44,8 +44,8 @@
         "id": "fft",
         "type": "studioNode",
         "position": {
-          "x": -660,
-          "y": 60
+          "x": -580,
+          "y": 120
         },
         "data": {
           "label": "FFT Analyzer",
@@ -54,7 +54,7 @@
           "properties": {
             "bands": 24,
             "gain": 1,
-            "smoothing": 0.72,
+            "smoothing": 0.8,
             "tilt": 0
           },
           "inputs": [
@@ -62,6 +62,21 @@
               "id": "audio",
               "label": "Audio",
               "dataType": "audio"
+            },
+            {
+              "id": "gain",
+              "label": "Gain",
+              "dataType": "float"
+            },
+            {
+              "id": "smoothing",
+              "label": "Smoothing",
+              "dataType": "float"
+            },
+            {
+              "id": "tilt",
+              "label": "Tilt",
+              "dataType": "float"
             }
           ],
           "outputs": [
@@ -84,95 +99,11 @@
         }
       },
       {
-        "id": "perc",
+        "id": "bass",
         "type": "studioNode",
         "position": {
-          "x": -660,
-          "y": 300
-        },
-        "data": {
-          "label": "Percussion Detect",
-          "nodeType": "PercussionDetect",
-          "category": "audio",
-          "properties": {
-            "sensitivity": 0.55,
-            "decay": 0.72,
-            "separation": 0.4
-          },
-          "inputs": [
-            {
-              "id": "audio",
-              "label": "Audio",
-              "dataType": "audio"
-            }
-          ],
-          "outputs": [
-            {
-              "id": "kick",
-              "label": "Kick",
-              "dataType": "float"
-            },
-            {
-              "id": "snare",
-              "label": "Snare",
-              "dataType": "float"
-            },
-            {
-              "id": "hihat",
-              "label": "Hi-Hat",
-              "dataType": "float"
-            }
-          ]
-        }
-      },
-      {
-        "id": "feat",
-        "type": "studioNode",
-        "position": {
-          "x": -660,
-          "y": 500
-        },
-        "data": {
-          "label": "Audio Features",
-          "nodeType": "AudioFeatures",
-          "category": "audio",
-          "properties": {
-            "sensitivity": 0.5,
-            "gate": 0.12,
-            "smoothing": 0.8
-          },
-          "inputs": [
-            {
-              "id": "audio",
-              "label": "Audio",
-              "dataType": "audio"
-            }
-          ],
-          "outputs": [
-            {
-              "id": "vocals",
-              "label": "Vocals",
-              "dataType": "float"
-            },
-            {
-              "id": "energy",
-              "label": "Energy",
-              "dataType": "float"
-            },
-            {
-              "id": "silence",
-              "label": "Silence",
-              "dataType": "bool"
-            }
-          ]
-        }
-      },
-      {
-        "id": "sm-mids",
-        "type": "studioNode",
-        "position": {
-          "x": -420,
-          "y": 40
+          "x": -260,
+          "y": 520
         },
         "data": {
           "label": "Smooth",
@@ -180,12 +111,23 @@
           "category": "math",
           "properties": {
             "value": 0,
-            "response": 0.18
+            "response": 0.35,
+            "fall": 0
           },
           "inputs": [
             {
               "id": "value",
               "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "response",
+              "label": "Response",
+              "dataType": "float"
+            },
+            {
+              "id": "fall",
+              "label": "Fall",
               "dataType": "float"
             }
           ],
@@ -199,11 +141,11 @@
         }
       },
       {
-        "id": "sm-treble",
+        "id": "mids",
         "type": "studioNode",
         "position": {
-          "x": -420,
-          "y": 120
+          "x": -260,
+          "y": 260
         },
         "data": {
           "label": "Smooth",
@@ -211,12 +153,23 @@
           "category": "math",
           "properties": {
             "value": 0,
-            "response": 0.18
+            "response": 0.3,
+            "fall": 0
           },
           "inputs": [
             {
               "id": "value",
               "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "response",
+              "label": "Response",
+              "dataType": "float"
+            },
+            {
+              "id": "fall",
+              "label": "Fall",
               "dataType": "float"
             }
           ],
@@ -230,45 +183,100 @@
         }
       },
       {
-        "id": "prism",
+        "id": "spectrum",
         "type": "studioNode",
         "position": {
-          "x": -140,
-          "y": 200
+          "x": -580,
+          "y": -100
         },
         "data": {
-          "label": "Prism Storm",
-          "nodeType": "PrismStorm",
+          "label": "Custom Palette",
+          "nodeType": "CustomPalette",
+          "category": "color",
+          "properties": {
+            "colors": [
+              "#ff1a1a",
+              "#ff9a00",
+              "#ffe600",
+              "#22e04a",
+              "#00d0ff",
+              "#2a4bff",
+              "#b020ff",
+              "#ff1a1a"
+            ],
+            "positions": [
+              0,
+              0.14,
+              0.28,
+              0.44,
+              0.58,
+              0.72,
+              0.86,
+              1
+            ]
+          },
+          "inputs": [
+            {
+              "id": "color0",
+              "label": "Color 1",
+              "dataType": "color"
+            },
+            {
+              "id": "color1",
+              "label": "Color 2",
+              "dataType": "color"
+            },
+            {
+              "id": "color2",
+              "label": "Color 3",
+              "dataType": "color"
+            },
+            {
+              "id": "color3",
+              "label": "Color 4",
+              "dataType": "color"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
+            }
+          ]
+        }
+      },
+      {
+        "id": "beam",
+        "type": "studioNode",
+        "position": {
+          "x": -260,
+          "y": -420
+        },
+        "data": {
+          "label": "Palette Gradient",
+          "nodeType": "PaletteGradient",
           "category": "pattern",
           "properties": {
-            "reactivity": 0.75,
-            "speed": 0.45,
-            "palette": "amethyst"
+            "angle": 20,
+            "repeat": 1.2,
+            "speed": 0.12,
+            "palette": "rainbow"
           },
           "inputs": [
             {
-              "id": "treble",
-              "label": "Treble",
+              "id": "angle",
+              "label": "Angle",
               "dataType": "float"
             },
             {
-              "id": "mids",
-              "label": "Mids",
-              "dataType": "float"
-            },
-            {
-              "id": "hihat",
-              "label": "Hi-Hat",
-              "dataType": "float"
-            },
-            {
-              "id": "reactivity",
-              "label": "Energy",
+              "id": "repeat",
+              "label": "Repeat",
               "dataType": "float"
             },
             {
               "id": "speed",
-              "label": "Speed",
+              "label": "Scroll",
               "dataType": "float"
             },
             {
@@ -287,37 +295,158 @@
         }
       },
       {
-        "id": "wave",
+        "id": "shade",
         "type": "studioNode",
         "position": {
-          "x": -140,
-          "y": 460
+          "x": -260,
+          "y": -140
         },
         "data": {
-          "label": "Wave",
-          "nodeType": "Wave",
-          "category": "signal",
+          "label": "Gradient Frame",
+          "nodeType": "GradientFrame",
+          "category": "pattern",
           "properties": {
-            "amplitude": 25,
-            "frequency": 0.03,
-            "phase": 0,
-            "waveform": "sine",
-            "unipolar": false
+            "rA": 255,
+            "gA": 255,
+            "bA": 255,
+            "rB": 20,
+            "gB": 20,
+            "bB": 20,
+            "angle": 110,
+            "mixMode": "rgb"
           },
           "inputs": [
             {
-              "id": "amplitude",
-              "label": "Amplitude",
+              "id": "colorA",
+              "label": "Color A",
+              "dataType": "color"
+            },
+            {
+              "id": "colorB",
+              "label": "Color B",
+              "dataType": "color"
+            },
+            {
+              "id": "angle",
+              "label": "Angle",
               "dataType": "float"
             },
             {
-              "id": "frequency",
-              "label": "Frequency",
+              "id": "rA",
+              "label": "R (A)",
               "dataType": "float"
             },
             {
-              "id": "phase",
-              "label": "Phase",
+              "id": "gA",
+              "label": "G (A)",
+              "dataType": "float"
+            },
+            {
+              "id": "bA",
+              "label": "B (A)",
+              "dataType": "float"
+            },
+            {
+              "id": "rB",
+              "label": "R (B)",
+              "dataType": "float"
+            },
+            {
+              "id": "gB",
+              "label": "G (B)",
+              "dataType": "float"
+            },
+            {
+              "id": "bB",
+              "label": "B (B)",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "facet",
+        "type": "studioNode",
+        "position": {
+          "x": 60,
+          "y": -300
+        },
+        "data": {
+          "label": "Mask",
+          "nodeType": "Mask",
+          "category": "composite",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "mask",
+              "label": "Mask",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "turn",
+        "type": "studioNode",
+        "position": {
+          "x": 60,
+          "y": -160
+        },
+        "data": {
+          "label": "Map Range",
+          "nodeType": "MapRange",
+          "category": "math",
+          "properties": {
+            "value": 0,
+            "inMin": 0,
+            "inMax": 1,
+            "outMin": 3,
+            "outMax": 14,
+            "clampOutput": true
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "inMin",
+              "label": "In Min",
+              "dataType": "float"
+            },
+            {
+              "id": "inMax",
+              "label": "In Max",
+              "dataType": "float"
+            },
+            {
+              "id": "outMin",
+              "label": "Out Min",
+              "dataType": "float"
+            },
+            {
+              "id": "outMax",
+              "label": "Out Max",
               "dataType": "float"
             }
           ],
@@ -331,92 +460,78 @@
         }
       },
       {
-        "id": "arr",
+        "id": "split",
         "type": "studioNode",
         "position": {
-          "x": 180,
-          "y": 200
+          "x": 60,
+          "y": 180
         },
         "data": {
-          "label": "Array",
-          "nodeType": "Array",
-          "category": "composite",
+          "label": "Map Range",
+          "nodeType": "MapRange",
+          "category": "math",
           "properties": {
-            "count": 4,
-            "offsetX": 0,
-            "offsetY": 0,
-            "angle": 0,
-            "scale": 0.85,
-            "falloff": 0.65,
-            "blendMode": "add"
+            "value": 0,
+            "inMin": 0,
+            "inMax": 1,
+            "outMin": 1.05,
+            "outMax": 1.45,
+            "clampOutput": true
           },
           "inputs": [
             {
-              "id": "frame",
-              "label": "Frame",
-              "dataType": "frame"
-            },
-            {
-              "id": "count",
-              "label": "Count",
+              "id": "value",
+              "label": "Value",
               "dataType": "float"
             },
             {
-              "id": "offsetX",
-              "label": "Offset X",
+              "id": "inMin",
+              "label": "In Min",
               "dataType": "float"
             },
             {
-              "id": "offsetY",
-              "label": "Offset Y",
+              "id": "inMax",
+              "label": "In Max",
               "dataType": "float"
             },
             {
-              "id": "angle",
-              "label": "Angle",
+              "id": "outMin",
+              "label": "Out Min",
               "dataType": "float"
             },
             {
-              "id": "scale",
-              "label": "Scale",
-              "dataType": "float"
-            },
-            {
-              "id": "falloff",
-              "label": "Falloff",
+              "id": "outMax",
+              "label": "Out Max",
               "dataType": "float"
             }
           ],
           "outputs": [
             {
-              "id": "frame",
-              "label": "Frame",
-              "dataType": "frame"
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
             }
           ]
         }
       },
       {
-        "id": "kal",
+        "id": "crystal",
         "type": "studioNode",
         "position": {
-          "x": 460,
-          "y": 200
+          "x": 380,
+          "y": 40
         },
         "data": {
-          "label": "Mirror",
-          "nodeType": "Mirror",
+          "label": "Tile Symmetry",
+          "nodeType": "Symmetry",
           "category": "composite",
           "properties": {
-            "mirrorMode": "radial",
-            "glow": false,
-            "glowAmount": 0.35,
-            "segments": 8,
+            "group": "p3",
+            "cells": 2,
             "rotation": 0,
             "spin": 0,
-            "r": 255,
-            "g": 255,
-            "b": 255
+            "offsetX": 0,
+            "offsetY": 0
           },
           "inputs": [
             {
@@ -425,18 +540,8 @@
               "dataType": "frame"
             },
             {
-              "id": "color",
-              "label": "Tint",
-              "dataType": "color"
-            },
-            {
-              "id": "glowAmount",
-              "label": "Glow",
-              "dataType": "float"
-            },
-            {
-              "id": "segments",
-              "label": "Segments",
+              "id": "cells",
+              "label": "Cells",
               "dataType": "float"
             },
             {
@@ -450,18 +555,13 @@
               "dataType": "float"
             },
             {
-              "id": "r",
-              "label": "R",
+              "id": "offsetX",
+              "label": "Offset X",
               "dataType": "float"
             },
             {
-              "id": "g",
-              "label": "G",
-              "dataType": "float"
-            },
-            {
-              "id": "b",
-              "label": "B",
+              "id": "offsetY",
+              "label": "Offset Y",
               "dataType": "float"
             }
           ],
@@ -475,18 +575,246 @@
         }
       },
       {
-        "id": "cboost",
+        "id": "go",
         "type": "studioNode",
         "position": {
-          "x": 740,
-          "y": 200
+          "x": 2500,
+          "y": 40
+        },
+        "data": {
+          "label": "Group Output",
+          "nodeType": "GroupOutput",
+          "category": "output",
+          "properties": {},
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ],
+          "outputs": []
+        }
+      },
+      {
+        "id": "dynFeatures",
+        "type": "studioNode",
+        "position": {
+          "x": 700,
+          "y": 260
+        },
+        "data": {
+          "label": "Audio Features",
+          "nodeType": "AudioFeatures",
+          "category": "audio",
+          "properties": {
+            "sensitivity": 0.55,
+            "gate": 0.1,
+            "smoothing": 0.8
+          },
+          "inputs": [
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
+            },
+            {
+              "id": "sensitivity",
+              "label": "Sensitivity",
+              "dataType": "float"
+            },
+            {
+              "id": "gate",
+              "label": "Gate",
+              "dataType": "float"
+            },
+            {
+              "id": "smoothing",
+              "label": "Smoothing",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "vocals",
+              "label": "Vocals",
+              "dataType": "float"
+            },
+            {
+              "id": "energy",
+              "label": "Energy",
+              "dataType": "float"
+            },
+            {
+              "id": "loudness",
+              "label": "Loudness",
+              "dataType": "float"
+            },
+            {
+              "id": "silence",
+              "label": "Silence",
+              "dataType": "bool"
+            },
+            {
+              "id": "level",
+              "label": "Level",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "dynEnergy",
+        "type": "studioNode",
+        "position": {
+          "x": 1000,
+          "y": 260
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "value": 0,
+            "response": 0.15,
+            "fall": 0
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "response",
+              "label": "Response",
+              "dataType": "float"
+            },
+            {
+              "id": "fall",
+              "label": "Fall",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "dynBoostClamp",
+        "type": "studioNode",
+        "position": {
+          "x": 1300,
+          "y": 260
+        },
+        "data": {
+          "label": "Clamp",
+          "nodeType": "Clamp",
+          "category": "math",
+          "properties": {
+            "value": 0,
+            "min": 0.12,
+            "max": 0.3
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "min",
+              "label": "Min",
+              "dataType": "float"
+            },
+            {
+              "id": "max",
+              "label": "Max",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "dynBoost",
+        "type": "studioNode",
+        "position": {
+          "x": 1600,
+          "y": 260
+        },
+        "data": {
+          "label": "Map Range",
+          "nodeType": "MapRange",
+          "category": "math",
+          "properties": {
+            "value": 0,
+            "inMin": 0.12,
+            "inMax": 0.3,
+            "outMin": 1,
+            "outMax": 1.45,
+            "clampOutput": false
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "inMin",
+              "label": "In Min",
+              "dataType": "float"
+            },
+            {
+              "id": "inMax",
+              "label": "In Max",
+              "dataType": "float"
+            },
+            {
+              "id": "outMin",
+              "label": "Out Min",
+              "dataType": "float"
+            },
+            {
+              "id": "outMax",
+              "label": "Out Max",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "dynColor",
+        "type": "studioNode",
+        "position": {
+          "x": 1900,
+          "y": 40
         },
         "data": {
           "label": "Saturation",
           "nodeType": "Saturation",
           "category": "composite",
           "properties": {
-            "amount": 1.6,
+            "amount": 1,
             "keepBrightness": true
           },
           "inputs": [
@@ -511,31 +839,141 @@
         }
       },
       {
-        "id": "go",
+        "id": "dynLightClamp",
         "type": "studioNode",
         "position": {
-          "x": 1020,
-          "y": 200
+          "x": 1300,
+          "y": 480
         },
         "data": {
-          "label": "Group Output",
-          "nodeType": "GroupOutput",
-          "category": "output",
-          "properties": {},
+          "label": "Clamp",
+          "nodeType": "Clamp",
+          "category": "math",
+          "properties": {
+            "value": 0,
+            "min": 0.02,
+            "max": 0.2
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "min",
+              "label": "Min",
+              "dataType": "float"
+            },
+            {
+              "id": "max",
+              "label": "Max",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "dynLight",
+        "type": "studioNode",
+        "position": {
+          "x": 1600,
+          "y": 480
+        },
+        "data": {
+          "label": "Map Range",
+          "nodeType": "MapRange",
+          "category": "math",
+          "properties": {
+            "value": 0,
+            "inMin": 0.02,
+            "inMax": 0.2,
+            "outMin": 0.35,
+            "outMax": 1,
+            "clampOutput": false
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "inMin",
+              "label": "In Min",
+              "dataType": "float"
+            },
+            {
+              "id": "inMax",
+              "label": "In Max",
+              "dataType": "float"
+            },
+            {
+              "id": "outMin",
+              "label": "Out Min",
+              "dataType": "float"
+            },
+            {
+              "id": "outMax",
+              "label": "Out Max",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
+        "id": "dynBrightness",
+        "type": "studioNode",
+        "position": {
+          "x": 2200,
+          "y": 40
+        },
+        "data": {
+          "label": "Brightness",
+          "nodeType": "BrightnessMod",
+          "category": "composite",
+          "properties": {
+            "brightness": 1
+          },
           "inputs": [
             {
               "id": "frame",
               "label": "Frame",
               "dataType": "frame"
+            },
+            {
+              "id": "brightness",
+              "label": "Brightness",
+              "dataType": "float"
             }
           ],
-          "outputs": []
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
         }
       }
     ],
     "edges": [
       {
-        "id": "e95-gi-audio-out-fft-audio",
+        "id": "e1",
         "source": "gi-audio",
         "sourceHandle": "out",
         "target": "fft",
@@ -547,34 +985,22 @@
         }
       },
       {
-        "id": "e96-gi-audio-out-perc-audio",
-        "source": "gi-audio",
-        "sourceHandle": "out",
-        "target": "perc",
-        "targetHandle": "audio",
+        "id": "e2",
+        "source": "fft",
+        "sourceHandle": "bass",
+        "target": "bass",
+        "targetHandle": "value",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {
-          "stroke": "#00e0a4"
+          "stroke": "#9aa0a6"
         }
       },
       {
-        "id": "e97-gi-audio-out-feat-audio",
-        "source": "gi-audio",
-        "sourceHandle": "out",
-        "target": "feat",
-        "targetHandle": "audio",
-        "type": "glowEdge",
-        "reconnectable": "target",
-        "style": {
-          "stroke": "#00e0a4"
-        }
-      },
-      {
-        "id": "e98-fft-mids-sm-mids-value",
+        "id": "e3",
         "source": "fft",
         "sourceHandle": "mids",
-        "target": "sm-mids",
+        "target": "mids",
         "targetHandle": "value",
         "type": "glowEdge",
         "reconnectable": "target",
@@ -583,10 +1009,46 @@
         }
       },
       {
-        "id": "e99-fft-treble-sm-treble-value",
-        "source": "fft",
-        "sourceHandle": "treble",
-        "target": "sm-treble",
+        "id": "e4",
+        "source": "spectrum",
+        "sourceHandle": "palette",
+        "target": "beam",
+        "targetHandle": "paletteIn",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#ff5cf0"
+        }
+      },
+      {
+        "id": "e5",
+        "source": "beam",
+        "sourceHandle": "frame",
+        "target": "facet",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#5ad1ff"
+        }
+      },
+      {
+        "id": "e6",
+        "source": "shade",
+        "sourceHandle": "frame",
+        "target": "facet",
+        "targetHandle": "mask",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#5ad1ff"
+        }
+      },
+      {
+        "id": "e7",
+        "source": "mids",
+        "sourceHandle": "result",
+        "target": "turn",
         "targetHandle": "value",
         "type": "glowEdge",
         "reconnectable": "target",
@@ -595,11 +1057,11 @@
         }
       },
       {
-        "id": "e100-sm-treble-result-prism-treble",
-        "source": "sm-treble",
+        "id": "e8",
+        "source": "bass",
         "sourceHandle": "result",
-        "target": "prism",
-        "targetHandle": "treble",
+        "target": "split",
+        "targetHandle": "value",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {
@@ -607,46 +1069,10 @@
         }
       },
       {
-        "id": "e101-sm-mids-result-prism-mids",
-        "source": "sm-mids",
-        "sourceHandle": "result",
-        "target": "prism",
-        "targetHandle": "mids",
-        "type": "glowEdge",
-        "reconnectable": "target",
-        "style": {
-          "stroke": "#9aa0a6"
-        }
-      },
-      {
-        "id": "e102-perc-hihat-prism-hihat",
-        "source": "perc",
-        "sourceHandle": "hihat",
-        "target": "prism",
-        "targetHandle": "hihat",
-        "type": "glowEdge",
-        "reconnectable": "target",
-        "style": {
-          "stroke": "#9aa0a6"
-        }
-      },
-      {
-        "id": "e103-feat-energy-prism-energy",
-        "source": "feat",
-        "sourceHandle": "energy",
-        "target": "prism",
-        "targetHandle": "reactivity",
-        "type": "glowEdge",
-        "reconnectable": "target",
-        "style": {
-          "stroke": "#9aa0a6"
-        }
-      },
-      {
-        "id": "e104-prism-frame-arr-frame",
-        "source": "prism",
+        "id": "e9",
+        "source": "facet",
         "sourceHandle": "frame",
-        "target": "arr",
+        "target": "crystal",
         "targetHandle": "frame",
         "type": "glowEdge",
         "reconnectable": "target",
@@ -655,11 +1081,11 @@
         }
       },
       {
-        "id": "e105-wave-result-arr-angle",
-        "source": "wave",
+        "id": "e10",
+        "source": "turn",
         "sourceHandle": "result",
-        "target": "arr",
-        "targetHandle": "angle",
+        "target": "crystal",
+        "targetHandle": "spin",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {
@@ -667,40 +1093,115 @@
         }
       },
       {
-        "id": "e106-arr-frame-kal-frame",
-        "source": "arr",
-        "sourceHandle": "frame",
-        "target": "kal",
-        "targetHandle": "frame",
+        "id": "e11",
+        "source": "split",
+        "sourceHandle": "result",
+        "target": "crystal",
+        "targetHandle": "cells",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {
-          "stroke": "#5ad1ff"
+          "stroke": "#9aa0a6"
         }
       },
       {
-        "id": "e107-kal-frame-cboost-frame",
-        "source": "kal",
+        "id": "gi-audio-out-dynFeatures-audio",
+        "source": "gi-audio",
+        "sourceHandle": "out",
+        "target": "dynFeatures",
+        "targetHandle": "audio",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "dynFeatures-loudness-dynEnergy-value",
+        "source": "dynFeatures",
+        "sourceHandle": "loudness",
+        "target": "dynEnergy",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "dynEnergy-result-dynBoostClamp-value",
+        "source": "dynEnergy",
+        "sourceHandle": "result",
+        "target": "dynBoostClamp",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "dynBoostClamp-result-dynBoost-value",
+        "source": "dynBoostClamp",
+        "sourceHandle": "result",
+        "target": "dynBoost",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "crystal-frame-dynColor-frame",
+        "source": "crystal",
         "sourceHandle": "frame",
-        "target": "cboost",
+        "target": "dynColor",
         "targetHandle": "frame",
         "type": "glowEdge",
-        "reconnectable": "target",
-        "style": {
-          "stroke": "#5ad1ff"
-        }
+        "reconnectable": "target"
       },
       {
-        "id": "e108-cboost-frame-go-frame",
-        "source": "cboost",
+        "id": "dynBoost-result-dynColor-amount",
+        "source": "dynBoost",
+        "sourceHandle": "result",
+        "target": "dynColor",
+        "targetHandle": "amount",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "dynEnergy-result-dynLightClamp-value",
+        "source": "dynEnergy",
+        "sourceHandle": "result",
+        "target": "dynLightClamp",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "dynLightClamp-result-dynLight-value",
+        "source": "dynLightClamp",
+        "sourceHandle": "result",
+        "target": "dynLight",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "dynColor-frame-dynBrightness-frame",
+        "source": "dynColor",
+        "sourceHandle": "frame",
+        "target": "dynBrightness",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "dynLight-result-dynBrightness-brightness",
+        "source": "dynLight",
+        "sourceHandle": "result",
+        "target": "dynBrightness",
+        "targetHandle": "brightness",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "dynBrightness-frame-go-frame",
+        "source": "dynBrightness",
         "sourceHandle": "frame",
         "target": "go",
         "targetHandle": "frame",
         "type": "glowEdge",
-        "reconnectable": "target",
-        "style": {
-          "stroke": "#5ad1ff"
-        }
+        "reconnectable": "target"
       }
     ]
   }

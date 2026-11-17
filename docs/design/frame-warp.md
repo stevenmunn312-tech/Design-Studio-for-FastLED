@@ -124,9 +124,9 @@ against the preview for every edge mode and step, and holds the push and a
 nearest, wrapped turn to the removed Field Warp and Field Rotate.
 
 Bundled conversions: a Field Rotate became a Field Transform with `wrap`, so
-the rotating patterns keep their corners; Lissajous Lattice's and Tiled Aurora
-Silk's tile-then-rotate pairs became one node, which tiles and then turns the
-tiled plane as the pair did, now without a seam.
+the rotating patterns keep their corners; Lissajous Lattice's tile-then-rotate
+pair became one node, which tiles and then turns the tiled plane as the pair
+did, now without a seam.
 
 ## Shared sampler and parity
 

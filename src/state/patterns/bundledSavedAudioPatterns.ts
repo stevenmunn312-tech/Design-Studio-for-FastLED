@@ -17,7 +17,11 @@ import ultravioletKaleidoPulse from '../../assets/bundled-patterns/Ultraviolet K
 type BundledSeed = Omit<SavedPattern, 'id' | 'createdAt' | 'categoryId' | 'bundled'>
 
 // Promoted library entries retain their original port signatures, and their
-// original graphs except Aurora Voice and Cascade Surge, retuned 2026-11-10.
+// original graphs except Aurora Voice and Cascade Surge, retuned 2026-11-10,
+// and Peacock Mosaic Drift and Prism Fracture, rebuilt 2026-11-17. Those two
+// files hold the shared energy stage (`energyDynamics.ts`) as saved `dyn*`
+// nodes, because every entry here loads as its file is;
+// `energyDynamics.test.ts` holds their numbers to the stage's table.
 // Sunset Bloom Spectrum and Citrus Spectrum Bars were promoted as "My
 // Pattern" and "New Group temp". Order is identity: a pattern's
 // `bundled-audio-NN` id is its position, so the two renamed entries keep

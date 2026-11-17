@@ -10,30 +10,31 @@
 
 /** Names of bundled audio-reactive patterns, chosen ones first, then by score. */
 export const BUNDLED_EXCEPTIONAL_AUDIO_NAMES: readonly string[] = [
-  'Cinder Storm', // 99, chosen
+  'Cinder Storm', // 98, chosen
   'Sunset Bloom Spectrum', // 100
   'Citrus Spectrum Bars', // 99
   'Harmonic Shard Array', // 99
   'Laser Monsoon Parade', // 99
   'Neon Prism EQ', // 99
+  'Peacock Mosaic Drift', // 99
   'Reaction Bloom', // 99
   'String Festival Spark Train', // 99
   'Chromatic Orbit Reactor', // 98
   'Pacifica Whitecap Storm', // 98
-  'Peacock Mosaic Drift', // 98
   'Phyllotaxis Bloom', // 98
   'Polar Bloom', // 98
   'RGB Blob Thunder Garden', // 98
   'Strange Attractor Fog', // 98
   'Bass Cathedral Collapse', // 97
+  'Bass Furnace', // 97
   'Fractal Voyage', // 97
   'Plasma Beat Lattice', // 97
   'Polar Wave Halo Engine', // 97
+  'Prism Fracture', // 97
   'Spectrum Cathedral', // 97
   'String Frost Percussion', // 97
   'String Pulse Plasma', // 97
   'Ultraviolet Kaleido Pulse', // 97
-  'Bass Furnace', // 96
   'Beat Temple', // 96
   'Chromasonic Vortex', // 96
   'Color Trails', // 96
@@ -47,7 +48,6 @@ export const BUNDLED_EXCEPTIONAL_AUDIO_NAMES: readonly string[] = [
   'String Midrange Marble', // 96
   'String Rhythm Ribbon', // 96
   'String Wide Kick Scanner', // 96
-  'Turbulent Deep', // 96
   'Vocal Gravity Veil', // 96
   'Hyperspace Kick', // 95
   'Spectra Mosaic Night', // 95
@@ -55,6 +55,7 @@ export const BUNDLED_EXCEPTIONAL_AUDIO_NAMES: readonly string[] = [
   'String Spectrum Conveyor', // 95
   'Sub Bass Scanline', // 95
   'Tidal Glass Meditation', // 95
+  'Turbulent Deep', // 95
   'Wireframe Bass Cage', // 95
   'Cascade Surge', // 94
   'Juggle After Dark', // 94
@@ -62,7 +63,6 @@ export const BUNDLED_EXCEPTIONAL_AUDIO_NAMES: readonly string[] = [
   'Psydance', // 94
   'String Bass Tide', // 94
   'String Vocal Whitecaps', // 94
-  'Prism Fracture', // 93
   'Truchet Beat Maze', // 93
   'Aurora Voice', // 92
   'Chromafluid Cathedral', // 92
@@ -71,7 +71,5 @@ export const BUNDLED_EXCEPTIONAL_AUDIO_NAMES: readonly string[] = [
   'Velvet Ink Choir', // 92
   'Mycelium Crescendo', // 91
   'String Singing Candles', // 91
-  'Fibonacci Spiral Drive', // 90
-  'Percussion Symphony', // 90
   'Prismatic Waterfall Cathedral', // 90
 ]

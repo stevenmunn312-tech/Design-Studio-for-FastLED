@@ -51,6 +51,26 @@ describe('shared energy dynamics', () => {
     }
   })
 
+  it('holds the stage saved in the two rebuilt promoted graphs to the table', () => {
+    // Promoted graphs load as their files are, so these two carry the stage
+    // as saved nodes. After a retune of ENERGY_DYNAMICS, edit the same
+    // numbers into their dynEnergy, dynLight and dynBoost nodes.
+    for (const name of ['Peacock Mosaic Drift', 'Prism Fracture']) {
+      const pattern = byName(name)
+      const properties = (id: string) => pattern.subgraph.nodes.find((entry) => entry.id === id)?.data.properties
+      expect(properties('dynEnergy'), name).toMatchObject({ response: ENERGY_DYNAMICS.smoothing })
+      expect(properties('dynLight'), name).toMatchObject({
+        inMin: ENERGY_DYNAMICS.lightIn[0], inMax: ENERGY_DYNAMICS.lightIn[1], outMin: ENERGY_DYNAMICS.lightFloor, outMax: 1,
+      })
+      expect(properties('dynBoost'), name).toMatchObject({
+        inMin: ENERGY_DYNAMICS.boostIn[0], inMax: ENERGY_DYNAMICS.boostIn[1], outMin: 1, outMax: ENERGY_DYNAMICS.boostMax,
+      })
+      const out = pattern.subgraph.nodes.find((entry) => entry.data.nodeType === 'GroupOutput')!
+      const last = pattern.subgraph.edges.find((edge) => edge.target === out.id && edge.targetHandle === 'frame')!
+      expect(last.source, name).toBe('dynBrightness')
+    }
+  })
+
   it('rests subdued, then lifts brightness and colour with the loudness', () => {
     for (const name of ['Chromasonic Vortex', 'String Bass Tide', 'Snare Rain']) {
       const pattern = byName(name)

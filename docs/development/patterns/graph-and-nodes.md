@@ -27,7 +27,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `bundledPatterns.ts` applies it to the JSON and string seeds, the release
   builder applies it in `finish()`, and the promoted graphs stay byte for
   byte so the library still deduplicates them against the user's saved
-  copies. Retune the stage in its table, not in eighty graphs. The stage
+  copies. Retune the stage in its table, not in eighty graphs. Two promoted
+  slots, Peacock Mosaic Drift and Prism Fracture, were rebuilt and hold the
+  stage as saved `dyn*` nodes, because a promoted file loads as it is: a
+  retune of the table also edits those three nodes in each file, and
+  `energyDynamics.test.ts` fails until it does. The stage
   reads Loudness, never Energy and never a beat: Energy comes from the
   spectrum, which FastLED normalises to each band's peak of the last few
   seconds, so it read a quiet intro as loud and a steady chorus as middling
