@@ -10,7 +10,7 @@ import { releasePixels, renderReleaseScenario } from './audioReleaseFixtures'
 
 const definitions = new Map(NODE_LIBRARY.map((definition) => [definition.type, definition]))
 const promoted = AUDIO_BUNDLED_PATTERNS.slice(72, 86)
-const shaped = AUDIO_BUNDLED_PATTERNS.filter((pattern) => !promoted.includes(pattern))
+const shaped = AUDIO_BUNDLED_PATTERNS
 const byName = (name: string) => AUDIO_BUNDLED_PATTERNS.find((pattern) => pattern.name === name)!
 const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length
 
@@ -23,8 +23,8 @@ function node(id: string, type: string, properties: Record<string, unknown> = {}
 }
 
 describe('shared energy dynamics', () => {
-  it('ends every bundled audio pattern except the promoted user graphs with the stage', () => {
-    expect(shaped).toHaveLength(86)
+  it('ends every bundled audio pattern with the stage', () => {
+    expect(shaped).toHaveLength(100)
     for (const pattern of shaped) {
       const ids = new Set(pattern.subgraph.nodes.map((entry) => entry.id))
       expect(ids.has('dynColor'), pattern.name).toBe(true)
@@ -37,13 +37,17 @@ describe('shared energy dynamics', () => {
       if (features.some((entry) => entry.id === 'dynFeatures')) expect(features, pattern.name).toHaveLength(1)
       const byId = new Map(pattern.subgraph.nodes.map((entry) => [entry.id, entry]))
       for (const edge of pattern.subgraph.edges) {
+        // A promoted graph's own wires load as the user saved them; check the stage's.
+        if (promoted.includes(pattern) && !edge.source.startsWith('dyn') && !edge.target.startsWith('dyn')) continue
         const source = (byId.get(edge.source)?.data.outputs as SavedPattern['outputs'] | undefined)?.find((port) => port.id === edge.sourceHandle)
         const target = (byId.get(edge.target)?.data.inputs as SavedPattern['inputs'] | undefined)?.find((port) => port.id === edge.targetHandle)
         expect(source?.dataType, `${pattern.name}: ${edge.id}`).toBe(target?.dataType)
       }
     }
+    // A promoted graph keeps every node it was saved with; the stage is added after it.
     for (const [index, pattern] of promoted.entries()) {
-      expect(pattern.subgraph).toEqual(SAVED_AUDIO_SEEDS[index].subgraph)
+      const ids = new Set(pattern.subgraph.nodes.map((entry) => entry.id))
+      for (const entry of SAVED_AUDIO_SEEDS[index].subgraph.nodes) expect(ids.has(entry.id), `${pattern.name}: ${entry.id}`).toBe(true)
     }
     // Release scenes shape their own exposure, so they take only the colour lift.
     for (const pattern of AUDIO_BUNDLED_PATTERNS.slice(86)) {

@@ -1,4 +1,4 @@
-import { DECODED_LOUDNESS_CURVE, DECODED_LOUDNESS_SCALE, VU_RMS_NOISE_GATE, VU_RMS_REFERENCE } from '../../audio/stereoLevels'
+import { DECODED_LOUDNESS_SCALE, VU_RMS_NOISE_GATE, VU_RMS_REFERENCE } from '../../audio/stereoLevels'
 
 /**
  * The firmware half of the meter-level contract in `audio/stereoLevels.ts`.
@@ -55,5 +55,5 @@ export function vuNormalizedLevelCpp(options: VuNormalizedLevelOptions = {}): st
 /** The firmware twin of `decodedLoudness`: decoded music's `_audioLoudness`
  *  on the room scale, from the channel meters already published. */
 export function decodedLoudnessCpp(left = '_audioLeftLevel', right = '_audioRightLevel'): string {
-  return `_audioLoudness = powf(max(${left}, ${right}), ${DECODED_LOUDNESS_CURVE}f) * ${DECODED_LOUDNESS_SCALE}f;`
+  return `_audioLoudness = max(${left}, ${right}) * ${DECODED_LOUDNESS_SCALE}f;`
 }

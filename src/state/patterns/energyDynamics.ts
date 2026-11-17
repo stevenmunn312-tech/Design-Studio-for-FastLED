@@ -43,12 +43,17 @@ export const ENERGY_DYNAMICS = {
    *  smoother on this path, since a per-frame smoother stacked on it once
    *  put the swell about 0.6 s behind the sound. */
   smoothing: 0.15,
-  /** Full brightness by the room's 90th-percentile frame. */
-  lightIn: [0.02, 0.2] as const,
-  lightFloor: 0.35,
-  /** The colour lift starts above the room's median and completes on its peaks:
-   *  Saturation with Keep Brightness, from unchanged to 1.45× the colour. */
-  boostIn: [0.12, 0.3] as const,
+  /** Brightness rises in a straight line from silence to the loud peak (0.3,
+   *  where decoded music pins the meter), so 10% louder music is about 10%
+   *  more light all the way up. The earlier [0.02, 0.2] ramp was full by the
+   *  room's 90th percentile, and calm passages on the player looked energetic. */
+  lightIn: [0, 0.3] as const,
+  /** A quiet passage lights a little, not most of the frame: brightness is
+   *  close to proportional to loudness, 5% of full at silence's edge. */
+  lightFloor: 0.05,
+  /** The colour lift fills the louder half: Saturation with Keep Brightness,
+   *  from unchanged to 1.45× the colour. */
+  boostIn: [0.15, 0.3] as const,
   boostMax: 1.45,
 }
 

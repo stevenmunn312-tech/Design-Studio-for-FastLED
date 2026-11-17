@@ -71,7 +71,8 @@ export class AudioReleaseBuilder {
     this.wire('dropAttack', 'result', 'dropEnvelope', 'a').wire('dropWeight', 'result', 'dropEnvelope', 'b')
     this.node('palette', 'Poline', { anchorA: colors[0], anchorB: colors[1], anchorC: colors[2], points: 7 })
     this.map('motion', 'energy', 'result', 0.07, 0.65)
-    this.map('light', 'lightEnergy', 'result', 0.18, 0.85)
+    // Exposure rises from near black, so light is close to proportional to loudness.
+    this.map('light', 'lightEnergy', 'result', 0.04, 0.85)
   }
 
   node(id: string, type: string, properties: Record<string, unknown> = {}): this {

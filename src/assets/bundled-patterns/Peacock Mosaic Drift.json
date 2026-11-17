@@ -1134,7 +1134,7 @@
           "category": "math",
           "properties": {
             "value": 0,
-            "min": 0.12,
+            "min": 0.15,
             "max": 0.3
           },
           "inputs": [
@@ -1176,7 +1176,7 @@
           "category": "math",
           "properties": {
             "value": 0,
-            "inMin": 0.12,
+            "inMin": 0.15,
             "inMax": 0.3,
             "outMin": 1,
             "outMax": 1.45,
@@ -1267,8 +1267,8 @@
           "category": "math",
           "properties": {
             "value": 0,
-            "min": 0.02,
-            "max": 0.2
+            "min": 0,
+            "max": 0.3
           },
           "inputs": [
             {
@@ -1309,9 +1309,9 @@
           "category": "math",
           "properties": {
             "value": 0,
-            "inMin": 0.02,
-            "inMax": 0.2,
-            "outMin": 0.35,
+            "inMin": 0,
+            "inMax": 0.3,
+            "outMin": 0.05,
             "outMax": 1,
             "clampOutput": false
           },

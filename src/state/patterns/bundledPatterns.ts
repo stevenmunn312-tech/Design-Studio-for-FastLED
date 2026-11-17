@@ -1105,43 +1105,25 @@ export const STANDARD_BUNDLED_PATTERNS = materializeBundledPatterns(
   Date.UTC(2026, 6, 29, 0, 0, 0),
 )
 
-/**
- * Sparse or self-dimming patterns (a snare hit, falling rain, a temple that
- * already fades with the music) rest higher in the shared energy stage, so
- * the two do not multiply into black during a quiet verse. Judged from the
- * quiet-scenario renders: every pattern here averaged under 8/255 before
- * the stage. Everything else takes the default floor.
- */
-const AUDIO_LIGHT_FLOORS: Record<string, number> = {
-  'Beat Temple': 0.7,
-  'Cellular Percussion Grid': 0.7,
-  'Confetti Cannonade': 0.7,
-  'Fibonacci Spiral Drive': 0.7,
-  'Glass Rain Resonator': 0.7,
-  'Heartline Tracer': 0.7,
-  'Kick Drum Wavefield': 0.7,
-  'Midrange Bloom Cathedral': 0.7,
-  'Percussion Symphony': 0.7,
-  'Prism Storm': 0.7,
-  'Snare Rain': 0.7,
-  'Spectrum Cathedral': 0.7,
-  'String Confetti Sustain': 0.7,
-  'String Quiet Song Jewels': 0.7,
-  'String Snare Sprinkles': 0.7,
-}
-
-/** Shelves one to three, the string recipes and the late seed share the
- *  energy stage. Promoted user graphs load as their files are, because the
- *  library deduplicates an unchanged one against the user's own saved copy
- *  (the two renamed and the two retuned ones no longer match theirs); the
- *  release builder applies the stage itself. */
+/** Every bundled audio pattern shares the energy stage, so each one gets
+ *  brighter in a straight line from silence to full volume. The shelves,
+ *  string recipes, late seed and promoted user graphs take it here; two
+ *  promoted graphs already hold it as saved `dyn*` nodes and are left as
+ *  they are, and the release builder applies it itself. A promoted graph
+ *  used to load unshaped so the library would deduplicate it against the
+ *  user's saved copy, but then it looked the same at 10% volume as at 100%.
+ *  Every pattern rests at the same low floor: sparse patterns once rested at
+ *  0.7 so a quiet verse could not go black, which left them nearly as bright
+ *  at 10% volume as at full. */
 const shapedAudioSeeds = (seeds: BundledSeed[]) =>
-  seeds.map((seed) => withEnergyDynamics(seed, { lightFloor: AUDIO_LIGHT_FLOORS[seed.name] }) as BundledSeed)
+  seeds.map((seed) => seed.subgraph.nodes.some((node) => node.id === 'dynEnergy')
+    ? seed
+    : withEnergyDynamics(seed) as BundledSeed)
 
 /** Release candidates remain bundled until the final fifty are selected. */
 export const AUDIO_BUNDLED_PATTERNS = materializeBundledPatterns(
-  [...shapedAudioSeeds([...AUDIO_PATTERN_SEEDS, ...AUDIO_STRING_SEEDS, ...AUDIO_LATE_SEEDS]),
-    ...SAVED_AUDIO_SEEDS, ...RELEASE_AUDIO_A_SEEDS, ...RELEASE_AUDIO_B_SEEDS],
+  [...shapedAudioSeeds([...AUDIO_PATTERN_SEEDS, ...AUDIO_STRING_SEEDS, ...AUDIO_LATE_SEEDS, ...SAVED_AUDIO_SEEDS]),
+    ...RELEASE_AUDIO_A_SEEDS, ...RELEASE_AUDIO_B_SEEDS],
   'audio',
   AUDIO_REACTIVE_CATEGORY_ID,
   Date.UTC(2026, 6, 29, 12, 0, 0),

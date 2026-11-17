@@ -4,7 +4,6 @@ import { SAVED_AUDIO_SEEDS } from '../bundledSavedAudioPatterns'
 import { NODE_LIBRARY } from '../../nodeLibrary'
 import { generateCpp } from '../../../codegen/cppGenerator'
 import { validateGraph } from '../../../utils/validateGraph'
-import { patternFingerprint } from '../patternLibrary'
 import type { SavedPattern } from '../patternLibrary'
 import type { StudioEdge, StudioNode } from '../../graphStore'
 import { releasePixels, renderReleaseScenario } from './audioReleaseFixtures'
@@ -31,12 +30,10 @@ describe('audio release candidates', () => {
     expect(AUDIO_BUNDLED_PATTERNS[99].id).toBe('bundled-audio-100')
     expect(new Set(BUNDLED_PATTERNS.map((pattern) => pattern.name)).size).toBe(BUNDLED_PATTERNS.length)
     for (const [index, pattern] of promoted.entries()) {
-      expect(pattern.subgraph).toEqual(SAVED_AUDIO_SEEDS[index].subgraph)
+      // The promoted graph plus the shared energy stage; the library hides a
+      // saved copy of the original file (see patternLibraryRefresh.test.ts).
       expect(pattern.inputs).toEqual(SAVED_AUDIO_SEEDS[index].inputs)
-    }
-    for (const [index, pattern] of promoted.entries()) {
-      // The library deduplicates by this fingerprint when adding bundled entries.
-      expect(patternFingerprint(pattern)).toBe(patternFingerprint(SAVED_AUDIO_SEEDS[index]))
+      expect(pattern.subgraph.nodes.some((entry) => entry.id === 'dynEnergy'), pattern.name).toBe(true)
     }
   })
 

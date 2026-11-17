@@ -23,17 +23,21 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   seeds after both the original shelves and promoted user graphs. Test
   musical gestures with explicit `AudioSignal.structure` payloads: the
   rating tool's ordinary pulse scenario never emits buildups or drops.
-  Every bundled audio pattern except the promoted user graphs ends with
-  the shared energy stage from `energyDynamics.ts` (subdued at rest, colour
-  then full brightness as Audio Features' Loudness rises; no sparkle, which
-  Steve had removed after hearing it live).
+  Every bundled audio pattern ends with the shared energy stage from
+  `energyDynamics.ts`: brightness rises in a straight line with Audio
+  Features' Loudness from a 0.05 floor at silence to full at the loud peak
+  (0.3), and colour lifts over the louder half; no sparkle, which Steve had
+  removed after hearing it live. Steve wants each pattern close to linear
+  from 0% to 100% volume; check it with 0-100% reactivity sheets, not by
+  ear on one track.
   `bundledPatterns.ts` applies it to the JSON and string seeds, the release
-  builder applies it in `finish()`, and the promoted graphs stay byte for
-  byte so the library still deduplicates them against the user's saved
-  copies. Retune the stage in its table, not in eighty graphs. Two promoted
-  slots, Peacock Mosaic Drift and Prism Fracture, were rebuilt and hold the
-  stage as saved `dyn*` nodes, because a promoted file loads as it is: a
-  retune of the table also edits those three nodes in each file, and
+  builder applies it in `finish()`, and the promoted user graphs take it at
+  load too. A promoted graph is merged into the bundle: the bundled entry is
+  the only copy, and the user's original saved file is not kept. Retune the stage in its table,
+  not in eighty graphs. Two promoted slots, Peacock Mosaic Drift and Prism
+  Fracture, were rebuilt and hold the stage as saved `dyn*` nodes, which
+  load as they are: a retune of the table also edits those nodes in each
+  file, and
   `energyDynamics.test.ts` fails until it does. The stage
   reads Loudness, never Energy and never a beat: Energy comes from the
   spectrum, which FastLED normalises to each band's peak of the last few
@@ -45,8 +49,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   the room (median frame near 0.09, peaks near 0.34), which is far below the
   meter's line-level full scale. Decoded music (the Music Player, a show, the
   hardware player) has no gain to set, so its source publishes `loudness` on
-  the room scale (`decodedLoudness`, meter to the power `DECODED_LOUDNESS_CURVE` times
-  `DECODED_LOUDNESS_SCALE`, which keeps calm passages low; firmware
+  the room scale (`decodedLoudness`, meter × `DECODED_LOUDNESS_SCALE`; firmware
   `decodedLoudnessCpp`); read raw, a mastered track pinned the meter and held
   the stage open in a breakdown and a drop alike. A line input at line level
   still holds it open until its gain comes down. That is why the stage keeps raw Loudness and its own Smooth
@@ -60,8 +63,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   meters therefore reads as silence, so rating and release fixtures carry
   `leftLevel`/`rightLevel`. Keep
   the response one short Smooth node: a per-frame smoother stacked on it
-  once put the swell about 0.6 s behind the music. A pattern that already
-  dims itself gets a higher rest brightness in `AUDIO_LIGHT_FLOORS`.
+  once put the swell about 0.6 s behind the music. Every pattern shares the
+  one floor; sparse patterns once rested at 0.7, which left them nearly as
+  bright at 10% volume as at 100%.
   `energyStageLoudness.test.ts` runs synthesised verse/chorus audio through
   the real analyser; the rating fixtures feed synthetic energy and cannot
   see any of this.
