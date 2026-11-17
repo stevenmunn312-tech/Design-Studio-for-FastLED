@@ -123,7 +123,7 @@
           "properties": {
             "style": "Waterfall",
             "bands": 28,
-            "gain": 1.35,
+            "gain": 0.9,
             "smoothing": 0.72,
             "tilt": 0.58,
             "peakHold": 0.45,
@@ -192,7 +192,7 @@
           "nodeType": "FieldNoise",
           "category": "field",
           "properties": {
-            "speed": 0.17,
+            "speed": 0.6,
             "scale": 0.24,
             "octaves": 4,
             "seed": 4401
@@ -230,7 +230,7 @@
           "nodeType": "FieldNoise",
           "category": "field",
           "properties": {
-            "speed": -0.13,
+            "speed": -0.45,
             "scale": 0.31,
             "octaves": 3,
             "seed": 7759
@@ -270,7 +270,7 @@
           "properties": {
             "strength": 1.35,
             "angle": 0,
-            "spin": 0,
+            "spin": 30,
             "zoom": 1,
             "tilesX": 1,
             "tilesY": 1,
@@ -431,7 +431,7 @@
           "category": "composite",
           "properties": {
             "blendMode": "lighten",
-            "amount": 0.75
+            "amount": 0.5
           },
           "inputs": [
             {
@@ -474,9 +474,9 @@
             "mirrorMode": "radial",
             "glow": false,
             "glowAmount": 0.35,
-            "segments": 10,
+            "segments": 4,
             "rotation": 0,
-            "spin": 0,
+            "spin": 90,
             "r": 255,
             "g": 255,
             "b": 255
@@ -551,7 +551,7 @@
           "properties": {
             "delayFrames": 3,
             "fade": 0.1,
-            "amount": 0.42,
+            "amount": 0.25,
             "blendMode": "screen",
             "feedbackTransform": "rotate",
             "offsetX": 0,

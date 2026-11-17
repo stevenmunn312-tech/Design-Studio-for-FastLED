@@ -666,8 +666,8 @@
             "value": 0,
             "inMin": 0,
             "inMax": 1,
-            "outMin": 0.015,
-            "outMax": 0.05,
+            "outMin": 0.045,
+            "outMax": 0.15,
             "clampOutput": true
           },
           "inputs": [
@@ -831,7 +831,7 @@
           "category": "signal",
           "properties": {
             "amplitude": 1,
-            "frequency": 0.03,
+            "frequency": 0.08,
             "rateUnit": "Hz",
             "bpm": 60,
             "phase": 0,

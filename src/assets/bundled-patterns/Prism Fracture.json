@@ -260,7 +260,7 @@
           "properties": {
             "angle": 20,
             "repeat": 1.2,
-            "speed": 0.12,
+            "speed": 0.3,
             "palette": "rainbow"
           },
           "inputs": [
@@ -419,8 +419,8 @@
             "value": 0,
             "inMin": 0,
             "inMax": 1,
-            "outMin": 3,
-            "outMax": 14,
+            "outMin": 6,
+            "outMax": 24,
             "clampOutput": true
           },
           "inputs": [

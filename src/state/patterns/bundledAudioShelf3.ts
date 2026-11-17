@@ -389,14 +389,14 @@ export const AUDIO_SHELF_THREE_SEEDS: BundledSeed[] = [
       studioNode('pal', 'Poline', -880, -200, {
         anchorA: '#1a0610', anchorB: '#ff2a5f', anchorC: '#ffd1a0', points: 6,
       }),
-      studioNode('clock', 'Math', -880, 40, { mathOp: 'add', b: 0.14 }),
+      studioNode('clock', 'Math', -880, 40, { mathOp: 'add', b: 0.32 }),
       studioNode('orbit', 'Wave', -880, 200, { waveform: 'sawtooth', unipolar: true, frequency: 0.5 }),
       studioNode('size', 'MapRange', -880, 360, { inMin: 0.05, inMax: 0.95, outMin: 0.48, outMax: 1.12 }),
       studioNode('ink', 'PaletteSampler', -520, -160, { palette: 'lava', t: 0.4 }),
       studioNode('path', 'Path', -520, 40, {
         pathShape: 'heart', t: 0, scale: 0.82, thickness: 1.6, r: 255, g: 80, b: 120,
       }),
-      studioNode('trails', 'Trails', -180, 40, { decay: 0.16 }),
+      studioNode('trails', 'Trails', -180, 40, { decay: 0.3 }),
       studioNode('sat', 'Saturation', 420, 40, { amount: 1.38 }),
       groupOutput('out', 700, 40),
     ],

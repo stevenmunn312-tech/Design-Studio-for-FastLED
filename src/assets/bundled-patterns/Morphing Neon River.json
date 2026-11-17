@@ -181,16 +181,16 @@
             "injectionMode": "Both",
             "flowMode": "Morphing 2D",
             "independentAxes": true,
-            "xSpeed": 0.08,
+            "xSpeed": 0.3,
             "xStrength": 0.94,
             "xScale": 0.31,
-            "ySpeed": 0.14,
+            "ySpeed": 0.5,
             "yStrength": 0.86,
             "yScale": 0.44,
             "displacement": 2.8,
-            "endpointSpeed": 0.32,
-            "colorSpeed": 0.07,
-            "trailLength": 12.8303,
+            "endpointSpeed": 1.0,
+            "colorSpeed": 0.2,
+            "trailLength": 2.5,
             "palette": "aurora",
             "seed": 1482
           },
@@ -407,7 +407,7 @@
           "properties": {
             "delayFrames": 4,
             "fade": 0.08,
-            "amount": 0.46,
+            "amount": 0.3,
             "blendMode": "screen",
             "feedbackTransform": "translate",
             "offsetX": 0.55,
@@ -449,6 +449,76 @@
             {
               "id": "scale",
               "label": "Scale",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "contrast",
+        "type": "studioNode",
+        "position": {
+          "x": 1840,
+          "y": 200
+        },
+        "data": {
+          "label": "Gamma",
+          "nodeType": "Gamma",
+          "category": "composite",
+          "properties": {
+            "gamma": 2.4
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "gamma",
+              "label": "Gamma",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            }
+          ]
+        }
+      },
+      {
+        "id": "contrast-gain",
+        "type": "studioNode",
+        "position": {
+          "x": 1840,
+          "y": 380
+        },
+        "data": {
+          "label": "Brightness",
+          "nodeType": "BrightnessMod",
+          "category": "composite",
+          "properties": {
+            "brightness": 1.8
+          },
+          "inputs": [
+            {
+              "id": "frame",
+              "label": "Frame",
+              "dataType": "frame"
+            },
+            {
+              "id": "brightness",
+              "label": "Brightness",
               "dataType": "float"
             }
           ],
@@ -603,8 +673,26 @@
         "reconnectable": "target"
       },
       {
-        "id": "edge-13-feedback-group-output",
+        "id": "edge-13-feedback-contrast",
         "source": "feedback",
+        "sourceHandle": "frame",
+        "target": "contrast",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-14-contrast-contrast-gain",
+        "source": "contrast",
+        "sourceHandle": "frame",
+        "target": "contrast-gain",
+        "targetHandle": "frame",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "edge-15-contrast-gain-group-output",
+        "source": "contrast-gain",
         "sourceHandle": "frame",
         "target": "group-output",
         "targetHandle": "frame",

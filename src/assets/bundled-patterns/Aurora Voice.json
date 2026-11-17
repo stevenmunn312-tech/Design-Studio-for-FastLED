@@ -157,7 +157,7 @@
           "category": "pattern",
           "properties": {
             "reactivity": 0.75,
-            "speed": 0.4,
+            "speed": 0.8,
             "palette": "aurora"
           },
           "inputs": [

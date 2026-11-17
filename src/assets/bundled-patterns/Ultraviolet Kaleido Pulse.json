@@ -339,7 +339,7 @@
           "properties": {
             "hue": 0,
             "reactivity": 0.75,
-            "speed": 0.5,
+            "speed": 1.4,
             "palette": "ultraviolet"
           },
           "inputs": [
@@ -391,7 +391,7 @@
           "category": "signal",
           "properties": {
             "amplitude": 18,
-            "frequency": 0.04,
+            "frequency": 0.12,
             "phase": 0,
             "waveform": "sine",
             "unipolar": false
@@ -439,7 +439,7 @@
             "offsetY": 0,
             "angle": 0,
             "scale": 0.92,
-            "falloff": 0.6,
+            "falloff": 0.5,
             "blendMode": "add"
           },
           "inputs": [
@@ -500,7 +500,7 @@
           "nodeType": "Trails",
           "category": "composite",
           "properties": {
-            "decay": 0.22
+            "decay": 0.35
           },
           "inputs": [
             {

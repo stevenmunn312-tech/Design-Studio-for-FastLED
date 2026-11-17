@@ -14,7 +14,6 @@ import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import colorTrails from '../../../assets/bundled-patterns/Color Trails.json'
 import kaleidoBass from '../../../assets/bundled-patterns/Kaleido Bass Singularity.json'
 import auroraEcho from '../../../assets/bundled-patterns/Aurora Echo Choir.json'
-import neonRiver from '../../../assets/bundled-patterns/Morphing Neon River.json'
 import type { Frame } from '../../../state/palettes/ledColor'
 
 /** The fade the old Persistence slider spent over `dtFrames`, as the node ran it. */
@@ -29,7 +28,6 @@ const BUNDLED = [
   { name: 'Color Trails', pattern: colorTrails, persistence: 0.99922, x: [0.1, 0.6, 0.33], y: [0.1, 0.52, 0.32] },
   { name: 'Kaleido Bass Singularity', pattern: kaleidoBass, persistence: 0.9988, x: [0.13, 0.88, 0.41], y: [-0.11, 0.82, 0.37] },
   { name: 'Aurora Echo Choir', pattern: auroraEcho, persistence: 0.99935, x: [0.06, 0.78, 0.28], y: [-0.08, 0.9, 0.36] },
-  { name: 'Morphing Neon River', pattern: neonRiver, persistence: 0.9991, x: [0.08, 0.94, 0.31], y: [0.14, 0.86, 0.44] },
 ]
 
 function trailsNode(pattern: unknown): Record<string, unknown> {

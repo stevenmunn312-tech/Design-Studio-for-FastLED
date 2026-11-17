@@ -232,6 +232,43 @@
         }
       },
       {
+        "id": "mids-drive",
+        "type": "studioNode",
+        "position": {
+          "x": -350,
+          "y": 180
+        },
+        "data": {
+          "label": "Flow Drive",
+          "nodeType": "Math",
+          "category": "math",
+          "properties": {
+            "mathOp": "multiply",
+            "a": 0,
+            "b": 8
+          },
+          "inputs": [
+            {
+              "id": "a",
+              "label": "A",
+              "dataType": "float"
+            },
+            {
+              "id": "b",
+              "label": "B",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
         "id": "sm-treble",
         "type": "studioNode",
         "position": {
@@ -275,7 +312,7 @@
           "nodeType": "AudioFlow",
           "category": "pattern",
           "properties": {
-            "speed": 0.4,
+            "speed": 1,
             "scale": 0.5,
             "palette": "laguna"
           },
@@ -369,7 +406,7 @@
           "category": "pattern",
           "properties": {
             "reactivity": 0.7,
-            "speed": 0.5,
+            "speed": 1,
             "palette": "laguna",
             "count": 8,
             "decay": 1,
@@ -626,8 +663,20 @@
         }
       },
       {
-        "id": "e86-sm-mids-result-flow-mids",
+        "id": "e-sm-mids-result-mids-drive-a",
         "source": "sm-mids",
+        "sourceHandle": "result",
+        "target": "mids-drive",
+        "targetHandle": "a",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "e-mids-drive-result-flow-mids",
+        "source": "mids-drive",
         "sourceHandle": "result",
         "target": "flow",
         "targetHandle": "mids",

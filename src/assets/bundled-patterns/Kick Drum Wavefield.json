@@ -306,8 +306,8 @@
      "nodeType": "WaveSim",
      "category": "field",
      "properties": {
-      "speed": 7,
-      "damping": 0.9925,
+      "speed": 1,
+      "damping": 0.96,
       "impulse": 2
      },
      "inputs": [
@@ -563,6 +563,61 @@
     }
    },
    {
+    "id": "calm",
+    "type": "studioNode",
+    "position": {
+     "x": 120,
+     "y": 200
+    },
+    "data": {
+     "label": "Map Range",
+     "nodeType": "MapRange",
+     "category": "math",
+     "properties": {
+      "value": 0,
+      "inMin": 0.06,
+      "inMax": 0.2,
+      "outMin": 1,
+      "outMax": 0.5,
+      "clampOutput": true
+     },
+     "inputs": [
+      {
+       "id": "value",
+       "label": "Value",
+       "dataType": "float"
+      },
+      {
+       "id": "inMin",
+       "label": "In Min",
+       "dataType": "float"
+      },
+      {
+       "id": "inMax",
+       "label": "In Max",
+       "dataType": "float"
+      },
+      {
+       "id": "outMin",
+       "label": "Out Min",
+       "dataType": "float"
+      },
+      {
+       "id": "outMax",
+       "label": "Out Max",
+       "dataType": "float"
+      }
+     ],
+     "outputs": [
+      {
+       "id": "result",
+       "label": "Result",
+       "dataType": "float"
+      }
+     ]
+    }
+   },
+   {
     "id": "blur",
     "type": "studioNode",
     "position": {
@@ -574,7 +629,7 @@
      "nodeType": "Blur2D",
      "category": "composite",
      "properties": {
-      "amount": 0.06
+      "amount": 0.5
      },
      "inputs": [
       {
@@ -834,6 +889,24 @@
     "sourceHandle": "frame",
     "target": "out",
     "targetHandle": "frame",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e19",
+    "source": "feat",
+    "sourceHandle": "loudness",
+    "target": "calm",
+    "targetHandle": "value",
+    "type": "glowEdge",
+    "reconnectable": "target"
+   },
+   {
+    "id": "e20",
+    "source": "calm",
+    "sourceHandle": "result",
+    "target": "blur",
+    "targetHandle": "amount",
     "type": "glowEdge",
     "reconnectable": "target"
    }

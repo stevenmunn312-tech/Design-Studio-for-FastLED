@@ -328,8 +328,8 @@
           "properties": {
             "inMin": 0,
             "inMax": 1,
-            "outMin": 40,
-            "outMax": 180
+            "outMin": 3,
+            "outMax": 10
           },
           "inputs": [
             {
@@ -369,7 +369,7 @@
           "nodeType": "FrameTransform",
           "category": "composite",
           "properties": {
-            "mode": "exact",
+            "mode": "smooth",
             "rotate": 0,
             "rotateRate": 0,
             "scale": 1,
@@ -380,7 +380,7 @@
             "offsetY": 0,
             "offsetXRate": 90,
             "offsetYRate": 0,
-            "edgeMode": "black",
+            "edgeMode": "wrap",
             "sampling": "bilinear"
           },
           "inputs": [
@@ -473,7 +473,7 @@
           "nodeType": "Smooth",
           "category": "math",
           "properties": {
-            "response": 0.38
+            "response": 0.8
           },
           "inputs": [
             {

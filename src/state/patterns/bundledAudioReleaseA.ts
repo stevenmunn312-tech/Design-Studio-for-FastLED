@@ -103,6 +103,9 @@ function myceliumCrescendo(): AudioReleaseSeed {
   b.map('reveal', 'dropEnvelope', 'result', 0.12, 0.38)
   b.node('shade', 'FieldToFrame')
   b.node('soften', 'Blur2D', { amount: 0.065 })
+  // The Turing field settles into still veins; a slow wrapped drift keeps the
+  // colony moving, and the Music Player's motion clock sets its pace.
+  b.node('drift', 'FrameTransform', { mode: 'smooth', edgeMode: 'wrap', sampling: 'bilinear', offsetXRate: 3, offsetYRate: 1.8 })
   b.wire('song', 'drop', 'organism', 'reset')
   b.wire('growth', 'result', 'organism', 'speed')
   b.wire('branching', 'result', 'organism', 'stepSize')
@@ -111,7 +114,8 @@ function myceliumCrescendo(): AudioReleaseSeed {
   b.wire('veins', 'field', 'shade', 'field')
   b.wire('palette', 'palette', 'shade', 'paletteIn')
   b.wire('shade', 'frame', 'soften', 'frame')
-  return b.finish('soften')
+  b.wire('soften', 'frame', 'drift', 'frame')
+  return b.finish('drift')
 }
 
 function harmonicLanternLoom(): AudioReleaseSeed {
@@ -178,12 +182,18 @@ function opalResonanceBasin(): AudioReleaseSeed {
   b.node('splashTrigger', 'Logic', { logicOp: 'or' })
   b.node('impact', 'Math', { mathOp: 'max' })
   b.map('splash', 'impact', 'result', 0.22, 1)
-  b.map('waveSpeed', 'energy', 'result', 2, 7)
-  b.map('resonance', 'buildup', 'result', 0.965, 0.993)
+  // Wave Sim takes whole solver steps per frame. Two to seven steps under a
+  // 13x level gain turned the wrapped interference left by earlier splashes
+  // into full-contrast speckle that changed completely every frame. One to
+  // three steps, rings that die out between beats and a gentler gain keep
+  // each beat's ring readable; the feedback carries it from frame to frame.
+  b.map('waveSpeed', 'energy', 'result', 1, 3.99)
+  b.map('resonance', 'buildup', 'result', 0.94, 0.975)
   b.node('basin', 'FieldSymmetry', { group: 'p4m', cells: 1, spin: 1.8 })
-  b.node('waveDetail', 'FieldLevels', { low: 0, high: 0.075 })
+  b.node('waveDetail', 'FieldLevels', { low: 0, high: 0.2 })
   b.map('stereoTurn', 'stereo', 'balance', -14, 14)
   b.node('shade', 'FieldToFrame')
+  b.node('glide', 'FrameFeedback', { delayFrames: 1, fade: 0, amount: 0.6, blendMode: 'normal' })
   b.wire('beat', 'beat', 'splashTrigger', 'a')
   b.wire('song', 'drop', 'splashTrigger', 'b')
   b.wire('splashTrigger', 'result', 'water', 'trigger')
@@ -197,7 +207,8 @@ function opalResonanceBasin(): AudioReleaseSeed {
   b.wire('basin', 'field', 'waveDetail', 'field')
   b.wire('waveDetail', 'field', 'shade', 'field')
   b.wire('palette', 'palette', 'shade', 'paletteIn')
-  return b.finish('shade')
+  b.wire('shade', 'frame', 'glide', 'frame')
+  return b.finish('glide')
 }
 
 export const RELEASE_AUDIO_A_SEEDS: AudioReleaseSeed[] = [
