@@ -56,7 +56,7 @@
           "properties": {
             "bands": 24,
             "gain": 1.5,
-            "smoothing": 0.78,
+            "smoothing": 0.72,
             "tilt": 0.3
           },
           "inputs": [
@@ -271,6 +271,43 @@
         }
       },
       {
+        "id": "bass-pulse",
+        "type": "studioNode",
+        "position": {
+          "x": -420,
+          "y": 420
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "value": 0,
+            "response": 0.08,
+            "fall": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "response",
+              "label": "Response",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
         "id": "mids",
         "type": "studioNode",
         "position": {
@@ -307,6 +344,43 @@
         }
       },
       {
+        "id": "mids-pulse",
+        "type": "studioNode",
+        "position": {
+          "x": -420,
+          "y": 550
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "value": 0,
+            "response": 0.08,
+            "fall": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            },
+            {
+              "id": "response",
+              "label": "Response",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
         "id": "treble",
         "type": "studioNode",
         "position": {
@@ -319,7 +393,8 @@
           "category": "math",
           "properties": {
             "value": 0,
-            "response": 0.4
+            "response": 0.08,
+            "fall": 0.25
           },
           "inputs": [
             {
@@ -1453,10 +1528,28 @@
         "reconnectable": "target"
       },
       {
+        "id": "bass-pulse-in",
+        "source": "fft",
+        "sourceHandle": "bass",
+        "target": "bass-pulse",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
         "id": "e4",
         "source": "fft",
         "sourceHandle": "mids",
         "target": "mids",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target"
+      },
+      {
+        "id": "mids-pulse-in",
+        "source": "fft",
+        "sourceHandle": "mids",
+        "target": "mids-pulse",
         "targetHandle": "value",
         "type": "glowEdge",
         "reconnectable": "target"
@@ -1553,7 +1646,7 @@
       },
       {
         "id": "e15",
-        "source": "bass",
+        "source": "bass-pulse",
         "sourceHandle": "result",
         "target": "bars",
         "targetHandle": "bass",
@@ -1562,7 +1655,7 @@
       },
       {
         "id": "e16",
-        "source": "mids",
+        "source": "mids-pulse",
         "sourceHandle": "result",
         "target": "bars",
         "targetHandle": "mids",
@@ -1607,7 +1700,7 @@
       },
       {
         "id": "e21",
-        "source": "bass",
+        "source": "bass-pulse",
         "sourceHandle": "result",
         "target": "rings",
         "targetHandle": "bass",

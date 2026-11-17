@@ -56,7 +56,7 @@
           "properties": {
             "bands": 24,
             "gain": 1.12,
-            "smoothing": 0.82
+            "smoothing": 0.72
           },
           "inputs": [
             {
@@ -555,6 +555,37 @@
         "selected": false
       },
       {
+        "id": "smooth-p9-fft-treble-pulse",
+        "type": "studioNode",
+        "position": {
+          "x": -580,
+          "y": 270
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.08,
+            "fall": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
         "id": "p9-prism-speed-half",
         "type": "studioNode",
         "position": {
@@ -649,7 +680,7 @@
       },
       {
         "id": "p9-e8",
-        "source": "smooth-p9-fft-treble",
+        "source": "smooth-p9-fft-treble-pulse",
         "sourceHandle": "result",
         "target": "p9-prism",
         "targetHandle": "treble",
@@ -766,6 +797,18 @@
         "source": "p9-fft",
         "sourceHandle": "treble",
         "target": "smooth-p9-fft-treble",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "smooth-p9-fft-treble-pulse-in",
+        "source": "p9-fft",
+        "sourceHandle": "treble",
+        "target": "smooth-p9-fft-treble-pulse",
         "targetHandle": "value",
         "type": "glowEdge",
         "reconnectable": "target",

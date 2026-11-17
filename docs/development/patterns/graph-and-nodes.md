@@ -62,6 +62,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   see any of this.
   Shared `PatternFormIcons` shows those preferences in the sidebar and collection
   picker; untagged patterns retain their unrestricted-display meaning.
+- Pulse followers rise fast and settle slowly. A band wired into a pulse
+  input (Bass Rings bass, Audio Flow and Audio Cascade bands, Treble Prism
+  and Treble Sparks treble, Spectrum Visualizer bands) gets its own Smooth
+  with Response 0.08 and Fall 0.25. A symmetric 0.38 s Smooth there cut the
+  beat-locked bass pulse on real music to about a tenth of what the node
+  reads unsmoothed. Hue, speed and structure inputs keep the slow symmetric
+  follower, which stops counts and colours from twitching. The release
+  builder lights its exposure the same way (`lightEnergy`), and
+  `patternLibrary.test.ts` holds the shelf to both rules.
 
 - Node behavior is registry-driven through `NODE_LIBRARY`, with corresponding
   evaluator, codegen, description/help, and tests.

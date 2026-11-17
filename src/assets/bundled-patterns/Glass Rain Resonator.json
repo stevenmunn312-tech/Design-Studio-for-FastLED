@@ -58,7 +58,7 @@
           "properties": {
             "bands": 24,
             "gain": 1.1,
-            "smoothing": 0.82
+            "smoothing": 0.72
           },
           "inputs": [
             {
@@ -547,6 +547,37 @@
         }
       },
       {
+        "id": "smooth-a-fft-bass-pulse",
+        "type": "studioNode",
+        "position": {
+          "x": -260,
+          "y": 10
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.08,
+            "fall": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
         "id": "smooth-a-fft-mids",
         "type": "studioNode",
         "position": {
@@ -582,6 +613,37 @@
         }
       },
       {
+        "id": "smooth-a-fft-mids-pulse",
+        "type": "studioNode",
+        "position": {
+          "x": -260,
+          "y": 150
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.08,
+            "fall": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
         "id": "smooth-a-fft-treble",
         "type": "studioNode",
         "position": {
@@ -614,6 +676,37 @@
         "measured": {
           "width": 240,
           "height": 103
+        }
+      },
+      {
+        "id": "smooth-a-fft-treble-pulse",
+        "type": "studioNode",
+        "position": {
+          "x": -260,
+          "y": 290
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.08,
+            "fall": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
         }
       },
       {
@@ -765,7 +858,7 @@
       },
       {
         "id": "a-e10",
-        "source": "smooth-a-fft-bass",
+        "source": "smooth-a-fft-bass-pulse",
         "sourceHandle": "result",
         "target": "a-bars",
         "targetHandle": "bass",
@@ -774,7 +867,7 @@
       },
       {
         "id": "a-e11",
-        "source": "smooth-a-fft-mids",
+        "source": "smooth-a-fft-mids-pulse",
         "sourceHandle": "result",
         "target": "a-bars",
         "targetHandle": "mids",
@@ -783,7 +876,7 @@
       },
       {
         "id": "a-e12",
-        "source": "smooth-a-fft-treble",
+        "source": "smooth-a-fft-treble-pulse",
         "sourceHandle": "result",
         "target": "a-bars",
         "targetHandle": "treble",
@@ -819,7 +912,7 @@
       },
       {
         "id": "a-e16",
-        "source": "smooth-a-fft-treble",
+        "source": "smooth-a-fft-treble-pulse",
         "sourceHandle": "result",
         "target": "a-prism",
         "targetHandle": "treble",
@@ -866,6 +959,18 @@
         }
       },
       {
+        "id": "smooth-a-fft-bass-pulse-in",
+        "source": "a-fft",
+        "sourceHandle": "bass",
+        "target": "smooth-a-fft-bass-pulse",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
         "id": "edge-smooth-a-fft-mids-in",
         "source": "a-fft",
         "sourceHandle": "mids",
@@ -878,10 +983,34 @@
         }
       },
       {
+        "id": "smooth-a-fft-mids-pulse-in",
+        "source": "a-fft",
+        "sourceHandle": "mids",
+        "target": "smooth-a-fft-mids-pulse",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
         "id": "edge-smooth-a-fft-treble-in",
         "source": "a-fft",
         "sourceHandle": "treble",
         "target": "smooth-a-fft-treble",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "smooth-a-fft-treble-pulse-in",
+        "source": "a-fft",
+        "sourceHandle": "treble",
+        "target": "smooth-a-fft-treble-pulse",
         "targetHandle": "value",
         "type": "glowEdge",
         "reconnectable": "target",

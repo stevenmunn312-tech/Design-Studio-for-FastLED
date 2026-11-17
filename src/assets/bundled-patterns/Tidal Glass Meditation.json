@@ -56,7 +56,7 @@
           "properties": {
             "bands": 24,
             "gain": 1.1,
-            "smoothing": 0.84
+            "smoothing": 0.72
           },
           "inputs": [
             {
@@ -325,6 +325,37 @@
         "selected": false
       },
       {
+        "id": "smooth-f-fft-bass-pulse",
+        "type": "studioNode",
+        "position": {
+          "x": -560,
+          "y": 190
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.08,
+            "fall": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
         "id": "smooth-f-fft-mids",
         "type": "studioNode",
         "position": {
@@ -356,6 +387,37 @@
         "selected": false
       },
       {
+        "id": "smooth-f-fft-mids-pulse",
+        "type": "studioNode",
+        "position": {
+          "x": -420,
+          "y": 190
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.08,
+            "fall": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
         "id": "smooth-f-fft-treble",
         "type": "studioNode",
         "position": {
@@ -367,7 +429,8 @@
           "nodeType": "Smooth",
           "category": "math",
           "properties": {
-            "response": 0.4
+            "response": 0.08,
+            "fall": 0.25
           },
           "inputs": [
             {
@@ -399,7 +462,7 @@
       },
       {
         "id": "f-e3",
-        "source": "smooth-f-fft-bass",
+        "source": "smooth-f-fft-bass-pulse",
         "sourceHandle": "result",
         "target": "f-audioFlow",
         "targetHandle": "bass",
@@ -408,7 +471,7 @@
       },
       {
         "id": "f-e4",
-        "source": "smooth-f-fft-mids",
+        "source": "smooth-f-fft-mids-pulse",
         "sourceHandle": "result",
         "target": "f-audioFlow",
         "targetHandle": "mids",
@@ -509,10 +572,34 @@
         }
       },
       {
+        "id": "smooth-f-fft-bass-pulse-in",
+        "source": "f-fft",
+        "sourceHandle": "bass",
+        "target": "smooth-f-fft-bass-pulse",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
         "id": "edge-smooth-f-fft-mids-in",
         "source": "f-fft",
         "sourceHandle": "mids",
         "target": "smooth-f-fft-mids",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "smooth-f-fft-mids-pulse-in",
+        "source": "f-fft",
+        "sourceHandle": "mids",
+        "target": "smooth-f-fft-mids-pulse",
         "targetHandle": "value",
         "type": "glowEdge",
         "reconnectable": "target",

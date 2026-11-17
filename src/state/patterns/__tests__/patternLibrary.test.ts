@@ -297,14 +297,25 @@ describe('patternLibrary', () => {
         const label = `${pattern.name} / ${type}`
 
         if (type === 'FFTAnalyzer') {
-          expect(Number(props.smoothing), label).toBeGreaterThanOrEqual(0.78)
+          expect(Number(props.smoothing), label).toBeGreaterThanOrEqual(0.72)
         } else if (type === 'SpectrumVisualizer') {
           // Three Band (the old Spectrum Bars) does not read smoothing at all.
           if (isPropertyEnabled(type, 'smoothing', props)) {
             expect(Number(props.smoothing), label).toBeGreaterThanOrEqual(0.7)
           }
         } else if (type === 'Smooth') {
-          expect(Number(props.response), label).toBeGreaterThanOrEqual(0.35)
+          // A follower that drives a pulse (a band into Bass Rings, Audio
+          // Flow, Audio Cascade...) rises in 0.08 s and settles over 0.25 s:
+          // the shelf's 0.38 s symmetric follower flattened the bass pulse on
+          // real music to a tenth of what the node reads unsmoothed. Hue,
+          // speed and structure keep the slow symmetric follower.
+          const fall = Number(props.fall ?? 0)
+          if (fall > 0) {
+            expect(Number(props.response), label).toBeGreaterThanOrEqual(0.08)
+            expect(fall, label).toBeGreaterThanOrEqual(0.25)
+          } else {
+            expect(Number(props.response), label).toBeGreaterThanOrEqual(0.35)
+          }
         } else if (type === 'PercussionDetect') {
           expect(Number(props.decay), label).toBeGreaterThanOrEqual(0.72)
         } else if (type === 'BeatFlash') {

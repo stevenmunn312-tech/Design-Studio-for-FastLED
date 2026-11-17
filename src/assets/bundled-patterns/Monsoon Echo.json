@@ -180,7 +180,8 @@
           "category": "math",
           "properties": {
             "value": 0,
-            "response": 0.25
+            "response": 0.08,
+            "fall": 0.25
           },
           "inputs": [
             {
@@ -211,7 +212,8 @@
           "category": "math",
           "properties": {
             "value": 0,
-            "response": 0.25
+            "response": 0.08,
+            "fall": 0.25
           },
           "inputs": [
             {
@@ -242,7 +244,8 @@
           "category": "math",
           "properties": {
             "value": 0,
-            "response": 0.25
+            "response": 0.08,
+            "fall": 0.25
           },
           "inputs": [
             {

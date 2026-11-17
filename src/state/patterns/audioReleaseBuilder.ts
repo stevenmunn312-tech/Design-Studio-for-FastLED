@@ -9,6 +9,10 @@ export type AudioReleaseSeed = Omit<SavedPattern, 'id' | 'createdAt' | 'category
 const definitions = new Map(NODE_LIBRARY.map((definition) => [definition.type, definition]))
 const audioPorts = [{ id: 'param0', label: 'Audio', dataType: 'audio' }]
 const framePorts = [{ id: 'frame', label: 'Frame', dataType: 'frame' }]
+/** Rise time, seconds, of a follower that drives a pulse: fast enough to land
+ *  with the beat, slow enough not to flash (0.09 s measured under the approved
+ *  patterns' frame deltas on real music; a 0.02 s attack read as a flash). */
+const PULSE_RISE = 0.08
 
 /** Editable graphs share a musical control rig, not a flattened custom renderer. */
 export class AudioReleaseBuilder {
@@ -27,8 +31,15 @@ export class AudioReleaseBuilder {
         outputs: [{ id: 'out', label: 'Audio', dataType: 'audio' }] },
     } as StudioNode)
     this.node('features', 'AudioFeatures', { sensitivity: 0.55, gate: 0.025, smoothing: 0.7 })
+    // Two followers on one Energy. `energy` drives motion and structure, where
+    // a slow, even swell keeps counts and speeds from twitching. `lightEnergy`
+    // drives exposure: it rises in 0.08 s so the light lands with the music,
+    // and falls over the same 0.38 s so it settles as calmly as before. One
+    // shared 0.38 s follower held the light peak about 0.3 s behind the beat.
     this.node('energy', 'Smooth', { response: 0.38 })
     this.wire('features', 'energy', 'energy', 'value')
+    this.node('lightEnergy', 'Smooth', { response: PULSE_RISE, fall: 0.38 })
+    this.wire('features', 'energy', 'lightEnergy', 'value')
     this.node('fft', 'FFTAnalyzer', { gain: 1.05, smoothing: 0.75, tilt: 0.08 })
     this.node('perc', 'PercussionDetect', { sensitivity: 0.58, decay: 0.72, separation: 0.55 })
     this.node('vibe', 'Vibe')
@@ -54,7 +65,7 @@ export class AudioReleaseBuilder {
     this.wire('dropAttack', 'result', 'dropEnvelope', 'a').wire('dropWeight', 'result', 'dropEnvelope', 'b')
     this.node('palette', 'Poline', { anchorA: colors[0], anchorB: colors[1], anchorC: colors[2], points: 7 })
     this.map('motion', 'energy', 'result', 0.07, 0.65)
-    this.map('light', 'energy', 'result', 0.18, 0.85)
+    this.map('light', 'lightEnergy', 'result', 0.18, 0.85)
   }
 
   node(id: string, type: string, properties: Record<string, unknown> = {}): this {
@@ -101,7 +112,9 @@ export class AudioReleaseBuilder {
     this.wire('light', 'result', 'exposure', 'a').wire('dropLight', 'result', 'exposure', 'b')
     this.node('silenceGate', 'Switch', { b: 0 })
     this.wire('exposure', 'result', 'silenceGate', 'a').wire('features', 'silence', 'silenceGate', 'sel')
-    this.node('exposureSmooth', 'Smooth', { response: 0.09 })
+    // Softens the silence gate's cut and the drop flash's edges. Rising fast
+    // keeps it from adding its own lag on top of `lightEnergy`.
+    this.node('exposureSmooth', 'Smooth', { response: 0.03, fall: 0.12 })
     this.wire('silenceGate', 'result', 'exposureSmooth', 'value')
     this.node('releaseBrightness', 'BrightnessMod')
     this.wire(frameNode, frameHandle, 'releaseBrightness', 'frame')

@@ -178,7 +178,7 @@
           "properties": {
             "bands": 24,
             "gain": 1.2,
-            "smoothing": 0.8
+            "smoothing": 0.72
           },
           "inputs": [
             {
@@ -867,6 +867,37 @@
         "selected": false
       },
       {
+        "id": "smooth-FFTAnalyzer-1-bass-pulse",
+        "type": "studioNode",
+        "position": {
+          "x": -20,
+          "y": 210
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.08,
+            "fall": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
         "id": "smooth-FFTAnalyzer-1-mids",
         "type": "studioNode",
         "position": {
@@ -898,6 +929,37 @@
         "selected": false
       },
       {
+        "id": "smooth-FFTAnalyzer-1-mids-pulse",
+        "type": "studioNode",
+        "position": {
+          "x": -20,
+          "y": 250
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.08,
+            "fall": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
+      },
+      {
         "id": "smooth-FFTAnalyzer-1-treble",
         "type": "studioNode",
         "position": {
@@ -927,6 +989,37 @@
           ]
         },
         "selected": false
+      },
+      {
+        "id": "smooth-FFTAnalyzer-1-treble-pulse",
+        "type": "studioNode",
+        "position": {
+          "x": -20,
+          "y": 250
+        },
+        "data": {
+          "label": "Smooth",
+          "nodeType": "Smooth",
+          "category": "math",
+          "properties": {
+            "response": 0.08,
+            "fall": 0.25
+          },
+          "inputs": [
+            {
+              "id": "value",
+              "label": "Value",
+              "dataType": "float"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "result",
+              "label": "Result",
+              "dataType": "float"
+            }
+          ]
+        }
       }
     ],
     "edges": [
@@ -992,7 +1085,7 @@
       },
       {
         "id": "e1",
-        "source": "smooth-FFTAnalyzer-1-bass",
+        "source": "smooth-FFTAnalyzer-1-bass-pulse",
         "sourceHandle": "result",
         "target": "AudioFlow-1",
         "targetHandle": "bass",
@@ -1004,7 +1097,7 @@
       },
       {
         "id": "e2",
-        "source": "smooth-FFTAnalyzer-1-mids",
+        "source": "smooth-FFTAnalyzer-1-mids-pulse",
         "sourceHandle": "result",
         "target": "AudioFlow-1",
         "targetHandle": "mids",
@@ -1016,7 +1109,7 @@
       },
       {
         "id": "e3",
-        "source": "smooth-FFTAnalyzer-1-treble",
+        "source": "smooth-FFTAnalyzer-1-treble-pulse",
         "sourceHandle": "result",
         "target": "AudioFlow-1",
         "targetHandle": "treble",
@@ -1028,7 +1121,7 @@
       },
       {
         "id": "e4",
-        "source": "smooth-FFTAnalyzer-1-bass",
+        "source": "smooth-FFTAnalyzer-1-bass-pulse",
         "sourceHandle": "result",
         "target": "BassRings-1",
         "targetHandle": "bass",
@@ -1040,7 +1133,7 @@
       },
       {
         "id": "e5",
-        "source": "smooth-FFTAnalyzer-1-treble",
+        "source": "smooth-FFTAnalyzer-1-treble-pulse",
         "sourceHandle": "result",
         "target": "TrebleSparks-1",
         "targetHandle": "treble",
@@ -1231,6 +1324,18 @@
         }
       },
       {
+        "id": "smooth-FFTAnalyzer-1-bass-pulse-in",
+        "source": "FFTAnalyzer-1",
+        "sourceHandle": "bass",
+        "target": "smooth-FFTAnalyzer-1-bass-pulse",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
         "id": "edge-smooth-FFTAnalyzer-1-mids-in",
         "source": "FFTAnalyzer-1",
         "sourceHandle": "mids",
@@ -1243,10 +1348,34 @@
         }
       },
       {
+        "id": "smooth-FFTAnalyzer-1-mids-pulse-in",
+        "source": "FFTAnalyzer-1",
+        "sourceHandle": "mids",
+        "target": "smooth-FFTAnalyzer-1-mids-pulse",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
         "id": "edge-smooth-FFTAnalyzer-1-treble-in",
         "source": "FFTAnalyzer-1",
         "sourceHandle": "treble",
         "target": "smooth-FFTAnalyzer-1-treble",
+        "targetHandle": "value",
+        "type": "glowEdge",
+        "reconnectable": "target",
+        "style": {
+          "stroke": "#9aa0a6"
+        }
+      },
+      {
+        "id": "smooth-FFTAnalyzer-1-treble-pulse-in",
+        "source": "FFTAnalyzer-1",
+        "sourceHandle": "treble",
+        "target": "smooth-FFTAnalyzer-1-treble-pulse",
         "targetHandle": "value",
         "type": "glowEdge",
         "reconnectable": "target",
