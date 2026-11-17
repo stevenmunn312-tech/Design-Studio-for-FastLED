@@ -125,43 +125,56 @@
         }
       },
       {
-        "id": "p9-hsv",
+        "id": "p9-harmony",
         "type": "studioNode",
         "position": {
           "x": -180,
           "y": 500
         },
         "data": {
-          "label": "HSV to RGB",
-          "nodeType": "HSVToRGB",
+          "label": "Harmony Palette",
+          "nodeType": "HarmonyPalette",
           "category": "color",
           "properties": {
-            "h": 0,
-            "s": 0.9,
-            "v": 1
+            "hue": 200,
+            "harmony": "analogous",
+            "saturation": 0.9,
+            "value": 1,
+            "spread": 1,
+            "shade": 0
           },
           "inputs": [
             {
-              "id": "h",
-              "label": "H",
+              "id": "hue",
+              "label": "Hue (°)",
               "dataType": "float"
             },
             {
-              "id": "s",
-              "label": "S",
+              "id": "saturation",
+              "label": "Saturation (0–1)",
               "dataType": "float"
             },
             {
-              "id": "v",
-              "label": "V",
+              "id": "value",
+              "label": "Brightness (0–1)",
+              "dataType": "float"
+            },
+            {
+              "id": "spread",
+              "label": "Spread (0–1)",
+              "dataType": "float"
+            },
+            {
+              "id": "shade",
+              "label": "Shade (0–1)",
               "dataType": "float"
             }
           ],
           "outputs": [
             {
-              "id": "color",
-              "label": "Color",
-              "dataType": "color"
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
             }
           ]
         }
@@ -217,10 +230,7 @@
           "category": "pattern",
           "properties": {
             "reactivity": 0.9,
-            "speed": 0.46,
-            "r": 200,
-            "g": 120,
-            "b": 255
+            "speed": 0.46
           },
           "inputs": [
             {
@@ -230,7 +240,7 @@
             },
             {
               "id": "reactivity",
-              "label": "Energy",
+              "label": "Reactivity",
               "dataType": "float"
             },
             {
@@ -239,9 +249,14 @@
               "dataType": "float"
             },
             {
-              "id": "color",
-              "label": "Color",
-              "dataType": "color"
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            },
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
             }
           ],
           "outputs": [
@@ -376,17 +391,17 @@
             },
             {
               "id": "rotate",
-              "label": "Rotate (\u00b0)",
+              "label": "Rotate (°)",
               "dataType": "float"
             },
             {
               "id": "rotateRate",
-              "label": "Rate (\u00b0/s)",
+              "label": "Rate (°/s)",
               "dataType": "float"
             },
             {
               "id": "scale",
-              "label": "Scale (\u00d7)",
+              "label": "Scale (×)",
               "dataType": "float"
             },
             {
@@ -618,8 +633,8 @@
         "id": "p9-e6",
         "source": "p9-hue",
         "sourceHandle": "hue",
-        "target": "p9-hsv",
-        "targetHandle": "h",
+        "target": "p9-harmony",
+        "targetHandle": "hue",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -661,10 +676,10 @@
       },
       {
         "id": "p9-e11",
-        "source": "p9-hsv",
-        "sourceHandle": "color",
+        "source": "p9-harmony",
+        "sourceHandle": "palette",
         "target": "p9-prism",
-        "targetHandle": "color",
+        "targetHandle": "paletteIn",
         "type": "glowEdge",
         "reconnectable": "target"
       },

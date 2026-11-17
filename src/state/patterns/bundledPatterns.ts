@@ -53,6 +53,7 @@ import wireframeBassCage from '../../assets/bundled-patterns/Wireframe Bass Cage
 import { AUDIO_SHELF_THREE_SEEDS, PATTERN_EXPANSION_AUDIO_SEEDS } from './bundledAudioShelf3'
 import { AUDIO_STRING_SEEDS, STANDARD_STRING_SEEDS } from './bundledStringPatterns'
 import { SAVED_AUDIO_SEEDS } from './bundledSavedAudioPatterns'
+import { WEBSITE_FEATURED_PATTERNS } from './websiteFeaturedPatterns'
 import { RELEASE_AUDIO_A_SEEDS } from './bundledAudioReleaseA'
 import { RELEASE_AUDIO_B_SEEDS } from './bundledAudioReleaseB'
 import { withEnergyDynamics } from './energyDynamics'
@@ -766,6 +767,89 @@ const STANDARD_PATTERN_SEEDS: BundledSeed[] = [
   ),
 ]
 
+/**
+ * Standard patterns added after the string recipes shipped: the website's ten
+ * featured patterns, read from their own module so the site and the shelf
+ * show one graph, then Opaline Sunset. They follow the string seeds for the
+ * same reason the late audio seeds follow theirs: a `bundled-standard-NN` id
+ * is a pattern's position, so nothing is ever interleaved.
+ */
+const STANDARD_LATE_SEEDS: BundledSeed[] = [
+  ...WEBSITE_FEATURED_PATTERNS.map(({ name, inputs, outputs, subgraph }) => ({ name, inputs, outputs, subgraph })),
+  pattern(
+    'Opaline Sunset',
+    [
+      // Sky above the horizon, sea below it, read top to bottom.
+      studioNode('sky', 'CustomPalette', -580, -400, {
+        colors: ['#0a0530', '#3a1466', '#a5236f', '#f0562e', '#ffc24d', '#7a2a3a', '#2a0d3f', '#060218'],
+        positions: [0, 0.2, 0.4, 0.54, 0.635, 0.66, 0.8, 1],
+      }),
+      studioNode('height', 'GradientField', -1540, -160, { angle: 90 }),
+      studioNode('drift', 'FieldNoise', -1860, -80, { speed: 0.06, scale: 0.16, octaves: 1, seed: 7 }),
+      studioNode('haze', 'FieldWarp', -580, -180, { strength: 1.3 }),
+      studioNode('scene', 'FieldToFrame', -260, -220),
+      // The sun, cut off at the horizon.
+      studioNode('sunGlow', 'ShapeField', -1220, -520, { fieldMode: 'falloff', cy: 0.6, size: 0.1, range: 0.2 }),
+      studioNode('above', 'FieldLevels', -1220, 40, { low: 0.62, high: 0.66, invert: true }),
+      studioNode('sun', 'FieldMath', -900, -80, { fieldOp: 'subtract' }),
+      // Its path on the water: ripple lines rolling in. A repeated gradient
+      // has a hard edge where it wraps, and thresholding that switched whole
+      // rows at once, so it is folded about its middle first: each line is
+      // a crest with two soft sides. The drift then breaks the lines up.
+      studioNode('roll', 'Wave', -2500, 40, { frequency: 0.02, unipolar: false, waveform: 'sawtooth' }),
+      studioNode('swell', 'GradientField', -2180, 40, { angle: 90, repeat: 5 }),
+      studioNode('crest', 'FieldMath', -1860, 260, { fieldOp: 'difference', value: 0.5 }),
+      studioNode('chop', 'FieldWarp', -1540, 180, { strength: 1.6 }),
+      studioNode('glints', 'FieldLevels', -1220, 320, { low: 0.14, high: 0.36 }),
+      studioNode('column', 'ShapeField', -1220, 600, { cy: 0.84, aspect: 0.65, softness: 0.14 }),
+      studioNode('path', 'FieldMath', -900, 180, { fieldOp: 'multiply' }),
+      studioNode('light', 'FieldMath', -580, 220, { fieldOp: 'max' }),
+      studioNode('gold', 'CustomPalette', -580, 480, {
+        colors: ['#000000', '#5a1010', '#ff6a14', '#ffd75e', '#fff6d8'],
+        positions: [0, 0.35, 0.66, 0.9, 1],
+      }),
+      studioNode('shine', 'FieldToFrame', -260, 60),
+      studioNode('lit', 'Blend', 60, -300, { blendMode: 'screen', amount: 1 }),
+      // Opal fire: pastel plasma, masked so it is strongest in the high sky.
+      studioNode('fire', 'CustomPalette', -260, 340, {
+        colors: ['#000000', '#1fd6c2', '#101030', '#ff6ad5', '#101030', '#a996ff', '#000000'],
+        positions: [0, 0.18, 0.34, 0.5, 0.66, 0.82, 1],
+      }),
+      studioNode('opal', 'Plasma', 60, -80, { speed: 0.1, scale: 0.4 }),
+      studioNode('high', 'GradientFrame', 60, 200, { rA: 255, gA: 255, rB: 0, bB: 0, angle: 90 }),
+      studioNode('sheen', 'Blend', 380, 40, { blendMode: 'screen', amount: 0.55 }),
+      groupOutput('out', 700, 40),
+    ],
+    [
+      edge('e1', 'height', 'field', 'haze', 'field'),
+      edge('e2', 'drift', 'field', 'haze', 'dy'),
+      edge('e3', 'haze', 'field', 'scene', 'field'),
+      edge('e4', 'sky', 'palette', 'scene', 'paletteIn', '#ff5cf0'),
+      edge('e5', 'height', 'field', 'above', 'field'),
+      edge('e6', 'above', 'field', 'sun', 'a'),
+      edge('e7', 'sunGlow', 'field', 'sun', 'b'),
+      edge('e8', 'roll', 'result', 'swell', 'offset', '#9aa0a6'),
+      edge('e9', 'swell', 'field', 'crest', 'a'),
+      edge('e10', 'crest', 'field', 'chop', 'field'),
+      edge('e11', 'drift', 'field', 'chop', 'dy'),
+      edge('e12', 'chop', 'field', 'glints', 'field'),
+      edge('e13', 'column', 'field', 'path', 'a'),
+      edge('e14', 'glints', 'field', 'path', 'b'),
+      edge('e15', 'sun', 'field', 'light', 'a'),
+      edge('e16', 'path', 'field', 'light', 'b'),
+      edge('e17', 'light', 'field', 'shine', 'field'),
+      edge('e18', 'gold', 'palette', 'shine', 'paletteIn', '#ff5cf0'),
+      edge('e19', 'scene', 'frame', 'lit', 'a'),
+      edge('e20', 'shine', 'frame', 'lit', 'b'),
+      edge('e21', 'fire', 'palette', 'opal', 'paletteIn', '#ff5cf0'),
+      edge('e22', 'lit', 'frame', 'sheen', 'a'),
+      edge('e23', 'opal', 'frame', 'sheen', 'b'),
+      edge('e24', 'high', 'frame', 'sheen', 'mask'),
+      edge('e25', 'sheen', 'frame', 'out', 'frame'),
+    ],
+  ),
+]
+
 const AUDIO_PATTERN_SEEDS = [
   auroraCometFoundry,
   auroraEchoChoir,
@@ -870,6 +954,25 @@ const BUNDLED_BEST_ON: Record<string, PatternFormTag[]> = {
   'Cathedral Glass': ['matrix', 'ring'],
   'Ink Bloom': ['matrix'],
   'Starlace Canopy': ['string', 'ring'],
+
+  // The website's featured patterns and Opaline Sunset. Seven are close
+  // relations of a pattern above and take its tag: Roseglass Quietude of
+  // Sunset Silk, Mosslight Cloister of Forest Cathedral, Paper Lantern Drift
+  // of Lantern Orbit, Moonpool Aviary of Petal Drift, Quiet Filigree of
+  // Celestial Weave and Pearl Tissue of Reaction Bloom; Echo Basin is a flow
+  // field like Silver Shoal and names none. The other four were drawn for a
+  // matrix and checked on one: a ring of light, a hex tiling, a flower and a
+  // horizon all need the second axis.
+  'Stillwater Halo': ['matrix'],
+  'Roseglass Quietude': ['matrix'],
+  'Mosslight Cloister': ['matrix'],
+  'Paper Lantern Drift': ['string', 'ring'],
+  'Moonpool Aviary': ['matrix'],
+  'Quiet Filigree': ['matrix'],
+  'Tiled Aurora Silk': ['matrix'],
+  'Veil of Petals': ['matrix'],
+  'Pearl Tissue': ['matrix'],
+  'Opaline Sunset': ['matrix'],
 
   // Audio-reactive shelf
   'Aurora Comet Foundry': ['ring'],
@@ -985,7 +1088,7 @@ function materializeBundledPatterns(
 
 /** Curated standard patterns are the included non-audio showcase shelf. */
 export const STANDARD_BUNDLED_PATTERNS = materializeBundledPatterns(
-  [...STANDARD_PATTERN_SEEDS, ...STANDARD_STRING_SEEDS],
+  [...STANDARD_PATTERN_SEEDS, ...STANDARD_STRING_SEEDS, ...STANDARD_LATE_SEEDS],
   'standard',
   STANDARD_CATEGORY_ID,
   Date.UTC(2026, 6, 29, 0, 0, 0),

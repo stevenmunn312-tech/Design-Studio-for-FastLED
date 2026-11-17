@@ -135,49 +135,58 @@
         }
       },
       {
-        "id": "p5-hsv",
+        "id": "p5-harmony",
         "type": "studioNode",
         "position": {
           "x": 520,
           "y": 200
         },
         "data": {
-          "label": "HSV to RGB",
-          "nodeType": "HSVToRGB",
+          "label": "Harmony Palette",
+          "nodeType": "HarmonyPalette",
           "category": "color",
           "properties": {
-            "h": 0,
-            "s": 1,
-            "v": 1
+            "hue": 200,
+            "harmony": "analogous",
+            "saturation": 1,
+            "value": 1,
+            "spread": 1,
+            "shade": 0
           },
           "inputs": [
             {
-              "id": "h",
-              "label": "H",
+              "id": "hue",
+              "label": "Hue (°)",
               "dataType": "float"
             },
             {
-              "id": "s",
-              "label": "S",
+              "id": "saturation",
+              "label": "Saturation (0–1)",
               "dataType": "float"
             },
             {
-              "id": "v",
-              "label": "V",
+              "id": "value",
+              "label": "Brightness (0–1)",
+              "dataType": "float"
+            },
+            {
+              "id": "spread",
+              "label": "Spread (0–1)",
+              "dataType": "float"
+            },
+            {
+              "id": "shade",
+              "label": "Shade (0–1)",
               "dataType": "float"
             }
           ],
           "outputs": [
             {
-              "id": "color",
-              "label": "Color",
-              "dataType": "color"
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
             }
           ]
-        },
-        "measured": {
-          "width": 240,
-          "height": 264
         }
       },
       {
@@ -287,10 +296,7 @@
           "category": "pattern",
           "properties": {
             "reactivity": 0.74,
-            "speed": 0.37,
-            "r": 100,
-            "g": 200,
-            "b": 255
+            "speed": 0.37
           },
           "inputs": [
             {
@@ -300,7 +306,7 @@
             },
             {
               "id": "reactivity",
-              "label": "Energy",
+              "label": "Reactivity",
               "dataType": "float"
             },
             {
@@ -309,9 +315,14 @@
               "dataType": "float"
             },
             {
-              "id": "color",
-              "label": "Color",
-              "dataType": "color"
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            },
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
             }
           ],
           "outputs": [
@@ -340,20 +351,22 @@
           "category": "pattern",
           "properties": {
             "speed": 0.34,
-            "count": 200,
-            "r": 255,
-            "g": 255,
-            "b": 255
+            "count": 200
           },
           "inputs": [
             {
-              "id": "color",
-              "label": "Color",
-              "dataType": "color"
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
             },
             {
               "id": "speed",
               "label": "Speed",
+              "dataType": "float"
+            },
+            {
+              "id": "count",
+              "label": "Count",
               "dataType": "float"
             }
           ],
@@ -622,8 +635,8 @@
         "id": "p5-e6",
         "source": "p5-hue",
         "sourceHandle": "hue",
-        "target": "p5-hsv",
-        "targetHandle": "h",
+        "target": "p5-harmony",
+        "targetHandle": "hue",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -674,10 +687,10 @@
       },
       {
         "id": "p5-e10",
-        "source": "p5-hsv",
-        "sourceHandle": "color",
+        "source": "p5-harmony",
+        "sourceHandle": "palette",
         "target": "p5-particles",
-        "targetHandle": "color",
+        "targetHandle": "paletteIn",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -692,10 +705,10 @@
       },
       {
         "id": "p5-e12",
-        "source": "p5-hsv",
-        "sourceHandle": "color",
+        "source": "p5-harmony",
+        "sourceHandle": "palette",
         "target": "p5-stars",
-        "targetHandle": "color",
+        "targetHandle": "paletteIn",
         "type": "glowEdge",
         "reconnectable": "target"
       },

@@ -204,9 +204,9 @@ describe('patternLibrary', () => {
   })
 
   it('ships immutable bundled patterns for both built-in shelves', async () => {
-    expect(STANDARD_BUNDLED_PATTERNS).toHaveLength(42)
+    expect(STANDARD_BUNDLED_PATTERNS).toHaveLength(53)
     expect(AUDIO_BUNDLED_PATTERNS).toHaveLength(100)
-    expect(BUNDLED_PATTERNS).toHaveLength(142)
+    expect(BUNDLED_PATTERNS).toHaveLength(153)
     expect(STANDARD_BUNDLED_PATTERNS.every((pattern) => (
       pattern.bundled && pattern.categoryId === STANDARD_CATEGORY_ID
     ))).toBe(true)
@@ -223,6 +223,16 @@ describe('patternLibrary', () => {
     // Appended after every shelf, so no earlier pattern's positional id moves.
     expect(STANDARD_BUNDLED_PATTERNS.slice(20, 22).map((pattern) => [pattern.id, pattern.name])).toEqual([
       ['bundled-standard-21', 'Breathing Rosette'], ['bundled-standard-22', 'Liquid Mirage'],
+    ])
+    // The website's featured patterns keep their module's order after the
+    // twenty string recipes, then Opaline Sunset.
+    expect(STANDARD_BUNDLED_PATTERNS.slice(42).map((pattern) => [pattern.id, pattern.name])).toEqual([
+      ['bundled-standard-43', 'Stillwater Halo'], ['bundled-standard-44', 'Roseglass Quietude'],
+      ['bundled-standard-45', 'Mosslight Cloister'], ['bundled-standard-46', 'Paper Lantern Drift'],
+      ['bundled-standard-47', 'Moonpool Aviary'], ['bundled-standard-48', 'Quiet Filigree'],
+      ['bundled-standard-49', 'Tiled Aurora Silk'], ['bundled-standard-50', 'Echo Basin'],
+      ['bundled-standard-51', 'Veil of Petals'], ['bundled-standard-52', 'Pearl Tissue'],
+      ['bundled-standard-53', 'Opaline Sunset'],
     ])
     expect(AUDIO_BUNDLED_PATTERNS.slice(50, 51).map((pattern) => [pattern.id, pattern.name])).toEqual([
       ['bundled-audio-51', 'Truchet Beat Maze'],

@@ -1,6 +1,6 @@
 # Audio pattern release candidates
 
-The Audio Reactive shelf contains 100 bundled candidates for audition. The final release selection remains 50 app patterns and 50 community patterns; that split has not been made yet. The Standard shelf is unchanged.
+The Audio Reactive shelf contains 100 bundled candidates for audition. The final release selection remains 50 app patterns and 50 community patterns; that split has not been made yet.
 
 The existing 72 bundled audio pattern ids are unchanged. Fourteen saved library patterns follow them, then fourteen new musical scenes. Exact copies of the promoted saved patterns are deduplicated when the library loads; their original disk files are retained.
 

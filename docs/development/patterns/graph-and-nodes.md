@@ -11,6 +11,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 - Bundled library ids are positional: append new seeds after existing shelves
   in `bundledPatterns.ts` so saved collections and ratings keep their targets.
+  The Standard shelf ends with `STANDARD_LATE_SEEDS`, which opens with the
+  website's featured patterns read from `websiteFeaturedPatterns.ts`, so that
+  module's order is part of ten ids too: add a featured pattern at its end.
   LED string recipes live in `bundledStringPatterns.ts`, carry `bestOn: ['string']`,
   and use one-dimensional engines with bounded audio modulation. Seed-level
   display tags take precedence over the legacy name-based curation table.
@@ -819,7 +822,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   the speed and scale range it had, so a converted graph moves as it did.
   A removed value reads as the node's default (`noiseType()` gives fbm).
   Bundled content is converted, not migrated: pre-1.0, a save holding a
-  removed type shows it as unknown. A node that another already computes
+  removed type shows it as unknown. A conversion that misses one graph fails
+  nothing by itself: a wire to a port that is gone, or a setting the node
+  no longer reads, is dropped in silence and the node draws on its defaults.
+  `bundledPatternIntegrity.test.ts` holds every bundled graph to the library
+  for that reason, checking each wire's ports and each node's settings against
+  the node's definition and not against the port list saved in the graph.
+  When an input changes type, as five pattern nodes' Color did to a palette,
+  rewire its sources in the same change (there, Audio → Hue into a Harmony
+  Palette's Hue). A node that another already computes
   exactly is removed rather than merged: Lerp was Map Range with In 0–1 (its
   one bundled use now wires the old A into Out Min and T into Value), and
   Gate was Switch with A as the fallback. Where a promoted saved graph (kept

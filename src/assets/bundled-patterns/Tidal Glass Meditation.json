@@ -197,10 +197,7 @@
           "nodeType": "TrebleSparks",
           "category": "pattern",
           "properties": {
-            "density": 0.46,
-            "r": 180,
-            "g": 220,
-            "b": 255
+            "density": 0.46
           },
           "inputs": [
             {
@@ -214,9 +211,14 @@
               "dataType": "float"
             },
             {
-              "id": "color",
-              "label": "Color",
-              "dataType": "color"
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            },
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
             }
           ],
           "outputs": [
@@ -224,42 +226,6 @@
               "id": "frame",
               "label": "Frame",
               "dataType": "frame"
-            }
-          ]
-        }
-      },
-      {
-        "id": "f-sample",
-        "type": "studioNode",
-        "position": {
-          "x": -420,
-          "y": 260
-        },
-        "data": {
-          "label": "Palette Sampler",
-          "nodeType": "PaletteSampler",
-          "category": "color",
-          "properties": {
-            "palette": "rainbow",
-            "t": 0.5
-          },
-          "inputs": [
-            {
-              "id": "paletteIn",
-              "label": "Palette",
-              "dataType": "palette"
-            },
-            {
-              "id": "t",
-              "label": "T",
-              "dataType": "float"
-            }
-          ],
-          "outputs": [
-            {
-              "id": "color",
-              "label": "Color",
-              "dataType": "color"
             }
           ]
         }
@@ -486,24 +452,6 @@
         "reconnectable": "target"
       },
       {
-        "id": "f-e9",
-        "source": "f-poline",
-        "sourceHandle": "palette",
-        "target": "f-sample",
-        "targetHandle": "paletteIn",
-        "type": "glowEdge",
-        "reconnectable": "target"
-      },
-      {
-        "id": "f-e10",
-        "source": "smooth-f-fft-bass",
-        "sourceHandle": "result",
-        "target": "f-sample",
-        "targetHandle": "t",
-        "type": "glowEdge",
-        "reconnectable": "target"
-      },
-      {
         "id": "f-e11",
         "source": "smooth-f-fft-treble",
         "sourceHandle": "result",
@@ -523,10 +471,10 @@
       },
       {
         "id": "f-e13",
-        "source": "f-sample",
-        "sourceHandle": "color",
+        "source": "f-poline",
+        "sourceHandle": "palette",
         "target": "f-sparks",
-        "targetHandle": "color",
+        "targetHandle": "paletteIn",
         "type": "glowEdge",
         "reconnectable": "target"
       },

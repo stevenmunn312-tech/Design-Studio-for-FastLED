@@ -320,10 +320,7 @@
           "category": "pattern",
           "properties": {
             "reactivity": 0.74,
-            "speed": 0.41,
-            "r": 255,
-            "g": 60,
-            "b": 190
+            "speed": 0.41
           },
           "inputs": [
             {
@@ -333,7 +330,7 @@
             },
             {
               "id": "reactivity",
-              "label": "Energy",
+              "label": "Reactivity",
               "dataType": "float"
             },
             {
@@ -342,9 +339,14 @@
               "dataType": "float"
             },
             {
-              "id": "color",
-              "label": "Color",
-              "dataType": "color"
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            },
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
             }
           ],
           "outputs": [
@@ -368,10 +370,7 @@
           "nodeType": "TrebleSparks",
           "category": "pattern",
           "properties": {
-            "density": 0.65,
-            "r": 200,
-            "g": 235,
-            "b": 255
+            "density": 0.65
           },
           "inputs": [
             {
@@ -385,9 +384,14 @@
               "dataType": "float"
             },
             {
-              "id": "color",
-              "label": "Color",
-              "dataType": "color"
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            },
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
             }
           ],
           "outputs": [
@@ -440,43 +444,56 @@
         }
       },
       {
-        "id": "HSVToRGB-1",
+        "id": "HarmonyPalette-1",
         "type": "studioNode",
         "position": {
           "x": 420,
           "y": 460
         },
         "data": {
-          "label": "HSV → RGB",
-          "nodeType": "HSVToRGB",
+          "label": "Harmony Palette",
+          "nodeType": "HarmonyPalette",
           "category": "color",
           "properties": {
-            "h": 0,
-            "s": 1,
-            "v": 1
+            "hue": 200,
+            "harmony": "analogous",
+            "saturation": 1,
+            "value": 1,
+            "spread": 1,
+            "shade": 0
           },
           "inputs": [
             {
-              "id": "h",
-              "label": "H (0–360)",
+              "id": "hue",
+              "label": "Hue (°)",
               "dataType": "float"
             },
             {
-              "id": "s",
-              "label": "S (0–1)",
+              "id": "saturation",
+              "label": "Saturation (0–1)",
               "dataType": "float"
             },
             {
-              "id": "v",
-              "label": "V (0–1)",
+              "id": "value",
+              "label": "Brightness (0–1)",
+              "dataType": "float"
+            },
+            {
+              "id": "spread",
+              "label": "Spread (0–1)",
+              "dataType": "float"
+            },
+            {
+              "id": "shade",
+              "label": "Shade (0–1)",
               "dataType": "float"
             }
           ],
           "outputs": [
             {
-              "id": "color",
-              "label": "Color",
-              "dataType": "color"
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
             }
           ]
         }
@@ -1073,8 +1090,8 @@
         "id": "e9",
         "source": "AudioHue-1",
         "sourceHandle": "hue",
-        "target": "HSVToRGB-1",
-        "targetHandle": "h",
+        "target": "HarmonyPalette-1",
+        "targetHandle": "hue",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {
@@ -1083,10 +1100,10 @@
       },
       {
         "id": "e10",
-        "source": "HSVToRGB-1",
-        "sourceHandle": "color",
+        "source": "HarmonyPalette-1",
+        "sourceHandle": "palette",
         "target": "BassRings-1",
-        "targetHandle": "color",
+        "targetHandle": "paletteIn",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {

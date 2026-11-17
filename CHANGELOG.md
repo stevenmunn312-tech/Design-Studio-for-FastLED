@@ -12,6 +12,12 @@ versioning (`0.y.z`) until the first stable release.
 - Project and pattern files record their save format version. A file saved by
   a newer Design Studio is refused with a message instead of opening with its
   newer parts dropped, and the helper will not overwrite it from an older app.
+- Eleven more patterns on the Standard shelf, none needing sound: the ten
+  featured on the website (Stillwater Halo, Roseglass Quietude, Mosslight
+  Cloister, Paper Lantern Drift, Moonpool Aviary, Quiet Filigree, Tiled Aurora
+  Silk, Echo Basin, Veil of Petals and Pearl Tissue) and Opaline Sunset, a sun
+  going down into a glinting sea under an opal sky. A copy of one already in
+  My Patterns is hidden while it still matches the bundled pattern.
 
 ### Changed
 
@@ -28,6 +34,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Aurora Comet Foundry, Chromasonic Vortex, Glass Rain Resonator, Laser
+  Monsoon Parade, Mainstage Confetti Singularity and Tidal Glass Meditation
+  take their colour from the music again. Each wired a colour made from the
+  sound into a pattern node's Color input. Those inputs became palette inputs,
+  the wire was left pointing at nothing, and the node drew on its default
+  palette. The music's hue now reaches each node as a palette built around it.
 - Roseglass Quietude and Moonpool Aviary, two of the website's featured
   patterns, draw their backdrop gradient top to bottom again. It had run
   sideways since Gradient Frame's Vertical switch became an Angle.

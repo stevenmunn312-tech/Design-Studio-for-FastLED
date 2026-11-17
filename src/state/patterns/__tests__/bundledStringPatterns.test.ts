@@ -7,7 +7,7 @@ import type { StudioEdge, StudioNode } from '../../graphStore'
 import { generateCpp } from '../../../codegen/cppGenerator'
 import { NODE_LIBRARY } from '../../nodeLibrary'
 
-const standard = STANDARD_BUNDLED_PATTERNS.slice(22)
+const standard = STANDARD_BUNDLED_PATTERNS.slice(22, 42)
 const audio = AUDIO_BUNDLED_PATTERNS.slice(51, 71)
 
 function pixels(windows: Frame[][]) {

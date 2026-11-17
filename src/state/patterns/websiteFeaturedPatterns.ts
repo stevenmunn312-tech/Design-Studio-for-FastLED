@@ -104,6 +104,11 @@ function asset(
   }
 }
 
+/**
+ * The Standard shelf bundles these in this order (`STANDARD_LATE_SEEDS` in
+ * `bundledPatterns.ts`) and a bundled id is a pattern's position, so add a
+ * new one at the end and never reorder or remove one.
+ */
 const WEBSITE_PATTERN_SEEDS: PatternSeed[] = [
   asset(
     'stillwater-halo',
@@ -209,7 +214,11 @@ const WEBSITE_PATTERN_SEEDS: PatternSeed[] = [
         glow: true,
         glowAmount: 0.18,
       }),
-      studioNode('swing', 'Wave', -160, 220, { rateUnit: 'BPM', bpm: 3, unipolar: true, amplitude: 0.08, offset: -0.03 }),
+      // The hue leans a few degrees each way. Hue Shift reads a whole turn, so
+      // the narrow swing is mapped on purpose: wired straight in, Graph Health
+      // reads it as a mistake and offers to stretch it across the wheel.
+      studioNode('swing', 'Wave', -460, 300, { rateUnit: 'BPM', bpm: 3, unipolar: true }),
+      studioNode('lean', 'MapRange', -160, 300, { outMin: -0.03, outMax: 0.05 }),
       studioNode('shift', 'HueShift', 140, 20),
       studioNode('blur', 'Blur2D', 440, 20, { amount: 0.08 }),
       groupOutput('out', 720, 20),
@@ -220,9 +229,10 @@ const WEBSITE_PATTERN_SEEDS: PatternSeed[] = [
       edge('e3', 'mix', 'palette', 'noise', 'paletteIn', '#ff5cf0'),
       edge('e4', 'noise', 'frame', 'mirror', 'frame'),
       edge('e5', 'mirror', 'frame', 'shift', 'frame'),
-      edge('e6', 'swing', 'result', 'shift', 'shift', '#9aa0a6'),
+      edge('e6', 'swing', 'result', 'lean', 'value', '#9aa0a6'),
       edge('e7', 'shift', 'frame', 'blur', 'frame'),
       edge('e8', 'blur', 'frame', 'out', 'frame'),
+      edge('e9', 'lean', 'result', 'shift', 'shift', '#9aa0a6'),
     ],
   ),
   asset(

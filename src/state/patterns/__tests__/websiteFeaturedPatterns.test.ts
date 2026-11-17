@@ -3,7 +3,6 @@ import {
   WEBSITE_FEATURED_PATTERN_ASSETS,
   WEBSITE_FEATURED_PATTERNS,
 } from '../websiteFeaturedPatterns'
-import { NODE_LIBRARY } from '../../nodeLibrary'
 
 const AUDIO_NODE_TYPES = new Set([
   'MicInput',
@@ -38,31 +37,6 @@ describe('website featured patterns', () => {
     expect(WEBSITE_FEATURED_PATTERNS).toHaveLength(10)
     expect(new Set(WEBSITE_FEATURED_PATTERN_ASSETS.map((asset) => asset.slug)).size).toBe(10)
     expect(new Set(WEBSITE_FEATURED_PATTERNS.map((pattern) => pattern.id)).size).toBe(10)
-  })
-
-  it('names only settings and ports its nodes have', () => {
-    // `studioNode` takes any key, so a setting renamed in the library would
-    // otherwise stay behind here doing nothing: Gradient Frame's `vertical`
-    // did, and two backdrops ran sideways until it became `angle: 90`.
-    const definitions = new Map(NODE_LIBRARY.map((definition) => [definition.type, definition]))
-    // Custom Palette keeps its stops in two lists the library does not default.
-    const unlisted = new Set(['colors', 'positions'])
-    for (const { pattern } of WEBSITE_FEATURED_PATTERN_ASSETS) {
-      const byId = new Map(pattern.subgraph.nodes.map((node) => [node.id, node]))
-      for (const node of pattern.subgraph.nodes) {
-        const definition = definitions.get(String(node.data.nodeType))
-        if (!definition) continue
-        const known = new Set(Object.keys(definition.defaultProperties ?? {}))
-        const stray = Object.keys(node.data.properties ?? {}).filter((key) => !known.has(key) && !unlisted.has(key))
-        expect(stray, `${pattern.name}: ${node.id}`).toEqual([])
-      }
-      for (const edge of pattern.subgraph.edges) {
-        const outputs = (byId.get(edge.source)?.data.outputs ?? []) as { id: string }[]
-        const inputs = (byId.get(edge.target)?.data.inputs ?? []) as { id: string }[]
-        expect(outputs.some((port) => port.id === edge.sourceHandle), `${pattern.name}: ${edge.id} source`).toBe(true)
-        expect(inputs.some((port) => port.id === edge.targetHandle), `${pattern.name}: ${edge.id} target`).toBe(true)
-      }
-    }
   })
 
   it('stays non-audio and directly importable into the pattern library', () => {

@@ -135,49 +135,58 @@
         }
       },
       {
-        "id": "a-hsv",
+        "id": "a-harmony",
         "type": "studioNode",
         "position": {
           "x": 380,
           "y": -260
         },
         "data": {
-          "label": "HSV → RGB",
-          "nodeType": "HSVToRGB",
+          "label": "Harmony Palette",
+          "nodeType": "HarmonyPalette",
           "category": "color",
           "properties": {
-            "h": 0,
-            "s": 0.95,
-            "v": 1
+            "hue": 200,
+            "harmony": "analogous",
+            "saturation": 0.95,
+            "value": 1,
+            "spread": 1,
+            "shade": 0
           },
           "inputs": [
             {
-              "id": "h",
-              "label": "H (0–360)",
+              "id": "hue",
+              "label": "Hue (°)",
               "dataType": "float"
             },
             {
-              "id": "s",
-              "label": "S (0–1)",
+              "id": "saturation",
+              "label": "Saturation (0–1)",
               "dataType": "float"
             },
             {
-              "id": "v",
-              "label": "V (0–1)",
+              "id": "value",
+              "label": "Brightness (0–1)",
+              "dataType": "float"
+            },
+            {
+              "id": "spread",
+              "label": "Spread (0–1)",
+              "dataType": "float"
+            },
+            {
+              "id": "shade",
+              "label": "Shade (0–1)",
               "dataType": "float"
             }
           ],
           "outputs": [
             {
-              "id": "color",
-              "label": "Color",
-              "dataType": "color"
+              "id": "palette",
+              "label": "Palette",
+              "dataType": "palette"
             }
           ]
-        },
-        "measured": {
-          "width": 240,
-          "height": 264
         }
       },
       {
@@ -400,10 +409,7 @@
           "category": "pattern",
           "properties": {
             "reactivity": 0.94,
-            "speed": 0.43,
-            "r": 120,
-            "g": 220,
-            "b": 255
+            "speed": 0.43
           },
           "inputs": [
             {
@@ -413,7 +419,7 @@
             },
             {
               "id": "reactivity",
-              "label": "Energy",
+              "label": "Reactivity",
               "dataType": "float"
             },
             {
@@ -422,9 +428,14 @@
               "dataType": "float"
             },
             {
-              "id": "color",
-              "label": "Color",
-              "dataType": "color"
+              "id": "paletteIn",
+              "label": "Palette",
+              "dataType": "palette"
+            },
+            {
+              "id": "audio",
+              "label": "Audio",
+              "dataType": "audio"
             }
           ],
           "outputs": [
@@ -720,8 +731,8 @@
         "id": "a-e6",
         "source": "a-hue",
         "sourceHandle": "hue",
-        "target": "a-hsv",
-        "targetHandle": "h",
+        "target": "a-harmony",
+        "targetHandle": "hue",
         "type": "glowEdge",
         "reconnectable": "target"
       },
@@ -835,10 +846,10 @@
       },
       {
         "id": "a-e19",
-        "source": "a-hsv",
-        "sourceHandle": "color",
+        "source": "a-harmony",
+        "sourceHandle": "palette",
         "target": "a-prism",
-        "targetHandle": "color",
+        "targetHandle": "paletteIn",
         "type": "glowEdge",
         "reconnectable": "target"
       },
