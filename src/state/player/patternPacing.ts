@@ -21,11 +21,10 @@ export const BURST_CHANCE = 0.12
 /** A burst changes pattern this many times. Min and max match, so every burst is eight. */
 export const BURST_CHANGES_MIN = 8
 export const BURST_CHANGES_MAX = 8
-/** A burst holds this fraction of the transition time after each change, so
- *  changes come slightly slower than the transitions themselves... */
-export const BURST_HOLD_FRACTION = 0.25
-/** ...but never less than this. Min Time still caps it. */
-export const BURST_HOLD_MIN_SEC = 0.5
+/** Each burst change holds this long once its transition completes, then
+ *  the next starts (on the next beat when Beat Transitions is on). A hold of a
+ *  quarter of the transition, capped by Min Time, ran the changes together. */
+export const BURST_HOLD_SEC = 2
 /** How far intensity moves a normal hold: 0.5 puts an intense track in the
  *  lower half of the range and a calm one in the upper half. */
 export const ENERGY_LEAN = 0.5
@@ -82,9 +81,7 @@ export function nextPatternHold(prev: PatternHold, rand: () => number, dwellsAnd
  */
 export function patternHoldSeconds(hold: PatternHold, o: PacingOptions, intensity: number): number {
   if (hold.kind === 'dwell') return DWELL_HOLD_FACTOR * o.maxTime
-  if (hold.kind === 'burst') {
-    return Math.min(o.minTime, Math.max(BURST_HOLD_MIN_SEC, o.transitionSec * BURST_HOLD_FRACTION))
-  }
+  if (hold.kind === 'burst') return BURST_HOLD_SEC
   const lean = o.energyPacing ? ENERGY_LEAN : 0
   const span = Math.max(0, o.maxTime - o.minTime)
   return o.minTime + span * (hold.u * (1 - lean) + (1 - intensity) * lean)

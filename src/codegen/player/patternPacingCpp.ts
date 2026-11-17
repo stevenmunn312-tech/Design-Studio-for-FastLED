@@ -1,5 +1,5 @@
 import {
-  BURST_CHANCE, BURST_CHANGES_MAX, BURST_CHANGES_MIN, BURST_HOLD_FRACTION, BURST_HOLD_MIN_SEC,
+  BURST_CHANCE, BURST_CHANGES_MAX, BURST_CHANGES_MIN, BURST_HOLD_SEC,
   DWELL_CHANCE, DWELL_HOLD_FACTOR, ENERGY_LEAN, PACING_LEVEL_TAU_MS, PACING_RANGE_MIN, PACING_RANGE_TAU_MS,
 } from '../../state/player/patternPacing'
 
@@ -58,7 +58,7 @@ export function patternPacingCpp(
   if (o.dwellsAndBursts) {
     lines.push(
       `      if (holdKind == 1) return (uint32_t)(${f(DWELL_HOLD_FACTOR)} * maxHold * 1000.0f);`,
-      `      if (holdKind == 2) return (uint32_t)(min(minHold, max(${f(BURST_HOLD_MIN_SEC)}, transitionMs / 1000.0f * ${f(BURST_HOLD_FRACTION)}))* 1000.0f);`,
+      `      if (holdKind == 2) return ${Math.round(BURST_HOLD_SEC * 1000)}u;`,
     )
   }
   lines.push(

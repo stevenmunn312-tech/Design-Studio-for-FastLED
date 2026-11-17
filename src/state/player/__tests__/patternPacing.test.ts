@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  BURST_CHANGES_MAX, BURST_CHANGES_MIN, BURST_HOLD_MIN_SEC, DWELL_HOLD_FACTOR, PACING_RANGE_TAU_MS,
+  BURST_CHANGES_MAX, BURST_CHANGES_MIN, BURST_HOLD_SEC, DWELL_HOLD_FACTOR, PACING_RANGE_TAU_MS,
   blankPacingEnergy, firstPatternHold, nextPatternHold, pacingEnergyStep, pacingIntensity, patternHoldSeconds,
   type PatternHold,
 } from '../patternPacing'
@@ -45,7 +45,7 @@ describe('pattern holds', () => {
     const kinds: string[] = []
     while (hold.kind === 'burst') {
       kinds.push(hold.kind)
-      expect(patternHoldSeconds(hold, TIMING, 0.5)).toBe(BURST_HOLD_MIN_SEC)
+      expect(patternHoldSeconds(hold, TIMING, 0.5)).toBe(BURST_HOLD_SEC)
       hold = nextPatternHold(hold, () => 0.01, true)
     }
     expect(kinds).toHaveLength(BURST_CHANGES_MAX)
@@ -61,10 +61,11 @@ describe('pattern holds', () => {
     expect(hold.burstLeft + 1).toBe(BURST_CHANGES_MIN)
   })
 
-  it('keeps a burst hold within Min Time and scales it with a long transition', () => {
+  it('holds each burst change two seconds after its transition, whatever the timings', () => {
     const burst: PatternHold = { kind: 'burst', u: 0.5, burstLeft: 0 }
-    expect(patternHoldSeconds(burst, { ...TIMING, transitionSec: 4 }, 0.5)).toBe(1)
-    expect(patternHoldSeconds(burst, { ...TIMING, minTime: 0.2 }, 0.5)).toBe(0.2)
+    expect(patternHoldSeconds(burst, { ...TIMING, transitionSec: 4 }, 0.5)).toBe(2)
+    expect(patternHoldSeconds(burst, { ...TIMING, minTime: 0.2 }, 0.5)).toBe(2)
+    expect(patternHoldSeconds(burst, { ...TIMING, energyPacing: true }, 1)).toBe(2)
   })
 
   it('happens now and then rather than every change', () => {

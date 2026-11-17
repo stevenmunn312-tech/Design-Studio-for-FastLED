@@ -553,7 +553,8 @@ describe('showGenerator', () => {
     const cpp = generateShowSketch(show.nodes, show.edges, groups)
     expect(cpp).toContain('const float minHold = fl::max(1.0f, constrain(5.0000f, 0.0f, 86400.0f));')
     expect(cpp).toContain('const float maxHold = fl::max(minHold, constrain(30.0000f, 0.0f, 86400.0f));')
-    expect(cpp).toContain('const uint32_t transitionMs = (uint32_t)(constrain(1.0000f, 0.0f, 86400.0f) * 1000.0f);')
+    // A burst change holds two seconds after its transition lands.
+    expect(cpp).toContain('if (holdKind == 2) return 2000u;')
     expect(cpp).toContain('if (now - phaseStart >= paceHoldMs()) {')
     // The next hold is drawn when the transition lands, as the preview does.
     expect(cpp).toContain('cur = nxt; transitioning = false; phaseStart = now; paceNext(); }')

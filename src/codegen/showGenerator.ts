@@ -1537,8 +1537,9 @@ export function generateShowSketch(
   if (holdTiming && (pacing || controls.timingInputs.transitionSec)) {
     L.push(`  const float minHold = max(${SLIDESHOW_MIN_HOLD_SEC.toFixed(1)}f, constrain(${timingExpr('minTime', info.minTime)}, 0.0f, 86400.0f));`)
     L.push(`  const float maxHold = max(minHold, constrain(${timingExpr('maxTime', info.maxTime)}, 0.0f, 86400.0f));`)
-    if (transitions || pacingOptions.dwellsAndBursts) {
-      L.push(`  const uint32_t transitionMs = (uint32_t)(constrain(${transitions ? timingExpr('transitionSec', info.transitionSec) : '0.0f'}, 0.0f, 86400.0f) * 1000.0f);`)
+    // Only a transition reads it: a burst holds a fixed two seconds after one.
+    if (transitions) {
+      L.push(`  const uint32_t transitionMs = (uint32_t)(constrain(${timingExpr('transitionSec', info.transitionSec)}, 0.0f, 86400.0f) * 1000.0f);`)
     }
     if (pacing) L.push(...pacing.declarations.split('\n').map((line) => line.replace(/^ {2}/, '')))
   }
