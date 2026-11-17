@@ -86,14 +86,18 @@ export function audioLoudness(source: StereoLevelSource): number {
  * 0.34. Capture has a gain knob to land there. Decoded music has none: it
  * reaches the meter at line level, where 41 mastered tracks sat at 0.22, 0.63
  * and 1.0 (pinned), so the stage stayed fully open and a quiet passage lit as
- * brightly as a drop. Scaled by `DECODED_LOUDNESS_SCALE`, quiet sections
- * (about 0.2 on the meter) read 0.06 and rest, loud ones (0.8) read 0.24 and
- * open the stage, and a pinned meter reads 0.3, the room's loud peak.
+ * brightly as a drop. The meter is raised to `DECODED_LOUDNESS_CURVE` and
+ * scaled by `DECODED_LOUDNESS_SCALE`: a pinned meter reads 0.3, the room's
+ * loud peak, and a loud section (0.8) 0.21, which opens the stage, while the
+ * curve keeps the calmer ones low, 0.08 at 0.4 and 0.03 at 0.2. A straight
+ * scale read 0.12 at 0.4, and calm passages looked fairly energetic.
  */
 export const DECODED_LOUDNESS_SCALE = 0.3
+export const DECODED_LOUDNESS_CURVE = 1.5
 
 export function decodedLoudness(leftLevel: number, rightLevel: number): number {
-  return clamp01(Math.max(finiteLevel(leftLevel) ?? 0, finiteLevel(rightLevel) ?? 0) * DECODED_LOUDNESS_SCALE)
+  const meter = Math.max(finiteLevel(leftLevel) ?? 0, finiteLevel(rightLevel) ?? 0)
+  return clamp01(Math.pow(meter, DECODED_LOUDNESS_CURVE) * DECODED_LOUDNESS_SCALE)
 }
 
 /** Resolve browser channel buffers without ever presenting a mono source as

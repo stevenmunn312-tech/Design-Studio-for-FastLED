@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { decodedLoudnessCpp } from '../../codegen/audio/stereoLevelCpp'
 import {
   audioLoudness,
+  DECODED_LOUDNESS_CURVE,
   DECODED_LOUDNESS_SCALE,
   decodedLoudness,
   levelsFromSampleChannels,
@@ -106,7 +107,9 @@ describe('stereo VU levels', () => {
 describe('decoded music loudness', () => {
   it('puts the line-level meter on the room scale the energy stage reads', () => {
     expect(decodedLoudness(1, 0.4)).toBeCloseTo(DECODED_LOUDNESS_SCALE)
-    expect(decodedLoudness(0.2, 0.2)).toBeCloseTo(0.2 * DECODED_LOUDNESS_SCALE)
+    // A calm passage reads well under a loud one, not in proportion to the meter.
+    expect(decodedLoudness(0.4, 0.4)).toBeLessThan(decodedLoudness(0.8, 0.8) * 0.4)
+    expect(decodedLoudness(0.2, 0.2)).toBeCloseTo(Math.pow(0.2, DECODED_LOUDNESS_CURVE) * DECODED_LOUDNESS_SCALE)
     expect(decodedLoudness(Number.NaN, 0)).toBe(0)
   })
 
@@ -116,6 +119,6 @@ describe('decoded music loudness', () => {
   })
 
   it('emits the same scale for the hardware player', () => {
-    expect(decodedLoudnessCpp()).toBe(`_audioLoudness = max(_audioLeftLevel, _audioRightLevel) * ${DECODED_LOUDNESS_SCALE}f;`)
+    expect(decodedLoudnessCpp()).toBe(`_audioLoudness = powf(max(_audioLeftLevel, _audioRightLevel), ${DECODED_LOUDNESS_CURVE}f) * ${DECODED_LOUDNESS_SCALE}f;`)
   })
 })

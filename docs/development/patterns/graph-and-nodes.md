@@ -45,7 +45,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   the room (median frame near 0.09, peaks near 0.34), which is far below the
   meter's line-level full scale. Decoded music (the Music Player, a show, the
   hardware player) has no gain to set, so its source publishes `loudness` on
-  the room scale (`decodedLoudness`, meter × `DECODED_LOUDNESS_SCALE`, firmware
+  the room scale (`decodedLoudness`, meter to the power `DECODED_LOUDNESS_CURVE` times
+  `DECODED_LOUDNESS_SCALE`, which keeps calm passages low; firmware
   `decodedLoudnessCpp`); read raw, a mastered track pinned the meter and held
   the stage open in a breakdown and a drop alike. A line input at line level
   still holds it open until its gain comes down. That is why the stage keeps raw Loudness and its own Smooth
