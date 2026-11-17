@@ -1067,10 +1067,10 @@ checkout, so record the commit from Git):
 | `overflow-no-size` | §5, #1658 | GONE: a failed link now prints an overflow line | GONE |
 | `esp8266-wifi-link` | §15, #1994 | PRESENT | GONE |
 | `wifis3` | §16, #2020 | PRESENT | GONE |
-| `nrf52-lto` | §17, #2016 | PRESENT | PRESENT |
+| `nrf52-lto` | §17, #2016 | PRESENT | PRESENT; GONE on PR #2028 (`e992e3d1`, open) |
 | `pico-w` | Boards mapped, #2014 | PRESENT | GONE |
 | `r4-minima` | Boards mapped, #2015 | PRESENT | GONE |
-| `xiaoble` | Boards mapped, #2017 | PRESENT (`variant.h`, with the id `xiaoble_adafruit`) | PRESENT |
+| `xiaoble` | Boards mapped, #2017 | PRESENT (`variant.h`, with the id `xiaoble_adafruit`) | PRESENT; CHANGED on PRs #2028 + #2030 (open): links fail on `__wrap_realloc` |
 | `lib-deps-git-ref` | §1, #2018 | PRESENT | PRESENT |
 | `lib-deps-registry` | §1, #2019 | PRESENT | PRESENT; GONE on PR #2026 (`3cac5588`, open) |
 | `lib-deps-exact-pin` | §1 | PRESENT | PRESENT |
@@ -1085,6 +1085,16 @@ unpacks 3.10.8 and HUB75 `@3.0.14` unpacks 3.1.0. PlatformIO reads a bare
 version as exact. The helper writes no `lib_deps`, so this only matters if a vendored library moves to
 the registry. Report drafted in
 `tmp/fbuild-main/drafts/lib-deps-exact-version-pin-ignored.md`.
+
+The `xiaoble` probe builds FastLED, since a blink hides a fault in #2030. With #2028
+and #2030 merged onto `main` `7df790c6`, a FastLED sketch builds on the
+Feather nRF52840 (65,448 bytes) and stops at link on `xiaoble_adafruit`:
+`undefined reference to '__wrap_realloc'`. fbuild links every nRF52 board
+with the Adafruit core's four heap wraps, and Seeed 1.1.13 wraps and defines
+only `malloc` and `free`. `build_unflags` does not remove those link flags,
+so the XIAO nRF52840 stays on arduino-cli. The two PRs also conflict in
+`nrf52/orchestrator.rs`. A PR comment is drafted in
+`tmp/fbuild-main/drafts/pr-2030-xiao-wrap-realloc.md`.
 
 The size faults have no probe. On `main` `bc50602e` an empty sketch reads
 21,436 bytes of RAM on an ESP32-S3, equal to `.dram0.data` plus `.dram0.bss`
@@ -1481,4 +1491,5 @@ sketch builds on the Feather nRF52840 (72,950 bytes) and the nRF52840 DK
 2026-11-14 as [#2016](https://github.com/FastLED/fbuild/issues/2016); upstream already removes the flag for its GCC 7
 toolchain (`without_release_lto`).
 fbuild reports 235,520 bytes of RAM for every nRF52840 image, blink or not,
-so that figure is not the sketch's.
+so that figure is not the sketch's: it counts the `.heap` reservation, now
+[#2027](https://github.com/FastLED/fbuild/issues/2027). #2028 does not change it.

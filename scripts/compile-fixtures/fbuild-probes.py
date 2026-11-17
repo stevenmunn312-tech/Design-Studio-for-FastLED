@@ -78,7 +78,10 @@ PROBES = [
     Probe("pico-w", "boards mapped", "raspberrypi", "rpipicow", BLINK, r"undefined reference to `cyw43_"),
     Probe("r4-minima", "boards mapped", "renesas-ra", "uno_r4_minima", BLINK,
           r"(?:bsp_api|common_data)\.h: No such file"),
-    Probe("xiaoble", "boards mapped", "nordicnrf52", "xiaoble_adafruit", BLINK, r"variant\.h: No such file"),
+    # FastLED, not a blink: a blink links on fbuild#2030 while FastLED's
+    # realloc misses the Seeed core's heap wrappers.
+    Probe("xiaoble", "boards mapped", "nordicnrf52", "xiaoble_adafruit", FASTLED_SKETCH,
+          r"variant\.h: No such file", fastled=True),
     Probe("lib-deps-git-ref", "§1", "espressif32", "esp32dev", BLINK, r"invalid Zip archive",
           lib_deps="https://github.com/schreibfaul1/ESP32-audioI2S.git#3.0.12", command="install"),
     # Zero DMA is SAMD-only, so it builds for a SAMD51 board once it resolves.

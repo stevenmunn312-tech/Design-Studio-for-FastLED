@@ -49,7 +49,10 @@ fixes #1994, #2012, #2013, #2014, #2015 and #2020 by probe; #2016 to #2019 are
 still open and their probes still read PRESENT. Open PR #2026 makes the
 #2019 HUB75 and Zero DMA entries resolve; FastLED 3.10.9 waits for upstream to
 restart the mirror, and a bare `@x.y.z` pin resolves as `^x.y.z` (report
-drafted, not posted)
+drafted, not posted). Open PR #2028 fixes #2016 (FastLED links on the Feather
+nRF52840 without `_NRF52_NO_LTO`). Open PR #2030 fixes the #2017 blink, but a
+FastLED sketch on the XIAO nRF52840 fails at link on `__wrap_realloc` (PR
+comment drafted, not posted)
 ([runbook](docs/runbooks/fbuild-workarounds.md#probes)).
 
 - [x] Map each offered board that has no fbuild environment (`_PIO_BOARDS`)
