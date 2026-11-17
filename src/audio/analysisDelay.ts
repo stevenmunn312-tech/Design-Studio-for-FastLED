@@ -7,10 +7,25 @@
 // the LEDs ran. Holding each analysis frame for that long before publishing
 // it lines the preview up with what the listener hears. Microphone capture
 // needs no such hold: the mic hears the same sound the listener hears.
+//
+// The picture is late too, so the hold is the difference between the two
+// delays, not the whole speaker delay. A released frame waits for the next
+// preview step (the LED loop's animation frame runs before this engine's, so
+// at least one display frame, plus half a step on average), and the drawn
+// canvas reaches the screen one or two display frames after that. Holding
+// for the full speaker delay put the LEDs that much behind the sound: on a
+// wired Windows laptop the device reports about 59 ms, nearly all of which
+// the picture spends on its own.
 import type { AudioData } from './audioEngine'
 
 /** Longest hold honoured; a device reporting more is treated as broken. */
 export const MAX_OUTPUT_LATENCY_MS = 1000
+
+/** Time, ms, from a frame's release to its light on screen: one display frame
+ *  for the loop order, half a 30 fps preview step, and about one and a half
+ *  display frames to composite and scan out, at 60 Hz. Set a little under
+ *  the sum so the picture never runs ahead of the sound. */
+export const PICTURE_LATENCY_MS = 50
 
 /** Delay between a sample entering the graph and leaving the speakers, ms.
  *  Browsers that report neither value get 0 (no compensation), never NaN. */
@@ -19,6 +34,12 @@ export function outputLatencyMs(context: { baseLatency?: number; outputLatency?:
   const base = Number.isFinite(context.baseLatency) ? Number(context.baseLatency) : 0
   const output = Number.isFinite(context.outputLatency) ? Number(context.outputLatency) : 0
   return Math.max(0, Math.min(MAX_OUTPUT_LATENCY_MS, (base + output) * 1000))
+}
+
+/** How long to hold an analysis frame so its light and its sound arrive
+ *  together: the speaker's delay less the picture's own. */
+export function analysisHoldMs(context: { baseLatency?: number; outputLatency?: number } | null): number {
+  return Math.max(0, outputLatencyMs(context) - PICTURE_LATENCY_MS)
 }
 
 interface HeldFrame {

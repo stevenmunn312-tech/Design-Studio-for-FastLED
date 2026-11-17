@@ -1,5 +1,5 @@
 import type { AudioData } from './audioEngine'
-import { AnalysisDelay, outputLatencyMs } from './analysisDelay'
+import { AnalysisDelay, analysisHoldMs } from './analysisDelay'
 import { FastLedAudioAnalyzer } from './fastledReactive'
 import {
   MIC_FFT_SIZE,
@@ -227,7 +227,7 @@ export class DecoderAudioEngine {
       pitch: result.pitch,
       samples: result.samples,
     })
-    const due = this.delay.takeDue(now, outputLatencyMs(this.context))
+    const due = this.delay.takeDue(now, analysisHoldMs(this.context))
     if (due) this.emit(due)
     this.animationFrame = requestAnimationFrame(this.sample)
   }

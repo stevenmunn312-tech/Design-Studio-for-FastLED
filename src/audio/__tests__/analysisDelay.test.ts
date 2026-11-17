@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AudioData } from '../audioEngine'
-import { AnalysisDelay, MAX_OUTPUT_LATENCY_MS, outputLatencyMs } from '../analysisDelay'
+import { AnalysisDelay, analysisHoldMs, MAX_OUTPUT_LATENCY_MS, outputLatencyMs, PICTURE_LATENCY_MS } from '../analysisDelay'
 
 function frame(overrides: Partial<AudioData> = {}): AudioData {
   return {
@@ -42,6 +42,20 @@ describe('outputLatencyMs', () => {
   it('clamps an implausible device report', () => {
     expect(outputLatencyMs({ outputLatency: 5 })).toBe(MAX_OUTPUT_LATENCY_MS)
     expect(outputLatencyMs({ outputLatency: -1 })).toBe(0)
+  })
+})
+
+describe('analysisHoldMs', () => {
+  it('holds only for the speaker delay the picture does not already spend', () => {
+    // A wired laptop: 10.7 ms base + 48 ms output, as Chromium reports it.
+    expect(analysisHoldMs({ baseLatency: 0.0107, outputLatency: 0.048 })).toBeCloseTo(58.7 - PICTURE_LATENCY_MS)
+    // Bluetooth: the speaker is far later than the picture, so most of it is held.
+    expect(analysisHoldMs({ baseLatency: 0.01, outputLatency: 0.2 })).toBeCloseTo(210 - PICTURE_LATENCY_MS)
+  })
+
+  it('never holds less than nothing when the speaker is quicker than the picture', () => {
+    expect(analysisHoldMs({ baseLatency: 0.005, outputLatency: 0.01 })).toBe(0)
+    expect(analysisHoldMs(null)).toBe(0)
   })
 })
 

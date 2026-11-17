@@ -50,6 +50,7 @@ import styles from './LEDPreview.module.css'
 import { Icon } from '../icons/Icon'
 import { frameAmbient } from '../../utils/signalVisual'
 import { idleFrame } from './idleFrame'
+import { frameGate } from './frameGate'
 import { publishOutputStreamFrame, publishStreamFrame, useStreamStore } from '../../state/output/streamStore'
 import { outputRoutes, previewRenderPasses, routeFrame } from '../../state/output/outputRouting'
 import { LED_OUTPUT_FORM_LABELS, outputSizeLabelFor, type LedOutputForm } from '../../state/output/ledOutputForm'
@@ -639,11 +640,12 @@ export default function LEDPreview() {
         const visible = previewVisibleRef.current
         const hasLiveVu = Boolean(vuMeterIdRef.current) && uiEffectsEnabledRef.current && !analyzingMusicRef.current
         const hiddenStep = hasLiveVu ? VU_PREVIEW_PUBLISH_INTERVAL_MS : PREVIEW_PUBLISH_INTERVAL_MS
-        if (now - lastStep.current < (visible ? frameStepMs.current : hiddenStep)) {
+        const step = frameGate(now, lastStep.current, visible ? frameStepMs.current : hiddenStep)
+        if (step === null) {
           animRef.current = requestAnimationFrame(loop)
           return
         }
-        lastStep.current = now
+        lastStep.current = step
         const gapMs = lastFrameNow.current === 0 ? STEP : now - lastFrameNow.current
         lastFrameNow.current = now
         // t = tick / 60 = seconds elapsed, matching the firmware's millis()/1000.
