@@ -3,10 +3,6 @@
 This file provides repository guidance to Claude Code and other coding agents.
 
 <!-- AUTO-MANAGED: project-description -->
-## Overview
-
-Design Studio for FastLED is a browser-based node-graph editor for authoring LED effects, previewing them live, and generating FastLED/Arduino firmware. It combines project and pattern persistence, hardware configuration, audio-reactive workflows, generative and music-synchronised shows, local compilation, and USB upload support.
-
 <!-- END AUTO-MANAGED -->
 
 <!-- AUTO-MANAGED: build-commands -->
