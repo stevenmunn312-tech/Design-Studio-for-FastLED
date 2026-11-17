@@ -5,7 +5,8 @@ separate Node.js or Python installation. The package deliberately keeps the
 tested web UI: one native launcher contains the Python runtime and upload
 helper and serves the production Vite assets on localhost. On Windows it shows
 them in a native window drawn by the system WebView2 runtime; on macOS and
-Linux it opens the user's default browser.
+Linux it opens the user's default browser. The macOS package is an
+application bundle, `Design Studio for FastLED.app`.
 
 ## Why this shape
 
@@ -43,9 +44,13 @@ The command:
 2. freezes the launcher and upload helper in PyInstaller one-folder mode;
 3. freezes a standalone `esptool` and copies the native fbuild CLI/daemon;
 4. includes the project and runtime dependency notices;
-5. starts the frozen launcher with an isolated temporary data directory and
-   checks the desktop-status endpoint plus rendered app shell; and
-6. writes a platform archive under `release/desktop/`.
+5. on macOS, completes the bundle's `Info.plist`, signs the bundle again and
+   verifies its seal (see [macOS app](#macos-app));
+6. starts the frozen launcher with an isolated temporary data directory and
+   checks the desktop-status endpoint plus rendered app shell, and on macOS
+   also launches the app with its window; and
+7. writes a platform archive under `release/desktop/`: a zip on Windows and
+   macOS (made with `ditto` on macOS), a `.tar.gz` on Linux.
 
 Useful development flags are `--skip-frontend`, `--skip-smoke`, and
 `--no-archive`, passed after `npm run package:desktop --`.
@@ -89,6 +94,43 @@ launcher:
 The pywebview overrides replace three of its WebView2 event handlers, so
 `backend/constraints.txt` pins pywebview exactly; re-check them on every
 upgrade (`backend/tests/test_desktop_launcher.py` asserts they still exist).
+
+## macOS app
+
+PyInstaller's `--windowed` mode builds `Design Studio for FastLED.app`. The
+launcher and its Python runtime sit in `Contents/MacOS` and
+`Contents/Frameworks`, the web build in `Contents/Resources`, and the fbuild
+and esptool tools in `Contents/MacOS/tools`, beside the executable where the
+helper looks for them. The licenses, notices and README go in
+`Contents/Resources`, because a bundle may keep only code in
+`Contents/MacOS`. The bundle identifier is
+`io.github.stevenmunn312-tech.DesignStudioForFastLED`; signing,
+notarization and the user's privacy grants attach to it, so it stays fixed
+once a signed build ships. The icon is `desktop/assets/app.icns`, which
+`scripts/assets/make-brand-icons.py` draws on Apple's 1024 grid with the
+artwork in the central 824 square.
+
+A Finder-launched app has no terminal, so the launcher, when it runs inside a
+bundle, opens the Studio in the default browser and shows a small window (Tk,
+from the bundled Python) that keeps the helper running:
+
+- **Closing the window** only hides it, as with any Mac app. **Quit**, Cmd+Q
+  or the Dock menu's Quit stops the helper.
+- **A Dock click or a second open** shows the window and opens the Studio in
+  the browser again. macOS does not start a second copy of an open app.
+- **Startup errors**, such as port 8008 in use, show as a macOS alert.
+- **Output** goes to `desktop.log` in the data root.
+
+PyInstaller signs the bundle before the tools, notices and `Info.plist`
+changes go in, which breaks its seal, and macOS reports an app with a broken
+seal as damaged. The packager therefore signs each tool and the bundle again,
+ad hoc for now, and runs `codesign --verify --deep --strict`. A Developer ID
+signature with the hardened runtime, then notarization, replace the ad hoc
+signature before release.
+
+The headless smoke test never builds the window, so a second run starts the
+app as Finder would, without `FLS_NO_BROWSER`, and fails if the app quits
+after its server answers.
 
 ## Runtime layout
 
@@ -155,7 +197,19 @@ the Intel one) instead of 2.5.4 built from source. Each archive has a SHA-256
 file and a GitHub provenance attestation; the Linux archive's checksum and
 attestation were checked after download.
 
-The same day the offline PWA was relaunched from a clean browser profile: a
+On 2026-11-18, at `0bef337b`, the first macOS app bundles were packaged on
+both Mac runners, with Windows and Linux rebuilt alongside (run
+[`44145244928`](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/44145244928)).
+On both Macs `codesign --verify --deep --strict` passed on the re-signed
+bundle, the headless smoke passed, and the app kept running with its window
+after its server answered. The downloaded Apple Silicon zip (83 MB) holds the
+bundle with its tools in `Contents/MacOS/tools`, the notices in
+`Contents/Resources`, and an `Info.plist` carrying the identifier, version
+0.8.0 and the developer-tools category. Nobody has yet opened it on a real
+Mac: Gatekeeper's handling of the ad hoc signature on a downloaded copy, and
+the window's look, are still unchecked.
+
+On 2026-11-14 the offline PWA was relaunched from a clean browser profile: a
 production build served on localhost, one online load in a new Chromium
 profile, the browser closed and the server stopped, then the browser started
 again on that profile with the network off. The service worker served the
@@ -171,7 +225,9 @@ The current output is an unsigned portable beta archive. A public release still
 needs:
 
 - Authenticode signing for the Windows launcher and bundled executables;
-- macOS application layout, code signing, hardened runtime, and notarization;
+- macOS signing with a Developer ID, hardened runtime, and notarization (the
+  application layout is in place since 2026-11-18; the bundle is signed ad
+  hoc until then);
 - checksums for every archive and an artifact provenance record (in place
   since 2026-11-14: the workflow writes both);
 - a clean-machine launch/upload smoke per published platform; and

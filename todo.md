@@ -132,8 +132,12 @@ and recovery evidence
   pinned Python dependency
   ([package workflow](docs/release/desktop-distribution.md#github-package-workflow)).
   The 2.5.51 wheel's tools run on both Mac runners; the bundle carries them.
-- [ ] Give the macOS package its application layout, code signing, hardened
-  runtime and notarization.
+- [x] Give the macOS package its application layout. Done 2026-11-18: a
+  `Design Studio for FastLED.app` bundle with a small window that keeps the
+  Studio running, sealed ad hoc and zipped with `ditto`
+  ([macOS app](docs/release/desktop-distribution.md#macos-app)).
+- [ ] Sign the macOS app with a Developer ID and the hardened runtime, then
+  notarize and staple it. Needs an Apple Developer Program membership.
 - [ ] Run the macOS package on a clean machine, Apple Silicon and Intel.
 - [ ] Run the Linux package on a clean machine.
 - [x] Record a checksum and a provenance record for every archive. The
