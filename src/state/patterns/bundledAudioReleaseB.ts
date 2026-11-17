@@ -48,7 +48,12 @@ function silkAttractor(): AudioReleaseSeed {
   b.wire('palette', 'palette', 'filaments', 'paletteIn')
   const count = b.map('threadCount', 'energy', 'result', 24, 116)
   const trail = b.map('threadLength', 'buildup', 'result', 0.4, 0.68)
-  const size = b.map('threadSize', 'vibe', 'midAtt', 0.65, 1.4, 0, 2.5)
+  // The one beat response: each detected beat swells the threads, rising in
+  // 0.06 s and settling before the next beat. The bass level alone moved them
+  // only a few percent on real music, where the bass rarely drops between kicks.
+  b.node('beatSwell', 'Envelope', { attack: 0.06, decay: 0.35 })
+  b.wire('beat', 'beat', 'beatSwell', 'trigger')
+  const size = b.map('threadSize', 'beatSwell', 'result', 0.8, 1.5)
   b.wire(count, 'result', 'filaments', 'count').wire(trail, 'result', 'filaments', 'trail')
   b.wire(size, 'result', 'filaments', 'dotSize')
   // The drop opens the woven attractor rather than replacing it with a white flash.
@@ -191,7 +196,7 @@ export const RELEASE_AUDIO_B_SEEDS: AudioReleaseSeed[] = [
 
 export const RELEASE_AUDIO_B_DESCRIPTIONS: Record<string, string> = {
   'Resonant Velvet': 'Pitch selects a stable Chladni mode. Energy rotates the standing waves; a buildup adds modal complexity, and a drop turns the plate through 45 degrees. A presence band controls the contour contrast.',
-  'Silk Attractor': 'A de Jong attractor draws turquoise and gold filaments. Energy adds threads, relative mids thicken them, and buildups extend their persistence. Drops open the woven form; stereo balance tilts it.',
+  'Silk Attractor': 'A de Jong attractor draws turquoise and gold filaments across the whole frame. Loudness adds threads, each beat swells them, and buildups extend their persistence. Drops open the woven form; stereo balance tilts it.',
   'Moonflower Release': 'A lavender superformula flower breathes with bass over a bar-synchronised radial texture. Buildups open its petals, then drops expand the entire bloom.',
   'Interference Loom': 'A held, confident pitch selects low integer Lissajous ratios. Energy animates the weave, buildups thicken its strands, and drops turn the loom. Relative treble controls the trailing silk.',
   'String Meteor Pact': 'A quiet blue dust bed supports meteors with counter-moving debris. Bass spikes and drops launch heads, a presence band adds dust, buildups lengthen tails, and drops scatter a cool sparkle cloud.',

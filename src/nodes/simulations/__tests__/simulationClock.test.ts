@@ -79,7 +79,9 @@ describe('simulations at 60 fps', () => {
 
   it('draws Formula Points\' logistic map and attractor as they did', () => {
     expect(sixty('FormulaPoints', { formulaType: 'logisticMap', count: 40, chaos: 3.7 }, 16, 16)).toBe('36f8b1e2')
-    expect(sixty('FormulaPoints', { formulaType: 'attractor', count: 80, preset: 'swirl', trail: 0.5 }, 16, 16)).toBe('96bbbea7')
+    // Re-recorded 2026-11-17: swirl now spans its own extent (shared/deJongAttractor.ts)
+    // instead of the left half of the frame.
+    expect(sixty('FormulaPoints', { formulaType: 'attractor', count: 80, preset: 'swirl', trail: 0.5 }, 16, 16)).toBe('39c23bd6')
   })
 
   /*

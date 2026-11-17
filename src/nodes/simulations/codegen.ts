@@ -24,6 +24,7 @@ import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, seedProp } from '../../codegen/cppLiterals'
 import { REACTION_DIFFUSION_RATES, reactionDiffusionRates } from './reactionDiffusionPresets'
 import { angle16Cpp, phyllotaxisPointCpp, splatDiscQ8Cpp } from '../shared/integerPatterns'
+import { DE_JONG_PRESETS, deJongAxis, deJongPresetName } from '../shared/deJongAttractor'
 
 /** One 60th of a second, the frame a trail deposit stands for. */
 const ONE_FRAME_CPP = `(1.0f/${floatLit(PASS_FPS)})`
@@ -455,16 +456,14 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
       }
 
       case 'attractor': {
-        const presets: Record<string, readonly [number, number, number, number]> = {
-          classic: [1.4, -2.3, 2.4, -2.1],
-          swirl: [-2.7, -0.09, -0.86, -2.2],
-          web: [-0.827, -1.637, 1.659, -0.943],
-        }
         // Resolve the preset name against the known set before echoing it:
         // the raw property travels in a shared graph, and a newline in it
         // would end this `//` comment and inject the rest as code.
-        const presetName = String(p.preset ?? 'classic') in presets ? String(p.preset ?? 'classic') : 'classic'
-        const [pa, pb, pc, pd] = presets[presetName]
+        const presetName = deJongPresetName(p.preset)
+        const preset = DE_JONG_PRESETS[presetName]
+        const [pa, pb, pc, pd] = preset.coeffs
+        // Each preset spans the extent its own orbit fills (deJongAttractor.ts).
+        const mapX = deJongAxis(preset.x), mapY = deJongAxis(preset.y)
         ln(`  { // Formula Points: attractor (de Jong, ${presetName})`)
         ln(`    static float ${A}ax=0.1f, ${A}ay=0.1f;`)
         trailFadeCpp(ln, phaseTag(id), trailVar, ob)
@@ -474,7 +473,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
         ln(`      float _nx=sinf(${floatLit(pa)}*${A}ay)-cosf(${floatLit(pb)}*${A}ax);`)
         ln(`      float _ny=sinf(${floatLit(pc)}*${A}ax)-cosf(${floatLit(pd)}*${A}ay);`)
         ln(`      ${A}ax=_nx; ${A}ay=_ny;`)
-        splat(`((${A}ax+2.0f)/4.0f)*(WIDTH-1)`, `((${A}ay+2.0f)/4.0f)*(HEIGHT-1)`, `ColorFromPalette(${pal},(uint8_t)(((float)(_i%${count})/${count})*255.0f))`, ob)
+        splat(`(${A}ax*${floatLit(mapX.scale)}+${floatLit(mapX.offset)})*(WIDTH-1)`, `(${A}ay*${floatLit(mapY.scale)}+${floatLit(mapY.offset)})*(HEIGHT-1)`, `ColorFromPalette(${pal},(uint8_t)(((float)(_i%${count})/${count})*255.0f))`, ob)
         ln(`    }`)
         ln(`  }`)
         break

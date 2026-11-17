@@ -43,6 +43,7 @@ import {
 } from '../../state/evaluator/random'
 import { phyllotaxisPoint, splatDiscQ8 } from '../shared/integerPatterns'
 import { angle16 } from '../shared/lib8tion'
+import { DE_JONG_PRESETS, deJongAxis, deJongPresetName } from '../shared/deJongAttractor'
 
 // ── Persistent state for stateful pattern nodes ───────────────────────────────
 const fireHeat    = instanceState('fireHeat', new Map<string, number[][]>())
@@ -449,16 +450,6 @@ function evalParticles(nodeId: string, mode: string, rate: number, palette: Pale
 // is exact closed-form/iterated math shared identically by evaluator and
 // codegen (same "no algorithm drift" property GeometryField's spiral,
 // rings and Lissajous curve already rely on).
-// de Jong attractor coefficients (x' = sin(a·y) − cos(b·x), y' = sin(c·x) −
-// cos(d·y)) — unconditionally bounded to [-2,2] regardless of (a,b,c,d) since
-// sin/cos never exceed 1, so every preset is stable with no escape/clamp
-// logic needed. Named presets instead of exposing raw coefficients, the same
-// convention Fire/Fire2012 use for their `seed` LCG rather than raw params.
-const DE_JONG_PRESETS: Readonly<Record<string, readonly [number, number, number, number]>> = {
-  classic: [1.4, -2.3, 2.4, -2.1],
-  swirl: [-2.7, -0.09, -0.86, -2.2],
-  web: [-0.827, -1.637, 1.659, -0.943],
-}
 
 export interface FormulaPointsParams {
   formulaType: string
@@ -524,7 +515,10 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
     }
 
     case 'attractor': {
-      const [a, b, c, d] = DE_JONG_PRESETS[p.preset] ?? DE_JONG_PRESETS.classic
+      // de Jong presets and the extent each one fills: shared/deJongAttractor.ts.
+      const preset = DE_JONG_PRESETS[deJongPresetName(p.preset)]
+      const [a, b, c, d] = preset.coeffs
+      const mapX = deJongAxis(preset.x), mapY = deJongAxis(preset.y)
       let ax = st.attractorX ?? 0.1, ay = st.attractorY ?? 0.1
       const buf = formulaPointsTrailBuf(st, W, H)
       fadeFrameToBlackBy(buf, trailFadeSteps(key, t, p.trail))
@@ -535,8 +529,8 @@ function evalFormulaPoints(key: string, p: FormulaPointsParams, t: number, W = D
         const nx = Math.sin(a * ay) - Math.cos(b * ax)
         const ny = Math.sin(c * ax) - Math.cos(d * ay)
         ax = nx; ay = ny
-        const px = ((ax + 2) / 4) * (W - 1)
-        const py = ((ay + 2) / 4) * (H - 1)
+        const px = (ax * mapX.scale + mapX.offset) * (W - 1)
+        const py = (ay * mapY.scale + mapY.offset) * (H - 1)
         splat(buf, px, py, samplePalette(p.palette, (i % count) / count))
       }
       st.attractorX = ax; st.attractorY = ay; st.frame = buf
