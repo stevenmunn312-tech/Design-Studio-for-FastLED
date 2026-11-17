@@ -44,11 +44,10 @@ waits for an fbuild release that carries the fixes for
 on the fbuild that v1 pins. Zach said on 2026-11-15 that the fixes would come
 within a couple of days; 2.5.51 (2026-11-04) is still the latest release on
 2026-11-17. A workaround whose fault that release does not fix stays, and is
-recorded as a limitation in step 6. Upstream `main` at `c0ea467f` (2026-11-17)
-fixes #1994, #2012, #2013, #2014, #2015 and #2020 by probe; #2016 to #2019 are
-still open and their probes still read PRESENT. Open PR #2026 makes the
+recorded as a limitation in step 6. Upstream `main` at `e218404b` (2026-11-17)
+fixes #1994, #2012, #2013, #2014, #2015, #2018 and #2020 by probe, and the
 #2019 HUB75 and Zero DMA entries resolve; FastLED 3.10.9 waits for upstream to
-restart the mirror, and a bare `@x.y.z` pin resolves as `^x.y.z` (report
+rerun the mirror by hand, and a bare `@x.y.z` pin resolves as `^x.y.z` (report
 drafted, not posted). Open PR #2028 fixes #2016 (FastLED links on the Feather
 nRF52840 without `_NRF52_NO_LTO`). Open PR #2030 fixes the #2017 blink, but a
 FastLED sketch on the XIAO nRF52840 fails at link on `__wrap_realloc` (PR

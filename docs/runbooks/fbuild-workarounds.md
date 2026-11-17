@@ -1058,11 +1058,11 @@ backend/.venv/Scripts/python scripts/compile-fixtures/fbuild-probes.py
 PRESENT means the build fails as this runbook describes, GONE that the
 workaround can be retired, CHANGED that it fails another way. `--fbuild PATH`
 probes another binary, such as a build of upstream `main`, without moving the
-pin. Results on 2.5.51 (2026-11-12) and on unreleased `main` at `c0ea467f`
+pin. Results on 2.5.51 (2026-11-12) and on unreleased `main` at `e218404b`
 (2.5.52, built from source on 2026-11-17; its `--version` hash can lag the
 checkout, so record the commit from Git):
 
-| Probe | Where | 2.5.51 | `main` `c0ea467f` |
+| Probe | Where | 2.5.51 | `main` `e218404b` |
 | --- | --- | --- | --- |
 | `overflow-no-size` | §5, #1658 | GONE: a failed link now prints an overflow line | GONE |
 | `esp8266-wifi-link` | §15, #1994 | PRESENT | GONE |
@@ -1070,15 +1070,19 @@ checkout, so record the commit from Git):
 | `nrf52-lto` | §17, #2016 | PRESENT | PRESENT; GONE on PR #2028 (`e992e3d1`, open) |
 | `pico-w` | Boards mapped, #2014 | PRESENT | GONE |
 | `r4-minima` | Boards mapped, #2015 | PRESENT | GONE |
-| `xiaoble` | Boards mapped, #2017 | PRESENT (`variant.h`, with the id `xiaoble_adafruit`) | PRESENT; CHANGED on PRs #2028 + #2030 (open): links fail on `__wrap_realloc` |
-| `lib-deps-git-ref` | §1, #2018 | PRESENT | PRESENT |
-| `lib-deps-registry` | §1, #2019 | PRESENT | PRESENT; GONE on PR #2026 (`3cac5588`, open) |
+| `xiaoble` | Boards mapped, #2017 | PRESENT (`variant.h`, with the id `xiaoble_adafruit`) | PRESENT; CHANGED on PRs #2028 + #2030 (open, `212497f7`): links fail on `__wrap_realloc` |
+| `lib-deps-git-ref` | §1, #2018 | PRESENT | GONE: fetches `archive/3.0.12.zip` |
+| `lib-deps-registry` | §1, #2019 | PRESENT | GONE |
 | `lib-deps-exact-pin` | §1 | PRESENT | PRESENT |
 
 `lib-deps-registry` builds Adafruit Zero DMA for a SAMD51 board, since it
 is SAMD-only. On #2019 Zach found two causes: names with spaces or
-punctuation never matched (#2026 fixes it), and the mirror stopped on
-2026-10-30, so FastLED 3.10.9 is not in it until upstream restarts the job.
+punctuation never matched (#2026, merged), and the mirror stopped on
+2026-10-30. Nothing reruns it on a schedule: maintainers run the mirror pass
+and the index regeneration by hand, so FastLED 3.10.9 is missing until they
+do. A missing library or release can be requested in an fbuild issue naming
+`owner/name@version`; what is mirrored is listed in
+<https://fastled.github.io/fbuild/mirror/manifest.json>.
 `lib-deps-exact-pin` shows a third fault, on 2.5.51 as well: a bare
 `@x.y.z` is parsed by the `semver` crate as `^x.y.z`, so `FastLED@3.10.7`
 unpacks 3.10.8 and HUB75 `@3.0.14` unpacks 3.1.0. PlatformIO reads a bare
