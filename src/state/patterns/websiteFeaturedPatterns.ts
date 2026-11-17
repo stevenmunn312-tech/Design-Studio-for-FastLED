@@ -171,7 +171,7 @@ const WEBSITE_PATTERN_SEEDS: PatternSeed[] = [
         rB: 255,
         gB: 114,
         bB: 120,
-        vertical: true,
+        angle: 90,
       }),
       studioNode('pal', 'Poline', -760, 200, {
         anchorA: '#28153d',
@@ -277,7 +277,7 @@ const WEBSITE_PATTERN_SEEDS: PatternSeed[] = [
         rB: 18,
         gB: 44,
         bB: 82,
-        vertical: true,
+        angle: 90,
       }),
       studioNode('pal', 'Poline', -1040, 220, {
         anchorA: '#102448',

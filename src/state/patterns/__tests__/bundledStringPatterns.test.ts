@@ -31,6 +31,14 @@ describe('bundled LED string patterns', () => {
         expect(source?.dataType, `${pattern.name}: ${edge.id} type`).toBe(target?.dataType)
       }
     }
+    // Every node is wired to something: a recipe whose engines take no
+    // palette (Rainbow, Candle) once carried an unwired palette node.
+    for (const pattern of [...standard, ...audio]) {
+      for (const node of pattern.subgraph.nodes) {
+        const wired = pattern.subgraph.edges.some((edge) => edge.source === node.id || edge.target === node.id)
+        expect(wired, `${pattern.name}: ${node.id}`).toBe(true)
+      }
+    }
     for (const pattern of standard) {
       expect(pattern.inputs).toEqual([])
       expect(isAudioReactiveSubgraph(pattern.subgraph.nodes)).toBe(false)

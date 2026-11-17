@@ -42,14 +42,20 @@ function build(recipe: Recipe, audio: boolean): Seed {
   const wire = (source: string, sourceHandle: string, target: string, targetHandle: string) => {
     edges.push({ id: `e-${edges.length}`, source, sourceHandle, target, targetHandle, type: 'glowEdge', reconnectable: 'target' } as StudioEdge)
   }
+  const takesPalette = (engine?: Engine) =>
+    !!engine && !!definitions.get(engine.type)?.inputs.some((port) => port.id === 'paletteIn')
   const add = (id: string, engine: Engine, x: number, y: number) => {
     const created = node(id, engine.type, x, y, engine.props)
     nodes.push(created)
-    if (definitions.get(engine.type)?.inputs.some((port) => port.id === 'paletteIn')) wire('palette', 'palette', id, 'paletteIn')
+    if (takesPalette(engine)) wire('palette', 'palette', id, 'paletteIn')
   }
-  nodes.push(node('palette', 'Poline', -680, -240, {
-    anchorA: recipe.colors[0], anchorB: recipe.colors[1], anchorC: recipe.colors[2], points: 6,
-  }))
+  // Rainbow and Candle make their own colour, so a recipe built on one alone
+  // gets no palette node: unwired, Graph Health flagged it in four recipes.
+  if ([recipe.base, recipe.overlay, recipe.finish].some(takesPalette)) {
+    nodes.push(node('palette', 'Poline', -680, -240, {
+      anchorA: recipe.colors[0], anchorB: recipe.colors[1], anchorC: recipe.colors[2], points: 6,
+    }))
+  }
   add('base', recipe.base, -360, 0)
   let tail = 'base'
   if (recipe.overlay) {

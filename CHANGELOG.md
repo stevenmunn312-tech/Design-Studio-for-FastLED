@@ -26,6 +26,15 @@ versioning (`0.y.z`) until the first stable release.
   Fracture in a collection keeps the old graph until it is updated from the
   library.
 
+### Fixed
+
+- Roseglass Quietude and Moonpool Aviary, two of the website's featured
+  patterns, draw their backdrop gradient top to bottom again. It had run
+  sideways since Gradient Frame's Vertical switch became an Angle.
+- String Rainbow Conveyor, String Candle Garland, String Spectrum Conveyor and
+  String Singing Candles no longer carry a palette node that nothing used,
+  which Graph Health flagged.
+
 ### Removed
 
 - File → Import Graph JSON and Export Graph JSON. Save Project File As and
