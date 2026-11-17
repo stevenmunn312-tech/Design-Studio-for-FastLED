@@ -99,6 +99,16 @@ import type { FloatingAnchor } from '../Hardware/FloatingMenu'
 import { formatSignalRange, isNormalizedOutput, signalRangeMismatch } from '../../nodes/shared/signalRange'
 import { effectiveDataRateMhz } from '../../build/ledDrivers'
 import { mirrorGlows } from '../../nodes/composite/mirror'
+import { nodeBodyLoadEnded, nodeBodyLoadStarted } from '../../utils/nodeBodyLoading'
+
+/** A lazy body's stand-in while its code loads; counted so layout can wait for it (utils/nodeBodyLoading.ts). */
+function BodyLoading() {
+  useEffect(() => {
+    nodeBodyLoadStarted()
+    return nodeBodyLoadEnded
+  }, [])
+  return null
+}
 
 const MusicLibraryNodeBody = lazy(() => import('./bodies/MusicLibraryNodeBody'))
 const PerformanceGeneratorBody = lazy(() => import('./bodies/PerformanceGeneratorBody'))
@@ -872,7 +882,7 @@ const LivePropertyControls = memo(function LivePropertyControls({
               // it on, so the group follows `propertyVisible` like its rows.
               const groupBody = nodeType === 'PatternMaster' && group.key === 'radio' && props.musicSource === 'Internet Radio'
                 ? (
-                    <Suspense fallback={null}>
+                    <Suspense fallback={<BodyLoading />}>
                       <RadioStationsBody nodeId={nodeId} disabled={locked} />
                     </Suspense>
                   )
@@ -1697,7 +1707,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           />
         )}
         {(d.nodeType === 'CustomPalette' || d.nodeType === 'Poline') && (
-          <Suspense fallback={null}>
+          <Suspense fallback={<BodyLoading />}>
             {d.nodeType === 'CustomPalette' && <CustomPaletteEditorBody nodeId={id} topPlacement />}
             {d.nodeType === 'Poline' && <PolineEditorBody nodeId={id} topPlacement />}
           </Suspense>
@@ -1902,7 +1912,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           </button>
         )}
 
-        <Suspense fallback={null}>
+        <Suspense fallback={<BodyLoading />}>
           {d.nodeType === 'MusicLibrary' && <MusicLibraryNodeBody />}
           {d.nodeType === 'PerformanceGenerator' && <PerformanceGeneratorBody nodeId={id} />}
           {d.nodeType === 'Image' && <ImageNodeBody nodeId={id} />}

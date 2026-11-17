@@ -17,6 +17,7 @@ import { uniqueProjectName, useProjectStore, type SavedProject } from '../state/
 import { blankWorkspace, captureWorkspace, hasAuthoredWorkspaceContent } from '../state/workspacePersistence'
 import { nextDefaultProjectName } from './projectFileIO'
 import { runTidy } from './tidyGraph'
+import { nodeBodiesLoading } from './nodeBodyLoading'
 import { insertLiveExample, type LiveExampleResult, type LiveExampleSpec } from './insertLiveExample'
 
 interface StartFlowOptions {
@@ -25,18 +26,32 @@ interface StartFlowOptions {
 
 let startFlowGeneration = 0
 
-/** Let React Flow mount and measure a newly loaded graph before laying it out. */
+/** The longest a starter's layout waits for its node bodies' code to load. */
+const BODY_LOAD_WAIT_MS = 3000
+
+/**
+ * Let React Flow mount and measure a newly loaded graph before laying it out:
+ * wait until every node body that loads on demand has arrived, then two more
+ * frames for React Flow to measure the grown nodes, so Tidy spaces them at
+ * their full size.
+ */
 function tidyLoadedTemplate(generation: number) {
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      // A newer starter or blank canvas supersedes this pending layout.
-      if (generation !== startFlowGeneration) return
-      runTidy({ quiet: true })
-      // Loading a starter, including its automatic layout, begins a fresh
-      // workspace and should not create an Undo step.
-      useGraphStore.temporal.getState().clear()
-    })
-  })
+  const started = performance.now()
+  let settled = 0
+  const step = () => {
+    // A newer starter or blank canvas supersedes this pending layout.
+    if (generation !== startFlowGeneration) return
+    settled = nodeBodiesLoading() ? 0 : settled + 1
+    if (settled < 2 && performance.now() - started < BODY_LOAD_WAIT_MS) {
+      requestAnimationFrame(step)
+      return
+    }
+    runTidy({ quiet: true })
+    // Loading a starter, including its automatic layout, begins a fresh
+    // workspace and should not create an Undo step.
+    useGraphStore.temporal.getState().clear()
+  }
+  requestAnimationFrame(step)
 }
 
 /** `choice` is a Start Gallery pick; a help example is not one, so it leaves "Last start" alone. */
