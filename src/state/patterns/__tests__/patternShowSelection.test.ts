@@ -139,16 +139,17 @@ describe('beat-triggered pattern transitions', () => {
       }
       return changes.slice(1).map((at, i) => at - changes[i])
     }
-    const steady = { ...timing, beatTransitions: false, order: 'Random' }
-    expect(new Set(gaps(steady))).toEqual(new Set([2]))
+    const steady = { ...timing, beatTransitions: false, order: 'Random', minTime: 3, maxTime: 3 }
+    expect(new Set(gaps(steady))).toEqual(new Set([3]))
     const varied = gaps({ ...steady, dwellsAndBursts: true })
-    // A dwell holds twice Max Time; a burst changes again half a second on.
-    // Eight changes a burst add many short gaps, so a normal hold is no longer
-    // most of them. It still outnumbers the long dwells.
-    expect(varied).toContain(4)
-    expect(varied).toContain(0.5)
-    const normal = varied.filter((gap) => gap === 2).length
-    expect(normal).toBeGreaterThan(varied.filter((gap) => gap === 4).length)
+    // A dwell holds twice Max Time; a burst changes again two seconds after
+    // each transition completes. Eight changes a burst add many short gaps,
+    // so a normal hold is no longer most of them. It still outnumbers the
+    // long dwells.
+    expect(varied).toContain(6)
+    expect(varied).toContain(2)
+    const normal = varied.filter((gap) => gap === 3).length
+    expect(normal).toBeGreaterThan(varied.filter((gap) => gap === 6).length)
     expect(normal).toBeGreaterThan(varied.length / 3)
   })
 

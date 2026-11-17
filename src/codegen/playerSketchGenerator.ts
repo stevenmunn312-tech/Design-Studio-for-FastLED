@@ -48,6 +48,7 @@ import { ledSupplyVolts } from '../build/controllerSettings'
 import { ledOutputGammaExpr, ledOutputManualExprs, ledOutputRuntimeCpp } from './output/ledOutputRuntimeCpp'
 import { LED_OUTPUT_GAMMA_OFF, ledOutputGamma, ledOutputManualRuntime } from '../state/output/ledOutputRuntime'
 import { decodedLoudnessCpp, vuNormalizedLevelCpp } from './audio/stereoLevelCpp'
+import { motionClockCpp } from './player/motionClockCpp'
 import {
   audioFeatureGlobalsCpp, audioFeatureHelpersCpp, audioFeatureResetCpp, audioFeatureSetupCpp,
   audioFeatureEdgesCpp, audioFeatureReadCpp, audioFeaturesInCode,
@@ -647,7 +648,10 @@ export function generatePlayerSketch(
   ].join('\n'))
   // Audio Features' Loudness is the louder channel meter here (the tap and the
   // baked envelope both measure absolute RMS), so reading it needs the meters.
-  const needsLoudness = /\b_audioLoudness\b/.test(consumerCode)
+  // The motion clock reads loudness and tempo whenever the collection's
+  // patterns get live analysis (motionClockCpp, state/player/motionClock.ts).
+  const motionClock = collection && decoderTap
+  const needsLoudness = motionClock || /\b_audioLoudness\b/.test(consumerCode)
   const needsStereoLevels = hasStereoVu || needsLoudness || /\b_audio(?:Left|Right)Level\b/.test(consumerCode)
   const needsSpectrum = /\b_audioSpectrum\b/.test(consumerCode)
   // The detectors a baked show replays for its patterns from the ADET trailer
@@ -1468,7 +1472,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   const entryDraw = (slot: number, indexExpr: string, allowNew: boolean, roles: string) => [
     '  {',
     '    bool entry = false;',
-    `    float shown = entryClock(${slot}, ${indexExpr}, posMs, ${allowNew ? 'true' : 'false'}, &entry);`,
+    `    float shown = entryClock(${slot}, ${indexExpr}, ${motionClock ? 'motionMs' : 'posMs'}, ${allowNew ? 'true' : 'false'}, &entry);`,
     `    renderPattern(${indexExpr}, shown${roles}, entry);`,
     '  }',
   ].join('\n')
@@ -2917,7 +2921,7 @@ ${fadesAudio && reactiveAudio ? `  // Fade the player down during genuine silenc
   float audioFadeRate = audioFadeTarget < audioFade ? ${SILENCE_RELEASE_RATE}f : ${SILENCE_ATTACK_RATE}f;
   audioFade += (audioFadeTarget - audioFade) * audioFadeRate;
 ` : ''}
-  float t = posMs / 1000.0f;
+${motionClock ? `${motionClockCpp().join('\n')}\n  float t = motionMs / 1000.0f;` : '  float t = posMs / 1000.0f;'}
 ${rampSample}
 ${patternDraw}${!genericPlayer ? `  // Beat flash overlay
   if (flashLevel > 0.01f) {

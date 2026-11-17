@@ -14,6 +14,16 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   starts a new hold. Without a loaded track, preview scheduling uses unscaled
   elapsed time. Timers inside patterns and button debounce still use elapsed
   time independently of the track position.
+- Pattern animation runs on a motion clock, not raw track time: each step of
+  `posMs` advances it by the step times a rate from the music's loudness
+  (0.4x in silence to 1.25x at the loud peak, smoothed over 0.6 s) and its
+  detected tempo folded into 80-160 BPM (smoothed over 4 s, relative to 120).
+  `state/player/motionClock.ts` holds the numbers; the SD sketch emits
+  `motionMs` from `codegen/player/motionClockCpp.ts`, and restart epochs read
+  the same clock. Holds, transitions and envelopes keep track or real time.
+  It runs only when the collection's patterns listen (`decoderTap` in the
+  sketch, `isAudioReactiveSubgraph` in the preview), so a silent collection
+  keeps track time on both. The slideshow does not warp its clock yet.
 
 - `beatTransitions` is the Music Player's opt-in Beat Transitions checkbox.
   Preview and the generic SD player choose a random cooldown from `minTime`

@@ -66,6 +66,8 @@ import type {
 } from '../../state/evaluator/types'
 import { clearInstanceStateByPrefix, instanceState, touchInstanceStatePrefix } from '../../state/evaluator/memory'
 import { isAudioReactiveSubgraph } from '../../state/patterns/audioReactiveSubgraph'
+import { blankMotionClock, motionClockStep, MOTION_TEMPO_REFERENCE, type MotionClock } from '../../state/player/motionClock'
+import { audioLoudness } from '../../audio/stereoLevels'
 import { PARTICLE_STYLES, particleStyleIndex } from '../../state/player/particleStyles'
 import {
   PARTICLE_REST_MS, PARTICLE_VOLLEY_BURSTS, blankParticleVolley, particleEnergyGate, particleEnergyPasses,
@@ -74,6 +76,26 @@ import {
 } from '../../state/player/playerDynamics'
 
 const patternShowState = instanceState('patternShowState', new Map<string, ShowState>())
+// Each player's pattern clock, warped by the music's loudness and tempo.
+const motionClockState = instanceState('motionClockState', new Map<string, MotionClock>())
+
+/** The Music Player's pattern clock in ticks: track time sped up or slowed
+ *  down by live audio's loudness and folded tempo (state/player/motionClock.ts).
+ *  It runs at the patterns' own speed without live audio or when no pattern
+ *  in the collection listens, as the sketch, which has no analysis then. */
+function motionTick(key: string, realTick: number, audio: AudioSignal | null): number {
+  const real = realTick / 60
+  let clock = motionClockState.get(key)
+  if (!clock) {
+    clock = blankMotionClock(real)
+    motionClockState.set(key, clock)
+  }
+  if (!audio) return motionClockStep(clock, real, 0, null) * 60
+  // An idle source reads as silence at the reference tempo, as the sketch's
+  // analysis resets to when the decoder is not live.
+  const bpm = audio.active ? Number(audio.bpm ?? MOTION_TEMPO_REFERENCE) : MOTION_TEMPO_REFERENCE
+  return motionClockStep(clock, real, audio.active ? audioLoudness(audio) : 0, bpm) * 60
+}
 const patternSlideshowFadeState = instanceState('patternSlideshowFadeState', new Map<string, { level: number; lastT: number }>())
 
 /** One selection per Music Player. The player owns which pattern is playing;
@@ -1427,11 +1449,13 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     const track = player.transport ?? player.localTrack
     const posMs = playerPositionMs(player)
     const showTime = track ? posMs / 1000 : elapsedT
-    const patternTick = track ? showTime * 60 : tick
     let out: Record<string, PortValue> = {}
     const ids = (input(id, 'patternset', null) as string[] | null) ?? []
     const audioSignal = input(id, 'audio', null)
     const audio = isAudioSignal(audioSignal) ? audioSignal : null
+    // Track time, warped so the patterns move with the music's loudness and tempo.
+    const listens = ids.some((gid) => isAudioReactiveSubgraph(groups[gid]?.nodes ?? []))
+    const patternTick = motionTick(stateKey(`${id}/motion`), track ? showTime * 60 : tick, listens ? audio : null)
     const beat = input(id, 'beat', Boolean(audio?.active && audio.beat)) as boolean
     const render = (gid: string): Frame => renderCollectedPattern(gid, {
       groups, groupStack, instancePrefix, nodeId: id, tick: patternTick, W, H,

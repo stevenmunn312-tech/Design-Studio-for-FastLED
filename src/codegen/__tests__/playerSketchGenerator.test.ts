@@ -194,6 +194,21 @@ describe('playerSketchGenerator', () => {
     expect(sketch).not.toContain('_audioPitch')
   })
 
+  it('runs listening patterns on the motion clock and the rest on song time', () => {
+    const listening = {
+      buffers: [], helpers: [], count: 1, params: [],
+      functions: ['void render_p0(uint32_t ms) { float v = _audioBass; Serial.println(v); (void)ms; }'],
+    }
+    const sketch = generatePlayerSketch({}, listening, { genericPlayer: true, decoderTap: true })
+    expect(sketch).toContain('  float t = motionMs / 1000.0f;')
+    // The clock reads the loudness meter, so the tap measures it.
+    expect(sketch).toContain('float     _audioLoudness = 0;')
+    expect(sketch.indexOf('const uint32_t motionMs')).toBeLessThan(sketch.indexOf('float t = motionMs'))
+    const deaf = generatePlayerSketch({}, { ...listening, functions: ['void render_p0(uint32_t ms) { (void)ms; }'] }, { genericPlayer: true })
+    expect(deaf).toContain('  float t = posMs / 1000.0f;')
+    expect(deaf).not.toContain('motionMs')
+  })
+
   // The tap runs before the output's I2S DMA queue, which i2s write keeps full,
   // so an analysed beat is still 16 x 512 frames from the speaker on
   // ESP32-audioI2S 3.0.12. Blocks wait that long in the ring before analysis.
