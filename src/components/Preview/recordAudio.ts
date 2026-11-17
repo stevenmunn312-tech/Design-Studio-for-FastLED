@@ -36,6 +36,7 @@ export interface AudioSample {
   leftLevel?: number
   rightLevel?: number
   channelCount?: 1 | 2
+  loudness?: number
   vibe?: VibeSignal
   structure?: SongStructureSignal
   pitch?: PitchSignal
@@ -90,6 +91,7 @@ export function snapshotAudio(audio: AudioSample): RecordedAudioFrame {
     leftLevel: audio.leftLevel,
     rightLevel: audio.rightLevel,
     channelCount: audio.channelCount,
+    loudness: audio.loudness,
     vibe: audio.vibe ? { ...audio.vibe } : undefined,
     structure: audio.structure ? { ...audio.structure } : undefined,
     pitch: audio.pitch ? { ...audio.pitch } : undefined,

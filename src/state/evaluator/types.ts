@@ -82,6 +82,9 @@ export interface AudioSignal {
   leftLevel?: number
   rightLevel?: number
   channelCount?: 1 | 2
+  /** Decoded music's Loudness on the room scale (`decodedLoudness`); absent
+   *  on capture and legacy payloads, which read the channel meters. */
+  loudness?: number
   /** Absent on legacy, baked and recorded payloads from before the detector
    * existed; every reader treats a missing field as inactive. */
   vibe?: VibeSignal

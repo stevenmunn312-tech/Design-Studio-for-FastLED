@@ -12,8 +12,8 @@ import { floatLit } from '../../codegen/cppLiterals'
  * at any frame rate) and then clamps it to 0–1.
  *
  * The gain is `gainAtDefault` to the power `2 × Sensitivity`: 0 passes
- * Loudness through (a line input or the player already fills the meter), the
- * default 0.5 multiplies it by `gainAtDefault`, and 1 by its square for a
+ * Loudness through (a line input turned up to line level already fills the
+ * meter), the default 0.5 multiplies it by `gainAtDefault`, and 1 by its square for a
  * distant microphone. The default was set on a 45 s room recording: at 0.5
  * Level's 90th percentile reads about 0.8 (0.26 and 0.61 at the 10th and
  * 50th) and only the loudest moments reach 1. The easing lowers the peaks, so

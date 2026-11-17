@@ -7,7 +7,7 @@
 // a stage driven by Energy read the loud chorus dimmer than the quiet verse.
 import { describe, expect, it } from 'vitest'
 import { FastLedAudioAnalyzer } from '../../../audio/fastledReactive'
-import { levelsFromSampleChannels } from '../../../audio/stereoLevels'
+import { decodedLoudness, levelsFromSampleChannels } from '../../../audio/stereoLevels'
 import { MIC_FFT_SIZE, MIC_SAMPLE_RATE, MIC_SPECTRUM_BARS } from '../../../audio/micAnalysis'
 import { evaluateGraph, type Frame, type GroupRegistry, type AudioOverride, type PortValue } from '../../graphEvaluator'
 import { AUDIO_BUNDLED_PATTERNS } from '../bundledPatterns'
@@ -22,10 +22,10 @@ const SECTIONS: readonly (readonly [number, number])[] = [[0, 2], [0.12, 6], [1,
 
 interface Section { start: number; end: number; gain: number }
 
-function synth(): { pcm: Float32Array; sections: Section[] } {
+function synth(plan: readonly (readonly [number, number])[] = SECTIONS): { pcm: Float32Array; sections: Section[] } {
   const sections: Section[] = []
   let t0 = 0
-  for (const [gain, seconds] of SECTIONS) {
+  for (const [gain, seconds] of plan) {
     sections.push({ start: t0, end: t0 + seconds, gain })
     t0 += seconds
   }
@@ -55,7 +55,7 @@ function meanBrightness(frame: Frame): number {
 }
 
 /** Mean frame brightness per animation frame, as the live preview would show it. */
-function brightnessTrace(saved: SavedPattern, pcm: Float32Array): { t: number; bright: number }[] {
+function brightnessTrace(saved: SavedPattern, pcm: Float32Array, decoded = false): { t: number; bright: number }[] {
   const analyzer = new FastLedAudioAnalyzer(MIC_FFT_SIZE)
   const groupId = `__loud_${saved.id}`
   const prefix = `__loud_${saved.id}/`
@@ -71,13 +71,14 @@ function brightnessTrace(saved: SavedPattern, pcm: Float32Array): { t: number; b
     }
     const nowMs = (k * 1000) / FPS
     const spectrum: number[] = new Array(MIC_SPECTRUM_BARS).fill(0)
-    const r = analyzer.process(chunk, SR, nowMs, 1, spectrum, 450)
+    const r = analyzer.process(chunk, SR, nowMs, 1, spectrum, decoded ? undefined : 450)
     const levels = levelsFromSampleChannels(chunk, chunk, 1, 1)
     const override: AudioOverride = {
-      active: true, micActive: true, nativeFastLed: true, beat: r.beat, beatConfidence: r.beatConfidence, bpm: r.bpm,
+      active: true, micActive: !decoded, nativeFastLed: true, beat: r.beat, beatConfidence: r.beatConfidence, bpm: r.bpm,
       bass: r.bass, mids: r.mids, treble: r.treble, micBass: r.bass, micMids: r.mids, micTreble: r.treble,
       spectrum, detectorSpectrum: spectrum, previewSpectrum: spectrum,
       leftLevel: levels.left, rightLevel: levels.right, channelCount: 1,
+      loudness: decoded ? decodedLoudness(levels.left, levels.right) : undefined,
       vibe: r.vibe, structure: r.structure, pitch: r.pitch, samples: r.samples,
     }
     const total = spectrum.reduce((a, b) => a + b, 0) / spectrum.length
@@ -124,6 +125,23 @@ describe('energy stage on microphone audio', () => {
       const arrived = rows.find((r) => r.t >= chorus.start && r.bright >= target)
       expect(arrived, `${name} never reached the chorus level`).toBeDefined()
       expect(arrived!.t - chorus.start, `${name} rise`).toBeLessThan(0.3)
+    }
+  }, 60_000)
+})
+
+describe('energy stage on decoded music', () => {
+  it('rests through a quiet passage and opens on a loud one at line level', () => {
+    // The Music Player reaches the meter at line level: the loud chorus pins
+    // it, and even the quiet verse sits well above a room microphone's level.
+    // Read raw, both opened the stage fully and every section looked alike.
+    const { pcm, sections } = synth([[0, 2], [0.35, 6], [1, 6], [0.35, 6]])
+    const [, verse, chorus] = sections
+    for (const name of ['Color Trails', 'Bass Furnace', 'String Pulse Plasma']) {
+      const pattern = AUDIO_BUNDLED_PATTERNS.find((entry) => entry.name === name)!
+      const decodedRows = brightnessTrace(pattern, pcm, true)
+      const quiet = settled(decodedRows, verse)
+      const loud = settled(decodedRows, chorus)
+      expect(loud, `${name} chorus ${loud.toFixed(2)} vs verse ${quiet.toFixed(2)}`).toBeGreaterThan(quiet * 1.3)
     }
   }, 60_000)
 })

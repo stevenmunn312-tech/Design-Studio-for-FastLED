@@ -6,7 +6,7 @@ import {
   MIC_SAMPLE_RATE,
   MIC_SPECTRUM_BARS,
 } from './micAnalysis'
-import { levelsFromSampleChannels } from './stereoLevels'
+import { decodedLoudness, levelsFromSampleChannels } from './stereoLevels'
 
 const silentSpectrum = () => Array(MIC_SPECTRUM_BARS).fill(0)
 
@@ -32,6 +32,7 @@ function silentDecoderAudio(): AudioData {
     leftLevel: 0,
     rightLevel: 0,
     channelCount: 2,
+    loudness: 0,
     vibe: undefined,
     structure: undefined,
     pitch: undefined,
@@ -222,6 +223,7 @@ export class DecoderAudioEngine {
       leftLevel: levels.left,
       rightLevel: levels.right,
       channelCount: levels.channelCount,
+      loudness: decodedLoudness(levels.left, levels.right),
       vibe: result.vibe,
       structure: result.structure,
       pitch: result.pitch,

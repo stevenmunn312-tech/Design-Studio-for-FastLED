@@ -47,7 +47,7 @@ import { sanitizePin } from './hardwarePins'
 import { ledSupplyVolts } from '../build/controllerSettings'
 import { ledOutputGammaExpr, ledOutputManualExprs, ledOutputRuntimeCpp } from './output/ledOutputRuntimeCpp'
 import { LED_OUTPUT_GAMMA_OFF, ledOutputGamma, ledOutputManualRuntime } from '../state/output/ledOutputRuntime'
-import { vuNormalizedLevelCpp } from './audio/stereoLevelCpp'
+import { decodedLoudnessCpp, vuNormalizedLevelCpp } from './audio/stereoLevelCpp'
 import {
   audioFeatureGlobalsCpp, audioFeatureHelpersCpp, audioFeatureResetCpp, audioFeatureSetupCpp,
   audioFeatureEdgesCpp, audioFeatureReadCpp, audioFeaturesInCode,
@@ -1975,7 +1975,7 @@ ${needsLoudness ? '    _audioLoudness = 0;\n' : ''}${needsSpectrum ? '    for (i
   _audioLeftLevel = (audioEnv[ib+3] + (audioEnv[jb+3] - audioEnv[ib+3]) * frac) / 255.0f;
   _audioRightLevel = (audioEnv[ib+4] + (audioEnv[jb+4] - audioEnv[ib+4]) * frac) / 255.0f;
   if (audioEnvChannels != 2) _audioRightLevel = _audioLeftLevel;
-${needsLoudness ? '  _audioLoudness = max(_audioLeftLevel, _audioRightLevel);\n' : ''}${needsSpectrum ? `  // The song's equalizer bins, each filling two slots as getEqBin(b >> 1) does
+${needsLoudness ? `  ${decodedLoudnessCpp()}\n` : ''}${needsSpectrum ? `  // The song's equalizer bins, each filling two slots as getEqBin(b >> 1) does
   // live. Without them, a coarse bass/mids/treble fill keeps the detectors alive.
   if (audioEnvSpectrum) {
     uint32_t is = i * 16, js = j * 16;
@@ -2166,7 +2166,7 @@ ${needsStereoLevels ? `  portENTER_CRITICAL(&_decoderTapMux);
   if (levelFrames > 0) {
     _audioLeftLevel = _vuNormalizedLevel(leftSquares, levelFrames);
     _audioRightLevel = _vuNormalizedLevel(rightSquares, levelFrames);
-${needsLoudness ? '    _audioLoudness = max(_audioLeftLevel, _audioRightLevel);\n' : ''}  }
+${needsLoudness ? `    ${decodedLoudnessCpp()}\n` : ''}  }
 
 ` : ''}  _audioBeat = false;
   if (!_decoderTapLive) {

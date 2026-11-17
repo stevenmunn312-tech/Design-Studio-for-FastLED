@@ -32,8 +32,11 @@ export interface EnergyDynamicsOptions {
  *  below are in those units and sized for a microphone at gain 1 hearing
  *  music in the room, measured on 2026-11-05 with a laptop array: frames sat
  *  at 0.02 (10th percentile), 0.09 (median) and 0.17 (90th), peaking at
- *  0.34. A line input or the Music Player runs several times hotter and
- *  simply holds the stage open, which is the pre-stage look. */
+ *  0.34. Decoded music (the Music Player, a show, the hardware player)
+ *  reaches the meter at line level and is scaled onto this room scale where
+ *  it is measured (`decodedLoudness`), so the stage rests through a quiet
+ *  passage and opens on a loud one there too. A line input has its own gain
+ *  to set; turned up to line level it holds the stage open. */
 export const ENERGY_DYNAMICS = {
   /** Seconds the loudness takes to follow a change (about 63% of a step).
    *  Short enough to land with the music; the Smooth node is the only

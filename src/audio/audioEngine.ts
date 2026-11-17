@@ -49,6 +49,9 @@ export interface AudioData {
   leftLevel: number
   rightLevel: number
   channelCount: 1 | 2
+  /** Audio Features' Loudness when the source states its own; see
+   *  `audioLoudness` in audio/stereoLevels.ts. Capture leaves it out. */
+  loudness?: number
   /** Absent while stopped: readers treat a missing field as inactive. */
   vibe?: VibeSignal
   structure?: SongStructureSignal

@@ -2,7 +2,7 @@ import type { StudioEdge, StudioNode } from '../graphStore'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import type { SavedPattern } from './patternLibrary'
 import type { PatternFormTag } from './patternTags'
-import { withEnergyDynamics } from './energyDynamics'
+import { ENERGY_DYNAMICS, withEnergyDynamics } from './energyDynamics'
 
 export type AudioReleaseSeed = Omit<SavedPattern, 'id' | 'createdAt' | 'categoryId' | 'bundled'>
 
@@ -31,15 +31,21 @@ export class AudioReleaseBuilder {
         outputs: [{ id: 'out', label: 'Audio', dataType: 'audio' }] },
     } as StudioNode)
     this.node('features', 'AudioFeatures', { sensitivity: 0.55, gate: 0.025, smoothing: 0.7 })
-    // Two followers on one Energy. `energy` drives motion and structure, where
+    // The rig's drive is how loud the music is, 0 at a quiet room's 10th
+    // percentile and 1 at its 90th (the energy stage's light ramp), so a calm
+    // passage moves and lights calmly and a loud one opens up. It read
+    // Energy once, which FastLED normalises to each band's peak of the last
+    // few seconds: every section looked alike, and the exposure barely moved
+    // between a breakdown and a drop.
+    this.map('drive', 'features', 'loudness', 0, 1, ENERGY_DYNAMICS.lightIn[0], ENERGY_DYNAMICS.lightIn[1])
+    // Two followers on the drive. `energy` drives motion and structure, where
     // a slow, even swell keeps counts and speeds from twitching. `lightEnergy`
     // drives exposure: it rises in 0.08 s so the light lands with the music,
-    // and falls over the same 0.38 s so it settles as calmly as before. One
-    // shared 0.38 s follower held the light peak about 0.3 s behind the beat.
+    // and falls over the same 0.38 s so it settles as calmly as the motion.
     this.node('energy', 'Smooth', { response: 0.38 })
-    this.wire('features', 'energy', 'energy', 'value')
+    this.wire('drive', 'result', 'energy', 'value')
     this.node('lightEnergy', 'Smooth', { response: PULSE_RISE, fall: 0.38 })
-    this.wire('features', 'energy', 'lightEnergy', 'value')
+    this.wire('drive', 'result', 'lightEnergy', 'value')
     this.node('fft', 'FFTAnalyzer', { gain: 1.05, smoothing: 0.75, tilt: 0.08 })
     this.node('perc', 'PercussionDetect', { sensitivity: 0.58, decay: 0.72, separation: 0.55 })
     this.node('vibe', 'Vibe')

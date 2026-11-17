@@ -39,6 +39,9 @@ export function normalizedRmsLevel(samples: ArrayLike<number>, gain = 1): number
 }
 
 export interface StereoLevelSource {
+  /** Audio Features' Loudness when the source states its own (decoded music,
+   *  see `decodedLoudness`); absent on capture, which reads the meters. */
+  loudness?: number
   micActive?: boolean
   nativeFastLed?: boolean
   leftLevel?: number
@@ -64,11 +67,33 @@ export interface StereoLevels {
  * microphone branch substitutes FastLED's peak-normalised bands, because a
  * loudness that adapts to the last few seconds' peak reads a quiet verse as
  * loud and a steady chorus as middling. A payload without channel meters
- * (legacy recordings) is 0. Firmware twin: `_audioLoudness` from
+ * (legacy recordings) is 0. A source that states its own `loudness` (decoded
+ * music) is read as stated. Firmware twin: `_audioLoudness` from
  * `src/codegen/audio/audioEngineCpp.ts` and the player sketch.
  */
 export function audioLoudness(source: StereoLevelSource): number {
+  const own = finiteLevel(source.loudness)
+  if (own !== null) return own
   return Math.max(finiteLevel(source.leftLevel) ?? 0, finiteLevel(source.rightLevel) ?? 0)
+}
+
+/**
+ * Decoded music's meter on the room scale Loudness is read on.
+ *
+ * Loudness's readers (the shared energy stage, Audio Features' Level and
+ * Silence) are sized to a microphone at gain 1 hearing music in a room: about
+ * 0.02, 0.09 and 0.17 at the 10th, 50th and 90th percentiles, peaking near
+ * 0.34. Capture has a gain knob to land there. Decoded music has none: it
+ * reaches the meter at line level, where 41 mastered tracks sat at 0.22, 0.63
+ * and 1.0 (pinned), so the stage stayed fully open and a quiet passage lit as
+ * brightly as a drop. Scaled by `DECODED_LOUDNESS_SCALE`, quiet sections
+ * (about 0.2 on the meter) read 0.06 and rest, loud ones (0.8) read 0.24 and
+ * open the stage, and a pinned meter reads 0.3, the room's loud peak.
+ */
+export const DECODED_LOUDNESS_SCALE = 0.3
+
+export function decodedLoudness(leftLevel: number, rightLevel: number): number {
+  return clamp01(Math.max(finiteLevel(leftLevel) ?? 0, finiteLevel(rightLevel) ?? 0) * DECODED_LOUDNESS_SCALE)
 }
 
 /** Resolve browser channel buffers without ever presenting a mono source as

@@ -43,8 +43,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `_audioLoudness`), so the Audio node's gain sets how loud "loud" is; the
   stage's ranges are sized to a laptop microphone at gain 1 hearing music in
   the room (median frame near 0.09, peaks near 0.34), which is far below the
-  meter's line-level full scale, so a line input or the player just holds
-  the stage open. That is why the stage keeps raw Loudness and its own Smooth
+  meter's line-level full scale. Decoded music (the Music Player, a show, the
+  hardware player) has no gain to set, so its source publishes `loudness` on
+  the room scale (`decodedLoudness`, meter × `DECODED_LOUDNESS_SCALE`, firmware
+  `decodedLoudnessCpp`); read raw, a mastered track pinned the meter and held
+  the stage open in a breakdown and a drop alike. A line input at line level
+  still holds it open until its gain comes down. That is why the stage keeps raw Loudness and its own Smooth
   while Audio Features' Level output (`nodes/audio/audioLevel.ts`) is what
   a 0–1 input should take: Loudness times a Sensitivity gain set on a room
   recording, eased over 0.15 s, then clamped. Moving the stage onto Level

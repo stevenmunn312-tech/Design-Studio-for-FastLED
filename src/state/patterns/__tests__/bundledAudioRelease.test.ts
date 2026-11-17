@@ -117,7 +117,8 @@ describe('audio release candidates', () => {
           `${pattern.name}: ${label} changes content before the shared brightness stage`).toBeGreaterThan(0.05)
       }
       expect(Math.max(...silent), `${pattern.name}: silence`).toBe(0)
-      expect(Number(energeticResult.outputs.get('motion')?.result ?? 0)).toBeLessThanOrEqual(0.65)
+      // A loud section opens the drive fully, so motion sits on Map Range's 0.65 ceiling.
+      expect(Number(energeticResult.outputs.get('motion')?.result ?? 0)).toBeLessThanOrEqual(0.65 + 1e-9)
     }
   }, 60_000)
 })

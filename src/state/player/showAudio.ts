@@ -6,7 +6,7 @@
 import type { AudioEnvelope } from '../../types/showFile'
 import type { AudioOverride } from '../graphEvaluator'
 import type { PitchSignal, SongStructureSignal, VibeSignal } from '../evaluator/types'
-import { resolveStereoLevels } from '../../audio/stereoLevels'
+import { decodedLoudness, resolveStereoLevels } from '../../audio/stereoLevels'
 import { spectrumBytes, SPECTRUM_TRACK_BINS } from '../../audio/spectrumTrack'
 import {
   decodePitchRecord, decodeStructureRecord, decodeVibeRecord, detectorBytes, detectorFrameCount,
@@ -166,6 +166,9 @@ export function showAudioOverride(env: AudioEnvelope | undefined, ms: number, cu
     leftLevel,
     rightLevel,
     channelCount,
+    // A show is decoded music: its Loudness is on the room scale, as the
+    // in-app player's and the hardware player's are.
+    loudness: decodedLoudness(leftLevel, rightLevel),
     ...showDetectorSignals(env, ms, cursor),
   }
 }
