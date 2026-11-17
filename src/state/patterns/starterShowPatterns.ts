@@ -4,7 +4,9 @@ import { patternFormTags } from './patternTags'
 import type { SavedPattern } from './patternLibrary'
 
 /**
- * How many patterns a show starter's Pattern Collection opens with.
+ * How many patterns the Performance Generator starter's and the examples'
+ * Pattern Collections open with. (The Music Player starter holds every
+ * audio-reactive pattern instead; see `starterPlayerPatterns`.)
  *
  * The Exceptional list is far longer than this, and every collected pattern
  * is compiled into the sketch, so a starter holding all of them is a show too
@@ -28,6 +30,15 @@ export function starterShowPatterns(): SavedPattern[] {
     .map((name) => byName.get(name))
     .filter((pattern): pattern is SavedPattern => !!pattern && playsOnMatrix(pattern))
     .slice(0, STARTER_SHOW_SIZE)
+}
+
+/**
+ * The patterns the Music Player starter's collection opens with: every bundled
+ * audio-reactive pattern, in library order. Its author plays the whole shelf
+ * on a matrix, so it is the starter's show; a smaller board trims it.
+ */
+export function starterPlayerPatterns(): SavedPattern[] {
+  return [...AUDIO_BUNDLED_PATTERNS]
 }
 
 /** How many patterns a slideshow starter opens with: enough to step through,

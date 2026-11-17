@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { starterShowPatterns, starterSlideshowPatterns, STARTER_SLIDESHOW_SIZE } from '../../state/patterns/starterShowPatterns'
+import { starterPlayerPatterns, starterShowPatterns, starterSlideshowPatterns, STARTER_SLIDESHOW_SIZE } from '../../state/patterns/starterShowPatterns'
 import { usePatternLibrary } from '../../state/patterns/patternLibrary'
 import { useMusicStore } from '../../state/player/musicStore'
 import { DEMO_TRACK_FILE } from '../../state/player/demoTrack'
@@ -100,19 +100,20 @@ describe('startFlow', () => {
   })
 
   /*
-   * Both show starters open with the Exceptional audio-reactive patterns, as
-   * copies that remember their library pattern, so Update from library works
-   * on a starter's collection as on one the user filled.
+   * The show starters open with bundled audio-reactive patterns — the Music
+   * Player with all of them, the Performance Generator with the Exceptional
+   * head — as copies that remember their library pattern, so Update from
+   * library works on a starter's collection as on one the user filled.
    */
   it.each([
-    ['Music Player', 'generative-show'],
-    ['Performance Generator', 'music-sync-sd-show'],
-  ])('opens the %s starter with the Exceptional audio-reactive patterns in its collection', (_, id) => {
+    ['Music Player', 'generative-show', starterPlayerPatterns],
+    ['Performance Generator', 'music-sync-sd-show', starterShowPatterns],
+  ])('opens the %s starter with bundled audio-reactive patterns in its collection', (_, id, patterns) => {
     startTemplateById(id)
     const graph = useGraphStore.getState()
     const collection = graph.nodes.find((node) => node.data.nodeType === 'PatternCollection')!
     const patternIds = (collection.data.properties as { patternIds: string[] }).patternIds
-    const show = starterShowPatterns()
+    const show = patterns()
     expect(patternIds.map((groupId) => graph.graphs[groupId]?.name)).toEqual(show.map((pattern) => pattern.name))
     expect(patternIds.map((groupId) => graph.graphs[groupId]?.sourcePatternId)).toEqual(show.map((pattern) => pattern.id))
     for (const groupId of patternIds) expect(graph.graphData[groupId]?.nodes.length).toBeGreaterThan(0)

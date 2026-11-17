@@ -1,7 +1,7 @@
 import { rootGraphNodes, useGraphStore } from '../state/graphStore'
 import { useAudioStore } from '../state/audio/audioStore'
 import { STARTER_TEMPLATES, buildBoardAwareStarter, type StarterTemplate } from '../state/patterns/starterTemplates'
-import { starterShowPatterns, starterSlideshowPatterns } from '../state/patterns/starterShowPatterns'
+import { starterPlayerPatterns, starterShowPatterns, starterSlideshowPatterns } from '../state/patterns/starterShowPatterns'
 import type { SavedPattern } from '../state/patterns/patternLibrary'
 import { useMusicStore } from '../state/player/musicStore'
 import { waitForMusicLibraryRestore } from '../state/player/musicLibraryPersistence'
@@ -159,7 +159,8 @@ export function startTemplate(template: StarterTemplate, options?: StartFlowOpti
     useUploadStore.getState().selectedFqbn,
   )
   useGraphStore.getState().loadGraph(nodes, edges)
-  seedCollection(template.showPatterns ? starterShowPatterns
+  seedCollection(template.playerPatterns ? starterPlayerPatterns
+    : template.showPatterns ? starterShowPatterns
     : template.slideshowPatterns ? starterSlideshowPatterns
       : undefined)
   finishStartFlow(

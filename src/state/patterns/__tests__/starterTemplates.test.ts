@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { STARTER_TEMPLATES, buildBoardAwareStarter } from '../starterTemplates'
 import { useNodeDefaults } from '../../nodeDefaults'
 import { outputForm } from '../../output/ledOutputForm'
-import { NODE_LIBRARY, portsCompatible } from '../../nodeLibrary'
+import { NODE_LIBRARY, PROPERTY_META, portsCompatible } from '../../nodeLibrary'
 import {
   buildGraphDiagnostics,
   findBoardPinCompatibility,
@@ -83,6 +83,10 @@ describe('starterTemplates', () => {
       ['Audio', 'audio', 'PatternMaster', 'audio'],
       ['ControlMap', 'controls', 'PatternMaster', 'controls'],
       ['PatternCollection', 'patternset', 'PatternMaster', 'patternset'],
+      ['TransitionSet', 'transitions', 'PatternMaster', 'transitions'],
+      ['PlayerParticles', 'particleFx', 'PatternMaster', 'particleFx'],
+      ['Audio', 'audio', 'BeatDetect', 'audio'],
+      ['BeatDetect', 'beat', 'PatternMaster', 'beat'],
       ['PatternMaster', 'frame', 'MatrixOutput', 'frame'],
     ]
     expect(edges.map((edge) => {
@@ -97,6 +101,19 @@ describe('starterTemplates', () => {
     })).toEqual(expectedEdges)
 
     expect(audio.data.properties.sourceId).toBe('kind:decoder')
+    // The show its author settled on: every transition, beat-led changes in
+    // library order, energy pacing with dwells and bursts, and particle
+    // volleys of any style and colour once the music is loud.
+    const transitionTypes = (PROPERTY_META.transitionType as { options: readonly string[] }).options
+    expect(nodeByType.get('TransitionSet')!.data.properties.transitions).toEqual([...transitionTypes])
+    expect(nodeByType.get('PatternMaster')!.data.properties).toMatchObject({
+      order: 'Sequential', beatTransitions: true, minTime: 4, maxTime: 8, transitionSec: 1,
+      energyPacing: true, dwellsAndBursts: true,
+    })
+    expect(nodeByType.get('PlayerParticles')!.data.properties).toMatchObject({
+      enabled: true, randomColor: true, randomStyle: true, energyGate: 0.89,
+    })
+    expect(template.playerPatterns).toBe(true)
     expect(validateGraph(nodes, edges).errors).toEqual([])
   })
 

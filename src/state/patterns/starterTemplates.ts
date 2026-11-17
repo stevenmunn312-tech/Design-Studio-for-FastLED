@@ -1,4 +1,4 @@
-import { NODE_LIBRARY, portColor } from '../nodeLibrary'
+import { NODE_LIBRARY, PROPERTY_META, portColor } from '../nodeLibrary'
 import { resolveDefaultProperties } from '../nodeDefaults'
 import { LED_OUTPUT_FORM_LABELS, outputForm } from '../output/ledOutputForm'
 import { isHardwareOnlyNodeType } from '../../build/hardware'
@@ -28,6 +28,10 @@ export interface StarterTemplate {
    *  show starter opens with something lit rather than an empty collection
    *  and a black output. */
   showPatterns?: boolean
+  /** Fill the starter's Pattern Collection on load with every bundled
+   *  audio-reactive pattern (`starterPlayerPatterns`), in library order: the
+   *  Music Player's full show, as its author plays it. */
+  playerPatterns?: boolean
   /** Fill the starter's Pattern Collection on load with a few standard
    *  patterns (`starterSlideshowPatterns`), so a slideshow starter has
    *  something to step through before the user builds a pattern. */
@@ -55,6 +59,9 @@ export interface StarterGuide {
   /** Anything else to have ready first — music files, songs to analyse. */
   before?: string[]
 }
+
+/** Every transition the Transition Pool offers. */
+const ALL_TRANSITIONS = (PROPERTY_META.transitionType as { options: readonly string[] }).options
 
 const LIBRARY_DEF = new Map(NODE_LIBRARY.map((d) => [d.type, d]))
 
@@ -115,7 +122,7 @@ function tutorialNote(
 }
 
 function template(
-  options: Pick<StarterTemplate, 'id' | 'name' | 'description' | 'completionSteps' | 'recommended' | 'activateMicrophone' | 'showPatterns' | 'slideshowPatterns' | 'demoTrack'> & {
+  options: Pick<StarterTemplate, 'id' | 'name' | 'description' | 'completionSteps' | 'recommended' | 'activateMicrophone' | 'showPatterns' | 'playerPatterns' | 'slideshowPatterns' | 'demoTrack'> & {
     nodeSpecs: NodeSpec[]
     edgeSpecs: EdgeSpec[]
     level: StarterLevel
@@ -130,6 +137,7 @@ function template(
     completionSteps: options.completionSteps,
     ...(options.recommended ? { recommended: true } : {}),
     ...(options.showPatterns ? { showPatterns: true } : {}),
+    ...(options.playerPatterns ? { playerPatterns: true } : {}),
     ...(options.slideshowPatterns ? { slideshowPatterns: true } : {}),
     ...(options.demoTrack ? { demoTrack: true } : {}),
     guide: {
@@ -443,10 +451,12 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     before: ['MP3 files to play, copied to a microSD card for the board'],
     name: 'Music Player',
     description: 'Build a live, audio-reactive show from reusable pattern groups, then configure its controls and hardware.',
-    // The Exceptional audio-reactive patterns, so the output is lit and
-    // answering the music the moment the starter opens; the collection is the
-    // user's to grow or replace.
-    showPatterns: true,
+    // Every audio-reactive pattern, played in library order with all the
+    // transitions, beat-led changes, energy pacing, dwells and bursts, and
+    // particle volleys: the show this starter's author settled on, lit and
+    // answering the music the moment it opens. The collection is the user's
+    // to trim for a smaller board, grow or replace.
+    playerPatterns: true,
     completionSteps: [
       'Specify your board, audio source, and music player hardware on the Hardware tab.',
       'Play the demo track under the preview and watch the collected patterns answer it.',
@@ -457,7 +467,13 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'audio', type: 'Audio', properties: { sourceId: audioCapabilityIntent('decoder') }, col: 0, row: 0 },
       { id: 'controls', type: 'ControlMap', col: 0, row: 1 },
       { id: 'collection', type: 'PatternCollection', col: 0, row: 2 },
-      { id: 'master', type: 'PatternMaster', col: 1, row: 1 },
+      { id: 'transitions', type: 'TransitionSet', properties: { transitions: [...ALL_TRANSITIONS] }, col: 0, row: 3 },
+      { id: 'particles', type: 'PlayerParticles', properties: { randomColor: true, randomStyle: true, energyGate: 0.89 }, col: 0, row: 4 },
+      { id: 'beat', type: 'BeatDetect', col: 0, row: 5 },
+      {
+        id: 'master', type: 'PatternMaster', col: 1, row: 1,
+        properties: { order: 'Sequential', beatTransitions: true, maxTime: 8, energyPacing: true, dwellsAndBursts: true },
+      },
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 2, row: 1 },
       // Bench parts, hidden on the canvas, and what make this a *player*: the
       // card the music comes from and the module that turns it into sound.
@@ -476,6 +492,10 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { source: 'audio', sourceHandle: 'audio', target: 'master', targetHandle: 'audio' },
       { source: 'controls', sourceHandle: 'controls', target: 'master', targetHandle: 'controls' },
       { source: 'collection', sourceHandle: 'patternset', target: 'master', targetHandle: 'patternset' },
+      { source: 'transitions', sourceHandle: 'transitions', target: 'master', targetHandle: 'transitions' },
+      { source: 'particles', sourceHandle: 'particleFx', target: 'master', targetHandle: 'particleFx' },
+      { source: 'audio', sourceHandle: 'audio', target: 'beat', targetHandle: 'audio' },
+      { source: 'beat', sourceHandle: 'beat', target: 'master', targetHandle: 'beat' },
       { source: 'master', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
     ],
   }),

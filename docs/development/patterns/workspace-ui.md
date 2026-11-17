@@ -428,7 +428,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - A show starter or live example sets `showPatterns`, and `seedCollection` in
   `startFlow.ts` fills its Pattern Collection with `starterShowPatterns()`, so
   the output is lit on open; Pattern Master runs on the wall clock until a
-  track plays. The starter show is the head (`STARTER_SHOW_SIZE`) of the
+  track plays. The Music Player starter sets `playerPatterns` instead and
+  opens with every bundled audio-reactive pattern (`starterPlayerPatterns()`)
+  in library order, wired to every transition, Beat Detect and Player
+  Particles with the author's pacing; the user trims it for a smaller board.
+  Elsewhere the starter show is the head (`STARTER_SHOW_SIZE`) of the
   checked-in Exceptional list in `bundledExceptionalAudio.ts`, less patterns
   tagged for a string alone. Studio Scores are per machine and are not
   shipped, so that list is generated (`npm run gen:exceptional-audio`) and
