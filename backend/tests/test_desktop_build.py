@@ -61,7 +61,7 @@ def test_build_frontend_uses_resolved_npm_command(monkeypatch, tmp_path):
 def test_windows_launcher_is_built_without_a_console_and_with_the_icon():
     # The OS is passed in, not patched onto os.name: on Linux a patched
     # os.name makes pathlib build WindowsPath objects and pytest itself dies.
-    args = build.launcher_platform_args("nt")
+    args = build.launcher_platform_args("win32")
     assert args[0] == "--windowed"
     assert Path(args[args.index("--icon") + 1]).is_file()
 
@@ -72,7 +72,36 @@ def test_windows_launcher_is_built_without_a_console_and_with_the_icon():
     awareness = [e.text for e in manifest.iter() if e.tag.endswith("}dpiAwareness")]
     assert awareness and awareness[0].startswith("PerMonitorV2")
 
-    assert build.launcher_platform_args("posix") == ["--console"]
+    assert build.launcher_platform_args("linux") == ["--console"]
+
+
+def test_macos_launcher_is_an_app_bundle_with_its_icon_and_identity():
+    args = build.launcher_platform_args("darwin")
+    assert args[0] == "--windowed"
+    icon = Path(args[args.index("--icon") + 1])
+    assert icon.suffix == ".icns"
+    assert icon.read_bytes()[:4] == b"icns"
+    assert args[args.index("--osx-bundle-identifier") + 1] == build.MACOS_BUNDLE_ID
+
+
+def test_macos_bundle_keeps_tools_beside_the_executable_and_notices_in_resources():
+    app = Path("release") / f"{build.APP_NAME}.app"
+    # The helper looks for tools/ beside sys.executable.
+    assert build.executable_dir(app) == app / "Contents" / "MacOS"
+    assert build.notices_dir(app) == app / "Contents" / "Resources"
+    folder = Path("release") / build.APP_NAME
+    assert build.executable_dir(folder) == folder
+    assert build.notices_dir(folder) == folder
+
+
+def test_macos_info_plist_carries_the_release_version_and_keeps_pyinstallers_keys():
+    info = build.macos_info_plist(
+        {"CFBundleIdentifier": build.MACOS_BUNDLE_ID, "CFBundleShortVersionString": "0.0.0"}, "1.2.3-beta.1",
+    )
+    assert info["CFBundleIdentifier"] == build.MACOS_BUNDLE_ID
+    assert info["CFBundleShortVersionString"] == "1.2.3"
+    assert info["CFBundleVersion"] == "1.2.3"
+    assert info["CFBundleDisplayName"] == build.APP_NAME
 
 
 def test_msix_version_has_four_parts_and_a_zero_store_revision():

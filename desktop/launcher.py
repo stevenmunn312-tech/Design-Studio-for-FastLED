@@ -4,8 +4,10 @@ The frozen distribution serves the production Vite build and the existing
 FastAPI upload helper from one localhost process. On Windows the Studio opens
 in its own native window, drawn by the system Microsoft Edge WebView2 runtime
 through pywebview; elsewhere, or when WebView2 is unavailable, it opens the
-user's default browser. PyInstaller supplies the Python runtime; bundled
-fbuild/esptool tools remove the need for a separate Node or Python installation.
+user's default browser. The macOS app bundle also shows a small window that
+keeps the Studio running until the user quits it. PyInstaller supplies the
+Python runtime; bundled fbuild/esptool tools remove the need for a separate
+Node or Python installation.
 """
 from __future__ import annotations
 
@@ -32,6 +34,15 @@ WINDOW_BACKGROUND = "#0d0f12"
 
 def is_frozen() -> bool:
     return bool(getattr(sys, "frozen", False))
+
+
+def is_macos_app(platform: str = sys.platform, executable: str = sys.executable) -> bool:
+    """True when this is the frozen launcher inside a macOS ``.app`` bundle.
+
+    Finder starts such an app with no terminal, so it needs a window of its
+    own; the same executable run from a shell is still that app.
+    """
+    return platform == "darwin" and is_frozen() and ".app/Contents/MacOS/" in Path(executable).as_posix()
 
 
 def install_dir() -> Path:
@@ -197,10 +208,25 @@ def _message_box(text: str, *, error: bool = False) -> None:
     ctypes.windll.user32.MessageBoxW(None, text, APP_NAME, flags)
 
 
+def applescript_string(text: str) -> str:
+    """``text`` as an AppleScript string literal."""
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _macos_alert(text: str) -> None:
+    """Show a blocking macOS alert; it works before any window exists."""
+    import subprocess
+
+    script = f"display alert {applescript_string(APP_NAME)} message {applescript_string(text)} as critical"
+    subprocess.run(["osascript", "-e", script], check=False)
+
+
 def _report_error(text: str) -> None:
     print(text, file=sys.stderr)
     if os.name == "nt" and not _has_console():
         _message_box(text, error=True)
+    elif is_macos_app():
+        _macos_alert(text)
 
 
 # ── Native window (Windows, WebView2) ─────────────────────────────────────────
@@ -339,6 +365,56 @@ def run_native_window(app, url: str, data: Path) -> None:
         app.state.desktop_focus = None
 
 
+# ── macOS app window ──────────────────────────────────────────────────────────
+
+def run_macos_control_window(url: str) -> None:
+    """Keep the macOS app running, with a small window, until the user quits.
+
+    The Studio itself opens in the default browser: WKWebView lacks Web MIDI
+    and the File System Access pickers. A Finder-launched app has no terminal,
+    so this window is the user's handle on the local server. Closing it only
+    hides it, as with any Mac app; Quit (the button, Cmd+Q, or the Dock menu)
+    stops the Studio. Clicking the Dock icon or opening the app again shows the
+    window and opens the Studio in the browser.
+    """
+    import tkinter as tk
+    from tkinter import ttk
+
+    root = tk.Tk()
+    root.title(APP_NAME)
+    root.resizable(False, False)
+
+    def open_studio() -> None:
+        webbrowser.open(url)
+
+    def reopen() -> None:
+        root.deiconify()
+        root.lift()
+        open_studio()
+
+    frame = ttk.Frame(root, padding=20)
+    frame.grid()
+    ttk.Label(frame, text=f"{APP_NAME} is running", font=("TkHeadingFont", 15, "bold")).grid(
+        row=0, column=0, columnspan=2, sticky="w")
+    ttk.Label(
+        frame,
+        text=(
+            f"The Studio opens in your web browser at {url}\n"
+            "Keep this app running while you use it. Quit it to stop the Studio."
+        ),
+        justify="left",
+    ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 16))
+    ttk.Button(frame, text="Quit", command=root.destroy).grid(row=2, column=0, sticky="w")
+    ttk.Button(frame, text="Open Studio", command=open_studio, default="active").grid(row=2, column=1, sticky="e")
+    frame.columnconfigure(1, weight=1)
+    root.bind("<Return>", lambda _event: open_studio())
+
+    root.protocol("WM_DELETE_WINDOW", root.withdraw)
+    root.createcommand("::tk::mac::ReopenApplication", reopen)
+    root.createcommand("::tk::mac::Quit", root.destroy)
+    root.mainloop()
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def _start_server(app, port: int):
@@ -360,7 +436,9 @@ def main() -> int:
     url = f"http://localhost:{port}/"
     # FLS_NO_BROWSER=1 serves headless (the packaging smoke test).
     headless = os.environ.get("FLS_NO_BROWSER") == "1"
-    console = _has_console()
+    macos_app = is_macos_app()
+    # A Finder-launched app has a stdout, but nobody reads it.
+    console = _has_console() and not macos_app
 
     if _desktop_is_running(port):
         if not headless and not _focus_running_window(port):
@@ -374,7 +452,8 @@ def main() -> int:
         return 2
 
     data = configure_environment()
-    if not console:
+    # The headless smoke test reads the macOS app's own output.
+    if not _has_console() or (macos_app and not headless):
         _log_to_file(data / "desktop.log")
     app = create_app()
 
@@ -398,6 +477,9 @@ def main() -> int:
     try:
         if native_window_available():
             run_native_window(app, url, data)
+        elif macos_app:
+            webbrowser.open(url)
+            run_macos_control_window(url)
         else:
             # Windowed build without WebView2: the message box is the only
             # handle the user has on the background server.

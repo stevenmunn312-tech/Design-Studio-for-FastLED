@@ -6,6 +6,7 @@ import importlib.metadata
 import json
 import os
 import platform
+import plistlib
 import shutil
 import subprocess
 import sys
@@ -19,6 +20,9 @@ ROOT = Path(__file__).resolve().parents[1]
 BUILD_ROOT = ROOT / ".desktop-build"
 RELEASE_ROOT = ROOT / "release" / "desktop"
 APP_NAME = "Design Studio for FastLED"
+# The macOS app's identity. Signing, notarization and the user's privacy
+# grants are tied to it, so it does not change once a signed build ships.
+MACOS_BUNDLE_ID = "io.github.stevenmunn312-tech.DesignStudioForFastLED"
 
 
 def run(args: list[str], *, cwd: Path = ROOT) -> None:
@@ -96,17 +100,35 @@ def build_frontend(skip: bool) -> None:
 ASSETS = ROOT / "desktop" / "assets"
 
 
-def launcher_platform_args(os_name: str = os.name) -> list[str]:
+def launcher_platform_args(target: str = sys.platform) -> list[str]:
     """Windows gets a console-less launcher (the Studio opens in its own
     WebView2 window) carrying the app icon, which the window reuses, and a
-    manifest declaring per-monitor DPI awareness."""
-    if os_name == "nt":
+    manifest declaring per-monitor DPI awareness. macOS gets an ``.app``
+    bundle, which ``--windowed`` makes; Linux keeps a terminal launcher."""
+    if target == "win32":
         return [
             "--windowed",
             "--icon", str(ASSETS / "app.ico"),
             "--manifest", str(ASSETS / "launcher.manifest"),
         ]
+    if target == "darwin":
+        return [
+            "--windowed",
+            "--icon", str(ASSETS / "app.icns"),
+            "--osx-bundle-identifier", MACOS_BUNDLE_ID,
+        ]
     return ["--console"]
+
+
+def executable_dir(app: Path) -> Path:
+    """Where the launcher executable sits; the helper finds ``tools/`` beside it."""
+    return app / "Contents" / "MacOS" if app.suffix == ".app" else app
+
+
+def notices_dir(app: Path) -> Path:
+    """Where the license notices and README go. A macOS bundle keeps
+    everything that is not code in Contents/Resources, or signing rejects it."""
+    return app / "Contents" / "Resources" if app.suffix == ".app" else app
 
 
 def build_launcher() -> Path:
@@ -129,6 +151,11 @@ def build_launcher() -> Path:
         "--exclude-module", "httpx",
         str(ROOT / "desktop" / "launcher.py"),
     ])
+    if sys.platform == "darwin":
+        # PyInstaller leaves the folder it assembled the .app from beside it.
+        if app_dir.is_dir():
+            shutil.rmtree(app_dir)
+        return RELEASE_ROOT / f"{APP_NAME}.app"
     return app_dir
 
 
@@ -165,16 +192,58 @@ def locate_fbuild_tool(name: str) -> Path:
 
 
 def install_bundle_files(app_dir: Path, esptool: Path) -> None:
-    tools = app_dir / "tools"
+    tools = executable_dir(app_dir) / "tools"
     tools.mkdir(parents=True, exist_ok=True)
     for name in ("fbuild", "fbuild-daemon"):
         source = locate_fbuild_tool(name)
         shutil.copy2(source, tools / executable_name(name))
     shutil.copy2(esptool, tools / executable_name("esptool"))
+    notices = notices_dir(app_dir)
     for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
-        shutil.copy2(ROOT / name, app_dir / name)
-    shutil.copy2(ROOT / "desktop" / "bundle-readme.txt", app_dir / "README.txt")
-    install_dependency_notices(app_dir)
+        shutil.copy2(ROOT / name, notices / name)
+    shutil.copy2(ROOT / "desktop" / "bundle-readme.txt", notices / "README.txt")
+    install_dependency_notices(notices)
+
+
+def release_version(version: str) -> str:
+    """package.json's version without any pre-release suffix: the x.y.z form
+    macOS (CFBundleShortVersionString) and MSIX accept."""
+    core = version.split("-", 1)[0]
+    parts = core.split(".")
+    if len(parts) != 3 or not all(part.isdigit() for part in parts):
+        raise SystemExit(f"Cannot turn version {version!r} into an x.y.z version")
+    return core
+
+
+def macos_info_plist(info: dict, version: str) -> dict:
+    """PyInstaller's Info.plist with the Studio's version and Finder details."""
+    return {
+        **info,
+        "CFBundleDisplayName": APP_NAME,
+        "CFBundleShortVersionString": release_version(version),
+        "CFBundleVersion": release_version(version),
+        "LSApplicationCategoryType": "public.app-category.developer-tools",
+    }
+
+
+def finish_macos_app(app: Path) -> None:
+    """Complete the Info.plist and seal the bundle again.
+
+    PyInstaller signs the .app before the tools, notices and plist changes go
+    in, which breaks its seal; macOS reports a broken bundle as "damaged".
+    The signature is ad hoc until a Developer ID is configured.
+    """
+    version = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
+    plist = app / "Contents" / "Info.plist"
+    with plist.open("rb") as handle:
+        info = plistlib.load(handle)
+    with plist.open("wb") as handle:
+        plistlib.dump(macos_info_plist(info, version), handle)
+    tools = executable_dir(app) / "tools"
+    for tool in sorted(tools.iterdir()):
+        run(["codesign", "--force", "--sign", "-", str(tool)])
+    run(["codesign", "--force", "--sign", "-", str(app)])
+    run(["codesign", "--verify", "--deep", "--strict", "--verbose=2", str(app)])
 
 
 def install_dependency_notices(app_dir: Path) -> None:
@@ -237,26 +306,77 @@ def smoke_failures(status: dict, page: str, headers: dict, health: dict, expecte
     return [name for name, ok in checks.items() if not ok]
 
 
+def smoke_env(port: int, data_dir: str, *, headless: bool) -> dict[str, str]:
+    env = {
+        **os.environ,
+        "FLS_DESKTOP_PORT": str(port),
+        "FLS_DATA_DIR": data_dir,
+        # Isolate projects and patterns too, or startup would move the
+        # packager's own files into Documents.
+        "FLS_CONTENT_DIR": str(Path(data_dir) / "content"),
+    }
+    if headless:
+        env["FLS_NO_BROWSER"] = "1"
+    else:
+        env.pop("FLS_NO_BROWSER", None)
+    return env
+
+
+def _stop(process: subprocess.Popen) -> None:
+    process.terminate()
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+
+
+def smoke_test_macos_window(app: Path) -> None:
+    """Launch the macOS app the way Finder does and check it stays up.
+
+    The headless smoke never builds the app's window, so a missing Tk would
+    only show on a user's Mac. This run opens the browser and the window, and
+    fails if the app quits once its server is answering.
+    """
+    launcher = executable_dir(app) / APP_NAME
+    port = 18081
+    with tempfile.TemporaryDirectory(prefix="fls-desktop-window-") as data_dir:
+        process = subprocess.Popen([str(launcher)], env=smoke_env(port, data_dir, headless=False))
+        log = Path(data_dir) / "desktop.log"
+        try:
+            deadline = time.monotonic() + 30
+            while not _answers(port):
+                if process.poll() is not None or time.monotonic() > deadline:
+                    break
+                time.sleep(0.2)
+            else:
+                time.sleep(5)  # the window is built after the server answers
+                if process.poll() is None:
+                    return
+            output = log.read_text(encoding="utf-8", errors="replace") if log.is_file() else "(no desktop.log)"
+            raise SystemExit(f"The macOS app did not keep running with its window:\n{output}")
+        finally:
+            _stop(process)
+
+
+def _answers(port: int) -> bool:
+    try:
+        with urllib.request.urlopen(f"http://localhost:{port}/api/desktop/status", timeout=0.5) as response:
+            return json.loads(response.read().decode("utf-8")).get("desktop") is True
+    except (OSError, ValueError):
+        return False
+
+
 def smoke_test(app_dir: Path) -> None:
-    launcher = app_dir / executable_name(APP_NAME)
-    tools = app_dir / "tools"
+    launcher = executable_dir(app_dir) / executable_name(APP_NAME)
+    tools = executable_dir(app_dir) / "tools"
     expected_version = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
     check_tool(tools / executable_name("fbuild"))
     check_tool(tools / executable_name("esptool"), ("version",))
 
     port = 18080
     with tempfile.TemporaryDirectory(prefix="fls-desktop-smoke-") as data_dir:
-        env = {
-            **os.environ,
-            "FLS_DESKTOP_PORT": str(port),
-            "FLS_NO_BROWSER": "1",
-            "FLS_DATA_DIR": data_dir,
-            # Isolate projects and patterns too, or startup would move the
-            # packager's own files into Documents.
-            "FLS_CONTENT_DIR": str(Path(data_dir) / "content"),
-        }
         process = subprocess.Popen(
-            [str(launcher)], cwd=app_dir, env=env,
+            [str(launcher)], cwd=app_dir, env=smoke_env(port, data_dir, headless=True),
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
         )
         try:
@@ -288,20 +408,13 @@ def smoke_test(app_dir: Path) -> None:
                 + "\n- ".join(failures)
             )
         finally:
-            process.terminate()
-            try:
-                process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                process.kill()
+            _stop(process)
 
 
 def msix_version(version: str) -> str:
     """package.json's x.y.z as the four-part version MSIX requires; the Store
     reserves the fourth part, so it stays 0."""
-    parts = version.split("-", 1)[0].split(".")
-    if len(parts) != 3 or not all(part.isdigit() for part in parts):
-        raise SystemExit(f"Cannot turn version {version!r} into an MSIX version")
-    return ".".join(parts) + ".0"
+    return release_version(version) + ".0"
 
 
 def render_appx_manifest(identity_name: str, publisher: str, publisher_display_name: str, version: str) -> str:
@@ -354,6 +467,14 @@ def archive_bundle(app_dir: Path) -> Path:
     system = {"Windows": "windows", "Darwin": "macos", "Linux": "linux"}.get(platform.system(), platform.system().lower())
     arch = platform.machine().lower().replace("amd64", "x86_64")
     base = RELEASE_ROOT / f"DesignStudioForFastLED-{version}-{system}-{arch}"
+    if app_dir.suffix == ".app":
+        # ditto keeps the bundle's symlinks and signature, which Python's
+        # zip and tar writers do not all preserve; it is how Apple zips apps.
+        archive = base.with_name(base.name + ".zip")
+        archive.unlink(missing_ok=True)
+        run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", str(app_dir), str(archive)])
+        print(f"Created {archive}")
+        return archive
     fmt = "zip" if os.name == "nt" else "gztar"
     archive = Path(shutil.make_archive(str(base), fmt, root_dir=RELEASE_ROOT, base_dir=app_dir.name))
     print(f"Created {archive}")
@@ -384,8 +505,12 @@ def main() -> int:
     app_dir = build_launcher()
     esptool = build_esptool()
     install_bundle_files(app_dir, esptool)
+    if app_dir.suffix == ".app":
+        finish_macos_app(app_dir)
     if not args.skip_smoke:
         smoke_test(app_dir)
+        if app_dir.suffix == ".app":
+            smoke_test_macos_window(app_dir)
     if not args.no_archive:
         archive_bundle(app_dir)
     if args.msix:

@@ -2,8 +2,9 @@
 sweeps from candle (top-left) to sky (bottom-right).
 
 The palette is read from the --brand-* tokens in src/themes/tokens.css, so the
-logo cannot drift from the CSS. Writes public/icon.svg and the PWA PNGs
-(icon-192/512 and their maskable variants). Re-run after changing the palette,
+logo cannot drift from the CSS. Writes public/icon.svg, the PWA PNGs
+(icon-192/512 and their maskable variants) and the macOS app icon
+(desktop/assets/app.icns). Re-run after changing the palette,
 then refresh the desktop icons from the new icon-512.png:
 
     python scripts/assets/make-brand-icons.py
@@ -22,6 +23,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[2]
 TOKENS = ROOT / "src" / "themes" / "tokens.css"
 PUBLIC = ROOT / "public"
+MACOS_ICON = ROOT / "desktop" / "assets" / "app.icns"
 
 # Candle to sky, in the order the grid's diagonals use them.
 BRAND_TOKENS = [
@@ -47,6 +49,10 @@ GLOW_STOPS = ((0.0, 1.0), (0.6, 0.6), (1.0, 0.0))
 # until the corner glows sit inside that safe zone.
 MASKABLE_SCALE = 0.76
 SUPERSAMPLE = 4
+# macOS app icons sit on a 1024 canvas with the artwork in the central 824
+# square, so the Dock and Finder show them at the same size as Apple's own.
+MACOS_CANVAS = 1024
+MACOS_ARTWORK = 824
 
 
 def read_hex(css: str, name: str) -> str:
@@ -135,6 +141,13 @@ def svg(hexes: list[str], background: str) -> str:
     )
 
 
+def macos_icon(palette: list[np.ndarray], background: np.ndarray) -> Image.Image:
+    canvas = Image.new("RGBA", (MACOS_CANVAS, MACOS_CANVAS), (0, 0, 0, 0))
+    margin = (MACOS_CANVAS - MACOS_ARTWORK) // 2
+    canvas.alpha_composite(render(MACOS_ARTWORK, palette, background, maskable=False), (margin, margin))
+    return canvas
+
+
 def main() -> None:
     css = TOKENS.read_text(encoding="utf-8")
     hexes = [read_hex(css, name) for name in BRAND_TOKENS]
@@ -146,7 +159,9 @@ def main() -> None:
     for size in (192, 512):
         render(size, palette, bg, maskable=False).save(PUBLIC / f"icon-{size}.png", optimize=True)
         render(size, palette, bg, maskable=True).save(PUBLIC / f"icon-maskable-{size}.png", optimize=True)
-    print(f"Wrote {PUBLIC / 'icon.svg'} and 4 PNG icons")
+    # Pillow scales the 1024 artwork to every size an .icns carries.
+    macos_icon(palette, bg).save(MACOS_ICON)
+    print(f"Wrote {PUBLIC / 'icon.svg'}, 4 PNG icons and {MACOS_ICON}")
 
 
 if __name__ == "__main__":

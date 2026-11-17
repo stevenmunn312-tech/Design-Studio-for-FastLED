@@ -63,6 +63,19 @@ def test_external_links_open_in_the_browser_but_app_and_blank_popups_stay():
     assert not launcher.opens_in_browser("http://localhost:8008/help", ORIGIN)
 
 
+def test_macos_app_mode_needs_a_frozen_launcher_inside_an_app_bundle(monkeypatch):
+    inside = "/Applications/Design Studio for FastLED.app/Contents/MacOS/Design Studio for FastLED"
+    assert launcher.is_macos_app("darwin", inside) is False  # not frozen
+    monkeypatch.setattr(launcher.sys, "frozen", True, raising=False)
+    assert launcher.is_macos_app("darwin", inside) is True
+    assert launcher.is_macos_app("darwin", "/opt/studio/Design Studio for FastLED") is False
+    assert launcher.is_macos_app("linux", inside) is False
+
+
+def test_applescript_string_escapes_quotes_and_backslashes():
+    assert launcher.applescript_string('port "8008" in C:\\x') == '"port \\"8008\\" in C:\\\\x"'
+
+
 def test_native_window_is_windows_only():
     assert launcher.native_window_available("darwin") is False
     assert launcher.native_window_available("linux") is False
