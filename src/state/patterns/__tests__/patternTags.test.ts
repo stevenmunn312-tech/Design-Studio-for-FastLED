@@ -97,17 +97,16 @@ describe('curated bundled tags', () => {
     const byName = new Map(BUNDLED_PATTERNS.map((pattern) => [pattern.name, pattern]))
     expect(byName.get('Velvet Prism')?.bestOn).toEqual(['string', 'ring'])
     expect(byName.get('Quadrant Pulse Observatory')?.bestOn).toEqual(['matrix'])
-    // Absent is a real answer: a soft field that reads the same on a line, a
-    // grid or a circle should stay quiet rather than claim all three.
-    expect(byName.get('Opaline Plasma')?.bestOn).toBeUndefined()
+    expect(byName.get('Opaline Plasma')?.bestOn).toEqual(['matrix', 'ring'])
   })
 
-  it('keeps the curation discriminating — no pattern claims every output', () => {
+  it('tags every curated pattern with one or two outputs, never all three', () => {
+    // Pattern Insights judges a pattern on the outputs it names, so a curated
+    // pattern always says where; claiming every output would rank nothing.
     for (const pattern of BUNDLED_PATTERNS) {
-      expect(patternFormTags(pattern.bestOn).length).toBeLessThan(3)
+      const count = patternFormTags(pattern.bestOn).length
+      expect(count, pattern.name).toBeGreaterThan(0)
+      expect(count, pattern.name).toBeLessThan(3)
     }
-    // ...and a decent share stays untagged, or the facet ranks nothing.
-    const tagged = BUNDLED_PATTERNS.filter((pattern) => patternFormTags(pattern.bestOn).length > 0)
-    expect(tagged.length).toBeLessThan(BUNDLED_PATTERNS.length)
   })
 })

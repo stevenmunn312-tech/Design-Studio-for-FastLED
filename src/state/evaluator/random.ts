@@ -40,6 +40,38 @@ export function seededRandom(key: string, seed: number): number {
   return st.lcg / 4294967296
 }
 
+/** A repeatable 0–1 sequence (mulberry32): the same seed always yields the
+ *  same draws. */
+export function seededSequence(seed: number): () => number {
+  let state = seed >>> 0
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0
+    let t = state
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/**
+ * Run `fn` with `Math.random` drawing from `next`, then put it back.
+ *
+ * Unseeded nodes (seed 0 in `seededRandom`, particle spawns, flash timing)
+ * draw from `Math.random`, which the live preview wants and a judgement of the
+ * pattern does not: the same pattern must render the same frames every time it
+ * is rated. `fn` must be synchronous, so no other code can draw from the
+ * replaced source while it is in place.
+ */
+export function withRandomSource<T>(next: () => number, fn: () => T): T {
+  const original = Math.random
+  Math.random = next
+  try {
+    return fn()
+  } finally {
+    Math.random = original
+  }
+}
+
 export function seededHash(seed: number, ...parts: number[]): number {
   let h = (seed >>> 0) || 2166136261
   for (const part of parts) {

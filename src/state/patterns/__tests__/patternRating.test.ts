@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { Frame, RGB } from '../../graphEvaluator'
 import { hsv } from '../../palettes/ledColor'
 import { BUNDLED_PATTERNS, STANDARD_BUNDLED_PATTERNS } from '../bundledPatterns'
-import { captureWindows, inferPatternIntent, patternRatingKey, rateAllPatterns, ratePattern, timeRenderBlocks, usePatternRatingStore, verdictForScore } from '../patternRating'
+import { captureWindows, combineDisplayScores, inferPatternIntent, judgedForms, judgingDisplay, patternRatingKey, rateAllPatterns, ratePattern, timeRenderBlocks, usePatternRatingStore, verdictForScore } from '../patternRating'
 import type { SavedPattern } from '../patternLibrary'
+import type { PatternFormTag } from '../patternTags'
 import {
   clearPatternContentTrustForTests,
   isPatternContentTrusted,
@@ -195,14 +196,14 @@ describe('intent-aware critic', () => {
     expect(verdictForScore(39).label).toBe('Fundamentally weak')
   })
 
-  it('keeps rename out of the cache key but includes render context and intent', () => {
+  it('keeps rename out of the cache key but includes the judged displays and intent', () => {
     const pattern: SavedPattern = {
       id: 'one', name: 'Before', createdAt: 0, inputs: [], outputs: [],
       subgraph: { nodes: [node('solid', 'SolidColor', 'pattern')], edges: [] },
     }
-    const context = { gridW: 16, gridH: 16, groups: {} }
+    const context = { groups: {} }
     expect(patternRatingKey({ ...pattern, name: 'After' }, context)).toBe(patternRatingKey(pattern, context))
-    expect(patternRatingKey(pattern, { ...context, gridW: 32 })).not.toBe(patternRatingKey(pattern, context))
+    expect(patternRatingKey({ ...pattern, bestOn: ['string'] }, context)).not.toBe(patternRatingKey(pattern, context))
     expect(patternRatingKey(pattern, context, 'ambient')).not.toBe(patternRatingKey(pattern, context, 'showpiece'))
   })
 })
@@ -293,12 +294,12 @@ describe('scan cancellation', () => {
   it('stops before starting another pattern', async () => {
     const controller = new AbortController()
     controller.abort()
-    await expect(rateAllPatterns([], { gridW: 4, gridH: 4, groups: {}, signal: controller.signal })).resolves.toEqual([])
+    await expect(rateAllPatterns([], { groups: {}, signal: controller.signal })).resolves.toEqual([])
     const saved: SavedPattern = {
       id: 'cancel', name: 'cancel', createdAt: 0, inputs: [], outputs: [],
       subgraph: { nodes: [node('solid', 'SolidColor', 'pattern')], edges: [] },
     }
-    await expect(rateAllPatterns([saved], { gridW: 4, gridH: 4, groups: {}, signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' })
+    await expect(rateAllPatterns([saved], { groups: {}, signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' })
   })
 })
 
@@ -308,7 +309,7 @@ describe('scan cancellation', () => {
 // `confirmTrust`) only when running the pattern would actually execute gated
 // Formula/Code logic; a decline returns a `skipped` rating and never renders.
 describe('ratePattern trust gate', () => {
-  const opts = { gridW: 4, gridH: 4, groups: {} }
+  const opts = { groups: {} }
 
   const savedPattern = (id: string, nodes: StudioNode[], edges: StudioEdge[] = []): SavedPattern => ({
     id, name: `pattern ${id}`, createdAt: 0, inputs: [], outputs: [],
@@ -458,7 +459,7 @@ describe('captureWindows detector audio', () => {
 // stored on the rating as a weight relative to a plain Plasma pattern timed
 // the same way on the same machine.
 describe('render weight', () => {
-  const opts = { gridW: 8, gridH: 8, groups: {} }
+  const opts = { groups: {} }
   const plain = (id: string): SavedPattern => ({
     id, name: `pattern ${id}`, createdAt: 0, inputs: [], outputs: [],
     subgraph: {
@@ -488,15 +489,15 @@ describe('render weight', () => {
     expect(usePatternRatingStore.getState().ratingsByPatternId.weighed.renderCost).toEqual(rating.renderCost)
   })
 
-  it('times on its own grid, so the weight is not a property of the rating grid', async () => {
+  it('times on its own grid, so the weight is not a property of the judged display', async () => {
     // The stored cost names no grid: it is the same measurement whichever
-    // project the pattern was scanned in.
-    const rating = await ratePattern(plain('gridless'), { gridW: 4, gridH: 2, groups: {} })
+    // display the pattern was judged on.
+    const rating = await ratePattern({ ...plain('gridless'), bestOn: ['string'] }, opts)
     expect(Object.keys(rating.renderCost!).sort()).toEqual(['relative', 'usPerFrame'])
   })
 
   it('bumped the cache version, so ratings weighed the old way are rescanned', () => {
-    expect(patternRatingKey(plain('versioned'), opts)).toMatch(/^v5:/)
+    expect(patternRatingKey(plain('versioned'), opts)).toMatch(/^v6:/)
   })
 
   it('leaves a skipped pattern without a cost rather than inventing one', async () => {
@@ -511,5 +512,54 @@ describe('render weight', () => {
     const rating = await ratePattern(formula, { ...opts, confirmTrust: async () => false })
     expect(rating.skipped).toBe(true)
     expect(rating.renderCost).toBeUndefined()
+  })
+})
+
+// ── Repeatable judging on the tagged displays ────────────────────────────────
+describe('judging displays', () => {
+  const confetti = (id: string, bestOn?: PatternFormTag[]): SavedPattern => ({
+    id, name: id, createdAt: 0, inputs: [], outputs: [], bestOn,
+    subgraph: {
+      // Seed 0 draws from Math.random, as the live preview wants.
+      nodes: [node('c', 'Confetti', 'pattern', { seed: 0 }), node('out', 'GroupOutput', 'output')],
+      edges: [edge('e1', 'c', 'out', 'frame', 'frame')],
+    },
+  })
+
+  it('renders the same frames every time, whatever Math.random does meanwhile', async () => {
+    const first = await captureWindows(confetti('again'), 8, 8, {}, true, 'pulse', 1)
+    Math.random()
+    const second = await captureWindows(confetti('again'), 8, 8, {}, true, 'pulse', 1)
+    expect(second).toEqual(first)
+    expect(first.flat().some((frame) => frame.some((row) => row.some((px) => px.r || px.g || px.b)))).toBe(true)
+  })
+
+  it('leaves Math.random free-running outside the rating render', async () => {
+    const before = Math.random
+    await captureWindows(confetti('free'), 4, 4, {}, true, 'pulse', 1)
+    expect(Math.random).toBe(before)
+  })
+
+  it('judges on the tagged displays, and an untagged pattern on a matrix', () => {
+    expect(judgedForms(confetti('none'))).toEqual(['matrix'])
+    expect(judgedForms(confetti('tagged', ['ring', 'string']))).toEqual(['string', 'ring'])
+    expect(judgingDisplay('string')).toMatchObject({ w: 60, h: 1 })
+    expect(judgingDisplay('matrix')).toMatchObject({ w: 16, h: 16 })
+    const ring = judgingDisplay('ring')
+    expect(ring.sampleMap).toHaveLength(60)
+  })
+
+  it('records the displays on the rating and draws a string as one row', async () => {
+    const rating = await ratePattern(confetti('on-string', ['string']), { groups: {} })
+    expect(rating.judgedOn).toEqual(['string'])
+    expect(rating.thumbnails?.typical).toMatchObject({ width: 60, height: 1 })
+  })
+
+  it('holds a pattern tagged for two displays to both', () => {
+    const one = scorePattern([solid(4, 4, { r: 200, g: 0, b: 0 })], [], [], [], 'ambient')
+    const other = { ...one, overall: one.overall - 20, criteria: one.criteria.map((c) => ({ ...c, score: c.score / 2 })) }
+    const both = combineDisplayScores([one, other])
+    expect(both.overall).toBe(Math.round(one.overall - 10))
+    expect(both.criteria[0].score).toBeCloseTo(one.criteria[0].score * 0.75)
   })
 })

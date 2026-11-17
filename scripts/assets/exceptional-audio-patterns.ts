@@ -5,10 +5,11 @@
  * Music Player and Performance Generator starters fill their Pattern
  * Collection from.
  *
- * Studio Scores are computed per machine and matrix size and are never
- * shipped, so a starter cannot ask "which patterns are Exceptional" at run
- * time without rating the whole shelf first. This takes the answer once, at a
- * 16x16 matrix, and commits it.
+ * Studio Scores are computed per machine and are never shipped, so a starter
+ * cannot ask "which patterns are Exceptional" at run time without rating the
+ * whole shelf first. This takes the answer once and commits it. Each pattern
+ * is judged on the displays its Best displayed on tags name, with seeded
+ * randomness, so a rerun on unchanged patterns writes the same list.
  *
  * Run: npm run gen:exceptional-audio
  *      (node scripts/run-ts.mjs scripts/assets/exceptional-audio-patterns.ts)
@@ -19,7 +20,6 @@ import { resolve } from 'node:path'
 import { AUDIO_BUNDLED_PATTERNS } from '../../src/state/patterns/bundledPatterns'
 import { ratePattern } from '../../src/state/patterns/patternRating'
 
-const GRID = 16
 const EXCEPTIONAL = 90
 
 /**
@@ -36,7 +36,7 @@ async function main() {
   console.debug = () => undefined
   const rated: { name: string; score: number }[] = []
   for (const pattern of AUDIO_BUNDLED_PATTERNS) {
-    const rating = await ratePattern(pattern, { gridW: GRID, gridH: GRID, groups: {}, confirmTrust: async () => false })
+    const rating = await ratePattern(pattern, { groups: {}, confirmTrust: async () => false })
     if (rating.failed || rating.skipped) throw new Error(`"${pattern.name}" could not be rated: ${rating.error ?? rating.summary}`)
     rated.push({ name: pattern.name, score: rating.overall })
   }
@@ -58,8 +58,8 @@ async function main() {
 // Regenerate with: npm run gen:exceptional-audio
 //
 // The bundled audio-reactive patterns whose Studio Score is Exceptional
-// (${EXCEPTIONAL} or more) on a ${GRID}x${GRID} matrix, best first; each line carries its score.
-// Scores are computed per machine and matrix size and are not shipped, so
+// (${EXCEPTIONAL} or more) on the displays each is tagged for, best first; each
+// line carries its score. Scores are computed per machine and are not shipped, so
 // this list is the checked-in answer the show starters fill their Pattern
 // Collection from. The patterns marked "chosen" are in by the author's own
 // judgement whatever they score, and lead the list.

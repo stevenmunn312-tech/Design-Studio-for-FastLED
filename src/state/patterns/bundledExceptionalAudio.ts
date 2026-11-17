@@ -2,74 +2,76 @@
 // Regenerate with: npm run gen:exceptional-audio
 //
 // The bundled audio-reactive patterns whose Studio Score is Exceptional
-// (90 or more) on a 16x16 matrix, best first; each line carries its score.
-// Scores are computed per machine and matrix size and are not shipped, so
+// (90 or more) on the displays each is tagged for, best first; each
+// line carries its score. Scores are computed per machine and are not shipped, so
 // this list is the checked-in answer the show starters fill their Pattern
 // Collection from. The patterns marked "chosen" are in by the author's own
 // judgement whatever they score, and lead the list.
 
 /** Names of bundled audio-reactive patterns, chosen ones first, then by score. */
 export const BUNDLED_EXCEPTIONAL_AUDIO_NAMES: readonly string[] = [
-  'Cinder Storm', // 98, chosen
+  'Cinder Storm', // 99, chosen
   'Sunset Bloom Spectrum', // 100
   'Citrus Spectrum Bars', // 99
   'Harmonic Shard Array', // 99
-  'Laser Monsoon Parade', // 99
   'Neon Prism EQ', // 99
+  'Pacifica Whitecap Storm', // 99
   'Peacock Mosaic Drift', // 99
   'Reaction Bloom', // 99
+  'String Bass Tide', // 99
   'String Festival Spark Train', // 99
+  'String Spectrum Conveyor', // 99
+  'String Vocal Whitecaps', // 99
   'Chromatic Orbit Reactor', // 98
-  'Pacifica Whitecap Storm', // 98
   'Phyllotaxis Bloom', // 98
   'Polar Bloom', // 98
   'RGB Blob Thunder Garden', // 98
   'Strange Attractor Fog', // 98
+  'Vocal Gravity Veil', // 98
   'Bass Cathedral Collapse', // 97
   'Bass Furnace', // 97
+  'Chromasonic Vortex', // 97
+  'Color Trails', // 97
   'Fractal Voyage', // 97
+  'Hyperspace Kick', // 97
   'Plasma Beat Lattice', // 97
-  'Polar Wave Halo Engine', // 97
   'Prism Fracture', // 97
   'Spectrum Cathedral', // 97
-  'String Frost Percussion', // 97
-  'String Pulse Plasma', // 97
+  'String Harmonic Tide', // 97
+  'Sub Bass Scanline', // 97
   'Ultraviolet Kaleido Pulse', // 97
   'Beat Temple', // 96
-  'Chromasonic Vortex', // 96
-  'Color Trails', // 96
   'Ember Mandala', // 96
-  'Event Horizon', // 96
-  'Morphing Neon River', // 96
+  'Juggle After Dark', // 96
+  'Laser Monsoon Parade', // 96
   'Quadrant Pulse Observatory', // 96
   'Snare Rain', // 96
   'Spectral Field Vortex', // 96
-  'Spiralus Percussion Shrine', // 96
-  'String Midrange Marble', // 96
-  'String Rhythm Ribbon', // 96
-  'String Wide Kick Scanner', // 96
-  'Vocal Gravity Veil', // 96
-  'Hyperspace Kick', // 95
+  'Tidal Glass Meditation', // 96
+  'Event Horizon', // 95
+  'Kaleido Bass Singularity', // 95
   'Spectra Mosaic Night', // 95
-  'String Drum Lanterns', // 95
-  'String Spectrum Conveyor', // 95
-  'Sub Bass Scanline', // 95
-  'Tidal Glass Meditation', // 95
+  'Spiralus Percussion Shrine', // 95
   'Turbulent Deep', // 95
   'Wireframe Bass Cage', // 95
   'Cascade Surge', // 94
-  'Juggle After Dark', // 94
-  'Kaleido Bass Singularity', // 94
   'Psydance', // 94
-  'String Bass Tide', // 94
-  'String Vocal Whitecaps', // 94
+  'String Drum Lanterns', // 94
+  'String Frost Percussion', // 94
+  'String Pulse Plasma', // 94
+  'String Rhythm Ribbon', // 94
+  'Morphing Neon River', // 93
+  'String Singing Candles', // 93
   'Truchet Beat Maze', // 93
   'Aurora Voice', // 92
   'Chromafluid Cathedral', // 92
-  'Confetti Cannonade', // 92
   'Opal Resonance Basin', // 92
   'Velvet Ink Choir', // 92
+  'Kick Drum Wavefield', // 91
   'Mycelium Crescendo', // 91
-  'String Singing Candles', // 91
+  'Polar Wave Halo Engine', // 91
+  'Confetti Cannonade', // 90
+  'Fibonacci Spiral Drive', // 90
   'Prismatic Waterfall Cathedral', // 90
+  'String Midrange Marble', // 90
 ]

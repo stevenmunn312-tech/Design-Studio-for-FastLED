@@ -912,11 +912,10 @@ const AUDIO_PATTERN_SEEDS = [
  * so the audio patterns, which arrive as JSON assets plus the TypeScript
  * third shelf, are judged in the same place as the standard shelf.
  *
- * Most entries name one or two outputs, never all three: a tag on every
- * pattern ranks nothing. Absent is a real answer and the right one whenever a
- * pattern is simply good everywhere — Opaline Plasma, Cloud Chamber and Silver
- * Shoal are soft fields that read the same on a line, a grid or a circle, and
- * saying so by staying quiet is more useful than a badge.
+ * Every bundled pattern names one or two outputs, never all three: a tag on
+ * every output ranks nothing. Pattern Insights judges a pattern on the outputs
+ * it names, and an untagged one on a matrix only, so a curated pattern always
+ * says where it should be judged.
  *
  * The reasoning, so a later pass can disagree with something specific:
  *   string  a line-native effect — a sweep, a trail, a twinkle, or one of the
@@ -974,6 +973,15 @@ const BUNDLED_BEST_ON: Record<string, PatternFormTag[]> = {
   'Pearl Tissue': ['matrix'],
   'Opaline Sunset': ['matrix'],
 
+  // Untagged until 2026-11-17 as fields that read on any form. Rendered on all
+  // three that day: the noise and the two flow fields became flicker or
+  // scattered dots on a line and a circle, while Opaline Plasma's slow blobs
+  // came round a ring as seamless arcs.
+  'Opaline Plasma': ['matrix', 'ring'],
+  'Cloud Chamber': ['matrix'],
+  'Silver Shoal': ['matrix'],
+  'Echo Basin': ['matrix'],
+
   // Audio-reactive shelf
   'Aurora Comet Foundry': ['ring'],
   'Aurora Echo Choir': ['string'],
@@ -1000,15 +1008,17 @@ const BUNDLED_BEST_ON: Record<string, PatternFormTag[]> = {
   // and at 60x1, not from its node list: Kick Drum Wavefield's membrane
   // becomes a genuine one-dimensional wave equation on tape and is better
   // there than anywhere, while Bass Furnace collapses into per-pixel flicker
-  // without the vertical axis a flame climbs. Turbulent Deep is the quiet
-  // answer — a marbled field reads on any form, so it names none.
+  // without the vertical axis a flame climbs. Turbulent Deep's marbled
+  // field keeps its swirls only on a matrix.
   'Bass Furnace': ['matrix'],
+  'Turbulent Deep': ['matrix'],
   'Beat Temple': ['matrix', 'ring'],
   'Cellular Percussion Grid': ['matrix'],
   'Ember Mandala': ['matrix', 'ring'],
   'Fibonacci Spiral Drive': ['matrix', 'ring'],
   'Golden Ratio Cathedral': ['matrix', 'ring'],
-  'Harmonic Shard Array': ['matrix', 'ring'],
+  // Ring dropped 2026-11-17: the content sits inside the circle a ring reads, so a ring stays dark.
+  'Harmonic Shard Array': ['matrix'],
   'Hyperspace Kick': ['matrix', 'ring'],
   'Kick Drum Wavefield': ['string', 'matrix'],
   'Lissajous Lattice': ['matrix'],
@@ -1035,7 +1045,8 @@ const BUNDLED_BEST_ON: Record<string, PatternFormTag[]> = {
   'Boid Thunder Flock': ['matrix'],
   'Radial Kick Halo': ['matrix', 'ring'],
   'Pacifica Whitecap Storm': ['string', 'ring'],
-  'Heartline Tracer': ['matrix', 'ring'],
+  // Ring dropped 2026-11-17: the content sits inside the circle a ring reads, so a ring stays dark.
+  'Heartline Tracer': ['matrix'],
   'Plasma Beat Lattice': ['matrix', 'ring'],
 
   // Pattern-node expansion starters. A rosette is radial by construction and

@@ -115,7 +115,7 @@ function myceliumCrescendo(): AudioReleaseSeed {
 }
 
 function harmonicLanternLoom(): AudioReleaseSeed {
-  const b = new AudioReleaseBuilder('Harmonic Lantern Loom', ['matrix', 'ring'], ['#9aaaff', '#e0bfff', '#fff0cc'])
+  const b = new AudioReleaseBuilder('Harmonic Lantern Loom', ['matrix'], ['#9aaaff', '#e0bfff', '#fff0cc'])
   b.node('ribbon', 'FourierEpicycles', { outline: 'infinity', maxHarmonics: 24, showCircles: false, showPen: true, persistence: 0.995 })
   b.node('unfurl', 'Math', { mathOp: 'max' })
   b.map('harmonics', 'unfurl', 'result', 3, 24)

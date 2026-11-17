@@ -29,7 +29,7 @@ import { currentFirmwareDims, currentRamBudget, currentRatingContext } from '../
 import { FLASH_TITLE, patternFlashEstimate, type PatternFlashEstimate } from '../../state/patterns/patternFlash'
 import { NODE_LIBRARY } from '../../state/nodeLibrary'
 import PatternTagChips from '../PatternTags/PatternTagChips'
-import { patternFormTags, type PatternFormTag } from '../../state/patterns/patternTags'
+import { PATTERN_FORM_TAGS, patternFormTags, type PatternFormTag } from '../../state/patterns/patternTags'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
 import { useModalFocus } from '../../hooks/useModalFocus'
 import styles from './PatternRatingsPopup.module.css'
@@ -66,7 +66,7 @@ const PatternThumb = memo(function PatternThumb({ thumbnail, label }: { thumbnai
   }, [thumbnail])
   return (
     <figure className={styles.moment}>
-      <canvas ref={canvasRef} className={styles.thumb} aria-label={`${label} captured moment`} />
+      <canvas ref={canvasRef} className={`${styles.thumb} ${thumbnail?.height === 1 ? styles.thumbLine : ''}`} aria-label={`${label} captured moment`} />
       <figcaption>{label}</figcaption>
     </figure>
   )
@@ -165,6 +165,12 @@ function PersonalRow({ pattern, userRating, onUserRating, onTagChange }: {
   )
 }
 
+/** "LED String and LED Ring": the displays a score was rendered on. */
+function judgedOnText(forms: PatternFormTag[]): string {
+  const labels = PATTERN_FORM_TAGS.filter((tag) => forms.includes(tag.id)).map((tag) => tag.label)
+  return labels.length > 1 ? `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}` : labels[0] ?? ''
+}
+
 interface RatingCardProps {
   pattern: SavedPattern
   /** Absent until a scan has judged this pattern. */
@@ -253,6 +259,7 @@ function RatingCard({
                   {PATTERN_INTENTS.map((intent) => <option key={intent.id} value={intent.id}>{intent.label}</option>)}
                 </select>
               </label>
+              {rating.judgedOn && <span className={styles.judgedOn}>on {judgedOnText(rating.judgedOn)}</span>}
               {rating.intent !== rating.inferredIntent && <span className={styles.overrideTag}>manual intent</span>}
               {rescanning && <span className={styles.rescanning}>Rejudging…</span>}
             </div>
@@ -354,8 +361,7 @@ export default function PatternRatingsPopup() {
     }
   }
 
-  const changeIntent = async (pattern: SavedPattern, intent: PatternIntent) => {
-    setIntentOverride(pattern.id, intent)
+  const rejudge = async (pattern: SavedPattern) => {
     setRescanningId(pattern.id)
     try {
       const next = await ratePattern(pattern, context)
@@ -363,6 +369,19 @@ export default function PatternRatingsPopup() {
     } finally {
       setRescanningId(null)
     }
+  }
+
+  const changeIntent = (pattern: SavedPattern, intent: PatternIntent) => {
+    setIntentOverride(pattern.id, intent)
+    return rejudge(pattern)
+  }
+
+  // The tags name the displays a pattern is judged on, so a judged pattern is
+  // judged again on its new ones.
+  const changeTags = (id: string, bestOn: PatternFormTag[]) => {
+    tagPattern(id, bestOn)
+    const tagged = usePatternLibrary.getState().patterns.find((pattern) => pattern.id === id)
+    if (tagged && ratingById.has(id)) void rejudge(tagged)
   }
 
   const handleCreateCollection = () => {
@@ -438,7 +457,7 @@ export default function PatternRatingsPopup() {
                     onToggle={toggleSelected}
                     onUserRating={setUserRating}
                     onIntentChange={changeIntent}
-                    onTagChange={tagPattern}
+                    onTagChange={changeTags}
                   />
                 )
               })}

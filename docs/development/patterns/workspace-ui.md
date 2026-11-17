@@ -431,8 +431,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   track plays. The starter show is the head (`STARTER_SHOW_SIZE`) of the
   checked-in Exceptional list in `bundledExceptionalAudio.ts`, less patterns
   tagged for a string alone. Studio Scores are per machine and are not
-  shipped, so that list is generated (`npm run gen:exceptional-audio`, at
-  16x16) and committed; regenerate it when bundled audio patterns change.
+  shipped, so that list is generated (`npm run gen:exceptional-audio`) and
+  committed; regenerate it when bundled audio patterns or their tags change.
+  Each pattern is judged on the displays its Best displayed on tags name
+  (16x16 matrix, 60-LED string, 60-LED ring; untagged means matrix) with
+  seeded randomness, so a rerun on unchanged patterns writes the same file.
   One with a Music Library also sets `demoTrack`: `scanDemoTrack` fetches the
   bundled track and hands it to `addFiles`, the drop zone's own path. It is
   skipped for an untrusted workspace, and dropped if the project or start

@@ -28,7 +28,7 @@ describe('Pattern Insights popup', () => {
   afterEach(() => vi.restoreAllMocks())
 
   it('separates Studio judgement from the user’s stars', () => {
-    const context = { gridW: 16, gridH: 16, groups: getGroupRegistry() }
+    const context = { groups: getGroupRegistry() }
     const rating: PatternRating = {
       patternId: pattern.id,
       name: pattern.name,
@@ -78,7 +78,7 @@ describe('Pattern Insights popup', () => {
   })
 
   it('keeps the stars on a pattern the critic skipped', () => {
-    const context = { gridW: 16, gridH: 16, groups: getGroupRegistry() }
+    const context = { groups: getGroupRegistry() }
     usePatternRatingStore.setState({
       ratingsByPatternId: { [pattern.id]: {
         patternId: pattern.id, name: pattern.name, bundled: false, overall: 0,
@@ -111,7 +111,7 @@ describe('Pattern Insights popup', () => {
       id: `pat-${index}`,
       name: `Pattern ${index}`,
     }))
-    const context = { gridW: 16, gridH: 16, groups: getGroupRegistry() }
+    const context = { groups: getGroupRegistry() }
     const thumbnail = { width: 2, height: 2, rgb: [255, 0, 20, 0, 80, 255, 20, 255, 80, 0, 0, 0] }
     const ratingsByPatternId = Object.fromEntries(patterns.map((entry) => [entry.id, {
       patternId: entry.id,
@@ -163,7 +163,7 @@ describe('Pattern Insights cost line', () => {
     intent: 'ambient', inferredIntent: 'ambient', verdict: 'promising', verdictLabel: 'Promising',
     summary: 'Promising for Ambient.', strengths: [], improvements: [], criteria: [], audioReactive: false,
     renderCost,
-    cacheKey: patternRatingKey(heavy, { gridW: 16, gridH: 16, groups: getGroupRegistry() }, 'ambient'),
+    cacheKey: patternRatingKey(heavy, { groups: getGroupRegistry() }, 'ambient'),
   })
 
   beforeEach(() => {

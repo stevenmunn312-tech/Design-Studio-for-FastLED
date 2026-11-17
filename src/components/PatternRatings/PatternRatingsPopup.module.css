@@ -261,6 +261,9 @@
   border-radius: 6px;
 }
 
+/* A string or ring moment is one row of LEDs; stretch it to a readable bar. */
+.thumbLine { height: 14px; }
+
 .critique { min-width: 0; }
 
 .intentRow { display: flex; align-items: end; gap: var(--space-1); }
@@ -275,6 +278,7 @@
   font-size: var(--fs-ui);
 }
 
+.judgedOn { color: var(--text-secondary); font-family: var(--font-body); font-size: var(--fs-label); }
 .rescanning { color: var(--accent-ui); font-family: var(--font-body); font-size: var(--fs-label); }
 
 .summary { margin: calc(var(--space-0) * 2.5) 0 calc(var(--space-0) * 2.25); color: var(--text-primary); font-size: var(--fs-caption); font-weight: 600; line-height: 1.5; }

@@ -2,28 +2,19 @@
 // Kept apart from patternRating.ts, whose driver takes the context as an
 // argument and never reads the graph store itself.
 
-import { getGroupRegistry, matrixDims, rootGraphEdges, rootGraphNodes, useGraphStore } from '../graphStore'
+import { getGroupRegistry, rootGraphEdges, rootGraphNodes, useGraphStore } from '../graphStore'
 import { renderBufferDims } from '../output/outputRouting'
 import type { GroupRegistry } from '../graphEvaluator'
 import { patternRamBudget, type PatternRamBudget } from '../../utils/validateGraph'
 
-/** Longest side of the grid a pattern is rendered on to be judged. */
-const RATING_GRID_CAP = 32
-
 /**
- * The grid and group registry a rating is made with: the project's canvas,
- * scaled down so a large matrix does not make a library scan take minutes.
+ * The group registry a rating is made with. The displays a pattern is judged
+ * on come from its own Best displayed on tags, not from the open project.
  * Shared by the Pattern Insights popup and the Pattern Collection picker so a
  * score made from one is current in the other.
  */
-export function currentRatingContext(): { gridW: number; gridH: number; groups: GroupRegistry } {
-  const { w, h } = matrixDims(rootGraphNodes(useGraphStore.getState()))
-  const scale = Math.min(1, RATING_GRID_CAP / Math.max(w, h))
-  return {
-    gridW: Math.max(2, Math.round(w * scale)),
-    gridH: Math.max(2, Math.round(h * scale)),
-    groups: getGroupRegistry(),
-  }
+export function currentRatingContext(): { groups: GroupRegistry } {
+  return { groups: getGroupRegistry() }
 }
 
 /**

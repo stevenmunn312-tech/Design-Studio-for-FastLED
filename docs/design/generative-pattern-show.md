@@ -389,7 +389,9 @@ only ever seen the pattern on their own output. `savePattern` therefore carries
 and re-saving an edited pattern must not silently discard it.
 
 Bundled patterns are curated in `bundledPatterns.ts` and read-only here, the same
-way their name and shelf already are.
+way their name and shelf already are. Every bundled pattern carries one or two
+tags, because Pattern Insights judges a pattern on the displays its tags name
+and an untagged one on a matrix only; changing a pattern's tags rejudges it.
 
 ## Codegen target
 

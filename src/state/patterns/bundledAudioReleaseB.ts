@@ -61,7 +61,7 @@ function silkAttractor(): AudioReleaseSeed {
 }
 
 function moonflowerRelease(): AudioReleaseSeed {
-  const b = new AudioReleaseBuilder('Moonflower Release', ['matrix', 'ring'], ['#12091d', '#9857cc', '#ffd4b0'])
+  const b = new AudioReleaseBuilder('Moonflower Release', ['matrix'], ['#12091d', '#9857cc', '#ffd4b0'])
   // At size 0.5 a lobe reaches the matrix edge at A and B of 1. The flower
   // turns anticlockwise at 1.5 rad/s (85.94 degrees/s) per unit of motion.
   b.node('flower', 'ShapeField', {

@@ -25,6 +25,9 @@ import { promptPatternTrust } from '../../utils/trustPrompt'
 import { yieldToUi } from '../../components/Preview/recordCapture'
 import { create } from 'zustand'
 import { RENDER_WEIGHT_GRID, renderCostFromBlocks, steadyFrameMs, type PatternRenderCost } from './patternCost'
+import { seededSequence, withRandomSource } from '../evaluator/random'
+import { ringCanvasDiameter, ringSampleMap } from '../output/ledOutputForm'
+import { patternFormTags, type PatternFormTag } from './patternTags'
 
 export interface CriterionScore {
   id: string
@@ -68,6 +71,9 @@ export interface PatternRating {
   improvements: string[]
   criteria: CriterionScore[]
   audioReactive: boolean
+  /** The displays the pattern was rendered on: its Best displayed on tags, or
+   *  a matrix when it has none. */
+  judgedOn?: PatternFormTag[]
   /** A representative, strongest, and weakest moment from the same analysis. */
   thumbnails?: {
     typical?: RatingThumbnail
@@ -235,6 +241,49 @@ const RATE_WARMUP_FRAMES = Math.max(2, Math.round(RATE_FPS * 3))
 // between windows (not scored) so the windows sample genuinely different moments.
 const RATE_RUNS = 2
 const RATE_GAP_FRAMES = Math.max(1, Math.round(RATE_FPS * 0.8))
+const RATE_RANDOM_SEED = 0x5eed
+
+// ── Judging displays ─────────────────────────────────────────────────────────
+
+// A pattern is judged on the displays its Best displayed on tags name, each at
+// the LED output's default size, so a score depends on the pattern alone and
+// not on whichever project is open.
+const JUDGING_MATRIX_SIDE = 16
+const JUDGING_CHAIN_LEDS = 60
+
+export interface JudgingDisplay {
+  form: PatternFormTag
+  /** The canvas the pattern renders on. */
+  w: number
+  h: number
+  /** For a ring: the canvas index each LED reads, in wire order. */
+  sampleMap?: number[]
+}
+
+export function judgingDisplay(form: PatternFormTag): JudgingDisplay {
+  if (form === 'string') return { form, w: JUDGING_CHAIN_LEDS, h: 1 }
+  if (form === 'ring') {
+    const d = ringCanvasDiameter(JUDGING_CHAIN_LEDS)
+    return { form, w: d, h: d, sampleMap: ringSampleMap(JUDGING_CHAIN_LEDS, 0, 'cw', d, d) }
+  }
+  return { form, w: JUDGING_MATRIX_SIDE, h: JUDGING_MATRIX_SIDE }
+}
+
+/** The forms a pattern is judged on: its tags, or a matrix when untagged. */
+export function judgedForms(pattern: { bestOn?: unknown }): PatternFormTag[] {
+  const tags = patternFormTags(pattern.bestOn)
+  return tags.length ? tags : ['matrix']
+}
+
+/** What the LEDs of a display show for one rendered canvas frame: the canvas
+ *  itself, or a ring's LEDs as one row in wire order. */
+function displayFrame(display: JudgingDisplay, frame: Frame): Frame {
+  if (!display.sampleMap) return frame
+  return [display.sampleMap.map((index) => {
+    const px = frame[Math.floor(index / display.w)]?.[index % display.w]
+    return px ? { r: px.r, g: px.g, b: px.b } : { r: 0, g: 0, b: 0 }
+  })]
+}
 
 // ── Pixel primitives ─────────────────────────────────────────────────────────
 
@@ -641,7 +690,7 @@ export function scorePattern(
     {
       id: 'composition', label: 'Spatial composition', weight: 0.22,
       score: scoreComposition(judged, nodes, intent),
-      detail: (s) => s >= 0.8 ? 'Uses the matrix with clear intent' : s >= 0.55 ? 'The composition reads, but lacks definition' : 'The frame feels unresolved for this intent',
+      detail: (s) => s >= 0.8 ? 'Uses the LEDs with clear intent' : s >= 0.55 ? 'The composition reads, but lacks definition' : 'The frame feels unresolved for this intent',
     },
     {
       id: 'tone', label: 'Colour & tonal control', weight: 0.18,
@@ -677,6 +726,13 @@ export function scorePattern(
   const criteria: CriterionScore[] = specs.map((s) => ({
     id: s.id, label: s.label, score: s.score, weight: s.weight, detail: s.detail(s.score),
   }))
+  return { overall, criteria, audioReactive, intent, inferredIntent, ...critique(criteria, overall, intent) }
+}
+
+export type PatternScore = ReturnType<typeof scorePattern>
+
+/** The verdict and the notes a card shows, read off the criteria. */
+function critique(criteria: CriterionScore[], overall: number, intent: PatternIntent) {
   const { id: verdict, label: verdictLabel } = verdictForScore(overall)
   const ranked = [...criteria].sort((a, b) => b.score - a.score)
   const strengths = ranked.filter((criterion) => criterion.score >= 0.72).slice(0, 2).map((criterion) => criterion.detail)
@@ -684,10 +740,26 @@ export function scorePattern(
   const intentLabel = PATTERN_INTENTS.find((entry) => entry.id === intent)?.label ?? intent
   const weakest = [...criteria].sort((a, b) => a.score - b.score)[0]
   const summary = `${verdictLabel} for ${intentLabel}. ${weakest?.detail ?? 'No critique available.'}`
-  return {
-    overall, criteria, audioReactive, intent, inferredIntent, verdict, verdictLabel,
-    summary, strengths, improvements,
-  }
+  return { verdict, verdictLabel, summary, strengths, improvements }
+}
+
+/**
+ * One judgement from the judgements on each display a pattern is tagged for.
+ *
+ * A pattern tagged for two displays claims to look its best on both, so it is
+ * held to both: the score is their mean, and so is each criterion. A criterion
+ * keeps the detail of its weaker display, since that is the one to fix.
+ */
+export function combineDisplayScores(scores: PatternScore[]): PatternScore {
+  if (scores.length <= 1) return scores[0]
+  const [first] = scores
+  const overall = Math.round(mean(scores.map((score) => score.overall)))
+  const criteria = first.criteria.map((criterion) => {
+    const matching = scores.map((score) => score.criteria.find((entry) => entry.id === criterion.id) ?? criterion)
+    const weakest = matching.reduce((a, b) => (b.score < a.score ? b : a))
+    return { ...criterion, score: mean(matching.map((entry) => entry.score)), detail: weakest.detail }
+  })
+  return { ...first, overall, criteria, ...critique(criteria, overall, first.intent) }
 }
 
 export function verdictForScore(score: number): { id: PatternVerdict; label: string } {
@@ -796,6 +868,9 @@ function rateFrameEvaluator(
     .map((groupNode) => groupInputRole(groupNode))
     .filter((paramId): paramId is string => !!paramId)
   let i = 0
+  // Every render of a pattern draws the same random numbers, so rating it
+  // twice renders the same frames and gives the same score.
+  const random = seededSequence(RATE_RANDOM_SEED)
   const evaluate = () => {
     const tick = (i * 60) / RATE_FPS
     const { override, roles } = audioForFrame(i, scenario)
@@ -805,10 +880,10 @@ function rateFrameEvaluator(
     // Per-frame guard, mirroring the live preview loop: a single malformed
     // frame is skipped (rendered as blank) rather than tearing down the rating.
     try {
-      return evaluateGraph(
+      return withRandomSource(random, () => evaluateGraph(
         saved.subgraph.nodes, saved.subgraph.edges, tick, w, h, registry,
         prefix, new Set([groupId]), boundInputs, override, trusted,
-      )
+      ))
     } catch {
       return null
     }
@@ -910,8 +985,6 @@ function blankFrame(w: number, h: number): Frame {
 }
 
 export interface RateOptions {
-  gridW: number
-  gridH: number
   groups: GroupRegistry
   onProgress?: (done: number, total: number) => void
   signal?: AbortSignal
@@ -920,10 +993,10 @@ export interface RateOptions {
   confirmTrust?: (saved: SavedPattern) => Promise<boolean>
 }
 
-// 5: `renderCost` is timed on the fixed render weight grid. The version is
-// part of every cache key, so ratings stored by an older build are rescanned
-// rather than shown with a weight measured the old way.
-const ANALYSIS_VERSION = 5
+// 6: judged on the displays the pattern is tagged for, with seeded randomness.
+// The version is part of every cache key, so ratings stored by an older build
+// are rescanned rather than shown beside ones judged the new way.
+const ANALYSIS_VERSION = 6
 
 // ── Render weight reference ──────────────────────────────────────────────────
 
@@ -1030,11 +1103,11 @@ function referencedGroupContent(saved: SavedPattern, groups: GroupRegistry): unk
 // twice during React StrictMode's development remount.
 const ratingCache = new Map<string, PatternRating>()
 
-export function patternRatingKey(saved: SavedPattern, opts: Pick<RateOptions, 'gridW' | 'gridH' | 'groups'>, intent?: PatternIntent): string {
+export function patternRatingKey(saved: SavedPattern, opts: Pick<RateOptions, 'groups'>, intent?: PatternIntent): string {
+  const forms = judgedForms(saved).join('+')
   const payload = JSON.stringify(canonicalize({
     version: ANALYSIS_VERSION,
-    gridW: opts.gridW,
-    gridH: opts.gridH,
+    forms,
     intent: intent ?? inferPatternIntent(saved.subgraph.nodes),
     graph: analysisGraph(saved),
     groups: referencedGroupContent(saved, opts.groups),
@@ -1044,7 +1117,7 @@ export function patternRatingKey(saved: SavedPattern, opts: Pick<RateOptions, 'g
     hash ^= payload.charCodeAt(i)
     hash = Math.imul(hash, 16777619)
   }
-  return `v${ANALYSIS_VERSION}:${opts.gridW}x${opts.gridH}:${intent ?? inferPatternIntent(saved.subgraph.nodes)}:${(hash >>> 0).toString(36)}`
+  return `v${ANALYSIS_VERSION}:${forms}:${intent ?? inferPatternIntent(saved.subgraph.nodes)}:${(hash >>> 0).toString(36)}`
 }
 
 export function ratingTier(score: number): 'good' | 'ok' | 'bad' {
@@ -1061,7 +1134,9 @@ export async function ratePattern(saved: SavedPattern, opts: RateOptions): Promi
   const cached = ratingCache.get(key) ?? Object.values(usePatternRatingStore.getState().ratingsByPatternId)
     .find((entry) => !entry.skipped && entry.cacheKey === key)
   if (cached) {
-    const current = { ...cached, name: saved.name, bundled: !!saved.bundled }
+    // The key ignores identity, so the cached rating may belong to another
+    // pattern with the same graph; it is this pattern's rating from here on.
+    const current = { ...cached, patternId: saved.id, name: saved.name, bundled: !!saved.bundled }
     usePatternRatingStore.getState().publish(current)
     return current
   }
@@ -1096,15 +1171,25 @@ export async function ratePattern(saved: SavedPattern, opts: RateOptions): Promi
     console.debug(`[patternRating] rating "${saved.name}"`)
     const startedAt = performance.now()
     const audioReactive = isAudioReactiveSubgraph(saved.subgraph.nodes) || intent === 'audio-reactive'
-    const scenarios: Record<string, Frame[]> = {}
-    if (audioReactive) {
-      for (const scenario of ['silent', 'steady', 'pulse'] as const) {
-        scenarios[scenario] = (await captureWindows(saved, opts.gridW, opts.gridH, opts.groups, trusted, scenario, 1, opts.signal))[0] ?? []
+    const diagnostics = buildGraphDiagnostics(saved.subgraph.nodes, saved.subgraph.edges, { target: 'group', groups: opts.groups })
+    const judgedOn = judgedForms(saved)
+    const judgements: { form: PatternFormTag; frames: Frame[]; score: PatternScore }[] = []
+    for (const form of judgedOn) {
+      const display = judgingDisplay(form)
+      const capture = async (scenario: AudioScenario, runs: number) =>
+        (await captureWindows(saved, display.w, display.h, opts.groups, trusted, scenario, runs, opts.signal))
+          .map((window) => window.map((frame) => displayFrame(display, frame)))
+      const scenarios: Record<string, Frame[]> = {}
+      if (audioReactive) {
+        for (const scenario of ['silent', 'steady', 'pulse'] as const) {
+          scenarios[scenario] = (await capture(scenario, 1))[0] ?? []
+        }
+      } else {
+        scenarios.motion = (await capture('pulse', RATE_RUNS)).flat()
       }
-    } else {
-      scenarios.motion = (await captureWindows(saved, opts.gridW, opts.gridH, opts.groups, trusted, 'pulse', RATE_RUNS, opts.signal)).flat()
+      const frames = Object.values(scenarios).flat()
+      judgements.push({ form, frames, score: scorePattern(frames, diagnostics, saved.subgraph.nodes, saved.subgraph.edges, intent, scenarios) })
     }
-    const frames = Object.values(scenarios).flat()
     const elapsed = performance.now() - startedAt
     if (elapsed > 3000) console.warn(`[patternRating] "${saved.name}" took ${Math.round(elapsed)}ms to render — consider simplifying it`)
     // The weight is timed apart from the render above, on its own grid. A
@@ -1116,10 +1201,12 @@ export async function ratePattern(saved: SavedPattern, opts: RateOptions): Promi
       if (err instanceof DOMException && err.name === 'AbortError') throw err
       return undefined
     })
-    const diagnostics = buildGraphDiagnostics(saved.subgraph.nodes, saved.subgraph.edges, { target: 'group', groups: opts.groups })
     // Judge the whole run. Strong moments inform the thumbnail, but weak ones
     // remain in every criterion instead of disappearing behind a best-window pick.
-    const scored = scorePattern(frames, diagnostics, saved.subgraph.nodes, saved.subgraph.edges, intent, scenarios)
+    const scored = combineDisplayScores(judgements.map((judgement) => judgement.score))
+    // A matrix shows its moments best at thumbnail size, so it supplies them
+    // when the pattern was judged on one.
+    const { frames } = judgements.find((judgement) => judgement.form === 'matrix') ?? judgements[0]
     const ordered = [...frames].sort((a, b) => frameThumbnailScore(a) - frameThumbnailScore(b))
     const weakest = ordered[0]
     const typical = ordered[Math.floor(ordered.length / 2)]
@@ -1127,6 +1214,7 @@ export async function ratePattern(saved: SavedPattern, opts: RateOptions): Promi
     rating = {
       patternId: saved.id, name: saved.name, bundled: !!saved.bundled,
       ...scored,
+      judgedOn,
       thumbnails: {
         weakest: packThumbnail(weakest),
         typical: packThumbnail(typical),
