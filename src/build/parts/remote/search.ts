@@ -1,7 +1,7 @@
 // Local search over index entries. Pure; no search service.
 //
 // The query is split into tokens; every token must match somewhere in the part
-// (label, manufacturer, part type, device, interfaces, chips, or the label of
+// (label, manufacturer, part types, interfaces, chips, or the label of
 // any of its categories or their ancestors). Matching is case-insensitive
 // substring, so "laser" finds a part filed under "Time-of-flight (laser)".
 
@@ -23,8 +23,7 @@ interface Field {
 function fields(part: IndexPart, tree: CategoryTree | null): Field[] {
   const out: Field[] = [{ text: part.label, weight: 5 }]
   if (part.manufacturer) out.push({ text: part.manufacturer, weight: 3 })
-  out.push({ text: part.partType, weight: 2 })
-  if (part.device) out.push({ text: part.device, weight: 2 })
+  for (const partType of part.partTypes) out.push({ text: partType, weight: 2 })
   for (const i of part.interfaces) out.push({ text: i, weight: 3 })
   for (const c of part.chips) out.push({ text: c, weight: 4 })
   if (tree) {

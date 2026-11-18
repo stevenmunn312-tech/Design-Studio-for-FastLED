@@ -206,6 +206,25 @@ export const PART_BLOCK_SPECS = {
     temperatureMaxC: num(),
     pullUpOhms: positive(),
   }),
+  // Shapes only; the sensor modules' `*SpecIssue` rules (curve monotonicity,
+  // internal pull-up only when active-low) run on top, as the importer's do.
+  digitalSensor: obj({
+    activeLevel: oneOf('high', 'low'),
+    pullUp: oneOf('none', 'internal', 'external'),
+    debounceMs: int(0, 1000),
+    supplyVolts: opt(positive()),
+    activeLabel: str({ nonEmpty: true, maxLength: 24 }),
+    idleLabel: str({ nonEmpty: true, maxLength: 24 }),
+  }),
+  analogSensor: obj({
+    unit: str({ nonEmpty: true, maxLength: 8 }),
+    supplyVolts: positive(),
+    adcRange: obj({ minVolts: num({ min: 0 }), maxVolts: num({ min: 0, max: 5.5 }) }),
+    curve: arr(obj({ volts: num({ min: 0, max: 5.5 }), value: num() }), 2, 16),
+    outputMin: num(),
+    outputMax: num(),
+    decimals: opt(int(0, 4)),
+  }),
   ethernet: obj({
     controller: str({ nonEmpty: true }),
     interface: str({ nonEmpty: true }),

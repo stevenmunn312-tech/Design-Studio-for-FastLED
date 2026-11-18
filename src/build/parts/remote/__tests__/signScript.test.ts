@@ -55,7 +55,7 @@ describe('scripts/parts/sign.mjs', () => {
       JSON.stringify({
         partId: 'hc-sr04',
         revision: 2,
-        partType: 'DistanceInput',
+        partTypes: ['DistanceInput'],
         label: 'HC-SR04',
         interfaces: ['gpio'],
         categories: ['ultra'],

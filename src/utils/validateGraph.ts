@@ -84,7 +84,7 @@ import { findLedDriverErrors, ledDriverDiagnostics } from './ledDriverIssues'
 import type { LedDriverChoice } from '../build/ledDrivers'
 import { isHardwareManagedSignalNodeType, ledPitchMm } from '../build/hardware'
 import { partOptionsFor, resolvePartIdentity } from '../build/parts/partOptions'
-import { describeUnresolved, unresolvedNodeLabel, unresolvedNodes, withoutUnresolved } from '../build/parts/partResolution'
+import { describeUnresolved, unknownPartId, unresolvedNodeLabel, unresolvedNodes, withoutUnresolved } from '../build/parts/partResolution'
 import { displayHasTouch, partById } from '../build/parts/partCatalogue'
 import { designControlBundle } from '../state/displays/designControlBundle'
 import { CUSTOM_DESIGN_LAYOUT, shownDesignId } from '../state/displays/transportDisplay'
@@ -3282,6 +3282,8 @@ function i2cBusValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
     const props = sensor.data.properties as Record<string, unknown>
     const digital = sensor.data.nodeType === DIGITAL_SENSOR_NODE_TYPE
     if ((digital ? digitalSensorSpec(props.partId) : analogSensorSpec(props.partId)) !== null) continue
+    // A named id this version lacks is reported once, by the unknown-part rule.
+    if (unknownPartId(sensor.data.nodeType, props) !== null) continue
     issues.push({
       id: `${sensor.id}-sensor-part`, severity: 'error', category: 'pins',
       title: `${digital ? 'Digital' : 'Analog'} sensor part is not available`,

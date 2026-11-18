@@ -50,7 +50,7 @@ function fixture(): Fixture {
   const partEntry = {
     partId: 'hc-sr04',
     revision: 1,
-    partType: 'DistanceInput',
+    partTypes: ['DistanceInput'],
     label: 'HC-SR04',
     interfaces: ['gpio'],
     categories: ['ultra'],

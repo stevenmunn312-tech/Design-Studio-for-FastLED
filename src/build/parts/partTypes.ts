@@ -71,6 +71,8 @@ export const PART_TYPES: readonly PartTypeDefinition[] = [
   type({ nodeType: 'DistanceInput', block: 'distanceSensor', deviceField: 'device', devices: ['HC-SR04', 'VL53L0X', 'VL53L1X'] }),
   type({ nodeType: 'TemperatureInput', block: 'temperatureSensor', deviceField: 'device', devices: ['DS18B20'] }),
   type({ nodeType: 'MotionInput' }),
+  type({ nodeType: 'DigitalSensorInput', block: 'digitalSensor' }),
+  type({ nodeType: 'AnalogSensorInput', block: 'analogSensor' }),
   // Controls
   type({ nodeType: 'TouchButtonInput', block: 'touchSensor' }),
   type({ nodeType: 'TouchPadInput', block: 'touchPad', deviceField: 'device', devices: ['MPR121'] }),

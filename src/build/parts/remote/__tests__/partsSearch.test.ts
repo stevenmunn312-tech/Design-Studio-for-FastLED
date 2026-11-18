@@ -15,7 +15,7 @@ const cat = (id: string, label: string, parent: string | null, order = 0, aliase
 const part = (partId: string, over: Partial<IndexPart>): IndexPart => ({
   partId,
   revision: 1,
-  partType: 'DistanceInput',
+  partTypes: ['DistanceInput'],
   label: partId,
   interfaces: [],
   chips: [],
@@ -36,7 +36,7 @@ const categories = [
 const parts = [
   part('hc-sr04', { label: 'HC-SR04 ultrasonic', manufacturer: 'Generic', interfaces: ['gpio'], categories: ['ultra'] }),
   part('vl53l0x', { label: 'VL53L0X', manufacturer: 'ST', interfaces: ['i2c'], chips: ['VL53L0X'], categories: ['laser-old'] }),
-  part('inmp441', { label: 'INMP441 mic', partType: 'AudioInput', interfaces: ['i2s'], categories: ['audio'] }),
+  part('inmp441', { label: 'INMP441 mic', partTypes: ['AudioInput'], interfaces: ['i2s'], categories: ['audio'] }),
 ]
 
 describe('category tree', () => {

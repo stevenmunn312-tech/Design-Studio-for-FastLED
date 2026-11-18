@@ -267,13 +267,15 @@ describe('manifest', () => {
 describe('validation', () => {
   it('blocks the build on a part the catalogue does not have, and only then', () => {
     const missing = sensorGraph(digital('no-such-part'), 'active')
-    expect(findDeployBlockingErrors(missing.nodes, missing.edges, 'esp32:esp32:esp32').join('\n'))
-      .toContain('Digital sensor part is not available')
+    // A named id this version lacks goes through the shared unknown-part rule, once.
+    const missingErrors = findDeployBlockingErrors(missing.nodes, missing.edges, 'esp32:esp32:esp32')
+    expect(missingErrors.join('\n')).toContain('This project uses a part this version doesn\'t have')
+    expect(missingErrors.filter((error) => error.includes('no-such-part'))).toHaveLength(1)
     expect(validateGraph(missing.nodes, missing.edges, 'esp32:esp32:esp32').errors.join('\n')).toContain('no-such-part')
     // A part of the other kind is not a digital sensor either.
     const wrongKind = sensorGraph(digital(TEST_SOIL_ID), 'active')
     expect(findDeployBlockingErrors(wrongKind.nodes, wrongKind.edges, 'esp32:esp32:esp32').join('\n'))
-      .toContain('Digital sensor part is not available')
+      .toContain('This project uses a part this version doesn\'t have')
     const analogMissing = sensorGraph(analog(''), 'value')
     expect(findDeployBlockingErrors(analogMissing.nodes, analogMissing.edges, 'esp32:esp32:esp32').join('\n'))
       .toContain('Analog sensor part is not available')
@@ -313,7 +315,10 @@ describe('firmware: digital', () => {
   it('keeps a part id that could break out of a comment out of the sketch', () => {
     const { nodes, edges } = sensorGraph(digital('x\nint injected = 1;//'), 'active')
     const sketch = generateCpp(nodes, edges)
-    expect(sketch).not.toContain('int injected')
+    // The id may be quoted in a notice, but only ever inside a one-line comment.
+    const lines = sketch.split('\n').filter((line) => line.includes('injected'))
+    expect(lines.length).toBeGreaterThan(0)
+    for (const line of lines) expect(line.startsWith('//')).toBe(true)
   })
 })
 
@@ -373,7 +378,10 @@ describe('shelf and options', () => {
   })
 
   it('resolves an unknown part to nothing, never to the first option', () => {
-    expect(resolvePartIdentity('DigitalSensorInput', { partId: 'no-such-part' })).toBeNull()
+    // Held as unresolved: a placeholder with the saved id, never another part.
+    const unknown = resolvePartIdentity('DigitalSensorInput', { partId: 'no-such-part' })
+    expect(unknown?.unresolved).toBe(true)
+    expect(unknown?.option.id).toBe('no-such-part')
     expect(resolvePartIdentity('AnalogSensorInput', { partId: '' })).toBeNull()
     expect(resolvePartIdentity('DigitalSensorInput', { partId: TEST_HALL_ID })?.option.label).toBe('Test Hall module')
   })

@@ -186,6 +186,13 @@ pin order verified against source evidence, renders from verified Blender
 assets. Instead of TypeScript, it emits a manifest package (JSON plus WebP). The
 same package is bundled into the app or published.
 
+**Where each fact is written (decided 2026-11-19).** Measured facts stay in
+each part's `part.json` in the Blender asset workspace, as now. Everything else
+a manifest carries — copy, categories, sources, verification, pins and pad
+geometry — lives in a per-part overlay in the repository, one JSON file per
+part, which the importer merges with `part.json`. Overlays are reviewed in Git,
+and the part-authoring agent edits them without touching the asset workspace.
+
 **Hosting is static.** There is no database server to run. The "database" is
 one signed index file (every published part's id, revision, part type, chip,
 interface, labels, verification and package hash) plus one package per part,
@@ -412,11 +419,16 @@ pin or bus reference that v1.0.0 does not understand must not reach
 
 **A. In v1.0.0 — the whole client side**
 
-1. Write manifest schema v1 and its vocabulary, with the validator.
+1. Write manifest schema v1 and its vocabulary, with the validator. *(Done:
+   `src/build/parts/manifest/`.)*
 2. Build the part-type and device registry from the existing node types and
-   `device` strings.
-3. Move hand-written per-part data into manifests: option rows, shelf entries,
-   pad geometry, supply rail, and the per-part paragraphs in type help.
+   `device` strings. *(Done: `src/build/parts/partTypes.ts`; no type is open
+   to downloads yet.)*
+3. Move hand-written per-part data into manifests (the repository overlays
+   under [Publishing](#publishing)): option rows, shelf entries, pad geometry,
+   supply rail, and the per-part paragraphs in type help. Audit each part type
+   for branches on a bundled part's id, and set `downloadable` in
+   `src/build/parts/partTypes.ts` once it has none.
 4. Convert the bundled library through the importer into signed packages, and
    load it through the manifest path at run time.
 5. Generate the per-part help from manifests, and drive the shelf from the

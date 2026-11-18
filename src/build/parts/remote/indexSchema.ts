@@ -39,8 +39,8 @@ export interface IndexRenderRef extends IndexFileRef {
 export interface IndexPart {
   partId: string
   revision: number
-  partType: string
-  device?: string
+  /** The manifest's part types, in its order. */
+  partTypes: string[]
   label: string
   manufacturer?: string
   interfaces: string[]
@@ -122,9 +122,9 @@ function parseCategory(v: unknown): IndexCategory | null {
 function parsePart(v: unknown): IndexPart | null {
   if (!isObject(v)) return null
   const partId = text(v.partId, 64)
-  const partType = text(v.partType, 64)
+  const partTypes = strings(v.partTypes, 8)
   const label = text(v.label)
-  if (partId === null || !ID.test(partId) || partType === null || label === null) return null
+  if (partId === null || !ID.test(partId) || !partTypes || partTypes.length === 0 || label === null) return null
   if (typeof v.revision !== 'number' || !Number.isInteger(v.revision) || v.revision < 1) return null
   if (v.verification !== 'drafted' && v.verification !== 'reviewed' && v.verification !== 'bench') return null
   const interfaces = strings(v.interfaces)
@@ -132,12 +132,11 @@ function parsePart(v: unknown): IndexPart | null {
   const categories = strings(v.categories)
   const pkg = fileRef(v.package, MAX_PACKAGE_BYTES)
   if (!interfaces || !chips || !categories || !pkg) return null
-  const device = v.device === undefined ? undefined : (text(v.device, 64) ?? undefined)
   const manufacturer = v.manufacturer === undefined ? undefined : (text(v.manufacturer) ?? undefined)
   const part: IndexPart = {
     partId,
     revision: v.revision,
-    partType,
+    partTypes,
     label,
     interfaces,
     chips,
@@ -145,7 +144,6 @@ function parsePart(v: unknown): IndexPart | null {
     verification: v.verification,
     package: pkg,
   }
-  if (device) part.device = device
   if (manufacturer) part.manufacturer = manufacturer
   const render = v.render === undefined ? undefined : renderRef(v.render)
   if (render) part.render = render

@@ -15,8 +15,9 @@
 //       [--announce-add <keyId>=<publicKey>]... [--announce-retire <keyId>]...
 //       Build and sign the index from a directory of manifests. Each *.json file
 //       is a part manifest; the index fields are read from its top level
-//       (partId, revision, partType, label, interfaces, categories,
-//       verification, and optionally device, manufacturer, chips). A sibling
+//       (partId, revision, partTypes, label, interfaces, categories,
+//       verification, and optionally manufacturer); `chips` are the
+//       `device` and `controller` names its part-type blocks carry. A sibling
 //       <name>.webp is the part's render. Writes <out-dir>/index.json,
 //       <out-dir>/packages/<partId>@<revision>.json (each manifest signed) and
 //       <out-dir>/renders/<partId>@<revision>.webp. Categories come from
@@ -94,6 +95,18 @@ function envelopeFor(payload, signers) {
   }
 }
 
+/** The chip names a manifest's blocks carry (`device`, `controller`), for search. */
+function chipsOf(manifest) {
+  const chips = new Set()
+  for (const value of Object.values(manifest)) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue
+    for (const key of ['device', 'controller']) {
+      if (typeof value[key] === 'string' && value[key].length <= 64) chips.add(value[key])
+    }
+  }
+  return [...chips]
+}
+
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex')
 
 function webpSize(b) {
@@ -152,7 +165,7 @@ function buildIndex(dir, flags) {
   for (const file of files) {
     const text = readFileSync(join(dir, file), 'utf8')
     const manifest = JSON.parse(text)
-    for (const field of ['partId', 'revision', 'partType', 'label', 'verification']) {
+    for (const field of ['partId', 'revision', 'partTypes', 'label', 'verification']) {
       if (manifest[field] === undefined) die(`${file}: manifest has no "${field}"`)
     }
     const name = `${manifest.partId}@${manifest.revision}`
@@ -161,16 +174,15 @@ function buildIndex(dir, flags) {
     const entry = {
       partId: manifest.partId,
       revision: manifest.revision,
-      partType: manifest.partType,
+      partTypes: manifest.partTypes,
       label: manifest.label,
       interfaces: manifest.interfaces ?? [],
+      chips: chipsOf(manifest),
       categories: manifest.categories ?? [],
       verification: manifest.verification,
       package: { url: `${prefix}packages/${name}.json`, sha256: sha256(packageBytes), bytes: packageBytes.length },
     }
-    for (const optional of ['device', 'manufacturer', 'chips']) {
-      if (manifest[optional] !== undefined) entry[optional] = manifest[optional]
-    }
+    if (manifest.manufacturer !== undefined) entry.manufacturer = manifest.manufacturer
     const renderFile = join(dir, file.replace(/\.json$/, '.webp'))
     if (existsSync(renderFile)) {
       const bytes = readFileSync(renderFile)

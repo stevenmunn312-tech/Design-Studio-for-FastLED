@@ -55,9 +55,9 @@ was downloaded.
   ],
   "parts": [
     {
-      "partId": "hc-sr04", "revision": 1, "partType": "DistanceInput",
-      "device": "hc-sr04", "label": "HC-SR04", "manufacturer": "Generic",
-      "interfaces": ["gpio"], "chips": [], "categories": ["ultra"],
+      "partId": "hc-sr04", "revision": 1, "partTypes": ["DistanceInput"],
+      "label": "HC-SR04", "manufacturer": "Generic",
+      "interfaces": ["pulse-ranging"], "chips": ["HC-SR04"], "categories": ["ultra"],
       "verification": "reviewed",
       "package": { "url": "packages/hc-sr04@1.json", "sha256": "<hex>", "bytes": 1234 },
       "render": { "url": "renders/hc-sr04@1.webp", "sha256": "<hex>", "bytes": 5678, "widthPx": 640, "heightPx": 480 }
@@ -70,7 +70,7 @@ was downloaded.
   supports (`SUPPORTED_INDEX_VERSION`) yields a typed `needs-newer-app` result
   (with a cached index, the cache is served and `refreshError` says why).
 - Required per part: `partId` (`[A-Za-z0-9][A-Za-z0-9._-]{0,63}`), integer
-  `revision` >= 1, `partType`, `label`, `interfaces`, `categories`,
+  `revision` >= 1, `partTypes` (one to eight), `label`, `interfaces`, `categories`,
   `verification`, `package`. A malformed part is dropped and counted in
   `droppedParts`; a duplicate `partId` keeps the first. A malformed `render`
   only removes that part's picture.
@@ -104,16 +104,19 @@ and `trustedKeys()`. Results are typed unions (`ok: true | false` with a
 `reason`); nothing throws. The default cache is IndexedDB; every cache
 operation swallows its own failure and degrades to no cache. Pure helpers:
 `searchParts(parts, query, tree?)` (tokenised, case-insensitive across label,
-manufacturer, part type, device, interfaces, chips and category labels with
+manufacturer, part types, interfaces, chips and category labels with
 ancestors) and `buildCategoryTree(categories, parts?)` (alias resolution,
 ordering, cycle and unknown-parent repair, direct and descendant part counts).
 
 ## Alignment with the manifest schema
 
-The manifest must carry, at its top level, the fields `sign.mjs index` copies
-into the index: `partId`, `revision`, `partType`, `label`, `verification`,
-`interfaces`, `categories`, and optionally `device`, `manufacturer`, `chips`.
-If the schema nests them elsewhere, change the script, not the index contract.
+`sign.mjs index` copies these top-level manifest fields
+(`src/build/parts/manifest/partManifest.ts`) into the index: `partId`,
+`revision`, `partTypes`, `label`, `verification`, `interfaces`, `categories`
+and optionally `manufacturer`. `chips` are the `device` and `controller` names
+the manifest's part-type blocks carry. The app passes each package to
+`validatePartManifest(payload, 'downloaded')`. If the schema moves a field,
+change the script, not the index contract.
 
 ## Signing tool
 

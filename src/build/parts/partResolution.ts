@@ -165,7 +165,11 @@ export function unresolvedPartSummaries(nodes: readonly StudioNode[]): string[] 
  * runs on such a sketch; the gate refuses first.
  */
 export function unresolvedSketchNotice(held: readonly UnresolvedNode[]): string {
-  const oneLine = (text: string) => text.replace(/[\r\n]+/g, ' ')
+  // A saved id is user text: keep it on this one comment line. No line break
+  // (or Unicode separator) can end the comment, and no backslash can splice it
+  // onto the next line.
+  // eslint-disable-next-line no-control-regex -- stripping control characters is the point
+  const oneLine = (text: string) => text.replace(/[\r\n\u2028\u2029]+/g, ' ').replace(/[\\\u0000-\u001f\u007f]/g, '?')
   return held.flatMap((entry) => entry.reasons.map((reason) =>
     `// Not generated: ${oneLine(unresolvedMessage(entry.node, reason))}\n`)).join('')
 }
