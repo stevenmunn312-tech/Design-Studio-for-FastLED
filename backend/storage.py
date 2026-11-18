@@ -4,6 +4,7 @@ project files, with the native open/save dialogs and folder reveal.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import os
 import platform
@@ -50,6 +51,10 @@ def _legacy_content_dir(environ=os.environ) -> Path | None:
 
 
 _LEGACY_CONTENT_DIR = _legacy_content_dir()
+# Which project files this helper wrote, by project id and the hash of the
+# bytes it wrote. Kept beside the helper's own data, never in the Projects
+# folder, so a file copied into that folder cannot bring its own entry.
+_PROJECT_LEDGER = Path(os.environ.get("FLS_DATA_DIR") or Path(__file__).parent) / ".projects-written-here.json"
 _project_file_lock = threading.RLock()
 # Pattern saves write the new file before removing a stale copy under an
 # older name. Two overlapping saves of one pattern would each delete the
@@ -210,6 +215,60 @@ def _newer_file_for_id(files, file_id: str, incoming: dict) -> Path | None:
                 and _format_version(existing) > _format_version(incoming)):
             return f
     return None
+
+
+def _file_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _projects_written_here() -> dict:
+    """Project id to the hash of the file this helper last wrote for it.
+
+    A project's `trusted` flag says its Formula and Code nodes may run, and
+    the studio believes it for work made on this machine. A file that arrived
+    some other way (copied in, synced, unzipped) must not be believed, so
+    `list_projects` honours the flag only for files recorded here. The first
+    run has no record: the files already in the folder are taken as this
+    machine's, as they were before the record existed.
+    """
+    try:
+        ledger = json.loads(_PROJECT_LEDGER.read_text(encoding="utf-8"))
+        if isinstance(ledger, dict):
+            return ledger
+    except FileNotFoundError:
+        pass
+    except Exception:
+        return {}
+    ledger = {}
+    for f in _iter_project_files():
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and isinstance(data.get("id"), str):
+                ledger[data["id"]] = _file_hash(f)
+        except Exception:
+            continue
+    _save_projects_written_here(ledger)
+    return ledger
+
+
+def _save_projects_written_here(ledger: dict) -> None:
+    try:
+        _PROJECT_LEDGER.parent.mkdir(parents=True, exist_ok=True)
+        _write_json_atomically(_PROJECT_LEDGER, ledger)
+    except Exception:
+        # Unwritable: the files it would have named open untrusted instead.
+        pass
+
+
+def _record_project_written(project_id: str, path: Path | None) -> None:
+    """Note the file just written for `project_id`, or forget a deleted one."""
+    ledger = _projects_written_here()
+    if path is None:
+        if ledger.pop(project_id, None) is None:
+            return
+    else:
+        ledger[project_id] = _file_hash(path)
+    _save_projects_written_here(ledger)
 
 
 def _iter_pattern_files():
@@ -618,6 +677,7 @@ def list_projects():
     """Every saved project on disk, newest first."""
     with _project_file_lock:
         out = []
+        written_here = _projects_written_here()
         for f in _iter_project_files():
             try:
                 data = json.loads(f.read_text(encoding="utf-8"))
@@ -625,6 +685,9 @@ def list_projects():
                 if (isinstance(data, dict) and data.get("id") and data.get("name")
                         and isinstance(workspace, dict) and isinstance(workspace.get("nodes"), list)
                         and isinstance(workspace.get("edges"), list)):
+                    # A file this helper did not write cannot vouch for itself.
+                    if written_here.get(data["id"]) != _file_hash(f):
+                        workspace["trusted"] = False
                     out.append(data)
             except Exception:
                 continue
@@ -680,7 +743,7 @@ def save_project(project: dict = Body(...)):
                         and (not isinstance(base, (int, float))
                              or _timestamp(existing.get("updatedAt")) > base)):
                     return {"ok": False, "conflict": True, "file": existing_path.name}
-            except (OSError, ValueError, TypeError):
+            except (OSError, ValueError, TypeError, AttributeError):
                 continue
         path = _unique_project_path(_sanitize_filename(name), pid)
         if _projects_dir().resolve() not in path.resolve().parents:
@@ -688,6 +751,7 @@ def save_project(project: dict = Body(...)):
         try:
             _write_json_atomically(path, project)
             _remove_project_files_for_id(pid, keep=path)
+            _record_project_written(pid, path)
         except Exception as e:
             return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
         return {"ok": True, "file": path.name}
@@ -731,6 +795,9 @@ def save_project_dialog(project: dict = Body(...)):
     }
     try:
         _write_json_atomically(path, saved_project)
+        if path.parent.resolve() == _projects_dir().resolve():
+            with _project_file_lock:
+                _record_project_written(pid, path)
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
     return {"ok": True, "canceled": False, "project": saved_project, "path": str(path)}
@@ -741,4 +808,5 @@ def delete_project(project_id: str):
     """Delete the file(s) holding this project id."""
     with _project_file_lock:
         _remove_project_files_for_id(project_id)
+        _record_project_written(project_id, None)
     return {"ok": True}

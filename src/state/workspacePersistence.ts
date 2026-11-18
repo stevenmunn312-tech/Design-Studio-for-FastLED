@@ -16,8 +16,9 @@ export interface PersistedWorkspace {
   buildProfile?: BuildProfile
   /** Whether this workspace's CustomFormula/FieldFormula/Code nodes are
    *  allowed to evaluate their preview logic (see todo.md's P0 trust-boundary
-   *  item). Missing/undefined is treated as trusted by `graphStore.loadGraph`
-   *  — content that predates this field is the user's own prior local work. */
+   *  item). `graphStore.loadGraph` believes it as given, so every path a
+   *  workspace arrives by forces it false unless the content was made here;
+   *  see the trust rule in docs/development/patterns/graph-and-nodes.md. */
   trusted?: boolean
   /** Performance Control Deck: pinned controls, parameter scenes, and
    *  MIDI/keyboard bindings. Missing = an empty deck — pre-existing saves,

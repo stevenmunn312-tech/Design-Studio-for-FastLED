@@ -2912,8 +2912,12 @@ export const useGraphStore = create<GraphState>()(
               activeGraphId,
               buildProfile,
               selectedNodeId: null,
-              // Missing/undefined = trusted: this predates the trust field, so
-              // it's the user's own prior local work, not imported content.
+              // Believed as given, because everything that reaches here has
+              // been vetted on the way: an opened file and a share link are
+              // forced false, the helper forces false on any Projects file it
+              // did not write itself (`_projects_written_here`, storage.py),
+              // and what is left is this browser's own storage. Missing means
+              // a blank or shipped workspace.
               trusted: workspace?.trusted ?? true,
               // Missing/malformed = an empty deck — pre-existing saves, share
               // links, and JSON imports created before this field all fall

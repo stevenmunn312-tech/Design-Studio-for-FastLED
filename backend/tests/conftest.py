@@ -17,7 +17,7 @@ def client():
 
 
 @pytest.fixture(autouse=True)
-def _isolated_content(monkeypatch, tmp_path):
+def _isolated_content(monkeypatch, tmp_path, tmp_path_factory):
     """Startup moves older pattern and project folders into the content folder,
     and the storage endpoints write there. A test that starts the app must
     never move or write the developer's own files, so every test gets empty
@@ -27,6 +27,7 @@ def _isolated_content(monkeypatch, tmp_path):
     monkeypatch.setattr(storage, "_LEGACY_CONTENT_DIR", tmp_path / "legacy-content")
     monkeypatch.setattr(storage, "_PATTERNS_DIR", tmp_path / "content" / "My Patterns")
     monkeypatch.setattr(storage, "_PROJECTS_DIR", tmp_path / "content" / "Projects")
+    monkeypatch.setattr(storage, "_PROJECT_LEDGER", tmp_path_factory.mktemp("helper-data") / "projects-written-here.json")
 
 
 @pytest.fixture(autouse=True)

@@ -18,6 +18,7 @@ import { useProjectStore } from '../../state/projectStore'
 import { useCustomDisplayAssets } from '../../hooks/useCustomDisplayAssets'
 import { resolveBuildMode } from '../../state/upload/buildMode'
 import { findFirmwareRamBudgetIssue } from '../../utils/validateGraph'
+import { workspaceNeedsTrust } from '../../state/patterns/patternTrust'
 
 /**
  * Keeps the capacity store pointed at what an Upload would actually build.
@@ -119,6 +120,9 @@ export default function CapacityWatcher() {
     [codegenGraph, customAssets.documents, groups],
   )
   const graphs = useGraphStore((s) => s.graphs)
+  // A check compiles the sketch, Code-node C++ included, so it waits on the
+  // same decision Upload does: nothing from elsewhere is built before it.
+  const trustHolds = useGraphStore((s) => !s.trusted && workspaceNeedsTrust(s.nodes, s.graphData))
   /*
    * What a check would compile, as a generator and the fingerprint of its
    * inputs — not the sketch itself. Generating it walks every collected
@@ -128,7 +132,7 @@ export default function CapacityWatcher() {
    * when pressed.
    */
   const capacityInput = useMemo(() => {
-    if (customAssets.pending || customAssets.errors.length > 0
+    if (trustHolds || customAssets.pending || customAssets.errors.length > 0
       || customAssets.routingErrors.length > 0 || ramBudgetIssue) return null
     if (codegenBuild.mode !== 'player' && !codegenBuild.capabilities.buildable) return null
     const inputKey = [
@@ -172,7 +176,7 @@ export default function CapacityWatcher() {
         : generateCpp(codegenGraph.nodes, codegenGraph.edges, groups, opts)
     }
     return { generate, inputKey }
-  }, [codegenGraph, codegenBuild, groups, graphs, psramSupported, selectedFqbn, activeBoardId, projectName, ramBudgetIssue, shows,
+  }, [codegenGraph, codegenBuild, groups, graphs, psramSupported, selectedFqbn, activeBoardId, projectName, ramBudgetIssue, shows, trustHolds,
     customAssets.pending, customAssets.errors, customAssets.routingErrors,
     customAssets.documents, customAssets.assets, customAssets.trusted])
 
@@ -183,7 +187,7 @@ export default function CapacityWatcher() {
       generate: capacityInput?.generate ?? null,
       inputKey: capacityInput?.inputKey ?? '',
       preparing: customAssets.pending,
-      awaitingTrust: !customAssets.trusted && customAssets.errors.length > 0,
+      awaitingTrust: trustHolds || (!customAssets.trusted && customAssets.errors.length > 0),
       // Only what asset preparation itself could not do. A routing error is
       // reported as `blockedByGraph` instead, so the meter can point at Graph
       // Health rather than recite a sentence Graph Health already carries.
@@ -199,7 +203,7 @@ export default function CapacityWatcher() {
       flashMb,
       usbCdcOnBoot,
     })
-  }, [capacityInput, customAssets.pending, customAssets.trusted, customAssets.errors, customAssets.routingErrors, ramBudgetIssue, fqbnWithOpt, toolchainReady, helper?.engine, isShow, flashMb, usbCdcOnBoot, setCapacityTarget])
+  }, [capacityInput, trustHolds, customAssets.pending, customAssets.trusted, customAssets.errors, customAssets.routingErrors, ramBudgetIssue, fqbnWithOpt, toolchainReady, helper?.engine, isShow, flashMb, usbCdcOnBoot, setCapacityTarget])
 
   return null
 }

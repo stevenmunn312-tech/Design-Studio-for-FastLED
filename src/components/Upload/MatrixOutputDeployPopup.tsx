@@ -634,6 +634,7 @@ export default function MatrixOutputDeployPopup({
      board — so it generates the sketch at the same point Upload does, rather
      than exporting whatever View Code happens to be memoizing. */
   function handleExportBinary() {
+    if (trustHolds) return
     void (async () => {
       const exportCode = generateCurrentCode()
       if (!exportCode) return
@@ -988,11 +989,12 @@ export default function MatrixOutputDeployPopup({
 
           <button
             className={`${styles.wizardButtonBase} ${styles.exportBtn}`}
-            disabled={busy || !hasBuildOutput || blockingErrors.length > 0 || !activeEngineReady}
+            disabled={busy || !hasBuildOutput || blockingErrors.length > 0 || trustHolds || !activeEngineReady}
             onClick={handleExportBinary}
             title={
               !hasBuildOutput ? 'Connect a pattern to the LED output to enable export'
               : blockingErrors.length > 0 ? blockingErrors.join('\n')
+              : trustHolds ? 'Review “Run code from this file?” above the canvas before building unfamiliar code.'
               : !activeEngineReady ? 'Start the build tools to compile a firmware image'
               : busy ? status.message
               : 'Compile this design and download the firmware image (nothing is sent to the board)'

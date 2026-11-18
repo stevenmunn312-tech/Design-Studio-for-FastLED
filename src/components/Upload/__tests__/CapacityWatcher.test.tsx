@@ -8,6 +8,7 @@ import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { createDisplayDocument } from '../../../state/displays/displayEditor'
 import { bakeCustomDisplayAssets } from '../../../utils/bakeCustomDisplayAssets'
 import { generateCpp } from '../../../codegen/cppGenerator'
+import { clearPatternContentTrustForTests } from '../../../state/patterns/patternTrust'
 
 vi.mock('../../../codegen/cppGenerator', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../codegen/cppGenerator')>()
@@ -355,6 +356,28 @@ describe('CapacityWatcher', () => {
     render(<CapacityWatcher />)
     expect((setTarget.mock.calls[0][0].generate?.() ?? null)).not.toBeNull()
     setTarget.mockRestore()
+  })
+
+  // A check compiles the sketch, and a Code node's text is C++ in it.
+  it('offers nothing to compile while code from elsewhere waits on Run it', async () => {
+    clearPatternContentTrustForTests()
+    const code = {
+      id: 'code', type: 'studioNode', position: { x: 0, y: 0 },
+      data: { label: 'Code', nodeType: 'Code', category: 'pattern', properties: { code: 'leds[0] = CRGB::Red; // theirs' }, inputs: [], outputs: [] },
+    }
+    useGraphStore.setState({
+      nodes: [code, output] as never[],
+      edges: [{ id: 'e', source: 'code', target: 'matrix', sourceHandle: 'frame', targetHandle: 'frame' }] as never[],
+      selectedNodeId: null, graphData: {}, graphs: { root: { id: 'root', name: 'Main' } }, activeGraphId: 'root',
+      trusted: false,
+    })
+    expect(useGraphStore.getState().trusted).toBe(false)
+    render(<CapacityWatcher />)
+    await waitFor(() => expect(useCapacityStore.getState().status).toBe('awaiting-trust'))
+    expect(useCapacityStore.getState().target?.generate).toBeNull()
+
+    act(() => useGraphStore.getState().setTrusted(true))
+    await waitFor(() => expect(useCapacityStore.getState().target?.generate).not.toBeNull())
   })
 
   it('reports toolchain-missing without hitting the network', async () => {

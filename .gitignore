@@ -25,6 +25,7 @@ backend/.venv/
 backend/__pycache__/
 # persisted arduino-cli path
 backend/.helper-config.json
+backend/.projects-written-here.json
 # self-installed arduino-cli binary
 backend/bin/
 # fbuild build workspace + vendored FastLED/audio libs

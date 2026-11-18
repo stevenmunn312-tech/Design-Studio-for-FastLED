@@ -120,7 +120,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   [library sharing](../../design/library-sharing.md). The workspace's one
   permission button is Run it in `TrustBanner`, which calls
   `trustCurrentProject` (`src/utils/trustPrompt.ts`). Upload waits and focuses
-  that button instead of granting permission itself. Test all workspace nodes
+  that button instead of granting permission itself, and so do Check capacity
+  and Export Binary: both compile the sketch, Code-node C++ included. A saved
+  project's own `trusted` flag is believed only where its origin is known.
+  `parseProjectFile` and the share-link load force it false; for the Projects
+  folder the helper keeps a record of the files it wrote, outside that folder
+  (`_projects_written_here` in `backend/storage.py`), and `list_projects`
+  forces the flag false on any file whose bytes are not the ones recorded, so
+  a file copied in opens as an import does. A new way for a workspace to reach
+  `loadGraph` must do the same. Test all workspace nodes
   plus stored graph data; root nodes alone omit an open nested pattern.
   A test that needs an
   untrusted project must give it unknown gated content and call
