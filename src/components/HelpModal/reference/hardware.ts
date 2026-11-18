@@ -117,6 +117,7 @@ export const HARDWARE_REFERENCE: NodeReferenceMap = {
       'Power Supply is the supply you already have. Enter the voltage and rated current printed on its label; the wattage follows. There is no list to pick from, so any supply can be entered.',
       'Add one for each physical supply. With more than one, each LED output has a Powered by setting that names the supply its power wires go to, and the Build Diagram plans each supply as its own zone.',
       'The voltage must match the LEDs it feeds: a 12 V supply on a 5 V strip is a blocker in the Build Diagram.',
+      'The wiring and fuses are sized to the supply: no more current than its rating can flow, so a 5 A supply on LEDs that want 15 A at full white is wired for 5 A. Turn on the Board power cap so bright scenes stay inside it; it starts at 85% of the supply less the controller.',
     ],
     steps: [
       'Add the supply from the Hardware tab, under Power.',
@@ -131,7 +132,7 @@ export const HARDWARE_REFERENCE: NodeReferenceMap = {
         supply: ['PowerSupply', { voltage: 5, ratedCurrentA: 10 }],
         pattern: ['Juggle'],
       },
-      explanation: 'Power Supply carries no wires and adds no firmware. It records a 5 V 10 A supply, and the Build Diagram draws the LED power zone on it.',
+      explanation: 'Power Supply carries no wires and adds no firmware. It records a 5 V 10 A supply, and the Build Diagram draws the LED power zone on it and sizes the wiring to it.',
       preview: 'The {output} is unchanged. Open the Build Diagram to see the zone named for your supply.',
       workflow: true,
     }),

@@ -22,7 +22,15 @@ versioning (`0.y.z`) until the first stable release.
   converter's source voltage and its draw. Ticking the Board's power cap, or
   loading a starter, now sets it to 85% of your supplies' rating less the
   controller's own draw, so a smaller supply is kept inside its rating;
-  starters keep the supplies already on the bench.
+  starters keep the supplies already on the bench. The Board, Readiness,
+  Build Diagram and LED output wizard now say what your supply allows ("Full
+  white needs 15.4 A. Your 5 A supply allows about 25% brightness. Wired for a
+  5 V 5 A supply."). Checks replaces "Set a power cap for this many LEDs"
+  with supply-aware advice: cap a supply that cannot reach full white, lower
+  a cap above what the supply allows, flag one of several supplies smaller
+  than its LEDs, keep a BMS on a battery with no current limit, and, for a
+  large fixture with no supply entered, ask which supply you have (Add Power
+  Supply, or Not now for this project).
 - Project and pattern files record their save format version. A file saved by
   a newer Design Studio is refused with a message instead of opening with its
   newer parts dropped, and the helper will not overwrite it from an older app.

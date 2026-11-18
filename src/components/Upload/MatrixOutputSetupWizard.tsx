@@ -90,7 +90,7 @@ export default function MatrixOutputSetupWizard() {
     () => linear ? [] : validateMatrixLayout(width, height, { layout, tilesX, tilesY, tileSerpentine, tileRotations, customXYMap }),
     [linear, width, height, layout, tilesX, tilesY, tileSerpentine, tileRotations, customXYMap],
   )
-  const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
+  const power = useMemo(() => estimatePowerLoad(nodes, selectedFqbn), [nodes, selectedFqbn])
   const hub75TopologyErrors = useMemo(
     () => findHub75TopologyDiagnosticErrors(nodes, nodeId ?? undefined),
     [nodes, nodeId],
@@ -343,12 +343,16 @@ export default function MatrixOutputSetupWizard() {
             {power && power.ledCount > 0 && (
               <div
                 className={styles.powerRow}
-                title="Worst-case draw assumes every LED at full white (~60 mA/LED, the typical WS2812-class figure) — real draw is usually well under this."
+                title="Worst-case draw assumes every LED at full white, at its chipset's own draw — real draw is usually well under this."
               >
                 {power.ledCount} LEDs · worst case ~{(power.worstCaseMa / 1000).toFixed(1)} A
                 {power.configuredMa != null
                   ? ` · capped at ${(power.configuredMa / 1000).toFixed(1)} A${power.exceedsConfigured ? ' (bright scenes dim to fit)' : ''}`
-                  : ` · recommended PSU ≥ ${(power.recommendedMa / 1000).toFixed(1)} A`}
+                  : power.supply
+                    ? power.supply.coversFullWhite
+                      ? ` · your ${(power.supply.ratingMa / 1000).toFixed(1)} A supply covers full white`
+                      : ` · your ${(power.supply.ratingMa / 1000).toFixed(1)} A supply allows about ${power.supply.brightnessPercent}% brightness; turn on the power cap`
+                    : ` · recommended PSU ≥ ${(power.requiredSupplyMa / 1000).toFixed(1)} A`}
               </div>
             )}
           </div>

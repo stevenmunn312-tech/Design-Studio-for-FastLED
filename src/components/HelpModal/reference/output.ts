@@ -13,7 +13,8 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
     ],
     steps: [
       'Open the Hardware tab and choose your exact board from the shelf.',
-      'Set the master brightness and frame rate. Size the power supply from the Required power supply figure, which allows for every LED at full white; turn on the power cap only to limit brightness or heat, never to make a smaller supply do.',
+      'Set the master brightness and frame rate. Add the Power Supply you have from the Hardware tab; the Board then says how bright it lets the LEDs run. With no supply entered, it shows the supply to buy for every LED at full white.',
+      'Turn on the power cap when your supply is smaller than full white needs. It starts at 85% of the supply, less what the controller draws, and FastLED dims only the brightest scenes to stay inside it.',
     ],
     propertyNote: 'The power cap dims the LEDs on the board itself; the live preview is not dimmed. PSRAM and serial options are usually best left on Auto.',
     outcome: 'Board changes pin checks, the Build Diagram and the upload, not the pixels.',
@@ -39,7 +40,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
     ],
     steps: [
       'Add the LED output from the Hardware tab and choose its form, chipset and size.',
-      'Wire the data pin, power and ground as the Build Diagram shows. Size the supply for full white.',
+      'Wire the data pin, power and ground as the Build Diagram shows. Enter the supply you have as a Power Supply, so the wiring and the Board’s power cap follow it.',
       'Wire the frame you want to see into Frame.',
     ],
     inputs: {

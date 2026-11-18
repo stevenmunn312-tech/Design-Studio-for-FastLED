@@ -103,7 +103,11 @@ converters' shared DC source (`totals.source.ownedSupply`), blocked when its
 voltage is not the converter's source voltage and advised when the converters'
 combined input draw exceeds it. Hardware is sized to the supply; see
 [Generated Electrical Defaults](build-diagram.md#generated-electrical-defaults)
-and [supply-based power sizing](../plans/supply-based-power-sizing.md).
+and [supply-based power sizing](../plans/supply-based-power-sizing.md). The Board's power cap
+starts from the supplies feeding the LEDs (`defaultPowerCapMa`), and Checks
+advises when a supply cannot reach full white uncapped, when the cap is above
+what it allows, and when one of several supplies is smaller than its own
+LEDs.
 
 `PdTriggerSource` is the ZY12PDN, a config-only fixture like `PowerConverter`: no
 ports, no pins and no firmware. Its `pdTrigger` catalogue block carries the selectable

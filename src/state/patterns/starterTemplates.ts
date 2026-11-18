@@ -7,8 +7,6 @@ import { retargetHardwarePins } from '../../build/pins/pinRetarget'
 import { audioCapabilityIntent } from '../audio/audioCapabilities'
 import { FIRST_BUTTON_HANDLE, buttonBankHandle, buttonBankOutputs, normalizeButtonBankEntries } from '../player/buttonBank'
 import { estimatePowerLoad } from '../../utils/validateGraph'
-import { defaultPowerCapMa } from '../../build/power/powerCap'
-import { targetFamilyFromFqbn } from '../../build/buildProfile'
 import { powerSupplies } from '../peripherals/powerSupply'
 import type { StudioNode, StudioEdge } from '../graphStore'
 
@@ -296,7 +294,7 @@ export function buildBoardAwareStarter(
   const bench = [...powerSupplies(currentNodes), ...(board ? [board] : [])]
   const nodes = [...starterNodes, ...bench]
   const retargeted = retargetHardwarePins(nodes, profile, fqbn).nodes
-  const power = estimatePowerLoad(retargeted)
+  const power = estimatePowerLoad(retargeted, fqbn)
   if (!board || !power) return { ...built, nodes: retargeted }
 
   // A guided starter should be electrically coherent on first load. Cap at
@@ -310,7 +308,7 @@ export function buildBoardAwareStarter(
           properties: {
             ...node.data.properties,
             powerLimit: true,
-            milliamps: defaultPowerCapMa(retargeted, targetFamilyFromFqbn(fqbn), power.recommendedMa),
+            milliamps: power.defaultCapMa,
           },
         },
       }

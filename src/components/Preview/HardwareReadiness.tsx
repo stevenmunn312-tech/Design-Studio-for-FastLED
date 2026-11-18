@@ -12,6 +12,7 @@ import {
   findPinConflicts,
   findExactBoardPinIssues,
 } from '../../utils/validateGraph'
+import { supplyCoverageSentences } from '../../build/power/powerCap'
 import styles from './HardwareReadiness.module.css'
 
 /**
@@ -55,7 +56,7 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
   const checkStartedAt = useCapacityStore((s) => s.checkStartedAt)
   const checkElapsedSeconds = useElapsedSeconds(checkStartedAt, capacityStatus === 'checking')
 
-  const power = useMemo(() => estimatePowerLoad(nodes), [nodes])
+  const power = useMemo(() => estimatePowerLoad(nodes, selectedFqbn), [nodes, selectedFqbn])
   const groups = useGroupRegistry()
   const ram = useMemo(
     () => estimateFirmwareRam(board.nodes, board.edges, displayDocuments, groups),
@@ -81,8 +82,12 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
   const capped = power.configuredMa !== null
   // "cap 2 A" / "cap 2.5 A": the figure the firmware holds to, without padding.
   const capText = capped ? `cap ${Number((power.configuredMa! / 1000).toFixed(2))} A` : null
-  // A cap is the answer to a large fixture, not a problem with it.
-  const powerLevel = 'ok'
+  // A cap is the answer to a large fixture, not a problem with it. A supply
+  // that cannot reach full white with no cap set is advice: the wiring is
+  // sized to the supply, so nothing is unsafe, but bright scenes overdraw it.
+  const supplyOverdrawn = !!power.supply && !power.supply.coversFullWhite && !capped
+  const powerLevel = supplyOverdrawn ? 'warn' : 'ok'
+  const supplySaid = power.supply ? supplyCoverageSentences(power.supply) : null
   const internalKb = ram ? Math.round(ram.internalBytes / 1024) : null
 
   const pinLevel = pinTrouble.errors > 0 ? 'bad' : pinTrouble.warnings > 0 ? 'warn' : 'ok'
@@ -97,7 +102,9 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
   return (
     <div className={`${styles.strip} ${compact ? styles.compact : ''}`} aria-label="Hardware readiness">
       <span className={styles.item} data-level={powerLevel} title={
-        capped
+        supplySaid
+          ? `${supplySaid.needs} ${supplySaid.allows} ${supplySaid.wired}${supplyOverdrawn ? ' Turn on the power cap on the Board so bright scenes stay inside the supply.' : ''}`
+          : capped
           ? `Up to ${amps.toFixed(2)} A if all ${power.ledCount} LEDs showed full white. Your ${(power.configuredMa! / 1000).toFixed(2)} A cap keeps it within your supply: FastLED dims only the brightest scenes.`
           : `Worst case ${amps.toFixed(2)} A if every one of ${power.ledCount} LEDs showed white at once. Use at least a ${(power.requiredSupplyMa / 1000).toFixed(1)} A continuous supply.`
       }>

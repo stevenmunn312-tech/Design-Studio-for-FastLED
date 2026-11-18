@@ -1415,19 +1415,78 @@ describe('validateGraph', () => {
       ]
       const edges = [edge('e1', 'sc', 'out', 'frame')]
       expect(validateGraph(nodes, edges).warnings.some((w) => /power cap/i.test(w))).toBe(false)
-      expect(buildGraphDiagnostics(nodes, edges).some((d) => d.category === 'power')).toBe(false)
+      expect(buildGraphDiagnostics(nodes, edges, { supplyPromptDismissed: true }).some((d) => d.category === 'power')).toBe(false)
     })
 
-    it('suggests a cap only for a large fixture that has none', () => {
-      const nodes = [
-        node('board', 'Board', { powerLimit: false }),
-        node('sc', 'SolidColor'),
-        node('out', 'MatrixOutput', { width: 32, height: 32 }),
-      ]
+    describe('supply checks', () => {
+      const ESP32 = 'esp32:esp32:esp32'
+      const sc = node('sc', 'SolidColor')
       const edges = [edge('e1', 'sc', 'out', 'frame')]
-      const power = buildGraphDiagnostics(nodes, edges).find((d) => d.category === 'power')
-      expect(power?.title).toBe('Set a power cap for this many LEDs')
-      expect(power?.fix).toMatch(/dims only the brightest scenes/)
+      const supply = (id: string, ratedCurrentA: number) => node(id, 'PowerSupply', { voltage: 5, ratedCurrentA })
+      const power = (nodes: StudioNode[], options = {}) =>
+        buildGraphDiagnostics([sc, ...nodes], edges, { selectedFqbn: ESP32, ...options }).filter((d) => d.category === 'power')
+
+      it('asks once which supply a large fixture runs from, with Add and Not now', () => {
+        const nodes = [node('board', 'Board'), node('out', 'MatrixOutput', { width: 16, height: 16 })]
+        const [prompt] = power(nodes)
+        expect(prompt).toEqual(expect.objectContaining({
+          id: 'supply-prompt',
+          severity: 'warning',
+          title: 'Tell the app which supply you have',
+          action: 'add-power-supply',
+          repair: { kind: 'add-power-supply', boardId: 'board' },
+          moreFixes: [{ action: 'dismiss-supply-prompt', repair: { kind: 'dismiss-supply-prompt' } }],
+        }))
+        expect(power(nodes, { supplyPromptDismissed: true })).toEqual([])
+        // A USB-sized load is not asked about.
+        expect(power([node('board', 'Board'), node('out', 'MatrixOutput', { width: 8, height: 8 })])).toEqual([])
+      })
+
+      it('offers the 85% cap when the supply cannot reach full white and no cap is set', () => {
+        const [card] = power([node('board', 'Board'), supply('psu', 5), node('out', 'MatrixOutput', { width: 16, height: 16 })])
+        expect(card).toEqual(expect.objectContaining({
+          id: 'board-supply-uncapped',
+          severity: 'warning',
+          action: 'set-power-cap',
+          // 0.85 x 5 A less a classic ESP32's 250 mA.
+          repair: { kind: 'set-power-cap', milliamps: 4000, boardId: 'board' },
+        }))
+      })
+
+      it('offers to lower a cap above what the supply allows, and leaves one inside it alone', () => {
+        const high = power([node('board', 'Board', { powerLimit: true, milliamps: 10000 }), supply('psu', 5), node('out', 'MatrixOutput', { width: 16, height: 16 })])
+        expect(high).toEqual([expect.objectContaining({
+          id: 'board-supply-cap-high',
+          repair: { kind: 'set-power-cap', milliamps: 4000, boardId: 'board' },
+        })])
+        expect(power([node('board', 'Board', { powerLimit: true, milliamps: 3000 }), supply('psu', 5), node('out', 'MatrixOutput', { width: 16, height: 16 })])).toEqual([])
+      })
+
+      it('says nothing when the supply covers full white', () => {
+        expect(power([node('board', 'Board'), supply('psu', 30), node('out', 'MatrixOutput', { width: 16, height: 16 })])).toEqual([])
+      })
+
+      it('names the one of several supplies below its own segment', () => {
+        const cards = power([
+          node('board', 'Board', { powerLimit: true, milliamps: 3000 }),
+          supply('small', 5),
+          supply('large', 30),
+          node('out', 'MatrixOutput', { width: 16, height: 16, poweredBy: 'small' }),
+          node('out2', 'MatrixOutput', { width: 4, height: 4, poweredBy: 'large', dataPin: 15 }),
+        ])
+        expect(cards.map((card) => card.id)).toEqual(['small-segment-undersized'])
+        expect(cards[0].severity).toBe('warning')
+        expect(cards[0].fix).toContain('Use a 5 V 20 A supply')
+      })
+
+      it('advises a BMS when nothing limits the current from a battery', () => {
+        const cards = power([
+          node('board', 'Board'),
+          node('pack', 'BatteryPack', {}),
+          node('out', 'MatrixOutput', { width: 16, height: 16 }),
+        ])
+        expect(cards).toEqual([expect.objectContaining({ id: 'pack-battery-unlimited', severity: 'warning' })])
+      })
     })
 
     it('uses a HUB75-specific per-pixel rate instead of the addressable-strip figure', () => {

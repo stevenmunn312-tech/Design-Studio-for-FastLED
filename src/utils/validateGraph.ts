@@ -73,7 +73,9 @@ import { boardPinVerdict, selectedBoardResolution, selectedPhysicalBoardProfile 
 import { integratedPinsFor } from '../build/boards/integratedBoardHardware'
 import type { PhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { recommendedSupplyCurrentMa } from '../build/power/powerSupplySizing'
-import { ledFullWhiteDraw } from '../build/power/ledDraw'
+import { boardFamily, defaultPowerCapMa, ledLoads, supplyCoverage, supplySegments, undersizedSegments, type SupplyCoverage } from '../build/power/powerCap'
+import { converterRoles, powerConverterModuleFor } from '../state/peripherals/powerConverter'
+import type { BuildTargetFamily } from '../build/buildProfile'
 import { pinWarningForCapability } from '../build/boards/boardGpio'
 import { micSupportedForBoard, micUnsupportedMessage } from '../build/pins/micPinDefaults'
 import { controllerSettings } from '../build/controllerSettings'
@@ -394,6 +396,12 @@ export interface PowerEstimate {
   requiredSupplyWattage: number
   /** The LEDs' supply voltage, derived from their chipset. */
   supplyVolts: number
+  /** The board family whose controller draw the supply figures subtract. */
+  family: BuildTargetFamily
+  /** What the user's own supplies allow, or null when none feeds the LEDs. */
+  supply: SupplyCoverage | null
+  /** The cap ticking the Board sets: from the supply when there is one, else the full-white figure. */
+  defaultCapMa: number
   /** True once a configured cap exists and falls short of a sane safety margin
    *  below worst case (see `POWER_CAP_MIN_COVERAGE`) — not simply "any cap
    *  below the theoretical full-white max", since FastLED's power capping is
@@ -422,41 +430,26 @@ export function outputLedCount(node: StudioNode): number {
   return outputLedTotal(node.data.properties as Record<string, unknown>)
 }
 
-export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
-  const outputs = ledDrivingOutputs(nodes)
-  // A VU fixture is two physical addressable runs. It remains real load when
-  // it is the only output; omitting it made Board claim no supply was needed
-  // for the exact standalone topology the generator supports.
-  const vuMeters = nodes.filter((node) =>
-    node.data.nodeType === 'StereoVuMeter'
-    && (node.data.properties as Record<string, unknown>).enabled !== false)
-  if (outputs.length === 0 && vuMeters.length === 0) return null
-  const vuLedCount = vuMeters.reduce((sum, meter) =>
-    sum + stereoVuTotalLeds(meter.data.properties as Record<string, unknown>), 0)
-  const ledCount = outputs.reduce((sum, output) => sum + outputLedCount(output), 0) + vuLedCount
+export function estimatePowerLoad(nodes: StudioNode[], fqbn?: string): PowerEstimate | null {
+  // Every LED output and enabled Stereo VU Meter (two physical runs). A VU
+  // fixture alone is still real load: omitting it made Board claim no supply
+  // was needed for the exact standalone topology the generator supports.
+  const loads = ledLoads(nodes)
+  if (loads.length === 0) return null
+  const ledCount = loads.reduce((sum, load) => sum + load.leds, 0)
   const controller = controllerSettings(nodes)
-  // Each output draws at its own chipset's voltage (the figure the Build
+  // Each load draws at its own chipset's voltage (the figure the Build
   // Diagram's electrical plan uses too). The supply, cap and warnings work in
   // one voltage, the controller's, so mixed rails are summed as power and
   // read back as current at that voltage.
-  const fullWhiteMw = (props: Record<string, unknown>, leds: number, form?: unknown) => {
-    const draw = ledFullWhiteDraw(props.chipset ?? 'WS2812B', form)
-    return leds * draw.maPerLed * draw.volts
-  }
-  const worstCaseMa = (outputs.reduce((sum, output) => {
-    const props = output.data.properties as Record<string, unknown>
-    return sum + fullWhiteMw(props, outputLedCount(output), outputForm(props))
-  }, 0) + vuMeters.reduce((sum, meter) => {
-    const props = meter.data.properties as Record<string, unknown>
-    return sum + fullWhiteMw(props, stereoVuTotalLeds(props))
-  }, 0)) / controller.volts
+  const worstCaseMa = loads.reduce((sum, load) => sum + load.fullWhiteMw, 0) / controller.volts
   const configuredMa = controller.powerLimit ? controller.milliamps : null
   const recommendedMa = Math.ceil(worstCaseMa / 100) * 100
-  // The supply is sized for the uncapped full-white load, never from the
-  // firmware cap: a cap that is changed, cleared or never flashed must not
-  // overload a supply that was bought for it. The cap is information only,
-  // the same rule the Build Diagram's electrical plan already follows.
+  // The supply to buy is sized for the uncapped full-white load, never from
+  // the firmware cap: a cap that is changed, cleared or never flashed must
+  // not overload a supply that was bought for it.
   const requiredSupplyMa = recommendedSupplyCurrentMa(worstCaseMa)
+  const family = boardFamily(nodes, fqbn)
   return {
     ledCount,
     worstCaseMa,
@@ -465,6 +458,9 @@ export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
     requiredSupplyMa,
     requiredSupplyWattage: Number(((requiredSupplyMa / 1000) * controller.volts).toFixed(1)),
     supplyVolts: controller.volts,
+    family,
+    supply: supplyCoverage(supplySegments(nodes), worstCaseMa, family),
+    defaultCapMa: defaultPowerCapMa(nodes, family, recommendedMa),
     exceedsConfigured: configuredMa != null && configuredMa < worstCaseMa * POWER_CAP_MIN_COVERAGE,
   }
 }
@@ -1921,6 +1917,9 @@ export type GraphDiagnosticAction =
   | 'set-panel-layout'
   | 'add-rtc-module'
   | 'add-bench-part'
+  | 'set-power-cap'
+  | 'add-power-supply'
+  | 'dismiss-supply-prompt'
 
 /**
  * Everything a repairing action needs to perform what it names.
@@ -1972,6 +1971,12 @@ export type GraphRepair =
   /** A DMX transceiver or MIDI interface to put on the board's bench, for the
    *  DMX512 or DIN node that reads it. */
   | { kind: 'add-bench-part'; nodeType: 'DmxTransceiver' | 'MidiInterface'; boardId?: string }
+  /** The Board power cap to turn on, or lower, to what the user's supply allows. */
+  | { kind: 'set-power-cap'; milliamps: number; boardId?: string }
+  /** A Power Supply to put on the board's bench, for the user to rate. */
+  | { kind: 'add-power-supply'; boardId?: string }
+  /** Hide the "which supply" prompt for this project. */
+  | { kind: 'dismiss-supply-prompt' }
 
 /** One button on a card: what it names, and the repair it performs. */
 export interface GraphDiagnosticFix {
@@ -2015,9 +2020,96 @@ export interface GraphDiagnosticOptions {
   target?: 'matrix' | 'group'
   /** Root hardware catalogue used by Audio nodes inside a nested group. */
   capabilityNodes?: readonly StudioNode[]
+  /** The project answered Not now to "Tell the app which supply you have". */
+  supplyPromptDismissed?: boolean
+}
+
+/**
+ * The power cards, all advice: the wiring is sized to the user's supply, so
+ * none of these holds an upload. The supply the user has is the basis; a cap
+ * below full white is the cap doing its job and is never reported. The cards
+ * name no nodes to locate (except a supply): the cap is on the Board.
+ */
+function supplyDiagnostics(nodes: StudioNode[], options: GraphDiagnosticOptions): GraphDiagnostic[] {
+  const power = estimatePowerLoad(nodes, options.selectedFqbn)
+  if (!power) return []
+  const diagnostics: GraphDiagnostic[] = []
+  const board = nodes.find((node) => node.data.nodeType === 'Board')
+  const boardId = board?.id
+  const amps = (ma: number) => `${Number((ma / 1000).toFixed(ma < 10_000 ? 2 : 1))} A`
+  const supply = power.supply
+  if (supply && board) {
+    const yours = supply.segments.length > 1 ? `your supplies' ${amps(supply.ratingMa)}` : `your ${amps(supply.ratingMa)} supply`
+    if (!supply.coversFullWhite && power.configuredMa == null) {
+      diagnostics.push({
+        id: `${board.id}-supply-uncapped`, severity: 'warning', category: 'power',
+        title: 'Your supply cannot run these LEDs at full white',
+        message: `Full white needs ${amps(power.worstCaseMa)}, more than ${yours} can give. Bright scenes would overload it: it would sag, reset the board or shut down.`,
+        fix: `Turn on the power cap at ${amps(power.defaultCapMa)}, 85% of the supply less the controller. FastLED then dims only the brightest scenes, to about ${supply.brightnessPercent}% brightness.`,
+        nodeIds: [], nodeLabel: nodeLabel(board),
+        action: 'set-power-cap',
+        repair: { kind: 'set-power-cap', milliamps: power.defaultCapMa, ...(boardId ? { boardId } : {}) },
+      })
+    } else if (power.configuredMa != null && power.configuredMa > supply.capMa && !supply.coversFullWhite) {
+      diagnostics.push({
+        id: `${board.id}-supply-cap-high`, severity: 'warning', category: 'power',
+        title: 'The power cap is above what your supply allows',
+        message: `The cap is ${amps(power.configuredMa)}, and ${yours} allows ${amps(supply.capMa)}: 85% of its rating less the controller.`,
+        fix: `Lower the cap to ${amps(supply.capMa)} so bright scenes stay inside the supply.`,
+        nodeIds: [], nodeLabel: nodeLabel(board),
+        action: 'set-power-cap',
+        repair: { kind: 'set-power-cap', milliamps: supply.capMa, ...(boardId ? { boardId } : {}) },
+      })
+    }
+  }
+  for (const segment of undersizedSegments(supply)) {
+    diagnostics.push({
+      id: `${segment.nodeId}-segment-undersized`, severity: 'warning', category: 'power',
+      title: `${segment.name} is smaller than its LEDs at full white`,
+      message: `The LEDs on ${segment.name} draw ${amps(segment.fullWhiteMa)} at full white, and it is rated ${amps(segment.ratingMa)}. The power cap is one figure for the whole board, so it cannot keep this supply inside its rating when its LEDs are the bright ones.`,
+      fix: `Use a ${segment.voltage} V ${amps(segment.neededMa)} supply for these LEDs, or move some of them to another supply under Powered by. The wiring is sized for the ${amps(segment.ratingMa)} supply, so it stays safe.`,
+      nodeIds: [segment.nodeId], nodeLabel: segment.name,
+    })
+  }
+  // A pack whose LED rail has no output current limit: nothing but the pack's
+  // own protection stops a short, so that protection has to be there.
+  const pack = nodes.find((node) => node.data.nodeType === 'BatteryPack')
+  if (pack) {
+    const railLimits = nodes
+      .filter((node) => node.data.nodeType === 'PowerConverter')
+      .map((node) => powerConverterModuleFor(node.data.properties.partId)?.spec)
+      .filter((spec): spec is NonNullable<typeof spec> => !!spec && converterRoles(spec).includes('led-rail'))
+      .map((spec) => spec.outputCurrentLimit)
+    if (railLimits.length === 0 || railLimits.some((limit) => limit !== 'fixed')) {
+      diagnostics.push({
+        id: `${pack.id}-battery-unlimited`, severity: 'warning', category: 'power',
+        title: 'Nothing limits the LED current from the battery',
+        message: 'The pack feeds the LEDs directly or through a converter with no output current limit, so the wiring is sized for full white and only the pack protection stops a short.',
+        fix: 'Keep a protection board (BMS) with a low-voltage cutoff on the pack, rated for the full-white draw, as the Build Diagram shows.',
+        nodeIds: [pack.id], nodeLabel: nodeLabel(pack),
+      })
+    }
+  }
+  // Nothing on the power path at all: ask which supply the user has, once,
+  // when the LEDs need more than a USB port or a phone charger gives.
+  const hasPowerPath = nodes.some((node) => POWER_PATH_NODE_TYPES.has(node.data.nodeType))
+  if (!hasPowerPath && !options.supplyPromptDismissed && board && power.worstCaseMa >= POWER_WARN_MA) {
+    diagnostics.push({
+      id: 'supply-prompt', severity: 'warning', category: 'power',
+      title: 'Tell the app which supply you have',
+      message: `Full white needs ${amps(power.worstCaseMa)}. The Build Diagram suggests a ${amps(power.requiredSupplyMa)} supply; with your own supply entered, the wiring, fuses and power cap follow it instead.`,
+      fix: 'Add a Power Supply and type the volts and amps off its label.',
+      nodeIds: [], nodeLabel: nodeLabel(board),
+      action: 'add-power-supply',
+      repair: { kind: 'add-power-supply', ...(boardId ? { boardId } : {}) },
+      moreFixes: [{ action: 'dismiss-supply-prompt', repair: { kind: 'dismiss-supply-prompt' } }],
+    })
+  }
+  return diagnostics
 }
 
 const POWER_WARN_MA = 5_000
+const POWER_PATH_NODE_TYPES: ReadonlySet<string> = new Set(['PowerSupply', 'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule'])
 
 function nodeLabel(node: StudioNode): string {
   return String(node.data.label ?? node.data.nodeType)
@@ -4761,22 +4853,7 @@ export function buildGraphDiagnostics(
     })
   }
 
-  // A cap below the worst case is the cap doing its job — FastLED dims the
-  // brightest scenes to stay inside it — so it is not reported. Only a large
-  // fixture with no cap at all is worth a word.
-  const power = estimatePowerLoad(nodes)
-  if (matrixOutput && power && power.configuredMa == null && power.worstCaseMa >= POWER_WARN_MA) {
-    diagnostics.push({
-      id: `${matrixOutput.id}-power-unlimited`, severity: 'warning', category: 'power',
-      title: 'Set a power cap for this many LEDs',
-      message: `At full white, ${power.ledCount} LEDs could draw about ${(power.worstCaseMa / 1000).toFixed(1)} A.`,
-      fix: `Turn on the power cap on the Board: it starts at the full-white draw (${(power.recommendedMa / 1000).toFixed(1)} A). Lower it if your supply is smaller, and FastLED dims only the brightest scenes to stay within it.`,
-      // No nodeIds: the cap is on the Board, not on this node, so Locate would
-      // land on a node with nothing to set.
-      nodeIds: [], nodeLabel: nodeLabel(matrixOutput),
-      action: 'open-board-settings',
-    })
-  }
+  if (target === 'matrix') diagnostics.push(...supplyDiagnostics(nodes, options))
 
   // Hardware facts live in the root graph, which is what `matrix` checks.
   if (target === 'matrix') diagnostics.push(...wireTimeAdvice(estimateWireTime(nodes, edges), nodes))

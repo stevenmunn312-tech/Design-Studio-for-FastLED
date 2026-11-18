@@ -8,8 +8,7 @@ import { propertyDescription } from '../../../state/nodeLibrary'
 import { boardSupportsTelemetry } from '../../../codegen/deviceTelemetryCpp'
 import { serialRouteSummary } from '../../../state/upload/serialRouting'
 import { estimatePowerLoad } from '../../../utils/validateGraph'
-import { defaultPowerCapMa, POWER_CAP_MA } from '../../../build/power/powerCap'
-import { targetFamilyFromFqbn } from '../../../build/buildProfile'
+import { POWER_CAP_MA, supplyCoverageSentences } from '../../../build/power/powerCap'
 import BoardPinoutPicker from '../BoardPinoutPicker'
 import ClampedNumberInput from '../ClampedNumberInput'
 import CustomBoardEditor from '../../Hardware/CustomBoardEditor'
@@ -92,7 +91,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
   // switch below cannot offer output the build would not produce.
   const telemetrySupported = boardSupportsTelemetry(profile?.targetFamilies)
   const settings = useMemo(() => controllerSettings(graphNodes), [graphNodes])
-  const power = useMemo(() => estimatePowerLoad(graphNodes), [graphNodes])
+  const power = useMemo(() => estimatePowerLoad(graphNodes, selectedFqbn), [graphNodes, selectedFqbn])
   const psramChoice = psramOptions?.find((option) => option.id === settings.psramMode) ?? psramOptions?.[0]
   const serialPort = ports.find((port) => port.address === selectedPort)
   const familyId = isCustom ? CUSTOM_BOARD_PROFILE_ID : profile ? boardProfileFamilyId(profile) : ''
@@ -327,10 +326,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
               // user's supply less the controller, or the full-white draw
               // when no supply is entered or the supply covers full white.
               if (event.target.checked && power) {
-                updateNodeProperties(nodeId, {
-                  powerLimit: true,
-                  milliamps: defaultPowerCapMa(graphNodes, targetFamilyFromFqbn(selectedFqbn), power.recommendedMa),
-                })
+                updateNodeProperties(nodeId, { powerLimit: true, milliamps: power.defaultCapMa })
               } else {
                 updateNodeProperty(nodeId, 'powerLimit', event.target.checked)
               }
@@ -350,7 +346,18 @@ export default function BoardNodeBody({ nodeId }: Props) {
           </div>
         )}
 
-        {power && (
+        {power?.supply && (() => {
+          const said = supplyCoverageSentences(power.supply)
+          return (
+            <div className={styles.powerRequirement} aria-label="Your power supply">
+              <span>Your power supply</span>
+              <strong>{said.needs} {said.allows}</strong>
+              <small>{said.wired} The power cap never sizes the wiring.</small>
+            </div>
+          )
+        })()}
+
+        {power && !power.supply && (
           <div className={styles.powerRequirement} aria-label="Required power supply">
             <span>Required power supply</span>
             <strong>
@@ -358,8 +365,9 @@ export default function BoardNodeBody({ nodeId }: Props) {
               {power.requiredSupplyWattage} W continuous
             </strong>
             <small>
-              Includes 20% operating headroom. LED wiring and fuses must still
-              cover the {Number((power.worstCaseMa / 1000).toFixed(2))} A full-white ceiling.
+              Includes 20% operating headroom, sized for the
+              {' '}{Number((power.worstCaseMa / 1000).toFixed(2))} A full-white draw. Add your own Power Supply
+              on the bench and the wiring and cap follow it.
             </small>
           </div>
         )}

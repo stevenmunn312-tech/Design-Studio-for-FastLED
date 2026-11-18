@@ -97,6 +97,8 @@ export interface BuildProfile {
   exportMode?: BuildExportMode
   visibility?: Record<string, boolean>
   done?: Record<string, BuildDoneState>
+  /** Checks' "Tell the app which supply you have" was answered Not now, for this project. */
+  supplyPromptDismissed?: boolean
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -204,6 +206,7 @@ export function normalizeBuildProfile(value: unknown): BuildProfile | undefined 
   }
   next.visibility = normalizeBooleanMap(value.visibility)
   next.done = normalizeDoneMap(value.done)
+  if (value.supplyPromptDismissed === true) next.supplyPromptDismissed = true
   return next
 }
 

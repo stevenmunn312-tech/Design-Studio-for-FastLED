@@ -167,6 +167,18 @@ The current bounded WS2812-class rules use:
   to 50 mA, and never above the full-white figure (`defaultPowerCapMa`). With
   no supply entered it is the full-white figure. The cap never sizes
   hardware.
+- The Power summary, Board, Readiness chip and wizard say the same three
+  things through `supplyCoverageSentences`: "Full white needs 15.4 A. Your 5 A
+  supply allows about 25% brightness. Wired for a 5 V 5 A supply." With no
+  supply entered they show the suggested supply instead.
+- Checks carries the supply cards (`supplyDiagnostics` in
+  `src/utils/validateGraph.ts`), all warnings: a supply below full white with
+  no cap (fix: cap at the default), a cap above what the supply allows (fix:
+  lower it), one of several supplies below its segment, a battery with no
+  output-limited LED rail (keep a BMS with low-voltage cutoff), and, from 5 A
+  of full white with nothing on the power path, "Tell the app which supply
+  you have" with Add Power Supply and Not now (`supplyPromptDismissed`, saved
+  in the build profile).
 - A Power Supply the user entered is one zone whatever it carries; only a
   recommended supply is packed to about 100 A. With several supplies, one
   below its segment's full white is a warning, not a blocker: FastLED's cap is

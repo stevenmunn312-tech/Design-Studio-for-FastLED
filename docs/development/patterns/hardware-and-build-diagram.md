@@ -687,7 +687,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   names and isolation from `powerConverter.terminals`, never from model-specific
   branches. Size hardware for uncapped full white, held to the converter's
   output limit when it has one (`supplyCeilingMa`); a FastLED limit affects only
-  running current and runtime. The board's protected-negative pad is the sole 0 V net, B- is internal to the
+  running current and runtime. Any power wording (Board, Readiness, Build
+  Diagram, wizard) goes through `supplyCoverageSentences`, so the surfaces
+  never disagree about what a supply allows. The board's protected-negative pad is the sole 0 V net, B- is internal to the
   protected pack, and intermediate balance taps are sense leads. One board can
   provide several functions, so validate required functions across selected
   boards without requiring one node per function. Read a bench board's

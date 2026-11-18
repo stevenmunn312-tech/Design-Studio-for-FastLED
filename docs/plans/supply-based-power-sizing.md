@@ -1,6 +1,6 @@
 # Plan — size power to the supply the user has
 
-Status: Phases 1 to 4 done 2026-11-18; Phase 5 next.
+Status: Phases 1 to 5 done 2026-11-18; Phase 6 (remaining tests) next.
 
 ## Why
 
@@ -212,7 +212,24 @@ Done (`src/build/power/powerCap.ts`, `CONTROLLER_DRAW_MA` in
   only through the Board value; add a codegen test that the emitted value
   matches.
 
-### Phase 5 — say it plainly
+### Phase 5 — say it plainly (done 2026-11-18)
+
+Done, with these choices:
+
+- One wording for every surface: `supplyCoverage` and
+  `supplyCoverageSentences` (`src/build/power/powerCap.ts`) say what full
+  white needs, what the supplies allow (85% less the controller, in 5% steps)
+  and what the wiring was sized for. The Board, Readiness, Build Diagram and
+  the wizard read them; `estimatePowerLoad` carries the coverage and the
+  default cap.
+- The "which supply" prompt shows only from 5 A of full white (the old cap
+  card's threshold), so a USB-sized fixture is not asked, and not when any
+  power-path part (supply, converter, PD trigger, battery) is on the bench.
+  Not now is `BuildProfile.supplyPromptDismissed`.
+- The battery advice fires when a pack is on the bench and its LED rail has
+  no `fixed` output limit, since the protection board is then the only thing
+  that stops a short. Missing protection stays the Build Diagram's blocker.
+- All the cards are warnings with fixes; none holds an upload.
 
 - **Build Diagram Power summary:** "Full white needs 10 A. Your 5 A supply
   allows about 45% brightness. Wired for a 5 V 5 A supply." With no supply:

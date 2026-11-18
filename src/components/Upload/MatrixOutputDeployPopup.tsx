@@ -106,6 +106,7 @@ export default function MatrixOutputDeployPopup({
   const projectTrusted = useGraphStore((state) => state.trusted)
   const workspaceNodes = useGraphStore((state) => state.nodes)
   const graphData = useGraphStore((state) => state.graphData)
+  const supplyPromptDismissed = useGraphStore((state) => state.buildProfile?.supplyPromptDismissed === true)
   const telemetryRun = useDeviceTelemetryStore((state) => state.run)
   const entries = useMusicStore((s) => s.entries)
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
@@ -492,9 +493,10 @@ export default function MatrixOutputDeployPopup({
   const graphWarnings = useMemo(
     () => buildGraphDiagnostics(nodes, edges, {
       selectedFqbn, target: 'matrix', capabilityNodes: nodes, displayDocuments: customAssets.documents, groups: customAssets.groups,
+      supplyPromptDismissed,
     }).filter((issue) => issue.severity === 'warning').length,
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the validators read credentials from their store
-    [nodes, edges, selectedFqbn, customAssets.documents, customAssets.groups, networkCredentials],
+    [nodes, edges, selectedFqbn, customAssets.documents, customAssets.groups, networkCredentials, supplyPromptDismissed],
   )
   const layers = useMemo(() => readinessLayers({
     previewLive: graphDrivesOutput(nodes, edges),

@@ -721,7 +721,7 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelector('[data-output-card="output:row"] [data-positioned-string]')).toBeNull()
   })
 
-  it('shows two 5 A running limits and still sizes the supply for full white', () => {
+  it('shows two 5 A running limits and never sizes the wiring from them', () => {
     useGraphStore.setState({
       nodes: [
         matrixNode(14, 16, 16, 'out-a'),
@@ -737,7 +737,23 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelector('[data-output-card="output:out-a"] [data-operating-current-cap="5000"]')?.textContent).toBe('CURRENT LIMIT 5A')
     expect(diagram?.querySelector('[data-output-card="output:out-b"] [data-operating-current-cap="5000"]')?.textContent).toBe('CURRENT LIMIT 5A')
     expect(diagram?.querySelector('[data-psu-recommendation="40000"]')?.textContent).toBe('5 V · 40A · 200 W')
-    expect(getByText('LED Matrix 1: 5 A running limit · LED Matrix 2: 5 A running limit · hardware is still sized for full white')).toBeTruthy()
+    expect(getByText('LED Matrix 1: 5 A running limit · LED Matrix 2: 5 A running limit · the limit never sizes the wiring')).toBeTruthy()
+    expect(getByText('Suggested supply 40 A / 200 W')).toBeTruthy()
+  })
+
+  it("says what the user's supply allows and what the wiring was sized for", () => {
+    useGraphStore.setState({
+      nodes: [
+        matrixNode(14, 16, 16, 'out-a'),
+        { id: 'psu', type: 'studioNode', position: { x: 0, y: 0 }, data: { label: 'Power Supply', nodeType: 'PowerSupply', category: 'hardware', properties: { voltage: 5, ratedCurrentA: 5 }, inputs: [], outputs: [] } },
+      ] as never[],
+    })
+    selectDevKit({})
+    const { container } = render(<BuildDiagramWorkspace />)
+
+    // 0.85 x 5 A less an ESP32-S3's 350 mA is 3.9 A of 15.36 A: about 25%.
+    expect(container.querySelector('[data-supply-summary]')?.textContent)
+      .toBe('Full white needs 15.4 A. Your 5 A supply allows about 25% brightness. Wired for a 5 V 5 A supply.')
   })
 
   it('draws a buck converter in the controller power slot and joins it to the board by symbol', () => {

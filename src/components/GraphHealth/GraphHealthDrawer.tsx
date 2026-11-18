@@ -13,6 +13,8 @@ import {
   ensureRootAudioNode,
   placeTouchControl,
   setBoardFrameRate,
+  setBoardPowerCap,
+  dismissSupplyPrompt,
   setBoardLedDriver,
   setOutputDataRate,
   setPanelLayout,
@@ -35,7 +37,7 @@ import {
 } from '../../utils/validateGraph'
 import { boardFqbnTargets, buildBoardDiagnostics } from '../../utils/multiBoardValidation'
 import { LED_OUTPUT_NODE_TYPE } from '../Hardware/hardwarePartCatalog'
-import { addProviderPartToBoard, addRtcModuleToBoard, PROVIDER_PART_NAMES } from '../Hardware/hardwarePartActions'
+import { addPowerSupplyToBoard, addProviderPartToBoard, addRtcModuleToBoard, PROVIDER_PART_NAMES } from '../Hardware/hardwarePartActions'
 import { boardIdOf, boardNodesIn } from '../../build/boardPartition'
 import { boardLinkSettings, getBoardLinkKey } from '../../state/peripherals/boardLinkKey'
 import styles from './GraphHealthDrawer.module.css'
@@ -61,6 +63,7 @@ function actionLabel(action: GraphDiagnosticAction, fix?: Partial<GraphDiagnosti
   if (fix?.repair?.kind === 'set-panel-layout') return `Use ${fix.repair.layout}`
   if (fix?.repair?.kind === 'set-led-driver') return fix.repair.ledDriver === 'auto' ? 'Use FastLED’s driver' : `Use ${fix.repair.ledDriver}`
   if (fix?.repair?.kind === 'add-bench-part') return `Add a ${PROVIDER_PART_NAMES[fix.repair.nodeType]}`
+  if (fix?.repair?.kind === 'set-power-cap') return `Cap at ${Number((fix.repair.milliamps / 1000).toFixed(2))} A`
   if (action === 'choose-board') return 'Choose board'
   // Named rather than a bare "Fix", so the button says what will appear on the
   // canvas before it appears there.
@@ -82,6 +85,8 @@ function actionLabel(action: GraphDiagnosticAction, fix?: Partial<GraphDiagnosti
   if (action === 'renew-board-link-key') return 'Make a new key'
   if (action === 'add-rtc-module') return 'Add a DS3231'
   if (action === 'add-bench-part') return 'Add the part'
+  if (action === 'add-power-supply') return 'Add Power Supply'
+  if (action === 'dismiss-supply-prompt') return 'Not now'
   return 'Open library'
 }
 
@@ -97,6 +102,7 @@ export default function GraphHealthDrawer() {
   const edges = useGraphStore((state) => state.edges)
   const groups = useGroupRegistry()
   const displayDocuments = useGraphStore((state) => state.displayDocuments)
+  const supplyPromptDismissed = useGraphStore((state) => state.buildProfile?.supplyPromptDismissed === true)
   const activeGraphId = useGraphStore((state) => state.activeGraphId)
   const graphs = useGraphStore((state) => state.graphs)
   const focusNode = useGraphStore((state) => state.focusNode)
@@ -125,6 +131,7 @@ export default function GraphHealthDrawer() {
         target: 'matrix',
         capabilityNodes,
         displayDocuments, groups,
+        supplyPromptDismissed,
       })
     : buildGraphDiagnostics(nodes, edges, {
         selectedFqbn,
@@ -132,7 +139,7 @@ export default function GraphHealthDrawer() {
         capabilityNodes,
         displayDocuments, groups,
       // eslint-disable-next-line react-hooks/exhaustive-deps -- the validators read credentials from their store
-      })), [activeGraphId, activeBoardId, uploadTargets, capabilityNodes, edges, nodes, selectedFqbn, displayDocuments, groups, networkCredentials])
+      })), [activeGraphId, activeBoardId, uploadTargets, capabilityNodes, edges, nodes, selectedFqbn, displayDocuments, groups, networkCredentials, supplyPromptDismissed])
   const errors = diagnostics.filter((issue) => issue.severity === 'error').length
   const warnings = diagnostics.length - errors
 
@@ -211,6 +218,22 @@ export default function GraphHealthDrawer() {
     if (issue.repair?.kind === 'set-frame-rate') {
       const result = setBoardFrameRate(issue.repair.frameRate, issue.repair.boardId)
       setStatus(result.ok ? `Board frame rate lowered to ${result.frameRate} fps` : result.reason, result.ok ? 'success' : 'info')
+      return
+    }
+    if (issue.repair?.kind === 'set-power-cap') {
+      const result = setBoardPowerCap(issue.repair.milliamps, issue.repair.boardId)
+      setStatus(result.ok ? `Power cap on at ${Number((result.milliamps / 1000).toFixed(2))} A` : result.reason, result.ok ? 'success' : 'info')
+      return
+    }
+    if (issue.repair?.kind === 'add-power-supply') {
+      const result = addPowerSupplyToBoard(issue.repair.boardId)
+      if (result.ok) useUiStore.getState().setWorkspaceMode('hardware')
+      setStatus(result.ok ? 'Added a Power Supply — type the volts and amps off its label on the Hardware tab' : result.reason, result.ok ? 'success' : 'info')
+      return
+    }
+    if (issue.repair?.kind === 'dismiss-supply-prompt') {
+      dismissSupplyPrompt()
+      setStatus('Hidden for this project. The Build Diagram keeps suggesting a supply until you add yours.', 'info')
       return
     }
     if (issue.repair?.kind === 'set-led-driver') {

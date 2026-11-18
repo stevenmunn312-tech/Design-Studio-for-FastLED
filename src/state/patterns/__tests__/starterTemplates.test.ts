@@ -178,7 +178,8 @@ describe('starterTemplates', () => {
     expect(validateGraph(nodes, edges, fqbn).errors).toEqual([])
     const diagnostics = buildGraphDiagnostics(nodes, edges, { selectedFqbn: fqbn })
     expect(diagnostics.filter((diagnostic) => diagnostic.severity === 'error')).toEqual([])
-    expect(diagnostics.filter((diagnostic) => diagnostic.severity === 'warning')).toEqual([])
+    // The one card a starter leaves: which supply the user has.
+    expect(diagnostics.filter((diagnostic) => diagnostic.severity === 'warning').map((diagnostic) => diagnostic.id)).toEqual(['supply-prompt'])
   })
 
   it("keeps the user's supply on the bench and caps the starter to it", () => {

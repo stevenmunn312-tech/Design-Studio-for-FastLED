@@ -215,3 +215,25 @@ describe('HardwareReadiness — the power chip', () => {
     expect(getByTitle(/Worst case/).textContent).not.toMatch(/cap/)
   })
 })
+
+describe('HardwareReadiness - the power chip', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setGraph()
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32' })
+    useCapacityStore.getState().clear()
+  })
+
+  it('says what the user supply allows, as advice while no cap holds it', () => {
+    useGraphStore.setState((state) => ({
+      nodes: [...state.nodes, {
+        id: 'psu', type: 'studioNode', position: { x: 0, y: 0 },
+        data: { label: 'Power Supply', nodeType: 'PowerSupply', category: 'hardware', properties: { voltage: 5, ratedCurrentA: 5 }, inputs: [], outputs: [] },
+      }] as never[],
+    }))
+    const { getByTitle } = render(<HardwareReadiness />)
+    const chip = getByTitle(/Your 5 A supply allows about 25% brightness/)
+    expect(chip.getAttribute('title')).toMatch(/Wired for a 5 V 5 A supply\. Turn on the power cap/)
+    expect(chip.getAttribute('data-level')).toBe('warn')
+  })
+})

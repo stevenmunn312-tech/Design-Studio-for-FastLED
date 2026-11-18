@@ -225,6 +225,40 @@ export function addProviderPartToBoard(nodeType: ProviderPartNodeType, boardId?:
   return { ok: true, label: entry.label, pins: Object.values(assigned.pins) }
 }
 
+/**
+ * Put a Power Supply on a board's bench, for the user to rate off its label:
+ * the fix on Checks' "Tell the app which supply you have". Config only, so it
+ * takes no pins and stays off the canvas, as the shelf adds it.
+ */
+export function addPowerSupplyToBoard(boardId?: string): { ok: true; nodeId: string } | { ok: false; reason: string } {
+  const state = useGraphStore.getState()
+  const boards = boardNodesIn(rootGraphNodes(state))
+  const board = boards.find((entry) => entry.id === boardId) ?? boards[0]
+  const definition = NODE_LIBRARY.find((candidate) => candidate.type === 'PowerSupply')
+  if (!definition) return { ok: false, reason: 'The Power Supply is not in the node library' }
+  const nodeId = `PowerSupply-${Date.now()}-${Math.round(Math.random() * 1e6)}`
+  state.addNode({
+    id: nodeId,
+    type: 'studioNode',
+    position: { x: 0, y: 0 },
+    hidden: true,
+    selectable: false,
+    draggable: false,
+    data: {
+      label: definition.label,
+      nodeType: definition.type,
+      category: definition.category,
+      properties: {
+        ...resolveDefaultProperties(definition.type, definition.defaultProperties),
+        ...(board && boards.length > 1 ? { boardId: board.id } : {}),
+      },
+      inputs: definition.inputs,
+      outputs: definition.outputs,
+    },
+  } as StudioNode)
+  return { ok: true, nodeId }
+}
+
 /** A DS3231 for the Clocks set to read one; see `addProviderPartToBoard`. */
 export function addRtcModuleToBoard(boardId?: string): AddRtcModuleResult {
   return addProviderPartToBoard(RTC_MODULE_NODE_TYPE, boardId)

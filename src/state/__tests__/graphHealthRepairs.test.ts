@@ -195,14 +195,16 @@ describe('Add a collection', () => {
   })
 })
 
-describe('Open Board settings', () => {
-  it('is offered for a large fixture with no power cap', () => {
+describe('Add Power Supply', () => {
+  it('is offered for a large fixture with no supply entered, with Not now beside it', () => {
     useGraphStore.getState().loadGraph([
       node('board-root', 'Board', { powerLimit: false }),
       node('sc', 'SolidColor'),
       node('out', 'MatrixOutput', { width: 32, height: 32 }),
     ], [edge('f', 'sc', 'frame', 'out', 'frame')])
-    expect(diagnostics().find((d) => d.category === 'power')?.action).toBe('open-board-settings')
+    const card = diagnostics().find((d) => d.category === 'power')
+    expect(card?.action).toBe('add-power-supply')
+    expect(card?.moreFixes?.map((fix) => fix.action)).toEqual(['dismiss-supply-prompt'])
   })
 })
 

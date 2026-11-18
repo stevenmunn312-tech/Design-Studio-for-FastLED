@@ -272,6 +272,25 @@ describe('BoardNodeBody', () => {
     expect(screen.getByText(/20% operating headroom/)).toBeTruthy()
   })
 
+  it('names what the supply on the bench allows in place of the supply to buy', () => {
+    const supply = {
+      id: 'psu', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: 'Power Supply', nodeType: 'PowerSupply', category: 'hardware',
+        properties: { voltage: 5, ratedCurrentA: 5 }, inputs: [], outputs: [],
+      },
+    } as unknown as StudioNode
+    reset([boardNode('b1'), supply, matrixNode('out')])
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32' } as never)
+
+    render(<BoardNodeBody nodeId="b1" />)
+
+    expect(screen.queryByLabelText('Required power supply')).toBeNull()
+    // 0.85 x 5 A less 250 mA is 4 A of 15.36 A: about 25%.
+    expect(screen.getByText('Full white needs 15.4 A. Your 5 A supply allows about 25% brightness.')).toBeTruthy()
+    expect(screen.getByText(/Wired for a 5 V 5 A supply/)).toBeTruthy()
+  })
+
   // The Board help says to set the frame rate, and the Graph Health repair can
   // only lower it, so the body is the one place it can be raised again.
   it('offers the frame rate and writes it to the Board node', () => {

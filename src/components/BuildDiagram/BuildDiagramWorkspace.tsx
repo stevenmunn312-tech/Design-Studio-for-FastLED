@@ -18,6 +18,7 @@ import { customBoardEndpointFingerprint, customBoardGeometry, customBoardPowerPa
 import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv } from '../../build/buildExports'
 import { boardPinForUse, boardPinLabelForUse, buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
 import { fuseBlockAllocations } from '../../build/power/powerDistribution'
+import { supplyCoverage, supplyCoverageSentences, zoneSupplySegments } from '../../build/power/powerCap'
 import { useBoardPartition, useGraphStore } from '../../state/graphStore'
 import { useProjectStore } from '../../state/projectStore'
 import { useUiStore } from '../../state/uiStore'
@@ -395,6 +396,12 @@ export default function BuildDiagramWorkspace() {
     () => calculateElectricalPlan(manifest, buildProfile, exactBoard),
     [buildProfile, exactBoard, manifest],
   )
+  // The user's own supplies against full white, when the LEDs are drawn on them.
+  const supplySaid = useMemo(() => {
+    const totals = electricalPlan.totals
+    const coverage = totals ? supplyCoverage(zoneSupplySegments(totals.supplies), totals.designCurrentMa, manifest.targetFamily) : null
+    return coverage ? supplyCoverageSentences(coverage) : null
+  }, [electricalPlan, manifest.targetFamily])
   const visibleElectricalPlan = useMemo(() => {
     const visibleIds = new Set(visiblePrimaryItems.map((item) => item.id))
     return calculateElectricalPlan({
@@ -941,18 +948,25 @@ export default function BuildDiagramWorkspace() {
                 <span className={styles.powerSummaryMeta}>
                   full-white design load @ {formatVoltage(electricalPlan.totals.nominalVoltage)}
                 </span>
+                {supplySaid && (
+                  <span className={styles.powerSummaryBudget} data-supply-summary>
+                    {supplySaid.needs} {supplySaid.allows} {supplySaid.wired}
+                  </span>
+                )}
                 {electricalPlan.totals.operatingCurrentCapMa != null && (
                   <span className={styles.powerSummaryLimit}>
                     {electricalPlan.outputs
                       .filter((output) => output.operatingCurrentCapMa != null)
                       .map((output) => `${output.title}: ${formatCurrentMa(output.operatingCurrentCapMa ?? 0)} running limit`)
                       .join(' · ')}
-                    {' '}· hardware is still sized for full white
+                    {' '}· the limit never sizes the wiring
                   </span>
                 )}
-                <span className={styles.powerSummaryBudget}>
-                  Supply budget {formatCurrentMa(electricalPlan.totals.recommendedSupplyCurrentMa)} / {formatWattage(electricalPlan.totals.recommendedSupplyWattage)}
-                </span>
+                {!supplySaid && (
+                  <span className={styles.powerSummaryBudget}>
+                    Suggested supply {formatCurrentMa(electricalPlan.totals.recommendedSupplyCurrentMa)} / {formatWattage(electricalPlan.totals.recommendedSupplyWattage)}
+                  </span>
+                )}
               </>
             ) : (
               <p className={styles.copyMuted}>Add the missing installation facts to calculate the conservative supply budget.</p>
@@ -1434,8 +1448,11 @@ export default function BuildDiagramWorkspace() {
               label: 'Full-white design load',
               value: `${formatCurrentMa(electricalPlan.totals.designCurrentMa)} @ ${formatVoltage(electricalPlan.totals.nominalVoltage)}`,
             },
-            {
-              label: 'Supply budget',
+            supplySaid ? {
+              label: 'Your supply',
+              value: `${supplySaid.allows} ${supplySaid.wired}`,
+            } : {
+              label: 'Suggested supply',
               value: electricalPlan.totals.source
                 ? `${electricalPlan.totals.source.voltage} V · ${formatCurrentMa(electricalPlan.totals.source.recommendedCurrentMa)} / ${formatWattage(electricalPlan.totals.source.recommendedWattage)}`
                 : `${formatCurrentMa(electricalPlan.totals.recommendedSupplyCurrentMa)} / ${formatWattage(electricalPlan.totals.recommendedSupplyWattage)}`,
@@ -1444,7 +1461,9 @@ export default function BuildDiagramWorkspace() {
               label: `${supply.converter ? 'Converter' : 'PSU'} ${index + 1}`,
               value: supply.converter
                 ? `${supply.converter.label} · ${formatCurrentMa(supply.converter.deratedCurrentMa)} at 40 °C · ${supply.outputTitles.join(', ')}`
-                : `5 V · ${formatCurrentMa(supply.recommendedCurrentMa)} / ${formatWattage(supply.recommendedWattage)} · ${supply.outputTitles.join(', ')}`,
+                : supply.ownedSupply
+                  ? `${supply.ownedSupply.title} · ${supply.ownedSupply.voltage} V ${formatCurrentMa(supply.ownedSupply.ratedCurrentMa)} · ${supply.outputTitles.join(', ')}`
+                  : `5 V · ${formatCurrentMa(supply.recommendedCurrentMa)} / ${formatWattage(supply.recommendedWattage)} · ${supply.outputTitles.join(', ')}`,
             })),
             ] : []),
           ] : []}

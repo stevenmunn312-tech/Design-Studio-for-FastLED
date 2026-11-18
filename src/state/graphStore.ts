@@ -4781,6 +4781,34 @@ export function setBoardFrameRate(frameRate: number, boardId?: string): { ok: tr
 }
 
 /**
+ * Turn the Board's power cap on at, or lower it to, what the user's supply
+ * allows: the fix on Checks' supply cards. Says so and changes nothing when
+ * the cap already sits at or below that figure.
+ */
+export function setBoardPowerCap(milliamps: number, boardId?: string): { ok: true; milliamps: number } | { ok: false; reason: string } {
+  const { nodes } = repairBoardScope(boardId)
+  const board = nodes.find((node) => node.data.nodeType === 'Board')
+  if (!board) return { ok: false, reason: 'There is no Board to set a power cap on.' }
+  const target = Math.max(100, Math.min(100000, Math.round(milliamps)))
+  const settings = controllerSettings(nodes)
+  if (settings.powerLimit && settings.milliamps <= target) {
+    return { ok: false, reason: 'The power cap has already changed since this was reported.' }
+  }
+  useGraphStore.setState((s) => withRootNodes(s, rootGraphNodes(s).map((node) => node.id === board.id
+    ? { ...node, data: { ...node.data, properties: { ...node.data.properties, powerLimit: true, milliamps: target } } }
+    : node)))
+  return { ok: true, milliamps: target }
+}
+
+/** Hide Checks' "which supply" prompt for this project; saved with its build profile. */
+export function dismissSupplyPrompt(): void {
+  useGraphStore.getState().updateBuildProfile((profile) => ({
+    ...(profile ?? emptyBuildProfile()),
+    supplyPromptDismissed: true,
+  }))
+}
+
+/**
  * Clock a clocked LED output faster: the wire-time card's faster-clock fix.
  *
  * Only to a rate the chipset offers and only upward; the output lives in the
