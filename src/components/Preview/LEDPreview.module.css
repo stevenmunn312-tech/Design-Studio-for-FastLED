@@ -1193,13 +1193,6 @@
   text-align: center;
 }
 
-.stagePatternKicker {
-  color: var(--preview-instrument-accent);
-  font-family: var(--font-body);
-  font-size: var(--fs-ui);
-  font-weight: 700;
-}
-
 .stagePatternName {
   max-width: min(92%, 320px);
   color: var(--text-primary);

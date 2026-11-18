@@ -1678,7 +1678,6 @@ export default function LEDPreview() {
           </div>
           {stageMode && stagePatternName && (
             <div className={`${styles.stagePatternBrand} ${stageQuiet ? styles.stageChromeQuiet : ''}`}>
-              <span className={styles.stagePatternKicker}>My Pattern</span>
               <strong className={styles.stagePatternName} title={stagePatternName}>{stagePatternName}</strong>
             </div>
           )}
