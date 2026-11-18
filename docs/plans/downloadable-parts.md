@@ -11,9 +11,15 @@ type** that ships as code in the app. The [hardware expansion
 roadmap](hardware-expansion-roadmap.md) decides which hardware is worth adding;
 this plan decides how a part is described, carried in a save and delivered.
 
-The one piece that cannot wait is how a saved project refers to its parts. The
-save format closes at v1.0.0 ([root todo](../../todo.md), step 1 and HW-18), so
-phase A below has to be decided before then. Everything else can follow v1.
+v1.0.0 is meant to be a long-lived release: a new publisher earns trust by not
+shipping a new binary every few weeks. So v1.0.0 has to contain **the whole
+client side**: schema, part-type registry, runtime catalogue, generated help,
+signature checks, index download and search, and saves that embed their parts.
+If any of that waits, every new part needs an app release again. What can
+follow v1 is all on the project's side: hosting the index, the part-authoring
+agent, requests, and the parts themselves. The save format also closes at
+v1.0.0 ([root todo](../../todo.md), step 1 and HW-18), which fixes the same
+deadline for how saves carry parts.
 
 ## Goal and non-goals
 
@@ -162,6 +168,11 @@ releases.
 - **Only signed manifests load.** The app verifies the project's signature on
   every manifest, downloaded or embedded in a save. There is no side-loading,
   so there is no trust prompt to design for parts.
+- **Keys can rotate without a release.** v1.0.0 ships with a list of trusted
+  public keys, not one key, and the signed index can announce a successor key
+  signed by a current one. A lost or retired key then costs no app update.
+  Part signing is separate from code-signing the installer; it needs no
+  certificate authority and can start before the installer is signed.
 - **A save from someone else** carries signed manifests too. A manifest whose
   signature fails is treated like an unknown part: the node is kept, marked,
   and Upload is blocked.
@@ -173,7 +184,15 @@ releases.
 `import-part-assets.py` keeps its role as the verification gate: dimensions and
 pin order verified against source evidence, renders from verified Blender
 assets. Instead of TypeScript, it emits a manifest package (JSON plus WebP). The
-same package is bundled into the app or uploaded to the website index.
+same package is bundled into the app or published.
+
+**Hosting is static.** There is no database server to run. The "database" is
+one signed index file (every published part's id, revision, part type, chip,
+interface, labels, verification and package hash) plus one package per part,
+on static hosting such as GitHub Pages or release assets. Publishing a part is:
+add its package, regenerate and sign the index, upload. The app checks the
+index on start-up and when the shelf search opens, caches it, and works offline
+from the cache and the bundled parts.
 
 The [support matrix](../release/beta-support-matrix.md) still owns what is
 supported versus experimental. A downloaded part inherits its part type's
@@ -181,8 +200,9 @@ support status unless its own bench row says more.
 
 ## Requests and search
 
-- **Search.** The Hardware shelf searches the parts database as well as the
-  bundled parts: by name, manufacturer, part type, interface and chip. Results
+- **Search.** The Hardware shelf searches the cached index locally, together
+  with the bundled parts: by name, manufacturer, part type, interface and chip.
+  No search service is needed. Results
   show whether the part is installed, its verification level and its support
   status. Adding a part to the bench downloads and caches its package.
 - **Requests.** A user who cannot find a part files a part request: product
@@ -291,35 +311,56 @@ report "needs a newer version" for parts of a type they lack.
 `NODE_LIBRARY` is authoritative for what is in; this table only shows the
 shape of the registry.
 
+**Decide the v1.0.0 types before the freeze.** Only part types in v1.0.0 can
+gain downloaded parts while v1.0.0 is current. A type that is likely to be
+wanted soon and is cheap to add belongs in v1.0.0 even with one bundled part,
+so that later parts of that type need no release. Candidates to weigh: CAN,
+GPIO expander, PCA9685 PWM driver. Each new type follows the usual rules: built
+from documentation, marked experimental, promoted by bench rows.
+
 ## Phases
 
-**A. Before v1.0.0**
+**A. In v1.0.0 — the whole client side**
 
 1. Write manifest schema v1 and its vocabulary, with the validator.
 2. Build the part-type and device registry from the existing node types and
    `device` strings.
 3. Move hand-written per-part data into manifests: option rows, shelf entries,
    pad geometry, supply rail, and the per-part paragraphs in type help.
-4. Load the bundled catalogue through the manifest path at run time, signed,
-   and generate the per-part help from it.
-5. Embed manifests in saves.
-6. Replace silent fallbacks for unknown parts and types with explicit errors.
+4. Convert the bundled library through the importer into signed packages, and
+   load it through the manifest path at run time.
+5. Generate the per-part help from manifests.
+6. Verify signatures against a list of trusted keys, with successor-key
+   announcements in the index.
+7. Fetch and cache the signed index; search it in the shelf; download, cache
+   and offer revision updates for packages.
+8. Embed manifests in saves.
+9. Replace silent fallbacks for unknown parts and types with explicit errors.
+10. Decide the v1.0.0 part types, and add the chosen new ones.
 
-**B. After v1.0.0**
+Steps 1 to 5, 8 and 9 change nothing a user sees when they are done well, so
+they are proved by the existing suites plus a full compile matrix, the same as
+any refactor. Steps 6 and 7 are proved against a test index on a local server.
+All of it rides the one pre-release matrix run in [root todo](../../todo.md)
+step 5; it does not need a run of its own.
 
-1. The parts database, its search API and signed packages.
-2. Shelf search, download, cache and revision updates.
-3. The part-authoring skill, measured against the bundled library first.
-4. The part request template and triage.
+**B. After v1.0.0 — the project's side**
 
-**C. As hardware needs them**
+1. Static hosting for the index and packages, and the signing key in safe
+   custody.
+2. The part-authoring skill, measured against the bundled library first.
+3. The part request template and triage.
+4. Publishing parts.
 
-New part types, CAN first.
+**C. In later app releases**
+
+New part types that missed v1.0.0.
 
 ## Open questions
 
-- Where the parts database is hosted, and who holds the signing key.
+- Which static host serves the index, and where the signing key is kept.
 - Whether renders are embedded in the save or fetched and cached by hash.
+- Which new part types join v1.0.0.
 - How a part that is later found wrong is withdrawn: a new revision, a warning
   on saves that embed the old one, or both.
 - What accuracy the agent must reach against the bundled library before its

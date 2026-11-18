@@ -51,10 +51,11 @@ more after the freeze.
 - [ ] Give `#share=` links a format version.
 - [ ] Stop custom-shelf patterns vanishing from a saved workspace.
 - [ ] Keep runtime React Flow fields out of saved files.
-- [ ] Decide how saves carry their parts before the freeze: an embedded
-  manifest per part, and an explicit error for an unknown part or part type
-  instead of a fallback ([downloadable parts](docs/plans/downloadable-parts.md),
-  phase A).
+- [ ] Build the downloadable-parts client side before the freeze, so v1.0.0
+  can gain parts without a release: saves embed signed part manifests, and an
+  unknown part or part type is an error, not a fallback. The rest of phase A
+  (registry, runtime catalogue, generated help, signed index and search) is in
+  [downloadable parts](docs/plans/downloadable-parts.md).
 
 ### Data safety
 
