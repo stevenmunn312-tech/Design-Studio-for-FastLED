@@ -26,6 +26,9 @@ export interface BuildBomRow {
 export interface BuildExportMetadata {
   status: string
   ruleSetVersion: string
+  /** The safety line, repeated per row: a CSV has nowhere else to put it that
+   *  survives a spreadsheet import. */
+  safety: string
 }
 
 function csvCell(value: string): string {
@@ -486,7 +489,7 @@ export function buildBomRows(
 }
 
 export function connectionsCsv(rows: BuildConnectionRow[], metadata?: BuildExportMetadata): string {
-  const metadataHeaders = metadata ? ['Export status', 'Rule set'] : []
+  const metadataHeaders = metadata ? ['Export status', 'Rule set', 'Safety'] : []
   return rowsToCsv(
     ['From', 'From terminal', 'To', 'To terminal', 'Purpose', ...metadataHeaders],
     rows.map((row) => [
@@ -495,13 +498,13 @@ export function connectionsCsv(rows: BuildConnectionRow[], metadata?: BuildExpor
       row.to,
       row.toTerminal,
       row.purpose,
-      ...(metadata ? [metadata.status, metadata.ruleSetVersion] : []),
+      ...(metadata ? [metadata.status, metadata.ruleSetVersion, metadata.safety] : []),
     ]),
   )
 }
 
 export function bomCsv(rows: BuildBomRow[], metadata?: BuildExportMetadata): string {
-  const metadataHeaders = metadata ? ['Export status', 'Rule set'] : []
+  const metadataHeaders = metadata ? ['Export status', 'Rule set', 'Safety'] : []
   return rowsToCsv(
     ['Quantity', 'Item', 'Specification', 'Status', ...metadataHeaders],
     rows.map((row) => [
@@ -509,7 +512,7 @@ export function bomCsv(rows: BuildBomRow[], metadata?: BuildExportMetadata): str
       row.item,
       row.specification,
       row.status,
-      ...(metadata ? [metadata.status, metadata.ruleSetVersion] : []),
+      ...(metadata ? [metadata.status, metadata.ruleSetVersion, metadata.safety] : []),
     ]),
   )
 }

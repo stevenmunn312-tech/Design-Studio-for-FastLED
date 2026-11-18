@@ -71,10 +71,10 @@ describe('buildExports', () => {
     ]))
     expect(connectionsCsv(connectionRows)).toContain('Common ground reference')
     expect(bomCsv(bomRows)).toContain('LED Matrix center @ LED 129 branch fuse')
-    expect(connectionsCsv(connectionRows, { status: 'Draft - unresolved', ruleSetVersion: 'rules-v1' }))
-      .toContain('Export status,Rule set')
-    expect(bomCsv(bomRows, { status: 'Draft - unresolved', ruleSetVersion: 'rules-v1' }))
-      .toContain('Draft - unresolved,rules-v1')
+    expect(connectionsCsv(connectionRows, { status: 'Draft - unresolved', ruleSetVersion: 'rules-v1', safety: 'Mains wiring can kill.' }))
+      .toContain('Export status,Rule set,Safety')
+    expect(bomCsv(bomRows, { status: 'Draft - unresolved', ruleSetVersion: 'rules-v1', safety: 'Mains wiring can kill.' }))
+      .toContain('Draft - unresolved,rules-v1,Mains wiring can kill.')
   })
 
   it('routes each supply through a main fuse and lists the fuse and trunk', () => {

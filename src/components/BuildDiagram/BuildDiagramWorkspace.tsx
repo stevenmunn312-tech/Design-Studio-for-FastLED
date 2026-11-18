@@ -42,12 +42,13 @@ import {
   diagramContentBottom,
   physicalAssemblyDiagramHeight,
 } from './physicalDiagramLayout'
-import { inlineSvgImages } from './svgExport'
+import { appendSafetyBand, inlineSvgImages } from './svgExport'
 import { panOffsetForPointerZoom } from './viewportZoom'
 import { BUILD_DIAGRAM_SHELF_HOST_ID } from './buildDiagramShelfHost'
 import {
   acceptBuildSafety,
   BUILD_SAFETY_MESSAGE,
+  BUILD_SAFETY_PRINT_LINE,
   BUILD_SAFETY_REMINDER,
   BUILD_SAFETY_TITLE,
   hasAcceptedBuildSafety,
@@ -539,6 +540,7 @@ export default function BuildDiagramWorkspace() {
     const metadata = document.createElementNS('http://www.w3.org/2000/svg', 'metadata')
     metadata.textContent = JSON.stringify({ exportMode, status: exportDraftStatus, boardConfidence: exactBoard?.confidence ?? 'unresolved', ruleSetVersion: electricalPlan.ruleSetVersion })
     clone.prepend(metadata)
+    appendSafetyBand(clone, BUILD_SAFETY_PRINT_LINE)
     await inlineSvgImages(clone)
     downloadBuildFile(new XMLSerializer().serializeToString(clone), 'fastled-build-diagram.svg', 'image/svg+xml;charset=utf-8')
   }
@@ -553,6 +555,7 @@ export default function BuildDiagramWorkspace() {
     downloadBuildFile(connectionsCsv(exportConnectionRows, {
       status: exportDraftStatus,
       ruleSetVersion: electricalPlan.ruleSetVersion,
+      safety: BUILD_SAFETY_PRINT_LINE,
     }), 'fastled-build-connections.csv', 'text/csv;charset=utf-8')
   }
 
@@ -560,6 +563,7 @@ export default function BuildDiagramWorkspace() {
     downloadBuildFile(bomCsv(exportBomRows, {
       status: exportDraftStatus,
       ruleSetVersion: electricalPlan.ruleSetVersion,
+      safety: BUILD_SAFETY_PRINT_LINE,
     }), 'fastled-build-bom.csv', 'text/csv;charset=utf-8')
   }
 

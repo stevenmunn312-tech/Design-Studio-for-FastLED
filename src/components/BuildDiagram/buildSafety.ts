@@ -18,8 +18,10 @@ export const BUILD_SAFETY_MESSAGE = [
 
 export const BUILD_SAFETY_REMINDER = 'These figures are guidance, not a certified design. Check them against your parts’ datasheets and local electrical rules, and get help from a qualified person if you are not comfortable with the wiring. Mains (AC) wiring can kill.'
 
-/** One line for the foot of every printed sheet, since pages get separated. */
-export const BUILD_SAFETY_PRINT_LINE = 'Guidance only, not a certified design. Check ratings against your parts and local rules; get a qualified person’s help if unsure. Mains wiring can kill. Build at your own risk.'
+/** One line for everything that leaves the app: the foot of every printed
+ *  sheet, a CSV column and the SVG export's band. Plain ASCII, because Excel
+ *  opens a BOM-less CSV as ANSI and would mangle a typographic apostrophe. */
+export const BUILD_SAFETY_PRINT_LINE = 'Guidance only, not a certified design. Check ratings against your parts and local rules; get a qualified person\'s help if unsure. Mains wiring can kill. Build at your own risk.'
 
 export function hasAcceptedBuildSafety(): boolean {
   try {
