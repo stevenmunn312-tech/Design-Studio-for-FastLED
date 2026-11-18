@@ -1,5 +1,6 @@
 import { irReceiverModuleFor } from '../../state/peripherals/irModules'
 import { distanceSensorTransport } from '../../state/peripherals/distanceSensor'
+import { rs485NeedsReceiveDivider } from '../../state/peripherals/dmxTransceiver'
 
 /** Shared by the Build Diagram and Hardware pin captions. */
 const SOURCES: Record<string, { propertyKey: string; pads: readonly string[] }> = {
@@ -10,6 +11,8 @@ const SOURCES: Record<string, { propertyKey: string; pads: readonly string[] }> 
 
 export function receiveDividerSource(kind: string, partId: unknown, transport?: unknown) {
   if (kind === 'ir-input' && irReceiverModuleFor(partId)?.supplyVoltage !== 5) return null
+  // A transceiver whose RO already swings to 3.3 V needs none.
+  if (kind === 'dmx-input' && !rs485NeedsReceiveDivider(partId)) return null
   if (transport === 'i2c') return null
   return SOURCES[kind] ?? null
 }

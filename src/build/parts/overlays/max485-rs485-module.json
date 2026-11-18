@@ -13,7 +13,8 @@
         "pinLabelsLeftToRight",
         "logicVoltage",
         "render",
-        "notes"
+        "notes",
+        "rs485"
       ],
       "ref": "https://protosupplies.com/product/max485-ttl-to-rs-485-interface-module/"
     },
@@ -42,7 +43,8 @@
   ],
   "copy": {
     "summary": "DMX512 in from an XLR line, on 5 V",
-    "wiringNote": "Power from 5 V. RO reaches the board through a 1 kΩ / 2 kΩ divider, and RE is bridged to DE so one GPIO drives both. Keep the fitted 120 Ω terminator only on the last device in the DMX chain."
+    "wiringNote": "Power from 5 V. RO reaches the board through a 1 kΩ / 2 kΩ divider, and RE is bridged to DE so one GPIO drives both. Keep the fitted 120 Ω terminator only on the last device in the DMX chain.",
+    "optionLabel": "MAX485 RS-485 module"
   },
   "pads": [
     {
@@ -87,5 +89,12 @@
     }
   ],
   "padHoleRadiusPx": 11.9,
-  "supplyRail": "v5"
+  "supplyRail": "v5",
+  "rs485": {
+    "device": "MAX485",
+    "supplyVolts": 5,
+    "rxLogicVolts": 5,
+    "terminationFitted": true,
+    "terminationRef": "R7"
+  }
 }

@@ -22,14 +22,17 @@
     },
     {
       "facts": [
-        "logicVoltage"
+        "logicVoltage",
+        "sdCard"
       ],
       "ref": "https://learn.sparkfun.com/tutorials/microsd-shield-and-sd-breakout-hookup-guide/sd-card-breakout-boards"
     }
   ],
   "copy": {
     "summary": "Bare board — 3.3 V only",
-    "wiringNote": "Bare board: no regulator, no level shifter. 5 V power or 5 V SPI can destroy the card."
+    "wiringNote": "Bare board: no regulator, no level shifter. 5 V power or 5 V SPI can destroy the card.",
+    "optionLabel": "microSD breakout (3.3 V)",
+    "optionOrder": 2
   },
   "pads": [
     {
@@ -69,5 +72,9 @@
     }
   ],
   "padHoleRadiusPx": 9.6,
-  "supplyRail": "v3v3"
+  "supplyRail": "v3v3",
+  "sdCard": {
+    "supplyVolts": 3.3,
+    "levelShifted": false
+  }
 }

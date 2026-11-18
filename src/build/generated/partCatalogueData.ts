@@ -806,14 +806,16 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       {
         "facts": [
           "pinLabelsLeftToRight",
-          "logicVoltage"
+          "logicVoltage",
+          "midiDin"
         ],
         "ref": "https://learn.adafruit.com/adafruit-midi-featherwing/pinouts"
       }
     ],
     "copy": {
       "summary": "Opto-isolated DIN-5 MIDI in, on 3.3 V",
-      "wiringNote": "Power from 3.3 V. Only 3.3V, GND and MIDI_RX are wired; the optocoupler output needs no divider. Plug the keyboard into the left socket, MIDI IN."
+      "wiringNote": "Power from 3.3 V. Only 3.3V, GND and MIDI_RX are wired; the optocoupler output needs no divider. Plug the keyboard into the left socket, MIDI IN.",
+      "optionLabel": "Adafruit MIDI FeatherWing"
     },
     "pads": [
       {
@@ -958,7 +960,13 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 5.4,
-    "supplyRail": "v3v3"
+    "supplyRail": "v3v3",
+    "midiDin": {
+      "device": "H11L1MS",
+      "supplyVolts": 3.3,
+      "isolated": true,
+      "inputSocket": "left"
+    }
   },
   "adafruit-mpr121-touch-sensor": {
     "manifestVersion": 1,
@@ -1672,14 +1680,16 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "dimensionsMm",
           "pinLabelsLeftToRight",
           "logicVoltage",
-          "render"
+          "render",
+          "uartPlayer"
         ],
         "ref": "https://wiki.dfrobot.com/dfr0299/"
       }
     ],
     "copy": {
       "summary": "UART-controlled microSD audio player with speaker and line outputs",
-      "wiringNote": "Power from 5 V. Put numbered files in the card’s /mp3 folder. Speaker mode uses SPK1/SPK2 directly; Line Out uses DAC_L/DAC_R into a power amplifier or powered speakers. Add a 1 kΩ series resistor from controller TX to module RX if UART noise causes buzzing."
+      "wiringNote": "Power from 5 V. Put numbered files in the card’s /mp3 folder. Speaker mode uses SPK1/SPK2 directly; Line Out uses DAC_L/DAC_R into a power amplifier or powered speakers. Add a 1 kΩ series resistor from controller TX to module RX if UART noise causes buzzing.",
+      "optionLabel": "DFPlayer Mini"
     },
     "pads": [
       {
@@ -1764,7 +1774,16 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 10,
-    "supplyRail": "v5"
+    "supplyRail": "v5",
+    "uartPlayer": {
+      "device": "DFPlayer",
+      "supplyMinV": 3.2,
+      "supplyMaxV": 5,
+      "maxCurrentMa": 200,
+      "baud": 9600,
+      "commandGapMs": 100,
+      "bootMs": 1000
+    }
   },
   "dgxby-20a-5v-buck-converter": {
     "manifestVersion": 1,
@@ -1999,7 +2018,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       {
         "facts": [
           "dimensionsMm",
-          "notes"
+          "notes",
+          "rtc"
         ],
         "ref": "https://www.analog.com/media/en/technical-documentation/data-sheets/DS3231.pdf"
       },
@@ -2031,7 +2051,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "copy": {
-      "summary": "ZS-042 breakout, six-pin header"
+      "summary": "ZS-042 breakout, six-pin header",
+      "optionLabel": "DS3231 RTC module"
     },
     "pads": [
       {
@@ -2066,7 +2087,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 5.9,
-    "supplyRail": "v3v3"
+    "supplyRail": "v3v3",
+    "rtc": {
+      "device": "DS3231",
+      "i2cAddress": 104
+    }
   },
   "dx-0809-stereo-amplifier": {
     "manifestVersion": 1,
@@ -3991,7 +4016,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       {
         "facts": [
           "dimensionsMm",
-          "notes"
+          "notes",
+          "rtc"
         ],
         "ref": "https://www.analog.com/media/en/technical-documentation/data-sheets/DS3231.pdf"
       }
@@ -4027,7 +4053,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 12.3,
-    "supplyRail": "v3v3"
+    "supplyRail": "v3v3",
+    "rtc": {
+      "device": "DS3231",
+      "i2cAddress": 104
+    }
   },
   "keyestudio-ks0026-ir-receiver-module": {
     "manifestVersion": 1,
@@ -4899,7 +4929,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "pinLabelsLeftToRight",
           "logicVoltage",
           "render",
-          "notes"
+          "notes",
+          "rs485"
         ],
         "ref": "https://protosupplies.com/product/max485-ttl-to-rs-485-interface-module/"
       },
@@ -4928,7 +4959,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "DMX512 in from an XLR line, on 5 V",
-      "wiringNote": "Power from 5 V. RO reaches the board through a 1 kΩ / 2 kΩ divider, and RE is bridged to DE so one GPIO drives both. Keep the fitted 120 Ω terminator only on the last device in the DMX chain."
+      "wiringNote": "Power from 5 V. RO reaches the board through a 1 kΩ / 2 kΩ divider, and RE is bridged to DE so one GPIO drives both. Keep the fitted 120 Ω terminator only on the last device in the DMX chain.",
+      "optionLabel": "MAX485 RS-485 module"
     },
     "pads": [
       {
@@ -4973,7 +5005,14 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 11.9,
-    "supplyRail": "v5"
+    "supplyRail": "v5",
+    "rs485": {
+      "device": "MAX485",
+      "supplyVolts": 5,
+      "rxLogicVolts": 5,
+      "terminationFitted": true,
+      "terminationRef": "R7"
+    }
   },
   "max7219-8digit-7segment": {
     "manifestVersion": 1,
@@ -5591,14 +5630,17 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       },
       {
         "facts": [
-          "logicVoltage"
+          "logicVoltage",
+          "sdCard"
         ],
         "ref": "https://learn.sparkfun.com/tutorials/microsd-shield-and-sd-breakout-hookup-guide/sd-card-breakout-boards"
       }
     ],
     "copy": {
       "summary": "Bare board — 3.3 V only",
-      "wiringNote": "Bare board: no regulator, no level shifter. 5 V power or 5 V SPI can destroy the card."
+      "wiringNote": "Bare board: no regulator, no level shifter. 5 V power or 5 V SPI can destroy the card.",
+      "optionLabel": "microSD breakout (3.3 V)",
+      "optionOrder": 2
     },
     "pads": [
       {
@@ -5638,7 +5680,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 9.6,
-    "supplyRail": "v3v3"
+    "supplyRail": "v3v3",
+    "sdCard": {
+      "supplyVolts": 3.3,
+      "levelShifted": false
+    }
   },
   "microsd-module-5v": {
     "manifestVersion": 1,
@@ -5686,7 +5732,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       },
       {
         "facts": [
-          "logicVoltage"
+          "logicVoltage",
+          "sdCard"
         ],
         "ref": "https://protosupplies.com/product/microsd-card-module-with-level-shifter/"
       },
@@ -5700,7 +5747,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Regulator and level shifter on board",
-      "wiringNote": "Has an onboard regulator and level shifter, so it takes 5 V power and 5 V SPI."
+      "wiringNote": "Has an onboard regulator and level shifter, so it takes 5 V power and 5 V SPI.",
+      "optionLabel": "microSD module (5 V)",
+      "optionOrder": 1
     },
     "pads": [
       {
@@ -5735,7 +5784,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 8.1,
-    "supplyRail": "v5"
+    "supplyRail": "v5",
+    "sdCard": {
+      "supplyVolts": 5,
+      "levelShifted": true
+    }
   },
   "monkmakes-mosfetti": {
     "manifestVersion": 1,

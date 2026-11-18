@@ -1,4 +1,5 @@
-import { DFPLAYER_BOOT_MS, DFPLAYER_COMMAND_GAP_MS, DFPLAYER_DEVICE_SD } from '../../state/peripherals/dfPlayer'
+import type { PartUartPlayerSpec } from '../../build/parts/partCatalogue'
+import { DFPLAYER_DEVICE_SD } from '../../state/peripherals/dfPlayer'
 
 export interface DfPlayerEmit {
   id: string
@@ -11,6 +12,8 @@ export interface DfPlayerEmit {
   trackExpr: string
   volumeExpr: string
   playingVar: string
+  /** The part's uartPlayer block: baud, command gap and boot delay. */
+  spec: PartUartPlayerSpec
 }
 
 export const DFPLAYER_HELPER_CPP = [
@@ -44,7 +47,7 @@ export function dfPlayerSetupCpp(emit: DfPlayerEmit): string[] {
   return [
     `  pinMode(${emit.busyPin}, INPUT_PULLUP);`,
     '#if defined(ARDUINO_ARCH_ESP32)',
-    `  _dfSerial_${emit.id}.begin(9600, SERIAL_8N1, ${emit.rxPin}, ${emit.txPin});`,
+    `  _dfSerial_${emit.id}.begin(${emit.spec.baud}, SERIAL_8N1, ${emit.rxPin}, ${emit.txPin});`,
     '#endif',
   ]
 }
@@ -69,17 +72,17 @@ export function dfPlayerLoopCpp(emit: DfPlayerEmit): string[] {
     `  while (_dfSerial_${id}.available() > 0) (void)_dfSerial_${id}.read();`,
     `  if (millis() >= _dfNextMs_${id}) {`,
     `    if (!_dfReady_${id}) {`,
-    `      if (millis() >= ${DFPLAYER_BOOT_MS}u && _dfInit_${id} == 0) { _dfSend(_dfSerial_${id}, 0x09, ${DFPLAYER_DEVICE_SD}); _dfInit_${id} = 1; _dfNextMs_${id} = millis() + ${DFPLAYER_COMMAND_GAP_MS}u; }`,
-    `      else if (_dfInit_${id} == 1) { _dfSend(_dfSerial_${id}, 0x06, _dfVolume_${id}); _dfLastVolume_${id} = _dfVolume_${id}; _dfInit_${id} = 2; _dfNextMs_${id} = millis() + ${DFPLAYER_COMMAND_GAP_MS}u; }`,
+    `      if (millis() >= ${emit.spec.bootMs}u && _dfInit_${id} == 0) { _dfSend(_dfSerial_${id}, 0x09, ${DFPLAYER_DEVICE_SD}); _dfInit_${id} = 1; _dfNextMs_${id} = millis() + ${emit.spec.commandGapMs}u; }`,
+    `      else if (_dfInit_${id} == 1) { _dfSend(_dfSerial_${id}, 0x06, _dfVolume_${id}); _dfLastVolume_${id} = _dfVolume_${id}; _dfInit_${id} = 2; _dfNextMs_${id} = millis() + ${emit.spec.commandGapMs}u; }`,
     `      else if (_dfInit_${id} == 2) {`,
     `        if (_dfWantPlay_${id}) _dfSend(_dfSerial_${id}, 0x12, _dfTrack_${id});`,
-    `        _dfReady_${id} = true; _dfLastPlay_${id} = _dfWantPlay_${id}; _dfLastTrack_${id} = _dfTrack_${id}; _dfNextMs_${id} = millis() + ${DFPLAYER_COMMAND_GAP_MS}u;`,
+    `        _dfReady_${id} = true; _dfLastPlay_${id} = _dfWantPlay_${id}; _dfLastTrack_${id} = _dfTrack_${id}; _dfNextMs_${id} = millis() + ${emit.spec.commandGapMs}u;`,
     `      }`,
-    `    } else if (_dfVolume_${id} != _dfLastVolume_${id}) { _dfSend(_dfSerial_${id}, 0x06, _dfVolume_${id}); _dfLastVolume_${id} = _dfVolume_${id}; _dfNextMs_${id} = millis() + ${DFPLAYER_COMMAND_GAP_MS}u; }`,
-    `    else if (_dfTrack_${id} != _dfLastTrack_${id}) { _dfLastTrack_${id} = _dfTrack_${id}; if (_dfWantPlay_${id}) _dfSend(_dfSerial_${id}, 0x12, _dfTrack_${id}); _dfNextMs_${id} = millis() + ${DFPLAYER_COMMAND_GAP_MS}u; }`,
-    `    else if (_dfPendNext_${id}) { _dfSend(_dfSerial_${id}, 0x01, 0); _dfPendNext_${id} = false; _dfNextMs_${id} = millis() + ${DFPLAYER_COMMAND_GAP_MS}u; }`,
-    `    else if (_dfPendPrevious_${id}) { _dfSend(_dfSerial_${id}, 0x02, 0); _dfPendPrevious_${id} = false; _dfNextMs_${id} = millis() + ${DFPLAYER_COMMAND_GAP_MS}u; }`,
-    `    else if (_dfWantPlay_${id} != _dfLastPlay_${id}) { _dfSend(_dfSerial_${id}, _dfWantPlay_${id} ? 0x12 : 0x0E, _dfWantPlay_${id} ? _dfTrack_${id} : 0); _dfLastPlay_${id} = _dfWantPlay_${id}; _dfNextMs_${id} = millis() + ${DFPLAYER_COMMAND_GAP_MS}u; }`,
+    `    } else if (_dfVolume_${id} != _dfLastVolume_${id}) { _dfSend(_dfSerial_${id}, 0x06, _dfVolume_${id}); _dfLastVolume_${id} = _dfVolume_${id}; _dfNextMs_${id} = millis() + ${emit.spec.commandGapMs}u; }`,
+    `    else if (_dfTrack_${id} != _dfLastTrack_${id}) { _dfLastTrack_${id} = _dfTrack_${id}; if (_dfWantPlay_${id}) _dfSend(_dfSerial_${id}, 0x12, _dfTrack_${id}); _dfNextMs_${id} = millis() + ${emit.spec.commandGapMs}u; }`,
+    `    else if (_dfPendNext_${id}) { _dfSend(_dfSerial_${id}, 0x01, 0); _dfPendNext_${id} = false; _dfNextMs_${id} = millis() + ${emit.spec.commandGapMs}u; }`,
+    `    else if (_dfPendPrevious_${id}) { _dfSend(_dfSerial_${id}, 0x02, 0); _dfPendPrevious_${id} = false; _dfNextMs_${id} = millis() + ${emit.spec.commandGapMs}u; }`,
+    `    else if (_dfWantPlay_${id} != _dfLastPlay_${id}) { _dfSend(_dfSerial_${id}, _dfWantPlay_${id} ? 0x12 : 0x0E, _dfWantPlay_${id} ? _dfTrack_${id} : 0); _dfLastPlay_${id} = _dfWantPlay_${id}; _dfNextMs_${id} = millis() + ${emit.spec.commandGapMs}u; }`,
     '  }',
     `  bool ${emit.playingVar} = _dfReady_${id} && digitalRead(${emit.busyPin}) == LOW;`,
     '#else',

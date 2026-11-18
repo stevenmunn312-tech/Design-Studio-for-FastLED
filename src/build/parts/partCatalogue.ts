@@ -195,6 +195,58 @@ export interface PartBuzzerSpec {
   maxCurrentMa: number
 }
 
+/** What a microSD module may be fed, carried by every SPI card socket. */
+export interface PartSdCardSpec {
+  /** The rail its power pad takes. */
+  supplyVolts: number
+  /** False for a bare socket: 5 V power or 5 V SPI can destroy the card. */
+  levelShifted: boolean
+}
+
+/** A battery-backed real-time clock on the I2C bus. */
+export interface PartRtcSpec {
+  /** Selects the register driver the firmware carries. */
+  device: string
+  /** The address that driver reads. */
+  i2cAddress: number
+}
+
+/** A UART-controlled audio player's electrical and timing contract. */
+export interface PartUartPlayerSpec {
+  /** Selects the command protocol the firmware carries. */
+  device: string
+  supplyMinV: number
+  supplyMaxV: number
+  /** The draw with its speaker amplifier driving a load. */
+  maxCurrentMa: number
+  baud: number
+  /** The module ignores a command that follows another sooner than this. */
+  commandGapMs: number
+  /** How long after power-up before it takes its first command. */
+  bootMs: number
+}
+
+/** An RS-485 transceiver that receives DMX512. */
+export interface PartRs485Spec {
+  device: string
+  supplyVolts: number
+  /** The level the receive output swings to; above 3.6 V it needs a divider. */
+  rxLogicVolts: number
+  terminationFitted: boolean
+  /** The board's designator for the fitted terminator, when it prints one. */
+  terminationRef?: string
+}
+
+/** A DIN-5 MIDI receiver on a UART RX pin. */
+export interface PartMidiDinSpec {
+  device: string
+  supplyVolts: number
+  /** An optocoupler separates the cable from the controller. */
+  isolated: boolean
+  /** Which socket of the board is MIDI IN. */
+  inputSocket: 'left' | 'right'
+}
+
 /** Drive and feedback contract carried by a four-wire PWM fan. */
 export interface PartFanSpec {
   supplyVoltageV: number
@@ -580,6 +632,16 @@ export interface PartCatalogueEntry {
   batteryCell?: PartBatteryCellSpec
   /** Present exactly on protection, balance, charger and pack-output boards. */
   batteryModule?: PartBatteryModuleSpec
+  /** Present exactly on microSD card modules. */
+  sdCard?: PartSdCardSpec
+  /** Present exactly on real-time clock modules. */
+  rtc?: PartRtcSpec
+  /** Present exactly on UART audio player modules. */
+  uartPlayer?: PartUartPlayerSpec
+  /** Present exactly on RS-485 DMX transceiver modules. */
+  rs485?: PartRs485Spec
+  /** Present exactly on DIN MIDI interface boards. */
+  midiDin?: PartMidiDinSpec
   /** Present exactly on the auxiliary-display parts. */
   display?: PartDisplaySpec
   render?: PartRenderAsset

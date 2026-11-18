@@ -95,6 +95,7 @@ import {
   DFPLAYER_BUSY_PIN_FALLBACK,
   DFPLAYER_RX_PIN_FALLBACK,
   DFPLAYER_TX_PIN_FALLBACK,
+  uartPlayerSpec,
 } from '../../state/peripherals/dfPlayer'
 
 /**
@@ -256,6 +257,8 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     for (const line of coolingFanLoopCpp(emit)) ln(line)
   },
   DFPlayerOutput({ node, id, p, ln, f, v, boolExpr, setupLines, globalLines }) {
+    const spec = uartPlayerSpec(p.partId)
+    if (!spec) return
     if (!globalLines.includes(DFPLAYER_HELPER_CPP[0])) globalLines.push(...DFPLAYER_HELPER_CPP)
     const emit = {
       id,
@@ -268,6 +271,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       trackExpr: f('track', 'track', 1),
       volumeExpr: f('volume', 'volume', 0.7),
       playingVar: v('playing'),
+      spec,
     }
     globalLines.push(...dfPlayerGlobalCpp(emit))
     setupLines.push(...dfPlayerSetupCpp(emit))

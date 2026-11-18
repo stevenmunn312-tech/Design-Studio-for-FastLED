@@ -1,4 +1,4 @@
-// The Add Hardware rows of the 21 catalogue-derived part types exactly as they were
+// The Add Hardware rows of the 26 catalogue-derived part types exactly as they were
 // written by hand before `partOptions.ts` derived them from the manifests. Frozen
 // on purpose: the derivation must reproduce every label, summary, note and the
 // order (the first row is the type's default module). Do not regenerate this from
@@ -263,6 +263,48 @@ export const LEGACY_OPTION_ROWS: Record<string, LegacyOptionRow[]> = {
       label: 'Adafruit BH1750',
       summary: 'Calibrated ambient light in lux over I2C',
       note: 'Power from the controller logic rail. The breakout level-shifts SDA/SCL and answers on 0x23, or 0x5C with ADDR tied high.',
+    },
+  ],
+  DFPlayerOutput: [
+    {
+      id: 'dfplayer-mini',
+      label: 'DFPlayer Mini',
+      summary: 'UART-controlled microSD audio player with speaker and line outputs',
+      note: 'Power from 5 V. Put numbered files in the card’s /mp3 folder. Speaker mode uses SPK1/SPK2 directly; Line Out uses DAC_L/DAC_R into a power amplifier or powered speakers. Add a 1 kΩ series resistor from controller TX to module RX if UART noise causes buzzing.',
+    },
+  ],
+  RtcModule: [
+    { id: 'ds3231-rtc-module', label: 'DS3231 RTC module', summary: 'ZS-042 breakout, six-pin header' },
+    { id: 'jaycar-xc9044-rtc-module', label: 'DS3231 RTC Clock Module for Raspberry Pi', summary: 'Pi-header DS3231, CR927 backup' },
+  ],
+  DmxTransceiver: [
+    {
+      id: 'max485-rs485-module',
+      label: 'MAX485 RS-485 module',
+      summary: 'DMX512 in from an XLR line, on 5 V',
+      note: 'Power from 5 V. RO reaches the board through a 1 kΩ / 2 kΩ divider, and RE is bridged to DE so one GPIO drives both. Keep the fitted 120 Ω terminator only on the last device in the DMX chain.',
+    },
+  ],
+  MidiInterface: [
+    {
+      id: 'adafruit-midi-featherwing',
+      label: 'Adafruit MIDI FeatherWing',
+      summary: 'Opto-isolated DIN-5 MIDI in, on 3.3 V',
+      note: 'Power from 3.3 V. Only 3.3V, GND and MIDI_RX are wired; the optocoupler output needs no divider. Plug the keyboard into the left socket, MIDI IN.',
+    },
+  ],
+  SDCard: [
+    {
+      id: 'microsd-module-5v',
+      label: 'microSD module (5 V)',
+      summary: 'Regulator and level shifter on board',
+      note: 'Has an onboard regulator and level shifter, so it takes 5 V power and 5 V SPI.',
+    },
+    {
+      id: 'microsd-breakout-3v3',
+      label: 'microSD breakout (3.3 V)',
+      summary: 'Bare board — 3.3 V only',
+      note: 'Bare board: no regulator, no level shifter. 5 V power or 5 V SPI can destroy the card.',
     },
   ],
 }

@@ -51,8 +51,11 @@ import { DARLINGTON_PART_ID, darlingtonPinKeys, darlingtonSpec } from '../state/
 import { PD_TRIGGER_PART_ID, converterSourceFor, pdTriggerSpec, pdTriggerVoltage } from '../state/peripherals/pdTrigger'
 import { POWER_SUPPLY_NODE_TYPE, powerSupplyName, powerSupplyRating, powerSupplyRatingLabel, supplyForLoad } from '../state/peripherals/powerSupply'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/peripherals/powerMonitor'
-import { DMX_TRANSCEIVER_NODE_TYPE, DMX_TRANSCEIVER_PART_ID } from '../state/peripherals/dmxTransceiver'
-import { MIDI_BAUD, MIDI_DIN_PART_ID, MIDI_INTERFACE_NODE_TYPE } from '../state/peripherals/midiSource'
+import { DMX_TRANSCEIVER_NODE_TYPE, DMX_TRANSCEIVER_PART_ID, rs485RxLevelFact, rs485Spec, rs485TerminationFact } from '../state/peripherals/dmxTransceiver'
+import { DEFAULT_RTC_MODULE_PART_ID, rtcSpec, rtcSubtitle } from '../state/peripherals/rtcModule'
+import { DEFAULT_SD_CARD_PART_ID, sdCardSpec, sdCardSubtitle } from '../state/peripherals/sdCard'
+import { partIdOrDefault } from '../state/peripherals/partSpec'
+import { MIDI_BAUD, MIDI_DIN_PART_ID, MIDI_INTERFACE_NODE_TYPE, midiCableFact, midiDinSpec } from '../state/peripherals/midiSource'
 import { allocateUarts, type UartDevice } from './pins/uartAssignment'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_UART_PORT, presenceSensorSpec } from '../state/peripherals/presenceSensor'
 import { touchButtonSpec } from '../state/peripherals/touchButton'
@@ -98,11 +101,12 @@ import {
   coolingFanSpec,
 } from '../state/peripherals/coolingFan'
 import {
-  DFPLAYER_MAX_CURRENT_LABEL,
   DFPLAYER_PART_ID,
-  DFPLAYER_SUPPLY_LABEL,
   dfPlayerAudioOutput,
   dfPlayerUartPort,
+  uartPlayerMaxCurrentLabel,
+  uartPlayerSpec,
+  uartPlayerSupplyLabel,
 } from '../state/peripherals/dfPlayer'
 
 export interface HardwarePinUse {
@@ -1351,8 +1355,10 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
       }
       case 'DFPlayerOutput': {
         const props = node.data.properties as Record<string, unknown>
-        const partId = String(props.partId ?? DFPLAYER_PART_ID)
+        const partId = partIdOrDefault(props.partId, DFPLAYER_PART_ID)
         const entry = partById(partId)
+        const spec = uartPlayerSpec(partId)
+        if (!spec) return unknownPartItem(node, 'amplifier', pins)
         const wired = ['uartRxPin', 'uartTxPin', 'busyPin']
           .every((key) => pins.some((pin) => pin.propertyKey === key))
         const boardSupported = !selectedFqbn || selectedFqbn.startsWith('esp32:')
@@ -1369,12 +1375,12 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
             partId,
             stage: 'player',
             output: dfPlayerAudioOutput(props.audioOutput) === 'Line Out' ? 'line' : 'speaker',
-            supply: DFPLAYER_SUPPLY_LABEL,
-            maxCurrent: DFPLAYER_MAX_CURRENT_LABEL,
+            supply: uartPlayerSupplyLabel(spec),
+            maxCurrent: uartPlayerMaxCurrentLabel(spec),
             storage: 'on-module microSD, FAT16/FAT32, up to 32 GB',
             uart: uartPort === null
-              ? 'UART2 on classic ESP32 and S3, UART1 on S2/C3/C6/H2; 9600 baud, 8N1'
-              : `UART${uartPort} at 9600 baud, 8N1`,
+              ? `UART2 on classic ESP32 and S3, UART1 on S2/C3/C6/H2; ${spec.baud} baud, 8N1`
+              : `UART${uartPort} at ${spec.baud} baud, 8N1`,
             volume: '30 steps',
           },
           reasons: reasons.length > 0 ? reasons : undefined,
@@ -1635,7 +1641,10 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
       case DMX_TRANSCEIVER_NODE_TYPE: {
         // Three GPIOs to the transceiver; the bus side (B, A, GND) goes to the
         // XLR cable, not to the controller, so it travels as facts.
-        const entry = partById(DMX_TRANSCEIVER_PART_ID)
+        const partId = partIdOrDefault((node.data.properties as Record<string, unknown>).partId, DMX_TRANSCEIVER_PART_ID)
+        const entry = partById(partId)
+        const spec = rs485Spec(partId)
+        if (!spec) return unknownPartItem(node, 'dmx-input', pins)
         const missing = (['dmxTxPin', 'dmxRxPin', 'dmxEnablePin'] as const)
           .filter((key) => !pins.some((pin) => pin.propertyKey === key))
         return {
@@ -1643,13 +1652,13 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           title: entry?.label ?? nodeLabel(node),
           supported: missing.length === 0,
           facts: {
-            partId: DMX_TRANSCEIVER_PART_ID,
+            partId,
             uart: uartFact('dmx', 'DMX node set to DMX512', '250 kbaud'),
-            supply: '5 V',
-            rxLevel: 'RO to RX through 1 kΩ, RX to GND through 2 kΩ (5 V down to 3.3 V)',
+            supply: `${spec.supplyVolts} V`,
+            rxLevel: rs485RxLevelFact(spec),
             enable: 'RE and DE bridged, on one GPIO',
             dmxCable: 'XLR pin 1 to GND, pin 2 (Data-) to B, pin 3 (Data+) to A',
-            termination: '120 Ω fitted (R7): keep only on the last device in the chain',
+            termination: rs485TerminationFact(spec),
           },
           reasons: missing.length === 0
             ? undefined
@@ -1660,30 +1669,37 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         // One GPIO: the wing's MIDI_RX pad carries the optocoupler output to
         // the board's RX. The DIN cable plugs into the wing, and the MIDI nodes
         // only listen, so MIDI_TX stays unwired.
-        const entry = partById(MIDI_DIN_PART_ID)
+        const partId = partIdOrDefault((node.data.properties as Record<string, unknown>).partId, MIDI_DIN_PART_ID)
+        const entry = partById(partId)
+        const spec = midiDinSpec(partId)
+        if (!spec) return unknownPartItem(node, 'midi-input', pins)
         const wired = pins.some((pin) => pin.propertyKey === 'midiRxPin')
         return {
           ...buildPeripheralItem(node, 'midi-input', entry?.label ?? 'MIDI DIN interface', pins),
           title: entry?.label ?? nodeLabel(node),
           supported: wired,
           facts: {
-            partId: MIDI_DIN_PART_ID,
+            partId,
             uart: `${uartFact('midi', 'MIDI node set to DIN', `${MIDI_BAUD} baud`)}; MIDI_TX unwired`,
-            midiCable: 'MIDI IN is the left DIN socket',
+            midiCable: midiCableFact(spec),
           },
           reasons: wired ? undefined : [`${physicalBoard?.label ?? 'The selected board'} does not have a MIDI RX pin configured.`],
         }
       }
-      case 'RtcModule':
+      case 'RtcModule': {
+        const partId = partIdOrDefault((node.data.properties as Record<string, unknown>).partId, DEFAULT_RTC_MODULE_PART_ID)
+        const spec = rtcSpec(partId)
+        if (!spec) return unknownPartItem(node, 'rtc-input', pins)
         return {
-          ...buildPeripheralItem(node, 'rtc-input', 'DS3231 battery-backed I²C clock', pins),
+          ...buildPeripheralItem(node, 'rtc-input', rtcSubtitle(spec), pins),
           supported: pins.some((pin) => pin.propertyKey === 'sdaPin')
             && pins.some((pin) => pin.propertyKey === 'sclPin'),
-          facts: { partId: String((node.data.properties as Record<string, unknown>).partId ?? 'ds3231-rtc-module') },
+          facts: { partId },
           reasons: pins.length === 2
             ? undefined
             : [`${physicalBoard?.label ?? 'The selected board'} does not have complete RTC SDA/SCL properties.`],
         }
+      }
       case 'SegmentDisplay': {
         const props = node.data.properties as Record<string, unknown>
         const partId = String(props.partId ?? 'tm1637-4digit-display')
@@ -1758,15 +1774,15 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         }
       }
       case 'SDCard': {
-        const partId = String((node.data.properties as Record<string, unknown>).partId ?? 'microsd-module-5v')
+        const partId = partIdOrDefault((node.data.properties as Record<string, unknown>).partId, DEFAULT_SD_CARD_PART_ID)
+        const spec = sdCardSpec(partId)
         const spiPins = pins.filter((pin) => ['sdCsPin', 'sdSckPin', 'sdMosiPin', 'sdMisoPin'].includes(pin.propertyKey))
+        if (!spec) return unknownPartItem(node, 'sd-card', spiPins)
         return {
-          ...buildPeripheralItem(node, 'sd-card', partId === 'microsd-breakout-3v3'
-            ? 'Bare 3.3 V microSD SPI breakout'
-            : '5 V microSD SPI module with regulator and level shifting', spiPins),
+          ...buildPeripheralItem(node, 'sd-card', sdCardSubtitle(spec), spiPins),
           supported: ['sdCsPin', 'sdSckPin', 'sdMosiPin', 'sdMisoPin']
             .every((key) => spiPins.some((pin) => pin.propertyKey === key)),
-          facts: { partId, supplyVoltage: partId === 'microsd-breakout-3v3' ? 3.3 : 5 },
+          facts: { partId, supplyVoltage: spec.supplyVolts },
           reasons: spiPins.length === 4
             ? undefined
             : ['The selected board does not have a reviewed default SPI bus for the SD card.'],

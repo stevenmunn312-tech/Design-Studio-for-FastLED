@@ -16,7 +16,8 @@
     },
     {
       "facts": [
-        "logicVoltage"
+        "logicVoltage",
+        "sdCard"
       ],
       "ref": "https://protosupplies.com/product/microsd-card-module-with-level-shifter/"
     },
@@ -30,7 +31,9 @@
   ],
   "copy": {
     "summary": "Regulator and level shifter on board",
-    "wiringNote": "Has an onboard regulator and level shifter, so it takes 5 V power and 5 V SPI."
+    "wiringNote": "Has an onboard regulator and level shifter, so it takes 5 V power and 5 V SPI.",
+    "optionLabel": "microSD module (5 V)",
+    "optionOrder": 1
   },
   "pads": [
     {
@@ -65,5 +68,9 @@
     }
   ],
   "padHoleRadiusPx": 8.1,
-  "supplyRail": "v5"
+  "supplyRail": "v5",
+  "sdCard": {
+    "supplyVolts": 5,
+    "levelShifted": true
+  }
 }
