@@ -44,6 +44,7 @@
   ],
   "copy": {
     "summary": "One opto-isolated DC switch or dimmer, 6-28 V",
-    "wiringNote": "DC loads only. No flyback diode on the board: add one across a motor, solenoid or coil."
+    "wiringNote": "DC loads only. No flyback diode on the board: add one across a motor, solenoid or coil.",
+    "optionLabel": "LR7843 MOSFET switch"
   }
 }

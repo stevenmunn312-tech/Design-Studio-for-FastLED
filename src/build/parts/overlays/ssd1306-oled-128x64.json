@@ -36,6 +36,8 @@
   ],
   "copy": {
     "summary": "128x64 white OLED over I2C",
-    "wiringNote": "The Adafruit eight-pin STEMMA QT breakout, strapped for I2C: it prints the SPI names CLK and DATA on the two lines it answers I2C on. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices."
+    "wiringNote": "The Adafruit eight-pin STEMMA QT breakout, strapped for I2C: it prints the SPI names CLK and DATA on the two lines it answers I2C on. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices.",
+    "optionLabel": "SSD1306 0.96-inch (Adafruit)",
+    "optionOrder": 5
   }
 }

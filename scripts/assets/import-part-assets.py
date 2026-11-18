@@ -111,7 +111,9 @@ PART_MANIFEST_VERSION = 1
 # What an overlay may carry. Everything else in a manifest is a measured fact
 # from the part's own part.json, and an overlay never overrides one.
 OVERLAY_FIELDS = ("revision", "partTypes", "categories", "verification", "sources", "interfaces", "copy")
-OVERLAY_COPY_FIELDS = {"summary": 300, "wiringNote": 600, "hint": 200}
+OVERLAY_COPY_FIELDS = {"summary": 300, "wiringNote": 600, "hint": 200, "optionLabel": 120}
+# Numbers a copy block may carry, with their inclusive range.
+OVERLAY_COPY_NUMBERS = {"optionOrder": (1, 999)}
 # Fields a part.json owns even when a particular part leaves one out.
 MEASURED_FIELDS = {
     "manifestVersion", "partId", "label", "category", "manufacturer", "logicVoltage", "dimensionsMm",
@@ -272,6 +274,11 @@ def merge_overlay(entry: dict, overlay, category_ids: set[str], vocabulary: dict
         if not isinstance(copy, dict):
             raise OverlayError(f"{part_id}: copy must be an object")
         for key, value in copy.items():
+            if key in OVERLAY_COPY_NUMBERS:
+                low, high = OVERLAY_COPY_NUMBERS[key]
+                if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
+                    raise OverlayError(f"{part_id}: copy.{key} must be a whole number from {low} to {high}")
+                continue
             if key not in OVERLAY_COPY_FIELDS:
                 raise OverlayError(f"{part_id}: copy names unknown field {key!r}")
             if not isinstance(value, str) or len(value) > OVERLAY_COPY_FIELDS[key]:

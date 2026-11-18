@@ -158,7 +158,7 @@ describe('HardwarePane', () => {
     const addOled = () => addDisplay('SSD1306 0.96-inch (4-pin)')
     if (oledFirst) addOled()
     addPart('Inputs', 'DS3231 RTC module')
-    addPart('Inputs', 'INA219 power monitor')
+    addPart('Inputs', 'Adafruit INA219 current sensor')
     if (!oledFirst) addOled()
     const bus = boardI2cDefault(DEFAULT_BOARD_PROFILE_ID)!
     const parts = rootGraphNodes(useGraphStore.getState()).filter((part) =>

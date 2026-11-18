@@ -34,6 +34,11 @@ export interface BenchPartsInputs {
   boardUnresolved?: boolean
 }
 
+/** Whether a node's `partId` property chooses a module (an empty or missing one does not). */
+function namesAPart(partId: unknown): boolean {
+  return typeof partId === 'string' && partId !== ''
+}
+
 /** The parts on the bench, recomputed only when the root graph changes. */
 export function useBenchParts({ nodes, edges, selectedBoard, boardUnresolved = false }: BenchPartsInputs) {
   // A part registered after load changes what a node's module resolves to.
@@ -51,9 +56,12 @@ export function useBenchParts({ nodes, edges, selectedBoard, boardUnresolved = f
         const entry = inputPartEntries().find((candidate) =>
           candidate.nodeType === node.data.nodeType
           && candidate.properties?.partId === props.partId,
-        ) ?? (CATALOGUE_SENSOR_NODE_TYPES.has(node.data.nodeType)
-          // A sensor's footprint is its own part's. Another part's would draw a
-          // different module in its place; the validator names the missing part.
+        ) ?? (namesAPart(props.partId) || CATALOGUE_SENSOR_NODE_TYPES.has(node.data.nodeType)
+          // A part that names a module is that module's footprint or nothing.
+          // Another part's would draw a different module in its place (a
+          // downloaded or unknown part must not pass as the first bundled one
+          // of its type); the validator names the missing part. Only a node
+          // that names no part at all is its type's default.
           ? undefined
           : inputPartEntries().find((candidate) => candidate.nodeType === node.data.nodeType))
         if (!entry) return []

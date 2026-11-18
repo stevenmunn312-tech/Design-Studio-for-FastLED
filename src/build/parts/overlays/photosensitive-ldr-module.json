@@ -24,6 +24,8 @@
   ],
   "copy": {
     "summary": "Relative brightness on one analog pin",
-    "wiringNote": "An analog divider: Level is relative brightness. It cannot report calibrated lux, so Lux stays at zero."
+    "wiringNote": "An analog divider: Level is relative brightness. It cannot report calibrated lux, so Lux stays at zero.",
+    "optionLabel": "LDR light sensor",
+    "optionOrder": 1
   }
 }

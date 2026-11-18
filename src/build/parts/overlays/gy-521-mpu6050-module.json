@@ -36,6 +36,7 @@
   ],
   "copy": {
     "summary": "Three-axis accelerometer and gyroscope over I2C",
-    "wiringNote": "Power VCC from 3.3 V. Leave AD0 unwired for 0x68, or tie it high for 0x69 when a DS3231 clock already uses 0x68."
+    "wiringNote": "Power VCC from 3.3 V. Leave AD0 unwired for 0x68, or tie it high for 0x69 when a DS3231 clock already uses 0x68.",
+    "optionLabel": "GY-521 MPU-6050"
   }
 }

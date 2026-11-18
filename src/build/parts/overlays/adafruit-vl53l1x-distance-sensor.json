@@ -40,6 +40,8 @@
   ],
   "copy": {
     "summary": "Laser time-of-flight, 3 cm to 4 m, over I2C",
-    "wiringNote": "Power VIN from 3.3 V. One sensor answers on 0x29; leave XSHUT and GPIO unconnected. To share the bus, wire each XSHUT pin and pick an address from 0x30 to 0x33. It runs in long distance mode, which reaches about 4 m. The build needs the Pololu VL53L1X library, which Studio installs the first time."
+    "wiringNote": "Power VIN from 3.3 V. One sensor answers on 0x29; leave XSHUT and GPIO unconnected. To share the bus, wire each XSHUT pin and pick an address from 0x30 to 0x33. It runs in long distance mode, which reaches about 4 m. The build needs the Pololu VL53L1X library, which Studio installs the first time.",
+    "optionLabel": "Adafruit VL53L1X laser",
+    "optionOrder": 3
   }
 }

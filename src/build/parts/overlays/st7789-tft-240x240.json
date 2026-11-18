@@ -34,6 +34,8 @@
   ],
   "copy": {
     "summary": "240x240 colour TFT over SPI",
-    "wiringNote": "A square 240x240 colour display with no touch controller."
+    "wiringNote": "A square 240x240 colour display with no touch controller.",
+    "optionLabel": "ST7789 1.54-inch",
+    "optionOrder": 1
   }
 }

@@ -52,6 +52,7 @@
   ],
   "copy": {
     "summary": "Four DC switches or dimmers, A to D, 3-16 V",
-    "wiringNote": "DC only, 2 A for the whole board. Not isolated: join its GND to the board. Flyback diodes are fitted."
+    "wiringNote": "DC only, 2 A for the whole board. Not isolated: join its GND to the board. Flyback diodes are fitted.",
+    "optionLabel": "MonkMakes Mosfetti"
   }
 }

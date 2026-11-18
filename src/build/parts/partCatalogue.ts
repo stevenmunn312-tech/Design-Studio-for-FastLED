@@ -737,6 +737,35 @@ export function registeredPartsForType(nodeType: string): PartManifest[] {
   return parts
 }
 
+/**
+ * Bundled parts written for `nodeType`, in the type's menu order: those with a
+ * `copy.optionOrder` first by that number, then the rest in catalogue order.
+ * The first is the type's default module. Bundled parts never change, so this
+ * is safe to read at module load; downloaded parts are `registeredPartsForType`
+ * and always follow these.
+ */
+export function bundledPartsForType(nodeType: string): PartManifest[] {
+  const parts = Object.values(PART_CATALOGUE_DATA)
+    .filter((manifest) => manifest.partTypes?.includes(nodeType))
+  return parts
+    .map((manifest, index) => ({ manifest, index }))
+    .sort((a, b) =>
+      (a.manifest.copy?.optionOrder ?? Number.POSITIVE_INFINITY) - (b.manifest.copy?.optionOrder ?? Number.POSITIVE_INFINITY)
+      || a.index - b.index)
+    .map(({ manifest }) => manifest)
+}
+
+/**
+ * The size of a bundled part. A bundled part always has one, so a missing part
+ * is a coding error here, not a value to substitute: callers that meet a part
+ * of unknown origin read `dimensionsMm` from its own entry instead.
+ */
+export function bundledPartDimensionsMm(partId: string): { width: number; height: number } {
+  const entry = PART_CATALOGUE_DATA[partId]
+  if (!entry) throw new Error(`No bundled part ${partId}`)
+  return entry.dimensionsMm
+}
+
 /** The node types a registered part can be used for; empty for any other id. */
 export function registeredPartTypes(partId: string): readonly string[] {
   return registeredParts.get(partId)?.usableTypes ?? []

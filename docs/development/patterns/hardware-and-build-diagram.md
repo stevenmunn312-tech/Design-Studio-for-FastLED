@@ -1143,8 +1143,8 @@ counts, which is how tests add fixture parts), `subscribeCatalogue` announces
 it and `partOrigin(id)` says where a part came from.
 
 - Never cache a value derived from the catalogue at module load. Read it when
-  asked or wrap it in `memoByCatalogue`. `PART_OPTIONS` rows, `inputPartEntries()`,
-  `powerConverterPartIds()` and `PART_RENDER_BY_NODE_TYPE` already do.
+  asked or wrap it in `memoByCatalogue`. `PART_OPTIONS` rows, `inputPartEntries()`
+  and `powerConverterPartIds()` already do.
 - A component that reads the catalogue while rendering, outside a hook that
   already depends on the graph, calls `usePartCatalogueVersion()`; a `useMemo`
   that reads it lists the version as a dependency.
@@ -1152,6 +1152,19 @@ it and `partOrigin(id)` says where a part came from.
   `copy.wiringNote`) and, for a type with an input row, a shelf row built from
   the type's default row and the manifest's own footprint and silkscreen.
   Fixture types list modules through `partOptionsFor`, so they need no row.
+- Option rows of the types in `catalogueTypeOptions` (`partOptions.ts`) are their bundled
+  manifests, in `bundledPartsForType` order: label is `copy.optionLabel` (the short menu
+  name; `label` when absent), then `copy.summary` and `copy.wiringNote`. `copy.optionOrder`
+  fixes a bundled part's place and so the type's default (first) row; a registered part
+  always follows the bundled ones, whatever its `optionOrder`, so it cannot become the
+  default. `catalogueOptionRows.test.ts` pins the rows against a frozen copy of the old literals.
+- Input shelf rows for the types in `CATALOGUED_INPUT_TYPES` (`hardwarePartCatalog.ts`) are
+  one per part: the manifest's `label`, `copy.hint` or `copy.summary` and `dimensionsMm`, with
+  the type supplying signal port, data type and pins (read from the part's own `interface` where
+  it differs). The type's default part keeps the type's layout id; others are `<id>-<part id>`.
+  `useBenchParts` never draws a node that names a part as another part: no entry, no picture.
+  `partRenderForNodeType` follows the same rule; only the button bank, potentiometer and encoder
+  module (no catalogue entry) keep a bundled picture.
 - `FIXTURE_PARTS`, node defaults and `PROPERTY_META` address options read named
   bundled ids, which are never replaced, so they stay constants.
 - Tests add parts with `registerParts` and call `resetRegisteredPartsForTests`

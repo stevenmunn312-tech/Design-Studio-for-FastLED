@@ -24,6 +24,7 @@
   ],
   "copy": {
     "summary": "Asks a USB-C charger for 5, 9, 12, 15 or 20 V",
-    "wiringNote": "A power source, not a signal device: nothing connects to a GPIO. Set the voltage on the board before connecting a load, because its output sits at that voltage as soon as the charger is plugged in. The charger must support PD. Read the silkscreen on your own board for polarity."
+    "wiringNote": "A power source, not a signal device: nothing connects to a GPIO. Set the voltage on the board before connecting a load, because its output sits at that voltage as soon as the charger is plugged in. The charger must support PD. Read the silkscreen on your own board for polarity.",
+    "optionLabel": "ZY12PDN"
   }
 }

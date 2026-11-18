@@ -31,6 +31,7 @@
   ],
   "copy": {
     "summary": "40 mm 5 V fan, 25 kHz PWM control and tachometer feedback",
-    "wiringNote": "Power it from 5 V. PWM is a 25 kHz active-high controller signal; RPM is an open-collector tachometer output with two pulses per revolution. This first firmware path supports ESP32-family boards."
+    "wiringNote": "Power it from 5 V. PWM is a 25 kHz active-high controller signal; RPM is an open-collector tachometer output with two pulses per revolution. This first firmware path supports ESP32-family boards.",
+    "optionLabel": "Noctua NF-A4x10 5V PWM"
   }
 }

@@ -38,6 +38,7 @@
   ],
   "copy": {
     "summary": "Volts, amps, watts: 26 V, 3.2 A, I2C",
-    "wiringNote": "High-side: the supply goes to Vin+ and the load to Vin-, sharing ground with the board."
+    "wiringNote": "High-side: the supply goes to Vin+ and the load to Vin-, sharing ground with the board.",
+    "optionLabel": "Adafruit INA219"
   }
 }

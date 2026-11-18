@@ -34,6 +34,8 @@
   ],
   "copy": {
     "summary": "240x320 colour TFT with XPT2046 touch",
-    "wiringNote": "The XPT2046 touch controller exposes its own SPI pins, so it can share the display bus or use a separate bus. Adding this module gives you two nodes: the panel, and the Touch Screen node whose Controls output is what a finger on the glass publishes."
+    "wiringNote": "The XPT2046 touch controller exposes its own SPI pins, so it can share the display bus or use a separate bus. Adding this module gives you two nodes: the panel, and the Touch Screen node whose Controls output is what a finger on the glass publishes.",
+    "optionLabel": "ST7789V 2.4-inch + touch",
+    "optionOrder": 3
   }
 }

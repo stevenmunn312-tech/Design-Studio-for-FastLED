@@ -43,6 +43,18 @@ export interface PartManifestCopy {
   summary?: string
   wiringNote?: string
   hint?: string
+  /**
+   * The short name the Add Hardware menu and the part panel use, where the
+   * manifest `label` is the full product name. Absent: the menu uses `label`.
+   */
+  optionLabel?: string
+  /**
+   * Where a bundled part sits among its type's menu rows, from 1. The first row
+   * is the type's default module, so order is data, not file order. Read for
+   * bundled parts only: a downloaded part always follows them, so it can never
+   * displace the default.
+   */
+  optionOrder?: number
 }
 
 /** One node of the shelf category tree (the shape the signed index carries). */
@@ -107,6 +119,8 @@ const COMMON_FIELDS: Record<string, FieldSpec> = {
     summary: opt(str({ maxLength: 300 })),
     wiringNote: opt(str({ maxLength: 600 })),
     hint: opt(str({ maxLength: 200 })),
+    optionLabel: opt(str({ nonEmpty: true, maxLength: 120 })),
+    optionOrder: opt(int(1, 999)),
   })),
 }
 

@@ -35,6 +35,8 @@
   ],
   "copy": {
     "summary": "Calibrated ambient light in lux over I2C",
-    "wiringNote": "Power from the controller logic rail. The breakout level-shifts SDA/SCL and answers on 0x23, or 0x5C with ADDR tied high."
+    "wiringNote": "Power from the controller logic rail. The breakout level-shifts SDA/SCL and answers on 0x23, or 0x5C with ADDR tied high.",
+    "optionLabel": "Adafruit BH1750",
+    "optionOrder": 2
   }
 }

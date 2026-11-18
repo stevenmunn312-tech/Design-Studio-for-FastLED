@@ -21,6 +21,8 @@
   ],
   "copy": {
     "summary": "Two-wire 7-segment with a colon",
-    "wiringNote": "Four digits and a centre colon, driven over CLK and DIO. Not I2C despite the two wires: the TM1637 has no addresses, so each module needs its own pair of pins."
+    "wiringNote": "Four digits and a centre colon, driven over CLK and DIO. Not I2C despite the two wires: the TM1637 has no addresses, so each module needs its own pair of pins.",
+    "optionLabel": "TM1637 4-digit",
+    "optionOrder": 1
   }
 }

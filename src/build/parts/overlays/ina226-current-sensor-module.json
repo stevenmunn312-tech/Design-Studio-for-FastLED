@@ -37,6 +37,7 @@
   ],
   "copy": {
     "summary": "Volts, amps, watts: 36 V, 20 A, I2C",
-    "wiringNote": "High-side: the supply goes to IN+ and the load to IN-, sharing ground with the board. Power VCC from 3.3 V. Sixteen addresses, 0x40 to 0x4F, from the A0 and A1 pads. ALE is not needed."
+    "wiringNote": "High-side: the supply goes to IN+ and the load to IN-, sharing ground with the board. Power VCC from 3.3 V. Sixteen addresses, 0x40 to 0x4F, from the A0 and A1 pads. ALE is not needed.",
+    "optionLabel": "INA226 module"
   }
 }
