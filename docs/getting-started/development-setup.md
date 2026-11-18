@@ -18,7 +18,7 @@ project/pattern sync.
 From a new checkout:
 
 ```sh
-git clone --branch Hardware https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED.git
+git clone https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED.git
 cd Design-Studio-for-FastLED
 npm ci
 npm run dev

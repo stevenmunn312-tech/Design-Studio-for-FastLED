@@ -820,7 +820,7 @@ function UploadTab() {
         </div>
         <div className={styles.text}>
           <SupportedHardwareSummary />
-          {' '}Treat every other combination as experimental and check the <a className={styles.link} href={`${REPO_URL}/blob/Hardware/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">beta support matrix</a> for the exact scope.
+          {' '}Treat every other combination as experimental and check the <a className={styles.link} href={`${REPO_URL}/blob/main/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">beta support matrix</a> for the exact scope.
         </div>
       </div>
     </>
