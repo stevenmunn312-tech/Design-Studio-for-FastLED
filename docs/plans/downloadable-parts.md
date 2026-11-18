@@ -346,9 +346,64 @@ shape of the registry.
 **Decide the v1.0.0 types before the freeze.** Only part types in v1.0.0 can
 gain downloaded parts while v1.0.0 is current. A type that is likely to be
 wanted soon and is cheap to add belongs in v1.0.0 even with one bundled part,
-so that later parts of that type need no release. Candidates to weigh: CAN,
-GPIO expander, UART serial device, radio. Each new type follows the usual rules: built
-from documentation, marked experimental, promoted by bench rows.
+so that later parts of that type need no release. Each new type follows the
+usual rules: built from documentation, marked experimental, promoted by bench
+rows.
+
+**v1.0.0 picks.** Two generic types, chosen because each turns a whole family
+of cheap sensors into data-only parts:
+
+| New type | One part covers | What the manifest carries |
+| --- | --- | --- |
+| Digital sensor | reed, Hall, tilt, vibration, float and limit switches, IR break-beam, door contact | label, active level, pull-up, debounce, categories |
+| Analog sensor | soil moisture, force-sensitive resistor, flex, slide pot, gas, water level | ADC range, supply, calibration curve to real units, unit label, categories |
+
+Both are input nodes with one output (a bool, or a float in the part's
+unit) plus `connected` where the part can tell. Preview uses a slider or
+toggle, as the other hardware inputs do.
+
+Not in v1.0.0, to be added in later releases: thermal camera (AMG8833), colour
+sensor (TCS34725), gesture sensor (APDS-9960), direct GPIO servo, stepper
+driver, GPS, CAN, radio, load cell, heart-rate sensor. The GPIO expander and
+I2C multiplexer are also later, but the format must be ready for them before
+the freeze (next section).
+
+## Pins and buses on other parts
+
+A GPIO expander (MCP23017, PCF8574) or an I2C multiplexer (TCA9548A) is not just
+another part. It changes what a pin or a bus is, and that reaches well past the
+part catalogue:
+
+- **Pin allocation and checks.** Today a pin is a board GPIO number in a node
+  property (`in1Pin: 5`). `collectPinUses`, `assignPartPins`, `sanitizePin` and
+  the bus-aware collision check in `src/build/pins/busTopology.ts` all assume
+  that. An expander pin belongs to a part, has its own capabilities (no PWM, no
+  LED data, slower, input interrupt shared) and must never be offered for
+  timing-critical work such as FastLED data.
+- **Buses.** `busTopology.ts` derives a bus instance from the board pins. A
+  multiplexer adds downstream buses, each with its own address space, so four
+  VL53L0X sensors at one address become legal on four mux channels.
+- **Build Diagram.** A part wired to an expander or mux draws its wires to that
+  part's pads, not the controller's. The power plan gains the expander's own
+  rail and draw.
+- **Codegen.** Reads and writes go through the expander's driver, and mux
+  channels must be selected before each transaction, which changes
+  polling order and timing.
+
+See [hardware and Build Diagram patterns](../development/patterns/hardware-and-build-diagram.md)
+for the current contracts.
+
+**What v1.0.0 must do now.** Only the save shape is affected by the freeze. A
+pin or bus reference that v1.0.0 does not understand must not reach
+`sanitizePin` or codegen as garbage. v1.0.0 therefore:
+
+1. reserves the reference shapes: a pin is a board GPIO number, or a
+   `{ part, pin }` reference to a pin on another node; an I2C bus is the board
+   bus, or a `{ part, channel }` reference to a mux channel;
+2. treats any reference it cannot resolve like an unknown part type: the node
+   is kept and marked, and Upload is blocked with a plain reason;
+3. leaves building the expander and mux themselves to a later release, which
+   can then add them without a save migration.
 
 ## Phases
 
@@ -369,7 +424,10 @@ from documentation, marked experimental, promoted by bench rows.
    and offer revision updates for packages.
 8. Embed manifests in saves.
 9. Replace silent fallbacks for unknown parts and types with explicit errors.
-10. Decide the v1.0.0 part types, and add the chosen new ones.
+10. Add the Digital sensor and Analog sensor part types, each with at least
+    one bundled part.
+11. Reserve the `{ part, pin }` and `{ part, channel }` reference shapes, and
+    block Upload on any reference v1.0.0 cannot resolve.
 
 Steps 1 to 5, 8 and 9 change nothing a user sees when they are done well, so
 they are proved by the existing suites plus a full compile matrix, the same as
@@ -393,7 +451,7 @@ New part types that missed v1.0.0.
 
 - Which static host serves the index, and where the signing key is kept.
 - Whether renders are embedded in the save or fetched and cached by hash.
-- Which new part types join v1.0.0.
+- Which bundled part ships first for each of the two generic types.
 - How a part that is later found wrong is withdrawn: a new revision, a warning
   on saves that embed the old one, or both.
 - What accuracy the agent must reach against the bundled library before its
