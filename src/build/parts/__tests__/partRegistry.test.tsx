@@ -252,7 +252,8 @@ describe('derived values follow the registry', () => {
   })
 
   it('leaves out the copy a manifest does not have', () => {
-    registerParts([fixture(BASE_MONITOR, ['PowerMonitorInput'], 'bare-part')], 'downloaded')
+    // Bundled entries carry overlay copy now; this fixture must have none.
+    registerParts([{ ...fixture(BASE_MONITOR, ['PowerMonitorInput'], 'bare-part'), copy: undefined }], 'downloaded')
     expect(partOptionsFor('PowerMonitorInput').at(-1)).toEqual({ id: 'bare-part', label: 'Test bare-part' })
   })
 
