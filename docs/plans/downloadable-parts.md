@@ -430,9 +430,14 @@ pin or bus reference that v1.0.0 does not understand must not reach
    for branches on a bundled part's id, and set `downloadable` in
    `src/build/parts/partTypes.ts` once it has none. *(Mostly done: all 94
    parts have overlays; pads, rails, option rows, shelf entries and per-part
-   property options come from manifests; fallbacks are gone. Left: the 13
-   `code change` types in the
-   [audit](../reports/part-type-download-audit.md), then opening each type.)*
+   property options come from manifests; fallbacks are gone. 41 types are
+   open, including all 13 `code change` types of the
+   [audit](../reports/part-type-download-audit.md), and
+   `downloadableTypes.test.ts` proves a fresh-id copy of every bundled part of
+   an open type behaves as the original. Left closed: PowerConverter (pad
+   table keyed on the LM2596 id; needs an overlay terminal field),
+   TransportDisplay (`TFT_CONTROLLERS` keeps per-module bench values per
+   chip) and MatrixOutput (the NLED link and level shifter are drawn by id).)*
 4. Convert the bundled library through the importer into signed packages, and
    load it through the manifest path at run time. *(Runtime registry done in
    `partCatalogue.ts`; bundled parts stay unsigned, by design: see Saves.)*
