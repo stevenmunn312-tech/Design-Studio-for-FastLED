@@ -135,6 +135,7 @@ rollout steps or explicitly proposed work, not a second copy of the root checkli
 - [Hardware expansion roadmap](plans/hardware-expansion-roadmap.md)
 - [Pattern node expansion — tiling, warp, Turing and Fourier nodes](plans/pattern-node-expansion.md)
 - [Power conversion and supply protection](plans/power-conversion-and-protection.md)
+- [Size power to the supply the user has](plans/supply-based-power-sizing.md)
 - [Plan — Workspace-owned sidebars, and a preview that never leaves](plans/workspace-shelves.md)
 
 ## Runbooks
