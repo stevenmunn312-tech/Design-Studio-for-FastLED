@@ -1174,6 +1174,17 @@ it and `partOrigin(id)` says where a part came from.
   `useBenchParts` never draws a node that names a part as another part: no entry, no picture.
   `partRenderForNodeType` follows the same rule; only the button bank, potentiometer and encoder
   module (no catalogue entry) keep a bundled picture.
+- SDCard, RtcModule, DFPlayerOutput, DmxTransceiver and MidiInterface read their parts' facts
+  from the `sdCard`, `rtc`, `uartPlayer`, `rs485` and `midiDin` blocks, through
+  `sdCardSpec`, `rtcSpec`, `uartPlayerSpec`, `rs485Spec` and `midiDinSpec` (a missing id is the
+  default part, an unknown id is `null` and the manifest item is `unknownPartItem`). These blocks
+  exist only in overlays: `import-part-assets.py` lets an overlay carry them because no
+  `part.json` does, and refuses one that part.json also carries. `hardwareManifest.ts` reads the
+  node's own `partId`, never the type's default id; the receive-divider rule for DMX follows the
+  block's `rxLogicVolts`. The chip-selected code stays code: the DFPlayer frame, MIDI baud 31250
+  and the DS3231 register driver (its 0x68 is in `rtcCpp.ts`, and the block's `i2cAddress` must
+  equal it, which `storageCommsBlocks.test.ts` pins). Their shelf entries in `FIXTURE_PARTS` are
+  still one literal per bundled part (X4).
 - `FIXTURE_PARTS`, node defaults and `PROPERTY_META` address options read named
   bundled ids, which are never replaced, so they stay constants.
 - Tests add parts with `registerParts` and call `resetRegisteredPartsForTests`
