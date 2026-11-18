@@ -174,7 +174,7 @@ describe('the DMX transceiver and MIDI interface as bench parts', () => {
     const { nodes, edges } = dmxGraph()
     load(nodes, edges)
     const added = addProviderPartToBoard('DmxTransceiver', 'board-root')
-    expect(added).toMatchObject({ ok: true, label: 'MAX485 DMX transceiver' })
+    expect(added).toMatchObject({ ok: true, label: 'MAX485 RS-485 module' })
     const part = rootGraphNodes(useGraphStore.getState()).find((entry) => entry.data.nodeType === 'DmxTransceiver')!
     expect(part).toMatchObject({ hidden: true })
     const pins = [part.data.properties.dmxTxPin, part.data.properties.dmxRxPin, part.data.properties.dmxEnablePin]

@@ -15,7 +15,7 @@ import {
   PART_CATALOGUE, bundledPartsForType, partOrigin, registerParts, resetRegisteredPartsForTests,
 } from '../partCatalogue'
 import { partFieldOptions, PART_FIELDS } from '../partFields'
-import { partOptionsFor, resolvePartIdentity } from '../partOptions'
+import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../partOptions'
 import { partRenderForNodeType } from '../partRenders'
 import { unknownPartId, unresolvedNodes } from '../partResolution'
 import { PART_TYPES, partTypeDrivesDevice, type PartTypeDefinition } from '../partTypes'
@@ -43,6 +43,7 @@ const OPEN_TYPES: PartTypeDefinition[] = PART_TYPES.filter((definition) => defin
 /** The one type whose block may be left out, and why: an LDR module is read as a raw analog level. */
 const OPTIONAL_BLOCK_JUSTIFICATION: Record<string, string> = {
   LightInput: 'an LDR module is read as a raw analog level and carries no lightSensor calibration',
+  PowerAmplifier: 'the passive 4 ohm speaker is filed under the type for the shelf and has no amplifier facts',
 }
 
 /**
@@ -90,6 +91,11 @@ const UNBUNDLED_BASES: Record<string, PartManifest[]> = {
       },
     }),
   ],
+}
+
+/** The property a node of this type stores its part in: `partId` for most, `model` for an Amplifier. */
+function namingPart(nodeType: string, partId: string): Record<string, unknown> {
+  return { [partOptionProperty(nodeType) ?? 'partId']: partId }
 }
 
 const FRESH_ID_SUFFIX = '-registry-copy'
@@ -179,7 +185,7 @@ const BENCH_BOARD = boardProfileById('esp32-generic-devkit-38pin')
 /** Everything the app derives from a part-backed node, as text with ids swapped for `readAs`. */
 function observe(nodeType: string, partId: string, readAs: string): Record<string, string> {
   resetEvaluatorState()
-  const properties = { partId }
+  const properties = namingPart(nodeType, partId)
   const part = node('part', nodeType, properties)
   const result: Record<string, string> = {}
   const text = (value: unknown) => JSON.stringify(value, (_key, item) => (item === undefined ? '__undefined__' : item))
@@ -307,7 +313,7 @@ describe('the registry of part types open to downloads', () => {
       // The comparison means nothing if the part adds nothing to the sketch.
       const catalogueNode = NODE_LIBRARY.find((entry) => entry.type === definition.nodeType)!
       if (catalogueNode.inputs.length + catalogueNode.outputs.length > 0) {
-        const graphs = firmwareGraphs(definition.nodeType, { partId: part.partId })
+        const graphs = firmwareGraphs(definition.nodeType, namingPart(definition.nodeType, part.partId))
         expect(graphs.some((graph) => generateCpp(graph.nodes, graph.edges) !== generateCpp(
           graph.nodes.filter((entry) => entry.id !== 'part'),
           graph.edges.filter((link) => link.source !== 'part' && link.target !== 'part'),
@@ -319,10 +325,20 @@ describe('the registry of part types open to downloads', () => {
       expect(partOrigin(copyId)).toBe('downloaded')
       expect(PART_CATALOGUE[copyId]).toBeDefined()
 
+      // A part without the block of a block-optional type may be shelved but not offered as one of
+      // the type's modules (a passive speaker is not an amplifier). The copy is then held to the
+      // original: not offered either, and with no module to compare.
+      const block = definition.block ? (part as unknown as Record<string, unknown>)[definition.block] : undefined
+      const offered = (id: string) => partOptionsFor(definition.nodeType).some((option) => option.id === id)
+      if (definition.blockOptional && block === undefined && !offered(part.partId)) {
+        expect(offered(copyId)).toBe(false)
+        return
+      }
+
       // The type offers it, resolves it, and does not hold a node that names it.
       expect(partOptionsFor(definition.nodeType).some((option) => option.id === copyId)).toBe(true)
-      expect(resolvePartIdentity(definition.nodeType, { partId: copyId })?.entry?.partId).toBe(copyId)
-      const named = node('named', definition.nodeType, { partId: copyId })
+      expect(resolvePartIdentity(definition.nodeType, namingPart(definition.nodeType, copyId))?.entry?.partId).toBe(copyId)
+      const named = node('named', definition.nodeType, namingPart(definition.nodeType, copyId))
       expect(unknownPartId(definition.nodeType, named.data.properties)).toBeNull()
       expect(unresolvedNodes([named])).toEqual([])
       // An input type is also listed on the shelf, from its own manifest.

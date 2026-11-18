@@ -19,13 +19,12 @@ import {
   DIGITAL_SENSOR_NODE_TYPE, DIGITAL_SENSOR_OUTPUT, digitalSensorEntries, digitalSensorSummary,
 } from '../../state/peripherals/digitalSensor'
 import { IR_REMOTE_LEARN_HANDLE } from '../../state/peripherals/irRemote'
-import { bundledMicModules } from '../../state/peripherals/micModules'
 import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
+import type { PartManifest } from '../../build/parts/manifest/partManifest'
 import {
   WS2812B_PITCH_MM,
   type PartFootprintMm,
   MAX98357A_FOOTPRINT_MM,
-  MIC_FALLBACK_FOOTPRINT_MM,
   BUTTON_MODULE_FOOTPRINT_MM,
   POT_MODULE_FOOTPRINT_MM,
   ENCODER_MODULE_FOOTPRINT_MM,
@@ -43,8 +42,8 @@ import { COOLING_FAN_PART_ID } from '../../state/peripherals/coolingFan'
 import { DFPLAYER_PART_ID } from '../../state/peripherals/dfPlayer'
 import { DEFAULT_BATTERY_CELL_PART_ID } from '../../state/peripherals/battery'
 import { RTC_MODULE_NODE_TYPE } from '../../state/peripherals/rtcModule'
-import { DMX_TRANSCEIVER_NODE_TYPE, DMX_TRANSCEIVER_PART_ID } from '../../state/peripherals/dmxTransceiver'
-import { MIDI_DIN_PART_ID, MIDI_INTERFACE_NODE_TYPE } from '../../state/peripherals/midiSource'
+import { DMX_TRANSCEIVER_NODE_TYPE } from '../../state/peripherals/dmxTransceiver'
+import { MIDI_INTERFACE_NODE_TYPE } from '../../state/peripherals/midiSource'
 
 export const MIC_NODE_TYPE = 'MicInput'
 
@@ -442,39 +441,6 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
   },
 ]
 
-/*
- * One shelf row per microphone module, matching the convention the two RTC
- * modules already follow: an input part names its module in `properties`, and
- * `inputParts` finds the entry back by that stamped id. Derived from the
- * microphone catalogue entries so the shelf, the Add Hardware menu and the
- * generator's factory cannot disagree about which modules exist.
- *
- * Pin labels come from each module's own silkscreen — an ICS-43434 prints
- * LRCL/BCLK/DOUT where an INMP441 prints WS/SCK/SD — resolved through the
- * catalogue rather than restated per entry.
- */
-const MIC_PIN_KEYS = ['i2sWs', 'i2sSck', 'i2sSd'] as const
-const MIC_FALLBACK_PIN_LABELS: Record<string, string> = { i2sWs: 'WS', i2sSck: 'SCK', i2sSd: 'SD' }
-
-const MIC_INPUT_PARTS: readonly InputPartEntry[] = bundledMicModules().map((module, index) => ({
-  nodeType: MIC_NODE_TYPE,
-  // The first keeps the bare `mic` id the bench layout has always stored.
-  partId: index === 0 ? 'mic' : `mic-${module.partId}`,
-  label: `${module.label} microphone`,
-  hint: module.summary,
-  // 15.0 x 10.5 from the asset's datasheet-checked part.json. The constant it
-  // falls back to says 20.5 x 14.5 — a third larger, for the same picture.
-  footprint: partDimensionsMm(module.partId, MIC_FALLBACK_FOOTPRINT_MM),
-  signalPort: 'audio',
-  pinRequests: [],
-  pinFields: MIC_PIN_KEYS.map((key) => ({
-    key,
-    label: partPinLabelForProperty(module.partId, key) ?? MIC_FALLBACK_PIN_LABELS[key],
-  })),
-  singleton: true,
-  properties: { partId: module.partId },
-}))
-
 /** Node types whose parts come entirely from the catalogue: no code lists them, and none has a stand-in. */
 export const CATALOGUE_SENSOR_NODE_TYPES: ReadonlySet<string> = new Set([DIGITAL_SENSOR_NODE_TYPE, ANALOG_SENSOR_NODE_TYPE])
 
@@ -552,6 +518,10 @@ interface CataloguedInputType {
   legacyLayoutIds?: Readonly<Record<string, string>>
   /** One of these per bench: the firmware library's API is global. */
   singleton?: true
+  /** The shelf label, where it is not the manifest's `label`. */
+  shelfLabel?: (manifest: PartManifest) => string
+  /** The boards the part works on, as an FQBN prefix. */
+  fqbnPrefix?: string
 }
 
 const I2C_PINS: Pick<InputPartEntry, 'pinRequests' | 'pinFields'> = {
@@ -713,13 +683,122 @@ const CATALOGUED_INPUT_TYPES: readonly CataloguedInputType[] = [
 ]
 
 /**
+ * The microphone rows, which lead the shelf. A module is named by its short
+ * `optionLabel` and the silkscreen of its own pads (an ICS-43434 prints
+ * LRCL/BCLK/DOUT where an INMP441 prints WS/SCK/SD).
+ */
+const MIC_PIN_FALLBACKS = [['i2sWs', 'WS'], ['i2sSck', 'SCK'], ['i2sSd', 'SD']] as const
+
+const LEADING_CATALOGUED_INPUT_TYPES: readonly CataloguedInputType[] = [
+  {
+    nodeType: MIC_NODE_TYPE,
+    signalPort: 'audio',
+    layoutId: 'mic',
+    singleton: true,
+    shelfLabel: (entry) => `${entry.copy?.optionLabel ?? entry.label} microphone`,
+    pins: (entry) => ({
+      pinRequests: [],
+      pinFields: MIC_PIN_FALLBACKS.map(([key, fallback]) => ({
+        key,
+        label: partPinLabelForProperty(entry.partId, key) ?? fallback,
+      })),
+    }),
+  },
+]
+
+/**
+ * The audio, clock, DMX and MIDI rows that follow the sensors. Their labels are
+ * the short `optionLabel` the Add Hardware menu uses; none of them needs a pin
+ * beyond what its block says, so a downloaded part is shelved by its manifest.
+ */
+const TRAILING_CATALOGUED_INPUT_TYPES: readonly CataloguedInputType[] = [
+  {
+    nodeType: 'LineInput',
+    signalPort: 'audio',
+    layoutId: 'line-in',
+    singleton: true,
+    fqbnPrefix: 'esp32:esp32:esp32s3',
+    shelfLabel: (entry) => entry.copy?.optionLabel ?? entry.label,
+    pins: () => ({
+      pinRequests: [
+        { key: 'i2sMclk' },
+        { key: 'i2sBclk' },
+        { key: 'i2sLrclk' },
+        { key: 'i2sDout', capability: 'digitalInput' },
+      ],
+      pinFields: [
+        { key: 'i2sMclk', label: 'MCLK' },
+        { key: 'i2sBclk', label: 'BCLK' },
+        { key: 'i2sLrclk', label: 'LRCLK' },
+        { key: 'i2sDout', label: 'DOUT' },
+      ],
+    }),
+  },
+  {
+    nodeType: RTC_MODULE_NODE_TYPE,
+    signalPort: 'time',
+    dataType: 'datetime',
+    layoutId: 'rtc',
+    singleton: true,
+    legacyLayoutIds: { 'jaycar-xc9044-rtc-module': 'rtc-xc9044' },
+    shelfLabel: (entry) => entry.copy?.optionLabel ?? entry.label,
+    pins: () => ({ ...I2C_PINS, connectionSummary: 'Default I2C bus' }),
+  },
+  {
+    // Read by a DMX / Art-Net node set to DMX512, as the DS3231 is by a Clock.
+    // Three free GPIOs; the UART is allocated, never picked. The receiver reads
+    // one line per board; a second universe is out of v1.
+    nodeType: DMX_TRANSCEIVER_NODE_TYPE,
+    signalPort: 'dmx',
+    dataType: 'dmx',
+    layoutId: 'dmx-transceiver',
+    singleton: true,
+    shelfLabel: (entry) => entry.copy?.optionLabel ?? entry.label,
+    pins: () => ({
+      pinRequests: [
+        { key: 'dmxTxPin', capability: 'digitalOutput' },
+        { key: 'dmxRxPin', capability: 'digitalInput' },
+        { key: 'dmxEnablePin', capability: 'digitalOutput' },
+      ],
+      pinFields: [
+        { key: 'dmxRxPin', label: 'RO' },
+        { key: 'dmxTxPin', label: 'DI' },
+        { key: 'dmxEnablePin', label: 'DE/RE' },
+      ],
+    }),
+  },
+  {
+    // Read by every MIDI node set to DIN, through one shared reader.
+    nodeType: MIDI_INTERFACE_NODE_TYPE,
+    signalPort: 'note',
+    dataType: 'float',
+    layoutId: 'midi-interface',
+    singleton: true,
+    shelfLabel: (entry) => entry.copy?.optionLabel ?? entry.label,
+    pins: () => ({
+      pinRequests: [{ key: 'midiRxPin', capability: 'digitalInput' }],
+      pinFields: [{ key: 'midiRxPin', label: 'MIDI_RX' }],
+    }),
+  },
+]
+
+const ALL_CATALOGUED_INPUT_TYPES: readonly CataloguedInputType[] = [
+  ...LEADING_CATALOGUED_INPUT_TYPES,
+  ...CATALOGUED_INPUT_TYPES,
+  ...TRAILING_CATALOGUED_INPUT_TYPES,
+]
+
+/**
  * A shelf row per part of each type in `CATALOGUED_INPUT_TYPES`: the bundled
  * parts in menu order, or the registered ones (which follow every bundled row). Label, hint and footprint
  * are the manifest's (`label`, `copy.hint` or `copy.summary`, `dimensionsMm`),
  * and a registered part's pins carry its own silkscreen where it prints one.
  */
-function cataloguedInputPartEntries(which: 'bundled' | 'registered'): InputPartEntry[] {
-  return CATALOGUED_INPUT_TYPES.flatMap((type) => {
+function cataloguedInputPartEntries(
+  which: 'bundled' | 'registered',
+  types: readonly CataloguedInputType[] = ALL_CATALOGUED_INPUT_TYPES,
+): InputPartEntry[] {
+  return types.flatMap((type) => {
     const bundled = bundledPartsForType(type.nodeType)
     const bundledIds = new Set(bundled.map((manifest) => manifest.partId))
     const registered = registeredPartsForType(type.nodeType).filter((manifest) => !bundledIds.has(manifest.partId))
@@ -731,7 +810,7 @@ function cataloguedInputPartEntries(which: 'bundled' | 'registered'): InputPartE
         partId: isDefault ? type.layoutId
           : (which === 'bundled' ? type.legacyLayoutIds?.[manifest.partId] : undefined)
             ?? `${type.suffix ?? type.layoutId}-${manifest.partId}`,
-        label: manifest.label,
+        label: type.shelfLabel ? type.shelfLabel(manifest) : manifest.label,
         hint: manifest.copy?.hint ?? manifest.copy?.summary ?? '',
         footprint: manifest.dimensionsMm,
         signalPort: typeof type.signalPort === 'function' ? type.signalPort(manifest) : type.signalPort,
@@ -747,6 +826,7 @@ function cataloguedInputPartEntries(which: 'bundled' | 'registered'): InputPartE
         })),
         ...(facts.connectionSummary ? { connectionSummary: facts.connectionSummary } : {}),
         ...(type.singleton ? { singleton: true } : {}),
+        ...(type.fqbnPrefix ? { fqbnPrefix: type.fqbnPrefix } : {}),
         properties: { partId: manifest.partId, ...(type.extraProperties ?? {}) },
       }
     })
@@ -755,102 +835,6 @@ function cataloguedInputPartEntries(which: 'bundled' | 'registered'): InputPartE
 
 /** The input rows written out by hand, after the microphone, IR and sensor rows. */
 const HAND_WRITTEN_INPUT_PARTS: readonly InputPartEntry[] = [
-  {
-    nodeType: 'LineInput',
-    partId: 'line-in',
-    label: 'PCM1802 line-in ADC',
-    hint: 'Analyses line-level audio from an external player',
-    footprint: partDimensionsMm('pcm1802-line-in-adc', { width: 52, height: 38 }),
-    signalPort: 'audio',
-    pinRequests: [
-      { key: 'i2sMclk' },
-      { key: 'i2sBclk' },
-      { key: 'i2sLrclk' },
-      { key: 'i2sDout', capability: 'digitalInput' },
-    ],
-    pinFields: [
-      { key: 'i2sMclk', label: 'MCLK' },
-      { key: 'i2sBclk', label: 'BCLK' },
-      { key: 'i2sLrclk', label: 'LRCLK' },
-      { key: 'i2sDout', label: 'DOUT' },
-    ],
-    properties: { partId: 'pcm1802-line-in-adc' },
-    singleton: true,
-    fqbnPrefix: 'esp32:esp32:esp32s3',
-  },
-  {
-    nodeType: RTC_MODULE_NODE_TYPE,
-    partId: 'rtc',
-    label: 'DS3231 RTC module',
-    hint: 'Battery-backed clock on the board I2C bus',
-    footprint: partDimensionsMm('ds3231-rtc-module', { width: 38, height: 22 }),
-    signalPort: 'time',
-    dataType: 'datetime',
-    pinRequests: [],
-    pinFields: [
-      { key: 'sdaPin', label: 'SDA' },
-      { key: 'sclPin', label: 'SCL' },
-    ],
-    properties: { partId: 'ds3231-rtc-module' },
-    connectionSummary: 'Default I2C bus',
-    singleton: true,
-  },
-  {
-    nodeType: RTC_MODULE_NODE_TYPE,
-    partId: 'rtc-xc9044',
-    label: 'DS3231 RTC Clock Module for Raspberry Pi',
-    hint: 'Compact Pi-header clock on the board I2C bus',
-    footprint: partDimensionsMm('jaycar-xc9044-rtc-module', { width: 14, height: 14 }),
-    signalPort: 'time',
-    dataType: 'datetime',
-    pinRequests: [],
-    pinFields: [
-      { key: 'sdaPin', label: 'SDA' },
-      { key: 'sclPin', label: 'SCL' },
-    ],
-    properties: { partId: 'jaycar-xc9044-rtc-module' },
-    connectionSummary: 'Default I2C bus',
-    singleton: true,
-  },
-  {
-    // Read by a DMX / Art-Net node set to DMX512, as the DS3231 is by a Clock.
-    // Three free GPIOs; the UART is allocated, never picked.
-    nodeType: DMX_TRANSCEIVER_NODE_TYPE,
-    partId: 'dmx-transceiver',
-    label: 'MAX485 DMX transceiver',
-    hint: 'Wired DMX512 in from a lighting desk, for a DMX node set to DMX512',
-    footprint: partDimensionsMm(DMX_TRANSCEIVER_PART_ID, { width: 15, height: 45 }),
-    signalPort: 'dmx',
-    dataType: 'dmx',
-    pinRequests: [
-      { key: 'dmxTxPin', capability: 'digitalOutput' },
-      { key: 'dmxRxPin', capability: 'digitalInput' },
-      { key: 'dmxEnablePin', capability: 'digitalOutput' },
-    ],
-    pinFields: [
-      { key: 'dmxRxPin', label: 'RO' },
-      { key: 'dmxTxPin', label: 'DI' },
-      { key: 'dmxEnablePin', label: 'DE/RE' },
-    ],
-    properties: { partId: DMX_TRANSCEIVER_PART_ID },
-    // The receiver reads one line per board; a second universe is out of v1.
-    singleton: true,
-  },
-  {
-    // Read by every MIDI node set to DIN, through one shared reader.
-    nodeType: MIDI_INTERFACE_NODE_TYPE,
-    partId: 'midi-interface',
-    label: 'Adafruit MIDI FeatherWing',
-    hint: 'A DIN MIDI jack for a keyboard, for MIDI nodes set to DIN',
-    footprint: partDimensionsMm(MIDI_DIN_PART_ID, { width: 50.8, height: 22.86 }),
-    signalPort: 'note',
-    dataType: 'float',
-    pinRequests: [{ key: 'midiRxPin', capability: 'digitalInput' }],
-    pinFields: [{ key: 'midiRxPin', label: 'MIDI_RX' }],
-    properties: { partId: MIDI_DIN_PART_ID },
-    // Every DIN node on the board reads the one jack.
-    singleton: true,
-  },
   {
     // One row on a pin the board's plan hands out (`firstButtonBankRow`);
     // Add button on the node grows the rest without rewiring the first.
@@ -934,9 +918,10 @@ function registeredInputPartEntries(base: readonly InputPartEntry[]): InputPartE
  */
 export const inputPartEntries: () => readonly InputPartEntry[] = memoByCatalogue(() => {
   const base: readonly InputPartEntry[] = [
-    ...MIC_INPUT_PARTS,
+    ...cataloguedInputPartEntries('bundled', LEADING_CATALOGUED_INPUT_TYPES),
     ...sensorInputPartEntries(),
-    ...cataloguedInputPartEntries('bundled'),
+    ...cataloguedInputPartEntries('bundled', CATALOGUED_INPUT_TYPES),
+    ...cataloguedInputPartEntries('bundled', TRAILING_CATALOGUED_INPUT_TYPES),
     ...HAND_WRITTEN_INPUT_PARTS,
   ]
   const registered = cataloguedInputPartEntries('registered')
