@@ -1,0 +1,305 @@
+// The shape of every part-type block a manifest may carry, mirroring the
+// `Part*Spec` interfaces in ../partCatalogue.ts. A block a manifest carries is
+// checked against its spec before any code reads it; the manifest test checks
+// every bundled part against these, so a drift between the two fails there.
+
+import { arr, bool, int, nullable, num, obj, oneOf, opt, record, str, tuple, type FieldSpec } from './fieldSpec'
+
+const positive = () => num({ min: 0 })
+const i2cAddress = () => int(0x03, 0x77)
+const rgb = () => tuple(int(0, 255), int(0, 255), int(0, 255))
+const rectPx = () => tuple(num(), num(), positive(), positive())
+
+// Up to the whole 7-bit space: the PCA9685's six straps select 62 addresses.
+const i2cAddresses = {
+  i2cAddresses: arr(i2cAddress(), 1, 128),
+  defaultI2cAddress: i2cAddress(),
+}
+
+export const LED_LAYOUT_SPEC: FieldSpec = obj({
+  form: oneOf('strip', 'matrix', 'ring', 'hub75'),
+  count: opt(int(1, 100000)),
+  width: opt(int(1, 4096)),
+  height: opt(int(1, 4096)),
+  diameterMm: opt(positive()),
+  pitchMm: opt(positive()),
+})
+
+export const RENDER_SPEC: FieldSpec = obj({
+  file: str({ nonEmpty: true, maxLength: 200 }),
+  widthPx: int(1, 8192),
+  heightPx: int(1, 8192),
+  pxPerMm: opt(positive()),
+  indicators: opt(arr(obj({
+    rectPx: rectPx(),
+    color: rgb(),
+    drive: oneOf('power', 'channel', 'signal', 'voltage'),
+    channel: opt(int(0, 64)),
+    colorsByVoltage: opt(record(rgb())),
+  }), 0, 64)),
+})
+
+export const DIMENSIONS_SPEC: FieldSpec = obj({
+  width: num({ min: 0.1, max: 5000 }),
+  height: num({ min: 0.1, max: 5000 }),
+})
+
+/** Every part-type block, keyed by its property on the manifest. */
+export const PART_BLOCK_SPECS = {
+  relay: obj({
+    channels: int(1, 16),
+    coilVoltage: str(),
+    trigger: str({ nonEmpty: true }),
+    contacts: str(),
+    contactRating: str(),
+    optoIsolated: bool(),
+    loadKind: oneOf('ac', 'dc', 'ac-dc'),
+    leakage: str(),
+    isolation: str(),
+    zeroCross: opt(bool()),
+    minimumLoad: opt(str()),
+    channelInputLabels: opt(arr(str({ maxLength: 40 }), 0, 16)),
+  }),
+  mosfet: obj({
+    channels: int(1, 16),
+    device: str({ nonEmpty: true }),
+    trigger: str({ nonEmpty: true }),
+    loadSupply: str(),
+    continuousCurrent: str(),
+    optoIsolated: bool(),
+    flybackDiode: bool(),
+    channelLabels: opt(arr(str({ maxLength: 40 }), 0, 16)),
+    channelInputLabels: opt(arr(str({ maxLength: 40 }), 0, 16)),
+    loadTerminals: opt(arr(str({ maxLength: 40 }), 0, 32)),
+    pwmHz: opt(num({ min: 1, max: 1_000_000 })),
+  }),
+  pdTrigger: obj({
+    protocols: str(),
+    selectableVoltagesV: arr(num({ min: 0, max: 60 }), 1, 16),
+    defaultVoltageV: num({ min: 0, max: 60 }),
+    maxCurrentA: positive(),
+    maxPowerW: positive(),
+    selection: str(),
+  }),
+  driverChip: obj({
+    device: str({ nonEmpty: true }),
+    package: str(),
+    channels: int(1, 32),
+    outputType: str(),
+    inputActiveLevel: oneOf('high', 'low'),
+    maxOutputVoltageV: positive(),
+    maxChannelCurrentMa: positive(),
+    pinout: arr(str({ maxLength: 40 }), 1, 64),
+  }),
+  pwmDriver: obj({
+    device: str({ nonEmpty: true }),
+    interface: str({ nonEmpty: true }),
+    channels: int(1, 64),
+    resolutionBits: int(1, 32),
+    ...i2cAddresses,
+    oscillatorMHz: positive(),
+    minPwmHz: positive(),
+    maxPwmHz: positive(),
+    defaultPwmHz: positive(),
+  }),
+  buzzer: obj({
+    type: oneOf('active', 'passive'),
+    activeLevel: oneOf('high', 'low'),
+    resonanceKHz: nullable(positive()),
+    soundLevel: str(),
+    maxCurrentMa: positive(),
+  }),
+  fan: obj({
+    supplyVoltageV: positive(),
+    maxCurrentA: positive(),
+    maxRpm: positive(),
+    minRpmAt20Percent: positive(),
+    pwmHz: num({ min: 1, max: 1_000_000 }),
+    tachPulsesPerRevolution: int(1, 16),
+    tachOutput: str(),
+  }),
+  powerMonitor: obj({
+    device: str({ nonEmpty: true }),
+    interface: str({ nonEmpty: true }),
+    ...i2cAddresses,
+    shuntOhms: num({ min: 0.00001, max: 100 }),
+    busVoltageMaxV: positive(),
+    currentMaxA: positive(),
+    senseSide: str(),
+  }),
+  presenceSensor: obj({
+    device: str({ nonEmpty: true }),
+    interface: str({ nonEmpty: true }),
+    baud: int(300, 5_000_000),
+    gateMeters: positive(),
+    maxRangeMeters: positive(),
+  }),
+  touchSensor: obj({
+    device: str({ nonEmpty: true }),
+    interface: str({ nonEmpty: true }),
+    activeLevel: oneOf('high', 'low'),
+    mode: str(),
+    supplyMinV: positive(),
+    supplyMaxV: positive(),
+    responseMinMs: positive(),
+    responseMaxMs: positive(),
+  }),
+  lightSensor: obj({
+    device: str({ nonEmpty: true }),
+    interface: str({ nonEmpty: true }),
+    ...i2cAddresses,
+    maxLux: positive(),
+  }),
+  environmentSensor: obj({
+    device: str({ nonEmpty: true }),
+    interface: str({ nonEmpty: true }),
+    ...i2cAddresses,
+    temperatureMinC: num(),
+    temperatureMaxC: num(),
+    humidityMinPercent: num({ min: 0, max: 100 }),
+    humidityMaxPercent: num({ min: 0, max: 100 }),
+    pressureMinHpa: positive(),
+    pressureMaxHpa: positive(),
+  }),
+  motionVectorSensor: obj({
+    device: str({ nonEmpty: true }),
+    interface: str({ nonEmpty: true }),
+    ...i2cAddresses,
+    accelRangeG: positive(),
+    gyroRangeDps: positive(),
+  }),
+  touchPad: obj({
+    device: str({ nonEmpty: true }),
+    interface: str({ nonEmpty: true }),
+    electrodes: int(1, 64),
+    ...i2cAddresses,
+    touchThreshold: int(0, 255),
+    releaseThreshold: int(0, 255),
+  }),
+  joystick: obj({
+    device: str({ nonEmpty: true }),
+    interface: str({ nonEmpty: true }),
+    axisPotOhms: positive(),
+    switchActive: oneOf('low', 'high'),
+  }),
+  encoder: obj({
+    device: str({ nonEmpty: true }),
+    pulsesPerRevolution: int(1, 10000),
+    detents: int(0, 10000),
+    switchActive: oneOf('low', 'high'),
+    onboardPullUps: bool(),
+  }),
+  distanceSensor: obj({
+    device: str({ nonEmpty: true }),
+    interface: str({ nonEmpty: true }),
+    minMm: positive(),
+    maxMm: positive(),
+    triggerPulseUs: opt(positive()),
+    echoVolts: opt(positive()),
+    i2cAddresses: opt(arr(i2cAddress(), 1, 128)),
+    defaultI2cAddress: opt(i2cAddress()),
+  }),
+  temperatureSensor: obj({
+    device: str({ nonEmpty: true }),
+    interface: str({ nonEmpty: true }),
+    temperatureMinC: num(),
+    temperatureMaxC: num(),
+    pullUpOhms: positive(),
+  }),
+  ethernet: obj({
+    controller: str({ nonEmpty: true }),
+    interface: str({ nonEmpty: true }),
+    maxSpiClockMHz: positive(),
+    link: str(),
+  }),
+  pixelDataExtender: obj({
+    mode: str(),
+    maxDistanceMeters: positive(),
+    maxDataRateMbps: positive(),
+    supplyMinV: positive(),
+    supplyMaxV: positive(),
+    pairConductors: arr(str({ maxLength: 40 }), 1, 16),
+  }),
+  powerConverter: obj({
+    role: oneOf('controller', 'led-rail'),
+    roles: opt(arr(oneOf('controller', 'led-rail'), 1, 2)),
+    topology: str(),
+    inputMinV: positive(),
+    inputMaxV: positive(),
+    minHeadroomV: num({ min: 0 }),
+    outputSetV: positive(),
+    continuousCurrentMa: positive(),
+    peakCurrentMa: positive(),
+    typicalEfficiency: num({ min: 0.01, max: 1 }),
+    isolated: bool(),
+    adjustable: bool(),
+    outputCurrentLimit: oneOf('adjustable', 'fixed', 'none'),
+    terminals: arr(str({ maxLength: 40 }), 1, 16),
+    terminalPositions: opt(arr(tuple(num({ min: 0, max: 1 }), num({ min: 0, max: 1 })), 1, 16)),
+    deratingCurve: opt(arr(tuple(num(), num({ min: 0, max: 100 })), 1, 32)),
+  }),
+  batteryCell: obj({
+    chemistry: oneOf('li-ion', 'lifepo4'),
+    formFactor: str(),
+    nominalV: positive(),
+    chargeV: positive(),
+    dischargeCutoffV: positive(),
+    capacityMah: positive(),
+    maxContinuousDischargeMa: positive(),
+    maxChargeMa: positive(),
+    internalResistanceMohm: positive(),
+    internalResistanceBasis: oneOf('ac-1khz', 'dc'),
+    chargeTempC: tuple(num(), num()),
+    dischargeTempC: tuple(num(), num()),
+  }),
+  batteryModule: obj({
+    series: int(1, 32),
+    chemistries: arr(oneOf('li-ion', 'lifepo4'), 1, 4),
+    protection: opt(obj({
+      continuousDischargeMa: positive(),
+      continuousChargeMa: positive(),
+      overchargeV: positive(),
+      overDischargeV: positive(),
+      port: oneOf('common', 'separate'),
+      switchedLine: oneOf('negative', 'positive'),
+      temperatureSensor: bool(),
+      powerTerminals: arr(str({ maxLength: 40 }), 1, 16),
+    })),
+    balance: opt(obj({
+      type: oneOf('active', 'passive'),
+      balanceMa: positive(),
+      standbyMa: opt(positive()),
+      balanceTerminals: arr(str({ maxLength: 40 }), 1, 32),
+      connectionOrder: opt(arr(str({ maxLength: 40 }), 1, 32)),
+    })),
+    charger: opt(obj({
+      device: str({ nonEmpty: true }),
+      chargeVPerCell: positive(),
+      maxChargeMa: positive(),
+      inputMaxW: positive(),
+      inputProtocols: str(),
+      bidirectional: bool(),
+      batteryTerminals: tuple(str({ maxLength: 40 }), str({ maxLength: 40 })),
+    })),
+    output: opt(obj({
+      topology: oneOf('boost', 'buck'),
+      outputV: positive(),
+      continuousMa: positive(),
+      typicalEfficiency: num({ min: 0.01, max: 1 }),
+      terminals: arr(str({ maxLength: 40 }), 1, 16),
+      usbOutput: bool(),
+    })),
+  }),
+  display: obj({
+    controller: str({ nonEmpty: true }),
+    resolutionPx: tuple(int(1, 8192), int(1, 8192)),
+    interface: str({ nonEmpty: true }),
+    touchController: nullable(str()),
+    touchSurface: opt(nullable(oneOf('resistive-shared'))),
+    screensPx: opt(arr(rectPx(), 1, 64)),
+  }),
+} as const satisfies Record<string, FieldSpec>
+
+export type PartBlockKey = keyof typeof PART_BLOCK_SPECS
+
+export const PART_BLOCK_KEYS = Object.keys(PART_BLOCK_SPECS) as PartBlockKey[]
