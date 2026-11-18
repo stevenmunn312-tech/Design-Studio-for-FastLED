@@ -31,6 +31,7 @@ import { PART_FIELDS } from './parts/partFields'
 import type { BusAssignment } from './pins/busTopology'
 import { sdSpiPinsForBoard } from './pins/sdPinDefaults'
 import { resolvePartIdentity } from './parts/partOptions'
+import { isPartPinRef, usesOffBoardI2cBus } from './parts/partReferences'
 import { boardHasInternalDac, hasAudioOutputStage, powerAmplifierFeed, powerAmplifierSource } from '../state/audio/audioOutput'
 import { micModuleFor } from '../state/peripherals/micModules'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/output/ledOutputForm'
@@ -317,6 +318,10 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
     })
   }
   const pushI2c = (node: StudioNode, baseLabel: string, props: Record<string, unknown>) => {
+    // A bus or a line on another part (a mux channel, an expander pin) is not the
+    // board's SDA/SCL pair. Claiming the default pair for it would be a pin
+    // nothing is wired to; the node is reported instead (partResolution.ts).
+    if (usesOffBoardI2cBus(props) || isPartPinRef(props.sdaPin) || isPartPinRef(props.sclPin)) return
     const sdaPin = configuredPin(props.sdaPin) ?? rtcPins?.sda.arduinoPin ?? 21
     const sclPin = configuredPin(props.sclPin) ?? rtcPins?.scl.arduinoPin ?? 22
     const sdaIsDefault = !!rtcPins && sdaPin === rtcPins.sda.arduinoPin

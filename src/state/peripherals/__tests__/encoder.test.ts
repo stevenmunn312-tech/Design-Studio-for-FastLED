@@ -37,7 +37,8 @@ describe('the catalogued SR1230', () => {
     // Falling back to the first option would turn every existing encoder
     // into a bare one, with no supply pad and its toggle hidden.
     expect(resolvePartIdentity('EncoderInput', {})).toBeNull()
-    expect(resolvePartIdentity('EncoderInput', { partId: 'something-else' })).toBeNull()
+    // A part it does not know is reported, not quietly the module.
+    expect(resolvePartIdentity('EncoderInput', { partId: 'something-else' })?.unresolved).toBe(true)
     expect(resolvePartIdentity('EncoderInput', SR1230)?.entry?.partId).toBe(SR1230_ENCODER_PART_ID)
   })
 

@@ -1,5 +1,6 @@
 import { expandGroups } from '../state/expandGroups'
 import type { StudioNode, StudioEdge } from '../state/graphStore'
+import { unresolvedSketchNotice, withoutUnresolved } from '../build/parts/partResolution'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { resolvePaletteId, paletteCppRef, customPaletteDeclarationsCpp } from '../state/palettes/paletteCatalog'
 import { scalarControlCpp, MAP_FLOAT_CPP } from './scalarControlCpp'
@@ -347,6 +348,13 @@ export function generateCpp(
   // See GenerateCppOptions for what each option changes.
   opts: GenerateCppOptions = {},
 ): string {
+  // A node naming a part this version does not have, or wiring a pin or bus on
+  // another part, is left out with its wires. Generating it from the default
+  // part's spec would flash a guess (build/parts/partResolution.ts).
+  const buildable = withoutUnresolved(nodes, edges)
+  if (buildable.held.length > 0) {
+    return unresolvedSketchNotice(buildable.held) + generateCpp(buildable.nodes, buildable.edges, groups, opts)
+  }
   if (nodes.length === 0) return '// No nodes in graph\n'
 
   // Capability nodes can point at root hardware that is intentionally not on

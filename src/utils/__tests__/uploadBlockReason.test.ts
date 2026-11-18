@@ -79,4 +79,15 @@ describe('uploadBlockReason', () => {
     expect(uploadBlockReason(input({ isShowUpload: true, hasBuildOutput: false, showHasContent: false }))?.text)
       .toMatch(/pattern collection, or analyse a song/)
   })
+
+  it('names a part this version cannot build before the general count, after trust', () => {
+    const sentence = `This project uses a part this version doesn't have: "future-laser" (Distance).`
+    const reason = uploadBlockReason(input({ unresolvedParts: [sentence], graphBlockerCount: 1 }))
+    expect(reason).toEqual({ text: sentence, actionLabel: 'Show me', action: { kind: 'show-graph-health' } })
+    expect(uploadBlockReason(input({ unresolvedParts: [sentence, 'two'], graphBlockerCount: 2 }))?.text)
+      .toBe(`${sentence} 1 more need the same.`)
+    expect(uploadBlockReason(input({ unresolvedParts: [sentence], waitingForTrust: true }))?.action?.kind)
+      .toBe('show-code-question')
+    expect(uploadBlockReason(input({ unresolvedParts: [] }))).toBeNull()
+  })
 })

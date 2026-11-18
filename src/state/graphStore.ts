@@ -159,7 +159,7 @@ import { CUSTOM_DESIGN_LAYOUT, shownDesignId, asTransportDisplayLayout, transpor
 import { designControlBundle } from './displays/designControlBundle'
 import { asTftRotation } from './displays/tftSurface'
 import { transportTouchActions, TRANSPORT_TOUCH_ACTION_TYPES, TRANSPORT_TOUCH_ACTION_LABELS } from './displays/transportTouch'
-import { partDerivedInputs } from '../build/parts/partPorts'
+import { keepsSavedPorts, partDerivedInputs } from '../build/parts/partPorts'
 import { retargetMathOperands } from '../nodes/math/mathIdentity'
 
 export interface StudioNodeData extends Record<string, unknown> {
@@ -581,11 +581,19 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     }
     // A Tidy swap is remembered as the saved port order. The list above is
     // still which ports exist; ports added by a newer library append at the end.
-    const inputs = orderPorts(
-      partDerivedInputs(nodeType, properties.partId, properties)
-        ?? def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : []),
-      Array.isArray(data.inputs) ? data.inputs : undefined,
-    )
+    //
+    // A part this version does not have (a relay board a newer version knows)
+    // has no channel count to derive from, and the library's ports are the
+    // default part's: deriving either drops the wires on the real ones. Its
+    // saved ports are kept as they are (build/parts/partResolution.ts).
+    const savedInputs = Array.isArray(data.inputs) ? data.inputs : undefined
+    const inputs = keepsSavedPorts(nodeType, properties) && savedInputs
+      ? savedInputs
+      : orderPorts(
+        partDerivedInputs(nodeType, properties.partId, properties)
+          ?? def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : []),
+        savedInputs,
+      )
     const outputs = orderPorts(
       nodeType === 'ButtonBank'
         ? buttonBankOutputs(properties.buttons)

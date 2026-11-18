@@ -12,6 +12,7 @@ import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { lanePinIndex } from '../../state/output/dataLanes'
 import { boardIdOf, boardPartition, primaryBoardId } from '../../build/boardPartition'
 import { pinAssignmentBlockers } from '../../build/pins/pinAvailability'
+import { isPartPinRef } from '../../build/parts/partReferences'
 import styles from './BoardPinPicker.module.css'
 
 interface Props {
@@ -36,7 +37,22 @@ interface Props {
  * so the control names known-good pins, explains cautions, and still leaves an
  * escape hatch for custom boards and deliberate advanced wiring.
  */
-export default function BoardPinPicker({
+export default function BoardPinPicker(props: Props) {
+  // A pin on another part (a `{ part, pin }` reference a later version wrote)
+  // is not a GPIO this editor can show or change. Say so and leave it exactly
+  // as saved: editing it would replace it with a number.
+  const saved = props.properties[props.propertyKey]
+  if (isPartPinRef(saved)) {
+    return (
+      <div className={styles.field}>
+        <span className={styles.warning}>On another part ({saved.part}, pin {saved.pin}); this version can’t wire it yet.</span>
+      </div>
+    )
+  }
+  return <BoardGpioPicker {...props} />
+}
+
+function BoardGpioPicker({
   nodeId,
   nodeType,
   propertyKey,

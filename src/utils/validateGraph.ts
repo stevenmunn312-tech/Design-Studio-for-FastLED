@@ -84,6 +84,7 @@ import { findLedDriverErrors, ledDriverDiagnostics } from './ledDriverIssues'
 import type { LedDriverChoice } from '../build/ledDrivers'
 import { isHardwareManagedSignalNodeType, ledPitchMm } from '../build/hardware'
 import { partOptionsFor, resolvePartIdentity } from '../build/parts/partOptions'
+import { describeUnresolved, unresolvedNodeLabel, unresolvedNodes, withoutUnresolved } from '../build/parts/partResolution'
 import { displayHasTouch, partById } from '../build/parts/partCatalogue'
 import { designControlBundle } from '../state/displays/designControlBundle'
 import { CUSTOM_DESIGN_LAYOUT, shownDesignId } from '../state/displays/transportDisplay'
@@ -1828,6 +1829,14 @@ export function findDeployBlockingErrors(
   displayDocuments?: DisplayDocumentRegistry,
   groups: GroupRegistry = {},
 ): string[] {
+  // A node this version cannot build is reported once, here, and left out of
+  // every other rule: its spec would be a stand-in, so a pin or address error
+  // computed from it would blame the wrong thing.
+  const unresolved = findUnresolvedPartErrors(nodes)
+  if (unresolved.length > 0) {
+    const live = withoutUnresolved(nodes, edges)
+    return [...unresolved, ...findDeployBlockingErrors(live.nodes, live.edges, selectedFqbn, displayDocuments, groups)]
+  }
   // Both walks can name the same problem; the display half is the more specific
   // sentence, so it wins and the runtime half is deduped against it (the same
   // order validateGraph and the drawer already use).
@@ -3360,6 +3369,39 @@ export function findI2cBusErrors(nodes: StudioNode[]): string[] {
 }
 
 /**
+ * Nodes this version cannot build: a part it does not have, or a pin or I2C bus
+ * on another part. One error card per reason, naming the node and the id.
+ *
+ * A real blocker for Upload, said plainly with a way out, never a guess: the
+ * node is kept as saved, left out of the generated code, and the project opens
+ * fine in a version that knows the part. `build/parts/partResolution.ts` is the
+ * one rule every kind goes through.
+ */
+export function unresolvedPartValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
+  const issues: GraphDiagnostic[] = []
+  for (const { node, reasons } of unresolvedNodes(nodes)) {
+    for (const reason of reasons) {
+      const { title, detail, fix } = describeUnresolved(reason)
+      const label = unresolvedNodeLabel(node)
+      const id = reason.kind === 'part'
+        ? `${node.id}-unknown-part`
+        : reason.kind === 'pin' ? `${node.id}-part-pin-${reason.key}` : `${node.id}-part-bus`
+      issues.push({
+        id, severity: 'error', category: reason.kind === 'part' ? 'connection' : 'pins',
+        title, message: `${label}: ${detail}.`, fix,
+        nodeIds: [node.id], nodeLabel: label,
+        propertyKey: reason.kind === 'part' ? reason.property : reason.key,
+      })
+    }
+  }
+  return issues
+}
+
+export function findUnresolvedPartErrors(nodes: StudioNode[]): string[] {
+  return unresolvedPartValidationIssues(nodes).map(validationIssueMessage)
+}
+
+/**
  * Which generator this graph would actually be built by.
  *
  * Mirrors the upload path's own order: `sdShowConnected` (`utils/showUpload.ts`)
@@ -4423,6 +4465,7 @@ export function buildGraphDiagnostics(
   // The compact deploy errors and these rich drawer entries are projected
   // from the same structured findings. Keep this ahead of incidental pin and
   // disconnected-node warnings so the actual authored repair is prominent.
+  diagnostics.push(...unresolvedPartValidationIssues(nodes))
   diagnostics.push(...irRemoteValidationIssues(nodes, edges, options.selectedFqbn ?? ''))
   diagnostics.push(...presenceSensorValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...dfPlayerValidationIssues(nodes))
