@@ -1,0 +1,49 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "EthernetModule"
+  ],
+  "categories": [
+    "network"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight"
+      ],
+      "ref": "https://docs.wiznet.io/img/products/wiz850io/wiz850io_sch_v110.zip"
+    },
+    {
+      "facts": [
+        "render"
+      ],
+      "ref": "BS-R250210 MagJack STEP (local copy in the asset workspace)"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "render",
+        "ethernet"
+      ],
+      "ref": "https://docs.wiznet.io/Product/ioModule/WIZ850io"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "ethernet"
+      ],
+      "ref": "https://docs.wiznet.io/img/products/w5500/W5500_ds_v110e.pdf"
+    }
+  ],
+  "interfaces": [
+    "spi"
+  ],
+  "copy": {
+    "summary": "W5500 wired Ethernet over SPI, 3.3 V",
+    "wiringNote": "Power it from 3.3 V only; it draws up to about 141 mA with a link up. Every network node (Art-Net, sACN, DDP, Web Remote, NTP...) uses this link instead of Wi-Fi."
+  }
+}

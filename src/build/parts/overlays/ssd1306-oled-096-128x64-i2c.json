@@ -1,0 +1,42 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "InfoDisplay"
+  ],
+  "categories": [
+    "display-oled"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "display"
+      ],
+      "ref": "https://www.scribd.com/document/770137261/Data-Sheet-of-0-96-inch-Blue-OLED-Display"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "display"
+      ],
+      "ref": "https://www.electrokit.com/upload/quick/42/32/fb04_41035586-tds.pdf"
+    },
+    {
+      "facts": [
+        "label",
+        "display"
+      ],
+      "ref": "https://cdn-shop.adafruit.com/datasheets/SSD1306.pdf"
+    }
+  ],
+  "interfaces": [
+    "i2c"
+  ],
+  "copy": {
+    "summary": "128x64 white OLED over I2C",
+    "wiringNote": "The generic four-pin module, silkscreened GND, VCC, SCL, SDA — the commonest 0.96-inch OLED, and the one to pick unless the board in hand is the Adafruit breakout. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices."
+  }
+}

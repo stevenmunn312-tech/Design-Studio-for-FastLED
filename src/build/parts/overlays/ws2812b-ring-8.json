@@ -1,0 +1,24 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "MatrixOutput"
+  ],
+  "categories": [
+    "led-rings"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm"
+      ],
+      "ref": "https://www.berrybase.de/Sensoren-/-Module/LED/WS2812-/-13-Neopixel/Ringe/NeoPixel-Ring-mit-8-WS2812-5050-RGB-LEDs/"
+    },
+    {
+      "facts": [
+        "render"
+      ],
+      "ref": "https://core-electronics.com.au/cjmcu-8-bit-ws2812-5050-rgb-led-built-in-full-color-driving-lights.html"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "KeypadInput"
+  ],
+  "categories": [
+    "buttons-touch"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight"
+      ],
+      "ref": "https://www.adafruit.com/product/3844"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "notes"
+      ],
+      "ref": "https://components101.com/misc/4x4-keypad-module-pinout-configuration-features-datasheet"
+    }
+  ],
+  "copy": {
+    "summary": "Sixteen keys on eight GPIOs",
+    "wiringNote": "Rows R1 to R4 go to pins with a pull-up and columns C1 to C4 to output pins. The keypad is passive and needs no power."
+  }
+}

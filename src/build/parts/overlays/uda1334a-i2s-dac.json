@@ -1,0 +1,44 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "Amplifier"
+  ],
+  "categories": [
+    "audio-amplifiers"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "render",
+        "label",
+        "notes"
+      ],
+      "ref": "https://www.adafruit.com/product/3678"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "notes"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-i2s-stereo-decoder-uda1334a/pinouts"
+    },
+    {
+      "facts": [
+        "dimensionsMm"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-i2s-stereo-decoder-uda1334a/downloads"
+    },
+    {
+      "facts": [
+        "notes"
+      ],
+      "ref": "https://cdn-shop.adafruit.com/product-files/3678/3678_UDA1334A.pdf"
+    }
+  ],
+  "copy": {
+    "summary": "I2S DAC — line out, needs an amp",
+    "wiringNote": "Line-level I2S DAC, wired the same as the PCM5102A."
+  }
+}

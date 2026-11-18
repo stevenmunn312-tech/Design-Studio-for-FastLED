@@ -1,0 +1,41 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "InfoDisplay"
+  ],
+  "categories": [
+    "display-oled"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm"
+      ],
+      "ref": "https://www.adafruit.com/product/326"
+    },
+    {
+      "facts": [
+        "render",
+        "display"
+      ],
+      "ref": "https://learn.adafruit.com/monochrome-oled-breakouts"
+    },
+    {
+      "facts": [
+        "render",
+        "label",
+        "display"
+      ],
+      "ref": "https://cdn-shop.adafruit.com/datasheets/SSD1306.pdf"
+    }
+  ],
+  "interfaces": [
+    "i2c",
+    "spi"
+  ],
+  "copy": {
+    "summary": "128x64 white OLED over I2C",
+    "wiringNote": "The Adafruit eight-pin STEMMA QT breakout, strapped for I2C: it prints the SPI names CLK and DATA on the two lines it answers I2C on. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices."
+  }
+}

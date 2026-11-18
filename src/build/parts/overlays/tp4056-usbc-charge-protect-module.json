@@ -1,0 +1,23 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "BatteryModule"
+  ],
+  "categories": [
+    "battery-chargers"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "render",
+        "batteryModule"
+      ],
+      "ref": "https://www.aliexpress.com/item/1005007089641829.html"
+    }
+  ],
+  "copy": {
+    "summary": "1S li-ion · protection, charger"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "CoolingFanOutput"
+  ],
+  "categories": [
+    "cooling"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "logicVoltage",
+        "fan"
+      ],
+      "ref": "https://www.noctua.at/en/products/nf-a4x10-5v-pwm/specifications"
+    },
+    {
+      "facts": [
+        "fan"
+      ],
+      "ref": "https://cdn.noctua.at/media/Noctua_PWM_specifications_white_paper.pdf"
+    },
+    {
+      "facts": [
+        "render"
+      ],
+      "ref": "https://cdn.noctua.at/media/46800471/NF-A4x10_Public-CAD.zip"
+    }
+  ],
+  "copy": {
+    "summary": "40 mm 5 V fan, 25 kHz PWM control and tachometer feedback",
+    "wiringNote": "Power it from 5 V. PWM is a 25 kHz active-high controller signal; RPM is an open-collector tachometer output with two pulses per revolution. This first firmware path supports ESP32-family boards."
+  }
+}

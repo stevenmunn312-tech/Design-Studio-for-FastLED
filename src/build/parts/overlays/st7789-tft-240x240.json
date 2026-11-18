@@ -1,0 +1,39 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "TransportDisplay"
+  ],
+  "categories": [
+    "display-tft"
+  ],
+  "verification": "bench",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "label"
+      ],
+      "ref": "https://akizukidenshi.com/goodsaffix/M154-240240-RGB-8.pdf"
+    },
+    {
+      "facts": [
+        "display"
+      ],
+      "ref": "https://www.waveshare.com/product/displays/lcd-oled/1.54inch-lcd-module.htm"
+    },
+    {
+      "facts": [
+        "display"
+      ],
+      "ref": "https://www.winstar.com.tw/products/tft-lcd/ips-tft/square-lcd-screen.html"
+    }
+  ],
+  "interfaces": [
+    "spi"
+  ],
+  "copy": {
+    "summary": "240x240 colour TFT over SPI",
+    "wiringNote": "A square 240x240 colour display with no touch controller."
+  }
+}

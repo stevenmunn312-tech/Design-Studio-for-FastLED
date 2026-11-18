@@ -28,6 +28,17 @@ without writing anything.
 Reads each `<asset-root>/<part-id>/part.json`, converts the raw Cycles PNG to
 WebP under `public/parts/`, and emits a generated TypeScript module.
 
+## Overlays: everything a part.json does not measure
+
+`part.json` holds the measured facts. Everything else a v1 manifest carries
+(revision, part types, shelf categories, verification, sources, interfaces,
+copy) is written in `src/build/parts/overlays/<part-id>.json` and merged over
+it here, so the generated module holds full part manifests. An overlay is
+reviewed in Git; it never overrides a measured field, and a part with no
+overlay, an overlay with no part, an unknown field or an unknown word stops
+the import. The shelf category tree is `overlays/categories.json`, emitted as
+`partCategoriesData.ts`.
+
 ## Why the app should not hand-declare these numbers
 
 Every `part.json` records `dimensionsMm` verified against a datasheet or a
@@ -45,6 +56,7 @@ from __future__ import annotations
 import io
 import json
 import math
+import re
 import sys
 from pathlib import Path
 
@@ -86,6 +98,202 @@ CATEGORIES = {
 CATEGORY_ALIASES = {
     "displays": "display",
 }
+
+
+OUT_CATEGORIES_TS = REPO / "src" / "build" / "generated" / "partCategoriesData.ts"
+OVERLAYS_DIR = REPO / "src" / "build" / "parts" / "overlays"
+CATEGORIES_FILE = OVERLAYS_DIR / "categories.json"
+VOCABULARY_TS = REPO / "src" / "build" / "parts" / "manifest" / "vocabulary.ts"
+PART_TYPES_TS = REPO / "src" / "build" / "parts" / "partTypes.ts"
+
+PART_MANIFEST_VERSION = 1
+
+# What an overlay may carry. Everything else in a manifest is a measured fact
+# from the part's own part.json, and an overlay never overrides one.
+OVERLAY_FIELDS = ("revision", "partTypes", "categories", "verification", "sources", "interfaces", "copy")
+OVERLAY_COPY_FIELDS = {"summary": 300, "wiringNote": 600, "hint": 200}
+# Fields a part.json owns even when a particular part leaves one out.
+MEASURED_FIELDS = {
+    "manifestVersion", "partId", "label", "category", "manufacturer", "logicVoltage", "dimensionsMm",
+    "pinLabelsLeftToRight", "notes", "ledLayout", "render", "pins",
+}
+ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
+class OverlayError(Exception):
+    """An overlay or the category tree breaks a rule; the message says which."""
+
+
+def _ts_list(source: str, name: str) -> list[str]:
+    """The string literals of `export const <name> = [ ... ] as const` in a TypeScript file."""
+    match = re.search(rf"export const {name}\s*=\s*\[(.*?)\]\s*as const", source, re.S)
+    if not match:
+        raise OverlayError(f"cannot find {name} in the TypeScript vocabulary")
+    return re.findall(r"'([^']+)'", match.group(1))
+
+
+def load_vocabulary() -> dict[str, set[str]]:
+    """The words an overlay may use, read from the app's own vocabulary and registry files."""
+    vocabulary = VOCABULARY_TS.read_text(encoding="utf-8")
+    registry = PART_TYPES_TS.read_text(encoding="utf-8")
+    part_types = set(re.findall(r"nodeType:\s*'([A-Za-z0-9]+)'", registry))
+    for aliases in re.findall(r"aliases:\s*\[(.*?)\]", registry, re.S):
+        part_types.update(re.findall(r"'([^']+)'", aliases))
+    return {
+        "interfaces": set(_ts_list(vocabulary, "INTERFACE_IDS")),
+        "verification": set(_ts_list(vocabulary, "VERIFICATION_LEVELS")),
+        "partTypes": part_types,
+    }
+
+
+def validate_categories(categories) -> list[dict]:
+    """The shelf category tree: unique permanent ids, real parents, no cycles."""
+    if not isinstance(categories, list) or not categories:
+        raise OverlayError("categories.json: expected a non-empty list")
+    by_id: dict[str, dict] = {}
+    for index, category in enumerate(categories):
+        where = f"categories.json[{index}]"
+        if not isinstance(category, dict):
+            raise OverlayError(f"{where}: expected an object")
+        unknown = sorted(set(category) - {"id", "label", "order", "parent", "aliases"})
+        if unknown:
+            raise OverlayError(f"{where}: unknown field(s) {', '.join(unknown)}")
+        cid = category.get("id")
+        if not isinstance(cid, str) or not ID_PATTERN.match(cid):
+            raise OverlayError(f"{where}: id must be lowercase words joined by hyphens")
+        if cid in by_id:
+            raise OverlayError(f"{where}: duplicate category id {cid!r}")
+        if not isinstance(category.get("label"), str) or not category["label"].strip():
+            raise OverlayError(f"{cid}: label must be a non-empty string")
+        if not isinstance(category.get("order"), int) or isinstance(category["order"], bool):
+            raise OverlayError(f"{cid}: order must be a whole number")
+        parent = category.get("parent")
+        if parent is not None and not isinstance(parent, str):
+            raise OverlayError(f"{cid}: parent must be a category id or null")
+        aliases = category.get("aliases", [])
+        if not isinstance(aliases, list) or not all(isinstance(a, str) and ID_PATTERN.match(a) for a in aliases):
+            raise OverlayError(f"{cid}: aliases must be a list of category ids")
+        by_id[cid] = category
+    known = set(by_id)
+    for category in categories:
+        for alias in category.get("aliases", []):
+            if alias in known:
+                raise OverlayError(f"{category['id']}: alias {alias!r} is also a live category id")
+        parent = category.get("parent")
+        if parent is not None and parent not in known:
+            raise OverlayError(f"{category['id']}: parent {parent!r} is not a category")
+    for cid in by_id:
+        seen = {cid}
+        parent = by_id[cid].get("parent")
+        while parent is not None:
+            if parent in seen:
+                raise OverlayError(f"{cid}: category parents form a cycle")
+            seen.add(parent)
+            parent = by_id[parent].get("parent")
+    return categories
+
+
+def load_categories() -> list[dict]:
+    if not CATEGORIES_FILE.exists():
+        raise OverlayError(f"missing {CATEGORIES_FILE.relative_to(REPO)}")
+    return validate_categories(json.loads(CATEGORIES_FILE.read_text(encoding="utf-8")))
+
+
+def merge_overlay(entry: dict, overlay, category_ids: set[str], vocabulary: dict[str, set[str]]) -> dict:
+    """The part's v1 manifest: its measured facts with its overlay merged over them.
+
+    Raises OverlayError for an overlay that is missing, names a field it may
+    not carry, tries to override a measured fact, or uses a word the app does
+    not know. The overlay never wins over `part.json`: a field the part
+    measures is refused, not merged.
+    """
+    part_id = entry["partId"]
+    if overlay is None:
+        raise OverlayError(f"{part_id}: no overlay in {OVERLAYS_DIR.relative_to(REPO)}/{part_id}.json")
+    if not isinstance(overlay, dict):
+        raise OverlayError(f"{part_id}: overlay must be an object")
+    for key in overlay:
+        if key in OVERLAY_FIELDS:
+            continue
+        if key in entry or key in MEASURED_FIELDS:
+            raise OverlayError(f"{part_id}: overlay may not set {key!r}; it is a measured fact in part.json")
+        raise OverlayError(f"{part_id}: overlay names unknown field {key!r}")
+    for key in ("revision", "partTypes", "categories", "verification", "sources"):
+        if key not in overlay:
+            raise OverlayError(f"{part_id}: overlay is missing {key!r}")
+
+    revision = overlay["revision"]
+    if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1:
+        raise OverlayError(f"{part_id}: revision must be a whole number from 1")
+
+    part_types = overlay["partTypes"]
+    if (not isinstance(part_types, list) or not 1 <= len(part_types) <= 8
+            or not all(isinstance(t, str) for t in part_types) or len(set(part_types)) != len(part_types)):
+        raise OverlayError(f"{part_id}: partTypes must be one to eight distinct part type ids")
+    for part_type in part_types:
+        if part_type not in vocabulary["partTypes"]:
+            raise OverlayError(f"{part_id}: part type {part_type!r} is not in partTypes.ts")
+
+    categories = overlay["categories"]
+    if (not isinstance(categories, list) or not 1 <= len(categories) <= 16
+            or not all(isinstance(c, str) for c in categories) or len(set(categories)) != len(categories)):
+        raise OverlayError(f"{part_id}: categories must be one or more distinct category ids")
+    for category in categories:
+        if category not in category_ids:
+            raise OverlayError(f"{part_id}: category {category!r} is not in categories.json")
+
+    if overlay["verification"] not in vocabulary["verification"]:
+        raise OverlayError(f"{part_id}: verification must be one of {', '.join(sorted(vocabulary['verification']))}")
+
+    sources = overlay["sources"]
+    if not isinstance(sources, list):
+        raise OverlayError(f"{part_id}: sources must be a list")
+    for index, source in enumerate(sources):
+        where = f"{part_id}: sources[{index}]"
+        if not isinstance(source, dict) or set(source) != {"facts", "ref"}:
+            raise OverlayError(f"{where}: expected exactly facts and ref")
+        facts = source["facts"]
+        if (not isinstance(facts, list) or not facts
+                or not all(isinstance(f, str) and f.strip() for f in facts)):
+            raise OverlayError(f"{where}: facts must be a non-empty list of manifest field names")
+        if not isinstance(source["ref"], str) or not source["ref"].strip():
+            raise OverlayError(f"{where}: ref must be a URL or citation")
+
+    if "interfaces" in overlay:
+        interfaces = overlay["interfaces"]
+        if not isinstance(interfaces, list) or not all(isinstance(i, str) for i in interfaces):
+            raise OverlayError(f"{part_id}: interfaces must be a list of interface ids")
+        for interface in interfaces:
+            if interface not in vocabulary["interfaces"]:
+                raise OverlayError(f"{part_id}: interface {interface!r} is not in vocabulary.ts")
+
+    if "copy" in overlay:
+        copy = overlay["copy"]
+        if not isinstance(copy, dict):
+            raise OverlayError(f"{part_id}: copy must be an object")
+        for key, value in copy.items():
+            if key not in OVERLAY_COPY_FIELDS:
+                raise OverlayError(f"{part_id}: copy names unknown field {key!r}")
+            if not isinstance(value, str) or len(value) > OVERLAY_COPY_FIELDS[key]:
+                raise OverlayError(f"{part_id}: copy.{key} must be plain text of at most {OVERLAY_COPY_FIELDS[key]} characters")
+
+    merged = {"manifestVersion": PART_MANIFEST_VERSION}
+    merged.update(entry)
+    for key in OVERLAY_FIELDS:
+        if key in overlay:
+            merged[key] = overlay[key]
+    return merged
+
+
+def load_overlay(part_id: str):
+    path = OVERLAYS_DIR / f"{part_id}.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def overlay_part_ids() -> set[str]:
+    return {p.stem for p in OVERLAYS_DIR.glob("*.json") if p.name != CATEGORIES_FILE.name}
 
 
 def convert_render(part_id: str, part_dir: Path, render: dict) -> dict | None:
@@ -1094,6 +1302,20 @@ def main() -> int:
     if not entries:
         sys.exit("no parts found")
 
+    # Merge each part's overlay (copy, categories, sources, verification...) over
+    # its measured facts. A part with no overlay, an overlay naming a part that
+    # has no part.json, or an overlay that breaks a rule stops the import.
+    try:
+        categories = load_categories()
+        category_ids = {c["id"] for c in categories}
+        vocabulary = load_vocabulary()
+        orphans = sorted(overlay_part_ids() - {e["partId"] for e in entries})
+        if orphans:
+            raise OverlayError(f"overlay with no part.json: {', '.join(orphans)}")
+        entries = [merge_overlay(e, load_overlay(e["partId"]), category_ids, vocabulary) for e in entries]
+    except OverlayError as error:
+        sys.exit(f"import-part-assets: {error}")
+
     if CHECK_ONLY:
         if UPDATED_RENDERS:
             print(f"\n{len(UPDATED_RENDERS)} render(s) differ from their source PNG:")
@@ -1111,16 +1333,35 @@ def main() -> int:
     OUT_TS.parent.mkdir(parents=True, exist_ok=True)
     OUT_TS.write_text(
         "// GENERATED FILE — do not edit by hand.\n"
-        "// Produced by scripts/assets/import-part-assets.py from the Blender part assets.\n"
+        "// Produced by scripts/assets/import-part-assets.py from the Blender part assets\n"
+        "// (measured facts, each part's part.json) merged with the per-part overlays in\n"
+        "// src/build/parts/overlays/ (categories, sources, verification, copy).\n"
         "//\n"
         "// Every dimension here is verified against a datasheet or fabrication\n"
         "// print in the asset's own part.json. Do not replace one with a figure\n"
         "// measured off a photograph or remembered — the hardware view draws parts\n"
         "// at true relative scale, so these numbers are load-bearing.\n\n"
-        "import type { PartCatalogueEntry } from '../parts/partCatalogue'\n\n"
-        "export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {\n"
+        "import type { PartManifest } from '../parts/manifest/partManifest'\n\n"
+        "export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {\n"
         f"{body},\n"
         "}\n",
+        encoding="utf-8",
+    )
+    category_body = ",\n".join(
+        "  " + json.dumps(c, ensure_ascii=False) for c in categories
+    )
+    OUT_CATEGORIES_TS.write_text(
+        "// GENERATED FILE — do not edit by hand.\n"
+        "// Produced by scripts/assets/import-part-assets.py from\n"
+        "// src/build/parts/overlays/categories.json.\n"
+        "//\n"
+        "// The shelf category tree the bundled parts are placed in: the same shape\n"
+        "// the signed parts index carries. Ids are permanent; a split keeps the old\n"
+        "// id as an alias. Categories only affect browsing.\n\n"
+        "import type { PartCategoryDefinition } from '../parts/manifest/partManifest'\n\n"
+        "export const PART_CATEGORIES_DATA: readonly PartCategoryDefinition[] = [\n"
+        f"{category_body},\n"
+        "]\n",
         encoding="utf-8",
     )
     print(f"\nWrote {len(entries)} parts to {OUT_TS.relative_to(REPO)}")

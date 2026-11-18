@@ -1,0 +1,36 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "IRRemoteInput"
+  ],
+  "categories": [
+    "remote-receivers"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm"
+      ],
+      "ref": "https://www.pcbway.com/project/shareproject/KY_022_Infrared_Receiver_Module_0a5fd814.html"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage"
+      ],
+      "ref": "https://www.espboards.dev/sensors/ky-022/"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage"
+      ],
+      "ref": "https://arduinomodules.info/ky-022-infrared-receiver-module/"
+    }
+  ],
+  "copy": {
+    "summary": "IR remote receiver, 3-pin board with LED",
+    "wiringNote": "Some clones swap the outer two pins. Check the silkscreen on your board before wiring it — a swap puts the supply rail on a GPIO."
+  }
+}

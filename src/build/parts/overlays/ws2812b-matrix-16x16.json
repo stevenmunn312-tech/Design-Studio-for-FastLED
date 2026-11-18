@@ -1,0 +1,25 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "MatrixOutput"
+  ],
+  "categories": [
+    "led-matrices"
+  ],
+  "verification": "bench",
+  "sources": [
+    {
+      "facts": [
+        "notes"
+      ],
+      "ref": "https://www.adafruit.com/product/2547"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "render"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-matrices"
+    }
+  ]
+}

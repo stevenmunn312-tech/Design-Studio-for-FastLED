@@ -1,0 +1,23 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "PowerConverter"
+  ],
+  "categories": [
+    "power-buck"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "render",
+        "powerConverter"
+      ],
+      "ref": "https://www.aliexpress.com/item/1005003512778149.html"
+    }
+  ],
+  "copy": {
+    "summary": "LED rail ·9-36 V in, 5 V 20 A at 40 °C"
+  }
+}

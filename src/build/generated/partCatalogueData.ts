@@ -1,15 +1,18 @@
 // GENERATED FILE — do not edit by hand.
-// Produced by scripts/assets/import-part-assets.py from the Blender part assets.
+// Produced by scripts/assets/import-part-assets.py from the Blender part assets
+// (measured facts, each part's part.json) merged with the per-part overlays in
+// src/build/parts/overlays/ (categories, sources, verification, copy).
 //
 // Every dimension here is verified against a datasheet or fabrication
 // print in the asset's own part.json. Do not replace one with a figure
 // measured off a photograph or remembered — the hardware view draws parts
 // at true relative scale, so these numbers are load-bearing.
 
-import type { PartCatalogueEntry } from '../parts/partCatalogue'
+import type { PartManifest } from '../parts/manifest/partManifest'
 
-export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
+export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
   "16v8-2a-4s-liion-charger": {
+    "manifestVersion": 1,
     "partId": "16v8-2a-4s-liion-charger",
     "label": "16.8 V 2 A 4S Li-ion mains charger",
     "category": "battery",
@@ -49,9 +52,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 1160,
       "heightPx": 620,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "BatteryModule"
+    ],
+    "categories": [
+      "battery-chargers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "batteryModule"
+        ],
+        "ref": "https://www.aliexpress.com/i/1005005354324584.html"
+      }
+    ],
+    "copy": {
+      "summary": "4S li-ion · charger"
     }
   },
   "1s-10a-liion-protection-board": {
+    "manifestVersion": 1,
     "partId": "1s-10a-liion-protection-board",
     "label": "1S 10 A Li-ion protection board",
     "category": "battery",
@@ -96,9 +121,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 428,
       "heightPx": 200,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "BatteryModule"
+    ],
+    "categories": [
+      "battery-protection"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "batteryModule"
+        ],
+        "ref": "https://www.aliexpress.com/item/1005006041887055.html"
+      }
+    ],
+    "copy": {
+      "summary": "1S li-ion · protection"
     }
   },
   "4s-15a-enhanced-bms": {
+    "manifestVersion": 1,
     "partId": "4s-15a-enhanced-bms",
     "label": "4S 15 A enhanced Li-ion BMS",
     "category": "battery",
@@ -146,9 +193,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 560,
       "heightPx": 560,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "BatteryModule"
+    ],
+    "categories": [
+      "battery-protection"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "batteryModule"
+        ],
+        "ref": "https://www.aliexpress.com/item/1005004317506330.html"
+      }
+    ],
+    "copy": {
+      "summary": "4S li-ion · protection"
     }
   },
   "4s-5a-active-balancer": {
+    "manifestVersion": 1,
     "partId": "4s-5a-active-balancer",
     "label": "4S 5 A active cell balancer",
     "category": "battery",
@@ -199,9 +268,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 560,
       "heightPx": 440,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "BatteryModule"
+    ],
+    "categories": [
+      "battery-balancers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "batteryModule"
+        ],
+        "ref": "https://www.aliexpress.com/item/1005005050176741.html"
+      }
+    ],
+    "copy": {
+      "summary": "4S li-ion/lifepo4 · active balance"
     }
   },
   "adafruit-bh1750-light-sensor": {
+    "manifestVersion": 1,
     "partId": "adafruit-bh1750-light-sensor",
     "label": "Adafruit BH1750 ambient light sensor",
     "category": "input-control",
@@ -256,9 +347,48 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "drive": "power"
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "LightInput"
+    ],
+    "categories": [
+      "light-sensors"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight"
+        ],
+        "ref": "https://github.com/adafruit/Adafruit-BH1750-PCB"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "render",
+          "lightSensor"
+        ],
+        "ref": "https://www.adafruit.com/product/4681"
+      },
+      {
+        "facts": [
+          "lightSensor"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-bh1750-ambient-light-sensor/pinouts"
+      }
+    ],
+    "interfaces": [
+      "i2c"
+    ],
+    "copy": {
+      "summary": "Calibrated ambient light in lux over I2C",
+      "wiringNote": "Power from the controller logic rail. The breakout level-shifts SDA/SCL and answers on 0x23, or 0x5C with ADDR tied high."
     }
   },
   "adafruit-bme280-environment-sensor": {
+    "manifestVersion": 1,
     "partId": "adafruit-bme280-environment-sensor",
     "label": "Adafruit BME280 environment sensor",
     "category": "input-control",
@@ -319,9 +449,57 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "drive": "power"
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "EnvironmentInput"
+    ],
+    "categories": [
+      "environment-sensors"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "render"
+        ],
+        "ref": "https://github.com/adafruit/Adafruit-BME280-Breakout-PCB"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "label",
+          "environmentSensor"
+        ],
+        "ref": "https://www.adafruit.com/product/2652"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "label",
+          "environmentSensor"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-bme280-humidity-barometric-pressure-temperature-sensor-breakout/pinouts"
+      },
+      {
+        "facts": [
+          "environmentSensor"
+        ],
+        "ref": "https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bme280-ds002.pdf"
+      }
+    ],
+    "interfaces": [
+      "i2c"
+    ],
+    "copy": {
+      "summary": "Temperature, humidity and pressure over I2C",
+      "wiringNote": "Use VIN at 3.3 V; SCK is I2C SCL and SDI is I2C SDA. Leave SDO and CS unwired for the default 0x77 address."
     }
   },
   "adafruit-ina219-current-sensor": {
+    "manifestVersion": 1,
     "partId": "adafruit-ina219-current-sensor",
     "label": "Adafruit INA219 current sensor",
     "category": "power-monitor",
@@ -384,9 +562,51 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "drive": "power"
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "PowerMonitorInput"
+    ],
+    "categories": [
+      "power-monitoring"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "render",
+          "powerMonitor"
+        ],
+        "ref": "https://github.com/adafruit/Adafruit-INA219-Current-Sensor-PCB"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render",
+          "powerMonitor"
+        ],
+        "ref": "https://www.adafruit.com/product/904"
+      },
+      {
+        "facts": [
+          "powerMonitor"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-ina219-current-sensor-breakout/pinouts"
+      }
+    ],
+    "interfaces": [
+      "i2c"
+    ],
+    "copy": {
+      "summary": "Volts, amps, watts: 26 V, 3.2 A, I2C",
+      "wiringNote": "High-side: the supply goes to Vin+ and the load to Vin-, sharing ground with the board."
     }
   },
   "adafruit-midi-featherwing": {
+    "manifestVersion": 1,
     "partId": "adafruit-midi-featherwing",
     "label": "Adafruit MIDI FeatherWing (DIN-5, H11L1MS)",
     "category": "input-control",
@@ -440,9 +660,53 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 618,
       "heightPx": 283,
       "pxPerMm": 12.008
+    },
+    "revision": 1,
+    "partTypes": [
+      "MidiInterface"
+    ],
+    "categories": [
+      "dmx-midi"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "label",
+          "render"
+        ],
+        "ref": "https://www.adafruit.com/product/4740"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "render"
+        ],
+        "ref": "https://github.com/adafruit/Adafruit-MIDI-FeatherWing-PCB"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "render"
+        ],
+        "ref": "https://github.com/adafruit/Adafruit_CAD_Parts/tree/main/4740%20MIDI%20FeatherWing"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-midi-featherwing/pinouts"
+      }
+    ],
+    "copy": {
+      "summary": "Opto-isolated DIN-5 MIDI in, on 3.3 V",
+      "wiringNote": "Power from 3.3 V. Only 3.3V, GND and MIDI_RX are wired; the optocoupler output needs no divider. Plug the keyboard into the left socket, MIDI IN."
     }
   },
   "adafruit-mpr121-touch-sensor": {
+    "manifestVersion": 1,
     "partId": "adafruit-mpr121-touch-sensor",
     "label": "Adafruit MPR121 12-key touch sensor",
     "category": "input-control",
@@ -503,9 +767,43 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "drive": "power"
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "TouchPadInput"
+    ],
+    "categories": [
+      "buttons-touch"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "touchPad"
+        ],
+        "ref": "https://www.adafruit.com/product/1982"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "touchPad"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-mpr121-12-key-capacitive-touch-sensor-breakout-tutorial/pinouts"
+      }
+    ],
+    "interfaces": [
+      "i2c"
+    ],
+    "copy": {
+      "summary": "Twelve capacitive-touch electrodes over I2C",
+      "wiringNote": "Power Vin from 3.3 V. Tie ADDR to GND for 0x5A, 3V for 0x5B, SDA for 0x5C or SCL for 0x5D; IRQ is not needed."
     }
   },
   "adafruit-pca9685-pwm-driver": {
+    "manifestVersion": 1,
     "partId": "adafruit-pca9685-pwm-driver",
     "label": "Adafruit PCA9685 16-channel PWM driver",
     "category": "support",
@@ -613,9 +911,42 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "drive": "power"
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "PwmDriverOutput"
+    ],
+    "categories": [
+      "switching-pwm-drivers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pwmDriver"
+        ],
+        "ref": "https://www.adafruit.com/product/815"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "pwmDriver"
+        ],
+        "ref": "https://learn.adafruit.com/16-channel-pwm-servo-driver/pinouts"
+      }
+    ],
+    "interfaces": [
+      "i2c"
+    ],
+    "copy": {
+      "summary": "Sixteen 12-bit PWM channels over I2C",
+      "wiringNote": "Power VCC from 3.3 V with GND, SDA and SCL to the controller. V+ is the outputs' own supply (5 to 6 V for servos) and is not drawn here. Leave OE unconnected to keep the outputs enabled. A dimming or servo channel takes its signal from the PWM hole, with V+ and ground beside it."
     }
   },
   "adafruit-vl53l0x-distance-sensor": {
+    "manifestVersion": 1,
     "partId": "adafruit-vl53l0x-distance-sensor",
     "label": "Adafruit VL53L0X distance sensor",
     "category": "input-control",
@@ -656,9 +987,57 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 353,
       "pxPerMm": 18.701
+    },
+    "revision": 1,
+    "partTypes": [
+      "DistanceInput"
+    ],
+    "categories": [
+      "distance-time-of-flight"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "distanceSensor"
+        ],
+        "ref": "https://github.com/adafruit/Adafruit-VL53L0X-ToF-Distance-Sensor-PCB"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "label",
+          "distanceSensor"
+        ],
+        "ref": "https://www.adafruit.com/product/3317"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "label",
+          "distanceSensor"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-vl53l0x-micro-lidar-distance-sensor-breakout/pinouts"
+      },
+      {
+        "facts": [
+          "distanceSensor"
+        ],
+        "ref": "STMicroelectronics VL53L0X (local copy in the asset workspace)"
+      }
+    ],
+    "interfaces": [
+      "i2c"
+    ],
+    "copy": {
+      "summary": "Laser time-of-flight, 3 cm to 1.2 m, over I2C",
+      "wiringNote": "Power VIN from 3.3 V. One sensor answers on 0x29; leave 2v8, GPIO and SHDN unconnected. To share the bus, wire each SHDN pin and pick an address from 0x30 to 0x33. The build needs the Pololu VL53L0X library, which Studio installs the first time."
     }
   },
   "adafruit-vl53l1x-distance-sensor": {
+    "manifestVersion": 1,
     "partId": "adafruit-vl53l1x-distance-sensor",
     "label": "Adafruit VL53L1X distance sensor",
     "category": "input-control",
@@ -698,9 +1077,53 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 281,
       "pxPerMm": 14.902
+    },
+    "revision": 1,
+    "partTypes": [
+      "DistanceInput"
+    ],
+    "categories": [
+      "distance-time-of-flight"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "label",
+          "distanceSensor"
+        ],
+        "ref": "https://www.adafruit.com/product/3967"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "label",
+          "distanceSensor"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-vl53l1x/pinouts"
+      },
+      {
+        "facts": [
+          "distanceSensor"
+        ],
+        "ref": "STMicroelectronics VL53L1X (local copy in the asset workspace)"
+      }
+    ],
+    "interfaces": [
+      "i2c"
+    ],
+    "copy": {
+      "summary": "Laser time-of-flight, 3 cm to 4 m, over I2C",
+      "wiringNote": "Power VIN from 3.3 V. One sensor answers on 0x29; leave XSHUT and GPIO unconnected. To share the bus, wire each XSHUT pin and pick an address from 0x30 to 0x33. It runs in long distance mode, which reaches about 4 m. The build needs the Pololu VL53L1X library, which Studio installs the first time."
     }
   },
   "bm3451-4s-60a-active-balance-bms": {
+    "manifestVersion": 1,
     "partId": "bm3451-4s-60a-active-balance-bms",
     "label": "BM3451 4S 60 A BMS with active balancing",
     "category": "battery",
@@ -766,9 +1189,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 680,
       "heightPx": 560,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "BatteryModule"
+    ],
+    "categories": [
+      "battery-protection"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "batteryModule"
+        ],
+        "ref": "https://www.aliexpress.com/item/1005010418508436.html"
+      }
+    ],
+    "copy": {
+      "summary": "4S li-ion · protection, active balance"
     }
   },
   "dfplayer-mini": {
+    "manifestVersion": 1,
     "partId": "dfplayer-mini",
     "label": "DFPlayer Mini MP3 module",
     "category": "audio-source",
@@ -805,9 +1250,33 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 400,
       "pxPerMm": 19.6
+    },
+    "revision": 1,
+    "partTypes": [
+      "DFPlayerOutput"
+    ],
+    "categories": [
+      "audio-players"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render"
+        ],
+        "ref": "https://wiki.dfrobot.com/dfr0299/"
+      }
+    ],
+    "copy": {
+      "summary": "UART-controlled microSD audio player with speaker and line outputs",
+      "wiringNote": "Power from 5 V. Put numbered files in the card’s /mp3 folder. Speaker mode uses SPK1/SPK2 directly; Line Out uses DAC_L/DAC_R into a power amplifier or powered speakers. Add a 1 kΩ series resistor from controller TX to module RX if UART noise causes buzzing."
     }
   },
   "dgxby-20a-5v-buck-converter": {
+    "manifestVersion": 1,
     "partId": "dgxby-20a-5v-buck-converter",
     "label": "DGXBY 12/24 V to 5 V 20 A buck converter",
     "category": "power-conversion",
@@ -869,9 +1338,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 908,
       "heightPx": 908,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "PowerConverter"
+    ],
+    "categories": [
+      "power-buck"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "powerConverter"
+        ],
+        "ref": "https://www.aliexpress.com/item/1005003512778149.html"
+      }
+    ],
+    "copy": {
+      "summary": "LED rail ·9-36 V in, 5 V 20 A at 40 °C"
     }
   },
   "ds18b20-waterproof-probe": {
+    "manifestVersion": 1,
     "partId": "ds18b20-waterproof-probe",
     "label": "Waterproof DS18B20 temperature probe",
     "category": "input-control",
@@ -904,9 +1395,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 997,
       "pxPerMm": 13.571
+    },
+    "revision": 1,
+    "partTypes": [
+      "TemperatureInput"
+    ],
+    "categories": [
+      "environment-sensors"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "logicVoltage",
+          "render",
+          "temperatureSensor"
+        ],
+        "ref": "https://www.adafruit.com/product/381"
+      },
+      {
+        "facts": [
+          "temperatureSensor"
+        ],
+        "ref": "https://www.analog.com/media/en/technical-documentation/data-sheets/DS18B20.pdf"
+      }
+    ],
+    "interfaces": [
+      "one-wire"
+    ],
+    "copy": {
+      "summary": "A 1-Wire thermometer in a sealed steel tube, -55 to 125 °C",
+      "wiringNote": "Red is VCC (3.3 V), black is GND and yellow is DATA. DATA needs a 4.7 kΩ pull-up to 3.3 V; the bare probe has none."
     }
   },
   "ds3231-rtc-module": {
+    "manifestVersion": 1,
     "partId": "ds3231-rtc-module",
     "label": "DS3231 RTC module (ZS-042)",
     "category": "support",
@@ -952,9 +1475,56 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "drive": "power"
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "RtcModule"
+    ],
+    "categories": [
+      "clocks"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "notes"
+        ],
+        "ref": "https://www.analog.com/media/en/technical-documentation/data-sheets/DS3231.pdf"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "notes"
+        ],
+        "ref": "https://www.eitkw.com/product/zs-042-rtc-real-time-clock-module/"
+      },
+      {
+        "facts": [
+          "notes"
+        ],
+        "ref": "https://lastminuteengineers.com/ds3231-rtc-arduino-tutorial/"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://docs.cirkitdesigner.com/component/957beab0-c127-8e8e-6d32-4ce97d53e9eb/zs-042-rtc-modulea"
+      },
+      {
+        "facts": [
+          "notes"
+        ],
+        "ref": "https://www.onetransistor.eu/2019/07/zs042-ds3231-battery-charging-circuit.html"
+      }
+    ],
+    "copy": {
+      "summary": "ZS-042 breakout, six-pin header"
     }
   },
   "dx-0809-stereo-amplifier": {
+    "manifestVersion": 1,
     "partId": "dx-0809-stereo-amplifier",
     "label": "DX-0809 stereo power amplifier",
     "category": "amplifier",
@@ -985,9 +1555,44 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 1200,
       "heightPx": 973,
       "pxPerMm": 9.077
+    },
+    "revision": 1,
+    "partTypes": [
+      "PowerAmplifier"
+    ],
+    "categories": [
+      "audio-power-amplifiers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "logicVoltage",
+          "render",
+          "label"
+        ],
+        "ref": "https://www.electronicspartsbd.com/product/china-dx0809-tda8946-40w-dual-channel-audio-amplifier-12v-87"
+      },
+      {
+        "facts": [
+          "notes"
+        ],
+        "ref": "https://www.amazon.com/DX-0809-DC12V-Channel-TDA8944-Amplifier/dp/B09NC6V361"
+      },
+      {
+        "facts": [
+          "notes"
+        ],
+        "ref": "https://www.nxp.com/docs/en/data-sheet/TDA8946J.pdf"
+      }
+    ],
+    "copy": {
+      "summary": "2 x 15 W, 12 V — AUX line in",
+      "wiringNote": "Needs its own 12 V supply; the controller cannot power it. Feed its AUX input from the line out of a DAC, and share ground with the board."
     }
   },
   "generic-300w-9a-buck-module": {
+    "manifestVersion": 1,
     "partId": "generic-300w-9a-buck-module",
     "label": "300 W adjustable buck module (9 A)",
     "category": "power-conversion",
@@ -1049,9 +1654,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 800,
       "heightPx": 596,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "PowerConverter"
+    ],
+    "categories": [
+      "power-buck"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "powerConverter"
+        ],
+        "ref": "https://www.aliexpress.com/item/33044155995.html"
+      }
+    ],
+    "copy": {
+      "summary": "LED rail ·5-40 V in, 5 V 9 A at 40 °C"
     }
   },
   "generic-i2s-mems-microphone": {
+    "manifestVersion": 1,
     "partId": "generic-i2s-mems-microphone",
     "label": "Generic I2S MEMS microphone",
     "category": "microphone",
@@ -1078,9 +1705,38 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 248,
       "pxPerMm": 25.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "MicInput"
+    ],
+    "categories": [
+      "audio-microphones"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "label"
+        ],
+        "ref": "https://dl.sipeed.com/MAIX/HDK/Sipeed-I2S_MIC/Specifications/Sipeed%20I2S_Mic%20Datasheet%20V1.0.pdf"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight"
+        ],
+        "ref": "https://www.makerhero.com/img/files/download/Microfone-Sipeed-MSM261S4030H0-Datasheet.pdf"
+      }
+    ],
+    "copy": {
+      "summary": "Low-cost MSM261S4030H0-class board",
+      "wiringNote": "For the unbranded boards often sold as INMP441. The GenericMEMS profile is an average MEMS correction, not this module's measured response."
     }
   },
   "gy-521-mpu6050-module": {
+    "manifestVersion": 1,
     "partId": "gy-521-mpu6050-module",
     "label": "GY-521 MPU-6050 accelerometer and gyroscope",
     "category": "input-control",
@@ -1139,9 +1795,49 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "drive": "power"
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "MotionVectorInput"
+    ],
+    "categories": [
+      "inertial-sensors"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "motionVectorSensor"
+        ],
+        "ref": "https://protosupplies.com/product/mpu-6050-gy-521-3-axis-accel-gryo-sensor-module/"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight"
+        ],
+        "ref": "https://github.com/cooked/Eagle-Libraries"
+      },
+      {
+        "facts": [
+          "motionVectorSensor"
+        ],
+        "ref": "InvenSense MPU-6050 (local copy in the asset workspace)"
+      }
+    ],
+    "interfaces": [
+      "i2c"
+    ],
+    "copy": {
+      "summary": "Three-axis accelerometer and gyroscope over I2C",
+      "wiringNote": "Power VCC from 3.3 V. Leave AD0 unwired for 0x68, or tie it high for 0x69 when a DS3231 clock already uses 0x68."
     }
   },
   "hc-sr04-ultrasonic-module": {
+    "manifestVersion": 1,
     "partId": "hc-sr04-ultrasonic-module",
     "label": "HC-SR04 ultrasonic distance sensor",
     "category": "input-control",
@@ -1177,9 +1873,52 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 560,
       "heightPx": 260,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "DistanceInput"
+    ],
+    "categories": [
+      "distance-ultrasonic"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "distanceSensor"
+        ],
+        "ref": "https://cdn.sparkfun.com/datasheets/Sensors/Proximity/HCSR04.pdf"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "label",
+          "distanceSensor"
+        ],
+        "ref": "https://www.sparkfun.com/products/15569"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "label",
+          "distanceSensor"
+        ],
+        "ref": "https://www.adafruit.com/product/3942"
+      }
+    ],
+    "interfaces": [
+      "pulse-ranging"
+    ],
+    "copy": {
+      "summary": "Ultrasonic ranging, 2 cm to 4 m, on two GPIOs",
+      "wiringNote": "Power VCC from 5 V. Echo swings to 5 V, so a 3.3 V controller needs the 1 kΩ / 2 kΩ divider on Echo; Trig can be driven at 3.3 V."
     }
   },
   "hc-sr501-pir-sensor": {
+    "manifestVersion": 1,
     "partId": "hc-sr501-pir-sensor",
     "label": "HC-SR501 PIR motion sensor module",
     "category": "input-control",
@@ -1204,9 +1943,44 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 304,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "MotionInput"
+    ],
+    "categories": [
+      "motion-pir"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "logicVoltage",
+          "notes"
+        ],
+        "ref": "https://okystar.com/wp-content/uploads/2017/07/OKY3270.pdf"
+      },
+      {
+        "facts": [
+          "notes"
+        ],
+        "ref": "https://www.mpja.com/download/31227sc.pdf"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "notes"
+        ],
+        "ref": "https://wiki.hshl.de/wiki/index.php/Bewegungsmelder%2C_PIR-Sensor_-_HC-SR501"
+      }
+    ],
+    "copy": {
+      "summary": "Infrared: sees a warm body move",
+      "wiringNote": "Power VCC from 5 V. OUT is 3.3 V logic."
     }
   },
   "hlk-ld2410c-presence-sensor": {
+    "manifestVersion": 1,
     "partId": "hlk-ld2410c-presence-sensor",
     "label": "HLK-LD2410C mmWave presence sensor",
     "category": "input-control",
@@ -1242,9 +2016,53 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 296,
       "pxPerMm": 17.273
+    },
+    "revision": 1,
+    "partTypes": [
+      "PresenceInput"
+    ],
+    "categories": [
+      "motion-radar"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "presenceSensor"
+        ],
+        "ref": "https://www.manualslib.com/manual/3299997/Hi-Link-Hlk-Ld2410c.html"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render",
+          "presenceSensor"
+        ],
+        "ref": "https://www.espboards.dev/sensors/ld2410c/"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "presenceSensor"
+        ],
+        "ref": "https://github.com/ncmreynolds/ld2410"
+      }
+    ],
+    "interfaces": [
+      "uart"
+    ],
+    "copy": {
+      "summary": "Someone there, moving or still, and how far: up to 6 m",
+      "wiringNote": "Power from 5 V; its UART is 3.3 V, so its TX wires straight to the board's RX pin."
     }
   },
   "hub75-panel-64x64-p4": {
+    "manifestVersion": 1,
     "partId": "hub75-panel-64x64-p4",
     "label": "HUB75 panel, 64×64 P4",
     "category": "led-output",
@@ -1287,9 +2105,38 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 1200,
       "heightPx": 1200,
       "pxPerMm": 4.656
-    }
+    },
+    "revision": 1,
+    "partTypes": [
+      "MatrixOutput"
+    ],
+    "categories": [
+      "led-hub75-panels"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm"
+        ],
+        "ref": "https://www.optonicaled.com/led-display-module-indoor-double-sided-p4"
+      },
+      {
+        "facts": [
+          "render"
+        ],
+        "ref": "https://docs.waveshare.com/LED-Matrix"
+      },
+      {
+        "facts": [
+          "render"
+        ],
+        "ref": "https://hackspark.fr/en/led-displays/2913-64x64-rgb-led-matrix-panel-p4-256x256mm.html"
+      }
+    ]
   },
   "hx-4s-f30a-bms-balance": {
+    "manifestVersion": 1,
     "partId": "hx-4s-f30a-bms-balance",
     "label": "HX-4S-F30A 4S 30 A BMS with balancing",
     "category": "battery",
@@ -1355,9 +2202,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 692,
       "heightPx": 596,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "BatteryModule"
+    ],
+    "categories": [
+      "battery-protection"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "batteryModule"
+        ],
+        "ref": "https://www.aliexpress.com/item/1005010035028251.html"
+      }
+    ],
+    "copy": {
+      "summary": "4S li-ion · protection, passive balance"
     }
   },
   "ics-43434-i2s-microphone": {
+    "manifestVersion": 1,
     "partId": "ics-43434-i2s-microphone",
     "label": "ICS-43434 I2S microphone",
     "category": "microphone",
@@ -1384,9 +2253,46 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 286,
       "pxPerMm": 14.961
+    },
+    "revision": 1,
+    "partTypes": [
+      "MicInput"
+    ],
+    "categories": [
+      "audio-microphones"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "notes"
+        ],
+        "ref": "https://www.invensense.tdk.com/en-us/products/microphone/ics-43434"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "label",
+          "notes"
+        ],
+        "ref": "https://www.adafruit.com/product/6049"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "render"
+        ],
+        "ref": "https://ae-pic-a1.aliexpress-media.com/kf/Se306d885f56641879b1a2e02a2ec229e0.pdf"
+      }
+    ],
+    "copy": {
+      "summary": "Lower noise floor, same three wires",
+      "wiringNote": "Wires exactly like an INMP441 and costs about the same; firmware applies the ICS43434 response correction instead."
     }
   },
   "ili9341-xc4630-parallel-touch-320x240": {
+    "manifestVersion": 1,
     "partId": "ili9341-xc4630-parallel-touch-320x240",
     "label": "XC4630 2.8-inch 320x240 ILI9341 parallel TFT shield",
     "category": "display",
@@ -1442,9 +2348,49 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 944,
       "heightPx": 644,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "TransportDisplay"
+    ],
+    "categories": [
+      "display-tft"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "render"
+        ],
+        "ref": "Physical board in hand (local copy in the asset workspace)"
+      },
+      {
+        "facts": [
+          "display"
+        ],
+        "ref": "Register read on the physical board (local copy in the asset workspace)"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "render",
+          "display"
+        ],
+        "ref": "https://www.jaycar.com.au/240x320-lcd-touch-screen-for-arduino/p/XC4630"
+      }
+    ],
+    "interfaces": [
+      "parallel-8080"
+    ],
+    "copy": {
+      "summary": "320x240 ILI9341 over an 8-bit parallel bus",
+      "wiringNote": "An Arduino-shield form factor, so it is wired with jumpers rather than seated: thirteen lines for the panel, and no touch header at all. The resistive sheet has no controller and borrows four of those same lines; the two it reads (LCD_CS and LCD_RS) must sit on ADC1 - on ADC2 a press reads fine until something enables Wi-Fi. This product ships different controllers between revisions under identical silkscreen; the driver targets the ILI9341 one."
     }
   },
   "ili9341-xpt2046-touch-320x240": {
+    "manifestVersion": 1,
     "partId": "ili9341-xpt2046-touch-320x240",
     "label": "ILI9341 2.8-inch 320x240 TFT with XPT2046 touch",
     "category": "display",
@@ -1496,9 +2442,33 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 968,
       "heightPx": 608,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "TransportDisplay"
+    ],
+    "categories": [
+      "display-tft"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight"
+        ],
+        "ref": "https://wiki.dfrobot.com/dfr0665/"
+      }
+    ],
+    "interfaces": [
+      "spi"
+    ],
+    "copy": {
+      "summary": "320x240 colour TFT with XPT2046 touch",
+      "wiringNote": "The DFRobot DFR0665 breakout: an ILI9341 panel, an XPT2046 touch controller and a microSD slot, sharing SCLK, MOSI and MISO with a chip select each. The controller scans in portrait, so a 320x240 screen needs the Landscape view. Adding it gives you the panel and its Touch Screen node."
     }
   },
   "ina226-current-sensor-module": {
+    "manifestVersion": 1,
     "partId": "ina226-current-sensor-module",
     "label": "INA226 current and voltage monitor module",
     "category": "power-monitor",
@@ -1573,9 +2543,50 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "drive": "power"
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "PowerMonitorInput"
+    ],
+    "categories": [
+      "power-monitoring"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "powerMonitor"
+        ],
+        "ref": "https://www.tinytronics.nl/en/sensors/current-voltage/ina226-i2c-dc-current-and-voltage-meter-20a-module"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://how2electronics.com/how-to-use-ina226-dc-current-sensor-with-arduino/"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "powerMonitor"
+        ],
+        "ref": "https://www.ti.com/lit/ds/symlink/ina226.pdf"
+      }
+    ],
+    "interfaces": [
+      "i2c"
+    ],
+    "copy": {
+      "summary": "Volts, amps, watts: 36 V, 20 A, I2C",
+      "wiringNote": "High-side: the supply goes to IN+ and the load to IN-, sharing ground with the board. Power VCC from 3.3 V. Sixteen addresses, 0x40 to 0x4F, from the A0 and A1 pads. ALE is not needed."
     }
   },
   "inmp441-i2s-microphone": {
+    "manifestVersion": 1,
     "partId": "inmp441-i2s-microphone",
     "label": "INMP441 I2S microphone",
     "category": "microphone",
@@ -1602,9 +2613,36 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 282,
       "pxPerMm": 26.133
+    },
+    "revision": 1,
+    "partTypes": [
+      "MicInput"
+    ],
+    "categories": [
+      "audio-microphones"
+    ],
+    "verification": "bench",
+    "sources": [
+      {
+        "facts": [
+          "logicVoltage"
+        ],
+        "ref": "https://product.tdk.com/system/files/dam/doc/product/sw_piezo/mic/mems-mic/data_sheet/inmp441.pdf"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render"
+        ],
+        "ref": "https://shillehtek.com/blogs/shillehtek-product-manuals/inmp441-i2s-omnidirectional-microphone-module-with-soldering-manual"
+      }
+    ],
+    "copy": {
+      "summary": "The common three-wire I2S MEMS module"
     }
   },
   "ip2368-100w-bidirectional-charger": {
+    "manifestVersion": 1,
     "partId": "ip2368-100w-bidirectional-charger",
     "label": "IP2368 100 W bidirectional 4S charger",
     "category": "battery",
@@ -1645,9 +2683,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 980,
       "heightPx": 500,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "BatteryModule"
+    ],
+    "categories": [
+      "battery-chargers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "batteryModule"
+        ],
+        "ref": "https://www.aliexpress.com/item/1005009107167897.html"
+      }
+    ],
+    "copy": {
+      "summary": "4S li-ion · charger"
     }
   },
   "ip5305t-1s-power-module": {
+    "manifestVersion": 1,
     "partId": "ip5305t-1s-power-module",
     "label": "IP5305T 1S boost, charge and protection module",
     "category": "battery",
@@ -1715,9 +2775,37 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 478,
       "heightPx": 203,
       "pxPerMm": 12.021
+    },
+    "revision": 1,
+    "partTypes": [
+      "BatteryModule"
+    ],
+    "categories": [
+      "battery-chargers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "batteryModule"
+        ],
+        "ref": "https://www.aliexpress.com/item/1005012069464300.html"
+      },
+      {
+        "facts": [
+          "batteryModule"
+        ],
+        "ref": "https://ae-pic-a1.aliexpress-media.com/kf/S8861610f552d4edb9706ada884fec3892.pdf"
+      }
+    ],
+    "copy": {
+      "summary": "1S li-ion · protection, charger, 5 V output"
     }
   },
   "jaycar-sr1230-rotary-encoder": {
+    "manifestVersion": 1,
     "partId": "jaycar-sr1230-rotary-encoder",
     "label": "Jaycar SR1230 rotary encoder with push switch",
     "category": "input-control",
@@ -1754,9 +2842,40 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 424,
       "pxPerMm": 26.571
+    },
+    "revision": 1,
+    "partTypes": [
+      "EncoderInput"
+    ],
+    "categories": [
+      "knobs-joysticks"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "logicVoltage",
+          "encoder"
+        ],
+        "ref": "Jaycar SR1230 datasheet (local copy in the asset workspace)"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "render",
+          "encoder"
+        ],
+        "ref": "Jaycar SR1230 product photograph (local copy in the asset workspace)"
+      }
+    ],
+    "copy": {
+      "summary": "Bare 12 mm encoder with a push switch",
+      "wiringNote": "No supply pin. Wire C and one switch leg each to ground; A, B and SW go to GPIOs, which always use the internal pull-up. Each click is two transitions rather than four, which the firmware counts as one click like the module."
     }
   },
   "jaycar-xc9044-rtc-module": {
+    "manifestVersion": 1,
     "partId": "jaycar-xc9044-rtc-module",
     "label": "DS3231 RTC Clock Module for Raspberry Pi",
     "category": "support",
@@ -1785,9 +2904,51 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 400,
       "pxPerMm": 26.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "RtcModule"
+    ],
+    "categories": [
+      "clocks"
+    ],
+    "verification": "bench",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "label"
+        ],
+        "ref": "https://www.jaycar.com.au/rtc-clock-module-for-raspberry-pi/p/XC9044"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "notes"
+        ],
+        "ref": "https://www.kogan.com/au/buy/latestbuy-jaycar-raspberry-pi-rtc-clock-module-199150/"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight"
+        ],
+        "ref": "https://thepihut.com/products/mini-rtc-module-for-raspberry-pi"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "notes"
+        ],
+        "ref": "https://www.analog.com/media/en/technical-documentation/data-sheets/DS3231.pdf"
+      }
+    ],
+    "copy": {
+      "summary": "Pi-header DS3231, CR927 backup"
     }
   },
   "keyestudio-ks0026-ir-receiver-module": {
+    "manifestVersion": 1,
     "partId": "keyestudio-ks0026-ir-receiver-module",
     "label": "Keyestudio KS0026 digital IR receiver module",
     "category": "input-control",
@@ -1829,9 +2990,45 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "drive": "signal"
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "IRRemoteInput"
+    ],
+    "categories": [
+      "remote-receivers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "logicVoltage",
+          "pinLabelsLeftToRight",
+          "render"
+        ],
+        "ref": "https://docs.keyestudio.com/projects/KS0026/en/latest/docs/KS0026.html"
+      },
+      {
+        "facts": [
+          "dimensionsMm"
+        ],
+        "ref": "https://docs.keyestudio.com/projects/KS0349/en/latest/KS0349.html"
+      },
+      {
+        "facts": [
+          "label",
+          "manufacturer"
+        ],
+        "ref": "https://www.keyestudio.com/products/free-shipping-keyestudio-digital-ir-infrared-receiver-module-for-arduino-uno-r3-mega-2560-r3"
+      }
+    ],
+    "copy": {
+      "summary": "38 kHz IR receiver module with activity LED, 5 V",
+      "wiringNote": "Connect − to GND, + to 5 V and S to the input through the Build Diagram’s signal divider. Keyestudio specifies a 5 V supply; 3.3 V operation is not verified."
     }
   },
   "ky-006-passive-buzzer-module": {
+    "manifestVersion": 1,
     "partId": "ky-006-passive-buzzer-module",
     "label": "KY-006 passive buzzer module",
     "category": "support",
@@ -1865,9 +3062,56 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 489,
       "pxPerMm": 25.333
+    },
+    "revision": 1,
+    "partTypes": [
+      "BuzzerOutput"
+    ],
+    "categories": [
+      "audio-buzzers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render",
+          "label",
+          "buzzer"
+        ],
+        "ref": "https://sensorkit.joy-it.net/en/sensors/ky-006"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "buzzer"
+        ],
+        "ref": "https://www.electrokit.com/upload/product/41015/41015714/Passive_Piezo_Buzzer.pdf"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight"
+        ],
+        "ref": "https://arduinomodules.info/ky-006-passive-buzzer-module/"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "buzzer"
+        ],
+        "ref": "https://docs.cirkitdesigner.com/component/7f4e8101-f6ea-4a9f-abea-db3207b54942/buzzer-passive"
+      }
+    ],
+    "copy": {
+      "summary": "Plays a tone at the pitch you set",
+      "wiringNote": "Wire S to the GPIO and - to ground; leave the middle pin unconnected (Joy-IT labels it +V, but the buzzer sounds without it). The controller plays a square wave at Pitch while Sound is true, and the pin rests low otherwise. It is loudest near 2 kHz. It draws 25 mA or less straight from the pin; if your buzzer reads a few tens of ohms on a meter rather than open, it is a coil type and needs a transistor. One passive buzzer per board: the tone generator drives one pin at a time."
     }
   },
   "ky-012-active-buzzer-module": {
+    "manifestVersion": 1,
     "partId": "ky-012-active-buzzer-module",
     "label": "KY-012 active buzzer module",
     "category": "support",
@@ -1900,9 +3144,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 486,
       "pxPerMm": 24.516
+    },
+    "revision": 1,
+    "partTypes": [
+      "BuzzerOutput"
+    ],
+    "categories": [
+      "audio-buzzers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "label",
+          "buzzer"
+        ],
+        "ref": "https://joy-it.net/en/products/COM-KY012APB"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://www.espboards.dev/sensors/ky-012/"
+      }
+    ],
+    "copy": {
+      "summary": "Beeps at a fixed pitch while its pin is high",
+      "wiringNote": "Wire SIG to the GPIO and GND to ground; leave the middle pin unconnected. It sounds at its own fixed pitch (about 2.5 kHz) while SIG is high and the pitch cannot be changed. It draws about 30 mA, more than a GPIO should supply for long or frequent sounds; switch it through a transistor for those. At 3.3 V it is quieter than at 5 V."
     }
   },
   "ky-022-ir-receiver-module": {
+    "manifestVersion": 1,
     "partId": "ky-022-ir-receiver-module",
     "label": "KY-022 infrared receiver module",
     "category": "input-control",
@@ -1945,9 +3221,44 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "drive": "signal"
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "IRRemoteInput"
+    ],
+    "categories": [
+      "remote-receivers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm"
+        ],
+        "ref": "https://www.pcbway.com/project/shareproject/KY_022_Infrared_Receiver_Module_0a5fd814.html"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://www.espboards.dev/sensors/ky-022/"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://arduinomodules.info/ky-022-infrared-receiver-module/"
+      }
+    ],
+    "copy": {
+      "summary": "IR remote receiver, 3-pin board with LED",
+      "wiringNote": "Some clones swap the outer two pins. Check the silkscreen on your board before wiring it — a swap puts the supply rail on a GPIO."
     }
   },
   "ky-023-joystick-module": {
+    "manifestVersion": 1,
     "partId": "ky-023-joystick-module",
     "label": "KY-023 analog joystick module",
     "category": "input-control",
@@ -1982,9 +3293,43 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 517,
       "pxPerMm": 14.615
+    },
+    "revision": 1,
+    "partTypes": [
+      "JoystickInput"
+    ],
+    "categories": [
+      "knobs-joysticks"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "label"
+        ],
+        "ref": "https://www.joy-it.net/en/products/COM-KY023JM"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://components101.com/modules/joystick-module"
+      }
+    ],
+    "interfaces": [
+      "analog",
+      "gpio"
+    ],
+    "copy": {
+      "summary": "A thumb stick with two analog axes and a push switch",
+      "wiringNote": "Power it from 3.3 V so the axis voltages stay inside the ADC range. VRx and VRy go to ADC pins, SW to a pin with a pull-up."
     }
   },
   "lm2596-buck-module": {
+    "manifestVersion": 1,
     "partId": "lm2596-buck-module",
     "label": "LM2596 adjustable buck converter module",
     "category": "power-conversion",
@@ -2032,9 +3377,54 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 539,
       "heightPx": 273,
       "pxPerMm": 12.019
+    },
+    "revision": 1,
+    "partTypes": [
+      "PowerConverter"
+    ],
+    "categories": [
+      "power-buck"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://www.handsontec.com/dataspecs/LM2596S-DC-DC.pdf"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "powerConverter"
+        ],
+        "ref": "http://product.ic114.com/PDF/M/MBC2596-01_LM2596_R1.0.pdf"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "logicVoltage",
+          "powerConverter"
+        ],
+        "ref": "https://www.ti.com/lit/ds/symlink/lm2596.pdf"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "logicVoltage",
+          "render"
+        ],
+        "ref": "https://www.addicore.com/products/lm2596-step-down-adjustable-dc-dc-switching-buck-converter"
+      }
+    ],
+    "copy": {
+      "summary": "Controller ·4.5-35 V in, 5 V 2 A at 40 °C"
     }
   },
   "lr7843-mosfet-module": {
+    "manifestVersion": 1,
     "partId": "lr7843-mosfet-module",
     "label": "LR7843 opto-isolated MOSFET module",
     "category": "switching-power",
@@ -2077,9 +3467,57 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 851,
       "pxPerMm": 23.75
+    },
+    "revision": 1,
+    "partTypes": [
+      "PowerSwitchOutput"
+    ],
+    "categories": [
+      "switching-mosfet"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "label",
+          "mosfet"
+        ],
+        "ref": "https://protosupplies.com/product/lr7843-mosfet-control-module/"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "mosfet"
+        ],
+        "ref": "https://www.botnroll.com/en/solid-state/3139-power-mosfet-module-lr7843-hexfet-30vdc-161a.html"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "logicVoltage",
+          "mosfet"
+        ],
+        "ref": "https://www.infineon.com/dgdl/irlr7843pbf.pdf?fileId=5546d462533600a40153566de53526d8"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "render"
+        ],
+        "ref": "https://www.farnell.com/datasheets/73758.pdf"
+      }
+    ],
+    "copy": {
+      "summary": "One opto-isolated DC switch or dimmer, 6-28 V",
+      "wiringNote": "DC loads only. No flyback diode on the board: add one across a motor, solenoid or coil."
     }
   },
   "matrix-keypad-4x4": {
+    "manifestVersion": 1,
     "partId": "matrix-keypad-4x4",
     "label": "4x4 matrix keypad",
     "category": "input-control",
@@ -2111,9 +3549,39 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 848,
       "heightPx": 986,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "KeypadInput"
+    ],
+    "categories": [
+      "buttons-touch"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight"
+        ],
+        "ref": "https://www.adafruit.com/product/3844"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "notes"
+        ],
+        "ref": "https://components101.com/misc/4x4-keypad-module-pinout-configuration-features-datasheet"
+      }
+    ],
+    "copy": {
+      "summary": "Sixteen keys on eight GPIOs",
+      "wiringNote": "Rows R1 to R4 go to pins with a pull-up and columns C1 to C4 to output pins. The keypad is passive and needs no power."
     }
   },
   "max485-rs485-module": {
+    "manifestVersion": 1,
     "partId": "max485-rs485-module",
     "label": "MAX485 RS-485 (DMX) transceiver module",
     "category": "communication",
@@ -2165,9 +3633,55 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "drive": "power"
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "DmxTransceiver"
+    ],
+    "categories": [
+      "dmx-midi"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render",
+          "notes"
+        ],
+        "ref": "https://protosupplies.com/product/max485-ttl-to-rs-485-interface-module/"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render"
+        ],
+        "ref": "https://hobbycomponents.com/wired-wireless/663-max485-rs485-transceiver-module"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://www.analog.com/media/en/technical-documentation/data-sheets/MAX1487-MAX491.pdf"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://github.com/someweisguy/esp_dmx"
+      }
+    ],
+    "copy": {
+      "summary": "DMX512 in from an XLR line, on 5 V",
+      "wiringNote": "Power from 5 V. RO reaches the board through a 1 kΩ / 2 kΩ divider, and RE is bridged to DE so one GPIO drives both. Keep the fitted 120 Ω terminator only on the last device in the DMX chain."
     }
   },
   "max7219-8digit-7segment": {
+    "manifestVersion": 1,
     "partId": "max7219-8digit-7segment",
     "label": "MAX7219 8-digit 7-segment display",
     "category": "display",
@@ -2218,9 +3732,40 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 992,
       "heightPx": 188,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "SegmentDisplay"
+    ],
+    "categories": [
+      "display-segment"
+    ],
+    "verification": "bench",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://www.elcoteam.com/8-digit-7-segments-display-module-with-max7219"
+      },
+      {
+        "facts": [
+          "label"
+        ],
+        "ref": "https://www.analog.com/media/en/technical-documentation/data-sheets/MAX7219-MAX7221.pdf"
+      }
+    ],
+    "interfaces": [
+      "spi"
+    ],
+    "copy": {
+      "summary": "Eight digits on a shared SPI bus",
+      "wiringNote": "Eight digits and no colon, clocked as 16-bit frames over CLK and DIN with its own load line. It can share clock and data with other SPI devices given its own load pin, and its sixteen brightness steps are twice the TM1637 range."
     }
   },
   "max98357a-i2s-amplifier": {
+    "manifestVersion": 1,
     "partId": "max98357a-i2s-amplifier",
     "label": "MAX98357A I2S amplifier",
     "category": "amplifier",
@@ -2248,9 +3793,43 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 568,
       "pxPerMm": 22.047
+    },
+    "revision": 1,
+    "partTypes": [
+      "Amplifier"
+    ],
+    "categories": [
+      "audio-amplifiers"
+    ],
+    "verification": "bench",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "notes"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/overview"
+      },
+      {
+        "facts": [
+          "dimensionsMm"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/downloads"
+      },
+      {
+        "facts": [
+          "notes"
+        ],
+        "ref": "https://cdn-shop.adafruit.com/product-files/3006/MAX98357A-MAX98357B.pdf"
+      }
+    ],
+    "copy": {
+      "summary": "I2S in, drives a speaker directly"
     }
   },
   "max98357a-stereo-pair": {
+    "manifestVersion": 1,
     "partId": "max98357a-stereo-pair",
     "label": "MAX98357A stereo pair",
     "category": "amplifier",
@@ -2287,9 +3866,46 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 483,
       "heightPx": 325,
       "pxPerMm": 12.007
+    },
+    "revision": 1,
+    "partTypes": [
+      "Amplifier"
+    ],
+    "categories": [
+      "audio-amplifiers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "render",
+          "notes"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/overview"
+      },
+      {
+        "facts": [
+          "notes"
+        ],
+        "ref": "https://cdn-shop.adafruit.com/product-files/3006/MAX98357A-MAX98357B.pdf"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "render"
+        ],
+        "ref": "Existing Design Studio MAX98357A asset (local copy in the asset workspace)"
+      }
+    ],
+    "copy": {
+      "summary": "Two I2S amps, one per channel",
+      "wiringNote": "Both boards share BCLK, LRC and DIN. Each plays the channel its SD pin selects (see the SD_MODE table in the MAX98357A datasheet); an unmodified breakout plays the left-plus-right mix, so set one board to left and the other to right."
     }
   },
   "mean-well-sd-100a-5": {
+    "manifestVersion": 1,
     "partId": "mean-well-sd-100a-5",
     "label": "Mean Well SD-100A-5 DC-DC converter (12 V in, 5 V 18 A)",
     "category": "power-conversion",
@@ -2354,9 +3970,39 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 1196,
       "heightPx": 2408,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "PowerConverter"
+    ],
+    "categories": [
+      "power-chassis-dcdc"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "powerConverter"
+        ],
+        "ref": "https://www.meanwell.com/Upload/PDF/SD-100/SD-100-SPEC.PDF"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "powerConverter"
+        ],
+        "ref": "https://www.meanwell-web.com/en/mean-well-sd-100b-5-sd-100b-5"
+      }
+    ],
+    "copy": {
+      "summary": "LED rail ·10-18 V in, 5 V 18 A at 40 °C"
     }
   },
   "mean-well-sd-100b-5": {
+    "manifestVersion": 1,
     "partId": "mean-well-sd-100b-5",
     "label": "Mean Well SD-100B-5 DC-DC converter (24 V in, 5 V 20 A)",
     "category": "power-conversion",
@@ -2421,9 +4067,39 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 1196,
       "heightPx": 2408,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "PowerConverter"
+    ],
+    "categories": [
+      "power-chassis-dcdc"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "powerConverter"
+        ],
+        "ref": "https://www.meanwell.com/Upload/PDF/SD-100/SD-100-SPEC.PDF"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "powerConverter"
+        ],
+        "ref": "https://www.meanwell-web.com/en/mean-well-sd-100b-5-sd-100b-5"
+      }
+    ],
+    "copy": {
+      "summary": "LED rail ·20-36 V in, 5 V 17.3 A at 40 °C"
     }
   },
   "microsd-breakout-3v3": {
+    "manifestVersion": 1,
     "partId": "microsd-breakout-3v3",
     "label": "microSD breakout, 3.3 V bare",
     "category": "storage",
@@ -2452,9 +4128,42 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 424,
       "pxPerMm": 19.291
+    },
+    "revision": 1,
+    "partTypes": [
+      "SDCard"
+    ],
+    "categories": [
+      "storage"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "render"
+        ],
+        "ref": "https://www.sparkfun.com/sparkfun-microsd-transflash-breakout.html"
+      },
+      {
+        "facts": [
+          "manufacturer"
+        ],
+        "ref": "https://www.digikey.com/en/products/detail/sparkfun-electronics/00544/5824094"
+      },
+      {
+        "facts": [
+          "logicVoltage"
+        ],
+        "ref": "https://learn.sparkfun.com/tutorials/microsd-shield-and-sd-breakout-hookup-guide/sd-card-breakout-boards"
+      }
+    ],
+    "copy": {
+      "summary": "Bare board — 3.3 V only",
+      "wiringNote": "Bare board: no regulator, no level shifter. 5 V power or 5 V SPI can destroy the card."
     }
   },
   "microsd-module-5v": {
+    "manifestVersion": 1,
     "partId": "microsd-module-5v",
     "label": "microSD module, 5 V",
     "category": "storage",
@@ -2481,9 +4190,43 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 694,
       "pxPerMm": 16.333
+    },
+    "revision": 1,
+    "partTypes": [
+      "SDCard"
+    ],
+    "categories": [
+      "storage"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight"
+        ],
+        "ref": "https://www.tinytronics.nl/en/data-storage/modules/microsd-card-adapter-module-3.3v-5v-with-level-shifter"
+      },
+      {
+        "facts": [
+          "logicVoltage"
+        ],
+        "ref": "https://protosupplies.com/product/microsd-card-module-with-level-shifter/"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "render"
+        ],
+        "ref": "https://www.robogears.in/shop/9216-mini-micro-sd-card-reader-module-high-speed-spi-interface-level-shifter-board-3577"
+      }
+    ],
+    "copy": {
+      "summary": "Regulator and level shifter on board",
+      "wiringNote": "Has an onboard regulator and level shifter, so it takes 5 V power and 5 V SPI."
     }
   },
   "monkmakes-mosfetti": {
+    "manifestVersion": 1,
     "partId": "monkmakes-mosfetti",
     "label": "MonkMakes Mosfetti 4-channel MOSFET switch",
     "category": "switching-power",
@@ -2616,9 +4359,65 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "channel": 4
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "PowerSwitchOutput"
+    ],
+    "categories": [
+      "switching-mosfet"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render",
+          "mosfet"
+        ],
+        "ref": "https://monkmakes.com/downloads/datasheet_mosfetti.pdf"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render",
+          "mosfet"
+        ],
+        "ref": "https://cdn-shop.adafruit.com/product-files/5757/datasheet_mosfetti.pdf"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "mosfet"
+        ],
+        "ref": "https://monkmakes.com/downloads/instructions_mosfetti.pdf"
+      },
+      {
+        "facts": [
+          "label"
+        ],
+        "ref": "https://monkmakes.com/mosfetti"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "mosfet"
+        ],
+        "ref": "https://www.adafruit.com/product/5757"
+      }
+    ],
+    "copy": {
+      "summary": "Four DC switches or dimmers, A to D, 3-16 V",
+      "wiringNote": "DC only, 2 A for the whole board. Not isolated: join its GND to the board. Flyback diodes are fitted."
     }
   },
   "nled-pixel-data-extender-pair": {
+    "manifestVersion": 1,
     "partId": "nled-pixel-data-extender-pair",
     "label": "NLED Pixel Data Extender TX/RX pair",
     "category": "communication",
@@ -2662,9 +4461,44 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 218,
       "pxPerMm": 16.522
-    }
+    },
+    "revision": 1,
+    "partTypes": [
+      "MatrixOutput"
+    ],
+    "categories": [
+      "led-data-links"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "render",
+          "label",
+          "manufacturer"
+        ],
+        "ref": "https://www.nledshop.com/pixelproducts/"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "pixelDataExtender"
+        ],
+        "ref": "https://www.nledshop.com/downloads/datasheets/nled-async-ext-set.pdf"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "render"
+        ],
+        "ref": "https://www.nledshop.com/downloads/models/nled-async-ext-set-v1a-3d-model.zip"
+      }
+    ]
   },
   "noctua-nf-a4x10-5v-pwm": {
+    "manifestVersion": 1,
     "partId": "noctua-nf-a4x10-5v-pwm",
     "label": "Noctua NF-A4x10 5V PWM fan",
     "category": "support",
@@ -2701,9 +4535,44 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 500,
       "heightPx": 500,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "CoolingFanOutput"
+    ],
+    "categories": [
+      "cooling"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "logicVoltage",
+          "fan"
+        ],
+        "ref": "https://www.noctua.at/en/products/nf-a4x10-5v-pwm/specifications"
+      },
+      {
+        "facts": [
+          "fan"
+        ],
+        "ref": "https://cdn.noctua.at/media/Noctua_PWM_specifications_white_paper.pdf"
+      },
+      {
+        "facts": [
+          "render"
+        ],
+        "ref": "https://cdn.noctua.at/media/46800471/NF-A4x10_Public-CAD.zip"
+      }
+    ],
+    "copy": {
+      "summary": "40 mm 5 V fan, 25 kHz PWM control and tachometer feedback",
+      "wiringNote": "Power it from 5 V. PWM is a 25 kHz active-high controller signal; RPM is an open-collector tachometer output with two pulses per revolution. This first firmware path supports ESP32-family boards."
     }
   },
   "pam8403-3w-stereo-amplifier": {
+    "manifestVersion": 1,
     "partId": "pam8403-3w-stereo-amplifier",
     "label": "PAM8403 2 x 3 W stereo amplifier module",
     "category": "amplifier",
@@ -2739,9 +4608,53 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 287,
       "pxPerMm": 16.174
+    },
+    "revision": 1,
+    "partTypes": [
+      "PowerAmplifier"
+    ],
+    "categories": [
+      "audio-power-amplifiers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "render",
+          "label"
+        ],
+        "ref": "https://www.jaycar.com.au/arduino-compatible-2-x-3w-amplifier-module/p/XC4448"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "notes"
+        ],
+        "ref": "https://d3mk240zzrnosz.cloudfront.net/assets/XC4448_datasheetMain_67860.pdf"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "notes"
+        ],
+        "ref": "https://www.diodes.com/part/view/PAM8403/"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render"
+        ],
+        "ref": "https://media.jaycar.com.au/product/images/XC4448_arduino-compatible-2-x-3w-amplifier-module_60446.jpg"
+      }
+    ],
+    "copy": {
+      "summary": "2 x 3 W, 5 V — line level in",
+      "wiringNote": "Takes line level, not I2S. Fed from a PCM5102A or UDA1334A, or on a classic ESP32 from its own DAC on GPIO25/26."
     }
   },
   "pam8610-stereo-amplifier": {
+    "manifestVersion": 1,
     "partId": "pam8610-stereo-amplifier",
     "label": "PAM8610 2 x 15 W stereo amplifier",
     "category": "amplifier",
@@ -2772,9 +4685,38 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 337,
       "pxPerMm": 12.667
+    },
+    "revision": 1,
+    "partTypes": [
+      "PowerAmplifier"
+    ],
+    "categories": [
+      "audio-power-amplifiers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "notes"
+        ],
+        "ref": "https://www.diodes.com/assets/Datasheets/PAM8610.pdf"
+      },
+      {
+        "facts": [
+          "notes"
+        ],
+        "ref": "https://www.amazon.com/HiLetgo-PAM8610-Digital-Amplifier-Channel/dp/B00WSN9S4Q"
+      }
+    ],
+    "copy": {
+      "summary": "2 x 15 W, 12 V — line level in",
+      "wiringNote": "Needs its own 7-15 V supply; the controller cannot power it. Share its ground with the board and the DAC."
     }
   },
   "pcm1802-line-in-adc": {
+    "manifestVersion": 1,
     "partId": "pcm1802-line-in-adc",
     "label": "PCM1802 line-in ADC breakout",
     "category": "audio-source",
@@ -2801,9 +4743,42 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 632,
       "heightPx": 464,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "LineInput"
+    ],
+    "categories": [
+      "audio-line-in"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "logicVoltage"
+        ],
+        "ref": "https://www.ti.com/product/PCM1802"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight"
+        ],
+        "ref": "https://www.ti.com/lit/gpn/PCM1802"
+      },
+      {
+        "facts": [
+          "notes"
+        ],
+        "ref": "https://www.ti.com/lit/ug/sbau384/sbau384.pdf"
+      }
+    ],
+    "copy": {
+      "summary": "Stereo RCA line in to I2S",
+      "wiringNote": "Connect a player module's line-level DAC output, not its bridge-tied speaker output, to the RCA inputs."
     }
   },
   "pcm5102a-i2s-dac": {
+    "manifestVersion": 1,
     "partId": "pcm5102a-i2s-dac",
     "label": "PCM5102A I2S stereo DAC module",
     "category": "amplifier",
@@ -2832,9 +4807,44 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 883,
       "pxPerMm": 26.857
+    },
+    "revision": 1,
+    "partTypes": [
+      "Amplifier"
+    ],
+    "categories": [
+      "audio-amplifiers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render"
+        ],
+        "ref": "https://probots.co.in/pcm5102a-dac-decode-i2s-audio-player-module.html"
+      },
+      {
+        "facts": [
+          "label"
+        ],
+        "ref": "https://www.ti.com/lit/ds/symlink/pcm5102a.pdf"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "notes"
+        ],
+        "ref": "https://manuals.plus/ae/1005006953481088"
+      }
+    ],
+    "copy": {
+      "summary": "I2S DAC — line out, needs an amp",
+      "wiringNote": "A DAC, not an amplifier — the same three I2S wires, but a line-level output that needs a powered speaker or a power amplifier."
     }
   },
   "photosensitive-ldr-module": {
+    "manifestVersion": 1,
     "partId": "photosensitive-ldr-module",
     "label": "Photosensitive LDR analog light-sensor module",
     "category": "input-control",
@@ -2859,9 +4869,37 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 408,
       "heightPx": 310,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "LightInput"
+    ],
+    "categories": [
+      "light-sensors"
+    ],
+    "verification": "bench",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://docs.keyestudio.com/projects/KS0576/en/latest/docs/2.KidsBlock/KidsBlock.html#photoresistor"
+      },
+      {
+        "facts": [
+          "logicVoltage"
+        ],
+        "ref": "https://docs.keyestudio.com/projects/KS0597/en/latest/docs/4.Arduino%20Projects/4.3%20Projects/Project%201.html#photoresistor-module"
+      }
+    ],
+    "copy": {
+      "summary": "Relative brightness on one analog pin",
+      "wiringNote": "An analog divider: Level is relative brightness. It cannot report calibrated lux, so Lux stays at zero."
     }
   },
   "rcnun-60a-5v-buck-converter": {
+    "manifestVersion": 1,
     "partId": "rcnun-60a-5v-buck-converter",
     "label": "RCNUN 12/24 V to 5 V 60 A buck converter",
     "category": "power-conversion",
@@ -2923,9 +4961,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 1200,
       "heightPx": 964,
       "pxPerMm": 11.8
+    },
+    "revision": 1,
+    "partTypes": [
+      "PowerConverter"
+    ],
+    "categories": [
+      "power-buck"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "powerConverter"
+        ],
+        "ref": "https://www.aliexpress.com/item/4000302403286.html"
+      }
+    ],
+    "copy": {
+      "summary": "LED rail ·9-36 V in, 5 V 60 A at 40 °C"
     }
   },
   "rcwl-0516-microwave-motion-module": {
+    "manifestVersion": 1,
     "partId": "rcwl-0516-microwave-motion-module",
     "label": "RCWL-0516 microwave motion sensor",
     "category": "input-control",
@@ -2954,9 +5014,40 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 452,
       "heightPx": 224,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "MotionInput"
+    ],
+    "categories": [
+      "motion-radar"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "notes"
+        ],
+        "ref": "https://components101.com/sensors/rcwl0516-microwave-diatance-sensor-module-datasheet-pinout-features-working"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "notes"
+        ],
+        "ref": "https://github.com/jdesbonnet/RCWL-0516"
+      }
+    ],
+    "copy": {
+      "summary": "Radar: senses movement through plastic",
+      "wiringNote": "Power VIN from 5 V (4 to 28 V). OUT is 3.3 V logic and stays high about two seconds after the last movement. Leave 3V3 and CDS unwired."
     }
   },
   "relay-module-1ch-5v": {
+    "manifestVersion": 1,
     "partId": "relay-module-1ch-5v",
     "label": "1-channel 5 V relay module",
     "category": "switching-power",
@@ -3026,9 +5117,61 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "channel": 1
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "RelayOutput"
+    ],
+    "categories": [
+      "switching-relays"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "label"
+        ],
+        "ref": "https://shillehtek.com/blogs/shillehtek-product-manuals/1-channel-5v-relay-module-manual"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "relay"
+        ],
+        "ref": "https://www.songlerelay.com/Public/Uploads/20161104/581c81ac16e68.pdf"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render",
+          "relay"
+        ],
+        "ref": "https://arduinomodules.info/download/2-channel-relay-module-datasheet/"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "relay"
+        ],
+        "ref": "https://arduinomodules.info/download/4-channel-relay-module-datasheet/"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "logicVoltage"
+        ],
+        "ref": "https://forum.arduino.cc/uploads/short-url/f52UGMMTL7XrrUh3XflevnF7MJk.pdf"
+      }
+    ],
+    "copy": {
+      "summary": "One active-low 5 V SPDT relay"
     }
   },
   "relay-module-2ch-5v": {
+    "manifestVersion": 1,
     "partId": "relay-module-2ch-5v",
     "label": "2-channel 5 V relay module",
     "category": "switching-power",
@@ -3114,9 +5257,54 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "channel": 2
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "RelayOutput"
+    ],
+    "categories": [
+      "switching-relays"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "logicVoltage",
+          "relay"
+        ],
+        "ref": "https://www.songlerelay.com/Public/Uploads/20161104/581c81ac16e68.pdf"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render",
+          "relay"
+        ],
+        "ref": "https://arduinomodules.info/download/2-channel-relay-module-datasheet/"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "relay"
+        ],
+        "ref": "https://arduinomodules.info/download/4-channel-relay-module-datasheet/"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "logicVoltage"
+        ],
+        "ref": "https://forum.arduino.cc/uploads/short-url/f52UGMMTL7XrrUh3XflevnF7MJk.pdf"
+      }
+    ],
+    "copy": {
+      "summary": "Two active-low 5 V SPDT relays"
     }
   },
   "relay-module-4ch-5v": {
+    "manifestVersion": 1,
     "partId": "relay-module-4ch-5v",
     "label": "4-channel 5 V relay module",
     "category": "switching-power",
@@ -3234,9 +5422,54 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "channel": 4
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "RelayOutput"
+    ],
+    "categories": [
+      "switching-relays"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "logicVoltage",
+          "relay"
+        ],
+        "ref": "https://www.songlerelay.com/Public/Uploads/20161104/581c81ac16e68.pdf"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render",
+          "relay"
+        ],
+        "ref": "https://arduinomodules.info/download/2-channel-relay-module-datasheet/"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "relay"
+        ],
+        "ref": "https://arduinomodules.info/download/4-channel-relay-module-datasheet/"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "logicVoltage"
+        ],
+        "ref": "https://forum.arduino.cc/uploads/short-url/f52UGMMTL7XrrUh3XflevnF7MJk.pdf"
+      }
+    ],
+    "copy": {
+      "summary": "Four active-low 5 V SPDT relays"
     }
   },
   "relay-module-8ch-5v": {
+    "manifestVersion": 1,
     "partId": "relay-module-8ch-5v",
     "label": "8-channel 5 V relay module",
     "category": "switching-power",
@@ -3418,9 +5651,54 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "channel": 8
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "RelayOutput"
+    ],
+    "categories": [
+      "switching-relays"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "logicVoltage",
+          "relay"
+        ],
+        "ref": "https://www.songlerelay.com/Public/Uploads/20161104/581c81ac16e68.pdf"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render",
+          "relay"
+        ],
+        "ref": "https://arduinomodules.info/download/2-channel-relay-module-datasheet/"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "relay"
+        ],
+        "ref": "https://arduinomodules.info/download/4-channel-relay-module-datasheet/"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "logicVoltage"
+        ],
+        "ref": "https://forum.arduino.cc/uploads/short-url/f52UGMMTL7XrrUh3XflevnF7MJk.pdf"
+      }
+    ],
+    "copy": {
+      "summary": "Eight active-low 5 V SPDT relays"
     }
   },
   "samsung-inr18650-35e": {
+    "manifestVersion": 1,
     "partId": "samsung-inr18650-35e",
     "label": "Samsung INR18650-35E Li-ion cell",
     "category": "battery",
@@ -3463,9 +5741,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 804,
       "heightPx": 242,
       "pxPerMm": 12.006
+    },
+    "revision": 1,
+    "partTypes": [
+      "BatteryPack"
+    ],
+    "categories": [
+      "battery-cells"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "logicVoltage",
+          "batteryCell"
+        ],
+        "ref": "https://www.batteryspace.com/prod-specs/13103-inr18650-35e.pdf"
+      }
+    ],
+    "copy": {
+      "summary": "18650 li-ion · 3.6 V, 3350 mAh, 8 A continuous"
     }
   },
   "seeed-grove-2ch-ssr": {
+    "manifestVersion": 1,
     "partId": "seeed-grove-2ch-ssr",
     "label": "Seeed Grove 2-Channel Solid State Relay",
     "category": "switching-power",
@@ -3542,9 +5842,50 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           "channel": 2
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "RelayOutput"
+    ],
+    "categories": [
+      "switching-ssr"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "relay"
+        ],
+        "ref": "https://wiki.seeedstudio.com/Grove-2-Channel_Solid_State_Relay/"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "logicVoltage",
+          "relay"
+        ],
+        "ref": "https://files.seeedstudio.com/wiki/Grove-Solid_State_Relay_V2/res/G3MC202p.pdf"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "relay"
+        ],
+        "ref": "https://files.seeedstudio.com/wiki/Grove-2-Channel_Solid_State_Relay/res/Grove-2-Channel_Solid_State_Relay.zip"
+      }
+    ],
+    "copy": {
+      "summary": "Two AC phototriacs, 0.1-2 A, leak 1.5 mA off",
+      "wiringNote": "Wire CTR1 and CTR2 to GPIOs and VCC to 5 V. The screw terminals switch the AC load and are not logic pins."
     }
   },
   "seeed-grove-touch-sensor": {
+    "manifestVersion": 1,
     "partId": "seeed-grove-touch-sensor",
     "label": "Seeed Studio Grove Touch Sensor",
     "category": "input-control",
@@ -3581,9 +5922,61 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 337,
       "pxPerMm": 15.833
+    },
+    "revision": 1,
+    "partTypes": [
+      "TouchButtonInput"
+    ],
+    "categories": [
+      "buttons-touch"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render",
+          "label",
+          "touchSensor"
+        ],
+        "ref": "https://www.seeedstudio.com/Grove-Touch-Sensor.html"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render",
+          "label",
+          "touchSensor"
+        ],
+        "ref": "https://wiki.seeedstudio.com/Grove-Touch_Sensor/"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "render"
+        ],
+        "ref": "https://files.seeedstudio.com/wiki/Grove-Touch_Sensor/res/Touch_sensor_Eagle_File.zip"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "manufacturer"
+        ],
+        "ref": "https://www.arrow.com/en/products/101020037/seeed-technology-limited"
+      }
+    ],
+    "interfaces": [
+      "gpio"
+    ],
+    "copy": {
+      "summary": "One active-high capacitive touch button",
+      "wiringNote": "Power from 3.3 V. SIG is HIGH while touched; NC is not connected."
     }
   },
   "sh1106-oled-096-128x64-spi": {
+    "manifestVersion": 1,
     "partId": "sh1106-oled-096-128x64-spi",
     "label": "SH1106 0.96-inch 128x64 OLED SPI",
     "category": "display",
@@ -3631,9 +6024,55 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 414,
       "pxPerMm": 14.074
+    },
+    "revision": 1,
+    "partTypes": [
+      "InfoDisplay"
+    ],
+    "categories": [
+      "display-oled"
+    ],
+    "verification": "bench",
+    "sources": [
+      {
+        "facts": [
+          "render",
+          "display"
+        ],
+        "ref": "https://universal-solder.ca/downloads/canaduino_oled_128x64_spi.pdf"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "label"
+        ],
+        "ref": "https://fluxworkshop.com/products/bcaa100003-128x64-7p-0-96-white-oled-blue"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render"
+        ],
+        "ref": "https://manuals.plus/m/ba24bf88972c6381fdb194133d72793e5a0145e76f09a3d3f791f4d14f05c764"
+      },
+      {
+        "facts": [
+          "label"
+        ],
+        "ref": "https://www.winstar.com.tw/uploads/editor/files/WEO012864C.pdf"
+      }
+    ],
+    "interfaces": [
+      "spi"
+    ],
+    "copy": {
+      "summary": "128x64 white OLED over 4-wire SPI",
+      "wiringNote": "Same SH1106G silicon and 2-column RAM offset as the 1.3-inch SPI module, on a smaller 27 x 28 mm board."
     }
   },
   "sh1106-oled-128x64": {
+    "manifestVersion": 1,
     "partId": "sh1106-oled-128x64",
     "label": "SH1106 1.3-inch 128x64 OLED",
     "category": "display",
@@ -3680,9 +6119,48 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 434,
       "heightPx": 412,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "InfoDisplay"
+    ],
+    "categories": [
+      "display-oled"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://manuals.plus/ae/1005001621782442"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "label"
+        ],
+        "ref": "https://www.lcdwiki.com/1.3inch_SPI_OLED_Module_SH1106_SKU%3AMSP130X"
+      },
+      {
+        "facts": [
+          "label",
+          "display"
+        ],
+        "ref": "https://www.waveshare.com/w/upload/e/ee/SH1106.pdf"
+      }
+    ],
+    "interfaces": [
+      "spi"
+    ],
+    "copy": {
+      "summary": "128x64 white OLED over 4-wire SPI",
+      "wiringNote": "The 1.3-inch SH1106 has 132 columns of controller RAM behind a 128-column panel, so its window starts two columns in. Driving it as an SSD1306 shifts the image two pixels and wraps the remainder down the edge."
     }
   },
   "sh1106-oled-128x64-i2c": {
+    "manifestVersion": 1,
     "partId": "sh1106-oled-128x64-i2c",
     "label": "SH1106 1.3-inch 128x64 OLED I2C",
     "category": "display",
@@ -3728,9 +6206,50 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 445,
       "heightPx": 422,
       "pxPerMm": 12.006
+    },
+    "revision": 1,
+    "partTypes": [
+      "InfoDisplay"
+    ],
+    "categories": [
+      "display-oled"
+    ],
+    "verification": "bench",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://www.scribd.com/document/770137260/Data-Sheet-of-1-3-inch-OLED-Display"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render",
+          "display"
+        ],
+        "ref": "https://manuals.plus/ae/1005001621782442"
+      },
+      {
+        "facts": [
+          "label",
+          "display"
+        ],
+        "ref": "https://www.waveshare.com/w/upload/e/ee/SH1106.pdf"
+      }
+    ],
+    "interfaces": [
+      "i2c"
+    ],
+    "copy": {
+      "summary": "128x64 white OLED over I2C",
+      "wiringNote": "Same SH1106G silicon and 2-column RAM offset as the SPI module, on a 4-pin I2C breakout instead. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices, same as the SSD1306."
     }
   },
   "sn74ahct125n-dip14": {
+    "manifestVersion": 1,
     "partId": "sn74ahct125n-dip14",
     "label": "74AHCT125 level shifter (DIP-14)",
     "category": "support",
@@ -3749,9 +6268,33 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 654,
       "pxPerMm": 33.476
-    }
+    },
+    "revision": 1,
+    "partTypes": [
+      "MatrixOutput"
+    ],
+    "categories": [
+      "led-data-links"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "logicVoltage"
+        ],
+        "ref": "https://www.ti.com/lit/ds/symlink/sn74ahct125.pdf"
+      },
+      {
+        "facts": [
+          "render"
+        ],
+        "ref": "Design Studio Build Diagram asset (local copy in the asset workspace)"
+      }
+    ]
   },
   "speaker-4ohm-3w-40mm": {
+    "manifestVersion": 1,
     "partId": "speaker-4ohm-3w-40mm",
     "label": "Speaker, 4 ohm 3 W",
     "category": "support",
@@ -3773,9 +6316,34 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 488,
       "heightPx": 488,
       "pxPerMm": 12.0
-    }
+    },
+    "revision": 1,
+    "partTypes": [
+      "PowerAmplifier"
+    ],
+    "categories": [
+      "audio-speakers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "notes"
+        ],
+        "ref": "https://www.mouser.com/datasheet/2/737/Adafruit_3968_Web-3358305.pdf"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render"
+        ],
+        "ref": "https://hunston.com.hk/product/Speaker/Mylar%20Speaker/MIU40R-20H3.0W4"
+      }
+    ]
   },
   "sph0645lm4h-i2s-microphone": {
+    "manifestVersion": 1,
     "partId": "sph0645lm4h-i2s-microphone",
     "label": "SPH0645LM4H I2S microphone",
     "category": "microphone",
@@ -3802,9 +6370,38 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 309,
       "pxPerMm": 22.754
+    },
+    "revision": 1,
+    "partTypes": [
+      "MicInput"
+    ],
+    "categories": [
+      "audio-microphones"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "render"
+        ],
+        "ref": "https://www.adafruit.com/product/3421"
+      },
+      {
+        "facts": [
+          "notes"
+        ],
+        "ref": "https://www.knowles.com/docs/default-source/model-downloads/sph0645lm4h-b-datasheet-rev-c.pdf"
+      }
+    ],
+    "copy": {
+      "summary": "Knowles I2S mic, classic ESP32 only",
+      "wiringNote": "Captured by the app with the published ESP32 timing fix, not by FastLED, so no response correction is applied. Classic ESP32 only: the fix is documented for the I2S receiver of that chip, not for the ESP32-S3. SEL to ground selects the left channel."
     }
   },
   "ssd1306-oled-096-128x64-i2c": {
+    "manifestVersion": 1,
     "partId": "ssd1306-oled-096-128x64-i2c",
     "label": "SSD1306 0.96-inch 128x64 OLED I2C (4-pin)",
     "category": "display",
@@ -3849,9 +6446,50 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 414,
       "pxPerMm": 14.652
+    },
+    "revision": 1,
+    "partTypes": [
+      "InfoDisplay"
+    ],
+    "categories": [
+      "display-oled"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "display"
+        ],
+        "ref": "https://www.scribd.com/document/770137261/Data-Sheet-of-0-96-inch-Blue-OLED-Display"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "display"
+        ],
+        "ref": "https://www.electrokit.com/upload/quick/42/32/fb04_41035586-tds.pdf"
+      },
+      {
+        "facts": [
+          "label",
+          "display"
+        ],
+        "ref": "https://cdn-shop.adafruit.com/datasheets/SSD1306.pdf"
+      }
+    ],
+    "interfaces": [
+      "i2c"
+    ],
+    "copy": {
+      "summary": "128x64 white OLED over I2C",
+      "wiringNote": "The generic four-pin module, silkscreened GND, VCC, SCL, SDA — the commonest 0.96-inch OLED, and the one to pick unless the board in hand is the Adafruit breakout. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices."
     }
   },
   "ssd1306-oled-128x64": {
+    "manifestVersion": 1,
     "partId": "ssd1306-oled-128x64",
     "label": "SSD1306 0.96-inch 128x64 OLED",
     "category": "display",
@@ -3899,9 +6537,49 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 366,
       "pxPerMm": 13.425
+    },
+    "revision": 1,
+    "partTypes": [
+      "InfoDisplay"
+    ],
+    "categories": [
+      "display-oled"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm"
+        ],
+        "ref": "https://www.adafruit.com/product/326"
+      },
+      {
+        "facts": [
+          "render",
+          "display"
+        ],
+        "ref": "https://learn.adafruit.com/monochrome-oled-breakouts"
+      },
+      {
+        "facts": [
+          "render",
+          "label",
+          "display"
+        ],
+        "ref": "https://cdn-shop.adafruit.com/datasheets/SSD1306.pdf"
+      }
+    ],
+    "interfaces": [
+      "i2c",
+      "spi"
+    ],
+    "copy": {
+      "summary": "128x64 white OLED over I2C",
+      "wiringNote": "The Adafruit eight-pin STEMMA QT breakout, strapped for I2C: it prints the SPI names CLK and DATA on the two lines it answers I2C on. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices."
     }
   },
   "st7789-tft-240x240": {
+    "manifestVersion": 1,
     "partId": "st7789-tft-240x240",
     "label": "ST7789 1.54-inch 240x240 TFT",
     "category": "display",
@@ -3950,9 +6628,47 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 404,
       "heightPx": 545,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "TransportDisplay"
+    ],
+    "categories": [
+      "display-tft"
+    ],
+    "verification": "bench",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "label"
+        ],
+        "ref": "https://akizukidenshi.com/goodsaffix/M154-240240-RGB-8.pdf"
+      },
+      {
+        "facts": [
+          "display"
+        ],
+        "ref": "https://www.waveshare.com/product/displays/lcd-oled/1.54inch-lcd-module.htm"
+      },
+      {
+        "facts": [
+          "display"
+        ],
+        "ref": "https://www.winstar.com.tw/products/tft-lcd/ips-tft/square-lcd-screen.html"
+      }
+    ],
+    "interfaces": [
+      "spi"
+    ],
+    "copy": {
+      "summary": "240x240 colour TFT over SPI",
+      "wiringNote": "A square 240x240 colour display with no touch controller."
     }
   },
   "st7789v-xpt2046-touch-240x320": {
+    "manifestVersion": 1,
     "partId": "st7789v-xpt2046-touch-240x320",
     "label": "ST7789V 2.4-inch 240x320 TFT with XPT2046 touch and SD",
     "category": "display",
@@ -4007,9 +6723,47 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 651,
       "heightPx": 1169,
       "pxPerMm": 15.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "TransportDisplay"
+    ],
+    "categories": [
+      "display-tft"
+    ],
+    "verification": "bench",
+    "sources": [
+      {
+        "facts": [
+          "logicVoltage",
+          "label"
+        ],
+        "ref": "https://robu-prod-media.s3.ap-south-1.amazonaws.com/uploads/2025/02/2.4_inch_ResistiveTouch_manual.pdf"
+      },
+      {
+        "facts": [
+          "logicVoltage"
+        ],
+        "ref": "https://curtocircuito.com.br/display-tft-2-4-spi-touch-screen-st7735.html"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render"
+        ],
+        "ref": "https://www.lcdwiki.com/res/MSP2402/2.4inch_SPI_Module_MSP2402_User_Manual_EN.pdf"
+      }
+    ],
+    "interfaces": [
+      "spi"
+    ],
+    "copy": {
+      "summary": "240x320 colour TFT with XPT2046 touch",
+      "wiringNote": "The XPT2046 touch controller exposes its own SPI pins, so it can share the display bus or use a separate bus. Adding this module gives you two nodes: the panel, and the Touch Screen node whose Controls output is what a finger on the glass publishes."
     }
   },
   "tm1637-4digit-display": {
+    "manifestVersion": 1,
     "partId": "tm1637-4digit-display",
     "label": "TM1637 4-digit 7-segment display",
     "category": "display",
@@ -4053,9 +6807,34 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 512,
       "heightPx": 296,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "SegmentDisplay"
+    ],
+    "categories": [
+      "display-segment"
+    ],
+    "verification": "bench",
+    "sources": [
+      {
+        "facts": [
+          "logicVoltage",
+          "label"
+        ],
+        "ref": "https://wiki.seeedstudio.com/Grove-4-Digit_Display/"
+      }
+    ],
+    "interfaces": [
+      "two-wire-clk-dio"
+    ],
+    "copy": {
+      "summary": "Two-wire 7-segment with a colon",
+      "wiringNote": "Four digits and a centre colon, driven over CLK and DIO. Not I2C despite the two wires: the TM1637 has no addresses, so each module needs its own pair of pins."
     }
   },
   "tp4056-usbc-charge-protect-module": {
+    "manifestVersion": 1,
     "partId": "tp4056-usbc-charge-protect-module",
     "label": "TP4056 USB-C 1S charge and protection module",
     "category": "battery",
@@ -4112,9 +6891,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 251,
       "pxPerMm": 13.571
+    },
+    "revision": 1,
+    "partTypes": [
+      "BatteryModule"
+    ],
+    "categories": [
+      "battery-chargers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "batteryModule"
+        ],
+        "ref": "https://www.aliexpress.com/item/1005007089641829.html"
+      }
+    ],
+    "copy": {
+      "summary": "1S li-ion · protection, charger"
     }
   },
   "tps61023-1s-5v-boost-module": {
+    "manifestVersion": 1,
     "partId": "tps61023-1s-5v-boost-module",
     "label": "TPS61023 1S 5 V boost module",
     "category": "power-conversion",
@@ -4180,9 +6981,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 308,
       "pxPerMm": 21.348
+    },
+    "revision": 1,
+    "partTypes": [
+      "PowerConverter"
+    ],
+    "categories": [
+      "power-boost"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "render",
+          "powerConverter"
+        ],
+        "ref": "https://www.aliexpress.com/item/1005008387293839.html"
+      }
+    ],
+    "copy": {
+      "summary": "LEDs or board ·2.3-5.5 V in, 5 V 1 A at 40 °C"
     }
   },
   "tsop38238-ir-receiver": {
+    "manifestVersion": 1,
     "partId": "tsop38238-ir-receiver",
     "label": "TSOP38238 38 kHz IR receiver",
     "category": "input-control",
@@ -4209,9 +7032,38 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 589,
       "pxPerMm": 45.091
+    },
+    "revision": 1,
+    "partTypes": [
+      "IRRemoteInput"
+    ],
+    "categories": [
+      "remote-receivers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "logicVoltage",
+          "dimensionsMm"
+        ],
+        "ref": "https://www.vishay.com/docs/82491/tsop382.pdf"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://www.adafruit.com/product/157"
+      }
+    ],
+    "copy": {
+      "summary": "Bare 38 kHz IR receiver, datasheet pin order",
+      "wiringNote": "Its centre pin is ground, not the supply. Do not wire it to a KY-022 footprint without rechecking."
     }
   },
   "uda1334a-i2s-dac": {
+    "manifestVersion": 1,
     "partId": "uda1334a-i2s-dac",
     "label": "Adafruit UDA1334A I2S stereo DAC breakout",
     "category": "amplifier",
@@ -4243,9 +7095,52 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 504,
       "heightPx": 324,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "Amplifier"
+    ],
+    "categories": [
+      "audio-amplifiers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "render",
+          "label",
+          "notes"
+        ],
+        "ref": "https://www.adafruit.com/product/3678"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "notes"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-i2s-stereo-decoder-uda1334a/pinouts"
+      },
+      {
+        "facts": [
+          "dimensionsMm"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-i2s-stereo-decoder-uda1334a/downloads"
+      },
+      {
+        "facts": [
+          "notes"
+        ],
+        "ref": "https://cdn-shop.adafruit.com/product-files/3678/3678_UDA1334A.pdf"
+      }
+    ],
+    "copy": {
+      "summary": "I2S DAC — line out, needs an amp",
+      "wiringNote": "Line-level I2S DAC, wired the same as the PCM5102A."
     }
   },
   "uln2803a-dip18": {
+    "manifestVersion": 1,
     "partId": "uln2803a-dip18",
     "label": "ULN2803A eight-channel driver (DIP-18)",
     "category": "switching-power",
@@ -4317,9 +7212,38 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 996,
       "pxPerMm": 42.697
+    },
+    "revision": 1,
+    "partTypes": [
+      "DarlingtonDriverOutput"
+    ],
+    "categories": [
+      "switching-darlington-drivers"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "driverChip"
+        ],
+        "ref": "https://www.ti.com/product/ULN2803A"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight"
+        ],
+        "ref": "https://components101.com/ics/uln2803-darlington-transistor-array-pinout-datasheet"
+      }
+    ],
+    "copy": {
+      "summary": "Eight low-side switches, 50 V and 500 mA each",
+      "wiringNote": "Active-high: a high input pulls its output to ground, so the load goes from its own supply to the output and the array only sinks. Join the load supply ground to the controller ground. Tie COM to the load supply for coils and motors. Do not run all eight at full current: the package limits the total heat."
     }
   },
   "wiz850io-ethernet-module": {
+    "manifestVersion": 1,
     "partId": "wiz850io-ethernet-module",
     "label": "WIZnet WIZ850io W5500 Ethernet module",
     "category": "communication",
@@ -4361,9 +7285,57 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 333,
       "pxPerMm": 13.596
+    },
+    "revision": 1,
+    "partTypes": [
+      "EthernetModule"
+    ],
+    "categories": [
+      "network"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight"
+        ],
+        "ref": "https://docs.wiznet.io/img/products/wiz850io/wiz850io_sch_v110.zip"
+      },
+      {
+        "facts": [
+          "render"
+        ],
+        "ref": "BS-R250210 MagJack STEP (local copy in the asset workspace)"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render",
+          "ethernet"
+        ],
+        "ref": "https://docs.wiznet.io/Product/ioModule/WIZ850io"
+      },
+      {
+        "facts": [
+          "logicVoltage",
+          "ethernet"
+        ],
+        "ref": "https://docs.wiznet.io/img/products/w5500/W5500_ds_v110e.pdf"
+      }
+    ],
+    "interfaces": [
+      "spi"
+    ],
+    "copy": {
+      "summary": "W5500 wired Ethernet over SPI, 3.3 V",
+      "wiringNote": "Power it from 3.3 V only; it draws up to about 141 mA with a link up. Every network node (Art-Net, sACN, DDP, Web Remote, NTP...) uses this link instead of Wi-Fi."
     }
   },
   "ws2812b-matrix-16x16": {
+    "manifestVersion": 1,
     "partId": "ws2812b-matrix-16x16",
     "label": "WS2812B matrix panel, 16×16",
     "category": "led-output",
@@ -4394,9 +7366,33 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 1200,
       "heightPx": 1200,
       "pxPerMm": 7.45
-    }
+    },
+    "revision": 1,
+    "partTypes": [
+      "MatrixOutput"
+    ],
+    "categories": [
+      "led-matrices"
+    ],
+    "verification": "bench",
+    "sources": [
+      {
+        "facts": [
+          "notes"
+        ],
+        "ref": "https://www.adafruit.com/product/2547"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "render"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-matrices"
+      }
+    ]
   },
   "ws2812b-ring-12": {
+    "manifestVersion": 1,
     "partId": "ws2812b-ring-12",
     "label": "WS2812B LED ring, 12 pixels",
     "category": "led-output",
@@ -4425,9 +7421,26 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 452,
       "heightPx": 452,
       "pxPerMm": 12.0
-    }
+    },
+    "revision": 1,
+    "partTypes": [
+      "MatrixOutput"
+    ],
+    "categories": [
+      "led-rings"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-rings"
+      }
+    ]
   },
   "ws2812b-ring-16": {
+    "manifestVersion": 1,
     "partId": "ws2812b-ring-16",
     "label": "WS2812B LED ring, 16 pixels",
     "category": "led-output",
@@ -4456,9 +7469,26 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 542,
       "heightPx": 542,
       "pxPerMm": 12.0
-    }
+    },
+    "revision": 1,
+    "partTypes": [
+      "MatrixOutput"
+    ],
+    "categories": [
+      "led-rings"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-rings"
+      }
+    ]
   },
   "ws2812b-ring-24": {
+    "manifestVersion": 1,
     "partId": "ws2812b-ring-24",
     "label": "WS2812B LED ring, 24 pixels",
     "category": "led-output",
@@ -4487,9 +7517,26 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 794,
       "heightPx": 794,
       "pxPerMm": 12.0
-    }
+    },
+    "revision": 1,
+    "partTypes": [
+      "MatrixOutput"
+    ],
+    "categories": [
+      "led-rings"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-rings"
+      }
+    ]
   },
   "ws2812b-ring-60": {
+    "manifestVersion": 1,
     "partId": "ws2812b-ring-60",
     "label": "WS2812B LED ring, 60 pixels",
     "category": "led-output",
@@ -4519,9 +7566,26 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 1200,
       "heightPx": 1200,
       "pxPerMm": 7.544
-    }
+    },
+    "revision": 1,
+    "partTypes": [
+      "MatrixOutput"
+    ],
+    "categories": [
+      "led-rings"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-rings"
+      }
+    ]
   },
   "ws2812b-ring-8": {
+    "manifestVersion": 1,
     "partId": "ws2812b-ring-8",
     "label": "WS2812B LED ring, 8 pixels",
     "category": "led-output",
@@ -4550,9 +7614,32 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 400,
       "heightPx": 400,
       "pxPerMm": 12.174
-    }
+    },
+    "revision": 1,
+    "partTypes": [
+      "MatrixOutput"
+    ],
+    "categories": [
+      "led-rings"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm"
+        ],
+        "ref": "https://www.berrybase.de/Sensoren-/-Module/LED/WS2812-/-13-Neopixel/Ringe/NeoPixel-Ring-mit-8-WS2812-5050-RGB-LEDs/"
+      },
+      {
+        "facts": [
+          "render"
+        ],
+        "ref": "https://core-electronics.com.au/cjmcu-8-bit-ws2812-5050-rgb-led-built-in-full-color-driving-lights.html"
+      }
+    ]
   },
   "ws2812b-strip": {
+    "manifestVersion": 1,
     "partId": "ws2812b-strip",
     "label": "WS2812B strip — 6 pixels at 60 LEDs/m",
     "category": "led-output",
@@ -4582,9 +7669,33 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 1200,
       "heightPx": 157,
       "pxPerMm": 11.896
-    }
+    },
+    "revision": 1,
+    "partTypes": [
+      "MatrixOutput"
+    ],
+    "categories": [
+      "led-strips"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "logicVoltage"
+        ],
+        "ref": "https://www.adafruit.com/product/2541"
+      },
+      {
+        "facts": [
+          "render",
+          "notes"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-strips"
+      }
+    ]
   },
   "yynmos-4-lr7843-mosfet-module": {
+    "manifestVersion": 1,
     "partId": "yynmos-4-lr7843-mosfet-module",
     "label": "YYNMOS-4 four-channel LR7843 MOSFET module",
     "category": "switching-power",
@@ -4652,9 +7763,98 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "widthPx": 680,
       "heightPx": 620,
       "pxPerMm": 12.0
+    },
+    "revision": 1,
+    "partTypes": [
+      "PowerSwitchOutput"
+    ],
+    "categories": [
+      "switching-mosfet"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "render",
+          "mosfet"
+        ],
+        "ref": "Seller listing (2026-10-08) (local copy in the asset workspace)"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "mosfet"
+        ],
+        "ref": "https://www.amazon.com/dp/B09KTKMR8P"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "mosfet"
+        ],
+        "ref": "https://www.amazon.com/dp/B08SJQTQ4Y"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "mosfet"
+        ],
+        "ref": "https://www.amazon.com/dp/B07QGXY7F3"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "mosfet"
+        ],
+        "ref": "https://www.amazon.com/dp/B09Q4QM9WJ"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "logicVoltage",
+          "mosfet"
+        ],
+        "ref": "https://www.infineon.com/dgdl/irlr7843pbf.pdf?fileId=5546d462533600a40153566de53526d8"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://www.farnell.com/datasheets/73758.pdf"
+      },
+      {
+        "facts": [
+          "dimensionsMm",
+          "logicVoltage",
+          "mosfet"
+        ],
+        "ref": "https://www.ti.com/lit/ds/symlink/ua78l.pdf"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage",
+          "mosfet"
+        ],
+        "ref": "https://michiel.vanderwulp.be/domotica/Modules/MosFetPwmModuleYYNMOS1/"
+      }
+    ],
+    "copy": {
+      "summary": "Four isolated DC switches or dimmers, 7-28 V",
+      "wiringNote": "DC only, 5 A a channel and 10 A for the board. Wire each PWM pin and every GND1-GND4 to the controller. Not for 5 V rails: the gate drive needs 7 V."
     }
   },
   "zy12pdn-usb-c-pd-trigger": {
+    "manifestVersion": 1,
     "partId": "zy12pdn-usb-c-pd-trigger",
     "label": "ZY12PDN USB-C PD trigger module",
     "category": "power-conversion",
@@ -4737,6 +7937,33 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
           }
         }
       ]
+    },
+    "revision": 1,
+    "partTypes": [
+      "PdTriggerSource"
+    ],
+    "categories": [
+      "power-usb-pd"
+    ],
+    "verification": "reviewed",
+    "sources": [
+      {
+        "facts": [
+          "pinLabelsLeftToRight",
+          "logicVoltage"
+        ],
+        "ref": "https://joy-it.net/en/products/COM-ZY12PDN"
+      },
+      {
+        "facts": [
+          "pinLabelsLeftToRight"
+        ],
+        "ref": "https://make.net.za/product/usb-type-c-pd-trigger-module-zy12pdn/"
+      }
+    ],
+    "copy": {
+      "summary": "Asks a USB-C charger for 5, 9, 12, 15 or 20 V",
+      "wiringNote": "A power source, not a signal device: nothing connects to a GPIO. Set the voltage on the board before connecting a load, because its output sits at that voltage as soon as the charger is plugged in. The charger must support PD. Read the silkscreen on your own board for polarity."
     }
   },
 }

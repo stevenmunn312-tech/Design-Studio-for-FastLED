@@ -1,0 +1,49 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "DistanceInput"
+  ],
+  "categories": [
+    "distance-time-of-flight"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "distanceSensor"
+      ],
+      "ref": "https://github.com/adafruit/Adafruit-VL53L0X-ToF-Distance-Sensor-PCB"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "label",
+        "distanceSensor"
+      ],
+      "ref": "https://www.adafruit.com/product/3317"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "label",
+        "distanceSensor"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-vl53l0x-micro-lidar-distance-sensor-breakout/pinouts"
+    },
+    {
+      "facts": [
+        "distanceSensor"
+      ],
+      "ref": "STMicroelectronics VL53L0X (local copy in the asset workspace)"
+    }
+  ],
+  "interfaces": [
+    "i2c"
+  ],
+  "copy": {
+    "summary": "Laser time-of-flight, 3 cm to 1.2 m, over I2C",
+    "wiringNote": "Power VIN from 3.3 V. One sensor answers on 0x29; leave 2v8, GPIO and SHDN unconnected. To share the bus, wire each SHDN pin and pick an address from 0x30 to 0x33. The build needs the Pololu VL53L0X library, which Studio installs the first time."
+  }
+}

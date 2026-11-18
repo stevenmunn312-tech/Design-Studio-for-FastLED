@@ -1,0 +1,45 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "MidiInterface"
+  ],
+  "categories": [
+    "dmx-midi"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "label",
+        "render"
+      ],
+      "ref": "https://www.adafruit.com/product/4740"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "render"
+      ],
+      "ref": "https://github.com/adafruit/Adafruit-MIDI-FeatherWing-PCB"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "render"
+      ],
+      "ref": "https://github.com/adafruit/Adafruit_CAD_Parts/tree/main/4740%20MIDI%20FeatherWing"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-midi-featherwing/pinouts"
+    }
+  ],
+  "copy": {
+    "summary": "Opto-isolated DIN-5 MIDI in, on 3.3 V",
+    "wiringNote": "Power from 3.3 V. Only 3.3V, GND and MIDI_RX are wired; the optocoupler output needs no divider. Plug the keyboard into the left socket, MIDI IN."
+  }
+}

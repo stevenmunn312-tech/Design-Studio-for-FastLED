@@ -1,0 +1,53 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "RelayOutput"
+  ],
+  "categories": [
+    "switching-relays"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "label"
+      ],
+      "ref": "https://shillehtek.com/blogs/shillehtek-product-manuals/1-channel-5v-relay-module-manual"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "relay"
+      ],
+      "ref": "https://www.songlerelay.com/Public/Uploads/20161104/581c81ac16e68.pdf"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "render",
+        "relay"
+      ],
+      "ref": "https://arduinomodules.info/download/2-channel-relay-module-datasheet/"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "relay"
+      ],
+      "ref": "https://arduinomodules.info/download/4-channel-relay-module-datasheet/"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "logicVoltage"
+      ],
+      "ref": "https://forum.arduino.cc/uploads/short-url/f52UGMMTL7XrrUh3XflevnF7MJk.pdf"
+    }
+  ],
+  "copy": {
+    "summary": "One active-low 5 V SPDT relay"
+  }
+}

@@ -50,6 +50,10 @@ const type = (definition: Omit<PartTypeDefinition, 'property' | 'downloadable'> 
   ({ property: 'partId', downloadable: false, ...definition })
 
 export const PART_TYPES: readonly PartTypeDefinition[] = [
+  // LED outputs. `MatrixOutput` is every LED output form; a part's `ledLayout`
+  // is a top-level manifest field, so the type reads no block. Its other bundled
+  // parts are the NLED data link and the 74AHCT125 level shifter on the data line.
+  type({ nodeType: 'MatrixOutput' }),
   // Power
   type({ nodeType: 'PowerConverter', block: 'powerConverter' }),
   type({ nodeType: 'BatteryPack', block: 'batteryCell' }),

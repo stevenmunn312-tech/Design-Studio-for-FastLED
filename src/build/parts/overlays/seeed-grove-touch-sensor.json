@@ -1,0 +1,53 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "TouchButtonInput"
+  ],
+  "categories": [
+    "buttons-touch"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "render",
+        "label",
+        "touchSensor"
+      ],
+      "ref": "https://www.seeedstudio.com/Grove-Touch-Sensor.html"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "render",
+        "label",
+        "touchSensor"
+      ],
+      "ref": "https://wiki.seeedstudio.com/Grove-Touch_Sensor/"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "render"
+      ],
+      "ref": "https://files.seeedstudio.com/wiki/Grove-Touch_Sensor/res/Touch_sensor_Eagle_File.zip"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "manufacturer"
+      ],
+      "ref": "https://www.arrow.com/en/products/101020037/seeed-technology-limited"
+    }
+  ],
+  "interfaces": [
+    "gpio"
+  ],
+  "copy": {
+    "summary": "One active-high capacitive touch button",
+    "wiringNote": "Power from 3.3 V. SIG is HIGH while touched; NC is not connected."
+  }
+}

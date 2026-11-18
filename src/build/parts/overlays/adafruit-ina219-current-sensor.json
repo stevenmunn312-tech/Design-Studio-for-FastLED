@@ -1,0 +1,43 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "PowerMonitorInput"
+  ],
+  "categories": [
+    "power-monitoring"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "render",
+        "powerMonitor"
+      ],
+      "ref": "https://github.com/adafruit/Adafruit-INA219-Current-Sensor-PCB"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "render",
+        "powerMonitor"
+      ],
+      "ref": "https://www.adafruit.com/product/904"
+    },
+    {
+      "facts": [
+        "powerMonitor"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-ina219-current-sensor-breakout/pinouts"
+    }
+  ],
+  "interfaces": [
+    "i2c"
+  ],
+  "copy": {
+    "summary": "Volts, amps, watts: 26 V, 3.2 A, I2C",
+    "wiringNote": "High-side: the supply goes to Vin+ and the load to Vin-, sharing ground with the board."
+  }
+}

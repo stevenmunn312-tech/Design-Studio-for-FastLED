@@ -1,0 +1,30 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "MicInput"
+  ],
+  "categories": [
+    "audio-microphones"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "render"
+      ],
+      "ref": "https://www.adafruit.com/product/3421"
+    },
+    {
+      "facts": [
+        "notes"
+      ],
+      "ref": "https://www.knowles.com/docs/default-source/model-downloads/sph0645lm4h-b-datasheet-rev-c.pdf"
+    }
+  ],
+  "copy": {
+    "summary": "Knowles I2S mic, classic ESP32 only",
+    "wiringNote": "Captured by the app with the published ESP32 timing fix, not by FastLED, so no response correction is applied. Classic ESP32 only: the fix is documented for the I2S receiver of that chip, not for the ESP32-S3. SEL to ground selects the left channel."
+  }
+}

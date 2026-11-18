@@ -1,0 +1,23 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "PowerConverter"
+  ],
+  "categories": [
+    "power-boost"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "render",
+        "powerConverter"
+      ],
+      "ref": "https://www.aliexpress.com/item/1005008387293839.html"
+    }
+  ],
+  "copy": {
+    "summary": "LEDs or board ·2.3-5.5 V in, 5 V 1 A at 40 °C"
+  }
+}

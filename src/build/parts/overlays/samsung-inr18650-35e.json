@@ -1,0 +1,23 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "BatteryPack"
+  ],
+  "categories": [
+    "battery-cells"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "logicVoltage",
+        "batteryCell"
+      ],
+      "ref": "https://www.batteryspace.com/prod-specs/13103-inr18650-35e.pdf"
+    }
+  ],
+  "copy": {
+    "summary": "18650 li-ion · 3.6 V, 3350 mAh, 8 A continuous"
+  }
+}

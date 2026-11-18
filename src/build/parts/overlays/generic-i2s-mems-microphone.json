@@ -1,0 +1,30 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "MicInput"
+  ],
+  "categories": [
+    "audio-microphones"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "label"
+      ],
+      "ref": "https://dl.sipeed.com/MAIX/HDK/Sipeed-I2S_MIC/Specifications/Sipeed%20I2S_Mic%20Datasheet%20V1.0.pdf"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight"
+      ],
+      "ref": "https://www.makerhero.com/img/files/download/Microfone-Sipeed-MSM261S4030H0-Datasheet.pdf"
+    }
+  ],
+  "copy": {
+    "summary": "Low-cost MSM261S4030H0-class board",
+    "wiringNote": "For the unbranded boards often sold as INMP441. The GenericMEMS profile is an average MEMS correction, not this module's measured response."
+  }
+}

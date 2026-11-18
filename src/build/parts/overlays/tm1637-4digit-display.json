@@ -1,0 +1,26 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "SegmentDisplay"
+  ],
+  "categories": [
+    "display-segment"
+  ],
+  "verification": "bench",
+  "sources": [
+    {
+      "facts": [
+        "logicVoltage",
+        "label"
+      ],
+      "ref": "https://wiki.seeedstudio.com/Grove-4-Digit_Display/"
+    }
+  ],
+  "interfaces": [
+    "two-wire-clk-dio"
+  ],
+  "copy": {
+    "summary": "Two-wire 7-segment with a colon",
+    "wiringNote": "Four digits and a centre colon, driven over CLK and DIO. Not I2C despite the two wires: the TM1637 has no addresses, so each module needs its own pair of pins."
+  }
+}

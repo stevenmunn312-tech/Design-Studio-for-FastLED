@@ -1,0 +1,36 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "PowerAmplifier"
+  ],
+  "categories": [
+    "audio-power-amplifiers"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "logicVoltage",
+        "render",
+        "label"
+      ],
+      "ref": "https://www.electronicspartsbd.com/product/china-dx0809-tda8946-40w-dual-channel-audio-amplifier-12v-87"
+    },
+    {
+      "facts": [
+        "notes"
+      ],
+      "ref": "https://www.amazon.com/DX-0809-DC12V-Channel-TDA8944-Amplifier/dp/B09NC6V361"
+    },
+    {
+      "facts": [
+        "notes"
+      ],
+      "ref": "https://www.nxp.com/docs/en/data-sheet/TDA8946J.pdf"
+    }
+  ],
+  "copy": {
+    "summary": "2 x 15 W, 12 V — AUX line in",
+    "wiringNote": "Needs its own 12 V supply; the controller cannot power it. Feed its AUX input from the line out of a DAC, and share ground with the board."
+  }
+}

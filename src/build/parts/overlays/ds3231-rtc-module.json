@@ -1,0 +1,48 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "RtcModule"
+  ],
+  "categories": [
+    "clocks"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "notes"
+      ],
+      "ref": "https://www.analog.com/media/en/technical-documentation/data-sheets/DS3231.pdf"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "notes"
+      ],
+      "ref": "https://www.eitkw.com/product/zs-042-rtc-real-time-clock-module/"
+    },
+    {
+      "facts": [
+        "notes"
+      ],
+      "ref": "https://lastminuteengineers.com/ds3231-rtc-arduino-tutorial/"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage"
+      ],
+      "ref": "https://docs.cirkitdesigner.com/component/957beab0-c127-8e8e-6d32-4ce97d53e9eb/zs-042-rtc-modulea"
+    },
+    {
+      "facts": [
+        "notes"
+      ],
+      "ref": "https://www.onetransistor.eu/2019/07/zs042-ds3231-battery-charging-circuit.html"
+    }
+  ],
+  "copy": {
+    "summary": "ZS-042 breakout, six-pin header"
+  }
+}

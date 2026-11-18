@@ -1,0 +1,30 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "MatrixOutput"
+  ],
+  "categories": [
+    "led-hub75-panels"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm"
+      ],
+      "ref": "https://www.optonicaled.com/led-display-module-indoor-double-sided-p4"
+    },
+    {
+      "facts": [
+        "render"
+      ],
+      "ref": "https://docs.waveshare.com/LED-Matrix"
+    },
+    {
+      "facts": [
+        "render"
+      ],
+      "ref": "https://hackspark.fr/en/led-displays/2913-64x64-rgb-led-matrix-panel-p4-256x256mm.html"
+    }
+  ]
+}

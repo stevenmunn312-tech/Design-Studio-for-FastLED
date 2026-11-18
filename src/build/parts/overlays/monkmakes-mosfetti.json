@@ -1,0 +1,57 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "PowerSwitchOutput"
+  ],
+  "categories": [
+    "switching-mosfet"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "render",
+        "mosfet"
+      ],
+      "ref": "https://monkmakes.com/downloads/datasheet_mosfetti.pdf"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "render",
+        "mosfet"
+      ],
+      "ref": "https://cdn-shop.adafruit.com/product-files/5757/datasheet_mosfetti.pdf"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "mosfet"
+      ],
+      "ref": "https://monkmakes.com/downloads/instructions_mosfetti.pdf"
+    },
+    {
+      "facts": [
+        "label"
+      ],
+      "ref": "https://monkmakes.com/mosfetti"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "mosfet"
+      ],
+      "ref": "https://www.adafruit.com/product/5757"
+    }
+  ],
+  "copy": {
+    "summary": "Four DC switches or dimmers, A to D, 3-16 V",
+    "wiringNote": "DC only, 2 A for the whole board. Not isolated: join its GND to the board. Flyback diodes are fitted."
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "BatteryModule"
+  ],
+  "categories": [
+    "battery-protection"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "render",
+        "batteryModule"
+      ],
+      "ref": "https://www.aliexpress.com/item/1005006041887055.html"
+    }
+  ],
+  "copy": {
+    "summary": "1S li-ion · protection"
+  }
+}

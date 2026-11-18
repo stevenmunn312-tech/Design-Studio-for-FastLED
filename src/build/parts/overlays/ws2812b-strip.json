@@ -1,0 +1,25 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "MatrixOutput"
+  ],
+  "categories": [
+    "led-strips"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "logicVoltage"
+      ],
+      "ref": "https://www.adafruit.com/product/2541"
+    },
+    {
+      "facts": [
+        "render",
+        "notes"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-strips"
+    }
+  ]
+}

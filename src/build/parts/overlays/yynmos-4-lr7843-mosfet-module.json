@@ -1,0 +1,90 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "PowerSwitchOutput"
+  ],
+  "categories": [
+    "switching-mosfet"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "render",
+        "mosfet"
+      ],
+      "ref": "Seller listing (2026-10-08) (local copy in the asset workspace)"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "mosfet"
+      ],
+      "ref": "https://www.amazon.com/dp/B09KTKMR8P"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "mosfet"
+      ],
+      "ref": "https://www.amazon.com/dp/B08SJQTQ4Y"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "mosfet"
+      ],
+      "ref": "https://www.amazon.com/dp/B07QGXY7F3"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "mosfet"
+      ],
+      "ref": "https://www.amazon.com/dp/B09Q4QM9WJ"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "logicVoltage",
+        "mosfet"
+      ],
+      "ref": "https://www.infineon.com/dgdl/irlr7843pbf.pdf?fileId=5546d462533600a40153566de53526d8"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "logicVoltage"
+      ],
+      "ref": "https://www.farnell.com/datasheets/73758.pdf"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "logicVoltage",
+        "mosfet"
+      ],
+      "ref": "https://www.ti.com/lit/ds/symlink/ua78l.pdf"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "mosfet"
+      ],
+      "ref": "https://michiel.vanderwulp.be/domotica/Modules/MosFetPwmModuleYYNMOS1/"
+    }
+  ],
+  "copy": {
+    "summary": "Four isolated DC switches or dimmers, 7-28 V",
+    "wiringNote": "DC only, 5 A a channel and 10 A for the board. Wire each PWM pin and every GND1-GND4 to the controller. Not for 5 V rails: the gate drive needs 7 V."
+  }
+}

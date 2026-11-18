@@ -1,0 +1,48 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "BuzzerOutput"
+  ],
+  "categories": [
+    "audio-buzzers"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "render",
+        "label",
+        "buzzer"
+      ],
+      "ref": "https://sensorkit.joy-it.net/en/sensors/ky-006"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "buzzer"
+      ],
+      "ref": "https://www.electrokit.com/upload/product/41015/41015714/Passive_Piezo_Buzzer.pdf"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight"
+      ],
+      "ref": "https://arduinomodules.info/ky-006-passive-buzzer-module/"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "buzzer"
+      ],
+      "ref": "https://docs.cirkitdesigner.com/component/7f4e8101-f6ea-4a9f-abea-db3207b54942/buzzer-passive"
+    }
+  ],
+  "copy": {
+    "summary": "Plays a tone at the pitch you set",
+    "wiringNote": "Wire S to the GPIO and - to ground; leave the middle pin unconnected (Joy-IT labels it +V, but the buzzer sounds without it). The controller plays a square wave at Pitch while Sound is true, and the pin rests low otherwise. It is loudest near 2 kHz. It draws 25 mA or less straight from the pin; if your buzzer reads a few tens of ohms on a meter rather than open, it is a coil type and needs a transistor. One passive buzzer per board: the tone generator drives one pin at a time."
+  }
+}

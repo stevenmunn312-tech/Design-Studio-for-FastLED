@@ -1,0 +1,36 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "MotionInput"
+  ],
+  "categories": [
+    "motion-pir"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "logicVoltage",
+        "notes"
+      ],
+      "ref": "https://okystar.com/wp-content/uploads/2017/07/OKY3270.pdf"
+    },
+    {
+      "facts": [
+        "notes"
+      ],
+      "ref": "https://www.mpja.com/download/31227sc.pdf"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "notes"
+      ],
+      "ref": "https://wiki.hshl.de/wiki/index.php/Bewegungsmelder%2C_PIR-Sensor_-_HC-SR501"
+    }
+  ],
+  "copy": {
+    "summary": "Infrared: sees a warm body move",
+    "wiringNote": "Power VCC from 5 V. OUT is 3.3 V logic."
+  }
+}

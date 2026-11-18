@@ -45,6 +45,18 @@ export interface PartManifestCopy {
   hint?: string
 }
 
+/** One node of the shelf category tree (the shape the signed index carries). */
+export interface PartCategoryDefinition {
+  /** Lowercase words joined by hyphens; permanent once released. */
+  id: string
+  label: string
+  /** Position among siblings. */
+  order: number
+  parent: string | null
+  /** Older ids that now resolve to this category, kept when one is split. */
+  aliases?: string[]
+}
+
 export interface PartManifest extends PartCatalogueEntry {
   manifestVersion: number
   /** Raised on every published change; a save pins the revision it was built with. */

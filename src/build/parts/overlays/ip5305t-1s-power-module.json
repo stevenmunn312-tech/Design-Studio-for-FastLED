@@ -1,0 +1,29 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "BatteryModule"
+  ],
+  "categories": [
+    "battery-chargers"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "render",
+        "batteryModule"
+      ],
+      "ref": "https://www.aliexpress.com/item/1005012069464300.html"
+    },
+    {
+      "facts": [
+        "batteryModule"
+      ],
+      "ref": "https://ae-pic-a1.aliexpress-media.com/kf/S8861610f552d4edb9706ada884fec3892.pdf"
+    }
+  ],
+  "copy": {
+    "summary": "1S li-ion · protection, charger, 5 V output"
+  }
+}
