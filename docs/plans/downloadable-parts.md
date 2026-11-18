@@ -26,7 +26,11 @@ Not goals:
 - Parts that carry code. No C++ snippets, no expressions, no arbitrary Arduino
   library names in a part file.
 - User-defined part types. A new type is app code and arrives in an app update.
-- A marketplace. Official parts come from one place, the project website.
+- User-made parts. Users request a part; only the project's own pipeline makes
+  it, and only parts the project publishes are in the database. The app loads
+  no part file from anywhere else.
+- A marketplace. Official parts come from one place, the project's parts
+  database.
 
 ## What exists today
 
@@ -155,11 +159,12 @@ releases.
   `sanitizePin`; each numeric field is range-checked by its part type.
 - **Libraries come only from the part type.** The helper installs nothing a
   manifest names directly.
-- **Official manifests are signed.** The app verifies the signature before
-  loading a downloaded part.
-- **Side-loaded manifests** (a file a user opens, not from the website) go
-  behind the existing workspace trust (`workspaceNeedsTrust` in
-  `src/state/patterns/patternTrust.ts`), the same as formula nodes.
+- **Only signed manifests load.** The app verifies the project's signature on
+  every manifest, downloaded or embedded in a save. There is no side-loading,
+  so there is no trust prompt to design for parts.
+- **A save from someone else** carries signed manifests too. A manifest whose
+  signature fails is treated like an unknown part: the node is kept, marked,
+  and Upload is blocked.
 - **Renders** are size- and format-checked on load: WebP only, bounded pixel
   size and bytes.
 
@@ -174,13 +179,50 @@ The [support matrix](../release/beta-support-matrix.md) still owns what is
 supported versus experimental. A downloaded part inherits its part type's
 support status unless its own bench row says more.
 
+## Requests and search
+
+- **Search.** The Hardware shelf searches the parts database as well as the
+  bundled parts: by name, manufacturer, part type, interface and chip. Results
+  show whether the part is installed, its verification level and its support
+  status. Adding a part to the bench downloads and caches its package.
+- **Requests.** A user who cannot find a part files a part request: product
+  link, datasheet link, what they want it to do. A GitHub issue template beside
+  `feature-request.yml` is enough to start; an in-app form can follow.
+- **Triage.** Each request is answered one of three ways:
+  - **fits an existing part type:** the agent drafts it, a human reviews it,
+    then it is published;
+  - **needs a new part type:** it joins the [hardware expansion
+    roadmap](hardware-expansion-roadmap.md) and waits for an app release;
+  - **not possible:** for example no datasheet, or the board cannot drive it.
+    The reason goes back to the user.
+
+## Help
+
+Help splits along the same line as code and data.
+
+- **Part type help stays in the app.** The overview, steps, port reference and
+  live example for a node type (`HelpModal/reference/<category>.ts`) describe
+  behaviour, which is code. They change only with an app release.
+- **Part help comes from the manifest.** Today the type help names each
+  catalogued board by hand. For example, the `PowerSwitchOutput` overview lists
+  the LR7843, Mosfetti and YYNMOS-4 with their voltages and channel counts.
+  That paragraph becomes a generated "Boards for this node" list. Each entry is
+  built from a manifest's label, summary, wiring note, limits and pin labels.
+  A new part then shows in help the day it is published, with no app release.
+- **Generated, not written per part.** The agent writes the manifest's copy
+  fields to a fixed style, and the reviewer checks them with the rest of the
+  part. The app renders them. No free-form help text is downloaded, and the
+  copy fields are plain text, never markup.
+- **The live example stays per type.** A type's example uses its default part.
+  A downloaded part does not bring its own example graph.
+
 ## Authoring with an agent
 
-A part-authoring skill for Claude Code (`.claude/skills/`) can draft parts:
+A part-authoring skill for Claude Code (`.claude/skills/`) makes parts:
 research the datasheet, write `part.json`, build the model through
-`Scripts/board_rebuild/`, run the importer with `--only <part-id>`, and
-validate the manifest. That is worth doing once the schema exists. It shapes the
-schema now in three ways:
+`Scripts/board_rebuild/`, run the importer with `--only <part-id>`, write the
+copy fields, and validate the manifest. It is the only way a part enters the
+database. The schema has to support it from the start in three ways:
 
 - **The manifest is machine-checkable.** One JSON Schema plus validator, used by
   the importer, the app loader and the agent.
@@ -196,6 +238,29 @@ schema now in three ways:
 
 The agent targets existing part types only. A part that needs a new type comes
 back as a part-type request, not as a manifest.
+
+### The bundled library goes through the same pipeline
+
+The parts that ship with the app are made by exactly the pipeline that makes
+downloaded parts, and still ship in the app. This is worth doing for three
+reasons:
+
+- **One path.** Bundled and downloaded parts differ only in where the package
+  comes from. A bug in loading, embedding or help generation shows up on
+  bundled parts first, before v1.
+- **Ground truth for the agent.** Every bundled part was verified by hand
+  against its datasheet and modelled from verified Blender assets. Have the
+  agent re-draft a sample of them from the datasheet alone, then diff the
+  draft against the verified manifest: dimensions, pin order, address, rail,
+  limits, copy. The diff measures the agent before it makes a part nobody has
+  checked. Re-run it when the skill or schema changes.
+- **The conversion is phase A anyway.** Moving option rows, shelf entries, pad
+  geometry and help paragraphs out of TypeScript into manifests is the same
+  work as building the publishing format.
+
+Existing parts start at `reviewed`, or at `bench` where a bench row records a
+run. Their `sources` are filled from the asset workspace's per-part source
+notes.
 
 ## Part type registry
 
@@ -234,16 +299,18 @@ shape of the registry.
 2. Build the part-type and device registry from the existing node types and
    `device` strings.
 3. Move hand-written per-part data into manifests: option rows, shelf entries,
-   pad geometry, supply rail.
-4. Load the bundled catalogue through the manifest path at run time.
+   pad geometry, supply rail, and the per-part paragraphs in type help.
+4. Load the bundled catalogue through the manifest path at run time, signed,
+   and generate the per-part help from it.
 5. Embed manifests in saves.
 6. Replace silent fallbacks for unknown parts and types with explicit errors.
 
 **B. After v1.0.0**
 
-1. Website index and signed packages.
-2. Download, cache and revision-update UI in the hardware shelf.
-3. The part-authoring skill.
+1. The parts database, its search API and signed packages.
+2. Shelf search, download, cache and revision updates.
+3. The part-authoring skill, measured against the bundled library first.
+4. The part request template and triage.
 
 **C. As hardware needs them**
 
@@ -251,8 +318,9 @@ New part types, CAN first.
 
 ## Open questions
 
-- Where the website index lives, and who holds the signing key.
-- Whether users may side-load their own manifests in v1.0.0, or only official
-  parts.
+- Where the parts database is hosted, and who holds the signing key.
 - Whether renders are embedded in the save or fetched and cached by hash.
-- How help entries and live examples are shown for a downloaded part.
+- How a part that is later found wrong is withdrawn: a new revision, a warning
+  on saves that embed the old one, or both.
+- What accuracy the agent must reach against the bundled library before its
+  drafts go to review.
