@@ -5153,7 +5153,15 @@ export function oledTransportForProps(properties: Record<string, unknown>): Oled
 
 /** The OLED controller a node's chosen module drives, or null if it drives none. */
 export function oledControllerForProps(properties: Record<string, unknown>): OledController | null {
-  return oledControllerFor(partById(String(properties.partId ?? ''))?.display?.controller)
+  const display = partById(String(properties.partId ?? ''))?.display
+  const base = oledControllerFor(display?.controller)
+  if (!base || !display?.resolutionPx) return base
+  // The glass is a fact about the module: a 128x32 module on the same chip has
+  // half the pages. The generated panel carries its own size, but its buffers
+  // are sized for the controller's ceiling, so a module never reads larger.
+  const width = Math.min(display.resolutionPx[0], base.width)
+  const height = Math.min(display.resolutionPx[1], base.height)
+  return width === base.width && height === base.height ? base : { ...base, width, height }
 }
 
 /**

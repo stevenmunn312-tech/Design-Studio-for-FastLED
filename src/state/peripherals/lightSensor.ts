@@ -1,4 +1,4 @@
-import { partById } from '../../build/parts/partCatalogue'
+import { bundledPartsForType, memoByCatalogue, partById, registeredPartsForType } from '../../build/parts/partCatalogue'
 import { partIdOrDefault } from './partSpec'
 
 export const DEFAULT_LIGHT_SENSOR_PART_ID = 'photosensitive-ldr-module'
@@ -17,27 +17,25 @@ export interface LightSensorModule {
   transport: LightSensorTransport
 }
 
-export const LIGHT_SENSOR_MODULES: readonly LightSensorModule[] = [
-  {
-    partId: DEFAULT_LIGHT_SENSOR_PART_ID,
-    label: 'LDR light sensor',
-    summary: 'Relative brightness on one analog pin',
-    note: 'An analog divider: Level is relative brightness. It cannot report calibrated lux, so Lux stays at zero.',
-    transport: 'analog',
-  },
-  {
-    partId: BH1750_PART_ID,
-    label: 'Adafruit BH1750',
-    summary: 'Calibrated ambient light in lux over I2C',
-    note: 'Power from the controller logic rail. The breakout level-shifts SDA/SCL and answers on 0x23, or 0x5C with ADDR tied high.',
-    transport: 'i2c',
-  },
-]
+/**
+ * Every light-sensor module in the catalogue, in the type's menu order: the
+ * bundled ones first, then registered ones. A module with a `lightSensor`
+ * block is read over I2C; one without (an LDR divider) is read as a raw analog
+ * level.
+ */
+export const lightSensorModules: () => readonly LightSensorModule[] = memoByCatalogue(() =>
+  [...bundledPartsForType('LightInput'), ...registeredPartsForType('LightInput')].map((part) => ({
+    partId: part.partId,
+    label: part.copy?.optionLabel ?? part.label,
+    summary: part.copy?.summary ?? '',
+    note: part.copy?.wiringNote ?? '',
+    transport: part.lightSensor ? 'i2c' as const : 'analog' as const,
+  })))
 
 /** The module a saved id names: a missing id is the default LDR, an unknown one is `null`. */
 export function lightSensorModule(partId: unknown): LightSensorModule | null {
   const id = partIdOrDefault(partId, DEFAULT_LIGHT_SENSOR_PART_ID)
-  return LIGHT_SENSOR_MODULES.find((module) => module.partId === id) ?? null
+  return lightSensorModules().find((module) => module.partId === id) ?? null
 }
 
 export function lightSensorTransport(partId: unknown): LightSensorTransport | null {
