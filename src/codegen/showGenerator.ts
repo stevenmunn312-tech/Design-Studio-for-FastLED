@@ -14,6 +14,7 @@
 // were later hardware-validated on ESP32-S3 + INMP441 hardware.
 
 import type { StudioNode, StudioEdge } from '../state/graphStore'
+import { unresolvedSketchNotice, withoutUnresolved } from '../build/parts/partResolution'
 import type { GroupRegistry } from '../state/graphEvaluator'
 import { ENGINE_FRAME_NODE_TYPE, type EnginePostChain } from './enginePostChain'
 import { customPaletteDeclarationsCpp } from '../state/palettes/paletteCatalog'
@@ -980,6 +981,10 @@ export function generateShowSketch(
     customDisplayAssets?: CustomDisplayAssets
   } = {},
 ): string {
+  const live = withoutUnresolved(nodes, edges)
+  if (live.held.length > 0) {
+    return unresolvedSketchNotice(live.held) + generateShowSketch(live.nodes, live.edges, groups, opts)
+  }
   const build = resolveBuildMode(nodes, edges)
   if (build.mode !== 'show') return generateCpp(nodes, edges, groups, opts)
   const info = showInfo(nodes, edges, build.engine?.id)

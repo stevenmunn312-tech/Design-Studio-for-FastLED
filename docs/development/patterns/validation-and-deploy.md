@@ -7,6 +7,30 @@ Moved out of the always-loaded `CLAUDE.md` so a session reads it only when
 working in this area; record new patterns for this area here, not there. History
 of the entries before the move: `git log -p -- CLAUDE.md`.
 
+- A part this version cannot build is held, never substituted
+  ([downloadable parts](../../plans/downloadable-parts.md), "Saves"). The one rule
+  is `src/build/parts/partResolution.ts`: a **missing** `partId` (`model` for an
+  Amplifier; `PART_OPTIONS` names the property) is the type's default part and
+  says nothing; a non-empty id that is no option of that type (by id or
+  `aliases`) is **unknown**, and so is a node holding a `{ part, pin }` pin or an
+  `i2cBus` ([hardware patterns](hardware-and-build-diagram.md#pins-and-boards)).
+  A held node keeps its properties, ports and wires through load and save
+  (`keepsSavedPorts` stops `normalizeLoadedGraph` deriving a relay board's
+  channels from a part it does not know). `findDeployBlockingErrors` reports it
+  once (`unresolvedPartValidationIssues`: "This project uses a part this version
+  doesn't have", naming the node and the id) and runs every other rule on the
+  graph without it, so a stand-in spec never raises a second, misleading error;
+  `uploadBlockReason` names it ahead of the general count (`unresolvedParts`).
+  Codegen entry points (`generateCpp`, `generateShowSketch`,
+  `playerConfigFromGraph`) take the held nodes and their wires out
+  (`withoutUnresolved`) and lead the sketch with a `// Not generated:` comment.
+  Per-kind spec readers (`distanceSensorSpec`, `powerMonitorSpec`, the
+  `FALLBACK_SPEC` family) and `resolvePartIdentity` may still answer with a
+  default for drawing; `resolvePartIdentity` marks an unknown part `unresolved`
+  with no catalogue entry. That is cosmetic: gate on `partResolution`, never in a
+  reader. A new part-backed node type needs a `PART_OPTIONS` row, or its unknown
+  ids are not seen, and a renamed id needs an `aliases` entry.
+
 - A PowerAmplifier with no line-level source (no I2S DAC, no DFPlayer on Line
   Out) is reported on every board, with or without a board chosen: the board's
   own DAC is no feed, because ESP32-audioI2S 3.0.12 under IDF 5 never drives

@@ -61,16 +61,17 @@ describe('part options', () => {
     expect(resolvePartIdentity('RtcModule', {})!.option.id).toBe('ds3231-rtc-module')
   })
 
-  it('still resolves a value it does not recognise', () => {
-    // An unset or stale property means "the default part", never "no part" —
-    // every one of these nodes describes something physically on the bench.
-    expect(resolvePartIdentity('Amplifier', { model: 'something-else' })!.option.id)
-      .toBe('max98357a-i2s-amplifier')
+  it('does not turn a value it does not recognise into the default part', () => {
+    // A missing property is the default part; a named one this version does not
+    // have is itself, marked unresolved, with no catalogue entry.
+    const identity = resolvePartIdentity('Amplifier', { model: 'something-else' })!
+    expect(identity).toMatchObject({ unresolved: true, option: { id: 'something-else' } })
+    expect(identity.entry).toBeUndefined()
   })
 
   it('does not reinterpret a display label as a v1 part id', () => {
-    expect(resolvePartIdentity('Amplifier', { model: 'PCM5102A' })!.option.id)
-      .toBe('max98357a-i2s-amplifier')
+    expect(resolvePartIdentity('Amplifier', { model: 'PCM5102A' })!.option.id).toBe('PCM5102A')
+    expect(resolvePartIdentity('Amplifier', { model: 'PCM5102A' })!.unresolved).toBe(true)
   })
 
   it('carries the asset caveats through', () => {

@@ -5076,9 +5076,13 @@ describe('generateCpp — INMP441 audio engine', () => {
       .not.toContain('applies no mic response profile')
   })
 
-  it('reads a stale module choice as the default rather than emitting nothing', () => {
-    expect(micModuleGraph('espressif-esp32-s3-devkitc-1', 'a-module-that-was-retired'))
-      .toContain(`fl::audio::Config::${DEFAULT_MIC_MODULE.factory}`)
+  it('holds a module this version does not have rather than building the default', () => {
+    // Emitting the default factory would flash a microphone the project did not
+    // choose; the node is left out and the sketch says so (partResolution.ts).
+    const code = micModuleGraph('espressif-esp32-s3-devkitc-1', 'a-module-that-was-retired')
+    expect(code).not.toContain(`fl::audio::Config::${DEFAULT_MIC_MODULE.factory}`)
+    expect(code).toContain('// Not generated: ')
+    expect(code).toContain('a-module-that-was-retired')
   })
 
   it.each([

@@ -25,6 +25,12 @@ export interface PartOption {
   id: string
   label: string
   /**
+   * Older saved values that mean this part. A node written before the id was a
+   * catalogue id still resolves to it, instead of being reported as a part this
+   * version does not have. Per the plan's rule that a rename needs an alias.
+   */
+  aliases?: readonly string[]
+  /**
    * What picking this changes, when the app cannot show it any other way.
    * Alternatives that wire identically still differ in what comes out of them,
    * and that difference has to be stated somewhere.
@@ -62,6 +68,13 @@ export interface PartIdentity {
    *  Hardware menu, so nothing renders a picker from this — it is for copy that
    *  needs to know whether alternatives exist. */
   hasChoice: boolean
+  /**
+   * True when the node names a part this version does not have. `option` then
+   * only carries the saved id as its label and `entry` is absent: nothing is
+   * substituted, so a caller that reads a spec from the entry finds none. See
+   * `build/parts/partResolution.ts` for the shared rule and the gates.
+   */
+  unresolved?: true
 }
 
 /**
@@ -491,7 +504,9 @@ export const PART_OPTIONS: Record<string, {
   Amplifier: {
     property: 'model',
     options: [
-      { id: 'max98357a-i2s-amplifier', label: 'MAX98357A', output: 'speaker', summary: 'I2S in, drives a speaker directly' },
+      // `MAX98357A` is the node's default `model` and what every earlier save
+      // holds; it names this module, so it is an alias and not an unknown part.
+      { id: 'max98357a-i2s-amplifier', aliases: ['MAX98357A'], label: 'MAX98357A', output: 'speaker', summary: 'I2S in, drives a speaker directly' },
       {
         // One bench part rather than two Amplifier nodes: both boards sit on
         // the same three I2S lines and the firmware already sends stereo, so
@@ -645,6 +660,12 @@ export function partOptionsFor(nodeType: string): PartOption[] {
   return PART_OPTIONS[nodeType]?.options ?? []
 }
 
+/** The option a saved value names, by id or by an older alias. */
+export function partOptionFor(nodeType: string, saved: string): PartOption | undefined {
+  return PART_OPTIONS[nodeType]?.options.find((candidate) =>
+    candidate.id === saved || candidate.aliases?.includes(saved))
+}
+
 /** The node property that stores this part's chosen module, if it has one. */
 export function partOptionProperty(nodeType: string): string | null {
   return PART_OPTIONS[nodeType]?.property ?? null
@@ -653,11 +674,17 @@ export function partOptionProperty(nodeType: string): string | null {
 /**
  * What this node currently is, resolved against the catalogue.
  *
- * Falls back to the first option, which is the module the app was built
- * around — an unset or unrecognised value means "the default part", not "no
- * part", because every one of these nodes describes something physically on
- * the bench. Where that default is not catalogued yet, there is no identity
- * to fall back to, and the answer is null.
+ * A missing value (a node nobody has chosen a module for) is the default part,
+ * the first option: the module the app was built around, because every one of
+ * these nodes describes something physically on the bench. Where that default
+ * is not catalogued yet, there is no identity to fall back to, and the answer
+ * is null.
+ *
+ * A value naming a part this version does not have is not the default part. It
+ * resolves to a placeholder carrying the saved id and no catalogue entry
+ * (`unresolved`), so a label shows what the project says and a footprint or
+ * render lookup finds nothing and draws its generic stand-in. That stand-in is
+ * cosmetic only; the build is blocked by `partResolution.ts`.
  */
 export function resolvePartIdentity(
   nodeType: string,
@@ -667,7 +694,15 @@ export function resolvePartIdentity(
   if (!config || config.options.length === 0) return null
 
   const saved = String(properties[config.property] ?? '')
-  const chosen = config.options.find((candidate) => candidate.id === saved)
+  if (saved !== '' && !partOptionFor(nodeType, saved)) {
+    return {
+      option: { id: saved, label: saved },
+      notes: [],
+      hasChoice: config.options.length > 1,
+      unresolved: true,
+    }
+  }
+  const chosen = partOptionFor(nodeType, saved)
   if (!chosen && config.uncataloguedDefault) return null
   const option = chosen ?? config.options[0]
 

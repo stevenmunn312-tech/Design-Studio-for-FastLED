@@ -41,6 +41,11 @@ export interface UploadBlockInput {
    *  above the canvas is asking "Run code from this file?". Upload waits for
    *  that one answer rather than asking again. */
   waitingForTrust: boolean
+  /** Parts this version cannot build, one sentence each, already in words: a
+   *  part it does not have, a pin or bus on another part
+   *  (`unresolvedPartSummaries`). Named before the general count because the
+   *  fix is not a repair Checks can make, and the count would hide it. */
+  unresolvedParts?: readonly string[]
   /** Graph rules that stop a build, which Checks explains and repairs. */
   graphBlockerCount: number
   /** Display images still being prepared. */
@@ -68,6 +73,15 @@ export function uploadBlockReason(input: UploadBlockInput): UploadBlockReason | 
     return {
       text: 'Review “Run code from this file?” above the canvas before building unfamiliar code.',
       actionLabel: 'Review question', action: { kind: 'show-code-question' },
+    }
+  }
+  const unresolved = input.unresolvedParts ?? []
+  if (unresolved.length > 0) {
+    return {
+      text: unresolved.length === 1
+        ? unresolved[0]
+        : `${unresolved[0]} ${unresolved.length - 1} more need the same.`,
+      actionLabel: 'Show me', action: { kind: 'show-graph-health' },
     }
   }
   if (input.graphBlockerCount > 0) {

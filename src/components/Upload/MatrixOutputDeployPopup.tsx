@@ -27,6 +27,7 @@ import {
   analysedShows, readySongCount, buildShowPayload, buildShowPlayerForMeasurement, musicPlayerUsesDemoTrack, showPackagingIssues,
 } from '../../utils/showUpload'
 import { fetchDemoTrack } from '../../state/player/demoTrack'
+import { unresolvedPartSummaries } from '../../build/parts/partResolution'
 import { buildGraphDiagnostics, findMirroredOutputMismatches, findHub75TopologyDiagnosticErrors, findFirmwareRamBudgetIssue } from '../../utils/validateGraph'
 import { formatElapsed, summarizeCapacity } from '../../utils/capacityFormat'
 import { useElapsedSeconds } from '../../hooks/useElapsedSeconds'
@@ -255,6 +256,9 @@ export default function MatrixOutputDeployPopup({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the validators read credentials from their store
     [rootNodes, rootEdges, activeBoardId, selectedFqbn, customAssets.documents, customAssets.groups, networkCredentials],
   )
+  // Parts this version cannot build are named first and by their own words
+  // (utils/uploadBlockReason.ts); they are also in `graphBlockers` above.
+  const unresolvedParts = useMemo(() => unresolvedPartSummaries(nodes), [nodes])
   // Uneven parallel runs are worth saying and never worth blocking — a star
   // with half-length arms is a real build, not a misconfiguration.
   const mirrorNotes = useMemo(() => findMirroredOutputMismatches(nodes, edges), [nodes, edges])
@@ -670,6 +674,7 @@ export default function MatrixOutputDeployPopup({
       isShowUpload,
       showHasContent: readySongs > 0 || hasMusicPlayer,
       waitingForTrust: trustMessages.size > 0 || trustHolds,
+      unresolvedParts,
       graphBlockerCount: graphBlockers.length,
       preparing: customAssets.pending,
       otherBlockers: measuredBlockers,

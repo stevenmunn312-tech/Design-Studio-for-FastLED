@@ -104,7 +104,8 @@ import { buildXYTable } from '../state/output/xyLayout'
 import { SHAPE_COUNT_MACRO, shapeCopyCpp, shapeCountDefineCpp, shapeMapFor, shapeTableCpp, shapeTableName, type ShapeMap } from './output/shapeMapCpp'
 import { audioOutputMode, audioVolumeStage, i2sAudioStage } from '../state/audio/audioOutput'
 import { resolveShowTarget, type ShowTargetNode, type ShowTargetEdge } from '../state/player/showTarget'
-import type { StudioNode } from '../state/graphStore'
+import type { StudioNode, StudioEdge } from '../state/graphStore'
+import { withoutUnresolved } from '../build/parts/partResolution'
 import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS, FRAME_RATE } from '../build/controllerSettings'
 import { loopPacingCpp, withLoopPacing } from './loopPacing'
 import { resolveBoardSelection } from '../build/boards/boardProfiles'
@@ -231,6 +232,11 @@ interface ConfigNode { id: string; data: { nodeType: string; properties: Record<
 export function playerConfigFromGraph(
   nodes: ConfigNode[], edges: ShowTargetEdge[] = [], fqbn = '', engineId?: string,
 ): Partial<PlayerConfig> {
+  // Held nodes (an unknown part, a pin on another part) contribute nothing,
+  // so no player setting is read from a substituted spec.
+  const live = withoutUnresolved(nodes as unknown as StudioNode[], edges as unknown as StudioEdge[])
+  nodes = live.nodes as unknown as ConfigNode[]
+  edges = live.edges as unknown as ShowTargetEdge[]
   const target = resolveShowTarget(nodes as ShowTargetNode[], edges, engineId).target
   const mo = target?.data.properties ?? {}
   const board = nodes.find((n) => n.data.nodeType === 'Board')?.data.properties ?? mo

@@ -53,7 +53,8 @@ import { buttonBankOutputs } from '../../state/player/buttonBank'
 import { webRemoteOutputs } from '../../state/peripherals/webRemote'
 import { drawnOutputs, foldedOutputCount } from '../../state/outputFolding'
 import { midiChannel, midiUsesUart } from '../../state/peripherals/midiSource'
-import { partDerivedInputs } from '../../build/parts/partPorts'
+import { keepsSavedPorts, partDerivedInputs } from '../../build/parts/partPorts'
+import { isPartPinRef } from '../../build/parts/partReferences'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
 import {
@@ -767,6 +768,12 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 aria-label={`${controlLabel} value`}
                 onChange={(e) => { if (e.target.value) writeValue(e.target.value) }}
               />
+            ) : isPartPinRef(val) ? (
+              // A pin on another part, written by a later version: shown, never
+              // edited, so it is kept exactly as saved (partReferences.ts).
+              <span className={styles.propKey} title="This version can’t wire a pin on another part yet.">
+                On another part ({val.part}, pin {val.pin})
+              </span>
             ) : typeof val === 'boolean' ? (
               <input
                 className="nodrag"
@@ -1179,7 +1186,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const savedInputs = Array.isArray(d.inputs) ? d.inputs : undefined
   const savedOutputs = Array.isArray(d.outputs) ? d.outputs : undefined
   const declaredInputs = orderPorts(
-    (hasDerivedDisplayPorts(d.nodeType)
+    (hasDerivedDisplayPorts(d.nodeType) || keepsSavedPorts(d.nodeType, rawProps)
       ? d.inputs ?? def?.inputs ?? []
       : partDerivedInputs(d.nodeType, rawProps.partId, rawProps) ?? def?.inputs ?? d.inputs ?? []) as PortDef[],
     savedInputs,

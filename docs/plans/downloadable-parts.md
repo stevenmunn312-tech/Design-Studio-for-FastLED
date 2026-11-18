@@ -427,9 +427,12 @@ pin or bus reference that v1.0.0 does not understand must not reach
    and offer revision updates for packages.
 8. Embed manifests in saves.
 9. Replace silent fallbacks for unknown parts and types with explicit errors.
+    Done for node parts and the reserved references: [validation and deploy
+    patterns](../development/patterns/validation-and-deploy.md).
 10. Add the Digital sensor and Analog sensor part types, each with at least
     one bundled part.
-11. Reserve the `{ part, pin }` and `{ part, channel }` reference shapes, and
+11. Reserve the `{ part, pin }` and `{ part, channel }` reference shapes (done:
+    `src/build/parts/partReferences.ts`), and
     block Upload on any reference v1.0.0 cannot resolve.
 
 Steps 1 to 5, 8 and 9 change nothing a user sees when they are done well, so

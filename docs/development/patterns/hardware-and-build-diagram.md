@@ -9,6 +9,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Pins and boards
 
+- A pin property holds a board GPIO number, or the reserved
+  `{ part: <nodeId>, pin: <number> }` for a pin on another part (a GPIO expander);
+  an I2C node may carry `i2cBus`, absent for the board's bus or
+  `{ part, channel }` for a multiplexer channel. The shapes and guards live in
+  `src/build/parts/partReferences.ts`; v1.0.0 resolves neither, so a later release
+  adds expanders and muxes without a save migration
+  ([plan](../../plans/downloadable-parts.md#pins-and-buses-on-other-parts)).
+  `collectPinUses` skips an object pin and an off-board bus (never claiming the
+  default SDA/SCL pair for one), `sanitizePin` reads one as unset, the pin
+  editors show it read-only, and the node is blocked like an unknown part
+  (`validation-and-deploy.md`). Extend `partReferences.ts` when the resolver
+  arrives; do not read `props.xPin` with `Number()` where a reference can sit.
+
 - `BoardPinPicker` disables occupied GPIO options and names their hardware
   with "Pin used by …". `pinAssignmentBlockers` reads `collectPinUses` and
   `findPinCollisions` within the edited part's board partition; do not scan raw
