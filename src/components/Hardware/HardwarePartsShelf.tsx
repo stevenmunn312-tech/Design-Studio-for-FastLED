@@ -15,6 +15,8 @@ export interface HardwareShelfItem {
   disabledReason: string | null
   renderSrc?: string | null
   visual?: string
+  /** The catalogue part this entry puts on the bench, when it is one; places the entry by its categories. */
+  partId?: string
   onSelect: () => void
 }
 

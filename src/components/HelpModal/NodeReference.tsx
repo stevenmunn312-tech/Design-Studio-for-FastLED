@@ -8,6 +8,8 @@ import { openExampleProject } from '../../utils/startFlow'
 import { exampleGraphSrc, mainPreviewSrc, nodeCardSrc } from '../../utils/nodeReferenceAssets'
 import { exampleUsesMicrophone, liveExampleForNode } from './liveExamples'
 import { nodeReferenceEntry } from './reference'
+import { partHelpEntries } from './partHelp'
+import { usePartCatalogueVersion } from '../../build/parts/usePartCatalogueVersion'
 import { PORT_DESCRIPTIONS } from './portCopy'
 import { Icon, PortIcon } from '../icons/Icon'
 import styles from './NodeReference.module.css'
@@ -342,6 +344,35 @@ async function openLiveExample(node: NodeDefinition) {
   }
 }
 
+/** The parts a node can drive, generated from the catalogue so a new part shows up without an app release. */
+export function PartHelpSection({ nodeType }: { nodeType: string }) {
+  usePartCatalogueVersion() // render again when a part arrives; partHelpEntries is cached per catalogue version
+  const parts = partHelpEntries(nodeType)
+  if (parts.length === 0) return null
+  return (
+    <section className={styles.manualSection} aria-label="Parts for this node">
+      <h2>Parts for this node</h2>
+      <ul className={styles.partList}>
+        {parts.map((part) => (
+          <li key={part.partId} className={styles.partItem}>
+            <div className={styles.partName}>
+              <b>{part.label}</b>
+              {part.manufacturer && <span>{part.manufacturer}</span>}
+            </div>
+            {part.summary && <p>{part.summary}</p>}
+            {part.wiringNote && <p>{part.wiringNote}</p>}
+            {(part.logicVoltage || part.limits.length > 0) && (
+              <p className={styles.partFacts}>
+                {[part.logicVoltage && `Logic ${part.logicVoltage}`, ...part.limits].filter(Boolean).join(' · ')}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 function NodeArticle({ node }: { node: NodeDefinition }) {
   const accent = CATEGORY_COLOR[node.category] ?? '#9aa0a6'
   const entry = nodeReferenceEntry(node)
@@ -387,6 +418,8 @@ function NodeArticle({ node }: { node: NodeDefinition }) {
           <ol>{entry.steps.map((step) => <li key={step}><p>{step}</p></li>)}</ol>
         </section>
       )}
+
+      <PartHelpSection nodeType={node.type} />
 
       <div className={styles.portRow}>
         <PortPanel

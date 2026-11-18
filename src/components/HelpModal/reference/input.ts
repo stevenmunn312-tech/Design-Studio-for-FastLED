@@ -57,7 +57,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
   MicInput: {
     overview: [
       'Microphone is the physical I2S MEMS microphone on the bench. It is a hardware part rather than a node you wire: an Audio node selects it, and the analysers read the Audio node.',
-      'Module picks the breakout — INMP441, ICS-43434 or a generic board. All three wire the same three signals; the choice changes the pin names, the Build Diagram picture, and the response correction FastLED applies on ESP32 and Teensy. On other boards the module changes only the drawing.',
+      'Module picks the breakout. Every module wires the same three signals; the choice changes the pin names, the Build Diagram picture, and the response correction FastLED applies on ESP32 and Teensy. On other boards the module changes only the drawing.',
       'Gain is FastLED’s own Processor::setGain, so the preview and the board scale the signal the same way. In the browser Studio listens through your computer’s microphone; on the board the sketch reads the module at 44.1 kHz.',
     ],
     steps: [
@@ -649,7 +649,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
 
   DistanceInput: {
     overview: [
-      'Distance Sensor measures how far away something is, in millimetres. Pick the module on the bench: an HC-SR04 ultrasonic ranger (about 2 cm to 4 m), or a VL53L0X or VL53L1X laser time-of-flight sensor for tighter, quicker readings.',
+      'Distance Sensor measures how far away something is, in millimetres. Pick the module on the bench: an HC-SR04 ultrasonic ranger, or a VL53L0X or VL53L1X laser time-of-flight sensor for tighter, quicker readings. The range of each module is listed under Parts for this node.',
       'The ultrasonic module uses Trig and Echo pins, and its 5 V Echo needs the divider the Build Diagram draws. The laser sensors share the I2C bus; to fit two, give each its own SHDN pin and an address from 0x30 to 0x33.',
       'When nothing is in range, Distance holds the last thing it measured rather than jumping, so a mapped output does not flick on a missed reading. The two kinds of module report that moment differently. A laser sensor stays Connected, since it still answers on the bus. An HC-SR04 cannot tell an empty room from a missing module, because both return no echo, so Connected goes false in either case.',
       PREVIEW_STAND_IN,
