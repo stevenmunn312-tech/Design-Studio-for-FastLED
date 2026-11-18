@@ -309,6 +309,51 @@ export const PART_BLOCK_SPECS = {
       usbOutput: bool(),
     })),
   }),
+  // A microSD card on SPI. The firmware is the same for every module; what a
+  // module changes is what may be fed to it: `supplyVolts` is the rail its
+  // power pad takes, and a module that is not `levelShifted` is a bare socket
+  // that 5 V power or 5 V SPI can destroy.
+  sdCard: obj({
+    supplyVolts: num({ min: 1, max: 12 }),
+    levelShifted: bool(),
+  }),
+  // A battery-backed real-time clock on the board's I2C bus. `device` selects
+  // the register driver the firmware carries; `i2cAddress` is the address that
+  // driver reads, which the bus check and the collision walk use.
+  rtc: obj({
+    device: str({ nonEmpty: true }),
+    i2cAddress: i2cAddress(),
+  }),
+  // A UART-controlled audio player. `device` selects the command protocol the
+  // firmware carries; the rest are its electrical and timing contract.
+  uartPlayer: obj({
+    device: str({ nonEmpty: true }),
+    supplyMinV: positive(),
+    supplyMaxV: positive(),
+    maxCurrentMa: positive(),
+    baud: int(300, 5_000_000),
+    commandGapMs: int(1, 5000),
+    bootMs: int(0, 60_000),
+  }),
+  // An RS-485 transceiver that receives DMX512. `rxLogicVolts` is the level
+  // the receive output swings to: above 3.6 V the build draws the divider that
+  // brings it down to a 3.3 V controller pin.
+  rs485: obj({
+    device: str({ nonEmpty: true }),
+    supplyVolts: num({ min: 1, max: 12 }),
+    rxLogicVolts: num({ min: 1, max: 12 }),
+    terminationFitted: bool(),
+    terminationRef: opt(str({ maxLength: 8 })),
+  }),
+  // A DIN-5 MIDI receiver on a UART RX pin. `isolated` says an optocoupler
+  // separates the cable from the controller; `inputSocket` is which socket of
+  // the board is MIDI IN.
+  midiDin: obj({
+    device: str({ nonEmpty: true }),
+    supplyVolts: num({ min: 1, max: 12 }),
+    isolated: bool(),
+    inputSocket: oneOf('left', 'right'),
+  }),
   display: obj({
     controller: str({ nonEmpty: true }),
     resolutionPx: tuple(int(1, 8192), int(1, 8192)),

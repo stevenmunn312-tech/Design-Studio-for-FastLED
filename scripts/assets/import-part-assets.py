@@ -32,7 +32,7 @@ WebP under `public/parts/`, and emits a generated TypeScript module.
 
 `part.json` holds the measured facts. Everything else a v1 manifest carries
 (revision, part types, shelf categories, verification, sources, interfaces,
-copy) is written in `src/build/parts/overlays/<part-id>.json` and merged over
+copy, and the `sdCard`, `rtc`, `uartPlayer`, `rs485` and `midiDin` blocks) is written in `src/build/parts/overlays/<part-id>.json` and merged over
 it here, so the generated module holds full part manifests. An overlay is
 reviewed in Git; it never overrides a measured field, and a part with no
 overlay, an overlay with no part, an unknown field or an unknown word stops
@@ -113,7 +113,13 @@ PART_MANIFEST_VERSION = 1
 OVERLAY_FIELDS = (
     "revision", "partTypes", "categories", "verification", "sources", "interfaces", "copy",
     "pads", "padHoleRadiusPx", "supplyRail", "powerPadLabel",
+    # Type blocks that part.json has never carried. They are written here, in the
+    # repository, and checked against the block spec by the manifest test.
+    "sdCard", "rtc", "uartPlayer", "rs485", "midiDin",
 )
+# The subset of OVERLAY_FIELDS that is a type block: a part.json that also
+# carries one is a conflict, not a merge.
+OVERLAY_BLOCK_FIELDS = ("sdCard", "rtc", "uartPlayer", "rs485", "midiDin")
 OVERLAY_COPY_FIELDS = {"summary": 300, "wiringNote": 600, "hint": 200, "optionLabel": 120}
 # Numbers a copy block may carry, with their inclusive range.
 OVERLAY_COPY_NUMBERS = {"optionOrder": (1, 999)}
@@ -219,6 +225,8 @@ def merge_overlay(entry: dict, overlay, category_ids: set[str], vocabulary: dict
     if not isinstance(overlay, dict):
         raise OverlayError(f"{part_id}: overlay must be an object")
     for key in overlay:
+        if key in OVERLAY_BLOCK_FIELDS and key in entry:
+            raise OverlayError(f"{part_id}: overlay sets block {key!r} but part.json already carries it")
         if key in OVERLAY_FIELDS:
             continue
         if key in entry or key in MEASURED_FIELDS:

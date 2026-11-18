@@ -13,14 +13,16 @@
         "dimensionsMm",
         "pinLabelsLeftToRight",
         "logicVoltage",
-        "render"
+        "render",
+        "uartPlayer"
       ],
       "ref": "https://wiki.dfrobot.com/dfr0299/"
     }
   ],
   "copy": {
     "summary": "UART-controlled microSD audio player with speaker and line outputs",
-    "wiringNote": "Power from 5 V. Put numbered files in the card’s /mp3 folder. Speaker mode uses SPK1/SPK2 directly; Line Out uses DAC_L/DAC_R into a power amplifier or powered speakers. Add a 1 kΩ series resistor from controller TX to module RX if UART noise causes buzzing."
+    "wiringNote": "Power from 5 V. Put numbered files in the card’s /mp3 folder. Speaker mode uses SPK1/SPK2 directly; Line Out uses DAC_L/DAC_R into a power amplifier or powered speakers. Add a 1 kΩ series resistor from controller TX to module RX if UART noise causes buzzing.",
+    "optionLabel": "DFPlayer Mini"
   },
   "pads": [
     {
@@ -105,5 +107,14 @@
     }
   ],
   "padHoleRadiusPx": 10,
-  "supplyRail": "v5"
+  "supplyRail": "v5",
+  "uartPlayer": {
+    "device": "DFPlayer",
+    "supplyMinV": 3.2,
+    "supplyMaxV": 5,
+    "maxCurrentMa": 200,
+    "baud": 9600,
+    "commandGapMs": 100,
+    "bootMs": 1000
+  }
 }

@@ -32,7 +32,8 @@
     {
       "facts": [
         "dimensionsMm",
-        "notes"
+        "notes",
+        "rtc"
       ],
       "ref": "https://www.analog.com/media/en/technical-documentation/data-sheets/DS3231.pdf"
     }
@@ -68,5 +69,9 @@
     }
   ],
   "padHoleRadiusPx": 12.3,
-  "supplyRail": "v3v3"
+  "supplyRail": "v3v3",
+  "rtc": {
+    "device": "DS3231",
+    "i2cAddress": 104
+  }
 }

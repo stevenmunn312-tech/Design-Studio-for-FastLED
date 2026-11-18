@@ -33,14 +33,16 @@
     {
       "facts": [
         "pinLabelsLeftToRight",
-        "logicVoltage"
+        "logicVoltage",
+        "midiDin"
       ],
       "ref": "https://learn.adafruit.com/adafruit-midi-featherwing/pinouts"
     }
   ],
   "copy": {
     "summary": "Opto-isolated DIN-5 MIDI in, on 3.3 V",
-    "wiringNote": "Power from 3.3 V. Only 3.3V, GND and MIDI_RX are wired; the optocoupler output needs no divider. Plug the keyboard into the left socket, MIDI IN."
+    "wiringNote": "Power from 3.3 V. Only 3.3V, GND and MIDI_RX are wired; the optocoupler output needs no divider. Plug the keyboard into the left socket, MIDI IN.",
+    "optionLabel": "Adafruit MIDI FeatherWing"
   },
   "pads": [
     {
@@ -185,5 +187,11 @@
     }
   ],
   "padHoleRadiusPx": 5.4,
-  "supplyRail": "v3v3"
+  "supplyRail": "v3v3",
+  "midiDin": {
+    "device": "H11L1MS",
+    "supplyVolts": 3.3,
+    "isolated": true,
+    "inputSocket": "left"
+  }
 }
