@@ -428,16 +428,23 @@ pin or bus reference that v1.0.0 does not understand must not reach
    under [Publishing](#publishing)): option rows, shelf entries, pad geometry,
    supply rail, and the per-part paragraphs in type help. Audit each part type
    for branches on a bundled part's id, and set `downloadable` in
-   `src/build/parts/partTypes.ts` once it has none.
+   `src/build/parts/partTypes.ts` once it has none. *(Mostly done: all 94
+   parts have overlays; pads, rails, option rows, shelf entries and per-part
+   property options come from manifests; fallbacks are gone. Left: the 13
+   `code change` types in the
+   [audit](../reports/part-type-download-audit.md), then opening each type.)*
 4. Convert the bundled library through the importer into signed packages, and
-   load it through the manifest path at run time.
+   load it through the manifest path at run time. *(Runtime registry done in
+   `partCatalogue.ts`; bundled parts stay unsigned, by design: see Saves.)*
 5. Generate the per-part help from manifests, and drive the shelf from the
-   category tree in place of `SHELF_SUBCATEGORIES`.
+   category tree in place of `SHELF_SUBCATEGORIES`. *(Done.)*
 6. Verify signatures against a list of trusted keys, with successor-key
-   announcements in the index.
+   announcements in the index. *(Done: `src/build/parts/remote/`.)*
 7. Fetch and cache the signed index; search it in the shelf; download, cache
-   and offer revision updates for packages.
-8. Embed manifests in saves.
+   and offer revision updates for packages. *(Client and search done; the
+   shelf search and download UI is left.)*
+8. Embed manifests in saves. *(Done: saves carry `parts`, with the signed
+   envelope for downloaded parts only; bundled parts carry their revision.)*
 9. Replace silent fallbacks for unknown parts and types with explicit errors.
     Done for node parts and the reserved references: [validation and deploy
     patterns](../development/patterns/validation-and-deploy.md).
