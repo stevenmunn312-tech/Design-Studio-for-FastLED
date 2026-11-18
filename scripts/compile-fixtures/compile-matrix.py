@@ -807,6 +807,8 @@ def main() -> int:
                         help="install the Arduino cores the planned arduino-cli legs need first (fresh machines, CI)")
     parser.add_argument("--low-priority", action="store_true",
                         help="run at below-normal priority on Windows; spawned compilers inherit it")
+    parser.add_argument("--any-fbuild", action="store_true",
+                        help="run fbuild legs on an fbuild that is not the pinned version (trying an upstream build)")
     args = parser.parse_args()
     if args.merge:
         return merge_runs(args.merge, args.merge_out)
@@ -876,8 +878,12 @@ def main() -> int:
         "engine": args.engine,
     }
     pinned = re.search(r"^fbuild==(\S+)", (ROOT / "backend" / "requirements.txt").read_text(encoding="utf-8"), re.M)
-    if pinned and pinned.group(1) not in header["fbuild"]:
-        say(f"WARNING: installed {header['fbuild']} does not match the pinned fbuild=={pinned.group(1)}")
+    if pinned and pinned.group(1) not in header["fbuild"] and args.engine != "arduino-cli":
+        say(f"ERROR: {toolchain._FBUILD_BIN or 'fbuild'} is {header['fbuild']}, not the pinned fbuild=={pinned.group(1)}."
+            " A run on another version proves nothing about the pin; install the pin or pass --any-fbuild.")
+        if not args.any_fbuild:
+            log.close()
+            return 1
     say(f"Output: {out}")
     say(f"Git {header['git']} · {header['fbuild']} · {header['arduino_cli']}")
 
@@ -941,6 +947,13 @@ def main() -> int:
                 failures += 1
                 note = first_error(build_log) or first_error(runner_log)
             flash, ram = sizes(report)
+            # Every passing fbuild leg has reported a size. One that does not
+            # means the helper no longer reads fbuild's size output, which is
+            # also what stops an oversized image being flashed.
+            if passed and leg.engine == "fbuild" and flash is None and ram is None:
+                status = "NO SIZE"
+                failures += 1
+                note = "built, but the helper read no flash or RAM size from fbuild's output"
             old_flash, old_ram = sizes(baseline)
             rows.append({
                 "index": index, "leg": leg.name, "engine": leg.engine, "status": status,

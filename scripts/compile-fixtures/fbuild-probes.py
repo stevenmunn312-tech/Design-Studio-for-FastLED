@@ -59,14 +59,14 @@ class Probe:
     fastled: bool = False  # copy the helper's vendored FastLED into lib/
     command: str = "build"
     # The fault is that a line is missing from a failed build, not that it fails.
-    absent: str = ""
+    sized: bool = False
 
 
 PROBES = [
     Probe("overflow-no-size", "§5, #1658", "espressif32", "esp32-s3-devkitc-1",
           "#include <Arduino.h>\nstatic uint8_t big[400000];\n"
           "void setup() { big[0] = 1; }\nvoid loop() { big[millis() % 400000]++; }\n",
-          r"overflowed by \d+ bytes", absent=r"^(?:Flash|RAM):\s"),
+          r"overflowed by \d+ bytes", sized=True),
     Probe("esp8266-wifi-link", "§15, #1994", "espressif8266", "d1_mini",
           '#include <ESP8266WiFi.h>\nvoid setup() { WiFi.begin("ssid", "password"); }\nvoid loop() {}\n',
           r"undefined reference"),
@@ -145,8 +145,13 @@ def run(probe: Probe, binary: str) -> tuple[str, str]:
     hit = re.search(probe.present, log)
     if result.returncode == 0:
         return "GONE", "builds"
-    if hit and probe.absent and re.search(probe.absent, log, re.M):
-        return "GONE", "the failed build now prints a size line"
+    # Judged by the helper's own parser: a line that merely starts "RAM:" (as
+    # 2.5.51's "RAM: dram0_0_seg overflowed by ..." does) is not a size the
+    # helper can read, and calling that GONE would retire the estimate.
+    if hit and probe.sized:
+        printed = firmware._fbuild_size_bytes_report(log.splitlines(keepends=True))
+        if printed["flash"] or printed["ram"]:
+            return "GONE", "the failed build now prints a size line the helper reads"
     if hit:
         detail = hit.group(0)
         if probe.name == "overflow-no-size":

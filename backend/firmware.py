@@ -811,6 +811,15 @@ def _compile_upload_fbuild(
 
             report = _fbuild_size_report(compile_lines)
             printed = _fbuild_size_bytes_report(compile_lines)
+            if printed["flash"] is None and printed["ram"] is None:
+                # A rebuild that changes nothing prints no size line, and a
+                # new fbuild may word it differently. The size fbuild saved
+                # beside the image still feeds the capacity gate below.
+                printed = _fbuild_cached_sizes(fqbn, flash_mb, usb_cdc)
+                report = {
+                    kind: printed[kind]["percent"] if printed[kind] else None
+                    for kind in ("flash", "ram")
+                }
             corrected = _without_ram_placeholder(printed, fqbn, flash_mb, usb_cdc)
             if corrected is not printed:
                 report["ram"] = corrected["ram"]["percent"]
@@ -832,6 +841,10 @@ def _compile_upload_fbuild(
                 ]
                 if tight:
                     yield f"  [size-warning] little headroom left ({', '.join(tight)})\n"
+            else:
+                # fbuild links images that do not fit (`_over_capacity`), so a
+                # build with no size has not been through the capacity gate.
+                yield "  [size-unknown] fbuild reported no size this helper can read; the image was not checked against the board's capacity\n"
 
             _compiled_uploads[build_key] = build_identity
             yield "  [compiled] firmware ready for upload\n"

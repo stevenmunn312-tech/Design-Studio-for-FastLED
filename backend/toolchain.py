@@ -160,7 +160,10 @@ def _find_fbuild() -> str | None:
     env = os.environ.get("FBUILD_BIN")
     if env and Path(env).exists():
         return env
-    return shutil.which("fbuild")
+    # The fbuild installed with this helper's Python is the pinned one. One on
+    # PATH can be any version (another Python's, an older install), and the
+    # workarounds here are written against the pin.
+    return _find_interpreter_tool("fbuild") or shutil.which("fbuild")
 
 
 def _refresh_fbuild() -> None:
@@ -179,7 +182,13 @@ def _find_interpreter_esptool() -> str | None:
     on the machine-wide PATH. Frozen desktop builds carry the executable in
     their sibling ``tools`` directory rather than a Python scripts directory.
     """
-    executable = "esptool.exe" if os.name == "nt" else "esptool"
+    return _find_interpreter_tool("esptool")
+
+
+def _find_interpreter_tool(name: str) -> str | None:
+    """A console script installed with this helper's Python runtime, or the
+    copy a frozen desktop build carries in its sibling ``tools`` directory."""
+    executable = f"{name}.exe" if os.name == "nt" else name
     candidates = []
     if getattr(sys, "frozen", False):
         candidates.append(Path(sys.executable).resolve().parent / "tools" / executable)
@@ -1169,6 +1178,9 @@ def _ensure_fbuild_project():
         )
         if rc != 0 or not _fastled_checkout_matches_pin(_FBUILD_LIB_DIR):
             yield f"[error] failed to vendor FastLED {_FASTLED_VERSION} — the build below will fail on FastLED.h\n"
+            # Not ready: the next build tries the clone again, instead of every
+            # build failing on FastLED.h until the helper restarts.
+            return
     _fbuild_project_ready = True
 
 
