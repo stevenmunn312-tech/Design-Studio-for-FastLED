@@ -20,7 +20,7 @@ import {
 } from '../../state/peripherals/digitalSensor'
 import { IR_RECEIVER_MODULES } from '../../state/peripherals/irModules'
 import { IR_REMOTE_LEARN_HANDLE } from '../../state/peripherals/irRemote'
-import { MIC_MODULES } from '../../state/peripherals/micModules'
+import { bundledMicModules } from '../../state/peripherals/micModules'
 import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import {
   WS2812B_PITCH_MM,
@@ -446,9 +446,9 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
 /*
  * One shelf row per microphone module, matching the convention the two RTC
  * modules already follow: an input part names its module in `properties`, and
- * `inputParts` finds the entry back by that stamped id. Derived from
- * `MIC_MODULES` so the shelf, the Add Hardware menu and the generator's factory
- * table cannot disagree about which modules exist.
+ * `inputParts` finds the entry back by that stamped id. Derived from the
+ * microphone catalogue entries so the shelf, the Add Hardware menu and the
+ * generator's factory cannot disagree about which modules exist.
  *
  * Pin labels come from each module's own silkscreen — an ICS-43434 prints
  * LRCL/BCLK/DOUT where an INMP441 prints WS/SCK/SD — resolved through the
@@ -457,7 +457,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
 const MIC_PIN_KEYS = ['i2sWs', 'i2sSck', 'i2sSd'] as const
 const MIC_FALLBACK_PIN_LABELS: Record<string, string> = { i2sWs: 'WS', i2sSck: 'SCK', i2sSd: 'SD' }
 
-const MIC_INPUT_PARTS: readonly InputPartEntry[] = MIC_MODULES.map((module, index) => ({
+const MIC_INPUT_PARTS: readonly InputPartEntry[] = bundledMicModules().map((module, index) => ({
   nodeType: MIC_NODE_TYPE,
   // The first keeps the bare `mic` id the bench layout has always stored.
   partId: index === 0 ? 'mic' : `mic-${module.partId}`,

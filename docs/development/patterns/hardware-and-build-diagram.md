@@ -412,6 +412,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   A DAC alone is deliberately not warned about, since powered speakers are a
   correct build. See
   [audio part expansion](../../design/audio-hardware.md#phases).
+- **The four audio types read their parts' blocks and are open to downloads.**
+  `microphone` (`device`, `fastledFactory`, `fastledProfile`, optional
+  `captureAdapter`), `lineInput` (`device`, `channels`), `i2sAudio` (`device`,
+  `output`) and `powerAmp` (`device`, `supplyVolts`, `channels`, `inputKind`) are
+  carried by each part's overlay, not by a code list. `micModules.ts` is a thin
+  read of the catalogue (`micModuleFor`, `bundledMicModules`); the SPH0645 adapter
+  and library pins stay code, selected by `captureAdapter`. The FastLED factory
+  and profile are closed lists in `blockSpecs.ts` because they reach the sketch.
+  `Amplifier` keeps its `model` property and the `MAX98357A` alias, because
+  every earlier save holds that value. The passive 4 ohm speaker is filed under
+  `PowerAmplifier` for the shelf and is never offered as an amplifier (a type row
+  needs the `powerAmp` block).
 - **IR receiver (D-05a):** `IRRemoteInput` has a saved `debug` checkbox
   (off by default). Enabling it adds
   serial diagnostics to the normal project, slideshow, or SD-player upload;

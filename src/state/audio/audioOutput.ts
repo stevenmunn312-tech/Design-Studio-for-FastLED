@@ -91,7 +91,10 @@ export function powerAmplifierFeed(nodes: readonly StudioNode[]): PowerAmplifier
       : 'speakerAmp'
   }
   const identity = resolvePartIdentity('Amplifier', stage.data.properties as Record<string, unknown>)
-  return identity?.option.output === 'line' ? 'dac' : 'speakerAmp'
+  // Read from the part's own `i2sAudio` block. A part this version does not have
+  // has no entry, so it resolves as a speaker amplifier (a bench that cannot be
+  // wired) rather than borrowing a DAC's line out.
+  return identity?.entry?.i2sAudio?.output === 'line' ? 'dac' : 'speakerAmp'
 }
 
 /**

@@ -10,7 +10,7 @@ import { useUploadStore } from '../../../state/upload/uploadStore'
 import { NODE_LIBRARY, gpioRequirementForProperty, transportDisplayPinKeysForProps } from '../../../state/nodeLibrary'
 import { DEFAULT_BOARD_PROFILE_ID, ROOT_BOARD_NODE_ID } from '../../../build/hardware'
 import { CUSTOM_BOARD_PROFILE_ID } from '../../../build/boards/customBoard'
-import { MIC_MODULES } from '../../../state/peripherals/micModules'
+import { bundledMicModules } from '../../../state/peripherals/micModules'
 import { useNetworkCredentialsStore } from '../../../state/peripherals/networkCredentials'
 import { boardI2cDefault } from '../../../build/boards/boardI2cDefaults'
 import { boardProfileById } from '../../../build/boards/boardProfiles'
@@ -240,7 +240,7 @@ describe('HardwarePane', () => {
    * FastLED shipped a factory for more than one. A row per module, each
    * stamping its own `partId`, is the shape the two RTC modules already use.
    */
-  it.each(MIC_MODULES.map((module) => [module.label, module] as const))(
+  it.each(bundledMicModules().map((module) => [module.label, module] as const))(
     'adds the %s as a microphone naming its own module',
     (_label, module) => {
       // A module the app captures itself is written for the classic ESP32, so

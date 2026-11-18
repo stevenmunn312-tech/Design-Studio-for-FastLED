@@ -88,16 +88,17 @@ export const PART_TYPES: readonly PartTypeDefinition[] = [
   type({ nodeType: 'InfoDisplay', block: 'display', deviceField: 'controller', devices: ['SSD1306', 'SH1106G'] }),
   type({ nodeType: 'TransportDisplay', block: 'display', deviceField: 'controller', devices: ['ST7789V', 'ILI9341'] }),
   type({ nodeType: 'SegmentDisplay', block: 'display', deviceField: 'controller', devices: ['TM1637', 'MAX7219'] }),
-  // Audio. None of these five has a block yet, so none has a `devices` list. Each is
-  // written for one chip (MicInput: the I2S MEMS factories in `micModules.ts`; LineInput:
-  // the PCM1802; Amplifier: the I2S DACs and amps in `partOptions.ts`; PowerAmplifier: the
-  // class-D stage; DFPlayerOutput: the DFPlayer Mini), so a manifest naming another chip
-  // would load and be driven as the bundled one. They cannot be opened to downloads until
-  // each has a block with a chip field, which is round four's code change.
-  type({ nodeType: 'MicInput' }),
-  type({ nodeType: 'LineInput' }),
-  type({ nodeType: 'Amplifier', property: 'model' }),
-  type({ nodeType: 'PowerAmplifier' }),
+  // Audio. The chips are the ones the type's code can drive: the microphone's
+  // FastLED factories and the app's SPH0645 adapter, the PCM1802 receive path, and the
+  // I2S DACs and amplifiers (the amplifier property is `model`, kept for saves). A power
+  // amplifier takes line level whatever its chip, so its `device` only describes it; its block is
+  // optional because the passive 4 ohm speaker is filed under the type for the shelf and has
+  // no amplifier facts, and only a part carrying the block is ever offered as an amplifier.
+  // DFPlayerOutput is the DFPlayer Mini and has no block yet.
+  type({ nodeType: 'MicInput', block: 'microphone', deviceField: 'device', devices: ['INMP441', 'ICS-43434', 'GenericMEMS', 'SPH0645LM4H'], downloadable: true }),
+  type({ nodeType: 'LineInput', block: 'lineInput', deviceField: 'device', devices: ['PCM1802'], downloadable: true }),
+  type({ nodeType: 'Amplifier', property: 'model', block: 'i2sAudio', deviceField: 'device', devices: ['MAX98357A', 'PCM5102A', 'UDA1334A'], downloadable: true }),
+  type({ nodeType: 'PowerAmplifier', block: 'powerAmp', blockOptional: true, downloadable: true }),
   type({ nodeType: 'DFPlayerOutput' }),
   // Communication, storage and time. DmxTransceiver (RS-485), MidiInterface (the DIN
   // wing's opto-isolated receiver) and RtcModule (DS3231) are the same case as the audio

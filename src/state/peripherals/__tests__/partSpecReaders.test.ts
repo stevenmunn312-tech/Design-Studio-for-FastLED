@@ -22,7 +22,7 @@ import { ethernetSpec, DEFAULT_ETHERNET_PART_ID } from '../ethernetModule'
 import { environmentSensorSpec, environmentAddressOptions, BME280_PART_ID } from '../environmentSensor'
 import { distanceSensorSpec, distanceSensorTransport, distanceSensorAddressOptions, HCSR04_PART_ID, VL53L0X_PART_ID } from '../distanceSensor'
 import { lightSensorModule, lightSensorTransport, lightSensorAddressOptions, DEFAULT_LIGHT_SENSOR_PART_ID, BH1750_PART_ID } from '../lightSensor'
-import { micModuleFor, DEFAULT_MIC_MODULE, DEFAULT_MIC_PART_ID } from '../micModules'
+import { micModuleFor, DEFAULT_MIC_PART_ID } from '../micModules'
 import { irReceiverModuleFor, DEFAULT_IR_RECEIVER_PART_ID } from '../irModules'
 import { powerConverterModuleFor, DEFAULT_POWER_CONVERTER_PART_ID } from '../powerConverter'
 import { partIdOrDefault } from '../partSpec'
@@ -60,7 +60,7 @@ describe('a peripheral reader never returns another part\'s facts', () => {
   })
 
   it('looks the default microphone up by id, not by position', () => {
-    expect(DEFAULT_MIC_MODULE.partId).toBe(DEFAULT_MIC_PART_ID)
+    expect(micModuleFor(undefined)?.partId).toBe(DEFAULT_MIC_PART_ID)
     expect(partIdOrDefault('  ', 'x')).toBe('x')
     expect(partIdOrDefault('y', 'x')).toBe('y')
   })

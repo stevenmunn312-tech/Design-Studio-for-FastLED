@@ -11,7 +11,7 @@ import {
   micFirmwareBackendForBoard,
   micSupportedForBoard,
 } from '../../build/pins/micPinDefaults'
-import { type MicModule, DEFAULT_MIC_MODULE, micModuleFor } from '../../state/peripherals/micModules'
+import { type MicModule, micModuleFor } from '../../state/peripherals/micModules'
 import { sanitizePin } from '../hardwarePins'
 import { resolveAudioCapabilitySource } from '../../state/audio/audioCapabilities'
 import type { GroupRegistry } from '../../state/evaluator/types'
@@ -254,7 +254,7 @@ function audioEngineCpp(
   serialDebug = false,
   source: 'microphone' | 'line-in' = 'microphone',
   mclk = -1,
-  micModule: MicModule = DEFAULT_MIC_MODULE,
+  micModule: MicModule | null = null,
   vibe = false,
   structure = false,
   pitch = false,
@@ -266,7 +266,7 @@ function audioEngineCpp(
     : channel === 'Both'
       ? 'fl::audio::AudioChannel::Both'
       : 'fl::audio::AudioChannel::Left'
-  const sph0645 = source === 'microphone' && micModule.capture === 'sph0645-classic-esp32'
+  const sph0645 = source === 'microphone' && micModule?.capture === 'sph0645-classic-esp32'
   const captureAdapter = source === 'line-in'
     ? pcm1802CaptureAdapterCpp(channel)
     : sph0645
@@ -280,9 +280,9 @@ function audioEngineCpp(
     : sph0645
     ? ['  _audioProcessor = FastLED.add(fl::make_shared<StudioSph0645Input>());']
     : backend === 'fastled-esp32'
-    ? [`  auto config = fl::audio::Config::${micModule.factory}(MIC_WS, MIC_SD, MIC_SCK, ${audioChannel});`, '  _audioProcessor = FastLED.add(config);']
+    ? [`  auto config = fl::audio::Config::${micModule?.factory}(MIC_WS, MIC_SD, MIC_SCK, ${audioChannel});`, '  _audioProcessor = FastLED.add(config);']
     : backend === 'fastled-teensy'
-      ? [`  auto config = fl::audio::Config::CreateTeensyI2S(fl::audio::TeensyI2S::I2SPort::I2S1, ${audioChannel}, 44100, 16, fl::audio::MicProfile::${micModule.profile});`, '  _audioProcessor = FastLED.add(config);']
+      ? [`  auto config = fl::audio::Config::CreateTeensyI2S(fl::audio::TeensyI2S::I2SPort::I2S1, ${audioChannel}, 44100, 16, fl::audio::MicProfile::${micModule?.profile});`, '  _audioProcessor = FastLED.add(config);']
       : ['  _audioProcessor = FastLED.add(fl::make_shared<StudioI2sMicInput>());']
   // Only FastLED's own two capture paths take a MicProfile. The hand-written
   // wrapper below is plain I2S with nowhere to hand one, so on those boards
@@ -292,9 +292,9 @@ function audioEngineCpp(
   const features: AudioFeatures = { vibe, structure, pitch, waveform, loudness }
   const profileApplies = (backend === 'fastled-esp32' || backend === 'fastled-teensy') && !sph0645
   return [
-    `// ── FastLED ${source === 'line-in' ? 'PCM1802 line-in' : micModule.label} audio reactivity ─────────────────────────────────`,
+    `// ── FastLED ${source === 'line-in' ? 'PCM1802 line-in' : micModule?.label} audio reactivity ─────────────────────────────────`,
     ...(source === 'microphone' && !profileApplies
-      ? [`// This capture backend applies no mic response profile, so the ${micModule.label}`,
+      ? [`// This capture backend applies no mic response profile, so the ${micModule?.label}`,
          '// is read with the same plain I2S path as any other I2S MEMS module.']
       : []),
     `#define MIC_WS    ${ws}`,
@@ -866,10 +866,10 @@ export function audioEngineForGraph(
   // Which module: the exact part the node names, resolved the same way the
   // hardware views resolve it, so the factory the sketch calls and the picture
   // the Build Diagram draws come from one answer.
-  // A line input has no microphone module; the engine's microphone-only
-  // branches are all guarded by `lineInput`, so the default stands in unread.
-  const micModule = lineInput ? DEFAULT_MIC_MODULE : micModuleFor(p.partId)
-  if (!micModule) return null
+  // A line input has no microphone module: the engine's microphone-only
+  // branches are all guarded by `lineInput`, so none is passed.
+  const micModule = lineInput ? null : micModuleFor(p.partId)
+  if (!lineInput && !micModule) return null
   const savedChannel = String(p.channel ?? (lineInput ? 'Both' : 'Left'))
   const channel: 'Left' | 'Right' | 'Both' = savedChannel === 'Right'
     ? 'Right'
@@ -878,8 +878,8 @@ export function audioEngineForGraph(
       : 'Left'
   return {
     include: [
-      `// ${lineInput ? 'PCM1802 line-in' : micModule.label} capture feeds the same FastLED Processor contract as preview.`,
-      ...(lineInput || micModule.capture === 'sph0645-classic-esp32' ? [
+      `// ${lineInput ? 'PCM1802 line-in' : micModule?.label} capture feeds the same FastLED Processor contract as preview.`,
+      ...(lineInput || micModule?.capture === 'sph0645-classic-esp32' ? [
         '#include <esp_idf_version.h>',
         '#if ESP_IDF_VERSION_MAJOR >= 5',
         '#include <driver/i2s_std.h>',
@@ -887,7 +887,7 @@ export function audioEngineForGraph(
         '#include <driver/i2s.h>',
         '#endif',
       ] : []),
-      ...(micModule.capture === 'sph0645-classic-esp32' && !lineInput ? [
+      ...(micModule?.capture === 'sph0645-classic-esp32' && !lineInput ? [
         '#include <soc/soc.h>',
         '#include <soc/i2s_reg.h>',
       ] : []),
