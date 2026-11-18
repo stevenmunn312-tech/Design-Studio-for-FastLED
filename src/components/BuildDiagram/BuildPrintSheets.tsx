@@ -7,6 +7,7 @@ import PhysicalAssemblyDiagram from './PhysicalAssemblyDiagram'
 import { SIGNAL_ROLE_COLORS, type PhysicalDiagramConnection } from './signalPresentation'
 import { batteryBand, powerZoneBands } from './physicalDiagramLayout'
 import type { BuildSectionLayers } from './diagramSections'
+import { BUILD_SAFETY_MESSAGE, BUILD_SAFETY_PRINT_LINE, BUILD_SAFETY_TITLE } from './buildSafety'
 import styles from './BuildDiagramWorkspace.module.css'
 
 /**
@@ -92,7 +93,11 @@ function PrintPage({
         {subtitle && <span>{subtitle}</span>}
       </header>
       <div className={styles.printPageBody}>{children}</div>
-      <footer className={styles.printPageFooter}>{footer}</footer>
+      {/* Pages get separated, so each carries the warning, not just the cover. */}
+      <footer className={styles.printPageFooter}>
+        <span className={styles.printSafetyLine}>{BUILD_SAFETY_PRINT_LINE}</span>
+        <span>{footer}</span>
+      </footer>
     </section>
   )
 }
@@ -173,6 +178,10 @@ export default function BuildPrintSheets({
             </p>
           </div>
         </div>
+        <section className={styles.printSafety} aria-label="Safety">
+          <h2 className={styles.printHeading}>{BUILD_SAFETY_TITLE}</h2>
+          {BUILD_SAFETY_MESSAGE.split('\n\n').map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+        </section>
       </PrintPage>
 
       <PrintPage

@@ -1469,10 +1469,34 @@
 }
 
 .printPageFooter {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-0) * 0.25);
   padding-top: calc(var(--space-0) * 0.75);
   border-top: 1px solid var(--paint-d5d9d8);
   font-size: 7.5pt;
   color: var(--paint-4a5051);
+}
+
+.printSafetyLine {
+  font-weight: 600;
+  color: var(--paint-2b3031);
+}
+
+/* The full notice on the cover sheet: boxed so it reads as a warning in
+   black-and-white print, where colour alone would not. */
+.printSafety {
+  padding: calc(var(--space-0) * 1.5) calc(var(--space-0) * 3);
+  border: 1.5px solid var(--paint-2b3031);
+  font-size: 8.5pt;
+}
+
+.printSafety .printHeading {
+  margin-top: 0;
+}
+
+.printSafety p {
+  margin: calc(var(--space-0) * 1) 0 0;
 }
 
 /* Letterboxes the sheet inside whatever the page leaves, so a drawing is never

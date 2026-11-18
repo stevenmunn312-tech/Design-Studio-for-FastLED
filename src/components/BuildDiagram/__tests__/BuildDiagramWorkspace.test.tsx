@@ -1912,6 +1912,12 @@ describe('BuildDiagramWorkspace', () => {
       'Connection schedule',
       'Parts list',
     ])
+    // Printed pages get separated, so every one carries the safety line and
+    // the cover carries the full notice.
+    const footers = Array.from(printDocument?.querySelectorAll('footer') ?? [])
+    expect(footers).toHaveLength(pageTitles.length)
+    for (const footer of footers) expect(footer.textContent).toContain('Mains wiring can kill')
+    expect(printDocument?.querySelector('section[aria-label="Safety"]')?.textContent).toContain('qualified person')
 
     // Each power page crops to exactly the band its own zone is drawn in, and
     // the bands tile: a printed zone is whole and no band prints twice.
