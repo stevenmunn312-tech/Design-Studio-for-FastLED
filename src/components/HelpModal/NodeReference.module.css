@@ -358,3 +358,12 @@
   .exampleExplanation b { display: block; margin-bottom: calc(var(--space-0) * 1.75); }
   .articleMeta { white-space: normal; }
 }
+
+.partList { display: grid; gap: calc(var(--space-0) * 3); margin: 0; padding: 0; list-style: none; }
+.partItem { padding: calc(var(--space-0) * 3.5) calc(var(--space-0) * 4); border: 1px solid var(--line); border-radius: 8px; }
+.partName { display: flex; flex-wrap: wrap; align-items: baseline; gap: calc(var(--space-0) * 2); margin-bottom: calc(var(--space-0) * 1.5); }
+.partName b { color: var(--text-primary); font-size: 13px; }
+.partName span { color: var(--text-muted); font-size: 11px; }
+.partItem p { margin: 0 0 calc(var(--space-0) * 1.5); color: var(--text-secondary); font-size: 12px; line-height: 1.65; }
+.partItem p:last-child { margin-bottom: 0; }
+.partItem .partFacts { color: var(--text-muted); font-size: 11px; }

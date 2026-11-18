@@ -14,40 +14,17 @@ import {
 import {
   BATTERY_MODULE_CHARGE_ONLY, batteryFunctions, batteryModuleCanChargeOnly, batteryModuleSpec, batteryModuleSpecFor,
 } from '../../state/peripherals/battery'
+import { isShelfCategory, shelfPlacement } from './shelfGrouping'
 import type { StudioNode } from '../../state/graphStore'
 import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 
 const AUDIO_INPUT_TYPES = new Set(['MicInput', 'LineInput'])
 
-// Ordered browsing groups. Keep the small, single-purpose shelves flat.
-const SHELF_SUBCATEGORIES: Record<string, readonly { label: string; nodeTypes: readonly string[] }[]> = {
-  inputs: [
-    { label: 'Buttons & touch', nodeTypes: ['ButtonBank', 'TouchButtonInput', 'TouchPadInput', 'KeypadInput'] },
-    { label: 'Knobs & joysticks', nodeTypes: ['PotInput', 'EncoderInput', 'JoystickInput'] },
-    { label: 'Switches & contacts', nodeTypes: ['DigitalSensorInput'] },
-    { label: 'Analog sensors', nodeTypes: ['AnalogSensorInput'] },
-    { label: 'Remote receivers', nodeTypes: ['IRRemoteInput'] },
-    { label: 'DMX & MIDI', nodeTypes: ['DmxTransceiver', 'MidiInterface'] },
-    { label: 'Motion & distance', nodeTypes: ['MotionInput', 'PresenceInput', 'DistanceInput', 'MotionVectorInput'] },
-    { label: 'Light & environment', nodeTypes: ['LightInput', 'EnvironmentInput', 'TemperatureInput'] },
-    { label: 'Power monitoring', nodeTypes: ['PowerMonitorInput'] },
-    { label: 'Clocks', nodeTypes: ['RtcModule'] },
-  ],
-  audio: [
-    { label: 'Audio Inputs', nodeTypes: [...AUDIO_INPUT_TYPES] },
-    { label: 'Audio Outputs', nodeTypes: ['Amplifier', 'PowerAmplifier', 'DFPlayerOutput', 'BuzzerOutput'] },
-  ],
-  displays: [
-    { label: 'Segment displays', nodeTypes: ['SegmentDisplay'] },
-    { label: 'OLED displays', nodeTypes: ['InfoDisplay'] },
-    { label: 'TFT & touch displays', nodeTypes: ['TransportDisplay'] },
-  ],
-  power: [
-    { label: 'Supplies', nodeTypes: ['PowerSupply'] },
-    { label: 'Batteries', nodeTypes: ['BatteryPack', 'BatteryModule'] },
-    { label: 'Power Conversion', nodeTypes: ['PowerConverter', 'PdTriggerSource'] },
-    { label: 'Switching Power', nodeTypes: ['RelayOutput', 'PowerSwitchOutput', 'PwmDriverOutput', 'DarlingtonDriverOutput'] },
-  ],
+/** The catalogue part an input entry adds; undefined for the controls that are not catalogue parts. */
+function inputPartCatalogueId(entry: InputPartEntry): string | undefined {
+  const key = partOptionProperty(entry.nodeType)
+  const id = key ? entry.properties?.[key] : undefined
+  return typeof id === 'string' ? id : undefined
 }
 
 export interface HardwareShelfInputs {
@@ -113,6 +90,7 @@ export function hardwareShelfCategories({
         hint: option.summary ?? fixture.hint,
         renderSrc: partRenderSrc(option.id),
         visual: option.id,
+        partId: option.id,
         disabled: blocked || pinBlocked !== null || boardBlocked !== null || Boolean(functionBlocked),
         disabledReason: blocked
           ? `One ${fixture.label.toLowerCase()} per board`
@@ -173,6 +151,7 @@ export function hardwareShelfCategories({
       hint: entry.hint,
       renderSrc: partRenderForNodeType(entry.nodeType, entry.properties ?? {})?.src,
       visual: entry.partId,
+      partId: inputPartCatalogueId(entry),
       disabled: blocker !== null,
       disabledReason: blocker,
       onSelect: () => addInputPart(entry),
@@ -292,20 +271,18 @@ export function hardwareShelfCategories({
     },
   ].filter((category) => category.items.length > 0)
 
+  // Browsing groups come from each part's own categories and the category
+  // tree (shelfGrouping.ts), not from a table of node types. The LED outputs
+  // are forms rather than catalogued parts and stay flat.
   return shelfCategories.map((category) => {
-    const groups = SHELF_SUBCATEGORIES[category.id]
-    if (!groups) return category
-    const groupedTypes = new Set(groups.flatMap((group) => group.nodeTypes))
+    if (category.id === 'led-outputs' || !isShelfCategory(category.id)) return category
+    const placed = category.items.map((item, position) => ({
+      item, position, placement: shelfPlacement(category.id, item.partId, item.nodeType),
+    }))
+    placed.sort((a, b) => a.placement.order - b.placement.order || a.position - b.position)
     return {
       ...category,
-      items: [
-        ...groups.flatMap((group) => group.nodeTypes.flatMap((nodeType) => category.items
-          .filter((item) => item.nodeType === nodeType)
-          .map((item) => ({ ...item, subcategory: group.label })))),
-        // New catalogue types stay reachable before a browsing group is assigned.
-        ...category.items.filter((item) => !groupedTypes.has(item.nodeType))
-          .map((item) => ({ ...item, subcategory: 'Other parts' })),
-      ],
+      items: placed.map(({ item, placement }) => (placement.group ? { ...item, subcategory: placement.group } : item)),
     }
   })
 }

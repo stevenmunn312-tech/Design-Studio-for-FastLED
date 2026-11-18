@@ -66,6 +66,7 @@ import {
 } from './hardwareLayout'
 import styles from './HardwarePane.module.css'
 import { InputLink, OutputLink } from './HardwareLinks'
+import { usePartCatalogueVersion } from '../../build/parts/usePartCatalogueVersion'
 import {
   LED_OUTPUT_NODE_TYPE,
   numericPinSummary,
@@ -88,6 +89,8 @@ const SPEAKER_FOOTPRINT = partDimensionsMm(SPEAKER_PART_ID, { width: 40, height:
 const SPEAKER_RENDER = partRenderSrc(SPEAKER_PART_ID)
 
 export default function HardwarePane() {
+  // The shelf is rebuilt from the catalogue each render, so a part arriving must render again.
+  usePartCatalogueVersion()
   const addNode = useGraphStore((state) => state.addNode)
   const connectRoot = useGraphStore((state) => state.connectRoot)
   const removeNodeCompletely = useGraphStore((state) => state.removeNodeCompletely)

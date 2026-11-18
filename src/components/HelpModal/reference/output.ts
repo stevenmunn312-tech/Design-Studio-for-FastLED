@@ -98,7 +98,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
   RelayOutput: {
     overview: [
       'Relay Module switches mains or other separate loads — a lamp, a pump, a motor — through one to eight relays, each driven by a true/false signal.',
-      'Common relay boards are active-low; the sketch handles that and holds every relay off from power-up until its pin is set up, so nothing clicks on during boot. Choose the exact 1, 2, 4 or 8-channel board on the bench.',
+      'Common relay boards are active-low; the sketch handles that and holds every relay off from power-up until its pin is set up, so nothing clicks on during boot. Choose the exact board on the bench.',
       'Mains wiring is dangerous. Use an enclosed, rated relay module and keep mains away from the low-voltage side.',
     ],
     steps: [
@@ -127,7 +127,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
   PowerSwitchOutput: {
     overview: [
       'Power Switch turns DC loads on and off, or dims them, through MOSFET channels: 12 V lamps, plain LED tape, fans, valves. On switches a channel and Level dims it with PWM.',
-      'Choose the board on the bench. The single LR7843 module is opto-isolated and switches 6–28 V; the MonkMakes Mosfetti has four smaller channels with flyback diodes; the YYNMOS-4 has four opto-isolated 5 A channels but needs a 7–28 V supply. Motors and coils need a flyback diode where the board has none.',
+      'Choose the board on the bench: its channel count, load supply range and current rating come with it, and are listed under Parts for this node. Motors and coils need a flyback diode where the board has none.',
       'On a four-channel board, set Load to RGB strip to drive an ordinary non-addressable RGB strip from one colour. Channels 1 to 3 (A to C on the Mosfetti) become its red, green and blue, and the node trades their ports for On, Color and Brightness; channel 4 stays a load of its own, such as a white strip. The strip runs at the board’s own PWM rate, and its colour is the same bytes the LED output shows, so one colour wired to both matches. Use a strip with a shared + lead (common anode), which is nearly all of them.',
       'The sketch holds every channel off until setup has configured its pin, so nothing pulses on at boot.',
     ],
@@ -305,7 +305,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'OLED Display is a small 128×64 monochrome screen that reports on one source. Wire a Display output in and the source picks the screen: Clock gives a clock, Music Player a now-playing screen, Pattern Slideshow a pattern browser, Power Monitor a meter, and an LED output its status.',
       'There is no layout to choose. With nothing wired it says it is unwired rather than sitting blank.',
-      'Choose the exact SH1106 or SSD1306 module in Hardware. The SH1106 comes in SPI and I2C versions; the SSD1306 uses I2C.',
+      'Choose the exact module in Hardware; its controller and bus (SPI or I2C) come with it.',
     ],
     steps: [
       'Add the OLED from Displays on the Hardware shelf and choose its exact module. Set its pins, and its address for I2C.',
@@ -336,7 +336,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       'TFT Display is a colour screen. Wire one Display output in and the source decides the content — a clock, a now-playing screen, show status, LED status or a power meter — while the Layout setting picks how it is drawn.',
       'For your own screen, choose Create screen design on the panel and draw it with widgets. The design belongs to this panel; it keeps its Display wire for widgets to read, and its controls appear as outputs on the companion Touch Screen node.',
       'Show Status names the pattern a Pattern Slideshow is running and its place in the show, and, like Now Playing, pictures what the LEDs are showing, live and for a collection of any size.',
-      'Choose the module on the Hardware shelf: the 1.54-inch 240×240 ST7789 without touch; the 2.4-inch 240×320 ST7789V or the 2.8-inch 320×240 ILI9341, each with an XPT2046 touch digitiser; or the XC4630 2.8-inch ILI9341 shield, on an 8-bit parallel bus with a resistive touch sheet. Diagnostics shows a self-test and the touch coordinates.',
+      'Choose the module on the Hardware shelf: its resolution and whether it has touch come with it, and are listed under Parts for this node. Diagnostics shows a self-test and the touch coordinates.',
     ],
     steps: [
       'Add TFT Display from Displays on the Hardware shelf. Choose its exact module and wire it, including the touch header if it has one.',
