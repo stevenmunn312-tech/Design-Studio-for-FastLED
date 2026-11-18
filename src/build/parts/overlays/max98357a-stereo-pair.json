@@ -34,5 +34,79 @@
   "copy": {
     "summary": "Two I2S amps, one per channel",
     "wiringNote": "Both boards share BCLK, LRC and DIN. Each plays the channel its SD pin selects (see the SD_MODE table in the MAX98357A datasheet); an unmodified breakout plays the left-plus-right mix, so set one board to left and the other to right."
-  }
+  },
+  "pads": [
+    {
+      "label": "L:LRC",
+      "xPx": 24.2,
+      "yPx": 299.7
+    },
+    {
+      "label": "L:BCLK",
+      "xPx": 54.8,
+      "yPx": 299.7
+    },
+    {
+      "label": "L:DIN",
+      "xPx": 85.3,
+      "yPx": 299.7
+    },
+    {
+      "label": "L:GAIN",
+      "xPx": 115.9,
+      "yPx": 299.7
+    },
+    {
+      "label": "L:SD",
+      "xPx": 146.4,
+      "yPx": 299.7
+    },
+    {
+      "label": "L:GND",
+      "xPx": 177,
+      "yPx": 299.7
+    },
+    {
+      "label": "L:VIN",
+      "xPx": 207.5,
+      "yPx": 299.7
+    },
+    {
+      "label": "R:LRC",
+      "xPx": 274.1,
+      "yPx": 299.7
+    },
+    {
+      "label": "R:BCLK",
+      "xPx": 304.7,
+      "yPx": 299.7
+    },
+    {
+      "label": "R:DIN",
+      "xPx": 335.2,
+      "yPx": 299.7
+    },
+    {
+      "label": "R:GAIN",
+      "xPx": 365.8,
+      "yPx": 299.7
+    },
+    {
+      "label": "R:SD",
+      "xPx": 396.3,
+      "yPx": 299.7
+    },
+    {
+      "label": "R:GND",
+      "xPx": 426.9,
+      "yPx": 299.7
+    },
+    {
+      "label": "R:VIN",
+      "xPx": 457.4,
+      "yPx": 299.7
+    }
+  ],
+  "padHoleRadiusPx": 5.1,
+  "supplyRail": "v5"
 }

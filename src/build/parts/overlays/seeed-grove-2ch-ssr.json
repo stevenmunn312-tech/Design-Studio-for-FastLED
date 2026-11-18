@@ -38,5 +38,29 @@
   "copy": {
     "summary": "Two AC phototriacs, 0.1-2 A, leak 1.5 mA off",
     "wiringNote": "Wire CTR1 and CTR2 to GPIOs and VCC to 5 V. The screw terminals switch the AC load and are not logic pins."
-  }
+  },
+  "pads": [
+    {
+      "label": "GND",
+      "xPx": 261.5,
+      "yPx": 578
+    },
+    {
+      "label": "VCC",
+      "xPx": 285.5,
+      "yPx": 578
+    },
+    {
+      "label": "CTR2",
+      "xPx": 309.5,
+      "yPx": 578
+    },
+    {
+      "label": "CTR1",
+      "xPx": 333.5,
+      "yPx": 578
+    }
+  ],
+  "padHoleRadiusPx": 6,
+  "supplyRail": "v5"
 }

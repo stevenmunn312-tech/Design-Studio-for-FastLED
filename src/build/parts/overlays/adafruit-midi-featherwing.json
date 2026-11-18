@@ -41,5 +41,149 @@
   "copy": {
     "summary": "Opto-isolated DIN-5 MIDI in, on 3.3 V",
     "wiringNote": "Power from 3.3 V. Only 3.3V, GND and MIDI_RX are wired; the optocoupler output needs no divider. Plug the keyboard into the left socket, MIDI IN."
-  }
+  },
+  "pads": [
+    {
+      "label": "RESET",
+      "xPx": 79.8,
+      "yPx": 263
+    },
+    {
+      "label": "3.3V",
+      "xPx": 110.1,
+      "yPx": 263
+    },
+    {
+      "label": "AREF",
+      "xPx": 140.8,
+      "yPx": 263
+    },
+    {
+      "label": "GND",
+      "xPx": 171.1,
+      "yPx": 263
+    },
+    {
+      "label": "A",
+      "xPx": 201.8,
+      "yPx": 263
+    },
+    {
+      "label": "B",
+      "xPx": 232.2,
+      "yPx": 263
+    },
+    {
+      "label": "C",
+      "xPx": 262.8,
+      "yPx": 263
+    },
+    {
+      "label": "D",
+      "xPx": 293.2,
+      "yPx": 263
+    },
+    {
+      "label": "E",
+      "xPx": 323.8,
+      "yPx": 263
+    },
+    {
+      "label": "F",
+      "xPx": 354.2,
+      "yPx": 263
+    },
+    {
+      "label": "SCK",
+      "xPx": 384.8,
+      "yPx": 263
+    },
+    {
+      "label": "MOSI",
+      "xPx": 415.2,
+      "yPx": 263
+    },
+    {
+      "label": "MISO",
+      "xPx": 445.8,
+      "yPx": 263
+    },
+    {
+      "label": "MIDI_RX",
+      "xPx": 476.2,
+      "yPx": 263
+    },
+    {
+      "label": "MIDI_TX",
+      "xPx": 506.8,
+      "yPx": 263
+    },
+    {
+      "label": "G",
+      "xPx": 537.2,
+      "yPx": 263
+    },
+    {
+      "label": "VBAT",
+      "xPx": 201.8,
+      "yPx": 19
+    },
+    {
+      "label": "EN",
+      "xPx": 232.2,
+      "yPx": 19
+    },
+    {
+      "label": "USB",
+      "xPx": 262.8,
+      "yPx": 19
+    },
+    {
+      "label": "N",
+      "xPx": 293.2,
+      "yPx": 19
+    },
+    {
+      "label": "M",
+      "xPx": 323.8,
+      "yPx": 19
+    },
+    {
+      "label": "L",
+      "xPx": 354.2,
+      "yPx": 19
+    },
+    {
+      "label": "K",
+      "xPx": 384.8,
+      "yPx": 19
+    },
+    {
+      "label": "J",
+      "xPx": 415.2,
+      "yPx": 19
+    },
+    {
+      "label": "I",
+      "xPx": 445.8,
+      "yPx": 19
+    },
+    {
+      "label": "H",
+      "xPx": 476.2,
+      "yPx": 19
+    },
+    {
+      "label": "SCL",
+      "xPx": 506.8,
+      "yPx": 19
+    },
+    {
+      "label": "SDA",
+      "xPx": 537.2,
+      "yPx": 19
+    }
+  ],
+  "padHoleRadiusPx": 5.4,
+  "supplyRail": "v3v3"
 }

@@ -31,5 +31,34 @@
   "copy": {
     "summary": "A thumb stick with two analog axes and a push switch",
     "wiringNote": "Power it from 3.3 V so the axis voltages stay inside the ADC range. VRx and VRy go to ADC pins, SW to a pin with a pull-up."
-  }
+  },
+  "pads": [
+    {
+      "label": "GND",
+      "xPx": 125.8,
+      "yPx": 471.8
+    },
+    {
+      "label": "+5V",
+      "xPx": 162.9,
+      "yPx": 471.8
+    },
+    {
+      "label": "VRx",
+      "xPx": 200,
+      "yPx": 471.8
+    },
+    {
+      "label": "VRy",
+      "xPx": 237.1,
+      "yPx": 471.8
+    },
+    {
+      "label": "SW",
+      "xPx": 274.2,
+      "yPx": 471.8
+    }
+  ],
+  "padHoleRadiusPx": 7.3,
+  "supplyRail": "v3v3"
 }

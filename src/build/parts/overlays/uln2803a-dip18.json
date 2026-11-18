@@ -26,5 +26,99 @@
   "copy": {
     "summary": "Eight low-side switches, 50 V and 500 mA each",
     "wiringNote": "Active-high: a high input pulls its output to ground, so the load goes from its own supply to the output and the array only sinks. Join the load supply ground to the controller ground. Tie COM to the load supply for coils and motors. Do not run all eight at full current: the package limits the total heat."
-  }
+  },
+  "pads": [
+    {
+      "label": "1B",
+      "xPx": 25,
+      "yPx": 64
+    },
+    {
+      "label": "2B",
+      "xPx": 25,
+      "yPx": 172
+    },
+    {
+      "label": "3B",
+      "xPx": 25,
+      "yPx": 280.5
+    },
+    {
+      "label": "4B",
+      "xPx": 25,
+      "yPx": 389
+    },
+    {
+      "label": "5B",
+      "xPx": 25,
+      "yPx": 497.5
+    },
+    {
+      "label": "6B",
+      "xPx": 25,
+      "yPx": 606
+    },
+    {
+      "label": "7B",
+      "xPx": 25,
+      "yPx": 714.5
+    },
+    {
+      "label": "8B",
+      "xPx": 25,
+      "yPx": 823
+    },
+    {
+      "label": "GND",
+      "xPx": 25,
+      "yPx": 931
+    },
+    {
+      "label": "COM",
+      "xPx": 375,
+      "yPx": 931
+    },
+    {
+      "label": "8C",
+      "xPx": 375,
+      "yPx": 823
+    },
+    {
+      "label": "7C",
+      "xPx": 375,
+      "yPx": 714.5
+    },
+    {
+      "label": "6C",
+      "xPx": 375,
+      "yPx": 606
+    },
+    {
+      "label": "5C",
+      "xPx": 375,
+      "yPx": 497.5
+    },
+    {
+      "label": "4C",
+      "xPx": 375,
+      "yPx": 389
+    },
+    {
+      "label": "3C",
+      "xPx": 375,
+      "yPx": 280.5
+    },
+    {
+      "label": "2C",
+      "xPx": 375,
+      "yPx": 172
+    },
+    {
+      "label": "1C",
+      "xPx": 375,
+      "yPx": 64
+    }
+  ],
+  "padHoleRadiusPx": 10,
+  "supplyRail": "none"
 }

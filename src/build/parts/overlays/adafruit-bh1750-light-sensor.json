@@ -36,5 +36,39 @@
   "copy": {
     "summary": "Calibrated ambient light in lux over I2C",
     "wiringNote": "Power from the controller logic rail. The breakout level-shifts SDA/SCL and answers on 0x23, or 0x5C with ADDR tied high."
-  }
+  },
+  "pads": [
+    {
+      "label": "VIN",
+      "xPx": 104.5,
+      "yPx": 237.5
+    },
+    {
+      "label": "3Vo",
+      "xPx": 142.5,
+      "yPx": 237.5
+    },
+    {
+      "label": "GND",
+      "xPx": 180.5,
+      "yPx": 237.5
+    },
+    {
+      "label": "SCL",
+      "xPx": 218.5,
+      "yPx": 237.5
+    },
+    {
+      "label": "SDA",
+      "xPx": 256.5,
+      "yPx": 237.5
+    },
+    {
+      "label": "ADDR",
+      "xPx": 294.5,
+      "yPx": 237.5
+    }
+  ],
+  "padHoleRadiusPx": 7,
+  "supplyRail": "v3v3"
 }

@@ -38,5 +38,29 @@
   "copy": {
     "summary": "128x64 white OLED over I2C",
     "wiringNote": "The generic four-pin module, silkscreened GND, VCC, SCL, SDA — the commonest 0.96-inch OLED, and the one to pick unless the board in hand is the Adafruit breakout. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices."
-  }
+  },
+  "pads": [
+    {
+      "label": "GND",
+      "xPx": 145.7,
+      "yPx": 370.8
+    },
+    {
+      "label": "VCC",
+      "xPx": 181.5,
+      "yPx": 370.8
+    },
+    {
+      "label": "SCL",
+      "xPx": 217.5,
+      "yPx": 370.8
+    },
+    {
+      "label": "SDA",
+      "xPx": 253.1,
+      "yPx": 370.8
+    }
+  ],
+  "padHoleRadiusPx": 6.6,
+  "supplyRail": "v3v3"
 }

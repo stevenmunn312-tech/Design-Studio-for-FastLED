@@ -308,8 +308,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   are not identifiers. Analog wires resolve the catalogued output/input pads,
   preferring AGND/AUX-GND over a module's digital or supply ground. Reserve
   their routing lanes in the source row before placing the amplifier.
-- Every catalogued render drawn as a peripheral needs a `MODULE_PAD_GEOMETRY`
-  entry measured from that render's own holes; `padGeometry.test.ts` refuses
+- Every catalogued render drawn as a peripheral needs manifest `pads`
+  (render pixels, in `pinLabelsLeftToRight` order, written in its overlay) measured from that render's own holes; `padGeometry.test.ts` refuses
   one without. The fallback describes only the bundled button, potentiometer
   and encoder artwork (`BUNDLED_RENDER_PX`), so a part without a table drew
   its wires wherever that artwork's header fell. Re-measure when a render is
@@ -995,7 +995,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `PhysicalAssemblyDiagram.tsx` is gone, because all three catalogued mics
   (INMP441, ICS-43434, generic I2S MEMS) are six-pad rows along the bottom edge
   like every other module — the bespoke slot only ever bought a pad *column* for
-  free routing, and reading pads from `MODULE_PAD_GEOMETRY`'s measured geometry
+  free routing, and reading pads from the manifest's measured `pads`
   makes that unnecessary. A microphone's channel-select pad (`L/R`/`LR`/`SEL`,
   tied to ground to pick the left channel, which is the app's default) carries
   no GPIO, so it isn't one of the item's connections: `micChannelSelectPadIndex`
@@ -1014,9 +1014,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   y~520 while a control wire keeps descending through the module lanes and
   through the USB block's x=291 boundary — interleaved, a right-rail control pin
   sitting above every output pin could take slot 0 and cut straight through it.
+- The Build Diagram draws a part from its manifest alone: pad points
+  (`pads`), hole radius (`padHoleRadiusPx`) and supply (`supplyRail`, plus
+  `powerPadLabel` when the usual supply names pick the wrong pad) are written in
+  the part's overlay, never in `physicalDiagramLayout.ts`. `supplyRail: 'none'`
+  means no supply pad is drawn. With no `supplyRail`, a declared
+  `facts.supplyVoltage` (4.5 V and up is 5 V) and then the printed pad label
+  decide, so a part must not rely on a per-kind or per-id rule in code.
+  `legacyPadEquivalence.test.ts` holds every bundled part to the numbers the
+  retired tables produced; do not regenerate its fixture from current code.
 - A pad on the Build Diagram is coloured at its drilled hole, not at a fixed
   dot: `peripheralPadRadius` (`physicalDiagramLayout.ts`) looks up
-  `MODULE_PAD_HOLE_RADIUS[partId]` — each part's hole radius measured in its own
+  the manifest's `padHoleRadiusPx` — each part's hole radius measured in its own
   render's pixels, from the hole's transparency — and scales it by the same
   `fittedRenderBox` factor `peripheralPadPoint` already uses to place the pad,
   so the colour fills the hole without painting over the plated ring around it;
@@ -1026,12 +1035,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   render instead of two. The old hand-guessed
   `PAD_X_RATIOS_SD_5V`/`PAD_X_RATIOS_SD_3V3` spreads (assuming every SD card was
   a 400x690 picture) are gone; both microSD boards now have real
-  `MODULE_PAD_GEOMETRY` rows measured from their drilled holes, and the UDA1334A
+  `pads` measured from their drilled holes, and the UDA1334A
   and `st7789v-xpt2046-touch-240x320` rows were re-measured after their renders
   changed shape (504x324 and 651x1169 respectively) — the old tables assumed the
   prior render's dimensions and put every pad tens of pixels off.
   `src/components/BuildDiagram/__tests__/padGeometry.test.ts` is the invariant:
-  every part in `MODULE_PAD_GEOMETRY` must also have a `MODULE_PAD_HOLE_RADIUS`
+  every part with `pads` must also have a `padHoleRadiusPx`
   entry (`peripheralPadRadius` must not fall back to the default), or a small
   board's rings get painted over.
 - A Build Diagram wire's hover tooltip names the pad printed on the *part*, not
@@ -1055,7 +1064,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   (`sn74ahct125n-dip14.webp`'s own measured leg positions) now drives a derived
   `LEVEL_SHIFTER_RENDER_SCALE`/`_WIDTH`/`_HEIGHT`/`_X`/`_Y`, keeping the fixed
   `LEVEL_SHIFTER_PIN_PITCH` terminal rows authoritative, the same discipline
-  `MODULE_PAD_GEOMETRY` already applies to module pads.
+  manifest `pads` already apply to module pads.
 - Put each LED data resistor after the 74AHCT125 output and next to the LED
   DIN terminal. The short resistor-to-DIN lead represents required physical
   placement; putting the resistor beside the controller or shifter can leave

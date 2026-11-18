@@ -32,5 +32,24 @@
   "copy": {
     "summary": "IR remote receiver, 3-pin board with LED",
     "wiringNote": "Some clones swap the outer two pins. Check the silkscreen on your board before wiring it — a swap puts the supply rail on a GPIO."
-  }
+  },
+  "pads": [
+    {
+      "label": "-",
+      "xPx": 155.6,
+      "yPx": 267.5
+    },
+    {
+      "label": "+",
+      "xPx": 199.5,
+      "yPx": 267.5
+    },
+    {
+      "label": "S",
+      "xPx": 243.4,
+      "yPx": 267.5
+    }
+  ],
+  "padHoleRadiusPx": 4,
+  "supplyRail": "v3v3"
 }

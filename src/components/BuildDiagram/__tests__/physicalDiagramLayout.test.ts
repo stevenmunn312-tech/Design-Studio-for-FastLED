@@ -32,7 +32,7 @@ import {
   partTitleWidth,
   peripheralTitleBoxes,
   peripheralTitleBudget,
-  MODULE_PAD_GEOMETRY,
+  modulePadGeometry,
   peripheralPadPoint,
   physicalAssemblyDiagramHeight,
   POWER_BRANCH_ROW_SPACING,
@@ -100,7 +100,7 @@ describe('audio module pads', () => {
     (partId) => {
       const pads = partById(partId)?.pinLabelsLeftToRight ?? []
       expect(pads.length, partId).toBeGreaterThan(0)
-      expect(MODULE_PAD_GEOMETRY[partId]?.length, partId).toBe(pads.length)
+      expect(modulePadGeometry(partId)?.length, partId).toBe(pads.length)
     },
   )
 
@@ -364,7 +364,7 @@ describe('power switch pads', () => {
   })
 
   it('lands wires on the measured holes along the bottom edge', () => {
-    const [gnd, pwm] = MODULE_PAD_GEOMETRY['lr7843-mosfet-module']
+    const [gnd, pwm] = modulePadGeometry('lr7843-mosfet-module')!
     expect(gnd[1]).toBeCloseTo(pwm[1])
     expect(gnd[0]).toBeLessThan(pwm[0])
     expect(gnd[1]).toBeGreaterThan(0.85)

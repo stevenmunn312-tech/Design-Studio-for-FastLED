@@ -40,5 +40,29 @@
   "copy": {
     "summary": "Ultrasonic ranging, 2 cm to 4 m, on two GPIOs",
     "wiringNote": "Power VCC from 5 V. Echo swings to 5 V, so a 3.3 V controller needs the 1 kΩ / 2 kΩ divider on Echo; Trig can be driven at 3.3 V."
-  }
+  },
+  "pads": [
+    {
+      "label": "VCC",
+      "xPx": 234.3,
+      "yPx": 226
+    },
+    {
+      "label": "Trig",
+      "xPx": 264.8,
+      "yPx": 226
+    },
+    {
+      "label": "Echo",
+      "xPx": 295.2,
+      "yPx": 226
+    },
+    {
+      "label": "GND",
+      "xPx": 325.7,
+      "yPx": 226
+    }
+  ],
+  "padHoleRadiusPx": 6,
+  "supplyRail": "v5"
 }

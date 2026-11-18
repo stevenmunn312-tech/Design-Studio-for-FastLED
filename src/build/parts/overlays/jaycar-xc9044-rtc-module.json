@@ -39,5 +39,34 @@
   ],
   "copy": {
     "summary": "Pi-header DS3231, CR927 backup"
-  }
+  },
+  "pads": [
+    {
+      "label": "3V3",
+      "xPx": 67.5,
+      "yPx": 349.2
+    },
+    {
+      "label": "SDA",
+      "xPx": 133.5,
+      "yPx": 349.1
+    },
+    {
+      "label": "SCL",
+      "xPx": 199.5,
+      "yPx": 349.2
+    },
+    {
+      "label": "SQW",
+      "xPx": 265.5,
+      "yPx": 349.1
+    },
+    {
+      "label": "GND",
+      "xPx": 331.6,
+      "yPx": 349.2
+    }
+  ],
+  "padHoleRadiusPx": 12.3,
+  "supplyRail": "v3v3"
 }

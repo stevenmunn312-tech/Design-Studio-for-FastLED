@@ -37,5 +37,49 @@
   "copy": {
     "summary": "128x64 white OLED over I2C",
     "wiringNote": "The Adafruit eight-pin STEMMA QT breakout, strapped for I2C: it prints the SPI names CLK and DATA on the two lines it answers I2C on. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices."
-  }
+  },
+  "pads": [
+    {
+      "label": "GND",
+      "xPx": 80,
+      "yPx": 346.2
+    },
+    {
+      "label": "VIN",
+      "xPx": 114.3,
+      "yPx": 346.2
+    },
+    {
+      "label": "3V",
+      "xPx": 148.6,
+      "yPx": 346.2
+    },
+    {
+      "label": "CLK",
+      "xPx": 182.9,
+      "yPx": 346.2
+    },
+    {
+      "label": "DATA",
+      "xPx": 217.1,
+      "yPx": 346.2
+    },
+    {
+      "label": "RST",
+      "xPx": 251.4,
+      "yPx": 346.2
+    },
+    {
+      "label": "DC",
+      "xPx": 285.7,
+      "yPx": 346.2
+    },
+    {
+      "label": "CS",
+      "xPx": 320,
+      "yPx": 346.2
+    }
+  ],
+  "padHoleRadiusPx": 6.7,
+  "supplyRail": "v5"
 }

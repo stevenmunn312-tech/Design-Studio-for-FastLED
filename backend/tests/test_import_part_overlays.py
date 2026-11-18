@@ -97,8 +97,8 @@ def test_an_overlay_may_not_override_a_measured_field(importer, vocabulary, fiel
 
 
 def test_an_overlay_naming_an_unknown_field_is_refused(importer, vocabulary):
-    with pytest.raises(importer.OverlayError, match="unknown field 'pads'"):
-        merge(importer, vocabulary, ov=overlay(pads=[]))
+    with pytest.raises(importer.OverlayError, match="unknown field 'wireColour'"):
+        merge(importer, vocabulary, ov=overlay(wireColour=[]))
 
 
 @pytest.mark.parametrize("field", ["revision", "partTypes", "categories", "verification", "sources"])
@@ -179,3 +179,44 @@ def test_the_committed_overlays_and_tree_pass_every_rule(importer, vocabulary):
         assert merged["partId"] == part_id
     # A raw read of the tree file is what the app generates its module from.
     assert json.loads(importer.CATEGORIES_FILE.read_text(encoding="utf-8"))
+
+
+def drawn_part():
+    part = entry()
+    part["pinLabelsLeftToRight"] = ["VCC", "Trig", "Echo", "GND"]
+    part["render"] = {"file": "parts/x.webp", "widthPx": 560, "heightPx": 260}
+    return part
+
+
+def pads(**changes):
+    points = [
+        {"label": label, "xPx": 234.3 + 30.5 * index, "yPx": 226}
+        for index, label in enumerate(["VCC", "Trig", "Echo", "GND"])
+    ]
+    points[0].update(changes)
+    return points
+
+
+def test_drawing_facts_are_merged_into_the_manifest(importer, vocabulary):
+    ov = overlay(pads=pads(), padHoleRadiusPx=6, supplyRail="v5", powerPadLabel="vcc")
+    merged = merge(importer, vocabulary, drawn_part(), ov)
+    assert merged["pads"][0] == {"label": "VCC", "xPx": 234.3, "yPx": 226}
+    assert merged["padHoleRadiusPx"] == 6
+    assert merged["supplyRail"] == "v5"
+    assert merged["powerPadLabel"] == "vcc"
+
+
+@pytest.mark.parametrize("bad", [
+    {"pads": pads(xPx=561)},  # outside the render
+    {"pads": pads(yPx=-1)},
+    {"pads": pads(label="Gnd")},  # not the pin label at that position
+    {"pads": pads()[:3]},  # fewer points than pin labels
+    {"pads": [{"label": "VCC", "xPx": 1}]},
+    {"padHoleRadiusPx": 0},
+    {"padHoleRadiusPx": True},
+    {"supplyRail": "v48"},
+    {"powerPadLabel": "VIN"},  # the part prints no VIN
+])
+def test_drawing_facts_that_break_a_rule_stop_the_import(importer, vocabulary, bad):
+    with pytest.raises(importer.OverlayError):
+        merge(importer, vocabulary, drawn_part(), overlay(**bad))

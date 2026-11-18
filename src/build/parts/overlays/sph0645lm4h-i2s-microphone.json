@@ -26,5 +26,39 @@
   "copy": {
     "summary": "Knowles I2S mic, classic ESP32 only",
     "wiringNote": "Captured by the app with the published ESP32 timing fix, not by FastLED, so no response correction is applied. Classic ESP32 only: the fix is documented for the I2S receiver of that chip, not for the ESP32-S3. SEL to ground selects the left channel."
-  }
+  },
+  "pads": [
+    {
+      "label": "SEL",
+      "xPx": 55.5,
+      "yPx": 268.5
+    },
+    {
+      "label": "LRCL",
+      "xPx": 113.2,
+      "yPx": 268.5
+    },
+    {
+      "label": "DOUT",
+      "xPx": 170.4,
+      "yPx": 268.5
+    },
+    {
+      "label": "BCLK",
+      "xPx": 228.7,
+      "yPx": 268.5
+    },
+    {
+      "label": "GND",
+      "xPx": 285.8,
+      "yPx": 268.5
+    },
+    {
+      "label": "3V",
+      "xPx": 343.6,
+      "yPx": 268.5
+    }
+  ],
+  "padHoleRadiusPx": 9.6,
+  "supplyRail": "v3v3"
 }

@@ -3,7 +3,7 @@ import { buildHardwareManifest } from '../../../build/hardwareManifest'
 import { powerSwitchPwmPlan } from '../../../codegen/peripherals/powerSwitchCpp'
 import { generateCpp } from '../../../codegen/cppGenerator'
 import {
-  MODULE_PAD_GEOMETRY, peripheralChannelGroundPadIndexes, peripheralGroundPadIndex, peripheralPadLabel,
+  modulePadGeometry, peripheralChannelGroundPadIndexes, peripheralGroundPadIndex, peripheralPadLabel,
   peripheralPowerPadIndex, peripheralSignalPadIndex,
 } from '../../../components/BuildDiagram/physicalDiagramLayout'
 import { fixtureLinkLabel } from '../../../components/Hardware/fixtureLink'
@@ -225,7 +225,7 @@ describe('Mosfetti wiring', () => {
       .toEqual(['A', 'B', 'C', 'D'])
     expect(peripheralPadLabel(item, peripheralGroundPadIndex(item))).toBe('GND')
     expect(peripheralPowerPadIndex(item)).toBeNull()
-    const pads = MODULE_PAD_GEOMETRY[MOSFETTI]
+    const pads = modulePadGeometry(MOSFETTI)!
     expect(pads).toHaveLength(5)
     for (const [index, [x, y]] of pads.entries()) {
       expect(y).toBeCloseTo(pads[0][1])
@@ -272,7 +272,7 @@ describe('the YYNMOS-4 (LR7843 revision)', () => {
     const grounds = [peripheralGroundPadIndex(item), ...peripheralChannelGroundPadIndexes(item)]
     expect(grounds.map((index) => peripheralPadLabel(item, index)).sort()).toEqual(['GND1', 'GND2', 'GND3', 'GND4'])
     expect(peripheralPowerPadIndex(item)).toBeNull()
-    expect(MODULE_PAD_GEOMETRY[YYNMOS4]).toHaveLength(8)
+    expect(modulePadGeometry(YYNMOS4)!).toHaveLength(8)
   })
 
   it('keeps one ground stub on boards that print a single GND', () => {

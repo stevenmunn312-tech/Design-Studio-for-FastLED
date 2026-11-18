@@ -32,5 +32,29 @@
   "copy": {
     "summary": "40 mm 5 V fan, 25 kHz PWM control and tachometer feedback",
     "wiringNote": "Power it from 5 V. PWM is a 25 kHz active-high controller signal; RPM is an open-collector tachometer output with two pulses per revolution. This first firmware path supports ESP32-family boards."
-  }
+  },
+  "pads": [
+    {
+      "label": "GND",
+      "xPx": 204.25,
+      "yPx": 458
+    },
+    {
+      "label": "VCC",
+      "xPx": 234.75,
+      "yPx": 458
+    },
+    {
+      "label": "RPM",
+      "xPx": 265.25,
+      "yPx": 458
+    },
+    {
+      "label": "PWM",
+      "xPx": 295.75,
+      "yPx": 458
+    }
+  ],
+  "padHoleRadiusPx": 6,
+  "supplyRail": "v3v3"
 }

@@ -15,6 +15,15 @@
 import { PART_CATALOGUE_DATA } from '../generated/partCatalogueData'
 import type { RenderIndicator } from '../boards/boardCapabilities'
 import { validatePartManifest, type ManifestOrigin, type PartManifest } from './manifest/partManifest'
+import type { SupplyRail } from './manifest/vocabulary'
+
+/** One pad's point on the part's render, in render pixels from the top-left. */
+export interface PartPad {
+  /** The pad's silkscreen, matching the same position in `pinLabelsLeftToRight`. */
+  label: string
+  xPx: number
+  yPx: number
+}
 
 export type PartCategory =
   | 'microphone' | 'amplifier' | 'storage' | 'led-output'
@@ -549,6 +558,18 @@ export interface PartCatalogueEntry {
   digitalSensor?: PartDigitalSensorSpec
   /** Present exactly on one-pin analog sensors read through a calibration curve. */
   analogSensor?: PartAnalogSensorSpec
+  /**
+   * Where each catalogued pad sits on the render, in the render's own pixels,
+   * in `pinLabelsLeftToRight` order. The Build Diagram draws wires to these;
+   * a part without them is drawn with a centred header.
+   */
+  pads?: PartPad[]
+  /** Drilled-hole radius in render pixels (a pad is coloured at this size); 4 when absent. */
+  padHoleRadiusPx?: number
+  /** The controller rail the supply pad takes, or `none` when it takes no supply. */
+  supplyRail?: SupplyRail
+  /** The pad printing the supply, when the usual supply names would pick the wrong one. */
+  powerPadLabel?: string
   /** Present exactly on wired-Ethernet controller modules. */
   ethernet?: PartEthernetSpec
   /** Present exactly on a matched differential pixel-data extender pair. */

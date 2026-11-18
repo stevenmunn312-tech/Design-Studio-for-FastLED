@@ -26,5 +26,59 @@
   "copy": {
     "summary": "2 x 15 W, 12 V — line level in",
     "wiringNote": "Needs its own 7-15 V supply; the controller cannot power it. Share its ground with the board and the DAC."
-  }
+  },
+  "pads": [
+    {
+      "label": "L+",
+      "xPx": 66.5,
+      "yPx": 55.6
+    },
+    {
+      "label": "L-",
+      "xPx": 119.6,
+      "yPx": 55.1
+    },
+    {
+      "label": "+12V",
+      "xPx": 172.7,
+      "yPx": 55.6
+    },
+    {
+      "label": "GND",
+      "xPx": 226.5,
+      "yPx": 55.2
+    },
+    {
+      "label": "R-",
+      "xPx": 279.2,
+      "yPx": 55.2
+    },
+    {
+      "label": "R+",
+      "xPx": 332.7,
+      "yPx": 55.1
+    },
+    {
+      "label": "INL",
+      "xPx": 146.2,
+      "yPx": 304.5
+    },
+    {
+      "label": "AGND",
+      "xPx": 182,
+      "yPx": 304.5
+    },
+    {
+      "label": "INR",
+      "xPx": 217.3,
+      "yPx": 304.6
+    },
+    {
+      "label": "MUTE",
+      "xPx": 252.7,
+      "yPx": 304.6
+    }
+  ],
+  "padHoleRadiusPx": 4.9,
+  "supplyRail": "v12"
 }

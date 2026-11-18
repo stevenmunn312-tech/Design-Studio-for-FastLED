@@ -29,5 +29,24 @@
   "copy": {
     "summary": "A 1-Wire thermometer in a sealed steel tube, -55 to 125 °C",
     "wiringNote": "Red is VCC (3.3 V), black is GND and yellow is DATA. DATA needs a 4.7 kΩ pull-up to 3.3 V; the bare probe has none."
-  }
+  },
+  "pads": [
+    {
+      "label": "VCC",
+      "xPx": 104.5,
+      "yPx": 948
+    },
+    {
+      "label": "GND",
+      "xPx": 199.5,
+      "yPx": 948
+    },
+    {
+      "label": "DATA",
+      "xPx": 294.5,
+      "yPx": 948
+    }
+  ],
+  "padHoleRadiusPx": 6.5,
+  "supplyRail": "v3v3"
 }

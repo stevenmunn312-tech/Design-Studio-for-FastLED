@@ -27,8 +27,11 @@ Pass `--only <part-id>[,...]` to the part importer to re-encode just those parts
 Each part's `part.json` holds only measured facts. Everything else a part
 manifest carries is a per-part overlay in the repository,
 `src/build/parts/overlays/<part-id>.json`: `revision`, `partTypes`,
-`categories`, `verification`, `sources` and, optionally, `interfaces` and
-`copy`. The importer merges the overlay over `part.json` and emits full v1
+`categories`, `verification`, `sources` and, optionally, `interfaces`, `copy`
+and the Build Diagram's drawing facts: `pads` (`{ label, xPx, yPx }` in render
+pixels, one per `pinLabelsLeftToRight` entry, inside the render),
+`padHoleRadiusPx` (4 when absent), `supplyRail` (`v3v3`, `v5`, `v12` or `none`)
+and `powerPadLabel` (the supply pad when the usual names pick the wrong one). The importer merges the overlay over `part.json` and emits full v1
 manifests into `partCatalogueData.ts`, plus the shelf category tree
 (`overlays/categories.json`) into `partCategoriesData.ts`. It refuses a part
 with no overlay, an overlay naming an unknown field or word, and an overlay

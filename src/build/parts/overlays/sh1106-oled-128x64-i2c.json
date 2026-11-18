@@ -38,5 +38,29 @@
   "copy": {
     "summary": "128x64 white OLED over I2C",
     "wiringNote": "Same SH1106G silicon and 2-column RAM offset as the SPI module, on a 4-pin I2C breakout instead. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices, same as the SSD1306."
-  }
+  },
+  "pads": [
+    {
+      "label": "GND",
+      "xPx": 176.5,
+      "yPx": 381.5
+    },
+    {
+      "label": "VCC",
+      "xPx": 206.6,
+      "yPx": 381.5
+    },
+    {
+      "label": "SCL",
+      "xPx": 237.4,
+      "yPx": 381.5
+    },
+    {
+      "label": "SDA",
+      "xPx": 267.6,
+      "yPx": 381.5
+    }
+  ],
+  "padHoleRadiusPx": 6.1,
+  "supplyRail": "v3v3"
 }

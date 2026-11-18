@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { DEFAULT_PAD_HOLE_RADIUS, MODULE_PAD_GEOMETRY, MODULE_PAD_HOLE_RADIUS, peripheralPadPoint, peripheralPadCount, peripheralPadRadius } from '../physicalDiagramLayout'
+import { DEFAULT_PAD_HOLE_RADIUS, modulePadGeometry, peripheralPadPoint, peripheralPadCount, peripheralPadRadius } from '../physicalDiagramLayout'
 import { partById } from '../../../build/parts/partCatalogue'
 import { PART_CATALOGUE_DATA } from '../../../build/generated/partCatalogueData'
 import type { HardwareManifestItem } from '../../../build/hardwareManifest'
@@ -16,13 +16,15 @@ function layoutFor(partId: string, kind: HardwareManifestItem['kind']): ItemLayo
 }
 
 describe('measured pad geometry', () => {
-  const entries = Object.entries(MODULE_PAD_GEOMETRY)
+  const entries = Object.keys(PART_CATALOGUE_DATA)
+    .filter((partId) => modulePadGeometry(partId))
+    .map((partId) => [partId, modulePadGeometry(partId)!] as const)
 
   it('covers the modules that have been measured', () => {
     expect(entries.length).toBeGreaterThanOrEqual(9)
     for (const partId of ['sh1106-oled-128x64', 'ssd1306-oled-128x64',
       'tm1637-4digit-display', 'max7219-8digit-7segment']) {
-      expect(MODULE_PAD_GEOMETRY[partId], partId).toBeDefined()
+      expect(modulePadGeometry(partId), partId).toBeDefined()
     }
   })
 
@@ -38,7 +40,7 @@ describe('measured pad geometry', () => {
     const ownGraphic = new Set(['sn74ahct125n-dip14', 'speaker-4ohm-3w-40mm', 'nled-pixel-data-extender-pair'])
     const missing = Object.values(PART_CATALOGUE_DATA)
       .filter((part) => part.render && !elsewhere.has(part.category ?? '') && !ownGraphic.has(part.partId))
-      .filter((part) => !MODULE_PAD_GEOMETRY[part.partId])
+      .filter((part) => !modulePadGeometry(part.partId))
       .map((part) => part.partId)
     expect(missing).toEqual([])
   })
@@ -50,7 +52,7 @@ describe('measured pad geometry', () => {
    */
   it('knows the hole size of every part whose pads it knows', () => {
     for (const [partId] of entries) {
-      const radius = MODULE_PAD_HOLE_RADIUS[partId]
+      const radius = partById(partId)?.padHoleRadiusPx
       expect(radius, partId).toBeGreaterThan(0)
       const item = layoutFor(partId, 'amplifier').item
       expect(peripheralPadRadius(item), partId).not.toBe(DEFAULT_PAD_HOLE_RADIUS)
@@ -93,7 +95,7 @@ describe('measured pad geometry', () => {
    * would undo.
    */
   it('starts the XC4630 bottom row on its second pad', () => {
-    const shield = MODULE_PAD_GEOMETRY['ili9341-xc4630-parallel-touch-320x240']
+    const shield = modulePadGeometry('ili9341-xc4630-parallel-touch-320x240')!
     const bottom = shield.slice(12).map(([x]) => x * 944)
     expect(bottom).toHaveLength(8)
     // J3's first pad, where the printed LCD_RST sits, carries no point.
@@ -110,7 +112,7 @@ describe('measured pad geometry', () => {
   // A header that runs down an edge rather than across the bottom is the case
   // the old row-of-xs shape could not describe at all.
   it('describes a vertical header', () => {
-    const max7219 = MODULE_PAD_GEOMETRY['max7219-8digit-7segment']
+    const max7219 = modulePadGeometry('max7219-8digit-7segment')!
     const xs = new Set(max7219.map(([x]) => x))
     const ys = new Set(max7219.map(([, y]) => y))
     expect(xs.size).toBe(1)
@@ -118,7 +120,7 @@ describe('measured pad geometry', () => {
   })
 
   it('describes a horizontal header', () => {
-    const oled = MODULE_PAD_GEOMETRY['sh1106-oled-128x64']
+    const oled = modulePadGeometry('sh1106-oled-128x64')!
     const ys = new Set(oled.map(([, y]) => y))
     expect(ys.size).toBe(1)
     expect(new Set(oled.map(([x]) => x)).size).toBe(oled.length)
@@ -154,7 +156,7 @@ describe('measured pad geometry', () => {
   // an unevenly pitched header stays uneven rather than being regularised.
   it('preserves the measured pitch', () => {
     const ssd = layoutFor('ssd1306-oled-128x64', 'info-display')
-    const geometry = MODULE_PAD_GEOMETRY['ssd1306-oled-128x64']
+    const geometry = modulePadGeometry('ssd1306-oled-128x64')!
     const points = Array.from({ length: geometry.length }, (_, i) => peripheralPadPoint(ssd, i))
     const drawnSpan = points[points.length - 1].x - points[0].x
     const measuredSpan = geometry[geometry.length - 1][0] - geometry[0][0]

@@ -45,5 +45,44 @@
   "copy": {
     "summary": "Temperature, humidity and pressure over I2C",
     "wiringNote": "Use VIN at 3.3 V; SCK is I2C SCL and SDI is I2C SDA. Leave SDO and CS unwired for the default 0x77 address."
-  }
+  },
+  "pads": [
+    {
+      "label": "VIN",
+      "xPx": 49,
+      "yPx": 471
+    },
+    {
+      "label": "3Vo",
+      "xPx": 99,
+      "yPx": 471
+    },
+    {
+      "label": "GND",
+      "xPx": 149,
+      "yPx": 471
+    },
+    {
+      "label": "SCK",
+      "xPx": 200,
+      "yPx": 471
+    },
+    {
+      "label": "SDO",
+      "xPx": 250,
+      "yPx": 471
+    },
+    {
+      "label": "SDI",
+      "xPx": 301,
+      "yPx": 471
+    },
+    {
+      "label": "CS",
+      "xPx": 351,
+      "yPx": 471
+    }
+  ],
+  "padHoleRadiusPx": 9.5,
+  "supplyRail": "v3v3"
 }

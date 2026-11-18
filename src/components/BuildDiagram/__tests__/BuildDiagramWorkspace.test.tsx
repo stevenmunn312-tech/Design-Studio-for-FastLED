@@ -5,10 +5,10 @@ import { ROOT_GRAPH_ID, useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/upload/uploadStore'
 import { micPinDefaultsForBoard } from '../../../build/pins/micPinDefaults'
-import { MODULE_PAD_HOLE_RADIUS, POWER_FEED_PAIR_GAP, peripheralPadRadius } from '../physicalDiagramLayout'
+import { POWER_FEED_PAIR_GAP, peripheralPadRadius } from '../physicalDiagramLayout'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { TFT_TRANSPORT_PINS } from '../../../state/displays/tftSurface'
-import { partPinLabelForProperty } from '../../../build/parts/partCatalogue'
+import { partById, partPinLabelForProperty } from '../../../build/parts/partCatalogue'
 import { singleButtonRow } from '../../../state/player/buttonBank'
 
 function matrixNode(dataPin = 14, width = 16, height = 16, id = 'out', extra: Record<string, unknown> = {}) {
@@ -1170,7 +1170,7 @@ describe('BuildDiagramWorkspace', () => {
     // Controller artwork has its own measured hole and likewise stays inside
     // its metal ring.
     const displayPartId = diagram?.querySelector('[data-component-render][href*="oled"], [data-component-render][href*="tft"]')?.getAttribute('data-component-render') ?? ''
-    expect(MODULE_PAD_HOLE_RADIUS[displayPartId], displayPartId).toBeDefined()
+    expect(partById(displayPartId)?.padHoleRadiusPx, displayPartId).toBeDefined()
     expect(Number(displayMosiTerminal?.getAttribute('r')))
       .toBeCloseTo(peripheralPadRadius({ facts: { partId: displayPartId } } as never), 6)
     expect(Number(controllerMosiTerminal?.getAttribute('r')))

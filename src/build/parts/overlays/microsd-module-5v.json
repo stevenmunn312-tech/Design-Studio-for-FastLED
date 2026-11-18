@@ -31,5 +31,39 @@
   "copy": {
     "summary": "Regulator and level shifter on board",
     "wiringNote": "Has an onboard regulator and level shifter, so it takes 5 V power and 5 V SPI."
-  }
+  },
+  "pads": [
+    {
+      "label": "GND",
+      "xPx": 96.2,
+      "yPx": 669.1
+    },
+    {
+      "label": "VCC",
+      "xPx": 137.8,
+      "yPx": 669.1
+    },
+    {
+      "label": "MISO",
+      "xPx": 179.2,
+      "yPx": 669.1
+    },
+    {
+      "label": "MOSI",
+      "xPx": 220.8,
+      "yPx": 669.1
+    },
+    {
+      "label": "SCK",
+      "xPx": 262.1,
+      "yPx": 669.1
+    },
+    {
+      "label": "CS",
+      "xPx": 303.8,
+      "yPx": 669.1
+    }
+  ],
+  "padHoleRadiusPx": 8.1,
+  "supplyRail": "v5"
 }

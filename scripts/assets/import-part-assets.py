@@ -110,7 +110,10 @@ PART_MANIFEST_VERSION = 1
 
 # What an overlay may carry. Everything else in a manifest is a measured fact
 # from the part's own part.json, and an overlay never overrides one.
-OVERLAY_FIELDS = ("revision", "partTypes", "categories", "verification", "sources", "interfaces", "copy")
+OVERLAY_FIELDS = (
+    "revision", "partTypes", "categories", "verification", "sources", "interfaces", "copy",
+    "pads", "padHoleRadiusPx", "supplyRail", "powerPadLabel",
+)
 OVERLAY_COPY_FIELDS = {"summary": 300, "wiringNote": 600, "hint": 200}
 # Fields a part.json owns even when a particular part leaves one out.
 MEASURED_FIELDS = {
@@ -142,6 +145,7 @@ def load_vocabulary() -> dict[str, set[str]]:
     return {
         "interfaces": set(_ts_list(vocabulary, "INTERFACE_IDS")),
         "verification": set(_ts_list(vocabulary, "VERIFICATION_LEVELS")),
+        "supplyRails": set(_ts_list(vocabulary, "SUPPLY_RAILS")),
         "partTypes": part_types,
     }
 
@@ -277,12 +281,61 @@ def merge_overlay(entry: dict, overlay, category_ids: set[str], vocabulary: dict
             if not isinstance(value, str) or len(value) > OVERLAY_COPY_FIELDS[key]:
                 raise OverlayError(f"{part_id}: copy.{key} must be plain text of at most {OVERLAY_COPY_FIELDS[key]} characters")
 
+    validate_drawing_facts(part_id, entry, overlay, vocabulary)
+
     merged = {"manifestVersion": PART_MANIFEST_VERSION}
     merged.update(entry)
     for key in OVERLAY_FIELDS:
         if key in overlay:
             merged[key] = overlay[key]
     return merged
+
+
+def _is_number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def validate_drawing_facts(part_id: str, entry: dict, overlay: dict, vocabulary: dict[str, set[str]]) -> None:
+    """The Build Diagram's per-part drawing facts: pad points, hole radius and supply rail.
+
+    The same rules as `partManifest.ts`: bounded counts and numbers, pad points
+    inside the part's own render, and pads following `pinLabelsLeftToRight`.
+    """
+    if "pads" in overlay:
+        pads = overlay["pads"]
+        if not isinstance(pads, list) or not 0 < len(pads) <= 128:
+            raise OverlayError(f"{part_id}: pads must be a list of one to 128 points")
+        render = entry.get("render") or {}
+        labels = entry.get("pinLabelsLeftToRight")
+        if labels is not None and len(labels) != len(pads):
+            raise OverlayError(f"{part_id}: pads has {len(pads)} points for {len(labels)} pin labels")
+        for index, pad in enumerate(pads):
+            where = f"{part_id}: pads[{index}]"
+            if not isinstance(pad, dict) or set(pad) != {"label", "xPx", "yPx"}:
+                raise OverlayError(f"{where}: expected exactly label, xPx and yPx")
+            if not isinstance(pad["label"], str) or not pad["label"].strip() or len(pad["label"]) > 40:
+                raise OverlayError(f"{where}: label must be non-empty text of at most 40 characters")
+            if labels is not None and labels[index] != pad["label"]:
+                raise OverlayError(f"{where}: label must be {labels[index]!r}, the pin label at that position")
+            for axis, limit_key in (("xPx", "widthPx"), ("yPx", "heightPx")):
+                value = pad[axis]
+                if not _is_number(value) or value < 0 or value > 8192:
+                    raise OverlayError(f"{where}: {axis} must be a number from 0 to 8192")
+                if render.get(limit_key) is not None and value > render[limit_key]:
+                    raise OverlayError(f"{where}: {axis} lies outside the {render[limit_key]} px render")
+    if "padHoleRadiusPx" in overlay:
+        radius = overlay["padHoleRadiusPx"]
+        if not _is_number(radius) or not 0.1 <= radius <= 200:
+            raise OverlayError(f"{part_id}: padHoleRadiusPx must be a number from 0.1 to 200")
+    if "supplyRail" in overlay and overlay["supplyRail"] not in vocabulary["supplyRails"]:
+        raise OverlayError(f"{part_id}: supplyRail must be one of {', '.join(sorted(vocabulary['supplyRails']))}")
+    if "powerPadLabel" in overlay:
+        label = overlay["powerPadLabel"]
+        if not isinstance(label, str) or not label.strip() or len(label) > 40:
+            raise OverlayError(f"{part_id}: powerPadLabel must be non-empty text of at most 40 characters")
+        pins = entry.get("pinLabelsLeftToRight")
+        if pins is not None and label.upper() not in [pin.upper() for pin in pins]:
+            raise OverlayError(f"{part_id}: powerPadLabel {label!r} is not one of the part's pin labels")
 
 
 def load_overlay(part_id: str):

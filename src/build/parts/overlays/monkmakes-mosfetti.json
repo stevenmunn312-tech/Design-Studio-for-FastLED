@@ -53,5 +53,34 @@
   "copy": {
     "summary": "Four DC switches or dimmers, A to D, 3-16 V",
     "wiringNote": "DC only, 2 A for the whole board. Not isolated: join its GND to the board. Flyback diodes are fitted."
-  }
+  },
+  "pads": [
+    {
+      "label": "A",
+      "xPx": 368.2,
+      "yPx": 536.5
+    },
+    {
+      "label": "B",
+      "xPx": 398.7,
+      "yPx": 536.5
+    },
+    {
+      "label": "C",
+      "xPx": 429.2,
+      "yPx": 536.5
+    },
+    {
+      "label": "D",
+      "xPx": 459.7,
+      "yPx": 536.5
+    },
+    {
+      "label": "GND",
+      "xPx": 490.2,
+      "yPx": 536.5
+    }
+  ],
+  "padHoleRadiusPx": 5.6,
+  "supplyRail": "none"
 }

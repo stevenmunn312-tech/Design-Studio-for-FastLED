@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { MODULE_PAD_GEOMETRY, peripheralPadLabel, peripheralSignalPadIndex } from '../physicalDiagramLayout'
+import { modulePadGeometry, peripheralPadLabel, peripheralSignalPadIndex } from '../physicalDiagramLayout'
 import { catalogueDisplays, partPinLabelForProperty, CATALOGUE_ONLY_DISPLAY_PART_IDS } from '../../../build/parts/partCatalogue'
 import { partOptionsFor } from '../../../build/parts/partOptions'
 import { OLED_TRANSPORT_PINS, oledTransportFor } from '../../../state/displays/oledSurface'
@@ -73,7 +73,7 @@ describe('every catalogued display is fully described', () => {
   })
 
   it.each(rendered.map((entry) => [entry.partId] as const))('measures %s pad geometry', (partId) => {
-    const points = MODULE_PAD_GEOMETRY[partId]
+    const points = modulePadGeometry(partId)!
     expect(points, `${partId} has a render but no measured pads — scan it for its plating`)
       .toBeDefined()
     expect(points.length).toBe(displayHeader(partId).length)

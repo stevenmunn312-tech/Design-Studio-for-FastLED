@@ -41,5 +41,39 @@
   "copy": {
     "summary": "Laser time-of-flight, 3 cm to 4 m, over I2C",
     "wiringNote": "Power VIN from 3.3 V. One sensor answers on 0x29; leave XSHUT and GPIO unconnected. To share the bus, wire each XSHUT pin and pick an address from 0x30 to 0x33. It runs in long distance mode, which reaches about 4 m. The build needs the Pololu VL53L1X library, which Studio installs the first time."
-  }
+  },
+  "pads": [
+    {
+      "label": "VIN",
+      "xPx": 104.8,
+      "yPx": 232.5
+    },
+    {
+      "label": "GND",
+      "xPx": 142.7,
+      "yPx": 232.5
+    },
+    {
+      "label": "SDA",
+      "xPx": 180.6,
+      "yPx": 232.5
+    },
+    {
+      "label": "SCL",
+      "xPx": 218.4,
+      "yPx": 232.5
+    },
+    {
+      "label": "XSHUT",
+      "xPx": 256.3,
+      "yPx": 232.5
+    },
+    {
+      "label": "GPIO",
+      "xPx": 294.2,
+      "yPx": 232.5
+    }
+  ],
+  "padHoleRadiusPx": 7,
+  "supplyRail": "v3v3"
 }

@@ -40,5 +40,54 @@
   "copy": {
     "summary": "I2S DAC — line out, needs an amp",
     "wiringNote": "Line-level I2S DAC, wired the same as the PCM5102A."
-  }
+  },
+  "pads": [
+    {
+      "label": "VIN",
+      "xPx": 130.2,
+      "yPx": 285
+    },
+    {
+      "label": "3VO",
+      "xPx": 160.5,
+      "yPx": 285
+    },
+    {
+      "label": "GND",
+      "xPx": 191.2,
+      "yPx": 285
+    },
+    {
+      "label": "WSEL",
+      "xPx": 221.5,
+      "yPx": 285
+    },
+    {
+      "label": "DIN",
+      "xPx": 251.9,
+      "yPx": 285
+    },
+    {
+      "label": "BCLK",
+      "xPx": 282.5,
+      "yPx": 285
+    },
+    {
+      "label": "Lout",
+      "xPx": 312.9,
+      "yPx": 285
+    },
+    {
+      "label": "AGND",
+      "xPx": 343.5,
+      "yPx": 285
+    },
+    {
+      "label": "Rout",
+      "xPx": 373.8,
+      "yPx": 285
+    }
+  ],
+  "padHoleRadiusPx": 5.1,
+  "supplyRail": "v5"
 }

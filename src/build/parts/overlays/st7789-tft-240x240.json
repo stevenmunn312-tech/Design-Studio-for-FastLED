@@ -35,5 +35,49 @@
   "copy": {
     "summary": "240x240 colour TFT over SPI",
     "wiringNote": "A square 240x240 colour display with no touch controller."
-  }
+  },
+  "pads": [
+    {
+      "label": "GND",
+      "xPx": 94.5,
+      "yPx": 505
+    },
+    {
+      "label": "VCC",
+      "xPx": 125.5,
+      "yPx": 505
+    },
+    {
+      "label": "SCL",
+      "xPx": 155.5,
+      "yPx": 505
+    },
+    {
+      "label": "SDA",
+      "xPx": 186.5,
+      "yPx": 505
+    },
+    {
+      "label": "RST",
+      "xPx": 216.5,
+      "yPx": 505
+    },
+    {
+      "label": "DC",
+      "xPx": 247.5,
+      "yPx": 505
+    },
+    {
+      "label": "CS",
+      "xPx": 277.5,
+      "yPx": 505
+    },
+    {
+      "label": "BL",
+      "xPx": 308.5,
+      "yPx": 505
+    }
+  ],
+  "padHoleRadiusPx": 5.9,
+  "supplyRail": "v3v3"
 }

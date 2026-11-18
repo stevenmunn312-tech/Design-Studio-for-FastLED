@@ -86,5 +86,49 @@
   "copy": {
     "summary": "Four isolated DC switches or dimmers, 7-28 V",
     "wiringNote": "DC only, 5 A a channel and 10 A for the board. Wire each PWM pin and every GND1-GND4 to the controller. Not for 5 V rails: the gate drive needs 7 V."
-  }
+  },
+  "pads": [
+    {
+      "label": "PWM1",
+      "xPx": 199.7,
+      "yPx": 564.4
+    },
+    {
+      "label": "GND1",
+      "xPx": 260.7,
+      "yPx": 564.4
+    },
+    {
+      "label": "PWM2",
+      "xPx": 321.6,
+      "yPx": 564.4
+    },
+    {
+      "label": "GND2",
+      "xPx": 382.6,
+      "yPx": 564.4
+    },
+    {
+      "label": "PWM3",
+      "xPx": 443.6,
+      "yPx": 564.4
+    },
+    {
+      "label": "GND3",
+      "xPx": 504.5,
+      "yPx": 564.4
+    },
+    {
+      "label": "PWM4",
+      "xPx": 565.5,
+      "yPx": 564.4
+    },
+    {
+      "label": "GND4",
+      "xPx": 626.4,
+      "yPx": 564.4
+    }
+  ],
+  "padHoleRadiusPx": 18.6,
+  "supplyRail": "none"
 }

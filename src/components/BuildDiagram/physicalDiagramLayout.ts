@@ -4,7 +4,6 @@ import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/po
 import { partById, partPinLabelForProperty, sharedPadsAcrossBoards } from '../../build/parts/partCatalogue'
 import { CONVERTER_SHEET_WIDTH } from './controllerGeometry'
 import { oledTransportFor, type OledTransport } from '../../state/displays/oledSurface'
-import { irReceiverModuleFor } from '../../state/peripherals/irModules'
 import { receiveDividerSource } from '../../build/pins/receiveDivider'
 
 export type ItemLayout = {
@@ -352,272 +351,31 @@ const BUNDLED_PAD_HOLE_RADIUS_PX = 10.4
  * held first: that shape cannot describe a vertical header, and the MAX7219 has
  * one at each end.
  *
+ * The points live on each part's manifest as `pads` (render pixels, in
+ * `pinLabelsLeftToRight` order); this file only turns them into fractions.
+ *
  * Figures come from scanning each render for its gold plating (or, on the
  * Grove TM1637, its connector body) and were checked by drawing the result back
  * over the picture. Re-measure if a render is replaced.
  */
 type PadPoint = readonly [x: number, y: number]
 
-/** A horizontal header: one row of pads sharing a y. */
-function padRow(xs: readonly number[], width: number, y: number, height: number): PadPoint[] {
-  return xs.map((x) => [x / width, y / height] as PadPoint)
-}
-
-/** A vertical header: one column of pads sharing an x. */
-function padColumn(x: number, width: number, ys: readonly number[], height: number): PadPoint[] {
-  return ys.map((y) => [x / width, y / height] as PadPoint)
-}
+const padPointCache = new WeakMap<object, readonly PadPoint[]>()
 
 /**
- * Pads scattered across a board rather than in one header: each point in
- * source pixels, in the catalogue's `pinLabelsLeftToRight` order.
+ * A part's pad points as fractions of its render, from the pixel points its
+ * manifest carries (`pads`), or `undefined` for a part with none.
  */
-function padPoints(width: number, height: number, points: readonly (readonly [number, number])[]): PadPoint[] {
-  return points.map(([x, y]) => [x / width, y / height] as PadPoint)
-}
-
-export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
-  // Microphones. All three are six-pad rows along the bottom edge, in three
-  // different silkscreen orders — which is exactly why the pad *point* is
-  // measured here and the pad *role* is looked up by name rather than by
-  // index. These were the last hand-placed pads on the sheet: the diagram drew
-  // a six-pad column down the left margin of every microphone, a shape no
-  // microphone render has.
-  'inmp441-i2s-microphone': padRow([34, 100.4, 166.8, 233.2, 299.6, 366], 400, 244.8, 282),
-  'ics-43434-i2s-microphone': padRow([104.7, 142.4, 180.7, 218.4, 256.6, 294.4], 400, 255.8, 286),
-  'generic-i2s-mems-microphone': padRow([41.7, 104.1, 168, 231, 294.8, 357.2], 400, 204.4, 248),
-  'sph0645lm4h-i2s-microphone': padRow([55.5, 113.2, 170.4, 228.7, 285.8, 343.6], 400, 268.5, 309),
-
-  // Measured from the drilled holes. The earlier figure sat 9 px low, on the
-  // board below the header rather than in it.
-  'max98357a-i2s-amplifier': padRow([32, 88, 144, 200, 256, 312, 368], 400, 535.7, 568),
-  // Two boards side by side, left then right, seven pads each. The pads are
-  // unpopulated silver rings the warm mask cannot see, so they were measured
-  // off a ruled crop: the outer rings anchor a 30.55 px pitch on each board.
-  'max98357a-stereo-pair': padRow([
-    24.2, 54.8, 85.3, 115.9, 146.4, 177, 207.5,
-    274.1, 304.7, 335.2, 365.8, 396.3, 426.9, 457.4,
-  ], 483, 299.7, 325),
-  // Sixteen perimeter holes in catalogue order: eight down the left edge,
-  // then eight up the right edge.
-  'dfplayer-mini': padPoints(400, 400, [
-    [29, 27], [29, 76], [29, 125], [29, 174], [29, 224], [29, 273], [29, 322], [29, 371],
-    [370, 371], [370, 322], [370, 273], [370, 224], [370, 174], [370, 125], [370, 76], [370, 27],
-  ]),
-  'pam8403-3w-stereo-amplifier':
-    padRow([36.6, 69.4, 102, 134.6, 167.4, 200.1, 232.6, 265.4, 298.1, 330.7, 363.4], 400, 254.3, 287),
-  // The logic pair along the bottom edge, measured at each pad's edge-side
-  // hole, the one a header pin or wire takes. Computed from the model's own
-  // coordinates (23.75 px/mm, 10 px margin) and checked against the render:
-  // both points are real, transparent holes.
-  'lr7843-mosfet-module': padPoints(400, 851, [[169.8, 771.2], [230.2, 771.2]]),
-  // KS0026 header holes: 2.54 mm pitch at 19.6 px/mm in the 400 x 596 render.
-  'keyestudio-ks0026-ir-receiver-module': padRow([150.2, 200, 249.8], 400, 539.1, 596),
-  // The control header A, B, C, D, GND along the bottom of the turned board.
-  // Computed from the model's coordinates (12.01 px/mm, 10 px margin) and
-  // checked against the render: each is an open hole, centred within 0.1 px.
-  'monkmakes-mosfetti': padRow([368.2, 398.7, 429.2, 459.7, 490.2], 808, 536.5, 624),
-  // The input terminals PWM1, GND1 ... PWM4, GND4 along the bottom, at each
-  // screw: 5.08 mm pitch from x 15.81 mm, row y 46.2 mm, at the model's
-  // 12 px/mm with a 10 px margin. The blocks are fitted, so there is no hole.
-  'yynmos-4-lr7843-mosfet-module':
-    padRow([199.7, 260.7, 321.6, 382.6, 443.6, 504.5, 565.5, 626.4], 680, 564.4, 620),
-  // Both RTCs measured from their drilled holes. They had a table of their own
-  // with four x-ratios, left from before the catalogue listed six (ZS-042) and
-  // five (XC9044) pads, so SDA, VCC and GND clamped onto one point.
-  'ds3231-rtc-module': padPoints(464, 272,
-    [[155.2, 252.1], [185.8, 252.1], [216.2, 252.1], [246.7, 252.1], [277.1, 252.1], [307.7, 252.1]]),
-  // microSD boards, measured from their drilled holes. Until these existed an
-  // SD card was placed by a guessed spread over an assumed 400x690 picture,
-  // which the 3.3 V breakout (400x424) is nothing like.
-  'microsd-module-5v': padRow([96.2, 137.8, 179.2, 220.8, 262.1, 303.8], 400, 669.1, 694),
-  'microsd-breakout-3v3': padRow([53, 102, 151, 200, 249, 298, 347], 400, 395.6, 424),
-  'jaycar-xc9044-rtc-module': padPoints(400, 400,
-    [[67.5, 349.2], [133.5, 349.1], [199.5, 349.2], [265.5, 349.1], [331.6, 349.2]]),
-  // Six-pin header VIN, GND, SCL, SDA, VIN-, VIN+, measured from the render's
-  // drilled holes. VIN- and VIN+ are the load side and carry no controller wire.
-  'adafruit-ina219-current-sensor': padPoints(400, 324,
-    [[104.5, 275.5], [142.5, 275.5], [180.5, 275.5], [218.5, 275.5], [256.5, 275.5], [294.5, 275.5]]),
-  // VIN, GND, SDA, SCL, XSHUT, GPIO along the bottom, from the drilled holes. GPIO is the interrupt
-  // and stays unwired. XSHUT carries a wire only when this sensor is assigned a shutdown GPIO.
-  'adafruit-vl53l1x-distance-sensor': padRow([104.8, 142.7, 180.6, 218.4, 256.3, 294.2], 400, 232.5, 281),
-  // VIN, 2v8, GND, GPIO, SHDN, SCL, SDA along the bottom, from the drilled holes. 2v8 is the regulator
-  // output and GPIO stays unwired. SHDN carries a wire only when this sensor is assigned a shutdown GPIO.
-  'adafruit-vl53l0x-distance-sensor': padRow([57, 104.5, 152, 199.5, 247, 294.5, 342], 400, 294.8, 353),
-  // DIP-18 lead tips in pin-number order: pins 1 to 9 down the left edge, 10 to 18 up the right.
-  // Inputs 1B to 8B are the controller side; COM and the 1C to 8C outputs carry the load, not a controller wire.
-  'uln2803a-dip18': padPoints(400, 996,
-    [[25, 64], [25, 172], [25, 280.5], [25, 389], [25, 497.5], [25, 606], [25, 714.5], [25, 823], [25, 931], [375, 931], [375, 823], [375, 714.5], [375, 606], [375, 497.5], [375, 389], [375, 280.5], [375, 172], [375, 64]]),
-  // GND, OE, SCL, SDA, VCC, V+ along the bottom control header, from the drilled holes. OE floats
-  // enabled and V+ is the outputs' own supply, so only VCC, GND, SDA and SCL carry a wire.
-  'adafruit-pca9685-pwm-driver': padRow([104.5, 142.5, 180.5, 218.5, 256.5, 294.5], 400, 904.8, 955),
-  // GND, NC, SIG along the bottom, measured from the drilled holes. NC is unconnected.
-  'ky-012-active-buzzer-module': padRow([137.2, 199.5, 261.8], 400, 413.1, 486),
-  // S, middle, - along the bottom, measured from the drilled holes. The middle pin is
-  // unconnected on most boards (Joy-IT prints +V there), so it carries no wire.
-  'ky-006-passive-buzzer-module': padRow([135.2, 199.5, 263.8], 400, 437.8, 489),
-  // VCC, GND, SCL, SDA, ALE, VBS along the bottom, from the drilled holes. ALE is
-  // the open-drain alert and VBS the bus sense, so neither carries a controller wire.
-  'ina226-current-sensor-module': padRow([106.7, 143.9, 181, 218, 255.1, 292.3], 400, 294.1, 342),
-  // VIN, 3Vo, GND, SCL, SDA, ADDR along the bottom, measured from the drilled
-  // holes. 3Vo is the regulator's output and ADDR is strapped, so neither
-  // carries a controller wire.
-  'adafruit-bh1750-light-sensor': padRow([104.5, 142.5, 180.5, 218.5, 256.5, 294.5], 400, 237.5, 286),
-  // VIN, 3Vo, GND, SCK, SDO, SDI, CS; only SCK and SDI carry the I2C bus.
-  'adafruit-bme280-environment-sensor': padRow([49, 99, 149, 200, 250, 301, 351], 400, 471, 527),
-  // The probe's three bare wire ends: red VCC, black GND, yellow DATA.
-  'ds18b20-waterproof-probe': padRow([104.5, 199.5, 294.5], 400, 948, 997),
-  // A bare part with legs on two rows. A, C and B are the strap ends below the
-  // body; the switch legs sit just inside its top edge, hidden from above, so
-  // the pads mark where they come through the board. Centres are the
-  // generator's own lead positions, checked against the render.
-  'jaycar-sr1230-rotary-encoder': padPoints(400, 424, [
-    [133.6, 406], [200, 406], [266.4, 406], [133.6, 20.7], [266.4, 20.7],
-  ]),
-  // VCC, Trig, Echo, GND along the bottom edge. Computed from the model's own
-  // coordinates (12 px/mm, 10 px margin, header at y = 2 mm, 2.54 mm pitch
-  // centred on the board) and checked by drawing the result over the render.
-  // The lead tips, below the lens face: OUT, GND, VS.
-  'tsop38238-ir-receiver': padRow([85, 199.5, 314], 400, 578, 589),
-  // -, +, S along the bottom, measured from the drilled holes.
-  'ky-022-ir-receiver-module': padRow([155.6, 199.5, 243.4], 400, 267.5, 315),
-  // VCC, OUT, GND along the bottom, measured from the drilled holes.
-  'hc-sr501-pir-sensor': padRow([168.8, 199.5, 230], 400, 280.6, 304),
-  // S, VCC, GND along the bottom, measured from the drilled holes.
-  'photosensitive-ldr-module': padRow([172.8, 203.4, 234], 408, 281.8, 310),
-  // SIG, NC, VCC, GND along the bottom, measured from the drilled holes.
-  'seeed-grove-touch-sensor': padRow([152, 183.6, 215.4, 247], 400, 297.8, 337),
-  // GND, VCC, CTR2, CTR1: the Grove socket's mouth on the board edge, one
-  // contact under each printed name on the connector's 2 mm pitch.
-  'seeed-grove-2ch-ssr': padRow([261.5, 285.5, 309.5, 333.5], 592, 578, 592),
-  // GND, IN1..INn, VCC on the logic header, measured from the drilled holes.
-  'relay-module-1ch-5v': padRow([279.1, 309.5, 339.9], 620, 302.8, 332),
-  'relay-module-2ch-5v': padRow([263.7, 294.4, 324.7, 355.3], 620, 482.9, 512),
-  'relay-module-4ch-5v': padRow([389.4, 419.7, 450.4, 480.6, 511.4, 541.6], 932, 650.9, 680),
-  'relay-module-8ch-5v': padRow([501.1, 522.9, 544.9, 566.8, 588.6, 610.3, 632.2, 654.2, 676.1, 697.9], 1200, 478.3, 502),
-  // 5V, GND, SCK, BCK, LRCK, DOUT along the bottom, measured from the drilled holes.
-  'pcm1802-line-in-adc': padRow([239.3, 269.8, 300.2, 330.8, 361.2, 391.7], 632, 444.1, 464),
-  // GND, VCC, RPM, PWM. The render draws no cable, so the four are a 2.54 mm
-  // marker on the frame's bottom bar, where the lead leaves the fan, not a
-  // measured connector. Replace with the cable's end once the render has one.
-  'noctua-nf-a4x10-5v-pwm': padRow([204.25, 234.75, 265.25, 295.75], 500, 458, 500),
-  // GND, +5V, VRx, VRy, SW along the bottom edge. Computed from the model's own
-  // coordinates (14.615 px/mm, 10 px margin, header at y = 2.4 mm, 2.54 mm pitch
-  // centred on the board).
-  // VCC, GND, SCL, SDA, XDA, XCL, AD0, INT along the bottom edge. Computed from
-  // the model's own coordinates (18.095 px/mm, 10 px margin, header at y = 2 mm,
-  // 2.54 mm pitch centred on the board). Only SDA and SCL carry the I2C bus.
-  // Vin, 3Vo, GND, SCL, SDA, IRQ, ADDR along the bottom edge. Computed from the model's own
-  // coordinates (12 px/mm, 10 px margin, header at y = 2.54 mm, 2.54 mm pitch centred on the board).
-  'adafruit-mpr121-touch-sensor': padRow([116.6, 147.1, 177.6, 208, 238.4, 268.9, 299.4], 416, 207.5, 248),
-  'gy-521-mpu6050-module': padRow([39.1, 85.1, 131.1, 177, 222.9, 268.9, 314.9, 360.9], 400, 263.3, 310),
-  // 3V3, GND, OUT, VIN, CDS along the bottom edge. Computed from the model's own
-  // coordinates (12 px/mm, 10 px margin, header at y = 2.2 mm, 2.54 mm pitch centred
-  // at x = 27 mm). Only OUT carries a controller wire; 3V3 is an output.
-  'rcwl-0516-microwave-motion-module': padRow([273, 303.5, 334, 364.5, 395], 452, 187.6, 224),
-  // R1 to R4 then C1 to C4 along the end of the tail. Computed from the model's
-  // own coordinates (12 px/mm, 10 px margin, contacts at y = 2.4 mm from the tail's
-  // end, 2.54 mm pitch centred on the pad).
-  'matrix-keypad-4x4': padRow([317.3, 347.8, 378.3, 408.8, 439.2, 469.7, 500.2, 530.7], 848, 947.2, 986),
-  'ky-023-joystick-module': padRow([125.8, 162.9, 200, 237.1, 274.2], 400, 471.8, 517),
-  'hc-sr04-ultrasonic-module': padRow([234.3, 264.8, 295.2, 325.7], 560, 226, 260),
-  // J1 along the top (GND, GND, MOSI, SCLK, SCNn, INTn) and J2 along the
-  // bottom (GND, 3V3D, 3V3D, NC, RSTn, MISO), pin 1 of each at the right-hand
-  // end. Computed from WIZnet's board file (13.60 px/mm, 10 px margin) and
-  // checked against the render: every point is an open, drilled hole.
-  'wiz850io-ethernet-module': padPoints(400, 333, [
-    [262.9, 28.4], [228.3, 28.4], [193.8, 28.4], [159.3, 28.4], [124.7, 28.4], [90.2, 28.4],
-    [262.9, 304.6], [228.3, 304.6], [193.8, 304.6], [159.3, 304.6], [124.7, 304.6], [90.2, 304.6],
-  ]),
-  // VCC, GND, OUT, RX, TX along the bottom, measured from the drilled holes.
-  'hlk-ld2410c-presence-sensor': padRow([115.2, 159, 202.9, 246.7, 290.6], 400, 264.7, 296),
-  // RO, RE, DE, DI along the bottom, then VCC, B, A, GND along the top, the
-  // catalogue's one pad list, measured from the render's drilled holes.
-  'max485-rs485-module': padPoints(400, 1160, [
-    [103, 1094.3], [167.3, 1094.3], [231.7, 1094.3], [296, 1094.3],
-    [103, 64.7], [167.3, 64.7], [231.7, 64.7], [296, 64.7],
-  ]),
-  // The Feather header's 16 holes along the bottom (RESET to G), then its 12
-  // along the top (VBAT to SDA), measured from the render's drilled holes.
-  // Only 3.3V, GND and MIDI_RX on the bottom row carry a wire.
-  'adafruit-midi-featherwing': [
-    ...padRow([79.8, 110.1, 140.8, 171.1, 201.8, 232.2, 262.8, 293.2, 323.8, 354.2, 384.8, 415.2, 445.8, 476.2, 506.8, 537.2], 618, 263, 283),
-    ...padRow([201.8, 232.2, 262.8, 293.2, 323.8, 354.2, 384.8, 415.2, 445.8, 476.2, 506.8, 537.2], 618, 19, 283),
-  ],
-  'pcm5102a-i2s-dac': padRow([55, 113, 171, 229, 287, 345], 400, 837, 883),
-  // Power amplifiers: screw terminals along the top for supply and speakers,
-  // and the line input somewhere else entirely — mid-board holes on the
-  // DX-0809, a bottom header on the PAM8610. Screws are measured at the centre
-  // of each screw head, pads at the centre of each plated ring.
-  'dx-0809-stereo-amplifier': padPoints(1200, 973, [
-    [531.3, 631.3], [599.5, 631.2], [667.5, 631.1],
-    [572.5, 86.8], [626.8, 86.6],
-    [164, 86.4], [218.3, 86.9], [980.8, 86.6], [1035, 86.6],
-  ]),
-  'pam8610-stereo-amplifier': padPoints(400, 337, [
-    [66.5, 55.6], [119.6, 55.1], [172.7, 55.6], [226.5, 55.2], [279.2, 55.2], [332.7, 55.1],
-    [146.2, 304.5], [182, 304.5], [217.3, 304.6], [252.7, 304.6],
-  ]),
-  // The bottom row of nine; the six along the top edge are uncatalogued
-  // configuration pads. Re-measured when the render changed from a 504 px
-  // square to 504x324, which the old figure still assumed.
-  'uda1334a-i2s-dac':
-    padRow([130.2, 160.5, 191.2, 221.5, 251.9, 282.5, 312.9, 343.5, 373.8], 504, 285, 324),
-
-  // Displays. The OLED and TFT headers run along the bottom edge; the
-  // MAX7219's runs down its left side, which is the IN end of a part built to
-  // be daisy-chained.
-  'sh1106-oled-128x64':
-    padRow([125.5, 155.5, 186.5, 216.5, 247, 277.5, 308], 434, 391.6, 412),
-  'sh1106-oled-096-128x64-spi':
-    padRow([92.3, 128.1, 163.5, 199.3, 235.3, 271.7, 306.8], 400, 371.6, 414),
-  'sh1106-oled-128x64-i2c': padRow([176.5, 206.6, 237.4, 267.6], 445, 381.5, 422),
-  'ssd1306-oled-128x64':
-    padRow([80, 114.3, 148.6, 182.9, 217.1, 251.4, 285.7, 320], 400, 346.2, 366),
-  'ssd1306-oled-096-128x64-i2c': padRow([145.7, 181.5, 217.5, 253.1], 400, 370.8, 414),
-  // A Grove part: four contacts inside a keyed connector rather than pads.
-  'tm1637-4digit-display': padRow([210, 240, 271, 301], 512, 259, 296),
-  'max7219-8digit-7segment': padColumn(18.3, 992, [33, 63.6, 94, 124.5, 154.9], 188),
-  'st7789-tft-240x240':
-    padRow([94.5, 125.5, 155.5, 186.5, 216.5, 247.5, 277.5, 308.5], 404, 505, 545),
-  // Re-measured when the render became a 651x1169 portrait board: the old
-  // figures described a 935x521 landscape picture and put every pad 50 px
-  // below the header.
-  'st7789v-xpt2046-touch-240x320': padRow(
-    [78.1, 116.2, 154.3, 192.3, 230.4, 268.4, 306.5, 344.5, 382.6, 420.6, 458.7, 496.7, 534.8, 572.9],
-    651, 1073.2, 1169,
-  ),
-  'ili9341-xpt2046-touch-320x240': padRow(
-    [316.6, 346.2, 376.8, 407.6, 438, 468.3, 498.7, 529.1, 560, 590.4, 621.1, 651.2],
-    968, 586.7, 608,
-  ),
-  /*
-   * The one part whose pads are not a single edge row.
-   *
-   * It is an Arduino shield, so its four headers sit in the UNO arrangement:
-   * J2 and J1 along the top edge, J3 and J4 along the bottom. The order below
-   * follows `pinLabelsLeftToRight` exactly — the whole top edge left to right,
-   * then the whole bottom edge — and skips each header's unlabelled positions
-   * (J2's first two, J1's last two, J3's first, and three of J4's), because a
-   * pad point exists per *catalogued* pin rather than per physical pin.
-   *
-   * The bottom row starts on each header's *second* position: the five LCD
-   * lines on J3's pads 2-6, the supply pads on J4's 2, 4 and 5 — the shape an
-   * UNO power header has, its first position not being one of these signals.
-   *
-   * Both this table and the render's own silkscreen had them a pad to the left,
-   * because the table was measured from labels that were themselves wrong, so
-   * every bottom wire attached to its neighbour. The Blender source was fixed
-   * and re-rendered with it (`generate_xc4630_shield_part.py`, which places
-   * each label by pin index), and the two now agree to within a pixel.
-   */
-  'ili9341-xc4630-parallel-touch-320x240': [
-    ...padRow(
-      [219.9, 250.4, 280.8, 311.3, 341.8, 372.3, 430.1, 460.6, 491.1, 521.6, 552, 582.5],
-      944, 40, 644,
-    ),
-    ...padRow([182.7, 213.2, 243.6, 274.1, 304.6, 407.1, 468.1, 498.5], 944, 590.8, 644),
-  ],
+export function modulePadGeometry(partId: string): readonly PadPoint[] | undefined {
+  const entry = partById(partId)
+  const render = entry?.render
+  if (!entry?.pads?.length || !render) return undefined
+  let points = padPointCache.get(entry)
+  if (!points) {
+    points = entry.pads.map((pad) => [pad.xPx / render.widthPx, pad.yPx / render.heightPx] as PadPoint)
+    padPointCache.set(entry, points)
+  }
+  return points
 }
 
 /**
@@ -625,11 +383,6 @@ export const MODULE_PAD_GEOMETRY: Record<string, readonly PadPoint[]> = {
  * long enough to put its symbol clear of the artwork rather than on top of it.
  */
 export const PERIPHERAL_STUB_LEAD = 26
-
-/** SD images have variant-specific pad orders; simpler peripherals use VCC, signals, GND. */
-function isThreeVoltSd(item: HardwareManifestItem) {
-  return item.kind === 'sd-card' && item.facts.partId === 'microsd-breakout-3v3'
-}
 
 /**
  * An audio module's pads come from the part catalogue rather than from another
@@ -779,24 +532,17 @@ export function peripheralHasGround(item: HardwareManifestItem): boolean {
 }
 
 export function peripheralPowerPadIndex(item: HardwareManifestItem): number | null {
-  if (item.kind === 'power-switch-output' || item.kind === 'keypad-input') return null
-  // Neither buzzer module takes a supply: the KY-012 has no supply pad, and the
-  // KY-006's middle pin is unconnected. Each runs from its signal pin.
-  if (item.kind === 'buzzer-output') return null
-  // The ULN2803A has no controller supply: its COM pin is the load supply's clamp return.
-  if (item.kind === 'darlington-driver-output') return null
-  // A bare encoder is three switch contacts and no electronics: no supply pad.
-  // The module it shares a kind with prints VCC, so only a part without one is
-  // left unpowered.
-  if (item.kind === 'encoder-input') {
-    const supply = padIndexByLabel(item, POWER_PAD_LABELS, -1)
-    return supply >= 0 ? supply : null
-  }
-  // The RCWL-0516 prints 3V3 as well as VIN, but 3V3 is its regulator's output, so the
-  // supply lands on VIN, never on the first power-looking pad.
-  if (item.kind === 'motion-input') {
-    const vin = padIndexByLabel(item, ['VIN'], -1)
-    if (vin >= 0) return vin
+  const entry = partById(String(item.facts.partId ?? ''))
+  // A part that takes no supply from the controller has no pad to draw: a
+  // power switch lights its optocoupler from the signal itself, a buzzer runs
+  // from its signal pin, a membrane keypad is a passive matrix, and a bare
+  // encoder is three switch contacts.
+  if (entry?.supplyRail === 'none') return null
+  // The part names its supply pad when the usual names would pick another: the
+  // RCWL-0516 prints 3V3 as well as VIN, but 3V3 is its regulator's output.
+  if (entry?.powerPadLabel) {
+    const named = padIndexByLabel(item, [entry.powerPadLabel.toUpperCase()], -1)
+    if (named >= 0) return named
   }
   return padIndexByLabel(item, POWER_PAD_LABELS, 0)
 }
@@ -811,7 +557,7 @@ export function peripheralGroundPadIndex(item: HardwareManifestItem) {
   const pads = peripheralPads(item)
   const firstGround = pads.findIndex(isGroundPad)
   const first = firstGround >= 0 ? firstGround : peripheralPadCount(item) - 1
-  const measured = MODULE_PAD_GEOMETRY[String(item.facts.partId ?? '')]
+  const measured = modulePadGeometry(String(item.facts.partId ?? ''))
   if (!measured) return first
   const grounds = pads
     .map((label, index) => ({ index, ground: isGroundPad(label) }))
@@ -974,64 +720,22 @@ const OLED_PAD_NAMES: Record<OledTransport, string[][]> = {
 export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 'v12' | null {
   const powerPad = peripheralPowerPadIndex(item)
   if (powerPad === null) return null
-  // A power amplifier printed +12V wants its own supply. Checked before the
-  // audio default below, because drawing it on the controller's 5 V rail is
-  // advice that is quiet at best and, read the other way, puts twelve volts
-  // where the controller expects five.
-  if (item.kind === 'amplifier' && peripheralPadLabel(item, powerPad).toUpperCase() === '+12V') return 'v12'
-  // Audio modules take the 5 V rail: a class-D amp's output power comes from
-  // its supply, and 3.3 V would make it quiet rather than broken — the kind of
-  // wrong that reads as a bad speaker.
-  if (item.kind === 'amplifier' || item.kind === 'line-input' || item.kind === 'relay-output') return 'v5'
-  // The INA219 board prints VIN, but it has no regulator: VIN is what its
-  // SDA/SCL pull-ups tie to. On the 5 V rail those pull-ups would hold the
-  // controller's I2C pins at 5 V, so it takes the logic rail instead.
-  if (item.kind === 'power-monitor-input') return 'v3v3'
-  if (item.kind === 'environment-input') return 'v3v3'
-  // The 4.7 kohm pull-up ties DATA to VCC, so 5 V here would hold the controller's pin at 5 V.
-  if (item.kind === 'temperature-input') return 'v3v3'
-  // The HC-SR04 needs 5 V to range reliably; its Echo then swings to 5 V, which
-  // the receive divider brings down to the controller's level.
-  // The VL53L0X board level-shifts its bus to VIN, so a 5 V supply would hold SDA and SCL at 5 V.
-  if (item.kind === 'distance-input') return item.facts.transport === 'i2c' ? 'v3v3' : 'v5'
-  // The generic sensors say what they are powered from. An analog sensor's
-  // output follows its supply, so a part declaring 5 V here is one whose ADC
-  // range the part itself holds inside the pin's limit; with no declared
-  // supply the logic rail keeps the signal inside the controller's level.
-  if (item.kind === 'digital-sensor-input' || item.kind === 'analog-sensor-input') {
-    return Number(item.facts.supplyVoltage ?? 3.3) >= 4.5 ? 'v5' : 'v3v3'
-  }
-  // The module is two potentiometers and a switch. Its +5V pad would put up to 5 V on the
-  // analog pins; 3.3 V keeps both axes inside the ADC range.
-  if (item.kind === 'joystick-input') return 'v3v3'
-  // The GY-521's I2C pull-ups follow VCC, so a 5 V supply would hold the controller's SDA and
-  // SCL at 5 V; the logic rail keeps the bus inside the controller's level.
-  if (item.kind === 'motion-vector-input') return 'v3v3'
-  // The MPR121 runs its own 3.3 V regulator, and the bus stays at that level from a 3.3 V supply.
-  if (item.kind === 'touch-pad-input') return 'v3v3'
-  // VCC sets the PCA9685's logic level and the bus pull-ups ride on it, so a 5 V supply would hold SDA and SCL at 5 V.
-  if (item.kind === 'pwm-driver-output') return 'v3v3'
-  // The BH1750 breakout's level shifter pulls the controller side of SDA/SCL
-  // up to VIN, so a 5 V VIN would hold the controller's I2C pins at 5 V.
-  if (item.kind === 'light-input' && item.facts.transport === 'i2c') return 'v3v3'
-  // The MAX485 is specified for 4.75-5.25 V, so it takes the 5 V rail. Its RO
-  // then swings to 5 V, which the receive divider brings down to the ESP32's
-  // level (see `receiveDivider`).
-  if (item.kind === 'dmx-input') return 'v5'
-  // The radar needs 5 V (and more than 200 mA of supply); its UART is 3.3 V,
-  // so nothing on the logic side needs shifting.
-  if (item.kind === 'presence-input') return 'v5'
-  // Power the Grove TTP223 from the logic rail so its active-high CMOS output
-  // can never drive an ESP input above 3.3 V.
-  if (item.kind === 'touch-button-input') return 'v3v3'
-  if (item.kind === 'ir-input' && irReceiverModuleFor(item.facts.partId).supplyVoltage === 5) return 'v5'
-  // A module whose supply pad is printed 3V3 or 3V is asking for that rail;
-  // one printed VIN or 5V is asking for the other. The bare 3.3 V microSD
-  // breakout is the case that made this matter — feeding it 5 V destroys cards.
+  // The part says which rail feeds it. A module whose supply pad drives bus
+  // pull-ups (an INA219, a BH1750, a PCA9685) is held to the logic rail by its
+  // own manifest rather than by a rule per kind here.
+  const rail = partById(String(item.facts.partId ?? ''))?.supplyRail
+  if (rail && rail !== 'none') return rail
+  // A part with no rail but a declared supply voltage (a generic sensor): 4.5 V
+  // and over takes the 5 V rail; anything lower keeps its signal at logic level.
+  const volts = item.facts.supplyVoltage
+  if (typeof volts === 'number') return volts >= 4.5 ? 'v5' : 'v3v3'
+  // A part that does not say: a supply pad printed 3V3 or 3V is asking for that
+  // rail; one printed VIN or 5V is asking for the other. The bare 3.3 V microSD
+  // breakout is the case that made this matter - feeding it 5 V destroys cards.
   const supply = peripheralPadLabel(item, powerPad).toUpperCase()
   if (supply === '3V3' || supply === '3V3D' || supply === '3.3V' || supply === '3V') return 'v3v3'
   if (supply === 'VIN' || supply === '5V' || supply === '+5V') return 'v5'
-  return item.kind === 'sd-card' && !isThreeVoltSd(item) ? 'v5' : 'v3v3'
+  return 'v3v3'
 }
 
 /**
@@ -1063,88 +767,17 @@ function fitRenderBox(widthPx: number, heightPx: number) {
 export const DEFAULT_PAD_HOLE_RADIUS = 4
 
 /**
- * Each part's drilled-hole radius in its own render's pixels, measured from the
- * render's transparency (the area-equivalent radius of the see-through hole).
+ * A part's drilled-hole radius is `padHoleRadiusPx` on its manifest, in its own
+ * render's pixels, measured from the render's transparency (the area-equivalent
+ * radius of the see-through hole).
  *
  * A pad is coloured at exactly this size, so the colour fills the hole and the
  * plated ring around it stays visible. One fixed radius for every part painted
  * over the rings of the fine-pitch boards and floated inside the large ones. A
  * part whose header comes fitted (the XC4630 shield) has no open hole, so its
- * figure is the pin tip. Screw terminals take their part's header figure — a
+ * figure is the pin tip. Screw terminals take their part's header figure - a
  * marker, not a claim about the screw. Re-measure when a render is replaced.
  */
-export const MODULE_PAD_HOLE_RADIUS: Record<string, number> = {
-  'keyestudio-ks0026-ir-receiver-module': 6.1,
-  'inmp441-i2s-microphone': 13,
-  'ics-43434-i2s-microphone': 6.4,
-  'generic-i2s-mems-microphone': 10.5,
-  'sph0645lm4h-i2s-microphone': 9.6,
-  'max98357a-i2s-amplifier': 10.5,
-  'max98357a-stereo-pair': 5.1,
-  'dfplayer-mini': 10,
-  'pam8403-3w-stereo-amplifier': 5.6,
-  'lr7843-mosfet-module': 12.3,
-  'monkmakes-mosfetti': 5.6,
-  // The screw head (1.55 mm), so its dark well still rings the colour.
-  'yynmos-4-lr7843-mosfet-module': 18.6,
-  'ds3231-rtc-module': 5.9,
-  'jaycar-xc9044-rtc-module': 12.3,
-  'adafruit-ina219-current-sensor': 7,
-  'ina226-current-sensor-module': 7,
-  'ky-012-active-buzzer-module': 11.5,
-  'ky-006-passive-buzzer-module': 11.9,
-  'adafruit-pca9685-pwm-driver': 7,
-  'uln2803a-dip18': 10,
-  'adafruit-vl53l0x-distance-sensor': 9,
-  'adafruit-vl53l1x-distance-sensor': 7,
-  'adafruit-bh1750-light-sensor': 7,
-  'adafruit-bme280-environment-sensor': 9.5,
-  'ds18b20-waterproof-probe': 6.5,
-  // Half the 0.8 mm lead width, so the colour sits on the lead rather than beside it.
-  'jaycar-sr1230-rotary-encoder': 9,
-  'hc-sr04-ultrasonic-module': 6,
-  'ky-023-joystick-module': 7.3,
-  'matrix-keypad-4x4': 6,
-  'rcwl-0516-microwave-motion-module': 6,
-  'gy-521-mpu6050-module': 9,
-  'adafruit-mpr121-touch-sensor': 6,
-  'max485-rs485-module': 11.9,
-  'adafruit-midi-featherwing': 5.4,
-  'wiz850io-ethernet-module': 6.2,
-  'hlk-ld2410c-presence-sensor': 7.2,
-  'pcm5102a-i2s-dac': 11.5,
-  'dx-0809-stereo-amplifier': 6.1,
-  'pam8610-stereo-amplifier': 4.9,
-  'uda1334a-i2s-dac': 5.1,
-  'sh1106-oled-128x64': 5.9,
-  'sh1106-oled-096-128x64-spi': 6.6,
-  'sh1106-oled-128x64-i2c': 6.1,
-  'ssd1306-oled-128x64': 6.7,
-  'ssd1306-oled-096-128x64-i2c': 6.6,
-  'tm1637-4digit-display': 5.6,
-  'max7219-8digit-7segment': 4.7,
-  'st7789-tft-240x240': 5.9,
-  'st7789v-xpt2046-touch-240x320': 7.2,
-  'ili9341-xpt2046-touch-320x240': 6,
-  'ili9341-xc4630-parallel-touch-320x240': 3,
-  'microsd-module-5v': 8.1,
-  'microsd-breakout-3v3': 9.6,
-  // Half the lead width, as for the SR1230.
-  'tsop38238-ir-receiver': 14,
-  'ky-022-ir-receiver-module': 4,
-  'hc-sr501-pir-sensor': 5.3,
-  'photosensitive-ldr-module': 5.6,
-  'seeed-grove-touch-sensor': 6.4,
-  // A marker inside the Grove socket, at its 2 mm pitch.
-  'seeed-grove-2ch-ssr': 6,
-  'relay-module-1ch-5v': 4.9,
-  'relay-module-2ch-5v': 4.9,
-  'relay-module-4ch-5v': 5,
-  'relay-module-8ch-5v': 3.4,
-  'pcm1802-line-in-adc': 5.7,
-  // A marker, like a screw terminal's.
-  'noctua-nf-a4x10-5v-pwm': 6,
-}
 
 /** The radius a part's pads are coloured at on the sheet: its hole, scaled like its render. */
 export function peripheralPadRadius(item: HardwareManifestItem) {
@@ -1152,7 +785,7 @@ export function peripheralPadRadius(item: HardwareManifestItem) {
   if (!partById(partId)?.render) {
     return BUNDLED_PAD_HOLE_RADIUS_PX * fitRenderBox(BUNDLED_RENDER_PX, BUNDLED_RENDER_PX).scale
   }
-  const radius = MODULE_PAD_HOLE_RADIUS[partId]
+  const radius = partById(partId)?.padHoleRadiusPx
   const box = fittedRenderBox(partId)
   return radius === undefined || !box ? DEFAULT_PAD_HOLE_RADIUS : radius * box.scale
 }
@@ -1340,7 +973,7 @@ export function peripheralPadPoint(layout: ItemLayout, padIndex: number) {
   // on the audio kinds is why every other part's wires met its picture wherever
   // an even spread happened to land.
   const measuredPartId = String(layout.item.facts.partId ?? '')
-  const measured = MODULE_PAD_GEOMETRY[measuredPartId]
+  const measured = modulePadGeometry(measuredPartId)
   const box = fittedRenderBox(measuredPartId)
   if (measured && box) {
     const [xRatio, yRatio] = measured[Math.min(Math.max(padIndex, 0), measured.length - 1)]

@@ -49,5 +49,29 @@
   "copy": {
     "summary": "One active-high capacitive touch button",
     "wiringNote": "Power from 3.3 V. SIG is HIGH while touched; NC is not connected."
-  }
+  },
+  "pads": [
+    {
+      "label": "SIG",
+      "xPx": 152,
+      "yPx": 297.8
+    },
+    {
+      "label": "NC",
+      "xPx": 183.6,
+      "yPx": 297.8
+    },
+    {
+      "label": "VCC",
+      "xPx": 215.4,
+      "yPx": 297.8
+    },
+    {
+      "label": "GND",
+      "xPx": 247,
+      "yPx": 297.8
+    }
+  ],
+  "padHoleRadiusPx": 6.4,
+  "supplyRail": "v3v3"
 }
