@@ -19,6 +19,7 @@ import {
   feedCombLaneY,
   feedIndexForFuseSlot,
   FUSE_BLOCK_CELL_HEIGHT,
+  FUSE_BLOCK_CELL_WIDTH,
   FUSE_BLOCK_START_X,
   fuseBlockPoints,
   fuseColumnSplit,
@@ -182,10 +183,10 @@ describe('powerDistributionSectionLayout', () => {
         const points = fuseBlockPoints(block.circuitCount, FUSE_BLOCK_START_X, layout.blockTops[blockIndex])
         for (let localIndex = 0; localIndex < block.assignedFeedCount; localIndex += 1, feedIndex += 1) {
           const rowY = layout.firstBranchY + (feedIndex * POWER_BRANCH_ROW_SPACING)
-          const { slot, isRightColumn } = fuseSlotForFeed(localIndex, block.assignedFeedCount)
+          const { slot, isRightColumn } = fuseSlotForFeed(localIndex, block.assignedFeedCount, block.circuitCount)
           const label = `${feedCount} feeds, feed ${feedIndex}`
-          // Ground leaves the comb above the block, so its row must be lower.
-          expect(rowY, label).toBeGreaterThan(groundCombLaneY(layout.blockTops[blockIndex], localIndex, block.assignedFeedCount))
+          // Ground leaves the comb below the block, so its row must be lower.
+          expect(rowY, label).toBeGreaterThan(groundCombLaneY(layout.blockTops[blockIndex], localIndex))
           if (isRightColumn) {
             // Straight out of the screw, then down: never above the screw.
             expect(rowY, label).toBeGreaterThanOrEqual(Math.round(points.circuit(slot).y))
@@ -202,27 +203,35 @@ describe('powerDistributionSectionLayout', () => {
     }
   })
 
-  it('hangs the PSU off the height its +5 V trunk enters the block at', () => {
+  it('drops +5 V onto the top stud and brings ground across the block to the bottom one', () => {
     for (const feedCount of FEED_COUNTS) {
       const layout = powerDistributionSectionLayout(feedCount)
-      const points = fuseBlockPoints(fuseBlockAllocations(feedCount)[0].circuitCount, FUSE_BLOCK_START_X, layout.fuseBlockY)
-      // A straight trunk means the PSU terminal and the entry share a height,
-      // and the entry has to stay in the clear band between bus and first fuse.
-      expect(layout.psuY + PSU_POSITIVE_TERMINAL_OFFSET, `${feedCount} feeds`).toBe(layout.trunkEntryY)
-      expect(layout.trunkEntryY, `${feedCount} feeds`).toBeGreaterThan(points.groundCircuit(0).y)
-      expect(layout.trunkEntryY, `${feedCount} feeds`).toBeLessThan(points.circuit(0).y)
+      // The first +5 V lane is level with the PSU terminal: one straight run.
+      expect(layout.psuY + PSU_POSITIVE_TERMINAL_OFFSET, `${feedCount} feeds`).toBe(layout.positiveLaneYs[0])
+      for (const [blockIndex, block] of fuseBlockAllocations(feedCount).entries()) {
+        const top = layout.blockTops[blockIndex]
+        const points = fuseBlockPoints(block.circuitCount, FUSE_BLOCK_START_X, top)
+        const label = `${feedCount} feeds, block ${blockIndex}`
+        // The turned block has + on top and - underneath, both on its centre line.
+        expect(points.positive.y, label).toBeLessThan(points.circuit(0).y)
+        expect(points.ground.y, label).toBeGreaterThan(points.groundCircuit(0).y)
+        expect(points.positive.x, label).toBe(points.ground.x)
+        // +5 V's lane sits above the block; ground crosses between the + stud
+        // and the top fuse row, then drops the gutter to the - stud.
+        expect(layout.positiveLaneYs[blockIndex], label).toBeLessThan(top)
+        expect(layout.groundEntryYs[blockIndex], label).toBeGreaterThan(points.positive.y)
+        expect(layout.groundEntryYs[blockIndex], label).toBeLessThan(points.circuit(block.circuitCount - 2).y)
+      }
     }
   })
 
-  it('reserves a ground comb above each block and a feed comb below the stack', () => {
+  it('reserves a ground comb below each block and a feed comb below the stack', () => {
     const layout = powerDistributionSectionLayout(6)
     const [blockTop] = layout.blockTops
-    // Deepest feed hugs the block, shallowest sits at the top of the comb, and
-    // the whole comb clears the section heading.
-    expect(groundCombLaneY(blockTop, 5, 6)).toBeGreaterThan(groundCombLaneY(blockTop, 0, 6))
-    expect(groundCombLaneY(blockTop, 5, 6)).toBeLessThan(blockTop)
-    expect(groundCombLaneY(blockTop, 0, 6)).toBeGreaterThan(64)
-    expect(layout.feedCombY).toBeGreaterThan(blockTop + FUSE_BLOCK_CELL_HEIGHT)
+    // Shallowest feed hugs the block, deepest sits at the bottom of the comb.
+    expect(groundCombLaneY(blockTop, 5)).toBeGreaterThan(groundCombLaneY(blockTop, 0))
+    expect(groundCombLaneY(blockTop, 0)).toBeGreaterThan(blockTop + FUSE_BLOCK_CELL_HEIGHT)
+    expect(layout.feedCombY).toBeGreaterThan(groundCombLaneY(blockTop, 5))
     expect(feedCombLaneY(layout.feedCombY, 2)).toBeGreaterThan(feedCombLaneY(layout.feedCombY, 0))
   })
 
@@ -236,26 +245,37 @@ describe('powerDistributionSectionLayout', () => {
 })
 
 describe('fuse slot assignment', () => {
-  it('fills the right column with the shallowest feeds, top to bottom in both columns', () => {
-    // 6 feeds: right column takes rows 1-3 (slots 1/3/5), left column the rest.
-    expect([0, 1, 2, 3, 4, 5].map((index) => fuseSlotForFeed(index, 6).slot)).toEqual([1, 3, 5, 0, 2, 4])
-    expect([0, 1, 2, 3, 4, 5].map((index) => fuseSlotForFeed(index, 6).isRightColumn))
+  it('fills the right column top down and the left column bottom up', () => {
+    // The turned 6-circuit block shows circuits 5/3/1 down its right side and
+    // 6/4/2 down its left. Right takes the shallowest feeds from the top, left
+    // the rest from the bottom, so each later feed leaves further out.
+    expect([0, 1, 2, 3, 4, 5].map((index) => fuseSlotForFeed(index, 6, 6).slot)).toEqual([4, 2, 0, 1, 3, 5])
+    expect([0, 1, 2, 3, 4, 5].map((index) => fuseSlotForFeed(index, 6, 6).isRightColumn))
       .toEqual([true, true, true, false, false, false])
-    // An odd feed count leaves the spare circuit in the left column.
-    expect([0, 1, 2].map((index) => fuseSlotForFeed(index, 3).slot)).toEqual([1, 3, 0])
+    // An odd feed count leaves the spare circuit at the top of the left column.
+    expect([0, 1, 2].map((index) => fuseSlotForFeed(index, 3, 4).slot)).toEqual([2, 0, 1])
+    const points = fuseBlockPoints(6, FUSE_BLOCK_START_X, 200)
+    expect(points.circuit(4).y).toBeLessThan(points.circuit(0).y)
+    expect(points.circuit(0).x).toBeGreaterThan(points.circuit(1).x)
+    // A cap is drawn from the half-turned spot on the unturned render.
+    const cap = points.fuseCap(0)
+    const centre = { x: FUSE_BLOCK_START_X + (FUSE_BLOCK_CELL_WIDTH / 2), y: 200 + (FUSE_BLOCK_CELL_HEIGHT / 2) }
+    expect(cap.turned.x + cap.unturned.x).toBeCloseTo(centre.x * 2)
+    expect(cap.turned.y + cap.unturned.y).toBeCloseTo(centre.y * 2)
+    expect(Math.abs(cap.turned.y - points.circuit(0).y)).toBeLessThan(1)
   })
 
   it('round-trips every feed through its circuit and reports spares', () => {
     for (const feedCount of FEED_COUNTS) {
       for (const block of fuseBlockAllocations(feedCount)) {
         const { assignedFeedCount, circuitCount } = block
-        const slots = Array.from({ length: assignedFeedCount }, (_, index) => fuseSlotForFeed(index, assignedFeedCount).slot)
+        const slots = Array.from({ length: assignedFeedCount }, (_, index) => fuseSlotForFeed(index, assignedFeedCount, circuitCount).slot)
         expect(new Set(slots).size, `${feedCount} feeds`).toBe(assignedFeedCount)
         expect(Math.max(...slots)).toBeLessThan(circuitCount)
         for (const [localIndex, slot] of slots.entries()) {
-          expect(feedIndexForFuseSlot(slot, assignedFeedCount)).toBe(localIndex)
+          expect(feedIndexForFuseSlot(slot, assignedFeedCount, circuitCount)).toBe(localIndex)
         }
-        const spares = Array.from({ length: circuitCount }, (_, slot) => feedIndexForFuseSlot(slot, assignedFeedCount))
+        const spares = Array.from({ length: circuitCount }, (_, slot) => feedIndexForFuseSlot(slot, assignedFeedCount, circuitCount))
           .filter((localIndex) => localIndex < 0)
         expect(spares).toHaveLength(circuitCount - assignedFeedCount)
       }

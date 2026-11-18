@@ -874,6 +874,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Build Diagram
 
+- Fuse blocks are drawn turned half a turn (`FUSE_BLOCK_ROTATION`), + stud on top,
+  so their terminals match the PSU's order (+V above -V). +5 V drops onto the
+  top stud from its lane; ground crosses the narrow band under that stud and
+  drops the centre gutter to the - stud, so neither trunk crosses a wire.
+  Ground returns fan out below the block. `fuseBlockPoints` returns turned
+  positions; read every terminal through it. The renders have no Blender
+  source, so each fuse cap is redrawn from the unturned render
+  (`fuseCap`) to keep circuit numbers upright and matching the schedule.
 - The sheet's attributes are the white print sheet. On screen, outside the
   Light theme, `BuildDiagramWorkspace.module.css` repaints only the chrome
   dark: the paper and boxes tagged `data-sheet` (`paper`, `panel`, `note`,

@@ -624,19 +624,26 @@ describe('BuildDiagramWorkspace', () => {
     expect(psuRender?.getAttribute('href')).toContain('5v-psu-terminals')
     expect(psuRender?.getAttribute('width')).toBe('123')
     expect(psuRender?.getAttribute('height')).toBe('220')
-    expect(psuRender?.getAttribute('y')).toBe('165')
-    expect(diagram?.querySelector('[data-terminal="supply-1-positive"]')?.getAttribute('cy')).toBe('229')
-    expect(diagram?.querySelector('[data-terminal="supply-1-ground"]')?.getAttribute('cy')).toBe('252')
+    expect(psuRender?.getAttribute('y')).toBe('112')
+    expect(diagram?.querySelector('[data-terminal="supply-1-positive"]')?.getAttribute('cy')).toBe('176')
+    expect(diagram?.querySelector('[data-terminal="supply-1-ground"]')?.getAttribute('cy')).toBe('199')
     const fuseBlockRender = diagram?.querySelector('[data-component-render="fuse-block-4-circuit"]')
-    // Supply and distribution sit in one header band, and the PSU hangs off the
-    // height its +5 V trunk enters the block at so that run stays straight.
-    expect(fuseBlockRender?.getAttribute('y')).toBe('164')
+    // The block is drawn turned half a turn, + stud on top, so its trunk lane
+    // runs level with the PSU terminal just above it.
+    expect(fuseBlockRender?.getAttribute('y')).toBe('188')
+    expect(fuseBlockRender?.getAttribute('transform')).toBe('rotate(180 362 279)')
+    // Each cap is redrawn unturned so its printed number reads upright.
+    expect(Array.from(diagram?.querySelectorAll('[data-upright-fuse-cap]') ?? []).map((cap) => cap.getAttribute('data-upright-fuse-cap')))
+      .toEqual(['1', '2', '3', '4'])
     const mainPositive = diagram?.querySelector('[data-wire="supply-1-positive-bus"]')
     const mainGround = diagram?.querySelector('[data-wire="supply-1-ground-bus"]')
     expect(mainPositive?.getAttribute('data-wire-role')).toBe('main-psu-positive')
     expect(mainGround?.getAttribute('data-wire-role')).toBe('main-psu-ground')
-    expect(mainPositive?.getAttribute('d')).toMatch(/^M153 229H212V229H362V/)
-    expect(mainGround?.getAttribute('d')).toMatch(/^M153 252H196V/)
+    // +5 V runs straight out level with the PSU and drops onto the top stud;
+    // ground crosses the block under that stud and drops the gutter to the
+    // bottom one, so neither trunk crosses another wire.
+    expect(mainPositive?.getAttribute('d')).toMatch(/^M153 176H212V176H362V210\.\d+$/)
+    expect(mainGround?.getAttribute('d')).toMatch(/^M153 199H196V221H362V349\.\d+$/)
     expect(mainPositive?.getAttribute('class')).not.toBe(diagram?.querySelector('[data-wire="output:out:feed-1-fused-positive"]')?.getAttribute('class'))
     expect(diagram?.querySelectorAll('[data-component-render="panasonic-eeufr0j102b-1000uf"]')).toHaveLength(3)
     // The capacitor picks up from the panel terminals on its own leads, so it
@@ -657,15 +664,18 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelectorAll('[data-feed-column="right"]')).toHaveLength(2)
     expect(diagram?.querySelectorAll('[data-feed-column="left"]')).toHaveLength(1)
     expect(diagram?.querySelector('[data-fuse-value-schedule="supply-1"]')?.textContent)
-      .toContain('BLOCK 1 · 1: 7.5A  ·  2: 7.5A  ·  3: SPARE  ·  4: 15A')
+      .toContain('BLOCK 1 · 1: 15A  ·  2: 7.5A  ·  3: 7.5A  ·  4: SPARE')
     const ledPositives = Array.from(diagram?.querySelectorAll('[data-terminal$="-led-positive"]') ?? [])
       .map((terminal) => Number(terminal.getAttribute('cy')))
-    expect(ledPositives).toEqual([257, 343, 429])
-    // The shallowest feed sits level with the fuse it leaves, so its run out to
-    // the panel is a straight line.
-    expect(ledPositives[0]).toBe(Math.round(Number(diagram?.querySelector('[data-terminal="output:out:feed-1-fuse"] circle')?.getAttribute('cy'))))
+    expect(ledPositives).toEqual([422, 508, 594])
+    // Rows start below the ground comb, since every return drops out of it
+    // under the block.
+    expect(ledPositives[0]).toBeGreaterThan(398)
     const groundScrews = Array.from(diagram?.querySelectorAll('[data-terminal$="-ground-screw"]') ?? [])
-    expect(new Set(groundScrews.map((terminal) => terminal.getAttribute('cx'))).size).toBe(3)
+    const screwXs = groundScrews.map((terminal) => Number(terminal.getAttribute('cx')))
+    // Returns take bus screws right to left in feed order.
+    expect(screwXs).toEqual([...screwXs].sort((a, b) => b - a))
+    expect(new Set(screwXs).size).toBe(3)
     expect(Array.from(diagram?.querySelectorAll('text') ?? []).some((text) => text.textContent === '7.5A FUSE')).toBe(false)
   })
 

@@ -26,6 +26,7 @@ import {
   feedIndexForFuseSlot,
   groundCombLaneY,
   FUSE_BLOCK_CELL_HEIGHT,
+  FUSE_BLOCK_ROTATION,
   POWER_BRANCH_ROW_SPACING,
   feedCombLaneY,
 } from './physicalDiagramLayout'
@@ -225,7 +226,7 @@ export function PowerDistributionSections({ plan, bands, shadowFilter }: {
       assigned.forEach((injection, index) => {
         const block = blocks.find((candidate) => index >= candidate.firstFeedIndex && index < candidate.firstFeedIndex + candidate.assignedFeedCount)
         if (!block) return
-        if (fuseSlotForFeed(index - block.firstFeedIndex, block.assignedFeedCount).isRightColumn) return
+        if (fuseSlotForFeed(index - block.firstFeedIndex, block.assignedFeedCount, block.circuitCount).isRightColumn) return
         leftColumnRanks.set(injection.id, leftColumnRanks.size)
       })
       const terminals = supplyTerminalPoints(supply, sectionLayout.psuY)
@@ -239,28 +240,26 @@ export function PowerDistributionSections({ plan, bands, shadowFilter }: {
       const positiveBusY = supply.converter && psuPositive.x < psuGround.x
         ? psuPositive.y + 24
         : psuPositive.y
-      // The +5 V trunk enters each block through the clear band between its
-      // negative bus and its first fuse row, then drops the gutter between the
-      // two screw columns onto the positive input. Going round the outside
-      // instead would have to cut across the branch rails that wrap the block.
+      // The turned block has its + stud on top: +5 V drops onto it from the
+      // lane above. Ground crosses the block in the clear band under that stud
+      // and drops the gutter between the screw columns onto the - stud, so
+      // nothing runs under the block where the ground comb and left feeds go.
       const positiveBus = blocks.map((block, blockIndex) => {
-        const points = fuseBlockPoints(block.circuitCount, block.x, block.y)
-        const point = points.positive
-        // Level with the PSU terminal for the first block, so that run is dead
+        const point = fuseBlockPoints(block.circuitCount, block.x, block.y).positive
+        // The first lane is level with the PSU terminal, so that run is dead
         // straight; later blocks step down the same riser.
-        const entryY = blockIndex === 0
-          ? sectionLayout.trunkEntryY
-          : Math.round((points.groundCircuit(0).y + points.circuit(0).y) / 2)
+        const laneY = sectionLayout.positiveLaneYs[blockIndex]
         const terminalLead = positiveBusY === psuPositive.y
           ? `M${psuPositive.x} ${psuPositive.y}H${PSU_POSITIVE_TRUNK_X}`
           : `M${psuPositive.x} ${psuPositive.y}V${positiveBusY}H${PSU_POSITIVE_TRUNK_X}`
-        return `${terminalLead}V${entryY}H${point.x}V${point.y}`
+        return `${terminalLead}V${laneY}H${point.x}V${point.y}`
       }).join('')
-      const groundBus = blocks.map((block) => {
+      const groundBus = blocks.map((block, blockIndex) => {
         const point = fuseBlockPoints(block.circuitCount, block.x, block.y).ground
+        const entryY = sectionLayout.groundEntryYs[blockIndex]
         return supply.converter
-          ? `M${psuGround.x} ${psuGround.y}V${psuGround.y + 14}H${PSU_GROUND_TRUNK_X}V${point.y}H${point.x}`
-          : `M${psuGround.x} ${psuGround.y}H${PSU_GROUND_TRUNK_X}V${point.y}H${point.x}`
+          ? `M${psuGround.x} ${psuGround.y}V${psuGround.y + 14}H${PSU_GROUND_TRUNK_X}V${entryY}H${point.x}V${point.y}`
+          : `M${psuGround.x} ${psuGround.y}H${PSU_GROUND_TRUNK_X}V${entryY}H${point.x}V${point.y}`
       }).join('')
 
       return <g key={supply.id} data-power-zone={supply.id} data-power-zone-y={sectionY} transform={`translate(0 ${sectionY})`}>
@@ -369,7 +368,7 @@ export function PowerDistributionSections({ plan, bands, shadowFilter }: {
           <text x="42" y={sectionLayout.scheduleY} className={styles.physicalLegendTitle}>FUSE BLOCK VALUES</text>
           {blocks.flatMap((block) => {
             const values = Array.from({ length: block.circuitCount }, (_, slot) => {
-              const localIndex = feedIndexForFuseSlot(slot, block.assignedFeedCount)
+              const localIndex = feedIndexForFuseSlot(slot, block.assignedFeedCount, block.circuitCount)
               const injection = localIndex < 0 ? undefined : assigned[block.firstFeedIndex + localIndex]
               const value = injection?.fuse.ratingMa ? formatAmps(injection.fuse.ratingMa) : 'SPARE'
               return `${slot + 1}: ${value}`
@@ -394,7 +393,7 @@ export function PowerDistributionSections({ plan, bands, shadowFilter }: {
           return <g key={`${supply.id}-block-${block.blockIndex + 1}`} data-fuse-block-circuits={block.circuitCount}>
             <text
               x={block.x + (FUSE_BLOCK_CELL_WIDTH / 2)}
-              y={groundCombLaneY(block.y, 0, block.assignedFeedCount) - 14}
+              y={sectionLayout.positiveLaneYs[block.blockIndex] - 14}
               textAnchor="middle"
               className={styles.physicalMetaLabel}
             >
@@ -408,15 +407,34 @@ export function PowerDistributionSections({ plan, bands, shadowFilter }: {
               width={FUSE_BLOCK_CELL_WIDTH}
               height={FUSE_BLOCK_CELL_HEIGHT}
               preserveAspectRatio="xMidYMid meet"
+              transform={`rotate(${FUSE_BLOCK_ROTATION} ${block.x + (FUSE_BLOCK_CELL_WIDTH / 2)} ${block.y + (FUSE_BLOCK_CELL_HEIGHT / 2)})`}
               className={styles.physicalBoardRender}
             />
+            {/* Turning the block turns its printed numbers too. Each cap is
+                drawn again from the unturned render, clipped to its own box, so
+                circuit numbers read upright and match the fuse schedule. */}
+            {Array.from({ length: block.circuitCount }, (_, slot) => {
+              const cap = points.fuseCap(slot)
+              const left = cap.turned.x - (cap.width / 2)
+              const top = cap.turned.y - (cap.height / 2)
+              return <svg key={slot} data-upright-fuse-cap={slot + 1} x={left} y={top} width={cap.width} height={cap.height} overflow="hidden">
+                <image
+                  href={FUSE_BLOCK_RENDERS[block.circuitCount]}
+                  x={block.x + (cap.turned.x - cap.unturned.x) - left}
+                  y={block.y + (cap.turned.y - cap.unturned.y) - top}
+                  width={FUSE_BLOCK_CELL_WIDTH}
+                  height={FUSE_BLOCK_CELL_HEIGHT}
+                  preserveAspectRatio="xMidYMid meet"
+                />
+              </svg>
+            })}
             <circle data-terminal={`${supply.id}-fuse-block-${block.blockIndex + 1}-positive`} cx={positiveX} cy={positiveY} r="5" fill="#d84938" stroke="#ffd1d7" strokeWidth="2" />
             <circle data-terminal={`${supply.id}-fuse-block-${block.blockIndex + 1}-ground`} cx={groundX} cy={groundY} r="5" fill="#202425" stroke="#f2c766" strokeWidth="2" />
           </g>
         })}
 
-        {/* Drawn after the block renders: both trunks land on terminals that sit
-            inside the artwork, so they have to read as wires over the block. */}
+        {/* Drawn after the block renders: the +5 V trunk ends on a stud inside
+            the artwork and ground crosses it, so both read as wires over it. */}
         <HoverWire tip={`${supply.converter ? 'Converter' : 'PSU'} zone ${supplyIndex + 1} +5 V · ${mainFuseText} main fuse, then ${trunkWireText} trunk to the fuse blocks`} data-wire={`${supply.id}-positive-bus`} data-wire-role="main-psu-positive" d={positiveBus} className={styles.mainPowerWire} />
         {/* Main fuse, drawn over the trunk at the supply terminal where it is
             fitted: between the PSU artwork and the ground riser, which the
@@ -437,11 +455,14 @@ export function PowerDistributionSections({ plan, bands, shadowFilter }: {
           const fitFeedLabel = feedLabel.length * APPROX_WIRE_LABEL_CHARACTER_WIDTH > FEED_LABEL_MAX_WIDTH
           const block = blocks.find((candidate) => index >= candidate.firstFeedIndex && index < candidate.firstFeedIndex + candidate.assignedFeedCount)!
           const localIndex = index - block.firstFeedIndex
-          const { slot, isRightColumn, columnRank } = fuseSlotForFeed(localIndex, block.assignedFeedCount)
+          const { slot, isRightColumn, columnRank } = fuseSlotForFeed(localIndex, block.assignedFeedCount, block.circuitCount)
           const leftRank = leftColumnRanks.get(injection.id) ?? 0
           const points = fuseBlockPoints(block.circuitCount, block.x, block.y)
           const { x: fuseX, y: fuseY } = points.circuit(slot)
-          const { x: groundX, y: groundY } = points.groundCircuit(slot)
+          // Ground returns take bus screws right to left in feed order, so the
+          // comb under the block fans out without any return crossing another.
+          const groundScrew = localIndex
+          const { x: groundX, y: groundY } = points.groundCircuit(groundScrew)
           const { x: positiveX, y: positiveY } = points.positive
           const positiveLaneX = lanes.positive(index)
           const groundLaneX = lanes.ground(index)
@@ -454,7 +475,7 @@ export function PowerDistributionSections({ plan, bands, shadowFilter }: {
           const positivePath = isRightColumn
             ? `M${fuseX} ${fuseY}H${positiveLaneX}V${rowY}H${FEED_RUN_END}`
             : `M${fuseX} ${fuseY}H${railX}V${feedCombY}H${positiveLaneX}V${rowY}H${FEED_RUN_END}`
-          const groundCombY = groundCombLaneY(block.y, localIndex, block.assignedFeedCount)
+          const groundCombY = groundCombLaneY(block.y, localIndex)
           const capacitorY = rowY - (CAPACITOR_HEIGHT * CAPACITOR_POSITIVE_LEAD_RATIO)
           // Lead tips: where the part's own leads meet the two feed wires.
           const capacitorLeadX = CAPACITOR_X + 8
@@ -475,7 +496,7 @@ export function PowerDistributionSections({ plan, bands, shadowFilter }: {
               stroke="#f2c766"
               strokeWidth="2"
             >
-              <title>Ground return · negative bus screw {slot + 1}</title>
+              <title>Ground return · negative bus screw {groundScrew + 1}</title>
             </circle>
             <HoverWire
               tip={`Fused +5 V · ${fuseText} fuse, circuit ${slot + 1} · ${feedLabel}`}
@@ -486,9 +507,9 @@ export function PowerDistributionSections({ plan, bands, shadowFilter }: {
               className={styles.powerWire}
             />
             <HoverWire
-              tip={`GND return · ground screw ${slot + 1} · ${destination}`}
+              tip={`GND return · ground screw ${groundScrew + 1} · ${destination}`}
               data-wire={`${injection.id}-ground`}
-              data-ground-screw-slot={slot + 1}
+              data-ground-screw-slot={groundScrew + 1}
               data-ground-screw-count={block.circuitCount}
               d={`M${groundX} ${groundY}V${groundCombY}H${groundLaneX}V${groundRowY}H${FEED_RUN_END}`}
               className={styles.groundWire}
