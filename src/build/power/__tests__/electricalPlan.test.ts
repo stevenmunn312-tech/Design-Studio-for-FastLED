@@ -179,7 +179,7 @@ describe('electricalPlan', () => {
     for (const led of expected) expect(cuts?.detail).toContain(`LED ${led}`)
   })
 
-  it('sizes the supply for full white whatever the firmware cap says', () => {
+  it('never changes sizing for the firmware cap', () => {
     const manifest = buildHardwareManifest([
       boardNode({ powerLimit: true, milliamps: 9000 }),
       outputNode(16, 16),
@@ -194,7 +194,7 @@ describe('electricalPlan', () => {
     expect(plan.totals?.recommendedSupplyCurrentMa).toBe(20000)
   })
 
-  it("sizes two capped outputs' supply for their combined full-white load", () => {
+  it("never shrinks two capped outputs' supply below their combined full-white load", () => {
     const first = outputNode(16, 16)
     const second = outputNode(16, 16, { dataPin: 27 })
     second.id = 'out-2'
@@ -217,6 +217,49 @@ describe('electricalPlan', () => {
       recommendedWattage: 200,
     }))
     expect(plan.outputs.every((output) => output.recommendedFeedCount === 3)).toBe(true)
+  })
+
+  it('sizes for the supply, not the cap: a 5 A supply on a 15 A load', () => {
+    const supply = {
+      id: 'psu', type: 'studioNode', position: { x: 0, y: 0 },
+      data: { label: 'Power Supply', nodeType: 'PowerSupply', category: 'hardware', properties: { voltage: 5, ratedCurrentA: 5 }, inputs: [], outputs: [] },
+    } as unknown as StudioNode
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
+    const planFor = (nodes: StudioNode[]) =>
+      calculateElectricalPlan(buildHardwareManifest(nodes, [], 'esp32:esp32:esp32s3'), ensureBuildProfile({ version: 1 }), board)
+    const uncapped = planFor([outputNode(16, 16)])
+    const capped = planFor([boardNode({ powerLimit: true, milliamps: 4000 }), outputNode(16, 16)])
+    const onSupply = planFor([boardNode({ powerLimit: true, milliamps: 4000 }), supply, outputNode(16, 16)])
+    const zone = (plan: typeof uncapped) => plan.totals!.supplies[0]
+
+    // The cap alone changes nothing.
+    expect(zone(capped).trunk).toEqual(zone(uncapped).trunk)
+    expect(capped.outputs[0].injections.map((feed) => feed.fuse)).toEqual(uncapped.outputs[0].injections.map((feed) => feed.fuse))
+    // The supply does: no more than 5 A can flow.
+    expect(zone(uncapped).trunk.mainFuse.ratingMa).toBe(25000)
+    expect(zone(onSupply).trunk.sizingCurrentMa).toBe(5000)
+    expect(zone(onSupply).trunk.mainFuse.ratingMa).toBe(7500)
+    expect(onSupply.outputs[0].injections.map((feed) => feed.sizingCurrentMa)).toEqual([3840, 5000, 3840])
+    expect(onSupply.outputs[0].injections[1].fuse.ratingMa).toBeLessThan(uncapped.outputs[0].injections[1].fuse.ratingMa!)
+    // The cap is still reported, and still never sizes anything.
+    expect(onSupply.totals?.operatingCurrentCapMa).toBe(4000)
+    expect(onSupply.assumptionsUsed.some((entry) => entry.includes('350 mA for the esp32-s3 family'))).toBe(true)
+  })
+
+  it('holds a zone made by a fixed-limit rail converter to its rating, which full white never reaches', () => {
+    const converter = {
+      id: 'rail', type: 'studioNode', position: { x: 0, y: 0 },
+      data: { label: 'Rail converter', nodeType: 'PowerConverter', category: 'input', properties: { partId: 'mean-well-sd-100a-5', sourceVoltage: 12 }, inputs: [], outputs: [] },
+    } as unknown as StudioNode
+    const manifest = buildHardwareManifest([outputNode(16, 16), converter], [], 'esp32:esp32:esp32s3')
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), boardProfileById('espressif-esp32-s3-devkitc-1'))
+    const [zone] = plan.totals!.supplies
+
+    expect(zone.converter?.outputCurrentLimit).toBe('fixed')
+    expect(zone.ceilingMa).toBe(zone.converter?.ratedCurrentMa)
+    // Zones are packed to the derated output, so the ceiling never binds.
+    expect(zone.trunk.sizingCurrentMa).toBe(zone.designCurrentMa)
+    expect(zone.converter?.plannedOutputCurrentMa).toBe(Math.ceil(zone.designCurrentMa * 1.2))
   })
 
   it('ignores obsolete planner answers and always regenerates from graph hardware', () => {

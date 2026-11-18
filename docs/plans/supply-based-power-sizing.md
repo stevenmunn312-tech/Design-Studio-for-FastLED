@@ -1,6 +1,6 @@
 # Plan — size power to the supply the user has
 
-Status: Phases 1 to 5 done 2026-11-18; Phase 6 (remaining tests) next.
+Status: all six phases done 2026-11-18. Open: a CC/CV converter with a current setting (`currentSettingA`) once the catalogue has an `adjustable` part.
 
 ## Why
 
@@ -253,7 +253,15 @@ Done, with these choices:
   `beta-support-matrix.md` keeps converters and batteries experimental until a
   bench row passes.
 
-### Phase 6 — tests
+### Phase 6 — tests (done 2026-11-18)
+
+Covered in `electricalPlan.test.ts`, `ownedSupply.test.ts`, `powerCap.test.ts`,
+`batterySupply.test.ts`, `supplyRepairs.test.ts`, and the Build Diagram,
+Board, Readiness, Checks, starter and codegen tests. The CC/CV case is only
+covered at `supplyCeilingMa` (an `adjustable` part gives no ceiling until it
+has a setting): no catalogue part is adjustable, so there is no pack-level
+case to plan yet. A fixed-limit rail converter and a plain boost on one cell
+are covered instead.
 
 - `electricalPlan.test.ts`: the "cap leaves the recommendation unchanged"
   tests become "the cap never changes sizing; the supply does".

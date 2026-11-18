@@ -156,6 +156,29 @@ describe('battery power planning', () => {
     expect(manifest.primaryItems.find((item) => item.kind === 'power-converter')?.facts.role).toBe('led-rail')
   })
 
+  it('sizes a plain boost on one cell for full white, at the pack minimum voltage', () => {
+    const { plan } = planFor([
+      pack(1, 2),
+      module('charger', 'tp4056-usbc-charge-protect-module'),
+      converter('tps61023-1s-5v-boost-module'),
+      output(2, 2),
+    ])
+    expect(plan.totals!.supplies).toHaveLength(1)
+    const [zone] = plan.totals!.supplies
+    const spec = PART_CATALOGUE['tps61023-1s-5v-boost-module'].powerConverter!
+
+    // No output limit, so no ceiling: the boost cannot stop an output short.
+    expect(zone.converter?.outputCurrentLimit).toBe('none')
+    expect(zone.ceilingMa).toBeUndefined()
+    expect(zone.trunk.sizingCurrentMa).toBe(zone.designCurrentMa)
+    // Its input is sized from the headroom load at the pack's protected minimum.
+    const planned = Math.ceil(zone.designCurrentMa * 1.2)
+    expect(zone.converter?.plannedOutputCurrentMa).toBe(planned)
+    expect(zone.converter?.sourceVoltage).toBe(plan.battery?.window.minV)
+    expect(zone.converter?.inputCurrentMa).toBe(Math.ceil(((spec.outputSetV * planned / 1000) / spec.typicalEfficiency / plan.battery!.window.minV) * 1000))
+    expect(plan.battery?.dischargeDesignCurrentMa).toBe(zone.converter?.inputCurrentMa)
+  })
+
   it('plans one 20 A buck for a 16x16 full-white load at pack minimum voltage', () => {
     const { plan } = planFor([
       pack(4, 5),
