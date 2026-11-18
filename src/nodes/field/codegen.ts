@@ -455,7 +455,8 @@ export const FIELD_EMITTERS: NodeEmitters = {
       case 'add':
       default:           expr = `_a + _b`; break
     }
-    ln(`  { /* FieldMath: ${op} */`)
+    // Only a known operation is named: the comment must not carry saved text.
+    ln(`  { /* FieldMath: ${['subtract', 'multiply', 'mix', 'min', 'max', 'difference'].includes(op) ? op : 'add'} */`)
     if (op === 'mix') ln(`    float _t=constrain(${f('t', 't', 0.5)},0.0f,1.0f);`)
     if (!sb) ln(`    float _bv=constrain(${f('value', 'value', 0)},0.0f,1.0f);`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++){`)

@@ -21,7 +21,7 @@ import { FIRE_ALONG_CPP, fireDirection, fireDirectionChoice } from './fireDirect
 import { PARTICLE_DECAY_SCALE, particleMode, particlePoolSize } from './particleModes'
 import { BOID_PALETTE_MODES } from './limits'
 import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
-import { floatLit, seedProp } from '../../codegen/cppLiterals'
+import { cppComment, floatLit, seedProp } from '../../codegen/cppLiterals'
 import { REACTION_DIFFUSION_RATES, reactionDiffusionRates } from './reactionDiffusionPresets'
 import { angle16Cpp, phyllotaxisPointCpp, splatDiscQ8Cpp } from '../shared/integerPatterns'
 import { DE_JONG_PRESETS, deJongAxis, deJongPresetName } from '../shared/deJongAttractor'
@@ -482,7 +482,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
       case 'lissajousPath':
       case 'rosePath': {
         const rose = formulaType === 'rosePath'
-        ln(`  { // Formula Points: ${formulaType}`)
+        ln(`  { // Formula Points: ${cppComment(formulaType)}`)
         const spin = speedPhaseCpp(ln, phaseTag(id), speedVar)
         // One dot for each whole frame owed, the oldest first, where the
         // curve was then and faded for the frames since; a frame owing none

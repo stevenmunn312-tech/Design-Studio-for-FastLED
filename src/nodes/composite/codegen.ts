@@ -103,7 +103,7 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     // With neither field wired, the built-in motion (./frameWarpMotion.ts) pushes.
     const motion = (WARP_MOTIONS as readonly unknown[]).includes(p.motion) ? String(p.motion) : 'none'
     const builtIn = !dx && !dy && motion !== 'none'
-    ln(`  { /* FrameWarp: ${String(p.edgeMode ?? 'clamp')}, ${bilinear ? 'bilinear' : 'nearest'}${builtIn ? `, ${motion}` : ''} */`)
+    ln(`  { /* FrameWarp: ${['clamp', 'wrap', 'black'][edgeMode]}, ${bilinear ? 'bilinear' : 'nearest'}${builtIn ? `, ${motion}` : ''} */`)
     ln(`    float _fw_st=constrain(${f('strength', 'strength', 2)},0.0f,8.0f);`)
     let ph = ''
     if (builtIn) {

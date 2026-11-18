@@ -2,7 +2,7 @@ import { audioFlowExpr } from '../../state/audio/audioFlowRange'
 import { animartrixCppLines } from '../../animartrix/codegen'
 import type { EmitContext, NodeEmitters } from '../../codegen/emitContext'
 import { spectrumThirdBounds } from '../../state/evaluator/signals'
-import { floatLit, seedProp } from '../../codegen/cppLiterals'
+import { cppComment, floatLit, seedProp } from '../../codegen/cppLiterals'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { audioSpeedRateCpp } from './audioSpeed'
 import {
@@ -147,7 +147,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const bands = Math.max(4, Math.min(32, Math.round(Number(p.bands ?? 16))))
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const audioConnected = hasExplicitAudioInput(node.id)
-    ln(`  { // SpectrumVisualizer · ${style}`)
+    ln(`  { // SpectrumVisualizer · ${cppComment(style)}`)
     ln(`    static float _svLevel_${id}[WIDTH]={0},_svPeak_${id}[WIDTH]={0},_svVelocity_${id}[WIDTH]={0};`)
     ln(`    static uint32_t _svHold_${id}[WIDTH]={0},_svLast_${id}=0;`)
     ln(`    uint32_t _svNow=millis(); float _svDt=_svLast_${id} ? constrain((_svNow-_svLast_${id})/1000.0f,0.0f,0.1f) : (1.0f/60.0f); _svLast_${id}=_svNow;`)
@@ -948,7 +948,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const injectLine = injectionMode !== 'Rainbow Border'
     const injectBorder = injectionMode !== 'Moving Line'
     const morphFlow = String(p.flowMode ?? 'Scrolling') === 'Morphing 2D'
-    ln(`  { // ColorTrails: ${injectionMode} injection + two-pass subpixel feedback advection`)
+    ln(`  { // ColorTrails: ${cppComment(injectionMode)} injection + two-pass subpixel feedback advection`)
     ln(`    // Adapted from prototype work by Stefan Petrick, creator of AnimARTrix:`)
     ln(`    // https://github.com/StefanPetrick/animartrix`)
     ln(`    static float _ctLast_${id}=-1.0f,_ctBeatPulse_${id}=0.0f;`)

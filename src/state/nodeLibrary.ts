@@ -4261,6 +4261,14 @@ export function supportsScalarExpression(nodeType: string, key: string): boolean
  * see NaN and the sketch never contains a bare `NaN` literal. Validation and the
  * editors read the stored properties, so they still show and report the
  * original value rather than discarding it.
+ *
+ * A select's value is an option id. One that is neither an option nor shaped
+ * like an id (a hand-edited or shared save can hold any text) reads as the
+ * empty string, so no emitter can carry it into the sketch: these nodes sit
+ * outside the trust prompt, and `*` + `/` in a comment would end it and start
+ * code. Empty rather than the default, because it is unknown to the node
+ * exactly as the text was, and each node keeps its own answer to an unknown
+ * option (Symmetry reads one as p1, not its default p4m).
  */
 export function resolveNodeNumericProperties(
   nodeType: string,
@@ -4276,7 +4284,16 @@ export function resolveNodeNumericProperties(
     const fallback = typeof defaults[key] === 'number'
       ? defaults[key]
       : expressionCapable ? evaluateScalarExpression(defaults[key], width, height) : null
-    if (typeof fallback !== 'number') continue
+    if (typeof fallback !== 'number') {
+      if (typeof value === 'string' && !SELECT_ID_SHAPE.test(value)) {
+        const meta = propertyMeta(nodeType, key)
+        if (meta?.control === 'select' && !meta.options.includes(value)) {
+          resolved ??= { ...properties }
+          resolved[key] = ''
+        }
+      }
+      continue
+    }
     const result = expressionCapable
       ? evaluateScalarExpression(value, width, height)
       : finiteNumber(value)
@@ -4285,6 +4302,9 @@ export function resolveNodeNumericProperties(
   }
   return resolved ?? properties
 }
+
+/** What an option id may look like when it is not (or no longer) an option. */
+const SELECT_ID_SHAPE = /^[\w .+-]{0,48}$/
 
 function finiteNumber(value: unknown): number | null {
   if (typeof value !== 'string' || value.trim() === '') return null

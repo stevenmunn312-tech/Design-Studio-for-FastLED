@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
-import { NODE_LIBRARY, libraryDefaults, resolveNodeNumericProperties } from '../../state/nodeLibrary'
+import { NODE_LIBRARY, libraryDefaults, propertyMeta, resolveNodeNumericProperties } from '../../state/nodeLibrary'
 import { evaluateGraphFull } from '../../state/graphEvaluator'
 import type { Frame } from '../../state/palettes/ledColor'
 import { generateCpp } from '../cppGenerator'
@@ -71,6 +71,54 @@ describe('numeric property guard', () => {
       const sketch = generateCpp(nodes, edges)
       expect(sketch).not.toMatch(/\bNaN\b|\bInfinity\b/)
       expect(sketch).toBe(generateCpp(clean, edges))
+    }
+  })
+})
+
+// A select holds an option id, but a shared or hand-edited save can hold any
+// text there, and these nodes sit outside the trust prompt.
+describe('select property guard', () => {
+  const HOSTILE = ['*/ INJECTED(); /*', 'x\nINJECTED();', '"; INJECTED(); //', 'a\\']
+
+  /** Every select property of `nodeType` replaced by `value`. */
+  function hostile(nodeType: string, value: string): Record<string, unknown> {
+    return Object.fromEntries(Object.keys(libraryDefaults(nodeType))
+      .filter((key) => propertyMeta(nodeType, key)?.control === 'select')
+      .map((key) => [key, value]))
+  }
+
+  it('resolves text that is not an option id to an option, a number or nothing', () => {
+    for (const definition of NODE_LIBRARY) {
+      for (const value of HOSTILE) {
+        const resolved = resolveNodeNumericProperties(definition.type, hostile(definition.type, value), 16, 16)
+        for (const key of Object.keys(hostile(definition.type, value))) {
+          const meta = propertyMeta(definition.type, key)
+          if (meta?.control !== 'select') continue
+          // A numeric select falls back to its default number, as any number does.
+          expect(['', ...meta.options.map(String), String(libraryDefaults(definition.type)[key])], `${definition.type}.${key}`)
+            .toContain(String(resolved[key]))
+          expect(resolved[key], `${definition.type}.${key}`).not.toBe(value)
+        }
+      }
+    }
+  })
+
+  it('keeps an id that is no longer an option, for the node to read as it always has', () => {
+    expect(resolveNodeNumericProperties('FieldMath', { fieldOp: 'average' }, 16, 16).fieldOp).toBe('average')
+  })
+
+  it('never carries that text into a sketch', () => {
+    for (const definition of NODE_LIBRARY) {
+      const port = definition.outputs.find((output) => output.id === 'frame' || output.id === 'field')
+      if (!port || definition.type === 'MatrixOutput') continue
+      for (const value of HOSTILE.slice(0, 2)) {
+        const nodes = [node('fx', definition.type, hostile(definition.type, value)), node('out', 'MatrixOutput', { width: 8, height: 8 })]
+        const edges = port.id === 'frame'
+          ? [edge('fx', 'frame', 'out', 'frame')]
+          : [edge('fx', 'field', 'view', 'field'), edge('view', 'frame', 'out', 'frame')]
+        if (port.id === 'field') nodes.push(node('view', 'FieldToFrame'))
+        expect(generateCpp(nodes, edges), definition.type).not.toContain('INJECTED')
+      }
     }
   })
 })
