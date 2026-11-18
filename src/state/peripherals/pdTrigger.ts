@@ -1,5 +1,6 @@
 import { partById } from '../../build/parts/partCatalogue'
 import type { PartPdTriggerSpec } from '../../build/parts/partCatalogue'
+import { partIdOrDefault } from './partSpec'
 
 /**
  * A USB-C power-delivery trigger: it asks a charger for one fixed voltage and
@@ -11,13 +12,14 @@ import type { PartPdTriggerSpec } from '../../build/parts/partCatalogue'
 export const PD_TRIGGER_NODE_TYPE = 'PdTriggerSource'
 export const PD_TRIGGER_PART_ID = 'zy12pdn-usb-c-pd-trigger'
 
-const FALLBACK_SPEC: PartPdTriggerSpec = {
-  protocols: 'USB PD', selectableVoltagesV: [5, 9, 12, 15, 20], defaultVoltageV: 12,
-  maxCurrentA: 5, maxPowerW: 100, selection: '',
+/** The part's PD trigger block; `null` for an unknown part (a missing id is the default part). */
+export function pdTriggerSpec(partId: unknown): PartPdTriggerSpec | null {
+  return partById(partIdOrDefault(partId, PD_TRIGGER_PART_ID))?.pdTrigger ?? null
 }
 
-export function pdTriggerSpec(partId: unknown): PartPdTriggerSpec {
-  return partById(String(partId ?? PD_TRIGGER_PART_ID))?.pdTrigger ?? FALLBACK_SPEC
+/** The voltages the part can request, as the select's option ids; none for an unknown part. */
+export function pdTriggerVoltageOptions(partId: unknown): string[] {
+  return pdTriggerSpec(partId)?.selectableVoltagesV.map(String) ?? []
 }
 
 /**
@@ -48,6 +50,7 @@ export function converterSourceFor(
 /** The voltage the property asks for, or `null` when the module cannot request it. */
 export function pdTriggerVoltage(props: Record<string, unknown>): number | null {
   const spec = pdTriggerSpec(props.partId)
+  if (!spec) return null
   const raw = props.requestedVoltage
   if (raw === undefined || raw === null || raw === '') return spec.defaultVoltageV
   const value = Number(raw)

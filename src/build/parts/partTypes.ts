@@ -63,7 +63,7 @@ export const PART_TYPES: readonly PartTypeDefinition[] = [
   // Switching
   type({ nodeType: 'RelayOutput', block: 'relay' }),
   type({ nodeType: 'PowerSwitchOutput', block: 'mosfet' }),
-  type({ nodeType: 'DarlingtonDriverOutput', block: 'driverChip' }),
+  type({ nodeType: 'DarlingtonDriverOutput', block: 'driverChip', deviceField: 'device', devices: ['ULN2803A'] }),
   type({ nodeType: 'PwmDriverOutput', block: 'pwmDriver', deviceField: 'device', devices: ['PCA9685'] }),
   type({ nodeType: 'CoolingFanOutput', block: 'fan' }),
   type({ nodeType: 'BuzzerOutput', block: 'buzzer' }),
@@ -88,13 +88,20 @@ export const PART_TYPES: readonly PartTypeDefinition[] = [
   type({ nodeType: 'InfoDisplay', block: 'display', deviceField: 'controller', devices: ['SSD1306', 'SH1106G'] }),
   type({ nodeType: 'TransportDisplay', block: 'display', deviceField: 'controller', devices: ['ST7789V', 'ILI9341'] }),
   type({ nodeType: 'SegmentDisplay', block: 'display', deviceField: 'controller', devices: ['TM1637', 'MAX7219'] }),
-  // Audio
+  // Audio. None of these five has a block yet, so none has a `devices` list. Each is
+  // written for one chip (MicInput: the I2S MEMS factories in `micModules.ts`; LineInput:
+  // the PCM1802; Amplifier: the I2S DACs and amps in `partOptions.ts`; PowerAmplifier: the
+  // class-D stage; DFPlayerOutput: the DFPlayer Mini), so a manifest naming another chip
+  // would load and be driven as the bundled one. They cannot be opened to downloads until
+  // each has a block with a chip field, which is round four's code change.
   type({ nodeType: 'MicInput' }),
   type({ nodeType: 'LineInput' }),
   type({ nodeType: 'Amplifier', property: 'model' }),
   type({ nodeType: 'PowerAmplifier' }),
   type({ nodeType: 'DFPlayerOutput' }),
-  // Communication, storage and time
+  // Communication, storage and time. DmxTransceiver (RS-485), MidiInterface (the DIN
+  // wing's opto-isolated receiver) and RtcModule (DS3231) are the same case as the audio
+  // types above: one chip, no block, so no `devices` list and no downloads until round four.
   type({ nodeType: 'EthernetModule', block: 'ethernet', deviceField: 'controller', devices: ['W5500'] }),
   type({ nodeType: 'DmxTransceiver' }),
   type({ nodeType: 'MidiInterface' }),

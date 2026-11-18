@@ -1,4 +1,5 @@
 import { PART_CATALOGUE, memoByCatalogue, partById, type PartPowerConverterSpec } from '../../build/parts/partCatalogue'
+import { partIdOrDefault } from './partSpec'
 
 /**
  * A DC-DC converter between a 12/24 V source and a 5 V load. It carries no
@@ -44,10 +45,13 @@ const powerConverterModuleList = memoByCatalogue((): PowerConverterModule[] =>
     return entry?.powerConverter ? [{ partId, label: entry.label, spec: entry.powerConverter }] : []
   }))
 
-/** An unset or unknown part id falls back to the first module on the shelf. */
+/**
+ * The module a saved part id names. A missing id is the default converter; an
+ * unknown one is `undefined`, never another module's facts.
+ */
 export function powerConverterModuleFor(partId: unknown): PowerConverterModule | undefined {
-  const modules = powerConverterModules()
-  return modules.find((module) => module.partId === partId) ?? modules[0]
+  const id = partIdOrDefault(partId, DEFAULT_POWER_CONVERTER_PART_ID)
+  return powerConverterModules().find((module) => module.partId === id)
 }
 
 export type PowerConverterRole = PartPowerConverterSpec['role']

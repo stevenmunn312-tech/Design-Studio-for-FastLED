@@ -46,7 +46,7 @@ import { OLED_TRANSPORT_PINS } from '../../state/displays/oledSurface'
 import { sdSpiPinsForBoard, type SdSpiPins } from './sdPinDefaults'
 import { normalizeButtonBankEntries, type ButtonBankEntry } from '../../state/player/buttonBank'
 import { integratedPinsFor } from '../boards/integratedBoardHardware'
-import { relayPinKeys } from '../../state/peripherals/relayModule'
+import { relayMaxPinKeys, relayPinKeys } from '../../state/peripherals/relayModule'
 import { ALL_POWER_SWITCH_CHANNELS, powerSwitchPinKeys } from '../../state/peripherals/powerSwitch'
 import { lightSensorPinKeys, lightSensorTransport } from '../../state/peripherals/lightSensor'
 import { distanceSensorPinKeys, distanceSensorTransport } from '../../state/peripherals/distanceSensor'
@@ -227,9 +227,9 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
     ],
   },
   RelayOutput: {
-    keys: relayPinKeys('relay-module-8ch-5v'),
+    keys: relayMaxPinKeys(),
     keysFor: (properties) => relayPinKeys(properties.partId),
-    requests: relayPinKeys('relay-module-8ch-5v').map((key) => ({
+    requests: relayMaxPinKeys().map((key) => ({
       key,
       capability: 'digitalOutput',
     })),

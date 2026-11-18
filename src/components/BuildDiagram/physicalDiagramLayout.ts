@@ -1024,7 +1024,7 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   // Power the Grove TTP223 from the logic rail so its active-high CMOS output
   // can never drive an ESP input above 3.3 V.
   if (item.kind === 'touch-button-input') return 'v3v3'
-  if (item.kind === 'ir-input' && irReceiverModuleFor(item.facts.partId).supplyVoltage === 5) return 'v5'
+  if (item.kind === 'ir-input' && irReceiverModuleFor(item.facts.partId)?.supplyVoltage === 5) return 'v5'
   // A module whose supply pad is printed 3V3 or 3V is asking for that rail;
   // one printed VIN or 5V is asking for the other. The bare 3.3 V microSD
   // breakout is the case that made this matter — feeding it 5 V destroys cards.

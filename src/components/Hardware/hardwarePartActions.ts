@@ -67,7 +67,7 @@ export function inputPartActions({
     // A microphone the app captures itself is written for one chip; say so on
     // the shelf rather than add it and refuse it in Graph Health a moment later.
     if (entry.nodeType === MIC_NODE_TYPE && selectedFqbn
-      && micModuleFor(entry.properties?.partId).capture
+      && micModuleFor(entry.properties?.partId)?.capture
       && !micSupportedForBoard(selectedFqbn, entry.properties?.partId)) {
       return micUnsupportedMessage(entry.properties?.partId)
     }

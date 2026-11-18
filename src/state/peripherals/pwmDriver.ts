@@ -1,6 +1,7 @@
 import type { NodePort } from '../../types'
 import { partById } from '../../build/parts/partCatalogue'
 import type { PartPwmDriverSpec } from '../../build/parts/partCatalogue'
+import { partIdOrDefault } from './partSpec'
 
 /**
  * A 16-channel I2C PWM driver (PCA9685). Each channel takes a 0-1 level and the
@@ -14,14 +15,9 @@ export const PCA9685_PART_ID = 'adafruit-pca9685-pwm-driver'
 /** The chip's 12-bit counter: a level of 1 is a full count. */
 export const PWM_DRIVER_FULL_COUNT = 4095
 
-const FALLBACK_SPEC: PartPwmDriverSpec = {
-  device: 'PCA9685', interface: 'I2C', channels: 16, resolutionBits: 12,
-  i2cAddresses: Array.from({ length: 48 }, (_, index) => 0x40 + index), defaultI2cAddress: 0x40,
-  oscillatorMHz: 25, minPwmHz: 24, maxPwmHz: 1526, defaultPwmHz: 1000,
-}
-
-export function pwmDriverSpec(partId: unknown): PartPwmDriverSpec {
-  return partById(String(partId ?? PCA9685_PART_ID))?.pwmDriver ?? FALLBACK_SPEC
+/** The part's PWM-driver block; `null` for an unknown part (a missing id is the default part). */
+export function pwmDriverSpec(partId: unknown): PartPwmDriverSpec | null {
+  return partById(partIdOrDefault(partId, PCA9685_PART_ID))?.pwmDriver ?? null
 }
 
 export function formatPwmDriverAddress(address: number): string {
@@ -29,12 +25,13 @@ export function formatPwmDriverAddress(address: number): string {
 }
 
 export function pwmDriverAddressOptions(partId: unknown): string[] {
-  return pwmDriverSpec(partId).i2cAddresses.map(formatPwmDriverAddress)
+  return pwmDriverSpec(partId)?.i2cAddresses.map(formatPwmDriverAddress) ?? []
 }
 
 /** The address this node answers on, or `null` when the part cannot be strapped to it. */
 export function pwmDriverAddress(props: Record<string, unknown>): number | null {
   const spec = pwmDriverSpec(props.partId)
+  if (!spec) return null
   const raw = props.i2cAddress
   if (raw === undefined || raw === null || raw === '') return spec.defaultI2cAddress
   const text = typeof raw === 'string' ? raw.trim() : ''
@@ -43,9 +40,16 @@ export function pwmDriverAddress(props: Record<string, unknown>): number | null 
   return Number.isInteger(value) && spec.i2cAddresses.includes(value) ? value : null
 }
 
-/** The PWM frequency, clamped to what the chip's prescaler can reach. */
-export function pwmDriverHz(props: Record<string, unknown>): number {
+/** The frequencies the part's prescaler can reach; `null` for an unknown part. */
+export function pwmDriverHzRange(partId: unknown): { min: number; max: number } | null {
+  const spec = pwmDriverSpec(partId)
+  return spec ? { min: spec.minPwmHz, max: spec.maxPwmHz } : null
+}
+
+/** The PWM frequency, clamped to what the chip's prescaler can reach; `null` for an unknown part. */
+export function pwmDriverHz(props: Record<string, unknown>): number | null {
   const spec = pwmDriverSpec(props.partId)
+  if (!spec) return null
   const raw = props.pwmHz
   if (raw === undefined || raw === null || raw === '') return spec.defaultPwmHz
   const value = Math.round(Number(raw))
@@ -53,15 +57,17 @@ export function pwmDriverHz(props: Record<string, unknown>): number {
 }
 
 /** The PRESCALE register value for a frequency: round(osc / (4096 * hz)) - 1. */
-export function pwmDriverPrescale(props: Record<string, unknown>): number {
+export function pwmDriverPrescale(props: Record<string, unknown>): number | null {
   const spec = pwmDriverSpec(props.partId)
+  const hz = pwmDriverHz(props)
+  if (!spec || hz === null) return null
   const counts = 2 ** spec.resolutionBits
-  return Math.max(3, Math.min(255, Math.round((spec.oscillatorMHz * 1e6) / (counts * pwmDriverHz(props))) - 1))
+  return Math.max(3, Math.min(255, Math.round((spec.oscillatorMHz * 1e6) / (counts * hz)) - 1))
 }
 
 /** The channel inputs, in the order the board's outputs are numbered. */
 export function pwmDriverInputs(partId: unknown): NodePort[] {
-  return Array.from({ length: pwmDriverSpec(partId).channels }, (_, index) => ({
+  return Array.from({ length: pwmDriverSpec(partId)?.channels ?? 0 }, (_, index) => ({
     id: pwmDriverChannelId(index), label: `Channel ${index}`, dataType: 'float',
   }))
 }

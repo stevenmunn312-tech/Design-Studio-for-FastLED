@@ -411,7 +411,7 @@ const RECORDED_HARDWARE_TARGETS: RecordedHardwareTarget[] = [
  * which is the one thing this file exists to refuse.
  */
 export function micFeatureLabel(partId: unknown): string {
-  return `${micModuleFor(partId).label}/on-device microphone`
+  return `${micModuleFor(partId)?.label ?? 'Unknown'}/on-device microphone`
 }
 
 function matchingRecordedTargets(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>): RecordedHardwareTarget[] {

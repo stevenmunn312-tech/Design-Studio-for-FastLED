@@ -1,6 +1,7 @@
 import { partById } from '../../build/parts/partCatalogue'
 import type { PartBuzzerSpec } from '../../build/parts/partCatalogue'
 import type { NodePort } from '../../types'
+import { partIdOrDefault } from './partSpec'
 
 /**
  * A buzzer module on one GPIO. An active buzzer has its own oscillator, so the
@@ -26,20 +27,19 @@ export const BUZZER_PITCH_MAX_HZ = 10000
 /** The KY-006's loudest pitch, which is where a new node starts. */
 export const BUZZER_PITCH_DEFAULT_HZ = 2000
 
-/** Used only when a saved part id no longer names a buzzer in the catalogue. */
-const FALLBACK_SPEC: PartBuzzerSpec = {
-  type: 'active', activeLevel: 'high', resonanceKHz: 2.5, soundLevel: '', maxCurrentMa: 30,
+/** The part's buzzer block; `null` for an unknown part (a missing id is the default part). */
+export function buzzerSpec(partId: unknown): PartBuzzerSpec | null {
+  return partById(partIdOrDefault(partId, BUZZER_PART_ID))?.buzzer ?? null
 }
 
-export function buzzerSpec(partId: unknown): PartBuzzerSpec {
-  return partById(String(partId ?? BUZZER_PART_ID))?.buzzer
-    ?? partById(BUZZER_PART_ID)?.buzzer
-    ?? FALLBACK_SPEC
+/** The level that sounds the part; `null` for an unknown part. */
+export const buzzerActiveHigh = (partId: unknown): boolean | null => {
+  const spec = buzzerSpec(partId)
+  return spec ? spec.activeLevel === 'high' : null
 }
 
-export const buzzerActiveHigh = (partId: unknown) => buzzerSpec(partId).activeLevel === 'high'
-
-export const buzzerIsPassive = (partId: unknown) => buzzerSpec(partId).type === 'passive'
+/** False for an unknown part: it is held, and its ports stay as saved. */
+export const buzzerIsPassive = (partId: unknown) => buzzerSpec(partId)?.type === 'passive'
 
 const SOUND_INPUT: NodePort = { id: 'on', label: 'Sound', dataType: 'bool' }
 const PITCH_INPUT: NodePort = { id: 'pitch', label: 'Pitch', dataType: 'float' }

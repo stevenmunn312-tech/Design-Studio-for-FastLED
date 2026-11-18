@@ -1,5 +1,6 @@
 import { partById } from '../../build/parts/partCatalogue'
 import type { PartPresenceSensorSpec } from '../../build/parts/partCatalogue'
+import { partIdOrDefault } from './partSpec'
 
 /**
  * A radar presence sensor: a module that streams what it sees over UART and
@@ -24,15 +25,9 @@ export const PRESENCE_RX_PIN_KEY = 'rxPin'
  */
 export const PRESENCE_UART_PORT = 1
 
-/** Used only when a saved part id no longer names a presence sensor. */
-const FALLBACK_SPEC: PartPresenceSensorSpec = {
-  device: 'HLK-LD2410C', interface: 'UART', baud: 256000, gateMeters: 0.75, maxRangeMeters: 6,
-}
-
-export function presenceSensorSpec(partId: unknown): PartPresenceSensorSpec {
-  return partById(String(partId ?? DEFAULT_PRESENCE_PART_ID))?.presenceSensor
-    ?? partById(DEFAULT_PRESENCE_PART_ID)?.presenceSensor
-    ?? FALLBACK_SPEC
+/** The part's presence block; `null` for an unknown part (a missing id is the default part). */
+export function presenceSensorSpec(partId: unknown): PartPresenceSensorSpec | null {
+  return partById(partIdOrDefault(partId, DEFAULT_PRESENCE_PART_ID))?.presenceSensor ?? null
 }
 
 /** Whether a board can build the sensor: the reader needs a remappable ESP32 UART. */
@@ -61,6 +56,7 @@ export function presencePreviewReading(
   distanceFraction: number,
 ): PresenceReading {
   const spec = presenceSensorSpec(partId)
+  if (!spec) return { presence: false, moving: false, still: false, distance: 0 }
   const presence = moving || still
   const fraction = Number.isFinite(distanceFraction) ? Math.max(0, Math.min(1, distanceFraction)) : 0
   return { presence, moving, still, distance: presence ? Math.round(fraction * spec.maxRangeMeters * 1000) : 0 }
@@ -71,5 +67,6 @@ export const presencePreviewKey = (nodeId: string, control: 'moving' | 'still' |
 
 /** Where the distance slider starts: someone a metre and a half away. */
 export function presencePreviewDefaultDistance(partId: unknown): number {
-  return 1.5 / presenceSensorSpec(partId).maxRangeMeters
+  const range = presenceSensorSpec(partId)?.maxRangeMeters
+  return range ? 1.5 / range : 0.5
 }

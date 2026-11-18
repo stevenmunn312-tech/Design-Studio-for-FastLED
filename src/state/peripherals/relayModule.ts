@@ -27,11 +27,22 @@ export function relayEnergisedKey(channel: number): string {
   return `energised${channel}`
 }
 
+function relayPinKeysFor(channels: number): string[] {
+  return Array.from({ length: channels }, (_, index) => `in${index + 1}Pin`)
+}
+
 export function relayPinKeys(partId: unknown): string[] {
-  return Array.from(
-    { length: relayChannelCountForPart(partId) },
-    (_, index) => `in${index + 1}Pin`,
-  )
+  return relayPinKeysFor(relayChannelCountForPart(partId))
+}
+
+/**
+ * Every channel pin any relay module can use: the part-independent superset,
+ * for the property tables that must name a pin before a part is known. It is
+ * bounded by `MAX_RELAY_CHANNELS`, the same ceiling a part's channel count is
+ * clamped to, and by no particular part.
+ */
+export function relayMaxPinKeys(): string[] {
+  return relayPinKeysFor(MAX_RELAY_CHANNELS)
 }
 
 /** True when a HIGH pin energises the channel. Mechanical modules stay active-low. */

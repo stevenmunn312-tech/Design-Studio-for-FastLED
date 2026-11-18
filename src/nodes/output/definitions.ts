@@ -14,6 +14,7 @@ import {
   ALL_POWER_SWITCH_CHANNELS, DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_LEVEL_DEFAULT, POWER_SWITCH_PIN_FALLBACKS,
   POWER_SWITCH_RGB_BRIGHTNESS_DEFAULT, POWER_SWITCH_RGB_COLOR_DEFAULT, POWER_SWITCH_VARIANT_INPUTS, powerSwitchInputs,
 } from '../../state/peripherals/powerSwitch'
+import { requireDefaultSpec } from '../../state/peripherals/partSpec'
 import { PCA9685_PART_ID, formatPwmDriverAddress, pwmDriverInputs, pwmDriverSpec } from '../../state/peripherals/pwmDriver'
 import { DEFAULT_RELAY_PART_ID, relayInputs } from '../../state/peripherals/relayModule'
 import { MASTER_SPEED_DEFAULT } from '../../state/player/masterSpeed'
@@ -392,8 +393,8 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       partId: PCA9685_PART_ID,
       sdaPin: 21,
       sclPin: 22,
-      i2cAddress: formatPwmDriverAddress(pwmDriverSpec(PCA9685_PART_ID).defaultI2cAddress),
-      pwmHz: pwmDriverSpec(PCA9685_PART_ID).defaultPwmHz,
+      i2cAddress: formatPwmDriverAddress(requireDefaultSpec(pwmDriverSpec(PCA9685_PART_ID), 'PWM driver').defaultI2cAddress),
+      pwmHz: requireDefaultSpec(pwmDriverSpec(PCA9685_PART_ID), 'PWM driver').defaultPwmHz,
     },
   },
   {

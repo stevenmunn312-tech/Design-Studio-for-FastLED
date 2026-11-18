@@ -60,6 +60,7 @@ export const TOUCH_PAD_HELPER_CPP: readonly string[] = [
 
 export function touchPadAddressCpp(props: Record<string, unknown>): string {
   const spec = touchPadSpec(props.partId)
+  if (!spec) return ''
   return formatTouchPadAddress(touchPadAddress(props) ?? spec.defaultI2cAddress)
 }
 
@@ -80,6 +81,7 @@ export function touchPadLoopCpp(
   const address = touchPadAddressCpp(props)
   const touch = touchPadThreshold(props, 'touch')
   const release = touchPadThreshold(props, 'release')
+  if (touch === null || release === null) return []
   return [
     `  static bool _mprReady_${id} = false, _mprTried_${id} = false; static uint32_t _mprT_${id} = 0;`,
     `  static uint16_t _mprBits_${id} = 0; static float _mprLast_${id} = 0.0f;`,

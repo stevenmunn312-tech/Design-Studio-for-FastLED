@@ -1,4 +1,5 @@
 import { partById } from '../../build/parts/partCatalogue'
+import { partIdOrDefault } from './partSpec'
 
 export const DEFAULT_LIGHT_SENSOR_PART_ID = 'photosensitive-ldr-module'
 export const BH1750_PART_ID = 'adafruit-bh1750-light-sensor'
@@ -33,25 +34,31 @@ export const LIGHT_SENSOR_MODULES: readonly LightSensorModule[] = [
   },
 ]
 
-export function lightSensorModule(partId: unknown): LightSensorModule {
-  const id = String(partId ?? '')
-  return LIGHT_SENSOR_MODULES.find((module) => module.partId === id) ?? LIGHT_SENSOR_MODULES[0]
+/** The module a saved id names: a missing id is the default LDR, an unknown one is `null`. */
+export function lightSensorModule(partId: unknown): LightSensorModule | null {
+  const id = partIdOrDefault(partId, DEFAULT_LIGHT_SENSOR_PART_ID)
+  return LIGHT_SENSOR_MODULES.find((module) => module.partId === id) ?? null
 }
 
-export function lightSensorTransport(partId: unknown): LightSensorTransport {
-  return lightSensorModule(partId).transport
+export function lightSensorTransport(partId: unknown): LightSensorTransport | null {
+  return lightSensorModule(partId)?.transport ?? null
 }
 
+/** The pins the part wires; none for an unknown part. */
 export function lightSensorPinKeys(properties: Record<string, unknown>): string[] {
-  return lightSensorTransport(properties.partId) === 'i2c'
-    ? ['sdaPin', 'sclPin']
-    : ['pin']
+  const transport = lightSensorTransport(properties.partId)
+  if (transport === null) return []
+  return transport === 'i2c' ? ['sdaPin', 'sclPin'] : ['pin']
+}
+
+/** The addresses the part's block lists; none for an analog part or an unknown one. */
+function lightSensorAddresses(partId: unknown): readonly number[] {
+  const module = lightSensorModule(partId)
+  return (module && partById(module.partId)?.lightSensor?.i2cAddresses) || []
 }
 
 export function lightSensorAddressOptions(partId: unknown): string[] {
-  const spec = partById(lightSensorModule(partId).partId)?.lightSensor
-  const addresses = spec?.i2cAddresses?.length ? spec.i2cAddresses : [...BH1750_ADDRESSES]
-  return addresses.map(formatLightSensorAddress)
+  return lightSensorAddresses(partId).map(formatLightSensorAddress)
 }
 
 export function formatLightSensorAddress(address: number): string {
@@ -63,9 +70,7 @@ export function lightSensorAddress(properties: Record<string, unknown>): number 
   const configured = typeof properties.i2cAddress === 'string'
     ? Number.parseInt(properties.i2cAddress, 16)
     : Number(properties.i2cAddress)
-  const spec = partById(lightSensorModule(properties.partId).partId)?.lightSensor
-  const addresses = spec?.i2cAddresses?.length ? spec.i2cAddresses : [...BH1750_ADDRESSES]
-  return addresses.includes(configured) ? configured : null
+  return lightSensorAddresses(properties.partId).includes(configured) ? configured : null
 }
 
 export function lightSensorMaxLux(value: unknown): number {

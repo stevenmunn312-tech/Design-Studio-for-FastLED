@@ -1,19 +1,11 @@
 import { partById, type PartTouchPadSpec } from '../../build/parts/partCatalogue'
+import { partIdOrDefault } from './partSpec'
 
 export const MPR121_PART_ID = 'adafruit-mpr121-touch-sensor'
 
-const FALLBACK_SPEC: PartTouchPadSpec = {
-  device: 'MPR121',
-  interface: 'I2C',
-  electrodes: 12,
-  i2cAddresses: [0x5a, 0x5b, 0x5c, 0x5d],
-  defaultI2cAddress: 0x5a,
-  touchThreshold: 12,
-  releaseThreshold: 6,
-}
-
-export function touchPadSpec(partId: unknown): PartTouchPadSpec {
-  return partById(String(partId ?? MPR121_PART_ID))?.touchPad ?? FALLBACK_SPEC
+/** The part's touch pad block; `null` for an unknown part (a missing id is the default part). */
+export function touchPadSpec(partId: unknown): PartTouchPadSpec | null {
+  return partById(partIdOrDefault(partId, MPR121_PART_ID))?.touchPad ?? null
 }
 
 export function formatTouchPadAddress(address: number): string {
@@ -21,21 +13,26 @@ export function formatTouchPadAddress(address: number): string {
 }
 
 export function touchPadAddressOptions(partId: unknown): string[] {
-  return touchPadSpec(partId).i2cAddresses.map(formatTouchPadAddress)
+  return touchPadSpec(partId)?.i2cAddresses.map(formatTouchPadAddress) ?? []
 }
 
 /** The address this node answers on, or `null` when the part cannot be strapped to it. */
 export function touchPadAddress(props: Record<string, unknown>): number | null {
   const spec = touchPadSpec(props.partId)
+  if (!spec) return null
   const raw = props.i2cAddress
   if (raw === undefined || raw === null || raw === '') return spec.defaultI2cAddress
   const value = typeof raw === 'number' ? raw : Number.parseInt(String(raw), 16)
   return Number.isInteger(value) && spec.i2cAddresses.includes(value) ? value : null
 }
 
-/** A threshold property as the chip's 8-bit register value, falling back to the part's own figure. */
-export function touchPadThreshold(props: Record<string, unknown>, which: 'touch' | 'release'): number {
+/**
+ * A threshold property as the chip's 8-bit register value, falling back to the
+ * part's own figure; `null` when the node's part is unknown.
+ */
+export function touchPadThreshold(props: Record<string, unknown>, which: 'touch' | 'release'): number | null {
   const spec = touchPadSpec(props.partId)
+  if (!spec) return null
   const fallback = which === 'touch' ? spec.touchThreshold : spec.releaseThreshold
   const raw = props[which === 'touch' ? 'touchThreshold' : 'releaseThreshold']
   if (raw === undefined || raw === null || raw === '') return fallback
@@ -48,7 +45,7 @@ export const touchPadButtonKey = (nodeId: string, electrode: number) => `${nodeI
 export const touchPadLastElectrode = (nodeId: string) => `${nodeId}:touchpad:last`
 
 export function touchPadElectrodeCount(partId: unknown): number {
-  return touchPadSpec(partId).electrodes
+  return touchPadSpec(partId)?.electrodes ?? 0
 }
 
 /** How many electrodes the node's per-pad outputs cover: the MPR121's twelve. */

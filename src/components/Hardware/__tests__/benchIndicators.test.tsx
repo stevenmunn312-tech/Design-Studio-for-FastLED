@@ -105,7 +105,7 @@ describe('imported indicators', () => {
         if (indicator.drive === 'signal') expect(irParts.has(entry.partId), entry.partId).toBe(true)
         if (indicator.drive === 'voltage') {
           // Every voltage the trigger can ask for has a colour to show.
-          for (const volts of pdTriggerSpec(entry.partId).selectableVoltagesV) {
+          for (const volts of pdTriggerSpec(entry.partId)?.selectableVoltagesV ?? []) {
             expect(indicator.colorsByVoltage?.[String(volts)], `${entry.partId} ${volts} V`).toBeDefined()
           }
         }

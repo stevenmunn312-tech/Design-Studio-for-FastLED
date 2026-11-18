@@ -1,4 +1,4 @@
-import { PD_TRIGGER_PART_ID, pdTriggerSpec } from '../../state/peripherals/pdTrigger'
+import { PD_TRIGGER_PART_ID, pdTriggerVoltageOptions } from '../../state/peripherals/pdTrigger'
 import { CONVERTER_FEED_LABELS } from '../../state/peripherals/powerConverter'
 import { BATTERY_MODULE_USES } from '../../state/peripherals/battery'
 import { POWER_SUPPLY_CURRENT_A, POWER_SUPPLY_VOLTAGE } from '../../state/peripherals/powerSupply'
@@ -14,9 +14,15 @@ import { POWER_SUPPLY_CURRENT_A, POWER_SUPPLY_VOLTAGE } from '../../state/periph
 /** An I2S decoder's volume steps (ESP32-audioI2S `setVolume`, 0–21). */
 export const DECODER_MAX_VOLUME = 21
 
-type PartField =
+export type PartField =
   | { key: string; label: string; kind: 'pin' }
-  | { key: string; label: string; kind: 'select'; options: readonly string[] }
+  | {
+    key: string; label: string; kind: 'select'
+    /** The choices for the type's default part, which is what a node without a part id offers. */
+    options: readonly string[]
+    /** The choices the node's own part offers, when they depend on which part it is. */
+    optionsFor?: (properties: Record<string, unknown>) => readonly string[]
+  }
   | { key: string; label: string; kind: 'number'; min: number; max: number }
   | { key: string; label: string; kind: 'toggle' }
 
@@ -91,7 +97,11 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
     { key: 'parallel', label: 'Parallel', kind: 'number', min: 1, max: 20 },
   ],
   PdTriggerSource: [
-    { key: 'requestedVoltage', label: 'Requested V', kind: 'select', options: pdTriggerSpec(PD_TRIGGER_PART_ID).selectableVoltagesV.map(String) },
+    {
+      key: 'requestedVoltage', label: 'Requested V', kind: 'select',
+      options: pdTriggerVoltageOptions(PD_TRIGGER_PART_ID),
+      optionsFor: (properties) => pdTriggerVoltageOptions(properties.partId),
+    },
   ],
   // The transceiver's three GPIOs, which a DMX node set to DMX512 reads
   // through. Its UART is allocated, so there is no field for it.
@@ -169,6 +179,14 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
     { key: 'touchMosiPin', label: 'TOUCH MOSI', kind: 'pin' },
     { key: 'touchMisoPin', label: 'TOUCH MISO', kind: 'pin' },
   ],
+}
+
+/** The choices a select field offers this node: its own part's when the field says they differ. */
+export function partFieldOptions(
+  field: Extract<PartField, { kind: 'select' }>,
+  properties: Record<string, unknown>,
+): readonly string[] {
+  return field.optionsFor ? field.optionsFor(properties) : field.options
 }
 
 /** Non-pin settings whose single editing surface is the hardware popup. */

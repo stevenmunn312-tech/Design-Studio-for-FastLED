@@ -36,10 +36,11 @@ describe('part options', () => {
     expect(new Set(factories).size).toBe(factories.length)
   })
 
-  it('resolves a stale or absent microphone choice to the default', () => {
+  it('resolves an absent microphone choice to the default and an unknown one to nothing', () => {
     expect(micModuleFor(undefined)).toBe(DEFAULT_MIC_MODULE)
-    expect(micModuleFor('a-module-that-was-retired')).toBe(DEFAULT_MIC_MODULE)
-    expect(micModuleFor('ics-43434-i2s-microphone').factory).toBe('CreateIcs43434')
+    expect(micModuleFor('')).toBe(DEFAULT_MIC_MODULE)
+    expect(micModuleFor('a-module-that-was-retired')).toBeNull()
+    expect(micModuleFor('ics-43434-i2s-microphone')?.factory).toBe('CreateIcs43434')
   })
 
   it('offers the RTC clock module choices', () => {

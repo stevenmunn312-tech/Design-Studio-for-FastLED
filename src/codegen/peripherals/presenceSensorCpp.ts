@@ -72,7 +72,8 @@ export const PRESENCE_SENSOR_HELPER_CPP: readonly string[] = [
 
 /** Opens the UART on the sensor's TX line; the sketch never talks back. */
 export function presenceSensorSetupCpp(props: Record<string, unknown>, rxPin: number): string[] {
-  const baud = presenceSensorSpec(props.partId).baud
+  const baud = presenceSensorSpec(props.partId)?.baud
+  if (baud === undefined) return []
   return [
     '#if defined(ESP32)',
     `  Serial${PRESENCE_UART_PORT}.setRxBufferSize(512);`,

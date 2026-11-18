@@ -1,24 +1,13 @@
 import { partById, type PartEnvironmentSensorSpec } from '../../build/parts/partCatalogue'
+import { partIdOrDefault } from './partSpec'
 
 export const BME280_PART_ID = 'adafruit-bme280-environment-sensor'
 export const BME280_DEFAULT_ADDRESS = 0x77
 export const BME280_ADDRESSES = [0x76, 0x77] as const
 
-const FALLBACK_SPEC: PartEnvironmentSensorSpec = {
-  device: 'BME280',
-  interface: 'I2C',
-  i2cAddresses: [...BME280_ADDRESSES],
-  defaultI2cAddress: BME280_DEFAULT_ADDRESS,
-  temperatureMinC: -40,
-  temperatureMaxC: 85,
-  humidityMinPercent: 0,
-  humidityMaxPercent: 100,
-  pressureMinHpa: 300,
-  pressureMaxHpa: 1100,
-}
-
-export function environmentSensorSpec(partId: unknown): PartEnvironmentSensorSpec {
-  return partById(String(partId ?? BME280_PART_ID))?.environmentSensor ?? FALLBACK_SPEC
+/** The part's environment block; `null` for an unknown part (a missing id is the default part). */
+export function environmentSensorSpec(partId: unknown): PartEnvironmentSensorSpec | null {
+  return partById(partIdOrDefault(partId, BME280_PART_ID))?.environmentSensor ?? null
 }
 
 export function formatEnvironmentAddress(address: number): string {
@@ -26,11 +15,12 @@ export function formatEnvironmentAddress(address: number): string {
 }
 
 export function environmentAddressOptions(partId: unknown): string[] {
-  return environmentSensorSpec(partId).i2cAddresses.map(formatEnvironmentAddress)
+  return environmentSensorSpec(partId)?.i2cAddresses.map(formatEnvironmentAddress) ?? []
 }
 
 export function environmentAddress(props: Record<string, unknown>): number | null {
   const spec = environmentSensorSpec(props.partId)
+  if (!spec) return null
   const raw = typeof props.i2cAddress === 'number'
     ? props.i2cAddress
     : Number.parseInt(String(props.i2cAddress ?? ''), 16)
@@ -45,6 +35,7 @@ export type EnvironmentReading = {
 
 export function environmentPreviewDefaults(partId: unknown): EnvironmentReading {
   const spec = environmentSensorSpec(partId)
+  if (!spec) return { temperature: 0.5, humidity: 0.5, pressure: 0.5 }
   return {
     temperature: (22 - spec.temperatureMinC) / (spec.temperatureMaxC - spec.temperatureMinC),
     humidity: 0.5,
@@ -63,6 +54,7 @@ export function environmentPreviewReading(
   pressure: number,
 ): EnvironmentReading {
   const spec = environmentSensorSpec(partId)
+  if (!spec) return { temperature: 0, humidity: 0, pressure: 0 }
   const scaled = (value: number, min: number, max: number) => {
     const fraction = Math.max(0, Math.min(1, Number(value) || 0))
     return min + fraction * (max - min)
