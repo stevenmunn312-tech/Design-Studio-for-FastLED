@@ -38,6 +38,8 @@ export const INPUT_EMITTERS: NodeEmitters = {
   TouchButtonInput: controlInput,
   ButtonBank: controlInput,
   PotInput: controlInput,
+  DigitalSensorInput: controlInput,
+  AnalogSensorInput: controlInput,
   EncoderInput: controlInput,
   IRRemoteInput({ id, p, opts, irNodes }) {
     if (opts.aliasTerminalBuffer !== false) irNodes.push({ id, pin: sanitizePin(p.pin, 13), buttons: p.buttons, debug: p.debug === true })

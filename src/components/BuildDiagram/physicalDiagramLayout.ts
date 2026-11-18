@@ -904,6 +904,11 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
   'segment-display': [['CLK', 'SCK'], ['DIO', 'DIN', 'DATA'], ['CS', 'LOAD']],
   'rtc-input': [['SDA'], ['SCL']],
   'motion-input': [['OUT', 'SIG']],
+  // The generic sensors are catalogue parts: the silkscreen word is whatever the part
+  // prints, so match the usual ones. A part that prints another is matched by its
+  // catalogue pin labels before this list is read.
+  'digital-sensor-input': [['OUT', 'SIG', 'S', 'DO', 'D0', 'DATA', 'SIGNAL']],
+  'analog-sensor-input': [['AO', 'AOUT', 'A0', 'SIG', 'S', 'OUT', 'SIGNAL']],
   // A KY-022 prints S, a bare Vishay receiver's datasheet names it OUT.
   'ir-input': [['S', 'OUT', 'SIG', 'DAT']],
   'light-input': [['S', 'SIG', 'OUT', 'AO', 'DO']],
@@ -989,6 +994,13 @@ export function peripheralPowerNet(item: HardwareManifestItem): 'v3v3' | 'v5' | 
   // the receive divider brings down to the controller's level.
   // The VL53L0X board level-shifts its bus to VIN, so a 5 V supply would hold SDA and SCL at 5 V.
   if (item.kind === 'distance-input') return item.facts.transport === 'i2c' ? 'v3v3' : 'v5'
+  // The generic sensors say what they are powered from. An analog sensor's
+  // output follows its supply, so a part declaring 5 V here is one whose ADC
+  // range the part itself holds inside the pin's limit; with no declared
+  // supply the logic rail keeps the signal inside the controller's level.
+  if (item.kind === 'digital-sensor-input' || item.kind === 'analog-sensor-input') {
+    return Number(item.facts.supplyVoltage ?? 3.3) >= 4.5 ? 'v5' : 'v3v3'
+  }
   // The module is two potentiometers and a switch. Its +5V pad would put up to 5 V on the
   // analog pins; 3.3 V keeps both axes inside the ADC range.
   if (item.kind === 'joystick-input') return 'v3v3'

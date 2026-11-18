@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import io
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -124,6 +125,127 @@ def convert_render(part_id: str, part_dir: Path, render: dict) -> dict | None:
     # because the 1200 px cap wins. Recomputing here would silently disagree.
     if isinstance(render.get("pxPerMm"), (int, float)):
         out["pxPerMm"] = round(float(render["pxPerMm"]), 3)
+    return out
+
+
+def _is_number(value) -> bool:
+    """A finite JSON number; bool is an int in Python and is not one here."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def _safe_label(value, limit: int) -> bool:
+    """Short copy with no control or line-separator characters."""
+    return (isinstance(value, str) and value.strip() != "" and len(value) <= limit
+            and not any(ord(c) < 32 or ord(c) == 127 or c in "\u2028\u2029" for c in value))
+
+
+def digital_sensor_issue(block) -> str | None:
+    """Why a `digitalSensor` block is unusable, or None. Mirrors
+    `digitalSensorSpecIssue` in src/state/peripherals/digitalSensor.ts."""
+    if not isinstance(block, dict):
+        return "is not an object"
+    if block.get("activeLevel") not in ("high", "low"):
+        return "activeLevel must be high or low"
+    if block.get("pullUp") not in ("none", "internal", "external"):
+        return "pullUp must be none, internal or external"
+    if block["pullUp"] == "internal" and block["activeLevel"] != "low":
+        return "an internal pull-up needs an active-low sensor"
+    debounce = block.get("debounceMs")
+    if not isinstance(debounce, int) or isinstance(debounce, bool) or not 0 <= debounce <= 1000:
+        return "debounceMs must be a whole number from 0 to 1000"
+    supply = block.get("supplyVolts")
+    if supply is not None and not (_is_number(supply) and 0 < supply <= 12):
+        return "supplyVolts must be above 0 and at most 12"
+    for key in ("activeLabel", "idleLabel"):
+        if not _safe_label(block.get(key), 24):
+            return f"{key} must be a short plain string (at most 24 characters)"
+    return None
+
+
+def digital_sensor_block(part_id: str, block) -> dict | None:
+    issue = digital_sensor_issue(block)
+    if issue:
+        print(f"  ! {part_id}: digitalSensor block {issue} — skipped", file=sys.stderr)
+        return None
+    out = {
+        "activeLevel": block["activeLevel"],
+        "pullUp": block["pullUp"],
+        "debounceMs": block["debounceMs"],
+        "activeLabel": block["activeLabel"],
+        "idleLabel": block["idleLabel"],
+    }
+    if block.get("supplyVolts") is not None:
+        out["supplyVolts"] = block["supplyVolts"]
+    return out
+
+
+def calibration_curve_issue(points) -> str | None:
+    """Mirrors `calibrationCurveIssue` in src/state/peripherals/calibrationCurve.ts."""
+    if not isinstance(points, list) or len(points) < 2:
+        return "needs at least two points"
+    if len(points) > 16:
+        return "has more than 16 points"
+    rising = falling = False
+    for index, point in enumerate(points):
+        if (not isinstance(point, dict) or not _is_number(point.get("volts")) or not _is_number(point.get("value"))
+                or abs(point["volts"]) > 1_000_000 or abs(point["value"]) > 1_000_000):
+            return f"point {index + 1} is not a pair of finite numbers"
+        if index == 0:
+            continue
+        before = points[index - 1]
+        if point["volts"] <= before["volts"]:
+            return f"volts must rise at point {index + 1}"
+        if point["value"] > before["value"]:
+            rising = True
+        if point["value"] < before["value"]:
+            falling = True
+    if rising and falling:
+        return "readings must not change direction"
+    if not rising and not falling:
+        return "readings must change across the curve"
+    return None
+
+
+def analog_sensor_issue(block) -> str | None:
+    """Mirrors `analogSensorSpecIssue` in src/state/peripherals/analogSensor.ts."""
+    if not isinstance(block, dict):
+        return "is not an object"
+    if not _safe_label(block.get("unit"), 8):
+        return "unit must be a short label of at most 8 characters"
+    supply = block.get("supplyVolts")
+    if not (_is_number(supply) and 0 < supply <= 12):
+        return "supplyVolts must be above 0 and at most 12"
+    adc = block.get("adcRange")
+    if (not isinstance(adc, dict) or not _is_number(adc.get("minVolts")) or not _is_number(adc.get("maxVolts"))
+            or adc["minVolts"] < 0 or not adc["maxVolts"] > adc["minVolts"] or adc["maxVolts"] > 5.5):
+        return "adcRange needs 0 <= minVolts < maxVolts <= 5.5"
+    curve = calibration_curve_issue(block.get("curve"))
+    if curve:
+        return f"curve {curve}"
+    low, high = block.get("outputMin"), block.get("outputMax")
+    if not (_is_number(low) and _is_number(high) and high > low and abs(low) <= 1_000_000 and abs(high) <= 1_000_000):
+        return "outputMin and outputMax must be finite with outputMin below outputMax"
+    decimals = block.get("decimals")
+    if decimals is not None and (not isinstance(decimals, int) or isinstance(decimals, bool) or not 0 <= decimals <= 4):
+        return "decimals must be a whole number from 0 to 4"
+    return None
+
+
+def analog_sensor_block(part_id: str, block) -> dict | None:
+    issue = analog_sensor_issue(block)
+    if issue:
+        print(f"  ! {part_id}: analogSensor block {issue} — skipped", file=sys.stderr)
+        return None
+    out = {
+        "unit": block["unit"],
+        "supplyVolts": block["supplyVolts"],
+        "adcRange": {"minVolts": block["adcRange"]["minVolts"], "maxVolts": block["adcRange"]["maxVolts"]},
+        "curve": [{"volts": p["volts"], "value": p["value"]} for p in block["curve"]],
+        "outputMin": block["outputMin"],
+        "outputMax": block["outputMax"],
+    }
+    if block.get("decimals") is not None:
+        out["decimals"] = block["decimals"]
     return out
 
 
@@ -865,6 +987,21 @@ def read_part(part_dir: Path) -> dict | None:
         else:
             print(f"  ! {part_id}: temperatureSensor block needs a valid range and pull-up — skipped",
                   file=sys.stderr)
+    # The two generic one-pin sensor kinds. A part of either is data only: the
+    # node's behaviour is fixed in the app, and these blocks are everything that
+    # differs. Validated with the same rules the app applies when it reads them
+    # (digitalSensorSpecIssue / analogSensorSpecIssue), so a bad block is named
+    # here instead of being skipped silently at run time.
+    digital_sensor = data.get("digitalSensor")
+    if digital_sensor is not None:
+        block = digital_sensor_block(part_id, digital_sensor)
+        if block:
+            entry["digitalSensor"] = block
+    analog_sensor = data.get("analogSensor")
+    if analog_sensor is not None:
+        block = analog_sensor_block(part_id, analog_sensor)
+        if block:
+            entry["analogSensor"] = block
     # An auxiliary display's driver contract. Carried through for the same
     # reason dimensionsMm is: a resolution typed into the app is a resolution
     # that can disagree with the panel, and every fixed layout is computed

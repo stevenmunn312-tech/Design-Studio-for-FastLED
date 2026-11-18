@@ -120,6 +120,8 @@ import { DMX_TRANSCEIVER_NODE_TYPE, dmx512Inputs } from '../state/peripherals/dm
 import {
   formatLightSensorAddress, lightSensorAddress, lightSensorAddressOptions, lightSensorTransport,
 } from '../state/peripherals/lightSensor'
+import { ANALOG_SENSOR_NODE_TYPE, analogSensorSpec } from '../state/peripherals/analogSensor'
+import { DIGITAL_SENSOR_NODE_TYPE, digitalSensorSpec } from '../state/peripherals/digitalSensor'
 import {
   environmentAddress, environmentAddressOptions, formatEnvironmentAddress,
 } from '../state/peripherals/environmentSensor'
@@ -3268,6 +3270,24 @@ function i2cBusValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
       nodeIds: issue.nodeIds,
       nodeLabel: 'Distance Sensor',
       propertyKey: issue.propertyKey,
+    })
+  }
+
+  // The generic sensors are their catalogue part and nothing else: an id the
+  // catalogue lacks (or one whose block is not this kind of sensor) has no
+  // level, pull-up or calibration to generate from, and is never read as
+  // some other part.
+  for (const sensor of nodes.filter((node) => node.data.nodeType === DIGITAL_SENSOR_NODE_TYPE
+    || node.data.nodeType === ANALOG_SENSOR_NODE_TYPE)) {
+    const props = sensor.data.properties as Record<string, unknown>
+    const digital = sensor.data.nodeType === DIGITAL_SENSOR_NODE_TYPE
+    if ((digital ? digitalSensorSpec(props.partId) : analogSensorSpec(props.partId)) !== null) continue
+    issues.push({
+      id: `${sensor.id}-sensor-part`, severity: 'error', category: 'pins',
+      title: `${digital ? 'Digital' : 'Analog'} sensor part is not available`,
+      message: `${nodeLabel(sensor)} names the part "${String(props.partId ?? '')}", which this version of Design Studio does not have as a ${digital ? 'digital' : 'analog'} sensor, so it cannot say how to read the pin.`,
+      fix: 'Replace it with a part from the Hardware shelf, or update Design Studio if the part needs a newer version.',
+      nodeIds: [sensor.id], nodeLabel: nodeLabel(sensor), propertyKey: 'partId',
     })
   }
 

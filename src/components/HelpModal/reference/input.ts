@@ -355,6 +355,65 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     }),
   },
 
+  DigitalSensorInput: {
+    overview: [
+      'Digital Sensor reads one wire that is either on or off, and reports Active as true while the sensor is actuated. One node covers every part of that kind: a reed switch with a magnet, a Hall sensor, a tilt or vibration switch, a float switch, a limit switch, an infrared break-beam or a door contact.',
+      'What differs between parts is not in the node. Each part says which level its pin reads when actuated, whether the controller’s own pull-up holds the idle level, and how long a reading must hold before it counts (a mechanical contact bounces for a few milliseconds). Active already accounts for all three, so a normally-open and a normally-closed part both read true when they are actuated.',
+      'Use Digital Sensor for a state, and wire Active into a Switch or Step Value to change a look when a door opens or a float rises. It carries no Connected output: a plain switch cannot tell an unplugged wire from an idle one.',
+      PREVIEW_STAND_IN,
+    ],
+    steps: [
+      'Add the part from the Hardware tab, under Switches & contacts.',
+      'Wire the part’s signal pad to the GPIO on the node, and its ground. Power it only if the part has a supply pad; the Build Diagram shows the rail.',
+    ],
+    outputs: {
+      active: 'True while the sensor is actuated: the magnet is near, the beam is broken, the contact is closed. The level on the pin does not matter; the part’s settings are applied for you.',
+    },
+    propertyNote: 'Pin is the only setting. Active level, pull-up and debounce come from the part, and the preview toggle uses the part’s own words for its two states.',
+    example: example({
+      featured: 'DigitalSensorInput',
+      title: 'A cupboard light that wakes when the door opens',
+      nodes: {
+        door: ['DigitalSensorInput', { pin: 5 }],
+        level: ['Switch', { a: 0.15, b: 1 }],
+        ease: ['Smooth', { response: 0.8 }],
+        glow: ['Sunrise', { mode: 'manual', progress: 0.7 }],
+      },
+      wires: ['door.active > level.sel', 'level.result > ease.value', 'ease.result > output.brightness', 'glow.frame > output.frame'],
+      explanation: 'Digital Sensor’s Active picks between a dim 15% glow and full light through Switch, and Smooth eases every change over about a second, so the warm Sunrise colour swells when the sensor is actuated and settles back when it is released.',
+      preview: 'The {output} rests at a dim warm glow. Choose a part on the node, then toggle it: the light brightens smoothly while it is actuated and fades back when it is not.',
+    }),
+  },
+
+  AnalogSensorInput: {
+    overview: [
+      'Analog Sensor reads one voltage and reports Value in the part’s own unit, such as percent soil moisture, newtons of force, or parts per million of a gas. One node covers every part of that kind: soil moisture, force-sensitive resistor, flex sensor, slide potentiometer, gas sensor and water level.',
+      'Each part carries a calibration curve: a short list of points from pin voltage to reading, joined by straight lines, with the end values held outside them. The part also says which voltage reads 0 on the ADC and which reads full scale, and the window the reading is held inside. The preview and the uploaded sketch use the same curve, so the numbers match.',
+      'The unit is real, so put a Map Range between Value and any 0–1 input; that is where you decide what “wet” or “squeezed” means for this build. Graph Health names the range for you when you wire Value straight into a 0–1 input.',
+      PREVIEW_STAND_IN,
+    ],
+    steps: [
+      'Add the part from the Hardware tab, under Analog sensors.',
+      'Wire the part’s output to the analogue pin shown, power it from the supply its page names, and join the grounds. On a classic ESP32 with Wi-Fi on, use an ADC1 pin (32 to 39).',
+    ],
+    outputs: {
+      value: 'The reading in the part’s unit, run through its calibration curve and held between its minimum and maximum.',
+    },
+    propertyNote: 'Pin must be analogue-capable. Everything else (supply, voltage range, curve, unit) comes from the part. The preview slider stands in for the pin voltage across the part’s range.',
+    example: example({
+      featured: 'AnalogSensorInput',
+      title: 'A glow that follows the sensor',
+      nodes: {
+        sensor: ['AnalogSensorInput', { pin: 34 }],
+        level: ['MapRange', { inMin: 0, inMax: 100, outMin: 0.1, outMax: 1 }],
+        glow: ['Plasma', { speed: 0.3 }],
+      },
+      wires: ['sensor.value > level.value', 'level.result > output.brightness', 'glow.frame > output.frame'],
+      explanation: 'Analog Sensor reports its reading in the part’s unit, so Map Range turns the part’s range into 0.1 to 1, keeping a faint glow at the bottom, and that sets the LED output’s Brightness. Plasma supplies the colour. Change the In Min and In Max to the part’s own range.',
+      preview: 'The {output} shows a plasma at low brightness. Choose a part on the node and drag its slider: the display brightens as the reading rises.',
+    }),
+  },
+
   LightInput: {
     overview: [
       'Light Sensor reads how bright the room is. With an LDR module it reports a relative Level from 0 to 1; with a BH1750 it also reports calibrated Lux.',

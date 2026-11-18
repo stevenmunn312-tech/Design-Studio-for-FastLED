@@ -206,6 +206,33 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { partId: 'hc-sr501-pir-sensor', pin: 5 },
   },
   {
+    // Any part that is one switch or one plain high/low line: reed, Hall, tilt,
+    // vibration, float and limit switches, IR break-beam, door contacts. The
+    // behaviour is fixed here; the active level, pull-up, debounce and copy come
+    // from the part's `digitalSensor` block (see digitalSensor.ts). There is no
+    // default part: the node is only added from a catalogued part, and one with
+    // no catalogue entry reads inactive and blocks the upload.
+    type: 'DigitalSensorInput',
+    label: 'Digital Sensor',
+    category: 'input',
+    inputs: [],
+    outputs: [{ id: 'active', label: 'Active', dataType: 'bool' }],
+    defaultProperties: { partId: '', pin: 5 },
+  },
+  {
+    // Any part that is one voltage to be read: soil moisture, force-sensitive
+    // resistor, flex, slide pot, gas, water level. The reading leaves in the
+    // part's own unit through the calibration curve in its `analogSensor` block
+    // (see analogSensor.ts). The pin default is a fallback only, as PotInput's
+    // is: adding the part asks the board's plan for an ADC-capable pin.
+    type: 'AnalogSensorInput',
+    label: 'Analog Sensor',
+    category: 'input',
+    inputs: [],
+    outputs: [{ id: 'value', label: 'Value', dataType: 'float' }],
+    defaultProperties: { partId: '', pin: 4 },
+  },
+  {
     // LD2410-family 24 GHz radar. It sees someone sitting still, which a PIR
     // cannot, and reports how far away they are, over a UART it streams on
     // unprompted — so one GPIO (the board's RX from the sensor's TX) is all it
@@ -568,6 +595,8 @@ export const INPUT_DESCRIPTIONS: Record<string, string> = {
   IRRemoteInput: 'Reads learned handheld-remote keys as boolean events.',
   WebRemoteInput: 'A phone control page served over Wi-Fi: buttons, sliders, colours and text.',
   MotionInput: 'Reads a PIR motion sensor as a boolean.',
+  DigitalSensorInput: 'Reads a switch or one-pin high/low sensor as a boolean.',
+  AnalogSensorInput: 'Reads a one-pin analog sensor in its own unit.',
   PresenceInput: 'Reads a radar presence sensor: someone there, moving or still, and how far away.',
   LightInput: 'Reads relative brightness from an LDR or calibrated lux from a BH1750.',
   EnvironmentInput: 'Reads calibrated temperature, humidity and barometric pressure from a BME280.',

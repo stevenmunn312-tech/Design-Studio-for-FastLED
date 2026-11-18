@@ -245,6 +245,11 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   TouchButtonInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
   PotInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'analogInput' }] },
   MotionInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
+  // One signal line each. The analog one needs an ADC pin; the digital one's
+  // pull-up is the part's (`gpioRequirementForProperty`), which validation
+  // checks against the pin the plan picks.
+  DigitalSensorInput: { keys: ['pin'], requests: [{ key: 'pin' }] },
+  AnalogSensorInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'analogInput' }] },
   // The 1-Wire bus is driven low and released, so it needs an output-capable pin.
   TemperatureInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'digitalOutput' }] },
   // Four rows read through a pull-up and four columns driven low in turn.

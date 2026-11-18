@@ -8,7 +8,15 @@ import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from '../../state/peripherals/keypad
 import type { PartPinRequest } from '../../build/parts/partPinAssignment'
 import { segmentControllerFor } from '../../state/displays/segmentDisplay'
 import { OLED_TRANSPORT_PINS, oledTransportFor } from '../../state/displays/oledSurface'
-import { partById, partDimensionsMm, partRenderSrc, partPinLabelForProperty } from '../../build/parts/partCatalogue'
+import {
+  PART_CATALOGUE, partById, partDimensionsMm, partRenderSrc, partPinLabelForProperty, type PartCatalogueEntry,
+} from '../../build/parts/partCatalogue'
+import {
+  ANALOG_SENSOR_NODE_TYPE, ANALOG_SENSOR_OUTPUT, analogSensorEntries, analogSensorSummary,
+} from '../../state/peripherals/analogSensor'
+import {
+  DIGITAL_SENSOR_NODE_TYPE, DIGITAL_SENSOR_OUTPUT, digitalSensorEntries, digitalSensorSummary,
+} from '../../state/peripherals/digitalSensor'
 import { IR_RECEIVER_MODULES } from '../../state/peripherals/irModules'
 import { IR_REMOTE_LEARN_HANDLE } from '../../state/peripherals/irRemote'
 import { MIC_MODULES } from '../../state/peripherals/micModules'
@@ -517,10 +525,54 @@ const LIGHT_INPUT_PARTS: readonly InputPartEntry[] = LIGHT_SENSOR_MODULES.map((m
   }
 })
 
+/** Node types whose parts come entirely from the catalogue: no code lists them, and none has a stand-in. */
+export const CATALOGUE_SENSOR_NODE_TYPES: ReadonlySet<string> = new Set([DIGITAL_SENSOR_NODE_TYPE, ANALOG_SENSOR_NODE_TYPE])
+
+/**
+ * One shelf row per catalogued part that carries a digital or analog sensor
+ * block, read from the catalogue rather than listed here: a new switch or
+ * analog sensor is a data-only part, so it needs no row of code. The block
+ * decides the pin's electrical request (an internal pull-up asks for a pin
+ * that has one; an analog sensor asks for an ADC pin).
+ */
+
+export function sensorInputPartEntries(catalogue: Record<string, PartCatalogueEntry> = PART_CATALOGUE): InputPartEntry[] {
+  return [
+    ...digitalSensorEntries(catalogue).map((entry): InputPartEntry => {
+      const spec = entry.digitalSensor!
+      return {
+        nodeType: DIGITAL_SENSOR_NODE_TYPE,
+        partId: entry.partId,
+        label: entry.label,
+        hint: digitalSensorSummary(spec),
+        footprint: entry.dimensionsMm,
+        signalPort: DIGITAL_SENSOR_OUTPUT,
+        dataType: 'bool',
+        pinRequests: [spec.pullUp === 'internal' ? { key: 'pin', capability: 'pullup' } : { key: 'pin' }],
+        pinFields: [{ key: 'pin', label: partPinLabelForProperty(entry.partId, 'pin') ?? 'GPIO' }],
+        properties: { partId: entry.partId },
+      }
+    }),
+    ...analogSensorEntries(catalogue).map((entry): InputPartEntry => ({
+      nodeType: ANALOG_SENSOR_NODE_TYPE,
+      partId: entry.partId,
+      label: entry.label,
+      hint: analogSensorSummary(entry.analogSensor!),
+      footprint: entry.dimensionsMm,
+      signalPort: ANALOG_SENSOR_OUTPUT,
+      dataType: 'float',
+      pinRequests: [{ key: 'pin', capability: 'analogInput' }],
+      pinFields: [{ key: 'pin', label: partPinLabelForProperty(entry.partId, 'pin') ?? 'GPIO' }],
+      properties: { partId: entry.partId },
+    })),
+  ]
+}
+
 export const INPUT_PARTS: readonly InputPartEntry[] = [
   ...MIC_INPUT_PARTS,
   ...IR_INPUT_PARTS,
   ...LIGHT_INPUT_PARTS,
+  ...sensorInputPartEntries(),
   {
     nodeType: 'LineInput',
     partId: 'line-in',

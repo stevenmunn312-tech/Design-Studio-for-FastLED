@@ -56,6 +56,8 @@ import { MIDI_BAUD, MIDI_DIN_PART_ID, MIDI_INTERFACE_NODE_TYPE } from '../state/
 import { allocateUarts, type UartDevice } from './pins/uartAssignment'
 import { DEFAULT_PRESENCE_PART_ID, PRESENCE_UART_PORT, presenceSensorSpec } from '../state/peripherals/presenceSensor'
 import { touchButtonSpec } from '../state/peripherals/touchButton'
+import { analogSensorSpec } from '../state/peripherals/analogSensor'
+import { digitalSensorSpec } from '../state/peripherals/digitalSensor'
 import {
   DEFAULT_LIGHT_SENSOR_PART_ID,
   formatLightSensorAddress,
@@ -142,7 +144,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'cooling-fan-output' | 'pwm-driver-output' | 'darlington-driver-output' | 'pd-trigger' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'midi-input' | 'ethernet' | 'power-supply' | 'power-converter' | 'battery-pack' | 'battery-module' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'digital-sensor-input' | 'analog-sensor-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'cooling-fan-output' | 'pwm-driver-output' | 'darlington-driver-output' | 'pd-trigger' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'midi-input' | 'ethernet' | 'power-supply' | 'power-converter' | 'battery-pack' | 'battery-module' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -190,6 +192,8 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   'PowerAmplifier',
   'DFPlayerOutput',
   'MotionInput',
+  'DigitalSensorInput',
+  'AnalogSensorInput',
   'PresenceInput',
   'LightInput',
   'EnvironmentInput',
@@ -480,6 +484,12 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
         break
       case 'MotionInput':
         push(node, `${baseLabel} OUT pin`, 'pin', props.pin)
+        break
+      // One signal line; the requirement (analog, or digital with the part's
+      // pull-up) is read from the part by `gpioRequirementForProperty`.
+      case 'DigitalSensorInput':
+      case 'AnalogSensorInput':
+        push(node, `${baseLabel} signal pin`, 'pin', props.pin)
         break
       // One UART receive line, from the sensor's TX pad.
       case 'PresenceInput':
@@ -983,6 +993,52 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           ...buildPeripheralItem(node, 'motion-input', entry?.label ?? 'HC-SR501 PIR motion sensor', pins),
           title: entry?.label ?? nodeLabel(node),
           facts: { partId },
+        }
+      }
+      case 'DigitalSensorInput': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? '')
+        const entry = partById(partId)
+        const spec = digitalSensorSpec(partId)
+        const item = buildPeripheralItem(node, 'digital-sensor-input', entry?.label ?? 'Digital sensor', pins)
+        return {
+          ...item,
+          title: entry?.label ?? nodeLabel(node),
+          supported: spec !== null,
+          facts: {
+            ...item.facts,
+            partId,
+            ...(spec ? {
+              activeLevel: spec.activeLevel,
+              pullUp: spec.pullUp,
+              debounceMs: spec.debounceMs,
+              ...(spec.supplyVolts !== undefined ? { supplyVoltage: spec.supplyVolts } : {}),
+            } : {}),
+          },
+          reasons: spec ? undefined : ['This sensor part is not in the catalogue, or its catalogue entry is not a digital sensor.'],
+        }
+      }
+      case 'AnalogSensorInput': {
+        const props = node.data.properties as Record<string, unknown>
+        const partId = String(props.partId ?? '')
+        const entry = partById(partId)
+        const spec = analogSensorSpec(partId)
+        const item = buildPeripheralItem(node, 'analog-sensor-input', entry?.label ?? 'Analog sensor', pins)
+        return {
+          ...item,
+          title: entry?.label ?? nodeLabel(node),
+          supported: spec !== null,
+          facts: {
+            ...item.facts,
+            partId,
+            ...(spec ? {
+              unit: spec.unit,
+              supplyVoltage: spec.supplyVolts,
+              adcRange: `${spec.adcRange.minVolts}-${spec.adcRange.maxVolts} V`,
+              range: `${spec.outputMin}-${spec.outputMax} ${spec.unit}`,
+            } : {}),
+          },
+          reasons: spec ? undefined : ['This sensor part is not in the catalogue, or its catalogue entry is not an analog sensor.'],
         }
       }
       case 'IRRemoteInput':

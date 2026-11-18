@@ -10,6 +10,7 @@ const HARDWARE_MANAGED_SIGNAL_NODE_TYPES = new Set([
   'MicInput', 'LineInput', 'TouchButtonInput', 'ButtonBank', 'PotInput', 'EncoderInput', 'MatrixOutput',
   'StereoVuMeter',
   'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PowerMonitorInput', 'PresenceInput',
+  'DigitalSensorInput', 'AnalogSensorInput',
   'RelayOutput', 'PowerSwitchOutput', 'BuzzerOutput', 'CoolingFanOutput', 'PwmDriverOutput', 'DarlingtonDriverOutput',
   'DFPlayerOutput',
   // Auxiliary displays. Signal-carrying — they consume values and text — but
@@ -28,6 +29,7 @@ const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set([
   'Board', 'MicInput', 'LineInput', 'TouchButtonInput', 'ButtonBank', 'PotInput', 'EncoderInput', 'MatrixOutput',
   'StereoVuMeter',
   'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PowerMonitorInput', 'PresenceInput',
+  'DigitalSensorInput', 'AnalogSensorInput',
   'RelayOutput', 'PowerSwitchOutput', 'BuzzerOutput', 'CoolingFanOutput', 'PwmDriverOutput', 'DarlingtonDriverOutput',
   'DFPlayerOutput',
   'SegmentDisplay', 'InfoDisplay', 'TransportDisplay', 'TouchInput',

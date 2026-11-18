@@ -17,7 +17,7 @@ import {
 } from '../../state/output/ledOutputForm'
 import {
   INPUT_PARTS, LED_OUTPUT_NODE_TYPE, FIXTURE_PARTS, modulePinKeys, MODULE_PIN_LABELS, numericPinSummary,
-  VU_PAIR_WIDTH_MM,
+  VU_PAIR_WIDTH_MM, CATALOGUE_SENSOR_NODE_TYPES,
 } from './hardwarePartCatalog'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { stereoVuPinKeys } from '../../state/nodeLibrary'
@@ -48,7 +48,11 @@ export function useBenchParts({ nodes, edges, selectedBoard, boardUnresolved = f
         const entry = INPUT_PARTS.find((candidate) =>
           candidate.nodeType === node.data.nodeType
           && candidate.properties?.partId === props.partId,
-        ) ?? INPUT_PARTS.find((candidate) => candidate.nodeType === node.data.nodeType)
+        ) ?? (CATALOGUE_SENSOR_NODE_TYPES.has(node.data.nodeType)
+          // A sensor's footprint is its own part's. Another part's would draw a
+          // different module in its place; the validator names the missing part.
+          ? undefined
+          : INPUT_PARTS.find((candidate) => candidate.nodeType === node.data.nodeType))
         if (!entry) return []
         const index = seen.get(entry.nodeType) ?? 0
         seen.set(entry.nodeType, index + 1)

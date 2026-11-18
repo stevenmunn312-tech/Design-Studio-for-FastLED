@@ -330,6 +330,58 @@ export interface PartTemperatureSensorSpec {
   pullUpOhms: number
 }
 
+/**
+ * Contract carried by a one-pin digital sensor: a switch, or a module whose
+ * output is a plain high or low (reed, Hall, tilt, vibration, float and limit
+ * switches, IR break-beam, door contacts). The node's behaviour is fixed in
+ * code; everything that differs between parts is here.
+ */
+export interface PartDigitalSensorSpec {
+  /** The level the pin reads while the sensor is actuated. */
+  activeLevel: 'high' | 'low'
+  /**
+   * What holds the line at its idle level: `internal` is the controller's
+   * pull-up (the sketch enables it), `external` a resistor on the module or
+   * the user's wiring, `none` a module that drives the line both ways.
+   */
+  pullUp: 'none' | 'internal' | 'external'
+  /** Milliseconds a reading must hold before it counts; 0 for a clean output. */
+  debounceMs: number
+  /** What the part is powered from, when it takes a supply. */
+  supplyVolts?: number
+  /** Short copy for the preview toggle while actuated ("Magnet near"). */
+  activeLabel: string
+  /** Short copy for the preview toggle while idle ("Magnet away"). */
+  idleLabel: string
+}
+
+/** One point of a calibration curve: the pin voltage, and what it means. */
+export interface PartCalibrationPoint {
+  volts: number
+  value: number
+}
+
+/**
+ * Contract carried by a one-pin analog sensor (soil moisture, force-sensitive
+ * resistor, flex, slide pot, gas, water level). The reading leaves the node in
+ * the part's real unit, through a calibration curve.
+ */
+export interface PartAnalogSensorSpec {
+  /** Short unit label for readouts and copy ("%", "N", "ppm"). */
+  unit: string
+  /** The supply the module is meant to run from. */
+  supplyVolts: number
+  /** The pin voltage that reads 0 and the one that reads full scale. */
+  adcRange: { minVolts: number; maxVolts: number }
+  /** At least two points, strictly rising in volts, and monotonic in value. */
+  curve: PartCalibrationPoint[]
+  /** The reading is held inside this window, whatever the curve says. */
+  outputMin: number
+  outputMax: number
+  /** Decimal places a readout shows; defaults to two. */
+  decimals?: number
+}
+
 /** Network contract carried by a wired-Ethernet controller module. */
 export interface PartEthernetSpec {
   /** The controller chip, which picks the firmware's PHY driver. */
@@ -492,6 +544,10 @@ export interface PartCatalogueEntry {
   distanceSensor?: PartDistanceSensorSpec
   /** Present exactly on 1-Wire temperature probes. */
   temperatureSensor?: PartTemperatureSensorSpec
+  /** Present exactly on one-pin digital sensors (switches and plain high/low modules). */
+  digitalSensor?: PartDigitalSensorSpec
+  /** Present exactly on one-pin analog sensors read through a calibration curve. */
+  analogSensor?: PartAnalogSensorSpec
   /** Present exactly on wired-Ethernet controller modules. */
   ethernet?: PartEthernetSpec
   /** Present exactly on a matched differential pixel-data extender pair. */

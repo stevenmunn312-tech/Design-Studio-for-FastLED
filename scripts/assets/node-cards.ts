@@ -62,6 +62,10 @@ import { CUSTOM_DESIGN_LAYOUT, asTransportDisplayLayout } from '../../src/state/
 import { powerMonitorPreviewDefaults, powerMonitorPreviewReading } from '../../src/state/peripherals/powerMonitor'
 import { presencePreviewDefaultDistance, presencePreviewReading } from '../../src/state/peripherals/presenceSensor'
 import { lightSensorPreviewReading, lightSensorTransport } from '../../src/state/peripherals/lightSensor'
+import {
+  ANALOG_SENSOR_PREVIEW_DEFAULT, analogSensorReading, analogSensorSpec, formatAnalogSensorReading,
+} from '../../src/state/peripherals/analogSensor'
+import { digitalSensorSpec } from '../../src/state/peripherals/digitalSensor'
 import { environmentPreviewDefaults, environmentPreviewReading } from '../../src/state/peripherals/environmentSensor'
 import { temperaturePreviewDefault, temperaturePreviewReading } from '../../src/state/peripherals/temperatureSensor'
 import { joystickAxis } from '../../src/state/peripherals/joystick'
@@ -1080,6 +1084,12 @@ function hardwareWidgets(def: NodeDefinition, props: Record<string, unknown>): W
     }
     case 'MotionInput':
       return [button('press')]
+    case 'DigitalSensorInput':
+      return [button(digitalSensorSpec(partId)?.idleLabel ?? 'unavailable')]
+    case 'AnalogSensorInput': {
+      const spec = analogSensorSpec(partId)
+      return [pot(ANALOG_SENSOR_PREVIEW_DEFAULT, spec ? formatAnalogSensorReading(spec, analogSensorReading(spec, ANALOG_SENSOR_PREVIEW_DEFAULT)) : 'unavailable')]
+    }
     case 'TouchButtonInput':
       return [button('touch')]
     case 'PotInput':
