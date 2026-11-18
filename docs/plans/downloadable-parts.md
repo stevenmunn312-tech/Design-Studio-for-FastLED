@@ -198,6 +198,9 @@ The [support matrix](../release/beta-support-matrix.md) still owns what is
 supported versus experimental. A downloaded part inherits its part type's
 support status unless its own bench row says more.
 
+The transport contract (signed envelope, index payload, key rotation, client
+API and signing tool) is in [part packages](../design/part-packages.md).
+
 ## Shelf categories
 
 Browsing categories are data, not code, and they are separate from part types.
