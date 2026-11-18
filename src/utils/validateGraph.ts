@@ -73,6 +73,7 @@ import { boardPinVerdict, selectedBoardResolution, selectedPhysicalBoardProfile 
 import { integratedPinsFor } from '../build/boards/integratedBoardHardware'
 import type { PhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { recommendedSupplyCurrentMa } from '../build/power/powerSupplySizing'
+import { ledFullWhiteDraw } from '../build/power/ledDraw'
 import { pinWarningForCapability } from '../build/boards/boardGpio'
 import { micSupportedForBoard, micUnsupportedMessage } from '../build/pins/micPinDefaults'
 import { controllerSettings } from '../build/controllerSettings'
@@ -401,24 +402,6 @@ export interface PowerEstimate {
   exceedsConfigured: boolean
 }
 
-// Typical full-white draw for a WS2812-class LED at 5V (the number FastLED's
-// own examples and most guides use). Real draw varies by chipset/voltage, but
-// this is the right order of magnitude for a "will my PSU cope" estimate —
-// exact chipset current draw isn't published widely enough to model per-part.
-const MA_PER_LED_WORST_CASE = 60
-
-// HUB75 panels draw far less per pixel than an addressable-strip LED (their
-// sub-pixels are smaller and current-limited by the panel's own driver ICs),
-// so reusing MA_PER_LED_WORST_CASE above would wildly overstate a HUB75
-// route's draw. Derived from real hardware, not a spec sheet: reported
-// current draw on a P4 64×64 (4096-pixel) indoor panel ranges roughly
-// 1.0–2.5 A typical, up to ~4 A at the high end. Anchored to that high end
-// (4 A / 4096 px ≈ 1 mA/px) to keep the same "worst case" framing as the
-// addressable figure above. This is one measured data point for one panel
-// model — real draw varies by resolution/driver IC, so treat it as a rough
-// guide, same as the addressable-strip figure.
-const MA_PER_HUB75_PIXEL_WORST_CASE = 1
-
 // A configured power cap almost never needs to cover a full-white-everywhere
 // moment — that's the scenario FastLED's power capping exists to auto-dim
 // gracefully, and real patterns rarely hit it. A cap at or above this fraction
@@ -452,15 +435,21 @@ export function estimatePowerLoad(nodes: StudioNode[]): PowerEstimate | null {
     sum + stereoVuTotalLeds(meter.data.properties as Record<string, unknown>), 0)
   const ledCount = outputs.reduce((sum, output) => sum + outputLedCount(output), 0) + vuLedCount
   const controller = controllerSettings(nodes)
-  // The per-LED figure is a 5 V draw. A 12 V chipset draws the same power at
-  // proportionally less current, and the supply, cap and warnings all work in
-  // the strip's own voltage.
-  const voltScale = 5 / controller.volts
-  const worstCaseMa = voltScale * outputs.reduce((sum, output) => {
+  // Each output draws at its own chipset's voltage (the figure the Build
+  // Diagram's electrical plan uses too). The supply, cap and warnings work in
+  // one voltage, the controller's, so mixed rails are summed as power and
+  // read back as current at that voltage.
+  const fullWhiteMw = (props: Record<string, unknown>, leds: number, form?: unknown) => {
+    const draw = ledFullWhiteDraw(props.chipset ?? 'WS2812B', form)
+    return leds * draw.maPerLed * draw.volts
+  }
+  const worstCaseMa = (outputs.reduce((sum, output) => {
     const props = output.data.properties as Record<string, unknown>
-    const rate = outputForm(props) === 'hub75' ? MA_PER_HUB75_PIXEL_WORST_CASE : MA_PER_LED_WORST_CASE
-    return sum + (outputLedCount(output) * rate)
-  }, vuLedCount * MA_PER_LED_WORST_CASE)
+    return sum + fullWhiteMw(props, outputLedCount(output), outputForm(props))
+  }, 0) + vuMeters.reduce((sum, meter) => {
+    const props = meter.data.properties as Record<string, unknown>
+    return sum + fullWhiteMw(props, stereoVuTotalLeds(props))
+  }, 0)) / controller.volts
   const configuredMa = controller.powerLimit ? controller.milliamps : null
   const recommendedMa = Math.ceil(worstCaseMa / 100) * 100
   // The supply is sized for the uncapped full-white load, never from the

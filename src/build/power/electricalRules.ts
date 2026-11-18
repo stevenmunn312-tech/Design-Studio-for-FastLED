@@ -1,6 +1,6 @@
 import type { BuildConductorMaterial } from '../buildProfile'
 
-export const ELECTRICAL_RULESET_VERSION = 'build-rules-2026.10.13-v8'
+export const ELECTRICAL_RULESET_VERSION = 'build-rules-2026.11.18-v9'
 /**
  * Branch and converter-input feeds may drop this much of their rail. 5% keeps
  * blue and green full strength on a 5 V WS2812 strip; the independent

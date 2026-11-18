@@ -1,6 +1,6 @@
 # Plan — size power to the supply the user has
 
-Status: proposed 2026-11-18, not started.
+Status: Phase 1 done 2026-11-18; Phase 2 next.
 
 ## Why
 
@@ -84,7 +84,11 @@ Mapped 2026-11-18. Line numbers drift; the names are the anchors.
 
 ## Plan
 
-### Phase 1 — one load figure
+### Phase 1 — one load figure (done 2026-11-18)
+
+Done: `ledFullWhiteDraw` (`src/build/power/ledDraw.ts`) is the one per-LED
+figure; `estimatePowerLoad` and `calculateElectricalPlan` both read it, and
+`recommendedSupplyCurrentMa` now always rounds up.
 
 Make `calculateElectricalPlan` take its per-output full-white current from the
 same chipset-aware source as `estimatePowerLoad`, so the Board, Checks and the
@@ -140,7 +144,7 @@ Also fix the supply round-down bug in `powerSupplySizing.ts` here, since the
   sized to that supply and stays safe. The advice says that supply can be
   overdrawn when its segment is bright, and names the supply its segment
   needs.
-- Bump `ELECTRICAL_RULESET_VERSION`.
+- Bump `ELECTRICAL_RULESET_VERSION` again (Phase 1 moved it to v9).
 
 ### Phase 4 — the cap follows the supply
 

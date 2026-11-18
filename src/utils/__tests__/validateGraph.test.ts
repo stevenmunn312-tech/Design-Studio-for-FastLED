@@ -1324,6 +1324,25 @@ describe('validateGraph', () => {
       expect(power.worstCaseMa).toBe((64 + 40) * 60)
     })
 
+    it('sizes a 12 V WS2811 pixel at 60 mA, not 60 mA scaled down to 12 V', () => {
+      const power = estimatePowerLoad([node('out', 'MatrixOutput', { form: 'strip', ledCount: 100, chipset: 'WS2811' })])!
+
+      expect(power.supplyVolts).toBe(12)
+      expect(power.worstCaseMa).toBe(6000)
+    })
+
+    it('sizes a HUB75 panel at its own draw whatever chipset the save carries', () => {
+      const power = estimatePowerLoad([node('out', 'MatrixOutput', { form: 'hub75', width: 64, height: 64, chipset: 'WS2812B' })])!
+
+      expect(power.worstCaseMa).toBe(4096)
+    })
+
+    it('counts an RGBW LED at four channels', () => {
+      const power = estimatePowerLoad([node('out', 'MatrixOutput', { form: 'strip', ledCount: 10, chipset: 'SK6812-RGBW' })])!
+
+      expect(power.worstCaseMa).toBe(800)
+    })
+
     it('flags when worst-case draw exceeds the configured power cap', () => {
       const nodes = [
         node('board', 'Board', { powerLimit: true, milliamps: 2000 }),

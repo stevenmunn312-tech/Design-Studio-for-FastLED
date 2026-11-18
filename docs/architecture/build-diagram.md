@@ -136,17 +136,21 @@ only to the rows that carry one.
 The current bounded WS2812-class rules use:
 
 - 5 V nominal LED power.
-- 60 mA per pixel conservative uncapped full-white load for injection count,
-  conductor, connector, voltage-drop, and branch-fuse calculations.
+- Uncapped full-white load per LED from `ledFullWhiteDraw`
+  (`src/build/power/ledDraw.ts`) for injection count, conductor, connector,
+  voltage-drop, and branch-fuse calculations: 60 mA for a 5 V RGB LED, 80 mA
+  for RGBW, about 1 mA for a HUB75 pixel. The Board, Readiness and Checks
+  (`estimatePowerLoad`) read the same figure, so every load agrees.
 - 20% supply-current/wattage headroom.
 - Every recommendation, supply included, is sized for the uncapped full-white
   load. A configured FastLED current limit lowers running power and heat but
   never shrinks the hardware, because a limit that is changed, cleared or never
   flashed must not overload a supply that was sized for it. (Until 2026-09-27
   the supply, though not the wiring, was sized from the limit.)
-- Recommended nameplate current rounds to whole amps through 10 A. Above 10 A,
-  it uses 10 A increments, rounding down only when the headroom target is less
-  than 2 A above the lower increment and remains above the full-white load.
+- Recommended nameplate current rounds the headroom target up to whole amps
+  through 10 A and to the next 10 A increment above that. It never rounds
+  down. (Until 2026-11-18 a target less than 2 A past an increment rounded
+  down into the headroom.)
 - 60 pixels per metre when the graph has no physical density metadata.
 - 500 mm one-way feed cable when no reviewed physical route is available.
 - 5 A maximum design load for start/end feeds and 10 A maximum for centre

@@ -62,10 +62,6 @@ more after the freeze.
 
 ### Power and hardware
 
-- [ ] `recommendedSupplyCurrentMa` rounds down above 10 A
-  (`powerSupplySizing.ts:12`); it must round up.
-- [ ] Plan a HUB75 panel as a HUB75 panel, not as WS2812B.
-- [ ] Size 12 V WS2811 per its real draw, not 25 mA a pixel.
 - [ ] Validate a second board against its own FQBN, not the primary's
   (`boardUploadTargets.ts:19`).
 - [ ] ESP32-C3 GPIO11: check the pin rule against the module.

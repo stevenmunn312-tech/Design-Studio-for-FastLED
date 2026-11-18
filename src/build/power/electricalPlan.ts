@@ -32,8 +32,8 @@ import {
   type PlanSource,
 } from './planSource'
 import { partById } from '../parts/partCatalogue'
+import { ledFullWhiteDraw } from './ledDraw'
 
-const WS2812_WORST_CASE_MA_PER_PIXEL = 60
 const DEFAULT_LED_DENSITY_PER_METER = 60
 const DEFAULT_FEED_CABLE_LENGTH_MM = 500
 const MAX_END_FEED_CURRENT_MA = 5000
@@ -78,6 +78,8 @@ export interface OutputElectricalPlan {
   estimatedDensityPerMeter: number
   estimatedPitchMm: number
   currentPerMeterMa: number
+  /** Full-white draw of one LED at `nominalVoltage` (`ledFullWhiteDraw`). */
+  currentPerLedMa: number
   designCurrentMa: number
   /** A firmware brightness limit. It lowers running power; it never sizes hardware. */
   operatingCurrentCapMa?: number
@@ -282,11 +284,12 @@ function zoneAccepts(designMa: number, addedMa: number, ceilingMa: number): bool
  */
 function feedLayout(
   pixelCount: number,
+  maPerPixel: number,
   endMa: number,
   centerMa: number,
 ): { roles: PowerInjectionRole[], pixels: number[] } | undefined {
-  const endPixels = Math.floor(endMa / WS2812_WORST_CASE_MA_PER_PIXEL)
-  const centerPixels = Math.floor(centerMa / WS2812_WORST_CASE_MA_PER_PIXEL)
+  const endPixels = Math.floor(endMa / maPerPixel)
+  const centerPixels = Math.floor(centerMa / maPerPixel)
   if (endPixels < 1 || pixelCount < 1) return undefined
 
   let roles: PowerInjectionRole[]
@@ -320,9 +323,9 @@ function feedLayout(
   return { roles, pixels }
 }
 
-function allocatePixels(pixelCount: number, roles: PowerInjectionRole[]): number[] {
+function allocatePixels(pixelCount: number, maPerPixel: number, roles: PowerInjectionRole[]): number[] {
   const capacities = roles.map((role) => role === 'center' ? MAX_CENTER_FEED_CURRENT_MA : MAX_END_FEED_CURRENT_MA)
-  const capacityPixels = capacities.map((capacity) => Math.floor(capacity / WS2812_WORST_CASE_MA_PER_PIXEL))
+  const capacityPixels = capacities.map((capacity) => Math.floor(capacity / maPerPixel))
   const totalCapacity = capacityPixels.reduce((sum, value) => sum + value, 0)
   const allocations = capacityPixels.map((capacity) => Math.floor((pixelCount * capacity) / totalCapacity))
   let remaining = pixelCount - allocations.reduce((sum, value) => sum + value, 0)
@@ -348,6 +351,7 @@ function calculateInjections(
   itemId: string,
   outputTitle: string,
   pixelCount: number,
+  maPerPixel: number,
   physicalLengthMm: number,
   nominalVoltage: number,
 ): PowerInjectionPlan[]
@@ -355,6 +359,7 @@ function calculateInjections(
   itemId: string,
   outputTitle: string,
   pixelCount: number,
+  maPerPixel: number,
   physicalLengthMm: number,
   nominalVoltage: number,
   maxFeedDesignMa: number,
@@ -363,6 +368,7 @@ function calculateInjections(
   itemId: string,
   outputTitle: string,
   pixelCount: number,
+  maPerPixel: number,
   physicalLengthMm: number,
   nominalVoltage: number,
   maxFeedDesignMa?: number,
@@ -375,16 +381,16 @@ function calculateInjections(
   let roles: PowerInjectionRole[]
   let pixels: number[]
   if (binding) {
-    const layout = feedLayout(pixelCount, endLimit, centerLimit)
+    const layout = feedLayout(pixelCount, maPerPixel, endLimit, centerLimit)
     if (!layout) return undefined
     roles = layout.roles
     pixels = layout.pixels
   } else {
-    roles = injectionRoles(pixelCount * WS2812_WORST_CASE_MA_PER_PIXEL)
-    pixels = allocatePixels(pixelCount, roles)
+    roles = injectionRoles(pixelCount * maPerPixel)
+    pixels = allocatePixels(pixelCount, maPerPixel, roles)
   }
   return roles.map((role, index) => {
-    const designCurrentMa = pixels[index] * WS2812_WORST_CASE_MA_PER_PIXEL
+    const designCurrentMa = pixels[index] * maPerPixel
     const connectorMinimumMa = connectorMinimumForLoad(designCurrentMa)
     const conductor = recommendConductor({
       // Size the wire to carry the fuse that will protect it, so a standard
@@ -572,8 +578,8 @@ function zoneCapacityDetail(
     return `${output.title}'s ${injection.role} feed draws ${formatRuleCurrent(injection.designCurrentMa)}, which is more than one supply zone can carry (${formatRuleCurrent(ceilingMa)}).`
   }
   const zone = `One ${railConverter.module.label} zone supplies ${formatRuleCurrent(railConverter.deratedCurrentMa)} at ${ENCLOSURE_AMBIENT_C} °C`
-  if (budget < WS2812_WORST_CASE_MA_PER_PIXEL) {
-    return `${output.title} draws ${formatRuleCurrent(output.designCurrentMa)} at full white. ${zone}, and ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom on one pixel is ${formatRuleCurrent(headroomMa(WS2812_WORST_CASE_MA_PER_PIXEL))}. That feed cannot be split into a valid isolated zone.`
+  if (budget < output.currentPerLedMa) {
+    return `${output.title} draws ${formatRuleCurrent(output.designCurrentMa)} at full white. ${zone}, and ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom on one pixel is ${formatRuleCurrent(headroomMa(output.currentPerLedMa))}. That feed cannot be split into a valid isolated zone.`
   }
   return `${output.title}'s ${injection.role} feed draws ${formatRuleCurrent(injection.designCurrentMa)}. ${zone}, and ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom leaves ${formatRuleCurrent(budget)}. Converter outputs are not paralleled, so this feed is not assigned to a zone.`
 }
@@ -923,20 +929,21 @@ export function calculateElectricalPlan(
   const outputPlans: OutputElectricalPlan[] = []
 
   for (const item of outputItems) {
-    // Always 5 V: the manifest refuses any chipset outside its 5 V one-wire
-    // set before an item reaches this loop.
-    const nominalVoltage = Number(item.facts.nominalVoltage ?? 5) || 5
+    // The same chipset-aware figure the Board and Checks read, so all three
+    // agree. A HUB75 form is a scan panel whatever chipset it still carries.
+    const draw = ledFullWhiteDraw(item.facts.chipset ?? 'WS2812B', item.facts.form)
+    const nominalVoltage = draw.volts
 
     const pixelCount = Math.max(1, Number(item.facts.pixelCount ?? 0))
     const densityPerMeter = DEFAULT_LED_DENSITY_PER_METER
     const pitchMm = 1000 / densityPerMeter
     const physicalLengthMm = Math.round((pixelCount / densityPerMeter) * 1000)
-    const designCurrentMa = pixelCount * WS2812_WORST_CASE_MA_PER_PIXEL
+    const designCurrentMa = pixelCount * draw.maPerLed
     const zoneBudgetMa = railConverter ? maxZoneDesignCurrentMa(railConverter.deratedCurrentMa) : undefined
     const injections = (zoneBudgetMa != null
-      ? calculateInjections(item.id, item.title, pixelCount, physicalLengthMm, nominalVoltage, zoneBudgetMa)
+      ? calculateInjections(item.id, item.title, pixelCount, draw.maPerLed, physicalLengthMm, nominalVoltage, zoneBudgetMa)
       : undefined)
-      ?? calculateInjections(item.id, item.title, pixelCount, physicalLengthMm, nominalVoltage)
+      ?? calculateInjections(item.id, item.title, pixelCount, draw.maPerLed, physicalLengthMm, nominalVoltage)
     const recommendedFeedCount = injections.length
     const pixelsPerFeed = Math.max(...injections.map((injection) => injection.pixelCount))
     const branchDesignCurrentMa = Math.max(...injections.map((injection) => injection.designCurrentMa))
@@ -964,7 +971,8 @@ export function calculateElectricalPlan(
       physicalLengthMm,
       estimatedDensityPerMeter: Math.round(densityPerMeter),
       estimatedPitchMm: Number(pitchMm.toFixed(1)),
-      currentPerMeterMa: Math.round(densityPerMeter * WS2812_WORST_CASE_MA_PER_PIXEL),
+      currentPerMeterMa: Math.round(densityPerMeter * draw.maPerLed),
+      currentPerLedMa: draw.maPerLed,
       designCurrentMa,
       operatingCurrentCapMa,
       recommendedSupplyCurrentMa: recommendedSupplyMa,

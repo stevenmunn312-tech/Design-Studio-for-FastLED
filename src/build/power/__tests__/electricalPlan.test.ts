@@ -261,14 +261,25 @@ describe('electricalPlan', () => {
     expect(plan.totals?.supplies[0].outputIds).toEqual(['output:out', 'output:out-2'])
   })
 
-  it('rounds a headroom target down when it is less than 2 A above a 10 A boundary', () => {
+  it('rounds a headroom target up to the next 10 A even just past a 10 A boundary', () => {
     const manifest = buildHardwareManifest([outputNode(19, 23)], [], 'esp32:esp32:esp32s3')
     const board = boardProfileById('espressif-esp32-s3-devkitc-1')
     const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), board)
 
+    // 26.22 A plus 20% headroom is 31.46 A, so a 30 A supply would eat it.
     expect(plan.totals?.designCurrentMa).toBe(26220)
-    expect(plan.totals?.recommendedSupplyCurrentMa).toBe(30000)
-    expect(plan.totals?.recommendedSupplyWattage).toBe(150)
+    expect(plan.totals?.recommendedSupplyCurrentMa).toBe(40000)
+    expect(plan.totals?.recommendedSupplyWattage).toBe(200)
+  })
+
+  it('plans a HUB75 panel at its own draw, not as WS2812B', () => {
+    const manifest = buildHardwareManifest([outputNode(64, 64, { form: 'hub75' })], [], 'esp32:esp32:esp32s3')
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), board)
+    const output = plan.outputs[0]
+
+    expect(output?.currentPerLedMa).toBe(1)
+    expect(output?.designCurrentMa).toBe(4096)
   })
 
   it('keeps reduced-confidence boards usable while warning against board-powered LED loads', () => {

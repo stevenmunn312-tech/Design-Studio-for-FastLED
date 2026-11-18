@@ -4,16 +4,12 @@ function roundToStep(value: number, step: number): number {
   return Math.ceil(value / step) * step
 }
 
-/** Standard continuous PSU nameplate current for a full-white design load. */
+/**
+ * Standard continuous PSU nameplate current for a full-white design load:
+ * the load plus headroom, rounded up to a whole amp to 10 A and to the next
+ * 10 A above that. Never rounded down, so the headroom is never eaten.
+ */
 export function recommendedSupplyCurrentMa(designCurrentMa: number): number {
   const targetCurrentMa = designCurrentMa * (1 + (DEFAULT_SUPPLY_HEADROOM_PERCENT / 100))
-  if (targetCurrentMa <= 10000) return roundToStep(targetCurrentMa, 1000)
-
-  const lowerTenAmps = Math.floor(targetCurrentMa / 10000) * 10000
-  const roundedCurrentMa = targetCurrentMa - lowerTenAmps < 2000
-    ? lowerTenAmps
-    : lowerTenAmps + 10000
-
-  // Never recommend a nameplate current below the design load itself.
-  return Math.max(roundToStep(designCurrentMa, 1000), roundedCurrentMa)
+  return roundToStep(targetCurrentMa, targetCurrentMa <= 10000 ? 1000 : 10000)
 }
