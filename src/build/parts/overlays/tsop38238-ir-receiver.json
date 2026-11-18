@@ -25,7 +25,9 @@
   ],
   "copy": {
     "summary": "Bare 38 kHz IR receiver, datasheet pin order",
-    "wiringNote": "Its centre pin is ground, not the supply. Do not wire it to a KY-022 footprint without rechecking."
+    "wiringNote": "Its centre pin is ground, not the supply. Do not wire it to a KY-022 footprint without rechecking.",
+    "optionLabel": "TSOP38238",
+    "optionOrder": 3
   },
   "pads": [
     {
@@ -45,5 +47,9 @@
     }
   ],
   "padHoleRadiusPx": 14,
-  "supplyRail": "v3v3"
+  "supplyRail": "v3v3",
+  "irReceiver": {
+    "supplyVolts": 3.3,
+    "carrierKHz": 38
+  }
 }

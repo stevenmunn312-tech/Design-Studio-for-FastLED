@@ -11,6 +11,7 @@
 
 import type { PartCatalogueEntry } from '../partCatalogue'
 import { partTypeById, partTypeDrivesDevice, type PartTypeDefinition } from '../partTypes'
+import { keypadBlockIssue } from './keypadBlock'
 import { DIMENSIONS_SPEC, LED_LAYOUT_SPEC, PART_BLOCK_KEYS, PART_BLOCK_SPECS, RENDER_SPEC } from './blockSpecs'
 import { arr, checkField, int, num, obj, opt, str, type FieldSpec } from './fieldSpec'
 import {
@@ -252,6 +253,11 @@ export function validatePartManifest(value: unknown, origin: ManifestOrigin): Pa
 
   for (const key of PART_BLOCK_KEYS) {
     if (value[key] !== undefined) errors.push(...checkField(PART_BLOCK_SPECS[key], value[key], key))
+  }
+  // Rules across a block's own fields, which the per-field shapes cannot say.
+  if (value.keypad !== undefined && !errors.some((error) => error.startsWith('keypad'))) {
+    const issue = keypadBlockIssue(value.keypad)
+    if (issue) errors.push(`keypad: ${issue}`)
   }
 
   const typeIds = value.partTypes

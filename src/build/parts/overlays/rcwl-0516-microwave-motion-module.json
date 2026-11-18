@@ -27,7 +27,9 @@
   ],
   "copy": {
     "summary": "Radar: senses movement through plastic",
-    "wiringNote": "Power VIN from 5 V (4 to 28 V). OUT is 3.3 V logic and stays high about two seconds after the last movement. Leave 3V3 and CDS unwired."
+    "wiringNote": "Power VIN from 5 V (4 to 28 V). OUT is 3.3 V logic and stays high about two seconds after the last movement. Leave 3V3 and CDS unwired.",
+    "optionLabel": "RCWL-0516 microwave",
+    "optionOrder": 2
   },
   "pads": [
     {
@@ -58,5 +60,10 @@
   ],
   "padHoleRadiusPx": 6,
   "supplyRail": "v5",
-  "powerPadLabel": "VIN"
+  "powerPadLabel": "VIN",
+  "motionSensor": {
+    "activeLevel": "high",
+    "holdSeconds": 2,
+    "supplyVolts": 5
+  }
 }

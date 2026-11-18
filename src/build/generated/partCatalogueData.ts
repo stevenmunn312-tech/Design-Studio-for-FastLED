@@ -2675,7 +2675,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Infrared: sees a warm body move",
-      "wiringNote": "Power VCC from 5 V. OUT is 3.3 V logic."
+      "wiringNote": "Power VCC from 5 V. OUT is 3.3 V logic.",
+      "optionLabel": "HC-SR501 PIR",
+      "optionOrder": 1
     },
     "pads": [
       {
@@ -2695,7 +2697,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 5.3,
-    "supplyRail": "v3v3"
+    "supplyRail": "v3v3",
+    "motionSensor": {
+      "activeLevel": "high",
+      "supplyVolts": 5
+    }
   },
   "hlk-ld2410c-presence-sensor": {
     "manifestVersion": 1,
@@ -4106,7 +4112,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "38 kHz IR receiver module with activity LED, 5 V",
-      "wiringNote": "Connect − to GND, + to 5 V and S to the input through the Build Diagram’s signal divider. Keyestudio specifies a 5 V supply; 3.3 V operation is not verified."
+      "wiringNote": "Connect − to GND, + to 5 V and S to the input through the Build Diagram’s signal divider. Keyestudio specifies a 5 V supply; 3.3 V operation is not verified.",
+      "optionLabel": "Keyestudio KS0026",
+      "optionOrder": 2
     },
     "pads": [
       {
@@ -4126,7 +4134,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 6.1,
-    "supplyRail": "v5"
+    "supplyRail": "v5",
+    "irReceiver": {
+      "supplyVolts": 5,
+      "carrierKHz": 38
+    }
   },
   "ky-006-passive-buzzer-module": {
     "manifestVersion": 1,
@@ -4397,7 +4409,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "IR remote receiver, 3-pin board with LED",
-      "wiringNote": "Some clones swap the outer two pins. Check the silkscreen on your board before wiring it — a swap puts the supply rail on a GPIO."
+      "wiringNote": "Some clones swap the outer two pins. Check the silkscreen on your board before wiring it — a swap puts the supply rail on a GPIO.",
+      "optionLabel": "KY-022 module",
+      "optionOrder": 1
     },
     "pads": [
       {
@@ -4417,7 +4431,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 4,
-    "supplyRail": "v3v3"
+    "supplyRail": "v3v3",
+    "irReceiver": {
+      "supplyVolts": 3.3,
+      "carrierKHz": 38
+    }
   },
   "ky-023-joystick-module": {
     "manifestVersion": 1,
@@ -4784,7 +4802,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Sixteen keys on eight GPIOs",
-      "wiringNote": "Rows R1 to R4 go to pins with a pull-up and columns C1 to C4 to output pins. The keypad is passive and needs no power."
+      "wiringNote": "Rows R1 to R4 go to pins with a pull-up and columns C1 to C4 to output pins. The keypad is passive and needs no power.",
+      "optionLabel": "4x4 matrix keypad",
+      "optionOrder": 1
     },
     "pads": [
       {
@@ -4829,7 +4849,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 6,
-    "supplyRail": "none"
+    "supplyRail": "none",
+    "keypad": {
+      "rows": 4,
+      "columns": 4,
+      "legends": [
+        "1",
+        "2",
+        "3",
+        "A",
+        "4",
+        "5",
+        "6",
+        "B",
+        "7",
+        "8",
+        "9",
+        "C",
+        "*",
+        "0",
+        "#",
+        "D"
+      ],
+      "rowLabels": [
+        "R1",
+        "R2",
+        "R3",
+        "R4"
+      ],
+      "columnLabels": [
+        "C1",
+        "C2",
+        "C3",
+        "C4"
+      ]
+    }
   },
   "max485-rs485-module": {
     "manifestVersion": 1,
@@ -6812,7 +6866,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Radar: senses movement through plastic",
-      "wiringNote": "Power VIN from 5 V (4 to 28 V). OUT is 3.3 V logic and stays high about two seconds after the last movement. Leave 3V3 and CDS unwired."
+      "wiringNote": "Power VIN from 5 V (4 to 28 V). OUT is 3.3 V logic and stays high about two seconds after the last movement. Leave 3V3 and CDS unwired.",
+      "optionLabel": "RCWL-0516 microwave",
+      "optionOrder": 2
     },
     "pads": [
       {
@@ -6843,7 +6899,12 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "padHoleRadiusPx": 6,
     "supplyRail": "v5",
-    "powerPadLabel": "VIN"
+    "powerPadLabel": "VIN",
+    "motionSensor": {
+      "activeLevel": "high",
+      "holdSeconds": 2,
+      "supplyVolts": 5
+    }
   },
   "relay-module-1ch-5v": {
     "manifestVersion": 1,
@@ -6966,7 +7027,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "copy": {
-      "summary": "One active-low 5 V SPDT relay"
+      "summary": "One active-low 5 V SPDT relay",
+      "optionLabel": "1-channel relay",
+      "optionOrder": 1
     },
     "pads": [
       {
@@ -7118,7 +7181,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "copy": {
-      "summary": "Two active-low 5 V SPDT relays"
+      "summary": "Two active-low 5 V SPDT relays",
+      "optionLabel": "2-channel relay",
+      "optionOrder": 2
     },
     "pads": [
       {
@@ -7307,7 +7372,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "copy": {
-      "summary": "Four active-low 5 V SPDT relays"
+      "summary": "Four active-low 5 V SPDT relays",
+      "optionLabel": "4-channel relay",
+      "optionOrder": 3
     },
     "pads": [
       {
@@ -7570,7 +7637,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "copy": {
-      "summary": "Eight active-low 5 V SPDT relays"
+      "summary": "Eight active-low 5 V SPDT relays",
+      "optionLabel": "8-channel relay",
+      "optionOrder": 4
     },
     "pads": [
       {
@@ -7811,7 +7880,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Two AC phototriacs, 0.1-2 A, leak 1.5 mA off",
-      "wiringNote": "Wire CTR1 and CTR2 to GPIOs and VCC to 5 V. The screw terminals switch the AC load and are not logic pins."
+      "wiringNote": "Wire CTR1 and CTR2 to GPIOs and VCC to 5 V. The screw terminals switch the AC load and are not logic pins.",
+      "optionLabel": "Seeed Grove 2-channel SSR",
+      "optionOrder": 5
     },
     "pads": [
       {
@@ -9401,7 +9472,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Bare 38 kHz IR receiver, datasheet pin order",
-      "wiringNote": "Its centre pin is ground, not the supply. Do not wire it to a KY-022 footprint without rechecking."
+      "wiringNote": "Its centre pin is ground, not the supply. Do not wire it to a KY-022 footprint without rechecking.",
+      "optionLabel": "TSOP38238",
+      "optionOrder": 3
     },
     "pads": [
       {
@@ -9421,7 +9494,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 14,
-    "supplyRail": "v3v3"
+    "supplyRail": "v3v3",
+    "irReceiver": {
+      "supplyVolts": 3.3,
+      "carrierKHz": 38
+    }
   },
   "uda1334a-i2s-dac": {
     "manifestVersion": 1,

@@ -3,6 +3,7 @@
 // checked against its spec before any code reads it; the manifest test checks
 // every bundled part against these, so a drift between the two fails there.
 
+import { KEYPAD_MAX_COLUMNS, KEYPAD_MAX_ROWS } from './keypadBlock'
 import { arr, bool, int, nullable, num, obj, oneOf, opt, record, str, tuple, type FieldSpec } from './fieldSpec'
 
 const positive = () => num({ min: 0 })
@@ -47,7 +48,8 @@ export const DIMENSIONS_SPEC: FieldSpec = obj({
 /** Every part-type block, keyed by its property on the manifest. */
 export const PART_BLOCK_SPECS = {
   relay: obj({
-    channels: int(1, 16),
+    // The relay type drives up to MAX_RELAY_CHANNELS (state/peripherals/relayModule.ts).
+    channels: int(1, 8),
     coilVoltage: str(),
     trigger: str({ nonEmpty: true }),
     contacts: str(),
@@ -224,6 +226,24 @@ export const PART_BLOCK_SPECS = {
     outputMin: num(),
     outputMax: num(),
     decimals: opt(int(0, 4)),
+  }),
+  motionSensor: obj({
+    activeLevel: oneOf('high', 'low'),
+    holdSeconds: opt(positive()),
+    supplyVolts: positive(),
+  }),
+  // Shapes only; `keypadBlockIssue` (./keypadBlock) checks that the legends and
+  // labels match the row and column counts.
+  keypad: obj({
+    rows: int(1, KEYPAD_MAX_ROWS),
+    columns: int(1, KEYPAD_MAX_COLUMNS),
+    legends: arr(str({ nonEmpty: true, maxLength: 4 }), 1, KEYPAD_MAX_ROWS * KEYPAD_MAX_COLUMNS),
+    rowLabels: arr(str({ nonEmpty: true, maxLength: 40 }), 1, KEYPAD_MAX_ROWS),
+    columnLabels: arr(str({ nonEmpty: true, maxLength: 40 }), 1, KEYPAD_MAX_COLUMNS),
+  }),
+  irReceiver: obj({
+    supplyVolts: positive(),
+    carrierKHz: opt(positive()),
   }),
   ethernet: obj({
     controller: str({ nonEmpty: true }),

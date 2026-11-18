@@ -31,7 +31,9 @@
   ],
   "copy": {
     "summary": "Infrared: sees a warm body move",
-    "wiringNote": "Power VCC from 5 V. OUT is 3.3 V logic."
+    "wiringNote": "Power VCC from 5 V. OUT is 3.3 V logic.",
+    "optionLabel": "HC-SR501 PIR",
+    "optionOrder": 1
   },
   "pads": [
     {
@@ -51,5 +53,9 @@
     }
   ],
   "padHoleRadiusPx": 5.3,
-  "supplyRail": "v3v3"
+  "supplyRail": "v3v3",
+  "motionSensor": {
+    "activeLevel": "high",
+    "supplyVolts": 5
+  }
 }

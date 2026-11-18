@@ -113,7 +113,11 @@ PART_MANIFEST_VERSION = 1
 OVERLAY_FIELDS = (
     "revision", "partTypes", "categories", "verification", "sources", "interfaces", "copy",
     "pads", "padHoleRadiusPx", "supplyRail", "powerPadLabel",
+    # Part-type blocks the repo authors itself: the part's type reads them, no
+    # measurement does. A part.json that also carries one is refused.
+    "motionSensor", "keypad", "irReceiver",
 )
+OVERLAY_BLOCKS = ("motionSensor", "keypad", "irReceiver")
 OVERLAY_COPY_FIELDS = {"summary": 300, "wiringNote": 600, "hint": 200, "optionLabel": 120}
 # Numbers a copy block may carry, with their inclusive range.
 OVERLAY_COPY_NUMBERS = {"optionOrder": (1, 999)}
@@ -289,6 +293,10 @@ def merge_overlay(entry: dict, overlay, category_ids: set[str], vocabulary: dict
                 raise OverlayError(f"{part_id}: copy.{key} must be plain text of at most {OVERLAY_COPY_FIELDS[key]} characters")
 
     validate_drawing_facts(part_id, entry, overlay, vocabulary)
+    validate_overlay_blocks(part_id, overlay)
+    for key in OVERLAY_BLOCKS:
+        if key in overlay and key in entry:
+            raise OverlayError(f"{part_id}: overlay may not set {key!r}; part.json already carries it")
 
     merged = {"manifestVersion": PART_MANIFEST_VERSION}
     merged.update(entry)
@@ -343,6 +351,38 @@ def validate_drawing_facts(part_id: str, entry: dict, overlay: dict, vocabulary:
         pins = entry.get("pinLabelsLeftToRight")
         if pins is not None and label.upper() not in [pin.upper() for pin in pins]:
             raise OverlayError(f"{part_id}: powerPadLabel {label!r} is not one of the part's pin labels")
+
+
+def _text_list(value, count: int, max_length: int) -> bool:
+    return (isinstance(value, list) and len(value) == count
+            and all(isinstance(item, str) and item.strip() and len(item) <= max_length for item in value))
+
+
+def validate_overlay_blocks(part_id: str, overlay: dict) -> None:
+    """Shape rules for the blocks an overlay carries; mirrors blockSpecs.ts and keypadSpecIssue."""
+    block = overlay.get("motionSensor")
+    if block is not None:
+        if (not isinstance(block, dict) or not set(block) <= {"activeLevel", "holdSeconds", "supplyVolts"}
+                or block.get("activeLevel") not in ("high", "low")
+                or not _is_number(block.get("supplyVolts")) or block["supplyVolts"] <= 0
+                or ("holdSeconds" in block and (not _is_number(block["holdSeconds"]) or block["holdSeconds"] <= 0))):
+            raise OverlayError(f"{part_id}: motionSensor needs activeLevel (high or low), supplyVolts and optional holdSeconds")
+    block = overlay.get("keypad")
+    if block is not None:
+        rows = block.get("rows") if isinstance(block, dict) else None
+        columns = block.get("columns") if isinstance(block, dict) else None
+        if (not isinstance(block, dict) or set(block) != {"rows", "columns", "legends", "rowLabels", "columnLabels"}
+                or not all(isinstance(n, int) and not isinstance(n, bool) and 1 <= n <= 4 for n in (rows, columns))
+                or not _text_list(block["legends"], rows * columns, 4)
+                or not _text_list(block["rowLabels"], rows, 40)
+                or not _text_list(block["columnLabels"], columns, 40)):
+            raise OverlayError(f"{part_id}: keypad needs 1 to 4 rows and columns, one legend per key, and one label per row and column")
+    block = overlay.get("irReceiver")
+    if block is not None:
+        if (not isinstance(block, dict) or not set(block) <= {"supplyVolts", "carrierKHz"}
+                or not _is_number(block.get("supplyVolts")) or block["supplyVolts"] <= 0
+                or ("carrierKHz" in block and (not _is_number(block["carrierKHz"]) or block["carrierKHz"] <= 0))):
+            raise OverlayError(f"{part_id}: irReceiver needs supplyVolts and optional carrierKHz")
 
 
 def load_overlay(part_id: str):

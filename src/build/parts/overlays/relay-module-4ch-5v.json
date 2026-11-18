@@ -41,7 +41,9 @@
     }
   ],
   "copy": {
-    "summary": "Four active-low 5 V SPDT relays"
+    "summary": "Four active-low 5 V SPDT relays",
+    "optionLabel": "4-channel relay",
+    "optionOrder": 3
   },
   "pads": [
     {
