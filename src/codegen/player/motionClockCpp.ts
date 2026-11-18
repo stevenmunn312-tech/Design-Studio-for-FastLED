@@ -3,6 +3,8 @@ import {
   MOTION_TEMPO_RANGE, MOTION_TEMPO_REFERENCE, MOTION_TEMPO_SANE_MAX, MOTION_TEMPO_TAU,
 } from '../../state/player/motionClock'
 
+import { scaledClockStaticsCpp, scaledClockStepCpp } from './masterSpeedCpp'
+
 const f = (value: number) => `${value.toFixed(4)}f`
 
 /**
@@ -18,7 +20,10 @@ export function motionClockCpp(pos = 'posMs', loudness = '_audioLoudness', bpm =
     '  // Pattern clock: song time sped up or slowed down by the music\'s loudness',
     '  // and tempo, as the preview\'s motionClock.ts. Envelopes keep real time.',
     `  static uint32_t motionPos = ${pos};`,
-    `  static float motionMsF = (float)${pos}, motionLoud = 0.0f, motionTempo = ${f(MOTION_TEMPO_REFERENCE)};`,
+    // Whole milliseconds, not float: a player that loops for hours would
+    // otherwise lose the small steps of a quiet passage (masterSpeedCpp.ts).
+    ...scaledClockStaticsCpp('motion', pos),
+    `  static float motionLoud = 0.0f, motionTempo = ${f(MOTION_TEMPO_REFERENCE)};`,
     '  {',
     `    const float dt = ${pos} >= motionPos ? fminf((float)(${pos} - motionPos) / 1000.0f, ${f(MOTION_MAX_STEP_SEC)}) : 0.0f;`,
     `    motionPos = ${pos};`,
@@ -29,8 +34,8 @@ export function motionClockCpp(pos = 'posMs', loudness = '_audioLoudness', bpm =
     `    motionLoud += (fmaxf(${loudness}, 0.0f) - motionLoud) * (1.0f - expf(-dt / ${f(MOTION_LOUDNESS_TAU)}));`,
     `    motionTempo += (bpm - motionTempo) * (1.0f - expf(-dt / ${f(MOTION_TEMPO_TAU)}));`,
     `    const float drive = constrain(motionLoud / ${f(MOTION_LOUDNESS_FULL)}, 0.0f, 1.0f);`,
-    `    motionMsF += dt * 1000.0f * (${f(MOTION_QUIET)} + ${f(MOTION_LOUD - MOTION_QUIET)} * drive) * (motionTempo / ${f(MOTION_TEMPO_REFERENCE)});`,
+    `    const float rate = (${f(MOTION_QUIET)} + ${f(MOTION_LOUD - MOTION_QUIET)} * drive) * (motionTempo / ${f(MOTION_TEMPO_REFERENCE)});`,
+    `    ${scaledClockStepCpp('motion', 'dt * 1000.0f', 'rate')}`,
     '  }',
-    '  const uint32_t motionMs = (uint32_t)motionMsF;',
   ]
 }

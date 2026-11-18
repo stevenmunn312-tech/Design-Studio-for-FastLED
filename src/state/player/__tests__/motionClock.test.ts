@@ -56,6 +56,10 @@ describe('motion clock', () => {
     expect(cpp).toContain('while (bpm < 80.0000f) bpm *= 2.0f;')
     expect(cpp).toContain('while (bpm >= 160.0000f) bpm *= 0.5f;')
     expect(cpp).toContain(`(${MOTION_QUIET.toFixed(4)}f + ${(MOTION_LOUD - MOTION_QUIET).toFixed(4)}f * drive)`)
-    expect(cpp).toContain('const uint32_t motionMs = (uint32_t)motionMsF;')
+    // Whole milliseconds plus a remainder: a float total stops taking small
+    // steps after a few hours of play.
+    expect(cpp).toContain('static uint32_t motionMs = posMs;')
+    expect(cpp).toContain('motionMs += _whole; motionFrac = _step - _whole;')
+    expect(cpp).not.toMatch(/static float motionMs/)
   })
 })

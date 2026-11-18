@@ -74,15 +74,15 @@ export function masterClockLoopCpp(emit: MasterSpeedEmit, synced = false): strin
  * the whole 49.7-day `millis()` range, and the remainder keeps a fractional
  * speed exact over any number of frames.
  */
-function scaledClockStaticsCpp(name: string): string[] {
+export function scaledClockStaticsCpp(name: string, startMsExpr = '0'): string[] {
   return [
-    `  static uint32_t ${name}Ms = 0;      // scaled milliseconds, exact`,
+    `  static uint32_t ${name}Ms = ${startMsExpr};      // scaled milliseconds, exact`,
     `  static float ${name}Frac = 0.0f;    // sub-millisecond remainder of the last step`,
   ]
 }
 
 /** One step of the scaled clock: `dtMsExpr` real milliseconds at `speedExpr`. Speed is never negative. */
-function scaledClockStepCpp(name: string, dtMsExpr: string, speedExpr: string): string {
+export function scaledClockStepCpp(name: string, dtMsExpr: string, speedExpr: string): string {
   return `{ float _step = (${dtMsExpr}) * ${speedExpr} + ${name}Frac; uint32_t _whole = (uint32_t)_step; ${name}Ms += _whole; ${name}Frac = _step - _whole; }`
 }
 
