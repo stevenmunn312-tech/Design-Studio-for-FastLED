@@ -17,6 +17,40 @@ export type BuildTargetFamily =
   | 'nrf52'
   | 'unknown'
 
+/**
+ * The controller's own draw from the LED supply, one conservative figure per
+ * family: the chip's peak transmit current with its radio running, taken from
+ * the vendor datasheets and rounded up, plus the dev board's regulator and USB
+ * bridge. Where some boards in a family carry a radio (Pico W, Uno R4 WiFi),
+ * the figure assumes the radio. Displays, amplifiers and other peripherals on
+ * the same rail are separate loads and are not counted here. The default
+ * power cap subtracts it (`defaultPowerCapMa`).
+ */
+export const CONTROLLER_DRAW_MA: Readonly<Record<BuildTargetFamily, number>> = {
+  // 802.11b transmit at full power: ESP32 240 mA, S2 310, S3 340, C3 335, C6 354.
+  esp32: 250,
+  'esp32-s2': 320,
+  'esp32-s3': 350,
+  'esp32-c3': 350,
+  'esp32-c6': 360,
+  // 802.15.4 / BLE transmit at +20 dBm.
+  'esp32-h2': 150,
+  // 802.11b transmit, 170 mA.
+  esp8266: 200,
+  // A Pico W's CYW43439 transmitting, on top of the RP2040.
+  rp2040: 250,
+  // Teensy 4.x at 600 MHz.
+  teensy: 150,
+  avr: 100,
+  samd: 100,
+  sam: 150,
+  // The Uno R4 WiFi carries an ESP32-S3 radio module.
+  renesas: 350,
+  nrf52: 100,
+  // Nothing known: the largest figure above.
+  unknown: 360,
+}
+
 export type BuildSupplyFeedLocation = 'start' | 'end' | 'both-ends' | 'center' | 'custom'
 export type BuildInstallationTopology = 'strip' | 'matrix' | 'panels' | 'custom'
 export type BuildConductorMaterial = 'copper' | 'cca'

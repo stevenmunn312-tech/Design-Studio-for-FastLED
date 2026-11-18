@@ -181,6 +181,29 @@ describe('starterTemplates', () => {
     expect(diagnostics.filter((diagnostic) => diagnostic.severity === 'warning')).toEqual([])
   })
 
+  it("keeps the user's supply on the bench and caps the starter to it", () => {
+    const template = STARTER_TEMPLATES.find((entry) => entry.id === 'generative-show')!
+    const board = {
+      id: 'board-root', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        nodeType: 'Board', label: 'Board', category: 'output',
+        properties: { profileId: 'generic-esp32-s3-n16r8-44pin-dual-usbc' }, inputs: [], outputs: [],
+      },
+    } as unknown as StudioNode
+    const supply = {
+      id: 'psu', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        nodeType: 'PowerSupply', label: 'Power Supply', category: 'hardware',
+        properties: { voltage: 5, ratedCurrentA: 10 }, inputs: [], outputs: [],
+      },
+    } as unknown as StudioNode
+    const { nodes } = buildBoardAwareStarter(template, [board, supply], 'esp32:esp32:esp32s3')
+
+    expect(nodes.some((node) => node.id === 'psu')).toBe(true)
+    // 0.85 x 10 A less an ESP32-S3's 350 mA.
+    expect(nodes.find((node) => node.id === board.id)!.data.properties).toMatchObject({ powerLimit: true, milliamps: 8150 })
+  })
+
   it('puts every part the SD player drives on the bench, and wires the show to one of them', () => {
     // The player is a whole firmware for a whole board: it reads the card,
     // turns the song into sound, and drives the LEDs. If a part is not on the

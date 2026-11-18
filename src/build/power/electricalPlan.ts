@@ -34,6 +34,8 @@ import {
 import { partById, type PartPowerConverterSpec } from '../parts/partCatalogue'
 import { ledFullWhiteDraw } from './ledDraw'
 import { sizingCurrentMa, supplyCeilingMa } from './supplyCeiling'
+import { CONTROLLER_DRAW_MA } from '../buildProfile'
+import { SUPPLY_CAP_FRACTION } from './powerCap'
 
 const DEFAULT_LED_DENSITY_PER_METER = 60
 const DEFAULT_FEED_CABLE_LENGTH_MM = 500
@@ -1271,6 +1273,7 @@ export function calculateElectricalPlan(
     `Branch conductor voltage drop is limited to ${DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT}% of the rail (${(nominalVoltageOf(outputPlans) * DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT) / 100} V at ${nominalVoltageOf(outputPlans)} V) over the complete ${DEFAULT_FEED_CABLE_LENGTH_MM} mm one-way feed circuit.`,
     `Each supply's trunk to its fuse block is ${DEFAULT_TRUNK_LENGTH_MM} mm one way, sized for the uncapped sum of its branches (or the supply's rating when lower) and a further ${MAX_TRUNK_VOLTAGE_DROP_V} V of drop.`,
     'Conductor ampacities are NFPA 70 (2023) Table 310.16, 90 C copper, 30 C ambient.',
+    `The default power cap is ${Math.round(SUPPLY_CAP_FRACTION * 100)}% of your supplies' combined rating less the controller's own draw, taken as ${CONTROLLER_DRAW_MA[manifest.targetFamily]} mA for ${manifest.targetFamily === 'unknown' ? 'an unknown board' : `the ${manifest.targetFamily} family`} with any radio running; displays, amplifiers and other modules on the same rail are separate loads.`,
   ]
 
   for (const trigger of manifest.primaryItems.filter((item) => item.kind === 'pd-trigger' && item.supported)) {

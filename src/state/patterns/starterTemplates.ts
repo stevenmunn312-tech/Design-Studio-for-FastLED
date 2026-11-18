@@ -7,6 +7,9 @@ import { retargetHardwarePins } from '../../build/pins/pinRetarget'
 import { audioCapabilityIntent } from '../audio/audioCapabilities'
 import { FIRST_BUTTON_HANDLE, buttonBankHandle, buttonBankOutputs, normalizeButtonBankEntries } from '../player/buttonBank'
 import { estimatePowerLoad } from '../../utils/validateGraph'
+import { defaultPowerCapMa } from '../../build/power/powerCap'
+import { targetFamilyFromFqbn } from '../../build/buildProfile'
+import { powerSupplies } from '../peripherals/powerSupply'
 import type { StudioNode, StudioEdge } from '../graphStore'
 
 export interface StarterTemplate {
@@ -270,7 +273,8 @@ function withFirstLedDataPin(nodes: StudioNode[], dataPin: number): StudioNode[]
  * Starters replace the signal graph, but the Board node describes the bench
  * the project is running on. Keeping it also gives every new hardware part to
  * one coordinated allocator, so fixed peripheral buses are claimed before a
- * general-purpose LED pin is selected around them.
+ * general-purpose LED pin is selected around them. The user's Power Supplies
+ * describe the bench too, and the starter's power cap follows them.
  */
 export function buildBoardAwareStarter(
   starter: StarterTemplate,
@@ -289,14 +293,15 @@ export function buildBoardAwareStarter(
   const starterNodes = typeof benchDataPin === 'number'
     ? withFirstLedDataPin(built.nodes, benchDataPin)
     : built.nodes
-  const nodes = board ? [...starterNodes, board] : starterNodes
+  const bench = [...powerSupplies(currentNodes), ...(board ? [board] : [])]
+  const nodes = [...starterNodes, ...bench]
   const retargeted = retargetHardwarePins(nodes, profile, fqbn).nodes
   const power = estimatePowerLoad(retargeted)
   if (!board || !power) return { ...built, nodes: retargeted }
 
   // A guided starter should be electrically coherent on first load. Cap at
-  // its calculated full-white ceiling; the Board presents the corresponding
-  // supply nameplate with the electrical plan's 20% continuous headroom.
+  // 85% of the user's supply less the controller, or at the full-white draw
+  // when no supply is entered (the Board then presents the supply to buy).
   const powered = retargeted.map((node) => node.id === board.id
     ? {
         ...node,
@@ -305,7 +310,7 @@ export function buildBoardAwareStarter(
           properties: {
             ...node.data.properties,
             powerLimit: true,
-            milliamps: power.recommendedMa,
+            milliamps: defaultPowerCapMa(retargeted, targetFamilyFromFqbn(fqbn), power.recommendedMa),
           },
         },
       }

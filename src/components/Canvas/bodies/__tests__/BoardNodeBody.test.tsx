@@ -236,6 +236,26 @@ describe('BoardNodeBody', () => {
     expect(settings.milliamps).toBe(15400)
   })
 
+  it("starts a newly enabled power cap at 85% of the user's supply less the controller", () => {
+    const board = boardNode('b1')
+    board.data.properties = { ...board.data.properties, powerLimit: false, milliamps: 2000 }
+    const supply = {
+      id: 'psu', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: 'Power Supply', nodeType: 'PowerSupply', category: 'hardware',
+        properties: { voltage: 5, ratedCurrentA: 5 }, inputs: [], outputs: [],
+      },
+    } as unknown as StudioNode
+    reset([board, supply, matrixNode('out')])
+    useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32' } as never)
+
+    render(<BoardNodeBody nodeId="b1" />)
+    fireEvent.click(screen.getByLabelText('Enable global power cap'))
+
+    // 0.85 x 5 A less a classic ESP32's 250 mA.
+    expect(controllerSettings(useGraphStore.getState().nodes).milliamps).toBe(4000)
+  })
+
   it('shows the continuous power supply required by the LED load', () => {
     const board = boardNode('b1')
     board.data.properties = {

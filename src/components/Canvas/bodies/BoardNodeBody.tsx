@@ -8,6 +8,8 @@ import { propertyDescription } from '../../../state/nodeLibrary'
 import { boardSupportsTelemetry } from '../../../codegen/deviceTelemetryCpp'
 import { serialRouteSummary } from '../../../state/upload/serialRouting'
 import { estimatePowerLoad } from '../../../utils/validateGraph'
+import { defaultPowerCapMa, POWER_CAP_MA } from '../../../build/power/powerCap'
+import { targetFamilyFromFqbn } from '../../../build/buildProfile'
 import BoardPinoutPicker from '../BoardPinoutPicker'
 import ClampedNumberInput from '../ClampedNumberInput'
 import CustomBoardEditor from '../../Hardware/CustomBoardEditor'
@@ -321,11 +323,14 @@ export default function BoardNodeBody({ nodeId }: Props) {
         <label className={styles.checkField}>
           <input type="checkbox" checked={settings.powerLimit} aria-label="Enable global power cap"
             onChange={(event) => {
-              // Turned on, the cap starts at the full-white draw, the figure a
-              // starter sets, so it never dims a supply sized for full white;
-              // a smaller supply lowers it.
+              // Turned on, the cap starts where a starter sets it: 85% of the
+              // user's supply less the controller, or the full-white draw
+              // when no supply is entered or the supply covers full white.
               if (event.target.checked && power) {
-                updateNodeProperties(nodeId, { powerLimit: true, milliamps: power.recommendedMa })
+                updateNodeProperties(nodeId, {
+                  powerLimit: true,
+                  milliamps: defaultPowerCapMa(graphNodes, targetFamilyFromFqbn(selectedFqbn), power.recommendedMa),
+                })
               } else {
                 updateNodeProperty(nodeId, 'powerLimit', event.target.checked)
               }
@@ -338,7 +343,7 @@ export default function BoardNodeBody({ nodeId }: Props) {
             <label title="The cap voltage follows the LED chipset (12 V for WS2811 and WS2815, otherwise 5 V) and is not adjustable.">
               <span>Milliamps at {settings.volts} V</span>
               <ClampedNumberInput
-                value={settings.milliamps} min={100} max={100000} step={100}
+                value={settings.milliamps} min={POWER_CAP_MA.min} max={POWER_CAP_MA.max} step={100}
                 ariaLabel="Power cap milliamps"
                 onCommit={(next) => updateNodeProperty(nodeId, 'milliamps', next)} />
             </label>

@@ -1,6 +1,6 @@
 # Plan — size power to the supply the user has
 
-Status: Phases 1, 2 and 3 done 2026-11-18; Phase 4 next.
+Status: Phases 1 to 4 done 2026-11-18; Phase 5 next.
 
 ## Why
 
@@ -177,7 +177,23 @@ Done (`src/build/power/supplyCeiling.ts`, ruleset v10), with these choices:
   needs.
 - Bump `ELECTRICAL_RULESET_VERSION` again (Phase 1 moved it to v9).
 
-### Phase 4 — the cap follows the supply
+### Phase 4 — the cap follows the supply (done 2026-11-18)
+
+Done (`src/build/power/powerCap.ts`, `CONTROLLER_DRAW_MA` in
+`src/build/buildProfile.ts`), with these choices:
+
+- The default is `min(full-white figure, 0.85 x supplies - controllerDraw)`:
+  a supply larger than the load does not raise the cap past the point where
+  it would never dim. It is held inside the Board field (100-100000 mA).
+- Only supplies at the LEDs' voltage that feed an LED load count. A supply
+  upstream of a rail converter is at the converter's input voltage, so the cap
+  stays at full white there until a converter current setting exists.
+- Controller draws are peak 802.11b transmit currents from the ESP datasheets
+  (ESP32 240 mA, S2 310, S3 340, C3 335, C6 354, ESP8266 170) rounded up with
+  board overhead; the non-ESP figures are conservative estimates. The plan's
+  assumptions name the figure for the selected family.
+- Starters now keep the bench's Power Supplies, like the Board, so the cap a
+  starter sets can follow them.
 
 - Default cap = `0.85 × ceiling − controllerDraw`, rounded down to 50 mA.
   `controllerDraw` is one constant per board family (decided 2026-11-18),

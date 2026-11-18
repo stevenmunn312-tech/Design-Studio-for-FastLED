@@ -161,6 +161,12 @@ The current bounded WS2812-class rules use:
   (Until 2026-09-27 the supply, though not the wiring, was sized from the
   limit; until 2026-11-18 everything was sized for full white whatever supply
   was entered.)
+- The Board's power cap, when ticked or set by a starter, defaults to 85% of
+  the combined rating of the supplies feeding the LEDs less the controller's
+  own draw (`CONTROLLER_DRAW_MA`, one figure per board family), rounded down
+  to 50 mA, and never above the full-white figure (`defaultPowerCapMa`). With
+  no supply entered it is the full-white figure. The cap never sizes
+  hardware.
 - A Power Supply the user entered is one zone whatever it carries; only a
   recommended supply is packed to about 100 A. With several supplies, one
   below its segment's full white is a warning, not a blocker: FastLED's cap is

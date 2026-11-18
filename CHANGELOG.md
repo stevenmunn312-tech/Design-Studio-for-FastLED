@@ -19,7 +19,10 @@ versioning (`0.y.z`) until the first stable release.
   current can flow; a firmware power cap still never sizes hardware. With
   several supplies, one smaller than its own segment's full white is flagged
   as advice. A supply feeding a rail converter is checked against the
-  converter's source voltage and its draw.
+  converter's source voltage and its draw. Ticking the Board's power cap, or
+  loading a starter, now sets it to 85% of your supplies' rating less the
+  controller's own draw, so a smaller supply is kept inside its rating;
+  starters keep the supplies already on the bench.
 - Project and pattern files record their save format version. A file saved by
   a newer Design Studio is refused with a message instead of opening with its
   newer parts dropped, and the helper will not overwrite it from an older app.
