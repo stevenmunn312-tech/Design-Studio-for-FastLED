@@ -1,0 +1,45 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "PowerAmplifier"
+  ],
+  "categories": [
+    "audio-power-amplifiers"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "render",
+        "label"
+      ],
+      "ref": "https://www.jaycar.com.au/arduino-compatible-2-x-3w-amplifier-module/p/XC4448"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "notes"
+      ],
+      "ref": "https://d3mk240zzrnosz.cloudfront.net/assets/XC4448_datasheetMain_67860.pdf"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "notes"
+      ],
+      "ref": "https://www.diodes.com/part/view/PAM8403/"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "render"
+      ],
+      "ref": "https://media.jaycar.com.au/product/images/XC4448_arduino-compatible-2-x-3w-amplifier-module_60446.jpg"
+    }
+  ],
+  "copy": {
+    "summary": "2 x 3 W, 5 V — line level in",
+    "wiringNote": "Takes line level, not I2S. Fed from a PCM5102A or UDA1334A, or on a classic ESP32 from its own DAC on GPIO25/26."
+  }
+}

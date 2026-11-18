@@ -1,0 +1,45 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "PresenceInput"
+  ],
+  "categories": [
+    "motion-radar"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "presenceSensor"
+      ],
+      "ref": "https://www.manualslib.com/manual/3299997/Hi-Link-Hlk-Ld2410c.html"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "render",
+        "presenceSensor"
+      ],
+      "ref": "https://www.espboards.dev/sensors/ld2410c/"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "presenceSensor"
+      ],
+      "ref": "https://github.com/ncmreynolds/ld2410"
+    }
+  ],
+  "interfaces": [
+    "uart"
+  ],
+  "copy": {
+    "summary": "Someone there, moving or still, and how far: up to 6 m",
+    "wiringNote": "Power from 5 V; its UART is 3.3 V, so its TX wires straight to the board's RX pin."
+  }
+}

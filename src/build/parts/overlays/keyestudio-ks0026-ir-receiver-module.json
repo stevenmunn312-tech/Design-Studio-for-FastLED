@@ -1,0 +1,37 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "IRRemoteInput"
+  ],
+  "categories": [
+    "remote-receivers"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "logicVoltage",
+        "pinLabelsLeftToRight",
+        "render"
+      ],
+      "ref": "https://docs.keyestudio.com/projects/KS0026/en/latest/docs/KS0026.html"
+    },
+    {
+      "facts": [
+        "dimensionsMm"
+      ],
+      "ref": "https://docs.keyestudio.com/projects/KS0349/en/latest/KS0349.html"
+    },
+    {
+      "facts": [
+        "label",
+        "manufacturer"
+      ],
+      "ref": "https://www.keyestudio.com/products/free-shipping-keyestudio-digital-ir-infrared-receiver-module-for-arduino-uno-r3-mega-2560-r3"
+    }
+  ],
+  "copy": {
+    "summary": "38 kHz IR receiver module with activity LED, 5 V",
+    "wiringNote": "Connect − to GND, + to 5 V and S to the input through the Build Diagram’s signal divider. Keyestudio specifies a 5 V supply; 3.3 V operation is not verified."
+  }
+}

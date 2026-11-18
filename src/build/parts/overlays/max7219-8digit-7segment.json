@@ -1,0 +1,32 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "SegmentDisplay"
+  ],
+  "categories": [
+    "display-segment"
+  ],
+  "verification": "bench",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage"
+      ],
+      "ref": "https://www.elcoteam.com/8-digit-7-segments-display-module-with-max7219"
+    },
+    {
+      "facts": [
+        "label"
+      ],
+      "ref": "https://www.analog.com/media/en/technical-documentation/data-sheets/MAX7219-MAX7221.pdf"
+    }
+  ],
+  "interfaces": [
+    "spi"
+  ],
+  "copy": {
+    "summary": "Eight digits on a shared SPI bus",
+    "wiringNote": "Eight digits and no colon, clocked as 16-bit frames over CLK and DIN with its own load line. It can share clock and data with other SPI devices given its own load pin, and its sixteen brightness steps are twice the TM1637 range."
+  }
+}

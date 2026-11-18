@@ -1,0 +1,38 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "Amplifier"
+  ],
+  "categories": [
+    "audio-amplifiers"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "render",
+        "notes"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/overview"
+    },
+    {
+      "facts": [
+        "notes"
+      ],
+      "ref": "https://cdn-shop.adafruit.com/product-files/3006/MAX98357A-MAX98357B.pdf"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "render"
+      ],
+      "ref": "Existing Design Studio MAX98357A asset (local copy in the asset workspace)"
+    }
+  ],
+  "copy": {
+    "summary": "Two I2S amps, one per channel",
+    "wiringNote": "Both boards share BCLK, LRC and DIN. Each plays the channel its SD pin selects (see the SD_MODE table in the MAX98357A datasheet); an unmodified breakout plays the left-plus-right mix, so set one board to left and the other to right."
+  }
+}

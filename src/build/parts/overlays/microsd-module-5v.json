@@ -1,0 +1,35 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "SDCard"
+  ],
+  "categories": [
+    "storage"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight"
+      ],
+      "ref": "https://www.tinytronics.nl/en/data-storage/modules/microsd-card-adapter-module-3.3v-5v-with-level-shifter"
+    },
+    {
+      "facts": [
+        "logicVoltage"
+      ],
+      "ref": "https://protosupplies.com/product/microsd-card-module-with-level-shifter/"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "render"
+      ],
+      "ref": "https://www.robogears.in/shop/9216-mini-micro-sd-card-reader-module-high-speed-spi-interface-level-shifter-board-3577"
+    }
+  ],
+  "copy": {
+    "summary": "Regulator and level shifter on board",
+    "wiringNote": "Has an onboard regulator and level shifter, so it takes 5 V power and 5 V SPI."
+  }
+}

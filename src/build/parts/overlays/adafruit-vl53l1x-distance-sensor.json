@@ -1,0 +1,45 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "DistanceInput"
+  ],
+  "categories": [
+    "distance-time-of-flight"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "label",
+        "distanceSensor"
+      ],
+      "ref": "https://www.adafruit.com/product/3967"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "label",
+        "distanceSensor"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-vl53l1x/pinouts"
+    },
+    {
+      "facts": [
+        "distanceSensor"
+      ],
+      "ref": "STMicroelectronics VL53L1X (local copy in the asset workspace)"
+    }
+  ],
+  "interfaces": [
+    "i2c"
+  ],
+  "copy": {
+    "summary": "Laser time-of-flight, 3 cm to 4 m, over I2C",
+    "wiringNote": "Power VIN from 3.3 V. One sensor answers on 0x29; leave XSHUT and GPIO unconnected. To share the bus, wire each XSHUT pin and pick an address from 0x30 to 0x33. It runs in long distance mode, which reaches about 4 m. The build needs the Pololu VL53L1X library, which Studio installs the first time."
+  }
+}

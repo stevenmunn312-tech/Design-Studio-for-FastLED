@@ -1,0 +1,26 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "PowerAmplifier"
+  ],
+  "categories": [
+    "audio-speakers"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "notes"
+      ],
+      "ref": "https://www.mouser.com/datasheet/2/737/Adafruit_3968_Web-3358305.pdf"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "render"
+      ],
+      "ref": "https://hunston.com.hk/product/Speaker/Mylar%20Speaker/MIU40R-20H3.0W4"
+    }
+  ]
+}

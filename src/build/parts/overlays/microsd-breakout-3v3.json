@@ -1,0 +1,34 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "SDCard"
+  ],
+  "categories": [
+    "storage"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "render"
+      ],
+      "ref": "https://www.sparkfun.com/sparkfun-microsd-transflash-breakout.html"
+    },
+    {
+      "facts": [
+        "manufacturer"
+      ],
+      "ref": "https://www.digikey.com/en/products/detail/sparkfun-electronics/00544/5824094"
+    },
+    {
+      "facts": [
+        "logicVoltage"
+      ],
+      "ref": "https://learn.sparkfun.com/tutorials/microsd-shield-and-sd-breakout-hookup-guide/sd-card-breakout-boards"
+    }
+  ],
+  "copy": {
+    "summary": "Bare board — 3.3 V only",
+    "wiringNote": "Bare board: no regulator, no level shifter. 5 V power or 5 V SPI can destroy the card."
+  }
+}

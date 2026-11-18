@@ -1,0 +1,43 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "RtcModule"
+  ],
+  "categories": [
+    "clocks"
+  ],
+  "verification": "bench",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "label"
+      ],
+      "ref": "https://www.jaycar.com.au/rtc-clock-module-for-raspberry-pi/p/XC9044"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "notes"
+      ],
+      "ref": "https://www.kogan.com/au/buy/latestbuy-jaycar-raspberry-pi-rtc-clock-module-199150/"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight"
+      ],
+      "ref": "https://thepihut.com/products/mini-rtc-module-for-raspberry-pi"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "notes"
+      ],
+      "ref": "https://www.analog.com/media/en/technical-documentation/data-sheets/DS3231.pdf"
+    }
+  ],
+  "copy": {
+    "summary": "Pi-header DS3231, CR927 backup"
+  }
+}

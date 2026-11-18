@@ -1,0 +1,28 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "MicInput"
+  ],
+  "categories": [
+    "audio-microphones"
+  ],
+  "verification": "bench",
+  "sources": [
+    {
+      "facts": [
+        "logicVoltage"
+      ],
+      "ref": "https://product.tdk.com/system/files/dam/doc/product/sw_piezo/mic/mems-mic/data_sheet/inmp441.pdf"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "render"
+      ],
+      "ref": "https://shillehtek.com/blogs/shillehtek-product-manuals/inmp441-i2s-omnidirectional-microphone-module-with-soldering-manual"
+    }
+  ],
+  "copy": {
+    "summary": "The common three-wire I2S MEMS module"
+  }
+}

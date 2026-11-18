@@ -1,0 +1,35 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "JoystickInput"
+  ],
+  "categories": [
+    "knobs-joysticks"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "label"
+      ],
+      "ref": "https://www.joy-it.net/en/products/COM-KY023JM"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "logicVoltage"
+      ],
+      "ref": "https://components101.com/modules/joystick-module"
+    }
+  ],
+  "interfaces": [
+    "analog",
+    "gpio"
+  ],
+  "copy": {
+    "summary": "A thumb stick with two analog axes and a push switch",
+    "wiringNote": "Power it from 3.3 V so the axis voltages stay inside the ADC range. VRx and VRy go to ADC pins, SW to a pin with a pull-up."
+  }
+}

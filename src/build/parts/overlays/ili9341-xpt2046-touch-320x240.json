@@ -1,0 +1,25 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "TransportDisplay"
+  ],
+  "categories": [
+    "display-tft"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight"
+      ],
+      "ref": "https://wiki.dfrobot.com/dfr0665/"
+    }
+  ],
+  "interfaces": [
+    "spi"
+  ],
+  "copy": {
+    "summary": "320x240 colour TFT with XPT2046 touch",
+    "wiringNote": "The DFRobot DFR0665 breakout: an ILI9341 panel, an XPT2046 touch controller and a microSD slot, sharing SCLK, MOSI and MISO with a chip select each. The controller scans in portrait, so a 320x240 screen needs the Landscape view. Adding it gives you the panel and its Touch Screen node."
+  }
+}

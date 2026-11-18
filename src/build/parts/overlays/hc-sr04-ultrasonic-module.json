@@ -1,0 +1,44 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "DistanceInput"
+  ],
+  "categories": [
+    "distance-ultrasonic"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "distanceSensor"
+      ],
+      "ref": "https://cdn.sparkfun.com/datasheets/Sensors/Proximity/HCSR04.pdf"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "label",
+        "distanceSensor"
+      ],
+      "ref": "https://www.sparkfun.com/products/15569"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "label",
+        "distanceSensor"
+      ],
+      "ref": "https://www.adafruit.com/product/3942"
+    }
+  ],
+  "interfaces": [
+    "pulse-ranging"
+  ],
+  "copy": {
+    "summary": "Ultrasonic ranging, 2 cm to 4 m, on two GPIOs",
+    "wiringNote": "Power VCC from 5 V. Echo swings to 5 V, so a 3.3 V controller needs the 1 kΩ / 2 kΩ divider on Echo; Trig can be driven at 3.3 V."
+  }
+}

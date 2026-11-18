@@ -24,6 +24,19 @@ python scripts/assets/import-board-assets.py
 
 Pass `--only <part-id>[,...]` to the part importer to re-encode just those parts.
 
+Each part's `part.json` holds only measured facts. Everything else a part
+manifest carries is a per-part overlay in the repository,
+`src/build/parts/overlays/<part-id>.json`: `revision`, `partTypes`,
+`categories`, `verification`, `sources` and, optionally, `interfaces` and
+`copy`. The importer merges the overlay over `part.json` and emits full v1
+manifests into `partCatalogueData.ts`, plus the shelf category tree
+(`overlays/categories.json`) into `partCategoriesData.ts`. It refuses a part
+with no overlay, an overlay naming an unknown field or word, and an overlay
+that tries to override a measured field. `sources` cite each part's `Sources.md`
+in the asset workspace; `verification` is `bench` only where the
+[support matrix](../release/beta-support-matrix.md) or a bench report records a
+run of that exact part. See [downloadable parts](../plans/downloadable-parts.md#publishing).
+
 Every controller board, and every part module with its own circuit board, is a
 full 3D rebuild made by `Scripts/board_rebuild/` in the asset workspace (see its
 README): components sit on solder at the PCB surface, so the models also hold

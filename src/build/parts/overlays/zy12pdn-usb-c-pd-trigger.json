@@ -1,0 +1,29 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "PdTriggerSource"
+  ],
+  "categories": [
+    "power-usb-pd"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage"
+      ],
+      "ref": "https://joy-it.net/en/products/COM-ZY12PDN"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight"
+      ],
+      "ref": "https://make.net.za/product/usb-type-c-pd-trigger-module-zy12pdn/"
+    }
+  ],
+  "copy": {
+    "summary": "Asks a USB-C charger for 5, 9, 12, 15 or 20 V",
+    "wiringNote": "A power source, not a signal device: nothing connects to a GPIO. Set the voltage on the board before connecting a load, because its output sits at that voltage as soon as the charger is plugged in. The charger must support PD. Read the silkscreen on your own board for polarity."
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "IRRemoteInput"
+  ],
+  "categories": [
+    "remote-receivers"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "logicVoltage",
+        "dimensionsMm"
+      ],
+      "ref": "https://www.vishay.com/docs/82491/tsop382.pdf"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage"
+      ],
+      "ref": "https://www.adafruit.com/product/157"
+    }
+  ],
+  "copy": {
+    "summary": "Bare 38 kHz IR receiver, datasheet pin order",
+    "wiringNote": "Its centre pin is ground, not the supply. Do not wire it to a KY-022 footprint without rechecking."
+  }
+}

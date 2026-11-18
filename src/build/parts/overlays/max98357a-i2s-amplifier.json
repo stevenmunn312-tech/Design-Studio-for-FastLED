@@ -1,0 +1,35 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "Amplifier"
+  ],
+  "categories": [
+    "audio-amplifiers"
+  ],
+  "verification": "bench",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "render",
+        "notes"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/overview"
+    },
+    {
+      "facts": [
+        "dimensionsMm"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/downloads"
+    },
+    {
+      "facts": [
+        "notes"
+      ],
+      "ref": "https://cdn-shop.adafruit.com/product-files/3006/MAX98357A-MAX98357B.pdf"
+    }
+  ],
+  "copy": {
+    "summary": "I2S in, drives a speaker directly"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "PowerConverter"
+  ],
+  "categories": [
+    "power-buck"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "logicVoltage"
+      ],
+      "ref": "https://www.handsontec.com/dataspecs/LM2596S-DC-DC.pdf"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "powerConverter"
+      ],
+      "ref": "http://product.ic114.com/PDF/M/MBC2596-01_LM2596_R1.0.pdf"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "logicVoltage",
+        "powerConverter"
+      ],
+      "ref": "https://www.ti.com/lit/ds/symlink/lm2596.pdf"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "logicVoltage",
+        "render"
+      ],
+      "ref": "https://www.addicore.com/products/lm2596-step-down-adjustable-dc-dc-switching-buck-converter"
+    }
+  ],
+  "copy": {
+    "summary": "Controller ·4.5-35 V in, 5 V 2 A at 40 °C"
+  }
+}

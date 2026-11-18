@@ -1,0 +1,32 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "EncoderInput"
+  ],
+  "categories": [
+    "knobs-joysticks"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "logicVoltage",
+        "encoder"
+      ],
+      "ref": "Jaycar SR1230 datasheet (local copy in the asset workspace)"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "render",
+        "encoder"
+      ],
+      "ref": "Jaycar SR1230 product photograph (local copy in the asset workspace)"
+    }
+  ],
+  "copy": {
+    "summary": "Bare 12 mm encoder with a push switch",
+    "wiringNote": "No supply pin. Wire C and one switch leg each to ground; A, B and SW go to GPIOs, which always use the internal pull-up. Each click is two transitions rather than four, which the firmware counts as one click like the module."
+  }
+}

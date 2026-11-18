@@ -1,0 +1,32 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "MotionInput"
+  ],
+  "categories": [
+    "motion-radar"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "notes"
+      ],
+      "ref": "https://components101.com/sensors/rcwl0516-microwave-diatance-sensor-module-datasheet-pinout-features-working"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "notes"
+      ],
+      "ref": "https://github.com/jdesbonnet/RCWL-0516"
+    }
+  ],
+  "copy": {
+    "summary": "Radar: senses movement through plastic",
+    "wiringNote": "Power VIN from 5 V (4 to 28 V). OUT is 3.3 V logic and stays high about two seconds after the last movement. Leave 3V3 and CDS unwired."
+  }
+}

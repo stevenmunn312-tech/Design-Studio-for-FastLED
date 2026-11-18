@@ -1,0 +1,41 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "MotionVectorInput"
+  ],
+  "categories": [
+    "inertial-sensors"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "motionVectorSensor"
+      ],
+      "ref": "https://protosupplies.com/product/mpu-6050-gy-521-3-axis-accel-gryo-sensor-module/"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight"
+      ],
+      "ref": "https://github.com/cooked/Eagle-Libraries"
+    },
+    {
+      "facts": [
+        "motionVectorSensor"
+      ],
+      "ref": "InvenSense MPU-6050 (local copy in the asset workspace)"
+    }
+  ],
+  "interfaces": [
+    "i2c"
+  ],
+  "copy": {
+    "summary": "Three-axis accelerometer and gyroscope over I2C",
+    "wiringNote": "Power VCC from 3.3 V. Leave AD0 unwired for 0x68, or tie it high for 0x69 when a DS3231 clock already uses 0x68."
+  }
+}

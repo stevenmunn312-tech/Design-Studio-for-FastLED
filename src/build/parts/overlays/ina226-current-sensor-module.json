@@ -1,0 +1,42 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "PowerMonitorInput"
+  ],
+  "categories": [
+    "power-monitoring"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "powerMonitor"
+      ],
+      "ref": "https://www.tinytronics.nl/en/sensors/current-voltage/ina226-i2c-dc-current-and-voltage-meter-20a-module"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage"
+      ],
+      "ref": "https://how2electronics.com/how-to-use-ina226-dc-current-sensor-with-arduino/"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "powerMonitor"
+      ],
+      "ref": "https://www.ti.com/lit/ds/symlink/ina226.pdf"
+    }
+  ],
+  "interfaces": [
+    "i2c"
+  ],
+  "copy": {
+    "summary": "Volts, amps, watts: 36 V, 20 A, I2C",
+    "wiringNote": "High-side: the supply goes to IN+ and the load to IN-, sharing ground with the board. Power VCC from 3.3 V. Sixteen addresses, 0x40 to 0x4F, from the A0 and A1 pads. ALE is not needed."
+  }
+}

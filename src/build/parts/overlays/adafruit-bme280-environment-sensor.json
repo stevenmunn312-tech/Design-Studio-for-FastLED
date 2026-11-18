@@ -1,0 +1,49 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "EnvironmentInput"
+  ],
+  "categories": [
+    "environment-sensors"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "render"
+      ],
+      "ref": "https://github.com/adafruit/Adafruit-BME280-Breakout-PCB"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "label",
+        "environmentSensor"
+      ],
+      "ref": "https://www.adafruit.com/product/2652"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "label",
+        "environmentSensor"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-bme280-humidity-barometric-pressure-temperature-sensor-breakout/pinouts"
+    },
+    {
+      "facts": [
+        "environmentSensor"
+      ],
+      "ref": "https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bme280-ds002.pdf"
+    }
+  ],
+  "interfaces": [
+    "i2c"
+  ],
+  "copy": {
+    "summary": "Temperature, humidity and pressure over I2C",
+    "wiringNote": "Use VIN at 3.3 V; SCK is I2C SCL and SDI is I2C SDA. Leave SDO and CS unwired for the default 0x77 address."
+  }
+}

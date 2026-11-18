@@ -1,0 +1,35 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "TouchPadInput"
+  ],
+  "categories": [
+    "buttons-touch"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "touchPad"
+      ],
+      "ref": "https://www.adafruit.com/product/1982"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "touchPad"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-mpr121-12-key-capacitive-touch-sensor-breakout-tutorial/pinouts"
+    }
+  ],
+  "interfaces": [
+    "i2c"
+  ],
+  "copy": {
+    "summary": "Twelve capacitive-touch electrodes over I2C",
+    "wiringNote": "Power Vin from 3.3 V. Tie ADDR to GND for 0x5A, 3V for 0x5B, SDA for 0x5C or SCL for 0x5D; IRQ is not needed."
+  }
+}

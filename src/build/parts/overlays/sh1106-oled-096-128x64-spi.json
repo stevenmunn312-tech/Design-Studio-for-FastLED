@@ -1,0 +1,47 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "InfoDisplay"
+  ],
+  "categories": [
+    "display-oled"
+  ],
+  "verification": "bench",
+  "sources": [
+    {
+      "facts": [
+        "render",
+        "display"
+      ],
+      "ref": "https://universal-solder.ca/downloads/canaduino_oled_128x64_spi.pdf"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "label"
+      ],
+      "ref": "https://fluxworkshop.com/products/bcaa100003-128x64-7p-0-96-white-oled-blue"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "render"
+      ],
+      "ref": "https://manuals.plus/m/ba24bf88972c6381fdb194133d72793e5a0145e76f09a3d3f791f4d14f05c764"
+    },
+    {
+      "facts": [
+        "label"
+      ],
+      "ref": "https://www.winstar.com.tw/uploads/editor/files/WEO012864C.pdf"
+    }
+  ],
+  "interfaces": [
+    "spi"
+  ],
+  "copy": {
+    "summary": "128x64 white OLED over 4-wire SPI",
+    "wiringNote": "Same SH1106G silicon and 2-column RAM offset as the 1.3-inch SPI module, on a smaller 27 x 28 mm board."
+  }
+}

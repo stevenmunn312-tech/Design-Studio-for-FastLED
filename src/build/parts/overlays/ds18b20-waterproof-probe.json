@@ -1,0 +1,33 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "TemperatureInput"
+  ],
+  "categories": [
+    "environment-sensors"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "logicVoltage",
+        "render",
+        "temperatureSensor"
+      ],
+      "ref": "https://www.adafruit.com/product/381"
+    },
+    {
+      "facts": [
+        "temperatureSensor"
+      ],
+      "ref": "https://www.analog.com/media/en/technical-documentation/data-sheets/DS18B20.pdf"
+    }
+  ],
+  "interfaces": [
+    "one-wire"
+  ],
+  "copy": {
+    "summary": "A 1-Wire thermometer in a sealed steel tube, -55 to 125 °C",
+    "wiringNote": "Red is VCC (3.3 V), black is GND and yellow is DATA. DATA needs a 4.7 kΩ pull-up to 3.3 V; the bare probe has none."
+  }
+}

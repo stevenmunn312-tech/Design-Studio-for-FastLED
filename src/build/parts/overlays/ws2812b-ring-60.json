@@ -1,0 +1,18 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "MatrixOutput"
+  ],
+  "categories": [
+    "led-rings"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-rings"
+    }
+  ]
+}

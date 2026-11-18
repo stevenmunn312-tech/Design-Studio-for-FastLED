@@ -1,0 +1,31 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "PowerConverter"
+  ],
+  "categories": [
+    "power-chassis-dcdc"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "powerConverter"
+      ],
+      "ref": "https://www.meanwell.com/Upload/PDF/SD-100/SD-100-SPEC.PDF"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "render",
+        "powerConverter"
+      ],
+      "ref": "https://www.meanwell-web.com/en/mean-well-sd-100b-5-sd-100b-5"
+    }
+  ],
+  "copy": {
+    "summary": "LED rail ·20-36 V in, 5 V 17.3 A at 40 °C"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "MatrixOutput"
+  ],
+  "categories": [
+    "led-data-links"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "logicVoltage"
+      ],
+      "ref": "https://www.ti.com/lit/ds/symlink/sn74ahct125.pdf"
+    },
+    {
+      "facts": [
+        "render"
+      ],
+      "ref": "Design Studio Build Diagram asset (local copy in the asset workspace)"
+    }
+  ]
+}

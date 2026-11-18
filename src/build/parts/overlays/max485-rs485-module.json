@@ -1,0 +1,47 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "DmxTransceiver"
+  ],
+  "categories": [
+    "dmx-midi"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "render",
+        "notes"
+      ],
+      "ref": "https://protosupplies.com/product/max485-ttl-to-rs-485-interface-module/"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "render"
+      ],
+      "ref": "https://hobbycomponents.com/wired-wireless/663-max485-rs485-transceiver-module"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage"
+      ],
+      "ref": "https://www.analog.com/media/en/technical-documentation/data-sheets/MAX1487-MAX491.pdf"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage"
+      ],
+      "ref": "https://github.com/someweisguy/esp_dmx"
+    }
+  ],
+  "copy": {
+    "summary": "DMX512 in from an XLR line, on 5 V",
+    "wiringNote": "Power from 5 V. RO reaches the board through a 1 kΩ / 2 kΩ divider, and RE is bridged to DE so one GPIO drives both. Keep the fitted 120 Ω terminator only on the last device in the DMX chain."
+  }
+}

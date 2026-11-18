@@ -1,0 +1,39 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "TransportDisplay"
+  ],
+  "categories": [
+    "display-tft"
+  ],
+  "verification": "bench",
+  "sources": [
+    {
+      "facts": [
+        "logicVoltage",
+        "label"
+      ],
+      "ref": "https://robu-prod-media.s3.ap-south-1.amazonaws.com/uploads/2025/02/2.4_inch_ResistiveTouch_manual.pdf"
+    },
+    {
+      "facts": [
+        "logicVoltage"
+      ],
+      "ref": "https://curtocircuito.com.br/display-tft-2-4-spi-touch-screen-st7735.html"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "render"
+      ],
+      "ref": "https://www.lcdwiki.com/res/MSP2402/2.4inch_SPI_Module_MSP2402_User_Manual_EN.pdf"
+    }
+  ],
+  "interfaces": [
+    "spi"
+  ],
+  "copy": {
+    "summary": "240x320 colour TFT with XPT2046 touch",
+    "wiringNote": "The XPT2046 touch controller exposes its own SPI pins, so it can share the display bus or use a separate bus. Adding this module gives you two nodes: the panel, and the Touch Screen node whose Controls output is what a finger on the glass publishes."
+  }
+}

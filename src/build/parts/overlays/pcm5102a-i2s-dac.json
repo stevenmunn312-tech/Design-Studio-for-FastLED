@@ -1,0 +1,36 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "Amplifier"
+  ],
+  "categories": [
+    "audio-amplifiers"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "render"
+      ],
+      "ref": "https://probots.co.in/pcm5102a-dac-decode-i2s-audio-player-module.html"
+    },
+    {
+      "facts": [
+        "label"
+      ],
+      "ref": "https://www.ti.com/lit/ds/symlink/pcm5102a.pdf"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "notes"
+      ],
+      "ref": "https://manuals.plus/ae/1005006953481088"
+    }
+  ],
+  "copy": {
+    "summary": "I2S DAC — line out, needs an amp",
+    "wiringNote": "A DAC, not an amplifier — the same three I2S wires, but a line-level output that needs a powered speaker or a power amplifier."
+  }
+}

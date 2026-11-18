@@ -1,0 +1,38 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "MicInput"
+  ],
+  "categories": [
+    "audio-microphones"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "notes"
+      ],
+      "ref": "https://www.invensense.tdk.com/en-us/products/microphone/ics-43434"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "render",
+        "label",
+        "notes"
+      ],
+      "ref": "https://www.adafruit.com/product/6049"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "render"
+      ],
+      "ref": "https://ae-pic-a1.aliexpress-media.com/kf/Se306d885f56641879b1a2e02a2ec229e0.pdf"
+    }
+  ],
+  "copy": {
+    "summary": "Lower noise floor, same three wires",
+    "wiringNote": "Wires exactly like an INMP441 and costs about the same; firmware applies the ICS43434 response correction instead."
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "MatrixOutput"
+  ],
+  "categories": [
+    "led-data-links"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "render",
+        "label",
+        "manufacturer"
+      ],
+      "ref": "https://www.nledshop.com/pixelproducts/"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "pixelDataExtender"
+      ],
+      "ref": "https://www.nledshop.com/downloads/datasheets/nled-async-ext-set.pdf"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "render"
+      ],
+      "ref": "https://www.nledshop.com/downloads/models/nled-async-ext-set-v1a-3d-model.zip"
+    }
+  ]
+}

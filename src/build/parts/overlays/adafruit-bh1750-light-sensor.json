@@ -1,0 +1,40 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "LightInput"
+  ],
+  "categories": [
+    "light-sensors"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight"
+      ],
+      "ref": "https://github.com/adafruit/Adafruit-BH1750-PCB"
+    },
+    {
+      "facts": [
+        "logicVoltage",
+        "render",
+        "lightSensor"
+      ],
+      "ref": "https://www.adafruit.com/product/4681"
+    },
+    {
+      "facts": [
+        "lightSensor"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-bh1750-ambient-light-sensor/pinouts"
+    }
+  ],
+  "interfaces": [
+    "i2c"
+  ],
+  "copy": {
+    "summary": "Calibrated ambient light in lux over I2C",
+    "wiringNote": "Power from the controller logic rail. The breakout level-shifts SDA/SCL and answers on 0x23, or 0x5C with ADDR tied high."
+  }
+}

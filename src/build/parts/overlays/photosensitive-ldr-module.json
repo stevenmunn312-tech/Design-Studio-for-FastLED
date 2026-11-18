@@ -1,0 +1,29 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "LightInput"
+  ],
+  "categories": [
+    "light-sensors"
+  ],
+  "verification": "bench",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage"
+      ],
+      "ref": "https://docs.keyestudio.com/projects/KS0576/en/latest/docs/2.KidsBlock/KidsBlock.html#photoresistor"
+    },
+    {
+      "facts": [
+        "logicVoltage"
+      ],
+      "ref": "https://docs.keyestudio.com/projects/KS0597/en/latest/docs/4.Arduino%20Projects/4.3%20Projects/Project%201.html#photoresistor-module"
+    }
+  ],
+  "copy": {
+    "summary": "Relative brightness on one analog pin",
+    "wiringNote": "An analog divider: Level is relative brightness. It cannot report calibrated lux, so Lux stays at zero."
+  }
+}

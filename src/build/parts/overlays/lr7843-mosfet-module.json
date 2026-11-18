@@ -1,0 +1,49 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "PowerSwitchOutput"
+  ],
+  "categories": [
+    "switching-mosfet"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "label",
+        "mosfet"
+      ],
+      "ref": "https://protosupplies.com/product/lr7843-mosfet-control-module/"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "logicVoltage",
+        "mosfet"
+      ],
+      "ref": "https://www.botnroll.com/en/solid-state/3139-power-mosfet-module-lr7843-hexfet-30vdc-161a.html"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "logicVoltage",
+        "mosfet"
+      ],
+      "ref": "https://www.infineon.com/dgdl/irlr7843pbf.pdf?fileId=5546d462533600a40153566de53526d8"
+    },
+    {
+      "facts": [
+        "dimensionsMm",
+        "pinLabelsLeftToRight",
+        "render"
+      ],
+      "ref": "https://www.farnell.com/datasheets/73758.pdf"
+    }
+  ],
+  "copy": {
+    "summary": "One opto-isolated DC switch or dimmer, 6-28 V",
+    "wiringNote": "DC loads only. No flyback diode on the board: add one across a motor, solenoid or coil."
+  }
+}

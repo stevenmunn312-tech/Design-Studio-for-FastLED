@@ -1,0 +1,23 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "BatteryModule"
+  ],
+  "categories": [
+    "battery-chargers"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "pinLabelsLeftToRight",
+        "render",
+        "batteryModule"
+      ],
+      "ref": "https://www.aliexpress.com/item/1005009107167897.html"
+    }
+  ],
+  "copy": {
+    "summary": "4S li-ion · charger"
+  }
+}

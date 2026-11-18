@@ -1,0 +1,34 @@
+{
+  "revision": 1,
+  "partTypes": [
+    "LineInput"
+  ],
+  "categories": [
+    "audio-line-in"
+  ],
+  "verification": "reviewed",
+  "sources": [
+    {
+      "facts": [
+        "logicVoltage"
+      ],
+      "ref": "https://www.ti.com/product/PCM1802"
+    },
+    {
+      "facts": [
+        "pinLabelsLeftToRight"
+      ],
+      "ref": "https://www.ti.com/lit/gpn/PCM1802"
+    },
+    {
+      "facts": [
+        "notes"
+      ],
+      "ref": "https://www.ti.com/lit/ug/sbau384/sbau384.pdf"
+    }
+  ],
+  "copy": {
+    "summary": "Stereo RCA line in to I2S",
+    "wiringNote": "Connect a player module's line-level DAC output, not its bridge-tied speaker output, to the RCA inputs."
+  }
+}

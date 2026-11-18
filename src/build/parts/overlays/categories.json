@@ -1,0 +1,350 @@
+[
+  {
+    "id": "led-outputs",
+    "label": "LED outputs",
+    "order": 1,
+    "parent": null
+  },
+  {
+    "id": "led-strips",
+    "label": "Strips",
+    "order": 1,
+    "parent": "led-outputs"
+  },
+  {
+    "id": "led-rings",
+    "label": "Rings",
+    "order": 2,
+    "parent": "led-outputs"
+  },
+  {
+    "id": "led-matrices",
+    "label": "Matrices",
+    "order": 3,
+    "parent": "led-outputs"
+  },
+  {
+    "id": "led-hub75-panels",
+    "label": "HUB75 panels",
+    "order": 4,
+    "parent": "led-outputs"
+  },
+  {
+    "id": "led-data-links",
+    "label": "Data links and level shifting",
+    "order": 5,
+    "parent": "led-outputs"
+  },
+  {
+    "id": "inputs",
+    "label": "Inputs",
+    "order": 2,
+    "parent": null
+  },
+  {
+    "id": "buttons-touch",
+    "label": "Buttons and touch",
+    "order": 1,
+    "parent": "inputs"
+  },
+  {
+    "id": "knobs-joysticks",
+    "label": "Knobs and joysticks",
+    "order": 2,
+    "parent": "inputs"
+  },
+  {
+    "id": "switches-contacts",
+    "label": "Switches and contacts",
+    "order": 3,
+    "parent": "inputs"
+  },
+  {
+    "id": "analog-sensors",
+    "label": "Analog sensors",
+    "order": 4,
+    "parent": "inputs"
+  },
+  {
+    "id": "remote-receivers",
+    "label": "Remote receivers",
+    "order": 5,
+    "parent": "inputs"
+  },
+  {
+    "id": "dmx-midi",
+    "label": "DMX and MIDI",
+    "order": 6,
+    "parent": "inputs"
+  },
+  {
+    "id": "motion-presence",
+    "label": "Motion and presence",
+    "order": 7,
+    "parent": "inputs"
+  },
+  {
+    "id": "motion-pir",
+    "label": "Infrared (PIR)",
+    "order": 1,
+    "parent": "motion-presence"
+  },
+  {
+    "id": "motion-radar",
+    "label": "Radar (microwave and mmWave)",
+    "order": 2,
+    "parent": "motion-presence"
+  },
+  {
+    "id": "distance",
+    "label": "Distance",
+    "order": 8,
+    "parent": "inputs"
+  },
+  {
+    "id": "distance-ultrasonic",
+    "label": "Ultrasonic",
+    "order": 1,
+    "parent": "distance"
+  },
+  {
+    "id": "distance-time-of-flight",
+    "label": "Time-of-flight (laser)",
+    "order": 2,
+    "parent": "distance"
+  },
+  {
+    "id": "inertial-sensors",
+    "label": "Accelerometers and gyros",
+    "order": 9,
+    "parent": "inputs"
+  },
+  {
+    "id": "light-sensors",
+    "label": "Light",
+    "order": 10,
+    "parent": "inputs"
+  },
+  {
+    "id": "environment-sensors",
+    "label": "Temperature and environment",
+    "order": 11,
+    "parent": "inputs"
+  },
+  {
+    "id": "power-monitoring",
+    "label": "Power monitoring",
+    "order": 12,
+    "parent": "inputs"
+  },
+  {
+    "id": "clocks",
+    "label": "Clocks",
+    "order": 13,
+    "parent": "inputs"
+  },
+  {
+    "id": "storage",
+    "label": "Storage",
+    "order": 3,
+    "parent": null
+  },
+  {
+    "id": "network",
+    "label": "Network",
+    "order": 4,
+    "parent": null
+  },
+  {
+    "id": "audio",
+    "label": "Audio",
+    "order": 5,
+    "parent": null
+  },
+  {
+    "id": "audio-microphones",
+    "label": "Microphones",
+    "order": 1,
+    "parent": "audio"
+  },
+  {
+    "id": "audio-line-in",
+    "label": "Line inputs",
+    "order": 2,
+    "parent": "audio"
+  },
+  {
+    "id": "audio-amplifiers",
+    "label": "I2S amplifiers and DACs",
+    "order": 3,
+    "parent": "audio"
+  },
+  {
+    "id": "audio-power-amplifiers",
+    "label": "Power amplifiers",
+    "order": 4,
+    "parent": "audio"
+  },
+  {
+    "id": "audio-players",
+    "label": "Players",
+    "order": 5,
+    "parent": "audio"
+  },
+  {
+    "id": "audio-buzzers",
+    "label": "Buzzers",
+    "order": 6,
+    "parent": "audio"
+  },
+  {
+    "id": "audio-speakers",
+    "label": "Speakers",
+    "order": 7,
+    "parent": "audio"
+  },
+  {
+    "id": "displays",
+    "label": "Displays",
+    "order": 6,
+    "parent": null
+  },
+  {
+    "id": "display-segment",
+    "label": "Segment displays",
+    "order": 1,
+    "parent": "displays"
+  },
+  {
+    "id": "display-oled",
+    "label": "OLED displays",
+    "order": 2,
+    "parent": "displays"
+  },
+  {
+    "id": "display-tft",
+    "label": "TFT and touch displays",
+    "order": 3,
+    "parent": "displays"
+  },
+  {
+    "id": "power",
+    "label": "Power",
+    "order": 7,
+    "parent": null
+  },
+  {
+    "id": "power-supplies",
+    "label": "Supplies",
+    "order": 1,
+    "parent": "power"
+  },
+  {
+    "id": "batteries",
+    "label": "Batteries",
+    "order": 2,
+    "parent": "power"
+  },
+  {
+    "id": "battery-cells",
+    "label": "Cells",
+    "order": 1,
+    "parent": "batteries"
+  },
+  {
+    "id": "battery-protection",
+    "label": "Protection and BMS",
+    "order": 2,
+    "parent": "batteries"
+  },
+  {
+    "id": "battery-balancers",
+    "label": "Balancers",
+    "order": 3,
+    "parent": "batteries"
+  },
+  {
+    "id": "battery-chargers",
+    "label": "Chargers and power modules",
+    "order": 4,
+    "parent": "batteries"
+  },
+  {
+    "id": "power-conversion",
+    "label": "Power conversion",
+    "order": 3,
+    "parent": "power"
+  },
+  {
+    "id": "power-buck",
+    "label": "Step-down (buck)",
+    "order": 1,
+    "parent": "power-conversion"
+  },
+  {
+    "id": "power-boost",
+    "label": "Step-up (boost)",
+    "order": 2,
+    "parent": "power-conversion"
+  },
+  {
+    "id": "power-chassis-dcdc",
+    "label": "Chassis DC-DC converters",
+    "order": 3,
+    "parent": "power-conversion"
+  },
+  {
+    "id": "power-usb-pd",
+    "label": "USB-C PD triggers",
+    "order": 4,
+    "parent": "power-conversion"
+  },
+  {
+    "id": "power-switching",
+    "label": "Switching",
+    "order": 4,
+    "parent": "power"
+  },
+  {
+    "id": "switching-relays",
+    "label": "Relays",
+    "order": 1,
+    "parent": "power-switching"
+  },
+  {
+    "id": "switching-ssr",
+    "label": "Solid-state relays",
+    "order": 2,
+    "parent": "power-switching"
+  },
+  {
+    "id": "switching-mosfet",
+    "label": "MOSFET switches",
+    "order": 3,
+    "parent": "power-switching"
+  },
+  {
+    "id": "switching-drivers",
+    "label": "Drivers",
+    "order": 4,
+    "parent": "power-switching"
+  },
+  {
+    "id": "switching-darlington-drivers",
+    "label": "Darlington drivers",
+    "order": 1,
+    "parent": "switching-drivers"
+  },
+  {
+    "id": "switching-pwm-drivers",
+    "label": "PWM drivers",
+    "order": 2,
+    "parent": "switching-drivers"
+  },
+  {
+    "id": "cooling",
+    "label": "Cooling",
+    "order": 8,
+    "parent": null
+  }
+]
