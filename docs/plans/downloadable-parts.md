@@ -430,7 +430,7 @@ pin or bus reference that v1.0.0 does not understand must not reach
    for branches on a bundled part's id, and set `downloadable` in
    `src/build/parts/partTypes.ts` once it has none. *(Mostly done: all 94
    parts have overlays; pads, rails, option rows, shelf entries and per-part
-   property options come from manifests; fallbacks are gone. 41 types are
+   property options come from manifests; fallbacks are gone. 37 types are
    open, including all 13 `code change` types of the
    [audit](../reports/part-type-download-audit.md), and
    `downloadableTypes.test.ts` proves a fresh-id copy of every bundled part of
