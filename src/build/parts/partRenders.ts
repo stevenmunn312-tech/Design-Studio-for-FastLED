@@ -17,7 +17,7 @@ import buttonRender from '../../assets/components/button-module.webp'
 import encoderRender from '../../assets/components/encoder-module.webp'
 import microphoneRender from '../../assets/components/inmp441-i2s-microphone.webp'
 import potRender from '../../assets/components/potentiometer-module.webp'
-import { partRenderSrc } from './partCatalogue'
+import { memoByCatalogue, partRenderSrc } from './partCatalogue'
 import { resolvePartIdentity } from './partOptions'
 
 export interface PartRender {
@@ -31,7 +31,7 @@ export interface PartRender {
  * asset yet — callers draw a placeholder rather than nothing, so the layout
  * does not shift when a render lands.
  */
-export const PART_RENDER_BY_NODE_TYPE: Record<string, PartRender> = {
+const renderTable = memoByCatalogue((): Record<string, PartRender> => ({
   MicInput: {
     label: 'INMP441 microphone',
     src: partRenderSrc('inmp441-i2s-microphone') ?? microphoneRender,
@@ -105,7 +105,19 @@ export const PART_RENDER_BY_NODE_TYPE: Record<string, PartRender> = {
     label: 'Adafruit BME280 environment sensor',
     src: partRenderSrc('adafruit-bme280-environment-sensor') ?? '',
   },
-}
+}))
+
+/**
+ * The same table as an object, for callers that index it by node type. Each
+ * entry is read through `renderTable`, so it follows the catalogue.
+ */
+export const PART_RENDER_BY_NODE_TYPE: Record<string, PartRender> = Object.defineProperties(
+  {} as Record<string, PartRender>,
+  Object.fromEntries(Object.keys(renderTable()).map((nodeType) => [nodeType, {
+    enumerable: true,
+    get: () => renderTable()[nodeType],
+  }])),
+)
 
 export function partRenderForNodeType(
   nodeType: string,

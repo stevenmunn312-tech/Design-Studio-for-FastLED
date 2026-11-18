@@ -8,7 +8,7 @@ import { partOptionProperty, partOptionsFor } from '../../build/parts/partOption
 import { LED_OUTPUT_FORM_LABELS } from '../../state/output/ledOutputForm'
 import type { HardwareShelfItem, HardwareShelfCategory } from './HardwarePartsShelf'
 import {
-  type FixturePartEntry, type InputPartEntry, fixturePinRequests, FIXTURE_PARTS, INPUT_PARTS, LED_OUTPUT_ENTRIES,
+  type FixturePartEntry, type InputPartEntry, fixturePinRequests, FIXTURE_PARTS, inputPartEntries, LED_OUTPUT_ENTRIES,
   LED_OUTPUT_NODE_TYPE,
 } from './hardwarePartCatalog'
 import {
@@ -164,7 +164,7 @@ export function hardwareShelfCategories({
     return assigned.ok ? 'No free GPIO on this board' : assigned.reason
   })()
 
-  const inputItems: HardwareShelfItem[] = INPUT_PARTS.map((entry) => {
+  const inputItems: HardwareShelfItem[] = inputPartEntries().map((entry) => {
     const blocker = inputPartBlocker(entry)
     return {
       key: entry.partId,

@@ -20,6 +20,7 @@ import { normalizeButtonBankEntries } from '../../../state/player/buttonBank'
 import { partPinLabelForProperty } from '../../../build/parts/partCatalogue'
 import { i2sAudioStage } from '../../../state/audio/audioOutput'
 import { resolvePartIdentity } from '../../../build/parts/partOptions'
+import { usePartCatalogueVersion } from '../../../build/parts/usePartCatalogueVersion'
 import { encoderIsBare } from '../../../state/peripherals/encoder'
 import { converterSourceFor } from '../../../state/peripherals/pdTrigger'
 import {
@@ -104,6 +105,7 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
   const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
   const removeButtonBankEntry = useGraphStore((s) => s.removeButtonBankEntry)
   const savedProps = useNodeProperties(nodeId, 'root')
+  usePartCatalogueVersion()
   // A converter's source voltage is decided upstream when a Battery Pack or a
   // single PD trigger is on the bench; it is shown, not typed, then.
   const converterSource = useGraphStore((s) => {

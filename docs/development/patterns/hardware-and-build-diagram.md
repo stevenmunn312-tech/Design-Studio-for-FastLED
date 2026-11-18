@@ -611,8 +611,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   part, so `PART_OPTIONS` rows are getters over the catalogue with
   `uncataloguedDefault`, and `useBenchParts` skips its same-node-type
   footprint fallback for these two types. The shelf rows come from
-  `sensorInputPartEntries()`, read once at module load into `INPUT_PARTS`: a
-  catalogue loaded later needs that list rebuilt. A digital reading is the
+  `sensorInputPartEntries()`, which `inputPartEntries()` reads through the
+  runtime catalogue registry (below). A digital reading is the
   part being *actuated* whatever level that is on the pin (`activeLevel`);
   `pullUp: 'internal'` is legal only for an active-low part, and is what
   `gpioRequirementForProperty` turns into the pull-up pin requirement. An
@@ -1130,3 +1130,30 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   over the arc), so `positionsMmPerUnit` is ignored for it; a custom list uses
   the property. Keep the scale beside the points in `stringPositions.ts`,
   which stays import-free. See [segment networks](../../design/segment-networks.md).
+
+## Runtime part catalogue
+
+`PART_CATALOGUE` in `src/build/parts/partCatalogue.ts` is a registry: the
+bundled parts first, then whatever `registerParts(manifests, origin)` adds (a
+save's embedded manifests, a package from the signed index). Only a manifest
+that `validatePartManifest` calls `ok` is added. A registered part never
+replaces a bundled one; a higher revision replaces an earlier downloaded one.
+`catalogueVersion()` moves on every change (a direct write to `PART_CATALOGUE`
+counts, which is how tests add fixture parts), `subscribeCatalogue` announces
+it and `partOrigin(id)` says where a part came from.
+
+- Never cache a value derived from the catalogue at module load. Read it when
+  asked or wrap it in `memoByCatalogue`. `PART_OPTIONS` rows, `inputPartEntries()`,
+  `powerConverterPartIds()` and `PART_RENDER_BY_NODE_TYPE` already do.
+- A component that reads the catalogue while rendering, outside a hook that
+  already depends on the graph, calls `usePartCatalogueVersion()`; a `useMemo`
+  that reads it lists the version as a dependency.
+- A registered part gets an option row per usable type (label, `copy.summary`,
+  `copy.wiringNote`) and, for a type with an input row, a shelf row built from
+  the type's default row and the manifest's own footprint and silkscreen.
+  Fixture types list modules through `partOptionsFor`, so they need no row.
+- `FIXTURE_PARTS`, node defaults and `PROPERTY_META` address options read named
+  bundled ids, which are never replaced, so they stay constants.
+- Tests add parts with `registerParts` and call `resetRegisteredPartsForTests`
+  after. A type is closed to downloads until its `downloadable` flag flips, so a
+  test of the downloaded rules opens the type it uses and restores it.

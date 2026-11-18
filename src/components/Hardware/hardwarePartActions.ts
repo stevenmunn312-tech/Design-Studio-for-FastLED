@@ -27,7 +27,7 @@ import { partDerivedInputs } from '../../build/parts/partPorts'
 import { defaultSourceVoltageFor } from '../../state/peripherals/powerConverter'
 import { buttonBankOutputs, firstButtonBankRow } from '../../state/player/buttonBank'
 import {
-  type FixturePartEntry, type InputPartEntry, fixturePinRequests, INPUT_PARTS, LED_OUTPUT_ENTRIES, LED_OUTPUT_NODE_TYPE,
+  type FixturePartEntry, type InputPartEntry, fixturePinRequests, inputPartEntries, LED_OUTPUT_ENTRIES, LED_OUTPUT_NODE_TYPE,
   MIC_NODE_TYPE,
 } from './hardwarePartCatalog'
 import type { Connection } from '@xyflow/react'
@@ -190,7 +190,7 @@ export function addProviderPartToBoard(nodeType: ProviderPartNodeType, boardId?:
   const partition = board ? boardPartitionOf(state, board.id).nodes : root
   const name = PROVIDER_PART_NAMES[nodeType]
   if (partition.some((node) => node.data.nodeType === nodeType)) return { ok: false, reason: `The board already has a ${name}` }
-  const entry = INPUT_PARTS.find((candidate) => candidate.nodeType === nodeType)
+  const entry = inputPartEntries().find((candidate) => candidate.nodeType === nodeType)
   const definition = NODE_LIBRARY.find((candidate) => candidate.type === nodeType)
   if (!entry || !definition) return { ok: false, reason: `The ${name} is not in the parts catalogue` }
   const profile = selectedPhysicalBoardProfile(partition)

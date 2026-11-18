@@ -12,7 +12,10 @@
 // module states its name instead of pretending to offer alternatives.
 
 import { CONVERTER_FEED_LABELS, converterRoles, deratedCurrentMa, ENCLOSURE_AMBIENT_C, powerConverterModules } from '../../state/peripherals/powerConverter'
-import { PART_CATALOGUE, partById, type PartCatalogueEntry } from './partCatalogue'
+import {
+  PART_CATALOGUE, memoByCatalogue, partById, registeredPartsForType, type PartCatalogueEntry,
+} from './partCatalogue'
+import type { PartManifest } from './manifest/partManifest'
 import { analogSensorEntries, analogSensorSummary } from '../../state/peripherals/analogSensor'
 import { digitalSensorEntries, digitalSensorSummary } from '../../state/peripherals/digitalSensor'
 import { IR_RECEIVER_MODULES } from '../../state/peripherals/irModules'
@@ -90,7 +93,7 @@ export interface PartIdentity {
  * also carries `CreateIcs43434` and `CreateGenericMEMS`. What still varies by
  * board is the *capture backend*, not the microphone.
  */
-export const PART_OPTIONS: Record<string, {
+interface PartOptionConfig {
   property: string
   options: PartOption[]
   /**
@@ -98,7 +101,14 @@ export const PART_OPTIONS: Record<string, {
    * A node naming none of the options is then that part, not the first option.
    */
   uncataloguedDefault?: true
-}> = {
+}
+
+/**
+ * The hand-written rows. Not read directly: `PART_OPTIONS` below is these plus
+ * a row for every registered part. A later round derives these rows from the
+ * bundled manifests' overlays; until then they stay as written.
+ */
+const BUNDLED_PART_OPTIONS: Record<string, PartOptionConfig> = {
   DFPlayerOutput: {
     property: 'partId',
     options: [{
@@ -121,32 +131,38 @@ export const PART_OPTIONS: Record<string, {
   },
   PowerConverter: {
     property: 'partId',
-    options: powerConverterModules().map((module) => ({
-      id: module.partId,
-      label: module.label,
-      // A module with a Feeds choice says so in few words: the menu line is short.
-      summary: `${converterRoles(module.spec).length > 1 ? 'LEDs or board' : CONVERTER_FEED_LABELS[module.spec.role]} ·${module.spec.inputMinV}-${module.spec.inputMaxV} V in, ${module.spec.outputSetV} V ${Number((deratedCurrentMa(module.spec) / 1000).toFixed(1))} A at ${ENCLOSURE_AMBIENT_C} °C`,
-    })),
+    get options(): PartOption[] {
+      return powerConverterModules().map((module) => ({
+        id: module.partId,
+        label: module.label,
+        // A module with a Feeds choice says so in few words: the menu line is short.
+        summary: `${converterRoles(module.spec).length > 1 ? 'LEDs or board' : CONVERTER_FEED_LABELS[module.spec.role]} ·${module.spec.inputMinV}-${module.spec.inputMaxV} V in, ${module.spec.outputSetV} V ${Number((deratedCurrentMa(module.spec) / 1000).toFixed(1))} A at ${ENCLOSURE_AMBIENT_C} °C`,
+      }))
+    },
   },
   BatteryPack: {
     property: 'partId',
-    options: batteryCellPartIds().flatMap((partId) => {
-      const entry = partById(partId)
-      const cell = entry?.batteryCell
-      return entry && cell ? [{
-        id: partId,
-        label: entry.label,
-        summary: `${cell.formFactor} ${cell.chemistry} · ${cell.nominalV} V, ${cell.capacityMah} mAh, ${cell.maxContinuousDischargeMa / 1000} A continuous`,
-      }] : []
-    }),
+    get options(): PartOption[] {
+      return batteryCellPartIds().flatMap((partId) => {
+        const entry = partById(partId)
+        const cell = entry?.batteryCell
+        return entry && cell ? [{
+          id: partId,
+          label: entry.label,
+          summary: `${cell.formFactor} ${cell.chemistry} · ${cell.nominalV} V, ${cell.capacityMah} mAh, ${cell.maxContinuousDischargeMa / 1000} A continuous`,
+        }] : []
+      })
+    },
   },
   BatteryModule: {
     property: 'partId',
-    options: batteryModulePartIds().flatMap((partId) => {
-      const entry = partById(partId)
-      const summary = batteryModuleSummary(partId)
-      return entry && summary ? [{ id: partId, label: entry.label, summary }] : []
-    }),
+    get options(): PartOption[] {
+      return batteryModulePartIds().flatMap((partId) => {
+        const entry = partById(partId)
+        const summary = batteryModuleSummary(partId)
+        return entry && summary ? [{ id: partId, label: entry.label, summary }] : []
+      })
+    },
   },
   PdTriggerSource: {
     property: 'partId',
@@ -683,6 +699,48 @@ export const PART_OPTIONS: Record<string, {
     ],
   },
 }
+
+/** The row a registered part earns: its label, and the copy its manifest carries. */
+function registeredOption(manifest: PartManifest): PartOption {
+  const copy = manifest.copy
+  return {
+    id: manifest.partId,
+    label: manifest.label,
+    ...(copy?.summary ? { summary: copy.summary } : {}),
+    ...(copy?.wiringNote ? { note: copy.wiringNote } : {}),
+  }
+}
+
+/**
+ * Every node type's options: the bundled rows, then a row for each registered
+ * part whose usable types include the node type. A part the bundled rows (or a
+ * catalogue-derived getter) already list is not listed twice. A node type with
+ * no row of its own gets none, because the row also names the property that
+ * holds the part id and a registered part cannot invent that.
+ *
+ * `options` is memoised by catalogue version, so it is the same array until a
+ * part is registered.
+ */
+export const PART_OPTIONS: Record<string, PartOptionConfig> = Object.fromEntries(
+  Object.keys(BUNDLED_PART_OPTIONS).map((nodeType) => {
+    const base = BUNDLED_PART_OPTIONS[nodeType]
+    // Read through BUNDLED_PART_OPTIONS each time: some rows are getters over the catalogue.
+    const options = memoByCatalogue((): PartOption[] => {
+      const rows = BUNDLED_PART_OPTIONS[nodeType].options
+      const known = new Set(rows.flatMap((row) => [row.id, ...(row.aliases ?? [])]))
+      const added = registeredPartsForType(nodeType)
+        .filter((manifest) => !known.has(manifest.partId))
+        .map(registeredOption)
+      return added.length === 0 ? rows : [...rows, ...added]
+    })
+    const config: PartOptionConfig = {
+      property: base.property,
+      ...(base.uncataloguedDefault ? { uncataloguedDefault: true as const } : {}),
+      get options() { return options() },
+    }
+    return [nodeType, config]
+  }),
+)
 
 export function partOptionsFor(nodeType: string): PartOption[] {
   return PART_OPTIONS[nodeType]?.options ?? []

@@ -7,6 +7,7 @@ import {
 } from '../../../state/audio/audioCapabilities'
 import { MIC_DEFAULTS, MIC_MAX_GAIN, MIC_MAX_NOISE_GATE } from '../../../audio/micAnalysis'
 import { partRenderForNodeType } from '../../../build/parts/partRenders'
+import { usePartCatalogueVersion } from '../../../build/parts/usePartCatalogueVersion'
 import { useNodeDefaults } from '../../../state/nodeDefaults'
 import { useUploadStore } from '../../../state/upload/uploadStore'
 import { selectedPhysicalBoardProfile } from '../../../build/boards/boardProfiles'
@@ -25,6 +26,7 @@ interface Props {
 
 export default function AudioCapabilityBody({ nodeId, sourceId }: Props) {
   const rootNodes = useRootNodes()
+  usePartCatalogueVersion()
   const updateNodeProperty = useGraphStore((state) => state.updateNodeProperty)
   const storedSourceId = useGraphStore((state) => {
     const node = state.nodes.find((entry) => entry.id === nodeId)

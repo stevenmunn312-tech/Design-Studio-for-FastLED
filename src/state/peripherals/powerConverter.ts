@@ -1,4 +1,4 @@
-import { PART_CATALOGUE, partById, type PartPowerConverterSpec } from '../../build/parts/partCatalogue'
+import { PART_CATALOGUE, memoByCatalogue, partById, type PartPowerConverterSpec } from '../../build/parts/partCatalogue'
 
 /**
  * A DC-DC converter between a 12/24 V source and a 5 V load. It carries no
@@ -13,12 +13,13 @@ export const DEFAULT_SOURCE_VOLTAGE = 12
 
 /** Converter modules the app may present, in shelf order. */
 const LEGACY_POWER_CONVERTER_ORDER = ['lm2596-buck-module', 'mean-well-sd-100a-5', 'mean-well-sd-100b-5']
-export const POWER_CONVERTER_PART_IDS = [
+/** Read through the registry, so a converter registered later joins the list. */
+export const powerConverterPartIds: () => readonly string[] = memoByCatalogue(() => [
   ...LEGACY_POWER_CONVERTER_ORDER,
   ...Object.values(PART_CATALOGUE)
     .filter((entry) => entry.powerConverter && !LEGACY_POWER_CONVERTER_ORDER.includes(entry.partId))
     .map((entry) => entry.partId),
-]
+])
 
 /**
  * The ambient the plan sizes converters for. An LED installation's supply
@@ -34,11 +35,14 @@ export interface PowerConverterModule {
 }
 
 export function powerConverterModules(): PowerConverterModule[] {
-  return POWER_CONVERTER_PART_IDS.flatMap((partId) => {
+  return powerConverterModuleList()
+}
+
+const powerConverterModuleList = memoByCatalogue((): PowerConverterModule[] =>
+  powerConverterPartIds().flatMap((partId) => {
     const entry = partById(partId)
     return entry?.powerConverter ? [{ partId, label: entry.label, spec: entry.powerConverter }] : []
-  })
-}
+  }))
 
 /** An unset or unknown part id falls back to the first module on the shelf. */
 export function powerConverterModuleFor(partId: unknown): PowerConverterModule | undefined {

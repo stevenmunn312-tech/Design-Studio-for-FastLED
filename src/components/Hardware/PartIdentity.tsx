@@ -1,5 +1,6 @@
 import { useNodeProperties } from '../../state/graphStore'
 import { resolvePartIdentity } from '../../build/parts/partOptions'
+import { usePartCatalogueVersion } from '../../build/parts/usePartCatalogueVersion'
 import { relayLoadLabel } from '../../state/peripherals/relayModule'
 import styles from './PartIdentity.module.css'
 
@@ -24,6 +25,7 @@ const LEAD_NOTES = 2
 
 export default function PartIdentity({ nodeId, nodeType }: { nodeId: string; nodeType: string }) {
   const properties = useNodeProperties(nodeId, 'root')
+  usePartCatalogueVersion()
 
   const identity = resolvePartIdentity(nodeType, properties)
   if (!identity) return null
