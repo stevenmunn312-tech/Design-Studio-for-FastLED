@@ -7,6 +7,8 @@ import { clearStashedGraphHistory } from '../../state/graphStore'
 import { libraryDefaults, NODE_LIBRARY } from '../../state/nodeLibrary'
 import { buildGraphDiagnostics, findDeployBlockingErrors, validateGraph } from '../validateGraph'
 import { sanitizeWorkspacePayload } from '../workspacePayload'
+import { uploadBlockReason } from '../uploadBlockReason'
+import { unresolvedPartSummaries } from '../../build/parts/partResolution'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)!
@@ -125,6 +127,16 @@ describe('a pin or bus on another part', () => {
     expect(pin[0]).toContain('in1Pin')
     const bus = findDeployBlockingErrors([busNode()], [])
     expect(bus.some((message) => message.includes("uses an I2C bus on another part, which this version can't wire yet"))).toBe(true)
+  })
+
+  it('disables Upload with the reason named first, before the general count', () => {
+    const reason = uploadBlockReason({
+      busy: false, hasBuildOutput: true, isShowUpload: false, showHasContent: false, waitingForTrust: false,
+      unresolvedParts: unresolvedPartSummaries([gpioNode(), busNode()]),
+      graphBlockerCount: 2, preparing: false, otherBlockers: [], tools: [],
+    })
+    expect(reason?.text).toContain("pin on another part, which this version can't wire yet")
+    expect(reason?.text).toContain('1 more need the same.')
   })
 
   it('explains it in Graph Health', () => {

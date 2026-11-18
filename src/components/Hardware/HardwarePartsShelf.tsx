@@ -2,6 +2,10 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useUiStore } from '../../state/uiStore'
 import styles from './HardwarePartsShelf.module.css'
 import { Icon, type IconName } from '../icons/Icon'
+import { partById } from '../../build/parts/partCatalogue'
+import { usePartCatalogueVersion } from '../../build/parts/usePartCatalogueVersion'
+import { tokenize } from '../../build/parts/remote/search'
+import RemotePartsSection from './RemotePartsSection'
 
 export { HARDWARE_SHELF_HOST_ID } from './hardwareShelfHost'
 
@@ -57,19 +61,27 @@ export default function HardwarePartsShelf({
   const itemRefs = useRef(new Map<string, HTMLButtonElement>())
 
   const normalizedQuery = query.trim().toLowerCase()
-  const visibleCategories = useMemo(() => categories
-    .map((category) => ({
-      ...category,
-      items: normalizedQuery === ''
-        ? category.items
-        : category.items.filter((item) => (
-            item.label.toLowerCase().includes(normalizedQuery)
-            || item.hint.toLowerCase().includes(normalizedQuery)
-            || item.subcategory?.toLowerCase().includes(normalizedQuery)
-            || category.label.toLowerCase().includes(normalizedQuery)
-          )),
-    }))
-    .filter((category) => category.items.length > 0), [categories, normalizedQuery])
+  // A downloaded part joins the shelf mid-session; its search text is read from the catalogue.
+  const catalogueVersion = usePartCatalogueVersion()
+  const visibleCategories = useMemo(() => {
+    const tokens = tokenize(normalizedQuery)
+    return categories
+      .map((category) => ({
+        ...category,
+        items: tokens.length === 0
+          ? category.items
+          : category.items.filter((item) => {
+              // Every word must match somewhere: name, summary, group, shelf, maker.
+              const manufacturer = item.partId ? partById(item.partId)?.manufacturer : undefined
+              const haystack = [
+                item.label, item.hint, item.subcategory, category.label, manufacturer, item.nodeType,
+              ].filter(Boolean).join(' ').toLowerCase()
+              return tokens.every((token) => haystack.includes(token))
+            }),
+      }))
+      .filter((category) => category.items.length > 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- partById reads the catalogue
+  }, [categories, normalizedQuery, catalogueVersion])
 
   const total = categories.reduce((sum, category) => sum + category.items.length, 0)
   const available = categories.reduce(
@@ -190,6 +202,8 @@ export default function HardwarePartsShelf({
         {visibleCategories.length === 0 && (
           <p className={styles.empty}>No bench parts match “{query.trim()}”.</p>
         )}
+
+        <RemotePartsSection query={query} />
       </div>
     </aside>
   )

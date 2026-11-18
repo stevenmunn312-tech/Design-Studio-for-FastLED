@@ -441,8 +441,11 @@ pin or bus reference that v1.0.0 does not understand must not reach
 6. Verify signatures against a list of trusted keys, with successor-key
    announcements in the index. *(Done: `src/build/parts/remote/`.)*
 7. Fetch and cache the signed index; search it in the shelf; download, cache
-   and offer revision updates for packages. *(Client and search done; the
-   shelf search and download UI is left.)*
+   and offer revision updates for packages. *(Done: the shelf searches bundled
+   parts and the signed index, downloads, verifies, validates and registers a
+   part, offers revision updates, and remembers installs in the parts
+   IndexedDB; see `src/build/parts/partsLibrary.ts`. Dormant until
+   `PARTS_BASE_URL` is set.)*
 8. Embed manifests in saves. *(Done: saves carry `parts`, with the signed
    envelope for downloaded parts only; bundled parts carry their revision.)*
 9. Replace silent fallbacks for unknown parts and types with explicit errors.
@@ -455,7 +458,9 @@ pin or bus reference that v1.0.0 does not understand must not reach
     The bundled parts wait on verified Blender assets.)*
 11. Reserve the `{ part, pin }` and `{ part, channel }` reference shapes (done:
     `src/build/parts/partReferences.ts`), and
-    block Upload on any reference v1.0.0 cannot resolve.
+    block Upload on any reference v1.0.0 cannot resolve. *(Done: held nodes
+    go through `unresolvedPartSummaries` into `uploadBlockReason` and the deploy
+    gate.)*
 
 Steps 1 to 5, 8 and 9 change nothing a user sees when they are done well, so
 they are proved by the existing suites plus a full compile matrix, the same as

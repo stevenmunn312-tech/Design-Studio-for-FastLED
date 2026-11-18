@@ -28,6 +28,7 @@ import {
 } from '../../utils/showUpload'
 import { fetchDemoTrack } from '../../state/player/demoTrack'
 import { unresolvedPartSummaries } from '../../build/parts/partResolution'
+import { usePartCatalogueVersion } from '../../build/parts/usePartCatalogueVersion'
 import { buildGraphDiagnostics, findMirroredOutputMismatches, findHub75TopologyDiagnosticErrors, findFirmwareRamBudgetIssue } from '../../utils/validateGraph'
 import { formatElapsed, summarizeCapacity } from '../../utils/capacityFormat'
 import { useElapsedSeconds } from '../../hooks/useElapsedSeconds'
@@ -251,14 +252,17 @@ export default function MatrixOutputDeployPopup({
   // Wi-Fi names and passwords live outside the graph, and the network checks
   // read them: without this, a name typed in kept its "missing SSID" warning.
   const networkCredentials = useNetworkCredentialsStore((state) => state.byNodeId)
+  // Parts register after load too; the gate must see them.
+  const catalogueVersion = usePartCatalogueVersion()
   const graphBlockers = useMemo(
     () => findDeployBlockingErrorsForBoard(rootNodes, rootEdges, activeBoardId, selectedFqbn, customAssets.documents, customAssets.groups),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the validators read credentials from their store
-    [rootNodes, rootEdges, activeBoardId, selectedFqbn, customAssets.documents, customAssets.groups, networkCredentials],
+    [rootNodes, rootEdges, activeBoardId, selectedFqbn, customAssets.documents, customAssets.groups, networkCredentials, catalogueVersion],
   )
   // Parts this version cannot build are named first and by their own words
   // (utils/uploadBlockReason.ts); they are also in `graphBlockers` above.
-  const unresolvedParts = useMemo(() => unresolvedPartSummaries(nodes), [nodes])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- unresolvedPartSummaries reads the catalogue
+  const unresolvedParts = useMemo(() => unresolvedPartSummaries(nodes), [nodes, catalogueVersion])
   // Uneven parallel runs are worth saying and never worth blocking — a star
   // with half-length arms is a real build, not a misconfiguration.
   const mirrorNotes = useMemo(() => findMirroredOutputMismatches(nodes, edges), [nodes, edges])
@@ -500,7 +504,7 @@ export default function MatrixOutputDeployPopup({
       supplyPromptDismissed,
     }).filter((issue) => issue.severity === 'warning').length,
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the validators read credentials from their store
-    [nodes, edges, selectedFqbn, customAssets.documents, customAssets.groups, networkCredentials, supplyPromptDismissed],
+    [nodes, edges, selectedFqbn, customAssets.documents, customAssets.groups, networkCredentials, supplyPromptDismissed, catalogueVersion],
   )
   const layers = useMemo(() => readinessLayers({
     previewLive: graphDrivesOutput(nodes, edges),
