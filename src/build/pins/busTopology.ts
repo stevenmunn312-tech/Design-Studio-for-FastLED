@@ -5,6 +5,7 @@ import { motionVectorAddress } from '../../state/peripherals/motionVector'
 import { environmentAddress } from '../../state/peripherals/environmentSensor'
 import { lightSensorAddress } from '../../state/peripherals/lightSensor'
 import { distanceSensorAddress } from '../../state/peripherals/distanceSensor'
+import { rtcSpec } from '../../state/peripherals/rtcModule'
 
 /**
  * Each I2C part that owns its address parsing. One table, so a part added
@@ -18,6 +19,8 @@ const PART_ADDRESS_RESOLVERS: Readonly<Record<string, (props: Record<string, unk
   EnvironmentInput: environmentAddress,
   LightInput: lightSensorAddress,
   DistanceInput: distanceSensorAddress,
+  // The chip's own fixed address, from the part's rtc block.
+  RtcModule: (props) => rtcSpec(props.partId)?.i2cAddress ?? null,
 }
 
 // What a claimed GPIO actually *is*, so validation can tell a shared bus from a
@@ -204,7 +207,6 @@ export function i2cAddressFor(nodeType: string, props: Record<string, unknown>):
   // ignore it because nothing the user does changes what they answer to.
   const configured = Number(props.i2cAddress)
   if (Number.isInteger(configured) && configured >= 0x08 && configured <= 0x77) return configured
-  if (nodeType === 'RtcModule') return 0x68
   return null
 }
 

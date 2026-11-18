@@ -7,6 +7,7 @@ import { partById, sharedPadsAcrossBoards } from './parts/partCatalogue'
 import { planSourceLabel, planSourceVoltageLabel } from './power/planSource'
 import { standardFuseRatingFor } from './power/electricalRules'
 import { chargerUsesCellPads, protectionPads } from '../state/peripherals/battery'
+import { uartPlayerSpec, uartPlayerSupplyLabel } from '../state/peripherals/dfPlayer'
 
 export interface BuildConnectionRow {
   from: string
@@ -200,12 +201,13 @@ export function buildConnectionRows(
       }
     } else if (item.kind === 'amplifier' && item.facts.stage === 'player') {
       // The module prints VCC, not VIN. 5 V is the recommended supply.
+      const player = uartPlayerSpec(item.facts.partId)
       rows.push({
         from: controller,
         fromTerminal: '5V / VIN',
         to: item.title,
         toTerminal: 'VCC',
-        purpose: 'Module power, 3.2–5 V; 5 V recommended',
+        purpose: player ? `Module power, ${uartPlayerSupplyLabel(player)}; 5 V recommended` : 'Module power',
       })
     } else if (item.kind === 'amplifier' || item.kind === 'line-input') {
       // A class-D amp's output power is its supply power, so 3.3 V here reads

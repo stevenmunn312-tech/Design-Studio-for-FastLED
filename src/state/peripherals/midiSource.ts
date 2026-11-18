@@ -1,4 +1,7 @@
+import { partById } from '../../build/parts/partCatalogue'
+import type { PartMidiDinSpec } from '../../build/parts/partCatalogue'
 import type { StudioNode } from '../graphStore'
+import { partIdOrDefault } from './partSpec'
 
 /**
  * The MIDI node's firmware sources. Web MIDI is the browser's and never
@@ -31,6 +34,16 @@ export function midiUsesUart(properties: Record<string, unknown>): boolean {
  */
 export const MIDI_DIN_PART_ID = 'adafruit-midi-featherwing'
 export const MIDI_INTERFACE_NODE_TYPE = 'MidiInterface'
+
+/** The part's midiDin block; `null` for an unknown part (a missing id is the default part). */
+export function midiDinSpec(partId: unknown): PartMidiDinSpec | null {
+  return partById(partIdOrDefault(partId, MIDI_DIN_PART_ID))?.midiDin ?? null
+}
+
+/** The Build Diagram's wording for where the keyboard's cable goes. */
+export function midiCableFact(spec: PartMidiDinSpec): string {
+  return `MIDI IN is the ${spec.inputSocket} DIN socket`
+}
 
 /** The DIN interface on the bench: the provider every DIN-mode MIDI node on the board reads. */
 export function midiInterfaceIn<T extends Pick<StudioNode, 'data'>>(nodes: readonly T[]): T | null {

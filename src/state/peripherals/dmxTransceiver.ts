@@ -1,5 +1,8 @@
+import { partById } from '../../build/parts/partCatalogue'
+import type { PartRs485Spec } from '../../build/parts/partCatalogue'
 import type { StudioNode } from '../graphStore'
 import { clampDmxUniverse } from './dmx'
+import { partIdOrDefault } from './partSpec'
 
 // The RS-485 transceiver a DMX512 input is wired through.
 //
@@ -13,11 +16,45 @@ import { clampDmxUniverse } from './dmx'
 // and its three GPIOs. The UART comes from the allocator
 // (build/pins/uartAssignment.ts), never from the user.
 //
-// One module today, the common "C25B" MAX485 board. A second (a 3.3 V MAX3485
-// board, say) becomes a choice here, not a second copy of the rule below.
+// The default module is the common "C25B" MAX485 board. What differs between
+// boards (supply, the level RO swings to, a fitted terminator) is the part's
+// `rs485` block, read from the node's own `partId`; the DMX512 receive path
+// is the same for every one of them.
 
 export const DMX_TRANSCEIVER_PART_ID = 'max485-rs485-module'
 export const DMX_TRANSCEIVER_NODE_TYPE = 'DmxTransceiver'
+
+/** A receive output above this swings past what a 3.3 V controller pin takes. */
+const RX_DIVIDER_ABOVE_V = 3.6
+
+/** The part's rs485 block; `null` for an unknown part (a missing id is the default part). */
+export function rs485Spec(partId: unknown): PartRs485Spec | null {
+  return partById(partIdOrDefault(partId, DMX_TRANSCEIVER_PART_ID))?.rs485 ?? null
+}
+
+/**
+ * Whether RO needs the 1 kΩ / 2 kΩ divider before a 3.3 V RX pin. An unknown
+ * part is judged as needing it, because the divider costs nothing on a 3.3 V
+ * output and omitting it can destroy a pin.
+ */
+export function rs485NeedsReceiveDivider(partId: unknown): boolean {
+  const spec = rs485Spec(partId)
+  return spec === null || spec.rxLogicVolts > RX_DIVIDER_ABOVE_V
+}
+
+/** The Build Diagram's wording for how RO reaches the controller. */
+export function rs485RxLevelFact(spec: PartRs485Spec): string {
+  return spec.rxLogicVolts > RX_DIVIDER_ABOVE_V
+    ? `RO to RX through 1 kΩ, RX to GND through 2 kΩ (${spec.rxLogicVolts} V down to 3.3 V)`
+    : `RO to RX directly (${spec.rxLogicVolts} V logic)`
+}
+
+/** The Build Diagram's wording for the bus terminator. */
+export function rs485TerminationFact(spec: PartRs485Spec): string {
+  return spec.terminationFitted
+    ? `120 Ω fitted${spec.terminationRef ? ` (${spec.terminationRef})` : ''}: keep only on the last device in the chain`
+    : 'none fitted: add 120 Ω across A and B on the last device in the chain'
+}
 
 /** The transceiver on the bench: the provider every DMX512 input on the board reads. */
 export function dmxTransceiverIn<T extends Pick<StudioNode, 'data'>>(nodes: readonly T[]): T | null {

@@ -1,4 +1,7 @@
+import { partById } from '../../build/parts/partCatalogue'
+import type { PartRtcSpec } from '../../build/parts/partCatalogue'
 import type { StudioNode } from '../graphStore'
+import { partIdOrDefault } from './partSpec'
 import { rtcTimeSource } from './rtc'
 
 /**
@@ -15,6 +18,16 @@ import { rtcTimeSource } from './rtc'
  */
 export const RTC_MODULE_NODE_TYPE = 'RtcModule'
 export const DEFAULT_RTC_MODULE_PART_ID = 'ds3231-rtc-module'
+
+/** The part's rtc block; `null` for an unknown part (a missing id is the default part). */
+export function rtcSpec(partId: unknown): PartRtcSpec | null {
+  return partById(partIdOrDefault(partId, DEFAULT_RTC_MODULE_PART_ID))?.rtc ?? null
+}
+
+/** The Build Diagram subtitle: the chip the part carries, named from its block. */
+export function rtcSubtitle(spec: PartRtcSpec): string {
+  return `${spec.device} battery-backed I²C clock`
+}
 
 /** The DS3231 on the bench, the provider for every Clock set to DS3231. */
 export function rtcModuleIn<T extends Pick<StudioNode, 'data'>>(nodes: readonly T[]): T | null {

@@ -1,4 +1,7 @@
 import { targetFamilyFromFqbn } from '../../build/buildProfile'
+import { partById } from '../../build/parts/partCatalogue'
+import type { PartUartPlayerSpec } from '../../build/parts/partCatalogue'
+import { partIdOrDefault } from './partSpec'
 
 export const DFPLAYER_PART_ID = 'dfplayer-mini'
 export const DFPLAYER_RX_PIN_FALLBACK = 16
@@ -8,12 +11,20 @@ export const DFPLAYER_TRACK_DEFAULT = 1
 export const DFPLAYER_VOLUME_DEFAULT = 0.7
 /** DFRobot command 0x09 parameter that selects the microSD socket. */
 export const DFPLAYER_DEVICE_SD = 2
-/** The module ignores a command that follows another too closely. */
-export const DFPLAYER_COMMAND_GAP_MS = 100
-/** First command waits until the module has finished powering its card. */
-export const DFPLAYER_BOOT_MS = 1000
-export const DFPLAYER_SUPPLY_LABEL = '3.2–5 V'
-export const DFPLAYER_MAX_CURRENT_LABEL = 'about 200 mA with the speaker amplifier'
+/**
+ * The part's uartPlayer block; `null` for an unknown part (a missing id is the
+ * default part). The block carries what differs between modules: supply and
+ * current, baud, the gap the module needs between commands, and how long it
+ * takes to be ready after power-up. The command protocol itself is code, chosen
+ * by the block's `device`.
+ */
+export function uartPlayerSpec(partId: unknown): PartUartPlayerSpec | null {
+  return partById(partIdOrDefault(partId, DFPLAYER_PART_ID))?.uartPlayer ?? null
+}
+
+export const uartPlayerSupplyLabel = (spec: PartUartPlayerSpec) => `${spec.supplyMinV}–${spec.supplyMaxV} V`
+export const uartPlayerMaxCurrentLabel = (spec: PartUartPlayerSpec) =>
+  `about ${spec.maxCurrentMa} mA with the speaker amplifier`
 
 export type DfPlayerAudioOutput = 'Speaker' | 'Line Out'
 
