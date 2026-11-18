@@ -198,6 +198,38 @@ The [support matrix](../release/beta-support-matrix.md) still owns what is
 supported versus experimental. A downloaded part inherits its part type's
 support status unless its own bench row says more.
 
+## Shelf categories
+
+Browsing categories are data, not code, and they are separate from part types.
+A part type says how the app drives a part. A category says where a person
+looks for it. One part type can span several categories: `DistanceInput`
+covers both ultrasonic and laser sensors, and they belong on different shelves.
+
+Today the groups are a hand-written table, `SHELF_SUBCATEGORIES` in
+`src/components/Hardware/hardwareShelfModel.ts`. It groups by node type, so
+ultrasonic and time-of-flight sensors share "Motion & distance", and a new
+group needs an app release.
+
+- **The tree lives in the signed index.** Each category has an id, a label, an
+  order and a parent, and the tree can be as deep as the hardware needs. For
+  example: Sensors › Distance › Ultrasonic, and Sensors › Distance ›
+  Time-of-flight (laser).
+- **Each manifest names its category ids**, usually one and occasionally more.
+  A part is placed by its own manifest, not by its node type.
+- **The shelf renders whatever tree the index carries.** Adding, splitting or
+  renaming a category is an index update, not a release. Category ids are
+  permanent; a split keeps the old id as an alias so cached indexes still
+  resolve.
+- **Search matches category labels as well as part names,** so "laser" finds
+  every time-of-flight sensor.
+- **Bundled parts carry their categories too,** and the app ships a copy of the
+  tree for offline use.
+
+Categories only affect browsing. They never decide behaviour; that is the part
+type and device. The laser sensor that turned into an ultrasonic one (see [What
+exists today](#what-exists-today)) is a fallback bug, fixed by the
+unknown-part error, not by categories.
+
 ## Requests and search
 
 - **Search.** The Hardware shelf searches the cached index locally, together
@@ -301,11 +333,11 @@ report "needs a newer version" for parts of a type they lack.
 | Relay and SSR (`RelayOutput`) | in |
 | MOSFET power switch (`PowerSwitchOutput`) | in |
 | Darlington driver (`DarlingtonDriverOutput`) | in |
+| PWM driver, PCA9685 (`PwmDriverOutput`) | in |
 | Input controls (buttons, encoders, keypad, IR) | in |
 | CAN (MCP2515 on SPI, transceiver on TWAI) | planned |
 | UART serial device | planned |
 | GPIO expander | planned |
-| PWM driver (PCA9685) | planned |
 | Radio (LoRa, nRF24) | planned |
 
 `NODE_LIBRARY` is authoritative for what is in; this table only shows the
@@ -315,7 +347,7 @@ shape of the registry.
 gain downloaded parts while v1.0.0 is current. A type that is likely to be
 wanted soon and is cheap to add belongs in v1.0.0 even with one bundled part,
 so that later parts of that type need no release. Candidates to weigh: CAN,
-GPIO expander, PCA9685 PWM driver. Each new type follows the usual rules: built
+GPIO expander, UART serial device, radio. Each new type follows the usual rules: built
 from documentation, marked experimental, promoted by bench rows.
 
 ## Phases
@@ -329,7 +361,8 @@ from documentation, marked experimental, promoted by bench rows.
    pad geometry, supply rail, and the per-part paragraphs in type help.
 4. Convert the bundled library through the importer into signed packages, and
    load it through the manifest path at run time.
-5. Generate the per-part help from manifests.
+5. Generate the per-part help from manifests, and drive the shelf from the
+   category tree in place of `SHELF_SUBCATEGORIES`.
 6. Verify signatures against a list of trusted keys, with successor-key
    announcements in the index.
 7. Fetch and cache the signed index; search it in the shelf; download, cache
