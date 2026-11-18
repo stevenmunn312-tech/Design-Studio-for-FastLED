@@ -685,7 +685,8 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Size input current, fuses and wire at minimum voltage; block converter
   overvoltage at ceiling and warn for low-end dropout. Read converter terminal
   names and isolation from `powerConverter.terminals`, never from model-specific
-  branches. Size hardware for uncapped full white; a FastLED limit affects only
+  branches. Size hardware for uncapped full white, held to the converter's
+  output limit when it has one (`supplyCeilingMa`); a FastLED limit affects only
   running current and runtime. The board's protected-negative pad is the sole 0 V net, B- is internal to the
   protected pack, and intermediate balance taps are sense leads. One board can
   provide several functions, so validate required functions across selected

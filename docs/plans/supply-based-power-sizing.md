@@ -1,6 +1,6 @@
 # Plan — size power to the supply the user has
 
-Status: Phases 1 and 2 done 2026-11-18; Phase 3 next.
+Status: Phases 1, 2 and 3 done 2026-11-18; Phase 4 next.
 
 ## Why
 
@@ -140,7 +140,25 @@ Done as written, with these choices:
 - Node definition, description, Help entry with live example, and README
   module count, per the new-node checklist in `CLAUDE.md`.
 
-### Phase 3 — ceiling and sizing
+### Phase 3 — ceiling and sizing (done 2026-11-18)
+
+Done (`src/build/power/supplyCeiling.ts`, ruleset v10), with these choices:
+
+- Hardware is sized to `sizingCurrentMa = min(fullWhite, ceiling)`, not to the
+  ceiling alone, so a 30 A supply on a 15 A load is still wired for 15 A. No
+  more than full white can flow, so this is never less safe.
+- A supply the user entered is one zone whatever it carries; packing to about
+  100 A applies only to a recommended supply.
+- With a rail converter, the converter is the zone's ceiling (`fixed` parts at
+  their rating; `none` and `adjustable`, which has no setting yet, give none).
+  The supply the outputs name is drawn as the converters' shared source
+  (`totals.source.ownedSupply`): a voltage that is not the converter's source
+  voltage blocks, and a rating below the converters' combined draw is advice.
+- The undersized-segment advice appears only with two or more supplies. One
+  undersized supply is the power cap's job (Phase 4 and the Checks fix in
+  Phase 5).
+- Feed count and per-feed limits still follow full white: they bound the
+  strip's own copper, not the supply.
 
 - One pure helper, `supplyCeilingMa(zone)`, returns the hard ceiling for a zone
   from the table above, or `null` when nothing limits current. Every sizing

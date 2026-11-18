@@ -14,7 +14,12 @@ versioning (`0.y.z`) until the first stable release.
   several, each LED output chooses its supply under Powered by. The Build
   Diagram draws each LED power zone on its own supply, never mixes two
   supplies in one zone, and blocks a supply whose voltage does not match the
-  LEDs it feeds. Wiring is still sized for full white.
+  LEDs it feeds. The main fuse, trunk and branch wiring are sized to that
+  supply when it is smaller than the LEDs' full-white draw, since no more
+  current can flow; a firmware power cap still never sizes hardware. With
+  several supplies, one smaller than its own segment's full white is flagged
+  as advice. A supply feeding a rail converter is checked against the
+  converter's source voltage and its draw.
 - Project and pattern files record their save format version. A file saved by
   a newer Design Studio is refused with a message instead of opening with its
   newer parts dropped, and the helper will not overwrite it from an older app.

@@ -142,11 +142,30 @@ The current bounded WS2812-class rules use:
   for RGBW, about 1 mA for a HUB75 pixel. The Board, Readiness and Checks
   (`estimatePowerLoad`) read the same figure, so every load agrees.
 - 20% supply-current/wattage headroom.
-- Every recommendation, supply included, is sized for the uncapped full-white
-  load. A configured FastLED current limit lowers running power and heat but
-  never shrinks the hardware, because a limit that is changed, cleared or never
-  flashed must not overload a supply that was sized for it. (Until 2026-09-27
-  the supply, though not the wiring, was sized from the limit.)
+- Hardware is sized for the most current that can flow. `supplyCeilingMa`
+  (`src/build/power/supplyCeiling.ts`) gives each zone's hard ceiling: the
+  rating of the Power Supply the user entered, or a rail converter's rating
+  when its part states an output current limit (`outputCurrentLimit:
+  'fixed'`). A converter with no output limit, an adjustable one (no current
+  setting yet), and a zone with no supply entered have none. The main fuse and
+  trunk carry `sizingCurrentMa` (the zone's full white, or the ceiling when
+  lower), each branch feed carries the lesser of its own full white and the
+  ceiling, and a rail converter's input side is sized from its headroom load
+  held to the same ceiling, at the pack's minimum voltage on a battery. The
+  supply recommendation and the feed count still follow full white.
+- A configured FastLED current limit lowers running power and heat but never
+  sizes hardware, because a limit that is changed, cleared or never flashed
+  must not overload the wiring. The supply's own rating can: no more current
+  than that can flow, and the 75% fuse rule (a 5 A supply on a 7.5 A fuse)
+  still covers the 110-150% a supply delivers before its own protection acts.
+  (Until 2026-09-27 the supply, though not the wiring, was sized from the
+  limit; until 2026-11-18 everything was sized for full white whatever supply
+  was entered.)
+- A Power Supply the user entered is one zone whatever it carries; only a
+  recommended supply is packed to about 100 A. With several supplies, one
+  below its segment's full white is a warning, not a blocker: FastLED's cap is
+  one figure for the board and cannot keep that supply inside its rating, but
+  the wiring is sized to it, so exports are not held.
 - Recommended nameplate current rounds the headroom target up to whole amps
   through 10 A and to the next 10 A increment above that. It never rounds
   down. (Until 2026-11-18 a target less than 2 A past an increment rounded

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { boardProfileById } from '../../boards/boardProfiles'
 import { ensureBuildProfile } from '../../buildProfile'
 import { calculateElectricalPlan } from '../electricalPlan'
+import { sizingCurrentMa, supplyCeilingMa } from '../supplyCeiling'
 import { buildHardwareManifest } from '../../hardwareManifest'
 import type { StudioNode } from '../../../state/graphStore'
 import { powerSupplyName, powerSupplyRating, powerSupplyRatingLabel, supplyForLoad } from '../../../state/peripherals/powerSupply'
@@ -90,5 +91,91 @@ describe('Power Supply', () => {
     const result = plan([output('a')])
     expect(result.totals?.supplies[0].ownedSupply).toBeUndefined()
     expect(result.blockers.some((issue) => issue.id.endsWith(':supply-voltage'))).toBe(false)
+  })
+})
+
+describe('supply ceiling', () => {
+  it('holds a zone to the supply or limited converter feeding it, and to nothing otherwise', () => {
+    expect(supplyCeilingMa({ ownedSupply: { ratedCurrentMa: 5000 } })).toBe(5000)
+    expect(supplyCeilingMa({})).toBeNull()
+    // A converter makes the rail, so it is the ceiling, not the supply upstream of it.
+    expect(supplyCeilingMa({ ownedSupply: { ratedCurrentMa: 5000 }, converter: { ratedCurrentMa: 20000, outputCurrentLimit: 'fixed' } })).toBe(20000)
+    expect(supplyCeilingMa({ converter: { ratedCurrentMa: 3000, outputCurrentLimit: 'none' } })).toBeNull()
+    expect(supplyCeilingMa({ converter: { ratedCurrentMa: 3000, outputCurrentLimit: 'adjustable' } })).toBeNull()
+    expect(sizingCurrentMa(15360, 5000)).toBe(5000)
+    expect(sizingCurrentMa(15360, 30000)).toBe(15360)
+    expect(sizingCurrentMa(15360, null)).toBe(15360)
+  })
+
+  it('sizes the main fuse, trunk and feeds to a 5 A supply on a 15 A load', () => {
+    // 16 x 16 at 60 mA is 15.36 A at full white.
+    const result = plan([supply('p1', 5, 5), output('a')])
+    const [zone] = result.totals?.supplies ?? []
+    expect(zone.designCurrentMa).toBe(15360)
+    expect(zone.ceilingMa).toBe(5000)
+    expect(zone.trunk).toEqual(expect.objectContaining({ designCurrentMa: 15360, sizingCurrentMa: 5000 }))
+    // 75% loading: 5 A needs at least 6.67 A, so the 7.5 A standard rating.
+    expect(zone.trunk.mainFuse.ratingMa).toBe(7500)
+    const feeds = result.outputs[0].injections
+    expect(feeds.map((feed) => feed.designCurrentMa)).toEqual([3840, 7680, 3840])
+    expect(feeds.map((feed) => feed.sizingCurrentMa)).toEqual([3840, 5000, 3840])
+    expect(feeds.every((feed) => (feed.fuse.ratingMa ?? 0) <= 7500)).toBe(true)
+    expect(result.status).toBe('calculated')
+    expect(result.unresolved).toEqual([])
+  })
+
+  it('sizes to full white when the supply is larger than the load, or when none is entered', () => {
+    const large = plan([supply('p1', 5, 30), output('a')]).totals!.supplies[0]
+    const none = plan([output('a')]).totals!.supplies[0]
+    expect(large.trunk.sizingCurrentMa).toBe(15360)
+    expect(none.ceilingMa).toBeUndefined()
+    expect(none.trunk.sizingCurrentMa).toBe(15360)
+    expect(large.trunk.mainFuse.ratingMa).toBe(none.trunk.mainFuse.ratingMa)
+  })
+
+  it('keeps everything on one supply in one zone, past the size of a recommended zone', () => {
+    // Two 32 x 34 panels draw about 130 A, more than one recommended zone.
+    const result = plan([
+      supply('p1', 5, 200),
+      output('a', { width: 32, height: 34 }),
+      output('b', { width: 32, height: 34 }),
+    ])
+    expect(result.totals?.supplies).toHaveLength(1)
+    expect(result.warnings.some((issue) => issue.id.endsWith(':supply-zone-cuts'))).toBe(false)
+  })
+
+  it('advises, without blocking, when one of several supplies is below its segment', () => {
+    const result = plan([
+      supply('p1', 5, 5, 'Small PSU'),
+      supply('p2', 5, 20, 'Large PSU'),
+      output('a', { poweredBy: 'p1' }),
+      output('b', { poweredBy: 'p2' }),
+    ])
+    const advice = result.warnings.filter((issue) => issue.id.endsWith(':segment-undersized'))
+    expect(advice).toEqual([expect.objectContaining({
+      id: 'power-supply:p1:segment-undersized',
+      severity: 'warning',
+      detail: expect.stringContaining('Use a 5 V 20 A supply for this segment'),
+    })])
+    expect(result.blockers.filter((issue) => issue.id !== 'exact-board')).toEqual([])
+    expect(result.status).toBe('calculated')
+  })
+
+  it('leaves a single undersized supply to the power cap rather than advising', () => {
+    const result = plan([supply('p1', 5, 5), output('a')])
+    expect(result.warnings.some((issue) => issue.id.endsWith(':segment-undersized'))).toBe(false)
+  })
+
+  it('checks a supply upstream of a rail converter against its source voltage and the converters\' draw', () => {
+    const converter = node('rail', 'PowerConverter', { partId: 'mean-well-sd-100a-5', sourceVoltage: 12 })
+    const small = plan([supply('p1', 12, 3, 'Wall adapter'), converter, output('a')])
+    expect(small.totals?.source?.ownedSupply?.itemId).toBe('power-supply:p1')
+    expect(small.warnings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'power-supply:p1:source-undersized', severity: 'warning' }),
+    ]))
+    const wrongVoltage = plan([supply('p1', 24, 10, 'Shelf PSU'), converter, output('a')])
+    expect(wrongVoltage.blockers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'power-supply:p1:source-voltage', severity: 'blocking' }),
+    ]))
   })
 })

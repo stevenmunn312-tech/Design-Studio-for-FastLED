@@ -98,8 +98,12 @@ manifest copies the answer onto every output item as `supplyItemId`. The
 **Powered by** field appears only with more than one supply. The electrical plan
 draws each zone on one supply and never mixes supplies in a zone, and blocks an
 output whose supply voltage is not its chipset's. While a rail converter makes the
-LED rail, outputs are not put on a supply. Sizing still follows full white; see
-[supply-based power sizing](../plans/supply-based-power-sizing.md).
+LED rail, outputs are not put on a supply: the supply the outputs name is the
+converters' shared DC source (`totals.source.ownedSupply`), blocked when its
+voltage is not the converter's source voltage and advised when the converters'
+combined input draw exceeds it. Hardware is sized to the supply; see
+[Generated Electrical Defaults](build-diagram.md#generated-electrical-defaults)
+and [supply-based power sizing](../plans/supply-based-power-sizing.md).
 
 `PdTriggerSource` is the ZY12PDN, a config-only fixture like `PowerConverter`: no
 ports, no pins and no firmware. Its `pdTrigger` catalogue block carries the selectable
@@ -773,8 +777,11 @@ and the protection board's over-charge threshold. Converter input current,
 the main fuse and the battery trunk are sized at minimum voltage. Exceeding a
 converter's maximum input at ceiling is blocking; low-end dropout is a warning.
 
-Battery hardware is sized for uncapped full-white load. A configured FastLED
-current limit changes only the reported running current and runtime. Runtime
+Battery hardware is sized for the uncapped full-white load, held to a rail
+converter's own output limit when its part states one (`supplyCeilingMa`); a
+converter with no output limit, such as a plain boost or a pack output, sizes to
+full white. A configured FastLED current limit changes only the reported running
+current and runtime. Runtime
 uses rated cell energy and catalogue efficiencies. The plan warns below two
 hours at full white and recommends review by a professional experienced with
 high-power, low-voltage systems above 30 A of pack current.

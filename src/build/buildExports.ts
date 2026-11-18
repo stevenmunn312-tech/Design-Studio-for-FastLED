@@ -453,7 +453,7 @@ export function buildBomRows(
         quantity: '1',
         item: `${supply.converter ? `Converter zone ${zone}` : `PSU ${zone}`} main fuse and holder`,
         specification: mainFuse.ratingMa
-          ? `${formatAmps(mainFuse.ratingMa)} DC-rated bolt-down fuse (MIDI/ANL class) in an insulated holder at the supply positive; carries ${formatAmps(supply.trunk.designCurrentMa)} at 75% loading`
+          ? `${formatAmps(mainFuse.ratingMa)} DC-rated bolt-down fuse (MIDI/ANL class) in an insulated holder at the supply positive; carries ${formatAmps(supply.trunk.sizingCurrentMa)} at 75% loading`
           : mainFuse.unresolvedReason ?? 'Unresolved main fuse rating',
         status: mainFuse.ratingMa ? 'calculated' : 'unresolved',
       })

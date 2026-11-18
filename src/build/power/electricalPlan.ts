@@ -31,8 +31,9 @@ import {
   sourceWindowIssues,
   type PlanSource,
 } from './planSource'
-import { partById } from '../parts/partCatalogue'
+import { partById, type PartPowerConverterSpec } from '../parts/partCatalogue'
 import { ledFullWhiteDraw } from './ledDraw'
+import { sizingCurrentMa, supplyCeilingMa } from './supplyCeiling'
 
 const DEFAULT_LED_DENSITY_PER_METER = 60
 const DEFAULT_FEED_CABLE_LENGTH_MM = 500
@@ -114,7 +115,10 @@ export interface PowerInjectionPlan {
   /** 1-based LED along the data chain (from DIN) that this feed lands on. */
   ledIndex: number
   pixelCount: number
+  /** Full-white draw of the LEDs on this feed. */
   designCurrentMa: number
+  /** What the feed's wire, connector and fuse carry: full white, or its supply's ceiling when lower. */
+  sizingCurrentMa: number
   maximumCurrentMa: number
   conductor?: ConductorRecommendation
   connectorMinimumMa?: number
@@ -136,6 +140,12 @@ export interface SupplyRecommendation {
    * fuse at the supply.
    */
   trunk: SupplyTrunkPlan
+  /**
+   * The most current this zone's source can deliver (`supplyCeilingMa`), or
+   * absent when nothing limits it. Hardware is sized to it when it is below
+   * full white.
+   */
+  ceilingMa?: number
   /** Present when this 5 V zone is made by an SD-series rail converter. */
   converter?: RailConverterSupplyPlan
   /**
@@ -146,7 +156,10 @@ export interface SupplyRecommendation {
 }
 
 export interface SupplyTrunkPlan {
+  /** The zone's full-white load. */
   designCurrentMa: number
+  /** What the trunk and main fuse carry: full white, or the zone's ceiling when lower. */
+  sizingCurrentMa: number
   oneWayLengthMm: number
   conductor?: ConductorRecommendation
   mainFuse: FuseRecommendation
@@ -172,6 +185,8 @@ export interface DcSourceRecommendation {
   designCurrentMa: number
   recommendedCurrentMa: number
   recommendedWattage: number
+  /** The user's own supply feeding the rail converters, when the LED outputs name one. */
+  ownedSupply?: OwnedSupplyPlan
 }
 
 export interface RailConverterSupplyPlan {
@@ -188,6 +203,7 @@ export interface RailConverterSupplyPlan {
   inputFuse: FuseRecommendation
   isolated: boolean
   adjustable: boolean
+  outputCurrentLimit: PartPowerConverterSpec['outputCurrentLimit']
   source: PlanSource
   terminals: string[]
   integrated: boolean
@@ -360,6 +376,7 @@ function calculateInjections(
   maPerPixel: number,
   physicalLengthMm: number,
   nominalVoltage: number,
+  ceilingMa: number | null,
 ): PowerInjectionPlan[]
 function calculateInjections(
   itemId: string,
@@ -368,6 +385,7 @@ function calculateInjections(
   maPerPixel: number,
   physicalLengthMm: number,
   nominalVoltage: number,
+  ceilingMa: number | null,
   maxFeedDesignMa: number,
 ): PowerInjectionPlan[] | undefined
 function calculateInjections(
@@ -377,6 +395,7 @@ function calculateInjections(
   maPerPixel: number,
   physicalLengthMm: number,
   nominalVoltage: number,
+  ceilingMa: number | null,
   maxFeedDesignMa?: number,
 ): PowerInjectionPlan[] | undefined {
   // Ordinary 5 A / 10 A feeds stay on the current splitter. A converter zone
@@ -397,11 +416,13 @@ function calculateInjections(
   }
   return roles.map((role, index) => {
     const designCurrentMa = pixels[index] * maPerPixel
-    const connectorMinimumMa = connectorMinimumForLoad(designCurrentMa)
+    // A feed is never wired heavier than its supply can drive.
+    const sizingMa = sizingCurrentMa(designCurrentMa, ceilingMa)
+    const connectorMinimumMa = connectorMinimumForLoad(sizingMa)
     const conductor = recommendConductor({
       // Size the wire to carry the fuse that will protect it, so a standard
       // rating always fits between the load's minimum and the wire's ampacity.
-      designCurrentMa: standardFuseRatingFor(designCurrentMa) ?? Math.ceil(designCurrentMa / 0.75),
+      designCurrentMa: standardFuseRatingFor(sizingMa) ?? Math.ceil(sizingMa / 0.75),
       oneWayLengthMm: DEFAULT_FEED_CABLE_LENGTH_MM,
       circuitVoltage: nominalVoltage,
       allowedVoltageDropPercent: DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT,
@@ -410,9 +431,9 @@ function calculateInjections(
       bundledCircuits: 1,
     })
     const fuse = conductor && connectorMinimumMa
-      ? recommendFuse(designCurrentMa, conductor.deratedAmpacityMa, connectorMinimumMa)
+      ? recommendFuse(sizingMa, conductor.deratedAmpacityMa, connectorMinimumMa)
       : {
-          minimumLoadRatingMa: Math.ceil(designCurrentMa / 0.75),
+          minimumLoadRatingMa: Math.ceil(sizingMa / 0.75),
           maximumProtectiveRatingMa: 0,
           unresolvedReason: 'No reviewed branch conductor and connector combination meets this generated route.',
         }
@@ -425,6 +446,7 @@ function calculateInjections(
       ledIndex: roles.length <= 1 ? 1 : 1 + Math.round(((pixelCount - 1) * index) / (roles.length - 1)),
       pixelCount: pixels[index],
       designCurrentMa,
+      sizingCurrentMa: sizingMa,
       maximumCurrentMa: role === 'center' ? centerLimit : endLimit,
       conductor,
       connectorMinimumMa,
@@ -573,6 +595,16 @@ function planRailConverter(
   }
 }
 
+/** A rail converter's own output limit, the ceiling of every zone it makes. */
+function railConverterCeilingMa(railConverter: RailConverterContext): number | null {
+  return supplyCeilingMa({
+    converter: {
+      ratedCurrentMa: railConverter.module.spec.continuousCurrentMa,
+      outputCurrentLimit: railConverter.module.spec.outputCurrentLimit,
+    },
+  })
+}
+
 /** The Power Supplies on the bench, by manifest item id. */
 function ownedSupplyPlans(manifest: HardwareManifest): Map<string, OwnedSupplyPlan> {
   return new Map(manifest.primaryItems
@@ -620,11 +652,12 @@ function groupSupplies(
   ownedSupplies: ReadonlyMap<string, OwnedSupplyPlan>,
 ): SupplyRecommendation[] {
   const supplies: SupplyRecommendation[] = []
-  const groupCeilingMa = railConverter?.deratedCurrentMa ?? MAX_RECOMMENDED_SUPPLY_CURRENT_MA
   const newZone = (output: OutputElectricalPlan): SupplyRecommendation => {
     const ownedSupply = output.supplyItemId ? ownedSupplies.get(output.supplyItemId) : undefined
+    const ceilingMa = railConverter ? railConverterCeilingMa(railConverter) : supplyCeilingMa({ ownedSupply })
     const supply: SupplyRecommendation = {
       ...(ownedSupply ? { ownedSupply } : {}),
+      ...(ceilingMa != null ? { ceilingMa } : {}),
       id: `supply-${supplies.length + 1}`,
       designCurrentMa: 0,
       recommendedCurrentMa: 0,
@@ -632,7 +665,7 @@ function groupSupplies(
       outputIds: [],
       outputTitles: [],
       injectionIds: [],
-      trunk: { designCurrentMa: 0, oneWayLengthMm: DEFAULT_TRUNK_LENGTH_MM, mainFuse: { minimumLoadRatingMa: 0, maximumProtectiveRatingMa: 0 } },
+      trunk: { designCurrentMa: 0, sizingCurrentMa: 0, oneWayLengthMm: DEFAULT_TRUNK_LENGTH_MM, mainFuse: { minimumLoadRatingMa: 0, maximumProtectiveRatingMa: 0 } },
     }
     supplies.push(supply)
     return supply
@@ -649,6 +682,11 @@ function groupSupplies(
     injection.supplyId = supply.id
   }
   for (const output of outputs) {
+    // A converter zone is packed to the converter's derated output and a
+    // recommended zone to the largest common supply. The user's own supply is
+    // one physical zone, whatever it carries.
+    const groupCeilingMa = railConverter?.deratedCurrentMa
+      ?? (output.supplyItemId ? Number.POSITIVE_INFINITY : MAX_RECOMMENDED_SUPPLY_CURRENT_MA)
     const outputMa = output.injections.reduce((sum, injection) => sum + injection.designCurrentMa, 0)
     // Only zones on this output's own supply: zones never mix supplies.
     const ownZone = (candidate: SupplyRecommendation) => candidate.ownedSupply?.itemId === output.supplyItemId
@@ -705,19 +743,22 @@ function groupSupplies(
     }
   }
   for (const supply of supplies) {
-    supply.trunk = planTrunk(supply.designCurrentMa, nominalVoltageOf(outputs))
+    const ceilingMa = supply.ceilingMa ?? null
+    supply.trunk = planTrunk(supply.designCurrentMa, sizingCurrentMa(supply.designCurrentMa, ceilingMa), nominalVoltageOf(outputs))
     if (railConverter) {
-      // Size the input from the headroom-adjusted load. Capping at the
-      // nameplate understates the source current when the zone is overloaded.
-      const plannedOutputCurrentMa = headroomMa(supply.designCurrentMa)
-      if (plannedOutputCurrentMa > railConverter.deratedCurrentMa) {
+      // Size the input from the headroom-adjusted load, held to the
+      // converter's own output limit when it has one: a limited converter
+      // cannot draw more from its source than that limit allows.
+      const neededOutputCurrentMa = headroomMa(supply.designCurrentMa)
+      if (neededOutputCurrentMa > railConverter.deratedCurrentMa) {
         blockers.push({
           id: `${supply.id}:converter-zone-capacity`,
           severity: 'blocking',
           title: railConverter.module.label,
-          detail: `${railConverter.module.label} zone ${supply.id.replace('supply-', '')} would need ${formatRuleCurrent(plannedOutputCurrentMa)} with ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom, above the ${formatRuleCurrent(railConverter.deratedCurrentMa)} it can supply at ${ENCLOSURE_AMBIENT_C} °C.`,
+          detail: `${railConverter.module.label} zone ${supply.id.replace('supply-', '')} would need ${formatRuleCurrent(neededOutputCurrentMa)} with ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom, above the ${formatRuleCurrent(railConverter.deratedCurrentMa)} it can supply at ${ENCLOSURE_AMBIENT_C} °C.`,
         })
       }
+      const plannedOutputCurrentMa = sizingCurrentMa(neededOutputCurrentMa, ceilingMa)
       const inputCurrentMa = inputCurrentForOutputMa(
         railConverter.module.spec,
         railConverter.sourceVoltage,
@@ -738,10 +779,27 @@ function groupSupplies(
         inputFuse: input.fuse,
         isolated: railConverter.module.spec.isolated,
         adjustable: railConverter.module.spec.adjustable,
+        outputCurrentLimit: railConverter.module.spec.outputCurrentLimit,
         source: railConverter.source,
         terminals: railConverter.module.spec.terminals,
         integrated: railConverter.integrated,
       }
+    }
+  }
+  // FastLED's power cap is one figure for the whole board, so it cannot keep
+  // one of several supplies inside its rating when the bright pixels land on
+  // that supply's segment. Advice only: the wiring is sized to the supply.
+  const ownedZones = supplies.filter((supply) => supply.ownedSupply)
+  if (new Set(ownedZones.map((supply) => supply.ownedSupply!.itemId)).size > 1) {
+    for (const supply of ownedZones) {
+      const owned = supply.ownedSupply!
+      if (supply.designCurrentMa <= owned.ratedCurrentMa) continue
+      warnings.push({
+        id: `${owned.itemId}:segment-undersized`,
+        severity: 'warning',
+        title: owned.title,
+        detail: `${supply.outputTitles.join(', ')} ${supply.outputTitles.length === 1 ? 'draws' : 'draw'} ${formatRuleCurrent(supply.designCurrentMa)} at full white, more than ${owned.title}'s ${formatRuleCurrent(owned.ratedCurrentMa)}. The power cap is shared by the whole board, so it cannot keep this supply inside its rating when its segment is bright. Use a ${owned.voltage} V ${formatRuleCurrent(recommendedSupplyCurrentMa(supply.designCurrentMa))} supply for this segment. The wiring is sized for the ${formatRuleCurrent(owned.ratedCurrentMa)} supply, so it stays safe either way.`,
+      })
     }
   }
   return supplies
@@ -751,10 +809,10 @@ function nominalVoltageOf(outputs: OutputElectricalPlan[]): number {
   return outputs[0]?.nominalVoltage ?? 5
 }
 
-function planTrunk(designCurrentMa: number, nominalVoltage: number): SupplyTrunkPlan {
+function planTrunk(designCurrentMa: number, sizingMa: number, nominalVoltage: number): SupplyTrunkPlan {
   const conductor = recommendConductor({
     // Coordinated like a branch: the wire carries the main fuse's rating.
-    designCurrentMa: standardFuseRatingFor(designCurrentMa) ?? Math.ceil(designCurrentMa / 0.75),
+    designCurrentMa: standardFuseRatingFor(sizingMa) ?? Math.ceil(sizingMa / 0.75),
     oneWayLengthMm: DEFAULT_TRUNK_LENGTH_MM,
     circuitVoltage: nominalVoltage,
     allowedVoltageDropPercent: (MAX_TRUNK_VOLTAGE_DROP_V / nominalVoltage) * 100,
@@ -764,13 +822,13 @@ function planTrunk(designCurrentMa: number, nominalVoltage: number): SupplyTrunk
   })
   const mainFuse = conductor
     // A bolted lug on the trunk is rated with the cable, so the wire is the limit.
-    ? recommendFuse(designCurrentMa, conductor.deratedAmpacityMa, conductor.deratedAmpacityMa)
+    ? recommendFuse(sizingMa, conductor.deratedAmpacityMa, conductor.deratedAmpacityMa)
     : {
-        minimumLoadRatingMa: Math.ceil(designCurrentMa / 0.75),
+        minimumLoadRatingMa: Math.ceil(sizingMa / 0.75),
         maximumProtectiveRatingMa: 0,
         unresolvedReason: "No conductor in the reviewed table carries this zone's main fuse; split the zone across more supplies.",
       }
-  return { designCurrentMa, oneWayLengthMm: DEFAULT_TRUNK_LENGTH_MM, conductor, mainFuse }
+  return { designCurrentMa, sizingCurrentMa: sizingMa, oneWayLengthMm: DEFAULT_TRUNK_LENGTH_MM, conductor, mainFuse }
 }
 
 function planControllerSupply(
@@ -976,10 +1034,11 @@ export function calculateElectricalPlan(
     const physicalLengthMm = Math.round((pixelCount / densityPerMeter) * 1000)
     const designCurrentMa = pixelCount * draw.maPerLed
     const zoneBudgetMa = railConverter ? maxZoneDesignCurrentMa(railConverter.deratedCurrentMa) : undefined
+    const ceilingMa = railConverter ? railConverterCeilingMa(railConverter) : supplyCeilingMa({ ownedSupply })
     const injections = (zoneBudgetMa != null
-      ? calculateInjections(item.id, item.title, pixelCount, draw.maPerLed, physicalLengthMm, nominalVoltage, zoneBudgetMa)
+      ? calculateInjections(item.id, item.title, pixelCount, draw.maPerLed, physicalLengthMm, nominalVoltage, ceilingMa, zoneBudgetMa)
       : undefined)
-      ?? calculateInjections(item.id, item.title, pixelCount, draw.maPerLed, physicalLengthMm, nominalVoltage)
+      ?? calculateInjections(item.id, item.title, pixelCount, draw.maPerLed, physicalLengthMm, nominalVoltage, ceilingMa)
     const recommendedFeedCount = injections.length
     const pixelsPerFeed = Math.max(...injections.map((injection) => injection.pixelCount))
     const branchDesignCurrentMa = Math.max(...injections.map((injection) => injection.designCurrentMa))
@@ -991,9 +1050,9 @@ export function calculateElectricalPlan(
     const operatingCurrentCapMa = typeof operatingCurrentCapSource === 'number' && Number.isFinite(operatingCurrentCapSource)
       ? Math.max(0, Math.round(operatingCurrentCapSource))
       : undefined
-    // Hardware is sized for full white whatever the firmware limit says: a
-    // limit that is changed, cleared or never flashed must not overload the
-    // supply, the trunk or its fuse.
+    // The firmware limit never sizes hardware: a limit that is changed,
+    // cleared or never flashed must not overload the trunk or its fuse. The
+    // supply's own ceiling does (supplyCeilingMa), since no more can flow.
     const recommendedSupplyMa = recommendedSupplyCurrentMa(designCurrentMa)
     const recommendedSupplyWattage = Number(((recommendedSupplyMa / 1000) * nominalVoltage).toFixed(1))
 
@@ -1035,6 +1094,25 @@ export function calculateElectricalPlan(
     })
   }
 
+  // With a rail converter the user's supply sits upstream of it as the shared
+  // DC source. Each converter zone's ceiling is the converter; the supply is
+  // checked against the source voltage and the converters' combined draw.
+  const upstreamSupplies = railConverter && !batterySource
+    ? [...new Set(outputItems.map((item) => String(item.facts.supplyItemId ?? '')))]
+        .map((id) => ownedSupplies.get(id))
+        .filter((supply): supply is OwnedSupplyPlan => Boolean(supply))
+    : []
+  for (const supply of upstreamSupplies) {
+    if (!railConverter || supply.voltage === railConverter.sourceVoltage) continue
+    blockers.push({
+      id: `${supply.itemId}:source-voltage`,
+      severity: 'blocking',
+      title: supply.title,
+      detail: `${supply.title} is a ${supply.voltage} V supply, and the ${railConverter.module.label} is set to a ${railConverter.sourceVoltage} V source. Set the converter's source voltage to ${supply.voltage} V, or power it from a ${railConverter.sourceVoltage} V supply.`,
+    })
+  }
+  const upstreamSupply = upstreamSupplies.length === 1 ? upstreamSupplies[0] : undefined
+
   const totals = outputPlans.length > 0
     ? (() => {
       const nominalVoltage = outputPlans[0].nominalVoltage
@@ -1058,6 +1136,7 @@ export function calculateElectricalPlan(
             designCurrentMa: sourceInputCurrentMa,
             recommendedCurrentMa: recommendedSupplyCurrentMaForSource(sourceInputCurrentMa),
             recommendedWattage: Number(((recommendedSupplyCurrentMaForSource(sourceInputCurrentMa) / 1000) * railConverter.sourceVoltage).toFixed(1)),
+            ...(upstreamSupply ? { ownedSupply: upstreamSupply } : {}),
           }
         : undefined
       return {
@@ -1074,6 +1153,16 @@ export function calculateElectricalPlan(
       }
     })()
     : undefined
+
+  const source = totals?.source
+  if (source?.ownedSupply && source.ownedSupply.voltage === source.voltage && source.designCurrentMa > source.ownedSupply.ratedCurrentMa) {
+    warnings.push({
+      id: `${source.ownedSupply.itemId}:source-undersized`,
+      severity: 'warning',
+      title: source.ownedSupply.title,
+      detail: `The converters draw up to ${formatRuleCurrent(source.designCurrentMa)} from ${source.ownedSupply.title}, which is rated ${formatRuleCurrent(source.ownedSupply.ratedCurrentMa)}. Use a ${source.voltage} V ${formatRuleCurrent(source.recommendedCurrentMa)} supply, or lower the power cap so the converters stay inside it.`,
+    })
+  }
 
   if (!batterySource) {
     warnings.push(...pdTriggerWarnings(
@@ -1152,7 +1241,7 @@ export function calculateElectricalPlan(
     'Install one good-quality, correctly polarized 1000 uF, 6.3 V low-ESR electrolytic capacitor across +5 V and GND after every branch fuse, before the matrix feed or power-injection connection.',
     "Fit each supply's main fuse on its positive lead, as close to the supply terminal as the fuse holder allows, before the trunk reaches the fuse block.",
     'Reducing global brightness lowers operating power without changing the worst-case wiring recommendation.',
-    'Supplies, trunks, fuses and branch wiring are all sized for the uncapped full-white load. A FastLED current limit lowers running power and heat; it does not make smaller hardware safe.',
+    'Trunks, fuses and branch wiring are sized for the most current that can flow: the full-white load, or the rating of your own supply when that is lower. A FastLED current limit lowers running power and heat; it never sizes hardware.',
     ...batteryResult.recommendations,
   ]
   for (const output of outputPlans) {
@@ -1161,7 +1250,7 @@ export function calculateElectricalPlan(
     )
     if (output.operatingCurrentCapMa != null) {
       recommendations.push(
-        `${output.title}: configured ${formatRuleCurrent(output.operatingCurrentCapMa)} software limit; the hardware is still sized for its ${formatRuleCurrent(output.designCurrentMa)} full-white load.`,
+        `${output.title}: configured ${formatRuleCurrent(output.operatingCurrentCapMa)} software limit; the limit does not size the hardware.`,
       )
     }
     if (output.conductor && output.connectorMinimumMa && output.fuse.ratingMa) {
@@ -1172,15 +1261,15 @@ export function calculateElectricalPlan(
   }
 
   const assumptionsUsed = [
-    'WS2812B supplies, wiring and protection are sized at 60 mA per pixel full white; a configured firmware cap does not reduce any recommendation.',
+    'Full-white load per LED follows its chipset (60 mA for a 5 V RGB LED). Wiring and protection carry that load, or the rating of the supply or current-limited converter feeding it when that is lower; a configured firmware cap does not reduce any recommendation.',
     `${DEFAULT_LED_DENSITY_PER_METER} LEDs/m and ${DEFAULT_FEED_CABLE_LENGTH_MM} mm one-way copper feeds are used when the graph has no physical product dimensions.`,
     `Start and end feeds are limited to ${formatRuleCurrent(MAX_END_FEED_CURRENT_MA)}; centre feeds may carry up to ${formatRuleCurrent(MAX_CENTER_FEED_CURRENT_MA)} before splitting in both directions.`,
     railConverter
       ? `Supply groups are packed from uncapped full-white loads into ${railConverter.module.label} converters at ${ENCLOSURE_AMBIENT_C} °C with ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom; a feed larger than one zone is split across isolated converters, and separate converter outputs must not be paralleled.`
-      : `Supply groups are packed from uncapped full-white loads, up to approximately ${formatRuleCurrent(MAX_RECOMMENDED_SUPPLY_CURRENT_MA)} continuous each; positive rails from separate PSU zones must not be paralleled.`,
-    `Supply sizing targets ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom, then uses whole-amp sizes up to 10 A and 10 A sizes above that; a target less than 2 A above a 10 A boundary rounds down without going below the full-white load.`,
+      : `Supply groups are packed from uncapped full-white loads, up to approximately ${formatRuleCurrent(MAX_RECOMMENDED_SUPPLY_CURRENT_MA)} continuous each; a supply you entered is one zone whatever it carries; positive rails from separate PSU zones must not be paralleled.`,
+    `Supply sizing targets ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom, then rounds up to whole-amp sizes up to 10 A and 10 A sizes above that.`,
     `Branch conductor voltage drop is limited to ${DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT}% of the rail (${(nominalVoltageOf(outputPlans) * DEFAULT_ALLOWED_VOLTAGE_DROP_PERCENT) / 100} V at ${nominalVoltageOf(outputPlans)} V) over the complete ${DEFAULT_FEED_CABLE_LENGTH_MM} mm one-way feed circuit.`,
-    `Each supply's trunk to its fuse block is ${DEFAULT_TRUNK_LENGTH_MM} mm one way, sized for the uncapped sum of its branches and a further ${MAX_TRUNK_VOLTAGE_DROP_V} V of drop.`,
+    `Each supply's trunk to its fuse block is ${DEFAULT_TRUNK_LENGTH_MM} mm one way, sized for the uncapped sum of its branches (or the supply's rating when lower) and a further ${MAX_TRUNK_VOLTAGE_DROP_V} V of drop.`,
     'Conductor ampacities are NFPA 70 (2023) Table 310.16, 90 C copper, 30 C ambient.',
   ]
 
