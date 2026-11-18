@@ -12,7 +12,6 @@ import {
   findPinConflicts,
   findExactBoardPinIssues,
 } from '../../utils/validateGraph'
-import { estimateWireTime } from '../../utils/wireTime'
 import styles from './HardwareReadiness.module.css'
 
 /**
@@ -23,8 +22,10 @@ import styles from './HardwareReadiness.module.css'
  * and the figures that do answer it were computed continuously and then shown
  * only inside a node body, which the hardware refactor hid from the library.
  *
- * Four readouts (power, capacity, pins, frame rate), deliberately a strip rather than a panel: the preview is why
+ * Three readouts (power, capacity, pins), deliberately a strip rather than a panel: the preview is why
  * this side of the workbench exists, and a dashboard here would compete with it.
+ * No frame-rate readout: it sat beside the status bar's preview FPS and read as
+ * a second, disagreeing FPS. A wire-bound frame rate is advice in Checks.
  * Each one is quiet until it matters and states a number rather than a verdict,
  * because "1.9 A" tells you which supply to reach for and "power: warning" does
  * not.
@@ -60,7 +61,6 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
     () => estimateFirmwareRam(board.nodes, board.edges, displayDocuments, groups),
     [board, displayDocuments, groups],
   )
-  const wire = useMemo(() => estimateWireTime(board.nodes, board.edges), [board])
   const pinTrouble = useMemo(() => {
     const conflicts = findPinConflicts(board.nodes, board.edges, selectedFqbn)
     const exact = findExactBoardPinIssues(board.nodes)
@@ -84,7 +84,6 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
   // A cap is the answer to a large fixture, not a problem with it.
   const powerLevel = 'ok'
   const internalKb = ram ? Math.round(ram.internalBytes / 1024) : null
-  const wireMs = wire ? wire.estimatedMicros / 1000 : null
 
   const pinLevel = pinTrouble.errors > 0 ? 'bad' : pinTrouble.warnings > 0 ? 'warn' : 'ok'
   const pinText = pinTrouble.errors > 0
@@ -168,23 +167,6 @@ export default function HardwareReadiness({ compact = false }: HardwareReadiness
         <strong>{pinText}</strong>
         {internalKb !== null && <span className={styles.note}>{internalKb} KB RAM</span>}
       </span>
-
-      {/* The frame rate the wire allows on this board. Advice colour, never
-        * red: a wire-bound graph still runs, just slower than the Board asks,
-        * and Graph Health offers the fix. */}
-      {wire && wireMs !== null && (
-        <span className={styles.item} data-level={wire.wireBound ? 'warn' : 'ok'} aria-label={`Frame rate: ${wire.reachableFps} fps`} title={
-          `Sending ${wire.ledCount} LEDs on ${wire.controllerCount} ${wire.controllerCount === 1 ? 'output' : 'outputs'} takes about ${wireMs.toFixed(1)} ms on the ${wire.facts.chip}`
-          + ` (${wire.concurrency <= 1 || wire.controllerCount === 1 ? 'one at a time' : `${Math.min(wire.concurrency, wire.controllerCount)} at once`}${wire.networkActive && wire.rmt ? ', with the network up' : ''}).`
-          + (wire.wireBound
-            ? ` That allows about ${wire.reachableFps} fps of the Board's ${wire.frameRate}; Checks offers the fix.`
-            : ` The Board's ${wire.frameRate} fps fits; rendering and audio work come on top.`)
-        }>
-          <em className={styles.label}>Frame</em>
-          <strong>{wire.reachableFps} fps</strong>
-          <span className={styles.note}>{wire.wireBound ? 'wire-bound' : `${wireMs.toFixed(1)} ms wire`}</span>
-        </span>
-      )}
     </div>
   )
 }
