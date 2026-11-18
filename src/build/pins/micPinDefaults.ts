@@ -1,6 +1,6 @@
 // Board-aware I2S microphone compatibility and starting pins.
 //
-// Every module in `MIC_MODULES` wires the same three signals through the same
+// Every catalogued microphone wires the same three signals through the same
 // capture backends, so what this answers is a fact about the *board*, not
 // about which microphone is plugged into it. The names here used to say
 // INMP441 because that was the only module the app offered.

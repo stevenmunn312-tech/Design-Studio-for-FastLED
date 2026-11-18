@@ -1,4 +1,4 @@
-// The Add Hardware rows of the 26 catalogue-derived part types exactly as they were
+// The Add Hardware rows of the 30 catalogue-derived part types exactly as they were
 // written by hand before `partOptions.ts` derived them from the manifests. Frozen
 // on purpose: the derivation must reproduce every label, summary, note and the
 // order (the first row is the type's default module). Do not regenerate this from
@@ -305,6 +305,76 @@ export const LEGACY_OPTION_ROWS: Record<string, LegacyOptionRow[]> = {
       label: 'microSD breakout (3.3 V)',
       summary: 'Bare board — 3.3 V only',
       note: 'Bare board: no regulator, no level shifter. 5 V power or 5 V SPI can destroy the card.',
+    },
+  ],
+  MotionInput: [
+    {
+      id: 'hc-sr501-pir-sensor',
+      label: 'HC-SR501 PIR',
+      summary: 'Infrared: sees a warm body move',
+      note: 'Power VCC from 5 V. OUT is 3.3 V logic.',
+    },
+    {
+      id: 'rcwl-0516-microwave-motion-module',
+      label: 'RCWL-0516 microwave',
+      summary: 'Radar: senses movement through plastic',
+      note: 'Power VIN from 5 V (4 to 28 V). OUT is 3.3 V logic and stays high about two seconds after the last movement. Leave 3V3 and CDS unwired.',
+    },
+  ],
+  KeypadInput: [
+    {
+      id: 'matrix-keypad-4x4',
+      label: '4x4 matrix keypad',
+      summary: 'Sixteen keys on eight GPIOs',
+      note: 'Rows R1 to R4 go to pins with a pull-up and columns C1 to C4 to output pins. The keypad is passive and needs no power.',
+    },
+  ],
+  IRRemoteInput: [
+    {
+      id: 'ky-022-ir-receiver-module',
+      label: 'KY-022 module',
+      summary: 'IR remote receiver, 3-pin board with LED',
+      note: 'Some clones swap the outer two pins. Check the silkscreen on your board before wiring it — a swap puts the supply rail on a GPIO.',
+    },
+    {
+      id: 'keyestudio-ks0026-ir-receiver-module',
+      label: 'Keyestudio KS0026',
+      summary: '38 kHz IR receiver module with activity LED, 5 V',
+      note: 'Connect − to GND, + to 5 V and S to the input through the Build Diagram’s signal divider. Keyestudio specifies a 5 V supply; 3.3 V operation is not verified.',
+    },
+    {
+      id: 'tsop38238-ir-receiver',
+      label: 'TSOP38238',
+      summary: 'Bare 38 kHz IR receiver, datasheet pin order',
+      note: 'Its centre pin is ground, not the supply. Do not wire it to a KY-022 footprint without rechecking.',
+    },
+  ],
+  RelayOutput: [
+    {
+      id: 'relay-module-1ch-5v',
+      label: '1-channel relay',
+      summary: 'One active-low 5 V SPDT relay',
+    },
+    {
+      id: 'relay-module-2ch-5v',
+      label: '2-channel relay',
+      summary: 'Two active-low 5 V SPDT relays',
+    },
+    {
+      id: 'relay-module-4ch-5v',
+      label: '4-channel relay',
+      summary: 'Four active-low 5 V SPDT relays',
+    },
+    {
+      id: 'relay-module-8ch-5v',
+      label: '8-channel relay',
+      summary: 'Eight active-low 5 V SPDT relays',
+    },
+    {
+      id: 'seeed-grove-2ch-ssr',
+      label: 'Seeed Grove 2-channel SSR',
+      summary: 'Two AC phototriacs, 0.1-2 A, leak 1.5 mA off',
+      note: 'Wire CTR1 and CTR2 to GPIOs and VCC to 5 V. The screw terminals switch the AC load and are not logic pins.',
     },
   ],
 }

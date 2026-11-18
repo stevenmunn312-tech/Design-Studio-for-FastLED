@@ -29,13 +29,13 @@ import {
   type OledTransport,
 } from '../../state/displays/oledSurface'
 import {
-  oledControllerForProps, oledTransportForProps, tftControllerForProps, tftTransportForProps, xptTouchPinsForProps,
+  oledControllerForProps, oledTransportForProps, requireTftController, tftTransportForProps, xptTouchPinsForProps,
   type XptTouchPins,
 } from '../../state/nodeLibrary'
 import { shownDesignId,
   asTransportDisplayLayout, transportLayoutForKind, type TransportDisplayLayout,
 } from '../../state/displays/transportDisplay'
-import { asTftRotation, PARALLEL_TOUCH_ELECTRODES, TFT_CONTROLLERS, type TftController, type TftRotation } from '../../state/displays/tftSurface'
+import { asTftRotation, PARALLEL_TOUCH_ELECTRODES, type TftController, type TftRotation } from '../../state/displays/tftSurface'
 import { segmentModeForKind, segmentControllerFor, clampSegmentBrightness, type SegmentDisplayMode } from '../../state/displays/segmentDisplay'
 import { displayHasTouch, partById } from '../../build/parts/partCatalogue'
 import { emittedTouchBounds } from '../../state/displays/transportTouch'
@@ -527,7 +527,7 @@ export function playerDisplaysFromGraph(
         id: node.id,
         partId,
         layout: diagnostics ? 'Diagnostics' : resolved ?? 'Waiting',
-        controller: tftControllerForProps(props) ?? TFT_CONTROLLERS.ST7789,
+        controller: requireTftController(props),
         rotation: asTftRotation(props.tftRotation),
         csPin: intProp(props.csPin, 5),
         dcPin: intProp(props.dcPin, 16),

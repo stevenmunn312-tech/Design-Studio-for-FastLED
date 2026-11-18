@@ -1,5 +1,5 @@
 import { irRemoteButtonHandle } from '../../../state/peripherals/irRemote'
-import { KEYPAD_LEGENDS, keypadKeyPort } from '../../../state/peripherals/keypad'
+import { KEYPAD_PART_ID, keypadKeyPort, keypadLegends } from '../../../state/peripherals/keypad'
 import { TOUCH_PAD_PAD_COUNT, touchPadPadPort } from '../../../state/peripherals/touchPad'
 import { buttonBankHandle } from '../../../state/player/buttonBank'
 import { webRemotePortId } from '../../../state/peripherals/webRemote'
@@ -15,7 +15,7 @@ const UNPLUG_STAND_IN = 'Its Unplug toggle pulls the sensor out in the preview o
 const PAD_OUTPUTS = Object.fromEntries(Array.from({ length: TOUCH_PAD_PAD_COUNT }, (_, electrode) => [
   touchPadPadPort(electrode), `True while pad ${electrode} is touched.`,
 ]))
-const KEY_OUTPUTS = Object.fromEntries(KEYPAD_LEGENDS.map((legend, key) => [
+const KEY_OUTPUTS = Object.fromEntries(keypadLegends(KEYPAD_PART_ID).map((legend, key) => [
   keypadKeyPort(key), `True while the ${legend} key is held.`,
 ]))
 

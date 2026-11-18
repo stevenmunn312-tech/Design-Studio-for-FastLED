@@ -32,7 +32,7 @@ import type { PhysicalBoardProfile } from '../boards/boardProfiles'
 import { assignPartPins, type PartPinRequest } from '../parts/partPinAssignment'
 import { micPinDefaultsForBoard, micPinIsDefault } from './micPinDefaults'
 import { outputForm } from '../../state/output/ledOutputForm'
-import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from '../../state/peripherals/keypad'
+import { KEYPAD_MAX_COL_KEYS, KEYPAD_MAX_ROW_KEYS, keypadColKeys, keypadRowKeys } from '../../state/peripherals/keypad'
 import { profileI2cDefault } from '../boards/boardI2cDefaults'
 import { boardOffersPins } from '../boards/boardPinPolicy'
 import {
@@ -252,12 +252,13 @@ export const PART_PIN_PLANS: Record<string, PartPinPlan> = {
   AnalogSensorInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'analogInput' }] },
   // The 1-Wire bus is driven low and released, so it needs an output-capable pin.
   TemperatureInput: { keys: ['pin'], requests: [{ key: 'pin', capability: 'digitalOutput' }] },
-  // Four rows read through a pull-up and four columns driven low in turn.
+  // The part's rows read through a pull-up and its columns driven low in turn.
   KeypadInput: {
-    keys: [...KEYPAD_ROW_KEYS, ...KEYPAD_COL_KEYS],
+    keys: [...KEYPAD_MAX_ROW_KEYS, ...KEYPAD_MAX_COL_KEYS],
+    keysFor: (properties) => [...keypadRowKeys(properties.partId), ...keypadColKeys(properties.partId)],
     requests: [
-      ...KEYPAD_ROW_KEYS.map((key) => ({ key })),
-      ...KEYPAD_COL_KEYS.map((key) => ({ key, capability: 'digitalOutput' as const })),
+      ...KEYPAD_MAX_ROW_KEYS.map((key) => ({ key })),
+      ...KEYPAD_MAX_COL_KEYS.map((key) => ({ key, capability: 'digitalOutput' as const })),
     ],
   },
   // Two analog axes and a switch with a pull-up.

@@ -32,7 +32,9 @@
   ],
   "copy": {
     "summary": "38 kHz IR receiver module with activity LED, 5 V",
-    "wiringNote": "Connect − to GND, + to 5 V and S to the input through the Build Diagram’s signal divider. Keyestudio specifies a 5 V supply; 3.3 V operation is not verified."
+    "wiringNote": "Connect − to GND, + to 5 V and S to the input through the Build Diagram’s signal divider. Keyestudio specifies a 5 V supply; 3.3 V operation is not verified.",
+    "optionLabel": "Keyestudio KS0026",
+    "optionOrder": 2
   },
   "pads": [
     {
@@ -52,5 +54,9 @@
     }
   ],
   "padHoleRadiusPx": 6.1,
-  "supplyRail": "v5"
+  "supplyRail": "v5",
+  "irReceiver": {
+    "supplyVolts": 5,
+    "carrierKHz": 38
+  }
 }

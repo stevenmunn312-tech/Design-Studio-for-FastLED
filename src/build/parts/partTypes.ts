@@ -64,7 +64,7 @@ export const PART_TYPES: readonly PartTypeDefinition[] = [
   type({ nodeType: 'PdTriggerSource', block: 'pdTrigger', downloadable: true }),
   type({ nodeType: 'PowerMonitorInput', block: 'powerMonitor', deviceField: 'device', devices: ['INA219B', 'INA226'], downloadable: true }),
   // Switching
-  type({ nodeType: 'RelayOutput', block: 'relay' }),
+  type({ nodeType: 'RelayOutput', block: 'relay', downloadable: true }),
   type({ nodeType: 'PowerSwitchOutput', block: 'mosfet', downloadable: true }),
   type({ nodeType: 'DarlingtonDriverOutput', block: 'driverChip', deviceField: 'device', devices: ['ULN2803A'], downloadable: true }),
   type({ nodeType: 'PwmDriverOutput', block: 'pwmDriver', deviceField: 'device', devices: ['PCA9685'], downloadable: true }),
@@ -77,7 +77,7 @@ export const PART_TYPES: readonly PartTypeDefinition[] = [
   type({ nodeType: 'PresenceInput', block: 'presenceSensor', deviceField: 'device', devices: ['HLK-LD2410C'], downloadable: true }),
   type({ nodeType: 'DistanceInput', block: 'distanceSensor', deviceField: 'device', devices: ['HC-SR04', 'VL53L0X', 'VL53L1X'], downloadable: true }),
   type({ nodeType: 'TemperatureInput', block: 'temperatureSensor', deviceField: 'device', devices: ['DS18B20'], downloadable: true }),
-  type({ nodeType: 'MotionInput' }),
+  type({ nodeType: 'MotionInput', block: 'motionSensor', downloadable: true }),
   type({ nodeType: 'DigitalSensorInput', block: 'digitalSensor', downloadable: true }),
   type({ nodeType: 'AnalogSensorInput', block: 'analogSensor', downloadable: true }),
   // Controls
@@ -85,8 +85,8 @@ export const PART_TYPES: readonly PartTypeDefinition[] = [
   type({ nodeType: 'TouchPadInput', block: 'touchPad', deviceField: 'device', devices: ['MPR121'], downloadable: true }),
   type({ nodeType: 'JoystickInput', block: 'joystick', downloadable: true }),
   type({ nodeType: 'EncoderInput', block: 'encoder', downloadable: true }),
-  type({ nodeType: 'KeypadInput' }),
-  type({ nodeType: 'IRRemoteInput' }),
+  type({ nodeType: 'KeypadInput', block: 'keypad', downloadable: true }),
+  type({ nodeType: 'IRRemoteInput', block: 'irReceiver', downloadable: true }),
   // Displays
   type({ nodeType: 'InfoDisplay', block: 'display', deviceField: 'controller', devices: ['SSD1306', 'SH1106G'], downloadable: true }),
   // Closed: `TFT_CONTROLLERS` keeps per-module bench values (invert, colour order, offsets) per chip,

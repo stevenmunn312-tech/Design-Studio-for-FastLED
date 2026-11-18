@@ -4,7 +4,7 @@ import amplifierRender from '../../assets/components/max98357a-i2s-amplifier.web
 import powerSupplyRender from '../../assets/components/5v-psu.webp'
 import { transportDisplayPinKeysForProps, gpioRequirementForProperty } from '../../state/nodeLibrary'
 import { PART_FIELDS } from '../../build/parts/partFields'
-import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from '../../state/peripherals/keypad'
+import { KEYPAD_MAX_COL_KEYS, KEYPAD_MAX_ROW_KEYS } from '../../state/peripherals/keypad'
 import type { PartPinRequest } from '../../build/parts/partPinAssignment'
 import { segmentControllerFor } from '../../state/displays/segmentDisplay'
 import { OLED_TRANSPORT_PINS, oledTransportFor } from '../../state/displays/oledSurface'
@@ -18,7 +18,6 @@ import {
 import {
   DIGITAL_SENSOR_NODE_TYPE, DIGITAL_SENSOR_OUTPUT, digitalSensorEntries, digitalSensorSummary,
 } from '../../state/peripherals/digitalSensor'
-import { IR_RECEIVER_MODULES } from '../../state/peripherals/irModules'
 import { IR_REMOTE_LEARN_HANDLE } from '../../state/peripherals/irRemote'
 import { bundledMicModules } from '../../state/peripherals/micModules'
 import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
@@ -476,35 +475,6 @@ const MIC_INPUT_PARTS: readonly InputPartEntry[] = bundledMicModules().map((modu
   properties: { partId: module.partId },
 }))
 
-/*
- * One shelf row per IR receiver, derived from `IR_RECEIVER_MODULES` for the
- * same reason the microphones are: the shelf, the Add Hardware menu and the
- * part catalogue cannot then disagree about which receivers exist.
- *
- * The pin label comes from each module's own silkscreen — a KY-022 prints S
- * where Vishay's datasheet names the pin OUT — resolved through the catalogue
- * rather than restated here. These two are not pin-compatible, so showing the
- * name the board in front of you actually carries is the point.
- */
-const IR_INPUT_PARTS: readonly InputPartEntry[] = IR_RECEIVER_MODULES.map((module, index) => ({
-  nodeType: 'IRRemoteInput',
-  partId: index === 0 ? 'ir-remote' : `ir-remote-${module.partId}`,
-  label: module.label,
-  hint: module.summary,
-  footprint: partDimensionsMm(module.partId, { width: 22.06, height: 17.13 }),
-  signalPort: IR_REMOTE_LEARN_HANDLE,
-  dataType: 'bool',
-  pinRequests: [{ key: 'pin' }],
-  pinFields: [{
-    key: 'pin',
-    label: partPinLabelForProperty(module.partId, 'pin') ?? 'OUT',
-  }],
-  // The firmware library's receiver API is global, so one per bench until
-  // there is a tested multi-instance design.
-  singleton: true,
-  properties: { partId: module.partId },
-}))
-
 /** Node types whose parts come entirely from the catalogue: no code lists them, and none has a stand-in. */
 export const CATALOGUE_SENSOR_NODE_TYPES: ReadonlySet<string> = new Set([DIGITAL_SENSOR_NODE_TYPE, ANALOG_SENSOR_NODE_TYPE])
 
@@ -574,6 +544,14 @@ interface CataloguedInputType {
   uncataloguedDefault?: true
   /** Layout ids for non-default parts, where an older shelf id predates the part-id suffix. */
   suffix?: string
+  /**
+   * Bench layout ids a bundled part held before the shelf was derived, by part
+   * id, so a saved layout keeps its place. Only bundled parts appear here; every
+   * downloaded part is `<suffix>-<part id>`.
+   */
+  legacyLayoutIds?: Readonly<Record<string, string>>
+  /** One of these per bench: the firmware library's API is global. */
+  singleton?: true
 }
 
 const I2C_PINS: Pick<InputPartEntry, 'pinRequests' | 'pinFields'> = {
@@ -668,6 +646,50 @@ const CATALOGUED_INPUT_TYPES: readonly CataloguedInputType[] = [
     pins: () => ({ pinRequests: [{ key: 'rxPin' }], pinFields: [{ key: 'rxPin', label: 'RX (sensor TX)' }] }),
   },
   {
+    nodeType: 'MotionInput',
+    signalPort: 'motion',
+    dataType: 'bool',
+    layoutId: 'pir',
+    legacyLayoutIds: { 'rcwl-0516-microwave-motion-module': 'microwave-motion' },
+    pins: () => ({ pinRequests: [{ key: 'pin' }], pinFields: [{ key: 'pin', label: 'GPIO (OUT)' }] }),
+  },
+  {
+    // The part's rows are read through the pull-up and its columns driven low,
+    // so the pins and their pads follow the part's own geometry and labels.
+    nodeType: 'KeypadInput',
+    signalPort: 'key',
+    dataType: 'float',
+    layoutId: 'keypad',
+    pins: (entry) => {
+      const keypad = entry.keypad
+      const rows = keypad ? KEYPAD_MAX_ROW_KEYS.slice(0, keypad.rows) : []
+      const columns = keypad ? KEYPAD_MAX_COL_KEYS.slice(0, keypad.columns) : []
+      return {
+        pinRequests: [
+          ...rows.map((key) => ({ key })),
+          ...columns.map((key) => ({ key, capability: 'digitalOutput' as const })),
+        ],
+        pinFields: [
+          ...rows.map((key, index) => ({ key, label: `GPIO (${keypad!.rowLabels[index]})` })),
+          ...columns.map((key, index) => ({ key, label: `GPIO (${keypad!.columnLabels[index]})` })),
+        ],
+      }
+    },
+  },
+  {
+    // The pad name comes from each module's own silkscreen: a KY-022 prints S
+    // where Vishay's datasheet names the pin OUT, and the two are not pin-compatible.
+    nodeType: 'IRRemoteInput',
+    signalPort: IR_REMOTE_LEARN_HANDLE,
+    dataType: 'bool',
+    layoutId: 'ir-remote',
+    singleton: true,
+    pins: (entry) => ({
+      pinRequests: [{ key: 'pin' }],
+      pinFields: [{ key: 'pin', label: partPinLabelForProperty(entry.partId, 'pin') ?? 'OUT' }],
+    }),
+  },
+  {
     // A bare encoder has no breakout, so its pins must take the controller's
     // pull-up, which rules out the input-only GPIOs that have none.
     nodeType: 'EncoderInput',
@@ -706,7 +728,9 @@ function cataloguedInputPartEntries(which: 'bundled' | 'registered'): InputPartE
       const facts = type.pins(manifest)
       return {
         nodeType: type.nodeType,
-        partId: isDefault ? type.layoutId : `${type.suffix ?? type.layoutId}-${manifest.partId}`,
+        partId: isDefault ? type.layoutId
+          : (which === 'bundled' ? type.legacyLayoutIds?.[manifest.partId] : undefined)
+            ?? `${type.suffix ?? type.layoutId}-${manifest.partId}`,
         label: manifest.label,
         hint: manifest.copy?.hint ?? manifest.copy?.summary ?? '',
         footprint: manifest.dimensionsMm,
@@ -722,6 +746,7 @@ function cataloguedInputPartEntries(which: 'bundled' | 'registered'): InputPartE
             : partPinLabelForProperty(manifest.partId, field.key) ?? field.label,
         })),
         ...(facts.connectionSummary ? { connectionSummary: facts.connectionSummary } : {}),
+        ...(type.singleton ? { singleton: true } : {}),
         properties: { partId: manifest.partId, ...(type.extraProperties ?? {}) },
       }
     })
@@ -850,48 +875,6 @@ const HAND_WRITTEN_INPUT_PARTS: readonly InputPartEntry[] = [
     pinFields: [{ key: 'pin', label: 'GPIO' }],
   },
   {
-    nodeType: 'MotionInput',
-    partId: 'pir',
-    label: 'HC-SR501 PIR sensor',
-    hint: 'Goes high while it sees movement',
-    footprint: partDimensionsMm('hc-sr501-pir-sensor', { width: 32, height: 24 }),
-    signalPort: 'motion',
-    dataType: 'bool',
-    pinRequests: [{ key: 'pin' }],
-    pinFields: [{ key: 'pin', label: 'GPIO' }],
-    properties: { partId: 'hc-sr501-pir-sensor' },
-  },
-  {
-    nodeType: 'MotionInput',
-    partId: 'microwave-motion',
-    label: 'RCWL-0516 microwave motion sensor',
-    hint: 'Goes high while its radar senses movement, even through a plastic case',
-    footprint: partDimensionsMm('rcwl-0516-microwave-motion-module', { width: 36, height: 17 }),
-    signalPort: 'motion',
-    dataType: 'bool',
-    pinRequests: [{ key: 'pin' }],
-    pinFields: [{ key: 'pin', label: 'GPIO (OUT)' }],
-    properties: { partId: 'rcwl-0516-microwave-motion-module' },
-  },
-  {
-    nodeType: 'KeypadInput',
-    partId: 'keypad',
-    label: '4x4 matrix keypad',
-    hint: 'Sixteen keys read through eight GPIOs',
-    footprint: partDimensionsMm('matrix-keypad-4x4', { width: 69, height: 80.5 }),
-    signalPort: 'key',
-    dataType: 'float',
-    pinRequests: [
-      ...KEYPAD_ROW_KEYS.map((key) => ({ key })),
-      ...KEYPAD_COL_KEYS.map((key) => ({ key, capability: 'digitalOutput' as const })),
-    ],
-    pinFields: [
-      ...KEYPAD_ROW_KEYS.map((key, index) => ({ key, label: `GPIO (R${index + 1})` })),
-      ...KEYPAD_COL_KEYS.map((key, index) => ({ key, label: `GPIO (C${index + 1})` })),
-    ],
-    properties: { partId: 'matrix-keypad-4x4' },
-  },
-  {
     nodeType: 'EncoderInput',
     partId: 'encoder',
     label: 'Rotary encoder',
@@ -952,7 +935,6 @@ function registeredInputPartEntries(base: readonly InputPartEntry[]): InputPartE
 export const inputPartEntries: () => readonly InputPartEntry[] = memoByCatalogue(() => {
   const base: readonly InputPartEntry[] = [
     ...MIC_INPUT_PARTS,
-    ...IR_INPUT_PARTS,
     ...sensorInputPartEntries(),
     ...cataloguedInputPartEntries('bundled'),
     ...HAND_WRITTEN_INPUT_PARTS,

@@ -48,7 +48,9 @@
     }
   ],
   "copy": {
-    "summary": "One active-low 5 V SPDT relay"
+    "summary": "One active-low 5 V SPDT relay",
+    "optionLabel": "1-channel relay",
+    "optionOrder": 1
   },
   "pads": [
     {

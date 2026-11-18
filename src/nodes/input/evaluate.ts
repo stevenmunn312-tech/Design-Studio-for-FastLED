@@ -22,7 +22,7 @@ import {
   temperaturePreviewDefault, temperaturePreviewKey, temperaturePreviewReading,
 } from '../../state/peripherals/temperatureSensor'
 import { joystickAxis, joystickPreviewKey } from '../../state/peripherals/joystick'
-import { KEYPAD_KEY_COUNT, keypadButtonKey, keypadDigit, keypadKeyPort, keypadLastKey, keypadScanKey } from '../../state/peripherals/keypad'
+import { keypadButtonKey, keypadDigit, keypadKeyCount, keypadKeyPort, keypadLastKey, keypadScanKey } from '../../state/peripherals/keypad'
 import {
   MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewKey, motionVectorPreviewReading, motionVectorShake,
 } from '../../state/peripherals/motionVector'
@@ -58,7 +58,7 @@ import {
   asTransportDisplayLayout,
   transportLayoutForKind,
 } from '../../state/displays/transportDisplay'
-import { type TftController, type TftRotation, TFT_CONTROLLERS, asTftRotation } from '../../state/displays/tftSurface'
+import { type TftController, type TftRotation, asTftRotation } from '../../state/displays/tftSurface'
 import {
   touchRegionAt,
   transportTouchRegions,
@@ -265,7 +265,9 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
       designBundleState.set(stateKey(node.id), edgeState)
       return { controls, ...samples }
     }
-    const panelController = tftControllerForProps(panelProps) ?? TFT_CONTROLLERS.ST7789
+    // A panel this version does not have reads no touch; it is held out of the build.
+    const panelController = tftControllerForProps(panelProps)
+    if (!panelController) return { controls: blankPlayerControls() }
     const panelRotation = asTftRotation(panelProps.tftRotation)
     const panelSignalValue = input(panelId, 'display', null)
     const panelSignal = isDisplaySignal(panelSignalValue) ? panelSignalValue : null
@@ -440,16 +442,17 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
   // No keypad in the browser: the node body's sixteen buttons stand in for the
   // keys, and the last one pressed is held the way the firmware holds it. The
   // per-key outputs follow the sketch's scan, which reports one key at a time.
-  KeypadInput({ stateKey }, id) {
+  KeypadInput({ stateKey }, id, props) {
     const state = useHardwareInputStore.getState()
-    const held = keypadScanKey((key) => key < KEYPAD_KEY_COUNT && Boolean(state.button.get(keypadButtonKey(id, key))))
+    const keyCount = keypadKeyCount(props.partId)
+    const held = keypadScanKey(props.partId, (key) => key < keyCount && Boolean(state.button.get(keypadButtonKey(id, key))))
     const last = state.pot.get(keypadLastKey(id)) ?? 0
     const digitKey = markStateUsed(stateKey(id))
-    const digit = keypadDigit(last) ?? keypadDigitState.get(digitKey) ?? 0
+    const digit = keypadDigit(props.partId, last) ?? keypadDigitState.get(digitKey) ?? 0
     keypadDigitState.set(digitKey, digit)
     return {
       key: last, pressed: held >= 0, digit,
-      ...Object.fromEntries(Array.from({ length: KEYPAD_KEY_COUNT }, (_, key) => [keypadKeyPort(key), held === key])),
+      ...Object.fromEntries(Array.from({ length: keyCount }, (_, key) => [keypadKeyPort(key), held === key])),
     }
   },
   // No stick in the browser: two sliders stand in for the axes (centred at

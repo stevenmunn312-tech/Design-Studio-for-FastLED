@@ -1,6 +1,6 @@
 import { DISPLAY_DOCUMENT_LIMITS, type DisplayDocument } from '../../state/displays/displayDocument'
 import { tftControllerForProps } from '../../state/nodeLibrary'
-import { asTftRotation, TFT_CONTROLLERS } from '../../state/displays/tftSurface'
+import { asTftRotation } from '../../state/displays/tftSurface'
 import { CUSTOM_DISPLAY_PANEL_RAM_BYTES, customDisplayPanelBufferPixels } from './customDisplayPanelCpp'
 import { CUSTOM_DISPLAY_WIDGET_RAM_BYTES } from './customDisplayLvglCpp'
 
@@ -9,7 +9,10 @@ import { CUSTOM_DISPLAY_WIDGET_RAM_BYTES } from './customDisplayLvglCpp'
  * Missing documents reserve the maximum cache array until validation repairs
  * them. Fonts and baked image/thumbnail bytes stay in flash, not internal RAM. */
 export function customDisplayRamBytes(props: Record<string, unknown>, document?: DisplayDocument): number {
-  const controller = tftControllerForProps(props) ?? TFT_CONTROLLERS.ST7789V
+  // A panel this version cannot resolve has no buffer to price: its own blocking
+  // issue (`unresolvedNodeIssues`) already stops the build.
+  const controller = tftControllerForProps(props)
+  if (!controller) return 0
   const pixels = customDisplayPanelBufferPixels(controller, asTftRotation(props.tftRotation))
   const widgets = Math.max(1, document?.widgets.length ?? DISPLAY_DOCUMENT_LIMITS.widgetsPerDocument)
   return CUSTOM_DISPLAY_PANEL_RAM_BYTES + pixels * 2 + widgets * CUSTOM_DISPLAY_WIDGET_RAM_BYTES

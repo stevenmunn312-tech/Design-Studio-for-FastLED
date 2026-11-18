@@ -2,6 +2,7 @@ import type { ElectricalPlanSummary } from '../../build/power/electricalPlan'
 import { POWER_PATH_KINDS, type HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/power/powerDistribution'
 import { partById, partPinLabelForProperty, sharedPadsAcrossBoards } from '../../build/parts/partCatalogue'
+import { keypadSpec } from '../../state/peripherals/keypad'
 import { CONVERTER_SHEET_WIDTH } from './controllerGeometry'
 import { oledTransportFor, type OledTransport } from '../../state/displays/oledSurface'
 import { receiveDividerSource } from '../../build/pins/receiveDivider'
@@ -697,6 +698,11 @@ const SIGNAL_PAD_NAMES: Partial<Record<HardwareManifestItem['kind'], string[][]>
  * from a second list of which part ids are I2C.
  */
 function signalPadNames(item: HardwareManifestItem): string[][] | undefined {
+  // A keypad's pads are the rows then the columns, named as its part prints them.
+  if (item.kind === 'keypad-input') {
+    const keypad = keypadSpec(item.facts.partId)
+    if (keypad) return [...keypad.rowLabels, ...keypad.columnLabels].map((label) => [label])
+  }
   if (item.kind === 'info-display') {
     const transport = oledTransportFor(partById(String(item.facts.partId ?? ''))?.display?.interface)
     return OLED_PAD_NAMES[transport]

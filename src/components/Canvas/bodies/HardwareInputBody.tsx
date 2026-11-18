@@ -17,7 +17,7 @@ import {
   temperaturePreviewDefault, temperaturePreviewKey, temperaturePreviewReading,
 } from '../../../state/peripherals/temperatureSensor'
 import { joystickAxis, joystickPreviewKey } from '../../../state/peripherals/joystick'
-import { KEYPAD_LEGENDS, keypadButtonKey, keypadLastKey } from '../../../state/peripherals/keypad'
+import { keypadButtonKey, keypadColumnCount, keypadLastKey, keypadLegends } from '../../../state/peripherals/keypad'
 import { touchPadButtonKey, touchPadElectrodeCount, touchPadLastElectrode } from '../../../state/peripherals/touchPad'
 import {
   MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewKey, motionVectorPreviewReading,
@@ -223,14 +223,14 @@ function MotionVectorInputWidget({ nodeId, partId }: { nodeId: string; partId: u
   ))}<UnplugToggle nodeId={nodeId} /></>
 }
 
-function KeypadInputWidget({ nodeId }: { nodeId: string }) {
+function KeypadInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
   const buttons = useHardwareInputStore((s) => s.button)
   const setButton = useHardwareInputStore((s) => s.setButton)
   const setPot = useHardwareInputStore((s) => s.setPot)
   const release = (key: number) => setButton(keypadButtonKey(nodeId, key), false)
   return (
-    <div className={`nodrag ${styles.keypad}`}>
-      {KEYPAD_LEGENDS.map((legend, key) => {
+    <div className={`nodrag ${styles.keypad}`} style={{ gridTemplateColumns: `repeat(${keypadColumnCount(partId)}, 1fr)` }}>
+      {keypadLegends(partId).map((legend, key) => {
         const down = buttons.get(keypadButtonKey(nodeId, key)) ?? false
         return (
           <button
@@ -384,7 +384,7 @@ function EncoderInputWidget({ nodeId, resetOnPress }: { nodeId: string; resetOnP
 export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = false, partId, maxLux, deadzone }: { nodeId: string; nodeType: string; resetOnPress?: boolean; partId?: unknown; maxLux?: unknown; deadzone?: unknown }) {
   if (nodeType === 'PowerMonitorInput') return <PowerMonitorWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'MotionVectorInput') return <MotionVectorInputWidget nodeId={nodeId} partId={partId} />
-  if (nodeType === 'KeypadInput') return <KeypadInputWidget nodeId={nodeId} />
+  if (nodeType === 'KeypadInput') return <KeypadInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'TouchPadInput') return <TouchPadInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'JoystickInput') return <JoystickInputWidget nodeId={nodeId} deadzone={deadzone} />
   if (nodeType === 'DistanceInput') return <DistanceInputWidget nodeId={nodeId} partId={partId} />

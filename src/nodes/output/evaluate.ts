@@ -57,7 +57,7 @@ import {
   type TransportClockData,
   renderTransportDisplay,
 } from '../../state/displays/transportDisplay'
-import { TFT_CONTROLLERS, asTftRotation, tftLine } from '../../state/displays/tftSurface'
+import { asTftRotation, tftLine } from '../../state/displays/tftSurface'
 import { displayHasTouch, partById } from '../../build/parts/partCatalogue'
 import {
   POWER_SWITCH_RGB_SIGNAL_PORTS, powerSwitchChannels, powerSwitchDims, powerSwitchGate, powerSwitchLoad, powerSwitchRgb,
@@ -271,7 +271,9 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
     const enabled = incoming.has(`${id}:enabled`)
       ? Boolean(input(id, 'enabled', true))
       : props.enabled !== false
-    const controller = tftControllerForProps(props) ?? TFT_CONTROLLERS.ST7789
+    // A panel this version does not have draws nothing; it is held out of the build.
+    const controller = tftControllerForProps(props)
+    if (!controller) return out
     const rotation = asTftRotation(props.tftRotation)
     // One content input, exactly as the OLED beside it. What is plugged in
     // picks the screen; `tftLayout` only chooses between the treatments

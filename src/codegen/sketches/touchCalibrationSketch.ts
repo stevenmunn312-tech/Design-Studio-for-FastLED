@@ -20,7 +20,6 @@
  */
 
 import {
-  TFT_CONTROLLERS,
   TFT_LETTER_SPACING,
   tftMadctl,
   tftRotatedSize,
@@ -220,7 +219,7 @@ export function generateTouchCalibrationSketch(target: TouchCalibrationSketchTar
  */
 export function touchCalibrationTargetFor(
   panelProperties: Record<string, unknown>,
-  controller: TftController | null,
+  controller: TftController,
   rotation: TftRotation,
   touchProperties?: Record<string, unknown>,
 ): TouchCalibrationSketchTarget {
@@ -229,7 +228,7 @@ export function touchCalibrationTargetFor(
     return Number.isFinite(value) && value >= 0 && value <= 255 ? value : fallback
   }
   return {
-    controller: controller ?? TFT_CONTROLLERS.ST7789,
+    controller,
     rotation,
     csPin: pin('csPin', 5),
     dcPin: pin('dcPin', 16),

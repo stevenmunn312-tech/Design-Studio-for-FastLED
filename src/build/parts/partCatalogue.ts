@@ -417,6 +417,43 @@ export interface PartDigitalSensorSpec {
   idleLabel: string
 }
 
+/**
+ * Contract carried by a one-pin motion sensor (a PIR or a microwave radar
+ * module). The node's behaviour is fixed in code; the sense of its output and
+ * what it is powered from are here.
+ */
+export interface PartMotionSensorSpec {
+  /** The level OUT reads while the module sees movement. */
+  activeLevel: 'high' | 'low'
+  /** How long OUT stays at the active level after the last movement, when the module fixes it. */
+  holdSeconds?: number
+  /** What the module's supply pad is powered from. */
+  supplyVolts: number
+}
+
+/**
+ * Contract carried by a passive switch-matrix keypad: the geometry the scan
+ * reads and what each key is printed with. A keypad has no supply or ground.
+ */
+export interface PartKeypadSpec {
+  rows: number
+  columns: number
+  /** What each key is printed with, row by row; `rows * columns` entries. */
+  legends: string[]
+  /** The pad printed for each row, top to bottom. */
+  rowLabels: string[]
+  /** The pad printed for each column, left to right. */
+  columnLabels: string[]
+}
+
+/** Contract carried by a demodulating IR receiver module. */
+export interface PartIrReceiverSpec {
+  /** What the module's supply pad is powered from; 4.5 V and over needs a divided signal into the logic input. */
+  supplyVolts: number
+  /** The carrier the demodulator is tuned to. */
+  carrierKHz?: number
+}
+
 /** One point of a calibration curve: the pin voltage, and what it means. */
 export interface PartCalibrationPoint {
   volts: number
@@ -657,6 +694,12 @@ export interface PartCatalogueEntry {
   digitalSensor?: PartDigitalSensorSpec
   /** Present exactly on one-pin analog sensors read through a calibration curve. */
   analogSensor?: PartAnalogSensorSpec
+  /** Present exactly on one-pin PIR and microwave motion modules. */
+  motionSensor?: PartMotionSensorSpec
+  /** Present exactly on passive switch-matrix keypads. */
+  keypad?: PartKeypadSpec
+  /** Present exactly on demodulating IR receiver modules. */
+  irReceiver?: PartIrReceiverSpec
   /**
    * Where each catalogued pad sits on the render, in the render's own pixels,
    * in `pinLabelsLeftToRight` order. The Build Diagram draws wires to these;

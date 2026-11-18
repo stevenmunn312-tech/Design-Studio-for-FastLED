@@ -7,10 +7,9 @@ import type { RenderIndicator } from '../../../build/boards/boardCapabilities'
 import type { StudioEdge, StudioNode } from '../../../state/graphStore'
 import { evaluateGraphFull, resetEvaluatorState } from '../../../state/graphEvaluator'
 import { useHardwareInputStore } from '../../../state/peripherals/hardwareInputStore'
-import { IR_RECEIVER_MODULES } from '../../../state/peripherals/irModules'
 import { IR_RECEIVING_KEY } from '../../../state/peripherals/irRemote'
 import { libraryDefaults, NODE_LIBRARY } from '../../../state/nodeLibrary'
-import { PART_CATALOGUE, partById } from '../../../build/parts/partCatalogue'
+import { PART_CATALOGUE, bundledPartsForType, partById } from '../../../build/parts/partCatalogue'
 import { pdTriggerSpec } from '../../../state/peripherals/pdTrigger'
 import { usePreviewStore } from '../../../state/previewStore'
 import { relayChannelCountForPart, relayEnergisedKey } from '../../../state/peripherals/relayModule'
@@ -97,7 +96,7 @@ describe('what lights a bench indicator', () => {
 
 describe('imported indicators', () => {
   it('sit inside their render and name a drive their part has', () => {
-    const irParts = new Set(IR_RECEIVER_MODULES.map((module) => module.partId))
+    const irParts = new Set(bundledPartsForType('IRRemoteInput').map((module) => module.partId))
     for (const entry of Object.values(PART_CATALOGUE)) {
       const render = entry.render
       for (const indicator of render?.indicators ?? []) {

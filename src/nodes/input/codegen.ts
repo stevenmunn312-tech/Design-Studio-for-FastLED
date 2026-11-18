@@ -6,6 +6,7 @@ import { environmentSensorLoopCpp } from '../../codegen/peripherals/environmentS
 import { temperatureSensorLoopCpp } from '../../codegen/peripherals/temperatureSensorCpp'
 import { distanceSensorLoopCpp, distanceSensorXshutSetupCpp } from '../../codegen/peripherals/distanceSensorCpp'
 import { distanceSensorTransport } from '../../state/peripherals/distanceSensor'
+import { motionActiveLevel } from '../../state/peripherals/motionSensor'
 import { joystickLoopCpp, joystickSetupCpp } from '../../codegen/peripherals/joystickCpp'
 import { keypadKeysRead, keypadLoopCpp, keypadSetupCpp } from '../../codegen/peripherals/keypadCpp'
 import { motionVectorLoopCpp } from '../../codegen/peripherals/motionVectorCpp'
@@ -53,13 +54,15 @@ export const INPUT_EMITTERS: NodeEmitters = {
     firmware.loop.forEach(ln)
   },
   MotionInput({ p, ln, v, pinSetupLines }) {
-    // HC-SR501's OUT idles low and goes high on movement — the opposite
-    // sense to a Button, which reads a pulled-up contact. Plain
-    // INPUT: the module drives the line both ways, so a pull-up would only
-    // fight it.
+    // The part's `motionSensor` block says which level means movement (an
+    // HC-SR501's OUT idles low and goes high — the opposite sense to a Button,
+    // which reads a pulled-up contact). Plain INPUT: the module drives the
+    // line both ways, so a pull-up would only fight it.
+    const level = motionActiveLevel(p.partId)
+    if (level === null) return
     const pin = sanitizePin(p.pin, 5)
     pinSetupLines.add(`  pinMode(${pin}, INPUT);`)
-    ln(`  bool ${v('motion')} = digitalRead(${pin}) == HIGH;`)
+    ln(`  bool ${v('motion')} = digitalRead(${pin}) == ${level === 'high' ? 'HIGH' : 'LOW'};`)
   },
   LightInput({ id, p, ln, v }) {
     for (const line of lightSensorLoopCpp(p, id, v)) ln(line)
@@ -80,7 +83,7 @@ export const INPUT_EMITTERS: NodeEmitters = {
   KeypadInput({ node, id, p, ln, v, pinSetupLines, edges }) {
     const ports = wiredPorts(node.id, edges)
     for (const line of keypadSetupCpp(p)) pinSetupLines.add(line)
-    for (const line of keypadLoopCpp(p, id, v, keypadKeysRead(ports), ports.has('digit'))) ln(line)
+    for (const line of keypadLoopCpp(p, id, v, keypadKeysRead(p.partId, ports), ports.has('digit'))) ln(line)
   },
   JoystickInput({ p, ln, v, pinSetupLines }) {
     for (const line of joystickSetupCpp(p)) pinSetupLines.add(line)

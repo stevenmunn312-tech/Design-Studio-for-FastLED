@@ -31,7 +31,9 @@
   ],
   "copy": {
     "summary": "IR remote receiver, 3-pin board with LED",
-    "wiringNote": "Some clones swap the outer two pins. Check the silkscreen on your board before wiring it — a swap puts the supply rail on a GPIO."
+    "wiringNote": "Some clones swap the outer two pins. Check the silkscreen on your board before wiring it — a swap puts the supply rail on a GPIO.",
+    "optionLabel": "KY-022 module",
+    "optionOrder": 1
   },
   "pads": [
     {
@@ -51,5 +53,9 @@
     }
   ],
   "padHoleRadiusPx": 4,
-  "supplyRail": "v3v3"
+  "supplyRail": "v3v3",
+  "irReceiver": {
+    "supplyVolts": 3.3,
+    "carrierKHz": 38
+  }
 }

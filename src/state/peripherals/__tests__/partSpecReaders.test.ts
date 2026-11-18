@@ -23,7 +23,9 @@ import { environmentSensorSpec, environmentAddressOptions, BME280_PART_ID } from
 import { distanceSensorSpec, distanceSensorTransport, distanceSensorAddressOptions, HCSR04_PART_ID, VL53L0X_PART_ID } from '../distanceSensor'
 import { lightSensorModule, lightSensorTransport, lightSensorAddressOptions, DEFAULT_LIGHT_SENSOR_PART_ID, BH1750_PART_ID } from '../lightSensor'
 import { micModuleFor, DEFAULT_MIC_PART_ID } from '../micModules'
-import { irReceiverModuleFor, DEFAULT_IR_RECEIVER_PART_ID } from '../irModules'
+import { irReceiverSpec, DEFAULT_IR_RECEIVER_PART_ID } from '../irModules'
+import { KEYPAD_PART_ID, keypadSpec } from '../keypad'
+import { MOTION_SENSOR_PART_ID, motionSensorSpec } from '../motionSensor'
 import { powerConverterModuleFor, DEFAULT_POWER_CONVERTER_PART_ID } from '../powerConverter'
 import { partIdOrDefault } from '../partSpec'
 
@@ -48,7 +50,9 @@ describe('a peripheral reader never returns another part\'s facts', () => {
     ['distanceSensorSpec', distanceSensorSpec, HCSR04_PART_ID],
     ['lightSensorModule', lightSensorModule, DEFAULT_LIGHT_SENSOR_PART_ID],
     ['micModuleFor', micModuleFor, DEFAULT_MIC_PART_ID],
-    ['irReceiverModuleFor', irReceiverModuleFor, DEFAULT_IR_RECEIVER_PART_ID],
+    ['irReceiverSpec', irReceiverSpec, DEFAULT_IR_RECEIVER_PART_ID],
+    ['keypadSpec', keypadSpec, KEYPAD_PART_ID],
+    ['motionSensorSpec', motionSensorSpec, MOTION_SENSOR_PART_ID],
     ['powerConverterModuleFor', powerConverterModuleFor, DEFAULT_POWER_CONVERTER_PART_ID],
   ]
 

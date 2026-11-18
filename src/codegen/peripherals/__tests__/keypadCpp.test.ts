@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { keypadKeysRead, keypadLoopCpp, keypadSetupCpp } from '../keypadCpp'
 import { libraryDefaults } from '../../../state/nodeLibrary'
-import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from '../../../state/peripherals/keypad'
+import { KEYPAD_MAX_COL_KEYS, KEYPAD_MAX_ROW_KEYS, KEYPAD_PART_ID } from '../../../state/peripherals/keypad'
 
 const local = (port: string) => `n_pad_${port}`
 
@@ -11,8 +11,8 @@ describe('keypad firmware pins', () => {
     // on the same pins: a column driven low read back on its own row line, so
     // key 0 counted as pressed every frame on a keypad with no pin properties.
     const defaults = libraryDefaults('KeypadInput')
-    const rows = KEYPAD_ROW_KEYS.map((key) => defaults[key])
-    const cols = KEYPAD_COL_KEYS.map((key) => defaults[key])
+    const rows = KEYPAD_MAX_ROW_KEYS.map((key) => defaults[key])
+    const cols = KEYPAD_MAX_COL_KEYS.map((key) => defaults[key])
     const loop = keypadLoopCpp({}, 'pad', local)
     expect(loop).toContain(`  static const uint8_t _kpRows_pad[4] = {${rows.join(', ')}};`)
     expect(loop).toContain(`  static const uint8_t _kpCols_pad[4] = {${cols.join(', ')}};`)
@@ -36,8 +36,8 @@ describe('keypad per-key outputs and Digit', () => {
   // Only what a wire reads is computed; an unknown set (the control graph's
   // "everything") publishes all sixteen.
   it('publishes the wired keys, each true while the scan holds it', () => {
-    expect(keypadKeysRead(new Set(['key', 'key13', 'key3', 'pressed']))).toEqual([3, 13])
-    expect(keypadKeysRead()).toHaveLength(16)
+    expect(keypadKeysRead(KEYPAD_PART_ID, new Set(['key', 'key13', 'key3', 'pressed']))).toEqual([3, 13])
+    expect(keypadKeysRead(KEYPAD_PART_ID)).toHaveLength(16)
     const loop = keypadLoopCpp({}, 'pad', local, [3, 13]).join('\n')
     expect(loop).toContain('bool n_pad_key3 = _kpKey_pad == 3;')
     expect(loop).toContain('bool n_pad_key13 = _kpKey_pad == 13;')

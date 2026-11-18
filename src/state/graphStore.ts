@@ -159,7 +159,7 @@ import { CUSTOM_DESIGN_LAYOUT, shownDesignId, asTransportDisplayLayout, transpor
 import { designControlBundle } from './displays/designControlBundle'
 import { asTftRotation } from './displays/tftSurface'
 import { transportTouchActions, TRANSPORT_TOUCH_ACTION_TYPES, TRANSPORT_TOUCH_ACTION_LABELS } from './displays/transportTouch'
-import { keepsSavedPorts, partDerivedInputs } from '../build/parts/partPorts'
+import { keepsSavedPorts, partDerivedInputs, partDerivedOutputs } from '../build/parts/partPorts'
 import type { SavedParts } from '../build/parts/savedParts'
 import { registerEmbeddedParts } from '../build/parts/signedParts'
 import { retargetMathOperands } from '../nodes/math/mathIdentity'
@@ -598,16 +598,20 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
           ?? def?.inputs ?? (Array.isArray(data.inputs) ? data.inputs : []),
         savedInputs,
       )
-    const outputs = orderPorts(
-      nodeType === 'ButtonBank'
-        ? buttonBankOutputs(properties.buttons)
-        : nodeType === 'IRRemoteInput'
-          ? irRemoteOutputs(properties.buttons)
-          : nodeType === WEB_REMOTE_NODE_TYPE
-            ? webRemoteOutputs(properties.controls)
-            : def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : []),
-      Array.isArray(data.outputs) ? data.outputs : undefined,
-    )
+    const savedOutputs = Array.isArray(data.outputs) ? data.outputs : undefined
+    const outputs = keepsSavedPorts(nodeType, properties) && savedOutputs
+      ? savedOutputs
+      : orderPorts(
+        partDerivedOutputs(nodeType, properties.partId)
+          ?? (nodeType === 'ButtonBank'
+            ? buttonBankOutputs(properties.buttons)
+            : nodeType === 'IRRemoteInput'
+              ? irRemoteOutputs(properties.buttons)
+              : nodeType === WEB_REMOTE_NODE_TYPE
+                ? webRemoteOutputs(properties.controls)
+                : def?.outputs ?? (Array.isArray(data.outputs) ? data.outputs : [])),
+        savedOutputs,
+      )
     // A hardware-only part is hidden wherever it came from — a template, an
     // older save, a share link — rather than relying on every creation path to
     // remember. Board has always been forced this way; the rest join it.
@@ -860,6 +864,7 @@ function displayDocumentsForMountedPanel(
   // check until it matches again or takes its own copy.
   if (panelsNamingDocument(displayId, nodes).length > 1) return documents
   const geometry = mountedPanelGeometry(panel.data.properties)
+  if (!geometry) return documents
   if (document.designSize.width === geometry.width
     && document.designSize.height === geometry.height
     && document.orientation === geometry.rotation) return documents
@@ -1913,6 +1918,7 @@ export const useGraphStore = create<GraphState>()(
         // Already has one: this is the create action, not a swap.
         if (String(panel.data.properties.displayId ?? '')) return {}
         const geometry = mountedPanelGeometry(panel.data.properties)
+        if (!geometry) return {}
         const documentId = panelId
         const displayDocuments = {
           ...s.displayDocuments,
@@ -1939,6 +1945,7 @@ export const useGraphStore = create<GraphState>()(
         const current = String(panel.data.properties.displayId ?? '')
         if (current === documentId && String(panel.data.properties.tftLayout ?? '') === CUSTOM_DESIGN_LAYOUT) return {}
         const geometry = mountedPanelGeometry(panel.data.properties)
+        if (!geometry) return {}
         if (geometry.width !== document.designSize.width || geometry.height !== document.designSize.height) return {}
         const nextNodes = nodes.map((node) => (node.id === panelId
           ? {

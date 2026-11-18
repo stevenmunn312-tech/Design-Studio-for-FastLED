@@ -1197,6 +1197,18 @@ it and `partOrigin(id)` says where a part came from.
   and the DS3231 register driver (its 0x68 is in `rtcCpp.ts`, and the block's `i2cAddress` must
   equal it, which `storageCommsBlocks.test.ts` pins). Their shelf entries in `FIXTURE_PARTS` are
   still one literal per bundled part (X4).
+- A block the repo authors itself (`motionSensor`, `keypad`, `irReceiver`) lives in the part's
+  overlay, not its `part.json`: `OVERLAY_BLOCKS` in `import-part-assets.py` lets an overlay carry
+  it, validates its shape and refuses one `part.json` also carries. A keypad's block is also
+  checked across its fields (`keypadBlockIssue`, one rule for the validator and the reader), and
+  the type derives its row and column pins, its outputs (`partDerivedOutputs`, which a node keeps
+  as saved for an unknown part) and its scan helper from it; the library's pin and output
+  superset is bounded by `KEYPAD_MAX_ROWS` and `KEYPAD_MAX_COLUMNS`, as a relay's is by
+  `MAX_RELAY_CHANNELS`.
+- A colour panel whose part is unknown has no controller: `tftControllerForProps` returns null
+  (a missing `partId` is the default panel), firmware readers use `requireTftController` (the
+  unresolved-part gate holds the node first), and `mountedPanelGeometry` returns null so the
+  panel mounts no design. Nothing substitutes ST7789 silicon.
 - `FIXTURE_PARTS`, node defaults and `PROPERTY_META` address options read named
   bundled ids, which are never replaced, so they stay constants.
 - Tests add parts with `registerParts` and call `resetRegisteredPartsForTests`

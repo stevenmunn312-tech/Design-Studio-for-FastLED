@@ -13,7 +13,7 @@
 import type { StudioEdge, StudioNode } from '../graphStore'
 import { DISPLAY_SOURCE_LABELS, DISPLAY_SOURCE_NODE_TYPES, type DisplaySignalKind } from './displaySignal'
 import { nodeDisplayLabel, tftControllerForProps } from '../nodeLibrary'
-import { asTftRotation, TFT_CONTROLLERS, tftRotatedSize, type TftController, type TftRotation } from './tftSurface'
+import { asTftRotation, tftRotatedSize, type TftController, type TftRotation } from './tftSurface'
 import { shownDesignId } from './transportDisplay'
 
 export interface MountedPanelGeometry {
@@ -24,9 +24,13 @@ export interface MountedPanelGeometry {
   height: number
 }
 
-/** The glass a panel presents at its current rotation. */
-export function mountedPanelGeometry(panelProps: Record<string, unknown>): MountedPanelGeometry {
-  const controller = tftControllerForProps(panelProps) ?? TFT_CONTROLLERS.ST7789
+/**
+ * The glass a panel presents at its current rotation, or null for a panel whose
+ * part this version does not have: its glass is unknown, so no size is guessed.
+ */
+export function mountedPanelGeometry(panelProps: Record<string, unknown>): MountedPanelGeometry | null {
+  const controller = tftControllerForProps(panelProps)
+  if (!controller) return null
   const rotation = asTftRotation(panelProps.tftRotation)
   return { controller, rotation, ...tftRotatedSize(controller, rotation) }
 }
@@ -60,11 +64,14 @@ export function mountedCustomDisplays(nodes: readonly StudioNode[]): MountedCust
     if (panel.data.nodeType !== 'TransportDisplay') return []
     const documentId = shownDesignId(panel.data.properties)
     if (!documentId) return []
+    // An unresolved panel is held out of the build, so it mounts nothing.
+    const geometry = mountedPanelGeometry(panel.data.properties)
+    if (!geometry) return []
     return [{
       panel,
       document: panel,
       documentId,
-      geometry: mountedPanelGeometry(panel.data.properties),
+      geometry,
     }]
   })
 }
