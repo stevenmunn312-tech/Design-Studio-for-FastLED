@@ -75,7 +75,7 @@ an internal record.
 | 1 | `lib_deps` registry resolution not implemented | 2.4.0 | Vendor libraries by `git clone` | **Fixed in 2.5.21 — vendoring retained for FastLED and optional libraries, see below** |
 | 2 | `.ino` prototype insertion breaks FastLED-typed helpers | 2.4.0 | Write `main.cpp` instead | **No — fixed upstream in 2.5.16, workaround removed 2026-08-10** |
 | 3 | Shared scaffold corrupts under concurrent builds | Architecture, rechecked with 2.5.26 | External process-wide lock | Yes — the helper writes one shared source before invoking fbuild |
-| 4 | No size line on a no-op incremental build | 2.4.0 | Read fbuild's own size cache | **No — our #1277, fixed in 2.5.16, workaround removed 2026-08-27** |
+| 4 | No size line on a no-op incremental build | 2.4.0 | Read fbuild's own size cache | **No — our #1277, fixed in 2.5.16; removed 2026-08-27, back since 2026-10-30 as the fallback for any build that prints no size** |
 | 5 | No size summary on hard linker overflow | **2.5.26** | Parse `ld` + `Memory:` lines | Yes — [#1658](https://github.com/FastLED/fbuild/issues/1658), filed 2026-10-07 |
 | 6 | ESP32 RAM percentage impossible (>100%) on success | 2.4.0 | Discard RAM figure over 100% | **No — fixed in 2.5.17, guard removed 2026-09-03 (it hid #11)** |
 | 7 | `deploy` unimplemented for some compilable platforms | **2.5.26** | Fall back to arduino-cli | **No for ESP8266 — fixed in 2.5.45** ([#1657](https://github.com/FastLED/fbuild/issues/1657)): a LOLIN D1 mini flashed and ran through fbuild 2.5.51 on 2026-11-11. The hint stays for any other platform without a deployer |
@@ -281,8 +281,14 @@ Flash: 710.52KB / 8.00MB (8.7%)
 RAM:   74.72KB / 320.00KB (23.4%)
 ```
 
-`_fbuild_cached_size` and its call-site fallback are removed. The `fbuild size --json`
-query is still worth having, but nothing depends on it now.
+`_fbuild_cached_size` and its call-site fallback were removed then. The read came
+back on 2026-10-30 as `_fbuild_cached_sizes`, for a capacity check whose build prints
+no size, and since 2026-11-18 the upload path uses it the same way: a successful build
+with no size line the helper can read is measured from the cache before the capacity
+gate, and one with no cache either says `[size-unknown]` in the log. The compile matrix
+fails a passing fbuild leg that reports no size (`NO SIZE`), so a release that words
+the size line differently cannot pass unnoticed. The `fbuild size --json` query is
+still worth having.
 
 ---
 
@@ -1064,13 +1070,13 @@ checkout, so record the commit from Git):
 
 | Probe | Where | 2.5.51 | `main` `e218404b` |
 | --- | --- | --- | --- |
-| `overflow-no-size` | §5, #1658 | GONE: a failed link now prints an overflow line | GONE |
+| `overflow-no-size` | §5, #1658 | PRESENT: the new `RAM: dram0_0_seg overflowed by` line is not a size the helper reads, so the estimate stays (§5). Recorded as GONE until 2026-11-18, when the probe matched any line starting `RAM:`; it now asks the helper's own parser | not rerun with the corrected probe |
 | `esp8266-wifi-link` | §15, #1994 | PRESENT | GONE |
 | `wifis3` | §16, #2020 | PRESENT | GONE |
-| `nrf52-lto` | §17, #2016 | PRESENT | PRESENT; GONE on PR #2028 (`e992e3d1`, open) |
+| `nrf52-lto` | §17, #2016 | PRESENT | PRESENT; GONE on PR #2028 (`e992e3d1`, merged 2026-11-17) |
 | `pico-w` | Boards mapped, #2014 | PRESENT | GONE |
 | `r4-minima` | Boards mapped, #2015 | PRESENT | GONE |
-| `xiaoble` | Boards mapped, #2017 | PRESENT (`variant.h`, with the id `xiaoble_adafruit`) | PRESENT; CHANGED on PRs #2028 + #2030 (open, `212497f7`): links fail on `__wrap_realloc` |
+| `xiaoble` | Boards mapped, #2017 | PRESENT (`variant.h`, with the id `xiaoble_adafruit`) | PRESENT; CHANGED on PRs #2028 + #2030 (merged 2026-11-17, `212497f7`): links fail on `__wrap_realloc` |
 | `lib-deps-git-ref` | §1, #2018 | PRESENT | GONE: fetches `archive/3.0.12.zip` |
 | `lib-deps-registry` | §1, #2019 | PRESENT | GONE |
 | `lib-deps-exact-pin` | §1 | PRESENT | PRESENT |
@@ -1403,8 +1409,8 @@ is alive and what it is. That is the evidence an upstream report needs.
 **Found on 2.5.51 and reported 2026-11-11 as [#1994](https://github.com/FastLED/fbuild/issues/1994).** The ESP8266 build adds the
 bundled libraries' headers to the include path and never compiles their
 sources (`esp8266/orchestrator.rs`). Upstream confirmed it and fixed it in
-[#1995](https://github.com/FastLED/fbuild/pull/1995), not yet merged or
-released on 2026-11-12; the workaround stays until the pin can move.
+[#1995](https://github.com/FastLED/fbuild/pull/1995), merged on 2026-11-11
+and not yet released on 2026-11-18; the workaround stays until the pin can move.
 
 **Symptom.** An ESP8266 sketch that includes `ESP8266WiFi.h`,
 `ESP8266WebServer.h`, `ESP8266mDNS.h` or `WiFiUdp.h` compiles and then fails:

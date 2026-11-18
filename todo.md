@@ -48,10 +48,11 @@ recorded as a limitation in step 6. Upstream `main` at `e218404b` (2026-11-17)
 fixes #1994, #2012, #2013, #2014, #2015, #2018 and #2020 by probe, and the
 #2019 HUB75 and Zero DMA entries resolve; FastLED 3.10.9 waits for upstream to
 rerun the mirror by hand, and a bare `@x.y.z` pin resolves as `^x.y.z` (report
-drafted, not posted). Open PR #2028 fixes #2016 (FastLED links on the Feather
-nRF52840 without `_NRF52_NO_LTO`). Open PR #2030 fixes the #2017 blink, but a
-FastLED sketch on the XIAO nRF52840 fails at link on `__wrap_realloc` (PR
-comment drafted, not posted)
+drafted, not posted). PR #2028 fixes #2016 (FastLED links on the Feather
+nRF52840 without `_NRF52_NO_LTO`), and PR #2030 fixes the #2017 blink; both
+merged on 2026-11-17, as #1995 did on 2026-11-11, and none is in a release on
+2026-11-18. A FastLED sketch on the XIAO nRF52840 still fails at link on
+`__wrap_realloc` (PR comment drafted, not posted)
 ([runbook](docs/runbooks/fbuild-workarounds.md#probes)).
 
 - [x] Map each offered board that has no fbuild environment (`_PIO_BOARDS`)
@@ -103,13 +104,16 @@ comment drafted, not posted)
   ([runbook](docs/runbooks/fbuild-workarounds.md#boards-mapped-on-12-november-2026)).
 - [ ] **Release gate.** Bump the fbuild pin to the release that carries the
   fixes for #2012 to #2020, run `fbuild-probes.py` on it, and drop the
-  workarounds whose probes read GONE. Among them: fbuild does not find the
+  workarounds whose probes read GONE. In the commit that moves the pin, also
+  change `builds-v4` to `builds-v5` in `.github/workflows/compile-matrix.yml`:
+  its `restore-keys` prefix otherwise restores the 2.5.51 build cache under
+  the new fbuild. Among those workarounds: fbuild does not find the
   UNO R4 WiFi core's `WiFiS3.h` (§16,
   [#2020](https://github.com/FastLED/fbuild/issues/2020)), so those sketches
   build with arduino-cli until then.
 - [ ] **Release gate.** When an fbuild release carries upstream #1995, the
-  fix for [#1994](https://github.com/FastLED/fbuild/issues/1994) (open on
-  2026-11-12, after 2.5.51): move the pin, drop `_ESP8266_NETWORK_INCLUDE`
+  fix for [#1994](https://github.com/FastLED/fbuild/issues/1994) (merged on
+  2026-11-11, after 2.5.51): move the pin, drop `_ESP8266_NETWORK_INCLUDE`
   and the D1 mini entry in `ARDUINO_CLI_ONLY`, rebuild the Wi-Fi legs, and
   flash a Web Remote to the D1 mini through fbuild, which upstream asked for.
   Until then an ESP8266 sketch that uses Wi-Fi builds with arduino-cli (§15),
