@@ -29,6 +29,78 @@ Everything else moved out on 2026-11-12:
   so the project file is the one workspace shape
   ([versioning](docs/release/versioning-and-releases.md#development-lines-and-the-v1-baseline)).
 
+## 2. Review findings, next off the rank
+
+What the 2026-11-18 code review found and left open. The four blockers, the
+fbuild bump items and the trust items are fixed. The helper answering any
+localhost origin was looked at and left as it is. Groups are in the order to
+take them; the save format comes first because it is the only one that costs
+more after the freeze.
+
+### Save format (part of step 1)
+
+- [ ] Remove the pre-1.0 shims: the `uploadTarget` mirror,
+  `RETIRED_PROPERTY_KEYS`, the RTC timezone migration and
+  `RETIRED_TARGET_HANDLES`.
+- [ ] Settle `hueShift`: one unit and one property name across the nodes
+  that carry it.
+- [ ] Decide whether type ids that differ from their labels (`Clock` for
+  `RTCInput`, and the others like it) are renamed before the freeze or kept
+  for good.
+- [ ] Make port ids consistent (`mid` against `mids`, and the others like it).
+- [ ] Give `#share=` links a format version.
+- [ ] Stop custom-shelf patterns vanishing from a saved workspace.
+- [ ] Keep runtime React Flow fields out of saved files.
+
+### Data safety
+
+- [ ] Stop a reload in the middle of a save producing a false
+  "(browser copy)" duplicate.
+- [ ] Add an error boundary, so one component throwing does not blank the app.
+- [ ] Give the `backendClient` fetches a timeout.
+- [ ] Fix Save As reporting "Not saved" after a save that worked.
+
+### Power and hardware
+
+- [ ] `recommendedSupplyCurrentMa` rounds down above 10 A
+  (`powerSupplySizing.ts:12`); it must round up.
+- [ ] Plan a HUB75 panel as a HUB75 panel, not as WS2812B.
+- [ ] Size 12 V WS2811 per its real draw, not 25 mA a pixel.
+- [ ] Validate a second board against its own FQBN, not the primary's
+  (`boardUploadTargets.ts:19`).
+- [ ] ESP32-C3 GPIO11: check the pin rule against the module.
+
+### Firmware and preview parity
+
+- [ ] `withoutUnusedFastLed` misses `random8`/`random16`, `ease8*`,
+  `sin8`/`sin16` and `fl::` (`cppGenerator.ts:1815`).
+- [ ] Blobs and Breathe: palette wrap differs between preview and board.
+- [ ] Game of Life: `Math.round` on the interval.
+- [ ] WaveSim, FluidSim and TuringField step once per pass, not once per
+  frame.
+- [ ] Bounds-check the sync follower index.
+- [ ] Mask rounding differs between preview and board.
+
+### UI and release
+
+- [ ] Close on Escape through `useEscapeLayer` in ProjectsPopup,
+  RecoverPopup, BoardPopup, ArduinoCliPopup, CodeViewPopup,
+  HardwareValidationPopup and SdCardPrompt.
+- [ ] Help still says "graph JSON" and "public beta".
+- [ ] The support matrix says FastLED 3.10.5; the pin is 3.10.9.
+- [ ] The tag workflow publishes an unsigned `--prerelease`.
+- [ ] Complete the licence notices, and settle the AnimARTrix
+  non-commercial terms.
+- [ ] Fill the CHANGELOG gaps.
+- [ ] Start scripts run pip without `-c constraints.txt`.
+
+### Helper
+
+- [ ] Two arduino-cli compiles can share a temporary workspace.
+- [ ] Cancelling an fbuild build can leave the daemon compiling.
+- [ ] A Bluetooth player on fbuild is not switched to arduino-cli by itself.
+- [ ] Decide the ESP32 deploy experiment (`-b 115200`).
+
 ## 3. fbuild upkeep
 
 State and section numbers are in the
