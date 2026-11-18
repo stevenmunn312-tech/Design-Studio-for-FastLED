@@ -558,6 +558,53 @@ export interface PartBatteryModuleSpec {
   }
 }
 
+/**
+ * An I2S MEMS microphone's capture contract. FastLED's `fl::audio::Config`
+ * factory and `MicProfile` are a FastLED API tied to the part's silicon, so the
+ * part names them; a chip FastLED ships neither for names `captureAdapter`
+ * instead, which is the app's own receive code (it stays in code, selected by
+ * this field).
+ */
+export interface PartMicrophoneSpec {
+  /** Exact chip, e.g. `INMP441`; matched against the type's `devices`. */
+  device: string
+  /** `fl::audio::Config` factory the ESP32 backend calls. */
+  fastledFactory?: 'CreateInmp441' | 'CreateIcs43434' | 'CreateGenericMEMS'
+  /** `fl::audio::MicProfile` member the Teensy backend is handed. */
+  fastledProfile?: 'INMP441' | 'ICS43434' | 'GenericMEMS'
+  /** The app's own capture adapter, for a chip FastLED's driver cannot read. */
+  captureAdapter?: 'sph0645-classic-esp32'
+}
+
+/** A stereo line-level ADC read over I2S. */
+export interface PartLineInputSpec {
+  /** Exact chip, e.g. `PCM1802`; matched against the type's `devices`. */
+  device: string
+  /** Analog channels the part digitises. */
+  channels: number
+}
+
+/** An I2S audio stage on the board's own pins: a DAC or a speaker amplifier. */
+export interface PartI2sAudioSpec {
+  /** Exact chip, e.g. `MAX98357A`; matched against the type's `devices`. */
+  device: string
+  /**
+   * What comes out of it. A DAC's line out is what a power amplifier expects; an
+   * amplifier's bridge-tied speaker output is not line level.
+   */
+  output: 'speaker' | 'line'
+}
+
+/** An analog power amplifier: line level in, speakers out. */
+export interface PartPowerAmpSpec {
+  /** The amplifier chip, descriptive; no code branches on it. */
+  device: string
+  /** The supply the board needs, in volts. */
+  supplyVolts: number
+  channels: number
+  inputKind: 'line'
+}
+
 export interface PartCatalogueEntry {
   partId: string
   label: string
@@ -644,6 +691,14 @@ export interface PartCatalogueEntry {
   midiDin?: PartMidiDinSpec
   /** Present exactly on the auxiliary-display parts. */
   display?: PartDisplaySpec
+  /** Present exactly on I2S MEMS microphones. */
+  microphone?: PartMicrophoneSpec
+  /** Present exactly on I2S line-level ADC boards. */
+  lineInput?: PartLineInputSpec
+  /** Present exactly on I2S DACs and speaker amplifiers. */
+  i2sAudio?: PartI2sAudioSpec
+  /** Present exactly on analog power amplifiers. */
+  powerAmp?: PartPowerAmpSpec
   render?: PartRenderAsset
 }
 

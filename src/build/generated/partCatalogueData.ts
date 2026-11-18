@@ -2145,7 +2145,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       },
       {
         "facts": [
-          "notes"
+          "notes",
+          "powerAmp"
         ],
         "ref": "https://www.amazon.com/DX-0809-DC12V-Channel-TDA8944-Amplifier/dp/B09NC6V361"
       },
@@ -2158,7 +2159,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "2 x 15 W, 12 V — AUX line in",
-      "wiringNote": "Needs its own 12 V supply; the controller cannot power it. Feed its AUX input from the line out of a DAC, and share ground with the board."
+      "wiringNote": "Needs its own 12 V supply; the controller cannot power it. Feed its AUX input from the line out of a DAC, and share ground with the board.",
+      "optionLabel": "DX-0809",
+      "optionOrder": 3
     },
     "pads": [
       {
@@ -2208,7 +2211,13 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 6.1,
-    "supplyRail": "v12"
+    "supplyRail": "v12",
+    "powerAmp": {
+      "device": "DX-0809",
+      "supplyVolts": 12,
+      "channels": 2,
+      "inputKind": "line"
+    }
   },
   "generic-300w-9a-buck-module": {
     "manifestVersion": 1,
@@ -2338,7 +2347,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         "facts": [
           "dimensionsMm",
           "pinLabelsLeftToRight",
-          "label"
+          "label",
+          "microphone"
         ],
         "ref": "https://dl.sipeed.com/MAIX/HDK/Sipeed-I2S_MIC/Specifications/Sipeed%20I2S_Mic%20Datasheet%20V1.0.pdf"
       },
@@ -2351,7 +2361,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Low-cost MSM261S4030H0-class board",
-      "wiringNote": "For the unbranded boards often sold as INMP441. The GenericMEMS profile is an average MEMS correction, not this module's measured response."
+      "wiringNote": "For the unbranded boards often sold as INMP441. The GenericMEMS profile is an average MEMS correction, not this module's measured response.",
+      "optionLabel": "Generic I2S MEMS",
+      "optionOrder": 3
     },
     "pads": [
       {
@@ -2386,7 +2398,12 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 10.5,
-    "supplyRail": "v3v3"
+    "supplyRail": "v3v3",
+    "microphone": {
+      "device": "GenericMEMS",
+      "fastledFactory": "CreateGenericMEMS",
+      "fastledProfile": "GenericMEMS"
+    }
   },
   "gy-521-mpu6050-module": {
     "manifestVersion": 1,
@@ -3038,7 +3055,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "sources": [
       {
         "facts": [
-          "notes"
+          "notes",
+          "microphone"
         ],
         "ref": "https://www.invensense.tdk.com/en-us/products/microphone/ics-43434"
       },
@@ -3061,7 +3079,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Lower noise floor, same three wires",
-      "wiringNote": "Wires exactly like an INMP441 and costs about the same; firmware applies the ICS43434 response correction instead."
+      "wiringNote": "Wires exactly like an INMP441 and costs about the same; firmware applies the ICS43434 response correction instead.",
+      "optionLabel": "ICS-43434",
+      "optionOrder": 2
     },
     "pads": [
       {
@@ -3096,7 +3116,12 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 6.4,
-    "supplyRail": "v3v3"
+    "supplyRail": "v3v3",
+    "microphone": {
+      "device": "ICS-43434",
+      "fastledFactory": "CreateIcs43434",
+      "fastledProfile": "ICS43434"
+    }
   },
   "ili9341-xc4630-parallel-touch-320x240": {
     "manifestVersion": 1,
@@ -3639,7 +3664,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "sources": [
       {
         "facts": [
-          "logicVoltage"
+          "logicVoltage",
+          "microphone"
         ],
         "ref": "https://product.tdk.com/system/files/dam/doc/product/sw_piezo/mic/mems-mic/data_sheet/inmp441.pdf"
       },
@@ -3652,7 +3678,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "copy": {
-      "summary": "The common three-wire I2S MEMS module"
+      "summary": "The common three-wire I2S MEMS module",
+      "optionLabel": "INMP441",
+      "optionOrder": 1
     },
     "pads": [
       {
@@ -3687,7 +3715,12 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 13,
-    "supplyRail": "v3v3"
+    "supplyRail": "v3v3",
+    "microphone": {
+      "device": "INMP441",
+      "fastledFactory": "CreateInmp441",
+      "fastledProfile": "INMP441"
+    }
   },
   "ip2368-100w-bidirectional-charger": {
     "manifestVersion": 1,
@@ -5172,7 +5205,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         "facts": [
           "pinLabelsLeftToRight",
           "render",
-          "notes"
+          "notes",
+          "i2sAudio"
         ],
         "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/overview"
       },
@@ -5190,7 +5224,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "copy": {
-      "summary": "I2S in, drives a speaker directly"
+      "summary": "I2S in, drives a speaker directly",
+      "optionLabel": "MAX98357A",
+      "optionOrder": 1
     },
     "pads": [
       {
@@ -5230,7 +5266,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 10.5,
-    "supplyRail": "v5"
+    "supplyRail": "v5",
+    "i2sAudio": {
+      "device": "MAX98357A",
+      "output": "speaker"
+    }
   },
   "max98357a-stereo-pair": {
     "manifestVersion": 1,
@@ -5285,7 +5325,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "dimensionsMm",
           "pinLabelsLeftToRight",
           "render",
-          "notes"
+          "notes",
+          "i2sAudio"
         ],
         "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/overview"
       },
@@ -5305,7 +5346,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Two I2S amps, one per channel",
-      "wiringNote": "Both boards share BCLK, LRC and DIN. Each plays the channel its SD pin selects (see the SD_MODE table in the MAX98357A datasheet); an unmodified breakout plays the left-plus-right mix, so set one board to left and the other to right."
+      "wiringNote": "Both boards share BCLK, LRC and DIN. Each plays the channel its SD pin selects (see the SD_MODE table in the MAX98357A datasheet); an unmodified breakout plays the left-plus-right mix, so set one board to left and the other to right.",
+      "optionLabel": "MAX98357A stereo pair",
+      "optionOrder": 2
     },
     "pads": [
       {
@@ -5380,7 +5423,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 5.1,
-    "supplyRail": "v5"
+    "supplyRail": "v5",
+    "i2sAudio": {
+      "device": "MAX98357A",
+      "output": "speaker"
+    }
   },
   "mean-well-sd-100a-5": {
     "manifestVersion": 1,
@@ -6249,7 +6296,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       {
         "facts": [
           "logicVoltage",
-          "notes"
+          "notes",
+          "powerAmp"
         ],
         "ref": "https://d3mk240zzrnosz.cloudfront.net/assets/XC4448_datasheetMain_67860.pdf"
       },
@@ -6270,7 +6318,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "2 x 3 W, 5 V — line level in",
-      "wiringNote": "Takes line level, not I2S. Fed from a PCM5102A or UDA1334A, or on a classic ESP32 from its own DAC on GPIO25/26."
+      "wiringNote": "Takes line level, not I2S. Fed from a PCM5102A or UDA1334A, or on a classic ESP32 from its own DAC on GPIO25/26.",
+      "optionLabel": "PAM8403",
+      "optionOrder": 1
     },
     "pads": [
       {
@@ -6330,7 +6380,13 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 5.6,
-    "supplyRail": "v5"
+    "supplyRail": "v5",
+    "powerAmp": {
+      "device": "PAM8403",
+      "supplyVolts": 5,
+      "channels": 2,
+      "inputKind": "line"
+    }
   },
   "pam8610-stereo-amplifier": {
     "manifestVersion": 1,
@@ -6378,7 +6434,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         "facts": [
           "pinLabelsLeftToRight",
           "logicVoltage",
-          "notes"
+          "notes",
+          "powerAmp"
         ],
         "ref": "https://www.diodes.com/assets/Datasheets/PAM8610.pdf"
       },
@@ -6391,7 +6448,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "2 x 15 W, 12 V — line level in",
-      "wiringNote": "Needs its own 7-15 V supply; the controller cannot power it. Share its ground with the board and the DAC."
+      "wiringNote": "Needs its own 7-15 V supply; the controller cannot power it. Share its ground with the board and the DAC.",
+      "optionLabel": "PAM8610",
+      "optionOrder": 2
     },
     "pads": [
       {
@@ -6446,7 +6505,13 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 4.9,
-    "supplyRail": "v12"
+    "supplyRail": "v12",
+    "powerAmp": {
+      "device": "PAM8610",
+      "supplyVolts": 12,
+      "channels": 2,
+      "inputKind": "line"
+    }
   },
   "pcm1802-line-in-adc": {
     "manifestVersion": 1,
@@ -6500,14 +6565,17 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       },
       {
         "facts": [
-          "notes"
+          "notes",
+          "lineInput"
         ],
         "ref": "https://www.ti.com/lit/ug/sbau384/sbau384.pdf"
       }
     ],
     "copy": {
       "summary": "Stereo RCA line in to I2S",
-      "wiringNote": "Connect a player module's line-level DAC output, not its bridge-tied speaker output, to the RCA inputs."
+      "wiringNote": "Connect a player module's line-level DAC output, not its bridge-tied speaker output, to the RCA inputs.",
+      "optionLabel": "PCM1802 line-in ADC",
+      "optionOrder": 1
     },
     "pads": [
       {
@@ -6542,7 +6610,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 5.7,
-    "supplyRail": "v5"
+    "supplyRail": "v5",
+    "lineInput": {
+      "device": "PCM1802",
+      "channels": 2
+    }
   },
   "pcm5102a-i2s-dac": {
     "manifestVersion": 1,
@@ -6600,14 +6672,17 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       {
         "facts": [
           "pinLabelsLeftToRight",
-          "notes"
+          "notes",
+          "i2sAudio"
         ],
         "ref": "https://manuals.plus/ae/1005006953481088"
       }
     ],
     "copy": {
       "summary": "I2S DAC — line out, needs an amp",
-      "wiringNote": "A DAC, not an amplifier — the same three I2S wires, but a line-level output that needs a powered speaker or a power amplifier."
+      "wiringNote": "A DAC, not an amplifier — the same three I2S wires, but a line-level output that needs a powered speaker or a power amplifier.",
+      "optionLabel": "PCM5102A",
+      "optionOrder": 3
     },
     "pads": [
       {
@@ -6642,7 +6717,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 11.5,
-    "supplyRail": "v5"
+    "supplyRail": "v5",
+    "i2sAudio": {
+      "device": "PCM5102A",
+      "output": "line"
+    }
   },
   "photosensitive-ldr-module": {
     "manifestVersion": 1,
@@ -8531,14 +8610,17 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       },
       {
         "facts": [
-          "notes"
+          "notes",
+          "microphone"
         ],
         "ref": "https://www.knowles.com/docs/default-source/model-downloads/sph0645lm4h-b-datasheet-rev-c.pdf"
       }
     ],
     "copy": {
       "summary": "Knowles I2S mic, classic ESP32 only",
-      "wiringNote": "Captured by the app with the published ESP32 timing fix, not by FastLED, so no response correction is applied. Classic ESP32 only: the fix is documented for the I2S receiver of that chip, not for the ESP32-S3. SEL to ground selects the left channel."
+      "wiringNote": "Captured by the app with the published ESP32 timing fix, not by FastLED, so no response correction is applied. Classic ESP32 only: the fix is documented for the I2S receiver of that chip, not for the ESP32-S3. SEL to ground selects the left channel.",
+      "optionLabel": "SPH0645LM4H",
+      "optionOrder": 4
     },
     "pads": [
       {
@@ -8573,7 +8655,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 9.6,
-    "supplyRail": "v3v3"
+    "supplyRail": "v3v3",
+    "microphone": {
+      "device": "SPH0645LM4H",
+      "captureAdapter": "sph0645-classic-esp32"
+    }
   },
   "ssd1306-oled-096-128x64-i2c": {
     "manifestVersion": 1,
@@ -9524,7 +9610,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "dimensionsMm",
           "render",
           "label",
-          "notes"
+          "notes",
+          "i2sAudio"
         ],
         "ref": "https://www.adafruit.com/product/3678"
       },
@@ -9550,7 +9637,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "I2S DAC — line out, needs an amp",
-      "wiringNote": "Line-level I2S DAC, wired the same as the PCM5102A."
+      "wiringNote": "Line-level I2S DAC, wired the same as the PCM5102A.",
+      "optionLabel": "UDA1334A",
+      "optionOrder": 4
     },
     "pads": [
       {
@@ -9600,7 +9689,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 5.1,
-    "supplyRail": "v5"
+    "supplyRail": "v5",
+    "i2sAudio": {
+      "device": "UDA1334A",
+      "output": "line"
+    }
   },
   "uln2803a-dip18": {
     "manifestVersion": 1,

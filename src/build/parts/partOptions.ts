@@ -19,7 +19,6 @@ import type { PartManifest } from './manifest/partManifest'
 import { analogSensorEntries, analogSensorSummary } from '../../state/peripherals/analogSensor'
 import { digitalSensorEntries, digitalSensorSummary } from '../../state/peripherals/digitalSensor'
 import { IR_RECEIVER_MODULES } from '../../state/peripherals/irModules'
-import { MIC_MODULES } from '../../state/peripherals/micModules'
 import { batteryCellPartIds, batteryModulePartIds, batteryModuleSummary } from '../../state/peripherals/battery'
 
 export interface PartOption {
@@ -82,13 +81,11 @@ export interface PartIdentity {
 /**
  * The modules each hardware node can be, and the property holding the choice.
  *
- * The microphone's rows are derived from `micModules.ts` rather than restated
- * here, because the rule deciding which modules may be offered is the same rule
- * the generator needs: a module earns a row when FastLED ships a
- * `fl::audio::Config` factory and a `MicProfile` for it. It had exactly one row
- * for as long as `CreateInmp441` was the only factory; the vendored FastLED now
- * also carries `CreateIcs43434` and `CreateGenericMEMS`. What still varies by
- * board is the *capture backend*, not the microphone.
+ * The microphone's rows are its catalogue entries, as every audio type's are:
+ * a module earns a row when its `microphone` block names a FastLED
+ * `fl::audio::Config` factory and a `MicProfile` for it (or the app's own
+ * capture adapter). What still varies by board is the *capture backend*, not
+ * the microphone.
  */
 interface PartOptionConfig {
   property: string
@@ -142,15 +139,6 @@ const BUNDLED_PART_OPTIONS: Record<string, PartOptionConfig> = {
       })
     },
   },
-  MicInput: {
-    property: 'partId',
-    options: MIC_MODULES.map((module) => ({
-      id: module.partId,
-      label: module.label,
-      summary: module.summary,
-      note: module.note,
-    })),
-  },
   IRRemoteInput: {
     property: 'partId',
     options: IR_RECEIVER_MODULES.map((module) => ({
@@ -159,17 +147,6 @@ const BUNDLED_PART_OPTIONS: Record<string, PartOptionConfig> = {
       summary: module.summary,
       note: module.note,
     })),
-  },
-  LineInput: {
-    property: 'partId',
-    options: [
-      {
-        id: 'pcm1802-line-in-adc',
-        label: 'PCM1802 line-in ADC',
-        summary: 'Stereo RCA line in to I2S',
-        note: 'Connect a player module\'s line-level DAC output, not its bridge-tied speaker output, to the RCA inputs.',
-      },
-    ],
   },
   KeypadInput: {
     property: 'partId',
@@ -240,68 +217,6 @@ const BUNDLED_PART_OPTIONS: Record<string, PartOptionConfig> = {
       },
     ],
   },
-  // The stage on the board's own pins: every option takes I2S. An analog
-  // amplifier is a different part in a different place in the chain — it
-  // takes line level, from one of these DACs or from the classic ESP32's own
-  // — so it is a PowerAmplifier, not an option here.
-  Amplifier: {
-    property: 'model',
-    options: [
-      // `MAX98357A` is the node's default `model` and what every earlier save
-      // holds; it names this module, so it is an alias and not an unknown part.
-      { id: 'max98357a-i2s-amplifier', aliases: ['MAX98357A'], label: 'MAX98357A', output: 'speaker', summary: 'I2S in, drives a speaker directly' },
-      {
-        // One bench part rather than two Amplifier nodes: both boards sit on
-        // the same three I2S lines and the firmware already sends stereo, so
-        // which board plays which channel is set on the boards themselves.
-        id: 'max98357a-stereo-pair',
-        label: 'MAX98357A stereo pair',
-        output: 'speaker',
-        summary: 'Two I2S amps, one per channel',
-        note: 'Both boards share BCLK, LRC and DIN. Each plays the channel its SD pin selects (see the SD_MODE table in the MAX98357A datasheet); an unmodified breakout plays the left-plus-right mix, so set one board to left and the other to right.',
-      },
-      {
-        id: 'pcm5102a-i2s-dac',
-        label: 'PCM5102A',
-        output: 'line',
-        summary: 'I2S DAC — line out, needs an amp',
-        note: 'A DAC, not an amplifier — the same three I2S wires, but a line-level output that needs a powered speaker or a power amplifier.',
-      },
-      {
-        id: 'uda1334a-i2s-dac',
-        label: 'UDA1334A',
-        output: 'line',
-        summary: 'I2S DAC — line out, needs an amp',
-        note: 'Line-level I2S DAC, wired the same as the PCM5102A.',
-      },
-    ],
-  },
-  // Analog power amplifiers: line level in, speakers out, no GPIO of their
-  // own. What feeds one is resolved from the bench, not chosen here — a DAC
-  // when there is one, otherwise the classic ESP32's internal DAC on GPIO25/26.
-  PowerAmplifier: {
-    property: 'partId',
-    options: [
-      {
-        id: 'pam8403-3w-stereo-amplifier',
-        label: 'PAM8403',
-        summary: '2 x 3 W, 5 V — line level in',
-        note: 'Takes line level, not I2S. Fed from a PCM5102A or UDA1334A, or on a classic ESP32 from its own DAC on GPIO25/26.',
-      },
-      {
-        id: 'pam8610-stereo-amplifier',
-        label: 'PAM8610',
-        summary: '2 x 15 W, 12 V — line level in',
-        note: 'Needs its own 7-15 V supply; the controller cannot power it. Share its ground with the board and the DAC.',
-      },
-      {
-        id: 'dx-0809-stereo-amplifier',
-        label: 'DX-0809',
-        summary: '2 x 15 W, 12 V — AUX line in',
-        note: 'Needs its own 12 V supply; the controller cannot power it. Feed its AUX input from the line out of a DAC, and share ground with the board.',
-      },
-    ],
-  },
   ...catalogueTypeOptions({
     CoolingFanOutput: {},
     TemperatureInput: {},
@@ -324,6 +239,19 @@ const BUNDLED_PART_OPTIONS: Record<string, PartOptionConfig> = {
     PdTriggerSource: {},
     PowerSwitchOutput: {},
     BuzzerOutput: {},
+    // The audio types. Every row is a catalogue entry: a microphone's FastLED
+    // factory, an I2S stage's output kind and a power amplifier's supply are
+    // in the part's block, not here.
+    MicInput: {},
+    LineInput: {},
+    // The stage on the board's own pins: every option takes I2S. An analog
+    // amplifier is a different part in a different place in the chain — it
+    // takes line level, from one of these DACs or from the classic ESP32's own
+    // — so it is a PowerAmplifier, not an option here. `MAX98357A` is the
+    // node's default `model` and what every earlier save holds; it names the
+    // first module, so it is an alias and not an unknown part.
+    Amplifier: { property: 'model', aliases: { 'max98357a-i2s-amplifier': ['MAX98357A'] } },
+    PowerAmplifier: {},
     EthernetModule: {},
     DistanceInput: {},
     LightInput: {},
@@ -343,15 +271,27 @@ const BUNDLED_PART_OPTIONS: Record<string, PartOptionConfig> = {
 }
 
 /**
+ * Types whose menu rows are only the parts carrying the type's own block. The
+ * passive 4 ohm speaker is filed under `PowerAmplifier` for the shelf and has no
+ * amplifier facts, so it is not an amplifier to choose.
+ */
+function isOffered(nodeType: string, manifest: PartManifest): boolean {
+  const block = nodeType === 'PowerAmplifier' ? 'powerAmp' : undefined
+  return block === undefined || manifest[block] !== undefined
+}
+
+/**
  * The row a part earns: its menu name, and the copy its manifest carries. The
  * menu name is `copy.optionLabel` where the manifest gives a shorter one than
  * the full product `label`.
  */
-function catalogueOption(manifest: PartManifest): PartOption {
+function catalogueOption(manifest: PartManifest, aliases?: readonly string[]): PartOption {
   const copy = manifest.copy
   return {
     id: manifest.partId,
     label: copy?.optionLabel ?? manifest.label,
+    ...(aliases ? { aliases } : {}),
+    ...(manifest.i2sAudio ? { output: manifest.i2sAudio.output } : {}),
     ...(copy?.summary ? { summary: copy.summary } : {}),
     ...(copy?.wiringNote ? { note: copy.wiringNote } : {}),
   }
@@ -363,11 +303,26 @@ function catalogueOption(manifest: PartManifest): PartOption {
  * type by saying so in its manifest, and a downloaded one follows below.
  */
 function catalogueTypeOptions(
-  types: Record<string, Pick<PartOptionConfig, 'uncataloguedDefault'>>,
+  types: Record<string, {
+    uncataloguedDefault?: true
+    /** The node property when it is not `partId` (the Amplifier's `model`). */
+    property?: string
+    /**
+     * Older saved values that mean a bundled part, by part id. A value a saved
+     * project already holds is not a part to rename away from.
+     */
+    aliases?: Record<string, readonly string[]>
+  }>,
 ): Record<string, PartOptionConfig> {
   return Object.fromEntries(Object.entries(types).map(([nodeType, flags]) => {
-    const rows = bundledPartsForType(nodeType).map(catalogueOption)
-    const config: PartOptionConfig = { property: 'partId', ...flags, options: rows }
+    const rows = bundledPartsForType(nodeType)
+      .filter((manifest) => isOffered(nodeType, manifest))
+      .map((manifest) => catalogueOption(manifest, flags.aliases?.[manifest.partId]))
+    const config: PartOptionConfig = {
+      property: flags.property ?? 'partId',
+      ...(flags.uncataloguedDefault ? { uncataloguedDefault: true as const } : {}),
+      options: rows,
+    }
     return [nodeType, config]
   }))
 }
@@ -390,8 +345,8 @@ export const PART_OPTIONS: Record<string, PartOptionConfig> = Object.fromEntries
       const rows = BUNDLED_PART_OPTIONS[nodeType].options
       const known = new Set(rows.flatMap((row) => [row.id, ...(row.aliases ?? [])]))
       const added = registeredPartsForType(nodeType)
-        .filter((manifest) => !known.has(manifest.partId))
-        .map(catalogueOption)
+        .filter((manifest) => !known.has(manifest.partId) && isOffered(nodeType, manifest))
+        .map((manifest) => catalogueOption(manifest))
       return added.length === 0 ? rows : [...rows, ...added]
     })
     const config: PartOptionConfig = {

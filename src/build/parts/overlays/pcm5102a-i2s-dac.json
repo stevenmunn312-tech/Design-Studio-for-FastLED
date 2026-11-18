@@ -24,14 +24,21 @@
     {
       "facts": [
         "pinLabelsLeftToRight",
-        "notes"
+        "notes",
+        "i2sAudio"
       ],
       "ref": "https://manuals.plus/ae/1005006953481088"
     }
   ],
   "copy": {
     "summary": "I2S DAC — line out, needs an amp",
-    "wiringNote": "A DAC, not an amplifier — the same three I2S wires, but a line-level output that needs a powered speaker or a power amplifier."
+    "wiringNote": "A DAC, not an amplifier — the same three I2S wires, but a line-level output that needs a powered speaker or a power amplifier.",
+    "optionLabel": "PCM5102A",
+    "optionOrder": 3
+  },
+  "i2sAudio": {
+    "device": "PCM5102A",
+    "output": "line"
   },
   "pads": [
     {

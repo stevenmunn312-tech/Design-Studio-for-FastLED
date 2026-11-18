@@ -19,7 +19,8 @@
     {
       "facts": [
         "logicVoltage",
-        "notes"
+        "notes",
+        "powerAmp"
       ],
       "ref": "https://d3mk240zzrnosz.cloudfront.net/assets/XC4448_datasheetMain_67860.pdf"
     },
@@ -40,7 +41,15 @@
   ],
   "copy": {
     "summary": "2 x 3 W, 5 V — line level in",
-    "wiringNote": "Takes line level, not I2S. Fed from a PCM5102A or UDA1334A, or on a classic ESP32 from its own DAC on GPIO25/26."
+    "wiringNote": "Takes line level, not I2S. Fed from a PCM5102A or UDA1334A, or on a classic ESP32 from its own DAC on GPIO25/26.",
+    "optionLabel": "PAM8403",
+    "optionOrder": 1
+  },
+  "powerAmp": {
+    "device": "PAM8403",
+    "supplyVolts": 5,
+    "channels": 2,
+    "inputKind": "line"
   },
   "pads": [
     {

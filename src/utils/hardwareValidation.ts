@@ -5,7 +5,7 @@ import { MIC_SAMPLE_RATE } from '../audio/micAnalysis'
 import { controllerSettings } from '../build/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { sdSpiPinsForBoard } from '../build/pins/sdPinDefaults'
-import { micModuleFor, MIC_MODULES } from '../state/peripherals/micModules'
+import { micModuleFor, micModules } from '../state/peripherals/micModules'
 import { isLinearForm, LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, type LedOutputForm } from '../state/output/ledOutputForm'
 import { renderScaleHalf, wantsSupersample } from '../state/output/renderScale'
 import { matrixWiringApplies, matrixWiringFromProps, type MatrixFirstRun, type MatrixStartCorner } from '../state/output/xyLayout'
@@ -467,14 +467,14 @@ function findGaps(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>): 
   /*
    * Any microphone module with no recorded row anywhere is a gap.
    *
-   * Derived from the two lists rather than named here, so adding a module to
-   * `MIC_MODULES` files it as experimental on its own and recording a bench
+   * Derived from the catalogue rather than named here, so adding a microphone part files it as
+   * experimental on its own and recording a bench
    * row for it retires that gap — neither needs this map edited. A module the
    * recorded rows *do* cover is left out, so the ordinary recorded-feature
    * check below decides it per target as before.
    */
   const recordedAnywhere = new Set(RECORDED_HARDWARE_TARGETS.flatMap((record) => record.features ?? []))
-  for (const module of MIC_MODULES) {
+  for (const module of micModules()) {
     const feature = micFeatureLabel(module.partId)
     if (recordedAnywhere.has(feature)) continue
     advanced.set(feature, `${module.label} capture is offered but has no dated hardware record on any target.`)

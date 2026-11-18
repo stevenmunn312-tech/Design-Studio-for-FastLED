@@ -12,7 +12,8 @@
       "facts": [
         "pinLabelsLeftToRight",
         "render",
-        "notes"
+        "notes",
+        "i2sAudio"
       ],
       "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/overview"
     },
@@ -30,7 +31,13 @@
     }
   ],
   "copy": {
-    "summary": "I2S in, drives a speaker directly"
+    "summary": "I2S in, drives a speaker directly",
+    "optionLabel": "MAX98357A",
+    "optionOrder": 1
+  },
+  "i2sAudio": {
+    "device": "MAX98357A",
+    "output": "speaker"
   },
   "pads": [
     {

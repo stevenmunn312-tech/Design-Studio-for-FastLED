@@ -967,16 +967,28 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           `${micModuleFor((node.data.properties as Record<string, unknown>).partId)?.label ?? nodeLabel(node)} microphone input`,
           pins,
         )
-      case 'LineInput':
+      case 'LineInput': {
+        // Named by the node's own part and chip, like the amplifier: a node
+        // naming another part is that part (or an unresolved one), never the PCM1802.
+        const identity = resolvePartIdentity('LineInput', node.data.properties as Record<string, unknown>)
+        const block = identity?.entry?.lineInput
+        const title = block
+          ? `${block.device} ${block.channels === 1 ? 'mono' : 'stereo'} line-level ADC`
+          : identity?.option.label ?? nodeLabel(node)
         return {
-          ...buildPeripheralItem(node, 'line-input', 'PCM1802 stereo line-level ADC', pins),
+          ...buildPeripheralItem(node, 'line-input', title, pins),
           supported: ['i2sMclk', 'i2sBclk', 'i2sLrclk', 'i2sDout']
             .every((key) => pins.some((pin) => pin.propertyKey === key)),
-          facts: { partId: 'pcm1802-line-in-adc', input: 'stereo-line-level', output: 'i2s' },
+          facts: {
+            partId: identity?.option.id ?? '',
+            input: block?.channels === 1 ? 'mono-line-level' : 'stereo-line-level',
+            output: 'i2s',
+          },
           reasons: pins.length === 4
             ? undefined
             : ['This line-in ADC has no complete MCLK/BCLK/LRCLK/DOUT pin set configured.'],
         }
+      }
       case 'TouchButtonInput': {
         const props = node.data.properties as Record<string, unknown>
         const spec = touchButtonSpec(props.partId)
@@ -1790,7 +1802,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
       }
       case 'Amplifier': {
         const identity = resolvePartIdentity('Amplifier', node.data.properties as Record<string, unknown>)
-        const partId = identity?.option.id ?? 'max98357a-i2s-amplifier'
+        const partId = identity?.option.id ?? ''
         // Named by the module, not by the role: "Amplifier" on a bench holding
         // a PCM5102A would be wrong twice over — it is a DAC, and it is line
         // level. The part's own summary already says which.
@@ -1798,7 +1810,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           ...buildPeripheralItem(node, 'amplifier', identity?.option.summary ?? 'Audio output module', pins),
           title: identity?.entry?.label ?? identity?.option.label ?? nodeLabel(node),
           supported: ['i2sBclk', 'i2sLrc', 'i2sDout'].every((key) => pins.some((pin) => pin.propertyKey === key)),
-          facts: { partId, stage: 'i2s', output: identity?.option.output ?? 'speaker' },
+          facts: { partId, stage: 'i2s', output: identity?.entry?.i2sAudio?.output ?? 'speaker' },
           reasons: pins.length === 3
             ? undefined
             : ['This audio module has no complete set of I2S pins configured.'],
@@ -1806,7 +1818,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
       }
       case 'PowerAmplifier': {
         const identity = resolvePartIdentity('PowerAmplifier', node.data.properties as Record<string, unknown>)
-        const partId = identity?.option.id ?? 'pam8403-3w-stereo-amplifier'
+        const partId = identity?.option.id ?? ''
         const feed = powerAmplifierFeed(nodes) ?? 'internalDac'
         const source = powerAmplifierSource(nodes)
         const sourceIdentity = source

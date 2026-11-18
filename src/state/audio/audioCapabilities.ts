@@ -37,7 +37,7 @@ export function audioCapabilitySources(nodes: readonly StudioNode[]): AudioCapab
     .filter((node) => node.data.nodeType === 'MicInput')
     .map((node) => {
       const properties = node.data.properties as Record<string, unknown>
-      const part = resolvePartIdentity('MicInput', properties)?.option.label ?? 'INMP441'
+      const part = resolvePartIdentity('MicInput', properties)?.option.label ?? 'Microphone'
       return {
         id: node.id,
         label: part,
@@ -51,7 +51,7 @@ export function audioCapabilitySources(nodes: readonly StudioNode[]): AudioCapab
     .map((node) => ({
       id: node.id,
       label: resolvePartIdentity('LineInput', node.data.properties as Record<string, unknown>)?.option.label
-        ?? 'PCM1802',
+        ?? 'Line input',
       kind: 'line-in' as const,
       node,
     }))

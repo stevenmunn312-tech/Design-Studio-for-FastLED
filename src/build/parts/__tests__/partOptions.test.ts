@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { PART_OPTIONS, partOptionProperty, partOptionsFor, resolvePartIdentity } from '../partOptions'
 import { partById, sharedPadsAcrossBoards } from '../partCatalogue'
-import { DEFAULT_MIC_MODULE, MIC_MODULES, micModuleFor } from '../../../state/peripherals/micModules'
+import { DEFAULT_MIC_PART_ID, bundledMicModules, micModuleFor } from '../../../state/peripherals/micModules'
 
 describe('part options', () => {
   it('offers exactly the microphones the firmware has a factory for', () => {
     // A module earns a row when FastLED ships a `Config` factory and a
     // `MicProfile` for it, and not otherwise — offering one the generator
     // cannot call would be a claim the firmware cannot keep. Derived from
-    // MIC_MODULES rather than restated, so the two cannot drift.
+    // the catalogue rather than restated, so the two cannot drift.
     expect(partOptionsFor('MicInput').map((option) => option.id))
-      .toEqual(MIC_MODULES.map((module) => module.partId))
+      .toEqual(bundledMicModules().map((module) => module.partId))
     expect(resolvePartIdentity('MicInput', {})!.hasChoice).toBe(true)
   })
 
@@ -20,7 +20,7 @@ describe('part options', () => {
    * Neither, and the generator has nothing to emit; both, and two answers.
    */
   it('names a microphone module every option can be built with', () => {
-    for (const module of MIC_MODULES) {
+    for (const module of bundledMicModules()) {
       expect(partById(module.partId), module.label).toBeDefined()
       if (module.capture) {
         expect(module.factory, module.label).toBeUndefined()
@@ -32,13 +32,13 @@ describe('part options', () => {
     }
     // No two modules may share a factory: the option list exists to name a
     // difference, and two rows resolving to one capture config would not be one.
-    const factories = MIC_MODULES.flatMap((module) => module.factory ? [module.factory] : [])
+    const factories = bundledMicModules().flatMap((module) => module.factory ? [module.factory] : [])
     expect(new Set(factories).size).toBe(factories.length)
   })
 
   it('resolves an absent microphone choice to the default and an unknown one to nothing', () => {
-    expect(micModuleFor(undefined)).toBe(DEFAULT_MIC_MODULE)
-    expect(micModuleFor('')).toBe(DEFAULT_MIC_MODULE)
+    expect(micModuleFor(undefined)).toBe(micModuleFor(DEFAULT_MIC_PART_ID))
+    expect(micModuleFor('')).toBe(micModuleFor(DEFAULT_MIC_PART_ID))
     expect(micModuleFor('a-module-that-was-retired')).toBeNull()
     expect(micModuleFor('ics-43434-i2s-microphone')?.factory).toBe('CreateIcs43434')
   })

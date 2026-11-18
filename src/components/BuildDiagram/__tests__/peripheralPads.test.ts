@@ -5,7 +5,7 @@ import {
   micChannelSelectPadIndex, modulePadGeometry, transceiverEnableBridgePads,
   receiveDivider, peripheralSignalEndPoint, peripheralPadPoint, PERIPHERAL_RENDER_H,
 } from '../physicalDiagramLayout'
-import { MIC_MODULES } from '../../../state/peripherals/micModules'
+import { bundledMicModules } from '../../../state/peripherals/micModules'
 import { partById } from '../../../build/parts/partCatalogue'
 import type { HardwareManifestItem } from '../../../build/hardwareManifest'
 
@@ -154,7 +154,7 @@ describe('module pads come from the part, not the category', () => {
    * all six as a hardcoded column in a fixed BCLK/WS/L-R/DOUT/VDD/GND order,
    * which is not the order, the shape or the edge that any of them has.
    */
-  it.each(MIC_MODULES.map((module) => [module.partId] as const))(
+  it.each(bundledMicModules().map((module) => [module.partId] as const))(
     'finds every role on %s by the name printed beside it',
     (partId) => {
       const mic = item('mic-input', partId)

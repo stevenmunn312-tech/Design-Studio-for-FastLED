@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { generateCpp as generateCppImpl, audioEngineForGraph } from '../cppGenerator'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import { DEFAULT_FONT, textColumns } from '../../nodes/shared/font'
-import { DEFAULT_MIC_MODULE, MIC_MODULES } from '../../state/peripherals/micModules'
+import { DEFAULT_MIC_PART_ID, bundledMicModules, micModuleFor } from '../../state/peripherals/micModules'
 import { corkscrewSampleMapForProps, ringSampleMapForProps } from '../../state/output/ledOutputForm'
 import { resolveSlicePattern } from '../../nodes/field/sliceTiling'
 import { worleyHash, seedOffset } from '../../state/evaluator/random'
@@ -5025,13 +5025,13 @@ describe('generateCpp — INMP441 audio engine', () => {
     ])
   }
 
-  it.each(MIC_MODULES.filter((module) => module.factory).map((module) => [module.label, module] as const))(
+  it.each(bundledMicModules().filter((module) => module.factory).map((module) => [module.label, module] as const))(
     'builds the %s with its own FastLED factory on ESP32 and its own profile on Teensy',
     (_label, module) => {
       const esp32 = micModuleGraph('espressif-esp32-s3-devkitc-1', module.partId)
       expect(esp32).toContain(`fl::audio::Config::${module.factory}(MIC_WS, MIC_SD, MIC_SCK`)
       expect(esp32).toContain(`// ── FastLED ${module.label} audio reactivity`)
-      for (const other of MIC_MODULES) {
+      for (const other of bundledMicModules()) {
         if (other.factory && other.factory !== module.factory) expect(esp32).not.toContain(other.factory)
       }
       // Teensy takes the profile explicitly rather than through a factory.
@@ -5080,7 +5080,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     // Emitting the default factory would flash a microphone the project did not
     // choose; the node is left out and the sketch says so (partResolution.ts).
     const code = micModuleGraph('espressif-esp32-s3-devkitc-1', 'a-module-that-was-retired')
-    expect(code).not.toContain(`fl::audio::Config::${DEFAULT_MIC_MODULE.factory}`)
+    expect(code).not.toContain(`fl::audio::Config::${micModuleFor(DEFAULT_MIC_PART_ID)?.factory}`)
     expect(code).toContain('// Not generated: ')
     expect(code).toContain('a-module-that-was-retired')
   })
