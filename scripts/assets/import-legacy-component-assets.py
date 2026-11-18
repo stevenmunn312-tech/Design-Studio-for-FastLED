@@ -2,7 +2,8 @@
 """Import Blender renders still used as bundled UI artwork.
 
 Canonical board and part packages are handled by the two catalogue importers.
-Six older models still live at the Blender Assets root.  Three additional
+Six older models still live at the Blender Assets root; the 5 V supply
+has two renders, the bench view and the Build Diagram's terminal view.  Three additional
 bundled imports are fallbacks or direct component artwork for canonical parts.
 All retain their established filenames so existing UI imports stay stable.
 
@@ -27,6 +28,7 @@ WEBP_QUALITY = 82
 ASSETS = {
     "330ohm_blue_axial_resistor_top_down.png": "330ohm-blue-axial-resistor.webp",
     "5v_psu_birdseye_transparent.png": "5v-psu.webp",
+    "5v_psu_front_section_right.png": "5v-psu-terminals.webp",
     "button_module.png": "button-module.webp",
     "encoder_module.png": "encoder-module.webp",
     "Panasonic_EEUFR0J102B_top_down.png": "panasonic-eeufr0j102b-1000uf.webp",

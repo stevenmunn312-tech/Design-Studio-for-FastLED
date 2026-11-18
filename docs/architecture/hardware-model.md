@@ -89,8 +89,9 @@ because the load itself is not in the graph.
 already owns, one node per physical supply. It is config-only like
 `PowerConverter` and has no catalogue part: `voltage` and `ratedCurrentA` are
 typed off the supply's label and held to 3-48 V and 0.5-200 A
-(`powerSupplyRating`). The bench and the Build Diagram both draw the generic
-`5v-psu.webp` render, and the bench draws no run to it. Its manifest item is kind
+(`powerSupplyRating`). The bench draws the generic `5v-psu.webp` render and no
+run to it; the Build Diagram draws its terminal side, `5v-psu-terminals.webp`,
+with the wires on the +V and -V screws. Its manifest item is kind
 `power-supply`, on the power path. Each LED load (`MatrixOutput`,
 `StereoVuMeter`) names its supply in `poweredBy`; `supplyForLoad` reads that,
 falling back to the first supply when it is unset or names a removed one, and the

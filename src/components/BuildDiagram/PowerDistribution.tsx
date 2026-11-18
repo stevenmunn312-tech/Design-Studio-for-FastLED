@@ -3,7 +3,7 @@
 import { injectionLocation, type SupplyRecommendation, type ElectricalPlanSummary } from '../../build/power/electricalPlan'
 import { type FuseBlockCircuitCount, fuseBlockAllocations } from '../../build/power/powerDistribution'
 import { partById, partRenderSrc } from '../../build/parts/partCatalogue'
-import psuRender from '../../assets/components/5v-psu.webp'
+import psuRender from '../../assets/components/5v-psu-terminals.webp'
 import capacitorRender from '../../assets/components/panasonic-eeufr0j102b-1000uf.webp'
 import fuseBlock2Render from '../../assets/components/fuse-block-2-circuit.webp'
 import fuseBlock4Render from '../../assets/components/fuse-block-4-circuit.webp'
@@ -110,6 +110,10 @@ const FEED_LABEL_MAX_WIDTH = 344
 const APPROX_WIRE_LABEL_CHARACTER_WIDTH = 6.6
 
 /**
+ * The generic 5 V supply is drawn from its terminal side (560 x 1000 render,
+ * fitted to the 123 x 220 cell): +V, +V, -V, -V, PE, N, L top to bottom. Its
+ * dots sit on the lower +V and upper -V screws.
+ *
  * Terminal centres measured from the SD-100 render after it is fitted into
  * the same 123 x 220 cell as the generic 5 V supply. The seven screws run
  * left-to-right as input +, input -, FG, -V, -V, +V, +V.

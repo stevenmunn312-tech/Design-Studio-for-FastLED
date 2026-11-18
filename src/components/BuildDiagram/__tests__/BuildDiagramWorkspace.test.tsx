@@ -620,6 +620,8 @@ describe('BuildDiagramWorkspace', () => {
       expect(diagram?.querySelector(`[data-terminal="${terminal}"]`), terminal).toBeTruthy()
     }
     const psuRender = diagram?.querySelector('[data-component-render="5v-psu"]')
+    // The diagram draws the supply's terminal side, so the dots land on screws.
+    expect(psuRender?.getAttribute('href')).toContain('5v-psu-terminals')
     expect(psuRender?.getAttribute('width')).toBe('123')
     expect(psuRender?.getAttribute('height')).toBe('220')
     expect(psuRender?.getAttribute('y')).toBe('165')
