@@ -122,7 +122,7 @@ import { DISTANCE_SENSOR_HELPER_CPP, distanceSensorLibraryInclude } from './peri
 import { JOYSTICK_HELPER_CPP } from './peripherals/joystickCpp'
 import { ANALOG_SENSOR_HELPER_CPP } from './peripherals/analogSensorCpp'
 import { ANALOG_SENSOR_NODE_TYPE } from '../state/peripherals/analogSensor'
-import { KEYPAD_HELPER_CPP } from './peripherals/keypadCpp'
+import { keypadHelpersFor } from './peripherals/keypadCpp'
 import { MOTION_VECTOR_HELPER_CPP } from './peripherals/motionVectorCpp'
 import { TOUCH_PAD_HELPER_CPP } from './peripherals/touchPadCpp'
 import { lightSensorSetupCpp, LIGHT_SENSOR_HELPER_CPP } from './peripherals/lightSensorCpp'
@@ -1621,7 +1621,7 @@ export function generateCpp(
   if (pulseDistanceSensors.length > 0) lines.push(...DISTANCE_SENSOR_HELPER_CPP)
   if (analogSensors.length > 0) lines.push(...ANALOG_SENSOR_HELPER_CPP)
   if (joysticks.length > 0) lines.push(...JOYSTICK_HELPER_CPP)
-  if (keypads.length > 0) lines.push(...KEYPAD_HELPER_CPP)
+  if (keypads.length > 0) lines.push(...keypadHelpersFor(keypads.map((n) => props(n).partId)))
   if (motionVectors.length > 0) lines.push(...MOTION_VECTOR_HELPER_CPP)
   if (touchPads.length > 0) lines.push(...TOUCH_PAD_HELPER_CPP)
 

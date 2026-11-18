@@ -91,13 +91,17 @@ export function customDisplayControlPlan(
     const assetId = customDisplayId(documentId)
     if (symbols.has(id)) errors.push(`${label}: display identifiers collide after sanitization. Recreate this display.`)
     symbols.add(id)
+    if (!mountedPanelGeometry(panelNode.data.properties)) {
+      errors.push(`${label}: its display module is not one this version drives.`)
+      return []
+    }
     const panel = { ...customDisplayPanelFromProps(customDisplayId(panelNode.id), panelNode.data.properties), manualTouch: true }
     const touchNode = nodes.find((candidate) => candidate.data.nodeType === 'TouchInput'
       && String(candidate.data.properties.panelId ?? '') === panelNode.id)
     // The panel states the size; the document is what has to match it. Shared
     // with deploy validation so a normal sketch reports the same mismatch this
     // template refuses to build.
-    const issue = mountedSizeIssue(label, mountedPanelGeometry(panelNode.data.properties), document.designSize)
+    const issue = mountedSizeIssue(label, mountedPanelGeometry(panelNode.data.properties)!, document.designSize)
     if (issue) errors.push(issue)
     errors.push(...customDisplayResourceIssues(document).map((issue) => `${label}: ${issue.message}`))
     const bindings: Record<string, CustomDisplayLvglBinding[]> = Object.create(null)

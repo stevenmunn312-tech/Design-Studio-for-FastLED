@@ -61,7 +61,7 @@ export const PART_TYPES: readonly PartTypeDefinition[] = [
   type({ nodeType: 'PdTriggerSource', block: 'pdTrigger' }),
   type({ nodeType: 'PowerMonitorInput', block: 'powerMonitor', deviceField: 'device', devices: ['INA219B', 'INA226'] }),
   // Switching
-  type({ nodeType: 'RelayOutput', block: 'relay' }),
+  type({ nodeType: 'RelayOutput', block: 'relay', downloadable: true }),
   type({ nodeType: 'PowerSwitchOutput', block: 'mosfet' }),
   type({ nodeType: 'DarlingtonDriverOutput', block: 'driverChip', deviceField: 'device', devices: ['ULN2803A'] }),
   type({ nodeType: 'PwmDriverOutput', block: 'pwmDriver', deviceField: 'device', devices: ['PCA9685'] }),
@@ -74,7 +74,7 @@ export const PART_TYPES: readonly PartTypeDefinition[] = [
   type({ nodeType: 'PresenceInput', block: 'presenceSensor', deviceField: 'device', devices: ['HLK-LD2410C'] }),
   type({ nodeType: 'DistanceInput', block: 'distanceSensor', deviceField: 'device', devices: ['HC-SR04', 'VL53L0X', 'VL53L1X'] }),
   type({ nodeType: 'TemperatureInput', block: 'temperatureSensor', deviceField: 'device', devices: ['DS18B20'] }),
-  type({ nodeType: 'MotionInput' }),
+  type({ nodeType: 'MotionInput', block: 'motionSensor', downloadable: true }),
   type({ nodeType: 'DigitalSensorInput', block: 'digitalSensor' }),
   type({ nodeType: 'AnalogSensorInput', block: 'analogSensor' }),
   // Controls
@@ -82,8 +82,8 @@ export const PART_TYPES: readonly PartTypeDefinition[] = [
   type({ nodeType: 'TouchPadInput', block: 'touchPad', deviceField: 'device', devices: ['MPR121'] }),
   type({ nodeType: 'JoystickInput', block: 'joystick' }),
   type({ nodeType: 'EncoderInput', block: 'encoder' }),
-  type({ nodeType: 'KeypadInput' }),
-  type({ nodeType: 'IRRemoteInput' }),
+  type({ nodeType: 'KeypadInput', block: 'keypad', downloadable: true }),
+  type({ nodeType: 'IRRemoteInput', block: 'irReceiver', downloadable: true }),
   // Displays
   type({ nodeType: 'InfoDisplay', block: 'display', deviceField: 'controller', devices: ['SSD1306', 'SH1106G'] }),
   type({ nodeType: 'TransportDisplay', block: 'display', deviceField: 'controller', devices: ['ST7789V', 'ILI9341'] }),

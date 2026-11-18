@@ -18,7 +18,6 @@ import {
 import type { PartManifest } from './manifest/partManifest'
 import { analogSensorEntries, analogSensorSummary } from '../../state/peripherals/analogSensor'
 import { digitalSensorEntries, digitalSensorSummary } from '../../state/peripherals/digitalSensor'
-import { IR_RECEIVER_MODULES } from '../../state/peripherals/irModules'
 import { MIC_MODULES } from '../../state/peripherals/micModules'
 import { batteryCellPartIds, batteryModulePartIds, batteryModuleSummary } from '../../state/peripherals/battery'
 
@@ -160,15 +159,6 @@ const BUNDLED_PART_OPTIONS: Record<string, PartOptionConfig> = {
       note: module.note,
     })),
   },
-  IRRemoteInput: {
-    property: 'partId',
-    options: IR_RECEIVER_MODULES.map((module) => ({
-      id: module.partId,
-      label: module.label,
-      summary: module.summary,
-      note: module.note,
-    })),
-  },
   LineInput: {
     property: 'partId',
     options: [
@@ -236,17 +226,6 @@ const BUNDLED_PART_OPTIONS: Record<string, PartOptionConfig> = {
       },
     ],
   },
-  KeypadInput: {
-    property: 'partId',
-    options: [
-      {
-        id: 'matrix-keypad-4x4',
-        label: '4x4 matrix keypad',
-        summary: 'Sixteen keys on eight GPIOs',
-        note: 'Rows R1 to R4 go to pins with a pull-up and columns C1 to C4 to output pins. The keypad is passive and needs no power.',
-      },
-    ],
-  },
   // The generic sensor types have no row of code per part: every option is a
   // catalogue entry carrying the type's block, read when asked so a part added
   // to the catalogue appears without an edit here. A node naming no catalogued
@@ -272,38 +251,6 @@ const BUNDLED_PART_OPTIONS: Record<string, PartOptionConfig> = {
         summary: analogSensorSummary(entry.analogSensor!),
       }))
     },
-  },
-  MotionInput: {
-    property: 'partId',
-    options: [
-      {
-        id: 'hc-sr501-pir-sensor',
-        label: 'HC-SR501 PIR',
-        summary: 'Infrared: sees a warm body move',
-        note: 'Power VCC from 5 V. OUT is 3.3 V logic.',
-      },
-      {
-        id: 'rcwl-0516-microwave-motion-module',
-        label: 'RCWL-0516 microwave',
-        summary: 'Radar: senses movement through plastic',
-        note: 'Power VIN from 5 V (4 to 28 V). OUT is 3.3 V logic and stays high about two seconds after the last movement. Leave 3V3 and CDS unwired.',
-      },
-    ],
-  },
-  RelayOutput: {
-    property: 'partId',
-    options: [
-      { id: 'relay-module-1ch-5v', label: '1-channel relay', summary: 'One active-low 5 V SPDT relay' },
-      { id: 'relay-module-2ch-5v', label: '2-channel relay', summary: 'Two active-low 5 V SPDT relays' },
-      { id: 'relay-module-4ch-5v', label: '4-channel relay', summary: 'Four active-low 5 V SPDT relays' },
-      { id: 'relay-module-8ch-5v', label: '8-channel relay', summary: 'Eight active-low 5 V SPDT relays' },
-      {
-        id: 'seeed-grove-2ch-ssr',
-        label: 'Seeed Grove 2-channel SSR',
-        summary: 'Two AC phototriacs, 0.1-2 A, leak 1.5 mA off',
-        note: 'Wire CTR1 and CTR2 to GPIOs and VCC to 5 V. The screw terminals switch the AC load and are not logic pins.',
-      },
-    ],
   },
   // The stage on the board's own pins: every option takes I2S. An analog
   // amplifier is a different part in a different place in the chain — it
@@ -382,6 +329,10 @@ const BUNDLED_PART_OPTIONS: Record<string, PartOptionConfig> = {
     PdTriggerSource: {},
     PowerSwitchOutput: {},
     BuzzerOutput: {},
+    RelayOutput: {},
+    MotionInput: {},
+    KeypadInput: {},
+    IRRemoteInput: {},
     EthernetModule: {},
     DistanceInput: {},
     LightInput: {},

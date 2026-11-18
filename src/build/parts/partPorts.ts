@@ -1,5 +1,6 @@
 import type { NodePort } from '../../types'
 import { buzzerInputs } from '../../state/peripherals/buzzer'
+import { keypadOutputs } from '../../state/peripherals/keypad'
 import { powerSwitchInputs } from '../../state/peripherals/powerSwitch'
 import { relayInputs } from '../../state/peripherals/relayModule'
 import { unknownPartId } from './partResolution'
@@ -28,6 +29,18 @@ export function partDerivedInputs(nodeType: string, partId: unknown, properties?
 }
 
 /**
+ * Outputs that follow the selected part: a keypad's keys, labelled with what
+ * each is printed with. Null for every other node, whose outputs are its
+ * library definition's, and for a part this version does not have (its keys are
+ * unknown, so its saved outputs are kept as they are).
+ */
+export function partDerivedOutputs(nodeType: string, partId: unknown): NodePort[] | null {
+  if (unknownPartId(nodeType, { partId }) !== null) return null
+  if (nodeType === 'KeypadInput') return keypadOutputs(partId)
+  return null
+}
+
+/**
  * True when a part-backed node names a part this version does not have, so its
  * ports are whatever the file saved rather than anything derived or looked up.
  */
@@ -35,4 +48,4 @@ export function keepsSavedPorts(nodeType: string, properties: Record<string, unk
   return PART_BACKED_PORT_TYPES.has(nodeType) && unknownPartId(nodeType, properties) !== null
 }
 
-const PART_BACKED_PORT_TYPES: ReadonlySet<string> = new Set(['RelayOutput', 'PowerSwitchOutput', 'BuzzerOutput'])
+const PART_BACKED_PORT_TYPES: ReadonlySet<string> = new Set(['RelayOutput', 'PowerSwitchOutput', 'BuzzerOutput', 'KeypadInput'])

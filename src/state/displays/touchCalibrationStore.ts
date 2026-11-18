@@ -65,9 +65,12 @@ function calibrationSketchFor(nodeId: string): string | null {
   const panel = nodes.find((node) => node.id === panelId && node.data.nodeType === 'TransportDisplay')
   if (!panel) return null
   const properties = panel.data.properties as Record<string, unknown>
+  // A panel this version does not have has no registers to calibrate against.
+  const controller = tftControllerForProps(properties)
+  if (!controller) return null
   return generateTouchCalibrationSketch(touchCalibrationTargetFor(
     properties,
-    tftControllerForProps(properties),
+    controller,
     asTftRotation(properties.tftRotation),
     // The glass's own saved calibration, so the mark says what this panel
     // currently makes of a press — the mirror of your finger before a run,

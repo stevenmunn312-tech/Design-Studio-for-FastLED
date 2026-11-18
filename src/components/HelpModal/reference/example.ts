@@ -15,7 +15,7 @@ import { LED_OUTPUT_FORM_LABELS, type LedOutputForm } from '../../../state/outpu
 import { irRemoteOutputs } from '../../../state/peripherals/irRemote'
 import { buttonBankOutputs } from '../../../state/player/buttonBank'
 import { webRemoteOutputs } from '../../../state/peripherals/webRemote'
-import { partDerivedInputs } from '../../../build/parts/partPorts'
+import { partDerivedInputs, partDerivedOutputs } from '../../../build/parts/partPorts'
 
 export interface ReferenceLiveExample extends LiveExampleSpec {
   /** Compact topology shown beside the Try it live button. */
@@ -145,6 +145,8 @@ function inputsOf(type: string, properties: Record<string, unknown> | undefined)
 }
 
 function outputsOf(type: string, properties: Record<string, unknown> | undefined) {
+  const derived = partDerivedOutputs(type, { ...libraryDefaults(type), ...properties }.partId)
+  if (derived) return derived
   if (type === 'IRRemoteInput') return irRemoteOutputs(properties?.buttons)
   if (type === 'ButtonBank') return buttonBankOutputs({ ...libraryDefaults(type), ...properties }.buttons, false)
   if (type === 'WebRemoteInput') return webRemoteOutputs(properties?.controls, false)

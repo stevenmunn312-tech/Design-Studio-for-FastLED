@@ -11,7 +11,7 @@ import { IR_REMOTE_LEARN_HANDLE } from '../../state/peripherals/irRemote'
 import { BUTTON_BANK_ADD_HANDLE, BUTTON_BANK_ADD_LABEL, firstButtonBankRow } from '../../state/player/buttonBank'
 import { TOUCH_CONTROL_ADD_DATA_TYPE, TOUCH_CONTROL_ADD_HANDLE, TOUCH_CONTROL_ADD_LABEL } from '../../state/displays/displayRegistry'
 import { JOYSTICK_DEFAULT_DEADZONE, KY023_PART_ID } from '../../state/peripherals/joystick'
-import { KEYPAD_KEY_COUNT, KEYPAD_LEGENDS, KEYPAD_PART_ID, keypadKeyPort } from '../../state/peripherals/keypad'
+import { KEYPAD_PART_ID, keypadOutputs } from '../../state/peripherals/keypad'
 import { ENCODER_LEVEL_DEFAULTS } from '../../state/peripherals/encoder'
 import { BH1750_DEFAULT_ADDRESS, DEFAULT_LIGHT_SENSOR_PART_ID, LIGHT_SENSOR_DEFAULT_MAX_LUX, formatLightSensorAddress } from '../../state/peripherals/lightSensor'
 import { MPU6050_PART_ID, formatMotionVectorAddress, motionVectorSpec } from '../../state/peripherals/motionVector'
@@ -372,13 +372,8 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     label: 'Keypad',
     category: 'input',
     inputs: [],
-    outputs: [
-      { id: 'key', label: 'Key (0-15)', dataType: 'float' },
-      { id: 'pressed', label: 'Pressed', dataType: 'bool' },
-      { id: 'digit', label: 'Digit (0-9)', dataType: 'float' },
-      ...Array.from({ length: KEYPAD_KEY_COUNT }, (_, key) => (
-        { id: keypadKeyPort(key), label: `Key ${KEYPAD_LEGENDS[key]}`, dataType: 'bool' })),
-    ],
+    // The default part's outputs; a node derives its own from its part (`keypadOutputs`).
+    outputs: keypadOutputs(KEYPAD_PART_ID),
     defaultExposedOutputs: ['key', 'pressed', 'digit'],
     defaultProperties: {
       partId: KEYPAD_PART_ID,

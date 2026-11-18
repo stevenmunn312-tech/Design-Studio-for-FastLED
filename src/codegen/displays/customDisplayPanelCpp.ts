@@ -14,13 +14,13 @@
 // `_xptPoint`, and this module's indev callback is a thin wrapper around it.
 
 import {
-  asTftRotation, PARALLEL_TOUCH_ELECTRODES, TFT_CONTROLLERS, tftMadctl, tftRotatedSize,
+  asTftRotation, PARALLEL_TOUCH_ELECTRODES, tftMadctl, tftRotatedSize,
   tftWindowOrigin,
   type TftController, type TftRotation,
 } from '../../state/displays/tftSurface'
 import { TELEMETRY_TOUCH_INTERVAL_MS } from '../../state/upload/deviceTelemetry'
 import {
-  tftControllerForProps, tftTransportForProps, transportDisplayPinKeysForProps, xptTouchPinsForProps,
+  requireTftController, tftTransportForProps, transportDisplayPinKeysForProps, xptTouchPinsForProps,
   type XptTouchPins,
 } from '../../state/nodeLibrary'
 import { displayHasTouch } from '../../build/parts/partCatalogue'
@@ -114,7 +114,7 @@ export function customDisplayPanelFromProps(
   // says — the same question `tftTransportForProps` answers for a fixed layout.
   const parallel = tftTransportForProps(p) === 'parallel'
   return {
-    id: customDisplayId(id), controller: tftControllerForProps(p) ?? TFT_CONTROLLERS.ST7789V,
+    id: customDisplayId(id), controller: requireTftController(p),
     rotation: asTftRotation(p.tftRotation),
     csPin: integer('csPin', 5), dcPin: integer('dcPin', 16), resetPin: integer('resetPin', 17),
     sckPin: integer('sckPin', 18), mosiPin: integer('mosiPin', 23),

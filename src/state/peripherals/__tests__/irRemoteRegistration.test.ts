@@ -10,8 +10,8 @@ import { isHardwareLibraryHiddenNodeType, isHardwareManagedSignalNodeType } from
 import { busAssignmentFor } from '../../../build/pins/busTopology'
 import { collectPinUses, buildHardwareManifest } from '../../../build/hardwareManifest'
 import { IR_REMOTE_LEARN_HANDLE, irRemoteButtonHandle } from '../irRemote'
-import { IR_RECEIVER_MODULES, irReceiverModuleFor } from '../irModules'
-import { partById } from '../../../build/parts/partCatalogue'
+import { DEFAULT_IR_RECEIVER_PART_ID, irReceiverNeedsDivider, irReceiverSpec } from '../irModules'
+import { bundledPartsForType, partById } from '../../../build/parts/partCatalogue'
 import { resolvePartIdentity } from '../../../build/parts/partOptions'
 import {
   peripheralGroundPadIndex,
@@ -228,6 +228,7 @@ describe('editing learned IR keys', () => {
 })
 
 describe('the offered IR receivers', () => {
+  const IR_RECEIVER_PARTS = bundledPartsForType('IRRemoteInput')
   const itemFor = (partId: string): HardwareManifestItem => ({
     id: 'ir-input:ir', kind: 'ir-input', title: 'IR Remote', subtitle: '',
     sourceNodeId: 'ir', supported: true,
@@ -235,7 +236,7 @@ describe('the offered IR receivers', () => {
     facts: { partId },
   } as HardwareManifestItem)
 
-  it.each(IR_RECEIVER_MODULES.map((module) => [module.partId] as const))(
+  it.each(IR_RECEIVER_PARTS.map((module) => [module.partId] as const))(
     'catalogues %s with a render and a measured size',
     (partId) => {
       const entry = partById(partId)
@@ -246,7 +247,7 @@ describe('the offered IR receivers', () => {
     },
   )
 
-  it.each(IR_RECEIVER_MODULES.map((module) => [module.partId] as const))(
+  it.each(IR_RECEIVER_PARTS.map((module) => [module.partId] as const))(
     'finds supply, ground and signal on %s by the name it prints',
     (partId) => {
       const item = itemFor(partId)
@@ -300,10 +301,11 @@ describe('the offered IR receivers', () => {
   })
 
   it('resolves an unset module to the default and an unknown one to nothing', () => {
-    expect(irReceiverModuleFor(undefined)).toBe(IR_RECEIVER_MODULES[0])
-    expect(irReceiverModuleFor('')).toBe(IR_RECEIVER_MODULES[0])
-    expect(irReceiverModuleFor('a-receiver-nobody-catalogued')).toBeNull()
-    expect(resolvePartIdentity('IRRemoteInput', {})?.option.id).toBe(IR_RECEIVER_MODULES[0].partId)
+    expect(irReceiverSpec(undefined)).toBe(partById(DEFAULT_IR_RECEIVER_PART_ID)!.irReceiver)
+    expect(irReceiverSpec('')).toBe(partById(DEFAULT_IR_RECEIVER_PART_ID)!.irReceiver)
+    expect(irReceiverSpec('a-receiver-nobody-catalogued')).toBeNull()
+    expect(irReceiverNeedsDivider('a-receiver-nobody-catalogued')).toBe(false)
+    expect(resolvePartIdentity('IRRemoteInput', {})?.option.id).toBe(IR_RECEIVER_PARTS[0].partId)
     expect(resolvePartIdentity('IRRemoteInput', { partId: 'tsop38238-ir-receiver' })?.option.id)
       .toBe('tsop38238-ir-receiver')
   })

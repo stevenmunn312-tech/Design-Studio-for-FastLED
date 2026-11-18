@@ -1,4 +1,4 @@
-import { irReceiverModuleFor } from '../../state/peripherals/irModules'
+import { irReceiverNeedsDivider } from '../../state/peripherals/irModules'
 import { distanceSensorTransport } from '../../state/peripherals/distanceSensor'
 
 /** Shared by the Build Diagram and Hardware pin captions. */
@@ -9,7 +9,7 @@ const SOURCES: Record<string, { propertyKey: string; pads: readonly string[] }> 
 }
 
 export function receiveDividerSource(kind: string, partId: unknown, transport?: unknown) {
-  if (kind === 'ir-input' && irReceiverModuleFor(partId)?.supplyVoltage !== 5) return null
+  if (kind === 'ir-input' && !irReceiverNeedsDivider(partId)) return null
   if (transport === 'i2c') return null
   return SOURCES[kind] ?? null
 }

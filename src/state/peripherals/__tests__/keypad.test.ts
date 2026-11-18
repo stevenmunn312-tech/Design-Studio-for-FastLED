@@ -11,7 +11,7 @@ import { libraryDefaults, NODE_LIBRARY, gpioRequirementForProperty } from '../..
 import { partById } from '../../../build/parts/partCatalogue'
 import { PART_OPTIONS } from '../../../build/parts/partOptions'
 import {
-  KEYPAD_COL_KEYS, KEYPAD_KEY_COUNT, KEYPAD_LEGENDS, KEYPAD_PART_ID, KEYPAD_ROW_KEYS,
+  KEYPAD_MAX_COL_KEYS, KEYPAD_MAX_ROW_KEYS, KEYPAD_PART_ID, keypadKeyCount, keypadLegends,
 } from '../keypad'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -53,15 +53,15 @@ describe('the catalogued keypad', () => {
   it('orders the contacts R1 to R4 then C1 to C4, and prints the keys row by row', () => {
     expect(partById(KEYPAD_PART_ID)?.pinLabelsLeftToRight).toEqual(['R1', 'R2', 'R3', 'R4', 'C1', 'C2', 'C3', 'C4'])
     expect(PART_OPTIONS.KeypadInput.options.map((option) => option.id)).toEqual([KEYPAD_PART_ID])
-    expect(KEYPAD_LEGENDS).toHaveLength(KEYPAD_KEY_COUNT)
-    expect(KEYPAD_LEGENDS.join('')).toBe('123A456B789C*0#D')
+    expect(keypadLegends(KEYPAD_PART_ID)).toHaveLength(keypadKeyCount(KEYPAD_PART_ID))
+    expect(keypadLegends(KEYPAD_PART_ID).join('')).toBe('123A456B789C*0#D')
   })
 
   it('reads rows through a pull-up and drives columns', () => {
-    for (const key of KEYPAD_ROW_KEYS) {
+    for (const key of KEYPAD_MAX_ROW_KEYS) {
       expect(gpioRequirementForProperty('KeypadInput', key, {})).toEqual({ capability: 'digitalInput', pullup: true })
     }
-    for (const key of KEYPAD_COL_KEYS) {
+    for (const key of KEYPAD_MAX_COL_KEYS) {
       expect(gpioRequirementForProperty('KeypadInput', key, {})).toEqual({ capability: 'digitalOutput', pullup: false })
     }
   })
@@ -114,8 +114,8 @@ describe('keypad wiring', () => {
     expect(item).toMatchObject({ kind: 'keypad-input', supported: true, facts: { keys: '16 (4 x 4)' } })
     expect(peripheralPowerPadIndex(item)).toBeNull()
     expect(peripheralHasGround(item)).toBe(false)
-    KEYPAD_ROW_KEYS.forEach((_, index) => expect(pads[peripheralSignalPadIndex(item, index)]).toBe(`R${index + 1}`))
-    KEYPAD_COL_KEYS.forEach((_, index) => expect(pads[peripheralSignalPadIndex(item, 4 + index)]).toBe(`C${index + 1}`))
+    KEYPAD_MAX_ROW_KEYS.forEach((_, index) => expect(pads[peripheralSignalPadIndex(item, index)]).toBe(`R${index + 1}`))
+    KEYPAD_MAX_COL_KEYS.forEach((_, index) => expect(pads[peripheralSignalPadIndex(item, 4 + index)]).toBe(`C${index + 1}`))
   })
 
   it('leaves every other module\'s ground alone', () => {

@@ -54,7 +54,7 @@ import { buttonBankOutputs } from '../../state/player/buttonBank'
 import { webRemoteOutputs } from '../../state/peripherals/webRemote'
 import { drawnOutputs, foldedOutputCount } from '../../state/outputFolding'
 import { midiChannel, midiUsesUart } from '../../state/peripherals/midiSource'
-import { keepsSavedPorts, partDerivedInputs } from '../../build/parts/partPorts'
+import { keepsSavedPorts, partDerivedInputs, partDerivedOutputs } from '../../build/parts/partPorts'
 import { isPartPinRef } from '../../build/parts/partReferences'
 import { usePreviewStore } from '../../state/previewStore'
 import { useNodeDefaults } from '../../state/nodeDefaults'
@@ -1196,25 +1196,28 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   // drawn as its own output unless something is wired to it directly.
   const wiredOutputsKey = useGraphStore((s) => wiredOutputsKeyFor(s.edges, id))
   const showAllOutputs = d.showAllOutputs === true
+  // A part this version does not have keeps the outputs it was saved with.
+  const keepsSavedOutputs = keepsSavedPorts(d.nodeType, rawProps)
   // A tall sensor folds its less common outputs (`outputFolding.ts`); a wired
   // one is always drawn.
   const { outputs, foldedOutputs } = useMemo(() => {
     const wiredOutputs = new Set(wiredOutputsKey.split(';').filter(Boolean))
     const all = orderPorts(
-      (d.nodeType === 'ButtonBank'
-        ? buttonBankOutputs(rawProps.buttons)
-        : d.nodeType === 'WebRemoteInput'
-          ? webRemoteOutputs(rawProps.controls)
-          : hasDerivedDisplayPorts(d.nodeType)
-          ? d.outputs ?? def?.outputs ?? []
-          : def?.outputs ?? d.outputs ?? []) as PortDef[],
+      (partDerivedOutputs(d.nodeType, rawProps.partId)
+        ?? (d.nodeType === 'ButtonBank'
+          ? buttonBankOutputs(rawProps.buttons)
+          : d.nodeType === 'WebRemoteInput'
+            ? webRemoteOutputs(rawProps.controls)
+            : hasDerivedDisplayPorts(d.nodeType) || keepsSavedOutputs
+              ? d.outputs ?? def?.outputs ?? []
+              : def?.outputs ?? d.outputs ?? [])) as PortDef[],
       savedOutputs,
     ).filter((port) => !port.carriedByControls || wiredOutputs.has(port.id))
     return {
       outputs: drawnOutputs(d.nodeType, all, wiredOutputs, showAllOutputs),
       foldedOutputs: foldedOutputCount(d.nodeType, all, wiredOutputs),
     }
-  }, [d.nodeType, d.outputs, def?.outputs, rawProps.buttons, rawProps.controls, savedOutputs, wiredOutputsKey, showAllOutputs])
+  }, [d.nodeType, d.outputs, def?.outputs, rawProps.buttons, rawProps.controls, rawProps.partId, keepsSavedOutputs, savedOutputs, wiredOutputsKey, showAllOutputs])
 
   // Which of this node's input ports are wired, and to which upstream port. When
   // a port is wired the evaluator ignores the matching property, so a pot or

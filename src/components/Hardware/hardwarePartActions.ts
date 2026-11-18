@@ -23,7 +23,7 @@ import { partOptionProperty } from '../../build/parts/partOptions'
 import { isHardwareManagedSignalNodeType } from '../../build/hardware'
 import { outputForm, LED_OUTPUT_FORM_LABELS } from '../../state/output/ledOutputForm'
 import { automaticStereoVuLedCount, VU_LED_COUNT_CUSTOM_KEY } from '../../state/audio/stereoVuSizing'
-import { partDerivedInputs } from '../../build/parts/partPorts'
+import { partDerivedInputs, partDerivedOutputs } from '../../build/parts/partPorts'
 import { defaultSourceVoltageFor } from '../../state/peripherals/powerConverter'
 import { buttonBankOutputs, firstButtonBankRow } from '../../state/player/buttonBank'
 import {
@@ -130,7 +130,7 @@ export function inputPartActions({
         inputs: definition.inputs,
         outputs: entry.nodeType === 'ButtonBank' && 'buttons' in bankRow
           ? buttonBankOutputs(bankRow.buttons)
-          : definition.outputs,
+          : partDerivedOutputs(definition.type, entry.properties?.partId) ?? definition.outputs,
       },
     } as never)
     // A microphone or line-in is hidden on the canvas and reaches the graph

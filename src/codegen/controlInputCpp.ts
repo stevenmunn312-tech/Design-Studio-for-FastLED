@@ -12,7 +12,7 @@ import { ENVIRONMENT_SENSOR_HELPER_CPP, environmentSensorLoopCpp } from './perip
 import { TEMPERATURE_SENSOR_HELPER_CPP, temperatureSensorLoopCpp } from './peripherals/temperatureSensorCpp'
 import { MOTION_VECTOR_HELPER_CPP, motionVectorLoopCpp, motionVectorSetupCpp } from './peripherals/motionVectorCpp'
 import { TOUCH_PAD_HELPER_CPP, touchPadLoopCpp, touchPadPadsRead, touchPadSetupCpp } from './peripherals/touchPadCpp'
-import { KEYPAD_HELPER_CPP, keypadKeysRead, keypadLoopCpp, keypadSetupCpp } from './peripherals/keypadCpp'
+import { keypadHelpersFor, keypadKeysRead, keypadLoopCpp, keypadSetupCpp } from './peripherals/keypadCpp'
 import { touchPadPadPort } from '../state/peripherals/touchPad'
 import { keypadKeyPort } from '../state/peripherals/keypad'
 import { JOYSTICK_HELPER_CPP, joystickLoopCpp, joystickSetupCpp } from './peripherals/joystickCpp'
@@ -205,7 +205,7 @@ export function controlInputCpp(
     }
     case 'KeypadInput': {
       setup.push(...keypadSetupCpp(p))
-      const keys = keypadKeysRead(ports)
+      const keys = keypadKeysRead(p.partId, ports)
       const digit = !ports || ports.has('digit')
       loop.push(...keypadLoopCpp(p, id, (port) => v(port), keys, digit))
       outputs.key = 'float'
@@ -268,7 +268,7 @@ export function controlInputCpp(
     ...(nodeType === 'MotionVectorInput'
       ? { helpers: [MOTION_VECTOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }
       : {}),
-    ...(nodeType === 'KeypadInput' ? { helpers: [KEYPAD_HELPER_CPP.join('\n')] } : {}),
+    ...(nodeType === 'KeypadInput' ? { helpers: [keypadHelpersFor([p.partId]).join('\n')] } : {}),
     ...(nodeType === 'JoystickInput' ? { helpers: [JOYSTICK_HELPER_CPP.join('\n')] } : {}),
     ...(nodeType === 'DistanceInput'
       ? (distanceSensorTransport(p.partId) === 'i2c'

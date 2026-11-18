@@ -14,7 +14,7 @@ import {
 import {
   oledControllerForProps,
   oledTransportForProps,
-  tftControllerForProps,
+  requireTftController,
   transportDisplayPinKeysForProps,
   tftTransportForProps,
   xptTouchPinsForProps,
@@ -46,7 +46,7 @@ import {
   asTransportDisplayLayout,
   transportLayoutForKind,
 } from '../../state/displays/transportDisplay'
-import { TFT_CONTROLLERS, asTftRotation, PARALLEL_TOUCH_ELECTRODES } from '../../state/displays/tftSurface'
+import { asTftRotation, PARALLEL_TOUCH_ELECTRODES } from '../../state/displays/tftSurface'
 import { type TftTouchEmit, tftTouchSetupCpp, tftTouchServiceCpp } from '../../codegen/displays/tftTouchCpp'
 import {
   type CustomDisplayLvglBinding,
@@ -632,7 +632,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       // player-less sketch is a supported shape: the rows read blank and
       // the glass still works.
       : (kind ? transportLayoutForKind(kind, p.tftLayout) : null) ?? 'Waiting'
-    const controller = tftControllerForProps(p) ?? TFT_CONTROLLERS.ST7789
+    const controller = requireTftController(p)
     const rotation = asTftRotation(p.tftRotation)
     // A panel can read touch without naming a digitiser: a bare resistive
     // sheet has no controller at all, so asking only for one read this

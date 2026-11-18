@@ -16,7 +16,7 @@ function sketchFor(
 ): string {
   return generateTouchCalibrationSketch(touchCalibrationTargetFor(
     properties,
-    tftControllerForProps(properties),
+    tftControllerForProps(properties)!,
     asTftRotation(properties.tftRotation),
     touchProperties,
   ))

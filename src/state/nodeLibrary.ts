@@ -78,7 +78,7 @@ import { PRESENCE_RX_PIN_KEY } from './peripherals/presenceSensor'
 import { BUZZER_PITCH_MAX_HZ, BUZZER_PITCH_MIN_HZ, buzzerIsPassive } from './peripherals/buzzer'
 import { darlingtonPinKeys } from './peripherals/darlingtonDriver'
 import { PD_TRIGGER_PART_ID, pdTriggerVoltageOptions } from './peripherals/pdTrigger'
-import { requireDefaultSpec } from './peripherals/partSpec'
+import { partIdOrDefault, requireDefaultSpec } from './peripherals/partSpec'
 import { POWER_SUPPLY_CURRENT_A, POWER_SUPPLY_VOLTAGE } from './peripherals/powerSupply'
 import { PCA9685_PART_ID, pwmDriverAddressOptions, pwmDriverHzRange } from './peripherals/pwmDriver'
 import { DEFAULT_POWER_MONITOR_PART_ID, powerMonitorAddressOptions } from './peripherals/powerMonitor'
@@ -122,7 +122,7 @@ import {
 import { BH1750_PART_ID, lightSensorAddressOptions, lightSensorTransport } from './peripherals/lightSensor'
 import { BME280_PART_ID, environmentAddressOptions } from './peripherals/environmentSensor'
 import { VL53L0X_PART_ID, distanceSensorAddressOptions, distanceSensorTransport } from './peripherals/distanceSensor'
-import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from './peripherals/keypad'
+import { KEYPAD_MAX_COL_KEYS, KEYPAD_MAX_ROW_KEYS, keypadIsRowKey, keypadPinPropertyEnabled } from './peripherals/keypad'
 import { MPR121_PART_ID, touchPadAddressOptions } from './peripherals/touchPad'
 import { MPU6050_PART_ID, motionVectorAddressOptions } from './peripherals/motionVector'
 import { BREATHE_BPM, BREATHE_CURVES, CHASE_DIRECTIONS, CHASE_SPACING, WIPE_DIRECTIONS } from '../nodes/generative/classics1d'
@@ -1342,7 +1342,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     touchThreshold: { control: 'slider', min: 1, max: 255, step: 1 },
     releaseThreshold: { control: 'slider', min: 1, max: 255, step: 1 },
   },
-  KeypadInput: Object.fromEntries([...KEYPAD_ROW_KEYS, ...KEYPAD_COL_KEYS].map((key) => [
+  KeypadInput: Object.fromEntries([...KEYPAD_MAX_ROW_KEYS, ...KEYPAD_MAX_COL_KEYS].map((key) => [
     key, { control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1 },
   ])),
   JoystickInput: {
@@ -4789,7 +4789,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   TemperatureInput: new Set(['pin']),
   DistanceInput: new Set(['trigPin', 'echoPin', 'sdaPin', 'sclPin', 'xshutPin']),
   JoystickInput: new Set(['xPin', 'yPin', 'swPin']),
-  KeypadInput: new Set([...KEYPAD_ROW_KEYS, ...KEYPAD_COL_KEYS]),
+  KeypadInput: new Set([...KEYPAD_MAX_ROW_KEYS, ...KEYPAD_MAX_COL_KEYS]),
   MotionVectorInput: new Set(['sdaPin', 'sclPin']),
   TouchPadInput: new Set(['sdaPin', 'sclPin']),
   IRRemoteInput: new Set(['pin']),
@@ -4869,7 +4869,7 @@ export function gpioRequirementForProperty(
   }
   if (nodeType === 'RelayOutput' || nodeType === 'PowerSwitchOutput' || nodeType === 'BuzzerOutput' || nodeType === 'DarlingtonDriverOutput' || nodeType === 'TemperatureInput') return { capability: 'digitalOutput', pullup: false }
   // Rows read through the controller's pull-up; columns are driven low one at a time.
-  if (nodeType === 'KeypadInput') return KEYPAD_ROW_KEYS.includes(key as never) ? { capability: 'digitalInput', pullup: true } : { capability: 'digitalOutput', pullup: false }
+  if (nodeType === 'KeypadInput') return keypadIsRowKey(key) ? { capability: 'digitalInput', pullup: true } : { capability: 'digitalOutput', pullup: false }
   // Two analog axes, and a switch that pulls SW to ground through the controller's pull-up.
   if (nodeType === 'JoystickInput') return key === 'swPin' ? { capability: 'digitalInput', pullup: true } : { capability: 'analogInput', pullup: false }
   // Trig is driven, Echo is read; the module drives Echo both ways, so no pull-up.
@@ -5156,6 +5156,9 @@ export function oledControllerForProps(properties: Record<string, unknown>): Ole
   return oledControllerFor(partById(String(properties.partId ?? ''))?.display?.controller)
 }
 
+/** The panel a TransportDisplay carrying no module choice is (the node's default `partId`). */
+export const DEFAULT_TRANSPORT_DISPLAY_PART_ID = 'st7789-tft-240x240'
+
 /**
  * The colour controller a node's chosen module drives, or null if it drives
  * none.
@@ -5165,7 +5168,11 @@ export function oledControllerForProps(properties: Record<string, unknown>): Ole
  * not a second property for the user to keep in step with their module choice.
  */
 export function tftControllerForProps(properties: Record<string, unknown>): TftController | null {
-  const entry = partById(String(properties.partId ?? ''))
+  // A panel nobody has chosen a module for is the node's default part; one whose
+  // id this version does not have, or whose controller it does not drive, has no
+  // controller, and no other panel's is substituted: such a node is held
+  // (`build/parts/partResolution.ts`) and every reader treats it as unresolved.
+  const entry = partById(partIdOrDefault(properties.partId, DEFAULT_TRANSPORT_DISPLAY_PART_ID))
   const base = tftControllerFor(entry?.display?.controller)
   if (!base) return null
   // Which silicon is behind the glass and how large the glass itself is are
@@ -5189,6 +5196,20 @@ export function tftControllerForProps(properties: Record<string, unknown>): TftC
   const height = Math.max(resolution[0], resolution[1])
   if (width === base.width && height === base.height) return base
   return { ...base, width, height }
+}
+
+/**
+ * `tftControllerForProps` for the code that builds firmware, which only ever
+ * sees a panel `build/parts/partResolution.ts` let through. Reaching it with a
+ * panel this version cannot resolve is a bug in that gate, so it says so rather
+ * than emitting a different panel's registers.
+ */
+export function requireTftController(properties: Record<string, unknown>): TftController {
+  const controller = tftControllerForProps(properties)
+  if (!controller) {
+    throw new Error(`The panel part "${String(properties.partId ?? '')}" has no colour controller this version drives, and should have been held before code was generated`)
+  }
+  return controller
 }
 
 /** Every pin property either colour transport wires, for the gate below. */
@@ -5239,20 +5260,19 @@ export function transportDisplayPinKeysForProps(properties: Record<string, unkno
    * A module the catalogue cannot resolve is still built, so it must still
    * claim pins.
    *
-   * Every other reader of a panel answers an unknown `partId` with a real
-   * panel: the nine `tftControllerForProps(...) ?? TFT_CONTROLLERS.ST7789*`
-   * sites give it ST7789 silicon, and the generators emit its whole header
-   * from their own `intProp` pin defaults. This one answered `[]`, which is
-   * the one answer that is never true of something being flashed — and
-   * because `collectPinUses` walks these keys, those pins became invisible to
-   * collision checking, board-availability checking and allocation while the
-   * sketch drove them. A graph with a data line on a GPIO the chip does not
-   * have, and an LED string sharing a pin with a touch IRQ, reported "pins
-   * ok" and uploaded.
+   * This once answered `[]`, which is the one answer that is never true of
+   * something being flashed: `collectPinUses` walks these keys, so those pins
+   * became invisible to collision checking, board-availability checking and
+   * allocation while the sketch drove them. A graph with a data line on a GPIO
+   * the chip does not have, and an LED string sharing a pin with a touch IRQ,
+   * reported "pins ok" and uploaded. A panel this version cannot resolve is now
+   * held out of the sketch (`build/parts/partResolution.ts`), but it still claims
+   * the whole header, so validation reports collisions with a wire the user
+   * drew rather than hiding them.
    *
-   * The touch header is included because that is what the fallback panel
-   * emits: the generators gate touch on the graph publishing controls, not on
-   * the catalogue naming a digitiser, and they take those five pins from the
+   * The touch header is included because the generators gate touch on the graph
+   * publishing controls, not on the catalogue naming a digitiser, and they take
+   * those five pins from the same defaults.
    * same defaults. Claiming what is driven is the whole contract here.
    */
   if (!display) return [...TRANSPORT_DISPLAY_BASE_PINS, ...TRANSPORT_DISPLAY_TOUCH_PINS]
@@ -5384,6 +5404,7 @@ export function isPropertyEnabled(
   // The load choice needs a board that can carry a strip; a strip channel keeps its pin but not its Level.
   if (nodeType === 'PowerSwitchOutput') return powerSwitchPropertyEnabled(key, properties)
   if (nodeType === 'RelayOutput') return relayChannelPropertyEnabled(key, properties.partId)
+  if (nodeType === 'KeypadInput') return keypadPinPropertyEnabled(key, properties.partId)
   // Only a passive buzzer has a pitch to set; an active one's is its own.
   if (nodeType === 'BuzzerOutput' && key === 'pitchHz') return buzzerIsPassive(properties.partId)
   if (nodeType === 'DistanceInput' && ['trigPin', 'echoPin', 'sdaPin', 'sclPin', 'i2cAddress', 'xshutPin'].includes(key)) {

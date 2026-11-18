@@ -4,7 +4,7 @@ import { useUiStore } from '../../../state/uiStore'
 import { usePreviewStore } from '../../../state/previewStore'
 import { nodeDisplayLabel, tftControllerForProps } from '../../../state/nodeLibrary'
 import { displayRuntimeId, mountedPanelGeometry, panelsNamingDocument } from '../../../state/displays/mountedDisplays'
-import { asTftRotation, TFT_CONTROLLERS, tftRotatedSize } from '../../../state/displays/tftSurface'
+import { asTftRotation, tftRotatedSize } from '../../../state/displays/tftSurface'
 import { displayHasTouch } from '../../../build/parts/partCatalogue'
 import { useTransportDisplayTouchStore } from '../../../state/displays/transportDisplayTouchStore'
 import { CUSTOM_DESIGN_LAYOUT, shownDesignId } from '../../../state/displays/transportDisplay'
@@ -49,12 +49,14 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
     () => mountedPanelGeometry((props ?? {}) as Record<string, unknown>),
     [props],
   )
+  const geometryWidth = geometry?.width
+  const geometryHeight = geometry?.height
   const shareOptions = useMemo(() => {
     const ids = new Set<string>()
     if (namedId && documents[namedId]) ids.add(namedId)
     for (const [id, document] of Object.entries(documents)) {
       if (panelsNamingDocument(id, rootNodes).length === 0) continue
-      if (document.designSize.width === geometry.width && document.designSize.height === geometry.height) {
+      if (geometryWidth !== undefined && document.designSize.width === geometryWidth && document.designSize.height === geometryHeight) {
         ids.add(id)
       }
     }
@@ -69,7 +71,7 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
       const who = names.length > 0 ? names.join(', ') : 'Screen design'
       return { id, label: `${who} (${widgets} ${widgets === 1 ? 'widget' : 'widgets'})` }
     })
-  }, [documents, geometry.height, geometry.width, namedId, nodeId, rootNodes])
+  }, [documents, geometryHeight, geometryWidth, namedId, nodeId, rootNodes])
   const otherDesigns = shareOptions.some((option) => option.id !== namedId)
   const shared = namedId !== '' && panelsNamingDocument(namedId, rootNodes).length > 1
   const runtimeId = customDisplayId
@@ -83,10 +85,13 @@ export default function TransportDisplayNodeBody({ nodeId }: { nodeId: string })
   const setTouch = useTransportDisplayTouchStore((state) => state.setTouch)
   const releaseTouch = useTransportDisplayTouchStore((state) => state.releaseTouch)
   const touchCapable = displayHasTouch(String((props as Record<string, unknown> | undefined)?.partId ?? ''))
-  const fallbackSize = useMemo(() => tftRotatedSize(
-    tftControllerForProps((props ?? {}) as Record<string, unknown>) ?? TFT_CONTROLLERS.ST7789,
-    asTftRotation((props as Record<string, unknown> | undefined)?.tftRotation),
-  ), [props])
+  // A panel this version does not have has no glass to size, so it draws none.
+  const fallbackSize = useMemo(() => {
+    const controller = tftControllerForProps((props ?? {}) as Record<string, unknown>)
+    return controller
+      ? tftRotatedSize(controller, asTftRotation((props as Record<string, unknown> | undefined)?.tftRotation))
+      : { width: 0, height: 0 }
+  }, [props])
   const width = picture?.width ?? fallbackSize.width
   const height = picture?.height ?? fallbackSize.height
 

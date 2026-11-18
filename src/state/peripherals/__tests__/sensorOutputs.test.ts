@@ -11,7 +11,7 @@ import { evaluateGraphFull, resetEvaluatorState } from '../../graphEvaluator'
 import type { StudioEdge, StudioNode } from '../../graphStore'
 import { libraryDefaults, NODE_LIBRARY } from '../../nodeLibrary'
 import { useHardwareInputStore } from '../hardwareInputStore'
-import { keypadButtonKey, keypadDigit, keypadLastKey, keypadScanKey } from '../keypad'
+import { KEYPAD_PART_ID, keypadButtonKey, keypadDigit, keypadLastKey, keypadScanKey } from '../keypad'
 import { motionVectorPreviewKey, motionVectorShake } from '../motionVector'
 import { unpluggedPreviewKey } from '../sensorPreview'
 import { touchPadButtonKey } from '../touchPad'
@@ -68,8 +68,8 @@ describe('Keypad per-key outputs and Digit', () => {
   it('reports the key the scan finds, as the sketch does', () => {
     // Column by column: with 2 (row 0, column 1) and 4 (row 1, column 0) both
     // down, the column-0 key is found first.
-    expect(keypadScanKey((key) => key === 1 || key === 4)).toBe(4)
-    expect(keypadScanKey(() => false)).toBe(-1)
+    expect(keypadScanKey(KEYPAD_PART_ID, (key) => key === 1 || key === 4)).toBe(4)
+    expect(keypadScanKey(KEYPAD_PART_ID, () => false)).toBe(-1)
     const store = useHardwareInputStore.getState()
     store.setButton(keypadButtonKey('kp', 1), true)
     store.setButton(keypadButtonKey('kp', 4), true)
@@ -79,8 +79,8 @@ describe('Keypad per-key outputs and Digit', () => {
 
   // The key printed "0" is index 13. Digit reads it as 0 and ignores letters.
   it('holds the last number key as Digit', () => {
-    expect(keypadDigit(13)).toBe(0)
-    expect(keypadDigit(3)).toBeNull()
+    expect(keypadDigit(KEYPAD_PART_ID, 13)).toBe(0)
+    expect(keypadDigit(KEYPAD_PART_ID, 3)).toBeNull()
     const kp = node('kp', 'KeypadInput')
     const store = useHardwareInputStore.getState()
     store.setPot(keypadLastKey('kp'), 13)

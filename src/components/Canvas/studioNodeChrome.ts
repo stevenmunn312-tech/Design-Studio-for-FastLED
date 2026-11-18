@@ -86,7 +86,7 @@ export const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
   },
   KeypadInput: {
     text: 'preview keys are the buttons on the node; firmware scans the matrix',
-    title: 'The browser has no keypad, so the sixteen buttons stand in for the keys. Key holds the last one pressed, as an index from 0 to 15 row by row (1 2 3 A, 4 5 6 B, 7 8 9 C, * 0 # D), and Pressed is true while any key is down. Generated firmware drives each column low in turn and reads the rows through their pull-ups.',
+    title: 'The browser has no keypad, so the buttons on the node stand in for the keys. Key holds the last one pressed, as an index counted row by row from 0, and Pressed is true while any key is down. Generated firmware drives each column low in turn and reads the rows through their pull-ups.',
   },
   JoystickInput: {
     text: 'preview axes come from the sliders; firmware reads the two ADC pins',
