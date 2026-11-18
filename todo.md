@@ -51,6 +51,10 @@ more after the freeze.
 - [ ] Give `#share=` links a format version.
 - [ ] Stop custom-shelf patterns vanishing from a saved workspace.
 - [ ] Keep runtime React Flow fields out of saved files.
+- [ ] Decide how saves carry their parts before the freeze: an embedded
+  manifest per part, and an explicit error for an unknown part or part type
+  instead of a fallback ([downloadable parts](docs/plans/downloadable-parts.md),
+  phase A).
 
 ### Data safety
 
