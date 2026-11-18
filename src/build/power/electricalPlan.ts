@@ -578,25 +578,74 @@ function zoneCapacityDetail(
   return `${output.title}'s ${injection.role} feed draws ${formatRuleCurrent(injection.designCurrentMa)}. ${zone}, and ${DEFAULT_SUPPLY_HEADROOM_PERCENT}% headroom leaves ${formatRuleCurrent(budget)}. Converter outputs are not paralleled, so this feed is not assigned to a zone.`
 }
 
+/**
+ * Packs the feeds into supply zones (one PSU, or one converter output, each).
+ *
+ * An output's own +5 V copper joins every feed along it, so feeds of one
+ * output on two zones would parallel those supplies through the strip. An
+ * output therefore takes one zone whenever it fits one. Only an output larger
+ * than a zone spans several, each a run of consecutive feeds, and the plan then
+ * names the LED after which the strip's +5 V has to be cut.
+ */
 function groupSupplies(
   outputs: OutputElectricalPlan[],
   blockers: ElectricalPlanIssue[],
+  warnings: ElectricalPlanIssue[],
   railConverter?: RailConverterContext,
 ): SupplyRecommendation[] {
   const supplies: SupplyRecommendation[] = []
-  const refusedOutputs = new Set<string>()
+  const groupCeilingMa = railConverter?.deratedCurrentMa ?? MAX_RECOMMENDED_SUPPLY_CURRENT_MA
+  const newZone = (): SupplyRecommendation => {
+    const supply: SupplyRecommendation = {
+      id: `supply-${supplies.length + 1}`,
+      designCurrentMa: 0,
+      recommendedCurrentMa: 0,
+      recommendedWattage: 0,
+      outputIds: [],
+      outputTitles: [],
+      injectionIds: [],
+      trunk: { designCurrentMa: 0, oneWayLengthMm: DEFAULT_TRUNK_LENGTH_MM, mainFuse: { minimumLoadRatingMa: 0, maximumProtectiveRatingMa: 0 } },
+    }
+    supplies.push(supply)
+    return supply
+  }
+  const assign = (supply: SupplyRecommendation, output: OutputElectricalPlan, injection: PowerInjectionPlan) => {
+    supply.designCurrentMa += injection.designCurrentMa
+    supply.recommendedCurrentMa = railConverter
+      ? railConverter.deratedCurrentMa
+      : recommendedSupplyCurrentMa(supply.designCurrentMa)
+    supply.recommendedWattage = Number(((supply.recommendedCurrentMa / 1000) * output.nominalVoltage).toFixed(1))
+    if (!supply.outputIds.includes(output.itemId)) supply.outputIds.push(output.itemId)
+    if (!supply.outputTitles.includes(output.title)) supply.outputTitles.push(output.title)
+    supply.injectionIds.push(injection.id)
+    injection.supplyId = supply.id
+  }
   for (const output of outputs) {
+    const outputMa = output.injections.reduce((sum, injection) => sum + injection.designCurrentMa, 0)
+    const whole = supplies.find((candidate) => zoneAccepts(candidate.designCurrentMa, outputMa, groupCeilingMa))
+      ?? (zoneAccepts(0, outputMa, groupCeilingMa) ? newZone() : undefined)
+    if (whole) {
+      for (const injection of output.injections) assign(whole, output, injection)
+      continue
+    }
+    // Larger than one zone: consecutive feeds share a zone, and a zone this
+    // output has left is never returned to, so each zone holds one run of it.
+    let current: SupplyRecommendation | undefined
+    const used = new Set<SupplyRecommendation>()
+    const cutsAfterLed: number[] = []
+    let refused = false
+    let ledsBefore = 0
     for (const injection of output.injections) {
-      const groupCeilingMa = railConverter?.deratedCurrentMa ?? MAX_RECOMMENDED_SUPPLY_CURRENT_MA
-      let supply = supplies.find((candidate) =>
-        zoneAccepts(candidate.designCurrentMa, injection.designCurrentMa, groupCeilingMa))
-      if (!supply) {
-        // The fit check above only sees zones that already exist. A new zone
-        // has to pass the same ceiling; otherwise one module is recommended
-        // for a load it cannot carry.
-        if (!zoneAccepts(0, injection.designCurrentMa, groupCeilingMa)) {
-          if (!refusedOutputs.has(output.itemId)) {
-            refusedOutputs.add(output.itemId)
+      if (!current || !zoneAccepts(current.designCurrentMa, injection.designCurrentMa, groupCeilingMa)) {
+        // The fit check only sees zones that already exist. A new zone has to
+        // pass the same ceiling; otherwise one module is recommended for a
+        // load it cannot carry.
+        const next = supplies.find((candidate) => !used.has(candidate)
+          && zoneAccepts(candidate.designCurrentMa, injection.designCurrentMa, groupCeilingMa))
+          ?? (zoneAccepts(0, injection.designCurrentMa, groupCeilingMa) ? newZone() : undefined)
+        if (!next) {
+          if (!refused) {
+            refused = true
             blockers.push({
               id: `${output.itemId}:converter-zone-capacity`,
               severity: 'blocking',
@@ -604,29 +653,25 @@ function groupSupplies(
               detail: zoneCapacityDetail(output, injection, groupCeilingMa, railConverter),
             })
           }
+          ledsBefore += injection.pixelCount
           continue
         }
-        supply = {
-          id: `supply-${supplies.length + 1}`,
-          designCurrentMa: 0,
-          recommendedCurrentMa: 0,
-          recommendedWattage: 0,
-          outputIds: [],
-          outputTitles: [],
-          injectionIds: [],
-          trunk: { designCurrentMa: 0, oneWayLengthMm: DEFAULT_TRUNK_LENGTH_MM, mainFuse: { minimumLoadRatingMa: 0, maximumProtectiveRatingMa: 0 } },
-        }
-        supplies.push(supply)
+        if (current && ledsBefore > 0) cutsAfterLed.push(ledsBefore)
+        current = next
+        used.add(next)
       }
-      supply.designCurrentMa += injection.designCurrentMa
-      supply.recommendedCurrentMa = railConverter
-        ? railConverter.deratedCurrentMa
-        : recommendedSupplyCurrentMa(supply.designCurrentMa)
-      supply.recommendedWattage = Number(((supply.recommendedCurrentMa / 1000) * output.nominalVoltage).toFixed(1))
-      if (!supply.outputIds.includes(output.itemId)) supply.outputIds.push(output.itemId)
-      if (!supply.outputTitles.includes(output.title)) supply.outputTitles.push(output.title)
-      supply.injectionIds.push(injection.id)
-      injection.supplyId = supply.id
+      assign(current, output, injection)
+      ledsBefore += injection.pixelCount
+    }
+    if (cutsAfterLed.length > 0) {
+      const places = cutsAfterLed.map((led) => `LED ${led}`)
+      const list = places.length > 1 ? `${places.slice(0, -1).join(', ')} and ${places[places.length - 1]}` : places[0]
+      warnings.push({
+        id: `${output.itemId}:supply-zone-cuts`,
+        severity: 'warning',
+        title: output.title,
+        detail: `${output.title} draws more than one supply zone can carry, so it is fed from ${used.size} zones. Cut its +${output.nominalVoltage} V line after ${list} (counted along the data chain) and leave data and ground joined. Left uncut, the strip's own copper connects those supplies in parallel.`,
+      })
     }
   }
   for (const supply of supplies) {
@@ -949,7 +994,7 @@ export function calculateElectricalPlan(
     ? (() => {
       const nominalVoltage = outputPlans[0].nominalVoltage
       const designCurrentMa = outputPlans.reduce((sum, plan) => sum + plan.designCurrentMa, 0)
-      const supplies = groupSupplies(outputPlans, blockers, railConverter)
+      const supplies = groupSupplies(outputPlans, blockers, warnings, railConverter)
       const recommendedSupplyCurrentMa = supplies.reduce((sum, supply) => sum + supply.recommendedCurrentMa, 0)
       const recommendedSupplyCount = supplies.length
       const perSupplyCurrentMa = supplies.length > 0

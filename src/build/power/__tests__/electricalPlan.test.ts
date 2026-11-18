@@ -141,6 +141,45 @@ describe('electricalPlan', () => {
     expect(plan.totals?.supplies.every((supply) => supply.recommendedCurrentMa <= 100000)).toBe(true)
   })
 
+  // The strip's own +5 V copper joins every feed along it, so one output on
+  // two supplies would parallel them.
+  it('keeps every feed of an output on one supply when the output fits one', () => {
+    const second = { ...outputNode(20, 10, { dataPin: 15 }), id: 'out2' } as StudioNode
+    const manifest = buildHardwareManifest([outputNode(64, 20), second], [], 'esp32:esp32:esp32s3')
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), board)
+
+    expect(plan.outputs).toHaveLength(2)
+    for (const output of plan.outputs) {
+      expect(new Set(output.injections.map((injection) => injection.supplyId)).size, output.title).toBe(1)
+    }
+    expect(plan.warnings.some((warning) => warning.id.endsWith(':supply-zone-cuts'))).toBe(false)
+  })
+
+  it('gives an output too large for one supply a run of feeds on each, and says where to cut +5 V', () => {
+    const manifest = buildHardwareManifest([outputNode(64, 64)], [], 'esp32:esp32:esp32s3')
+    const board = boardProfileById('espressif-esp32-s3-devkitc-1')
+    const plan = calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 }), board)
+    const zones = plan.outputs[0].injections.map((injection) => injection.supplyId)
+
+    // Each zone appears as one unbroken run along the chain.
+    const runs = zones.filter((zone, index) => zone !== zones[index - 1])
+    expect(new Set(runs).size).toBe(runs.length)
+    expect(runs.length).toBe(plan.totals?.recommendedSupplyCount)
+
+    const cuts = plan.warnings.find((warning) => warning.id.endsWith(':supply-zone-cuts'))
+    expect(cuts?.severity).toBe('warning')
+    // One cut at each change of zone, after the last LED the earlier zone feeds.
+    const expected: number[] = []
+    let leds = 0
+    plan.outputs[0].injections.forEach((injection, index) => {
+      if (index > 0 && zones[index] !== zones[index - 1]) expected.push(leds)
+      leds += injection.pixelCount
+    })
+    expect(expected).toHaveLength(runs.length - 1)
+    for (const led of expected) expect(cuts?.detail).toContain(`LED ${led}`)
+  })
+
   it('sizes the supply for full white whatever the firmware cap says', () => {
     const manifest = buildHardwareManifest([
       boardNode({ powerLimit: true, milliamps: 9000 }),
