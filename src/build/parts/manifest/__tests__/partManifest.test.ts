@@ -188,8 +188,16 @@ describe('part manifest v1', () => {
   })
 
   it('holds a downloaded part to the publishing rules', () => {
-    // No type is open to downloads until its audit in phase A step 3.
-    expect(validatePartManifest(ina219, 'downloaded').status).toBe('needs-newer-app')
+    // A type that is not open to downloads is not usable for one, whatever else the part says.
+    const type = partTypeById('PowerMonitorInput') as { downloadable: boolean }
+    const open = type.downloadable
+    type.downloadable = false
+    try {
+      expect(validatePartManifest(ina219, 'downloaded').status).toBe('needs-newer-app')
+    } finally {
+      type.downloadable = open
+    }
+    expect(validatePartManifest(ina219, 'downloaded').status).toBe(open ? 'ok' : 'needs-newer-app')
     expect(validatePartManifest(variant({ verification: 'drafted' }), 'downloaded').status).toBe('invalid')
     expect(validatePartManifest(variant({ sources: [] }), 'downloaded').status).toBe('invalid')
   })

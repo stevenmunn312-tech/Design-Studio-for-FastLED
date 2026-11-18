@@ -545,7 +545,7 @@ function planRailConverter(
       id: 'rail-converter-part-types',
       severity: 'blocking',
       title: 'LED rail conversion',
-      detail: 'The plan contains different rail-converter models. Use one SD-100 model so every generated 5 V zone has the same input range and current rating.',
+      detail: 'The plan contains different rail-converter models. Use one model so every generated 5 V zone has the same input range and current rating.',
     })
   }
   const item = items[0]

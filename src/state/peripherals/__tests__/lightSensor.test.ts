@@ -14,7 +14,7 @@ import { gpioRequirementForProperty, isPropertyEnabled, libraryDefaults, NODE_LI
 import { partById } from '../../../build/parts/partCatalogue'
 import { PART_OPTIONS } from '../../../build/parts/partOptions'
 import {
-  BH1750_PART_ID, DEFAULT_LIGHT_SENSOR_PART_ID, LIGHT_SENSOR_MODULES,
+  BH1750_PART_ID, DEFAULT_LIGHT_SENSOR_PART_ID, lightSensorModules,
   lightSensorAddress, lightSensorAddressOptions, lightSensorPinKeys, lightSensorPreviewReading,
 } from '../lightSensor'
 
@@ -59,9 +59,9 @@ function lightGraph(sensor: StudioNode, port: 'level' | 'lux' = 'level') {
 
 describe('the light-sensor module list', () => {
   it('offers exactly the modules the generator can build, LDR first', () => {
-    expect(LIGHT_SENSOR_MODULES[0].partId).toBe(DEFAULT_LIGHT_SENSOR_PART_ID)
+    expect(lightSensorModules()[0].partId).toBe(DEFAULT_LIGHT_SENSOR_PART_ID)
     expect(PART_OPTIONS.LightInput.options.map((option) => option.id))
-      .toEqual(LIGHT_SENSOR_MODULES.map((module) => module.partId))
+      .toEqual(lightSensorModules().map((module) => module.partId))
   })
 
   it('reads the BH1750 address straps and range from its catalogue entry', () => {

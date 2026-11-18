@@ -1268,7 +1268,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         if (!spec) return unknownPartItem(node, 'darlington-driver-output', pins)
         const wired = darlingtonPinKeys().every((key) => pins.some((pin) => pin.propertyKey === key))
         return {
-          ...buildPeripheralItem(node, 'darlington-driver-output', entry?.label ?? 'ULN2803A driver', pins),
+          ...buildPeripheralItem(node, 'darlington-driver-output', entry?.label ?? 'Darlington driver', pins),
           title: entry?.label ?? nodeLabel(node),
           supported: wired,
           facts: {
@@ -1297,7 +1297,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           ...(address === null ? [`${String(props.i2cAddress)} is not an address this PCA9685 can be set to.`] : []),
         ]
         return {
-          ...buildPeripheralItem(node, 'pwm-driver-output', entry?.label ?? 'PCA9685 PWM driver', pins),
+          ...buildPeripheralItem(node, 'pwm-driver-output', entry?.label ?? 'PWM driver', pins),
           title: entry?.label ?? nodeLabel(node),
           supported: wired && address !== null,
           facts: {
@@ -1502,7 +1502,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           ...(address === null ? [`${String(props.i2cAddress)} is not an address this BME280 can select.`] : []),
         ]
         return {
-          ...buildPeripheralItem(node, 'environment-input', entry?.label ?? 'BME280 environment sensor', pins),
+          ...buildPeripheralItem(node, 'environment-input', entry?.label ?? 'Environment sensor', pins),
           title: entry?.label ?? nodeLabel(node),
           supported: wired && address !== null,
           facts: {
@@ -1523,7 +1523,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         if (!spec) return unknownPartItem(node, 'temperature-input', pins)
         const wired = pins.some((pin) => pin.propertyKey === 'pin')
         return {
-          ...buildPeripheralItem(node, 'temperature-input', entry?.label ?? 'DS18B20 temperature probe', pins),
+          ...buildPeripheralItem(node, 'temperature-input', entry?.label ?? 'Temperature probe', pins),
           title: entry?.label ?? nodeLabel(node),
           supported: wired,
           facts: {
@@ -1548,7 +1548,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           ...(address === null ? [`${String(props.i2cAddress)} is not an address this MPU-6050 can select.`] : []),
         ]
         return {
-          ...buildPeripheralItem(node, 'motion-vector-input', entry?.label ?? 'GY-521 MPU-6050', pins),
+          ...buildPeripheralItem(node, 'motion-vector-input', entry?.label ?? 'Motion sensor', pins),
           title: entry?.label ?? nodeLabel(node),
           supported: wired && address !== null,
           facts: {
@@ -1572,7 +1572,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           ...(address === null ? [`${String(props.i2cAddress)} is not an address this MPR121 can select.`] : []),
         ]
         return {
-          ...buildPeripheralItem(node, 'touch-pad-input', entry?.label ?? 'Adafruit MPR121 touch sensor', pins),
+          ...buildPeripheralItem(node, 'touch-pad-input', entry?.label ?? 'Touch pad', pins),
           title: entry?.label ?? nodeLabel(node),
           supported: wired && address !== null,
           facts: {
@@ -1602,7 +1602,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const entry = partById(partId)
         const wired = ['xPin', 'yPin', 'swPin'].every((key) => pins.some((pin) => pin.propertyKey === key))
         return {
-          ...buildPeripheralItem(node, 'joystick-input', entry?.label ?? 'KY-023 joystick', pins),
+          ...buildPeripheralItem(node, 'joystick-input', entry?.label ?? 'Joystick', pins),
           title: entry?.label ?? nodeLabel(node),
           supported: wired,
           facts: { partId, supply: '3.3 V', axes: '2 analog + switch' },
@@ -1620,7 +1620,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           const address = distanceSensorAddress(props)
           const i2cWired = pins.some((pin) => pin.propertyKey === 'sdaPin') && pins.some((pin) => pin.propertyKey === 'sclPin')
           return {
-            ...buildPeripheralItem(node, 'distance-input', entry?.label ?? `${spec.device} laser distance sensor`, pins),
+            ...buildPeripheralItem(node, 'distance-input', entry?.label ?? `${spec.device} distance sensor`, pins),
             title: entry?.label ?? nodeLabel(node),
             supported: i2cWired && address !== null,
             facts: {
@@ -1637,7 +1637,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const wired = pins.some((pin) => pin.propertyKey === 'trigPin')
           && pins.some((pin) => pin.propertyKey === 'echoPin')
         return {
-          ...buildPeripheralItem(node, 'distance-input', entry?.label ?? 'HC-SR04 ultrasonic sensor', pins),
+          ...buildPeripheralItem(node, 'distance-input', entry?.label ?? 'Distance sensor', pins),
           title: entry?.label ?? nodeLabel(node),
           supported: wired,
           facts: {

@@ -939,22 +939,26 @@ export function peripheralApproach(layout: ItemLayout, signalIndex: number): { x
 }
 
 /**
- * Bare parts whose far row of legs sits under their own body. The SR1230's
- * switch legs are just inside its top edge, so a wire climbing straight up to
- * one ran under the whole picture and its ground stub never showed at all.
+ * Bare parts, whose far row of legs sits under their own body: an encoder that
+ * carries no pull-ups of its own (`encoder.onboardPullUps` false) is a loose
+ * component, not a module with a header. The SR1230's switch legs are just
+ * inside its top edge, so a wire climbing straight up to one ran under the
+ * whole picture and its ground stub never showed at all.
  */
-const REAR_ROW_PARTS = new Set(['jaycar-sr1230-rotary-encoder'])
+function hasRearRowLegs(partId: string): boolean {
+  return partById(partId)?.encoder?.onboardPullUps === false
+}
 /** Air between the picture and a wire routed around it. */
 const REAR_ROUTE_CLEARANCE = 6
 
 /**
- * How a wire reaches a far-row leg of a `REAR_ROW_PARTS` part: down the side
+ * How a wire reaches a far-row leg of a part with `hasRearRowLegs`: down the side
  * of the picture nearer the leg (`x`) and across over its top (`overY`), then
  * down into the leg. `null` for every other pad.
  */
 export function peripheralRearRoute(layout: ItemLayout, padIndex: number): { x: number; overY: number } | null {
   const partId = String(layout.item.facts.partId ?? '')
-  if (!REAR_ROW_PARTS.has(partId)) return null
+  if (!hasRearRowLegs(partId)) return null
   const box = fittedRenderBox(partId)
   if (!box) return null
   const pad = peripheralPadPoint(layout, padIndex)

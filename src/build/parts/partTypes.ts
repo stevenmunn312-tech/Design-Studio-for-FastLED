@@ -50,44 +50,49 @@ const type = (definition: Omit<PartTypeDefinition, 'property' | 'downloadable'> 
   ({ property: 'partId', downloadable: false, ...definition })
 
 export const PART_TYPES: readonly PartTypeDefinition[] = [
-  // LED outputs. `MatrixOutput` is every LED output form; a part's `ledLayout`
-  // is a top-level manifest field, so the type reads no block. Its other bundled
-  // parts are the NLED data link and the 74AHCT125 level shifter on the data line.
+  // LED outputs. `MatrixOutput` is every LED output form; a part's `ledLayout` is a top-level
+  // manifest field, so the type reads no block. Its other bundled parts are the NLED data link
+  // and the 74AHCT125 level shifter on the data line. Closed: both are drawn by id
+  // (`NLED_PIXEL_DATA_EXTENDER_PART_ID`, the 74AHCT125 render in the Build Diagram).
   type({ nodeType: 'MatrixOutput' }),
   // Power
+  // Closed: the controller's converter picture keys a measured pad table on `lm2596-buck-module`
+  // (`CONVERTER_PAD_MM`), and that part's `powerConverter` block has no `terminalPositions` to read instead.
   type({ nodeType: 'PowerConverter', block: 'powerConverter' }),
-  type({ nodeType: 'BatteryPack', block: 'batteryCell' }),
-  type({ nodeType: 'BatteryModule', block: 'batteryModule' }),
-  type({ nodeType: 'PdTriggerSource', block: 'pdTrigger' }),
-  type({ nodeType: 'PowerMonitorInput', block: 'powerMonitor', deviceField: 'device', devices: ['INA219B', 'INA226'] }),
+  type({ nodeType: 'BatteryPack', block: 'batteryCell', downloadable: true }),
+  type({ nodeType: 'BatteryModule', block: 'batteryModule', downloadable: true }),
+  type({ nodeType: 'PdTriggerSource', block: 'pdTrigger', downloadable: true }),
+  type({ nodeType: 'PowerMonitorInput', block: 'powerMonitor', deviceField: 'device', devices: ['INA219B', 'INA226'], downloadable: true }),
   // Switching
   type({ nodeType: 'RelayOutput', block: 'relay' }),
-  type({ nodeType: 'PowerSwitchOutput', block: 'mosfet' }),
-  type({ nodeType: 'DarlingtonDriverOutput', block: 'driverChip', deviceField: 'device', devices: ['ULN2803A'] }),
-  type({ nodeType: 'PwmDriverOutput', block: 'pwmDriver', deviceField: 'device', devices: ['PCA9685'] }),
-  type({ nodeType: 'CoolingFanOutput', block: 'fan' }),
-  type({ nodeType: 'BuzzerOutput', block: 'buzzer' }),
+  type({ nodeType: 'PowerSwitchOutput', block: 'mosfet', downloadable: true }),
+  type({ nodeType: 'DarlingtonDriverOutput', block: 'driverChip', deviceField: 'device', devices: ['ULN2803A'], downloadable: true }),
+  type({ nodeType: 'PwmDriverOutput', block: 'pwmDriver', deviceField: 'device', devices: ['PCA9685'], downloadable: true }),
+  type({ nodeType: 'CoolingFanOutput', block: 'fan', downloadable: true }),
+  type({ nodeType: 'BuzzerOutput', block: 'buzzer', downloadable: true }),
   // Sensors
-  type({ nodeType: 'LightInput', block: 'lightSensor', blockOptional: true, deviceField: 'device', devices: ['BH1750FVI'] }),
-  type({ nodeType: 'EnvironmentInput', block: 'environmentSensor', deviceField: 'device', devices: ['BME280'] }),
-  type({ nodeType: 'MotionVectorInput', block: 'motionVectorSensor', deviceField: 'device', devices: ['MPU-6050'] }),
-  type({ nodeType: 'PresenceInput', block: 'presenceSensor', deviceField: 'device', devices: ['HLK-LD2410C'] }),
-  type({ nodeType: 'DistanceInput', block: 'distanceSensor', deviceField: 'device', devices: ['HC-SR04', 'VL53L0X', 'VL53L1X'] }),
-  type({ nodeType: 'TemperatureInput', block: 'temperatureSensor', deviceField: 'device', devices: ['DS18B20'] }),
+  type({ nodeType: 'LightInput', block: 'lightSensor', blockOptional: true, deviceField: 'device', devices: ['BH1750FVI'], downloadable: true }),
+  type({ nodeType: 'EnvironmentInput', block: 'environmentSensor', deviceField: 'device', devices: ['BME280'], downloadable: true }),
+  type({ nodeType: 'MotionVectorInput', block: 'motionVectorSensor', deviceField: 'device', devices: ['MPU-6050'], downloadable: true }),
+  type({ nodeType: 'PresenceInput', block: 'presenceSensor', deviceField: 'device', devices: ['HLK-LD2410C'], downloadable: true }),
+  type({ nodeType: 'DistanceInput', block: 'distanceSensor', deviceField: 'device', devices: ['HC-SR04', 'VL53L0X', 'VL53L1X'], downloadable: true }),
+  type({ nodeType: 'TemperatureInput', block: 'temperatureSensor', deviceField: 'device', devices: ['DS18B20'], downloadable: true }),
   type({ nodeType: 'MotionInput' }),
-  type({ nodeType: 'DigitalSensorInput', block: 'digitalSensor' }),
-  type({ nodeType: 'AnalogSensorInput', block: 'analogSensor' }),
+  type({ nodeType: 'DigitalSensorInput', block: 'digitalSensor', downloadable: true }),
+  type({ nodeType: 'AnalogSensorInput', block: 'analogSensor', downloadable: true }),
   // Controls
-  type({ nodeType: 'TouchButtonInput', block: 'touchSensor' }),
-  type({ nodeType: 'TouchPadInput', block: 'touchPad', deviceField: 'device', devices: ['MPR121'] }),
-  type({ nodeType: 'JoystickInput', block: 'joystick' }),
-  type({ nodeType: 'EncoderInput', block: 'encoder' }),
+  type({ nodeType: 'TouchButtonInput', block: 'touchSensor', downloadable: true }),
+  type({ nodeType: 'TouchPadInput', block: 'touchPad', deviceField: 'device', devices: ['MPR121'], downloadable: true }),
+  type({ nodeType: 'JoystickInput', block: 'joystick', downloadable: true }),
+  type({ nodeType: 'EncoderInput', block: 'encoder', downloadable: true }),
   type({ nodeType: 'KeypadInput' }),
   type({ nodeType: 'IRRemoteInput' }),
   // Displays
-  type({ nodeType: 'InfoDisplay', block: 'display', deviceField: 'controller', devices: ['SSD1306', 'SH1106G'] }),
+  type({ nodeType: 'InfoDisplay', block: 'display', deviceField: 'controller', devices: ['SSD1306', 'SH1106G'], downloadable: true }),
+  // Closed: `TFT_CONTROLLERS` keeps per-module bench values (invert, colour order, offsets) per chip,
+  // so two modules on one chip cannot differ, and the unresolved-panel `ST7789` fallback is still code.
   type({ nodeType: 'TransportDisplay', block: 'display', deviceField: 'controller', devices: ['ST7789V', 'ILI9341'] }),
-  type({ nodeType: 'SegmentDisplay', block: 'display', deviceField: 'controller', devices: ['TM1637', 'MAX7219'] }),
+  type({ nodeType: 'SegmentDisplay', block: 'display', deviceField: 'controller', devices: ['TM1637', 'MAX7219'], downloadable: true }),
   // Audio. The chips are the ones the type's code can drive: the microphone's
   // FastLED factories and the app's SPH0645 adapter, the PCM1802 receive path, and the
   // I2S DACs and amplifiers (the amplifier property is `model`, kept for saves). A power
@@ -104,7 +109,7 @@ export const PART_TYPES: readonly PartTypeDefinition[] = [
   // Communication, storage and time. DmxTransceiver, MidiInterface and RtcModule name the
   // chip family their code is written for; SDCard's firmware is the same for every module,
   // so its block carries only what may be fed to it and it has no `devices` list.
-  type({ nodeType: 'EthernetModule', block: 'ethernet', deviceField: 'controller', devices: ['W5500'] }),
+  type({ nodeType: 'EthernetModule', block: 'ethernet', deviceField: 'controller', devices: ['W5500'], downloadable: true }),
   type({ nodeType: 'DmxTransceiver', block: 'rs485', deviceField: 'device', devices: ['MAX485'], downloadable: true }),
   type({ nodeType: 'MidiInterface', block: 'midiDin', deviceField: 'device', devices: ['H11L1MS'], downloadable: true }),
   type({ nodeType: 'SDCard', block: 'sdCard', downloadable: true }),
