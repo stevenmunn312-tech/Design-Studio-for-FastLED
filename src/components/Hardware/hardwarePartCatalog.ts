@@ -1,6 +1,7 @@
 // What the Hardware workspace can put on the bench: the board, each input
 // module and fixture, the LED output forms, and the pins each one asks for.
 import amplifierRender from '../../assets/components/max98357a-i2s-amplifier.webp'
+import powerSupplyRender from '../../assets/components/5v-psu.webp'
 import { transportDisplayPinKeysForProps, gpioRequirementForProperty } from '../../state/nodeLibrary'
 import { PART_FIELDS } from '../../build/parts/partFields'
 import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from '../../state/peripherals/keypad'
@@ -153,6 +154,17 @@ export function fixturePinRequests(nodeType: string, moduleId: string | undefine
 }
 
 export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
+  {
+    // The supply the user owns, rated off its label. No catalogue part, so the
+    // generic enclosed-supply render stands for every one; the footprint is a
+    // common 5 V 10 A enclosure at that render's aspect.
+    nodeType: 'PowerSupply',
+    partId: 'power-supply',
+    label: 'Power supply',
+    hint: 'The supply you have, rated from its label',
+    footprint: { width: 152, height: 98 },
+    render: powerSupplyRender,
+  },
   {
     nodeType: 'BatteryPack',
     partId: 'battery-pack',

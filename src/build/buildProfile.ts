@@ -48,56 +48,6 @@ export interface BuildAssumptions {
   supplyHeadroomPercent?: number
 }
 
-export interface OwnedSupplyDeclaration {
-  id: string
-  label?: string
-  voltage: number
-  continuousCurrentMa: number
-  wattage?: number
-}
-
-export interface OwnedWireDeclaration {
-  id: string
-  label?: string
-  gaugeAwg?: number
-  crossSectionMm2?: number
-  conductorMaterial?: BuildConductorMaterial
-}
-
-export interface OwnedConnectorDeclaration {
-  id: string
-  label?: string
-  continuousCurrentMa: number
-}
-
-export interface OwnedFuseDeclaration {
-  id: string
-  label?: string
-  ratingMa: number
-  fuseType?: string
-}
-
-export interface OwnedConverterDeclaration {
-  id: string
-  label?: string
-  inputVoltage: number
-  outputVoltage: number
-  continuousCurrentMa: number
-}
-
-export interface BuildOwnedParts {
-  supplies?: Record<string, OwnedSupplyDeclaration>
-  wires?: Record<string, OwnedWireDeclaration>
-  connectors?: Record<string, OwnedConnectorDeclaration>
-  fuses?: Record<string, OwnedFuseDeclaration>
-  converters?: Record<string, OwnedConverterDeclaration>
-  supplyAssignments?: Record<string, string>
-  wireAssignments?: Record<string, string>
-  connectorAssignments?: Record<string, string>
-  fuseAssignments?: Record<string, string>
-  converterAssignments?: Record<string, string>
-}
-
 export interface BuildDoneState {
   fingerprint: string
   completedAt: number
@@ -110,7 +60,6 @@ export interface BuildProfile {
   signalConditioning?: Record<string, boolean>
   controllerPower?: BuildControllerPowerProfile
   assumptions?: BuildAssumptions
-  ownedParts?: BuildOwnedParts
   exportMode?: BuildExportMode
   visibility?: Record<string, boolean>
   done?: Record<string, BuildDoneState>
@@ -180,80 +129,6 @@ function normalizeDoneMap(value: unknown): Record<string, BuildDoneState> | unde
   return Object.keys(next).length > 0 ? next : undefined
 }
 
-function normalizeOwnedParts(value: unknown): BuildOwnedParts | undefined {
-  if (!isObject(value)) return undefined
-  const next: BuildOwnedParts = {}
-  next.supplies = normalizeRecord(value.supplies, (entry) => {
-    if (!isObject(entry)) return undefined
-    const voltage = normalizeNumber(entry.voltage)
-    const continuousCurrentMa = normalizeNumber(entry.continuousCurrentMa)
-    if (voltage === undefined || continuousCurrentMa === undefined) return undefined
-    return {
-      id: typeof entry.id === 'string' && entry.id ? entry.id : '',
-      label: typeof entry.label === 'string' && entry.label.trim() ? entry.label : undefined,
-      voltage,
-      continuousCurrentMa,
-      wattage: normalizeNumber(entry.wattage),
-    }
-  })
-  next.wires = normalizeRecord(value.wires, (entry) => {
-    if (!isObject(entry)) return undefined
-    return {
-      id: typeof entry.id === 'string' && entry.id ? entry.id : '',
-      label: typeof entry.label === 'string' && entry.label.trim() ? entry.label : undefined,
-      gaugeAwg: normalizeNumber(entry.gaugeAwg),
-      crossSectionMm2: normalizeNumber(entry.crossSectionMm2),
-      conductorMaterial: typeof entry.conductorMaterial === 'string' ? entry.conductorMaterial as BuildConductorMaterial : undefined,
-    }
-  })
-  next.connectors = normalizeRecord(value.connectors, (entry) => {
-    if (!isObject(entry)) return undefined
-    const continuousCurrentMa = normalizeNumber(entry.continuousCurrentMa)
-    if (continuousCurrentMa === undefined) return undefined
-    return {
-      id: typeof entry.id === 'string' && entry.id ? entry.id : '',
-      label: typeof entry.label === 'string' && entry.label.trim() ? entry.label : undefined,
-      continuousCurrentMa,
-    }
-  })
-  next.fuses = normalizeRecord(value.fuses, (entry) => {
-    if (!isObject(entry)) return undefined
-    const ratingMa = normalizeNumber(entry.ratingMa)
-    if (ratingMa === undefined) return undefined
-    return {
-      id: typeof entry.id === 'string' && entry.id ? entry.id : '',
-      label: typeof entry.label === 'string' && entry.label.trim() ? entry.label : undefined,
-      ratingMa,
-      fuseType: typeof entry.fuseType === 'string' && entry.fuseType.trim() ? entry.fuseType : undefined,
-    }
-  })
-  next.converters = normalizeRecord(value.converters, (entry) => {
-    if (!isObject(entry)) return undefined
-    const inputVoltage = normalizeNumber(entry.inputVoltage)
-    const outputVoltage = normalizeNumber(entry.outputVoltage)
-    const continuousCurrentMa = normalizeNumber(entry.continuousCurrentMa)
-    if (inputVoltage === undefined || outputVoltage === undefined || continuousCurrentMa === undefined) return undefined
-    return {
-      id: typeof entry.id === 'string' && entry.id ? entry.id : '',
-      label: typeof entry.label === 'string' && entry.label.trim() ? entry.label : undefined,
-      inputVoltage,
-      outputVoltage,
-      continuousCurrentMa,
-    }
-  })
-  next.supplyAssignments = normalizeRecord(value.supplyAssignments, (entry) =>
-    typeof entry === 'string' && entry ? entry : undefined)
-  next.wireAssignments = normalizeRecord(value.wireAssignments, (entry) =>
-    typeof entry === 'string' && entry ? entry : undefined)
-  next.connectorAssignments = normalizeRecord(value.connectorAssignments, (entry) =>
-    typeof entry === 'string' && entry ? entry : undefined)
-  next.fuseAssignments = normalizeRecord(value.fuseAssignments, (entry) =>
-    typeof entry === 'string' && entry ? entry : undefined)
-  next.converterAssignments = normalizeRecord(value.converterAssignments, (entry) =>
-    typeof entry === 'string' && entry ? entry : undefined)
-  return Object.keys(next).length > 0 ? next : undefined
-}
-
 export function emptyBuildProfile(): BuildProfile {
   return { version: BUILD_PROFILE_VERSION }
 }
@@ -290,7 +165,6 @@ export function normalizeBuildProfile(value: unknown): BuildProfile | undefined 
     }
     if (Object.values(next.assumptions).every((entry) => entry === undefined)) delete next.assumptions
   }
-  next.ownedParts = normalizeOwnedParts(value.ownedParts)
   if (value.exportMode === 'complete-build' || value.exportMode === 'current-view') {
     next.exportMode = value.exportMode
   }

@@ -71,8 +71,8 @@ export const BUILD_SECTIONS: BuildSection[] = [
   {
     id: 'power',
     label: 'Power',
-    summary: 'Battery assembly, PSU zones, fuse blocks, LED power feeds, and controller converters.',
-    kinds: ['matrix-output', 'power-converter', 'pd-trigger', 'battery-pack', 'battery-module'],
+    summary: 'Power supplies, battery assembly, PSU zones, fuse blocks, LED power feeds, and controller converters.',
+    kinds: ['matrix-output', 'power-supply', 'power-converter', 'pd-trigger', 'battery-pack', 'battery-module'],
     layers: { signalWires: false, levelShifter: false, powerDistribution: true },
   },
 ]

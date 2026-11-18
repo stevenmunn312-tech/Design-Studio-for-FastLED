@@ -1,4 +1,5 @@
 import { rootGraphNodes, useGraphStore, useNodeProperties } from '../../../state/graphStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useUiStore } from '../../../state/uiStore'
 import { outputSizeLabel } from '../../../state/output/ledOutputForm'
 import { PART_FIELDS } from '../../../build/parts/partFields'
@@ -21,6 +22,15 @@ import { i2sAudioStage } from '../../../state/audio/audioOutput'
 import { resolvePartIdentity } from '../../../build/parts/partOptions'
 import { encoderIsBare } from '../../../state/peripherals/encoder'
 import { converterSourceFor } from '../../../state/peripherals/pdTrigger'
+import {
+  POWER_SUPPLY_NODE_TYPE,
+  SUPPLY_POWERED_NODE_TYPES,
+  powerSupplies,
+  powerSupplyName,
+  powerSupplyRating,
+  powerSupplyRatingLabel,
+  supplyForLoad,
+} from '../../../state/peripherals/powerSupply'
 import { batteryModuleCanChargeOnly, batteryModuleSpec } from '../../../state/peripherals/battery'
 import {
   CONVERTER_FEED_LABELS,
@@ -40,6 +50,34 @@ import {
 
 
 interface Props { nodeId: string; nodeType?: string }
+
+/**
+ * Which supply feeds an LED load. Shown only with more than one supply on the
+ * bench: with one there is nothing to choose, and the plan uses it.
+ */
+function PoweredByField({ nodeId, properties }: { nodeId: string; properties: Record<string, unknown> }) {
+  const updateNodeProperty = useGraphStore((s) => s.updateNodeProperty)
+  // The store's own node objects, so the shallow compare holds between renders.
+  const supplies = useGraphStore(useShallow((s) => powerSupplies(rootGraphNodes(s))))
+  if (supplies.length < 2) return null
+  const chosen = supplyForLoad(supplies, properties)?.id ?? ''
+  return (
+    <label className={styles.row} title="The supply this output's power wires go to. Each supply is planned as its own zone.">
+      <span className={styles.key}>Powered by</span>
+      <select
+        className={`nodrag ${styles.picker}`}
+        value={chosen}
+        onChange={(event) => updateNodeProperty(nodeId, 'poweredBy', event.target.value)}
+      >
+        {supplies.map((supply) => (
+          <option key={supply.id} value={supply.id}>
+            {powerSupplyName(supplies, supply)} · {powerSupplyRatingLabel(powerSupplyRating(supply.data.properties as Record<string, unknown>))}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+}
 
 function hardwareFieldLabel(
   nodeType: string,
@@ -217,6 +255,12 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
             Edit on the Graph
           </button>
         </>
+      )}
+
+      {SUPPLY_POWERED_NODE_TYPES.has(nodeType) && <PoweredByField nodeId={nodeId} properties={props} />}
+
+      {nodeType === POWER_SUPPLY_NODE_TYPE && (
+        <p className={styles.bankEmpty}>Supplies {powerSupplyRating(props).wattage} W. Enter the rated figures from the supply&apos;s label.</p>
       )}
 
       {volumeStageLabel && (

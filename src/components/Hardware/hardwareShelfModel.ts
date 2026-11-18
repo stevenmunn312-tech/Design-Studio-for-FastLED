@@ -41,6 +41,7 @@ const SHELF_SUBCATEGORIES: Record<string, readonly { label: string; nodeTypes: r
     { label: 'TFT & touch displays', nodeTypes: ['TransportDisplay'] },
   ],
   power: [
+    { label: 'Supplies', nodeTypes: ['PowerSupply'] },
     { label: 'Batteries', nodeTypes: ['BatteryPack', 'BatteryModule'] },
     { label: 'Power Conversion', nodeTypes: ['PowerConverter', 'PdTriggerSource'] },
     { label: 'Switching Power', nodeTypes: ['RelayOutput', 'PowerSwitchOutput', 'PwmDriverOutput', 'DarlingtonDriverOutput'] },
@@ -134,6 +135,7 @@ export function hardwareShelfCategories({
   const pwmDriverFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PwmDriverOutput')
   const darlingtonFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'DarlingtonDriverOutput')
   const ethernetFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'EthernetModule')
+  const powerSupplyFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PowerSupply')
   const powerConverterFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PowerConverter')
   const pdTriggerFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'PdTriggerSource')
   const batteryPackFixture = FIXTURE_PARTS.find((entry) => entry.nodeType === 'BatteryPack')
@@ -255,8 +257,21 @@ export function hardwareShelfCategories({
     {
       id: 'power',
       label: 'Power',
-      hint: 'Batteries, power conversion and load switching',
+      hint: 'Supplies, batteries, power conversion and load switching',
       items: [
+        // Rated by the user, not chosen from a catalogue: one entry, and as
+        // many supplies as the build has.
+        ...(powerSupplyFixture ? [{
+          key: powerSupplyFixture.partId,
+          nodeType: powerSupplyFixture.nodeType,
+          label: powerSupplyFixture.label,
+          hint: powerSupplyFixture.hint,
+          renderSrc: powerSupplyFixture.render,
+          visual: powerSupplyFixture.partId,
+          disabled: false,
+          disabledReason: null,
+          onSelect: () => addFixturePart(powerSupplyFixture),
+        }] : []),
         ...moduleItems('BatteryPack', batteryPackFixture),
         ...moduleItems('BatteryModule', batteryModuleFixture),
         ...moduleItems('PowerConverter', powerConverterFixture),

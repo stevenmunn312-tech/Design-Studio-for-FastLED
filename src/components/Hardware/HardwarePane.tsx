@@ -338,8 +338,8 @@ export default function HardwarePane() {
           continue
         }
       }
-      // A PD trigger is an upstream power source: nothing on it reaches the board, so it draws no run.
-      if (['PdTriggerSource', 'BatteryPack', 'BatteryModule'].includes(part.node.data.nodeType)) continue
+      // A supply, a PD trigger or a pack is a power source: nothing on it reaches the board, so it draws no run.
+      if (['PowerSupply', 'PdTriggerSource', 'BatteryPack', 'BatteryModule'].includes(part.node.data.nodeType)) continue
       links.push({ source: BOARD_PART_ID, target: part.partId })
     }
     const usableWidth = Math.max(120, stageBox.width - leftInset - rightInset - 48)

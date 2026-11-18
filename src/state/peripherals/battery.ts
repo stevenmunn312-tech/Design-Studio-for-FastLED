@@ -206,6 +206,8 @@ export function batteryOutputConverterSpec(
     typicalEfficiency: output.typicalEfficiency,
     isolated: false,
     adjustable: false,
+    // No pack board in the catalogue states an output current limit.
+    outputCurrentLimit: 'none',
     terminals: output.terminals,
   }
 }

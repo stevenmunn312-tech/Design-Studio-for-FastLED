@@ -69,7 +69,8 @@ forms. Use that set as the current type list when changing graph ownership.
 
 `isHardwareOnlyNodeType` derives the parts that carry configuration but no
 graph data: `Board`, `Amplifier`, `PowerAmplifier`, `SDCard`, `EthernetModule`,
-`PowerConverter`, `PdTriggerSource`, `BatteryPack`, and `BatteryModule`.
+`PowerSupply`, `PowerConverter`, `PdTriggerSource`, `BatteryPack`, and
+`BatteryModule`.
 
 `RelayOutput` is a terminal sink whose selected physical module determines its
 one to eight boolean channel inputs and matching GPIO assignments. Generated
@@ -83,6 +84,22 @@ dry contact is AC or DC and open when off. Contact ratings and mains-voltage
 warnings stay on the exact catalogue part. The app does not treat switched-load
 terminals as low-voltage GPIO wiring, and an AC-only load is not a graph error
 because the load itself is not in the graph.
+
+`PowerSupply` (`state/peripherals/powerSupply.ts`) is the supply the user
+already owns, one node per physical supply. It is config-only like
+`PowerConverter` and has no catalogue part: `voltage` and `ratedCurrentA` are
+typed off the supply's label and held to 3-48 V and 0.5-200 A
+(`powerSupplyRating`). The bench and the Build Diagram both draw the generic
+`5v-psu.webp` render, and the bench draws no run to it. Its manifest item is kind
+`power-supply`, on the power path. Each LED load (`MatrixOutput`,
+`StereoVuMeter`) names its supply in `poweredBy`; `supplyForLoad` reads that,
+falling back to the first supply when it is unset or names a removed one, and the
+manifest copies the answer onto every output item as `supplyItemId`. The
+**Powered by** field appears only with more than one supply. The electrical plan
+draws each zone on one supply and never mixes supplies in a zone, and blocks an
+output whose supply voltage is not its chipset's. While a rail converter makes the
+LED rail, outputs are not put on a supply. Sizing still follows full white; see
+[supply-based power sizing](../plans/supply-based-power-sizing.md).
 
 `PdTriggerSource` is the ZY12PDN, a config-only fixture like `PowerConverter`: no
 ports, no pins and no firmware. Its `pdTrigger` catalogue block carries the selectable

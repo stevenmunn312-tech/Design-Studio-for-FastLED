@@ -112,6 +112,31 @@ export const HARDWARE_REFERENCE: NodeReferenceMap = {
     }),
   },
 
+  PowerSupply: {
+    overview: [
+      'Power Supply is the supply you already have. Enter the voltage and rated current printed on its label; the wattage follows. There is no list to pick from, so any supply can be entered.',
+      'Add one for each physical supply. With more than one, each LED output has a Powered by setting that names the supply its power wires go to, and the Build Diagram plans each supply as its own zone.',
+      'The voltage must match the LEDs it feeds: a 12 V supply on a 5 V strip is a blocker in the Build Diagram.',
+    ],
+    steps: [
+      'Add the supply from the Hardware tab, under Power.',
+      'Type the volts and rated amps from its label.',
+      'With several supplies, choose each LED output’s supply under Powered by.',
+    ],
+    outcome: NO_PIXELS,
+    example: example({
+      featured: 'PowerSupply',
+      title: 'Plan the LEDs on the supply you own',
+      nodes: {
+        supply: ['PowerSupply', { voltage: 5, ratedCurrentA: 10 }],
+        pattern: ['Juggle'],
+      },
+      explanation: 'Power Supply carries no wires and adds no firmware. It records a 5 V 10 A supply, and the Build Diagram draws the LED power zone on it.',
+      preview: 'The {output} is unchanged. Open the Build Diagram to see the zone named for your supply.',
+      workflow: true,
+    }),
+  },
+
   PowerConverter: {
     overview: [
       'DC-DC Converter turns a DC supply into 5 V. The LM2596 module powers the controller through its 5 V pin in place of USB; the Mean Well SD-100 makes isolated 5 V power zones for the LEDs from 12 V or 24 V.',

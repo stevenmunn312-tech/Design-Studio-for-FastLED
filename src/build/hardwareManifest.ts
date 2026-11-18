@@ -48,6 +48,7 @@ import {
 } from '../state/peripherals/pwmDriver'
 import { DARLINGTON_PART_ID, darlingtonPinKeys, darlingtonSpec } from '../state/peripherals/darlingtonDriver'
 import { PD_TRIGGER_PART_ID, converterSourceFor, pdTriggerSpec, pdTriggerVoltage } from '../state/peripherals/pdTrigger'
+import { POWER_SUPPLY_NODE_TYPE, powerSupplyName, powerSupplyRating, powerSupplyRatingLabel, supplyForLoad } from '../state/peripherals/powerSupply'
 import { DEFAULT_POWER_MONITOR_PART_ID, formatI2cAddress, powerMonitorAddress, powerMonitorSpec } from '../state/peripherals/powerMonitor'
 import { DMX_TRANSCEIVER_NODE_TYPE, DMX_TRANSCEIVER_PART_ID } from '../state/peripherals/dmxTransceiver'
 import { MIDI_BAUD, MIDI_DIN_PART_ID, MIDI_INTERFACE_NODE_TYPE } from '../state/peripherals/midiSource'
@@ -140,7 +141,7 @@ export function boardPinLabelForUse(
 
 export interface HardwareManifestItem {
   id: string
-  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'cooling-fan-output' | 'pwm-driver-output' | 'darlington-driver-output' | 'pd-trigger' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'midi-input' | 'ethernet' | 'power-converter' | 'battery-pack' | 'battery-module' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
+  kind: 'controller' | 'matrix-output' | 'mic-input' | 'line-input' | 'rtc-input' | 'sd-card' | 'amplifier' | 'button-input' | 'touch-button-input' | 'pot-input' | 'encoder-input' | 'motion-input' | 'light-input' | 'environment-input' | 'temperature-input' | 'distance-input' | 'joystick-input' | 'keypad-input' | 'motion-vector-input' | 'touch-pad-input' | 'ir-input' | 'relay-output' | 'power-switch-output' | 'buzzer-output' | 'cooling-fan-output' | 'pwm-driver-output' | 'darlington-driver-output' | 'pd-trigger' | 'power-monitor-input' | 'presence-input' | 'dmx-input' | 'midi-input' | 'ethernet' | 'power-supply' | 'power-converter' | 'battery-pack' | 'battery-module' | 'segment-display' | 'info-display' | 'transport-display' | 'unsupported'
   title: string
   subtitle: string
   sourceNodeId?: string
@@ -157,6 +158,7 @@ export interface HardwareManifestItem {
  * parts out of signal rows, ground rows and peripheral cards reads this set.
  */
 export const POWER_PATH_KINDS: ReadonlySet<HardwareManifestItem['kind']> = new Set([
+  'power-supply',
   'power-converter',
   'pd-trigger',
   'battery-pack',
@@ -207,6 +209,7 @@ const BUILD_DIAGRAM_SUPPORTED_NODE_TYPES = new Set([
   DMX_TRANSCEIVER_NODE_TYPE,
   MIDI_INTERFACE_NODE_TYPE,
   'EthernetModule',
+  'PowerSupply',
   'PowerConverter',
   'PdTriggerSource',
   'BatteryPack',
@@ -979,6 +982,20 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
       }
       case 'IRRemoteInput':
         return buildPeripheralItem(node, 'ir-input', 'Demodulating IR receiver', pins)
+      // The user's own supply: no pins, and no catalogue. The plan reads the
+      // rating typed off its label.
+      case POWER_SUPPLY_NODE_TYPE: {
+        const rating = powerSupplyRating(node.data.properties as Record<string, unknown>)
+        return {
+          ...buildPeripheralItem(node, 'power-supply', `${powerSupplyRatingLabel(rating)} supply`, pins),
+          title: powerSupplyName(nodes, node),
+          facts: {
+            voltage: rating.voltage,
+            ratedCurrentMa: Math.round(rating.ratedCurrentA * 1000),
+            wattage: rating.wattage,
+          },
+        }
+      }
       // On the power path, not the signal path: no pins. Its ratings are the
       // catalogue's, read by the plan from the part id; its role is the
       // catalogue's too, unless the module offers a choice and `feeds` makes it.
@@ -1726,6 +1743,14 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         return buildUnsupportedItem(node, pins)
     }
   }).flat()
+  // Which supply feeds each LED item: the resolver the bench's Powered by
+  // field reads, so a lane or VU rail follows its own fixture's choice.
+  for (const item of items) {
+    if (item.kind !== 'matrix-output') continue
+    const load = nodes.find((node) => node.id === item.sourceNodeId)
+    const supply = load ? supplyForLoad(nodes, load.data.properties as Record<string, unknown>) : undefined
+    if (supply) item.facts.supplyItemId = `power-supply:${supply.id}`
+  }
 
   const controller: HardwareManifestItem = {
     id: 'controller',

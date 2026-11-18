@@ -1,6 +1,7 @@
 import { PD_TRIGGER_PART_ID, pdTriggerSpec } from '../../state/peripherals/pdTrigger'
 import { CONVERTER_FEED_LABELS } from '../../state/peripherals/powerConverter'
 import { BATTERY_MODULE_USES } from '../../state/peripherals/battery'
+import { POWER_SUPPLY_CURRENT_A, POWER_SUPPLY_VOLTAGE } from '../../state/peripherals/powerSupply'
 /**
  * The settings a hardware-only part carries, beyond the module it is.
  *
@@ -72,6 +73,11 @@ export const PART_FIELDS: Record<string, readonly PartField[]> = {
     { key: 'maxVolume', label: 'Max volume (0–21)', kind: 'number', min: 0, max: DECODER_MAX_VOLUME },
   ],
   // `feeds` is shown only for a module whose catalogue entry offers both jobs.
+  // The figures off the supply's own label.
+  PowerSupply: [
+    { key: 'voltage', label: 'Volts', kind: 'number', min: POWER_SUPPLY_VOLTAGE.min, max: POWER_SUPPLY_VOLTAGE.max },
+    { key: 'ratedCurrentA', label: 'Rated amps', kind: 'number', min: POWER_SUPPLY_CURRENT_A.min, max: POWER_SUPPLY_CURRENT_A.max },
+  ],
   PowerConverter: [
     { key: 'feeds', label: 'Feeds', kind: 'select', options: Object.values(CONVERTER_FEED_LABELS) },
     { key: 'sourceVoltage', label: 'Source V', kind: 'number', min: 5, max: 48 },

@@ -76,6 +76,7 @@ import { PRESENCE_RX_PIN_KEY } from './peripherals/presenceSensor'
 import { BUZZER_PITCH_MAX_HZ, BUZZER_PITCH_MIN_HZ, buzzerIsPassive } from './peripherals/buzzer'
 import { darlingtonPinKeys } from './peripherals/darlingtonDriver'
 import { PD_TRIGGER_PART_ID, pdTriggerSpec } from './peripherals/pdTrigger'
+import { POWER_SUPPLY_CURRENT_A, POWER_SUPPLY_VOLTAGE } from './peripherals/powerSupply'
 import { PCA9685_PART_ID, pwmDriverAddressOptions, pwmDriverSpec } from './peripherals/pwmDriver'
 import { DEFAULT_POWER_MONITOR_PART_ID, powerMonitorAddressOptions } from './peripherals/powerMonitor'
 import { SLICE_PRESET_NAMES } from '../nodes/field/sliceTiling'
@@ -1412,6 +1413,10 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   },
   // The I2S decoder's 0–21 volume steps, typed in the part's hardware panel.
   Amplifier: { maxVolume: { control: 'slider', min: 0, max: DECODER_MAX_VOLUME, step: 1, entry: 'number' } },
+  PowerSupply: {
+    voltage: { control: 'slider', min: POWER_SUPPLY_VOLTAGE.min, max: POWER_SUPPLY_VOLTAGE.max, step: POWER_SUPPLY_VOLTAGE.step },
+    ratedCurrentA: { control: 'slider', min: POWER_SUPPLY_CURRENT_A.min, max: POWER_SUPPLY_CURRENT_A.max, step: POWER_SUPPLY_CURRENT_A.step },
+  },
   PowerConverter: {
     sourceVoltage: { control: 'slider', min: 5, max: 48, step: 0.5 },
   },
@@ -2023,6 +2028,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     stations: 'The internet radio stations the board plays, in order, each a name and a stream URL. Add them by URL or by searching the radio-browser.info directory. A station that does not start within 12 seconds, or keeps dropping, is skipped. A stations.m3u on the SD card, when there is one, replaces this list at start-up, so stations can change without a new build.',
     stationPage: 'Serve a small web page on the board for choosing a station from a phone on the same Wi-Fi, at the board’s name followed by .local. With an access code set, the page can also add and remove stations, which the board keeps through restarts.',
     seed: 'Controls random pattern, hold-time, transition, and particle choices. Zero runs freely, differently after each power-up; a nonzero value makes the sequence repeatable for the same inputs, in preview and on the board. The two draw from different generators, so the device repeats its own sequence rather than the preview’s.',
+  },
+  PowerSupply: {
+    voltage: 'The output voltage printed on the supply’s label. It must match the LEDs it feeds: 5 V for 5 V strips, 12 V for 12 V strips.',
+    ratedCurrentA: 'The continuous output current printed on the supply’s label, in amps. Read the rated figure, not a peak.',
   },
   PdTriggerSource: {
     requestedVoltage: 'The voltage the trigger asks the charger for, set on the board by its button or solder pads. The converters it feeds take this as their source voltage.',
@@ -4085,6 +4094,10 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     startMinute: 'minute',
     startSecond: 'second',
   },
+  PowerSupply: {
+    voltage: 'volts',
+    ratedCurrentA: 'rated amps',
+  },
   PowerConverter: {
     sourceVoltage: 'source volts',
   },
@@ -4203,7 +4216,7 @@ const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PresenceInput',
   'DMXInput', 'DMXChannel', 'RTCInput', 'WebRemoteInput',
   'MidiInput', 'SDCard', 'EthernetModule', 'RtcModule', 'DmxTransceiver', 'MidiInterface',
-  'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
+  'PowerSupply', 'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
 ])
 
 /**

@@ -261,11 +261,13 @@ export function PowerDistributionSections({ plan, bands, shadowFilter }: {
 
       return <g key={supply.id} data-power-zone={supply.id} data-power-zone-y={sectionY} transform={`translate(0 ${sectionY})`}>
         <rect data-sheet="frame" x="24" y="0" width="1072" height={sectionHeight} rx="12" fill="none" stroke="#a9afac" strokeWidth="2" />
-        <text x="42" y="32" className={styles.physicalPowerLabel}>{supply.converter?.integrated ? 'PACK OUTPUT' : supply.converter ? 'CONVERTER' : 'PSU'} ZONE {supplyIndex + 1} · {supply.converter ? supply.converter.label : 'RECOMMENDED POWER SUPPLY'}</text>
-        <text data-psu-recommendation={supply.recommendedCurrentMa} x="42" y="58" className={styles.physicalPowerValue}>
+        <text x="42" y="32" className={styles.physicalPowerLabel}>{supply.converter?.integrated ? 'PACK OUTPUT' : supply.converter ? 'CONVERTER' : 'PSU'} ZONE {supplyIndex + 1} · {supply.converter ? supply.converter.label : supply.ownedSupply ? supply.ownedSupply.title.toUpperCase() : 'RECOMMENDED POWER SUPPLY'}</text>
+        <text data-psu-recommendation={supply.recommendedCurrentMa} data-owned-supply={supply.ownedSupply?.itemId} x="42" y="58" className={styles.physicalPowerValue}>
           {supply.converter
             ? `${supply.converter.source.kind === 'battery' ? `${supply.converter.source.minV}-${supply.converter.source.ceilingV} V BATT` : `${supply.converter.sourceVoltage} V IN`} · 5 V OUT · ${formatAmps(supply.converter.deratedCurrentMa)} AT 40 °C`
-            : `5 V · ${formatAmps(supply.recommendedCurrentMa)} · ${supply.recommendedWattage} W`}
+            : supply.ownedSupply
+              ? `YOUR SUPPLY ${supply.ownedSupply.voltage} V · ${formatAmps(supply.ownedSupply.ratedCurrentMa)} · ${supply.ownedSupply.wattage} W · FULL WHITE ${formatAmps(supply.designCurrentMa)}`
+              : `5 V · ${formatAmps(supply.recommendedCurrentMa)} · ${supply.recommendedWattage} W`}
         </text>
         <text data-main-fuse-label={supply.id} x="42" y="82" className={styles.physicalMetaLabel}>{`MAIN FUSE ${mainFuseText} · TRUNK ${trunkWireText}`}</text>
 

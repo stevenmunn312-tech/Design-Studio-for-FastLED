@@ -288,4 +288,41 @@ describe('HardwarePartBody', () => {
     fireEvent.blur(volume)
     expect(useGraphStore.getState().nodes[0].data.properties.maxVolume).toBe(21)
   })
+
+  it('asks which supply powers an LED output only when there is more than one', () => {
+    const studio = (id: string, nodeType: string, properties: Record<string, unknown>, label: string) => ({
+      id, type: 'studioNode', position: { x: 0, y: 0 },
+      data: { label, nodeType, category: 'output', properties, inputs: [], outputs: [] },
+    })
+    const output = studio('out', 'MatrixOutput', { width: 8, height: 8, chipset: 'WS2812B' }, 'LED output')
+    useGraphStore.setState({
+      nodes: [output, studio('p1', 'PowerSupply', { voltage: 5, ratedCurrentA: 10 }, 'Desk PSU')] as never[],
+      edges: [] as never[],
+    })
+    const single = render(<HardwarePartBody nodeId="out" nodeType="MatrixOutput" />)
+    expect(single.queryByLabelText('Powered by')).toBeNull()
+    single.unmount()
+
+    useGraphStore.setState({
+      nodes: [
+        output,
+        studio('p1', 'PowerSupply', { voltage: 5, ratedCurrentA: 10 }, 'Desk PSU'),
+        studio('p2', 'PowerSupply', { voltage: 5, ratedCurrentA: 20 }, 'Shelf PSU'),
+      ] as never[],
+    })
+    const view = render(<HardwarePartBody nodeId="out" nodeType="MatrixOutput" />)
+    const picker = view.getByLabelText('Powered by') as HTMLSelectElement
+    expect(picker.value).toBe('p1')
+    expect(view.getByText('Shelf PSU · 5 V 20 A (100 W)')).toBeTruthy()
+    fireEvent.change(picker, { target: { value: 'p2' } })
+    expect(useGraphStore.getState().nodes[0].data.properties.poweredBy).toBe('p2')
+  })
+
+  it('states the wattage of a supply beside its typed rating', () => {
+    setPart('PowerSupply')
+    const view = render(<HardwarePartBody nodeId="part" nodeType="PowerSupply" />)
+    expect(view.getByText(/Supplies 50 W/)).toBeTruthy()
+    expect(view.getByLabelText('Volts')).toBeTruthy()
+    expect(view.getByLabelText('Rated amps')).toBeTruthy()
+  })
 })

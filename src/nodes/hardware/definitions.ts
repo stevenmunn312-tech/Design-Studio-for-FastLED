@@ -9,6 +9,7 @@ import { DEFAULT_BATTERY_CELL_PART_ID } from '../../state/peripherals/battery'
 import { DEFAULT_RTC_MODULE_PART_ID, RTC_MODULE_NODE_TYPE } from '../../state/peripherals/rtcModule'
 import { DMX_TRANSCEIVER_NODE_TYPE, DMX_TRANSCEIVER_PART_ID } from '../../state/peripherals/dmxTransceiver'
 import { MIDI_DIN_PART_ID, MIDI_INTERFACE_NODE_TYPE } from '../../state/peripherals/midiSource'
+import { POWER_SUPPLY_CURRENT_A, POWER_SUPPLY_NODE_TYPE, POWER_SUPPLY_VOLTAGE } from '../../state/peripherals/powerSupply'
 
 export const HARDWARE_DEFINITIONS: NodeDefinition[] = [
   {
@@ -98,6 +99,22 @@ export const HARDWARE_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
+    // A supply the user already owns, rated with the figures off its label.
+    // No part catalogue: any supply on hand can be entered. Each LED output
+    // names the one feeding it (`poweredBy`). See state/peripherals/powerSupply.ts.
+    //
+    // Config only, like the converter: no ports, no evaluation, found by scanning.
+    type: POWER_SUPPLY_NODE_TYPE,
+    label: 'Power Supply',
+    category: 'hardware',
+    inputs: [],
+    outputs: [],
+    defaultProperties: {
+      voltage: POWER_SUPPLY_VOLTAGE.default,
+      ratedCurrentA: POWER_SUPPLY_CURRENT_A.default,
+    },
+  },
+  {
     // A DC-DC converter from a higher-voltage source to 5 V. It carries no
     // signal: the Build Diagram reads the selected part's role to power either
     // the controller or the LED rail. See state/peripherals/powerConverter.ts.
@@ -159,6 +176,7 @@ export const HARDWARE_DESCRIPTIONS: Record<string, string> = {
   DmxTransceiver: 'MAX485 RS-485 transceiver for a DMX node set to DMX512; a bench part.',
   MidiInterface: 'DIN MIDI jack for every MIDI node set to DIN; a bench part.',
   EthernetModule: 'Wired Ethernet for the board\'s whole network in place of Wi-Fi; a bench part.',
+  PowerSupply: 'The supply you have, rated from its label, for the LED outputs it feeds.',
   PowerConverter: 'Converts a DC source to 5 V for the controller or LED rail.',
   BatteryPack: 'Defines a lithium pack from an exact cell and its series-parallel count.',
   BatteryModule: 'Adds pack protection, balancing, charging, or an integrated 5 V output.',

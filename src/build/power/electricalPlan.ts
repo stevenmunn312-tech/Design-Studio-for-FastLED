@@ -94,6 +94,8 @@ export interface OutputElectricalPlan {
   injectionPointsMm: number[]
   injections: PowerInjectionPlan[]
   injectionUnresolvedReason?: string
+  /** The Power Supply that feeds it, when one is on the bench and no rail converter makes the rail. */
+  supplyItemId?: string
 }
 
 export type PowerInjectionRole = 'start' | 'center' | 'end'
@@ -136,6 +138,11 @@ export interface SupplyRecommendation {
   trunk: SupplyTrunkPlan
   /** Present when this 5 V zone is made by an SD-series rail converter. */
   converter?: RailConverterSupplyPlan
+  /**
+   * The user's own supply for this zone. A zone never mixes supplies: two
+   * supplies on one zone would be paralleled through its trunk.
+   */
+  ownedSupply?: OwnedSupplyPlan
 }
 
 export interface SupplyTrunkPlan {
@@ -198,7 +205,6 @@ export interface ElectricalPlanSummary {
   battery?: BatteryPlan
   controllerPowerPath?: string
   controllerSupply?: ControllerSupplyPlan
-  branchChecks: OwnedBranchCheck[]
   recommendations: string[]
   unresolved: string[]
   assumptionsUsed: string[]
@@ -229,13 +235,13 @@ export interface ControllerSupplyPlan {
   terminals: string[]
 }
 
-export interface OwnedBranchCheck {
+/** A Power Supply on the bench: the rating typed off its label. */
+export interface OwnedSupplyPlan {
   itemId: string
   title: string
-  wireId?: string
-  connectorId?: string
-  fuseId?: string
-  issues: ElectricalPlanIssue[]
+  voltage: number
+  ratedCurrentMa: number
+  wattage: number
 }
 
 function formatRuleCurrent(valueMa: number): string {
@@ -567,6 +573,19 @@ function planRailConverter(
   }
 }
 
+/** The Power Supplies on the bench, by manifest item id. */
+function ownedSupplyPlans(manifest: HardwareManifest): Map<string, OwnedSupplyPlan> {
+  return new Map(manifest.primaryItems
+    .filter((item) => item.kind === 'power-supply')
+    .map((item) => [item.id, {
+      itemId: item.id,
+      title: item.title,
+      voltage: Number(item.facts.voltage),
+      ratedCurrentMa: Number(item.facts.ratedCurrentMa),
+      wattage: Number(item.facts.wattage),
+    }]))
+}
+
 function zoneCapacityDetail(
   output: OutputElectricalPlan,
   injection: PowerInjectionPlan,
@@ -597,12 +616,15 @@ function groupSupplies(
   outputs: OutputElectricalPlan[],
   blockers: ElectricalPlanIssue[],
   warnings: ElectricalPlanIssue[],
-  railConverter?: RailConverterContext,
+  railConverter: RailConverterContext | undefined,
+  ownedSupplies: ReadonlyMap<string, OwnedSupplyPlan>,
 ): SupplyRecommendation[] {
   const supplies: SupplyRecommendation[] = []
   const groupCeilingMa = railConverter?.deratedCurrentMa ?? MAX_RECOMMENDED_SUPPLY_CURRENT_MA
-  const newZone = (): SupplyRecommendation => {
+  const newZone = (output: OutputElectricalPlan): SupplyRecommendation => {
+    const ownedSupply = output.supplyItemId ? ownedSupplies.get(output.supplyItemId) : undefined
     const supply: SupplyRecommendation = {
+      ...(ownedSupply ? { ownedSupply } : {}),
       id: `supply-${supplies.length + 1}`,
       designCurrentMa: 0,
       recommendedCurrentMa: 0,
@@ -628,8 +650,10 @@ function groupSupplies(
   }
   for (const output of outputs) {
     const outputMa = output.injections.reduce((sum, injection) => sum + injection.designCurrentMa, 0)
-    const whole = supplies.find((candidate) => zoneAccepts(candidate.designCurrentMa, outputMa, groupCeilingMa))
-      ?? (zoneAccepts(0, outputMa, groupCeilingMa) ? newZone() : undefined)
+    // Only zones on this output's own supply: zones never mix supplies.
+    const ownZone = (candidate: SupplyRecommendation) => candidate.ownedSupply?.itemId === output.supplyItemId
+    const whole = supplies.find((candidate) => ownZone(candidate) && zoneAccepts(candidate.designCurrentMa, outputMa, groupCeilingMa))
+      ?? (zoneAccepts(0, outputMa, groupCeilingMa) ? newZone(output) : undefined)
     if (whole) {
       for (const injection of output.injections) assign(whole, output, injection)
       continue
@@ -646,9 +670,9 @@ function groupSupplies(
         // The fit check only sees zones that already exist. A new zone has to
         // pass the same ceiling; otherwise one module is recommended for a
         // load it cannot carry.
-        const next = supplies.find((candidate) => !used.has(candidate)
+        const next = supplies.find((candidate) => !used.has(candidate) && ownZone(candidate)
           && zoneAccepts(candidate.designCurrentMa, injection.designCurrentMa, groupCeilingMa))
-          ?? (zoneAccepts(0, injection.designCurrentMa, groupCeilingMa) ? newZone() : undefined)
+          ?? (zoneAccepts(0, injection.designCurrentMa, groupCeilingMa) ? newZone(output) : undefined)
         if (!next) {
           if (!refused) {
             refused = true
@@ -927,12 +951,24 @@ export function calculateElectricalPlan(
   const railConverter = planRailConverter(manifest, blockers, warnings, batterySource)
   const outputItems = manifest.primaryItems.filter((item) => item.kind === 'matrix-output')
   const outputPlans: OutputElectricalPlan[] = []
+  const ownedSupplies = ownedSupplyPlans(manifest)
 
   for (const item of outputItems) {
     // The same chipset-aware figure the Board and Checks read, so all three
     // agree. A HUB75 form is a scan panel whatever chipset it still carries.
     const draw = ledFullWhiteDraw(item.facts.chipset ?? 'WS2812B', item.facts.form)
     const nominalVoltage = draw.volts
+    // A rail converter makes the LED rail itself; the supply then sits
+    // upstream of it, so the output is not drawn on the supply directly.
+    const ownedSupply = railConverter ? undefined : ownedSupplies.get(String(item.facts.supplyItemId ?? ''))
+    if (ownedSupply && ownedSupply.voltage !== nominalVoltage) {
+      blockers.push({
+        id: `${item.id}:supply-voltage`,
+        severity: 'blocking',
+        title: item.title,
+        detail: `${item.title} runs from ${nominalVoltage} V, and ${ownedSupply.title} is a ${ownedSupply.voltage} V supply. Power it from a ${nominalVoltage} V supply, or choose one under Powered by.`,
+      })
+    }
 
     const pixelCount = Math.max(1, Number(item.facts.pixelCount ?? 0))
     const densityPerMeter = DEFAULT_LED_DENSITY_PER_METER
@@ -985,6 +1021,7 @@ export function calculateElectricalPlan(
       fuse,
       injectionPointsMm: injections.map((injection) => injection.positionMm),
       injections,
+      ...(ownedSupply ? { supplyItemId: ownedSupply.itemId } : {}),
     })
   }
 
@@ -1002,7 +1039,7 @@ export function calculateElectricalPlan(
     ? (() => {
       const nominalVoltage = outputPlans[0].nominalVoltage
       const designCurrentMa = outputPlans.reduce((sum, plan) => sum + plan.designCurrentMa, 0)
-      const supplies = groupSupplies(outputPlans, blockers, warnings, railConverter)
+      const supplies = groupSupplies(outputPlans, blockers, warnings, railConverter, ownedSupplies)
       const recommendedSupplyCurrentMa = supplies.reduce((sum, supply) => sum + supply.recommendedCurrentMa, 0)
       const recommendedSupplyCount = supplies.length
       const perSupplyCurrentMa = supplies.length > 0
@@ -1180,7 +1217,6 @@ export function calculateElectricalPlan(
           ? `${batteryResult.battery.output.label} 5 V output from the battery pack`
         : boardPower?.path ?? 'USB-C power (controller only)',
     controllerSupply,
-    branchChecks: [],
     recommendations,
     unresolved,
     assumptionsUsed,

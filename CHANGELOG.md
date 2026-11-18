@@ -9,6 +9,12 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Added
 
+- **Power Supply** on the Hardware shelf, under Power: enter the volts and
+  rated amps off the label of a supply you already have, one per supply. With
+  several, each LED output chooses its supply under Powered by. The Build
+  Diagram draws each LED power zone on its own supply, never mixes two
+  supplies in one zone, and blocks a supply whose voltage does not match the
+  LEDs it feeds. Wiring is still sized for full white.
 - Project and pattern files record their save format version. A file saved by
   a newer Design Studio is refused with a message instead of opening with its
   newer parts dropped, and the helper will not overwrite it from an older app.
@@ -34,6 +40,11 @@ versioning (`0.y.z`) until the first stable release.
 
 ### Fixed
 
+- Power figures agree everywhere. The Board, Checks and the Build Diagram
+  read one full-white draw per LED: a HUB75 panel is no longer planned as
+  WS2812B strip, a 12 V WS2811 pixel counts about 60 mA instead of 25 mA,
+  and an RGBW LED counts its white channel. The suggested supply now always
+  rounds up; just past a 10 A step it used to round down into the headroom.
 - Aurora Comet Foundry, Chromasonic Vortex, Glass Rain Resonator, Laser
   Monsoon Parade, Mainstage Confetti Singularity and Tidal Glass Meditation
   take their colour from the music again. Each wired a colour made from the

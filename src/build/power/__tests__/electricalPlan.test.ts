@@ -113,7 +113,6 @@ describe('electricalPlan', () => {
     expect(plan.controllerPowerPath).toBe('USB-C power (controller only)')
     expect(plan.powerReadyPasses).toBe(true)
     expect(plan.powerReadyText).toContain('recommended supply')
-    expect(plan.branchChecks).toEqual([])
   })
 
   it('splits large matrices into practical feeds and multiple supplies automatically', () => {

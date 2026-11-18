@@ -1,6 +1,6 @@
 # Plan — size power to the supply the user has
 
-Status: Phase 1 done 2026-11-18; Phase 2 next.
+Status: Phases 1 and 2 done 2026-11-18; Phase 3 next.
 
 ## Why
 
@@ -98,7 +98,20 @@ prerequisite: segment sizing and the cap are only as good as this number.
 Also fix the supply round-down bug in `powerSupplySizing.ts` here, since the
 "suggested supply" path keeps using it.
 
-### Phase 2 — say what supply you have
+### Phase 2 — say what supply you have (done 2026-11-18)
+
+Done as written, with these choices:
+
+- Zones follow supplies already: `groupSupplies` never puts outputs on two
+  supplies into one zone, and each zone carries `ownedSupply`. While a rail
+  converter makes the LED rail, outputs are not put on a supply; Phase 3
+  decides how a supply upstream of a converter is drawn.
+- `outputCurrentLimit` is `fixed` for the Mean Well SD-100A-5/B-5 (hiccup
+  overload protection) and the LM2596 (switch current limit), `none` for
+  the TPS61023 boost and the seller-rated DGXBY, RCNUN and 300 W modules,
+  whose limits are unverified, and `none` for integrated pack outputs. No
+  catalogue part is `adjustable` yet, so `currentSettingA` waits for the
+  first CC/CV module rather than shipping a field nothing shows.
 
 - New config-only bench node **Power Supply** (`PowerSupply`, hardware
   category), in the same style as `PowerConverter` (decided 2026-11-18). One

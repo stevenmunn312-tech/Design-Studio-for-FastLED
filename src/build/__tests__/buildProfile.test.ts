@@ -26,21 +26,19 @@ describe('buildProfile', () => {
     expect(ensureBuildProfile(undefined).exportMode).toBeUndefined()
   })
 
-  it('retains explicit branch-part assignments and drops malformed values', () => {
+  it('keeps signal-conditioning choices and drops malformed values', () => {
     const profile = normalizeBuildProfile({
       version: 1,
       signalConditioning: { output: true, pending: false, bad: 'yes' },
-      ownedParts: {
-        wireAssignments: { output: 'wire-1', bad: 42 },
-        connectorAssignments: { output: 'connector-1' },
-        fuseAssignments: { output: 'fuse-1' },
-      },
-    })
-    expect(profile?.ownedParts).toEqual({
-      wireAssignments: { output: 'wire-1' },
-      connectorAssignments: { output: 'connector-1' },
-      fuseAssignments: { output: 'fuse-1' },
     })
     expect(profile?.signalConditioning).toEqual({ output: true, pending: false })
+  })
+
+  it('drops the retired owned-parts record: the Power Supply node holds the supply now', () => {
+    const profile = normalizeBuildProfile({
+      version: 1,
+      ownedParts: { supplies: { a: { id: 'a', voltage: 5, continuousCurrentMa: 10000 } } },
+    })
+    expect(profile).not.toHaveProperty('ownedParts')
   })
 })

@@ -838,6 +838,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "typicalEfficiency": 0.92,
       "isolated": false,
       "adjustable": false,
+      "outputCurrentLimit": "none",
       "terminals": [
         "IN+",
         "IN-",
@@ -1017,6 +1018,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "typicalEfficiency": 0.9,
       "isolated": false,
       "adjustable": true,
+      "outputCurrentLimit": "none",
       "terminals": [
         "IN+",
         "IN-",
@@ -2017,6 +2019,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "typicalEfficiency": 0.8,
       "isolated": false,
       "adjustable": true,
+      "outputCurrentLimit": "fixed",
       "terminals": [
         "IN+",
         "IN-",
@@ -2325,6 +2328,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "typicalEfficiency": 0.78,
       "isolated": true,
       "adjustable": true,
+      "outputCurrentLimit": "fixed",
       "terminals": [
         "+",
         "-",
@@ -2391,6 +2395,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "typicalEfficiency": 0.74,
       "isolated": true,
       "adjustable": true,
+      "outputCurrentLimit": "fixed",
       "terminals": [
         "+",
         "-",
@@ -2887,6 +2892,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "typicalEfficiency": 0.95,
       "isolated": false,
       "adjustable": false,
+      "outputCurrentLimit": "none",
       "terminals": [
         "IN+",
         "IN-",
@@ -4139,6 +4145,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartCatalogueEntry> = {
       "typicalEfficiency": 0.9,
       "isolated": false,
       "adjustable": false,
+      "outputCurrentLimit": "none",
       "terminals": [
         "VIN+",
         "VIN-",

@@ -516,8 +516,21 @@ def read_part(part_dir: Path) -> dict | None:
                 "typicalEfficiency": converter["typicalEfficiency"],
                 "isolated": converter["isolated"],
                 "adjustable": bool(converter.get("adjustable", False)),
+                "outputCurrentLimit": "none",
                 "terminals": terminals,
             }
+            # Whether the module holds its own output current: "adjustable" is
+            # a CC/CV module with a current setting, "fixed" a stated limit at
+            # its rating (overload protection, a buck's switch current limit),
+            # "none" no output limit at all. A plain boost limits only its
+            # switch and cannot stop an output short, so it is "none". Missing
+            # reads as "none", the reading that sizes for full white.
+            limit = converter.get("outputCurrentLimit")
+            if limit in ("adjustable", "fixed", "none"):
+                entry["powerConverter"]["outputCurrentLimit"] = limit
+            else:
+                print(f"  ! {part_id}: powerConverter outputCurrentLimit must be adjustable, fixed or none — read as none",
+                      file=sys.stderr)
             # A module good for either job lists both; the bench then chooses
             # per converter, and `role` stays the one a new converter takes.
             roles = converter.get("roles")

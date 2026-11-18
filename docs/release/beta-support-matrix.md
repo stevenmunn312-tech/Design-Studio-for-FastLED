@@ -609,6 +609,10 @@ Unless a future row says otherwise, treat the following as experimental:
   selects. Geometry, colours, touch accuracy and concurrent card/audio use
   still need physical validation; see the
   [display compile record](../reports/compile/display-compile-checks.md).
+- **Your own power supply.** `PowerSupply` records a supply's typed rating
+  and which LED outputs it feeds. It changes only the Build Diagram (zones,
+  labels and a voltage-match blocker); the firmware is unchanged. Wiring is
+  still sized for full white until supply-based sizing lands.
 - **Powering the controller from a buck converter.** The LM2596 module
   (`PowerConverter`) changes only the Build Diagram, connection list and BOM;
   the firmware is unchanged. No bench run of a board powered through its 5 V

@@ -371,6 +371,15 @@ export interface PartPowerConverterSpec {
   isolated: boolean
   /** Adjustable output: it ships at an arbitrary voltage and must be set before use. */
   adjustable: boolean
+  /**
+   * Whether the module holds its own output current. `adjustable`: a CC/CV
+   * module with a current setting. `fixed`: a stated limit at its rating
+   * (overload protection, a buck's switch current limit). `none`: no output
+   * limit, such as a plain boost, which limits only its switch and cannot stop
+   * an output short. Only a limited module can make the wiring smaller than
+   * the LEDs' full-white draw.
+   */
+  outputCurrentLimit: 'adjustable' | 'fixed' | 'none'
   /** Printed terminal names in physical order. */
   terminals: string[]
   /** Terminal centres as [x, y] ratios within the uncropped render, aligned with `terminals`. */

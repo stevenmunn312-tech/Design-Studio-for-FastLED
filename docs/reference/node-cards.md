@@ -1366,6 +1366,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Ethernet example graph](../../public/node-cards/graphs/ethernet-module.svg)
 
+### Power Supply
+
+![Power Supply node](../../public/node-cards/power-supply.svg)
+
+![Power Supply example graph](../../public/node-cards/graphs/power-supply.svg)
+
 ### DC-DC Converter
 
 ![DC-DC Converter node](../../public/node-cards/power-converter.svg)

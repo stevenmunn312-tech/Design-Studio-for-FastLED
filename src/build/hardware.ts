@@ -35,7 +35,7 @@ const HARDWARE_LIBRARY_HIDDEN_NODE_TYPES = new Set([
   // they live as hidden nodes purely so their settings persist with the
   // workspace and the player generator can keep scanning for them.
   'Amplifier', 'PowerAmplifier', 'SDCard', 'EthernetModule', 'RtcModule', 'DmxTransceiver', 'MidiInterface',
-  'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
+  'PowerSupply', 'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
 ])
 
 export function isHardwareManagedSignalNodeType(nodeType: string): boolean {
