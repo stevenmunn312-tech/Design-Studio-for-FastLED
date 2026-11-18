@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render } from '@testing-library/react'
+import { act, fireEvent, render } from '@testing-library/react'
 import BuildDiagramWorkspace from '../BuildDiagramWorkspace'
 import { ROOT_GRAPH_ID, useGraphStore } from '../../../state/graphStore'
 import { useUiStore } from '../../../state/uiStore'
@@ -2029,5 +2029,49 @@ describe('BuildDiagramWorkspace with several boards', () => {
     const sheet = document.body.querySelector('[data-build-print-document]')
     expect(sheet?.textContent).toContain('Board 2')
     fireEvent(window, new Event('afterprint'))
+  })
+})
+
+describe('BuildDiagramWorkspace — safety notice', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    useGraphStore.setState({
+      nodes: [boardNode(), matrixNode()] as never[],
+      edges: [],
+      buildProfile: undefined,
+      graphData: {},
+      graphs: { root: { id: 'root', name: 'Main' } },
+      activeGraphId: 'root',
+    })
+    useUiStore.setState({ workspaceMode: 'build', appDialog: null })
+  })
+
+  it('asks once per machine, and a yes keeps the diagram open', async () => {
+    const first = render(<BuildDiagramWorkspace />)
+    expect(useUiStore.getState().appDialog?.title).toBe('Before you build')
+    expect(useUiStore.getState().appDialog?.message).toContain('qualified person')
+    await act(async () => useUiStore.getState().resolveAppDialog(true))
+    expect(useUiStore.getState().workspaceMode).toBe('build')
+    first.unmount()
+
+    render(<BuildDiagramWorkspace />)
+    expect(useUiStore.getState().appDialog).toBeNull()
+  })
+
+  it('leaves Build Diagram when the notice is declined, and asks again next time', async () => {
+    const first = render(<BuildDiagramWorkspace />)
+    await act(async () => useUiStore.getState().resolveAppDialog(false))
+    expect(useUiStore.getState().workspaceMode).toBe('graph')
+    first.unmount()
+
+    useUiStore.setState({ workspaceMode: 'build' })
+    render(<BuildDiagramWorkspace />)
+    expect(useUiStore.getState().appDialog?.title).toBe('Before you build')
+  })
+
+  it('keeps a safety reminder in the panel after the notice is accepted', async () => {
+    const { getByRole } = render(<BuildDiagramWorkspace />)
+    await act(async () => useUiStore.getState().resolveAppDialog(true))
+    expect(getByRole('note', { name: 'Safety' }).textContent).toContain('qualified person')
   })
 })

@@ -45,7 +45,47 @@ import {
 import { inlineSvgImages } from './svgExport'
 import { panOffsetForPointerZoom } from './viewportZoom'
 import { BUILD_DIAGRAM_SHELF_HOST_ID } from './buildDiagramShelfHost'
+import {
+  acceptBuildSafety,
+  BUILD_SAFETY_MESSAGE,
+  BUILD_SAFETY_REMINDER,
+  BUILD_SAFETY_TITLE,
+  hasAcceptedBuildSafety,
+} from './buildSafety'
 import styles from './BuildDiagramWorkspace.module.css'
+
+/**
+ * The first visit on this machine asks for the safety acknowledgement before
+ * the diagram is used; declining it leaves Build Diagram for the graph.
+ *
+ * `requestConfirm` settles a dialog it replaces as declined, so a stale answer
+ * (StrictMode's second mount, or leaving while it is open) is ignored rather
+ * than sending the user away.
+ */
+function useBuildSafetyGate() {
+  useEffect(() => {
+    if (hasAcceptedBuildSafety()) return
+    let current = true
+    const ui = useUiStore.getState()
+    const answer = ui.requestConfirm({
+      title: BUILD_SAFETY_TITLE,
+      message: BUILD_SAFETY_MESSAGE,
+      confirmLabel: 'I understand',
+      cancelLabel: 'Not now',
+    })
+    const nonce = useUiStore.getState().appDialog?.nonce
+    void answer.then((accepted) => {
+      if (!current) return
+      if (accepted) acceptBuildSafety()
+      else useUiStore.getState().closeBuildDiagram()
+    })
+    return () => {
+      current = false
+      const state = useUiStore.getState()
+      if (state.appDialog?.nonce === nonce) state.resolveAppDialog(false)
+    }
+  }, [])
+}
 
 interface DiagramConnection {
   id: string
@@ -221,6 +261,7 @@ function boundsForLayouts(
 }
 
 export default function BuildDiagramWorkspace() {
+  useBuildSafetyGate()
   // The whole diagram describes physical hardware, which lives in the root
   // graph — so it reads the root graph even while a pattern group is open on
   // the canvas, rather than showing an empty bench with no board. One board
@@ -849,6 +890,11 @@ export default function BuildDiagramWorkspace() {
           <div className={styles.panelHeader}>
             <h2 className={styles.panelTitle}>Build Diagram</h2>
           </div>
+
+          <section className={styles.card} role="note" aria-label="Safety">
+            <h3 className={styles.cardTitle}>Safety</h3>
+            <p className={styles.warningText}>{BUILD_SAFETY_REMINDER}</p>
+          </section>
 
           <section className={`${styles.card} ${styles.compactHardwareCard}`}>
             <h3 className={styles.cardTitle}>Graph hardware</h3>
