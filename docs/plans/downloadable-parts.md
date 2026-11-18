@@ -425,7 +425,10 @@ pin or bus reference that v1.0.0 does not understand must not reach
 8. Embed manifests in saves.
 9. Replace silent fallbacks for unknown parts and types with explicit errors.
 10. Add the Digital sensor and Analog sensor part types, each with at least
-    one bundled part.
+    one bundled part. *(The types are in: `DigitalSensorInput` and
+    `AnalogSensorInput`, blocks `digitalSensor` and `analogSensor`; see the
+    [generic sensors pattern](../development/patterns/hardware-and-build-diagram.md).
+    The bundled parts wait on verified Blender assets.)*
 11. Reserve the `{ part, pin }` and `{ part, channel }` reference shapes, and
     block Upload on any reference v1.0.0 cannot resolve.
 

@@ -34,6 +34,8 @@ import { DATE_TIME_TEXT_MODES } from './displays/displayText'
 import { CUSTOM_DESIGN_LAYOUT, TRANSPORT_DISPLAY_LAYOUTS } from './displays/transportDisplay'
 import { SEGMENT_BRIGHTNESS_MIN, SEGMENT_BRIGHTNESS_MAX, segmentControllerFor } from './displays/segmentDisplay'
 import { partById, partPinLabelForProperty } from '../build/parts/partCatalogue'
+import { ANALOG_SENSOR_NODE_TYPE } from './peripherals/analogSensor'
+import { DIGITAL_SENSOR_NODE_TYPE, digitalSensorUsesPullup } from './peripherals/digitalSensor'
 import { PATTERN_SLIDESHOW_ORDERS } from './patterns/patternSlideshow'
 import { MUSIC_PLAYER_SOURCES } from './upload/buildMode'
 import { OLED_ROTATIONS, OLED_TRANSPORT_PINS, OLED_I2C_ADDRESS_OPTIONS, oledControllerFor, oledTransportFor, type OledController, type OledTransport } from './displays/oledSurface'
@@ -1303,6 +1305,12 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   MotionInput: {
+    pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
+  DigitalSensorInput: {
+    pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
+  },
+  AnalogSensorInput: {
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   PresenceInput: {
@@ -2624,6 +2632,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   MotionInput: {
     pin: 'GPIO wired to the PIR OUT pad; it goes high while the module sees movement.',
+  },
+  DigitalSensorInput: {
+    pin: 'GPIO wired to the sensor\'s signal line. Whether it reads high or low when actuated, and whether the controller\'s pull-up is enabled on it, come from the part.',
+  },
+  AnalogSensorInput: {
+    pin: 'Analog-capable GPIO wired to the sensor\'s output. On a classic ESP32 use ADC1 (32 to 39) when Wi-Fi is on.',
   },
   PotInput: {
     pin: 'Analog-capable GPIO wired to the wiper. On a classic ESP32 use ADC1 (32 to 39) when Wi-Fi is on.',
@@ -4214,6 +4228,7 @@ export function propertyLabel(nodeType: string, key: string, properties?: Record
 const SCALAR_EXPRESSION_BLOCKED_TYPES = new Set([
   'MatrixOutput', 'MicInput', 'LineInput', 'TouchButtonInput', 'PotInput', 'EncoderInput',
   'MotionInput', 'LightInput', 'EnvironmentInput', 'TemperatureInput', 'DistanceInput', 'JoystickInput', 'KeypadInput', 'TouchPadInput', 'MotionVectorInput', 'IRRemoteInput', 'PresenceInput',
+  'DigitalSensorInput', 'AnalogSensorInput',
   'DMXInput', 'DMXChannel', 'RTCInput', 'WebRemoteInput',
   'MidiInput', 'SDCard', 'EthernetModule', 'RtcModule', 'DmxTransceiver', 'MidiInterface',
   'PowerSupply', 'PowerConverter', 'PdTriggerSource', 'BatteryPack', 'BatteryModule',
@@ -4738,6 +4753,8 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   PotInput: new Set(['pin']),
   EncoderInput: new Set(['pinA', 'pinB', 'pinSW']),
   MotionInput: new Set(['pin']),
+  DigitalSensorInput: new Set(['pin']),
+  AnalogSensorInput: new Set(['pin']),
   PresenceInput: new Set([PRESENCE_RX_PIN_KEY]),
   LightInput: new Set(['pin', 'sdaPin', 'sclPin']),
   EnvironmentInput: new Set(['sdaPin', 'sclPin']),
@@ -4801,7 +4818,9 @@ export function gpioRequirementForProperty(
     || nodeType === 'MotionVectorInput' || nodeType === 'TouchPadInput' || nodeType === 'PwmDriverOutput'
     || (nodeType === 'LightInput' && lightSensorTransport(props.partId) === 'i2c')
     || (nodeType === 'DistanceInput' && distanceSensorTransport(props.partId) === 'i2c')) return null
-  if (nodeType === 'PotInput' || nodeType === 'LightInput') return { capability: 'analogInput', pullup: false }
+  if (nodeType === 'PotInput' || nodeType === 'LightInput' || nodeType === ANALOG_SENSOR_NODE_TYPE) return { capability: 'analogInput', pullup: false }
+  // The part says whether the sketch enables the controller's pull-up; a module that drives the line itself gets none.
+  if (nodeType === DIGITAL_SENSOR_NODE_TYPE) return { capability: 'digitalInput', pullup: digitalSensorUsesPullup(props.partId) }
   // A receiver module drives the line both ways through its own open-collector
   // output stage and its module pull-up, the same as a PIR — a pull-up here
   // would fight it rather than hold the idle level.

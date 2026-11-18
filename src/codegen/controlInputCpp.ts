@@ -21,6 +21,10 @@ import { distanceSensorTransport } from '../state/peripherals/distanceSensor'
 import { encoderCountScale, encoderLevelSpan, encoderLevelStartCount, encoderUsesPullup } from '../state/peripherals/encoder'
 import { ENCODER_COUNTS_PER_STEP } from '../state/patterns/patternSelection'
 import { ANALOG_FULL_SCALE_CPP, analogLevelCpp } from './helpers/analogReadCpp'
+import { digitalSensorLoopCpp, digitalSensorSetupCpp } from './peripherals/digitalSensorCpp'
+import { ANALOG_SENSOR_HELPER_CPP, analogSensorLoopCpp } from './peripherals/analogSensorCpp'
+import { ANALOG_SENSOR_NODE_TYPE } from '../state/peripherals/analogSensor'
+import { DIGITAL_SENSOR_NODE_TYPE } from '../state/peripherals/digitalSensor'
 
 export interface ControlInputEmission {
   setup: string[]
@@ -216,6 +220,17 @@ export function controlInputCpp(
       outputs.pressed = 'bool'
       break
     }
+    case DIGITAL_SENSOR_NODE_TYPE: {
+      setup.push(...digitalSensorSetupCpp(p))
+      loop.push(...digitalSensorLoopCpp(p, id, (port) => v(port)))
+      outputs.active = 'bool'
+      break
+    }
+    case ANALOG_SENSOR_NODE_TYPE: {
+      loop.push(...analogSensorLoopCpp(p, id, (port) => v(port)))
+      outputs.value = 'float'
+      break
+    }
     case 'DistanceInput': {
       setup.push(...distanceSensorSetupCpp(p))
       loop.push(...distanceSensorLoopCpp(p, id, (port) => v(port)))
@@ -243,6 +258,7 @@ export function controlInputCpp(
     ...(nodeType === 'EnvironmentInput'
       ? { helpers: [ENVIRONMENT_SENSOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }
       : {}),
+    ...(nodeType === ANALOG_SENSOR_NODE_TYPE ? { helpers: [ANALOG_SENSOR_HELPER_CPP.join('\n')] } : {}),
     ...(nodeType === 'TemperatureInput' ? { helpers: [TEMPERATURE_SENSOR_HELPER_CPP.join('\n')] } : {}),
     ...(nodeType === 'TouchPadInput'
       ? { helpers: [TOUCH_PAD_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }

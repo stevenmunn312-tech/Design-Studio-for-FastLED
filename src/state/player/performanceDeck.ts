@@ -142,6 +142,8 @@ const WIRING_KEYS: Record<string, Set<string>> = {
   TouchButtonInput: new Set(['pin']),
   PotInput: new Set(['pin']),
   MotionInput: new Set(['pin']),
+  DigitalSensorInput: new Set(['pin']),
+  AnalogSensorInput: new Set(['pin']),
   PresenceInput: new Set(['rxPin']),
   IRRemoteInput: new Set(['pin']),
   LightInput: new Set(['pin']),

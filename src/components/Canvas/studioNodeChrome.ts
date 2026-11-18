@@ -57,7 +57,7 @@ export const HARDWARE_INPUT_WIDGET_TYPES: ReadonlySet<string> = new Set([
   'TouchButtonInput', 'PotInput', 'EncoderInput',
   'MotionInput', 'LightInput', 'PowerMonitorInput', 'EnvironmentInput', 'TemperatureInput',
   'DistanceInput', 'JoystickInput', 'MotionVectorInput', 'KeypadInput', 'TouchPadInput',
-  'PresenceInput',
+  'PresenceInput', 'DigitalSensorInput', 'AnalogSensorInput',
 ])
 
 // Nodes whose canvas preview intentionally diverges from firmware behaviour
@@ -95,6 +95,14 @@ export const PREVIEW_NOTES: Record<string, { text: string; title: string }> = {
   DistanceInput: {
     text: 'preview reading comes from the slider; firmware times the HC-SR04 echo or reads the VL53L0X or VL53L1X',
     title: 'The browser has no ultrasonic sensor, so the slider stands in for the distance and Connected is always true. Generated firmware pulses Trig, times the Echo, and reports Connected false when no echo returns. Readings are taken every 60 ms and held between.',
+  },
+  DigitalSensorInput: {
+    text: 'preview state comes from the toggle; firmware reads the pin',
+    title: 'The browser has no sensor to read, so the toggle stands in for the part being actuated (magnet near, beam broken, switch closed). Active follows it. Generated firmware reads the pin at the level and pull-up the part declares, and holds a new level for the part\'s debounce time before Active follows. The preview toggle is already clean, so debounce is not simulated.',
+  },
+  AnalogSensorInput: {
+    text: 'preview reading comes from the slider; firmware reads the ADC pin',
+    title: 'The browser has no sensor to read, so the slider stands in for the pin voltage across the part\'s ADC range. Value is that voltage run through the part\'s calibration curve, in the part\'s own unit, held to its output window. Generated firmware reads the ADC pin and applies the same curve.',
   },
   TemperatureInput: {
     text: 'preview reading comes from the slider; firmware reads the DS18B20',

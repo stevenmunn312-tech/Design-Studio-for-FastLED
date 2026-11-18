@@ -27,6 +27,7 @@
 // wrong wire, because the first teaches people to ignore the drawer.
 
 import { inputClampRange } from '../../state/nodeLibrary'
+import { ANALOG_SENSOR_OUTPUT, ANALOG_SENSOR_NODE_TYPE, analogSensorSpec } from '../../state/peripherals/analogSensor'
 import { normalizeStepValueSettings } from './stepValue'
 import { waveRange } from '../signal/wave'
 
@@ -70,6 +71,11 @@ export function outputSignalRange(
 ): SignalRange | null {
   if (!portId) return null
   if (isNormalizedOutput(nodeType, portId)) return { min: 0, max: 1 }
+  // An analog sensor reads in its part's own unit, held to the window the part declares.
+  if (nodeType === ANALOG_SENSOR_NODE_TYPE && portId === ANALOG_SENSOR_OUTPUT) {
+    const spec = analogSensorSpec(properties.partId)
+    return spec ? { min: spec.outputMin, max: spec.outputMax } : null
+  }
   if (nodeType === 'Wave' && portId === 'result') {
     const amplitude = Number(properties.amplitude ?? 1), offset = Number(properties.offset ?? 0)
     if (!Number.isFinite(amplitude) || !Number.isFinite(offset)) return null

@@ -12,7 +12,9 @@
 // module states its name instead of pretending to offer alternatives.
 
 import { CONVERTER_FEED_LABELS, converterRoles, deratedCurrentMa, ENCLOSURE_AMBIENT_C, powerConverterModules } from '../../state/peripherals/powerConverter'
-import { partById, type PartCatalogueEntry } from './partCatalogue'
+import { PART_CATALOGUE, partById, type PartCatalogueEntry } from './partCatalogue'
+import { analogSensorEntries, analogSensorSummary } from '../../state/peripherals/analogSensor'
+import { digitalSensorEntries, digitalSensorSummary } from '../../state/peripherals/digitalSensor'
 import { IR_RECEIVER_MODULES } from '../../state/peripherals/irModules'
 import { MIC_MODULES } from '../../state/peripherals/micModules'
 import { LIGHT_SENSOR_MODULES } from '../../state/peripherals/lightSensor'
@@ -344,6 +346,32 @@ export const PART_OPTIONS: Record<string, {
         note: 'Power it from 3.3 V so the axis voltages stay inside the ADC range. VRx and VRy go to ADC pins, SW to a pin with a pull-up.',
       },
     ],
+  },
+  // The generic sensor types have no row of code per part: every option is a
+  // catalogue entry carrying the type's block, read when asked so a part added
+  // to the catalogue appears without an edit here. A node naming no catalogued
+  // part is unavailable (`uncataloguedDefault`), never the first option.
+  DigitalSensorInput: {
+    property: 'partId',
+    uncataloguedDefault: true,
+    get options(): PartOption[] {
+      return digitalSensorEntries(PART_CATALOGUE).map((entry) => ({
+        id: entry.partId,
+        label: entry.label,
+        summary: digitalSensorSummary(entry.digitalSensor!),
+      }))
+    },
+  },
+  AnalogSensorInput: {
+    property: 'partId',
+    uncataloguedDefault: true,
+    get options(): PartOption[] {
+      return analogSensorEntries(PART_CATALOGUE).map((entry) => ({
+        id: entry.partId,
+        label: entry.label,
+        summary: analogSensorSummary(entry.analogSensor!),
+      }))
+    },
   },
   MotionInput: {
     property: 'partId',

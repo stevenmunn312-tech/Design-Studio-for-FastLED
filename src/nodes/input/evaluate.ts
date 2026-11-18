@@ -13,6 +13,8 @@ import {
 } from '../../state/peripherals/powerMonitor'
 import { presencePreviewReading, presencePreviewKey, presencePreviewDefaultDistance } from '../../state/peripherals/presenceSensor'
 import { lightSensorPreviewReading } from '../../state/peripherals/lightSensor'
+import { ANALOG_SENSOR_PREVIEW_DEFAULT, analogSensorPreviewReading } from '../../state/peripherals/analogSensor'
+import { digitalSensorPreviewReading } from '../../state/peripherals/digitalSensor'
 import {
   environmentPreviewDefaults, environmentPreviewKey, environmentPreviewReading,
 } from '../../state/peripherals/environmentSensor'
@@ -371,6 +373,15 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
   // pair holding exactly the same shapes would only be ceremony.
   MotionInput(_c, id) {
     return { motion: useHardwareInputStore.getState().button.get(id) ?? false }
+  },
+  // The part's block decides what the reading means; the node's toggle and
+  // slider are the part itself. A part that is not in the catalogue rests
+  // inactive and at zero, as its sketch does.
+  DigitalSensorInput(_c, id, props) {
+    return { active: digitalSensorPreviewReading(props.partId, useHardwareInputStore.getState().button.get(id) ?? false) }
+  },
+  AnalogSensorInput(_c, id, props) {
+    return { value: analogSensorPreviewReading(props.partId, useHardwareInputStore.getState().pot.get(id) ?? ANALOG_SENSOR_PREVIEW_DEFAULT) }
   },
   LightInput(_c, id, props) {
     return { ...lightSensorPreviewReading(

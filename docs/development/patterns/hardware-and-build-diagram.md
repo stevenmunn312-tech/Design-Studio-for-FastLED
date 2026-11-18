@@ -585,6 +585,33 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   every per-channel reader goes through `powerSwitchSeparateChannels` and
   `powerSwitchChannelDims` so a strip channel is never also emitted as a
   switch. See [hardware nodes](../../architecture/hardware-model.md).
+- **Generic sensors (data-only parts, experimental):** `DigitalSensorInput` and
+  `AnalogSensorInput` are the first part types with no row of code per part.
+  Behaviour is fixed in code; every per-part fact is the catalogue entry's
+  `digitalSensor` or `analogSensor` block (`PartDigitalSensorSpec`,
+  `PartAnalogSensorSpec`), read through `digitalSensorSpec` / `analogSensorSpec`
+  (`src/state/peripherals/`). Those return `null` for an unknown id **or a
+  block that fails `*SpecIssue`**, and callers treat the part as unavailable:
+  the preview rests at inactive or zero, firmware emits the same with the id
+  sanitised into a comment, the manifest item is `supported: false`, and
+  `i2cBusValidationIssues` blocks the upload. Nothing substitutes another
+  part, so `PART_OPTIONS` rows are getters over the catalogue with
+  `uncataloguedDefault`, and `useBenchParts` skips its same-node-type
+  footprint fallback for these two types. The shelf rows come from
+  `sensorInputPartEntries()`, read once at module load into `INPUT_PARTS`: a
+  catalogue loaded later needs that list rebuilt. A digital reading is the
+  part being *actuated* whatever level that is on the pin (`activeLevel`);
+  `pullUp: 'internal'` is legal only for an active-low part, and is what
+  `gpioRequirementForProperty` turns into the pull-up pin requirement. An
+  analog reading is `analogRead / full scale` mapped across `adcRange` in
+  volts, through the calibration curve, held to `outputMin`/`outputMax`.
+  `interpolateCurve` and `CALIBRATION_CURVE_CPP` (`calibrationCurve.ts`) are
+  one rule in two languages, compared by `calibrationCurveNative.test.ts`.
+  The importer validates both blocks with the same rules
+  (`digital_sensor_issue`, `analog_sensor_issue`); tests use fixture parts from
+  `src/state/peripherals/__tests__/sensorFixtures.ts`, never a real part id.
+  No bundled part carries either block yet, so both shelves are empty and the
+  help examples show an unavailable reading until one lands.
 - **Light sensor (experimental):** `LightInput` picks its module from
   `LIGHT_SENSOR_MODULES` (`src/state/peripherals/lightSensor.ts`), the same one-list shape
   as `MIC_MODULES`: an LDR on one ADC pin or the Adafruit BH1750 on the shared

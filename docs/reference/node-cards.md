@@ -60,6 +60,18 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Motion Sensor example graph](../../public/node-cards/graphs/motion-input.svg)
 
+### Digital Sensor
+
+![Digital Sensor node](../../public/node-cards/digital-sensor-input.svg)
+
+![Digital Sensor example graph](../../public/node-cards/graphs/digital-sensor-input.svg)
+
+### Analog Sensor
+
+![Analog Sensor node](../../public/node-cards/analog-sensor-input.svg)
+
+![Analog Sensor example graph](../../public/node-cards/graphs/analog-sensor-input.svg)
+
 ### Presence Sensor
 
 ![Presence Sensor node](../../public/node-cards/presence-input.svg)

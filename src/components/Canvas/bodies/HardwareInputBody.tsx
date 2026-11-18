@@ -6,6 +6,10 @@ import {
 } from '../../../state/peripherals/presenceSensor'
 import { lightSensorPreviewReading, lightSensorTransport } from '../../../state/peripherals/lightSensor'
 import {
+  ANALOG_SENSOR_NODE_TYPE, ANALOG_SENSOR_PREVIEW_DEFAULT, analogSensorReading, analogSensorSpec, formatAnalogSensorReading,
+} from '../../../state/peripherals/analogSensor'
+import { DIGITAL_SENSOR_NODE_TYPE, digitalSensorSpec } from '../../../state/peripherals/digitalSensor'
+import {
   environmentPreviewDefaults, environmentPreviewKey, environmentPreviewReading,
   type EnvironmentReading,
 } from '../../../state/peripherals/environmentSensor'
@@ -173,6 +177,19 @@ function LightInputWidget({ nodeId, partId, maxLux }: { nodeId: string; partId: 
     const reading = lightSensorPreviewReading(partId, fraction, maxLux)
     return digital ? `${reading.lux.toFixed(0)} lx` : reading.level.toFixed(2)
   }} />
+}
+
+/** The part's own words for the two states; a part with no usable block gets a plain pair. */
+function DigitalSensorInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
+  const spec = digitalSensorSpec(partId)
+  return <ToggleInputWidget nodeId={nodeId} label={spec?.idleLabel ?? 'unavailable'} pressedLabel={spec?.activeLabel.toUpperCase()} />
+}
+
+/** The slider is the pin voltage across the part's ADC range; the readout is the calibrated value in its unit. */
+function AnalogSensorInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
+  const spec = analogSensorSpec(partId)
+  return <PotInputWidget nodeId={nodeId} initial={ANALOG_SENSOR_PREVIEW_DEFAULT} readout={(fraction) =>
+    spec ? formatAnalogSensorReading(spec, analogSensorReading(spec, fraction)) : 'unavailable'} />
 }
 
 function EnvironmentInputWidget({ nodeId, partId }: { nodeId: string; partId: unknown }) {
@@ -378,6 +395,8 @@ export default function HardwareInputBody({ nodeId, nodeType, resetOnPress = fal
   if (nodeType === 'PotInput') return <PotInputWidget nodeId={nodeId} />
   // Same two widgets, same two run-state maps — see the evaluator's note.
   if (nodeType === 'MotionInput') return <ToggleInputWidget nodeId={nodeId} label="motion" />
+  if (nodeType === DIGITAL_SENSOR_NODE_TYPE) return <DigitalSensorInputWidget nodeId={nodeId} partId={partId} />
+  if (nodeType === ANALOG_SENSOR_NODE_TYPE) return <AnalogSensorInputWidget nodeId={nodeId} partId={partId} />
   if (nodeType === 'LightInput') return <LightInputWidget nodeId={nodeId} partId={partId} maxLux={maxLux} />
   if (nodeType === 'EncoderInput') return <EncoderInputWidget nodeId={nodeId} resetOnPress={resetOnPress} />
   return null
