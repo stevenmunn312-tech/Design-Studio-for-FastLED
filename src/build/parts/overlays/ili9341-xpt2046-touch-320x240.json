@@ -20,7 +20,9 @@
   ],
   "copy": {
     "summary": "320x240 colour TFT with XPT2046 touch",
-    "wiringNote": "The DFRobot DFR0665 breakout: an ILI9341 panel, an XPT2046 touch controller and a microSD slot, sharing SCLK, MOSI and MISO with a chip select each. The controller scans in portrait, so a 320x240 screen needs the Landscape view. Adding it gives you the panel and its Touch Screen node."
+    "wiringNote": "The DFRobot DFR0665 breakout: an ILI9341 panel, an XPT2046 touch controller and a microSD slot, sharing SCLK, MOSI and MISO with a chip select each. The controller scans in portrait, so a 320x240 screen needs the Landscape view. Adding it gives you the panel and its Touch Screen node.",
+    "optionLabel": "ILI9341 2.8-inch + touch",
+    "optionOrder": 4
   },
   "pads": [
     {

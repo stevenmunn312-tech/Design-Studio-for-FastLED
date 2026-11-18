@@ -48,7 +48,8 @@
   ],
   "copy": {
     "summary": "One active-high capacitive touch button",
-    "wiringNote": "Power from 3.3 V. SIG is HIGH while touched; NC is not connected."
+    "wiringNote": "Power from 3.3 V. SIG is HIGH while touched; NC is not connected.",
+    "optionLabel": "Seeed Grove Touch Sensor"
   },
   "pads": [
     {

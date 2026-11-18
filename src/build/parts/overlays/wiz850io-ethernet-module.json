@@ -44,7 +44,8 @@
   ],
   "copy": {
     "summary": "W5500 wired Ethernet over SPI, 3.3 V",
-    "wiringNote": "Power it from 3.3 V only; it draws up to about 141 mA with a link up. Every network node (Art-Net, sACN, DDP, Web Remote, NTP...) uses this link instead of Wi-Fi."
+    "wiringNote": "Power it from 3.3 V only; it draws up to about 141 mA with a link up. Every network node (Art-Net, sACN, DDP, Web Remote, NTP...) uses this link instead of Wi-Fi.",
+    "optionLabel": "WIZnet WIZ850io"
   },
   "pads": [
     {

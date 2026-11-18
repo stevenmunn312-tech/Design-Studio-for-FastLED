@@ -42,7 +42,9 @@
   ],
   "copy": {
     "summary": "128x64 white OLED over 4-wire SPI",
-    "wiringNote": "Same SH1106G silicon and 2-column RAM offset as the 1.3-inch SPI module, on a smaller 27 x 28 mm board."
+    "wiringNote": "Same SH1106G silicon and 2-column RAM offset as the 1.3-inch SPI module, on a smaller 27 x 28 mm board.",
+    "optionLabel": "SH1106 0.96-inch",
+    "optionOrder": 2
   },
   "pads": [
     {

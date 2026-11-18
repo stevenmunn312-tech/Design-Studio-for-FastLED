@@ -44,7 +44,8 @@
   ],
   "copy": {
     "summary": "Temperature, humidity and pressure over I2C",
-    "wiringNote": "Use VIN at 3.3 V; SCK is I2C SCL and SDI is I2C SDA. Leave SDO and CS unwired for the default 0x77 address."
+    "wiringNote": "Use VIN at 3.3 V; SCK is I2C SCL and SDI is I2C SDA. Leave SDO and CS unwired for the default 0x77 address.",
+    "optionLabel": "Adafruit BME280"
   },
   "pads": [
     {

@@ -44,7 +44,9 @@
   ],
   "copy": {
     "summary": "Laser time-of-flight, 3 cm to 1.2 m, over I2C",
-    "wiringNote": "Power VIN from 3.3 V. One sensor answers on 0x29; leave 2v8, GPIO and SHDN unconnected. To share the bus, wire each SHDN pin and pick an address from 0x30 to 0x33. The build needs the Pololu VL53L0X library, which Studio installs the first time."
+    "wiringNote": "Power VIN from 3.3 V. One sensor answers on 0x29; leave 2v8, GPIO and SHDN unconnected. To share the bus, wire each SHDN pin and pick an address from 0x30 to 0x33. The build needs the Pololu VL53L0X library, which Studio installs the first time.",
+    "optionLabel": "Adafruit VL53L0X laser",
+    "optionOrder": 2
   },
   "pads": [
     {

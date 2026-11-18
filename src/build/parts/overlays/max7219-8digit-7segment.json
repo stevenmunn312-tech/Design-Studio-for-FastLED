@@ -27,7 +27,9 @@
   ],
   "copy": {
     "summary": "Eight digits on a shared SPI bus",
-    "wiringNote": "Eight digits and no colon, clocked as 16-bit frames over CLK and DIN with its own load line. It can share clock and data with other SPI devices given its own load pin, and its sixteen brightness steps are twice the TM1637 range."
+    "wiringNote": "Eight digits and no colon, clocked as 16-bit frames over CLK and DIN with its own load line. It can share clock and data with other SPI devices given its own load pin, and its sixteen brightness steps are twice the TM1637 range.",
+    "optionLabel": "MAX7219 8-digit",
+    "optionOrder": 2
   },
   "pads": [
     {

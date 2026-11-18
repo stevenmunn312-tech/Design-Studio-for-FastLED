@@ -9,8 +9,8 @@ import type { PartPinRequest } from '../../build/parts/partPinAssignment'
 import { segmentControllerFor } from '../../state/displays/segmentDisplay'
 import { OLED_TRANSPORT_PINS, oledTransportFor } from '../../state/displays/oledSurface'
 import {
-  PART_CATALOGUE, memoByCatalogue, partById, partDimensionsMm, partRenderSrc, partPinLabelForProperty,
-  registeredPartManifests, registeredPartTypes, type PartCatalogueEntry,
+  PART_CATALOGUE, bundledPartDimensionsMm, bundledPartsForType, memoByCatalogue, partById, partDimensionsMm, partRenderSrc,
+  partPinLabelForProperty, registeredPartManifests, registeredPartsForType, registeredPartTypes, type PartCatalogueEntry,
 } from '../../build/parts/partCatalogue'
 import {
   ANALOG_SENSOR_NODE_TYPE, ANALOG_SENSOR_OUTPUT, analogSensorEntries, analogSensorSummary,
@@ -21,7 +21,6 @@ import {
 import { IR_RECEIVER_MODULES } from '../../state/peripherals/irModules'
 import { IR_REMOTE_LEARN_HANDLE } from '../../state/peripherals/irRemote'
 import { MIC_MODULES } from '../../state/peripherals/micModules'
-import { LIGHT_SENSOR_MODULES } from '../../state/peripherals/lightSensor'
 import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import {
   WS2812B_PITCH_MM,
@@ -44,7 +43,6 @@ import { dividedInputPinKey } from '../../build/pins/receiveDivider'
 import { COOLING_FAN_PART_ID } from '../../state/peripherals/coolingFan'
 import { DFPLAYER_PART_ID } from '../../state/peripherals/dfPlayer'
 import { DEFAULT_BATTERY_CELL_PART_ID } from '../../state/peripherals/battery'
-import { SR1230_ENCODER_PART_ID } from '../../state/peripherals/encoder'
 import { RTC_MODULE_NODE_TYPE } from '../../state/peripherals/rtcModule'
 import { DMX_TRANSCEIVER_NODE_TYPE, DMX_TRANSCEIVER_PART_ID } from '../../state/peripherals/dmxTransceiver'
 import { MIDI_DIN_PART_ID, MIDI_INTERFACE_NODE_TYPE } from '../../state/peripherals/midiSource'
@@ -179,7 +177,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     partId: 'battery-pack',
     label: 'Battery pack',
     hint: 'Lithium DC source built from one exact cell type in series and parallel',
-    footprint: partDimensionsMm(DEFAULT_BATTERY_CELL_PART_ID, { width: 65.3, height: 18.5 }),
+    footprint: bundledPartDimensionsMm(DEFAULT_BATTERY_CELL_PART_ID),
     render: partRenderSrc(DEFAULT_BATTERY_CELL_PART_ID) ?? undefined,
     singleton: true,
   },
@@ -188,7 +186,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     partId: 'battery-module',
     label: 'Pack electronics',
     hint: 'Protection, balancing, charging, or an integrated 5 V output',
-    footprint: partDimensionsMm('hx-4s-f30a-bms-balance', { width: 56, height: 48 }),
+    footprint: bundledPartDimensionsMm('hx-4s-f30a-bms-balance'),
     render: partRenderSrc('hx-4s-f30a-bms-balance') ?? undefined,
   },
   {
@@ -198,7 +196,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     partId: 'power-converter',
     label: 'DC-DC converter',
     hint: 'Powers the controller or the 5 V LED rail from a battery or other DC source',
-    footprint: partDimensionsMm(DEFAULT_POWER_CONVERTER_PART_ID, { width: 43.18, height: 21.08 }),
+    footprint: bundledPartDimensionsMm(DEFAULT_POWER_CONVERTER_PART_ID),
     render: partRenderSrc(DEFAULT_POWER_CONVERTER_PART_ID) ?? undefined,
   },
   {
@@ -208,7 +206,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     partId: 'pd-trigger-source',
     label: 'USB-C PD trigger',
     hint: 'Sets the DC voltage a USB-C charger supplies to a converter or load',
-    footprint: partDimensionsMm(PD_TRIGGER_PART_ID, { width: 15, height: 31 }),
+    footprint: bundledPartDimensionsMm(PD_TRIGGER_PART_ID),
     render: partRenderSrc(PD_TRIGGER_PART_ID) ?? undefined,
   },
   {
@@ -226,7 +224,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     partId: 'darlington-driver-output',
     label: 'Darlington driver',
     hint: 'Eight low-side switches to ground for relay coils, motors and lamps',
-    footprint: partDimensionsMm(DARLINGTON_PART_ID, { width: 8.9, height: 22.86 }),
+    footprint: bundledPartDimensionsMm(DARLINGTON_PART_ID),
     render: partRenderSrc(DARLINGTON_PART_ID) ?? undefined,
     pinFields: [{ key: 'drive1Pin', label: '1B' }],
     pinRequests: darlingtonPinKeys().map((key) => ({ key, capability: 'digitalOutput' as const })),
@@ -236,7 +234,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     partId: 'pwm-driver-output',
     label: 'PWM driver',
     hint: 'Sixteen PWM levels over I2C, for dimming LEDs and driving servos',
-    footprint: partDimensionsMm(PCA9685_PART_ID, { width: 25.4, height: 62.5 }),
+    footprint: bundledPartDimensionsMm(PCA9685_PART_ID),
     render: partRenderSrc(PCA9685_PART_ID) ?? undefined,
     // Joins the board's one I2C bus rather than taking free GPIO.
     pinFields: [
@@ -249,7 +247,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     partId: 'buzzer-output',
     label: 'Buzzer',
     hint: 'Beeps while a boolean signal is true, or plays a tone at a pitch you set',
-    footprint: partDimensionsMm(BUZZER_PART_ID, { width: 15.5, height: 19 }),
+    footprint: bundledPartDimensionsMm(BUZZER_PART_ID),
     render: partRenderSrc(BUZZER_PART_ID) ?? undefined,
     pinFields: [{ key: 'sigPin', label: 'SIG' }],
     pinRequests: [{ key: 'sigPin', capability: 'digitalOutput' }],
@@ -259,7 +257,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     partId: 'cooling-fan-output',
     label: 'Cooling fan',
     hint: 'Controls fan speed and reports measured RPM',
-    footprint: partDimensionsMm(COOLING_FAN_PART_ID, { width: 40, height: 40 }),
+    footprint: bundledPartDimensionsMm(COOLING_FAN_PART_ID),
     render: partRenderSrc(COOLING_FAN_PART_ID) ?? undefined,
     pinFields: [
       { key: 'pwmPin', label: 'PWM' },
@@ -294,7 +292,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     partId: 'power-switch-output',
     label: 'Power switch',
     hint: 'Switches DC loads from boolean signals, or dims them from a level',
-    footprint: partDimensionsMm(DEFAULT_POWER_SWITCH_PART_ID, { width: 16, height: 35 }),
+    footprint: bundledPartDimensionsMm(DEFAULT_POWER_SWITCH_PART_ID),
     render: partRenderSrc(DEFAULT_POWER_SWITCH_PART_ID) ?? undefined,
     pinFields: [{ key: 'signalPin', label: 'PWM' }],
     pinRequests: [{ key: 'signalPin', capability: 'digitalOutput' }],
@@ -322,7 +320,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     partId: 'transport-display',
     label: 'Display panel',
     hint: 'A colour TFT: a fixed now-playing or show-status layout, or a Screen design',
-    footprint: partDimensionsMm('st7789-tft-240x240', { width: 35.8, height: 35.8 }),
+    footprint: bundledPartDimensionsMm('st7789-tft-240x240'),
     render: partRenderSrc('st7789-tft-240x240') ?? undefined,
     pinFields: [
       { key: 'sckPin', label: 'SCL' },
@@ -345,7 +343,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     partId: 'info-display',
     label: 'Info display',
     hint: 'A 128x64 OLED screen',
-    footprint: partDimensionsMm('sh1106-oled-128x64', { width: 35.5, height: 33.7 }),
+    footprint: bundledPartDimensionsMm('sh1106-oled-128x64'),
     render: partRenderSrc('sh1106-oled-128x64') ?? undefined,
     pinFields: [
       { key: 'csPin', label: 'CS' },
@@ -368,7 +366,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     partId: 'segment-display',
     label: 'Segment display',
     hint: 'Four digits for a number, clock, or index',
-    footprint: partDimensionsMm('tm1637-4digit-display', { width: 42, height: 24 }),
+    footprint: bundledPartDimensionsMm('tm1637-4digit-display'),
     render: partRenderSrc('tm1637-4digit-display') ?? undefined,
     pinFields: [
       { key: 'clkPin', label: 'CLK' },
@@ -415,7 +413,7 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
     partId: 'ethernet',
     label: 'Ethernet',
     hint: 'Wired network for every network node, in place of Wi-Fi',
-    footprint: partDimensionsMm('wiz850io-ethernet-module', { width: 27.95, height: 23 }),
+    footprint: bundledPartDimensionsMm('wiz850io-ethernet-module'),
     render: partRenderSrc('wiz850io-ethernet-module') ?? undefined,
     pinFields: [
       { key: 'sckPin', label: 'SCLK' },
@@ -507,25 +505,6 @@ const IR_INPUT_PARTS: readonly InputPartEntry[] = IR_RECEIVER_MODULES.map((modul
   properties: { partId: module.partId },
 }))
 
-const LIGHT_INPUT_PARTS: readonly InputPartEntry[] = LIGHT_SENSOR_MODULES.map((module, index) => {
-  const digital = module.transport === 'i2c'
-  return {
-    nodeType: 'LightInput',
-    partId: index === 0 ? 'ldr' : `light-${module.partId}`,
-    label: module.label,
-    hint: module.summary,
-    footprint: partDimensionsMm(module.partId, digital ? { width: 25.4, height: 17.78 } : { width: 32, height: 23.8 }),
-    signalPort: digital ? 'lux' : 'level',
-    dataType: 'float',
-    pinRequests: digital ? [] : [{ key: 'pin', capability: 'analogInput' }],
-    pinFields: digital
-      ? [{ key: 'sdaPin', label: 'SDA' }, { key: 'sclPin', label: 'SCL' }]
-      : [{ key: 'pin', label: 'GPIO' }],
-    properties: { partId: module.partId },
-    ...(digital ? { connectionSummary: 'Default I2C bus' } : {}),
-  }
-})
-
 /** Node types whose parts come entirely from the catalogue: no code lists them, and none has a stand-in. */
 export const CATALOGUE_SENSOR_NODE_TYPES: ReadonlySet<string> = new Set([DIGITAL_SENSOR_NODE_TYPE, ANALOG_SENSOR_NODE_TYPE])
 
@@ -569,7 +548,187 @@ export function sensorInputPartEntries(catalogue: Record<string, PartCatalogueEn
   ]
 }
 
-/** The input rows written out by hand, after the microphone, IR, light and sensor rows. */
+/**
+ * What a part type fixes for every part of it: which output lights the run to
+ * the board, the data type that colours it, and the pins it asks for. A part
+ * adds only what its manifest knows (id, label, summary, size and silkscreen),
+ * so a downloaded part of one of these types is shelved exactly like a bundled
+ * one and nothing here names a part. Where the pins depend on how the part
+ * talks to the board (a laser ranger on I2C against an ultrasonic one on two
+ * GPIOs), `pins` reads the manifest's own interface.
+ */
+interface CataloguedInputType {
+  nodeType: string
+  /** The output that lights the run; a function where it depends on how the part reports. */
+  signalPort: string | ((entry: PartCatalogueEntry) => string)
+  dataType?: string
+  pins: (entry: PartCatalogueEntry) => Pick<InputPartEntry, 'pinRequests' | 'pinFields' | 'connectionSummary'>
+  /** Added to the properties stamped on a node made from the part. */
+  extraProperties?: Record<string, unknown>
+  /**
+   * The bench layout id. The type's default part keeps the type's own id, which
+   * saved layouts hold; every other part is `<id>-<part id>`.
+   */
+  layoutId: string
+  /** The default module has no catalogue entry (an encoder with no part named), so every catalogued part is a non-default. */
+  uncataloguedDefault?: true
+  /** Layout ids for non-default parts, where an older shelf id predates the part-id suffix. */
+  suffix?: string
+}
+
+const I2C_PINS: Pick<InputPartEntry, 'pinRequests' | 'pinFields'> = {
+  // Joins the board's one I2C bus rather than taking free GPIO.
+  pinRequests: [],
+  pinFields: [{ key: 'sdaPin', label: 'SDA' }, { key: 'sclPin', label: 'SCL' }],
+}
+
+const CATALOGUED_INPUT_TYPES: readonly CataloguedInputType[] = [
+  {
+    nodeType: 'LightInput',
+    // A lux sensor reports lux; an analog divider reports a relative level.
+    signalPort: (entry) => entry.lightSensor?.interface === 'I2C' ? 'lux' : 'level',
+    dataType: 'float',
+    layoutId: 'ldr',
+    suffix: 'light',
+    pins: (entry) => entry.lightSensor?.interface === 'I2C'
+      ? { ...I2C_PINS, connectionSummary: 'Default I2C bus' }
+      : { pinRequests: [{ key: 'pin', capability: 'analogInput' }], pinFields: [{ key: 'pin', label: 'GPIO' }] },
+  },
+  {
+    nodeType: 'TouchButtonInput',
+    signalPort: 'touched',
+    dataType: 'bool',
+    layoutId: 'touch-button',
+    pins: () => ({ pinRequests: [{ key: 'pin' }], pinFields: [{ key: 'pin', label: 'SIG' }] }),
+  },
+  { nodeType: 'PowerMonitorInput', signalPort: 'watts', dataType: 'float', layoutId: 'power-monitor', pins: () => I2C_PINS },
+  {
+    nodeType: 'EnvironmentInput',
+    signalPort: 'temperature',
+    dataType: 'float',
+    layoutId: 'environment-sensor',
+    pins: () => ({
+      pinRequests: [],
+      pinFields: [{ key: 'sdaPin', label: 'SDA (SDI)' }, { key: 'sclPin', label: 'SCL (SCK)' }],
+    }),
+  },
+  { nodeType: 'MotionVectorInput', signalPort: 'accelX', dataType: 'float', layoutId: 'motion-vector', pins: () => I2C_PINS },
+  { nodeType: 'TouchPadInput', signalPort: 'electrode', dataType: 'float', layoutId: 'touch-pad', pins: () => I2C_PINS },
+  {
+    nodeType: 'JoystickInput',
+    signalPort: 'x',
+    dataType: 'float',
+    layoutId: 'joystick',
+    pins: () => ({
+      pinRequests: [
+        { key: 'xPin', capability: 'analogInput' },
+        { key: 'yPin', capability: 'analogInput' },
+        { key: 'swPin' },
+      ],
+      pinFields: [
+        { key: 'xPin', label: 'GPIO (VRx)' },
+        { key: 'yPin', label: 'GPIO (VRy)' },
+        { key: 'swPin', label: 'GPIO (SW)' },
+      ],
+    }),
+  },
+  {
+    nodeType: 'DistanceInput',
+    signalPort: 'distance',
+    dataType: 'float',
+    layoutId: 'distance-sensor',
+    pins: (entry) => entry.distanceSensor?.interface === 'I2C'
+      ? { ...I2C_PINS, connectionSummary: 'Default I2C bus' }
+      : {
+        pinRequests: [
+          { key: 'trigPin', capability: 'digitalOutput' },
+          { key: 'echoPin', capability: 'digitalInput' },
+        ],
+        pinFields: [
+          { key: 'trigPin', label: 'GPIO (Trig)' },
+          { key: 'echoPin', label: 'GPIO (Echo)' },
+        ],
+      },
+  },
+  {
+    nodeType: 'TemperatureInput',
+    signalPort: 'temperature',
+    dataType: 'float',
+    layoutId: 'temperature-probe',
+    pins: () => ({
+      pinRequests: [{ key: 'pin', capability: 'digitalOutput' }],
+      pinFields: [{ key: 'pin', label: 'GPIO (DATA)' }],
+    }),
+  },
+  {
+    nodeType: 'PresenceInput',
+    signalPort: 'presence',
+    dataType: 'bool',
+    layoutId: 'presence-sensor',
+    pins: () => ({ pinRequests: [{ key: 'rxPin' }], pinFields: [{ key: 'rxPin', label: 'RX (sensor TX)' }] }),
+  },
+  {
+    // A bare encoder has no breakout, so its pins must take the controller's
+    // pull-up, which rules out the input-only GPIOs that have none.
+    nodeType: 'EncoderInput',
+    signalPort: 'position',
+    layoutId: 'encoder',
+    uncataloguedDefault: true,
+    extraProperties: { pullup: true },
+    pins: () => ({
+      pinRequests: [
+        { key: 'pinA', capability: 'pullup' },
+        { key: 'pinB', capability: 'pullup' },
+        { key: 'pinSW', capability: 'pullup' },
+      ],
+      pinFields: [
+        { key: 'pinA', label: 'A' },
+        { key: 'pinB', label: 'B' },
+        { key: 'pinSW', label: 'SW' },
+      ],
+    }),
+  },
+]
+
+/**
+ * A shelf row per part of each type in `CATALOGUED_INPUT_TYPES`: the bundled
+ * parts in menu order, or the registered ones (which follow every bundled row). Label, hint and footprint
+ * are the manifest's (`label`, `copy.hint` or `copy.summary`, `dimensionsMm`),
+ * and a registered part's pins carry its own silkscreen where it prints one.
+ */
+function cataloguedInputPartEntries(which: 'bundled' | 'registered'): InputPartEntry[] {
+  return CATALOGUED_INPUT_TYPES.flatMap((type) => {
+    const bundled = bundledPartsForType(type.nodeType)
+    const bundledIds = new Set(bundled.map((manifest) => manifest.partId))
+    const registered = registeredPartsForType(type.nodeType).filter((manifest) => !bundledIds.has(manifest.partId))
+    return (which === 'bundled' ? bundled : registered).map((manifest): InputPartEntry => {
+      const isDefault = which === 'bundled' && manifest === bundled[0] && !type.uncataloguedDefault
+      const facts = type.pins(manifest)
+      return {
+        nodeType: type.nodeType,
+        partId: isDefault ? type.layoutId : `${type.suffix ?? type.layoutId}-${manifest.partId}`,
+        label: manifest.label,
+        hint: manifest.copy?.hint ?? manifest.copy?.summary ?? '',
+        footprint: manifest.dimensionsMm,
+        signalPort: typeof type.signalPort === 'function' ? type.signalPort(manifest) : type.signalPort,
+        ...(type.dataType ? { dataType: type.dataType } : {}),
+        pinRequests: facts.pinRequests,
+        // The type names its pins; a part that prints its own silkscreen says so.
+        // Bundled parts keep the type's names, which the bench has always shown.
+        pinFields: facts.pinFields.map((field) => ({
+          key: field.key,
+          label: bundledIds.has(manifest.partId)
+            ? field.label
+            : partPinLabelForProperty(manifest.partId, field.key) ?? field.label,
+        })),
+        ...(facts.connectionSummary ? { connectionSummary: facts.connectionSummary } : {}),
+        properties: { partId: manifest.partId, ...(type.extraProperties ?? {}) },
+      }
+    })
+  })
+}
+
+/** The input rows written out by hand, after the microphone, IR and sensor rows. */
 const HAND_WRITTEN_INPUT_PARTS: readonly InputPartEntry[] = [
   {
     nodeType: 'LineInput',
@@ -680,18 +839,6 @@ const HAND_WRITTEN_INPUT_PARTS: readonly InputPartEntry[] = [
     pinFields: [],
   },
   {
-    nodeType: 'TouchButtonInput',
-    partId: 'touch-button',
-    label: 'Grove Touch Sensor',
-    hint: 'A capacitive button: HIGH while touched',
-    footprint: partDimensionsMm('seeed-grove-touch-sensor', { width: 24, height: 20 }),
-    signalPort: 'touched',
-    dataType: 'bool',
-    pinRequests: [{ key: 'pin' }],
-    pinFields: [{ key: 'pin', label: 'SIG' }],
-    properties: { partId: 'seeed-grove-touch-sensor' },
-  },
-  {
     nodeType: 'PotInput',
     partId: 'pot',
     label: 'Potentiometer',
@@ -727,82 +874,6 @@ const HAND_WRITTEN_INPUT_PARTS: readonly InputPartEntry[] = [
     properties: { partId: 'rcwl-0516-microwave-motion-module' },
   },
   {
-    nodeType: 'PowerMonitorInput',
-    partId: 'power-monitor',
-    label: 'INA219 power monitor',
-    hint: 'Volts, amps and watts of a DC load, on the board I2C bus',
-    footprint: partDimensionsMm('adafruit-ina219-current-sensor', { width: 25.4, height: 20.32 }),
-    signalPort: 'watts',
-    dataType: 'float',
-    // Joins the board's one I2C bus rather than taking free GPIO.
-    pinRequests: [],
-    pinFields: [
-      { key: 'sdaPin', label: 'SDA' },
-      { key: 'sclPin', label: 'SCL' },
-    ],
-    properties: { partId: 'adafruit-ina219-current-sensor' },
-  },
-  {
-    nodeType: 'PowerMonitorInput',
-    partId: 'power-monitor-ina226',
-    label: 'INA226 power monitor',
-    hint: 'Volts, amps and watts of a DC load up to 36 V and 20 A, on the board I2C bus',
-    footprint: partDimensionsMm('ina226-current-sensor-module', { width: 26, height: 22 }),
-    signalPort: 'watts',
-    dataType: 'float',
-    pinRequests: [],
-    pinFields: [
-      { key: 'sdaPin', label: 'SDA' },
-      { key: 'sclPin', label: 'SCL' },
-    ],
-    properties: { partId: 'ina226-current-sensor-module' },
-  },
-  {
-    nodeType: 'EnvironmentInput',
-    partId: 'environment-sensor',
-    label: 'Adafruit BME280 environment sensor',
-    hint: 'Temperature, humidity and pressure on the board I2C bus',
-    footprint: partDimensionsMm('adafruit-bme280-environment-sensor', { width: 19.05, height: 25.4 }),
-    signalPort: 'temperature',
-    dataType: 'float',
-    pinRequests: [],
-    pinFields: [
-      { key: 'sdaPin', label: 'SDA (SDI)' },
-      { key: 'sclPin', label: 'SCL (SCK)' },
-    ],
-    properties: { partId: 'adafruit-bme280-environment-sensor' },
-  },
-  {
-    nodeType: 'MotionVectorInput',
-    partId: 'motion-vector',
-    label: 'GY-521 MPU-6050 accelerometer and gyroscope',
-    hint: 'Acceleration and rotation on three axes, on the board I2C bus',
-    footprint: partDimensionsMm('gy-521-mpu6050-module', { width: 21, height: 16 }),
-    signalPort: 'accelX',
-    dataType: 'float',
-    pinRequests: [],
-    pinFields: [
-      { key: 'sdaPin', label: 'SDA' },
-      { key: 'sclPin', label: 'SCL' },
-    ],
-    properties: { partId: 'gy-521-mpu6050-module' },
-  },
-  {
-    nodeType: 'TouchPadInput',
-    partId: 'touch-pad',
-    label: 'Adafruit MPR121 12-key touch sensor',
-    hint: 'Twelve touch electrodes on the board I2C bus',
-    footprint: partDimensionsMm('adafruit-mpr121-touch-sensor', { width: 33, height: 19 }),
-    signalPort: 'electrode',
-    dataType: 'float',
-    pinRequests: [],
-    pinFields: [
-      { key: 'sdaPin', label: 'SDA' },
-      { key: 'sclPin', label: 'SCL' },
-    ],
-    properties: { partId: 'adafruit-mpr121-touch-sensor' },
-  },
-  {
     nodeType: 'KeypadInput',
     partId: 'keypad',
     label: '4x4 matrix keypad',
@@ -821,94 +892,6 @@ const HAND_WRITTEN_INPUT_PARTS: readonly InputPartEntry[] = [
     properties: { partId: 'matrix-keypad-4x4' },
   },
   {
-    nodeType: 'JoystickInput',
-    partId: 'joystick',
-    label: 'KY-023 analog joystick',
-    hint: 'A thumb stick with two analog axes and a push switch',
-    footprint: partDimensionsMm('ky-023-joystick-module', { width: 26, height: 34 }),
-    signalPort: 'x',
-    dataType: 'float',
-    pinRequests: [
-      { key: 'xPin', capability: 'analogInput' },
-      { key: 'yPin', capability: 'analogInput' },
-      { key: 'swPin' },
-    ],
-    pinFields: [
-      { key: 'xPin', label: 'GPIO (VRx)' },
-      { key: 'yPin', label: 'GPIO (VRy)' },
-      { key: 'swPin', label: 'GPIO (SW)' },
-    ],
-    properties: { partId: 'ky-023-joystick-module' },
-  },
-  {
-    nodeType: 'DistanceInput',
-    partId: 'distance-sensor',
-    label: 'HC-SR04 ultrasonic distance sensor',
-    hint: 'Ultrasonic ranging, 2 cm to 4 m, on two GPIOs (Echo needs a divider)',
-    footprint: partDimensionsMm('hc-sr04-ultrasonic-module', { width: 45, height: 20 }),
-    signalPort: 'distance',
-    dataType: 'float',
-    pinRequests: [
-      { key: 'trigPin', capability: 'digitalOutput' },
-      { key: 'echoPin', capability: 'digitalInput' },
-    ],
-    pinFields: [
-      { key: 'trigPin', label: 'GPIO (Trig)' },
-      { key: 'echoPin', label: 'GPIO (Echo)' },
-    ],
-    properties: { partId: 'hc-sr04-ultrasonic-module' },
-  },
-  {
-    nodeType: 'DistanceInput',
-    partId: 'distance-sensor-vl53l0x',
-    label: 'VL53L0X laser distance sensor',
-    hint: 'Laser time-of-flight, 3 cm to 1.2 m, on the I2C bus',
-    footprint: partDimensionsMm('adafruit-vl53l0x-distance-sensor', { width: 20.32, height: 17.78 }),
-    signalPort: 'distance',
-    dataType: 'float',
-    pinRequests: [],
-    pinFields: [{ key: 'sdaPin', label: 'SDA' }, { key: 'sclPin', label: 'SCL' }],
-    properties: { partId: 'adafruit-vl53l0x-distance-sensor' },
-    connectionSummary: 'Default I2C bus',
-  },
-  {
-    nodeType: 'DistanceInput',
-    partId: 'distance-sensor-vl53l1x',
-    label: 'VL53L1X laser distance sensor',
-    hint: 'Laser time-of-flight, 3 cm to 4 m, on the I2C bus',
-    footprint: partDimensionsMm('adafruit-vl53l1x-distance-sensor', { width: 25.5, height: 17.5 }),
-    signalPort: 'distance',
-    dataType: 'float',
-    pinRequests: [],
-    pinFields: [{ key: 'sdaPin', label: 'SDA' }, { key: 'sclPin', label: 'SCL' }],
-    properties: { partId: 'adafruit-vl53l1x-distance-sensor' },
-    connectionSummary: 'Default I2C bus',
-  },
-  {
-    nodeType: 'TemperatureInput',
-    partId: 'temperature-probe',
-    label: 'Waterproof DS18B20 temperature probe',
-    hint: 'A 1-Wire thermometer in a sealed steel tube, on one GPIO',
-    footprint: partDimensionsMm('ds18b20-waterproof-probe', { width: 28, height: 72 }),
-    signalPort: 'temperature',
-    dataType: 'float',
-    pinRequests: [{ key: 'pin', capability: 'digitalOutput' }],
-    pinFields: [{ key: 'pin', label: 'GPIO (DATA)' }],
-    properties: { partId: 'ds18b20-waterproof-probe' },
-  },
-  {
-    nodeType: 'PresenceInput',
-    partId: 'presence-sensor',
-    label: 'HLK-LD2410C presence sensor',
-    hint: 'Radar presence, movement and distance over UART',
-    footprint: partDimensionsMm('hlk-ld2410c-presence-sensor', { width: 22, height: 16 }),
-    signalPort: 'presence',
-    dataType: 'bool',
-    pinRequests: [{ key: 'rxPin' }],
-    pinFields: [{ key: 'rxPin', label: 'RX (sensor TX)' }],
-    properties: { partId: 'hlk-ld2410c-presence-sensor' },
-  },
-  {
     nodeType: 'EncoderInput',
     partId: 'encoder',
     label: 'Rotary encoder',
@@ -921,27 +904,6 @@ const HAND_WRITTEN_INPUT_PARTS: readonly InputPartEntry[] = [
       { key: 'pinB', label: 'B' },
       { key: 'pinSW', label: 'SW' },
     ],
-  },
-  {
-    // The bare part: no breakout, so its pins must take the controller's
-    // pull-up, which rules out the input-only GPIOs that have none.
-    nodeType: 'EncoderInput',
-    partId: 'encoder-sr1230',
-    label: 'SR1230 bare encoder',
-    hint: 'A bare rotary encoder with a push switch',
-    footprint: partDimensionsMm(SR1230_ENCODER_PART_ID, { width: 14, height: 14.9 }),
-    signalPort: 'position',
-    pinRequests: [
-      { key: 'pinA', capability: 'pullup' },
-      { key: 'pinB', capability: 'pullup' },
-      { key: 'pinSW', capability: 'pullup' },
-    ],
-    pinFields: [
-      { key: 'pinA', label: 'A' },
-      { key: 'pinB', label: 'B' },
-      { key: 'pinSW', label: 'SW' },
-    ],
-    properties: { partId: SR1230_ENCODER_PART_ID, pullup: true },
   },
 ]
 
@@ -991,11 +953,12 @@ export const inputPartEntries: () => readonly InputPartEntry[] = memoByCatalogue
   const base: readonly InputPartEntry[] = [
     ...MIC_INPUT_PARTS,
     ...IR_INPUT_PARTS,
-    ...LIGHT_INPUT_PARTS,
     ...sensorInputPartEntries(),
+    ...cataloguedInputPartEntries('bundled'),
     ...HAND_WRITTEN_INPUT_PARTS,
   ]
-  return [...base, ...registeredInputPartEntries(base)]
+  const registered = cataloguedInputPartEntries('registered')
+  return [...base, ...registered, ...registeredInputPartEntries([...base, ...registered])]
 })
 
 /** Format assigned pins in the same left-to-right order as the physical header. */

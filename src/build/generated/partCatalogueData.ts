@@ -384,7 +384,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Calibrated ambient light in lux over I2C",
-      "wiringNote": "Power from the controller logic rail. The breakout level-shifts SDA/SCL and answers on 0x23, or 0x5C with ADDR tied high."
+      "wiringNote": "Power from the controller logic rail. The breakout level-shifts SDA/SCL and answers on 0x23, or 0x5C with ADDR tied high.",
+      "optionLabel": "Adafruit BH1750",
+      "optionOrder": 2
     },
     "pads": [
       {
@@ -529,7 +531,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Temperature, humidity and pressure over I2C",
-      "wiringNote": "Use VIN at 3.3 V; SCK is I2C SCL and SDI is I2C SDA. Leave SDO and CS unwired for the default 0x77 address."
+      "wiringNote": "Use VIN at 3.3 V; SCK is I2C SCL and SDI is I2C SDA. Leave SDO and CS unwired for the default 0x77 address.",
+      "optionLabel": "Adafruit BME280"
     },
     "pads": [
       {
@@ -675,7 +678,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Volts, amps, watts: 26 V, 3.2 A, I2C",
-      "wiringNote": "High-side: the supply goes to Vin+ and the load to Vin-, sharing ground with the board."
+      "wiringNote": "High-side: the supply goes to Vin+ and the load to Vin-, sharing ground with the board.",
+      "optionLabel": "Adafruit INA219"
     },
     "pads": [
       {
@@ -1050,7 +1054,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Twelve capacitive-touch electrodes over I2C",
-      "wiringNote": "Power Vin from 3.3 V. Tie ADDR to GND for 0x5A, 3V for 0x5B, SDA for 0x5C or SCL for 0x5D; IRQ is not needed."
+      "wiringNote": "Power Vin from 3.3 V. Tie ADDR to GND for 0x5A, 3V for 0x5B, SDA for 0x5C or SCL for 0x5D; IRQ is not needed.",
+      "optionLabel": "Adafruit MPR121 breakout"
     },
     "pads": [
       {
@@ -1232,7 +1237,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Sixteen 12-bit PWM channels over I2C",
-      "wiringNote": "Power VCC from 3.3 V with GND, SDA and SCL to the controller. V+ is the outputs' own supply (5 to 6 V for servos) and is not drawn here. Leave OE unconnected to keep the outputs enabled. A dimming or servo channel takes its signal from the PWM hole, with V+ and ground beside it."
+      "wiringNote": "Power VCC from 3.3 V with GND, SDA and SCL to the controller. V+ is the outputs' own supply (5 to 6 V for servos) and is not drawn here. Leave OE unconnected to keep the outputs enabled. A dimming or servo channel takes its signal from the PWM hole, with V+ and ground beside it.",
+      "optionLabel": "Adafruit PCA9685"
     },
     "pads": [
       {
@@ -1357,7 +1363,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Laser time-of-flight, 3 cm to 1.2 m, over I2C",
-      "wiringNote": "Power VIN from 3.3 V. One sensor answers on 0x29; leave 2v8, GPIO and SHDN unconnected. To share the bus, wire each SHDN pin and pick an address from 0x30 to 0x33. The build needs the Pololu VL53L0X library, which Studio installs the first time."
+      "wiringNote": "Power VIN from 3.3 V. One sensor answers on 0x29; leave 2v8, GPIO and SHDN unconnected. To share the bus, wire each SHDN pin and pick an address from 0x30 to 0x33. The build needs the Pololu VL53L0X library, which Studio installs the first time.",
+      "optionLabel": "Adafruit VL53L0X laser",
+      "optionOrder": 2
     },
     "pads": [
       {
@@ -1482,7 +1490,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Laser time-of-flight, 3 cm to 4 m, over I2C",
-      "wiringNote": "Power VIN from 3.3 V. One sensor answers on 0x29; leave XSHUT and GPIO unconnected. To share the bus, wire each XSHUT pin and pick an address from 0x30 to 0x33. It runs in long distance mode, which reaches about 4 m. The build needs the Pololu VL53L1X library, which Studio installs the first time."
+      "wiringNote": "Power VIN from 3.3 V. One sensor answers on 0x29; leave XSHUT and GPIO unconnected. To share the bus, wire each XSHUT pin and pick an address from 0x30 to 0x33. It runs in long distance mode, which reaches about 4 m. The build needs the Pololu VL53L1X library, which Studio installs the first time.",
+      "optionLabel": "Adafruit VL53L1X laser",
+      "optionOrder": 3
     },
     "pads": [
       {
@@ -1906,7 +1916,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "A 1-Wire thermometer in a sealed steel tube, -55 to 125 °C",
-      "wiringNote": "Red is VCC (3.3 V), black is GND and yellow is DATA. DATA needs a 4.7 kΩ pull-up to 3.3 V; the bare probe has none."
+      "wiringNote": "Red is VCC (3.3 V), black is GND and yellow is DATA. DATA needs a 4.7 kΩ pull-up to 3.3 V; the bare probe has none.",
+      "optionLabel": "Waterproof DS18B20 probe"
     },
     "pads": [
       {
@@ -2450,7 +2461,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Three-axis accelerometer and gyroscope over I2C",
-      "wiringNote": "Power VCC from 3.3 V. Leave AD0 unwired for 0x68, or tie it high for 0x69 when a DS3231 clock already uses 0x68."
+      "wiringNote": "Power VCC from 3.3 V. Leave AD0 unwired for 0x68, or tie it high for 0x69 when a DS3231 clock already uses 0x68.",
+      "optionLabel": "GY-521 MPU-6050"
     },
     "pads": [
       {
@@ -2575,7 +2587,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Ultrasonic ranging, 2 cm to 4 m, on two GPIOs",
-      "wiringNote": "Power VCC from 5 V. Echo swings to 5 V, so a 3.3 V controller needs the 1 kΩ / 2 kΩ divider on Echo; Trig can be driven at 3.3 V."
+      "wiringNote": "Power VCC from 5 V. Echo swings to 5 V, so a 3.3 V controller needs the 1 kΩ / 2 kΩ divider on Echo; Trig can be driven at 3.3 V.",
+      "optionLabel": "HC-SR04 ultrasonic",
+      "optionOrder": 1
     },
     "pads": [
       {
@@ -2762,7 +2776,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Someone there, moving or still, and how far: up to 6 m",
-      "wiringNote": "Power from 5 V; its UART is 3.3 V, so its TX wires straight to the board's RX pin."
+      "wiringNote": "Power from 5 V; its UART is 3.3 V, so its TX wires straight to the board's RX pin.",
+      "optionLabel": "HLK-LD2410C mmWave"
     },
     "pads": [
       {
@@ -3153,7 +3168,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "320x240 ILI9341 over an 8-bit parallel bus",
-      "wiringNote": "An Arduino-shield form factor, so it is wired with jumpers rather than seated: thirteen lines for the panel, and no touch header at all. The resistive sheet has no controller and borrows four of those same lines; the two it reads (LCD_CS and LCD_RS) must sit on ADC1 - on ADC2 a press reads fine until something enables Wi-Fi. This product ships different controllers between revisions under identical silkscreen; the driver targets the ILI9341 one."
+      "wiringNote": "An Arduino-shield form factor, so it is wired with jumpers rather than seated: thirteen lines for the panel, and no touch header at all. The resistive sheet has no controller and borrows four of those same lines; the two it reads (LCD_CS and LCD_RS) must sit on ADC1 - on ADC2 a press reads fine until something enables Wi-Fi. This product ships different controllers between revisions under identical silkscreen; the driver targets the ILI9341 one.",
+      "optionLabel": "XC4630 2.8-inch shield + touch",
+      "optionOrder": 2
     },
     "pads": [
       {
@@ -3335,7 +3352,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "320x240 colour TFT with XPT2046 touch",
-      "wiringNote": "The DFRobot DFR0665 breakout: an ILI9341 panel, an XPT2046 touch controller and a microSD slot, sharing SCLK, MOSI and MISO with a chip select each. The controller scans in portrait, so a 320x240 screen needs the Landscape view. Adding it gives you the panel and its Touch Screen node."
+      "wiringNote": "The DFRobot DFR0665 breakout: an ILI9341 panel, an XPT2046 touch controller and a microSD slot, sharing SCLK, MOSI and MISO with a chip select each. The controller scans in portrait, so a 320x240 screen needs the Landscape view. Adding it gives you the panel and its Touch Screen node.",
+      "optionLabel": "ILI9341 2.8-inch + touch",
+      "optionOrder": 4
     },
     "pads": [
       {
@@ -3517,7 +3536,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Volts, amps, watts: 36 V, 20 A, I2C",
-      "wiringNote": "High-side: the supply goes to IN+ and the load to IN-, sharing ground with the board. Power VCC from 3.3 V. Sixteen addresses, 0x40 to 0x4F, from the A0 and A1 pads. ALE is not needed."
+      "wiringNote": "High-side: the supply goes to IN+ and the load to IN-, sharing ground with the board. Power VCC from 3.3 V. Sixteen addresses, 0x40 to 0x4F, from the A0 and A1 pads. ALE is not needed.",
+      "optionLabel": "INA226 module"
     },
     "pads": [
       {
@@ -3874,7 +3894,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Bare 12 mm encoder with a push switch",
-      "wiringNote": "No supply pin. Wire C and one switch leg each to ground; A, B and SW go to GPIOs, which always use the internal pull-up. Each click is two transitions rather than four, which the firmware counts as one click like the module."
+      "wiringNote": "No supply pin. Wire C and one switch leg each to ground; A, B and SW go to GPIOs, which always use the internal pull-up. Each click is two transitions rather than four, which the firmware counts as one click like the module.",
+      "optionLabel": "Jaycar SR1230 bare encoder"
     },
     "pads": [
       {
@@ -4187,7 +4208,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Plays a tone at the pitch you set",
-      "wiringNote": "Wire S to the GPIO and - to ground; leave the middle pin unconnected (Joy-IT labels it +V, but the buzzer sounds without it). The controller plays a square wave at Pitch while Sound is true, and the pin rests low otherwise. It is loudest near 2 kHz. It draws 25 mA or less straight from the pin; if your buzzer reads a few tens of ohms on a meter rather than open, it is a coil type and needs a transistor. One passive buzzer per board: the tone generator drives one pin at a time."
+      "wiringNote": "Wire S to the GPIO and - to ground; leave the middle pin unconnected (Joy-IT labels it +V, but the buzzer sounds without it). The controller plays a square wave at Pitch while Sound is true, and the pin rests low otherwise. It is loudest near 2 kHz. It draws 25 mA or less straight from the pin; if your buzzer reads a few tens of ohms on a meter rather than open, it is a coil type and needs a transistor. One passive buzzer per board: the tone generator drives one pin at a time.",
+      "optionLabel": "KY-006 passive buzzer",
+      "optionOrder": 2
     },
     "pads": [
       {
@@ -4273,7 +4296,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Beeps at a fixed pitch while its pin is high",
-      "wiringNote": "Wire SIG to the GPIO and GND to ground; leave the middle pin unconnected. It sounds at its own fixed pitch (about 2.5 kHz) while SIG is high and the pitch cannot be changed. It draws about 30 mA, more than a GPIO should supply for long or frequent sounds; switch it through a transistor for those. At 3.3 V it is quieter than at 5 V."
+      "wiringNote": "Wire SIG to the GPIO and GND to ground; leave the middle pin unconnected. It sounds at its own fixed pitch (about 2.5 kHz) while SIG is high and the pitch cannot be changed. It draws about 30 mA, more than a GPIO should supply for long or frequent sounds; switch it through a transistor for those. At 3.3 V it is quieter than at 5 V.",
+      "optionLabel": "KY-012 active buzzer",
+      "optionOrder": 1
     },
     "pads": [
       {
@@ -4462,7 +4487,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "A thumb stick with two analog axes and a push switch",
-      "wiringNote": "Power it from 3.3 V so the axis voltages stay inside the ADC range. VRx and VRy go to ADC pins, SW to a pin with a pull-up."
+      "wiringNote": "Power it from 3.3 V so the axis voltages stay inside the ADC range. VRx and VRy go to ADC pins, SW to a pin with a pull-up.",
+      "optionLabel": "KY-023 joystick"
     },
     "pads": [
       {
@@ -4679,7 +4705,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "One opto-isolated DC switch or dimmer, 6-28 V",
-      "wiringNote": "DC loads only. No flyback diode on the board: add one across a motor, solenoid or coil."
+      "wiringNote": "DC loads only. No flyback diode on the board: add one across a motor, solenoid or coil.",
+      "optionLabel": "LR7843 MOSFET switch"
     },
     "pads": [
       {
@@ -5029,7 +5056,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Eight digits on a shared SPI bus",
-      "wiringNote": "Eight digits and no colon, clocked as 16-bit frames over CLK and DIN with its own load line. It can share clock and data with other SPI devices given its own load pin, and its sixteen brightness steps are twice the TM1637 range."
+      "wiringNote": "Eight digits and no colon, clocked as 16-bit frames over CLK and DIN with its own load line. It can share clock and data with other SPI devices given its own load pin, and its sixteen brightness steps are twice the TM1637 range.",
+      "optionLabel": "MAX7219 8-digit",
+      "optionOrder": 2
     },
     "pads": [
       {
@@ -5896,7 +5925,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Four DC switches or dimmers, A to D, 3-16 V",
-      "wiringNote": "DC only, 2 A for the whole board. Not isolated: join its GND to the board. Flyback diodes are fitted."
+      "wiringNote": "DC only, 2 A for the whole board. Not isolated: join its GND to the board. Flyback diodes are fitted.",
+      "optionLabel": "MonkMakes Mosfetti"
     },
     "pads": [
       {
@@ -6080,7 +6110,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "40 mm 5 V fan, 25 kHz PWM control and tachometer feedback",
-      "wiringNote": "Power it from 5 V. PWM is a 25 kHz active-high controller signal; RPM is an open-collector tachometer output with two pulses per revolution. This first firmware path supports ESP32-family boards."
+      "wiringNote": "Power it from 5 V. PWM is a 25 kHz active-high controller signal; RPM is an open-collector tachometer output with two pulses per revolution. This first firmware path supports ESP32-family boards.",
+      "optionLabel": "Noctua NF-A4x10 5V PWM"
     },
     "pads": [
       {
@@ -6612,7 +6643,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Relative brightness on one analog pin",
-      "wiringNote": "An analog divider: Level is relative brightness. It cannot report calibrated lux, so Lux stays at zero."
+      "wiringNote": "An analog divider: Level is relative brightness. It cannot report calibrated lux, so Lux stays at zero.",
+      "optionLabel": "LDR light sensor",
+      "optionOrder": 1
     },
     "pads": [
       {
@@ -7893,7 +7926,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "One active-high capacitive touch button",
-      "wiringNote": "Power from 3.3 V. SIG is HIGH while touched; NC is not connected."
+      "wiringNote": "Power from 3.3 V. SIG is HIGH while touched; NC is not connected.",
+      "optionLabel": "Seeed Grove Touch Sensor"
     },
     "pads": [
       {
@@ -8013,7 +8047,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "128x64 white OLED over 4-wire SPI",
-      "wiringNote": "Same SH1106G silicon and 2-column RAM offset as the 1.3-inch SPI module, on a smaller 27 x 28 mm board."
+      "wiringNote": "Same SH1106G silicon and 2-column RAM offset as the 1.3-inch SPI module, on a smaller 27 x 28 mm board.",
+      "optionLabel": "SH1106 0.96-inch",
+      "optionOrder": 2
     },
     "pads": [
       {
@@ -8140,7 +8176,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "128x64 white OLED over 4-wire SPI",
-      "wiringNote": "The 1.3-inch SH1106 has 132 columns of controller RAM behind a 128-column panel, so its window starts two columns in. Driving it as an SSD1306 shifts the image two pixels and wraps the remainder down the edge."
+      "wiringNote": "The 1.3-inch SH1106 has 132 columns of controller RAM behind a 128-column panel, so its window starts two columns in. Driving it as an SSD1306 shifts the image two pixels and wraps the remainder down the edge.",
+      "optionLabel": "SH1106 1.3-inch",
+      "optionOrder": 1
     },
     "pads": [
       {
@@ -8268,7 +8306,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "128x64 white OLED over I2C",
-      "wiringNote": "Same SH1106G silicon and 2-column RAM offset as the SPI module, on a 4-pin I2C breakout instead. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices, same as the SSD1306."
+      "wiringNote": "Same SH1106G silicon and 2-column RAM offset as the SPI module, on a 4-pin I2C breakout instead. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices, same as the SSD1306.",
+      "optionLabel": "SH1106 1.3-inch (I2C)",
+      "optionOrder": 3
     },
     "pads": [
       {
@@ -8567,7 +8607,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "128x64 white OLED over I2C",
-      "wiringNote": "The generic four-pin module, silkscreened GND, VCC, SCL, SDA — the commonest 0.96-inch OLED, and the one to pick unless the board in hand is the Adafruit breakout. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices."
+      "wiringNote": "The generic four-pin module, silkscreened GND, VCC, SCL, SDA — the commonest 0.96-inch OLED, and the one to pick unless the board in hand is the Adafruit breakout. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices.",
+      "optionLabel": "SSD1306 0.96-inch (4-pin)",
+      "optionOrder": 4
     },
     "pads": [
       {
@@ -8681,7 +8723,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "128x64 white OLED over I2C",
-      "wiringNote": "The Adafruit eight-pin STEMMA QT breakout, strapped for I2C: it prints the SPI names CLK and DATA on the two lines it answers I2C on. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices."
+      "wiringNote": "The Adafruit eight-pin STEMMA QT breakout, strapped for I2C: it prints the SPI names CLK and DATA on the two lines it answers I2C on. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices.",
+      "optionLabel": "SSD1306 0.96-inch (Adafruit)",
+      "optionOrder": 5
     },
     "pads": [
       {
@@ -8814,7 +8858,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "240x240 colour TFT over SPI",
-      "wiringNote": "A square 240x240 colour display with no touch controller."
+      "wiringNote": "A square 240x240 colour display with no touch controller.",
+      "optionLabel": "ST7789 1.54-inch",
+      "optionOrder": 1
     },
     "pads": [
       {
@@ -8953,7 +8999,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "240x320 colour TFT with XPT2046 touch",
-      "wiringNote": "The XPT2046 touch controller exposes its own SPI pins, so it can share the display bus or use a separate bus. Adding this module gives you two nodes: the panel, and the Touch Screen node whose Controls output is what a finger on the glass publishes."
+      "wiringNote": "The XPT2046 touch controller exposes its own SPI pins, so it can share the display bus or use a separate bus. Adding this module gives you two nodes: the panel, and the Touch Screen node whose Controls output is what a finger on the glass publishes.",
+      "optionLabel": "ST7789V 2.4-inch + touch",
+      "optionOrder": 3
     },
     "pads": [
       {
@@ -9098,7 +9146,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Two-wire 7-segment with a colon",
-      "wiringNote": "Four digits and a centre colon, driven over CLK and DIO. Not I2C despite the two wires: the TM1637 has no addresses, so each module needs its own pair of pins."
+      "wiringNote": "Four digits and a centre colon, driven over CLK and DIO. Not I2C despite the two wires: the TM1637 has no addresses, so each module needs its own pair of pins.",
+      "optionLabel": "TM1637 4-digit",
+      "optionOrder": 1
     },
     "pads": [
       {
@@ -9599,7 +9649,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Eight low-side switches, 50 V and 500 mA each",
-      "wiringNote": "Active-high: a high input pulls its output to ground, so the load goes from its own supply to the output and the array only sinks. Join the load supply ground to the controller ground. Tie COM to the load supply for coils and motors. Do not run all eight at full current: the package limits the total heat."
+      "wiringNote": "Active-high: a high input pulls its output to ground, so the load goes from its own supply to the output and the array only sinks. Join the load supply ground to the controller ground. Tie COM to the load supply for coils and motors. Do not run all eight at full current: the package limits the total heat.",
+      "optionLabel": "ULN2803A"
     },
     "pads": [
       {
@@ -9785,7 +9836,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "W5500 wired Ethernet over SPI, 3.3 V",
-      "wiringNote": "Power it from 3.3 V only; it draws up to about 141 mA with a link up. Every network node (Art-Net, sACN, DDP, Web Remote, NTP...) uses this link instead of Wi-Fi."
+      "wiringNote": "Power it from 3.3 V only; it draws up to about 141 mA with a link up. Every network node (Art-Net, sACN, DDP, Web Remote, NTP...) uses this link instead of Wi-Fi.",
+      "optionLabel": "WIZnet WIZ850io"
     },
     "pads": [
       {
@@ -10368,7 +10420,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Four isolated DC switches or dimmers, 7-28 V",
-      "wiringNote": "DC only, 5 A a channel and 10 A for the board. Wire each PWM pin and every GND1-GND4 to the controller. Not for 5 V rails: the gate drive needs 7 V."
+      "wiringNote": "DC only, 5 A a channel and 10 A for the board. Wire each PWM pin and every GND1-GND4 to the controller. Not for 5 V rails: the gate drive needs 7 V.",
+      "optionLabel": "YYNMOS-4 (LR7843)"
     },
     "pads": [
       {
@@ -10525,7 +10578,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Asks a USB-C charger for 5, 9, 12, 15 or 20 V",
-      "wiringNote": "A power source, not a signal device: nothing connects to a GPIO. Set the voltage on the board before connecting a load, because its output sits at that voltage as soon as the charger is plugged in. The charger must support PD. Read the silkscreen on your own board for polarity."
+      "wiringNote": "A power source, not a signal device: nothing connects to a GPIO. Set the voltage on the board before connecting a load, because its output sits at that voltage as soon as the charger is plugged in. The charger must support PD. Read the silkscreen on your own board for polarity.",
+      "optionLabel": "ZY12PDN"
     }
   },
 }

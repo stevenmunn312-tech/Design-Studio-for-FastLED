@@ -13,7 +13,6 @@ import {
   registeredPartsForType,
   resetRegisteredPartsForTests,
   subscribeCatalogue,
-  type PartCatalogueEntry,
 } from '../partCatalogue'
 import { PART_OPTIONS, partOptionsFor, resolvePartIdentity } from '../partOptions'
 import { partRenderForNodeType } from '../partRenders'
@@ -33,9 +32,14 @@ function fixture(
   partId: string,
   extra: Partial<PartManifest> = {},
 ): PartManifest {
-  const entry = PART_CATALOGUE[source] as PartCatalogueEntry
+  const entry = JSON.parse(JSON.stringify(PART_CATALOGUE[source])) as PartManifest
+  // The menu name and position belong to the source part, not to its copy.
+  const copy = { ...entry.copy }
+  delete copy.optionLabel
+  delete copy.optionOrder
   return {
-    ...(JSON.parse(JSON.stringify(entry)) as PartCatalogueEntry),
+    ...entry,
+    ...(entry.copy ? { copy } : {}),
     partId,
     label: `Test ${partId}`,
     manifestVersion: PART_MANIFEST_VERSION,
@@ -284,7 +288,7 @@ describe('derived values follow the registry', () => {
 
     const entries = inputPartEntries()
     expect(entries).toHaveLength(before + 1)
-    const row = entries.find((entry) => entry.partId === 'shelf-part')!
+    const row = entries.find((entry) => entry.properties?.partId === 'shelf-part')!
     expect(row.nodeType).toBe('PowerMonitorInput')
     expect(row.label).toBe('Test shelf-part')
     expect(row.hint).toBe('Shelf summary')
