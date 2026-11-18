@@ -160,6 +160,8 @@ import { designControlBundle } from './displays/designControlBundle'
 import { asTftRotation } from './displays/tftSurface'
 import { transportTouchActions, TRANSPORT_TOUCH_ACTION_TYPES, TRANSPORT_TOUCH_ACTION_LABELS } from './displays/transportTouch'
 import { keepsSavedPorts, partDerivedInputs } from '../build/parts/partPorts'
+import type { SavedParts } from '../build/parts/savedParts'
+import { registerEmbeddedParts } from '../build/parts/signedParts'
 import { retargetMathOperands } from '../nodes/math/mathIdentity'
 
 export interface StudioNodeData extends Record<string, unknown> {
@@ -205,6 +207,8 @@ export interface WorkspaceExtras {
    *  IndexedDB so project autosaves do not exceed localStorage quotas. */
   musicLibrary?: PersistedMusicEntry[]
   displayDocuments?: DisplayDocumentRegistry
+  /** See `PersistedWorkspace.parts` (workspacePersistence.ts). */
+  parts?: SavedParts
 }
 
 interface GraphState {
@@ -2865,6 +2869,11 @@ export const useGraphStore = create<GraphState>()(
       },
 
       loadGraph: (nodes, edges, workspace) => {
+        // Entry points that can wait register the save's signed parts first
+        // (`registerEmbeddedParts`); this covers the rest. Registering is
+        // idempotent, and a part that arrives later resolves its held node
+        // through the catalogue version, with the saved ports kept meanwhile.
+        if (workspace?.parts) void registerEmbeddedParts(workspace.parts)
         flushHistoryDebounce()
         preDragHistoryState = undefined
         const temporalApi = useGraphStore.temporal.getState()

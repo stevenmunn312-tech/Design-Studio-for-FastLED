@@ -4,6 +4,8 @@ import type { BuildProfile } from '../build/buildProfile'
 import { captureMusicLibrary } from './player/musicLibraryPersistence'
 import type { PersistedMusicEntry } from './player/musicLibraryPersistence'
 import type { DisplayDocumentRegistry } from './displays/displayDocument'
+import type { SavedParts } from '../build/parts/savedParts'
+import { collectSavedParts } from '../build/parts/signedParts'
 
 /** The full workspace shape that needs to persist across autosave, project
  *  switches, JSON export/import, and rolling recovery snapshots. */
@@ -31,6 +33,11 @@ export interface PersistedWorkspace {
   /** Declarative custom-display documents, keyed by their stable display id.
    * Missing means an empty registry for workspaces saved before this field. */
   displayDocuments?: DisplayDocumentRegistry
+  /** The parts the hardware nodes use, by id: the revision each was built
+   *  with and, for a downloaded part, its signed envelope. Written by
+   *  `captureWorkspace`; read on load by `registerEmbeddedParts`
+   *  (build/parts/signedParts.ts). Missing = bundled parts only. */
+  parts?: SavedParts
 }
 
 export function blankWorkspace(): PersistedWorkspace {
@@ -54,6 +61,7 @@ export function cloneWorkspace(workspace: PersistedWorkspace): PersistedWorkspac
 export function captureWorkspace(
   state: Pick<PersistedWorkspace, 'nodes' | 'edges' | 'graphData' | 'graphs' | 'activeGraphId' | 'buildProfile' | 'trusted' | 'performanceDeck' | 'displayDocuments'>
 ): PersistedWorkspace {
+  const allNodes = [...state.nodes, ...Object.values(state.graphData ?? {}).flatMap((graph) => graph.nodes)]
   return cloneWorkspace({
     nodes: state.nodes,
     edges: state.edges,
@@ -65,5 +73,6 @@ export function captureWorkspace(
     performanceDeck: state.performanceDeck,
     displayDocuments: state.displayDocuments,
     musicLibrary: captureMusicLibrary(),
+    parts: collectSavedParts(allNodes),
   })
 }

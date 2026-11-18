@@ -11,7 +11,7 @@ import {
   encodeText,
   type PartsCache,
 } from './cache'
-import { parseEnvelope, verifyEnvelope, type VerifyFailure } from './envelope'
+import { parseEnvelope, verifyEnvelope, type SignedEnvelope, type VerifyFailure } from './envelope'
 import {
   MAX_RENDER_PX,
   offeredParts,
@@ -77,7 +77,8 @@ export type PackageFailure =
   | VerifyFailure
 
 export type PackageResult<M> =
-  | { ok: true; manifest: M; source: 'network' | 'cache' }
+  /** `envelope` is the verified signed package, for a save to carry. */
+  | { ok: true; manifest: M; source: 'network' | 'cache'; envelope: SignedEnvelope }
   | { ok: false; reason: PackageFailure; detail?: string }
 
 export type RenderFailure =
@@ -277,7 +278,7 @@ export function createPartsClient<M>(options: PartsClientOptions<M>): PartsClien
     }
     const manifest = options.validateManifest(value)
     if (!manifest.ok) return { ok: false, reason: 'invalid-manifest', detail: manifest.reason }
-    return { ok: true, manifest: manifest.manifest, source: 'cache' }
+    return { ok: true, manifest: manifest.manifest, source: 'cache', envelope }
   }
 
   const getPackage = async (part: IndexPart): Promise<PackageResult<M>> => {
@@ -298,7 +299,7 @@ export function createPartsClient<M>(options: PartsClientOptions<M>): PartsClien
     const result = await checkPackageBytes(part, fetched.bytes)
     if (!result.ok) return result
     await cache().set(cacheKey, fetched.bytes)
-    return { ok: true, manifest: result.manifest, source: 'network' }
+    return { ok: true, manifest: result.manifest, source: 'network', envelope: result.envelope }
   }
 
   const checkRenderBytes = async (

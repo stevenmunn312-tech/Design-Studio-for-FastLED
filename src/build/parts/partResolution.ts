@@ -38,6 +38,7 @@
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { findPartReferences, type ReferenceFinding } from './partReferences'
 import { partOptionFor, partOptionProperty } from './partOptions'
+import { embeddedPartFailure } from './signedParts'
 
 /** The saved value naming a part, or null when the node has none or the type has no part. */
 export function savedPartId(nodeType: string, properties: Record<string, unknown> | undefined): string | null {
@@ -120,10 +121,13 @@ export function withoutUnresolved<N extends StudioNode, E extends StudioEdge>(
 /** One plain sentence per reason, for the first line of a card or a gate message. */
 export function describeUnresolved(reason: UnresolvedReason): { title: string; detail: string; fix: string } {
   if (reason.kind === 'part') {
+    const embedded = embeddedPartFailure(reason.id)
+      ? 'The copy saved in this project could not be verified, so it was not loaded. '
+      : ''
     return {
       title: "This project uses a part this version doesn't have",
       detail: `"${reason.id}"`,
-      fix: 'Choose a part this version lists on the node, or open the project in a newer Design Studio. Its settings and wires are kept as they are either way.',
+      fix: embedded + 'Choose a part this version lists on the node, or open the project in a newer Design Studio. Its settings and wires are kept as they are either way.',
     }
   }
   if (reason.kind === 'pin') {

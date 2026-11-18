@@ -5,6 +5,7 @@ import { THEMES, useUiStore, type AppTheme } from '../../state/uiStore'
 import type { LayoutPresetId } from '../../state/layoutPresets'
 import { WORKSPACE_TABS } from '../../state/workspaceTabs'
 import { rootGraphNodes, useGraphStore, useTemporalStore, ROOT_GRAPH_ID, reachableGroupRegistry } from '../../state/graphStore'
+import { registerEmbeddedParts } from '../../build/parts/signedParts'
 import { withFreshBoardLink } from '../../state/peripherals/boardLinkCopy'
 import { useBoardLinkKeyStore } from '../../state/peripherals/boardLinkKey'
 import { usePerformanceDeckSession } from '../../state/player/performanceDeckSessionStore'
@@ -539,6 +540,7 @@ export default function MenuBar() {
     }
     const opened = useProjectStore.getState().upsertProject(project)
     if (!options?.saveCurrentFirst && currentProject) useProjectStore.getState().discardDraft(currentProject.id)
+    await registerEmbeddedParts(opened.workspace.parts)
     useGraphStore.getState().loadGraph(opened.workspace.nodes, opened.workspace.edges, opened.workspace)
     useGraphStore.temporal.getState().clear()
     setStatus(workspaceLoadStatus(`Opened project "${opened.name}"`, dropped), dropped > 0 ? 'info' : 'success')

@@ -1157,3 +1157,7 @@ it and `partOrigin(id)` says where a part came from.
 - Tests add parts with `registerParts` and call `resetRegisteredPartsForTests`
   after. A type is closed to downloads until its `downloadable` flag flips, so a
   test of the downloaded rules opens the type it uses and restores it.
+
+## Saves carry their parts
+
+A workspace has an optional `parts` map (`src/build/parts/savedParts.ts`): `{ [partId]: { revision, envelope? } }`, written by `captureWorkspace`. Only a downloaded part carries its signed envelope; bundled parts list a revision only. On load, `registerEmbeddedParts` (`signedParts.ts`) verifies each envelope against the trusted keys and registers it as `downloaded` before the graph loads; an unsigned, tampered, unknown-key or wrong-id copy never registers and its node stays held. Pattern files carry no part nodes (hardware nodes are group-excluded). `SAVE_FORMAT_VERSION` stays 1: the field is optional and an older app ignores it.
