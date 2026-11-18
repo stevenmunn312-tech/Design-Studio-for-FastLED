@@ -24,12 +24,26 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Codegen entry points (`generateCpp`, `generateShowSketch`,
   `playerConfigFromGraph`) take the held nodes and their wires out
   (`withoutUnresolved`) and lead the sketch with a `// Not generated:` comment.
-  Per-kind spec readers (`distanceSensorSpec`, `powerMonitorSpec`, the
-  `FALLBACK_SPEC` family) and `resolvePartIdentity` may still answer with a
-  default for drawing; `resolvePartIdentity` marks an unknown part `unresolved`
-  with no catalogue entry. That is cosmetic: gate on `partResolution`, never in a
+  Per-kind spec readers (`distanceSensorSpec`, `powerMonitorSpec`,
+  `micModuleFor`, `irReceiverModuleFor`, `powerConverterModuleFor` and the rest
+  under `src/state/peripherals/`) never return another part's facts: a missing
+  id looks up the type's default part by its id (`partIdOrDefault`), an unknown
+  id returns `null`, and the caller treats that as inert (preview reads zero,
+  the manifest item is unsupported, codegen emits nothing; it never sees one,
+  because `withoutUnresolved` runs first). A node definition's starting values
+  take the default part through `requireDefaultSpec`, which throws on a broken
+  bundle instead of inventing numbers. `resolvePartIdentity` may still answer
+  with a stand-in for drawing and marks an unknown part `unresolved` with no
+  catalogue entry; that is cosmetic. Gate on `partResolution`, never in a
   reader. A new part-backed node type needs a `PART_OPTIONS` row, or its unknown
   ids are not seen, and a renamed id needs an `aliases` entry.
+- Option lists and slider bounds that depend on the part come from the node's own
+  `partId`, not from one bundled id: `PART_SELECT_OPTIONS` and
+  `PART_SLIDER_BOUNDS` in `nodeLibrary.ts` feed `propertyOptions` and
+  `propertyMetaFor`, and a select `PartField` may carry `optionsFor`. The static
+  `PROPERTY_META` entry is the type's default part, for callers with no node.
+  The relay pin tables use `relayMaxPinKeys()` (bounded by `MAX_RELAY_CHANNELS`),
+  never a particular relay board.
 
 - A PowerAmplifier with no line-level source (no I2S DAC, no DFPlayer on Line
   Out) is reported on every board, with or without a board chosen: the board's

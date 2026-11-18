@@ -855,6 +855,15 @@ function buildPeripheralItem(node: StudioNode, kind: HardwareManifestItem['kind'
   }
 }
 
+/** A node whose saved part this version does not have: listed, unsupported, and carrying no other part's facts. */
+function unknownPartItem(node: StudioNode, kind: HardwareManifestItem['kind'], pinUses: HardwarePinUse[]): HardwareManifestItem {
+  return {
+    ...buildPeripheralItem(node, kind, `${nodeLabel(node)} uses a part this version does not have`, pinUses),
+    supported: false,
+    reasons: ['This part is not one this version of Design Studio has, so nothing is built for it.'],
+  }
+}
+
 function buildUnsupportedItem(node: StudioNode, pinUses: HardwarePinUse[]): HardwareManifestItem {
   return {
     id: `unsupported:${node.id}`,
@@ -951,7 +960,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         return buildPeripheralItem(
           node,
           'mic-input',
-          `${micModuleFor((node.data.properties as Record<string, unknown>).partId).label} microphone input`,
+          `${micModuleFor((node.data.properties as Record<string, unknown>).partId)?.label ?? nodeLabel(node)} microphone input`,
           pins,
         )
       case 'LineInput':
@@ -967,6 +976,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
       case 'TouchButtonInput': {
         const props = node.data.properties as Record<string, unknown>
         const spec = touchButtonSpec(props.partId)
+        if (!spec) return unknownPartItem(node, 'touch-button-input', pins)
         const item = buildPeripheralItem(node, 'touch-button-input', 'Capacitive touch button', pins)
         return {
           ...item,
@@ -1123,6 +1133,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const partId = String(props.partId ?? PD_TRIGGER_PART_ID)
         const entry = partById(partId)
         const spec = pdTriggerSpec(partId)
+        if (!spec) return unknownPartItem(node, 'pd-trigger', pins)
         const voltage = pdTriggerVoltage(props)
         return {
           ...buildPeripheralItem(node, 'pd-trigger', `${voltage ?? '?'} V USB-C PD trigger`, pins),
@@ -1142,6 +1153,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const partId = String((node.data.properties as Record<string, unknown>).partId ?? DEFAULT_ETHERNET_PART_ID)
         const entry = partById(partId)
         const spec = ethernetSpec(partId)
+        if (!spec) return unknownPartItem(node, 'ethernet', pins)
         const wired = ETHERNET_PIN_KEYS.every((key) => pins.some((pin) => pin.propertyKey === key))
         const item = buildPeripheralItem(node, 'ethernet', entry?.label ?? 'Wired Ethernet module', pins)
         return {
@@ -1161,6 +1173,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
       case 'PresenceInput': {
         const entry = partById(String((node.data.properties as Record<string, unknown>).partId ?? DEFAULT_PRESENCE_PART_ID))
         const spec = presenceSensorSpec((node.data.properties as Record<string, unknown>).partId)
+        if (!spec) return unknownPartItem(node, 'presence-input', pins)
         const wired = pins.some((pin) => pin.propertyKey === 'rxPin')
         const item = buildPeripheralItem(node, 'presence-input', entry?.label ?? 'Radar presence sensor', pins)
         return {
@@ -1236,6 +1249,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const partId = String(props.partId ?? DARLINGTON_PART_ID)
         const entry = partById(partId)
         const spec = darlingtonSpec(partId)
+        if (!spec) return unknownPartItem(node, 'darlington-driver-output', pins)
         const wired = darlingtonPinKeys().every((key) => pins.some((pin) => pin.propertyKey === key))
         return {
           ...buildPeripheralItem(node, 'darlington-driver-output', entry?.label ?? 'ULN2803A driver', pins),
@@ -1258,6 +1272,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const partId = String(props.partId ?? PCA9685_PART_ID)
         const entry = partById(partId)
         const spec = pwmDriverSpec(partId)
+        if (!spec) return unknownPartItem(node, 'pwm-driver-output', pins)
         const address = pwmDriverAddress(props)
         const wired = pins.some((pin) => pin.propertyKey === 'sdaPin')
           && pins.some((pin) => pin.propertyKey === 'sclPin')
@@ -1284,6 +1299,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const partId = String(props.partId ?? BUZZER_PART_ID)
         const entry = partById(partId)
         const spec = buzzerSpec(partId)
+        if (!spec) return unknownPartItem(node, 'buzzer-output', pins)
         const wired = pins.some((pin) => pin.propertyKey === 'sigPin')
         return {
           ...buildPeripheralItem(node, 'buzzer-output', entry?.label ?? 'Buzzer', pins),
@@ -1310,6 +1326,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const partId = String(props.partId ?? COOLING_FAN_PART_ID)
         const entry = partById(partId)
         const spec = coolingFanSpec(partId)
+        if (!spec) return unknownPartItem(node, 'cooling-fan-output', pins)
         const wired = pins.some((pin) => pin.propertyKey === 'pwmPin')
           && pins.some((pin) => pin.propertyKey === 'tachPin')
         const boardSupported = !selectedFqbn || selectedFqbn.startsWith('esp32:')
@@ -1429,6 +1446,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const partId = String(props.partId ?? DEFAULT_POWER_MONITOR_PART_ID)
         const entry = partById(partId)
         const spec = powerMonitorSpec(partId)
+        if (!spec) return unknownPartItem(node, 'power-monitor-input', pins)
         const address = powerMonitorAddress(props)
         const wired = pins.some((pin) => pin.propertyKey === 'sdaPin')
           && pins.some((pin) => pin.propertyKey === 'sclPin')
@@ -1457,6 +1475,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const partId = String(props.partId ?? BME280_PART_ID)
         const entry = partById(partId)
         const spec = environmentSensorSpec(partId)
+        if (!spec) return unknownPartItem(node, 'environment-input', pins)
         const address = environmentAddress(props)
         const wired = pins.some((pin) => pin.propertyKey === 'sdaPin')
           && pins.some((pin) => pin.propertyKey === 'sclPin')
@@ -1483,6 +1502,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const partId = String(props.partId ?? DS18B20_PART_ID)
         const entry = partById(partId)
         const spec = temperatureSensorSpec(partId)
+        if (!spec) return unknownPartItem(node, 'temperature-input', pins)
         const wired = pins.some((pin) => pin.propertyKey === 'pin')
         return {
           ...buildPeripheralItem(node, 'temperature-input', entry?.label ?? 'DS18B20 temperature probe', pins),
@@ -1501,6 +1521,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const partId = String(props.partId ?? MPU6050_PART_ID)
         const entry = partById(partId)
         const spec = motionVectorSpec(partId)
+        if (!spec) return unknownPartItem(node, 'motion-vector-input', pins)
         const address = motionVectorAddress(props)
         const wired = pins.some((pin) => pin.propertyKey === 'sdaPin')
           && pins.some((pin) => pin.propertyKey === 'sclPin')
@@ -1575,6 +1596,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
         const partId = String(props.partId ?? HCSR04_PART_ID)
         const entry = partById(partId)
         const spec = distanceSensorSpec(partId)
+        if (!spec) return unknownPartItem(node, 'distance-input', pins)
         const transport = distanceSensorTransport(partId)
         if (transport === 'i2c') {
           const address = distanceSensorAddress(props)

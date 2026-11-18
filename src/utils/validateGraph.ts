@@ -3249,7 +3249,7 @@ function i2cBusValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
     issues.push({
       id: `${sensor.id}-i2c-address`, severity: 'error', category: 'pins',
       title: 'Distance sensor address is not one this sensor answers on',
-      message: `${nodeLabel(sensor)} is set to ${String(props.i2cAddress)}, but this ${distanceSensorSpec(props.partId).device} answers only on ${distanceSensorAddressOptions(props.partId).join(', ')}.`,
+      message: `${nodeLabel(sensor)} is set to ${String(props.i2cAddress)}, but this ${distanceSensorSpec(props.partId)?.device ?? 'sensor'} answers only on ${distanceSensorAddressOptions(props.partId).join(', ')}.`,
       fix: 'Choose 0x29 for one sensor. To put more than one on the bus, give each a different address from 0x30 to 0x33 and wire its SHDN or XSHUT pin.',
       nodeIds: [sensor.id], nodeLabel: nodeLabel(sensor), propertyKey: 'i2cAddress',
     })

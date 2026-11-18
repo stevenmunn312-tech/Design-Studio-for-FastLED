@@ -166,7 +166,7 @@ static void _powerMonitorDebugMeasure(uint8_t addr, bool ina226, float shuntOhms
 
 /** True when this node's part is an INA226 rather than the INA219. */
 export function powerMonitorIsIna226(props: Record<string, unknown>): boolean {
-  return powerMonitorSpec(props.partId).device === 'INA226'
+  return powerMonitorSpec(props.partId)?.device === 'INA226'
 }
 
 /** The helper for each device that appears, each once however many monitors use it. */
@@ -181,12 +181,15 @@ export function powerMonitorHelperCpp(monitors: readonly Record<string, unknown>
 /** The address the generated sketch talks to, as a C literal. */
 export function powerMonitorAddressCpp(props: Record<string, unknown>): string {
   const spec = powerMonitorSpec(props.partId)
+  if (!spec) return ''
   return formatI2cAddress(powerMonitorAddress(props) ?? spec.defaultI2cAddress)
 }
 
 export function powerMonitorSetupCpp(props: Record<string, unknown>): string {
+  const spec = powerMonitorSpec(props.partId)
+  if (!spec) return ''
   if (props.debug === true) {
-    return `  _powerMonitorDebugBegin(${powerMonitorAddressCpp(props)}, ${powerMonitorIsIna226(props)}, ${powerMonitorSpec(props.partId).shuntOhms.toFixed(4)}f, ${powerMonitorLimitAmps(props.overcurrentAmps).toFixed(3)}f);`
+    return `  _powerMonitorDebugBegin(${powerMonitorAddressCpp(props)}, ${powerMonitorIsIna226(props)}, ${spec.shuntOhms.toFixed(4)}f, ${powerMonitorLimitAmps(props.overcurrentAmps).toFixed(3)}f);`
   }
   return `  ${powerMonitorIsIna226(props) ? '_ina226Begin' : '_ina219Begin'}(${powerMonitorAddressCpp(props)});`
 }
@@ -199,7 +202,8 @@ export function powerMonitorLoopCpp(
   props: Record<string, unknown>,
   local: (port: 'volts' | 'amps' | 'watts' | 'overcurrent') => string,
 ): string[] {
-  const ohms = powerMonitorSpec(props.partId).shuntOhms
+  const ohms = powerMonitorSpec(props.partId)?.shuntOhms
+  if (ohms === undefined) return []
   const debug = props.debug === true
   const stamp = `${local('volts')}_debugLast`
   const due = `${local('volts')}_debugDue`

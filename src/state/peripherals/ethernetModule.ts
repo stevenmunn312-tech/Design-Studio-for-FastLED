@@ -1,6 +1,7 @@
 import { targetFamilyFromFqbn, type BuildTargetFamily } from '../../build/buildProfile'
 import type { StudioNode } from '../graphStore'
 import { partById, type PartEthernetSpec } from '../../build/parts/partCatalogue'
+import { partIdOrDefault } from './partSpec'
 import { selectedPhysicalBoardProfile, type BoardOnboardEthernet } from '../../build/boards/boardProfiles'
 
 /**
@@ -34,15 +35,9 @@ export const ETHERNET_MODULES: readonly EthernetModuleOption[] = [
   },
 ]
 
-const FALLBACK_SPEC: PartEthernetSpec = {
-  controller: 'W5500',
-  interface: 'SPI',
-  maxSpiClockMHz: 80,
-  link: '10/100BASE-TX',
-}
-
-export function ethernetSpec(partId: unknown): PartEthernetSpec {
-  return partById(String(partId ?? DEFAULT_ETHERNET_PART_ID))?.ethernet ?? FALLBACK_SPEC
+/** The part's ethernet block; `null` for an unknown part (a missing id is the default part). */
+export function ethernetSpec(partId: unknown): PartEthernetSpec | null {
+  return partById(partIdOrDefault(partId, DEFAULT_ETHERNET_PART_ID))?.ethernet ?? null
 }
 
 /** The bench's Ethernet module, if it has one. */

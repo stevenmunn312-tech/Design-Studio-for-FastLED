@@ -71,9 +71,11 @@ export function controlInputCpp(
   }
   switch (nodeType) {
     case 'TouchButtonInput': {
+      const pressed = touchButtonPressedLevel(p.partId)
+      if (pressed === null) break
       const pin = sanitizePin(p.pin, 4)
       setup.push(`  pinMode(${pin}, INPUT);`)
-      loop.push(`  bool ${v('touched')} = digitalRead(${pin}) == ${touchButtonPressedLevel(p.partId)};`)
+      loop.push(`  bool ${v('touched')} = digitalRead(${pin}) == ${pressed};`)
       outputs.touched = 'bool'
       break
     }

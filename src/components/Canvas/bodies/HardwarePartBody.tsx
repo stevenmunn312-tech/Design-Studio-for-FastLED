@@ -2,7 +2,7 @@ import { rootGraphNodes, useGraphStore, useNodeProperties } from '../../../state
 import { useShallow } from 'zustand/react/shallow'
 import { useUiStore } from '../../../state/uiStore'
 import { outputSizeLabel } from '../../../state/output/ledOutputForm'
-import { PART_FIELDS } from '../../../build/parts/partFields'
+import { PART_FIELDS, partFieldOptions } from '../../../build/parts/partFields'
 import {
   isGpioPinProperty,
   isPropertyEnabled,
@@ -288,10 +288,10 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
             {field.kind === 'select' ? (
               <select
                 className={`nodrag ${styles.picker}`}
-                value={String(props[field.key] ?? field.options[0])}
+                value={String(props[field.key] ?? partFieldOptions(field, props)[0])}
                 onChange={(event) => updateNodeProperty(nodeId, field.key, event.target.value)}
               >
-                {field.options.map((option) => (
+                {partFieldOptions(field, props).map((option) => (
                   <option key={option} value={option}>{option}</option>
                 ))}
               </select>

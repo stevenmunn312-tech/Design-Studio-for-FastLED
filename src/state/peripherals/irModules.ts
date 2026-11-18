@@ -13,6 +13,8 @@
 // "a KY-022" a design rather than a guarantee; that caveat is carried on the
 // entry rather than being silently averaged away.
 
+import { partIdOrDefault } from './partSpec'
+
 export interface IrReceiverModule {
   /** Catalogue part id. Also the value stored in the node's `partId`. */
   partId: string
@@ -53,17 +55,15 @@ export const IR_RECEIVER_MODULES: readonly IrReceiverModule[] = [
   },
 ]
 
-/** The module an IRRemoteInput carrying no choice, or a stale one, resolves to. */
-export const DEFAULT_IR_RECEIVER_MODULE = IR_RECEIVER_MODULES[0]
+/** The module an IRRemoteInput carrying no choice resolves to. */
+export const DEFAULT_IR_RECEIVER_PART_ID = 'ky-022-ir-receiver-module'
 
 /**
- * The module a saved `partId` names.
- *
- * Falls back to the default rather than returning nothing, the same rule
- * `micModuleFor` follows: an unset or stale property means "the module the
- * shelf offers first", never "no receiver".
+ * The module a saved `partId` names. A missing id is the default receiver; an
+ * unknown one is `null`, never another module's facts (`partResolution` holds
+ * such a node).
  */
-export function irReceiverModuleFor(partId: unknown): IrReceiverModule {
-  return IR_RECEIVER_MODULES.find((module) => module.partId === partId)
-    ?? DEFAULT_IR_RECEIVER_MODULE
+export function irReceiverModuleFor(partId: unknown): IrReceiverModule | null {
+  const id = partIdOrDefault(partId, DEFAULT_IR_RECEIVER_PART_ID)
+  return IR_RECEIVER_MODULES.find((module) => module.partId === id) ?? null
 }

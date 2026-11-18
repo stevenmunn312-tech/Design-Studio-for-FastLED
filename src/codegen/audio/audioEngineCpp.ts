@@ -866,7 +866,10 @@ export function audioEngineForGraph(
   // Which module: the exact part the node names, resolved the same way the
   // hardware views resolve it, so the factory the sketch calls and the picture
   // the Build Diagram draws come from one answer.
-  const micModule = micModuleFor(p.partId)
+  // A line input has no microphone module; the engine's microphone-only
+  // branches are all guarded by `lineInput`, so the default stands in unread.
+  const micModule = lineInput ? DEFAULT_MIC_MODULE : micModuleFor(p.partId)
+  if (!micModule) return null
   const savedChannel = String(p.channel ?? (lineInput ? 'Both' : 'Left'))
   const channel: 'Left' | 'Right' | 'Both' = savedChannel === 'Right'
     ? 'Right'

@@ -77,6 +77,7 @@ export const ENVIRONMENT_SENSOR_HELPER_CPP: readonly string[] = [
 
 export function environmentAddressCpp(props: Record<string, unknown>): string {
   const spec = environmentSensorSpec(props.partId)
+  if (!spec) return ''
   return formatEnvironmentAddress(environmentAddress(props) ?? spec.defaultI2cAddress)
 }
 

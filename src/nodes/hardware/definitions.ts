@@ -3,6 +3,7 @@
 // carry no signal, live only in the hardware view and never in the sidebar
 // (see isHardwareLibraryHiddenNodeType), and are found by scanning the graph.
 import type { NodeDefinition } from '../../types'
+import { requireDefaultSpec } from '../../state/peripherals/partSpec'
 import { PD_TRIGGER_PART_ID, pdTriggerSpec } from '../../state/peripherals/pdTrigger'
 import { DEFAULT_POWER_CONVERTER_PART_ID, DEFAULT_SOURCE_VOLTAGE } from '../../state/peripherals/powerConverter'
 import { DEFAULT_BATTERY_CELL_PART_ID } from '../../state/peripherals/battery'
@@ -166,7 +167,7 @@ export const HARDWARE_DEFINITIONS: NodeDefinition[] = [
     outputs: [],
     defaultProperties: {
       partId: PD_TRIGGER_PART_ID,
-      requestedVoltage: String(pdTriggerSpec(PD_TRIGGER_PART_ID).defaultVoltageV),
+      requestedVoltage: String(requireDefaultSpec(pdTriggerSpec(PD_TRIGGER_PART_ID), 'PD trigger').defaultVoltageV),
     },
   },
 ]

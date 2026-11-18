@@ -1,5 +1,6 @@
 import { partById } from '../../build/parts/partCatalogue'
 import type { PartPowerMonitorSpec } from '../../build/parts/partCatalogue'
+import { partIdOrDefault } from './partSpec'
 
 /**
  * A current/voltage monitor: an I2C part that measures the current through its
@@ -14,16 +15,9 @@ export const INA226_PART_ID = 'ina226-current-sensor-module'
 /** The three measurements, in the order the node's outputs declare them. */
 export const POWER_MONITOR_OUTPUTS = ['volts', 'amps', 'watts'] as const
 
-/** Used only when a saved part id no longer names a monitor in the catalogue. */
-const FALLBACK_SPEC: PartPowerMonitorSpec = {
-  device: 'INA219', interface: 'I2C', i2cAddresses: [0x40, 0x41, 0x44, 0x45], defaultI2cAddress: 0x40,
-  shuntOhms: 0.1, busVoltageMaxV: 26, currentMaxA: 3.2, senseSide: 'high-side',
-}
-
-export function powerMonitorSpec(partId: unknown): PartPowerMonitorSpec {
-  return partById(String(partId ?? DEFAULT_POWER_MONITOR_PART_ID))?.powerMonitor
-    ?? partById(DEFAULT_POWER_MONITOR_PART_ID)?.powerMonitor
-    ?? FALLBACK_SPEC
+/** The part's power-monitor block; `null` for an unknown part (a missing id is the default part). */
+export function powerMonitorSpec(partId: unknown): PartPowerMonitorSpec | null {
+  return partById(partIdOrDefault(partId, DEFAULT_POWER_MONITOR_PART_ID))?.powerMonitor ?? null
 }
 
 export function formatI2cAddress(address: number): string {
@@ -32,7 +26,7 @@ export function formatI2cAddress(address: number): string {
 
 /** The address strings the part's straps can select, for the picker. */
 export function powerMonitorAddressOptions(partId: unknown): string[] {
-  return powerMonitorSpec(partId).i2cAddresses.map(formatI2cAddress)
+  return powerMonitorSpec(partId)?.i2cAddresses.map(formatI2cAddress) ?? []
 }
 
 /**
@@ -42,6 +36,7 @@ export function powerMonitorAddressOptions(partId: unknown): string[] {
  */
 export function powerMonitorAddress(props: Record<string, unknown>): number | null {
   const spec = powerMonitorSpec(props.partId)
+  if (!spec) return null
   const raw = props.i2cAddress
   if (raw === undefined || raw === null || raw === '') return spec.defaultI2cAddress
   const value = typeof raw === 'number' ? raw : Number(String(raw).trim())
@@ -77,6 +72,7 @@ export function powerMonitorPreviewReading(
   ampsFraction: number,
 ): PowerMonitorReading {
   const spec = powerMonitorSpec(partId)
+  if (!spec) return { volts: 0, amps: 0, watts: 0 }
   const clamp = (v: number) => (Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0)
   const volts = clamp(voltsFraction) * spec.busVoltageMaxV
   const amps = clamp(ampsFraction) * spec.currentMaxA
@@ -89,6 +85,7 @@ export const powerMonitorPreviewKey = (nodeId: string, quantity: 'volts' | 'amps
 /** Where the preview sliders start: a 12 V supply carrying half an amp. */
 export function powerMonitorPreviewDefaults(partId: unknown): { volts: number; amps: number } {
   const spec = powerMonitorSpec(partId)
+  if (!spec) return { volts: 0.5, amps: 0.5 }
   return { volts: 12 / spec.busVoltageMaxV, amps: 0.5 / spec.currentMaxA }
 }
 

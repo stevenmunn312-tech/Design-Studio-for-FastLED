@@ -4,7 +4,8 @@
 import type { NodeDefinition } from '../../types'
 import { MIC_DEFAULTS } from '../../audio/micAnalysis'
 import { NO_PIN } from '../../build/boards/boardGpio'
-import { HCSR04_PART_ID, VL53L0X_PART_ID, distanceSensorSpec, formatDistanceSensorAddress } from '../../state/peripherals/distanceSensor'
+import { requireDefaultSpec } from '../../state/peripherals/partSpec'
+import { HCSR04_PART_ID, VL53L0X_PART_ID, VL53_BOOT_ADDRESS, distanceSensorSpec, formatDistanceSensorAddress } from '../../state/peripherals/distanceSensor'
 import { BME280_DEFAULT_ADDRESS, BME280_PART_ID, formatEnvironmentAddress } from '../../state/peripherals/environmentSensor'
 import { IR_REMOTE_LEARN_HANDLE } from '../../state/peripherals/irRemote'
 import { BUTTON_BANK_ADD_HANDLE, BUTTON_BANK_ADD_LABEL, firstButtonBankRow } from '../../state/player/buttonBank'
@@ -331,7 +332,7 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       partId: MPU6050_PART_ID,
       sdaPin: 21,
       sclPin: 22,
-      i2cAddress: formatMotionVectorAddress(motionVectorSpec(MPU6050_PART_ID).defaultI2cAddress),
+      i2cAddress: formatMotionVectorAddress(requireDefaultSpec(motionVectorSpec(MPU6050_PART_ID), 'motion sensor').defaultI2cAddress),
     },
   },
   {
@@ -357,9 +358,9 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       partId: MPR121_PART_ID,
       sdaPin: 21,
       sclPin: 22,
-      i2cAddress: formatTouchPadAddress(touchPadSpec(MPR121_PART_ID).defaultI2cAddress),
-      touchThreshold: touchPadSpec(MPR121_PART_ID).touchThreshold,
-      releaseThreshold: touchPadSpec(MPR121_PART_ID).releaseThreshold,
+      i2cAddress: formatTouchPadAddress(requireDefaultSpec(touchPadSpec(MPR121_PART_ID), 'touch pad').defaultI2cAddress),
+      touchThreshold: requireDefaultSpec(touchPadSpec(MPR121_PART_ID), 'touch pad').touchThreshold,
+      releaseThreshold: requireDefaultSpec(touchPadSpec(MPR121_PART_ID), 'touch pad').releaseThreshold,
     },
   },
   {
@@ -419,7 +420,7 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
       echoPin: 26,
       sdaPin: 21,
       sclPin: 22,
-      i2cAddress: formatDistanceSensorAddress(distanceSensorSpec(VL53L0X_PART_ID).defaultI2cAddress ?? 0x29),
+      i2cAddress: formatDistanceSensorAddress(requireDefaultSpec(distanceSensorSpec(VL53L0X_PART_ID), 'distance sensor').defaultI2cAddress ?? VL53_BOOT_ADDRESS),
       xshutPin: NO_PIN,
     },
   },
@@ -490,7 +491,7 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     ],
     defaultProperties: {
       partId: DEFAULT_POWER_MONITOR_PART_ID,
-      i2cAddress: formatI2cAddress(powerMonitorSpec(DEFAULT_POWER_MONITOR_PART_ID).defaultI2cAddress),
+      i2cAddress: formatI2cAddress(requireDefaultSpec(powerMonitorSpec(DEFAULT_POWER_MONITOR_PART_ID), 'power monitor').defaultI2cAddress),
       overcurrentAmps: POWER_MONITOR_DEFAULT_LIMIT_AMPS,
       debug: false,
       sdaPin: 21,

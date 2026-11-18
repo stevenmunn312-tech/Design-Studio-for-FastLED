@@ -75,6 +75,7 @@ export function distanceSensorLoopCpp(
   const trig = sanitizePin(props.trigPin, 27)
   const echo = sanitizePin(props.echoPin, 26)
   const spec = distanceSensorSpec(props.partId)
+  if (!spec) return []
   // One round trip past the maximum range, in microseconds.
   const timeoutUs = Math.round((spec.maxMm * 2) / 0.343) + 1000
   return [

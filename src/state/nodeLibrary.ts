@@ -72,14 +72,15 @@ import { POSITION_PRESETS, POSITIONS_MM_PER_UNIT_MAX, STRIP_LAYOUTS, usesNetwork
 import { NETWORK_LEDS_PER_EDGE, NETWORK_MAX_NODES, NETWORK_PRESETS } from './output/segmentNetwork'
 import { RIPPLE_BEHAVIOURS, RIPPLE_LIFETIME_SEC, RIPPLE_WIDTH } from '../nodes/shared/rippleNetwork'
 import { DIRECT_PIXEL_DATA_LINK, PIXEL_DATA_LINK_OPTIONS } from './peripherals/pixelDataExtender'
-import { relayChannelPropertyEnabled, relayPinKeys } from './peripherals/relayModule'
+import { relayChannelPropertyEnabled, relayMaxPinKeys } from './peripherals/relayModule'
 import { ALL_POWER_SWITCH_CHANNELS, POWER_SWITCH_LOAD_TYPES, POWER_SWITCH_LOAD_TYPE_LABELS, powerSwitchPropertyEnabled, powerSwitchPropertyLabel } from './peripherals/powerSwitch'
 import { PRESENCE_RX_PIN_KEY } from './peripherals/presenceSensor'
 import { BUZZER_PITCH_MAX_HZ, BUZZER_PITCH_MIN_HZ, buzzerIsPassive } from './peripherals/buzzer'
 import { darlingtonPinKeys } from './peripherals/darlingtonDriver'
-import { PD_TRIGGER_PART_ID, pdTriggerSpec } from './peripherals/pdTrigger'
+import { PD_TRIGGER_PART_ID, pdTriggerVoltageOptions } from './peripherals/pdTrigger'
+import { requireDefaultSpec } from './peripherals/partSpec'
 import { POWER_SUPPLY_CURRENT_A, POWER_SUPPLY_VOLTAGE } from './peripherals/powerSupply'
-import { PCA9685_PART_ID, pwmDriverAddressOptions, pwmDriverSpec } from './peripherals/pwmDriver'
+import { PCA9685_PART_ID, pwmDriverAddressOptions, pwmDriverHzRange } from './peripherals/pwmDriver'
 import { DEFAULT_POWER_MONITOR_PART_ID, powerMonitorAddressOptions } from './peripherals/powerMonitor'
 import { SLICE_PRESET_NAMES } from '../nodes/field/sliceTiling'
 import { HARMONY_KINDS } from './palettes/harmonyPalette'
@@ -118,7 +119,7 @@ import {
   FOURIER_MAX_HARMONICS_MAX, FOURIER_MAX_HARMONICS_MIN, FOURIER_OUTLINES, FOURIER_SCALE_MIN,
   FOURIER_SPEED_MAX, FOURIER_THICKNESS_MAX, FOURIER_THICKNESS_MIN,
 } from '../nodes/shapes/fourierOutline'
-import { lightSensorAddressOptions, lightSensorTransport } from './peripherals/lightSensor'
+import { BH1750_PART_ID, lightSensorAddressOptions, lightSensorTransport } from './peripherals/lightSensor'
 import { BME280_PART_ID, environmentAddressOptions } from './peripherals/environmentSensor'
 import { VL53L0X_PART_ID, distanceSensorAddressOptions, distanceSensorTransport } from './peripherals/distanceSensor'
 import { KEYPAD_COL_KEYS, KEYPAD_ROW_KEYS } from './peripherals/keypad'
@@ -1323,7 +1324,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     pin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
-    i2cAddress: { control: 'select', options: lightSensorAddressOptions('adafruit-bh1750-light-sensor') },
+    i2cAddress: { control: 'select', options: lightSensorAddressOptions(BH1750_PART_ID) },
     maxLux: { control: 'slider', min: 100, max: 100_000, step: 100, entry: 'number' },
   },
   TemperatureInput: {
@@ -1364,7 +1365,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
   RelayOutput: Object.fromEntries(
-    relayPinKeys('relay-module-8ch-5v').map((key) => [key, {
+    relayMaxPinKeys().map((key) => [key, {
       control: 'slider' as const, min: 0, max: MAX_PIN_NUMBER, step: 1,
     }]),
   ),
@@ -1399,7 +1400,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   }])),
   PwmDriverOutput: {
     i2cAddress: { control: 'select', options: pwmDriverAddressOptions(PCA9685_PART_ID) },
-    pwmHz: { control: 'slider', min: pwmDriverSpec(PCA9685_PART_ID).minPwmHz, max: pwmDriverSpec(PCA9685_PART_ID).maxPwmHz, step: 1 },
+    pwmHz: { control: 'slider', ...requireDefaultSpec(pwmDriverHzRange(PCA9685_PART_ID), 'PWM driver range'), step: 1 },
     sdaPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
     sclPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
   },
@@ -1433,7 +1434,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     parallel: { control: 'slider', min: 1, max: 20, step: 1 },
   },
   PdTriggerSource: {
-    requestedVoltage: { control: 'select', options: pdTriggerSpec(PD_TRIGGER_PART_ID).selectableVoltagesV.map(String) },
+    requestedVoltage: { control: 'select', options: pdTriggerVoltageOptions(PD_TRIGGER_PART_ID) },
   },
   EthernetModule: {
     sckPin:   { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -1826,6 +1827,8 @@ export function propertyMetaFor(
   properties: Record<string, unknown>,
 ): PropertyControl | undefined {
   const meta = propertyMeta(nodeType, key)
+  const partBounds = meta?.control === 'slider' ? PART_SLIDER_BOUNDS[nodeType]?.[key]?.(properties.partId) : undefined
+  if (meta?.control === 'slider' && partBounds !== undefined) return partBounds === null ? undefined : { ...meta, ...partBounds }
   if (nodeType === 'HSVToRGB' && key === 'h' && meta?.control === 'slider' && hueUnits(properties.hueUnits) === 'bytes') {
     return { ...meta, max: 255 }
   }
@@ -1893,6 +1896,32 @@ const SELECT_OPTION_LABELS: Record<string, Record<string, Record<string, string>
   },
 }
 
+/**
+ * Select choices a part-backed node reads from its own part (`partId`), by node
+ * type and property. The static `PROPERTY_META` entry holds the type's default
+ * part's list, for callers with no node in hand; a node's own list comes from
+ * here, so a second part of the same type offers the addresses and voltages its
+ * own block lists. An unknown part offers none.
+ */
+const PART_SELECT_OPTIONS: Record<string, Record<string, (partId: unknown) => readonly string[]>> = {
+  LightInput: { i2cAddress: lightSensorAddressOptions },
+  MotionVectorInput: { i2cAddress: motionVectorAddressOptions },
+  TouchPadInput: { i2cAddress: touchPadAddressOptions },
+  DistanceInput: { i2cAddress: distanceSensorAddressOptions },
+  EnvironmentInput: { i2cAddress: environmentAddressOptions },
+  PwmDriverOutput: { i2cAddress: pwmDriverAddressOptions },
+  PowerMonitorInput: { i2cAddress: powerMonitorAddressOptions },
+  PdTriggerSource: { requestedVoltage: pdTriggerVoltageOptions },
+}
+
+/**
+ * Slider bounds a part-backed node reads from its own part, by node type and
+ * property. `null` means the part is unknown and the slider has no range.
+ */
+const PART_SLIDER_BOUNDS: Record<string, Record<string, (partId: unknown) => { min: number; max: number } | null>> = {
+  PwmDriverOutput: { pwmHz: pwmDriverHzRange },
+}
+
 /** Select choices that depend on another property of the same node. */
 export function propertyOptions(
   nodeType: string,
@@ -1901,9 +1930,8 @@ export function propertyOptions(
 ): readonly string[] {
   const meta = propertyMeta(nodeType, key)
   if (meta?.control !== 'select') return []
-  if (nodeType === 'PowerMonitorInput' && key === 'i2cAddress') {
-    return powerMonitorAddressOptions(properties.partId)
-  }
+  const partOptions = PART_SELECT_OPTIONS[nodeType]?.[key]
+  if (partOptions) return partOptions(properties.partId)
   if (nodeType === 'MatrixOutput' && key === 'dataRateMhz') {
     return dataRateOptionsMhz(String(properties.chipset ?? 'WS2812B')).map(String)
   }
@@ -4315,7 +4343,7 @@ export function resolveNodeNumericProperties(
     if (typeof fallback !== 'number') {
       if (typeof value === 'string' && !SELECT_ID_SHAPE.test(value)) {
         const meta = propertyMeta(nodeType, key)
-        if (meta?.control === 'select' && !meta.options.includes(value)) {
+        if (meta?.control === 'select' && !propertyOptions(nodeType, key, properties).includes(value)) {
           resolved ??= { ...properties }
           resolved[key] = ''
         }
@@ -4765,7 +4793,7 @@ const GPIO_PIN_PROPERTIES: Record<string, Set<string>> = {
   MotionVectorInput: new Set(['sdaPin', 'sclPin']),
   TouchPadInput: new Set(['sdaPin', 'sclPin']),
   IRRemoteInput: new Set(['pin']),
-  RelayOutput: new Set(relayPinKeys('relay-module-8ch-5v')),
+  RelayOutput: new Set(relayMaxPinKeys()),
   PowerSwitchOutput: new Set(ALL_POWER_SWITCH_CHANNELS.map((channel) => channel.pinKey)),
   PowerMonitorInput: new Set(['sdaPin', 'sclPin']),
   BuzzerOutput: new Set(['sigPin']),

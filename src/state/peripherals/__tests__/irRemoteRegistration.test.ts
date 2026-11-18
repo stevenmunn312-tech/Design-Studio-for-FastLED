@@ -299,9 +299,10 @@ describe('the offered IR receivers', () => {
     }
   })
 
-  it('resolves an unset or stale module to the one the shelf offers first', () => {
+  it('resolves an unset module to the default and an unknown one to nothing', () => {
     expect(irReceiverModuleFor(undefined)).toBe(IR_RECEIVER_MODULES[0])
-    expect(irReceiverModuleFor('a-receiver-nobody-catalogued')).toBe(IR_RECEIVER_MODULES[0])
+    expect(irReceiverModuleFor('')).toBe(IR_RECEIVER_MODULES[0])
+    expect(irReceiverModuleFor('a-receiver-nobody-catalogued')).toBeNull()
     expect(resolvePartIdentity('IRRemoteInput', {})?.option.id).toBe(IR_RECEIVER_MODULES[0].partId)
     expect(resolvePartIdentity('IRRemoteInput', { partId: 'tsop38238-ir-receiver' })?.option.id)
       .toBe('tsop38238-ir-receiver')

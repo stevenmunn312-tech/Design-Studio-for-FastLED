@@ -1,17 +1,12 @@
 import { partById, type PartJoystickSpec } from '../../build/parts/partCatalogue'
+import { partIdOrDefault } from './partSpec'
 
 export const KY023_PART_ID = 'ky-023-joystick-module'
 export const JOYSTICK_DEFAULT_DEADZONE = 0.08
 
-const FALLBACK_SPEC: PartJoystickSpec = {
-  device: 'KY-023',
-  interface: '2 analog axes and 1 switch',
-  axisPotOhms: 10000,
-  switchActive: 'low',
-}
-
-export function joystickSpec(partId: unknown): PartJoystickSpec {
-  return partById(String(partId ?? KY023_PART_ID))?.joystick ?? FALLBACK_SPEC
+/** The part's joystick block; `null` for an unknown part (a missing id is the default part). */
+export function joystickSpec(partId: unknown): PartJoystickSpec | null {
+  return partById(partIdOrDefault(partId, KY023_PART_ID))?.joystick ?? null
 }
 
 /** A usable dead zone: 0 to just under half the travel, else the default. */

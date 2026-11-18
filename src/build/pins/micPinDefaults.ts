@@ -41,6 +41,7 @@ export const MIC_NO_BOARD_MESSAGE = 'No board selected'
  */
 export function micUnsupportedMessage(partId: unknown): string {
   const module = micModuleFor(partId)
+  if (!module) return 'This microphone is a part this version does not have'
   // A module with its own capture adapter is refused for a reason about the
   // module, not the board, and saying only "does not work" would send someone
   // looking for a wiring fault that is not there.
@@ -135,7 +136,9 @@ export function micPinDefaultsForBoard(fqbn: string): MicI2sPins | undefined {
 export function micSupportedForBoard(fqbn: string, partId?: unknown): boolean {
   if (micPinDefaultsForBoard(fqbn) === undefined) return false
   if (partId === undefined) return true
-  return micModuleFor(partId).capture !== 'sph0645-classic-esp32' || isClassicEsp32Fqbn(fqbn)
+  const module = micModuleFor(partId)
+  if (!module) return false
+  return module.capture !== 'sph0645-classic-esp32' || isClassicEsp32Fqbn(fqbn)
 }
 
 /** Capture backend for an exact upload target. Capability and code generation

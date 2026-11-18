@@ -39,6 +39,7 @@ export const MOTION_VECTOR_HELPER_CPP: readonly string[] = [
 
 export function motionVectorAddressCpp(props: Record<string, unknown>): string {
   const spec = motionVectorSpec(props.partId)
+  if (!spec) return ''
   return formatMotionVectorAddress(motionVectorAddress(props) ?? spec.defaultI2cAddress)
 }
 
@@ -52,6 +53,7 @@ export function motionVectorLoopCpp(
   local: (port: 'accelX' | 'accelY' | 'accelZ' | 'gyroX' | 'gyroY' | 'gyroZ' | 'shake' | 'connected') => string,
 ): string[] {
   const spec = motionVectorSpec(props.partId)
+  if (!spec) return []
   const address = motionVectorAddressCpp(props)
   const accelLsb = (32768 / spec.accelRangeG).toFixed(1)
   const gyroLsb = (32768 / spec.gyroRangeDps).toFixed(3)

@@ -126,10 +126,10 @@ function esp32PwmChannels(
 ): DimmedPowerSwitchChannel[] {
   return [
     ...dimmedPowerSwitchChannels(nodes, incoming, props),
-    ...nodes.filter((candidate) => candidate.data.nodeType === 'CoolingFanOutput').map((candidate) => ({
-      key: `${candidate.id}:fan`,
-      hz: coolingFanSpec(props(candidate).partId).pwmHz,
-    })),
+    ...nodes.filter((candidate) => candidate.data.nodeType === 'CoolingFanOutput').flatMap((candidate) => {
+      const spec = coolingFanSpec(props(candidate).partId)
+      return spec ? [{ key: `${candidate.id}:fan`, hz: spec.pwmHz }] : []
+    }),
   ]
 }
 
@@ -169,7 +169,9 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
   DarlingtonDriverOutput({ node, p, ln, boolExpr, pinSetupLines }) {
     // Each input is active-high. Latch it LOW before the pin becomes an output so
     // no load pulses on during reset or setup.
-    const [on, off] = darlingtonActiveHigh(p.partId) ? ['HIGH', 'LOW'] : ['LOW', 'HIGH']
+    const activeHigh = darlingtonActiveHigh(p.partId)
+    if (activeHigh === null) return
+    const [on, off] = activeHigh ? ['HIGH', 'LOW'] : ['LOW', 'HIGH']
     for (const [index, key] of darlingtonPinKeys().entries()) {
       const pin = sanitizePin(p[key], DARLINGTON_PIN_FALLBACKS[index])
       pinSetupLines.add(`  digitalWrite(${pin}, ${off});`)
@@ -182,15 +184,18 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     // quiet graph leaves the bus quiet. The chip is configured on first contact
     // and again after any failed write, retried once a second while it is absent.
     if (!globalLines.includes(PWM_DRIVER_HELPER_CPP[0])) globalLines.push(...PWM_DRIVER_HELPER_CPP)
-    const address = formatPwmDriverAddress(pwmDriverAddress(p) ?? pwmDriverSpec(p.partId).defaultI2cAddress)
+    const spec = pwmDriverSpec(p.partId)
+    const prescale = pwmDriverPrescale(p)
+    if (!spec || prescale === null) return
+    const address = formatPwmDriverAddress(pwmDriverAddress(p) ?? spec.defaultI2cAddress)
     ln(`  static bool _pwmReady_${id} = false, _pwmTried_${id} = false; static uint32_t _pwmT_${id} = 0;`)
     ln(`  static uint16_t _pwmLast_${id}[16];`)
     ln(`  if (!_pwmReady_${id} && (!_pwmTried_${id} || millis() - _pwmT_${id} >= 1000)) {`)
     ln(`    _pwmTried_${id} = true; _pwmT_${id} = millis();`)
-    ln(`    _pwmReady_${id} = _pcaBegin(${address}, ${pwmDriverPrescale(p)});`)
+    ln(`    _pwmReady_${id} = _pcaBegin(${address}, ${prescale});`)
     ln(`    for (uint8_t i = 0; i < 16; ++i) _pwmLast_${id}[i] = 0xFFFF;`)
     ln('  }')
-    for (let channel = 0; channel < pwmDriverSpec(p.partId).channels; channel += 1) {
+    for (let channel = 0; channel < spec.channels; channel += 1) {
       const port = pwmDriverChannelId(channel)
       if (!incoming.has(`${node.id}:${port}`)) continue
       const duty = `_pwmDuty_${id}_${channel}`
@@ -203,7 +208,9 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
   BuzzerOutput({ node, id, p, ln, f, boolExpr, pinSetupLines }) {
     // Latch the silent level before the pin becomes an output so reset and
     // setup do not chirp.
-    const [on, off] = buzzerActiveHigh(p.partId) ? ['HIGH', 'LOW'] : ['LOW', 'HIGH']
+    const activeHigh = buzzerActiveHigh(p.partId)
+    if (activeHigh === null) return
+    const [on, off] = activeHigh ? ['HIGH', 'LOW'] : ['LOW', 'HIGH']
     const pin = sanitizePin(p.sigPin, BUZZER_PIN_FALLBACK)
     pinSetupLines.add(`  digitalWrite(${pin}, ${off});`)
     pinSetupLines.add(`  pinMode(${pin}, OUTPUT);`)
@@ -231,6 +238,8 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
     ln('    } }')
   },
   CoolingFanOutput({ id, p, ln, f, v, setupLines, globalLines, nodes, incoming, props }) {
+    const spec = coolingFanSpec(p.partId)
+    if (!spec) return
     const plan = powerSwitchPwmPlan(esp32PwmChannels(nodes, incoming, props))
     const emit = {
       id,
@@ -240,7 +249,7 @@ export const OUTPUT_EMITTERS: NodeEmitters = {
       speedExpr: f('speed', 'speed', 1),
       rpmVar: v('rpm'),
       runningVar: v('running'),
-      spec: coolingFanSpec(p.partId),
+      spec,
     }
     globalLines.push(...coolingFanGlobalCpp(emit))
     setupLines.push(...coolingFanSetupCpp(emit))

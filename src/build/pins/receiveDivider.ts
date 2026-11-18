@@ -9,7 +9,7 @@ const SOURCES: Record<string, { propertyKey: string; pads: readonly string[] }> 
 }
 
 export function receiveDividerSource(kind: string, partId: unknown, transport?: unknown) {
-  if (kind === 'ir-input' && irReceiverModuleFor(partId).supplyVoltage !== 5) return null
+  if (kind === 'ir-input' && irReceiverModuleFor(partId)?.supplyVoltage !== 5) return null
   if (transport === 'i2c') return null
   return SOURCES[kind] ?? null
 }

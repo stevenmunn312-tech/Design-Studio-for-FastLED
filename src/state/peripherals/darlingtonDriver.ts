@@ -1,6 +1,7 @@
 import type { NodePort } from '../../types'
 import { partById } from '../../build/parts/partCatalogue'
 import type { PartDriverChipSpec } from '../../build/parts/partCatalogue'
+import { partIdOrDefault } from './partSpec'
 
 /**
  * An eight-channel low-side Darlington array (ULN2803A). Each input at the active
@@ -15,16 +16,16 @@ export const DARLINGTON_CHANNELS = 8
 /** Output-capable on a classic ESP32 and clear of I2C and the default LED pin. */
 export const DARLINGTON_PIN_FALLBACKS = [4, 13, 14, 25, 26, 27, 32, 33]
 
-const FALLBACK_SPEC: PartDriverChipSpec = {
-  device: 'ULN2803A', package: 'DIP-18', channels: DARLINGTON_CHANNELS, outputType: 'open-collector Darlington, low-side',
-  inputActiveLevel: 'high', maxOutputVoltageV: 50, maxChannelCurrentMa: 500, pinout: [],
+/** The part's driver-chip block; `null` for an unknown part (a missing id is the default part). */
+export function darlingtonSpec(partId: unknown): PartDriverChipSpec | null {
+  return partById(partIdOrDefault(partId, DARLINGTON_PART_ID))?.driverChip ?? null
 }
 
-export function darlingtonSpec(partId: unknown): PartDriverChipSpec {
-  return partById(String(partId ?? DARLINGTON_PART_ID))?.driverChip ?? FALLBACK_SPEC
+/** The level that drives a channel; `null` for an unknown part. */
+export const darlingtonActiveHigh = (partId: unknown): boolean | null => {
+  const spec = darlingtonSpec(partId)
+  return spec ? spec.inputActiveLevel === 'high' : null
 }
-
-export const darlingtonActiveHigh = (partId: unknown) => darlingtonSpec(partId).inputActiveLevel === 'high'
 
 /** Channel numbers are the chip's own, 1B to 8B. */
 export const darlingtonChannelId = (index: number) => `channel${index + 1}`

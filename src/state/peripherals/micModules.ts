@@ -12,6 +12,8 @@
 // is a variant of I2S and PDM only, so listing one would be the
 // misrepresentation `partOptions.ts` exists to prevent.
 
+import { partIdOrDefault } from './partSpec'
+
 export interface MicModule {
   /** Catalogue part id. Also the value stored in the node's `partId`. */
   partId: string
@@ -86,16 +88,20 @@ export const MIC_MODULES: readonly MicModule[] = [
   },
 ]
 
-/** The module a MicInput carrying no choice, or a stale one, resolves to. */
-export const DEFAULT_MIC_MODULE = MIC_MODULES[0]
+/** The module a MicInput carrying no choice resolves to. */
+export const DEFAULT_MIC_PART_ID = 'inmp441-i2s-microphone'
 
 /**
- * The module a saved `partId` names.
- *
- * Falls back to the default rather than returning nothing: an unset or stale
- * property means "the module the app was built around", never "no microphone" —
- * the same rule `resolvePartIdentity` follows for every other part.
+ * The module a saved `partId` names. A missing id is the default microphone; an
+ * unknown one is `null`, never another module's facts (`partResolution` holds
+ * such a node).
  */
-export function micModuleFor(partId: unknown): MicModule {
-  return MIC_MODULES.find((module) => module.partId === partId) ?? DEFAULT_MIC_MODULE
+export function micModuleFor(partId: unknown): MicModule | null {
+  const id = partIdOrDefault(partId, DEFAULT_MIC_PART_ID)
+  return MIC_MODULES.find((module) => module.partId === id) ?? null
 }
+
+/** The default module, by its id. */
+export const DEFAULT_MIC_MODULE: MicModule = MIC_MODULES.find((module) => module.partId === DEFAULT_MIC_PART_ID) ?? (() => {
+  throw new Error(`The default microphone ${DEFAULT_MIC_PART_ID} is not in MIC_MODULES`)
+})()
