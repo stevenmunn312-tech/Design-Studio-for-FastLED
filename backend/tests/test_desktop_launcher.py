@@ -153,3 +153,13 @@ def test_configure_environment_honours_the_data_dir_override(monkeypatch, tmp_pa
     monkeypatch.setenv("FLS_DATA_DIR", str(override))
 
     assert launcher.configure_environment() == override.resolve()
+
+
+def test_only_web_links_are_handed_to_the_browser(monkeypatch):
+    opened = []
+    monkeypatch.setattr(launcher.webbrowser, "open", opened.append)
+    for uri in ["https://github.com/owner/repo", "http://example.com/", "mailto:someone@example.com",
+                "file:///C:/Windows/System32/calc.exe", "ms-settings:privacy", "javascript:alert(1)",
+                "search-ms:query=x", "C:/Windows/System32/calc.exe"]:
+        launcher.hand_to_browser(uri)
+    assert opened == ["https://github.com/owner/repo", "http://example.com/", "mailto:someone@example.com"]

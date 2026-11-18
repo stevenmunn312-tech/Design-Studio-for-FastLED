@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import codecs
 import functools
+import hashlib
 import io
 import json
 import os
@@ -2105,6 +2106,21 @@ def locate_cli(payload: dict = Body(...)):
     return {"ok": True, "version": (proc.stdout or "").strip()}
 
 
+# The arduino-cli release the Install button fetches, and the SHA-256 of each
+# archive from that release's own checksum file
+# (https://downloads.arduino.cc/arduino-cli/<version>-checksums.txt). The
+# download is run as a program, so it is checked against these before it is
+# unpacked. Moving to a newer release means changing both together.
+_ARDUINO_CLI_VERSION = "1.5.1"
+_ARDUINO_CLI_SHA256 = {
+    "Windows_64bit.zip": "fabe42e0eb04d00e776a66178299ff95a46c623dbc260f997e58fd514853dd40",
+    "Linux_64bit.tar.gz": "28a8e119c498a25607821c36cb2dc49e8463941b261a0d99091baa7bc692dd2b",
+    "Linux_ARM64.tar.gz": "1e69e077479f300614d4551334e0a33f08ee40b04315d83b8e7e0e94f0d0ee62",
+    "macOS_64bit.tar.gz": "c982e940027996bea9901050e95fae99c59c1dcfee54beedecaf28141e7bf2e7",
+    "macOS_ARM64.tar.gz": "cb952e8c1621c95ef5f1d17831c945e3d0ec5973f89c557a7ec8feb9c4f7d4c9",
+}
+
+
 def _cli_asset() -> tuple[str, str, str] | None:
     """(asset-name, archive-ext, binary-name) for this OS/arch, or None."""
     sys_, mach = platform.system(), platform.machine().lower()
@@ -2130,7 +2146,7 @@ def install_cli():
             yield f"[error] no arduino-cli build for {platform.system()}/{platform.machine()}\n"
             return
         name, ext, binary = asset
-        url = f"https://downloads.arduino.cc/arduino-cli/arduino-cli_latest_{name}.{ext}"
+        url = f"https://downloads.arduino.cc/arduino-cli/arduino-cli_{_ARDUINO_CLI_VERSION}_{name}.{ext}"
         yield f"Downloading {url}\n"
         try:
             with urllib.request.urlopen(url, timeout=60) as resp:
@@ -2152,6 +2168,9 @@ def install_cli():
                 buf.seek(0)
         except Exception as e:
             yield f"[error] download failed: {e}\n"
+            return
+        if hashlib.sha256(buf.getvalue()).hexdigest() != _ARDUINO_CLI_SHA256.get(f"{name}.{ext}"):
+            yield "[error] the download does not match the published arduino-cli release; nothing was installed\n"
             return
 
         yield "Extracting…\n"

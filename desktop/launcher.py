@@ -254,6 +254,22 @@ def opens_in_browser(uri: str, origin: str) -> bool:
     return not is_app_url(uri, origin)
 
 
+def hand_to_browser(uri: str) -> None:
+    """Open a web link in the default browser; drop anything else.
+
+    `webbrowser.open` passes its argument to the operating system, which runs
+    whatever handler is registered for the scheme: `file:` opens a local file
+    or program, and installed apps add schemes of their own. A page the user
+    is only looking at must not reach those.
+    """
+    try:
+        scheme = urlsplit(uri).scheme.lower()
+    except ValueError:
+        return
+    if scheme in ("http", "https", "mailto"):
+        webbrowser.open(uri)
+
+
 def native_window_available(platform: str = sys.platform) -> bool:
     """True when pywebview can drive the Edge WebView2 runtime on this machine."""
     if platform != "win32":
@@ -288,14 +304,14 @@ def _install_webview_overrides(origin: str) -> None:
         uri = str(args.get_Uri())
         if opens_in_browser(uri, origin):
             args.set_Handled(True)
-            webbrowser.open(uri)
+            hand_to_browser(uri)
         # Otherwise leave the request unhandled so WebView2 opens its own popup.
 
     def on_navigation_start(self, sender, args):
         uri = str(args.get_Uri())
         if opens_in_browser(uri, origin) and not uri.startswith("about:"):
             args.set_Cancel(True)
-            webbrowser.open(uri)
+            hand_to_browser(uri)
             return
         original_navigation(self, sender, args)
 

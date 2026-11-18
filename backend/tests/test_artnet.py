@@ -3,6 +3,8 @@ snapshots, and expose them over HTTP for the browser preview."""
 import socket
 import time
 
+import streaming
+
 
 def _free_udp_port() -> int:
     probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -100,3 +102,15 @@ def test_artnet_stop_clears_listener_state_and_snapshot_cache(client):
     assert snapshot["packetRate"] == 0.0
     assert snapshot["lastPacketAt"] is None
     assert snapshot["channels"] == [0] * 512
+
+
+def test_a_sender_walking_the_universe_numbers_cannot_grow_the_table(client):
+    port = _free_udp_port()
+    assert client.post("/api/artnet/start", json={"port": port, "universe": 0}).json()["ok"]
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        for universe in range(200):
+            sock.sendto(_artnet_dmx_packet(universe, bytes([1])), ("127.0.0.1", port))
+        sock.sendto(_artnet_dmx_packet(7000, bytes([9])), ("127.0.0.1", port))
+    snapshot = _wait_for_valid_snapshot(client, 7000)
+    assert snapshot["channels"][0] == 9
+    assert len(streaming._artnet_snapshots) <= streaming._ARTNET_MAX_UNIVERSES

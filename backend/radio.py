@@ -17,9 +17,12 @@ anything is fetched. See docs/design/internet-radio.md.
 """
 from __future__ import annotations
 
+import ipaddress
 import re
+import socket
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from http.client import HTTPResponse
@@ -66,9 +69,50 @@ def station_url_problem(url: str) -> str | None:
     return None
 
 
+def _resolve(host: str) -> list[str]:
+    return [info[4][0] for info in socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)]
+
+
+def station_host_problem(url: str) -> str | None:
+    """Why the relay will not connect to this URL's host, or None.
+
+    A station on the home network is ordinary (a local Icecast), so private
+    addresses pass. This computer itself and link-local addresses do not: a
+    station list comes with a shared project, and the helper answers its own
+    loopback requests without the origin check a browser's would get.
+    """
+    host = urllib.parse.urlsplit(url).hostname or ""
+    try:
+        addresses = _resolve(host)
+    except OSError:
+        return "The station's host name was not found."
+    for text in addresses:
+        address = ipaddress.ip_address(text.split("%")[0])
+        if (address.is_loopback or address.is_link_local or address.is_unspecified
+                or address.is_multicast or address.is_reserved):
+            return "The stream URL points at this computer or a local-only address."
+    return None
+
+
+class _CheckedRedirects(urllib.request.HTTPRedirectHandler):
+    """A redirect is held to the rules its first URL passed."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        problem = station_url_problem(newurl) or station_host_problem(newurl)
+        if problem:
+            raise urllib.error.URLError(problem)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_opener = urllib.request.build_opener(_CheckedRedirects)
+
+
 def _open(url: str) -> HTTPResponse:
+    problem = station_host_problem(url)
+    if problem:
+        raise OSError(problem)
     request = urllib.request.Request(url, headers={"Icy-MetaData": "1", "User-Agent": _USER_AGENT})
-    return urllib.request.urlopen(request, timeout=_CONNECT_TIMEOUT_S)  # noqa: S310 - scheme checked above
+    return _opener.open(request, timeout=_CONNECT_TIMEOUT_S)  # noqa: S310 - scheme checked above
 
 
 def _is_playlist(url: str, content_type: str) -> bool:

@@ -203,6 +203,10 @@ _artnet_port: int = 6454
 _artnet_multicast_group: str | None = None
 _artnet_error: str | None = None
 _artnet_snapshots: dict[int, dict] = {}
+# The listener hears the whole network, and a universe number is two bytes
+# anyone can send. Without a limit, one sender walking the numbers holds a
+# 512-byte table for each of them.
+_ARTNET_MAX_UNIVERSES = 64
 
 
 def _artnet_blank_channels() -> list[int]:
@@ -308,6 +312,9 @@ def _artnet_listener_loop(sock: socket.socket, stop_event: threading.Event) -> N
             now = time.time()
             with _artnet_lock:
                 previous = _artnet_snapshots.get(universe)
+                if previous is None and len(_artnet_snapshots) >= _ARTNET_MAX_UNIVERSES:
+                    quietest = min(_artnet_snapshots, key=lambda key: _artnet_snapshots[key]["last_packet_at"])
+                    del _artnet_snapshots[quietest]
                 prev_at = float(previous["last_packet_at"]) if previous and previous.get("last_packet_at") is not None else None
                 packet_rate = (1.0 / max(0.001, now - prev_at)) if prev_at is not None else 0.0
                 _artnet_snapshots[universe] = {

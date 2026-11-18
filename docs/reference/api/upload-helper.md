@@ -48,7 +48,7 @@ CORS allows matching local origins to read responses.
 | POST | `/api/ddp/stop` | Stop the DDP listener. |
 | GET | `/api/ddp/frame` | Return the latest DDP frame as base64 bytes (optional `pixels` limit). |
 | POST | `/api/arduino-cli/locate` | Point the helper at a user-supplied `arduino-cli` binary. |
-| POST | `/api/arduino-cli/install` | Download the official `arduino-cli` into `backend/bin`. |
+| POST | `/api/arduino-cli/install` | Download the pinned official `arduino-cli` release into `backend/bin`, after checking its SHA-256. |
 | GET | `/api/cores` | List board-manager cores (`arduino-cli` engine only). |
 | POST | `/api/core/install` | Install a board-manager core. |
 | POST | `/api/core/updates` | Check installed board cores for updates. |

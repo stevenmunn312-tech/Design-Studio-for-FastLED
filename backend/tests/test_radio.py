@@ -55,3 +55,31 @@ def test_another_site_cannot_use_the_relay(client):
     response = client.get("/api/radio/stream", params={"url": "http://x.example.com/live"},
                           headers={"Origin": "http://evil.example"})
     assert response.status_code == 403
+
+
+def test_the_relay_will_not_fetch_from_this_computer(client, monkeypatch):
+    # A station list arrives with a shared project, and the helper answers its
+    # own loopback requests without the origin check a browser's would get.
+    opened = []
+    monkeypatch.setattr(radio._opener, "open", lambda *a, **k: opened.append(a))
+    for host, address in [("localhost", "127.0.0.1"), ("rebound.example.com", "127.0.0.1"),
+                          ("meta.example.com", "169.254.169.254"), ("six.example.com", "::1")]:
+        monkeypatch.setattr(radio, "_resolve", lambda name, address=address: [address])
+        response = client.get("/api/radio/stream", params={"url": f"http://{host}:8008/api/serial/ports"},
+                              headers={"Origin": "http://localhost:5173"})
+        assert response.status_code == 502, host
+    assert opened == []
+
+
+def test_a_station_on_the_home_network_still_plays(monkeypatch):
+    monkeypatch.setattr(radio, "_resolve", lambda name: ["192.168.1.40"])
+    assert radio.station_host_problem("http://icecast.lan:8000/live") is None
+
+
+def test_a_redirect_is_held_to_the_same_rules(monkeypatch):
+    import pytest
+    import urllib.error
+
+    monkeypatch.setattr(radio, "_resolve", lambda name: ["127.0.0.1"])
+    with pytest.raises(urllib.error.URLError):
+        radio._CheckedRedirects().redirect_request(None, None, 302, "Found", {}, "http://localhost:8008/api/health")
