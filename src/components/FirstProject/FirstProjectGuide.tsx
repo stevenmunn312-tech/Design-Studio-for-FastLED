@@ -11,6 +11,7 @@ import { summarizeCapacity } from '../../utils/capacityFormat'
 import { describePort } from '../../utils/portStatus'
 import { findDeployBlockingErrors } from '../../utils/validateGraph'
 import { firstProjectSteps, type FirstProjectAction, type FirstProjectStep } from '../../utils/firstProjectSteps'
+import { usePartCatalogueVersion } from '../../build/parts/usePartCatalogueVersion'
 import styles from './FirstProjectGuide.module.css'
 
 /**
@@ -109,10 +110,11 @@ function GuideStrip() {
   // Wi-Fi names and passwords live outside the graph, and the network checks
   // read them: without this, a name typed in kept its "missing SSID" warning.
   const networkCredentials = useNetworkCredentialsStore((state) => state.byNodeId)
+  const catalogueVersion = usePartCatalogueVersion()
   const graphBlockerCount = useMemo(
     () => findDeployBlockingErrors(nodes, edges, selectedFqbn, displayDocuments, groups).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the validators read credentials from their store
-    [nodes, edges, selectedFqbn, displayDocuments, groups, networkCredentials],
+    [nodes, edges, selectedFqbn, displayDocuments, groups, networkCredentials, catalogueVersion],
   )
   const capacityVerdict = summarizeCapacity(
     boardByFqbn(selectedFqbn), capacityStatus, capacityResult, capacitySubject, capacityTarget?.preparationError,

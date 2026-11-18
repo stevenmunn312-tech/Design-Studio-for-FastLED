@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useUiStore, visibleLiveTouchScreen } from './state/uiStore'
 import { boardPartitionOf, rootGraphNodes, useGraphStore } from './state/graphStore'
 import { registerEmbeddedParts } from './build/parts/signedParts'
+import { getPartsLibrary } from './build/parts/partsLibrary'
 import { useAudioStore } from './state/audio/audioStore'
 import { useShowPlayback } from './state/player/showPlayback'
 import { AudioEngine } from './audio/audioEngine'
@@ -216,6 +217,9 @@ export default function App() {
   useEffect(() => {
     let cancelled = false
     const init = async () => {
+      // Parts installed from the online library in an earlier session, re-verified
+      // before any project loads so a save finds them already registered.
+      await getPartsLibrary().restoreInstalled()
       if (window.location.hash.replace(/^#/, '').startsWith('share=')) {
         try {
           const shared = readSharedWorkspace()

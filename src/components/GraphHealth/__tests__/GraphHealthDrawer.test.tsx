@@ -6,6 +6,9 @@ import { useUiStore } from '../../../state/uiStore'
 import { useUploadStore } from '../../../state/upload/uploadStore'
 import { useBoardLinkKeyStore } from '../../../state/peripherals/boardLinkKey'
 import { useNetworkCredentialsStore } from '../../../state/peripherals/networkCredentials'
+import { PART_CATALOGUE, registerParts, resetRegisteredPartsForTests, type PartCatalogueEntry } from '../../../build/parts/partCatalogue'
+import { partTypeById } from '../../../build/parts/partTypes'
+import { PART_MANIFEST_VERSION } from '../../../build/parts/manifest/vocabulary'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   return {
@@ -38,6 +41,39 @@ describe('GraphHealthDrawer', () => {
       designWorkspaceView: { kind: 'graph' },
     })
     useUploadStore.setState({ selectedFqbn: 'esp32:esp32:esp32s3' })
+  })
+
+  // A part registers after the project loads (a download, a saved copy that
+  // verified late): its "unknown part" card has to clear on its own.
+  it('clears the unknown-part card when the part registers', () => {
+    const definition = partTypeById('PowerMonitorInput') as { downloadable: boolean }
+    const before = definition.downloadable
+    definition.downloadable = true
+    try {
+      useGraphStore.getState().loadGraph([
+        node('monitor', 'PowerMonitorInput', { partId: 'late-monitor' }),
+      ], [])
+      const { queryAllByText } = render(<GraphHealthDrawer />)
+      expect(queryAllByText(/uses a part this version doesn't have/).length).toBeGreaterThan(0)
+      const base = JSON.parse(JSON.stringify(PART_CATALOGUE['adafruit-ina219-current-sensor'])) as PartCatalogueEntry
+      act(() => {
+        registerParts([{
+          ...base,
+          partId: 'late-monitor',
+          label: 'Late monitor',
+          manifestVersion: PART_MANIFEST_VERSION,
+          revision: 1,
+          partTypes: ['PowerMonitorInput'],
+          categories: [],
+          verification: 'reviewed',
+          sources: [{ facts: ['dimensionsMm'], ref: 'https://example.test/datasheet' }],
+        }], 'downloaded')
+      })
+      expect(queryAllByText(/uses a part this version doesn't have/)).toHaveLength(0)
+    } finally {
+      definition.downloadable = before
+      resetRegisteredPartsForTests()
+    }
   })
 
   // Wi-Fi names live outside the graph. Typed in after the last graph edit,

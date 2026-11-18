@@ -40,6 +40,7 @@ import { LED_OUTPUT_NODE_TYPE } from '../Hardware/hardwarePartCatalog'
 import { addPowerSupplyToBoard, addProviderPartToBoard, addRtcModuleToBoard, PROVIDER_PART_NAMES } from '../Hardware/hardwarePartActions'
 import { boardIdOf, boardNodesIn } from '../../build/boardPartition'
 import { boardLinkSettings, getBoardLinkKey } from '../../state/peripherals/boardLinkKey'
+import { usePartCatalogueVersion } from '../../build/parts/usePartCatalogueVersion'
 import styles from './GraphHealthDrawer.module.css'
 
 type Filter = 'all' | GraphDiagnosticSeverity
@@ -120,6 +121,8 @@ export default function GraphHealthDrawer() {
   // Wi-Fi names and passwords live outside the graph, and the network checks
   // read them: without this, a name typed in kept its "missing SSID" warning.
   const networkCredentials = useNetworkCredentialsStore((state) => state.byNodeId)
+  // A part that registers after load (a download, a save's embedded copy) clears its "unknown part" card.
+  const catalogueVersion = usePartCatalogueVersion()
 
   // The root graph is validated one board at a time, each against its own
   // FQBN, and merged (multiBoardValidation); with one board that is exactly
@@ -139,7 +142,7 @@ export default function GraphHealthDrawer() {
         capabilityNodes,
         displayDocuments, groups,
       // eslint-disable-next-line react-hooks/exhaustive-deps -- the validators read credentials from their store
-      })), [activeGraphId, activeBoardId, uploadTargets, capabilityNodes, edges, nodes, selectedFqbn, displayDocuments, groups, networkCredentials, supplyPromptDismissed])
+      })), [activeGraphId, activeBoardId, uploadTargets, capabilityNodes, edges, nodes, selectedFqbn, displayDocuments, groups, networkCredentials, supplyPromptDismissed, catalogueVersion])
   const errors = diagnostics.filter((issue) => issue.severity === 'error').length
   const warnings = diagnostics.length - errors
 
