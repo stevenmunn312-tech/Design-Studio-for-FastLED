@@ -253,6 +253,15 @@ export function validatePartManifest(value: unknown, origin: ManifestOrigin): Pa
   for (const key of PART_BLOCK_KEYS) {
     if (value[key] !== undefined) errors.push(...checkField(PART_BLOCK_SPECS[key], value[key], key))
   }
+  // A microphone is captured either by FastLED (a factory and the profile that
+  // goes with it) or by the app's own adapter; a block naming neither could not be
+  // driven, and one half of a pair would emit a call to nothing.
+  if (isPlainObject(value.microphone)) {
+    const mic = value.microphone
+    if (!mic.captureAdapter && !(mic.fastledFactory && mic.fastledProfile)) {
+      errors.push('microphone: needs fastledFactory with fastledProfile, or a captureAdapter')
+    }
+  }
 
   const typeIds = value.partTypes
   const usableTypes: PartTypeDefinition[] = []

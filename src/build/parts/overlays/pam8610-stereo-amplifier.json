@@ -12,7 +12,8 @@
       "facts": [
         "pinLabelsLeftToRight",
         "logicVoltage",
-        "notes"
+        "notes",
+        "powerAmp"
       ],
       "ref": "https://www.diodes.com/assets/Datasheets/PAM8610.pdf"
     },
@@ -25,7 +26,15 @@
   ],
   "copy": {
     "summary": "2 x 15 W, 12 V — line level in",
-    "wiringNote": "Needs its own 7-15 V supply; the controller cannot power it. Share its ground with the board and the DAC."
+    "wiringNote": "Needs its own 7-15 V supply; the controller cannot power it. Share its ground with the board and the DAC.",
+    "optionLabel": "PAM8610",
+    "optionOrder": 2
+  },
+  "powerAmp": {
+    "device": "PAM8610",
+    "supplyVolts": 12,
+    "channels": 2,
+    "inputKind": "line"
   },
   "pads": [
     {

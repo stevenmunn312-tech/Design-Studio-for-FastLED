@@ -309,6 +309,28 @@ export const PART_BLOCK_SPECS = {
       usbOutput: bool(),
     })),
   }),
+  // The two FastLED words are interpolated into the sketch, so they are a closed list
+  // (the factories and profiles the pinned FastLED ships), never free text.
+  microphone: obj({
+    device: str({ nonEmpty: true }),
+    fastledFactory: opt(oneOf('CreateInmp441', 'CreateIcs43434', 'CreateGenericMEMS')),
+    fastledProfile: opt(oneOf('INMP441', 'ICS43434', 'GenericMEMS')),
+    captureAdapter: opt(oneOf('sph0645-classic-esp32')),
+  }),
+  lineInput: obj({
+    device: str({ nonEmpty: true }),
+    channels: int(1, 2),
+  }),
+  i2sAudio: obj({
+    device: str({ nonEmpty: true }),
+    output: oneOf('speaker', 'line'),
+  }),
+  powerAmp: obj({
+    device: str({ nonEmpty: true }),
+    supplyVolts: num({ min: 1, max: 60 }),
+    channels: int(1, 8),
+    inputKind: oneOf('line'),
+  }),
   display: obj({
     controller: str({ nonEmpty: true }),
     resolutionPx: tuple(int(1, 8192), int(1, 8192)),

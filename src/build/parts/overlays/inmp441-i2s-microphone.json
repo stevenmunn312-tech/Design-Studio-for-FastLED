@@ -10,7 +10,8 @@
   "sources": [
     {
       "facts": [
-        "logicVoltage"
+        "logicVoltage",
+        "microphone"
       ],
       "ref": "https://product.tdk.com/system/files/dam/doc/product/sw_piezo/mic/mems-mic/data_sheet/inmp441.pdf"
     },
@@ -23,7 +24,14 @@
     }
   ],
   "copy": {
-    "summary": "The common three-wire I2S MEMS module"
+    "summary": "The common three-wire I2S MEMS module",
+    "optionLabel": "INMP441",
+    "optionOrder": 1
+  },
+  "microphone": {
+    "device": "INMP441",
+    "fastledFactory": "CreateInmp441",
+    "fastledProfile": "INMP441"
   },
   "pads": [
     {

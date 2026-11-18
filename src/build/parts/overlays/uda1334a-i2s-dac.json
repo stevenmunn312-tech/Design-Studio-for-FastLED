@@ -13,7 +13,8 @@
         "dimensionsMm",
         "render",
         "label",
-        "notes"
+        "notes",
+        "i2sAudio"
       ],
       "ref": "https://www.adafruit.com/product/3678"
     },
@@ -39,7 +40,13 @@
   ],
   "copy": {
     "summary": "I2S DAC — line out, needs an amp",
-    "wiringNote": "Line-level I2S DAC, wired the same as the PCM5102A."
+    "wiringNote": "Line-level I2S DAC, wired the same as the PCM5102A.",
+    "optionLabel": "UDA1334A",
+    "optionOrder": 4
+  },
+  "i2sAudio": {
+    "device": "UDA1334A",
+    "output": "line"
   },
   "pads": [
     {

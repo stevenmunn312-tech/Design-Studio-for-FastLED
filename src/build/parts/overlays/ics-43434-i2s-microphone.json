@@ -10,7 +10,8 @@
   "sources": [
     {
       "facts": [
-        "notes"
+        "notes",
+        "microphone"
       ],
       "ref": "https://www.invensense.tdk.com/en-us/products/microphone/ics-43434"
     },
@@ -33,7 +34,14 @@
   ],
   "copy": {
     "summary": "Lower noise floor, same three wires",
-    "wiringNote": "Wires exactly like an INMP441 and costs about the same; firmware applies the ICS43434 response correction instead."
+    "wiringNote": "Wires exactly like an INMP441 and costs about the same; firmware applies the ICS43434 response correction instead.",
+    "optionLabel": "ICS-43434",
+    "optionOrder": 2
+  },
+  "microphone": {
+    "device": "ICS-43434",
+    "fastledFactory": "CreateIcs43434",
+    "fastledProfile": "ICS43434"
   },
   "pads": [
     {

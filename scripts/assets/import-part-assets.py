@@ -113,7 +113,18 @@ PART_MANIFEST_VERSION = 1
 OVERLAY_FIELDS = (
     "revision", "partTypes", "categories", "verification", "sources", "interfaces", "copy",
     "pads", "padHoleRadiusPx", "supplyRail", "powerPadLabel",
+    "microphone", "lineInput", "i2sAudio", "powerAmp",
 )
+# Part-type blocks an overlay carries because no part.json measures them: the
+# repo-held facts of the audio types (a FastLED factory, an output kind, a
+# supply). Each maps to the keys it may hold; the app's manifest validator
+# (blockSpecs.ts) checks the values, and its test checks every bundled part.
+OVERLAY_BLOCKS = {
+    "microphone": ("device", "fastledFactory", "fastledProfile", "captureAdapter"),
+    "lineInput": ("device", "channels"),
+    "i2sAudio": ("device", "output"),
+    "powerAmp": ("device", "supplyVolts", "channels", "inputKind"),
+}
 OVERLAY_COPY_FIELDS = {"summary": 300, "wiringNote": 600, "hint": 200, "optionLabel": 120}
 # Numbers a copy block may carry, with their inclusive range.
 OVERLAY_COPY_NUMBERS = {"optionOrder": (1, 999)}
@@ -289,6 +300,18 @@ def merge_overlay(entry: dict, overlay, category_ids: set[str], vocabulary: dict
                 raise OverlayError(f"{part_id}: copy.{key} must be plain text of at most {OVERLAY_COPY_FIELDS[key]} characters")
 
     validate_drawing_facts(part_id, entry, overlay, vocabulary)
+
+    for block, keys in OVERLAY_BLOCKS.items():
+        if block not in overlay:
+            continue
+        value = overlay[block]
+        if not isinstance(value, dict) or not value:
+            raise OverlayError(f"{part_id}: {block} must be an object")
+        unknown = sorted(set(value) - set(keys))
+        if unknown:
+            raise OverlayError(f"{part_id}: {block} names unknown field(s) {', '.join(unknown)}")
+        if not isinstance(value.get("device"), str) or not value["device"].strip():
+            raise OverlayError(f"{part_id}: {block}.device must name the chip")
 
     merged = {"manifestVersion": PART_MANIFEST_VERSION}
     merged.update(entry)

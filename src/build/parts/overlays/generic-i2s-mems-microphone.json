@@ -12,7 +12,8 @@
       "facts": [
         "dimensionsMm",
         "pinLabelsLeftToRight",
-        "label"
+        "label",
+        "microphone"
       ],
       "ref": "https://dl.sipeed.com/MAIX/HDK/Sipeed-I2S_MIC/Specifications/Sipeed%20I2S_Mic%20Datasheet%20V1.0.pdf"
     },
@@ -25,7 +26,14 @@
   ],
   "copy": {
     "summary": "Low-cost MSM261S4030H0-class board",
-    "wiringNote": "For the unbranded boards often sold as INMP441. The GenericMEMS profile is an average MEMS correction, not this module's measured response."
+    "wiringNote": "For the unbranded boards often sold as INMP441. The GenericMEMS profile is an average MEMS correction, not this module's measured response.",
+    "optionLabel": "Generic I2S MEMS",
+    "optionOrder": 3
+  },
+  "microphone": {
+    "device": "GenericMEMS",
+    "fastledFactory": "CreateGenericMEMS",
+    "fastledProfile": "GenericMEMS"
   },
   "pads": [
     {
