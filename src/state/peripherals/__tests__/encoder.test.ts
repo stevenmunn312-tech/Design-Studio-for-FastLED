@@ -5,7 +5,7 @@ import {
   peripheralChannelGroundPadIndexes, peripheralGroundPadIndex, peripheralPowerPadIndex, peripheralSignalPadIndex,
   MODULE_PAD_GEOMETRY,
 } from '../../../components/BuildDiagram/physicalDiagramLayout'
-import { INPUT_PARTS } from '../../../components/Hardware/hardwarePartCatalog'
+import { inputPartEntries } from '../../../components/Hardware/hardwarePartCatalog'
 import { partById } from '../../../build/parts/partCatalogue'
 import { PART_OPTIONS, resolvePartIdentity } from '../../../build/parts/partOptions'
 import type { StudioNode } from '../../graphStore'
@@ -49,7 +49,7 @@ describe('the catalogued SR1230', () => {
   })
 
   it('is added from the bench on pull-up-capable pins', () => {
-    const entry = INPUT_PARTS.find((part) => part.properties?.partId === SR1230_ENCODER_PART_ID)!
+    const entry = inputPartEntries().find((part) => part.properties?.partId === SR1230_ENCODER_PART_ID)!
     expect(entry.nodeType).toBe('EncoderInput')
     expect(entry.pinRequests.map((request) => request.capability)).toEqual(['pullup', 'pullup', 'pullup'])
   })

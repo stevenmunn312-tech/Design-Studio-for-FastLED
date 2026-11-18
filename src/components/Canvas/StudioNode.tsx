@@ -34,6 +34,7 @@ import {
 } from '../../state/output/ledOutputForm'
 import { stringPositions } from '../../state/output/stringPositions'
 import { partRenderForNodeType } from '../../build/parts/partRenders'
+import { usePartCatalogueVersion } from '../../build/parts/usePartCatalogueVersion'
 import MatrixSizePopup from './MatrixSizePopup'
 import BeatDetectBody from './bodies/BeatDetectBody'
 import FFTAnalyzerBody from './bodies/FFTAnalyzerBody'
@@ -1374,6 +1375,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
    * picture confirms which part you are looking at and then gets out of the
    * way. The hardware view is where it is drawn at a size worth studying.
    */
+  usePartCatalogueVersion()
   const partRender = partRenderForNodeType(d.nodeType, props)
   const scopeSamples = signalScopeSamples(d.nodeType, props)
   // Frame / palette / colour nodes show a live preview of their primary output,

@@ -14,6 +14,7 @@
 
 import { PART_CATALOGUE_DATA } from '../generated/partCatalogueData'
 import type { RenderIndicator } from '../boards/boardCapabilities'
+import { validatePartManifest, type ManifestOrigin, type PartManifest } from './manifest/partManifest'
 
 export type PartCategory =
   | 'microphone' | 'amplifier' | 'storage' | 'led-output'
@@ -563,7 +564,196 @@ export interface PartCatalogueEntry {
   render?: PartRenderAsset
 }
 
-export const PART_CATALOGUE: Record<string, PartCatalogueEntry> = PART_CATALOGUE_DATA
+/*
+ * The catalogue is a runtime registry. It starts as the bundled parts, in the
+ * generated file's order, and can gain parts later: a save's embedded
+ * manifests, or a package from the signed index. Every reader goes through
+ * `PART_CATALOGUE` or `partById`, so an added part is seen by all of them the
+ * moment it is registered.
+ *
+ * What a reader must do about that:
+ *   - never cache a value derived from the catalogue at module load. Read it
+ *     when asked, or memoise it with `memoByCatalogue`, which recomputes when
+ *     the catalogue version moves;
+ *   - in React, call `usePartCatalogueVersion()` (./usePartCatalogueVersion)
+ *     in any component that reads the catalogue outside a hook that already
+ *     depends on the graph, so it renders again when a part arrives.
+ *
+ * Bundled parts are never replaced, so a value derived only from a bundled id
+ * (a node's default part, say) cannot go stale and needs none of this.
+ */
+export type PartOrigin = ManifestOrigin
+
+const BUNDLED_PART_IDS: ReadonlySet<string> = new Set(Object.keys(PART_CATALOGUE_DATA))
+
+interface RegisteredPart {
+  manifest: PartManifest
+  origin: PartOrigin
+  /** Node type ids this app can use the part for, in the manifest's order. */
+  usableTypes: readonly string[]
+}
+
+const registeredParts = new Map<string, RegisteredPart>()
+const catalogueListeners = new Set<() => void>()
+let catalogueRevision = 0
+
+const catalogueEntries: Record<string, PartCatalogueEntry> = { ...PART_CATALOGUE_DATA }
+
+/**
+ * Every part, bundled first. A write through this object (a test adding a
+ * fixture part, say) moves the version like `registerParts` does, so a value
+ * memoised by version can never go stale behind it. `registerParts` is the way
+ * to add a real part: it validates, and it records where the part came from.
+ */
+export const PART_CATALOGUE: Record<string, PartCatalogueEntry> = new Proxy(catalogueEntries, {
+  set(target, key, value) {
+    const written = Reflect.set(target, key, value)
+    catalogueChanged()
+    return written
+  },
+  deleteProperty(target, key) {
+    const had = Object.prototype.hasOwnProperty.call(target, key)
+    const deleted = Reflect.deleteProperty(target, key)
+    if (had) catalogueChanged()
+    return deleted
+  },
+})
+
+export type PartRegistrationStatus =
+  /** A new part joined the catalogue. */
+  | 'added'
+  /** A higher revision of a registered part replaced the earlier one. */
+  | 'replaced'
+  /** The same revision is already registered. */
+  | 'unchanged'
+  /** A bundled part has this id (or the registered one is bundled): it is never replaced. */
+  | 'kept-bundled'
+  /** A registered part of a higher revision has this id. */
+  | 'kept-newer'
+  | 'needs-newer-app'
+  | 'invalid'
+
+export interface PartRegistration {
+  partId: string | null
+  status: PartRegistrationStatus
+  /** Why a part was not added; empty for `added`, `replaced` and `unchanged`. */
+  reasons: string[]
+}
+
+/** Moves whenever the set of parts, or any registered part, changes. Starts at 0. */
+export function catalogueVersion(): number {
+  return catalogueRevision
+}
+
+/** Call `listener` after every catalogue change. Returns the unsubscribe. */
+export function subscribeCatalogue(listener: () => void): () => void {
+  catalogueListeners.add(listener)
+  return () => { catalogueListeners.delete(listener) }
+}
+
+function catalogueChanged(): void {
+  catalogueRevision += 1
+  for (const listener of [...catalogueListeners]) listener()
+}
+
+/**
+ * Memoise a value derived from the catalogue. The returned reader recomputes
+ * only when the catalogue version has moved, so its result is also referentially
+ * stable between changes (safe as a React dependency).
+ */
+export function memoByCatalogue<T>(compute: () => T): () => T {
+  let at = -1
+  let value: T
+  return () => {
+    if (at !== catalogueRevision) {
+      value = compute()
+      at = catalogueRevision
+    }
+    return value
+  }
+}
+
+/**
+ * Add parts to the catalogue.
+ *
+ * Every manifest goes through `validatePartManifest` for `origin`; only an `ok`
+ * one is added, and the rest are reported, never thrown. A registered part
+ * never replaces a bundled one. A later revision replaces an earlier one with
+ * the same id only when both are downloaded: a downloaded part never takes the
+ * place of one registered as bundled. Listeners fire once per call that
+ * changed anything.
+ *
+ * Nothing here fetches. Callers (a save's embedded parts, the signed index)
+ * hand in what they already hold.
+ */
+export function registerParts(manifests: readonly unknown[], origin: PartOrigin): PartRegistration[] {
+  let changed = false
+  const results = manifests.map((candidate): PartRegistration => {
+    const checked = validatePartManifest(candidate, origin)
+    if (checked.status === 'invalid') return { partId: checked.partId, status: 'invalid', reasons: checked.errors }
+    if (checked.status === 'needs-newer-app') {
+      return { partId: checked.partId, status: 'needs-newer-app', reasons: checked.reasons }
+    }
+    const { manifest } = checked
+    const id = manifest.partId
+    if (BUNDLED_PART_IDS.has(id)) {
+      return { partId: id, status: 'kept-bundled', reasons: ['a bundled part has this id and is never replaced'] }
+    }
+    const existing = registeredParts.get(id)
+    let status: PartRegistrationStatus = 'added'
+    if (existing) {
+      if (existing.origin === 'bundled' && origin !== 'bundled') {
+        return { partId: id, status: 'kept-bundled', reasons: ['a bundled part has this id and is never replaced'] }
+      }
+      if (manifest.revision === existing.manifest.revision) return { partId: id, status: 'unchanged', reasons: [] }
+      if (manifest.revision < existing.manifest.revision) {
+        return { partId: id, status: 'kept-newer', reasons: [`revision ${existing.manifest.revision} is already registered`] }
+      }
+      status = 'replaced'
+    }
+    // A manifest is JSON by contract; a copy keeps the caller from editing the catalogue.
+    const stored = JSON.parse(JSON.stringify(manifest)) as PartManifest
+    registeredParts.set(id, { manifest: stored, origin, usableTypes: checked.usableTypes.map((type) => type.nodeType) })
+    catalogueEntries[id] = stored
+    changed = true
+    return { partId: id, status, reasons: [] }
+  })
+  if (changed) catalogueChanged()
+  return results
+}
+
+/** Where a part came from, or undefined for an id the catalogue does not hold. */
+export function partOrigin(partId: string): PartOrigin | undefined {
+  if (BUNDLED_PART_IDS.has(partId)) return 'bundled'
+  return registeredParts.get(partId)?.origin
+}
+
+/** Registered (non-bundled-data) parts the app can use for `nodeType`, in registration order. */
+export function registeredPartsForType(nodeType: string): PartManifest[] {
+  const parts: PartManifest[] = []
+  for (const entry of registeredParts.values()) {
+    if (entry.usableTypes.includes(nodeType)) parts.push(entry.manifest)
+  }
+  return parts
+}
+
+/** The node types a registered part can be used for; empty for any other id. */
+export function registeredPartTypes(partId: string): readonly string[] {
+  return registeredParts.get(partId)?.usableTypes ?? []
+}
+
+/** Every registered part, in registration order. */
+export function registeredPartManifests(): PartManifest[] {
+  return [...registeredParts.values()].map((entry) => entry.manifest)
+}
+
+/** Test only: drop every registered part, back to the bundled catalogue. */
+export function resetRegisteredPartsForTests(): void {
+  if (registeredParts.size === 0) return
+  for (const id of registeredParts.keys()) delete catalogueEntries[id]
+  registeredParts.clear()
+  catalogueChanged()
+}
 
 export function partById(partId: string): PartCatalogueEntry | undefined {
   return PART_CATALOGUE[partId]

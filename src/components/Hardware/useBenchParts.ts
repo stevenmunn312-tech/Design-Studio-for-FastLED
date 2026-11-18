@@ -6,6 +6,7 @@ import { nextFreeLedDataPin } from '../../build/pins/ledPinAssignment'
 import { ringDiameterMm, partPinLabelForProperty, partRenderSrc } from '../../build/parts/partCatalogue'
 import { normalizeButtonBankEntries, buttonBankHandle } from '../../state/player/buttonBank'
 import { resolvePartIdentity } from '../../build/parts/partOptions'
+import { usePartCatalogueVersion } from '../../build/parts/usePartCatalogueVersion'
 import { INTEGRATED_BOARD_PROFILE_KEY } from '../../build/boards/integratedBoardHardware'
 import { boardScreensFor } from './benchScreenGeometry'
 import { boardProfileById, type PhysicalBoardProfile } from '../../build/boards/boardProfiles'
@@ -16,7 +17,7 @@ import {
   corkscrewStartAngle, corkscrewDirection, corkscrewDiameterMm, corkscrewHeightMm,
 } from '../../state/output/ledOutputForm'
 import {
-  INPUT_PARTS, LED_OUTPUT_NODE_TYPE, FIXTURE_PARTS, modulePinKeys, MODULE_PIN_LABELS, numericPinSummary,
+  inputPartEntries, LED_OUTPUT_NODE_TYPE, FIXTURE_PARTS, modulePinKeys, MODULE_PIN_LABELS, numericPinSummary,
   VU_PAIR_WIDTH_MM, CATALOGUE_SENSOR_NODE_TYPES,
 } from './hardwarePartCatalog'
 import type { StudioNode, StudioEdge } from '../../state/graphStore'
@@ -35,6 +36,8 @@ export interface BenchPartsInputs {
 
 /** The parts on the bench, recomputed only when the root graph changes. */
 export function useBenchParts({ nodes, edges, selectedBoard, boardUnresolved = false }: BenchPartsInputs) {
+  // A part registered after load changes what a node's module resolves to.
+  const catalogue = usePartCatalogueVersion()
   /*
    * Every input part on the canvas, paired with its catalogue entry. Several
    * buttons are ordinary, so a part id has to distinguish them — the entry's
@@ -45,14 +48,14 @@ export function useBenchParts({ nodes, edges, selectedBoard, boardUnresolved = f
     return nodes
       .flatMap((node) => {
         const props = node.data.properties as Record<string, unknown>
-        const entry = INPUT_PARTS.find((candidate) =>
+        const entry = inputPartEntries().find((candidate) =>
           candidate.nodeType === node.data.nodeType
           && candidate.properties?.partId === props.partId,
         ) ?? (CATALOGUE_SENSOR_NODE_TYPES.has(node.data.nodeType)
           // A sensor's footprint is its own part's. Another part's would draw a
           // different module in its place; the validator names the missing part.
           ? undefined
-          : INPUT_PARTS.find((candidate) => candidate.nodeType === node.data.nodeType))
+          : inputPartEntries().find((candidate) => candidate.nodeType === node.data.nodeType))
         if (!entry) return []
         const index = seen.get(entry.nodeType) ?? 0
         seen.set(entry.nodeType, index + 1)
@@ -69,7 +72,8 @@ export function useBenchParts({ nodes, edges, selectedBoard, boardUnresolved = f
           signalKey: `${node.id}:${bankFirst ? buttonBankHandle(bankFirst.id) : entry.signalPort}`,
         }]
       })
-  }, [nodes])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `catalogue` is the registry version: the memo reads the registry, not a prop
+  }, [nodes, catalogue])
   /*
    * Every LED output, in graph order. Not one strip and one panel: a board can
    * drive several, each on its own pin, and the view has to show what is
@@ -197,7 +201,8 @@ export function useBenchParts({ nodes, edges, selectedBoard, boardUnresolved = f
         modulePartId: resolvePartIdentity(node.data.nodeType, node.data.properties as Record<string, unknown>)
           ?.entry?.partId ?? null,
       }))
-  }, [boardProfile, nodes])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `catalogue` is the registry version: the memo reads the registry, not a prop
+  }, [boardProfile, nodes, catalogue])
   const fixtureParts = useMemo(() => {
     const onBoard = new Set(boardPanels.map((panel) => panel.node.id))
     // Layout ids must be unique per part, not per type: SD Card and Amplifier
@@ -256,7 +261,8 @@ export function useBenchParts({ nodes, edges, selectedBoard, boardUnresolved = f
         : null,
     }]
     })
-  }, [boardPanels, nodes])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `catalogue` is the registry version: the memo reads the registry, not a prop
+  }, [boardPanels, nodes, catalogue])
 
   return { inputParts, ledOutputs, boardProfile, nextLedPin, fixtureParts, boardPanels }
 }

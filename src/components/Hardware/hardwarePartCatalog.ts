@@ -9,7 +9,8 @@ import type { PartPinRequest } from '../../build/parts/partPinAssignment'
 import { segmentControllerFor } from '../../state/displays/segmentDisplay'
 import { OLED_TRANSPORT_PINS, oledTransportFor } from '../../state/displays/oledSurface'
 import {
-  PART_CATALOGUE, partById, partDimensionsMm, partRenderSrc, partPinLabelForProperty, type PartCatalogueEntry,
+  PART_CATALOGUE, memoByCatalogue, partById, partDimensionsMm, partRenderSrc, partPinLabelForProperty,
+  registeredPartManifests, registeredPartTypes, type PartCatalogueEntry,
 } from '../../build/parts/partCatalogue'
 import {
   ANALOG_SENSOR_NODE_TYPE, ANALOG_SENSOR_OUTPUT, analogSensorEntries, analogSensorSummary,
@@ -568,11 +569,8 @@ export function sensorInputPartEntries(catalogue: Record<string, PartCatalogueEn
   ]
 }
 
-export const INPUT_PARTS: readonly InputPartEntry[] = [
-  ...MIC_INPUT_PARTS,
-  ...IR_INPUT_PARTS,
-  ...LIGHT_INPUT_PARTS,
-  ...sensorInputPartEntries(),
+/** The input rows written out by hand, after the microphone, IR, light and sensor rows. */
+const HAND_WRITTEN_INPUT_PARTS: readonly InputPartEntry[] = [
   {
     nodeType: 'LineInput',
     partId: 'line-in',
@@ -946,6 +944,59 @@ export const INPUT_PARTS: readonly InputPartEntry[] = [
     properties: { partId: SR1230_ENCODER_PART_ID, pullup: true },
   },
 ]
+
+/**
+ * A shelf row for each registered part of a type that has an input row.
+ *
+ * The manifest supplies what it knows: the part's id, label, summary, footprint
+ * and the silkscreen of each pin. What it does not carry (which signal port
+ * lights the run, the pin requests and the fields) is the type's, and is taken
+ * from the type's default row (its first one above). Nothing is invented: a
+ * part whose pins differ from its type's default needs a type that models
+ * them, which is the part-type registry's job, not the shelf's.
+ */
+function registeredInputPartEntries(base: readonly InputPartEntry[]): InputPartEntry[] {
+  const taken = new Set(base.map((entry) => entry.partId))
+  const listed = new Set(base.flatMap((entry) =>
+    typeof entry.properties?.partId === 'string' ? [`${entry.nodeType}:${entry.properties.partId}`] : []))
+  const rows: InputPartEntry[] = []
+  for (const manifest of registeredPartManifests()) {
+    for (const nodeType of registeredPartTypes(manifest.partId)) {
+      const template = base.find((entry) => entry.nodeType === nodeType)
+      if (!template || taken.has(manifest.partId) || listed.has(`${nodeType}:${manifest.partId}`)) continue
+      taken.add(manifest.partId)
+      rows.push({
+        ...template,
+        partId: manifest.partId,
+        label: manifest.label,
+        hint: manifest.copy?.summary ?? template.hint,
+        footprint: manifest.dimensionsMm,
+        pinFields: template.pinFields.map((field) => ({
+          key: field.key,
+          label: partPinLabelForProperty(manifest.partId, field.key) ?? field.label,
+        })),
+        properties: { ...(template.properties ?? {}), partId: manifest.partId },
+      })
+    }
+  }
+  return rows
+}
+
+/**
+ * Every input row on the shelf: the bundled ones, then one per registered
+ * part. Read when asked and memoised by catalogue version, so a part registered
+ * after load appears. Bundled rows keep their order.
+ */
+export const inputPartEntries: () => readonly InputPartEntry[] = memoByCatalogue(() => {
+  const base: readonly InputPartEntry[] = [
+    ...MIC_INPUT_PARTS,
+    ...IR_INPUT_PARTS,
+    ...LIGHT_INPUT_PARTS,
+    ...sensorInputPartEntries(),
+    ...HAND_WRITTEN_INPUT_PARTS,
+  ]
+  return [...base, ...registeredInputPartEntries(base)]
+})
 
 /** Format assigned pins in the same left-to-right order as the physical header. */
 export function numericPinSummary(

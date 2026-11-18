@@ -4,7 +4,7 @@ import { generateCpp } from '../../../codegen/cppGenerator'
 import {
   peripheralGroundPadIndex, peripheralPowerNet, peripheralPowerPadIndex, peripheralSignalPadIndex,
 } from '../../../components/BuildDiagram/physicalDiagramLayout'
-import { INPUT_PARTS } from '../../../components/Hardware/hardwarePartCatalog'
+import { inputPartEntries } from '../../../components/Hardware/hardwarePartCatalog'
 import type { StudioEdge, StudioNode } from '../../graphStore'
 import { libraryDefaults, NODE_LIBRARY } from '../../nodeLibrary'
 import { partById } from '../../../build/parts/partCatalogue'
@@ -39,7 +39,7 @@ describe('the motion sensor module choice', () => {
   })
 
   it('has a shelf entry for each module that names its part', () => {
-    const entries = INPUT_PARTS.filter((entry) => entry.nodeType === 'MotionInput')
+    const entries = inputPartEntries().filter((entry) => entry.nodeType === 'MotionInput')
     expect(entries.map((entry) => entry.properties?.partId)).toEqual([PIR, RCWL])
   })
 
