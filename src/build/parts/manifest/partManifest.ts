@@ -12,14 +12,16 @@
 import type { PartCatalogueEntry } from '../partCatalogue'
 import { partTypeById, partTypeDrivesDevice, type PartTypeDefinition } from '../partTypes'
 import { DIMENSIONS_SPEC, LED_LAYOUT_SPEC, PART_BLOCK_KEYS, PART_BLOCK_SPECS, RENDER_SPEC } from './blockSpecs'
-import { arr, checkField, int, obj, opt, str, type FieldSpec } from './fieldSpec'
+import { arr, checkField, int, num, obj, opt, str, type FieldSpec } from './fieldSpec'
 import {
   isInterfaceId,
   isPinRole,
+  isSupplyRail,
   isVerificationLevel,
   PART_MANIFEST_VERSION,
   type InterfaceId,
   type PinRole,
+  type SupplyRail,
   type VerificationLevel,
 } from './vocabulary'
 
@@ -28,6 +30,14 @@ export interface PartManifestSource {
   facts: string[]
   /** A datasheet or fabrication-print URL, or a citation a reviewer can follow. */
   ref: string
+}
+
+/** One pad's point on the part's own render, in render pixels from the top-left. */
+export interface PartManifestPad {
+  /** The pad's silkscreen; the same position in `pinLabelsLeftToRight` names it. */
+  label: string
+  xPx: number
+  yPx: number
 }
 
 export interface PartManifestPin {
@@ -70,6 +80,10 @@ export interface PartManifest extends PartCatalogueEntry {
   interfaces?: InterfaceId[]
   pins?: PartManifestPin[]
   copy?: PartManifestCopy
+  pads?: PartManifestPad[]
+  padHoleRadiusPx?: number
+  supplyRail?: SupplyRail
+  powerPadLabel?: string
 }
 
 export type ManifestOrigin = 'bundled' | 'downloaded'
@@ -98,6 +112,13 @@ const COMMON_FIELDS: Record<string, FieldSpec> = {
   notes: opt(arr(str({ maxLength: 600 }), 0, 32)),
   ledLayout: opt(LED_LAYOUT_SPEC),
   render: opt(RENDER_SPEC),
+  pads: opt(arr(obj({
+    label: str({ nonEmpty: true, maxLength: 40 }),
+    xPx: num({ min: 0, max: 8192 }),
+    yPx: num({ min: 0, max: 8192 }),
+  }), 0, 128)),
+  padHoleRadiusPx: opt(num({ min: 0.1, max: 200 })),
+  powerPadLabel: opt(str({ nonEmpty: true, maxLength: 40 })),
   revision: int(1, 1_000_000),
   sources: arr(obj({
     facts: arr(str({ nonEmpty: true, maxLength: 60 }), 1, 32),
@@ -112,6 +133,34 @@ const COMMON_FIELDS: Record<string, FieldSpec> = {
 
 function isId(value: unknown): value is string {
   return typeof value === 'string' && value.length <= MAX_ID_LENGTH && ID_PATTERN.test(value)
+}
+
+/**
+ * Problems with a manifest's measured pad points that the field shapes cannot
+ * see: a pad outside the render it is measured on would draw a wire off the
+ * board, and a list that does not follow the pin labels would attach each wire
+ * to its neighbour.
+ */
+function padIssues(value: Record<string, unknown>): string[] {
+  const pads = value.pads
+  if (!Array.isArray(pads) || pads.length === 0) return []
+  const issues: string[] = []
+  const render = isPlainObject(value.render) ? value.render : null
+  const width = render && typeof render.widthPx === 'number' ? render.widthPx : null
+  const height = render && typeof render.heightPx === 'number' ? render.heightPx : null
+  const labels = Array.isArray(value.pinLabelsLeftToRight) ? value.pinLabelsLeftToRight : null
+  if (labels && labels.length !== pads.length) {
+    issues.push(`pads: ${pads.length} points for ${labels.length} pin labels`)
+  }
+  pads.forEach((pad, index) => {
+    if (!isPlainObject(pad) || typeof pad.xPx !== 'number' || typeof pad.yPx !== 'number') return
+    if (labels && typeof pad.label === 'string' && labels[index] !== pad.label) {
+      issues.push(`pads[${index}].label: expected "${String(labels[index])}"`)
+    }
+    if (width !== null && pad.xPx > width) issues.push(`pads[${index}].xPx: outside the ${width} px render`)
+    if (height !== null && pad.yPx > height) issues.push(`pads[${index}].yPx: outside the ${height} px render`)
+  })
+  return issues
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -179,6 +228,13 @@ export function validatePartManifest(value: unknown, origin: ManifestOrigin): Pa
       })
     }
   }
+
+  if (value.supplyRail !== undefined) {
+    if (typeof value.supplyRail !== 'string') errors.push('supplyRail: expected a supply rail')
+    else if (!isSupplyRail(value.supplyRail)) newerWords.push(`supply rail "${value.supplyRail}" is not known to this version`)
+  }
+
+  errors.push(...padIssues(value))
 
   for (const key of PART_BLOCK_KEYS) {
     if (value[key] !== undefined) errors.push(...checkField(PART_BLOCK_SPECS[key], value[key], key))

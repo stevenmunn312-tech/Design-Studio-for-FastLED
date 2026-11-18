@@ -31,5 +31,44 @@
   ],
   "copy": {
     "summary": "I2S in, drives a speaker directly"
-  }
+  },
+  "pads": [
+    {
+      "label": "LRC",
+      "xPx": 32,
+      "yPx": 535.7
+    },
+    {
+      "label": "BCLK",
+      "xPx": 88,
+      "yPx": 535.7
+    },
+    {
+      "label": "DIN",
+      "xPx": 144,
+      "yPx": 535.7
+    },
+    {
+      "label": "GAIN",
+      "xPx": 200,
+      "yPx": 535.7
+    },
+    {
+      "label": "SD",
+      "xPx": 256,
+      "yPx": 535.7
+    },
+    {
+      "label": "GND",
+      "xPx": 312,
+      "yPx": 535.7
+    },
+    {
+      "label": "VIN",
+      "xPx": 368,
+      "yPx": 535.7
+    }
+  ],
+  "padHoleRadiusPx": 10.5,
+  "supplyRail": "v5"
 }

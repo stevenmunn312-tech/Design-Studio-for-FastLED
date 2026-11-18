@@ -49,5 +49,24 @@
   ],
   "copy": {
     "summary": "One active-low 5 V SPDT relay"
-  }
+  },
+  "pads": [
+    {
+      "label": "GND",
+      "xPx": 279.1,
+      "yPx": 302.8
+    },
+    {
+      "label": "IN1",
+      "xPx": 309.5,
+      "yPx": 302.8
+    },
+    {
+      "label": "VCC",
+      "xPx": 339.9,
+      "yPx": 302.8
+    }
+  ],
+  "padHoleRadiusPx": 4.9,
+  "supplyRail": "v5"
 }

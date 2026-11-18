@@ -22,5 +22,29 @@
   "copy": {
     "summary": "Two-wire 7-segment with a colon",
     "wiringNote": "Four digits and a centre colon, driven over CLK and DIO. Not I2C despite the two wires: the TM1637 has no addresses, so each module needs its own pair of pins."
-  }
+  },
+  "pads": [
+    {
+      "label": "GND",
+      "xPx": 210,
+      "yPx": 259
+    },
+    {
+      "label": "VCC",
+      "xPx": 240,
+      "yPx": 259
+    },
+    {
+      "label": "DIO",
+      "xPx": 271,
+      "yPx": 259
+    },
+    {
+      "label": "CLK",
+      "xPx": 301,
+      "yPx": 259
+    }
+  ],
+  "padHoleRadiusPx": 5.6,
+  "supplyRail": "v3v3"
 }

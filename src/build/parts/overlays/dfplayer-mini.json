@@ -21,5 +21,89 @@
   "copy": {
     "summary": "UART-controlled microSD audio player with speaker and line outputs",
     "wiringNote": "Power from 5 V. Put numbered files in the card’s /mp3 folder. Speaker mode uses SPK1/SPK2 directly; Line Out uses DAC_L/DAC_R into a power amplifier or powered speakers. Add a 1 kΩ series resistor from controller TX to module RX if UART noise causes buzzing."
-  }
+  },
+  "pads": [
+    {
+      "label": "VCC",
+      "xPx": 29,
+      "yPx": 27
+    },
+    {
+      "label": "RX",
+      "xPx": 29,
+      "yPx": 76
+    },
+    {
+      "label": "TX",
+      "xPx": 29,
+      "yPx": 125
+    },
+    {
+      "label": "DAC_R",
+      "xPx": 29,
+      "yPx": 174
+    },
+    {
+      "label": "DAC_L",
+      "xPx": 29,
+      "yPx": 224
+    },
+    {
+      "label": "SPK2",
+      "xPx": 29,
+      "yPx": 273
+    },
+    {
+      "label": "GND",
+      "xPx": 29,
+      "yPx": 322
+    },
+    {
+      "label": "SPK1",
+      "xPx": 29,
+      "yPx": 371
+    },
+    {
+      "label": "IO1",
+      "xPx": 370,
+      "yPx": 371
+    },
+    {
+      "label": "GND",
+      "xPx": 370,
+      "yPx": 322
+    },
+    {
+      "label": "IO2",
+      "xPx": 370,
+      "yPx": 273
+    },
+    {
+      "label": "ADKEY1",
+      "xPx": 370,
+      "yPx": 224
+    },
+    {
+      "label": "ADKEY2",
+      "xPx": 370,
+      "yPx": 174
+    },
+    {
+      "label": "USB+",
+      "xPx": 370,
+      "yPx": 125
+    },
+    {
+      "label": "USB−",
+      "xPx": 370,
+      "yPx": 76
+    },
+    {
+      "label": "BUSY",
+      "xPx": 370,
+      "yPx": 27
+    }
+  ],
+  "padHoleRadiusPx": 10,
+  "supplyRail": "v5"
 }

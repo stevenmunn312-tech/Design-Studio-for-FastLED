@@ -37,5 +37,49 @@
   "copy": {
     "summary": "Three-axis accelerometer and gyroscope over I2C",
     "wiringNote": "Power VCC from 3.3 V. Leave AD0 unwired for 0x68, or tie it high for 0x69 when a DS3231 clock already uses 0x68."
-  }
+  },
+  "pads": [
+    {
+      "label": "VCC",
+      "xPx": 39.1,
+      "yPx": 263.3
+    },
+    {
+      "label": "GND",
+      "xPx": 85.1,
+      "yPx": 263.3
+    },
+    {
+      "label": "SCL",
+      "xPx": 131.1,
+      "yPx": 263.3
+    },
+    {
+      "label": "SDA",
+      "xPx": 177,
+      "yPx": 263.3
+    },
+    {
+      "label": "XDA",
+      "xPx": 222.9,
+      "yPx": 263.3
+    },
+    {
+      "label": "XCL",
+      "xPx": 268.9,
+      "yPx": 263.3
+    },
+    {
+      "label": "AD0",
+      "xPx": 314.9,
+      "yPx": 263.3
+    },
+    {
+      "label": "INT",
+      "xPx": 360.9,
+      "yPx": 263.3
+    }
+  ],
+  "padHoleRadiusPx": 9,
+  "supplyRail": "v3v3"
 }

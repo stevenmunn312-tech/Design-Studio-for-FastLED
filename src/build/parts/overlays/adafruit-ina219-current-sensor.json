@@ -39,5 +39,39 @@
   "copy": {
     "summary": "Volts, amps, watts: 26 V, 3.2 A, I2C",
     "wiringNote": "High-side: the supply goes to Vin+ and the load to Vin-, sharing ground with the board."
-  }
+  },
+  "pads": [
+    {
+      "label": "VIN",
+      "xPx": 104.5,
+      "yPx": 275.5
+    },
+    {
+      "label": "GND",
+      "xPx": 142.5,
+      "yPx": 275.5
+    },
+    {
+      "label": "SCL",
+      "xPx": 180.5,
+      "yPx": 275.5
+    },
+    {
+      "label": "SDA",
+      "xPx": 218.5,
+      "yPx": 275.5
+    },
+    {
+      "label": "VIN-",
+      "xPx": 256.5,
+      "yPx": 275.5
+    },
+    {
+      "label": "VIN+",
+      "xPx": 294.5,
+      "yPx": 275.5
+    }
+  ],
+  "padHoleRadiusPx": 7,
+  "supplyRail": "v3v3"
 }

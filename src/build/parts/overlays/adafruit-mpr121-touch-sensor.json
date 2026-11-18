@@ -31,5 +31,44 @@
   "copy": {
     "summary": "Twelve capacitive-touch electrodes over I2C",
     "wiringNote": "Power Vin from 3.3 V. Tie ADDR to GND for 0x5A, 3V for 0x5B, SDA for 0x5C or SCL for 0x5D; IRQ is not needed."
-  }
+  },
+  "pads": [
+    {
+      "label": "Vin",
+      "xPx": 116.6,
+      "yPx": 207.5
+    },
+    {
+      "label": "3Vo",
+      "xPx": 147.1,
+      "yPx": 207.5
+    },
+    {
+      "label": "GND",
+      "xPx": 177.6,
+      "yPx": 207.5
+    },
+    {
+      "label": "SCL",
+      "xPx": 208,
+      "yPx": 207.5
+    },
+    {
+      "label": "SDA",
+      "xPx": 238.4,
+      "yPx": 207.5
+    },
+    {
+      "label": "IRQ",
+      "xPx": 268.9,
+      "yPx": 207.5
+    },
+    {
+      "label": "ADDR",
+      "xPx": 299.4,
+      "yPx": 207.5
+    }
+  ],
+  "padHoleRadiusPx": 6,
+  "supplyRail": "v3v3"
 }

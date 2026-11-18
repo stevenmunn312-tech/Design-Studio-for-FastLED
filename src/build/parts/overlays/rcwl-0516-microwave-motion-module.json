@@ -28,5 +28,35 @@
   "copy": {
     "summary": "Radar: senses movement through plastic",
     "wiringNote": "Power VIN from 5 V (4 to 28 V). OUT is 3.3 V logic and stays high about two seconds after the last movement. Leave 3V3 and CDS unwired."
-  }
+  },
+  "pads": [
+    {
+      "label": "3V3",
+      "xPx": 273,
+      "yPx": 187.6
+    },
+    {
+      "label": "GND",
+      "xPx": 303.5,
+      "yPx": 187.6
+    },
+    {
+      "label": "OUT",
+      "xPx": 334,
+      "yPx": 187.6
+    },
+    {
+      "label": "VIN",
+      "xPx": 364.5,
+      "yPx": 187.6
+    },
+    {
+      "label": "CDS",
+      "xPx": 395,
+      "yPx": 187.6
+    }
+  ],
+  "padHoleRadiusPx": 6,
+  "supplyRail": "v5",
+  "powerPadLabel": "VIN"
 }

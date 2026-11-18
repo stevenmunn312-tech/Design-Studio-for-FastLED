@@ -45,5 +45,69 @@
   "copy": {
     "summary": "W5500 wired Ethernet over SPI, 3.3 V",
     "wiringNote": "Power it from 3.3 V only; it draws up to about 141 mA with a link up. Every network node (Art-Net, sACN, DDP, Web Remote, NTP...) uses this link instead of Wi-Fi."
-  }
+  },
+  "pads": [
+    {
+      "label": "GND",
+      "xPx": 262.9,
+      "yPx": 28.4
+    },
+    {
+      "label": "GND",
+      "xPx": 228.3,
+      "yPx": 28.4
+    },
+    {
+      "label": "MOSI",
+      "xPx": 193.8,
+      "yPx": 28.4
+    },
+    {
+      "label": "SCLK",
+      "xPx": 159.3,
+      "yPx": 28.4
+    },
+    {
+      "label": "SCNn",
+      "xPx": 124.7,
+      "yPx": 28.4
+    },
+    {
+      "label": "INTn",
+      "xPx": 90.2,
+      "yPx": 28.4
+    },
+    {
+      "label": "GND",
+      "xPx": 262.9,
+      "yPx": 304.6
+    },
+    {
+      "label": "3V3D",
+      "xPx": 228.3,
+      "yPx": 304.6
+    },
+    {
+      "label": "3V3D",
+      "xPx": 193.8,
+      "yPx": 304.6
+    },
+    {
+      "label": "NC",
+      "xPx": 159.3,
+      "yPx": 304.6
+    },
+    {
+      "label": "RSTn",
+      "xPx": 124.7,
+      "yPx": 304.6
+    },
+    {
+      "label": "MISO",
+      "xPx": 90.2,
+      "yPx": 304.6
+    }
+  ],
+  "padHoleRadiusPx": 6.2,
+  "supplyRail": "v3v3"
 }

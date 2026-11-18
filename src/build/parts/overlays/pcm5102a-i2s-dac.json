@@ -32,5 +32,39 @@
   "copy": {
     "summary": "I2S DAC — line out, needs an amp",
     "wiringNote": "A DAC, not an amplifier — the same three I2S wires, but a line-level output that needs a powered speaker or a power amplifier."
-  }
+  },
+  "pads": [
+    {
+      "label": "SCK",
+      "xPx": 55,
+      "yPx": 837
+    },
+    {
+      "label": "BCK",
+      "xPx": 113,
+      "yPx": 837
+    },
+    {
+      "label": "DIN",
+      "xPx": 171,
+      "yPx": 837
+    },
+    {
+      "label": "LCK",
+      "xPx": 229,
+      "yPx": 837
+    },
+    {
+      "label": "GND",
+      "xPx": 287,
+      "yPx": 837
+    },
+    {
+      "label": "VIN",
+      "xPx": 345,
+      "yPx": 837
+    }
+  ],
+  "padHoleRadiusPx": 11.5,
+  "supplyRail": "v5"
 }

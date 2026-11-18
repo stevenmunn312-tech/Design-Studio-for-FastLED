@@ -21,5 +21,69 @@
   "copy": {
     "summary": "320x240 colour TFT with XPT2046 touch",
     "wiringNote": "The DFRobot DFR0665 breakout: an ILI9341 panel, an XPT2046 touch controller and a microSD slot, sharing SCLK, MOSI and MISO with a chip select each. The controller scans in portrait, so a 320x240 screen needs the Landscape view. Adding it gives you the panel and its Touch Screen node."
-  }
+  },
+  "pads": [
+    {
+      "label": "VCC",
+      "xPx": 316.6,
+      "yPx": 586.7
+    },
+    {
+      "label": "GND",
+      "xPx": 346.2,
+      "yPx": 586.7
+    },
+    {
+      "label": "SCLK",
+      "xPx": 376.8,
+      "yPx": 586.7
+    },
+    {
+      "label": "MOSI",
+      "xPx": 407.6,
+      "yPx": 586.7
+    },
+    {
+      "label": "MISO",
+      "xPx": 438,
+      "yPx": 586.7
+    },
+    {
+      "label": "CS",
+      "xPx": 468.3,
+      "yPx": 586.7
+    },
+    {
+      "label": "RES",
+      "xPx": 498.7,
+      "yPx": 586.7
+    },
+    {
+      "label": "DC",
+      "xPx": 529.1,
+      "yPx": 586.7
+    },
+    {
+      "label": "BL",
+      "xPx": 560,
+      "yPx": 586.7
+    },
+    {
+      "label": "TOUCH_CS",
+      "xPx": 590.4,
+      "yPx": 586.7
+    },
+    {
+      "label": "INT",
+      "xPx": 621.1,
+      "yPx": 586.7
+    },
+    {
+      "label": "SDCS",
+      "xPx": 651.2,
+      "yPx": 586.7
+    }
+  ],
+  "padHoleRadiusPx": 6,
+  "supplyRail": "v3v3"
 }

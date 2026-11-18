@@ -27,5 +27,49 @@
   "copy": {
     "summary": "Sixteen keys on eight GPIOs",
     "wiringNote": "Rows R1 to R4 go to pins with a pull-up and columns C1 to C4 to output pins. The keypad is passive and needs no power."
-  }
+  },
+  "pads": [
+    {
+      "label": "R1",
+      "xPx": 317.3,
+      "yPx": 947.2
+    },
+    {
+      "label": "R2",
+      "xPx": 347.8,
+      "yPx": 947.2
+    },
+    {
+      "label": "R3",
+      "xPx": 378.3,
+      "yPx": 947.2
+    },
+    {
+      "label": "R4",
+      "xPx": 408.8,
+      "yPx": 947.2
+    },
+    {
+      "label": "C1",
+      "xPx": 439.2,
+      "yPx": 947.2
+    },
+    {
+      "label": "C2",
+      "xPx": 469.7,
+      "yPx": 947.2
+    },
+    {
+      "label": "C3",
+      "xPx": 500.2,
+      "yPx": 947.2
+    },
+    {
+      "label": "C4",
+      "xPx": 530.7,
+      "yPx": 947.2
+    }
+  ],
+  "padHoleRadiusPx": 6,
+  "supplyRail": "none"
 }

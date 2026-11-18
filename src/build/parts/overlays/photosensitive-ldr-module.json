@@ -25,5 +25,24 @@
   "copy": {
     "summary": "Relative brightness on one analog pin",
     "wiringNote": "An analog divider: Level is relative brightness. It cannot report calibrated lux, so Lux stays at zero."
-  }
+  },
+  "pads": [
+    {
+      "label": "S",
+      "xPx": 172.8,
+      "yPx": 281.8
+    },
+    {
+      "label": "VCC",
+      "xPx": 203.4,
+      "yPx": 281.8
+    },
+    {
+      "label": "GND",
+      "xPx": 234,
+      "yPx": 281.8
+    }
+  ],
+  "padHoleRadiusPx": 5.6,
+  "supplyRail": "v3v3"
 }

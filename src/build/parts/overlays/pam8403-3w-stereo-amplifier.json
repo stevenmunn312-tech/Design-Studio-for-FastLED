@@ -41,5 +41,64 @@
   "copy": {
     "summary": "2 x 3 W, 5 V — line level in",
     "wiringNote": "Takes line level, not I2S. Fed from a PCM5102A or UDA1334A, or on a classic ESP32 from its own DAC on GPIO25/26."
-  }
+  },
+  "pads": [
+    {
+      "label": "R+",
+      "xPx": 36.6,
+      "yPx": 254.3
+    },
+    {
+      "label": "R-",
+      "xPx": 69.4,
+      "yPx": 254.3
+    },
+    {
+      "label": "L-",
+      "xPx": 102,
+      "yPx": 254.3
+    },
+    {
+      "label": "L+",
+      "xPx": 134.6,
+      "yPx": 254.3
+    },
+    {
+      "label": "GND",
+      "xPx": 167.4,
+      "yPx": 254.3
+    },
+    {
+      "label": "+5V",
+      "xPx": 200.1,
+      "yPx": 254.3
+    },
+    {
+      "label": "SW",
+      "xPx": 232.6,
+      "yPx": 254.3
+    },
+    {
+      "label": "GND",
+      "xPx": 265.4,
+      "yPx": 254.3
+    },
+    {
+      "label": "LIN",
+      "xPx": 298.1,
+      "yPx": 254.3
+    },
+    {
+      "label": "GND",
+      "xPx": 330.7,
+      "yPx": 254.3
+    },
+    {
+      "label": "RIN",
+      "xPx": 363.4,
+      "yPx": 254.3
+    }
+  ],
+  "padHoleRadiusPx": 5.6,
+  "supplyRail": "v5"
 }

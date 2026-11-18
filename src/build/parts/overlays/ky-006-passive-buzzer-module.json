@@ -44,5 +44,24 @@
   "copy": {
     "summary": "Plays a tone at the pitch you set",
     "wiringNote": "Wire S to the GPIO and - to ground; leave the middle pin unconnected (Joy-IT labels it +V, but the buzzer sounds without it). The controller plays a square wave at Pitch while Sound is true, and the pin rests low otherwise. It is loudest near 2 kHz. It draws 25 mA or less straight from the pin; if your buzzer reads a few tens of ohms on a meter rather than open, it is a coil type and needs a transistor. One passive buzzer per board: the tone generator drives one pin at a time."
-  }
+  },
+  "pads": [
+    {
+      "label": "S",
+      "xPx": 135.2,
+      "yPx": 437.8
+    },
+    {
+      "label": "NC",
+      "xPx": 199.5,
+      "yPx": 437.8
+    },
+    {
+      "label": "-",
+      "xPx": 263.8,
+      "yPx": 437.8
+    }
+  ],
+  "padHoleRadiusPx": 11.9,
+  "supplyRail": "none"
 }

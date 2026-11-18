@@ -34,5 +34,39 @@
   "copy": {
     "summary": "Lower noise floor, same three wires",
     "wiringNote": "Wires exactly like an INMP441 and costs about the same; firmware applies the ICS43434 response correction instead."
-  }
+  },
+  "pads": [
+    {
+      "label": "SEL",
+      "xPx": 104.7,
+      "yPx": 255.8
+    },
+    {
+      "label": "LRCL",
+      "xPx": 142.4,
+      "yPx": 255.8
+    },
+    {
+      "label": "DOUT",
+      "xPx": 180.7,
+      "yPx": 255.8
+    },
+    {
+      "label": "BCLK",
+      "xPx": 218.4,
+      "yPx": 255.8
+    },
+    {
+      "label": "GND",
+      "xPx": 256.6,
+      "yPx": 255.8
+    },
+    {
+      "label": "3V",
+      "xPx": 294.4,
+      "yPx": 255.8
+    }
+  ],
+  "padHoleRadiusPx": 6.4,
+  "supplyRail": "v3v3"
 }

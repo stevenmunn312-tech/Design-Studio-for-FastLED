@@ -45,5 +45,19 @@
   "copy": {
     "summary": "One opto-isolated DC switch or dimmer, 6-28 V",
     "wiringNote": "DC loads only. No flyback diode on the board: add one across a motor, solenoid or coil."
-  }
+  },
+  "pads": [
+    {
+      "label": "GND",
+      "xPx": 169.8,
+      "yPx": 771.2
+    },
+    {
+      "label": "PWM",
+      "xPx": 230.2,
+      "yPx": 771.2
+    }
+  ],
+  "padHoleRadiusPx": 12.3,
+  "supplyRail": "none"
 }

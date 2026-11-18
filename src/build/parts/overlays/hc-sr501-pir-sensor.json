@@ -32,5 +32,24 @@
   "copy": {
     "summary": "Infrared: sees a warm body move",
     "wiringNote": "Power VCC from 5 V. OUT is 3.3 V logic."
-  }
+  },
+  "pads": [
+    {
+      "label": "VCC",
+      "xPx": 168.8,
+      "yPx": 280.6
+    },
+    {
+      "label": "OUT",
+      "xPx": 199.5,
+      "yPx": 280.6
+    },
+    {
+      "label": "GND",
+      "xPx": 230,
+      "yPx": 280.6
+    }
+  ],
+  "padHoleRadiusPx": 5.3,
+  "supplyRail": "v3v3"
 }

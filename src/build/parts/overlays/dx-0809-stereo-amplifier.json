@@ -32,5 +32,54 @@
   "copy": {
     "summary": "2 x 15 W, 12 V — AUX line in",
     "wiringNote": "Needs its own 12 V supply; the controller cannot power it. Feed its AUX input from the line out of a DAC, and share ground with the board."
-  }
+  },
+  "pads": [
+    {
+      "label": "AUX-L",
+      "xPx": 531.3,
+      "yPx": 631.3
+    },
+    {
+      "label": "AUX-GND",
+      "xPx": 599.5,
+      "yPx": 631.2
+    },
+    {
+      "label": "AUX-R",
+      "xPx": 667.5,
+      "yPx": 631.1
+    },
+    {
+      "label": "+12V",
+      "xPx": 572.5,
+      "yPx": 86.8
+    },
+    {
+      "label": "GND",
+      "xPx": 626.8,
+      "yPx": 86.6
+    },
+    {
+      "label": "L+",
+      "xPx": 164,
+      "yPx": 86.4
+    },
+    {
+      "label": "L-",
+      "xPx": 218.3,
+      "yPx": 86.9
+    },
+    {
+      "label": "R-",
+      "xPx": 980.8,
+      "yPx": 86.6
+    },
+    {
+      "label": "R+",
+      "xPx": 1035,
+      "yPx": 86.6
+    }
+  ],
+  "padHoleRadiusPx": 6.1,
+  "supplyRail": "v12"
 }

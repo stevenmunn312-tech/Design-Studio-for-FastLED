@@ -44,5 +44,39 @@
   ],
   "copy": {
     "summary": "ZS-042 breakout, six-pin header"
-  }
+  },
+  "pads": [
+    {
+      "label": "32K",
+      "xPx": 155.2,
+      "yPx": 252.1
+    },
+    {
+      "label": "SQW",
+      "xPx": 185.8,
+      "yPx": 252.1
+    },
+    {
+      "label": "SCL",
+      "xPx": 216.2,
+      "yPx": 252.1
+    },
+    {
+      "label": "SDA",
+      "xPx": 246.7,
+      "yPx": 252.1
+    },
+    {
+      "label": "VCC",
+      "xPx": 277.1,
+      "yPx": 252.1
+    },
+    {
+      "label": "GND",
+      "xPx": 307.7,
+      "yPx": 252.1
+    }
+  ],
+  "padHoleRadiusPx": 5.9,
+  "supplyRail": "v3v3"
 }

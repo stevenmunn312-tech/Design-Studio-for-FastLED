@@ -43,5 +43,49 @@
   "copy": {
     "summary": "DMX512 in from an XLR line, on 5 V",
     "wiringNote": "Power from 5 V. RO reaches the board through a 1 kΩ / 2 kΩ divider, and RE is bridged to DE so one GPIO drives both. Keep the fitted 120 Ω terminator only on the last device in the DMX chain."
-  }
+  },
+  "pads": [
+    {
+      "label": "RO",
+      "xPx": 103,
+      "yPx": 1094.3
+    },
+    {
+      "label": "RE",
+      "xPx": 167.3,
+      "yPx": 1094.3
+    },
+    {
+      "label": "DE",
+      "xPx": 231.7,
+      "yPx": 1094.3
+    },
+    {
+      "label": "DI",
+      "xPx": 296,
+      "yPx": 1094.3
+    },
+    {
+      "label": "VCC",
+      "xPx": 103,
+      "yPx": 64.7
+    },
+    {
+      "label": "B",
+      "xPx": 167.3,
+      "yPx": 64.7
+    },
+    {
+      "label": "A",
+      "xPx": 231.7,
+      "yPx": 64.7
+    },
+    {
+      "label": "GND",
+      "xPx": 296,
+      "yPx": 64.7
+    }
+  ],
+  "padHoleRadiusPx": 11.9,
+  "supplyRail": "v5"
 }

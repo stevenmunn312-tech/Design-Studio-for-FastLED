@@ -38,5 +38,39 @@
   "copy": {
     "summary": "Volts, amps, watts: 36 V, 20 A, I2C",
     "wiringNote": "High-side: the supply goes to IN+ and the load to IN-, sharing ground with the board. Power VCC from 3.3 V. Sixteen addresses, 0x40 to 0x4F, from the A0 and A1 pads. ALE is not needed."
-  }
+  },
+  "pads": [
+    {
+      "label": "VCC",
+      "xPx": 106.7,
+      "yPx": 294.1
+    },
+    {
+      "label": "GND",
+      "xPx": 143.9,
+      "yPx": 294.1
+    },
+    {
+      "label": "SCL",
+      "xPx": 181,
+      "yPx": 294.1
+    },
+    {
+      "label": "SDA",
+      "xPx": 218,
+      "yPx": 294.1
+    },
+    {
+      "label": "ALE",
+      "xPx": 255.1,
+      "yPx": 294.1
+    },
+    {
+      "label": "VBS",
+      "xPx": 292.3,
+      "yPx": 294.1
+    }
+  ],
+  "padHoleRadiusPx": 7,
+  "supplyRail": "v3v3"
 }

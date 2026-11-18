@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   peripheralPadCount, peripheralPadLabel, peripheralPowerPadIndex,
   peripheralGroundPadIndex, peripheralSignalPadIndex, peripheralPowerNet,
-  micChannelSelectPadIndex, MODULE_PAD_GEOMETRY, transceiverEnableBridgePads,
+  micChannelSelectPadIndex, modulePadGeometry, transceiverEnableBridgePads,
   receiveDivider, peripheralSignalEndPoint, peripheralPadPoint, PERIPHERAL_RENDER_H,
 } from '../physicalDiagramLayout'
 import { MIC_MODULES } from '../../../state/peripherals/micModules'
@@ -173,7 +173,7 @@ describe('module pads come from the part, not the category', () => {
       // A supply pad that reads VDD is a 3.3 V part, not an unknown one.
       expect(peripheralPowerNet(mic)).toBe('v3v3')
       // And it is drawn from a measured row, not spread evenly across its render.
-      const geometry = MODULE_PAD_GEOMETRY[partId]
+      const geometry = modulePadGeometry(partId)!
       expect(geometry, `${partId} has no measured pads`).toBeDefined()
       expect(new Set(geometry!.map(([, y]) => y)).size, 'one row, one y').toBe(1)
       expect(geometry!.every(([, y]) => y > 0.7), 'along the bottom edge').toBe(true)

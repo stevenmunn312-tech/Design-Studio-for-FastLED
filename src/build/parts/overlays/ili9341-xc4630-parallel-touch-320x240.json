@@ -37,5 +37,109 @@
   "copy": {
     "summary": "320x240 ILI9341 over an 8-bit parallel bus",
     "wiringNote": "An Arduino-shield form factor, so it is wired with jumpers rather than seated: thirteen lines for the panel, and no touch header at all. The resistive sheet has no controller and borrows four of those same lines; the two it reads (LCD_CS and LCD_RS) must sit on ADC1 - on ADC2 a press reads fine until something enables Wi-Fi. This product ships different controllers between revisions under identical silkscreen; the driver targets the ILI9341 one."
-  }
+  },
+  "pads": [
+    {
+      "label": "LCD_D2",
+      "xPx": 219.9,
+      "yPx": 40
+    },
+    {
+      "label": "LCD_D3",
+      "xPx": 250.4,
+      "yPx": 40
+    },
+    {
+      "label": "LCD_D4",
+      "xPx": 280.8,
+      "yPx": 40
+    },
+    {
+      "label": "LCD_D5",
+      "xPx": 311.3,
+      "yPx": 40
+    },
+    {
+      "label": "LCD_D6",
+      "xPx": 341.8,
+      "yPx": 40
+    },
+    {
+      "label": "LCD_D7",
+      "xPx": 372.3,
+      "yPx": 40
+    },
+    {
+      "label": "LCD_D0",
+      "xPx": 430.1,
+      "yPx": 40
+    },
+    {
+      "label": "LCD_D1",
+      "xPx": 460.6,
+      "yPx": 40
+    },
+    {
+      "label": "SD_SS",
+      "xPx": 491.1,
+      "yPx": 40
+    },
+    {
+      "label": "SD_DI",
+      "xPx": 521.6,
+      "yPx": 40
+    },
+    {
+      "label": "SD_DO",
+      "xPx": 552,
+      "yPx": 40
+    },
+    {
+      "label": "SD_SCK",
+      "xPx": 582.5,
+      "yPx": 40
+    },
+    {
+      "label": "LCD_RST",
+      "xPx": 182.7,
+      "yPx": 590.8
+    },
+    {
+      "label": "LCD_CS",
+      "xPx": 213.2,
+      "yPx": 590.8
+    },
+    {
+      "label": "LCD_RS",
+      "xPx": 243.6,
+      "yPx": 590.8
+    },
+    {
+      "label": "LCD_WR",
+      "xPx": 274.1,
+      "yPx": 590.8
+    },
+    {
+      "label": "LCD_RD",
+      "xPx": 304.6,
+      "yPx": 590.8
+    },
+    {
+      "label": "GND",
+      "xPx": 407.1,
+      "yPx": 590.8
+    },
+    {
+      "label": "5V",
+      "xPx": 468.1,
+      "yPx": 590.8
+    },
+    {
+      "label": "3V3",
+      "xPx": 498.5,
+      "yPx": 590.8
+    }
+  ],
+  "padHoleRadiusPx": 3,
+  "supplyRail": "v5"
 }

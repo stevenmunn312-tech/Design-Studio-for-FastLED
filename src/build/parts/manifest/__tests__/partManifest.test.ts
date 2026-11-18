@@ -153,6 +153,22 @@ describe('part manifest v1', () => {
     }), 'bundled').status).toBe('needs-newer-app')
   })
 
+  it('checks the Build Diagram drawing facts: pads inside the render, a known supply rail', () => {
+    const render = ina219.render!
+    const pads = ina219.pads!
+    expect(validatePartManifest(variant({ pads: [...pads.slice(0, 5), { ...pads[5], xPx: render.widthPx + 1 }] }), 'bundled').status)
+      .toBe('invalid')
+    expect(validatePartManifest(variant({ pads: pads.slice(0, 3) }), 'bundled').status).toBe('invalid')
+    expect(validatePartManifest(variant({ pads: pads.map((pad, i) => i === 0 ? { ...pad, label: 'ZZ' } : pad) }), 'bundled').status)
+      .toBe('invalid')
+    expect(validatePartManifest(variant({ padHoleRadiusPx: 0 }), 'bundled').status).toBe('invalid')
+    expect(validatePartManifest(variant({ padHoleRadiusPx: 7.5, supplyRail: 'v5', powerPadLabel: 'VIN' }), 'bundled').status).toBe('ok')
+    expect(validatePartManifest(variant({ supplyRail: 'v48' as never }), 'bundled').status).toBe('needs-newer-app')
+    const withoutPads: Partial<PartManifest> = { ...ina219 }
+    delete withoutPads.pads
+    expect(validatePartManifest(withoutPads as PartManifest, 'bundled').status).toBe('ok')
+  })
+
   it('reports a malformed block as invalid with its path', () => {
     const manifest = variant({ powerMonitor: { ...ina219.powerMonitor!, shuntOhms: Number.NaN } })
     const result = validatePartManifest(manifest, 'bundled')

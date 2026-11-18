@@ -30,5 +30,39 @@
   "copy": {
     "summary": "Stereo RCA line in to I2S",
     "wiringNote": "Connect a player module's line-level DAC output, not its bridge-tied speaker output, to the RCA inputs."
-  }
+  },
+  "pads": [
+    {
+      "label": "5V",
+      "xPx": 239.3,
+      "yPx": 444.1
+    },
+    {
+      "label": "GND",
+      "xPx": 269.8,
+      "yPx": 444.1
+    },
+    {
+      "label": "SCK",
+      "xPx": 300.2,
+      "yPx": 444.1
+    },
+    {
+      "label": "BCK",
+      "xPx": 330.8,
+      "yPx": 444.1
+    },
+    {
+      "label": "LRCK",
+      "xPx": 361.2,
+      "yPx": 444.1
+    },
+    {
+      "label": "DOUT",
+      "xPx": 391.7,
+      "yPx": 444.1
+    }
+  ],
+  "padHoleRadiusPx": 5.7,
+  "supplyRail": "v5"
 }

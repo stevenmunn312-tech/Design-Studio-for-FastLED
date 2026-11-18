@@ -26,5 +26,39 @@
   "copy": {
     "summary": "Low-cost MSM261S4030H0-class board",
     "wiringNote": "For the unbranded boards often sold as INMP441. The GenericMEMS profile is an average MEMS correction, not this module's measured response."
-  }
+  },
+  "pads": [
+    {
+      "label": "GND",
+      "xPx": 41.7,
+      "yPx": 204.4
+    },
+    {
+      "label": "VDD",
+      "xPx": 104.1,
+      "yPx": 204.4
+    },
+    {
+      "label": "SD",
+      "xPx": 168,
+      "yPx": 204.4
+    },
+    {
+      "label": "SCK",
+      "xPx": 231,
+      "yPx": 204.4
+    },
+    {
+      "label": "WS",
+      "xPx": 294.8,
+      "yPx": 204.4
+    },
+    {
+      "label": "L/R",
+      "xPx": 357.2,
+      "yPx": 204.4
+    }
+  ],
+  "padHoleRadiusPx": 10.5,
+  "supplyRail": "v3v3"
 }

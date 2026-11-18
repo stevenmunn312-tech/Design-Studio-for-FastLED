@@ -3,7 +3,7 @@ import { buildHardwareManifest } from '../../../build/hardwareManifest'
 import { controlInputCpp } from '../../../codegen/controlInputCpp'
 import {
   peripheralChannelGroundPadIndexes, peripheralGroundPadIndex, peripheralPowerPadIndex, peripheralSignalPadIndex,
-  MODULE_PAD_GEOMETRY,
+  modulePadGeometry,
 } from '../../../components/BuildDiagram/physicalDiagramLayout'
 import { inputPartEntries } from '../../../components/Hardware/hardwarePartCatalog'
 import { partById } from '../../../build/parts/partCatalogue'
@@ -163,7 +163,7 @@ describe('the Build Diagram', () => {
 
   it('lands A, B and SW on their own leads', () => {
     expect([0, 1, 2].map((index) => peripheralSignalPadIndex(item, index))).toEqual([0, 2, 3])
-    expect(MODULE_PAD_GEOMETRY[SR1230_ENCODER_PART_ID]).toHaveLength(5)
+    expect(modulePadGeometry(SR1230_ENCODER_PART_ID)!).toHaveLength(5)
   })
 
   it('keeps the module on its VCC pad', () => {

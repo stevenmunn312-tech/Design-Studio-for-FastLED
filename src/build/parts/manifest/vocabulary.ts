@@ -81,9 +81,23 @@ export const PIN_ROLES = [
 ] as const
 export type PinRole = (typeof PIN_ROLES)[number]
 
+/**
+ * Which of the controller's rails feeds a part's supply pad, or `none` for a
+ * part that takes no supply from the controller (a passive matrix, a module
+ * that runs from its signal pin or from a separate load supply).
+ */
+export const SUPPLY_RAILS = ['v3v3', 'v5', 'v12', 'none'] as const
+export type SupplyRail = (typeof SUPPLY_RAILS)[number]
+
 const INTERFACE_SET: ReadonlySet<string> = new Set(INTERFACE_IDS)
 const PIN_ROLE_SET: ReadonlySet<string> = new Set(PIN_ROLES)
 const VERIFICATION_SET: ReadonlySet<string> = new Set(VERIFICATION_LEVELS)
+
+const SUPPLY_RAIL_SET: ReadonlySet<string> = new Set(SUPPLY_RAILS)
+
+export function isSupplyRail(value: unknown): value is SupplyRail {
+  return typeof value === 'string' && SUPPLY_RAIL_SET.has(value)
+}
 
 export function isInterfaceId(value: unknown): value is InterfaceId {
   return typeof value === 'string' && INTERFACE_SET.has(value)

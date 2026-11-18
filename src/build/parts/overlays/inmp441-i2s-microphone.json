@@ -24,5 +24,39 @@
   ],
   "copy": {
     "summary": "The common three-wire I2S MEMS module"
-  }
+  },
+  "pads": [
+    {
+      "label": "L/R",
+      "xPx": 34,
+      "yPx": 244.8
+    },
+    {
+      "label": "GND",
+      "xPx": 100.4,
+      "yPx": 244.8
+    },
+    {
+      "label": "WS",
+      "xPx": 166.8,
+      "yPx": 244.8
+    },
+    {
+      "label": "SCK",
+      "xPx": 233.2,
+      "yPx": 244.8
+    },
+    {
+      "label": "SD",
+      "xPx": 299.6,
+      "yPx": 244.8
+    },
+    {
+      "label": "VDD",
+      "xPx": 366,
+      "yPx": 244.8
+    }
+  ],
+  "padHoleRadiusPx": 13,
+  "supplyRail": "v3v3"
 }

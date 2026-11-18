@@ -42,5 +42,39 @@
   ],
   "copy": {
     "summary": "Four active-low 5 V SPDT relays"
-  }
+  },
+  "pads": [
+    {
+      "label": "GND",
+      "xPx": 389.4,
+      "yPx": 650.9
+    },
+    {
+      "label": "IN1",
+      "xPx": 419.7,
+      "yPx": 650.9
+    },
+    {
+      "label": "IN2",
+      "xPx": 450.4,
+      "yPx": 650.9
+    },
+    {
+      "label": "IN3",
+      "xPx": 480.6,
+      "yPx": 650.9
+    },
+    {
+      "label": "IN4",
+      "xPx": 511.4,
+      "yPx": 650.9
+    },
+    {
+      "label": "VCC",
+      "xPx": 541.6,
+      "yPx": 650.9
+    }
+  ],
+  "padHoleRadiusPx": 5,
+  "supplyRail": "v5"
 }

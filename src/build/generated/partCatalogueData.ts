@@ -385,7 +385,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Calibrated ambient light in lux over I2C",
       "wiringNote": "Power from the controller logic rail. The breakout level-shifts SDA/SCL and answers on 0x23, or 0x5C with ADDR tied high."
-    }
+    },
+    "pads": [
+      {
+        "label": "VIN",
+        "xPx": 104.5,
+        "yPx": 237.5
+      },
+      {
+        "label": "3Vo",
+        "xPx": 142.5,
+        "yPx": 237.5
+      },
+      {
+        "label": "GND",
+        "xPx": 180.5,
+        "yPx": 237.5
+      },
+      {
+        "label": "SCL",
+        "xPx": 218.5,
+        "yPx": 237.5
+      },
+      {
+        "label": "SDA",
+        "xPx": 256.5,
+        "yPx": 237.5
+      },
+      {
+        "label": "ADDR",
+        "xPx": 294.5,
+        "yPx": 237.5
+      }
+    ],
+    "padHoleRadiusPx": 7,
+    "supplyRail": "v3v3"
   },
   "adafruit-bme280-environment-sensor": {
     "manifestVersion": 1,
@@ -496,7 +530,46 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Temperature, humidity and pressure over I2C",
       "wiringNote": "Use VIN at 3.3 V; SCK is I2C SCL and SDI is I2C SDA. Leave SDO and CS unwired for the default 0x77 address."
-    }
+    },
+    "pads": [
+      {
+        "label": "VIN",
+        "xPx": 49,
+        "yPx": 471
+      },
+      {
+        "label": "3Vo",
+        "xPx": 99,
+        "yPx": 471
+      },
+      {
+        "label": "GND",
+        "xPx": 149,
+        "yPx": 471
+      },
+      {
+        "label": "SCK",
+        "xPx": 200,
+        "yPx": 471
+      },
+      {
+        "label": "SDO",
+        "xPx": 250,
+        "yPx": 471
+      },
+      {
+        "label": "SDI",
+        "xPx": 301,
+        "yPx": 471
+      },
+      {
+        "label": "CS",
+        "xPx": 351,
+        "yPx": 471
+      }
+    ],
+    "padHoleRadiusPx": 9.5,
+    "supplyRail": "v3v3"
   },
   "adafruit-ina219-current-sensor": {
     "manifestVersion": 1,
@@ -603,7 +676,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Volts, amps, watts: 26 V, 3.2 A, I2C",
       "wiringNote": "High-side: the supply goes to Vin+ and the load to Vin-, sharing ground with the board."
-    }
+    },
+    "pads": [
+      {
+        "label": "VIN",
+        "xPx": 104.5,
+        "yPx": 275.5
+      },
+      {
+        "label": "GND",
+        "xPx": 142.5,
+        "yPx": 275.5
+      },
+      {
+        "label": "SCL",
+        "xPx": 180.5,
+        "yPx": 275.5
+      },
+      {
+        "label": "SDA",
+        "xPx": 218.5,
+        "yPx": 275.5
+      },
+      {
+        "label": "VIN-",
+        "xPx": 256.5,
+        "yPx": 275.5
+      },
+      {
+        "label": "VIN+",
+        "xPx": 294.5,
+        "yPx": 275.5
+      }
+    ],
+    "padHoleRadiusPx": 7,
+    "supplyRail": "v3v3"
   },
   "adafruit-midi-featherwing": {
     "manifestVersion": 1,
@@ -703,7 +810,151 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Opto-isolated DIN-5 MIDI in, on 3.3 V",
       "wiringNote": "Power from 3.3 V. Only 3.3V, GND and MIDI_RX are wired; the optocoupler output needs no divider. Plug the keyboard into the left socket, MIDI IN."
-    }
+    },
+    "pads": [
+      {
+        "label": "RESET",
+        "xPx": 79.8,
+        "yPx": 263
+      },
+      {
+        "label": "3.3V",
+        "xPx": 110.1,
+        "yPx": 263
+      },
+      {
+        "label": "AREF",
+        "xPx": 140.8,
+        "yPx": 263
+      },
+      {
+        "label": "GND",
+        "xPx": 171.1,
+        "yPx": 263
+      },
+      {
+        "label": "A",
+        "xPx": 201.8,
+        "yPx": 263
+      },
+      {
+        "label": "B",
+        "xPx": 232.2,
+        "yPx": 263
+      },
+      {
+        "label": "C",
+        "xPx": 262.8,
+        "yPx": 263
+      },
+      {
+        "label": "D",
+        "xPx": 293.2,
+        "yPx": 263
+      },
+      {
+        "label": "E",
+        "xPx": 323.8,
+        "yPx": 263
+      },
+      {
+        "label": "F",
+        "xPx": 354.2,
+        "yPx": 263
+      },
+      {
+        "label": "SCK",
+        "xPx": 384.8,
+        "yPx": 263
+      },
+      {
+        "label": "MOSI",
+        "xPx": 415.2,
+        "yPx": 263
+      },
+      {
+        "label": "MISO",
+        "xPx": 445.8,
+        "yPx": 263
+      },
+      {
+        "label": "MIDI_RX",
+        "xPx": 476.2,
+        "yPx": 263
+      },
+      {
+        "label": "MIDI_TX",
+        "xPx": 506.8,
+        "yPx": 263
+      },
+      {
+        "label": "G",
+        "xPx": 537.2,
+        "yPx": 263
+      },
+      {
+        "label": "VBAT",
+        "xPx": 201.8,
+        "yPx": 19
+      },
+      {
+        "label": "EN",
+        "xPx": 232.2,
+        "yPx": 19
+      },
+      {
+        "label": "USB",
+        "xPx": 262.8,
+        "yPx": 19
+      },
+      {
+        "label": "N",
+        "xPx": 293.2,
+        "yPx": 19
+      },
+      {
+        "label": "M",
+        "xPx": 323.8,
+        "yPx": 19
+      },
+      {
+        "label": "L",
+        "xPx": 354.2,
+        "yPx": 19
+      },
+      {
+        "label": "K",
+        "xPx": 384.8,
+        "yPx": 19
+      },
+      {
+        "label": "J",
+        "xPx": 415.2,
+        "yPx": 19
+      },
+      {
+        "label": "I",
+        "xPx": 445.8,
+        "yPx": 19
+      },
+      {
+        "label": "H",
+        "xPx": 476.2,
+        "yPx": 19
+      },
+      {
+        "label": "SCL",
+        "xPx": 506.8,
+        "yPx": 19
+      },
+      {
+        "label": "SDA",
+        "xPx": 537.2,
+        "yPx": 19
+      }
+    ],
+    "padHoleRadiusPx": 5.4,
+    "supplyRail": "v3v3"
   },
   "adafruit-mpr121-touch-sensor": {
     "manifestVersion": 1,
@@ -800,7 +1051,46 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Twelve capacitive-touch electrodes over I2C",
       "wiringNote": "Power Vin from 3.3 V. Tie ADDR to GND for 0x5A, 3V for 0x5B, SDA for 0x5C or SCL for 0x5D; IRQ is not needed."
-    }
+    },
+    "pads": [
+      {
+        "label": "Vin",
+        "xPx": 116.6,
+        "yPx": 207.5
+      },
+      {
+        "label": "3Vo",
+        "xPx": 147.1,
+        "yPx": 207.5
+      },
+      {
+        "label": "GND",
+        "xPx": 177.6,
+        "yPx": 207.5
+      },
+      {
+        "label": "SCL",
+        "xPx": 208,
+        "yPx": 207.5
+      },
+      {
+        "label": "SDA",
+        "xPx": 238.4,
+        "yPx": 207.5
+      },
+      {
+        "label": "IRQ",
+        "xPx": 268.9,
+        "yPx": 207.5
+      },
+      {
+        "label": "ADDR",
+        "xPx": 299.4,
+        "yPx": 207.5
+      }
+    ],
+    "padHoleRadiusPx": 6,
+    "supplyRail": "v3v3"
   },
   "adafruit-pca9685-pwm-driver": {
     "manifestVersion": 1,
@@ -943,7 +1233,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Sixteen 12-bit PWM channels over I2C",
       "wiringNote": "Power VCC from 3.3 V with GND, SDA and SCL to the controller. V+ is the outputs' own supply (5 to 6 V for servos) and is not drawn here. Leave OE unconnected to keep the outputs enabled. A dimming or servo channel takes its signal from the PWM hole, with V+ and ground beside it."
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 104.5,
+        "yPx": 904.8
+      },
+      {
+        "label": "OE",
+        "xPx": 142.5,
+        "yPx": 904.8
+      },
+      {
+        "label": "SCL",
+        "xPx": 180.5,
+        "yPx": 904.8
+      },
+      {
+        "label": "SDA",
+        "xPx": 218.5,
+        "yPx": 904.8
+      },
+      {
+        "label": "VCC",
+        "xPx": 256.5,
+        "yPx": 904.8
+      },
+      {
+        "label": "V+",
+        "xPx": 294.5,
+        "yPx": 904.8
+      }
+    ],
+    "padHoleRadiusPx": 7,
+    "supplyRail": "v3v3"
   },
   "adafruit-vl53l0x-distance-sensor": {
     "manifestVersion": 1,
@@ -1034,7 +1358,46 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Laser time-of-flight, 3 cm to 1.2 m, over I2C",
       "wiringNote": "Power VIN from 3.3 V. One sensor answers on 0x29; leave 2v8, GPIO and SHDN unconnected. To share the bus, wire each SHDN pin and pick an address from 0x30 to 0x33. The build needs the Pololu VL53L0X library, which Studio installs the first time."
-    }
+    },
+    "pads": [
+      {
+        "label": "VIN",
+        "xPx": 57,
+        "yPx": 294.8
+      },
+      {
+        "label": "2v8",
+        "xPx": 104.5,
+        "yPx": 294.8
+      },
+      {
+        "label": "GND",
+        "xPx": 152,
+        "yPx": 294.8
+      },
+      {
+        "label": "GPIO",
+        "xPx": 199.5,
+        "yPx": 294.8
+      },
+      {
+        "label": "SHDN",
+        "xPx": 247,
+        "yPx": 294.8
+      },
+      {
+        "label": "SCL",
+        "xPx": 294.5,
+        "yPx": 294.8
+      },
+      {
+        "label": "SDA",
+        "xPx": 342,
+        "yPx": 294.8
+      }
+    ],
+    "padHoleRadiusPx": 9,
+    "supplyRail": "v3v3"
   },
   "adafruit-vl53l1x-distance-sensor": {
     "manifestVersion": 1,
@@ -1120,7 +1483,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Laser time-of-flight, 3 cm to 4 m, over I2C",
       "wiringNote": "Power VIN from 3.3 V. One sensor answers on 0x29; leave XSHUT and GPIO unconnected. To share the bus, wire each XSHUT pin and pick an address from 0x30 to 0x33. It runs in long distance mode, which reaches about 4 m. The build needs the Pololu VL53L1X library, which Studio installs the first time."
-    }
+    },
+    "pads": [
+      {
+        "label": "VIN",
+        "xPx": 104.8,
+        "yPx": 232.5
+      },
+      {
+        "label": "GND",
+        "xPx": 142.7,
+        "yPx": 232.5
+      },
+      {
+        "label": "SDA",
+        "xPx": 180.6,
+        "yPx": 232.5
+      },
+      {
+        "label": "SCL",
+        "xPx": 218.4,
+        "yPx": 232.5
+      },
+      {
+        "label": "XSHUT",
+        "xPx": 256.3,
+        "yPx": 232.5
+      },
+      {
+        "label": "GPIO",
+        "xPx": 294.2,
+        "yPx": 232.5
+      }
+    ],
+    "padHoleRadiusPx": 7,
+    "supplyRail": "v3v3"
   },
   "bm3451-4s-60a-active-balance-bms": {
     "manifestVersion": 1,
@@ -1273,7 +1670,91 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "UART-controlled microSD audio player with speaker and line outputs",
       "wiringNote": "Power from 5 V. Put numbered files in the card’s /mp3 folder. Speaker mode uses SPK1/SPK2 directly; Line Out uses DAC_L/DAC_R into a power amplifier or powered speakers. Add a 1 kΩ series resistor from controller TX to module RX if UART noise causes buzzing."
-    }
+    },
+    "pads": [
+      {
+        "label": "VCC",
+        "xPx": 29,
+        "yPx": 27
+      },
+      {
+        "label": "RX",
+        "xPx": 29,
+        "yPx": 76
+      },
+      {
+        "label": "TX",
+        "xPx": 29,
+        "yPx": 125
+      },
+      {
+        "label": "DAC_R",
+        "xPx": 29,
+        "yPx": 174
+      },
+      {
+        "label": "DAC_L",
+        "xPx": 29,
+        "yPx": 224
+      },
+      {
+        "label": "SPK2",
+        "xPx": 29,
+        "yPx": 273
+      },
+      {
+        "label": "GND",
+        "xPx": 29,
+        "yPx": 322
+      },
+      {
+        "label": "SPK1",
+        "xPx": 29,
+        "yPx": 371
+      },
+      {
+        "label": "IO1",
+        "xPx": 370,
+        "yPx": 371
+      },
+      {
+        "label": "GND",
+        "xPx": 370,
+        "yPx": 322
+      },
+      {
+        "label": "IO2",
+        "xPx": 370,
+        "yPx": 273
+      },
+      {
+        "label": "ADKEY1",
+        "xPx": 370,
+        "yPx": 224
+      },
+      {
+        "label": "ADKEY2",
+        "xPx": 370,
+        "yPx": 174
+      },
+      {
+        "label": "USB+",
+        "xPx": 370,
+        "yPx": 125
+      },
+      {
+        "label": "USB−",
+        "xPx": 370,
+        "yPx": 76
+      },
+      {
+        "label": "BUSY",
+        "xPx": 370,
+        "yPx": 27
+      }
+    ],
+    "padHoleRadiusPx": 10,
+    "supplyRail": "v5"
   },
   "dgxby-20a-5v-buck-converter": {
     "manifestVersion": 1,
@@ -1426,7 +1907,26 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "A 1-Wire thermometer in a sealed steel tube, -55 to 125 °C",
       "wiringNote": "Red is VCC (3.3 V), black is GND and yellow is DATA. DATA needs a 4.7 kΩ pull-up to 3.3 V; the bare probe has none."
-    }
+    },
+    "pads": [
+      {
+        "label": "VCC",
+        "xPx": 104.5,
+        "yPx": 948
+      },
+      {
+        "label": "GND",
+        "xPx": 199.5,
+        "yPx": 948
+      },
+      {
+        "label": "DATA",
+        "xPx": 294.5,
+        "yPx": 948
+      }
+    ],
+    "padHoleRadiusPx": 6.5,
+    "supplyRail": "v3v3"
   },
   "ds3231-rtc-module": {
     "manifestVersion": 1,
@@ -1521,7 +2021,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "ZS-042 breakout, six-pin header"
-    }
+    },
+    "pads": [
+      {
+        "label": "32K",
+        "xPx": 155.2,
+        "yPx": 252.1
+      },
+      {
+        "label": "SQW",
+        "xPx": 185.8,
+        "yPx": 252.1
+      },
+      {
+        "label": "SCL",
+        "xPx": 216.2,
+        "yPx": 252.1
+      },
+      {
+        "label": "SDA",
+        "xPx": 246.7,
+        "yPx": 252.1
+      },
+      {
+        "label": "VCC",
+        "xPx": 277.1,
+        "yPx": 252.1
+      },
+      {
+        "label": "GND",
+        "xPx": 307.7,
+        "yPx": 252.1
+      }
+    ],
+    "padHoleRadiusPx": 5.9,
+    "supplyRail": "v3v3"
   },
   "dx-0809-stereo-amplifier": {
     "manifestVersion": 1,
@@ -1589,7 +2123,56 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "2 x 15 W, 12 V — AUX line in",
       "wiringNote": "Needs its own 12 V supply; the controller cannot power it. Feed its AUX input from the line out of a DAC, and share ground with the board."
-    }
+    },
+    "pads": [
+      {
+        "label": "AUX-L",
+        "xPx": 531.3,
+        "yPx": 631.3
+      },
+      {
+        "label": "AUX-GND",
+        "xPx": 599.5,
+        "yPx": 631.2
+      },
+      {
+        "label": "AUX-R",
+        "xPx": 667.5,
+        "yPx": 631.1
+      },
+      {
+        "label": "+12V",
+        "xPx": 572.5,
+        "yPx": 86.8
+      },
+      {
+        "label": "GND",
+        "xPx": 626.8,
+        "yPx": 86.6
+      },
+      {
+        "label": "L+",
+        "xPx": 164,
+        "yPx": 86.4
+      },
+      {
+        "label": "L-",
+        "xPx": 218.3,
+        "yPx": 86.9
+      },
+      {
+        "label": "R-",
+        "xPx": 980.8,
+        "yPx": 86.6
+      },
+      {
+        "label": "R+",
+        "xPx": 1035,
+        "yPx": 86.6
+      }
+    ],
+    "padHoleRadiusPx": 6.1,
+    "supplyRail": "v12"
   },
   "generic-300w-9a-buck-module": {
     "manifestVersion": 1,
@@ -1733,7 +2316,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Low-cost MSM261S4030H0-class board",
       "wiringNote": "For the unbranded boards often sold as INMP441. The GenericMEMS profile is an average MEMS correction, not this module's measured response."
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 41.7,
+        "yPx": 204.4
+      },
+      {
+        "label": "VDD",
+        "xPx": 104.1,
+        "yPx": 204.4
+      },
+      {
+        "label": "SD",
+        "xPx": 168,
+        "yPx": 204.4
+      },
+      {
+        "label": "SCK",
+        "xPx": 231,
+        "yPx": 204.4
+      },
+      {
+        "label": "WS",
+        "xPx": 294.8,
+        "yPx": 204.4
+      },
+      {
+        "label": "L/R",
+        "xPx": 357.2,
+        "yPx": 204.4
+      }
+    ],
+    "padHoleRadiusPx": 10.5,
+    "supplyRail": "v3v3"
   },
   "gy-521-mpu6050-module": {
     "manifestVersion": 1,
@@ -1834,7 +2451,51 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Three-axis accelerometer and gyroscope over I2C",
       "wiringNote": "Power VCC from 3.3 V. Leave AD0 unwired for 0x68, or tie it high for 0x69 when a DS3231 clock already uses 0x68."
-    }
+    },
+    "pads": [
+      {
+        "label": "VCC",
+        "xPx": 39.1,
+        "yPx": 263.3
+      },
+      {
+        "label": "GND",
+        "xPx": 85.1,
+        "yPx": 263.3
+      },
+      {
+        "label": "SCL",
+        "xPx": 131.1,
+        "yPx": 263.3
+      },
+      {
+        "label": "SDA",
+        "xPx": 177,
+        "yPx": 263.3
+      },
+      {
+        "label": "XDA",
+        "xPx": 222.9,
+        "yPx": 263.3
+      },
+      {
+        "label": "XCL",
+        "xPx": 268.9,
+        "yPx": 263.3
+      },
+      {
+        "label": "AD0",
+        "xPx": 314.9,
+        "yPx": 263.3
+      },
+      {
+        "label": "INT",
+        "xPx": 360.9,
+        "yPx": 263.3
+      }
+    ],
+    "padHoleRadiusPx": 9,
+    "supplyRail": "v3v3"
   },
   "hc-sr04-ultrasonic-module": {
     "manifestVersion": 1,
@@ -1915,7 +2576,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Ultrasonic ranging, 2 cm to 4 m, on two GPIOs",
       "wiringNote": "Power VCC from 5 V. Echo swings to 5 V, so a 3.3 V controller needs the 1 kΩ / 2 kΩ divider on Echo; Trig can be driven at 3.3 V."
-    }
+    },
+    "pads": [
+      {
+        "label": "VCC",
+        "xPx": 234.3,
+        "yPx": 226
+      },
+      {
+        "label": "Trig",
+        "xPx": 264.8,
+        "yPx": 226
+      },
+      {
+        "label": "Echo",
+        "xPx": 295.2,
+        "yPx": 226
+      },
+      {
+        "label": "GND",
+        "xPx": 325.7,
+        "yPx": 226
+      }
+    ],
+    "padHoleRadiusPx": 6,
+    "supplyRail": "v5"
   },
   "hc-sr501-pir-sensor": {
     "manifestVersion": 1,
@@ -1977,7 +2662,26 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Infrared: sees a warm body move",
       "wiringNote": "Power VCC from 5 V. OUT is 3.3 V logic."
-    }
+    },
+    "pads": [
+      {
+        "label": "VCC",
+        "xPx": 168.8,
+        "yPx": 280.6
+      },
+      {
+        "label": "OUT",
+        "xPx": 199.5,
+        "yPx": 280.6
+      },
+      {
+        "label": "GND",
+        "xPx": 230,
+        "yPx": 280.6
+      }
+    ],
+    "padHoleRadiusPx": 5.3,
+    "supplyRail": "v3v3"
   },
   "hlk-ld2410c-presence-sensor": {
     "manifestVersion": 1,
@@ -2059,7 +2763,36 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Someone there, moving or still, and how far: up to 6 m",
       "wiringNote": "Power from 5 V; its UART is 3.3 V, so its TX wires straight to the board's RX pin."
-    }
+    },
+    "pads": [
+      {
+        "label": "VCC",
+        "xPx": 115.2,
+        "yPx": 264.7
+      },
+      {
+        "label": "GND",
+        "xPx": 159,
+        "yPx": 264.7
+      },
+      {
+        "label": "OUT",
+        "xPx": 202.9,
+        "yPx": 264.7
+      },
+      {
+        "label": "RX",
+        "xPx": 246.7,
+        "yPx": 264.7
+      },
+      {
+        "label": "TX",
+        "xPx": 290.6,
+        "yPx": 264.7
+      }
+    ],
+    "padHoleRadiusPx": 7.2,
+    "supplyRail": "v5"
   },
   "hub75-panel-64x64-p4": {
     "manifestVersion": 1,
@@ -2289,7 +3022,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Lower noise floor, same three wires",
       "wiringNote": "Wires exactly like an INMP441 and costs about the same; firmware applies the ICS43434 response correction instead."
-    }
+    },
+    "pads": [
+      {
+        "label": "SEL",
+        "xPx": 104.7,
+        "yPx": 255.8
+      },
+      {
+        "label": "LRCL",
+        "xPx": 142.4,
+        "yPx": 255.8
+      },
+      {
+        "label": "DOUT",
+        "xPx": 180.7,
+        "yPx": 255.8
+      },
+      {
+        "label": "BCLK",
+        "xPx": 218.4,
+        "yPx": 255.8
+      },
+      {
+        "label": "GND",
+        "xPx": 256.6,
+        "yPx": 255.8
+      },
+      {
+        "label": "3V",
+        "xPx": 294.4,
+        "yPx": 255.8
+      }
+    ],
+    "padHoleRadiusPx": 6.4,
+    "supplyRail": "v3v3"
   },
   "ili9341-xc4630-parallel-touch-320x240": {
     "manifestVersion": 1,
@@ -2387,7 +3154,111 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "320x240 ILI9341 over an 8-bit parallel bus",
       "wiringNote": "An Arduino-shield form factor, so it is wired with jumpers rather than seated: thirteen lines for the panel, and no touch header at all. The resistive sheet has no controller and borrows four of those same lines; the two it reads (LCD_CS and LCD_RS) must sit on ADC1 - on ADC2 a press reads fine until something enables Wi-Fi. This product ships different controllers between revisions under identical silkscreen; the driver targets the ILI9341 one."
-    }
+    },
+    "pads": [
+      {
+        "label": "LCD_D2",
+        "xPx": 219.9,
+        "yPx": 40
+      },
+      {
+        "label": "LCD_D3",
+        "xPx": 250.4,
+        "yPx": 40
+      },
+      {
+        "label": "LCD_D4",
+        "xPx": 280.8,
+        "yPx": 40
+      },
+      {
+        "label": "LCD_D5",
+        "xPx": 311.3,
+        "yPx": 40
+      },
+      {
+        "label": "LCD_D6",
+        "xPx": 341.8,
+        "yPx": 40
+      },
+      {
+        "label": "LCD_D7",
+        "xPx": 372.3,
+        "yPx": 40
+      },
+      {
+        "label": "LCD_D0",
+        "xPx": 430.1,
+        "yPx": 40
+      },
+      {
+        "label": "LCD_D1",
+        "xPx": 460.6,
+        "yPx": 40
+      },
+      {
+        "label": "SD_SS",
+        "xPx": 491.1,
+        "yPx": 40
+      },
+      {
+        "label": "SD_DI",
+        "xPx": 521.6,
+        "yPx": 40
+      },
+      {
+        "label": "SD_DO",
+        "xPx": 552,
+        "yPx": 40
+      },
+      {
+        "label": "SD_SCK",
+        "xPx": 582.5,
+        "yPx": 40
+      },
+      {
+        "label": "LCD_RST",
+        "xPx": 182.7,
+        "yPx": 590.8
+      },
+      {
+        "label": "LCD_CS",
+        "xPx": 213.2,
+        "yPx": 590.8
+      },
+      {
+        "label": "LCD_RS",
+        "xPx": 243.6,
+        "yPx": 590.8
+      },
+      {
+        "label": "LCD_WR",
+        "xPx": 274.1,
+        "yPx": 590.8
+      },
+      {
+        "label": "LCD_RD",
+        "xPx": 304.6,
+        "yPx": 590.8
+      },
+      {
+        "label": "GND",
+        "xPx": 407.1,
+        "yPx": 590.8
+      },
+      {
+        "label": "5V",
+        "xPx": 468.1,
+        "yPx": 590.8
+      },
+      {
+        "label": "3V3",
+        "xPx": 498.5,
+        "yPx": 590.8
+      }
+    ],
+    "padHoleRadiusPx": 3,
+    "supplyRail": "v5"
   },
   "ili9341-xpt2046-touch-320x240": {
     "manifestVersion": 1,
@@ -2465,7 +3336,71 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "320x240 colour TFT with XPT2046 touch",
       "wiringNote": "The DFRobot DFR0665 breakout: an ILI9341 panel, an XPT2046 touch controller and a microSD slot, sharing SCLK, MOSI and MISO with a chip select each. The controller scans in portrait, so a 320x240 screen needs the Landscape view. Adding it gives you the panel and its Touch Screen node."
-    }
+    },
+    "pads": [
+      {
+        "label": "VCC",
+        "xPx": 316.6,
+        "yPx": 586.7
+      },
+      {
+        "label": "GND",
+        "xPx": 346.2,
+        "yPx": 586.7
+      },
+      {
+        "label": "SCLK",
+        "xPx": 376.8,
+        "yPx": 586.7
+      },
+      {
+        "label": "MOSI",
+        "xPx": 407.6,
+        "yPx": 586.7
+      },
+      {
+        "label": "MISO",
+        "xPx": 438,
+        "yPx": 586.7
+      },
+      {
+        "label": "CS",
+        "xPx": 468.3,
+        "yPx": 586.7
+      },
+      {
+        "label": "RES",
+        "xPx": 498.7,
+        "yPx": 586.7
+      },
+      {
+        "label": "DC",
+        "xPx": 529.1,
+        "yPx": 586.7
+      },
+      {
+        "label": "BL",
+        "xPx": 560,
+        "yPx": 586.7
+      },
+      {
+        "label": "TOUCH_CS",
+        "xPx": 590.4,
+        "yPx": 586.7
+      },
+      {
+        "label": "INT",
+        "xPx": 621.1,
+        "yPx": 586.7
+      },
+      {
+        "label": "SDCS",
+        "xPx": 651.2,
+        "yPx": 586.7
+      }
+    ],
+    "padHoleRadiusPx": 6,
+    "supplyRail": "v3v3"
   },
   "ina226-current-sensor-module": {
     "manifestVersion": 1,
@@ -2583,7 +3518,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Volts, amps, watts: 36 V, 20 A, I2C",
       "wiringNote": "High-side: the supply goes to IN+ and the load to IN-, sharing ground with the board. Power VCC from 3.3 V. Sixteen addresses, 0x40 to 0x4F, from the A0 and A1 pads. ALE is not needed."
-    }
+    },
+    "pads": [
+      {
+        "label": "VCC",
+        "xPx": 106.7,
+        "yPx": 294.1
+      },
+      {
+        "label": "GND",
+        "xPx": 143.9,
+        "yPx": 294.1
+      },
+      {
+        "label": "SCL",
+        "xPx": 181,
+        "yPx": 294.1
+      },
+      {
+        "label": "SDA",
+        "xPx": 218,
+        "yPx": 294.1
+      },
+      {
+        "label": "ALE",
+        "xPx": 255.1,
+        "yPx": 294.1
+      },
+      {
+        "label": "VBS",
+        "xPx": 292.3,
+        "yPx": 294.1
+      }
+    ],
+    "padHoleRadiusPx": 7,
+    "supplyRail": "v3v3"
   },
   "inmp441-i2s-microphone": {
     "manifestVersion": 1,
@@ -2639,7 +3608,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "The common three-wire I2S MEMS module"
-    }
+    },
+    "pads": [
+      {
+        "label": "L/R",
+        "xPx": 34,
+        "yPx": 244.8
+      },
+      {
+        "label": "GND",
+        "xPx": 100.4,
+        "yPx": 244.8
+      },
+      {
+        "label": "WS",
+        "xPx": 166.8,
+        "yPx": 244.8
+      },
+      {
+        "label": "SCK",
+        "xPx": 233.2,
+        "yPx": 244.8
+      },
+      {
+        "label": "SD",
+        "xPx": 299.6,
+        "yPx": 244.8
+      },
+      {
+        "label": "VDD",
+        "xPx": 366,
+        "yPx": 244.8
+      }
+    ],
+    "padHoleRadiusPx": 13,
+    "supplyRail": "v3v3"
   },
   "ip2368-100w-bidirectional-charger": {
     "manifestVersion": 1,
@@ -2872,7 +3875,36 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Bare 12 mm encoder with a push switch",
       "wiringNote": "No supply pin. Wire C and one switch leg each to ground; A, B and SW go to GPIOs, which always use the internal pull-up. Each click is two transitions rather than four, which the firmware counts as one click like the module."
-    }
+    },
+    "pads": [
+      {
+        "label": "A",
+        "xPx": 133.6,
+        "yPx": 406
+      },
+      {
+        "label": "GND1",
+        "xPx": 200,
+        "yPx": 406
+      },
+      {
+        "label": "B",
+        "xPx": 266.4,
+        "yPx": 406
+      },
+      {
+        "label": "SW",
+        "xPx": 133.6,
+        "yPx": 20.7
+      },
+      {
+        "label": "GND2",
+        "xPx": 266.4,
+        "yPx": 20.7
+      }
+    ],
+    "padHoleRadiusPx": 9,
+    "supplyRail": "none"
   },
   "jaycar-xc9044-rtc-module": {
     "manifestVersion": 1,
@@ -2945,7 +3977,36 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Pi-header DS3231, CR927 backup"
-    }
+    },
+    "pads": [
+      {
+        "label": "3V3",
+        "xPx": 67.5,
+        "yPx": 349.2
+      },
+      {
+        "label": "SDA",
+        "xPx": 133.5,
+        "yPx": 349.1
+      },
+      {
+        "label": "SCL",
+        "xPx": 199.5,
+        "yPx": 349.2
+      },
+      {
+        "label": "SQW",
+        "xPx": 265.5,
+        "yPx": 349.1
+      },
+      {
+        "label": "GND",
+        "xPx": 331.6,
+        "yPx": 349.2
+      }
+    ],
+    "padHoleRadiusPx": 12.3,
+    "supplyRail": "v3v3"
   },
   "keyestudio-ks0026-ir-receiver-module": {
     "manifestVersion": 1,
@@ -3025,7 +4086,26 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "38 kHz IR receiver module with activity LED, 5 V",
       "wiringNote": "Connect − to GND, + to 5 V and S to the input through the Build Diagram’s signal divider. Keyestudio specifies a 5 V supply; 3.3 V operation is not verified."
-    }
+    },
+    "pads": [
+      {
+        "label": "-",
+        "xPx": 150.2,
+        "yPx": 539.1
+      },
+      {
+        "label": "+",
+        "xPx": 200,
+        "yPx": 539.1
+      },
+      {
+        "label": "S",
+        "xPx": 249.8,
+        "yPx": 539.1
+      }
+    ],
+    "padHoleRadiusPx": 6.1,
+    "supplyRail": "v5"
   },
   "ky-006-passive-buzzer-module": {
     "manifestVersion": 1,
@@ -3108,7 +4188,26 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Plays a tone at the pitch you set",
       "wiringNote": "Wire S to the GPIO and - to ground; leave the middle pin unconnected (Joy-IT labels it +V, but the buzzer sounds without it). The controller plays a square wave at Pitch while Sound is true, and the pin rests low otherwise. It is loudest near 2 kHz. It draws 25 mA or less straight from the pin; if your buzzer reads a few tens of ohms on a meter rather than open, it is a coil type and needs a transistor. One passive buzzer per board: the tone generator drives one pin at a time."
-    }
+    },
+    "pads": [
+      {
+        "label": "S",
+        "xPx": 135.2,
+        "yPx": 437.8
+      },
+      {
+        "label": "NC",
+        "xPx": 199.5,
+        "yPx": 437.8
+      },
+      {
+        "label": "-",
+        "xPx": 263.8,
+        "yPx": 437.8
+      }
+    ],
+    "padHoleRadiusPx": 11.9,
+    "supplyRail": "none"
   },
   "ky-012-active-buzzer-module": {
     "manifestVersion": 1,
@@ -3175,7 +4274,26 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Beeps at a fixed pitch while its pin is high",
       "wiringNote": "Wire SIG to the GPIO and GND to ground; leave the middle pin unconnected. It sounds at its own fixed pitch (about 2.5 kHz) while SIG is high and the pitch cannot be changed. It draws about 30 mA, more than a GPIO should supply for long or frequent sounds; switch it through a transistor for those. At 3.3 V it is quieter than at 5 V."
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 137.2,
+        "yPx": 413.1
+      },
+      {
+        "label": "NC",
+        "xPx": 199.5,
+        "yPx": 413.1
+      },
+      {
+        "label": "SIG",
+        "xPx": 261.8,
+        "yPx": 413.1
+      }
+    ],
+    "padHoleRadiusPx": 11.5,
+    "supplyRail": "none"
   },
   "ky-022-ir-receiver-module": {
     "manifestVersion": 1,
@@ -3255,7 +4373,26 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "IR remote receiver, 3-pin board with LED",
       "wiringNote": "Some clones swap the outer two pins. Check the silkscreen on your board before wiring it — a swap puts the supply rail on a GPIO."
-    }
+    },
+    "pads": [
+      {
+        "label": "-",
+        "xPx": 155.6,
+        "yPx": 267.5
+      },
+      {
+        "label": "+",
+        "xPx": 199.5,
+        "yPx": 267.5
+      },
+      {
+        "label": "S",
+        "xPx": 243.4,
+        "yPx": 267.5
+      }
+    ],
+    "padHoleRadiusPx": 4,
+    "supplyRail": "v3v3"
   },
   "ky-023-joystick-module": {
     "manifestVersion": 1,
@@ -3326,7 +4463,36 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "A thumb stick with two analog axes and a push switch",
       "wiringNote": "Power it from 3.3 V so the axis voltages stay inside the ADC range. VRx and VRy go to ADC pins, SW to a pin with a pull-up."
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 125.8,
+        "yPx": 471.8
+      },
+      {
+        "label": "+5V",
+        "xPx": 162.9,
+        "yPx": 471.8
+      },
+      {
+        "label": "VRx",
+        "xPx": 200,
+        "yPx": 471.8
+      },
+      {
+        "label": "VRy",
+        "xPx": 237.1,
+        "yPx": 471.8
+      },
+      {
+        "label": "SW",
+        "xPx": 274.2,
+        "yPx": 471.8
+      }
+    ],
+    "padHoleRadiusPx": 7.3,
+    "supplyRail": "v3v3"
   },
   "lm2596-buck-module": {
     "manifestVersion": 1,
@@ -3514,7 +4680,21 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "One opto-isolated DC switch or dimmer, 6-28 V",
       "wiringNote": "DC loads only. No flyback diode on the board: add one across a motor, solenoid or coil."
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 169.8,
+        "yPx": 771.2
+      },
+      {
+        "label": "PWM",
+        "xPx": 230.2,
+        "yPx": 771.2
+      }
+    ],
+    "padHoleRadiusPx": 12.3,
+    "supplyRail": "none"
   },
   "matrix-keypad-4x4": {
     "manifestVersion": 1,
@@ -3578,7 +4758,51 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Sixteen keys on eight GPIOs",
       "wiringNote": "Rows R1 to R4 go to pins with a pull-up and columns C1 to C4 to output pins. The keypad is passive and needs no power."
-    }
+    },
+    "pads": [
+      {
+        "label": "R1",
+        "xPx": 317.3,
+        "yPx": 947.2
+      },
+      {
+        "label": "R2",
+        "xPx": 347.8,
+        "yPx": 947.2
+      },
+      {
+        "label": "R3",
+        "xPx": 378.3,
+        "yPx": 947.2
+      },
+      {
+        "label": "R4",
+        "xPx": 408.8,
+        "yPx": 947.2
+      },
+      {
+        "label": "C1",
+        "xPx": 439.2,
+        "yPx": 947.2
+      },
+      {
+        "label": "C2",
+        "xPx": 469.7,
+        "yPx": 947.2
+      },
+      {
+        "label": "C3",
+        "xPx": 500.2,
+        "yPx": 947.2
+      },
+      {
+        "label": "C4",
+        "xPx": 530.7,
+        "yPx": 947.2
+      }
+    ],
+    "padHoleRadiusPx": 6,
+    "supplyRail": "none"
   },
   "max485-rs485-module": {
     "manifestVersion": 1,
@@ -3678,7 +4902,51 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "DMX512 in from an XLR line, on 5 V",
       "wiringNote": "Power from 5 V. RO reaches the board through a 1 kΩ / 2 kΩ divider, and RE is bridged to DE so one GPIO drives both. Keep the fitted 120 Ω terminator only on the last device in the DMX chain."
-    }
+    },
+    "pads": [
+      {
+        "label": "RO",
+        "xPx": 103,
+        "yPx": 1094.3
+      },
+      {
+        "label": "RE",
+        "xPx": 167.3,
+        "yPx": 1094.3
+      },
+      {
+        "label": "DE",
+        "xPx": 231.7,
+        "yPx": 1094.3
+      },
+      {
+        "label": "DI",
+        "xPx": 296,
+        "yPx": 1094.3
+      },
+      {
+        "label": "VCC",
+        "xPx": 103,
+        "yPx": 64.7
+      },
+      {
+        "label": "B",
+        "xPx": 167.3,
+        "yPx": 64.7
+      },
+      {
+        "label": "A",
+        "xPx": 231.7,
+        "yPx": 64.7
+      },
+      {
+        "label": "GND",
+        "xPx": 296,
+        "yPx": 64.7
+      }
+    ],
+    "padHoleRadiusPx": 11.9,
+    "supplyRail": "v5"
   },
   "max7219-8digit-7segment": {
     "manifestVersion": 1,
@@ -3762,7 +5030,36 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Eight digits on a shared SPI bus",
       "wiringNote": "Eight digits and no colon, clocked as 16-bit frames over CLK and DIN with its own load line. It can share clock and data with other SPI devices given its own load pin, and its sixteen brightness steps are twice the TM1637 range."
-    }
+    },
+    "pads": [
+      {
+        "label": "VCC",
+        "xPx": 18.3,
+        "yPx": 33
+      },
+      {
+        "label": "GND",
+        "xPx": 18.3,
+        "yPx": 63.6
+      },
+      {
+        "label": "DIN",
+        "xPx": 18.3,
+        "yPx": 94
+      },
+      {
+        "label": "CS",
+        "xPx": 18.3,
+        "yPx": 124.5
+      },
+      {
+        "label": "CLK",
+        "xPx": 18.3,
+        "yPx": 154.9
+      }
+    ],
+    "padHoleRadiusPx": 4.7,
+    "supplyRail": "v3v3"
   },
   "max98357a-i2s-amplifier": {
     "manifestVersion": 1,
@@ -3826,7 +5123,46 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "I2S in, drives a speaker directly"
-    }
+    },
+    "pads": [
+      {
+        "label": "LRC",
+        "xPx": 32,
+        "yPx": 535.7
+      },
+      {
+        "label": "BCLK",
+        "xPx": 88,
+        "yPx": 535.7
+      },
+      {
+        "label": "DIN",
+        "xPx": 144,
+        "yPx": 535.7
+      },
+      {
+        "label": "GAIN",
+        "xPx": 200,
+        "yPx": 535.7
+      },
+      {
+        "label": "SD",
+        "xPx": 256,
+        "yPx": 535.7
+      },
+      {
+        "label": "GND",
+        "xPx": 312,
+        "yPx": 535.7
+      },
+      {
+        "label": "VIN",
+        "xPx": 368,
+        "yPx": 535.7
+      }
+    ],
+    "padHoleRadiusPx": 10.5,
+    "supplyRail": "v5"
   },
   "max98357a-stereo-pair": {
     "manifestVersion": 1,
@@ -3902,7 +5238,81 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Two I2S amps, one per channel",
       "wiringNote": "Both boards share BCLK, LRC and DIN. Each plays the channel its SD pin selects (see the SD_MODE table in the MAX98357A datasheet); an unmodified breakout plays the left-plus-right mix, so set one board to left and the other to right."
-    }
+    },
+    "pads": [
+      {
+        "label": "L:LRC",
+        "xPx": 24.2,
+        "yPx": 299.7
+      },
+      {
+        "label": "L:BCLK",
+        "xPx": 54.8,
+        "yPx": 299.7
+      },
+      {
+        "label": "L:DIN",
+        "xPx": 85.3,
+        "yPx": 299.7
+      },
+      {
+        "label": "L:GAIN",
+        "xPx": 115.9,
+        "yPx": 299.7
+      },
+      {
+        "label": "L:SD",
+        "xPx": 146.4,
+        "yPx": 299.7
+      },
+      {
+        "label": "L:GND",
+        "xPx": 177,
+        "yPx": 299.7
+      },
+      {
+        "label": "L:VIN",
+        "xPx": 207.5,
+        "yPx": 299.7
+      },
+      {
+        "label": "R:LRC",
+        "xPx": 274.1,
+        "yPx": 299.7
+      },
+      {
+        "label": "R:BCLK",
+        "xPx": 304.7,
+        "yPx": 299.7
+      },
+      {
+        "label": "R:DIN",
+        "xPx": 335.2,
+        "yPx": 299.7
+      },
+      {
+        "label": "R:GAIN",
+        "xPx": 365.8,
+        "yPx": 299.7
+      },
+      {
+        "label": "R:SD",
+        "xPx": 396.3,
+        "yPx": 299.7
+      },
+      {
+        "label": "R:GND",
+        "xPx": 426.9,
+        "yPx": 299.7
+      },
+      {
+        "label": "R:VIN",
+        "xPx": 457.4,
+        "yPx": 299.7
+      }
+    ],
+    "padHoleRadiusPx": 5.1,
+    "supplyRail": "v5"
   },
   "mean-well-sd-100a-5": {
     "manifestVersion": 1,
@@ -4160,7 +5570,46 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Bare board — 3.3 V only",
       "wiringNote": "Bare board: no regulator, no level shifter. 5 V power or 5 V SPI can destroy the card."
-    }
+    },
+    "pads": [
+      {
+        "label": "CD",
+        "xPx": 53,
+        "yPx": 395.6
+      },
+      {
+        "label": "DO",
+        "xPx": 102,
+        "yPx": 395.6
+      },
+      {
+        "label": "GND",
+        "xPx": 151,
+        "yPx": 395.6
+      },
+      {
+        "label": "SCK",
+        "xPx": 200,
+        "yPx": 395.6
+      },
+      {
+        "label": "3V3",
+        "xPx": 249,
+        "yPx": 395.6
+      },
+      {
+        "label": "DI",
+        "xPx": 298,
+        "yPx": 395.6
+      },
+      {
+        "label": "CS",
+        "xPx": 347,
+        "yPx": 395.6
+      }
+    ],
+    "padHoleRadiusPx": 9.6,
+    "supplyRail": "v3v3"
   },
   "microsd-module-5v": {
     "manifestVersion": 1,
@@ -4223,7 +5672,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Regulator and level shifter on board",
       "wiringNote": "Has an onboard regulator and level shifter, so it takes 5 V power and 5 V SPI."
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 96.2,
+        "yPx": 669.1
+      },
+      {
+        "label": "VCC",
+        "xPx": 137.8,
+        "yPx": 669.1
+      },
+      {
+        "label": "MISO",
+        "xPx": 179.2,
+        "yPx": 669.1
+      },
+      {
+        "label": "MOSI",
+        "xPx": 220.8,
+        "yPx": 669.1
+      },
+      {
+        "label": "SCK",
+        "xPx": 262.1,
+        "yPx": 669.1
+      },
+      {
+        "label": "CS",
+        "xPx": 303.8,
+        "yPx": 669.1
+      }
+    ],
+    "padHoleRadiusPx": 8.1,
+    "supplyRail": "v5"
   },
   "monkmakes-mosfetti": {
     "manifestVersion": 1,
@@ -4414,7 +5897,36 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Four DC switches or dimmers, A to D, 3-16 V",
       "wiringNote": "DC only, 2 A for the whole board. Not isolated: join its GND to the board. Flyback diodes are fitted."
-    }
+    },
+    "pads": [
+      {
+        "label": "A",
+        "xPx": 368.2,
+        "yPx": 536.5
+      },
+      {
+        "label": "B",
+        "xPx": 398.7,
+        "yPx": 536.5
+      },
+      {
+        "label": "C",
+        "xPx": 429.2,
+        "yPx": 536.5
+      },
+      {
+        "label": "D",
+        "xPx": 459.7,
+        "yPx": 536.5
+      },
+      {
+        "label": "GND",
+        "xPx": 490.2,
+        "yPx": 536.5
+      }
+    ],
+    "padHoleRadiusPx": 5.6,
+    "supplyRail": "none"
   },
   "nled-pixel-data-extender-pair": {
     "manifestVersion": 1,
@@ -4569,7 +6081,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "40 mm 5 V fan, 25 kHz PWM control and tachometer feedback",
       "wiringNote": "Power it from 5 V. PWM is a 25 kHz active-high controller signal; RPM is an open-collector tachometer output with two pulses per revolution. This first firmware path supports ESP32-family boards."
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 204.25,
+        "yPx": 458
+      },
+      {
+        "label": "VCC",
+        "xPx": 234.75,
+        "yPx": 458
+      },
+      {
+        "label": "RPM",
+        "xPx": 265.25,
+        "yPx": 458
+      },
+      {
+        "label": "PWM",
+        "xPx": 295.75,
+        "yPx": 458
+      }
+    ],
+    "padHoleRadiusPx": 6,
+    "supplyRail": "v3v3"
   },
   "pam8403-3w-stereo-amplifier": {
     "manifestVersion": 1,
@@ -4651,7 +6187,66 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "2 x 3 W, 5 V — line level in",
       "wiringNote": "Takes line level, not I2S. Fed from a PCM5102A or UDA1334A, or on a classic ESP32 from its own DAC on GPIO25/26."
-    }
+    },
+    "pads": [
+      {
+        "label": "R+",
+        "xPx": 36.6,
+        "yPx": 254.3
+      },
+      {
+        "label": "R-",
+        "xPx": 69.4,
+        "yPx": 254.3
+      },
+      {
+        "label": "L-",
+        "xPx": 102,
+        "yPx": 254.3
+      },
+      {
+        "label": "L+",
+        "xPx": 134.6,
+        "yPx": 254.3
+      },
+      {
+        "label": "GND",
+        "xPx": 167.4,
+        "yPx": 254.3
+      },
+      {
+        "label": "+5V",
+        "xPx": 200.1,
+        "yPx": 254.3
+      },
+      {
+        "label": "SW",
+        "xPx": 232.6,
+        "yPx": 254.3
+      },
+      {
+        "label": "GND",
+        "xPx": 265.4,
+        "yPx": 254.3
+      },
+      {
+        "label": "LIN",
+        "xPx": 298.1,
+        "yPx": 254.3
+      },
+      {
+        "label": "GND",
+        "xPx": 330.7,
+        "yPx": 254.3
+      },
+      {
+        "label": "RIN",
+        "xPx": 363.4,
+        "yPx": 254.3
+      }
+    ],
+    "padHoleRadiusPx": 5.6,
+    "supplyRail": "v5"
   },
   "pam8610-stereo-amplifier": {
     "manifestVersion": 1,
@@ -4713,7 +6308,61 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "2 x 15 W, 12 V — line level in",
       "wiringNote": "Needs its own 7-15 V supply; the controller cannot power it. Share its ground with the board and the DAC."
-    }
+    },
+    "pads": [
+      {
+        "label": "L+",
+        "xPx": 66.5,
+        "yPx": 55.6
+      },
+      {
+        "label": "L-",
+        "xPx": 119.6,
+        "yPx": 55.1
+      },
+      {
+        "label": "+12V",
+        "xPx": 172.7,
+        "yPx": 55.6
+      },
+      {
+        "label": "GND",
+        "xPx": 226.5,
+        "yPx": 55.2
+      },
+      {
+        "label": "R-",
+        "xPx": 279.2,
+        "yPx": 55.2
+      },
+      {
+        "label": "R+",
+        "xPx": 332.7,
+        "yPx": 55.1
+      },
+      {
+        "label": "INL",
+        "xPx": 146.2,
+        "yPx": 304.5
+      },
+      {
+        "label": "AGND",
+        "xPx": 182,
+        "yPx": 304.5
+      },
+      {
+        "label": "INR",
+        "xPx": 217.3,
+        "yPx": 304.6
+      },
+      {
+        "label": "MUTE",
+        "xPx": 252.7,
+        "yPx": 304.6
+      }
+    ],
+    "padHoleRadiusPx": 4.9,
+    "supplyRail": "v12"
   },
   "pcm1802-line-in-adc": {
     "manifestVersion": 1,
@@ -4775,7 +6424,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Stereo RCA line in to I2S",
       "wiringNote": "Connect a player module's line-level DAC output, not its bridge-tied speaker output, to the RCA inputs."
-    }
+    },
+    "pads": [
+      {
+        "label": "5V",
+        "xPx": 239.3,
+        "yPx": 444.1
+      },
+      {
+        "label": "GND",
+        "xPx": 269.8,
+        "yPx": 444.1
+      },
+      {
+        "label": "SCK",
+        "xPx": 300.2,
+        "yPx": 444.1
+      },
+      {
+        "label": "BCK",
+        "xPx": 330.8,
+        "yPx": 444.1
+      },
+      {
+        "label": "LRCK",
+        "xPx": 361.2,
+        "yPx": 444.1
+      },
+      {
+        "label": "DOUT",
+        "xPx": 391.7,
+        "yPx": 444.1
+      }
+    ],
+    "padHoleRadiusPx": 5.7,
+    "supplyRail": "v5"
   },
   "pcm5102a-i2s-dac": {
     "manifestVersion": 1,
@@ -4841,7 +6524,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "I2S DAC — line out, needs an amp",
       "wiringNote": "A DAC, not an amplifier — the same three I2S wires, but a line-level output that needs a powered speaker or a power amplifier."
-    }
+    },
+    "pads": [
+      {
+        "label": "SCK",
+        "xPx": 55,
+        "yPx": 837
+      },
+      {
+        "label": "BCK",
+        "xPx": 113,
+        "yPx": 837
+      },
+      {
+        "label": "DIN",
+        "xPx": 171,
+        "yPx": 837
+      },
+      {
+        "label": "LCK",
+        "xPx": 229,
+        "yPx": 837
+      },
+      {
+        "label": "GND",
+        "xPx": 287,
+        "yPx": 837
+      },
+      {
+        "label": "VIN",
+        "xPx": 345,
+        "yPx": 837
+      }
+    ],
+    "padHoleRadiusPx": 11.5,
+    "supplyRail": "v5"
   },
   "photosensitive-ldr-module": {
     "manifestVersion": 1,
@@ -4896,7 +6613,26 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Relative brightness on one analog pin",
       "wiringNote": "An analog divider: Level is relative brightness. It cannot report calibrated lux, so Lux stays at zero."
-    }
+    },
+    "pads": [
+      {
+        "label": "S",
+        "xPx": 172.8,
+        "yPx": 281.8
+      },
+      {
+        "label": "VCC",
+        "xPx": 203.4,
+        "yPx": 281.8
+      },
+      {
+        "label": "GND",
+        "xPx": 234,
+        "yPx": 281.8
+      }
+    ],
+    "padHoleRadiusPx": 5.6,
+    "supplyRail": "v3v3"
   },
   "rcnun-60a-5v-buck-converter": {
     "manifestVersion": 1,
@@ -5044,7 +6780,37 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Radar: senses movement through plastic",
       "wiringNote": "Power VIN from 5 V (4 to 28 V). OUT is 3.3 V logic and stays high about two seconds after the last movement. Leave 3V3 and CDS unwired."
-    }
+    },
+    "pads": [
+      {
+        "label": "3V3",
+        "xPx": 273,
+        "yPx": 187.6
+      },
+      {
+        "label": "GND",
+        "xPx": 303.5,
+        "yPx": 187.6
+      },
+      {
+        "label": "OUT",
+        "xPx": 334,
+        "yPx": 187.6
+      },
+      {
+        "label": "VIN",
+        "xPx": 364.5,
+        "yPx": 187.6
+      },
+      {
+        "label": "CDS",
+        "xPx": 395,
+        "yPx": 187.6
+      }
+    ],
+    "padHoleRadiusPx": 6,
+    "supplyRail": "v5",
+    "powerPadLabel": "VIN"
   },
   "relay-module-1ch-5v": {
     "manifestVersion": 1,
@@ -5168,7 +6934,26 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "One active-low 5 V SPDT relay"
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 279.1,
+        "yPx": 302.8
+      },
+      {
+        "label": "IN1",
+        "xPx": 309.5,
+        "yPx": 302.8
+      },
+      {
+        "label": "VCC",
+        "xPx": 339.9,
+        "yPx": 302.8
+      }
+    ],
+    "padHoleRadiusPx": 4.9,
+    "supplyRail": "v5"
   },
   "relay-module-2ch-5v": {
     "manifestVersion": 1,
@@ -5301,7 +7086,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Two active-low 5 V SPDT relays"
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 263.7,
+        "yPx": 482.9
+      },
+      {
+        "label": "IN1",
+        "xPx": 294.4,
+        "yPx": 482.9
+      },
+      {
+        "label": "IN2",
+        "xPx": 324.7,
+        "yPx": 482.9
+      },
+      {
+        "label": "VCC",
+        "xPx": 355.3,
+        "yPx": 482.9
+      }
+    ],
+    "padHoleRadiusPx": 4.9,
+    "supplyRail": "v5"
   },
   "relay-module-4ch-5v": {
     "manifestVersion": 1,
@@ -5466,7 +7275,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Four active-low 5 V SPDT relays"
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 389.4,
+        "yPx": 650.9
+      },
+      {
+        "label": "IN1",
+        "xPx": 419.7,
+        "yPx": 650.9
+      },
+      {
+        "label": "IN2",
+        "xPx": 450.4,
+        "yPx": 650.9
+      },
+      {
+        "label": "IN3",
+        "xPx": 480.6,
+        "yPx": 650.9
+      },
+      {
+        "label": "IN4",
+        "xPx": 511.4,
+        "yPx": 650.9
+      },
+      {
+        "label": "VCC",
+        "xPx": 541.6,
+        "yPx": 650.9
+      }
+    ],
+    "padHoleRadiusPx": 5,
+    "supplyRail": "v5"
   },
   "relay-module-8ch-5v": {
     "manifestVersion": 1,
@@ -5695,7 +7538,61 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "copy": {
       "summary": "Eight active-low 5 V SPDT relays"
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 501.1,
+        "yPx": 478.3
+      },
+      {
+        "label": "IN1",
+        "xPx": 522.9,
+        "yPx": 478.3
+      },
+      {
+        "label": "IN2",
+        "xPx": 544.9,
+        "yPx": 478.3
+      },
+      {
+        "label": "IN3",
+        "xPx": 566.8,
+        "yPx": 478.3
+      },
+      {
+        "label": "IN4",
+        "xPx": 588.6,
+        "yPx": 478.3
+      },
+      {
+        "label": "IN5",
+        "xPx": 610.3,
+        "yPx": 478.3
+      },
+      {
+        "label": "IN6",
+        "xPx": 632.2,
+        "yPx": 478.3
+      },
+      {
+        "label": "IN7",
+        "xPx": 654.2,
+        "yPx": 478.3
+      },
+      {
+        "label": "IN8",
+        "xPx": 676.1,
+        "yPx": 478.3
+      },
+      {
+        "label": "VCC",
+        "xPx": 697.9,
+        "yPx": 478.3
+      }
+    ],
+    "padHoleRadiusPx": 3.4,
+    "supplyRail": "v5"
   },
   "samsung-inr18650-35e": {
     "manifestVersion": 1,
@@ -5882,7 +7779,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Two AC phototriacs, 0.1-2 A, leak 1.5 mA off",
       "wiringNote": "Wire CTR1 and CTR2 to GPIOs and VCC to 5 V. The screw terminals switch the AC load and are not logic pins."
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 261.5,
+        "yPx": 578
+      },
+      {
+        "label": "VCC",
+        "xPx": 285.5,
+        "yPx": 578
+      },
+      {
+        "label": "CTR2",
+        "xPx": 309.5,
+        "yPx": 578
+      },
+      {
+        "label": "CTR1",
+        "xPx": 333.5,
+        "yPx": 578
+      }
+    ],
+    "padHoleRadiusPx": 6,
+    "supplyRail": "v5"
   },
   "seeed-grove-touch-sensor": {
     "manifestVersion": 1,
@@ -5973,7 +7894,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "One active-high capacitive touch button",
       "wiringNote": "Power from 3.3 V. SIG is HIGH while touched; NC is not connected."
-    }
+    },
+    "pads": [
+      {
+        "label": "SIG",
+        "xPx": 152,
+        "yPx": 297.8
+      },
+      {
+        "label": "NC",
+        "xPx": 183.6,
+        "yPx": 297.8
+      },
+      {
+        "label": "VCC",
+        "xPx": 215.4,
+        "yPx": 297.8
+      },
+      {
+        "label": "GND",
+        "xPx": 247,
+        "yPx": 297.8
+      }
+    ],
+    "padHoleRadiusPx": 6.4,
+    "supplyRail": "v3v3"
   },
   "sh1106-oled-096-128x64-spi": {
     "manifestVersion": 1,
@@ -6069,7 +8014,46 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "128x64 white OLED over 4-wire SPI",
       "wiringNote": "Same SH1106G silicon and 2-column RAM offset as the 1.3-inch SPI module, on a smaller 27 x 28 mm board."
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 92.3,
+        "yPx": 371.6
+      },
+      {
+        "label": "VCC",
+        "xPx": 128.1,
+        "yPx": 371.6
+      },
+      {
+        "label": "CLK",
+        "xPx": 163.5,
+        "yPx": 371.6
+      },
+      {
+        "label": "MOSI",
+        "xPx": 199.3,
+        "yPx": 371.6
+      },
+      {
+        "label": "RES",
+        "xPx": 235.3,
+        "yPx": 371.6
+      },
+      {
+        "label": "DC",
+        "xPx": 271.7,
+        "yPx": 371.6
+      },
+      {
+        "label": "CS",
+        "xPx": 306.8,
+        "yPx": 371.6
+      }
+    ],
+    "padHoleRadiusPx": 6.6,
+    "supplyRail": "v3v3"
   },
   "sh1106-oled-128x64": {
     "manifestVersion": 1,
@@ -6157,7 +8141,46 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "128x64 white OLED over 4-wire SPI",
       "wiringNote": "The 1.3-inch SH1106 has 132 columns of controller RAM behind a 128-column panel, so its window starts two columns in. Driving it as an SSD1306 shifts the image two pixels and wraps the remainder down the edge."
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 125.5,
+        "yPx": 391.6
+      },
+      {
+        "label": "VCC",
+        "xPx": 155.5,
+        "yPx": 391.6
+      },
+      {
+        "label": "CLK",
+        "xPx": 186.5,
+        "yPx": 391.6
+      },
+      {
+        "label": "MOSI",
+        "xPx": 216.5,
+        "yPx": 391.6
+      },
+      {
+        "label": "RES",
+        "xPx": 247,
+        "yPx": 391.6
+      },
+      {
+        "label": "DC",
+        "xPx": 277.5,
+        "yPx": 391.6
+      },
+      {
+        "label": "CS",
+        "xPx": 308,
+        "yPx": 391.6
+      }
+    ],
+    "padHoleRadiusPx": 5.9,
+    "supplyRail": "v3v3"
   },
   "sh1106-oled-128x64-i2c": {
     "manifestVersion": 1,
@@ -6246,7 +8269,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "128x64 white OLED over I2C",
       "wiringNote": "Same SH1106G silicon and 2-column RAM offset as the SPI module, on a 4-pin I2C breakout instead. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices, same as the SSD1306."
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 176.5,
+        "yPx": 381.5
+      },
+      {
+        "label": "VCC",
+        "xPx": 206.6,
+        "yPx": 381.5
+      },
+      {
+        "label": "SCL",
+        "xPx": 237.4,
+        "yPx": 381.5
+      },
+      {
+        "label": "SDA",
+        "xPx": 267.6,
+        "yPx": 381.5
+      }
+    ],
+    "padHoleRadiusPx": 6.1,
+    "supplyRail": "v3v3"
   },
   "sn74ahct125n-dip14": {
     "manifestVersion": 1,
@@ -6340,7 +8387,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         ],
         "ref": "https://hunston.com.hk/product/Speaker/Mylar%20Speaker/MIU40R-20H3.0W4"
       }
-    ]
+    ],
+    "supplyRail": "v5"
   },
   "sph0645lm4h-i2s-microphone": {
     "manifestVersion": 1,
@@ -6398,7 +8446,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Knowles I2S mic, classic ESP32 only",
       "wiringNote": "Captured by the app with the published ESP32 timing fix, not by FastLED, so no response correction is applied. Classic ESP32 only: the fix is documented for the I2S receiver of that chip, not for the ESP32-S3. SEL to ground selects the left channel."
-    }
+    },
+    "pads": [
+      {
+        "label": "SEL",
+        "xPx": 55.5,
+        "yPx": 268.5
+      },
+      {
+        "label": "LRCL",
+        "xPx": 113.2,
+        "yPx": 268.5
+      },
+      {
+        "label": "DOUT",
+        "xPx": 170.4,
+        "yPx": 268.5
+      },
+      {
+        "label": "BCLK",
+        "xPx": 228.7,
+        "yPx": 268.5
+      },
+      {
+        "label": "GND",
+        "xPx": 285.8,
+        "yPx": 268.5
+      },
+      {
+        "label": "3V",
+        "xPx": 343.6,
+        "yPx": 268.5
+      }
+    ],
+    "padHoleRadiusPx": 9.6,
+    "supplyRail": "v3v3"
   },
   "ssd1306-oled-096-128x64-i2c": {
     "manifestVersion": 1,
@@ -6486,7 +8568,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "128x64 white OLED over I2C",
       "wiringNote": "The generic four-pin module, silkscreened GND, VCC, SCL, SDA — the commonest 0.96-inch OLED, and the one to pick unless the board in hand is the Adafruit breakout. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices."
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 145.7,
+        "yPx": 370.8
+      },
+      {
+        "label": "VCC",
+        "xPx": 181.5,
+        "yPx": 370.8
+      },
+      {
+        "label": "SCL",
+        "xPx": 217.5,
+        "yPx": 370.8
+      },
+      {
+        "label": "SDA",
+        "xPx": 253.1,
+        "yPx": 370.8
+      }
+    ],
+    "padHoleRadiusPx": 6.6,
+    "supplyRail": "v3v3"
   },
   "ssd1306-oled-128x64": {
     "manifestVersion": 1,
@@ -6576,7 +8682,51 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "128x64 white OLED over I2C",
       "wiringNote": "The Adafruit eight-pin STEMMA QT breakout, strapped for I2C: it prints the SPI names CLK and DATA on the two lines it answers I2C on. Answers on 0x3C or 0x3D and shares SDA/SCL with other I2C devices."
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 80,
+        "yPx": 346.2
+      },
+      {
+        "label": "VIN",
+        "xPx": 114.3,
+        "yPx": 346.2
+      },
+      {
+        "label": "3V",
+        "xPx": 148.6,
+        "yPx": 346.2
+      },
+      {
+        "label": "CLK",
+        "xPx": 182.9,
+        "yPx": 346.2
+      },
+      {
+        "label": "DATA",
+        "xPx": 217.1,
+        "yPx": 346.2
+      },
+      {
+        "label": "RST",
+        "xPx": 251.4,
+        "yPx": 346.2
+      },
+      {
+        "label": "DC",
+        "xPx": 285.7,
+        "yPx": 346.2
+      },
+      {
+        "label": "CS",
+        "xPx": 320,
+        "yPx": 346.2
+      }
+    ],
+    "padHoleRadiusPx": 6.7,
+    "supplyRail": "v5"
   },
   "st7789-tft-240x240": {
     "manifestVersion": 1,
@@ -6665,7 +8815,51 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "240x240 colour TFT over SPI",
       "wiringNote": "A square 240x240 colour display with no touch controller."
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 94.5,
+        "yPx": 505
+      },
+      {
+        "label": "VCC",
+        "xPx": 125.5,
+        "yPx": 505
+      },
+      {
+        "label": "SCL",
+        "xPx": 155.5,
+        "yPx": 505
+      },
+      {
+        "label": "SDA",
+        "xPx": 186.5,
+        "yPx": 505
+      },
+      {
+        "label": "RST",
+        "xPx": 216.5,
+        "yPx": 505
+      },
+      {
+        "label": "DC",
+        "xPx": 247.5,
+        "yPx": 505
+      },
+      {
+        "label": "CS",
+        "xPx": 277.5,
+        "yPx": 505
+      },
+      {
+        "label": "BL",
+        "xPx": 308.5,
+        "yPx": 505
+      }
+    ],
+    "padHoleRadiusPx": 5.9,
+    "supplyRail": "v3v3"
   },
   "st7789v-xpt2046-touch-240x320": {
     "manifestVersion": 1,
@@ -6760,7 +8954,81 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "240x320 colour TFT with XPT2046 touch",
       "wiringNote": "The XPT2046 touch controller exposes its own SPI pins, so it can share the display bus or use a separate bus. Adding this module gives you two nodes: the panel, and the Touch Screen node whose Controls output is what a finger on the glass publishes."
-    }
+    },
+    "pads": [
+      {
+        "label": "VCC",
+        "xPx": 78.1,
+        "yPx": 1073.2
+      },
+      {
+        "label": "GND",
+        "xPx": 116.2,
+        "yPx": 1073.2
+      },
+      {
+        "label": "CS",
+        "xPx": 154.3,
+        "yPx": 1073.2
+      },
+      {
+        "label": "RESET",
+        "xPx": 192.3,
+        "yPx": 1073.2
+      },
+      {
+        "label": "DC",
+        "xPx": 230.4,
+        "yPx": 1073.2
+      },
+      {
+        "label": "MOSI",
+        "xPx": 268.4,
+        "yPx": 1073.2
+      },
+      {
+        "label": "SCK",
+        "xPx": 306.5,
+        "yPx": 1073.2
+      },
+      {
+        "label": "LED",
+        "xPx": 344.5,
+        "yPx": 1073.2
+      },
+      {
+        "label": "MISO",
+        "xPx": 382.6,
+        "yPx": 1073.2
+      },
+      {
+        "label": "T_CLK",
+        "xPx": 420.6,
+        "yPx": 1073.2
+      },
+      {
+        "label": "T_CS",
+        "xPx": 458.7,
+        "yPx": 1073.2
+      },
+      {
+        "label": "T_DIN",
+        "xPx": 496.7,
+        "yPx": 1073.2
+      },
+      {
+        "label": "T_DO",
+        "xPx": 534.8,
+        "yPx": 1073.2
+      },
+      {
+        "label": "T_IRQ",
+        "xPx": 572.9,
+        "yPx": 1073.2
+      }
+    ],
+    "padHoleRadiusPx": 7.2,
+    "supplyRail": "v3v3"
   },
   "tm1637-4digit-display": {
     "manifestVersion": 1,
@@ -6831,7 +9099,31 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Two-wire 7-segment with a colon",
       "wiringNote": "Four digits and a centre colon, driven over CLK and DIO. Not I2C despite the two wires: the TM1637 has no addresses, so each module needs its own pair of pins."
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 210,
+        "yPx": 259
+      },
+      {
+        "label": "VCC",
+        "xPx": 240,
+        "yPx": 259
+      },
+      {
+        "label": "DIO",
+        "xPx": 271,
+        "yPx": 259
+      },
+      {
+        "label": "CLK",
+        "xPx": 301,
+        "yPx": 259
+      }
+    ],
+    "padHoleRadiusPx": 5.6,
+    "supplyRail": "v3v3"
   },
   "tp4056-usbc-charge-protect-module": {
     "manifestVersion": 1,
@@ -7060,7 +9352,26 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Bare 38 kHz IR receiver, datasheet pin order",
       "wiringNote": "Its centre pin is ground, not the supply. Do not wire it to a KY-022 footprint without rechecking."
-    }
+    },
+    "pads": [
+      {
+        "label": "OUT",
+        "xPx": 85,
+        "yPx": 578
+      },
+      {
+        "label": "GND",
+        "xPx": 199.5,
+        "yPx": 578
+      },
+      {
+        "label": "VS",
+        "xPx": 314,
+        "yPx": 578
+      }
+    ],
+    "padHoleRadiusPx": 14,
+    "supplyRail": "v3v3"
   },
   "uda1334a-i2s-dac": {
     "manifestVersion": 1,
@@ -7137,7 +9448,56 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "I2S DAC — line out, needs an amp",
       "wiringNote": "Line-level I2S DAC, wired the same as the PCM5102A."
-    }
+    },
+    "pads": [
+      {
+        "label": "VIN",
+        "xPx": 130.2,
+        "yPx": 285
+      },
+      {
+        "label": "3VO",
+        "xPx": 160.5,
+        "yPx": 285
+      },
+      {
+        "label": "GND",
+        "xPx": 191.2,
+        "yPx": 285
+      },
+      {
+        "label": "WSEL",
+        "xPx": 221.5,
+        "yPx": 285
+      },
+      {
+        "label": "DIN",
+        "xPx": 251.9,
+        "yPx": 285
+      },
+      {
+        "label": "BCLK",
+        "xPx": 282.5,
+        "yPx": 285
+      },
+      {
+        "label": "Lout",
+        "xPx": 312.9,
+        "yPx": 285
+      },
+      {
+        "label": "AGND",
+        "xPx": 343.5,
+        "yPx": 285
+      },
+      {
+        "label": "Rout",
+        "xPx": 373.8,
+        "yPx": 285
+      }
+    ],
+    "padHoleRadiusPx": 5.1,
+    "supplyRail": "v5"
   },
   "uln2803a-dip18": {
     "manifestVersion": 1,
@@ -7240,7 +9600,101 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Eight low-side switches, 50 V and 500 mA each",
       "wiringNote": "Active-high: a high input pulls its output to ground, so the load goes from its own supply to the output and the array only sinks. Join the load supply ground to the controller ground. Tie COM to the load supply for coils and motors. Do not run all eight at full current: the package limits the total heat."
-    }
+    },
+    "pads": [
+      {
+        "label": "1B",
+        "xPx": 25,
+        "yPx": 64
+      },
+      {
+        "label": "2B",
+        "xPx": 25,
+        "yPx": 172
+      },
+      {
+        "label": "3B",
+        "xPx": 25,
+        "yPx": 280.5
+      },
+      {
+        "label": "4B",
+        "xPx": 25,
+        "yPx": 389
+      },
+      {
+        "label": "5B",
+        "xPx": 25,
+        "yPx": 497.5
+      },
+      {
+        "label": "6B",
+        "xPx": 25,
+        "yPx": 606
+      },
+      {
+        "label": "7B",
+        "xPx": 25,
+        "yPx": 714.5
+      },
+      {
+        "label": "8B",
+        "xPx": 25,
+        "yPx": 823
+      },
+      {
+        "label": "GND",
+        "xPx": 25,
+        "yPx": 931
+      },
+      {
+        "label": "COM",
+        "xPx": 375,
+        "yPx": 931
+      },
+      {
+        "label": "8C",
+        "xPx": 375,
+        "yPx": 823
+      },
+      {
+        "label": "7C",
+        "xPx": 375,
+        "yPx": 714.5
+      },
+      {
+        "label": "6C",
+        "xPx": 375,
+        "yPx": 606
+      },
+      {
+        "label": "5C",
+        "xPx": 375,
+        "yPx": 497.5
+      },
+      {
+        "label": "4C",
+        "xPx": 375,
+        "yPx": 389
+      },
+      {
+        "label": "3C",
+        "xPx": 375,
+        "yPx": 280.5
+      },
+      {
+        "label": "2C",
+        "xPx": 375,
+        "yPx": 172
+      },
+      {
+        "label": "1C",
+        "xPx": 375,
+        "yPx": 64
+      }
+    ],
+    "padHoleRadiusPx": 10,
+    "supplyRail": "none"
   },
   "wiz850io-ethernet-module": {
     "manifestVersion": 1,
@@ -7332,7 +9786,71 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "W5500 wired Ethernet over SPI, 3.3 V",
       "wiringNote": "Power it from 3.3 V only; it draws up to about 141 mA with a link up. Every network node (Art-Net, sACN, DDP, Web Remote, NTP...) uses this link instead of Wi-Fi."
-    }
+    },
+    "pads": [
+      {
+        "label": "GND",
+        "xPx": 262.9,
+        "yPx": 28.4
+      },
+      {
+        "label": "GND",
+        "xPx": 228.3,
+        "yPx": 28.4
+      },
+      {
+        "label": "MOSI",
+        "xPx": 193.8,
+        "yPx": 28.4
+      },
+      {
+        "label": "SCLK",
+        "xPx": 159.3,
+        "yPx": 28.4
+      },
+      {
+        "label": "SCNn",
+        "xPx": 124.7,
+        "yPx": 28.4
+      },
+      {
+        "label": "INTn",
+        "xPx": 90.2,
+        "yPx": 28.4
+      },
+      {
+        "label": "GND",
+        "xPx": 262.9,
+        "yPx": 304.6
+      },
+      {
+        "label": "3V3D",
+        "xPx": 228.3,
+        "yPx": 304.6
+      },
+      {
+        "label": "3V3D",
+        "xPx": 193.8,
+        "yPx": 304.6
+      },
+      {
+        "label": "NC",
+        "xPx": 159.3,
+        "yPx": 304.6
+      },
+      {
+        "label": "RSTn",
+        "xPx": 124.7,
+        "yPx": 304.6
+      },
+      {
+        "label": "MISO",
+        "xPx": 90.2,
+        "yPx": 304.6
+      }
+    ],
+    "padHoleRadiusPx": 6.2,
+    "supplyRail": "v3v3"
   },
   "ws2812b-matrix-16x16": {
     "manifestVersion": 1,
@@ -7851,7 +10369,51 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "copy": {
       "summary": "Four isolated DC switches or dimmers, 7-28 V",
       "wiringNote": "DC only, 5 A a channel and 10 A for the board. Wire each PWM pin and every GND1-GND4 to the controller. Not for 5 V rails: the gate drive needs 7 V."
-    }
+    },
+    "pads": [
+      {
+        "label": "PWM1",
+        "xPx": 199.7,
+        "yPx": 564.4
+      },
+      {
+        "label": "GND1",
+        "xPx": 260.7,
+        "yPx": 564.4
+      },
+      {
+        "label": "PWM2",
+        "xPx": 321.6,
+        "yPx": 564.4
+      },
+      {
+        "label": "GND2",
+        "xPx": 382.6,
+        "yPx": 564.4
+      },
+      {
+        "label": "PWM3",
+        "xPx": 443.6,
+        "yPx": 564.4
+      },
+      {
+        "label": "GND3",
+        "xPx": 504.5,
+        "yPx": 564.4
+      },
+      {
+        "label": "PWM4",
+        "xPx": 565.5,
+        "yPx": 564.4
+      },
+      {
+        "label": "GND4",
+        "xPx": 626.4,
+        "yPx": 564.4
+      }
+    ],
+    "padHoleRadiusPx": 18.6,
+    "supplyRail": "none"
   },
   "zy12pdn-usb-c-pd-trigger": {
     "manifestVersion": 1,
