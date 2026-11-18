@@ -433,3 +433,27 @@ describe('codeSandbox.worker — pasted sketches', () => {
     expect(lit).toBe(true)
   })
 })
+
+// `import()` is the one network door a worker cannot close by clearing a
+// global, so source naming it never compiles.
+describe('codeSandbox.worker — import()', () => {
+  it.each([
+    'import("https://example.invalid/x.js");',
+    'leds[0] = CRGB(1, 2, 3); import ("data:text/javascript,0");',
+  ])('refuses %s', (code) => {
+    const res = run(code)
+    expect(res.error).toBe('import is not available in the preview')
+    expect(pixelAt(res.pixels, 0, 0)).toEqual({ r: 0, g: 0, b: 0 })
+  })
+
+  it('refuses it in the Global section', () => {
+    expect(run('leds[0] = CRGB(1, 2, 3);', { globalCode: 'int x = 0; void f() { import("x"); }' }).error)
+      .toBe('import is not available in the preview')
+  })
+
+  it('leaves names that only contain the word alone', () => {
+    const res = run('uint8_t important = 9; leds[0] = CRGB(important, 0, 0);')
+    expect(res.error).toBeNull()
+    expect(pixelAt(res.pixels, 0, 0).r).toBe(9)
+  })
+})

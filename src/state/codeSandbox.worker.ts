@@ -26,19 +26,37 @@ import { makeShims } from '../nodes/shared/fastledShims'
 // else runs. Capture postMessage first so this file can still reply. ────────
 const realPostMessage = self.postMessage.bind(self)
 const g = self as unknown as Record<string, unknown>
-g.fetch = undefined
-g.XMLHttpRequest = undefined
-g.WebSocket = undefined
-g.EventSource = undefined
-g.importScripts = undefined
-g.indexedDB = undefined
-g.caches = undefined
-g.BroadcastChannel = undefined
-g.Worker = undefined
-g.SharedWorker = undefined
-g.postMessage = undefined
-if (g.navigator) {
-  (g.navigator as Record<string, unknown>).sendBeacon = undefined
+/** Defined, not assigned: `indexedDB` and `caches` are getters with no setter,
+ *  and assigning to one throws in a module, which ended the worker before it
+ *  ran anything (Chrome 156). Fixed in place so `delete` cannot bring the
+ *  original back from the prototype. A failure here throws, and the worker
+ *  with it, rather than leave a door open. A test imports this file into
+ *  its own realm, whose teardown has to be able to put its globals back. */
+const inWorker = typeof g.WorkerGlobalScope === 'function'
+function close(target: object, name: string): void {
+  Object.defineProperty(target, name, { value: undefined, writable: false, configurable: !inWorker })
+}
+for (const name of [
+  'fetch', 'XMLHttpRequest', 'WebSocket', 'WebSocketStream', 'WebTransport', 'EventSource', 'importScripts',
+  'indexedDB', 'caches', 'BroadcastChannel', 'Worker', 'SharedWorker', 'postMessage',
+]) close(g, name)
+if (g.navigator) close(g.navigator as object, 'sendBeacon')
+// `import()` is syntax, not a global, so it cannot be closed like the rest: it
+// fetches any URL and runs what comes back. `compileSections` refuses source
+// that names it; the doors below are the ways to build that source at run
+// time instead. Only in a real worker: a test's realm needs all of them.
+const compileFunction = Function
+if (inWorker) {
+  for (const name of ['eval', 'Function', 'setTimeout', 'setInterval']) close(g, name)
+  for (const sample of [function () {}, async function () {}, function* () {}, async function* () {}]) {
+    close(Object.getPrototypeOf(sample), 'constructor')
+  }
+}
+
+/** Why this source cannot run in the preview, or null. `import` is a reserved
+ *  word, so no escape or alias spells it: any use is an `import()`. */
+export function sourceProblem(src: string): string | null {
+  return /\bimport\b/.test(src) ? 'import is not available in the preview' : null
 }
 
 // ── Worker message protocol ─────────────────────────────────────────────────
@@ -146,7 +164,9 @@ export function declaredNames(src: string): Set<string> {
 function compileSections(globalBody: string, body: string, inputs: readonly string[] = ['a', 'b']): CodeFactory {
   const user = new Set([...declaredNames(globalBody), ...declaredNames(body)])
   const names = SHIM_NAMES.filter((n) => !user.has(n)).join(', ')
-  return new Function('_leds', '_N', '_W', '_H', '_t', '_shim',
+  const problem = sourceProblem(globalBody) ?? sourceProblem(body)
+  if (problem) throw new Error(problem)
+  return compileFunction('_leds', '_N', '_W', '_H', '_t', '_shim',
     '"use strict";\n' +
     'let leds = _leds, NUM_LEDS = _N, WIDTH = _W, HEIGHT = _H, t = _t;\n' +
     `let { ${names} } = _shim;\n` +
