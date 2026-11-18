@@ -14,6 +14,7 @@ import fuseBlock12Render from '../../assets/components/fuse-block-12-circuit.web
 import styles from './BuildDiagramWorkspace.module.css'
 import { NetStub } from './netStubs'
 import { HoverWire } from './wireHover'
+import { withWireJumps } from './wireJumps'
 import {
   FUSE_BLOCK_START_X,
   FUSE_BLOCK_CELL_WIDTH,
@@ -262,6 +263,39 @@ export function PowerDistributionSections({ plan, bands, shadowFilter }: {
           : `M${psuGround.x} ${psuGround.y}H${PSU_GROUND_TRUNK_X}V${entryY}H${point.x}V${point.y}`
       }).join('')
 
+      // Each feed's route, worked out once so the ground runs can hop every
+      // +5 V run they cross: with + on the block's sides and ground along its
+      // bottom, some crossings cannot be routed away. Ground hops because its
+      // runs always have room either side of a crossing; a +5 V run can meet
+      // its own ground a few pixels before its corner.
+      const routes = assigned.map((injection, index) => {
+        const rowY = sectionLayout.firstBranchY + (index * POWER_BRANCH_ROW_SPACING)
+        const block = blocks.find((candidate) => index >= candidate.firstFeedIndex && index < candidate.firstFeedIndex + candidate.assignedFeedCount)!
+        const localIndex = index - block.firstFeedIndex
+        const { slot, isRightColumn, columnRank } = fuseSlotForFeed(localIndex, block.assignedFeedCount, block.circuitCount)
+        const leftRank = leftColumnRanks.get(injection.id) ?? 0
+        const points = fuseBlockPoints(block.circuitCount, block.x, block.y)
+        const { x: fuseX, y: fuseY } = points.circuit(slot)
+        // Ground returns take bus screws right to left in feed order, so the
+        // comb under the block fans out without any return crossing another.
+        const groundScrew = localIndex
+        const { x: groundX, y: groundY } = points.groundCircuit(groundScrew)
+        const positiveLaneX = lanes.positive(index)
+        const groundLaneX = lanes.ground(index)
+        const groundRowY = rowY + POWER_FEED_PAIR_GAP
+        // Right-column feeds leave straight out to their lane. Left-column
+        // feeds drop down a rail beside the block and cross under it in the
+        // feed comb, so nothing ever has to climb back over the block.
+        const railX = leftRail(leftRank)
+        const feedCombY = feedCombLaneY(sectionLayout.feedCombY, leftRank)
+        const positivePath = isRightColumn
+          ? `M${fuseX} ${fuseY}H${positiveLaneX}V${rowY}H${FEED_RUN_END}`
+          : `M${fuseX} ${fuseY}H${railX}V${feedCombY}H${positiveLaneX}V${rowY}H${FEED_RUN_END}`
+        const groundPath = `M${groundX} ${groundY}V${groundCombLaneY(block.y, localIndex)}H${groundLaneX}V${groundRowY}H${FEED_RUN_END}`
+        return { rowY, block, slot, isRightColumn, columnRank, points, fuseX, fuseY, groundScrew, groundX, groundY, groundRowY, positivePath, groundPath }
+      })
+      const positiveRuns = [positiveBus, ...routes.map((route) => route.positivePath)]
+
       return <g key={supply.id} data-power-zone={supply.id} data-power-zone-y={sectionY} transform={`translate(0 ${sectionY})`}>
         <rect data-sheet="frame" x="24" y="0" width="1072" height={sectionHeight} rx="12" fill="none" stroke="#a9afac" strokeWidth="2" />
         <text x="42" y="32" className={styles.physicalPowerLabel}>{supply.converter?.integrated ? 'PACK OUTPUT' : supply.converter ? 'CONVERTER' : 'PSU'} ZONE {supplyIndex + 1} · {supply.converter ? supply.converter.label : supply.ownedSupply ? supply.ownedSupply.title.toUpperCase() : 'RECOMMENDED POWER SUPPLY'}</text>
@@ -444,38 +478,34 @@ export function PowerDistributionSections({ plan, bands, shadowFilter }: {
           <line x1={MAIN_FUSE_X - 12} y1={positiveBusY} x2={MAIN_FUSE_X + 12} y2={positiveBusY} stroke="#1f2426" strokeWidth="1.5" />
           <title>{`${mainFuseText} main fuse at the supply positive · ${trunkWireText} trunk, ${supply.trunk.oneWayLengthMm} mm`}</title>
         </g>
-        <HoverWire tip={`${supply.converter ? 'Converter' : 'PSU'} zone ${supplyIndex + 1} GND · main ground bus`} data-wire={`${supply.id}-ground-bus`} data-wire-role="main-psu-ground" d={groundBus} className={styles.mainGroundWire} />
+        <HoverWire tip={`${supply.converter ? 'Converter' : 'PSU'} zone ${supplyIndex + 1} GND · main ground bus`} data-wire={`${supply.id}-ground-bus`} data-wire-role="main-psu-ground" d={withWireJumps(groundBus, positiveRuns)} className={styles.mainGroundWire} />
 
+        {/* Every +5 V branch is drawn before any ground return, so a ground
+            run's hop reads as passing over the +5 V run it crosses. */}
         {assigned.map((injection, index) => {
-          const rowY = sectionLayout.firstBranchY + (index * POWER_BRANCH_ROW_SPACING)
+          const { slot, isRightColumn, columnRank, positivePath } = routes[index]
+          const fuseText = injection.fuse.ratingMa ? formatAmps(injection.fuse.ratingMa) : 'RATED'
+          const wireText = injection.conductor ? `AWG ${injection.conductor.awg}` : 'WIRE TBD'
+          const destination = `${injection.outputTitle} · ${injection.role.toUpperCase()} @ ${injectionLocation(injection)}`
+          const feedLabel = `${destination} · ${formatAmps(injection.designCurrentMa)} · ${wireText} · 500 mm`
+          return <HoverWire
+            key={injection.id}
+            tip={`Fused +5 V · ${fuseText} fuse, circuit ${slot + 1} · ${feedLabel}`}
+            data-wire={`${injection.id}-fused-positive`}
+            data-feed-column={isRightColumn ? 'right' : 'left'}
+            data-feed-column-rank={columnRank}
+            d={positivePath}
+            className={styles.powerWire}
+          />
+        })}
+        {assigned.map((injection, index) => {
+          const { rowY, block, slot, points, fuseX, fuseY, groundScrew, groundX, groundY, groundRowY, groundPath } = routes[index]
           const fuseText = injection.fuse.ratingMa ? formatAmps(injection.fuse.ratingMa) : 'RATED'
           const wireText = injection.conductor ? `AWG ${injection.conductor.awg}` : 'WIRE TBD'
           const destination = `${injection.outputTitle} · ${injection.role.toUpperCase()} @ ${injectionLocation(injection)}`
           const feedLabel = `${destination} · ${formatAmps(injection.designCurrentMa)} · ${wireText} · 500 mm`
           const fitFeedLabel = feedLabel.length * APPROX_WIRE_LABEL_CHARACTER_WIDTH > FEED_LABEL_MAX_WIDTH
-          const block = blocks.find((candidate) => index >= candidate.firstFeedIndex && index < candidate.firstFeedIndex + candidate.assignedFeedCount)!
-          const localIndex = index - block.firstFeedIndex
-          const { slot, isRightColumn, columnRank } = fuseSlotForFeed(localIndex, block.assignedFeedCount, block.circuitCount)
-          const leftRank = leftColumnRanks.get(injection.id) ?? 0
-          const points = fuseBlockPoints(block.circuitCount, block.x, block.y)
-          const { x: fuseX, y: fuseY } = points.circuit(slot)
-          // Ground returns take bus screws right to left in feed order, so the
-          // comb under the block fans out without any return crossing another.
-          const groundScrew = localIndex
-          const { x: groundX, y: groundY } = points.groundCircuit(groundScrew)
           const { x: positiveX, y: positiveY } = points.positive
-          const positiveLaneX = lanes.positive(index)
-          const groundLaneX = lanes.ground(index)
-          const groundRowY = rowY + POWER_FEED_PAIR_GAP
-          // Right-column feeds leave straight out to their lane. Left-column
-          // feeds drop down a rail beside the block and cross under it in the
-          // feed comb, so nothing ever has to climb back over the block.
-          const railX = leftRail(leftRank)
-          const feedCombY = feedCombLaneY(sectionLayout.feedCombY, leftRank)
-          const positivePath = isRightColumn
-            ? `M${fuseX} ${fuseY}H${positiveLaneX}V${rowY}H${FEED_RUN_END}`
-            : `M${fuseX} ${fuseY}H${railX}V${feedCombY}H${positiveLaneX}V${rowY}H${FEED_RUN_END}`
-          const groundCombY = groundCombLaneY(block.y, localIndex)
           const capacitorY = rowY - (CAPACITOR_HEIGHT * CAPACITOR_POSITIVE_LEAD_RATIO)
           // Lead tips: where the part's own leads meet the two feed wires.
           const capacitorLeadX = CAPACITOR_X + 8
@@ -499,19 +529,11 @@ export function PowerDistributionSections({ plan, bands, shadowFilter }: {
               <title>Ground return · negative bus screw {groundScrew + 1}</title>
             </circle>
             <HoverWire
-              tip={`Fused +5 V · ${fuseText} fuse, circuit ${slot + 1} · ${feedLabel}`}
-              data-wire={`${injection.id}-fused-positive`}
-              data-feed-column={isRightColumn ? 'right' : 'left'}
-              data-feed-column-rank={columnRank}
-              d={positivePath}
-              className={styles.powerWire}
-            />
-            <HoverWire
               tip={`GND return · ground screw ${groundScrew + 1} · ${destination}`}
               data-wire={`${injection.id}-ground`}
               data-ground-screw-slot={groundScrew + 1}
               data-ground-screw-count={block.circuitCount}
-              d={`M${groundX} ${groundY}V${groundCombY}H${groundLaneX}V${groundRowY}H${FEED_RUN_END}`}
+              d={withWireJumps(groundPath, positiveRuns)}
               className={styles.groundWire}
             />
             {/* Both captions sit above the pair: the gap below it belongs to the

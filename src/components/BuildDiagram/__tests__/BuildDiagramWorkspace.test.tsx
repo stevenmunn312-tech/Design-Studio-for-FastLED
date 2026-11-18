@@ -659,6 +659,12 @@ describe('BuildDiagramWorkspace', () => {
     expect(diagram?.querySelector('[data-wire="output:out:feed-1-fused-positive"]')?.getAttribute('d')).toContain('H742V')
     expect(diagram?.querySelector('[data-wire="output:out:feed-1-ground"]')?.getAttribute('d')).toContain('H735V')
     expect(diagram?.querySelector('[data-wire="output:out:feed-3-fused-positive"]')?.getAttribute('d')).toContain('H694V')
+    // + on the block's sides and ground along its bottom force two crossings
+    // here: feed 2's +5 V drops past feed 1's ground, and feed 3's +5 V runs
+    // under the block past its own. The ground run hops each one.
+    const hops = (feed: number) => (diagram?.querySelector(`[data-wire="output:out:feed-${feed}-ground"]`)?.getAttribute('d')?.match(/A7 7 /g) ?? []).length
+    expect([1, 2, 3].map(hops)).toEqual([1, 0, 1])
+    expect(Array.from(diagram?.querySelectorAll('[data-wire$="-fused-positive"]') ?? []).some((wire) => wire.getAttribute('d')?.includes('A'))).toBe(false)
     // Half the feeds leave the right screw column straight out to their lane;
     // the deeper half wraps the left of the block into the comb below it.
     expect(diagram?.querySelectorAll('[data-feed-column="right"]')).toHaveLength(2)
@@ -685,11 +691,12 @@ describe('BuildDiagramWorkspace', () => {
     const { container } = render(<BuildDiagramWorkspace />)
     const diagram = container.querySelector('svg[data-build-export="current-view"]')
 
-    // Each branch ends `...H<lane>V<row>H<panel>`: the lane it drops down, then
-    // the row it runs out on.
+    // Each branch ends `...<lane>[ y]V<row>H<panel>`: the lane it drops down
+    // (after a hop, the lane is the x the hop lands on), then the row it runs
+    // out on.
     const drop = (wire: string) => {
       const d = diagram?.querySelector(`[data-wire="${wire}"]`)?.getAttribute('d') ?? ''
-      const match = /H(-?[\d.]+)V(-?[\d.]+)H\d+$/.exec(d)
+      const match = /(-?[\d.]+)(?: -?[\d.]+)?V(-?[\d.]+)H\d+$/.exec(d)
       expect(match, `${wire}: ${d}`).toBeTruthy()
       return { lane: Number(match![1]), row: Number(match![2]) }
     }
@@ -1523,7 +1530,7 @@ describe('BuildDiagramWorkspace', () => {
       && Number(fuse.getAttribute('data-trunk-awg')) > 0)).toBe(true)
     const laneCoordinates = (polarity: 'fused-positive' | 'ground') => Array.from(
       diagram?.querySelectorAll(`[data-wire$="-${polarity}"]`) ?? [],
-      (wire) => wire.getAttribute('d')?.match(/H(\d+)V\d+(?:\.\d+)?H\d+$/)?.[1],
+      (wire) => wire.getAttribute('d')?.match(/(\d+)(?: [\d.]+)?V\d+(?:\.\d+)?H\d+$/)?.[1],
     ).filter((coordinate): coordinate is string => coordinate != null)
     const positiveLanes = laneCoordinates('fused-positive')
     const groundLanes = laneCoordinates('ground')

@@ -882,6 +882,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   positions; read every terminal through it. The renders have no Blender
   source, so each fuse cap is redrawn from the unturned render
   (`fuseCap`) to keep circuit numbers upright and matching the schedule.
+- With + on the block's sides and ground along its bottom, some branch
+  crossings are topological and cannot be routed away. Ground runs hop every
+  +5 V run they cross (`withWireJumps` in `wireJumps.ts`), and all +5 V
+  branches are drawn before any ground return so the hop sits on top. Ground
+  hops, not +5 V, because a +5 V run can meet its own ground a few pixels
+  before its corner, leaving no room for a hop.
 - The sheet's attributes are the white print sheet. On screen, outside the
   Light theme, `BuildDiagramWorkspace.module.css` repaints only the chrome
   dark: the paper and boxes tagged `data-sheet` (`paper`, `panel`, `note`,
