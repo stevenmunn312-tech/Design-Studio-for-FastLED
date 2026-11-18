@@ -1,5 +1,6 @@
 import type { StudioEdge, StudioNode, WorkspaceExtras } from '../state/graphStore'
 import type { PersistedWorkspace } from '../state/workspacePersistence'
+import { sanitizeSavedParts } from '../build/parts/savedParts'
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -80,6 +81,13 @@ export function sanitizeWorkspacePayload(value: unknown): SanitizedWorkspacePayl
     ...(graphData !== undefined ? { graphData } : {}),
   }
   if (!graphsAreUsable) delete workspace.graphs
+  // The embedded part map is bounded and rebuilt field by field; an envelope
+  // is only a claim until `registerEmbeddedParts` verifies its signature.
+  if (value.parts !== undefined) {
+    const saved = sanitizeSavedParts(value.parts)
+    dropped += saved.dropped
+    workspace.parts = saved.parts
+  }
   return { dropped, workspace }
 }
 

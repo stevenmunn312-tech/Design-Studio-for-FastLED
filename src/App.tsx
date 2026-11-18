@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useUiStore, visibleLiveTouchScreen } from './state/uiStore'
 import { boardPartitionOf, rootGraphNodes, useGraphStore } from './state/graphStore'
+import { registerEmbeddedParts } from './build/parts/signedParts'
 import { useAudioStore } from './state/audio/audioStore'
 import { useShowPlayback } from './state/player/showPlayback'
 import { AudioEngine } from './audio/audioEngine'
@@ -222,7 +223,10 @@ export default function App() {
           const workspace = shared.workspace
           // Never trust a share link's own `trusted` claim — force it false
           // regardless of what the payload says (see todo.md's P0 trust item).
+          // Signed parts the link carries are verified and registered first.
+          await registerEmbeddedParts(workspace.parts)
           useGraphStore.getState().loadGraph(workspace.nodes, workspace.edges, {
+            parts: workspace.parts,
             graphData: workspace.graphData,
             graphs: workspace.graphs,
             activeGraphId: workspace.activeGraphId,
@@ -277,6 +281,8 @@ export default function App() {
           blankWorkspace(),
         )
       if (!current) return
+      await registerEmbeddedParts(current.workspace.parts)
+      if (cancelled) return
       useGraphStore.getState().loadGraph(current.workspace.nodes, current.workspace.edges, current.workspace)
       landOnStartingWorkspace()
       if (firstVisit) useUiStore.getState().openTemplates()
