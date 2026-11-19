@@ -10,6 +10,7 @@
 // Type ids are node type ids and, like every vocabulary word, permanent once
 // v1.0.0 ships. A rename keeps the old id in `aliases`.
 
+import { CHIPSET_OPTIONS } from '../../state/output/chipsetOptions'
 import type { PartBlockKey } from './manifest/blockSpecs'
 
 export interface PartTypeDefinition {
@@ -35,7 +36,7 @@ export interface PartTypeDefinition {
    */
   requiredBlocks?: readonly PartBlockKey[]
   /** The block field that names the chip, when the code chooses behaviour by it. */
-  deviceField?: 'device' | 'controller'
+  deviceField?: 'device' | 'controller' | 'chipset'
   /**
    * Chips the code can drive, matched exactly against `deviceField`. Absent
    * when the field only describes the part and no code reads it.
@@ -56,15 +57,14 @@ const type = (definition: Omit<PartTypeDefinition, 'property' | 'downloadable'> 
   ({ property: 'partId', downloadable: false, ...definition })
 
 export const PART_TYPES: readonly PartTypeDefinition[] = [
-  // LED outputs. `MatrixOutput` is every LED output form; a part's `ledLayout` is a top-level
-  // manifest field, so the type reads no block. Its other bundled parts are the NLED data link
-  // and the 74AHCT125 level shifter on the data line. Closed, and the bar is a design change, not
-  // id branches: a MatrixOutput node carries no `partId` (its form, size and layout are node
-  // properties built in code, and nothing reads a part's `ledLayout`), so the type offers no part
-  // row and resolves none (`downloadableTypes.test.ts` fails at the option-row check for every
-  // LED part). Also by id: `NLED_PIXEL_DATA_EXTENDER_PART_ID` in the hardware manifest and the
-  // 74AHCT125 render imported by the Build Diagram.
-  type({ nodeType: 'MatrixOutput' }),
+  // LED outputs. `MatrixOutput` is every LED output form; an LED product is its `ledOutput` block,
+  // stamped into the node's own properties (state/output/ledProduct.ts), and the chipset is code
+  // (a FastLED template argument), so the list is the app's closed `CHIPSET_OPTIONS`. The block is
+  // optional because the NLED data link and the 74AHCT125 level shifter are also filed under the
+  // type for the shelf and are not LED products. Still closed (phase A step 6 opens it): the
+  // readers of per-LED current, pitch and clock ceiling (step 3) and the accessories' ids (step 5)
+  // remain by-id code.
+  type({ nodeType: 'MatrixOutput', block: 'ledOutput', blockOptional: true, deviceField: 'chipset', devices: CHIPSET_OPTIONS }),
   // Power
   // The converter picture reads a part's measured pads (`converterPadsMm`) or the block's `terminalPositions`.
   type({ nodeType: 'PowerConverter', block: 'powerConverter', downloadable: true }),

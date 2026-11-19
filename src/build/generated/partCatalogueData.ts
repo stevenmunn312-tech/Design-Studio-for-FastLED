@@ -2890,12 +2890,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       "Front-face model of a 64×64 indoor P4 module; 4 mm pitch gives a 256 × 256 mm active panel.",
       "The standard HUB75E 16-pin signal header and power connector are on the rear and therefore not visible in the orthographic front render."
     ],
-    "ledLayout": {
-      "form": "hub75",
-      "width": 64,
-      "height": 64,
-      "pitchMm": 4.0
-    },
     "render": {
       "file": "parts/hub75-panel-64x64-p4.webp",
       "widthPx": 1200,
@@ -2928,8 +2922,39 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "render"
         ],
         "ref": "https://hackspark.fr/en/led-displays/2913-64x64-rgb-led-matrix-panel-p4-256x256mm.html"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://www.optonicaled.com/led-display-module-indoor-double-sided-p4 (1/16 scan; 33 W module power, which is 6.6 A at 5 V over 4096 pixels, 1.62 mA each)"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://hackspark.fr/en/led-displays/2913-64x64-rgb-led-matrix-panel-p4-256x256mm.html (1:16 scan, driven through 16-bit latches)"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "UNVERIFIED: no source page lists an input voltage; 5 V is the HUB75 panel convention and the figure the app already sized HUB75 from"
       }
-    ]
+    ],
+    "copy": {
+      "summary": "64 × 64, 4 mm pitch · HUB75 · 5 V"
+    },
+    "ledOutput": {
+      "form": "hub75",
+      "width": 64,
+      "height": 64,
+      "pitchMm": 4.0,
+      "chipset": "HUB75",
+      "supplyVolts": 5,
+      "fullWhiteMa": 1.62,
+      "scan": 16
+    }
   },
   "hx-4s-f30a-bms-balance": {
     "manifestVersion": 1,
@@ -10197,12 +10222,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       "Flexible 16×16 reference geometry with 10 mm pixel pitch and serpentine internal wiring.",
       "The rendered face excludes loose cables so dimensions remain the documented 160 × 160 mm panel body."
     ],
-    "ledLayout": {
-      "form": "matrix",
-      "width": 16,
-      "height": 16,
-      "pitchMm": 10.0
-    },
     "render": {
       "file": "parts/ws2812b-matrix-16x16.webp",
       "widthPx": 1200,
@@ -10230,8 +10249,33 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "render"
         ],
         "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-matrices"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://www.adafruit.com/product/2547 (over 15 A with all 256 LEDs white, about 59 mA each; rounded up to the 60 mA worst case)"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf (WS2812B datasheet: data is sent in GRB order; operating VDD 4.5 to 5.5 V; the product page says WS2812B or SK6812 with the same protocol)"
       }
-    ]
+    ],
+    "copy": {
+      "summary": "16 × 16 · WS2812B · 5 V"
+    },
+    "ledOutput": {
+      "form": "matrix",
+      "width": 16,
+      "height": 16,
+      "pitchMm": 10.0,
+      "chipset": "WS2812B",
+      "colorOrder": "GRB",
+      "supplyVolts": 5,
+      "fullWhiteMa": 60
+    }
   },
   "ws2812b-ring-12": {
     "manifestVersion": 1,
@@ -10253,11 +10297,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "notes": [
       "Reference geometry follows the common Adafruit-compatible 12-pixel ring."
     ],
-    "ledLayout": {
-      "form": "ring",
-      "count": 12,
-      "diameterMm": 37.0
-    },
     "render": {
       "file": "parts/ws2812b-ring-12.webp",
       "widthPx": 452,
@@ -10278,8 +10317,32 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "dimensionsMm"
         ],
         "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-rings"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf (WS2812B datasheet: data is sent in GRB order; operating VDD 4.5 to 5.5 V)"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/powering-neopixels (worst case 60 mA per pixel at full white; the datasheet gives no total)"
       }
-    ]
+    ],
+    "copy": {
+      "summary": "12 LEDs · WS2812B · 5 V"
+    },
+    "ledOutput": {
+      "form": "ring",
+      "count": 12,
+      "diameterMm": 37.0,
+      "chipset": "WS2812B",
+      "colorOrder": "GRB",
+      "supplyVolts": 5,
+      "fullWhiteMa": 60
+    }
   },
   "ws2812b-ring-16": {
     "manifestVersion": 1,
@@ -10301,11 +10364,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "notes": [
       "Reference geometry follows the common Adafruit-compatible 16-pixel ring."
     ],
-    "ledLayout": {
-      "form": "ring",
-      "count": 16,
-      "diameterMm": 44.5
-    },
     "render": {
       "file": "parts/ws2812b-ring-16.webp",
       "widthPx": 542,
@@ -10326,8 +10384,32 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "dimensionsMm"
         ],
         "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-rings"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf (WS2812B datasheet: data is sent in GRB order; operating VDD 4.5 to 5.5 V)"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/powering-neopixels (worst case 60 mA per pixel at full white; the datasheet gives no total)"
       }
-    ]
+    ],
+    "copy": {
+      "summary": "16 LEDs · WS2812B · 5 V"
+    },
+    "ledOutput": {
+      "form": "ring",
+      "count": 16,
+      "diameterMm": 44.5,
+      "chipset": "WS2812B",
+      "colorOrder": "GRB",
+      "supplyVolts": 5,
+      "fullWhiteMa": 60
+    }
   },
   "ws2812b-ring-24": {
     "manifestVersion": 1,
@@ -10349,11 +10431,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "notes": [
       "Reference geometry follows the common Adafruit-compatible 24-pixel ring."
     ],
-    "ledLayout": {
-      "form": "ring",
-      "count": 24,
-      "diameterMm": 65.5
-    },
     "render": {
       "file": "parts/ws2812b-ring-24.webp",
       "widthPx": 794,
@@ -10374,8 +10451,32 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "dimensionsMm"
         ],
         "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-rings"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf (WS2812B datasheet: data is sent in GRB order; operating VDD 4.5 to 5.5 V)"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/powering-neopixels (worst case 60 mA per pixel at full white; the datasheet gives no total)"
       }
-    ]
+    ],
+    "copy": {
+      "summary": "24 LEDs · WS2812B · 5 V"
+    },
+    "ledOutput": {
+      "form": "ring",
+      "count": 24,
+      "diameterMm": 65.5,
+      "chipset": "WS2812B",
+      "colorOrder": "GRB",
+      "supplyVolts": 5,
+      "fullWhiteMa": 60
+    }
   },
   "ws2812b-ring-60": {
     "manifestVersion": 1,
@@ -10398,11 +10499,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       "A complete 60-pixel ring assembled from four 15-pixel quarter arcs; the four soldered seams are visible.",
       "Reference geometry follows the common Adafruit-compatible quarter-ring assembly."
     ],
-    "ledLayout": {
-      "form": "ring",
-      "count": 60,
-      "diameterMm": 158.0
-    },
     "render": {
       "file": "parts/ws2812b-ring-60.webp",
       "widthPx": 1200,
@@ -10423,8 +10519,32 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "dimensionsMm"
         ],
         "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-rings"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf (WS2812B datasheet: data is sent in GRB order; operating VDD 4.5 to 5.5 V)"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/powering-neopixels (worst case 60 mA per pixel at full white; the datasheet gives no total)"
       }
-    ]
+    ],
+    "copy": {
+      "summary": "60 LEDs · WS2812B · 5 V"
+    },
+    "ledOutput": {
+      "form": "ring",
+      "count": 60,
+      "diameterMm": 158.0,
+      "chipset": "WS2812B",
+      "colorOrder": "GRB",
+      "supplyVolts": 5,
+      "fullWhiteMa": 60
+    }
   },
   "ws2812b-ring-8": {
     "manifestVersion": 1,
@@ -10446,11 +10566,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "notes": [
       "Generic 8-pixel WS2812 5050 ring; data input pads are identified at the bottom-left."
     ],
-    "ledLayout": {
-      "form": "ring",
-      "count": 8,
-      "diameterMm": 32.2
-    },
     "render": {
       "file": "parts/ws2812b-ring-8.webp",
       "widthPx": 400,
@@ -10477,8 +10592,38 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "render"
         ],
         "ref": "https://core-electronics.com.au/cjmcu-8-bit-ws2812-5050-rgb-led-built-in-full-color-driving-lights.html"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://www.berrybase.de/Sensoren-/-Module/LED/WS2812-/-13-Neopixel/Ringe/NeoPixel-Ring-mit-8-WS2812-5050-RGB-LEDs/ (sold as 8 WS2812 5050 LEDs)"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf (WS2812B datasheet: data is sent in GRB order; operating VDD 4.5 to 5.5 V)"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/powering-neopixels (worst case 60 mA per pixel at full white; the datasheet gives no total)"
       }
-    ]
+    ],
+    "copy": {
+      "summary": "8 LEDs · WS2812B · 5 V"
+    },
+    "ledOutput": {
+      "form": "ring",
+      "count": 8,
+      "diameterMm": 32.2,
+      "chipset": "WS2812B",
+      "colorOrder": "GRB",
+      "supplyVolts": 5,
+      "fullWhiteMa": 60
+    }
   },
   "ws2812b-strip": {
     "manifestVersion": 1,
@@ -10501,11 +10646,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       "Data-in is on the left and the strip runs horizontally.",
       "A 74AHCT125-class buffer is recommended for reliable 3.3 V controller data into a 5 V strip."
     ],
-    "ledLayout": {
-      "form": "strip",
-      "count": 6,
-      "pitchMm": 16.7
-    },
     "render": {
       "file": "parts/ws2812b-strip.webp",
       "widthPx": 1200,
@@ -10533,8 +10673,33 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "notes"
         ],
         "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-strips"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://www.adafruit.com/product/2541 (5 VDC, maximum 60 mA per 0.65 in segment with all LEDs at full brightness, 60 LEDs per metre, cut at every LED, full reels are 4 m)"
+      },
+      {
+        "facts": [
+          "ledOutput"
+        ],
+        "ref": "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf (WS2812B datasheet: data is sent in GRB order; the product page says the strip has the WS2812B pinout, colour order and protocol)"
       }
-    ]
+    ],
+    "copy": {
+      "summary": "60 LEDs/m, cut to length · WS2812B · 5 V"
+    },
+    "ledOutput": {
+      "form": "strip",
+      "pitchMm": 16.7,
+      "chipset": "WS2812B",
+      "colorOrder": "GRB",
+      "supplyVolts": 5,
+      "fullWhiteMa": 60,
+      "maxCount": 240,
+      "cutEvery": 1
+    }
   },
   "yynmos-4-lr7843-mosfet-module": {
     "manifestVersion": 1,

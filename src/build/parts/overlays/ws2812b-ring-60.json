@@ -13,6 +13,27 @@
         "dimensionsMm"
       ],
       "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-rings"
+    },
+    {
+      "facts": [
+        "ledOutput"
+      ],
+      "ref": "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf (WS2812B datasheet: data is sent in GRB order; operating VDD 4.5 to 5.5 V)"
+    },
+    {
+      "facts": [
+        "ledOutput"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/powering-neopixels (worst case 60 mA per pixel at full white; the datasheet gives no total)"
     }
-  ]
+  ],
+  "ledOutput": {
+    "chipset": "WS2812B",
+    "colorOrder": "GRB",
+    "supplyVolts": 5,
+    "fullWhiteMa": 60
+  },
+  "copy": {
+    "summary": "60 LEDs · WS2812B · 5 V"
+  }
 }

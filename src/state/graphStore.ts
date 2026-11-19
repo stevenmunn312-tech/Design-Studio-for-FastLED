@@ -31,6 +31,7 @@ import { boardFqbn, boardFqbnTargets } from '../build/boardUploadTargets'
 import { useUiStore, visibleLiveTouchScreen } from './uiStore'
 import { validateMatrixLayout } from './output/xyLayout'
 import { isLinearForm, outputCanvasDims, outputForm } from './output/ledOutputForm'
+import { applyLedProductEdit, reconcileLedProduct } from './output/ledProduct'
 import { emptyBuildProfile, normalizeBuildProfile, type BuildProfile } from '../build/buildProfile'
 import { dataRateAfterChipsetChange, dataRateOptionsMhz, effectiveDataRateMhz } from '../build/ledDrivers'
 import { collectPinUses } from '../build/hardwareManifest'
@@ -339,6 +340,10 @@ interface GraphState {
   clearSelection: () => void
   updateNodeProperty: (id: string, key: string, value: unknown) => void
   updateNodeProperties: (id: string, updates: Record<string, unknown>) => void
+  /** Name an LED product for an LED output: its facts are stamped into the node and locked. */
+  setLedOutputPart: (id: string, partId: string) => void
+  /** Detach an LED output from its product, keeping every value it has. */
+  makeLedOutputCustom: (id: string) => void
   /** Select an exact board and materialise hardware physically integrated into it. */
   selectBoardProfile: (id: string, profileId: string) => void
   /**
@@ -553,7 +558,10 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     const def = LIBRARY_DEF.get(nodeType)
     const category: NodeCategory = def?.category ?? data.category
     const label = def?.label ?? data.label
-    const properties = { ...data.properties }
+    let properties = { ...data.properties }
+    // An LED output naming a product gets its part's facts back, so a hand-edited save
+    // cannot leave a locked value drifting; a Custom output is untouched.
+    if (nodeType === 'MatrixOutput') properties = reconcileLedProduct(properties)
     // A network node's own copy of the network settings, from before the
     // Board held the one identity every network user shares
     // (peripherals/boardNetwork.ts), and a Clock's DS3231 wiring and a DMX or
@@ -2564,6 +2572,12 @@ export const useGraphStore = create<GraphState>()(
           updates,
           Object.keys(updates).some(isStereoVuRailCountKey),
         )),
+
+      setLedOutputPart: (id, partId) =>
+        set((s) => editNodePropertyAndSyncVu(s, id, { partId }, false)),
+
+      makeLedOutputCustom: (id) =>
+        set((s) => editNodePropertyAndSyncVu(s, id, { partId: undefined }, false)),
 
       /*
        * Choosing the exact board, and bringing whatever is soldered to it.
@@ -5370,6 +5384,8 @@ function editNodePropertyAndSyncVu(
     if (target?.data.nodeType === 'Math' && Object.prototype.hasOwnProperty.call(updates, 'mathOp')) {
       return retargetMathOperands(current, properties)
     }
+    // A named LED product stamps its facts and keeps them (state/output/ledProduct.ts).
+    if (target?.data.nodeType === 'MatrixOutput') return applyLedProductEdit(properties, updates)
     return properties
   })
   const editedRoot = s.activeGraphId === ROOT_GRAPH_ID

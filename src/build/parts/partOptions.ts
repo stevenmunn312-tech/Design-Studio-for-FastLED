@@ -218,6 +218,8 @@ const BUNDLED_PART_OPTIONS: Record<string, PartOptionConfig> = {
     InfoDisplay: {},
     TransportDisplay: {},
     SegmentDisplay: {},
+    // An LED output that names no product is Custom (today's node), so it is never the first row.
+    MatrixOutput: { uncataloguedDefault: true },
   }),
 }
 
@@ -227,7 +229,7 @@ const BUNDLED_PART_OPTIONS: Record<string, PartOptionConfig> = {
  * amplifier facts, so it is not an amplifier to choose.
  */
 function isOffered(nodeType: string, manifest: PartManifest): boolean {
-  const block = nodeType === 'PowerAmplifier' ? 'powerAmp' : undefined
+  const block = nodeType === 'PowerAmplifier' ? 'powerAmp' : nodeType === 'MatrixOutput' ? 'ledOutput' : undefined
   return block === undefined || manifest[block] !== undefined
 }
 

@@ -1232,6 +1232,17 @@ it and `partOrigin(id)` says where a part came from.
   `downloadable` flag once no branch on a bundled id remains), and a case in
   `downloadableTypes.test.ts`. A block read must return `null` for an unknown part, never a
   default.
+- **LED products are the `ledOutput` block, stamped, not read.** An LED output's optional `partId`
+  (empty is Custom) stamps the part's facts into the node's own properties
+  (`state/output/ledProduct.ts`); the node stays the evaluated truth. Locked while a part is
+  named: `chipset`, a fixed `ledCount`, a grid's `width`/`height` (tile size times the node's
+  tile count), HUB75 `hub75WideScan`, and a stated `wiring`. Editable: `colorOrder` and a cuttable
+  `ledCount` (clamped to `maxCount`, snapped to `cutEvery`). Changing `form` to one the part does
+  not fit, or Make custom, detaches it. Every edit and `normalizeLoadedGraph` re-stamp, so any new
+  locked key must be added to `ledProductFacts` and `lockedLedKeys` together. A part's
+  `part.json` still says `ledLayout`; the importer folds it into `ledOutput` (a strip's pictured
+  `count` is dropped, the overlay gives `maxCount`). `fullWhiteMa` is the datasheet maximum and
+  every value needs a source in `sources`.
 - **A downloaded part never borrows a bundled render.** `partRenderSrc` returns the verified
   bytes for the revision registered now, or `null` and the placeholder. Never fall back to the
   type's default part's picture, and never draw a node that names a part as another part.
