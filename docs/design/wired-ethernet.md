@@ -12,12 +12,12 @@ Wi-Fi, for Art-Net receive and NTP time sync.
 The **WIZnet WIZ850io** (`wiz850io-ethernet-module`): a W5500 with the RJ45
 MagJack and its transformer on a 23 x 25 mm board, two 1x6 headers 20.32 mm
 apart, 3.3 V only (up to about 141 mA with a 100 Mb/s link). It was chosen over
-the common blue W5500 board because WIZnet publishes its board file, so the
-model is source-backed like the Adafruit parts. The asset is built by
-`Scripts/generate_ethernet_parts.py` in the Blender workspace from WIZnet's
-Altium board (`WIZ850io_SCH_V110.PcbDoc`). The MagJack is the vendor's own
-STEP body, extracted from that board file and tessellated by
-`Scripts/step_to_stl.py`, because Blender cannot import STEP.
+the common blue W5500 board because WIZnet publishes a full dimension
+drawing. The asset is built by `Scripts/generate_ethernet_parts.py` in the
+Blender workspace. Every object is modelled there: the outline, header and
+jack positions come from WIZnet's published dimension drawing, and the
+MagJack is modelled from the product photograph. No WIZnet or jack-maker CAD
+is read.
 
 Only the jack is on the top side; the W5500, crystal, passives and both headers
 are underneath. The render is turned 90 degrees clockwise from WIZnet's

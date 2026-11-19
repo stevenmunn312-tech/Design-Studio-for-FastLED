@@ -99,10 +99,17 @@ more after the freeze.
   stays a draft, and its notes state the signing state. Signing itself is
   HW-17.
 - [ ] Complete the licence notices, and settle the AnimARTrix
-  non-commercial terms. The part renders drawn from vendor design files are
-  listed in `THIRD_PARTY_NOTICES.md` (2026-11-19). Left: confirm or replace
-  the Seeed 2-channel SSR, Seeed touch sensor and WIZ850io renders, whose
-  licence is not confirmed, and settle AnimARTrix with Stefan.
+  non-commercial terms. Every board and part render is to be project-made,
+  needing no third-party licence. An audit on 2026-11-19 found 19 that took
+  geometry from vendor files; the MIDI FeatherWing, WIZ850io and NLED Pixel
+  Data Extender are remodelled. Left to remodel from photographs and published
+  dimensions: BH1750, BME280, INA219, VL53L0X, Seeed 2-channel SSR, Seeed touch
+  sensor, MAX98357A and its stereo pair, UDA1334A and Mosfetti (vendor board
+  files or prints), and the ESP32-C3-DevKitM-1, ESP32-S2-DevKitC-1,
+  ESP32-S3-DevKitC-1, ESP32-C6-DevKitC-1, ESP32-C6-DevKitM-1 and
+  ESP32-H2-DevKitM-1 (chips placed from Espressif's PCB layout PDFs). Then drop
+  the render table from `THIRD_PARTY_NOTICES.md`, and settle AnimARTrix with
+  Stefan.
 - [x] Fill the CHANGELOG gaps.
 - [x] Start scripts run pip without `-c constraints.txt`.
 

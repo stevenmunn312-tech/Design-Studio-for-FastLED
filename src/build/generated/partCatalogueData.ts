@@ -764,7 +764,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       "3V and GND power the wing; Feather RX receives MIDI and TX transmits at 31250 baud.",
       "The canonical view shows MIDI IN on the left and MIDI OUT on the right.",
       "Most Feather header pins are pass-through; only 3V, GND, RX and TX operate this wing.",
-      "STEP geometry and Eagle pad coordinates are authoritative. Font contours and material finishes are visual approximations."
+      "Header positions follow Adafruit's Feather specification. Socket shapes, silkscreen and copper are modelled from the product photographs."
     ],
     "render": {
       "file": "parts/adafruit-midi-featherwing.webp",
@@ -791,17 +791,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       {
         "facts": [
           "dimensionsMm",
-          "pinLabelsLeftToRight",
           "render"
         ],
-        "ref": "https://github.com/adafruit/Adafruit-MIDI-FeatherWing-PCB"
-      },
-      {
-        "facts": [
-          "dimensionsMm",
-          "render"
-        ],
-        "ref": "https://github.com/adafruit/Adafruit_CAD_Parts/tree/main/4740%20MIDI%20FeatherWing"
+        "ref": "https://learn.adafruit.com/adafruit-feather/feather-specification"
       },
       {
         "facts": [
@@ -6243,13 +6235,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "pixelDataExtender"
         ],
         "ref": "https://www.nledshop.com/downloads/datasheets/nled-async-ext-set.pdf"
-      },
-      {
-        "facts": [
-          "dimensionsMm",
-          "render"
-        ],
-        "ref": "https://www.nledshop.com/downloads/models/nled-async-ext-set-v1a-3d-model.zip"
       }
     ]
   },
@@ -10204,19 +10189,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     ],
     "verification": "reviewed",
     "sources": [
-      {
-        "facts": [
-          "dimensionsMm",
-          "pinLabelsLeftToRight"
-        ],
-        "ref": "https://docs.wiznet.io/img/products/wiz850io/wiz850io_sch_v110.zip"
-      },
-      {
-        "facts": [
-          "render"
-        ],
-        "ref": "BS-R250210 MagJack STEP (local copy in the asset workspace)"
-      },
       {
         "facts": [
           "dimensionsMm",

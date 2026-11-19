@@ -18,17 +18,9 @@
     {
       "facts": [
         "dimensionsMm",
-        "pinLabelsLeftToRight",
         "render"
       ],
-      "ref": "https://github.com/adafruit/Adafruit-MIDI-FeatherWing-PCB"
-    },
-    {
-      "facts": [
-        "dimensionsMm",
-        "render"
-      ],
-      "ref": "https://github.com/adafruit/Adafruit_CAD_Parts/tree/main/4740%20MIDI%20FeatherWing"
+      "ref": "https://learn.adafruit.com/adafruit-feather/feather-specification"
     },
     {
       "facts": [

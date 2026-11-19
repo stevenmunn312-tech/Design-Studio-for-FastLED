@@ -11,19 +11,6 @@
     {
       "facts": [
         "dimensionsMm",
-        "pinLabelsLeftToRight"
-      ],
-      "ref": "https://docs.wiznet.io/img/products/wiz850io/wiz850io_sch_v110.zip"
-    },
-    {
-      "facts": [
-        "render"
-      ],
-      "ref": "BS-R250210 MagJack STEP (local copy in the asset workspace)"
-    },
-    {
-      "facts": [
-        "dimensionsMm",
         "pinLabelsLeftToRight",
         "logicVoltage",
         "render",
