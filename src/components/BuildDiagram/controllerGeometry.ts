@@ -92,7 +92,7 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     // The UART port, not the native-USB one: that's the port this app's upload
     // path drives, so it's the one a builder will have a cable in. The rebuilt
     // model seats both receptacles 1.5 mm past the edge instead of 7.7 mm.
-    usbPoint: { x: 224.717, y: 1991.275 },
+    usbPoint: { x: 164.22, y: 2000.271 },
     shortLabel: 'ESP32-S3 DevKitC-1',
   },
   // 20 + 20 rails. Pad rows are the model's own rail-label Y coordinates, which
@@ -200,7 +200,7 @@ const CONTROLLER_SPECS: Record<string, ControllerRenderSpec> = {
     // Row 1 of each header: the stubs leave opposite edges at the same height.
     powerAnchors: { v3v3: 'j1-1', ground: 'j3-1' },
     // The UART port, as on the S3 DevKitC-1: the one the upload path drives.
-    usbPoint: { x: 224.717, y: 1868 },
+    usbPoint: { x: 151.811, y: 1868.589 },
     shortLabel: 'ESP32-C6 DevKitC-1',
   },
   // 8 + 8 rails 22.86 mm apart on a 78.184px pitch.
