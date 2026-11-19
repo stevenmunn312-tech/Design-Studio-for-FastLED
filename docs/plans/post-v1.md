@@ -35,3 +35,13 @@ and an Upload information shelf in
   `fl::TrueType` (stb_truetype). Not planned: the preview would need the
   same rasteriser in TypeScript, and the flash and RAM cost is unmeasured.
   Revisit only if large panels make the bitmap fonts look coarse.
+- [ ] **fbuild faults left on arduino-cli (S).** v1 ships on fbuild 2.5.52
+  and waits for no later release (decided 2026-11-20). A board fbuild
+  cannot build has no `_PIO_BOARDS` entry, so `_engine_for_board` builds it
+  with arduino-cli: today the UNO R4 Minima
+  ([runbook §18](../runbooks/fbuild-workarounds.md#18-uno-r4-minima-a-fastled-sketch-compiles-the-cores-wifis3-library))
+  and the XIAO nRF52840 (`__wrap_realloc` at link). After v1, draft the
+  §18 report (a FastLED sketch for the Minima compiles the core's `WiFiS3`
+  library and fails on `D24`), and post it with the drafted XIAO PR comment
+  and bare-version-pin report in `tmp/fbuild-main/drafts/` once Steve has
+  read them. Map each board back to fbuild when a release passes its probe.

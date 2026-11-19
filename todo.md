@@ -107,19 +107,23 @@ not fix is recorded as a limitation in step 6.
   fixes for #2012 to #2020, run `fbuild-probes.py` on it, and drop the
   workarounds whose probes read GONE. Done on 2.5.52 (2026-11-19), with the
   matrix cache key moved to `builds-v5`.
-- [ ] Rebuild the ESP8266 Wi-Fi, `uno-r4-wifi`, nRF52840 and new `boards`
-  Pico W legs on fbuild 2.5.52 in the GitHub matrix.
-- [ ] Draft an upstream report for §18: on 2.5.52 a FastLED sketch for the
-  UNO R4 Minima compiles the core's `WiFiS3` library and fails on `D24`.
-  Steve reviews before posting.
+- [x] Rebuild the ESP8266 Wi-Fi, `uno-r4-wifi`, nRF52840 and new `boards`
+  Pico W legs on fbuild 2.5.52 in the GitHub matrix. All 9 pass, 2026-11-20
+  ([runbook](docs/runbooks/fbuild-workarounds.md#probes)).
+- [x] v1 ships on fbuild 2.5.52 and waits for no later release (decided
+  2026-11-20). A board fbuild cannot build stays off `_PIO_BOARDS` and builds
+  with arduino-cli: the UNO R4 Minima (§18) and the XIAO nRF52840. The §18
+  report and the other drafts moved to the
+  [post-v1 list](docs/plans/post-v1.md).
 - [x] Flash a Web Remote to the D1 mini through fbuild, which upstream asked
   for on [#1994](https://github.com/FastLED/fbuild/issues/1994). Done on
   2.5.52 (2026-11-20); runbook §15 has the record.
 - [x] Post the bench result on [#1994](https://github.com/FastLED/fbuild/issues/1994).
   Posted 2026-11-20.
-- [ ] Retire the helper's `.dram0.dummy` subtraction (`_without_ram_placeholder`)
+- [x] Retire the helper's `.dram0.dummy` subtraction (`_without_ram_placeholder`)
   if 2.5.52's ESP32-S3 RAM figure no longer counts the placeholder
-  ([#2013](https://github.com/FastLED/fbuild/issues/2013)). No probe covers it.
+  ([#2013](https://github.com/FastLED/fbuild/issues/2013)). It no longer does
+  (31,150 bytes for a sketch read as 83,784 on 2.5.45); removed 2026-11-20.
 
 ## 4. HW-17 · Distribution smoke tests
 

@@ -1038,13 +1038,9 @@ engines, built locally.
   fbuild 2.5.44) is gone.
 - fbuild's RAM figure is `.dram0.data` + `.dram0.bss` + `.dram0.dummy`, to
   the byte. The last is a placeholder with no data, so the line reads 22.5%
-  where the static RAM is 7.1%. The helper takes it back out
-  (`_without_ram_placeholder` in [`backend/firmware.py`](../../backend/firmware.py)):
-  it reads the three section sizes from the linked `firmware.elf` and
-  subtracts the placeholder only when they sum to fbuild's figure, so a
-  release that stops counting it changes nothing. The capacity meter and
-  the upload log are corrected; the compile matrix records fbuild's own
-  figure.
+  where the static RAM is 7.1%. Until 2.5.52 the helper subtracted the
+  placeholder, read from the linked `firmware.elf`; 2.5.52 no longer counts
+  it, and the subtraction was removed on 2026-11-20.
 - fbuild's flash figure is 44,000 bytes more than the `firmware.bin` it
   wrote. Which sections make that up is not identified.
 - The image is 19 KB larger than Arduino CLI's: about 22 KB of SD,
@@ -1129,9 +1125,14 @@ The size faults have no probe. On `main` `bc50602e` an empty sketch reads
 ([#2013](https://github.com/FastLED/fbuild/issues/2013) fixed; 63,164 on
 2.5.51), and 99,736 bytes of flash on a Pico against a 99,892-byte
 `firmware.bin`, without the 218,116-byte `.heap`
-([#2012](https://github.com/FastLED/fbuild/issues/2012) fixed). The helper's
-`.dram0.dummy` subtraction leaves such a figure alone, since it no longer
-matches the sum that includes the placeholder.
+([#2012](https://github.com/FastLED/fbuild/issues/2012) fixed). The 2.5.52
+release carries both fixes: in the GitHub matrix on 2026-11-20
+([run 44631596308](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/44631596308)),
+`pattern-node/phase8-all-s3@esp32s3` reads 31,150 bytes of RAM, against
+83,784 on 2.5.45, so the helper's `.dram0.dummy` subtraction was removed. The
+same run rebuilt the ESP8266 Wi-Fi legs (`run3-board2-esp8266-remote`,
+`run5-board2-esp8266-follows`, `clock-zone-esp8266`), both `uno-r4-wifi`
+legs, the Feather nRF52840, the nRF52840 DK and the Pico W: 9 of 9 pass.
 
 `long-paths` only reads the Windows `LongPathsEnabled` setting
 ([#1673](https://github.com/FastLED/fbuild/issues/1673)): a probe cannot
