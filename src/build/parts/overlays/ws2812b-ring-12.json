@@ -32,5 +32,8 @@
     "colorOrder": "GRB",
     "supplyVolts": 5,
     "fullWhiteMa": 60
+  },
+  "copy": {
+    "summary": "12 LEDs · WS2812B · 5 V"
   }
 }

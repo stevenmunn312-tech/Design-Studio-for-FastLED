@@ -2942,6 +2942,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         "ref": "UNVERIFIED: no source page lists an input voltage; 5 V is the HUB75 panel convention and the figure the app already sized HUB75 from"
       }
     ],
+    "copy": {
+      "summary": "64 × 64, 4 mm pitch · HUB75 · 5 V"
+    },
     "ledOutput": {
       "form": "hub75",
       "width": 64,
@@ -10260,6 +10263,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         "ref": "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf (WS2812B datasheet: data is sent in GRB order; operating VDD 4.5 to 5.5 V; the product page says WS2812B or SK6812 with the same protocol)"
       }
     ],
+    "copy": {
+      "summary": "16 × 16 · WS2812B · 5 V"
+    },
     "ledOutput": {
       "form": "matrix",
       "width": 16,
@@ -10325,6 +10331,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/powering-neopixels (worst case 60 mA per pixel at full white; the datasheet gives no total)"
       }
     ],
+    "copy": {
+      "summary": "12 LEDs · WS2812B · 5 V"
+    },
     "ledOutput": {
       "form": "ring",
       "count": 12,
@@ -10389,6 +10398,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/powering-neopixels (worst case 60 mA per pixel at full white; the datasheet gives no total)"
       }
     ],
+    "copy": {
+      "summary": "16 LEDs · WS2812B · 5 V"
+    },
     "ledOutput": {
       "form": "ring",
       "count": 16,
@@ -10453,6 +10465,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/powering-neopixels (worst case 60 mA per pixel at full white; the datasheet gives no total)"
       }
     ],
+    "copy": {
+      "summary": "24 LEDs · WS2812B · 5 V"
+    },
     "ledOutput": {
       "form": "ring",
       "count": 24,
@@ -10518,6 +10533,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/powering-neopixels (worst case 60 mA per pixel at full white; the datasheet gives no total)"
       }
     ],
+    "copy": {
+      "summary": "60 LEDs · WS2812B · 5 V"
+    },
     "ledOutput": {
       "form": "ring",
       "count": 60,
@@ -10594,6 +10612,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/powering-neopixels (worst case 60 mA per pixel at full white; the datasheet gives no total)"
       }
     ],
+    "copy": {
+      "summary": "8 LEDs · WS2812B · 5 V"
+    },
     "ledOutput": {
       "form": "ring",
       "count": 8,
@@ -10666,6 +10687,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         "ref": "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf (WS2812B datasheet: data is sent in GRB order; the product page says the strip has the WS2812B pinout, colour order and protocol)"
       }
     ],
+    "copy": {
+      "summary": "60 LEDs/m, cut to length · WS2812B · 5 V"
+    },
     "ledOutput": {
       "form": "strip",
       "pitchMm": 16.7,

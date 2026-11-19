@@ -50,5 +50,8 @@
     "supplyVolts": 5,
     "fullWhiteMa": 1.62,
     "scan": 16
+  },
+  "copy": {
+    "summary": "64 × 64, 4 mm pitch · HUB75 · 5 V"
   }
 }

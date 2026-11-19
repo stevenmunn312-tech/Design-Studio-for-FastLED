@@ -222,3 +222,54 @@ def test_drawing_facts_are_merged_into_the_manifest(importer, vocabulary):
 def test_drawing_facts_that_break_a_rule_stop_the_import(importer, vocabulary, bad):
     with pytest.raises(importer.OverlayError):
         merge(importer, vocabulary, drawn_part(), overlay(**bad))
+
+
+# ── LED products: part.json's ledLayout folds into the overlay's ledOutput block ──
+
+def led_part(**layout):
+    return {
+        "partId": "ws2812b-ring-12",
+        "label": "WS2812B ring",
+        "category": "led-output",
+        "dimensionsMm": {"width": 37.0, "height": 37.0},
+        "ledLayout": layout or {"form": "ring", "count": 12, "diameterMm": 37.0},
+    }
+
+
+def led_overlay(block=None, **extra):
+    return overlay(
+        partTypes=["MatrixOutput"],
+        ledOutput=block if block is not None else {"chipset": "WS2812B", "colorOrder": "GRB", "supplyVolts": 5, "fullWhiteMa": 60},
+        **extra,
+    )
+
+
+def test_ledlayout_becomes_the_ledoutput_block(importer, vocabulary):
+    merged = merge(importer, vocabulary, led_part(), led_overlay())
+    assert "ledLayout" not in merged
+    assert merged["ledOutput"] == {
+        "form": "ring", "count": 12, "diameterMm": 37.0,
+        "chipset": "WS2812B", "colorOrder": "GRB", "supplyVolts": 5, "fullWhiteMa": 60,
+    }
+
+
+def test_a_part_that_measures_ledlayout_must_carry_the_ledoutput_facts(importer, vocabulary):
+    with pytest.raises(importer.OverlayError, match="ledOutput facts"):
+        merge(importer, vocabulary, led_part(), overlay(partTypes=["MatrixOutput"]))
+
+
+def test_the_overlay_may_not_repeat_a_measured_geometry_key(importer, vocabulary):
+    with pytest.raises(importer.OverlayError, match="already measures"):
+        merge(importer, vocabulary, led_part(), led_overlay({"chipset": "WS2812B", "count": 99}))
+
+
+def test_a_strips_pictured_count_is_not_a_product_fact(importer, vocabulary):
+    part = led_part(form="strip", count=6, pitchMm=16.7)
+    merged = merge(importer, vocabulary, part, led_overlay({"chipset": "WS2812B", "maxCount": 240, "cutEvery": 1}))
+    assert "count" not in merged["ledOutput"]
+    assert merged["ledOutput"]["maxCount"] == 240 and merged["ledOutput"]["pitchMm"] == 16.7
+
+
+def test_an_ledoutput_block_names_only_known_keys(importer, vocabulary):
+    with pytest.raises(importer.OverlayError, match="unknown field"):
+        merge(importer, vocabulary, led_part(), led_overlay({"chipset": "WS2812B", "watts": 3}))

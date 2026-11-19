@@ -39,5 +39,8 @@
     "colorOrder": "GRB",
     "supplyVolts": 5,
     "fullWhiteMa": 60
+  },
+  "copy": {
+    "summary": "16 × 16 · WS2812B · 5 V"
   }
 }

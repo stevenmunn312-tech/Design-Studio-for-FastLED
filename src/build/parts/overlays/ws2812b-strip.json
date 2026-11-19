@@ -41,5 +41,8 @@
     "fullWhiteMa": 60,
     "maxCount": 240,
     "cutEvery": 1
+  },
+  "copy": {
+    "summary": "60 LEDs/m, cut to length · WS2812B · 5 V"
   }
 }

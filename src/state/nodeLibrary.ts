@@ -1,4 +1,5 @@
 import { CHIPSET_OPTIONS } from './output/chipsetOptions'
+import { ledPropertyLocked } from './output/ledProduct'
 import type { NodeDefinition } from '../types'
 import { INPUT_DEFINITIONS, INPUT_DESCRIPTIONS } from '../nodes/input/definitions'
 import { AUDIO_DEFINITIONS, AUDIO_DESCRIPTIONS } from '../nodes/audio/definitions'
@@ -5578,6 +5579,8 @@ export function isPropertyEnabled(
     if (key === 'run' || key === 'reset') return transport
   }
   if (nodeType === 'MatrixOutput') {
+    // A named LED product owns these; the node shows the part's value (state/output/ledProduct.ts).
+    if (ledPropertyLocked(properties, key)) return false
     if (key === 'routeX' || key === 'routeY') return properties.routeMode === 'crop'
     // The form decides which of this node's ~40 properties are even questions.
     const form = outputForm(properties)
