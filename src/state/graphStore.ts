@@ -161,7 +161,8 @@ import { asTftRotation } from './displays/tftSurface'
 import { transportTouchActions, TRANSPORT_TOUCH_ACTION_TYPES, TRANSPORT_TOUCH_ACTION_LABELS } from './displays/transportTouch'
 import { keepsSavedPorts, partDerivedInputs, partDerivedOutputs } from '../build/parts/partPorts'
 import type { SavedParts } from '../build/parts/savedParts'
-import { registerEmbeddedParts } from '../build/parts/signedParts'
+import { getPartsLibrary } from '../build/parts/partsLibrary'
+import { collectSavedParts, registerEmbeddedParts } from '../build/parts/signedParts'
 import { retargetMathOperands } from '../nodes/math/mathIdentity'
 
 export interface StudioNodeData extends Record<string, unknown> {
@@ -2876,10 +2877,12 @@ export const useGraphStore = create<GraphState>()(
       },
 
       loadGraph: (nodes, edges, workspace) => {
-        // Entry points that can wait register the save's signed parts first
-        // (`registerEmbeddedParts`); this covers the rest. Registering is
-        // idempotent, and a part that arrives later resolves its held node
-        // through the catalogue version, with the saved ports kept meanwhile.
+        // Entry points register the save's signed parts first, through
+        // `loadWorkspaceAfterParts`, so no node is evaluated while its part is
+        // unknown. This fire-and-forget call is only the backstop for a caller
+        // that cannot wait: registering is idempotent, and a part that arrives
+        // later resolves its held node through the catalogue version, with the
+        // saved ports kept meanwhile.
         if (workspace?.parts) void registerEmbeddedParts(workspace.parts)
         flushHistoryDebounce()
         preDragHistoryState = undefined
@@ -3936,10 +3939,58 @@ useGraphStore.temporal.setState({
   },
 })
 
+let workspaceLoadTicket = 0
+
+/**
+ * Load a workspace the way every entry point should: its embedded signed parts
+ * are verified and registered first, then the graph loads, so nothing is
+ * evaluated, validated or pruned from codegen while its part is "unknown".
+ * Resolves false, loading nothing, when a newer load began meanwhile (two quick
+ * project switches must not let the slower one win).
+ */
+export async function loadWorkspaceAfterParts(
+  nodes: StudioNode[],
+  edges: StudioEdge[],
+  workspace?: WorkspaceExtras,
+): Promise<boolean> {
+  const ticket = ++workspaceLoadTicket
+  if (workspace?.parts) {
+    await registerEmbeddedParts(workspace.parts)
+    // Pictures for parts that arrived embedded; best effort, never awaited.
+    void getPartsLibrary().attachMissingRenders()
+  }
+  if (ticket !== workspaceLoadTicket) return false
+  useGraphStore.getState().loadGraph(nodes, edges, workspace)
+  return true
+}
+
+/**
+ * Every part id a node in this session still names: the open project's graphs,
+ * the undo and redo history, and the copy clipboard. Uninstalling one of these
+ * would leave a held node behind on undo or paste.
+ */
+export function partIdsInUse(): Set<string> {
+  const s = useGraphStore.getState()
+  const lists: StudioNode[][] = [
+    s.nodes,
+    ...Object.values(s.graphData ?? {}).map((graph) => graph.nodes),
+    ...historyNodeLists(),
+  ]
+  if (s.clipboard) lists.push(s.clipboard.nodes)
+  return new Set(Object.keys(collectSavedParts(lists.flat())))
+}
+
 /** Recovery replaces a workspace, but retains one explicit, complete undo step. */
 export function restoreWorkspaceSnapshot(workspace: PersistedWorkspace): void {
   const previous = captureWorkspace(useGraphStore.getState())
   useGraphStore.getState().loadGraph(workspace.nodes, workspace.edges, workspace)
+  useGraphStore.temporal.setState({ pastStates: [previous], futureStates: [] })
+}
+
+/** `restoreWorkspaceSnapshot` for a snapshot whose parts may not be registered yet. */
+export async function restoreWorkspaceSnapshotAfterParts(workspace: PersistedWorkspace): Promise<void> {
+  const previous = captureWorkspace(useGraphStore.getState())
+  if (!await loadWorkspaceAfterParts(workspace.nodes, workspace.edges, workspace)) return
   useGraphStore.temporal.setState({ pastStates: [previous], futureStates: [] })
 }
 

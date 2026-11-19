@@ -6,7 +6,7 @@
 // on exactly while its coil would be energised.
 
 import type { RenderIndicator } from '../../build/boards/boardCapabilities'
-import { partById } from '../../build/parts/partCatalogue'
+import { partById, partRenderSrc } from '../../build/parts/partCatalogue'
 import { powerSwitchChannels } from '../../state/peripherals/powerSwitch'
 import { relayEnergisedKey } from '../../state/peripherals/relayModule'
 import { IR_RECEIVING_KEY } from '../../state/peripherals/irRemote'
@@ -31,7 +31,7 @@ export interface IndicatorGlow {
 export function indicatorRenderFor(partId: string | null | undefined, shownSrc: string | undefined): IndicatorRender | null {
   if (!partId || !shownSrc) return null
   const render = partById(partId)?.render
-  if (!render?.indicators?.length || `/${render.file}` !== shownSrc) return null
+  if (!render?.indicators?.length || partRenderSrc(partId) !== shownSrc) return null
   return render
 }
 

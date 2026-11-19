@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { usePartCatalogueVersion } from '../../build/parts/usePartCatalogueVersion'
 import {
   getPartsLibrary,
@@ -9,6 +9,7 @@ import {
 import { searchParts, type CategoryTree, type IndexPart } from '../../build/parts/remote'
 import { offeredParts } from '../../build/parts/remote/indexSchema'
 import styles from './RemotePartsSection.module.css'
+import { Icon } from '../icons/Icon'
 import { useRemoteParts } from './useRemoteParts'
 
 const MAX_RESULTS = 12
@@ -41,6 +42,35 @@ function categoryPath(part: IndexPart, tree: CategoryTree): string {
   const first = part.categories[0]
   if (!first) return ''
   return tree.lineage(first).map((node) => node.label).reverse().join(' › ')
+}
+
+/**
+ * The part's picture, fetched on demand and checked against the signed index
+ * (hash, WebP, size bound) before it is shown. No picture, or one that fails
+ * the check, shows the placeholder.
+ */
+function PartThumb({ part, library }: { part: IndexPart; library: PartsLibrary }) {
+  const [src, setSrc] = useState<string | null>(null)
+  const render = part.render
+  useEffect(() => {
+    if (!render || typeof URL.createObjectURL !== 'function') return
+    let cancelled = false
+    let url: string | null = null
+    void library.renderBytes({ render }).then((bytes) => {
+      if (cancelled || !bytes) return
+      url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'image/webp' }))
+      setSrc(url)
+    })
+    return () => {
+      cancelled = true
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [library, render])
+  return (
+    <span className={styles.thumb} aria-hidden="true">
+      {src ? <img src={src} alt="" draggable={false} /> : <Icon name="field" size={18} />}
+    </span>
+  )
 }
 
 interface RemotePartsSectionProps {
@@ -100,6 +130,7 @@ export default function RemotePartsSection({ query, library = getPartsLibrary() 
     const path = categoryPath(part, remote.tree)
     return (
       <li key={part.partId} className={styles.part}>
+        <PartThumb part={part} library={library} />
         <span className={styles.copy}>
           <strong>{part.label}</strong>
           <small>

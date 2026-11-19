@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useUiStore } from '../../state/uiStore'
-import { useGraphStore } from '../../state/graphStore'
+import { loadWorkspaceAfterParts, useGraphStore } from '../../state/graphStore'
 import { withFreshBoardLink } from '../../state/peripherals/boardLinkCopy'
 import { useBoardLinkKeyStore } from '../../state/peripherals/boardLinkKey'
 import { useProjectStore } from '../../state/projectStore'
@@ -42,12 +42,13 @@ export default function ProjectsPopup() {
     void refreshFromDisk()
   }, [refreshFromDisk])
 
-  const loadProject = (id: string) => {
+  const loadProject = async (id: string) => {
     if (!currentProject) return
     useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()))
     const next = switchProject(id)
     if (!next) return
-    useGraphStore.getState().loadGraph(next.workspace.nodes, next.workspace.edges, next.workspace)
+    // Embedded parts register first; a project from disk was never opened this session.
+    if (!await loadWorkspaceAfterParts(next.workspace.nodes, next.workspace.edges, next.workspace)) return
     useGraphStore.temporal.getState().clear()
     setStatus(`Opened project "${next.name}"`, 'success')
     closeProjects()
@@ -100,7 +101,7 @@ export default function ProjectsPopup() {
       uploadTarget: currentProject.uploadTarget,
       uploadTargets: currentProject.uploadTargets,
     })
-    useGraphStore.getState().loadGraph(project.workspace.nodes, project.workspace.edges, project.workspace)
+    await loadWorkspaceAfterParts(project.workspace.nodes, project.workspace.edges, project.workspace)
     useGraphStore.temporal.getState().clear()
     setStatus(`Duplicated into "${project.name}"`, 'success')
     closeProjects()
@@ -132,7 +133,7 @@ export default function ProjectsPopup() {
     const nextActive = deleteProject(id)
     if (id === currentProjectId) {
       if (nextActive) {
-        useGraphStore.getState().loadGraph(nextActive.workspace.nodes, nextActive.workspace.edges, nextActive.workspace)
+        await loadWorkspaceAfterParts(nextActive.workspace.nodes, nextActive.workspace.edges, nextActive.workspace)
       } else {
         useGraphStore.getState().loadGraph([], [])
       }

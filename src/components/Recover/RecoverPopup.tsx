@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useUiStore } from '../../state/uiStore'
-import { restoreWorkspaceSnapshot } from '../../state/graphStore'
+import { restoreWorkspaceSnapshotAfterParts } from '../../state/graphStore'
 import { loadSnapshots } from '../../state/snapshotHistory'
 import styles from './RecoverPopup.module.css'
 
@@ -36,7 +36,7 @@ export default function RecoverPopup() {
       tone: 'danger',
     })
     if (!ok) return
-    restoreWorkspaceSnapshot(snap.workspace)
+    await restoreWorkspaceSnapshotAfterParts(snap.workspace)
     setStatus(`Restored recovery snapshot from ${relativeTime(snap.timestamp)}`, 'success')
     closeRecover()
   }

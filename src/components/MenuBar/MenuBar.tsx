@@ -4,8 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { THEMES, useUiStore, type AppTheme } from '../../state/uiStore'
 import type { LayoutPresetId } from '../../state/layoutPresets'
 import { WORKSPACE_TABS } from '../../state/workspaceTabs'
-import { rootGraphNodes, useGraphStore, useTemporalStore, ROOT_GRAPH_ID, reachableGroupRegistry } from '../../state/graphStore'
-import { registerEmbeddedParts } from '../../build/parts/signedParts'
+import { loadWorkspaceAfterParts, rootGraphNodes, useGraphStore, useTemporalStore, ROOT_GRAPH_ID, reachableGroupRegistry } from '../../state/graphStore'
 import { withFreshBoardLink } from '../../state/peripherals/boardLinkCopy'
 import { useBoardLinkKeyStore } from '../../state/peripherals/boardLinkKey'
 import { usePerformanceDeckSession } from '../../state/player/performanceDeckSessionStore'
@@ -34,6 +33,7 @@ import { saveProjectWithFallbacks } from '../../utils/projectDialogs'
 import { openProjectDialog } from '../../utils/backendClient'
 import { landOnStartingWorkspace } from '../../utils/startFlow'
 import { buildShareUrl, shareUrlSizeWarning } from '../../utils/shareGraph'
+import { collectSavedParts } from '../../build/parts/signedParts'
 import {
   bundledPatternFromLibrary,
   importLibraryBundle,
@@ -292,8 +292,10 @@ export default function MenuBar() {
 
   const handleCopyShareLink = async () => {
     const { nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck, displayDocuments } = useGraphStore.getState()
+    // Downloaded parts ride along (signed), so the receiver does not meet held nodes.
+    const parts = collectSavedParts([...nodes, ...Object.values(graphData ?? {}).flatMap((graph) => graph.nodes)])
     const url = buildShareUrl({
-      nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck, displayDocuments,
+      nodes, edges, graphData, graphs, activeGraphId, buildProfile, performanceDeck, displayDocuments, parts,
     })
     const warning = shareUrlSizeWarning(url)
     try {
@@ -498,7 +500,7 @@ export default function MenuBar() {
     return ok ? 'no' : 'cancel'
   }
 
-  const loadProjectWorkspace = (projectId: string, saveCurrentFirst = false) => {
+  const loadProjectWorkspace = async (projectId: string, saveCurrentFirst = false) => {
     if (saveCurrentFirst && currentProject) {
       useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(useGraphStore.getState()), { userSave: true })
     }
@@ -506,7 +508,8 @@ export default function MenuBar() {
     if (!next) return false
     // Left without saving: a starter nobody saved goes, rather than piling up.
     if (!saveCurrentFirst && currentProject) useProjectStore.getState().discardDraft(currentProject.id)
-    useGraphStore.getState().loadGraph(next.workspace.nodes, next.workspace.edges, next.workspace)
+    // The project's embedded parts register before its graph loads.
+    if (!await loadWorkspaceAfterParts(next.workspace.nodes, next.workspace.edges, next.workspace)) return false
     useGraphStore.temporal.getState().clear()
     setStatus(`Opened project "${next.name}"`, 'success')
     return true
@@ -540,8 +543,7 @@ export default function MenuBar() {
     }
     const opened = useProjectStore.getState().upsertProject(project)
     if (!options?.saveCurrentFirst && currentProject) useProjectStore.getState().discardDraft(currentProject.id)
-    await registerEmbeddedParts(opened.workspace.parts)
-    useGraphStore.getState().loadGraph(opened.workspace.nodes, opened.workspace.edges, opened.workspace)
+    if (!await loadWorkspaceAfterParts(opened.workspace.nodes, opened.workspace.edges, opened.workspace)) return false
     useGraphStore.temporal.getState().clear()
     setStatus(workspaceLoadStatus(`Opened project "${opened.name}"`, dropped), dropped > 0 ? 'info' : 'success')
     return true
@@ -656,7 +658,7 @@ export default function MenuBar() {
       const projectName = projects.find((project) => project.id === projectId)?.name ?? 'selected project'
       const decision = await confirmProjectChange(`project "${projectName}"`)
       if (decision === 'cancel') return
-      loadProjectWorkspace(projectId, decision === 'yes')
+      await loadProjectWorkspace(projectId, decision === 'yes')
     })()
   }
 

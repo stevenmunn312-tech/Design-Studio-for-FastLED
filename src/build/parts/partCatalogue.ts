@@ -957,8 +957,24 @@ export function registeredPartManifests(): PartManifest[] {
   return [...registeredParts.values()].map((entry) => entry.manifest)
 }
 
+/**
+ * Remove a downloaded part from the catalogue. A bundled part, or an id the
+ * catalogue does not hold, is left alone. The caller decides whether the part
+ * is still in use; nodes that name it become held nodes at once.
+ */
+export function unregisterPart(partId: string): boolean {
+  const entry = registeredParts.get(partId)
+  if (!entry || entry.origin !== 'downloaded' || BUNDLED_PART_IDS.has(partId)) return false
+  registeredParts.delete(partId)
+  delete catalogueEntries[partId]
+  downloadedRenders.delete(partId)
+  catalogueChanged()
+  return true
+}
+
 /** Test only: drop every registered part, back to the bundled catalogue. */
 export function resetRegisteredPartsForTests(): void {
+  downloadedRenders.clear()
   if (registeredParts.size === 0) return
   for (const id of registeredParts.keys()) delete catalogueEntries[id]
   registeredParts.clear()
@@ -1080,8 +1096,51 @@ export function partDimensionsMm(
   return partById(partId)?.dimensionsMm ?? fallback
 }
 
-/** Site-root render path, or null while a part has no asset. */
+/**
+ * The picture of a downloaded part: an object URL the render store made from
+ * bytes it verified against the signed index (hash, WebP, bounds). It belongs
+ * to one revision; a different revision of the part has no picture until its
+ * own is attached.
+ */
+const downloadedRenders = new Map<string, { revision: number; url: string }>()
+
+/**
+ * Attach (or with `null`, detach) a downloaded part's verified picture. Only a
+ * registered downloaded part can hold one. Moves the catalogue version so
+ * every view that draws the part draws it again.
+ */
+export function setDownloadedRender(partId: string, revision: number, url: string | null): boolean {
+  if (partOrigin(partId) !== 'downloaded') return false
+  const existing = downloadedRenders.get(partId)
+  if (url === null) {
+    if (!existing) return true
+    downloadedRenders.delete(partId)
+  } else {
+    if (existing?.url === url) return true
+    downloadedRenders.set(partId, { revision, url })
+  }
+  catalogueChanged()
+  return true
+}
+
+/** Whether a downloaded part already has a picture for the revision registered now. */
+export function hasDownloadedRender(partId: string): boolean {
+  const have = downloadedRenders.get(partId)
+  const revision = (partById(partId) as { revision?: unknown } | undefined)?.revision
+  return !!have && have.revision === revision
+}
+
+/**
+ * Site-root render path for a bundled part, the verified object URL for a
+ * downloaded one, or null while a part has no picture (callers draw their
+ * placeholder).
+ */
 export function partRenderSrc(partId: string): string | null {
+  if (partOrigin(partId) === 'downloaded') {
+    const have = downloadedRenders.get(partId)
+    const revision = (partById(partId) as { revision?: unknown } | undefined)?.revision
+    return have && have.revision === revision ? have.url : null
+  }
   const file = partById(partId)?.render?.file
   return file ? `/${file}` : null
 }

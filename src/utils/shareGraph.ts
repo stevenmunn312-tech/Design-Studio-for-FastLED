@@ -1,5 +1,6 @@
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string'
 import type { StudioNode, StudioEdge, WorkspaceExtras } from '../state/graphStore'
+import type { SavedParts } from '../build/parts/savedParts'
 import { isWorkspacePayload, sanitizeWorkspacePayload } from './workspacePayload'
 
 const HASH_KEY = 'share'
@@ -16,11 +17,30 @@ export interface SharedWorkspaceRead {
   dropped: number
 }
 
-export function buildShareUrl(workspace: WorkspacePayload): string {
+function urlFor(workspace: WorkspacePayload): string {
   const compressed = compressToEncodedURIComponent(JSON.stringify(workspace))
   const url = new URL(window.location.href)
   url.hash = `${HASH_KEY}=${compressed}`
   return url.toString()
+}
+
+/**
+ * The link for a workspace. Downloaded parts travel as their signed envelopes
+ * so the link opens offline and in an app with no parts host. A signed package
+ * adds roughly 1 to 4 KB per part to the compressed link; when those envelopes
+ * would push it past `SHARE_URL_WARN_BYTES`, the link carries only each part's
+ * id and revision instead, and the receiving app fetches them from the signed
+ * index (`PartsLibrary.resolveReferenced`), telling the user about any it
+ * cannot find. Part ids and revisions are public, so the short form leaks nothing.
+ */
+export function buildShareUrl(workspace: WorkspacePayload): string {
+  const full = urlFor(workspace)
+  const parts = workspace.parts
+  if (full.length <= SHARE_URL_WARN_BYTES || !parts) return full
+  if (!Object.values(parts).some((entry) => entry.envelope)) return full
+  const refs: SavedParts = {}
+  for (const [id, entry] of Object.entries(parts)) refs[id] = { revision: entry.revision }
+  return urlFor({ ...workspace, parts: refs })
 }
 
 /** Null while the link is within the size most apps will carry. */
