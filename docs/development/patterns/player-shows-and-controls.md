@@ -224,8 +224,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   LEDs are heading: a step while holding gets the normal transition, a step
   mid-transition cuts (`evalPatternShow`, the show sketch's `selTarget` block
   and the player's `cut`), and a transition names its incoming pattern from
-  its first frame. A pattern Confirm port was removed; `normalizeLoadedGraph`
-  drops saved wires into `patternConfirm` (`RETIRED_TARGET_HANDLES`). The result is published once, as the `selection`
+  its first frame. There is no pattern Confirm port. The result is published once, as the `selection`
   (`PatternSelectValue`) inside the engine's `display` envelope — there is no
   separate selection port; a panel only displays it — it does not decide, and does
   not collect its own wire to the collection. Pattern browsing belongs to

@@ -636,8 +636,7 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
   })
   return {
     nodes: syncAutomaticStereoVuLedCounts(normalizedNodes),
-    edges: edges.filter((e) => !RETIRED_TARGET_HANDLES.has(e.targetHandle ?? '')
-      && !RETIRED_PROPERTY_KEYS[typeById.get(e.target) ?? '']?.includes(e.targetHandle ?? '')).map((e) => ({ ...e })),
+    edges: edges.filter((e) => !RETIRED_PROPERTY_KEYS[typeById.get(e.target) ?? '']?.includes(e.targetHandle ?? '')).map((e) => ({ ...e })),
   }
 }
 
@@ -671,13 +670,6 @@ const RETIRED_PROPERTY_KEYS: Readonly<Record<string, readonly string[]>> = {
   // spliced after it; a wire into the old Trail input goes with it.
   Juggle: ['trail'],
 }
-
-/**
- * Input ports that no node declares any more, whose saved wires are dropped on
- * load rather than left dangling. Confirm went when stepping a pattern started
- * changing the LEDs directly, with nothing to confirm.
- */
-const RETIRED_TARGET_HANDLES: ReadonlySet<string> = new Set(['patternConfirm'])
 
 /**
  * Wiring a frame into a second LED output puts it on the first one's pin.

@@ -68,16 +68,6 @@ describe('wiring a Player Controls node', () => {
     expect(state.edges).toContainEqual(expect.objectContaining({ target: 'pc', targetHandle: 'next' }))
   })
 
-  // Confirm went when a step started changing the LEDs directly. A save that
-  // wired it loads without the dead wire rather than with one to nowhere.
-  it('drops a saved wire into the retired Confirm row', () => {
-    useGraphStore.getState().loadGraph(
-      [node('btn', 'ButtonBank', { buttons: singleButtonRow(0) }), node('pc', 'ControlMap')],
-      [{ id: 'old', source: 'btn', sourceHandle: FIRST_BUTTON_HANDLE, target: 'pc', targetHandle: 'patternConfirm' } as StudioEdge],
-    )
-    expect(useGraphStore.getState().edges).toEqual([])
-  })
-
   // A Button Bank's trailing socket names its new row after the port it was
   // dropped on, which on this node is the function itself.
   it('names a Button Bank row after the function it lands on', () => {
