@@ -13,6 +13,7 @@ import { listPatterns, savePatternToDisk, deletePatternFromDisk } from '../../ut
 import { patternFormTags, type PatternFormTag } from './patternTags'
 import { isContentKnown } from './patternTrust'
 import { readableSaves } from '../saveFormat'
+import { upgradePreV1Pattern } from '../preV1Aliases'
 import { useUiStore } from '../uiStore'
 import {
   AUDIO_REACTIVE_CATEGORY_ID,
@@ -147,7 +148,7 @@ function load(): SavedPattern[] {
     const raw = localStorage.getItem(KEY)
     const parsed = raw ? JSON.parse(raw) : []
     if (!Array.isArray(parsed)) return []
-    const { patterns } = dedupePatterns(parsed)
+    const { patterns } = dedupePatterns(parsed.map(upgradePreV1Pattern))
     if (patterns.length !== parsed.length) localStorage.setItem(KEY, JSON.stringify(patterns))
     return withBundledPatterns(patterns)
   } catch {
@@ -416,7 +417,9 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
     if (!listed) return  // helper offline — keep the localStorage copy as-is
     // A file a newer version wrote is left out, as if absent: loading it
     // would drop what this version does not know (saveFormat.ts).
-    const { readable: disk, newer } = readableSaves(listed)
+    const { readable, newer } = readableSaves(listed)
+    // Patterns saved before round eight's renames read as the new shape (preV1Aliases.ts).
+    const disk = readable.map(upgradePreV1Pattern)
     if (newer > 0) {
       useUiStore.getState().setStatus(
         `${newer} pattern${newer === 1 ? ' was' : 's were'} saved by a newer Design Studio and ${newer === 1 ? 'is' : 'are'} not shown. Update Design Studio to use ${newer === 1 ? 'it' : 'them'}.`,

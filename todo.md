@@ -42,12 +42,17 @@ more after the freeze.
 - [ ] Remove the pre-1.0 shims: the `uploadTarget` mirror,
   `RETIRED_PROPERTY_KEYS`, the RTC timezone migration and
   `RETIRED_TARGET_HANDLES`.
-- [ ] Settle `hueShift`: one unit and one property name across the nodes
-  that carry it.
-- [ ] Decide whether type ids that differ from their labels (`Clock` for
+- [x] Settle `hueShift`: one unit and one property name across the nodes
+  that carry it. Done 2026-11-19: degrees, `hueShift`, on all four.
+- [x] Decide whether type ids that differ from their labels (`Clock` for
   `RTCInput`, and the others like it) are renamed before the freeze or kept
-  for good.
-- [ ] Make port ids consistent (`mid` against `mids`, and the others like it).
+  for good. Decided 2026-11-19: nine are renamed to match their labels
+  (`TempoClock`, `ColorTemperature`, `FieldTransform`, `FormulaPattern`,
+  `HiHatShards`, `CrossfadeCycle`, `NetworkRipple`, `TileSymmetry`,
+  `TransitionPool`); the rest, `RTCInput` and `MatrixOutput` among them, are
+  kept for good. Old saves open through `src/state/preV1Aliases.ts`.
+- [x] Make port ids consistent (`mid` against `mids`, and the others like it).
+  Done 2026-11-19; old saves open through `src/state/preV1Aliases.ts`.
 - [ ] Give `#share=` links a format version.
 - [ ] Stop custom-shelf patterns vanishing from a saved workspace.
 - [ ] Keep runtime React Flow fields out of saved files.
@@ -243,6 +248,10 @@ The pre-1.0 compatibility sweep is done
 
 - [ ] Remove any pre-1.0 leftover found since the sweep, the same way,
   without a migration.
+- [ ] Delete `src/state/preV1Aliases.ts`, its test and its call sites (grep
+  `preV1Aliases`) in that same leftover sweep. It is the one place the nine
+  renamed type ids and round eight's port and property renames are named; after
+  the freeze an old save needs a real migration, not this table.
 - [ ] Choose the supported combinations from the evidence on record in the
   [bench backlog](docs/plans/bench-backlog.md) and the reports, and update the
   [support matrix](docs/release/beta-support-matrix.md). Everything else stays

@@ -29,6 +29,7 @@ import { useNodeDefaults } from './nodeDefaults'
 import { useProjectStore } from './projectStore'
 import { boardFqbn, boardFqbnTargets } from '../build/boardUploadTargets'
 import { useUiStore, visibleLiveTouchScreen } from './uiStore'
+import { upgradePreV1Workspace } from './preV1Aliases'
 import { validateMatrixLayout } from './output/xyLayout'
 import { isLinearForm, outputCanvasDims, outputForm } from './output/ledOutputForm'
 import { applyLedProductEdit, reconcileLedProduct } from './output/ledProduct'
@@ -2832,7 +2833,23 @@ export const useGraphStore = create<GraphState>()(
         writeBoardLinkId(linkId)
       },
 
-      loadGraph: (nodes, edges, workspace) => {
+      loadGraph: (loadedNodes, loadedEdges, workspace) => {
+        // Saves from before round eight's renames open as the new shape
+        // (preV1Aliases.ts, removed before v1.0.0).
+        const { workspace: upgraded, retiredWires } = upgradePreV1Workspace({
+          nodes: loadedNodes,
+          edges: loadedEdges,
+          graphData: workspace?.graphData,
+          performanceDeck: workspace?.performanceDeck,
+        })
+        const nodes = upgraded.nodes
+        const edges = upgraded.edges
+        if (retiredWires > 0) {
+          useUiStore.getState().setStatus(
+            `${retiredWires} wire${retiredWires === 1 ? '' : 's'} into Hue Shift's old 0-1 input ${retiredWires === 1 ? 'was' : 'were'} removed: it now takes degrees, so connect a degrees source to Hue Shift (°).`,
+            'info',
+          )
+        }
         // Entry points register the save's signed parts first, through
         // `loadWorkspaceAfterParts`, so no node is evaluated while its part is
         // unknown. This fire-and-forget call is only the backstop for a caller
@@ -2857,7 +2874,7 @@ export const useGraphStore = create<GraphState>()(
             // Restore the active graph plus every stashed pattern-group subgraph.
             const active = normalizeLoadedGraph(nodes, edges)
             const graphData: Record<string, GraphContent> = {}
-            for (const [id, content] of Object.entries(workspace?.graphData ?? {})) {
+            for (const [id, content] of Object.entries(upgraded.graphData ?? {})) {
               graphData[id] = normalizeLoadedGraph(content.nodes ?? [], content.edges ?? [])
             }
             const graphs: Record<string, GraphMeta> = {
@@ -2905,7 +2922,7 @@ export const useGraphStore = create<GraphState>()(
               // Missing/malformed = an empty deck — pre-existing saves, share
               // links, and JSON imports created before this field all fall
               // back safely rather than throwing.
-              performanceDeck: normalizeDeckConfig(workspace?.performanceDeck),
+              performanceDeck: normalizeDeckConfig(upgraded.performanceDeck),
               displayDocuments,
               panicActive: false,
               panicRestoreValues: null,

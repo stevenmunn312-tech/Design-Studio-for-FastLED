@@ -14,7 +14,8 @@
 // id and the wiring around it are deliberately left out - moving a node, or
 // dropping the same pattern twice, is not new code. Changing the code itself
 // is, so an edited copy of someone else's formula needs its own decision.
-import type { GraphContent } from '../graphStore'
+import type { GraphContent, StudioNode } from '../graphStore'
+import { upgradePreV1Content, upgradePreV1TrustEntry } from '../preV1Aliases'
 import type { GroupRegistry } from '../graphEvaluator'
 import { BUNDLED_PATTERNS } from './bundledPatterns'
 import { dmxUsesNetwork } from '../peripherals/dmxTransceiver'
@@ -90,7 +91,9 @@ function load(): Set<string> {
   try {
     const raw = localStorage.getItem(KEY)
     const parsed = raw ? JSON.parse(raw) : []
-    if (Array.isArray(parsed)) for (const entry of parsed) if (typeof entry === 'string') known.add(entry)
+    // Remembered before round eight's renames, an entry names the old type id
+    // (preV1Aliases.ts, removed before v1.0.0).
+    if (Array.isArray(parsed)) for (const entry of parsed) if (typeof entry === 'string') known.add(upgradePreV1TrustEntry(entry))
   } catch { /* unreadable: start empty */ }
   try {
     const legacy = localStorage.getItem(LEGACY_KEY)
@@ -99,7 +102,8 @@ function load(): Set<string> {
       for (const entry of entries) {
         if (typeof entry !== 'string') continue
         const subgraph = JSON.parse(entry) as { nodes?: unknown[] }
-        for (const fp of contentFingerprints(subgraph.nodes ?? [])) known.add(fp)
+        const nodes = upgradePreV1Content((subgraph.nodes ?? []) as StudioNode[], []).nodes
+        for (const fp of contentFingerprints(nodes)) known.add(fp)
       }
     }
   } catch { /* a damaged legacy entry is simply not carried over */ }
