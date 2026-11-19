@@ -8,13 +8,14 @@ import { partOptionProperty, partOptionsFor } from '../../build/parts/partOption
 import { LED_OUTPUT_FORM_LABELS } from '../../state/output/ledOutputForm'
 import type { HardwareShelfItem, HardwareShelfCategory } from './HardwarePartsShelf'
 import {
-  type FixturePartEntry, type InputPartEntry, fixturePinRequests, FIXTURE_PARTS, inputPartEntries, LED_OUTPUT_ENTRIES,
+  type FixturePartEntry, type InputPartEntry, fixturePinRequests, FIXTURE_PARTS, inputPartEntries, LED_OUTPUT_ENTRIES, type LedOutputEntry,
   LED_OUTPUT_NODE_TYPE,
 } from './hardwarePartCatalog'
 import {
   BATTERY_MODULE_CHARGE_ONLY, batteryFunctions, batteryModuleCanChargeOnly, batteryModuleSpec, batteryModuleSpecFor,
 } from '../../state/peripherals/battery'
 import { isShelfCategory, shelfPlacement } from './shelfGrouping'
+import { ledProducts } from '../../state/output/ledProductCatalogue'
 import type { StudioNode } from '../../state/graphStore'
 import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 
@@ -36,7 +37,7 @@ export interface HardwareShelfInputs {
   inputPartBlocker: (entry: InputPartEntry) => string | null
   addInputPart: (entry: InputPartEntry) => void
   addFixturePart: (entry: FixturePartEntry, moduleId?: string, extraProperties?: Record<string, unknown>) => void
-  addLedOutput: (entry: (typeof LED_OUTPUT_ENTRIES)[number]) => void
+  addLedOutput: (entry: LedOutputEntry) => void
 }
 
 /** The shelf for this bench, rebuilt on every render from what is already on it. */
@@ -158,6 +159,37 @@ export function hardwareShelfCategories({
     }
   })
 
+  // The catalogue's LED products, after the Custom starting points and in
+  // category-tree order, so the Custom entries are always the first rows on a
+  // blank bench however many products the catalogue grows to hold.
+  const ledProductItems: HardwareShelfItem[] = ledProducts()
+    .map((product, position) => ({ product, position, placement: shelfPlacement('led-outputs', product.partId, LED_OUTPUT_NODE_TYPE) }))
+    .sort((a, b) => a.placement.order - b.placement.order || a.position - b.position)
+    .map(({ product, placement }) => {
+      const needsDataPin = product.spec.form !== 'hub75'
+      const blocked = needsDataPin && nextLedPin === null
+      const facts = `${product.spec.chipset}, ${product.spec.supplyVolts} V`
+      const entry: LedOutputEntry = {
+        form: product.spec.form,
+        hint: facts,
+        properties: product.spec.form === 'strip' ? { ledCount: 60 } : {},
+        partId: product.partId,
+      }
+      return {
+        key: `${LED_OUTPUT_NODE_TYPE}:${product.partId}`,
+        nodeType: LED_OUTPUT_NODE_TYPE,
+        label: product.label,
+        hint: needsDataPin ? `${facts} on pin ${nextLedPin}` : facts,
+        renderSrc: partRenderSrc(product.partId),
+        visual: product.spec.form,
+        partId: product.partId,
+        subcategory: placement.group || undefined,
+        disabled: blocked,
+        disabledReason: blocked ? ledPinBlocker : null,
+        onSelect: () => addLedOutput(entry),
+      }
+    })
+
   const shelfCategories: HardwareShelfCategory[] = [
     // First, and open on a blank bench: what the patterns light up is the
     // first part a bench needs after its board, so it is not eighth of eight.
@@ -190,6 +222,7 @@ export function hardwareShelfCategories({
           onSelect: () => addLedOutput(entry),
         }
         }),
+        ...ledProductItems,
       ],
     },
     {

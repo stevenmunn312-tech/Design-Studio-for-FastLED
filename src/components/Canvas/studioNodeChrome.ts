@@ -9,6 +9,7 @@ import { ASSIGNED_BOARD_KEY, ASSIGNED_PINS_KEY, PIN_HISTORY_KEY, USER_PINS_KEY }
 import { isHardwareNodeType } from '../../build/hardware'
 import { isHardwarePartField } from '../../build/parts/partFields'
 import { isGpioPinProperty, isInternalProperty, isPropertyEnabled, NODE_LIBRARY, RADIO_GROUP_KEYS, showsDisabledProperties } from '../../state/nodeLibrary'
+import { ledPropertyLocked } from '../../state/output/ledProduct'
 
 export const CATEGORY_TAG: Record<string, string> = {
   input: 'IN',
@@ -246,6 +247,8 @@ export function editableProperties(
       // emptied. A row whose socket is exposed or wired stays, disabled, so
       // the wire keeps its handle. A node with a few gated rows can opt to
       // keep them all, disabled (showsDisabledProperties).
-      && (exposedKeys.has(k) || showsDisabledProperties(nodeType) || isPropertyEnabled(nodeType, k, props))
+      // A field a named LED part owns stays, locked: hiding it would make "Set by the part" invisible.
+      && (exposedKeys.has(k) || showsDisabledProperties(nodeType) || isPropertyEnabled(nodeType, k, props)
+        || (nodeType === 'MatrixOutput' && ledPropertyLocked(props, k)))
   )
 }
