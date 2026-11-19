@@ -103,10 +103,30 @@ const LIMITS: Record<string, (spec: Spec) => Array<string | undefined>> = {
     return [size, touch ? `touch ${touch}` : undefined]
   },
   temperatureSensor: (s) => [range(s.temperatureMinC, s.temperatureMaxC, '°C')],
+  // An LED output's product: its form and chipset, the rail, and the size or length it comes in.
+  ledOutput: (s) => [
+    text(s.form),
+    text(s.chipset),
+    num(s.supplyVolts) === undefined ? undefined : `${num(s.supplyVolts)} V`,
+    num(s.width) !== undefined && num(s.height) !== undefined ? `${num(s.width)}×${num(s.height)} LEDs` : undefined,
+    num(s.count) === undefined ? undefined : `${num(s.count)} LEDs`,
+    num(s.maxCount) === undefined ? undefined : `up to ${num(s.maxCount)} LEDs per reel`,
+    num(s.fullWhiteMa) === undefined ? undefined : `${num(s.fullWhiteMa)} mA per LED at full white`,
+  ],
+  // The accessories an LED output and the Board name: a data link and a level shifter.
+  pixelDataExtender: (s) => [
+    num(s.maxDistanceMeters) === undefined ? undefined : `up to ${num(s.maxDistanceMeters)} m`,
+    range(s.supplyMinV, s.supplyMaxV, 'V'),
+  ],
+  levelShifter: (s) => [
+    text(s.device),
+    count(s.channels, 'channel'),
+    range(s.supplyMinV, s.supplyMaxV, 'V'),
+  ],
 }
 
-function limitsFor(nodeType: string, entry: PartCatalogueEntry): string[] {
-  const block = partTypeById(nodeType)?.block
+function limitsFor(nodeType: string, entry: PartCatalogueEntry, blockKey?: string): string[] {
+  const block = blockKey ?? partTypeById(nodeType)?.block
   const read = block ? LIMITS[block] : undefined
   const spec = block ? (entry as unknown as Record<string, unknown>)[block] : undefined
   if (!read || typeof spec !== 'object' || spec === null) return []
@@ -126,7 +146,7 @@ const entriesByType = memoByCatalogue(() => {
   return byType
 })
 
-function describe(nodeType: string, entry: PartCatalogueEntry): PartHelpEntry {
+function describe(nodeType: string, entry: PartCatalogueEntry, blockKey?: string): PartHelpEntry {
   const copy = (entry as { copy?: { summary?: unknown; wiringNote?: unknown } }).copy
   return {
     partId: entry.partId,
@@ -135,7 +155,7 @@ function describe(nodeType: string, entry: PartCatalogueEntry): PartHelpEntry {
     summary: plain(copy?.summary),
     wiringNote: plain(copy?.wiringNote),
     logicVoltage: plain(entry.logicVoltage),
-    limits: limitsFor(nodeType, entry),
+    limits: limitsFor(nodeType, entry, blockKey),
   }
 }
 
@@ -150,7 +170,41 @@ export function partHelpEntries(nodeType: string): PartHelpEntry[] {
   const cache = describedByType()
   const known = cache.get(nodeType)
   if (known) return known
-  const built = (entriesByType().get(nodeType) ?? []).map((entry) => describe(nodeType, entry))
+  // A type whose parts include accessories lists only the parts that carry the type's own block:
+  // the LED output lists its LED products, and its data link and level shifter are listed apart.
+  const definition = partTypeById(nodeType)
+  const own = definition?.accessoryBlocks && definition.block ? definition.block : undefined
+  const built = (entriesByType().get(nodeType) ?? [])
+    .filter((entry) => own === undefined || (entry as unknown as Record<string, unknown>)[own] !== undefined)
+    .map((entry) => describe(nodeType, entry))
+  cache.set(nodeType, built)
+  return built
+}
+
+/**
+ * Accessories a node names beside its own part, each its own list in the node's help: the data link an
+ * LED output may use, and the level shifter the Board names. From the catalogue by block, like the
+ * node's parts, so a downloaded accessory is listed the day it is registered.
+ */
+const ACCESSORY_LISTS: Record<string, { block: string; heading: string }> = {
+  MatrixOutput: { block: 'pixelDataExtender', heading: 'Data links for this node' },
+  Board: { block: 'levelShifter', heading: 'Level shifters for this node' },
+}
+
+export interface AccessoryHelp { heading: string; parts: PartHelpEntry[] }
+
+const accessoriesByType = memoByCatalogue(() => new Map<string, AccessoryHelp | null>())
+
+export function accessoryHelpEntries(nodeType: string): AccessoryHelp | null {
+  const config = ACCESSORY_LISTS[nodeType]
+  if (!config) return null
+  const cache = accessoriesByType()
+  const known = cache.get(nodeType)
+  if (known !== undefined) return known
+  const parts = Object.values(PART_CATALOGUE)
+    .filter((entry) => (entry as unknown as Record<string, unknown>)[config.block] !== undefined)
+    .map((entry) => describe(nodeType, entry, config.block))
+  const built = parts.length === 0 ? null : { heading: config.heading, parts }
   cache.set(nodeType, built)
   return built
 }

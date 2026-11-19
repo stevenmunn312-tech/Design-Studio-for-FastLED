@@ -51,7 +51,7 @@ describe('an LED product manifest', () => {
     const type = partTypeById('MatrixOutput')!
     expect(type.block).toBe('ledOutput')
     expect(type.devices).toEqual(CHIPSET_OPTIONS)
-    expect(type.downloadable).toBe(false)
+    expect(type.downloadable).toBe(true)
     for (const entry of Object.values(PART_CATALOGUE)) {
       if (!entry.ledOutput) continue
       expect(partTypeDrivesDevice(type, { chipset: entry.ledOutput.chipset }), entry.partId).toBe(true)

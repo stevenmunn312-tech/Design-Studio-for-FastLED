@@ -30,6 +30,12 @@ export interface PartTypeDefinition {
    */
   blockOptional?: boolean
   /**
+   * Blocks that file a part under this type in some role other than the type's own `block`: a part
+   * carries `block` or exactly one of these, never both and never none. The LED output's data link
+   * and level shifter are accessories, so none of them is ever an LED product.
+   */
+  accessoryBlocks?: readonly PartBlockKey[]
+  /**
    * Further blocks the type reads, which a part of the type must carry. Used
    * when the facts of one part type are split across two blocks, as a colour
    * TFT's are: the shared `display` block and its own `tftPanel`.
@@ -59,12 +65,13 @@ const type = (definition: Omit<PartTypeDefinition, 'property' | 'downloadable'> 
 export const PART_TYPES: readonly PartTypeDefinition[] = [
   // LED outputs. `MatrixOutput` is every LED output form; an LED product is its `ledOutput` block,
   // stamped into the node's own properties (state/output/ledProduct.ts), and the chipset is code
-  // (a FastLED template argument), so the list is the app's closed `CHIPSET_OPTIONS`. The block is
-  // optional because the NLED data link and the 74AHCT125 level shifter are also filed under the
-  // type for the shelf and are not LED products. Still closed (phase A step 6 opens it): the
-  // readers of per-LED current, pitch and clock ceiling (step 3) and the accessories' ids (step 5)
-  // remain by-id code.
-  type({ nodeType: 'MatrixOutput', block: 'ledOutput', blockOptional: true, deviceField: 'chipset', devices: CHIPSET_OPTIONS }),
+  // (a FastLED template argument), so the list is the app's closed `CHIPSET_OPTIONS`. The NLED data
+  // link (`pixelDataExtender`) and the 74AHCT125 level shifter (`levelShifter`) are also filed under
+  // the type, for the shelf and for the selects that name them (`dataLinkPartId` on an output,
+  // `levelShifterPartId` on the Board). They are accessories, not LED products: a part carries
+  // `ledOutput` or one accessory block, never both, and only a part with `ledOutput` is offered in
+  // the LED product picker, so an accessory can never be picked as an LED product.
+  type({ nodeType: 'MatrixOutput', block: 'ledOutput', accessoryBlocks: ['pixelDataExtender', 'levelShifter'], deviceField: 'chipset', devices: CHIPSET_OPTIONS, downloadable: true }),
   // Power
   // The converter picture reads a part's measured pads (`converterPadsMm`) or the block's `terminalPositions`.
   type({ nodeType: 'PowerConverter', block: 'powerConverter', downloadable: true }),
@@ -139,7 +146,7 @@ export function partTypeById(id: string): PartTypeDefinition | undefined {
 /** Whether `definition`'s code can drive a part whose block names `device`. */
 export function partTypeDrivesDevice(definition: PartTypeDefinition, block: unknown): boolean {
   if (!definition.deviceField || !definition.devices) return true
-  if (block === undefined && definition.blockOptional) return true
+  if (block === undefined && (definition.blockOptional || definition.accessoryBlocks)) return true
   if (typeof block !== 'object' || block === null) return false
   const device = (block as Record<string, unknown>)[definition.deviceField]
   return typeof device === 'string' && definition.devices.includes(device)

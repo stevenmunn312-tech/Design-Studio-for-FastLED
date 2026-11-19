@@ -302,7 +302,17 @@ export function validatePartManifest(value: unknown, origin: ManifestOrigin): Pa
         unusableTypes.push(`part type "${id}" is not known to this version`)
         continue
       }
-      if (definition.block && !definition.blockOptional && value[definition.block] === undefined) {
+      if (definition.accessoryBlocks) {
+        const held = [definition.block, ...definition.accessoryBlocks].filter((key) => key !== undefined && value[key] !== undefined)
+        if (held.length === 0) {
+          errors.push(`${definition.block}: required by part type ${definition.nodeType}, or one of ${definition.accessoryBlocks.join(', ')} for an accessory`)
+          continue
+        }
+        if (held.length > 1) {
+          errors.push(`${held.join(', ')}: a ${definition.nodeType} part is an LED product or one accessory, not both`)
+          continue
+        }
+      } else if (definition.block && !definition.blockOptional && value[definition.block] === undefined) {
         errors.push(`${definition.block}: required by part type ${definition.nodeType}`)
         continue
       }

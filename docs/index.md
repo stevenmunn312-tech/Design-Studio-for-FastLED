@@ -65,7 +65,7 @@ Feature contracts and rationale live here. Task ordering belongs in
 - [DMX / Art-Net input](design/dmx-artnet-input.md)
 - [HUB75 output](design/hub75-output.md)
 - [IR remote controls for graph properties](design/ir-remote-controls.md)
-- [LED output parts: opening `MatrixOutput` to downloaded parts](design/led-output-parts.md)
+- [LED output parts: opening `MatrixOutput` to downloaded parts](design/led-output-parts.md) (built)
 - [Multi-board projects](design/multi-board.md)
 - [Board links: controls between boards over ESP-NOW](design/board-links.md)
 - [RTC clock and scheduled triggers](design/rtc-clock-and-schedule.md)
