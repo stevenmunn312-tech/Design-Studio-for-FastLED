@@ -529,7 +529,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     }
     ln(`  }`)
   },
-  ClockDisplay({ node, id, p, ln, v, f, channelColor, ownBuf, seedFrom, incoming, boolExpr }) {
+  ClockDisplay({ node, id, p, ln, f, channelColor, ownBuf, seedFrom, incoming }) {
     const ob = ownBuf()
     const mode = String(p.displayMode ?? 'Digital HH:MM')
     const analog = mode === 'Analog' || mode === 'Analog + Date'
@@ -553,12 +553,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
     const secondsExpr = dateTimeExpr ? `${dateTimeExpr}.secondsOfDay` : '0.0f'
     const dayExpr = dateTimeExpr ? `${dateTimeExpr}.day` : '1'
     const monthExpr = dateTimeExpr ? `${dateTimeExpr}.month` : '1'
-    const runExpr = incoming.get(`${node.id}:run`) ? boolExpr(node.id, 'run') : (p.run === false ? 'false' : 'true')
-    const resetExpr = incoming.get(`${node.id}:reset`) ? boolExpr(node.id, 'reset') : (p.reset === true ? 'true' : 'false')
-    const durationExpr = `constrain(${f('durationSec', 'durationSec', 300)}, 0.0f, ${CLOCK_TIMER_MAX_SEC}.0f)`
-    // Declared outside the render block so downstream nodes can read the
-    // transport readouts (clock modes pass the time of day through).
-    ln(`  float ${v('seconds')} = 0.0f; bool ${v('done')} = false;`)
+    // The Stopwatch/Timer faces draw the wired Seconds, clamped to what the
+    // two-digit hours readout can show (the preview clamps the same way).
+    const showExpr = f('seconds', 'seconds', 0)
     ln(`  { // Clock Display`)
     ln(`    ${seedFrom('base')}`)
     ln(`    auto _clkPx = [&](int _x, int _y, const CRGB &_col) {`)
@@ -619,20 +616,7 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       const syExpr = textAxisStartCpp(yExpr, units, 'HEIGHT', twoLineHeight, vAlign, false)
       const sxMainExpr = textAxisStartCpp(xExpr, units, 'WIDTH', glyphRun(5), hAlign, false)
       const sxSubExpr = textAxisStartCpp(xExpr, units, 'WIDTH', glyphRun(2), hAlign, false)
-      ln(`    static float _clkElapsed_${id} = 0.0f, _clkRemaining_${id} = 0.0f, _clkLastDuration_${id} = -1.0f;`)
-      ln(`    static uint32_t _clkLastMs_${id} = 0; static bool _clkPrevReset_${id} = false;`)
-      ln(`    uint32_t _clkNow_${id} = millis(); float _clkDuration_${id} = ${durationExpr}; bool _clkRun_${id} = ${runExpr}; bool _clkReset_${id} = ${resetExpr};`)
-      ln(`    if (_clkLastMs_${id} == 0 || _clkNow_${id} < _clkLastMs_${id}) { _clkLastMs_${id} = _clkNow_${id}; _clkElapsed_${id} = 0.0f; _clkRemaining_${id} = _clkDuration_${id}; _clkLastDuration_${id} = _clkDuration_${id}; _clkPrevReset_${id} = false; }`)
-      ln(`    float _clkDt_${id} = min(0.25f, max(0.0f, (_clkNow_${id} - _clkLastMs_${id}) / 1000.0f));`)
-      ln(`    if (fabsf(_clkLastDuration_${id} - _clkDuration_${id}) > 0.0001f) { _clkRemaining_${id} = _clkDuration_${id}; _clkLastDuration_${id} = _clkDuration_${id}; _clkDt_${id} = 0.0f; }`)
-      ln(`    bool _clkResetEdge_${id} = _clkReset_${id} && !_clkPrevReset_${id};`)
-      ln(`    if (_clkResetEdge_${id}) { _clkElapsed_${id} = 0.0f; _clkRemaining_${id} = _clkDuration_${id}; _clkDt_${id} = 0.0f; }`)
-      if (mode === 'Timer') ln(`    if (_clkRun_${id}) _clkRemaining_${id} = max(0.0f, _clkRemaining_${id} - _clkDt_${id});`)
-      else ln(`    if (_clkRun_${id}) _clkElapsed_${id} += _clkDt_${id};`)
-      ln(`    _clkLastMs_${id} = _clkNow_${id}; _clkPrevReset_${id} = _clkReset_${id};`)
-      ln(`    float _clkShow_${id} = ${mode === 'Timer' ? `_clkRemaining_${id}` : `_clkElapsed_${id}`};`)
-      ln(`    ${v('seconds')} = _clkShow_${id};`)
-      ln(`    ${v('done')} = ${mode === 'Timer' ? `_clkRemaining_${id} <= 0.0f` : 'false'};`)
+      ln(`    float _clkShow_${id} = constrain(${showExpr}, 0.0f, ${CLOCK_TIMER_MAX_SEC}.0f);`)
       ln(`    int _clkWhole_${id} = max(0, (int)floorf(_clkShow_${id}));`)
       ln(`    int _clkHours_${id} = _clkWhole_${id} / 3600, _clkMinutes_${id} = (_clkWhole_${id} % 3600) / 60, _clkSeconds_${id} = _clkWhole_${id} % 60;`)
       ln(`    int _clkCentis_${id} = ((int)floorf((_clkShow_${id} - _clkWhole_${id}) * 100.0f)) % 100;`)
@@ -650,7 +634,6 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ln(`    float _clkCy_${id} = ${clockCenterAxisCpp(`_clkYv_${id}`, units, 'HEIGHT', `_clkRad_${id}`)};`)
       ln(`    float _clkSec_${id} = ${validExpr} ? ${secondsExpr} : 0.0f;`)
       ln(`    while (_clkSec_${id} < 0.0f) _clkSec_${id} += 86400.0f; while (_clkSec_${id} >= 86400.0f) _clkSec_${id} -= 86400.0f;`)
-      ln(`    ${v('seconds')} = ${validExpr} ? _clkSec_${id} : 0.0f;`)
       ln(`    int _clkHour_${id} = (int)floorf(_clkSec_${id} / 3600.0f); int _clkMinute_${id} = ((int)floorf(_clkSec_${id} / 60.0f)) % 60;`)
       ln(`    float _clkRingScale_${id} = 0.45f, _clkTickScale_${id} = 0.30f, _clkSecondScale_${id} = 0.70f;`)
       ln(`    CRGB _clkRingCol_${id} = ${colorE}; _clkRingCol_${id}.nscale8((uint8_t)(_clkRingScale_${id} * 255.0f));`)
@@ -679,7 +662,6 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       const sxMainExpr = textAxisStartCpp(xExpr, units, 'WIDTH', glyphRun(5), hAlign, false)
       const sxSubExpr = textAxisStartCpp(xExpr, units, 'WIDTH', glyphRun(mode === 'Digital + Date' ? 5 : 2), hAlign, false)
       ln(`    float _clkSec_${id} = ${secondsExpr}; while (_clkSec_${id} < 0.0f) _clkSec_${id} += 86400.0f; while (_clkSec_${id} >= 86400.0f) _clkSec_${id} -= 86400.0f;`)
-      ln(`    ${v('seconds')} = ${validExpr} ? _clkSec_${id} : 0.0f;`)
       ln(`    int _clkHour_${id} = (int)floorf(_clkSec_${id} / 3600.0f), _clkMinute_${id} = ((int)floorf(_clkSec_${id} / 60.0f)) % 60, _clkSecond_${id} = ((int)floorf(_clkSec_${id})) % 60;`)
       ln(`    char _clkMain_${id}[6], _clkSub_${id}[6] = "";`)
       if (mode === 'Digital HH:MM:SS') {

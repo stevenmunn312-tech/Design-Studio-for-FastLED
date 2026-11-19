@@ -280,6 +280,12 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Tempo Clock example graph](../../public/node-cards/graphs/tempo-clock.svg)
 
+### Timer
+
+![Timer node](../../public/node-cards/timer.svg)
+
+![Timer example graph](../../public/node-cards/graphs/timer.svg)
+
 ### Schedule Trigger
 
 ![Schedule Trigger node](../../public/node-cards/schedule-trigger.svg)

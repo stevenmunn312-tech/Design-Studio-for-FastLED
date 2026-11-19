@@ -32,7 +32,7 @@ describe('hardware timers ignore Master Speed', () => {
     ['PaletteBank', { palettes: ['rainbow', 'ocean'], blend: 20 }, 'next'],
     ['GameOfLife', { seed: 7, speed: 8 }, ''],
     ['Automaton', { seed: 7, speed: 8 }, ''],
-    ['ClockDisplay', { displayMode: 'Stopwatch', run: true }, ''],
+    ['Timer', { mode: 'Stopwatch', run: true }, ''],
     ['Gauge', { peakHold: 0.1 }, 'value'],
     ['ControlMap', {}, 'playPause'],
     ['Image', { animation: {

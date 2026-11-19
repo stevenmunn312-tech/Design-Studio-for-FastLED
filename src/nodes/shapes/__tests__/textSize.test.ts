@@ -202,6 +202,14 @@ describe('Text and Clock Display at size 1', () => {
     expect(hashes.join(' ')).toBe(PREVIEW_HASHES)
   })
 
+  it('draws a wired Timer exactly as the Timer face drew its own countdown', () => {
+    // 46c2e59c is the old self-timing Timer face at its first pass: 05:00.
+    const id = `c${run++}`
+    const frame = render([node('tm', 'Timer', { mode: 'Timer', durationSec: 300 }), node(id, 'ClockDisplay', { displayMode: 'Timer' })],
+      [edge('w', 'tm', 'seconds', id, 'seconds')], id, 20, 16)
+    expect(hash(JSON.stringify(frame))).toBe('46c2e59c')
+  })
+
   it('generates the sketch as before', () => {
     const edges = (target: string) => [edge('o', target, 'frame', 'out', 'frame')]
     const hashes = [
@@ -213,5 +221,5 @@ describe('Text and Clock Display at size 1', () => {
   })
 })
 
-const PREVIEW_HASHES = '9285c90d ea9668fd de52a05d cbe369cd 077f6a4d c22913fd 75e37b9b e79b0e47 e79b0e47 67e9992c ba711729 5071ccff 46c2e59c'
-const SKETCH_HASHES = '90c8c058 1f80010e 8069850c cace44df f3b771ee 8f97646a aa125f57 1105757d 1105757d 9d1e5860 8a50848f 1c392b97 ef07c152'
+const PREVIEW_HASHES = '9285c90d ea9668fd de52a05d cbe369cd 077f6a4d c22913fd 75e37b9b e79b0e47 e79b0e47 67e9992c ba711729 5071ccff 5071ccff'
+const SKETCH_HASHES = '90c8c058 1f80010e 8069850c cace44df f3b771ee 8f97646a aa125f57 1105757d 1105757d 9d1e5860 8a50848f dad1ded5 dad1ded5'

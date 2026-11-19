@@ -227,10 +227,11 @@ report invalid/stale based on the real module. How much drift remains unmeasured
 ### `ClockDisplay` renders the clock
 
 Eight modes: four digital layouts (`HH:MM`, `HH:MM:SS`, 12-hour, time + date),
-two analog (with and without date), and Stopwatch/Timer transports that ignore
-the RTC entirely and keep their own state. It composites over an optional `base`
-frame like the other Shapes & Text nodes, and publishes `seconds` + `done` so a
-Timer can drive the rest of the graph instead of only drawing itself.
+two analog (with and without date), and Stopwatch/Timer faces that ignore the
+RTC and draw a wired `seconds` float. The transport itself is the `Timer` signal
+node (mode, Run, Reset, Duration; outputs `seconds` and `done`), so anything that
+wants only `done` need not draw digits. Clock Display composites over an optional
+`base` frame like the other Shapes & Text nodes and has no outputs but `frame`.
 
 Unlike `Text`, whose string is known at codegen time and baked as columns, a
 clock's string is assembled at runtime — so the sketch carries a glyph lookup

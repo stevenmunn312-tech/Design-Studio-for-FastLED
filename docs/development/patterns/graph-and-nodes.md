@@ -173,7 +173,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - Hardware timers use `elapsedT` / `elapsedTick`, matching firmware `millis()`.
   This includes Interval, Envelope, Tempo Clock, Noise LFO, Smooth, Trigger timing,
   Palette Bank buttons/blending, Game of Life, Automaton, image playback,
-  Gauge peak hold, and Clock Display stopwatch/timer. Button debounce and
+  Gauge peak hold, and the Timer node's stopwatch/countdown (Clock Display only draws a wired Seconds). Button debounce and
   repeat also use elapsed time, including direct player actions. Animation
   time can freeze without freezing a button or changing a timer's duration.
 - Master Speed scales the one shared time value `t` that animated nodes

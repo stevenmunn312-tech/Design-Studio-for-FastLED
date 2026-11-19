@@ -171,6 +171,26 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
     defaultProperties: { bpm: 120, beatsPerBar: 4, subdivision: 2 },
   },
   {
+    // Stopwatch / countdown Timer as a signal: Seconds is elapsed for a
+    // Stopwatch and remaining for a Timer, and Done goes high at zero. It is
+    // wall-clock driven (Master Speed does not scale it). Clock Display draws
+    // a wired Seconds on its Stopwatch/Timer faces.
+    type: 'Timer',
+    label: 'Timer',
+    category: 'signal',
+    inputs: [
+      { id: 'run', label: 'Run', dataType: 'bool' },
+      { id: 'reset', label: 'Reset', dataType: 'bool' },
+      { id: 'durationSec', label: 'Duration (s)', dataType: 'float' },
+    ],
+    propertyInputs: { run: 'run', reset: 'reset', durationSec: 'durationSec' },
+    outputs: [
+      { id: 'seconds', label: 'Seconds', dataType: 'float' },
+      { id: 'done', label: 'Done', dataType: 'bool' },
+    ],
+    defaultProperties: { mode: 'Timer', run: true, reset: false, durationSec: 300 },
+  },
+  {
     // Focused DMX decoder: reads one channel from the raw universe buffer and
     // exposes it as normalized float, raw byte, plus activity/change booleans.
     type: 'DMXChannel',
@@ -201,5 +221,6 @@ export const SIGNAL_DESCRIPTIONS: Record<string, string> = {
   NoiseSignal: 'Smooth random value drifting between min and max: a noise-driven LFO.',
   ScheduleTrigger: 'Time-of-day window or trigger driven by a Clock’s DateTime.',
   TempoClock: 'BPM metronome — phase/beat/bar/subdivision pulses; tap tempo, sync and reset.',
+  Timer: 'Stopwatch or countdown timer: Seconds elapsed or remaining, and Done at zero.',
   DMXChannel: 'Reads one channel from a raw DMX/Art-Net universe buffer.',
 }

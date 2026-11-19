@@ -42,7 +42,3 @@ and an Upload information shelf in
   Formula/Field Formula and the gradient patterns repeat likewise. Add
   `noiseType` to Field Noise and a Conway `life` type to Automaton so field
   chains are not stuck with the subset.
-- [ ] **Node review: Clock Display: Split Stopwatch/Timer into a signal node (Low, M).**
-  A transport lives inside a drawing node; anyone wanting only `done` still
-  draws digits. Consider a small Timer signal node with Clock Display drawing
-  a wired `seconds`.

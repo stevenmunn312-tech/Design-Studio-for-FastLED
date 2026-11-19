@@ -6136,26 +6136,64 @@ describe('ClockDisplay (codegen)', () => {
     expect(bare).not.toContain('snprintf(_clkMain_clk, sizeof(_clkMain_clk), "%02d:%02d"')
   })
 
-  it('emits millis-driven stopwatch/timer state for transport modes', () => {
-    const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Timer', durationSec: 90, run: true })
-    const cpp = generateCpp([clk, outputNode], [edge('e1', 'clk', 'out', 'frame', 'frame')])
-    expect(cpp).toContain('static float _clkRemaining_clk = 0.0f, _clkLastDuration_clk = -1.0f;')
-    // A timer shows what remains; elapsed time is never read.
-    expect(cpp).not.toContain('_clkElapsed_clk')
-    expect(cpp).toContain('uint32_t _clkNow_clk = millis();')
-    // Run is fixed on, so the countdown is unconditional.
-    expect(cpp).not.toContain('_clkRun_clk')
-    expect(cpp).toContain('_clkRemaining_clk = fl::max(0.0f, _clkRemaining_clk - _clkDt_clk);')
+  it('draws the wired Seconds on the stopwatch/timer faces, with no transport state of its own', () => {
+    const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Timer' })
+    const tmr = node('tmr', 'Timer', 'signal', { mode: 'Timer', durationSec: 90 })
+    const cpp = generateCpp([tmr, clk, outputNode], [edge('e0', 'tmr', 'clk', 'seconds', 'seconds'), edge('e1', 'clk', 'out', 'frame', 'frame')])
+    expect(cpp).toContain('float _clkShow_clk = constrain(n_tmr_seconds, 0.0f, 359999.0f);')
     expect(cpp).toContain('snprintf(_clkMain_clk, sizeof(_clkMain_clk), "%02d:%02d"')
+    expect(cpp).not.toContain('_clkRemaining_clk')
+    expect(cpp).not.toContain('_clkElapsed_clk')
+    expect(cpp).not.toContain('n_clk_seconds')
+    expect(cpp).not.toContain('n_clk_done')
   })
 
-  it('publishes transport readouts so a timer can drive the rest of the graph', () => {
-    const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Timer', durationSec: 90 })
-    const cpp = generateCpp([clk, outputNode], [edge('e1', 'clk', 'out', 'frame', 'frame'),
-      edge('e2', 'clk', 'out', 'seconds', 'brightness'), edge('e3', 'clk', 'out', 'done', 'enabled')])
-    expect(cpp).toContain('float n_clk_seconds = 0.0f; bool n_clk_done = false;')
-    expect(cpp).toContain('n_clk_seconds = _clkShow_clk;')
-    expect(cpp).toContain('n_clk_done = _clkRemaining_clk <= 0.0f;')
+  it('an unwired Seconds draws zero', () => {
+    const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Stopwatch' })
+    const cpp = generateCpp([clk, outputNode], [edge('e1', 'clk', 'out', 'frame', 'frame')])
+    expect(cpp).toMatch(/float _clkShow_clk = constrain\(0(\.0f)?, 0\.0f, 359999\.0f\);/)
+  })
+})
+
+describe('Timer (codegen)', () => {
+  const build = (props: Record<string, unknown>, wires: Array<[string, string]> = []) => {
+    const tmr = node('tmr', 'Timer', 'signal', props)
+    const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Timer' })
+    return generateCpp([node('src', 'Interval', 'signal', {}), tmr, clk, outputNode], [
+      edge('e0', 'tmr', 'clk', 'seconds', 'seconds'), edge('e1', 'clk', 'out', 'frame', 'frame'),
+      ...wires.map(([port, target], i) => edge(`w${i}`, 'src', 'tmr', port, target)),
+    ])
+  }
+
+  it('emits millis-driven countdown state that reads only what a Timer needs', () => {
+    const cpp = build({ mode: 'Timer', durationSec: 90 })
+    expect(cpp).toContain('uint32_t _tmrNow_tmr = millis();')
+    expect(cpp).toContain('float _tmrDur_tmr = constrain(90, 0.0f, 359999.0f);')
+    expect(cpp).toContain('_tmrAcc_tmr = fl::max(0.0f, _tmrAcc_tmr - _tmrDt_tmr);')
+    // Run is fixed on and Reset is never wired, so neither carries any code.
+    expect(cpp).not.toContain('if (true)')
+    expect(cpp).not.toContain('_tmrPrevReset_tmr')
+  })
+
+  it('a Stopwatch carries no Duration state and never finishes', () => {
+    const cpp = build({ mode: 'Stopwatch', durationSec: 90 })
+    expect(cpp).toContain('_tmrAcc_tmr = _tmrAcc_tmr + _tmrDt_tmr;')
+    expect(cpp).not.toContain('_tmrDur_tmr')
+    expect(cpp).not.toContain('_tmrLastDur_tmr')
+  })
+
+  it('wired Reset adds the edge detector and a false Run drops the count', () => {
+    const off = build({ mode: 'Timer', run: false })
+    // The count is pruned entirely: nothing ever advances it.
+    expect(off).not.toContain('_tmrDt_tmr')
+    const cpp = build({ mode: 'Timer' }, [['pulse', 'reset']])
+    expect(cpp).toContain('static bool _tmrPrevReset_tmr = false;')
+    expect(cpp).toContain('if (_tmrReset_tmr && !_tmrPrevReset_tmr)')
+  })
+
+  it('a graph without a Timer emits no timer code', () => {
+    const cpp = generateCpp([node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Digital HH:MM' }), outputNode], [edge('e1', 'clk', 'out', 'frame', 'frame')])
+    expect(cpp).not.toContain('_tmr')
   })
 })
 

@@ -9,7 +9,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { SIGNAL_EVALUATORS } from '../evaluate'
 import { MATH_EVALUATORS } from '../../math/evaluate'
-import { timedControlCpp } from '../../../codegen/signalControlCpp'
+import { timedControlCpp, timerCpp } from '../../../codegen/signalControlCpp'
 import { scalarControlCpp } from '../../../codegen/scalarControlCpp'
 import { timeNodeCpp } from '../../../codegen/signalTimeCpp'
 import { compileCppSnippet } from '../../../test-utils/cppSnippet'
@@ -128,6 +128,20 @@ describe('stateful signal nodes: preview and firmware agree frame by frame', () 
     for (const port of ['beat', 'bar', 'subdivision', 'phase', 'bpm']) {
       resetEvaluatorState()
       expectSame(preview(SIGNAL_EVALUATORS.TempoClock, props, port, run), firmware(lines, ['tap'], `n_n_${port}`, run), 1e-2)
+    }
+  })
+
+  // Run is held low for a stretch and Reset pulsed twice, so the pause, the
+  // rising-edge restart and (for a Timer) the run to zero are all exercised.
+  it.each(['Stopwatch', 'Timer'])('Timer in %s mode counts, pauses and restarts alike', (mode) => {
+    const props = { ...libraryDefaults('Timer'), mode, durationSec: 3 }
+    const run = frames(500, (_ms, i) => ({ run: !(i >= 100 && i < 140), reset: (i >= 60 && i < 63) || (i >= 300 && i < 302) }))
+    const lines = timerCpp('n', (port) => `n_n_${port}`, { run: 'in_run', reset: 'in_reset', duration: '3.0f' }, props)
+    for (const port of ['seconds', 'done']) {
+      resetEvaluatorState()
+      const previewed = preview(SIGNAL_EVALUATORS.Timer, props, port, run)
+      if (port === 'seconds') expect(previewed.some((value) => Number(value) > 0)).toBe(true)
+      expectSame(previewed, firmware(lines, ['run', 'reset'], `n_n_${port}`, run), 1e-2)
     }
   })
 
