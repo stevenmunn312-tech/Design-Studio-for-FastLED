@@ -243,7 +243,7 @@ for (const particleType of ['luminova', 'comet', 'fireworks', 'chase', 'waterfal
   normal[`particles-${particleType}`] = frame('Particles', { particleType })
 }
 for (const mode of ['drift', 'meteors']) {
-  normal[`string-particles-ring-${mode}`] = frame('StringParticles', { track: 'ring', mode, ringLeds: 60 },
+  normal[`string-particles-ring-${mode}`] = frame('StringParticles', { ledSource: 'custom', track: 'ring', mode, ringLeds: 60 },
     node('out', 'MatrixOutput', { form: 'ring', ledCount: 60, dataPin: 5 }))
 }
 for (const [name, formulaType] of [['logistic', 'logisticMap'], ['attractor', 'attractor'], ['lissajous', 'lissajousPath'], ['rose', 'rosePath']]) {

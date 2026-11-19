@@ -90,6 +90,7 @@ import { HARMONY_KINDS } from './palettes/harmonyPalette'
 import { GRADIENT_MIX_MODES, HUE_UNITS, hueUnits } from './palettes/hueMix'
 import { NOISE_CONTRAST, NOISE_SHAPES, WORLEY_MODES } from './evaluator/noiseShape'
 import { NOISE_TYPES, PLASMA_STYLES } from '../nodes/generative/noiseTypes'
+import { LED_SOURCES, ledSource } from './output/ledSource'
 import { MAX_STRING_PARTICLES, RING_TRACK_MAX, RING_TRACK_MIN, STRING_PARTICLE_MODES, STRING_TRACKS } from './evaluator/stringTrack'
 import { CANDLE_MODES, SUNRISE_MODES } from './evaluator/classics'
 import { RAIN_DIRECTIONS } from './evaluator/digitalRain'
@@ -635,6 +636,7 @@ const POSITION_UNITS_META: PropertyControl = { control: 'select', options: POSIT
 const TEXT_SIZE_META: PropertyControl = { control: 'slider', min: TEXT_SIZE.min, max: TEXT_SIZE.max, step: 1 }
 // Text and Clock Display: which bitmap font draws them (font.ts TEXT_FONTS).
 const TEXT_FONT_META: PropertyControl = { control: 'select', options: TEXT_FONT_IDS, labels: TEXT_FONT_LABELS }
+const LED_SOURCE_META: PropertyControl = { control: 'select', options: [...LED_SOURCES], labels: { match: 'Match LED output', custom: 'Custom' } }
 const TOUCH_CALIBRATION_META: Record<string, PropertyControl> = {
   touchXMin: { control: 'slider', min: 0, max: 4095, step: 1 },
   touchXMax: { control: 'slider', min: 0, max: 4095, step: 1 },
@@ -1126,6 +1128,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     startNode: { control: 'slider', min: -1, max: NETWORK_MAX_NODES - 1, step: 1 },
     seed:      { control: 'slider', min: 0, max: 9999, step: 1 },
     behaviour: { control: 'select', options: [...RIPPLE_BEHAVIOURS] },
+    ledSource: LED_SOURCE_META,
     networkPreset: { control: 'select', options: NETWORK_PRESETS },
     ledsPerEdge: { control: 'slider', min: NETWORK_LEDS_PER_EDGE.min, max: NETWORK_LEDS_PER_EDGE.max, step: 1 },
   },
@@ -1136,6 +1139,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     ringLeds: { control: 'slider', min: RING_TRACK_MIN, max: RING_TRACK_MAX, step: 1, entry: 'number' },
     track:    { control: 'select', options: [...STRING_TRACKS] },
     mode:     { control: 'select', options: [...STRING_PARTICLE_MODES] },
+    ledSource: LED_SOURCE_META,
   },
   Boids:           {
     speed: N01,
@@ -2523,9 +2527,10 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     brightness: 'Overall level of the screen glow, 0 off to 1 full.',
   },
   NetworkRipple: {
-    networkPreset: 'The network the ripples run on. Match the LED output\'s network so each ripple lands on its LEDs: Hexagons, Triangles, or the same custom JSON.',
-    network: 'The custom network JSON, the same text as the LED output\'s.',
-    ledsPerEdge: 'LEDs along each edge, the same as the LED output\'s.',
+    ledSource: 'Match LED output reads the network, and its LEDs per edge, from the first LED output on this board with a Network layout, so each ripple lands on its LEDs and follows any change to it. Custom uses the fields below. With no such output, such as in a saved pattern on its own, the fields below are used.',
+    networkPreset: 'The network the ripples run on when Custom. Match the LED output\'s network so each ripple lands on its LEDs: Hexagons, Triangles, or the same custom JSON.',
+    network: 'The custom network JSON when Custom, the same text as the LED output\'s.',
+    ledsPerEdge: 'LEDs along each edge when Custom, the same as the LED output\'s.',
     behaviour: 'What a ripple does at each node. Straight keeps the least turn, Left and Right always turn that way, Angry turns the sharpest, Explode splits down every edge, Random picks one.',
     startNode: 'The node new ripples start from, or -1 for a random node each time.',
     speed: 'How fast a ripple travels, 0 still to 1 sixty LEDs a second.',
@@ -2537,10 +2542,11 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     seed: 'Seed for random start nodes and the Random behaviour. 0 varies every run.',
   },
   StringParticles: {
-    track: 'The line the particles ride: the middle row, the middle column, or the ring of pixels an LED ring reads.',
+    ledSource: 'Match LED output rides the first ring or strip LED output on this board: a ring gives the ring track at its LED count, a strip gives the row, and a later change to the output is followed. Custom uses Track and Ring LEDs below. With no such output, such as in a saved pattern on its own, they are used.',
+    track: 'The line the particles ride when Custom: the middle row, the middle column, or the ring of pixels an LED ring reads.',
     mode: 'Drift: particles wander and fade, faster and brighter while strong. Meteors: ambient sparks, and a streak with debris on each trigger, over a noise bed.',
     count: 'Most particles alive at once. Fixed when the effect starts.',
-    ringLeds: 'LEDs on the ring track. Match the LED output\'s LED count so each particle lands on a ring pixel.',
+    ringLeds: 'LEDs on the ring track when Custom. Match the LED output\'s LED count so each particle lands on a ring pixel.',
     bed: 'Brightness of the noise bed under the meteors.',
     spawn: 'How readily new particles appear: 0 none, 1 as soon as a slot is free.',
     speed: 'How fast drift particles move, 0 still to 1 fastest.',
@@ -4028,6 +4034,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     lineWidth: 'line width',
   },
   NetworkRipple: {
+    ledSource: 'LED source',
     networkPreset: 'network',
     network: 'network JSON',
     ledsPerEdge: 'LEDs per edge',
@@ -4036,6 +4043,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     rate: 'ripples/s',
   },
   StringParticles: {
+    ledSource: 'LED source',
     ringLeds: 'ring LEDs',
   },
   ReactionDiffusion: {
@@ -4566,12 +4574,12 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'audio', label: 'Audio Reactivity', keys: ['audioAmount'] },
   ],
   NetworkRipple: [
-    { key: 'network', label: 'Network', keys: ['networkPreset', 'network', 'ledsPerEdge'] },
+    { key: 'network', label: 'Network', keys: ['ledSource', 'networkPreset', 'network', 'ledsPerEdge'] },
     { key: 'ripples', label: 'Ripples', keys: ['behaviour', 'startNode', 'speed', 'rate', 'lifetime', 'width', 'trail', 'seed'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
   StringParticles: [
-    { key: 'track', label: 'Track', keys: ['track', 'ringLeds'] },
+    { key: 'track', label: 'Track', keys: ['ledSource', 'track', 'ringLeds'] },
     { key: 'particles', label: 'Particles', keys: ['mode', 'count', 'spawn', 'speed', 'trail', 'bed'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
@@ -5531,7 +5539,9 @@ export function isPropertyEnabled(
     if (key === 'duration' || key === 'start' || key === 'trigger') return properties.mode !== 'manual'
   }
   if (nodeType === 'StringParticles') {
-    if (key === 'ringLeds') return properties.track === 'ring'
+    // Match reads the track off the LED output, so the node's own are the override.
+    if (key === 'track') return ledSource(properties.ledSource) === 'custom'
+    if (key === 'ringLeds') return ledSource(properties.ledSource) === 'custom' && properties.track === 'ring'
     if (key === 'bed') return properties.mode === 'meteors'
     if (key === 'trigger') return properties.mode === 'meteors'
   }
@@ -5542,8 +5552,11 @@ export function isPropertyEnabled(
     if (key === 'color' || key === 'r' || key === 'g' || key === 'b') return !palette
   }
   // As on the LED output, the network JSON is read only by the custom preset.
+  if (nodeType === 'NetworkRipple' && (key === 'networkPreset' || key === 'ledsPerEdge')) {
+    return ledSource(properties.ledSource) === 'custom'
+  }
   if (nodeType === 'NetworkRipple' && key === 'network') {
-    return properties.networkPreset === 'custom'
+    return ledSource(properties.ledSource) === 'custom' && properties.networkPreset === 'custom'
   }
   if (nodeType === 'Path' && key === 'customPoints') {
     return properties.pathShape === 'custom'

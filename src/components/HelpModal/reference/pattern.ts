@@ -770,7 +770,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     overview: [
       'String Particles runs particles along a single line: the middle row, the middle column, or round an LED ring. It is made for strings and rings.',
       'Drift mode lets particles wander and fade. Meteors mode adds ambient sparks and launches a streak with debris on each Trigger, over a dim noise bed.',
-      'For a ring, choose the ring track and set Ring LEDs to match the LED count.',
+      'By default it matches the LED output: a ring gives the ring track at the LED count of the ring and a strip gives the row. Set LED source to Custom to choose the track and Ring LEDs yourself, which is also what it uses where there is no ring or strip LED output.',
     ],
     inputs: {
       trigger: 'In Meteors mode, each rising edge launches a meteor.',
@@ -779,10 +779,10 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'StringParticles',
       title: 'Fireflies circling a ring',
       nodes: {
-        fireflies: ['StringParticles', { track: 'ring', ringLeds: 24, mode: 'drift', count: 6, palette: 'meadow', trail: 0.41, speed: 0.4 }],
+        fireflies: ['StringParticles', { mode: 'drift', count: 6, palette: 'meadow', trail: 0.41, speed: 0.4 }],
       },
       output: RING(24),
-      explanation: 'String Particles on the ring track drifts six particles round the LED ring, each born green-gold and whitening as it fades, like fireflies on a summer night.',
+      explanation: 'String Particles matches the LED ring, so its track is the ring and its LED count that of the ring, and it drifts six particles round the ring, each born green-gold and whitening as it fades, like fireflies on a summer night.',
       preview: 'The {output} shows a few soft green-gold lights wandering round it, appearing and fading.',
     }),
   },
@@ -790,7 +790,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   NetworkRipple: {
     overview: [
       'Network Ripple sends points of light along the edges of a segment network, a string laid out as a small graph of hexagons or triangles. At every node a ripple decides where to go next: straight on, always left or right, the sharpest turn, down every edge at once, or at random.',
-      'It is made for an LED output whose string layout is Network. Give the node the same network and LEDs per edge as the output, so each ripple lands on the LEDs that form the edge.',
+      'It is made for an LED output whose string layout is Network, and by default it matches the network and LEDs per edge of that output, so each ripple lands on the LEDs that form the edge and follows any change to the output. Set LED source to Custom to give it a network of its own, which is also what it uses where there is no such output.',
       'Ripples start on their own at the Rate, and one more on each rising Trigger. Width lights a short tail behind each head, Trail keeps a trail on the whole network, and Lifetime fades each ripple out.',
     ],
     inputs: {
@@ -800,7 +800,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'NetworkRipple',
       title: 'Light racing round the honeycomb',
       nodes: {
-        ripples: ['NetworkRipple', { networkPreset: 'hexagons', ledsPerEdge: 4, behaviour: 'straight', rate: 1.5, speed: 0.3, palette: 'synthwave', width: 3, trail: 0.41 }],
+        ripples: ['NetworkRipple', { behaviour: 'straight', rate: 1.5, speed: 0.3, palette: 'synthwave', width: 3, trail: 0.41 }],
       },
       output: { form: 'strip', stripLayout: 'network', networkPreset: 'hexagons', ledsPerEdge: 4, positionsWidth: 24, positionsHeight: 12 },
       explanation: 'Network Ripple starts a new point of light about every second, and each one runs along the honeycomb keeping as straight a line as the hexagons allow, so the lights weave through the cells and cross one another, each trailing its own colour.',
