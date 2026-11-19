@@ -387,8 +387,6 @@ def validate_drawing_facts(part_id: str, entry: dict, overlay: dict, vocabulary:
         names = ("IN+", "IN-", "OUT+", "OUT-")
         if not isinstance(pads, dict) or set(pads) != set(names):
             raise OverlayError(f"{part_id}: converterPadsMm needs exactly IN+, IN-, OUT+ and OUT-")
-        if "powerConverter" not in entry:
-            raise OverlayError(f"{part_id}: converterPadsMm belongs on a part with a powerConverter block")
         for name in names:
             point = pads[name]
             if (not isinstance(point, list) or len(point) != 2
