@@ -222,3 +222,63 @@ def test_drawing_facts_are_merged_into_the_manifest(importer, vocabulary):
 def test_drawing_facts_that_break_a_rule_stop_the_import(importer, vocabulary, bad):
     with pytest.raises(importer.OverlayError):
         merge(importer, vocabulary, drawn_part(), overlay(**bad))
+
+
+def shifter_part():
+    return {
+        "partId": "test-level-shifter",
+        "label": "Test level shifter",
+        "category": "support",
+        "dimensionsMm": {"width": 10.0, "height": 20.0},
+        "render": {"file": "x.webp", "widthPx": 400, "heightPx": 654},
+    }
+
+
+def shifter_pads():
+    left = [("/OE1", 71.5), ("A1", 156.5), ("Y1", 241.5), ("GND", 326.5)]
+    right = [("VCC", 71.5), ("/OE2", 156.5), ("A2", 241.5), ("Y2", 326.5)]
+    return ([{"label": name, "xPx": 9.6, "yPx": y} for name, y in left]
+            + [{"label": name, "xPx": 390.4, "yPx": y} for name, y in right])
+
+
+def shifter_block(**changes):
+    block = {
+        "device": "TEST125", "packageName": "DIP-8", "channels": 2,
+        "supplyMinV": 4.5, "supplyMaxV": 5.5, "inputHighMinV": 2,
+        "channelPads": [{"in": "A1", "out": "Y1", "oe": "/OE1"}, {"in": "A2", "out": "Y2", "oe": "/OE2"}],
+        "vccPad": "VCC", "gndPad": "GND",
+    }
+    block.update(changes)
+    return block
+
+
+def shifter_overlay(**changes):
+    return overlay(partTypes=["MatrixOutput"], pads=shifter_pads(), levelShifter=shifter_block(**changes))
+
+
+def test_a_level_shifter_block_is_merged_with_its_pads(importer, vocabulary):
+    merged = merge(importer, vocabulary, shifter_part(), shifter_overlay())
+    assert merged["levelShifter"]["channels"] == 2
+    assert merged["levelShifter"]["channelPads"][1] == {"in": "A2", "out": "Y2", "oe": "/OE2"}
+    assert len(merged["pads"]) == 8
+
+
+@pytest.mark.parametrize("bad", [
+    {"vccPad": "VDD"},  # not a measured pad
+    {"channels": 3},  # three channels, two sets of pads
+    {"channels": 5, "channelPads": shifter_block()["channelPads"] * 3},  # more than the sheet routes
+    {"channelPads": [{"in": "A1", "out": "Y1"}, {"in": "A2", "out": "Y2", "oe": "/OE2"}]},
+    {"supplyMinV": 6},  # above the maximum
+    {"inputHighMinV": 0},
+    {"device": ""},
+    {"unknown": 1},
+])
+def test_a_level_shifter_block_that_breaks_a_rule_stops_the_import(importer, vocabulary, bad):
+    with pytest.raises(importer.OverlayError):
+        merge(importer, vocabulary, shifter_part(), shifter_overlay(**bad))
+
+
+def test_a_level_shifter_block_needs_pads_to_name(importer, vocabulary):
+    ov = overlay(partTypes=["MatrixOutput"], levelShifter=shifter_block())
+    with pytest.raises(importer.OverlayError):
+        merge(importer, vocabulary, shifter_part(), ov)
