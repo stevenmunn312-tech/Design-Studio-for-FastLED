@@ -396,7 +396,7 @@ export default function WebRemoteBody({ nodeId }: { nodeId: string }) {
   return (
     <div className={styles.body} aria-label="Web Remote controls">
       <div className={styles.toolbar}>
-        <span className={styles.address} title="Open this on a phone on the same network">http://{hostname}.local</span>
+        <span className={`nodrag ${styles.address}`} title="Open this on a phone on the same network">http://{hostname}.local</span>
         <button type="button" className={`nodrag ${styles.toolButton}`} aria-pressed={editing} onClick={() => setEditing(!editing)}>
           {editing ? 'Done' : 'Edit'}
         </button>
