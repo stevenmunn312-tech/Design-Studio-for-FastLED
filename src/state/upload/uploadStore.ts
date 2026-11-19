@@ -528,9 +528,14 @@ const initialSelection = projectSelection(persistedPrefs)
 let serialController: AbortController | null = null
 
 // A terminal status sticks around long enough to be noticed, then quietly
-// reverts to the normal idle button. Upload success joins the existing error
-// reset so the primary action does not remain labelled "Done" indefinitely.
+// reverts to the normal idle button, so the primary action never stays
+// labelled "Done", "Error" or "Cancelled" indefinitely.
 const STATUS_RESET_MS = 5000
+type TerminalPhase = 'done' | 'error' | 'cancelled'
+
+function isTerminalPhase(phase: UploadPhase): phase is TerminalPhase {
+  return phase === 'done' || phase === 'error' || phase === 'cancelled'
+}
 let statusResetTimer: ReturnType<typeof setTimeout> | null = null
 
 function clearStatusReset() {
@@ -542,7 +547,7 @@ function clearStatusReset() {
 function scheduleStatusReset(
   set: (partial: Partial<UploadState>) => void,
   get: () => UploadState,
-  phase: 'done' | 'error' = 'error',
+  phase: TerminalPhase = 'error',
 ) {
   clearStatusReset()
   statusResetTimer = setTimeout(() => {
@@ -834,7 +839,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     } finally {
       set({ busy: false })
       const phase = get().status.phase
-      if (phase === 'done' || phase === 'error') scheduleStatusReset(set, get, phase)
+      if (isTerminalPhase(phase)) scheduleStatusReset(set, get, phase)
     }
   },
 
@@ -999,7 +1004,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       sdPromptResolver = null
       set({ busy: false, sdPrompt: null })
       const phase = get().status.phase
-      if (phase === 'done' || phase === 'error') scheduleStatusReset(set, get, phase)
+      if (isTerminalPhase(phase)) scheduleStatusReset(set, get, phase)
     }
   },
 
@@ -1062,7 +1067,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     } finally {
       set({ busy: false })
       const phase = get().status.phase
-      if (phase === 'done' || phase === 'error') scheduleStatusReset(set, get, phase)
+      if (isTerminalPhase(phase)) scheduleStatusReset(set, get, phase)
     }
   },
 
