@@ -1939,14 +1939,15 @@ export function propertyOptions(
   const partOptions = PART_SELECT_OPTIONS[nodeType]?.[key]
   if (partOptions) return partOptions(properties.partId)
   // Accessory parts are chosen from the catalogue, so a downloaded one is offered the moment it registers.
-  // A saved id this version does not hold stays in the list, so the field still shows it.
+  // A saved id this version does not hold stays in the list, so the field still shows it; text not
+  // shaped like an id is never offered, so the select guard can still blank it before codegen.
   if (nodeType === 'MatrixOutput' && key === 'dataLinkPartId') {
     const saved = dataLinkPartId(properties)
-    return ['', ...dataLinkPartIds(), ...(saved !== '' && !dataLinkPartIds().includes(saved) ? [saved] : [])]
+    return ['', ...dataLinkPartIds(), ...(SELECT_ID_SHAPE.test(saved) && saved !== '' && !dataLinkPartIds().includes(saved) ? [saved] : [])]
   }
   if (nodeType === 'Board' && key === 'levelShifterPartId') {
     const saved = String(properties.levelShifterPartId ?? '').trim()
-    return [...levelShifterPartIds(), ...(saved !== '' && !levelShifterPartIds().includes(saved) ? [saved] : [])]
+    return [...levelShifterPartIds(), ...(SELECT_ID_SHAPE.test(saved) && saved !== '' && !levelShifterPartIds().includes(saved) ? [saved] : [])]
   }
   if (nodeType === 'MatrixOutput' && key === 'dataRateMhz') {
     return dataRateOptionsMhz(String(properties.chipset ?? 'WS2812B')).map(String)
