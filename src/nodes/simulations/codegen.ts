@@ -1,5 +1,6 @@
 import { FORMULA_POINTS_SPEED_MAX, rateCpp, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { BOIDS_VISUAL_RANGE, FLOW_FIELD_COUNT, REACTION_DIFFUSION_MAX_STEPS, STARFIELD_COUNT } from './limits'
+import { lifeGenerationCpp } from '../shared/lifeStepCpp'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { survivesCpp, trailFadeCpp, trailKeepCpp } from '../shared/trailFadeCpp'
 import { keepOverCpp, passFramesCpp, passStepFramesCpp, passStepsCpp } from '../shared/passClockCpp'
@@ -850,15 +851,9 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     if (seed) ln(`    static bool _gs_${id}=false; if(!_gs_${id}){ random16_set_seed(${seed}u); _gs_${id}=true; }`)
     ln(`    if (!_gi_${id}) { for (int _i=0;_i<NUM_LEDS;_i++){${c}[_i]=random8()<77?1:0;${br}[_i]=0;} _gi_${id}=true; }`)
     ln(`    if (millis() - _gt_${id} >= (uint32_t)(1000.0f / max(1.0f, (float)(${speed})))) {`)
-    ln(`      int _pop=0; bool _chg=false, _chg2=false;`)
-    ln(`      for (int _y=0;_y<HEIGHT;_y++){ int _ym=((_y-1+HEIGHT)%HEIGHT)*WIDTH,_yp=((_y+1)%HEIGHT)*WIDTH,_yr=_y*WIDTH;`)
-    ln(`        for (int _x=0;_x<WIDTH;_x++){ int _xm=(_x-1+WIDTH)%WIDTH,_xp=(_x+1)%WIDTH,_i=_yr+_x;`)
-    ln(`          int _n=${c}[_ym+_xm]+${c}[_ym+_x]+${c}[_ym+_xp]+${c}[_yr+_xm]+${c}[_yr+_xp]+${c}[_yp+_xm]+${c}[_yp+_x]+${c}[_yp+_xp];`)
-    ln(`          ${nx}[_i]=${c}[_i]?((_n==2||_n==3)?1:0):(_n==3?1:0); _pop+=${nx}[_i]; if(${nx}[_i]!=${c}[_i]) _chg=true; if(${nx}[_i]!=${pv}[_i]) _chg2=true; } }`)
-    ln(`      ::memcpy(${pv},${c},sizeof(${c})); ::memcpy(${c},${nx},sizeof(${c}));`)
+    for (const line of lifeGenerationCpp(c, nx, pv, `_gst_${id}`)) ln(line)
     // Reseeds once the board has been empty, frozen, or flipping between two
     // states (blinkers among still lifes) for four steps, as the preview does.
-    ln(`      _gst_${id}=(_pop==0||!_chg||!_chg2)?_gst_${id}+1:0;`)
     ln(`      if (_gst_${id}>3) { for (int _i=0;_i<NUM_LEDS;_i++) ${c}[_i]=random8()<77?1:0; _gst_${id}=0; }`)
     ln(`      _gt_${id}=millis(); }`)
     // Game of Life keeps time by millis(), as its generations do, so its

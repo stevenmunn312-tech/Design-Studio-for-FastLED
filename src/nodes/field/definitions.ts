@@ -33,12 +33,17 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'scale', label: 'Scale', dataType: 'float' },
       { id: 'octaves', label: 'Octaves', dataType: 'float' },
+      { id: 'frequency', label: 'Frequency', dataType: 'float' },
+      { id: 'orientation', label: 'Orientation', dataType: 'float' },
     ],
-    propertyInputs: { speed: 'speed', scale: 'scale', octaves: 'octaves' },
+    propertyInputs: { speed: 'speed', scale: 'scale', octaves: 'octaves', frequency: 'frequency', orientation: 'orientation' },
     defaultExposedInputs: ['speed', 'scale'],
 
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    defaultProperties: { speed: 0.25, scale: 0.3, octaves: 4, seed: 0, wrapX: false, noiseShape: 'plain' },
+    defaultProperties: {
+      noiseType: 'fbm', speed: 0.25, scale: 0.3, octaves: 4, seed: 0, wrapX: false, noiseShape: 'plain',
+      worleyMode: 'f1', frequency: 1.2, orientation: 45, contrast: 1,
+    },
   },
   {
     type: 'SliceTiling',
@@ -322,11 +327,12 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
       { id: 'cx', label: 'Center X', dataType: 'float' },
       { id: 'cy', label: 'Center Y', dataType: 'float' },
       { id: 'offset', label: 'Offset', dataType: 'float' },
+      { id: 'speed', label: 'Scroll', dataType: 'float' },
     ],
-    propertyInputs: { angle: 'angle', cx: 'cx', cy: 'cy', offset: 'offset' },
+    propertyInputs: { angle: 'angle', cx: 'cx', cy: 'cy', offset: 'offset', speed: 'speed' },
     defaultExposedInputs: ['angle', 'offset'],
     outputs: [{ id: 'field', label: 'Field', dataType: 'field' }],
-    defaultProperties: { gradientType: 'linear', angle: 0, cx: 0.5, cy: 0.5, offset: 0, repeat: 1 },
+    defaultProperties: { gradientType: 'linear', angle: 0, cx: 0.5, cy: 0.5, offset: 0, speed: 0, repeat: 1 },
   },
   {
     // A separable box blur over a field, `radius` pixels each way, edges
@@ -431,7 +437,7 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
 
 export const FIELD_DESCRIPTIONS: Record<string, string> = {
   FieldFormula: 'Per-pixel scalar field from an expression (cx/cy/r/angle, sin8/beatsin8…).',
-  FieldNoise: 'Organic fBm noise as a scalar field (same construction as Fractal Noise).',
+  FieldNoise: 'Organic noise as a scalar field, with the Noise node\'s algorithms.',
   SliceTiling: 'Recursive fan slices on hex, square or triangle lattices, plus a per-cell value.',
   Truchet: 'Joins hash-oriented arcs and lines across a square or hexagonal tile lattice.',
   GeometryField: 'Spiral, golden rings or Lissajous curve. Shape Field has rose and superformula.',

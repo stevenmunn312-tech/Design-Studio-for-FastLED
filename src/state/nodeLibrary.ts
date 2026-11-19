@@ -89,7 +89,7 @@ import { SLICE_PRESET_NAMES } from '../nodes/field/sliceTiling'
 import { HARMONY_KINDS } from './palettes/harmonyPalette'
 import { GRADIENT_MIX_MODES, HUE_UNITS, hueUnits } from './palettes/hueMix'
 import { NOISE_CONTRAST, NOISE_SHAPES, WORLEY_MODES } from './evaluator/noiseShape'
-import { NOISE_TYPES, PLASMA_STYLES } from '../nodes/generative/noiseTypes'
+import { FIELD_NOISE_TYPES, NOISE_TYPES, PLASMA_STYLES } from '../nodes/generative/noiseTypes'
 import { MAX_STRING_PARTICLES, RING_TRACK_MAX, RING_TRACK_MIN, STRING_PARTICLE_MODES, STRING_TRACKS } from './evaluator/stringTrack'
 import { CANDLE_MODES, SUNRISE_MODES } from './evaluator/classics'
 import { RAIN_DIRECTIONS } from './evaluator/digitalRain'
@@ -1535,6 +1535,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     cx: N01,
     cy: N01,
     offset: { control: 'slider', min: -1, max: 1, step: 0.01 },
+    speed: N01,
     repeat: { control: 'slider', min: GRADIENT_REPEAT.min, max: GRADIENT_REPEAT.max, step: 1 },
   },
   FieldBlur: { radius: { control: 'slider', min: BLUR_RADIUS.min, max: BLUR_RADIUS.max, step: 1 } },
@@ -1703,10 +1704,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
   },
   FieldNoise: {
+    noiseType: { control: 'select', options: [...FIELD_NOISE_TYPES] },
     speed: N01,
     scale: N01,
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
     noiseShape: { control: 'select', options: [...NOISE_SHAPES] },
+    worleyMode: { control: 'select', options: [...WORLEY_MODES] },
+    contrast: { control: 'slider', min: NOISE_CONTRAST.min, max: NOISE_CONTRAST.max, step: 0.05 },
   },
   GeometryField: {
     speed: N01,
@@ -2133,7 +2137,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     palette: 'Colours along the gauge from empty to full. A wired Palette input replaces it.',
   },
   Automaton: {
-    automatonType: 'Elementary: one-dimensional rules that scroll down the canvas. Cyclic: colours chase each other in spirals. Brian\'s Brain: sparks that die and never rest. Sand: grains fall and pile up.',
+    automatonType: 'Elementary: one-dimensional rules that scroll down the canvas. Cyclic: colours chase each other in spirals. Brian\'s Brain: sparks that die and never rest. Sand: grains fall and pile up. Life: Conway\'s Game of Life, which reseeds when the board settles.',
     rule: 'Wolfram rule number, 0 to 255. Rule 90 draws Sierpinski\'s triangle from one cell; rule 30 is chaotic.',
     states: 'How many colours chase each other around the cycle.',
     threshold: 'How many neighbours must already hold the next colour before a cell advances.',
@@ -2161,11 +2165,16 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     palette: 'Colours the field: dark field values take the first colour, bright ones the last.',
   },
   FieldNoise: {
+    noiseType: 'Which noise algorithm draws the field. fbm, the default, sums octaves of FastLED\'s inoise8; simplex sums simplex octaves as the Noise node\'s fbm does; noise4d loops back to where it started; worley draws cells; plasma blends sine waves with fractal noise; gabor draws oriented bands. The controller draws the same noise as the preview.',
+    worleyMode: 'Worley only: the distance to the nearest point (f1), the gap to the second nearest (f2f1), or thin bright lines on the cell borders (edges).',
+    contrast: 'Spreads the field about its middle: 1 leaves it as drawn, higher pushes it toward 0 and 1 (held there), lower flattens it toward the middle.',
+    frequency: 'Gabor only: stripes per cell inside each kernel; higher gives finer bands.',
+    orientation: 'Gabor only: direction of the bands in degrees, 0 horizontal to 360.',
     noiseShape: 'Fold the noise about its midline: ridged gives bright sharp crests, billow gives rounded lumps with dark creases.',
     wrapX: 'Join the left and right edges without a seam, for a ring or corkscrew canvas. Costs a second noise pass per pixel and softens fine detail mid-canvas.',
     speed: 'How fast the noise drifts. 0 freezes it; 1 is the fastest flow.',
     scale: 'Size of the noise features. Low is big soft blobs; high is fine grain.',
-    octaves: 'Layers of finer detail stacked on the base noise. More costs more CPU per frame.',
+    octaves: 'Layers of finer detail stacked on the base noise (fbm and simplex only). More costs more CPU per frame.',
     seed: 'Picks which noise field you get. The same seed always gives the same picture; 0 is just the default.',
   },
   StepValue: {
@@ -2448,6 +2457,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     cy: 'The ramp\'s pivot, top to bottom (0 to 1): the centre of a radial or angular ramp, and the point a linear ramp passes 0.5 and turns round.',
     offset: 'Slides the ramp along itself; wire a signal to scroll stripes or spin a pinwheel.',
     repeat: 'How many times the ramp repeats across the matrix. Above 1 the ramp wraps instead of clamping.',
+    speed: 'Scrolls the ramp along itself on its own clock, as Palette Gradient\'s Scroll does: 0 holds it still, 1 is about two cycles a second. Any scroll makes the ramp wrap instead of clamping.',
   },
   FieldBlur: {
     radius: 'Pixels each way the blur reaches, 1 to 4. Edges are clamped, not wrapped.',
@@ -3688,6 +3698,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     gradientType: 'type',
     cx: 'center X',
     cy: 'center Y',
+    speed: 'scroll',
   },
   ShapeField: {
     fieldMode: 'mode',
@@ -3697,8 +3708,10 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     symmetry: 'lobes',
   },
   FieldNoise: {
+    noiseType: 'type',
     wrapX: 'wrap X',
     noiseShape: 'shape',
+    worleyMode: 'worley',
   },
   GeometryField: {
     formulaType: 'geometry',
@@ -4675,6 +4688,14 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'motion', label: 'Motion', keys: ['speed', 'scale'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
   ],
+  FieldNoise: [
+    { key: 'noise', label: 'Noise', keys: ['noiseType', 'noiseShape', 'contrast', 'worleyMode', 'octaves', 'frequency', 'orientation', 'seed', 'wrapX'] },
+    { key: 'motion', label: 'Motion', keys: ['speed', 'scale'] },
+  ],
+  GradientField: [
+    { key: 'ramp', label: 'Ramp', keys: ['gradientType', 'angle', 'cx', 'cy', 'repeat'] },
+    { key: 'motion', label: 'Motion', keys: ['offset', 'speed'] },
+  ],
   Fire: [
     { key: 'flame', label: 'Flame', keys: ['fireStyle', 'intensity', 'cooling', 'sparking', 'turbulence'] },
     { key: 'shape', label: 'Shape', keys: ['direction', 'mirror'] },
@@ -5502,6 +5523,15 @@ export function isPropertyEnabled(
     return (properties.noiseType ?? 'fbm') === 'fbm'
   }
   if (nodeType === 'Noise' && (key === 'frequency' || key === 'orientation')) {
+    return properties.noiseType === 'gabor'
+  }
+  if (nodeType === 'FieldNoise' && key === 'worleyMode') {
+    return properties.noiseType === 'worley'
+  }
+  if (nodeType === 'FieldNoise' && key === 'octaves') {
+    return ['fbm', 'simplex'].includes(String(properties.noiseType ?? 'fbm'))
+  }
+  if (nodeType === 'FieldNoise' && (key === 'frequency' || key === 'orientation')) {
     return properties.noiseType === 'gabor'
   }
   if (nodeType === 'FieldMath' && key === 't') {

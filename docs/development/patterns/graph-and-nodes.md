@@ -915,3 +915,5 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 
 - LED output part picker: `LedPartPicker` is the one control for `partId` (node, setup wizard); it only calls `setLedOutputPart` / `makeLedOutputCustom`. Locked keys stay visible but disabled via `editableProperties` (`ledPropertyLocked`), and the shelf lists Custom forms first, then catalogue LED parts grouped by the category tree.
+
+- Pattern/field twins share their maths rather than copying it. Field Noise's non-default `noiseType`s run the Noise node's `evalNoiseFieldByType` (`generative/noiseField.ts`) and its C++ twin `emitNoiseVariantCpp` (`noiseFieldCpp.ts`); Automaton's `life` and the Game of Life pattern share `stepLife` and `lifeGenerationCpp`. Add a Noise type there and give it a `FIELD_NOISE_TYPES` entry, not a second implementation.

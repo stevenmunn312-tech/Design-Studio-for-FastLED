@@ -36,12 +36,6 @@ and an Upload information shelf in
   same rasteriser in TypeScript, and the flash and RAM cost is unmeasured.
   Revisit only if large panels make the bitmap fonts look coarse.
 
-- [ ] **Node review: Category: Grow field nodes so pattern/field twins are not subsets
-  (Low, M).** Noise has 9 algorithms vs Field Noise's fBm only; Game of Life
-  has no Automaton equivalent; Reaction Diffusion/Turing Field, Custom
-  Formula/Field Formula and the gradient patterns repeat likewise. Add
-  `noiseType` to Field Noise and a Conway `life` type to Automaton so field
-  chains are not stuck with the subset.
 - [ ] **Node review: Clock Display: Split Stopwatch/Timer into a signal node (Low, M).**
   A transport lives inside a drawing node; anyone wanting only `done` still
   draws digits. Consider a small Timer signal node with Clock Display drawing

@@ -23,7 +23,7 @@ export const SPEED_MAX: Record<string, number> = {
   DigitalRain: 2,
   // NoiseSignal — noise-lattice cells travelled per second at speed 1.
   NoiseSignal: 2,
-  Blobs: 2, FieldNoise: 1.2, PaletteGradient: 2,
+  Blobs: 2, FieldNoise: 1.2, PaletteGradient: 2, GradientField: 2,
   // Rainbow — startHue units (0–255) per second; ~one sweep every couple seconds.
   Rainbow: 120,
   Pride2015: 1.2, Pacifica: 1,

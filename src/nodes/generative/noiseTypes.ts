@@ -19,6 +19,26 @@ export function noiseType(value: unknown): NoiseType {
 }
 
 /**
+ * Field Noise's algorithms: its own inoise8 fBm (`fbm`, the default every
+ * save drew before the select) plus each of the Noise node's. `simplex` is
+ * the Noise node's `fbm`, simplex octaves, which differs from Field Noise's
+ * integer-kernel fBm, so it takes a name of its own.
+ */
+export const FIELD_NOISE_TYPES = ['fbm', 'simplex', 'noise4d', 'worley', 'plasma', 'gabor'] as const
+export type FieldNoiseType = typeof FIELD_NOISE_TYPES[number]
+
+/** A missing or unknown type is the inoise8 fBm Field Noise always drew. */
+export function fieldNoiseType(value: unknown): FieldNoiseType {
+  return (FIELD_NOISE_TYPES as readonly string[]).includes(String(value)) ? value as FieldNoiseType : 'fbm'
+}
+
+/** The Noise node type a Field Noise type draws, or null for Field Noise's own fBm. */
+export function sharedNoiseType(type: FieldNoiseType): NoiseType | null {
+  if (type === 'fbm') return null
+  return type === 'simplex' ? 'fbm' : type
+}
+
+/**
  * Plasma's styles: the classic interference plasma, the Sine Grid of two
  * crossed waves, and Sine 2D's three layered sine-times-cosine octaves.
  */

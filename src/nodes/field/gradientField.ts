@@ -38,9 +38,19 @@ export function gradientRadialSpan(W: number, H: number): number {
 }
 
 /** Whether the ramp wraps (frac) rather than clamps at its ends. Angular is
- *  periodic by nature; a repeated linear or radial ramp wraps by request. */
-export function gradientWraps(type: GradientType, repeat: number): boolean {
-  return type === 'angular' || repeat > 1
+ *  periodic by nature; a repeated linear or radial ramp wraps by request, and
+ *  a scrolling one wraps so the scroll has no end. */
+export function gradientWraps(type: GradientType, repeat: number, scrolls = false): boolean {
+  return type === 'angular' || repeat > 1 || scrolls
+}
+
+/**
+ * Whether Scroll can move the ramp: a wired speed, or a speed other than 0.
+ * Decided from the graph rather than the frame, so the sketch emits the clock
+ * only for a gradient that uses it and a still one clamps as it always did.
+ */
+export function gradientScrolls(speedWired: boolean, speed: unknown): boolean {
+  return speedWired || (Number.isFinite(Number(speed)) && Number(speed) !== 0)
 }
 
 /** Field Blur's box radius in pixels. */
