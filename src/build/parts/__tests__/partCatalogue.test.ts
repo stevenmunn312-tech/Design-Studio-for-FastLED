@@ -148,8 +148,8 @@ describe('part catalogue', () => {
   })
 
   it('records the LED pitch each output was modelled at', () => {
-    expect(partById('hub75-panel-64x64-p4')!.ledLayout).toMatchObject({ form: 'hub75', pitchMm: 4 })
-    expect(partById('ws2812b-matrix-16x16')!.ledLayout).toMatchObject({ form: 'matrix', pitchMm: 10 })
+    expect(partById('hub75-panel-64x64-p4')!.ledOutput).toMatchObject({ form: 'hub75', pitchMm: 4 })
+    expect(partById('ws2812b-matrix-16x16')!.ledOutput).toMatchObject({ form: 'matrix', pitchMm: 10 })
   })
 })
 

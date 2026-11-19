@@ -17,15 +17,6 @@ const i2cAddresses = {
   defaultI2cAddress: i2cAddress(),
 }
 
-export const LED_LAYOUT_SPEC: FieldSpec = obj({
-  form: oneOf('strip', 'matrix', 'ring', 'hub75'),
-  count: opt(int(1, 100000)),
-  width: opt(int(1, 4096)),
-  height: opt(int(1, 4096)),
-  diameterMm: opt(positive()),
-  pitchMm: opt(positive()),
-})
-
 export const RENDER_SPEC: FieldSpec = obj({
   file: str({ nonEmpty: true, maxLength: 200 }),
   widthPx: int(1, 8192),
@@ -47,6 +38,30 @@ export const DIMENSIONS_SPEC: FieldSpec = obj({
 
 /** Every part-type block, keyed by its property on the manifest. */
 export const PART_BLOCK_SPECS = {
+  // An LED product. `chipset` is checked against the type's closed list (partTypes.ts); the
+  // rules across fields (which size a form needs) are `ledOutputBlockIssue`. `fullWhiteMa` is
+  // per LED at `supplyVolts` and is the datasheet maximum, never a typical figure.
+  ledOutput: obj({
+    form: oneOf('strip', 'matrix', 'ring', 'hub75'),
+    chipset: str({ nonEmpty: true, maxLength: 24 }),
+    colorOrder: opt(oneOf('GRB', 'RGB', 'BGR', 'BRG', 'GBR', 'RBG')),
+    supplyVolts: num({ min: 3, max: 24 }),
+    fullWhiteMa: num({ min: 0.01, max: 1000 }),
+    pitchMm: opt(num({ min: 0.1, max: 1000 })),
+    count: opt(int(1, 4096)),
+    maxCount: opt(int(1, 4096)),
+    cutEvery: opt(int(1, 64)),
+    width: opt(int(1, 64)),
+    height: opt(int(1, 64)),
+    wiring: opt(obj({
+      serpentine: bool(),
+      startCorner: oneOf('top-left', 'top-right', 'bottom-left', 'bottom-right'),
+      firstRun: oneOf('horizontal', 'vertical'),
+    })),
+    diameterMm: opt(positive()),
+    maxDataRateMhz: opt(num({ min: 0.1, max: 100 })),
+    scan: opt(oneOf(16, 32)),
+  }),
   relay: obj({
     // The relay type drives up to MAX_RELAY_CHANNELS (state/peripherals/relayModule.ts).
     channels: int(1, 8),

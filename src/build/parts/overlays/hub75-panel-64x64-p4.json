@@ -25,6 +25,30 @@
         "render"
       ],
       "ref": "https://hackspark.fr/en/led-displays/2913-64x64-rgb-led-matrix-panel-p4-256x256mm.html"
+    },
+    {
+      "facts": [
+        "ledOutput"
+      ],
+      "ref": "https://www.optonicaled.com/led-display-module-indoor-double-sided-p4 (1/16 scan; 33 W module power, which is 6.6 A at 5 V over 4096 pixels, 1.62 mA each)"
+    },
+    {
+      "facts": [
+        "ledOutput"
+      ],
+      "ref": "https://hackspark.fr/en/led-displays/2913-64x64-rgb-led-matrix-panel-p4-256x256mm.html (1:16 scan, driven through 16-bit latches)"
+    },
+    {
+      "facts": [
+        "ledOutput"
+      ],
+      "ref": "UNVERIFIED: no source page lists an input voltage; 5 V is the HUB75 panel convention and the figure the app already sized HUB75 from"
     }
-  ]
+  ],
+  "ledOutput": {
+    "chipset": "HUB75",
+    "supplyVolts": 5,
+    "fullWhiteMa": 1.62,
+    "scan": 16
+  }
 }

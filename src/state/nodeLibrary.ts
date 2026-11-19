@@ -1,3 +1,4 @@
+import { CHIPSET_OPTIONS } from './output/chipsetOptions'
 import type { NodeDefinition } from '../types'
 import { INPUT_DEFINITIONS, INPUT_DESCRIPTIONS } from '../nodes/input/definitions'
 import { AUDIO_DEFINITIONS, AUDIO_DESCRIPTIONS } from '../nodes/audio/definitions'
@@ -374,10 +375,7 @@ export const PALETTES = STUDIO_PALETTES
 // sanitisation (chipset strings are interpolated into C++ template args, so
 // cppGenerator only emits values from these lists). 'SK6812-RGBW' is the one
 // non-literal entry: codegen maps it to `SK6812` + `.setRgbw(RgbwDefault())`.
-export const CHIPSET_OPTIONS = [
-  'WS2812B', 'WS2811', 'WS2815', 'SK6812', 'SK6812-RGBW', 'WS2816', 'SM16824E',
-  'NEOPIXEL', 'APA102', 'APA102HD', 'WS2801', 'HD108', 'HUB75',
-] as const
+export { CHIPSET_OPTIONS }
 
 /**
  * The chipsets the dropdown offers — every addressable part, and not HUB75.

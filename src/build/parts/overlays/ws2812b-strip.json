@@ -20,6 +20,26 @@
         "notes"
       ],
       "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-strips"
+    },
+    {
+      "facts": [
+        "ledOutput"
+      ],
+      "ref": "https://www.adafruit.com/product/2541 (5 VDC, maximum 60 mA per 0.65 in segment with all LEDs at full brightness, 60 LEDs per metre, cut at every LED, full reels are 4 m)"
+    },
+    {
+      "facts": [
+        "ledOutput"
+      ],
+      "ref": "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf (WS2812B datasheet: data is sent in GRB order; the product page says the strip has the WS2812B pinout, colour order and protocol)"
     }
-  ]
+  ],
+  "ledOutput": {
+    "chipset": "WS2812B",
+    "colorOrder": "GRB",
+    "supplyVolts": 5,
+    "fullWhiteMa": 60,
+    "maxCount": 240,
+    "cutEvery": 1
+  }
 }
