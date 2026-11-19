@@ -597,6 +597,17 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   definition, both implementations, the help entry and its live example,
   every bundled pattern and starter that wires or sets it, then grep the old
   id.
+- A node's type id is its label without spaces (`TempoClock`, `TileSymmetry`),
+  so the help article, the canvas and a saved file name it the same way. The
+  ones that differ (`RTCInput`, `MatrixOutput`, `PatternMaster`,
+  `TransportDisplay`, `InfoDisplay`, `ControlMap`, `BatteryModule`,
+  `NoiseSignal`) are kept for good. Round eight renamed nine ids and a set of
+  ports and properties; saves from before it open through the one pre-1.0
+  alias table, `src/state/preV1Aliases.ts`, which every workspace and pattern
+  load, import and share link passes. It is the only file that may name an old
+  id (with its test), it removes a wire into the old 0 to 1 Hue Shift input
+  (the value is now degrees), and todo.md step 6 deletes it. A rename made
+  after the freeze needs a real migration, not an entry there.
 - A node's `field` output is `field_<id>` in the sketch; any other field
   output (Slice Tiling's `cell`) is `field_<id>_<port>`, declared by
   `ownField(port)`. `srcField` resolves a wire by the port it leaves, where it
