@@ -816,10 +816,11 @@ def test_compile_upload_fbuild_esp32_binds_slow_esptool_experiment(tmp_path, mon
 
     assert len(deploy_calls) == 1
     args, tool_env = deploy_calls[0]
-    assert args[args.index("-b") + 1] == "115200"
+    # fbuild's own per-board baud: the forced 115200 was dropped on 2026-11-20.
+    assert "-b" not in args
     assert tool_env["PATH"].split(toolchain.os.pathsep)[0] == str(scripts)
     assert any(
-        "baud 115200" in line and str(esptool) in line
+        "[deploy] esptool" in line and str(esptool) in line
         for line in lines
     )
 

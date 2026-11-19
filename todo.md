@@ -118,7 +118,8 @@ more after the freeze.
   only the `fbuild build` client; the long-lived daemon is not its child.
   Needs a real build to confirm before stopping the daemon on cancel.
 - [x] A Bluetooth player on fbuild is not switched to arduino-cli by itself.
-- [ ] Decide the ESP32 deploy experiment (`-b 115200`).
+- [x] Decide the ESP32 deploy experiment (`-b 115200`). Decided 2026-11-20:
+  dropped for fbuild's faster per-board baud; the pinned esptool stays.
 
 ## 3. fbuild upkeep
 

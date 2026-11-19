@@ -889,27 +889,26 @@ def _compile_upload_fbuild(
         ]
         deploy_env = None
         if env.startswith("esp32_"):
-            # Focused 2.5.21 deploy-path experiment. The two remaining
-            # differences from the shell esptool control were fbuild's high
-            # per-board baud and its bare-name tool lookup. Hold both constant:
-            # use esptool's default 115200 and put the executable installed with
-            # this helper's interpreter first on PATH. fbuild#1234 carries the
-            # requesting PATH through to the daemon that performs the spawn.
+            # fbuild's bare-name esptool lookup is bound to the executable
+            # installed with this helper's interpreter, first on PATH.
+            # fbuild#1234 carries the requesting PATH through to the daemon that
+            # performs the spawn. The 2026-09-02 experiment also forced 115200
+            # baud; decided 2026-11-20 to use fbuild's faster per-board default,
+            # about 21 s quicker per ESP32 flash (fbuild-workarounds.md).
             if not toolchain._ESPTOOL_BIN:
                 yield (
                     "  [engine-gap] The pinned esptool executable is missing, so the "
-                    "fbuild ESP32 deploy experiment cannot run. Switch to the "
+                    "fbuild ESP32 deploy cannot run. Switch to the "
                     "arduino-cli engine and try again.\n"
                 )
                 return -1, "upload"
-            deploy_args.extend(["-b", "115200"])
             deploy_env = {
                 **toolchain._TOOLCHAIN_ENV,
                 "PATH": str(Path(toolchain._ESPTOOL_BIN).parent)
                 + os.pathsep
                 + toolchain._TOOLCHAIN_ENV.get("PATH", ""),
             }
-            yield f"  [deploy experiment] baud 115200 · esptool {toolchain._ESPTOOL_BIN}\n"
+            yield f"  [deploy] esptool {toolchain._ESPTOOL_BIN}\n"
         # esptool (spawned fresh by each `deploy`) intermittently loses the race
         # against Windows fully releasing the port after a *previous* flash's
         # hard reset (or another brief holder, e.g. the frontend's live serial

@@ -60,8 +60,9 @@ an internal record.
 - **How we drive fbuild:** a persistent scaffold at `backend/.fbuild-project/` with one
   `[env:X]` per supported board, built with `fbuild build -e <env> -v --no-timestamp`
   and flashed with `fbuild deploy -e <env> -p <port> --skip-build --no-timestamp`.
-  The focused ESP32 experiment additionally passes `-b 115200` and binds the pinned
-  interpreter-side `esptool` through the caller `PATH`; see the dated result below.
+  ESP32 deploys bind the pinned interpreter-side `esptool` through the caller `PATH`
+  and use fbuild's own per-board baud. The `-b 115200` of the 2026-09-02 experiment
+  was dropped on 2026-11-20; see the dated result below.
   See `_compile_upload_fbuild` in [`backend/firmware.py`](../../backend/firmware.py).
 
 > [!IMPORTANT]
@@ -1296,8 +1297,10 @@ Deploy: succeeded (full flash), exit 0
 The controlled path therefore **does not reproduce the original serial-port failure on
 fbuild 2.5.21**. Because baud and executable binding were changed together, this proves
 the combined path but does not assign the old failure to either variable individually.
-The reliable 115200/pinned-esptool path remains in the helper for users who explicitly
-choose fbuild, `arduino-cli` is the recommended ESP32 path, and—per the reporting gate—no
+**Decided 2026-11-20:** the helper keeps the pinned esptool on `PATH` and drops
+`-b 115200`, taking fbuild's per-board baud (about 21s faster per flash on this image).
+If the serial-port failure comes back, the forced baud is the first thing to restore.
+`arduino-cli` stays the recommended ESP32 path, and—per the reporting gate—no
 upstream issue report was prepared.
 
 **Also relevant even though it isn't on our list:** 2.5.5–2.5.14 added substantial
