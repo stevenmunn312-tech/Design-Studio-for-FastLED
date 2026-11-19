@@ -29,98 +29,10 @@ Everything else moved out on 2026-11-12:
   so the project file is the one workspace shape
   ([versioning](docs/release/versioning-and-releases.md#development-lines-and-the-v1-baseline)).
 
-## 2. Review findings, next off the rank
+## 2. Review findings
 
-What the 2026-11-18 code review found and left open. The four blockers, the
-fbuild bump items and the trust items are fixed. The helper answering any
-localhost origin was looked at and left as it is. Groups are in the order to
-take them; the save format comes first because it is the only one that costs
-more after the freeze.
-
-### Save format (part of step 1)
-
-- [x] Remove the pre-1.0 shims: the `uploadTarget` mirror,
-  `RETIRED_PROPERTY_KEYS`, the RTC timezone migration and
-  `RETIRED_TARGET_HANDLES`.
-- [x] Settle `hueShift`: one unit and one property name across the nodes
-  that carry it. Done 2026-11-19: degrees, `hueShift`, on all four.
-- [x] Decide whether type ids that differ from their labels (`Clock` for
-  `RTCInput`, and the others like it) are renamed before the freeze or kept
-  for good. Decided 2026-11-19: nine are renamed to match their labels
-  (`TempoClock`, `ColorTemperature`, `FieldTransform`, `FormulaPattern`,
-  `HiHatShards`, `CrossfadeCycle`, `NetworkRipple`, `TileSymmetry`,
-  `TransitionPool`); the rest, `RTCInput` and `MatrixOutput` among them, are
-  kept for good. Old saves open through `src/state/preV1Aliases.ts`.
-- [x] Make port ids consistent (`mid` against `mids`, and the others like it).
-  Done 2026-11-19; old saves open through `src/state/preV1Aliases.ts`.
-- [x] Give `#share=` links a format version.
-- [x] Stop custom-shelf patterns vanishing from a saved workspace.
-- [x] Keep runtime React Flow fields out of saved files.
-- [x] Build the downloadable-parts client side before the freeze, so v1.0.0
-  can gain parts without a release: saves embed signed part manifests, and an
-  unknown part or part type is an error, not a fallback. All 40 part types are
-  open; what is left (bundled Digital and Analog sensor parts, which wait on
-  Blender models) is in [downloadable parts](docs/plans/downloadable-parts.md).
-
-### Data safety
-
-- [x] Stop a reload in the middle of a save producing a false
-  "(browser copy)" duplicate. Done 2026-11-20: the sync journal keeps each
-  sent, unacknowledged version, and a file found at one is taken as the base.
-- [x] Add an error boundary, so one component throwing does not blank the app.
-- [x] Give the `backendClient` fetches a timeout. Request-and-reply calls only;
-  builds, installs, uploads, streams and native dialogs run as long as they need.
-- [x] Fix Save As reporting "Not saved" after a save that worked.
-
-### Power and hardware
-
-- [x] Validate a second board against its own FQBN, not the primary's
-  (`boardUploadTargets.ts:19`).
-- [x] ESP32-C3 GPIO11: check the pin rule against the module.
-
-### Firmware and preview parity
-
-- [x] `withoutUnusedFastLed` misses `random8`/`random16`, `ease8*`,
-  `sin8`/`sin16` and `fl::` (`cppGenerator.ts:1815`).
-- [x] Blobs and Breathe: palette wrap differs between preview and board.
-- [x] Game of Life: `Math.round` on the interval.
-- [x] WaveSim, FluidSim and TuringField step once per pass, not once per
-  frame.
-- [x] Bounds-check the sync follower index.
-- [x] Mask rounding differs between preview and board.
-
-### UI and release
-
-- [x] Close on Escape through `useEscapeLayer` in ProjectsPopup,
-  RecoverPopup, BoardPopup, ArduinoCliPopup, CodeViewPopup,
-  HardwareValidationPopup and SdCardPrompt.
-- [x] Help still says "graph JSON" and "public beta".
-- [x] The support matrix says FastLED 3.10.5; the pin is 3.10.9.
-- [x] The tag workflow publishes an unsigned `--prerelease`. Done 2026-11-19:
-  only a tag with a pre-release suffix is marked a pre-release, the release
-  stays a draft, and its notes state the signing state. Signing itself is
-  HW-17.
-- [x] Complete the licence notices, and settle the AnimARTrix
-  non-commercial terms. Done 2026-11-20 for the renders: every board and part
-  model is project-made from published dimensions and photographs, and
-  `THIRD_PARTY_NOTICES.md` says so. AnimARTrix ships under its CC BY-NC-SA 4.0
-  terms as they are (decided 2026-11-20).
-- [x] Fill the CHANGELOG gaps.
-- [x] Start scripts run pip without `-c constraints.txt`.
-
-### Helper
-
-- [x] Two arduino-cli compiles can share a temporary workspace. Done
-  2026-11-20: the sketch folders were never shared, but the core cache and
-  library folder were; arduino-cli compiles now take the build lock fbuild
-  uses. Left: an overlapped build's private temp folder leaves its
-  `%LOCALAPPDATA%\arduino\sketches` build directory behind.
-- [ ] Cancelling an fbuild build can leave the daemon compiling. Cancel kills
-  only the `fbuild build` client; the long-lived daemon is not its child.
-  Needs a real build to confirm before stopping the daemon on cancel.
-- [x] A Bluetooth player on fbuild is not switched to arduino-cli by itself.
-- [x] Decide the ESP32 deploy experiment (`-b 115200`). Decided 2026-11-20:
-  dropped for fbuild's faster per-board baud; the pinned esptool stays.
+Done 2026-11-20: every item the 2026-11-18 code review left open is fixed or
+decided. What each one changed is in Git and the linked pattern documents.
 
 ## 3. fbuild upkeep
 

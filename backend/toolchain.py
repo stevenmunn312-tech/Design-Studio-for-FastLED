@@ -1801,6 +1801,33 @@ def _stop_build_process(proc) -> None:
         proc.terminate()
 
 
+_FBUILD_DAEMON_PID = re.compile(r"PID:\s*(\d+)")
+
+
+def _stop_fbuild_daemon() -> None:
+    """Stop fbuild's daemon and everything it is running. Cancel kills only the
+    `fbuild` client; the daemon outlives it and keeps compiling (or flashing)
+    for the cancelled build. On Windows its whole process tree goes, compilers
+    included, because a daemon stopped alone leaves its compilers running.
+    The next build starts a fresh daemon. Best effort: never raises."""
+    if not _FBUILD_BIN:
+        return
+    try:
+        status = subprocess.run(
+            [_FBUILD_BIN, "daemon", "status"], capture_output=True, text=True, timeout=15,
+            cwd=_FBUILD_PROJECT_DIR, creationflags=NO_CONSOLE_WINDOW,
+        )
+        found = _FBUILD_DAEMON_PID.search(status.stdout + status.stderr)
+        if sys.platform == "win32" and found:
+            subprocess.run(["taskkill", "/T", "/F", "/PID", found.group(1)],
+                           capture_output=True, check=False, timeout=15, creationflags=NO_CONSOLE_WINDOW)
+        else:
+            subprocess.run([_FBUILD_BIN, "daemon", "stop"], capture_output=True, timeout=30,
+                           cwd=_FBUILD_PROJECT_DIR, creationflags=NO_CONSOLE_WINDOW)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
 def _cancel_active_build(background: bool = False) -> bool:
     """Stop the running build. True if there was one to stop.
 

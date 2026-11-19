@@ -1203,6 +1203,28 @@ def test_fbuild_build_says_plainly_when_its_daemon_stays_down(monkeypatch):
     assert "switch the build engine to arduino-cli" in log
 
 
+def test_a_cancelled_fbuild_build_stops_the_daemon_before_freeing_the_lock(monkeypatch):
+    # Bench 2026-11-20: Cancel killed only the client; the daemon kept 32
+    # compilers running with the lock already free for the next build.
+    events = []
+    monkeypatch.setattr(toolchain, "_stop_fbuild_daemon", lambda: events.append(
+        ("stop", toolchain._fbuild_build_lock.seconds_since_progress() is not None)))
+    log, result, runs = _fbuild_with_phases(monkeypatch, [("compiling\n", toolchain._BUILD_CANCELLED)])
+    assert result == (toolchain._BUILD_CANCELLED, "compile")
+    assert len(runs) == 1
+    assert events == [("stop", True)]  # stopped while this build still held the lock
+    assert "Stopping fbuild's background service" in log
+    assert toolchain._fbuild_build_lock.seconds_since_progress() is None
+
+
+def test_a_finished_fbuild_build_leaves_the_daemon_running(monkeypatch):
+    stops = []
+    monkeypatch.setattr(toolchain, "_stop_fbuild_daemon", lambda: stops.append(True))
+    _log, result, _runs = _fbuild_with_phases(monkeypatch, [(_BUILT, 0)])
+    assert result[0] == 0
+    assert stops == []
+
+
 def test_fbuild_build_does_not_repeat_an_ordinary_compile_error(monkeypatch):
     log, result, runs = _fbuild_with_phases(monkeypatch, [("main.ino:3: error: 'x' was not declared\n", 1)])
     assert result == (1, "compile")

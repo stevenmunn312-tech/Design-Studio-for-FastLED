@@ -8,6 +8,11 @@
   and overlapping compiles there have produced `ld: file truncated`. An
   arduino-cli upload releases the lock after compiling, so a capacity check can
   compile while the board flashes.
+- **Cancelling fbuild stops its daemon too.** Cancel kills the `fbuild` client,
+  but a daemon started by an earlier build is not its child and keeps compiling.
+  `_compile_upload_fbuild` calls `_stop_fbuild_daemon` (a tree kill of the PID
+  `fbuild daemon status` names) before it releases the build lock, whenever a
+  build or deploy phase ended cancelled or the stream was dropped mid-phase.
 - The Bluetooth Music Player builds with arduino-cli only. `_engine_for_board`
   takes the sketch and moves it off fbuild by itself; fbuild refuses it only
   when arduino-cli is not installed.

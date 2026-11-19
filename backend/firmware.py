@@ -800,6 +800,11 @@ def _compile_upload_fbuild(
     token = yield from _wait_for_build_lock(label)
     if token is None:
         return -1, "busy"
+    # True while fbuild's daemon may still be working for this run: a cancel or
+    # a dropped stream kills only the `fbuild` client, and the long-lived
+    # daemon is not its child. Measured 2026-11-20: 32 compilers still running
+    # five seconds after Cancel, about 25 s more work, with the lock free.
+    daemon_job = False
     try:
         env = toolchain._fbuild_env_for_fqbn(fqbn, flash_mb, usb_cdc)
         if env is None:
@@ -834,7 +839,11 @@ def _compile_upload_fbuild(
                 toolchain._write_fbuild_main(ino, files)
             else:
                 toolchain._write_fbuild_main(ino)
+            daemon_job = True
             rc = yield from _fbuild_build(label, env, compile_lines)
+            daemon_job = rc == toolchain._BUILD_CANCELLED
+            if daemon_job:
+                yield "  Stopping fbuild's background service, so nothing keeps compiling.\n"
             if rc != 0:
                 if _looks_like_overflow(compile_lines):
                     yield _overflow_message(fqbn, compile_lines)
@@ -919,11 +928,16 @@ def _compile_upload_fbuild(
         upload_lines = []
         for attempt in range(3):
             upload_lines = []
+            daemon_job = True
             with _flashing():   # keeps `board list` off the port — see serial_ports()
                 rc = yield from toolchain._run_phase(
                     f"{label} · upload", deploy_args,
                     sink=upload_lines, cwd=toolchain._FBUILD_PROJECT_DIR, tool_env=deploy_env,
                 )
+            daemon_job = rc == toolchain._BUILD_CANCELLED
+            if daemon_job:
+                yield "  Stopping fbuild's background service, so nothing keeps flashing.\n"
+                break
             if rc == 0:
                 break
             port_busy = any("access is denied" in line.lower() or "port is busy" in line.lower() for line in upload_lines)
@@ -939,6 +953,10 @@ def _compile_upload_fbuild(
             yield "  [engine-gap] fbuild can't flash this board yet. Switch to the arduino-cli engine and try again.\n"
         return rc, "upload"
     finally:
+        # Before the release: the next build must not rewrite main.ino under
+        # a daemon still building the old one.
+        if daemon_job:
+            toolchain._stop_fbuild_daemon()
         toolchain._fbuild_build_lock.release(token)
 
 
