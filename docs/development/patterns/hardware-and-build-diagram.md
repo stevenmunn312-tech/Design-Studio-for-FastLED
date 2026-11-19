@@ -1086,15 +1086,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   case never reads DOUT.
 - A chip photo on the Build Diagram must be scaled and placed *from the same
   measured leg pitch the wiring terminals are cut to*, never fitted into an
-  independently hand-typed box: the 74AHCT125 level-shifter's render box
-  (`LEVEL_SHIFTER_RENDER_X`/`_WIDTH`) and its terminal rows
-  (`LEVEL_SHIFTER_PIN_ROWS`) were two separate guesses in
-  `physicalDiagramLayout.ts`, so the photographed leg pitch drifted off the
-  terminal pitch by pin 7. `LEVEL_SHIFTER_RENDER_PX`
-  (`sn74ahct125n-dip14.webp`'s own measured leg positions) now drives a derived
-  `LEVEL_SHIFTER_RENDER_SCALE`/`_WIDTH`/`_HEIGHT`/`_X`/`_Y`, keeping the fixed
-  `LEVEL_SHIFTER_PIN_PITCH` terminal rows authoritative, the same discipline
-  manifest `pads` already apply to module pads.
+  independently hand-typed box. The level shifter's render and pad positions
+  come from its catalogue part (`levelShifterFor`: manifest `render` and `pads`),
+  so the photographed leg pitch and the terminal rows share one source, the same
+  discipline manifest `pads` apply to module pads.
 - Put each LED data resistor after the 74AHCT125 output and next to the LED
   DIN terminal. The short resistor-to-DIN lead represents required physical
   placement; putting the resistor beside the controller or shifter can leave

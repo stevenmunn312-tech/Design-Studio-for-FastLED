@@ -1,4 +1,5 @@
 import type { LedOutputForm } from '../state/output/ledOutputForm'
+import { resolveLedProduct } from '../state/output/ledProduct'
 
 export const DEFAULT_BOARD_PROFILE_ID = 'esp32-generic-devkit-38pin'
 export const ROOT_BOARD_NODE_ID = 'board-root'
@@ -131,7 +132,11 @@ export const HUB75_PITCH_MM = 4
  * distinguishes the two. A ring never asks: its LEDs follow a circumference
  * rather than a grid, and it draws no diffuser at all.
  */
-export function ledPitchMm(form: LedOutputForm): number {
+export function ledPitchMm(form: LedOutputForm, partId?: unknown): number {
+  // A product states its own spacing (a 60 LED/m strip is 16.7 mm), which the
+  // form's stand-in pitch would otherwise hide. Custom outputs keep the form's.
+  const partPitch = resolveLedProduct(partId)?.spec.pitchMm
+  if (partPitch !== undefined) return partPitch
   if (form === 'hub75') return HUB75_PITCH_MM
   return WS2812B_PITCH_MM
 }

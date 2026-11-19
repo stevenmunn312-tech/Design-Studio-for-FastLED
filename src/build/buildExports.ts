@@ -108,7 +108,7 @@ export function buildConnectionRows(
     .find((injection) => injection.supplyId)?.supplyId ?? 'supply-1'
   const logicDistribution = `${supplyLabelFor(plan, logicSupplyId)} fuse-block distribution`
   // The Board's one level shifter part, carried on its outputs. A part this version cannot read
-  // leaves the data runs unshifted in the rows rather than naming a chip that is not in the build.
+  // never gets here: the manifest holds those outputs as unsupported, so no output row is drawn unshifted.
   const shifterSpec = levelShifterSpec(String(outputs[0]?.facts.levelShifterPartId ?? ''))
 
   const battery = plan.battery

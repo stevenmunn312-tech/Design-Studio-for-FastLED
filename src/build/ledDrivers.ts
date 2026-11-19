@@ -189,11 +189,16 @@ export function dataRateOptionsMhz(chipset: string): readonly number[] {
  * chipset does not offer (0, a stale rate left by another chipset, a
  * hand-edited save) means FastLED's default. Null for a clockless chipset.
  */
-export function effectiveDataRateMhz(chipset: string, dataRateMhz: unknown): number | null {
+export function effectiveDataRateMhz(chipset: string, dataRateMhz: unknown, ceilingMhz?: number | null): number | null {
   const fallback = defaultDataRateMhz(chipset)
   if (fallback === null) return null
+  const options = dataRateOptionsMhz(chipset)
   const rate = Number(dataRateMhz)
-  return dataRateOptionsMhz(chipset).includes(rate) ? rate : fallback
+  const wanted = options.includes(rate) ? rate : fallback
+  // A product's own clock ceiling (`maxDataRateMhz`) caps the rate: the fastest
+  // offered rate within it, never a clock the product cannot take.
+  if (ceilingMhz == null || wanted <= ceilingMhz) return wanted
+  return [...options].reverse().find((option) => option <= ceilingMhz) ?? options[0] ?? wanted
 }
 
 /**
@@ -215,10 +220,10 @@ export function dataRateAfterChipsetChange(fromChipset: string, toChipset: strin
  * offers from the one this output sends at, or null when it is clockless or
  * already at its ceiling.
  */
-export function clockedRateFix(chipset: string, dataRateMhz: unknown): { fromMhz: number; toMhz: number } | null {
-  const fromMhz = effectiveDataRateMhz(chipset, dataRateMhz)
+export function clockedRateFix(chipset: string, dataRateMhz: unknown, ceilingMhz?: number | null): { fromMhz: number; toMhz: number } | null {
+  const fromMhz = effectiveDataRateMhz(chipset, dataRateMhz, ceilingMhz)
   if (fromMhz === null) return null
-  const toMhz = dataRateOptionsMhz(chipset).find((rate) => rate > fromMhz)
+  const toMhz = dataRateOptionsMhz(chipset).find((rate) => rate > fromMhz && (ceilingMhz == null || rate <= ceilingMhz))
   return toMhz === undefined ? null : { fromMhz, toMhz }
 }
 

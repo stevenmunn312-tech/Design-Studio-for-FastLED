@@ -89,6 +89,11 @@ export function ledCountEditable(spec: PartLedOutputSpec): boolean {
   return bounds !== null && bounds.max > bounds.min
 }
 
+/** The fastest SPI clock the product takes, in MHz; null for Custom, a clockless product and an unknown part. */
+export function ledDataRateCeilingMhz(props: Props | undefined | null): number | null {
+  return ledProductOf(props)?.spec.maxDataRateMhz ?? null
+}
+
 function isLinear(spec: PartLedOutputSpec): boolean {
   return spec.form === 'strip' || spec.form === 'ring'
 }

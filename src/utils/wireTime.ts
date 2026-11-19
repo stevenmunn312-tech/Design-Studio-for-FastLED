@@ -46,6 +46,7 @@ import { IR_RMT_RX_FAMILIES, IR_RMT_RX_SYMBOLS } from '../codegen/peripherals/ir
 import type { GraphDiagnostic, GraphDiagnosticFix } from './validateGraph'
 import { splitAcrossPinsForGraph } from '../build/pins/splitAcrossPins'
 import { requestedDataLanes } from '../state/output/dataLanes'
+import { ledDataRateCeilingMhz } from '../state/output/ledProduct'
 
 /** One data pin's send: an LED output, one of its lanes, or a VU rail. */
 export interface WireOutput {
@@ -59,6 +60,8 @@ export interface WireOutput {
   micros: number
   /** The LED output's `dataRateMhz`, for the faster-clock fix; absent on VU rails. */
   dataRateMhz?: unknown
+  /** The named LED product's clock ceiling in MHz, when it states one. */
+  dataRateCeilingMhz?: number
 }
 
 export interface RmtWireUse {
@@ -108,7 +111,7 @@ const positiveInt = (value: unknown, fallback: number): number => {
 
 /** The rate a clocked chipset actually sends at, in Hz (step 5's `dataRateMhz`, default when absent). */
 function dataRateHz(chipset: string, props: Record<string, unknown>): number | undefined {
-  const mhz = effectiveDataRateMhz(chipset, props.dataRateMhz)
+  const mhz = effectiveDataRateMhz(chipset, props.dataRateMhz, ledDataRateCeilingMhz(props))
   return mhz === null ? undefined : mhz * 1_000_000
 }
 
@@ -136,6 +139,7 @@ export function wireOutputs(nodes: StudioNode[], edges: readonly StudioEdge[]): 
         clocked: isClocked(chipset),
         micros: chipsetSendMicros(chipset, laneLeds, rate),
         dataRateMhz: props.dataRateMhz,
+        ...(ledDataRateCeilingMhz(props) === null ? {} : { dataRateCeilingMhz: ledDataRateCeilingMhz(props)! }),
       })
     }
   }
@@ -304,7 +308,7 @@ export function wireTimeFixes(estimate: WireTimeEstimate, nodes: StudioNode[] = 
   for (const output of [...estimate.outputs].sort((a, b) => b.micros - a.micros)) {
     if (!output.clocked || !('dataRateMhz' in output) || seen.has(output.nodeId)) continue
     seen.add(output.nodeId)
-    const faster = clockedRateFix(output.chipset, output.dataRateMhz)
+    const faster = clockedRateFix(output.chipset, output.dataRateMhz, output.dataRateCeilingMhz)
     if (!faster) continue
     fixes.push({
       action: 'raise-data-rate',

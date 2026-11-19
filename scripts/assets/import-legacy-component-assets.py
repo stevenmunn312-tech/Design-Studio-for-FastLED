@@ -42,9 +42,6 @@ CANONICAL_ASSETS = {
     "Parts/max98357a-i2s-amplifier/max98357a-i2s-amplifier.png": (
         "max98357a-i2s-amplifier.webp",
     ),
-    "Parts/sn74ahct125n-dip14/sn74ahct125n-dip14.png": (
-        "sn74ahct125n-dip14.webp",
-    ),
 }
 
 

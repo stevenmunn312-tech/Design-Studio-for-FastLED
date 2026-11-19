@@ -1,4 +1,5 @@
 import { ledSupplyVolts } from '../controllerSettings'
+import { resolveLedProduct } from '../../state/output/ledProduct'
 
 /**
  * The full-white draw of one LED, at the voltage its chipset runs from.
@@ -48,8 +49,15 @@ const HUB75_5V_MA_PER_PIXEL = 1
 /**
  * Full-white draw of one LED on an output with this chipset and form. A HUB75
  * form is a scan panel whatever chipset a save still carries.
+ *
+ * An output that names an LED product (`partId`) takes the product's own
+ * supply voltage and datasheet maximum current instead; a Custom output, and
+ * one naming a part this version lacks (which is held, not guessed at), keep
+ * the chipset figures below.
  */
-export function ledFullWhiteDraw(chipset: unknown, form?: unknown): LedFullWhiteDraw {
+export function ledFullWhiteDraw(chipset: unknown, form?: unknown, partId?: unknown): LedFullWhiteDraw {
+  const product = resolveLedProduct(partId)
+  if (product) return { volts: product.spec.supplyVolts, maPerLed: product.spec.fullWhiteMa }
   if (form === 'hub75' || chipset === 'HUB75') return { volts: 5, maPerLed: HUB75_5V_MA_PER_PIXEL }
   const volts = ledSupplyVolts(chipset)
   switch (chipset) {

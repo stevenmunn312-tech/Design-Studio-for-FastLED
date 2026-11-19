@@ -107,8 +107,8 @@ export function useBenchParts({ nodes, edges, selectedBoard, boardUnresolved = f
         // Measured where the ring exists, interpolated where it does not — real
         // rings are not linear in LED count, because a small one needs a hub
         // whatever sits on it. See partCatalogue.ringDiameterMm.
-        const ringMm = ringDiameterMm(ledCount)
-        const pitch = ledPitchMm(form)
+        const ringMm = ringDiameterMm(ledCount, props.partId)
+        const pitch = ledPitchMm(form, props.partId)
         const feed = edges.find((edge) => edge.target === node.id)
         return {
           node,

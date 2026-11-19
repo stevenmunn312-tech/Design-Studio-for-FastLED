@@ -270,7 +270,7 @@ export function playerConfigFromGraph(
     dither:      mo.dither !== false,
     overclock:   num(board.overclock, DEFAULTS.overclock),
     powerLimit:  board.powerLimit === true,
-    volts:       ledSupplyVolts(str(mo.chipset, DEFAULTS.chipset)),
+    volts:       ledSupplyVolts(str(mo.chipset, DEFAULTS.chipset), mo.partId),
     milliamps:   num(board.milliamps, DEFAULTS.milliamps),
     sdCsPin:    sanitizePin(sd.sdCsPin, sdDefaults?.cs ?? DEFAULTS.sdCsPin),
     sdSckPin:   sanitizePin(sd.sdSckPin, sdDefaults?.sck ?? DEFAULTS.sdSckPin),

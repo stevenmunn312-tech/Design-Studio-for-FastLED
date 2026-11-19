@@ -42,14 +42,14 @@ export function benchPartStyles({ view, arrangement, placed, brokenRuns }: Bench
    * The colour comes from the lit cells underneath and reads through the
    * transparent centre.
    */
-  const lensStyle = (partId: string, form: LedOutputForm): CSSProperties | undefined => {
+  const lensStyle = (partId: string, form: LedOutputForm, pitchMm: number = ledPitchMm(form)): CSSProperties | undefined => {
     const part = placed.get(partId)
     if (!part) return undefined
     // The same pitch the part was sized at, so the tile divides its box exactly
     // and one dome lands on one emitter. `.lens` tiles from the box origin for
     // the same reason — centred tiling puts the domes half a pitch out on any
     // even-sided panel, which is every panel anyone buys.
-    const tile = ledPitchMm(form) * part.mmScale
+    const tile = pitchMm * part.mmScale
     return { backgroundSize: `${tile}px ${tile}px` }
   }
 

@@ -84,6 +84,7 @@ import { findLedDriverErrors, ledDriverDiagnostics } from './ledDriverIssues'
 import type { LedDriverChoice } from '../build/ledDrivers'
 import { isHardwareManagedSignalNodeType, ledPitchMm } from '../build/hardware'
 import { partOptionsFor, resolvePartIdentity } from '../build/parts/partOptions'
+import { ledProductDiagnostics } from './ledProductValidation'
 import { describeUnresolved, unknownPartId, unresolvedNodeLabel, unresolvedNodes, withoutUnresolved } from '../build/parts/partResolution'
 import { displayHasTouch, partById } from '../build/parts/partCatalogue'
 import { designControlBundle } from '../state/displays/designControlBundle'
@@ -3439,7 +3440,7 @@ export function unresolvedPartValidationIssues(nodes: StudioNode[]): GraphDiagno
       const { title, detail, fix } = describeUnresolved(reason)
       const label = unresolvedNodeLabel(node)
       const id = reason.kind === 'part'
-        ? `${node.id}-unknown-part`
+        ? `${node.id}-unknown-part${reason.property === 'dataLinkPartId' || reason.property === 'levelShifterPartId' ? `-${reason.property}` : ''}`
         : reason.kind === 'pin' ? `${node.id}-part-pin-${reason.key}` : `${node.id}-part-bus`
       issues.push({
         id, severity: 'error', category: reason.kind === 'part' ? 'connection' : 'pins',
@@ -4783,11 +4784,12 @@ export function buildGraphDiagnostics(
         nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput),
       })
     })
+    diagnostics.push(...ledProductDiagnostics(matrixOutput, nodes, nodeLabel(matrixOutput)))
     // Two LEDs closer than the tape's pitch cannot both sit where a custom
     // list puts them. The layout still lights, so this is a warning.
     const positioned = stringPositions(props)
     if (positioned && positioned.source === 'custom') {
-      const pitch = ledPitchMm(outputForm(props))
+      const pitch = ledPitchMm(outputForm(props), props.partId)
       const closest = closestLedSpacingMm(positioned, positionsMmPerUnit(props, positioned, pitch))
       if (closest !== null && closest < pitch) {
         diagnostics.push({

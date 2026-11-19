@@ -1313,9 +1313,12 @@ export function catalogueRings(): Array<{ count: number; diameterMm: number }> {
  * is the honest extrapolation: beyond 60 LEDs the hub stops mattering and the
  * circumference is all that grows.
  */
-export function ringDiameterMm(ledCount: number): number {
+export function ringDiameterMm(ledCount: number, partId?: unknown): number {
   const rings = catalogueRings()
   const count = Math.max(1, Math.round(ledCount))
+  // A ring product states its own measured diameter.
+  const named = typeof partId === 'string' && partId !== '' ? partById(partId)?.ledOutput : undefined
+  if (named?.form === 'ring' && named.count === count && named.diameterMm !== undefined) return named.diameterMm
   if (rings.length === 0) return Math.max(12, (count * 10) / Math.PI)
 
   const exact = rings.find((ring) => ring.count === count)

@@ -39,6 +39,9 @@ import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { findPartReferences, type ReferenceFinding } from './partReferences'
 import { partOptionFor, partOptionProperty } from './partOptions'
 import { embeddedPartFailure } from './signedParts'
+import { dataLinkPartId, dataLinkSpec } from '../../state/peripherals/pixelDataExtender'
+import { levelShifterSpec } from '../../state/peripherals/levelShifter'
+import { ledPartId, resolveLedProduct } from '../../state/output/ledProduct'
 
 /** The saved value naming a part, or null when the node has none or the type has no part. */
 export function savedPartId(nodeType: string, properties: Record<string, unknown> | undefined): string | null {
@@ -79,12 +82,45 @@ function propertiesOf(node: StudioNode): Record<string, unknown> {
   return (node.data.properties ?? {}) as Record<string, unknown>
 }
 
+/**
+ * The parts a node names beyond its own module: an LED output's product
+ * (`partId`) and data link (`dataLinkPartId`), a Board's level shifter
+ * (`levelShifterPartId`). One this version has no matching part for is unknown,
+ * exactly as an unknown module is: never read as Custom, Direct or "no chip".
+ * Empty and missing are not unknown; they mean Custom, Direct and the default
+ * shifter.
+ */
+export function unknownAccessoryParts(
+  nodeType: string,
+  properties: Record<string, unknown> | undefined,
+): Array<{ property: string; id: string }> {
+  if (!properties) return []
+  const found: Array<{ property: string; id: string }> = []
+  if (nodeType === 'MatrixOutput') {
+    const product = ledPartId(properties)
+    if (product !== null && !resolveLedProduct(product)) found.push({ property: 'partId', id: product })
+    const link = dataLinkPartId(properties)
+    if (link !== '' && !dataLinkSpec(properties)) found.push({ property: 'dataLinkPartId', id: link })
+  }
+  if (nodeType === 'Board') {
+    const raw = properties.levelShifterPartId
+    const shifter = typeof raw === 'string' ? raw.trim() : ''
+    if (shifter !== '' && !levelShifterSpec(shifter)) found.push({ property: 'levelShifterPartId', id: shifter })
+  }
+  return found
+}
+
 /** Every reason this one node cannot be built by this version; empty when it can. */
 export function unresolvedReasons(nodeType: string, properties: Record<string, unknown> | undefined): UnresolvedReason[] {
   const reasons: UnresolvedReason[] = []
   const property = partOptionProperty(nodeType)
   const id = unknownPartId(nodeType, properties)
   if (property && id !== null) reasons.push({ kind: 'part', property, id })
+  for (const accessory of unknownAccessoryParts(nodeType, properties)) {
+    if (!reasons.some((reason) => reason.kind === 'part' && reason.property === accessory.property)) {
+      reasons.push({ kind: 'part', property: accessory.property, id: accessory.id })
+    }
+  }
   reasons.push(...findPartReferences(properties))
   return reasons
 }
