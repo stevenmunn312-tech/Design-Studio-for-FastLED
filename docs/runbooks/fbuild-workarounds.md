@@ -1457,6 +1457,16 @@ there too. With no arduino-cli the fbuild link error stands.
 ESP8266WebServer, ESP8266mDNS) for a LOLIN D1 mini was routed to arduino-cli by
 the desktop app with fbuild as the engine, built in 19 s and flashed.
 
+**Fix proven on hardware 2026-11-20, through fbuild.** A Web Remote sketch
+(Colour and Brightness controls) for the LOLIN D1 mini on COM8 was built and
+flashed by the desktop app with fbuild 2.5.52, no arduino-cli in the path:
+`fbuild build` linked in 72.6 s (flash 361,311 bytes, RAM 31,676), and
+`fbuild deploy` wrote 365,408 bytes with esptool v5.3.0 in 23.7 s, hash
+verified. The board joined a phone hotspot, answered at
+`fastled-board.local` (mDNS), served the page and `/s`, applied a POST to
+`/set` and read it back, and followed a phone and a desktop browser moving
+the controls.
+
 ---
 
 ## 16. UNO R4 WiFi sketches that use the network do not compile

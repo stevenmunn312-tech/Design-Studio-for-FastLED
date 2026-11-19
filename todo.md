@@ -112,9 +112,11 @@ not fix is recorded as a limitation in step 6.
 - [ ] Draft an upstream report for §18: on 2.5.52 a FastLED sketch for the
   UNO R4 Minima compiles the core's `WiFiS3` library and fails on `D24`.
   Steve reviews before posting.
-- [ ] Flash a Web Remote to the D1 mini through fbuild, which upstream asked
-  for on [#1994](https://github.com/FastLED/fbuild/issues/1994). Needs Steve's
-  bench.
+- [x] Flash a Web Remote to the D1 mini through fbuild, which upstream asked
+  for on [#1994](https://github.com/FastLED/fbuild/issues/1994). Done on
+  2.5.52 (2026-11-20); runbook §15 has the record.
+- [ ] Post the bench result on [#1994](https://github.com/FastLED/fbuild/issues/1994)
+  from the draft in `tmp/fbuild-1994-comment.md`. Steve reviews before posting.
 - [ ] Retire the helper's `.dram0.dummy` subtraction (`_without_ram_placeholder`)
   if 2.5.52's ESP32-S3 RAM figure no longer counts the placeholder
   ([#2013](https://github.com/FastLED/fbuild/issues/2013)). No probe covers it.
