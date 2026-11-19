@@ -147,12 +147,9 @@ describe('the level shifter part', () => {
   })
 
   it('takes its channel count from the block: a two-channel part makes the sheet draw more chips', () => {
-    const twoChannel = copyOf(SHIFTER, 'two-channel-shifter') as PartManifest & { levelShifter: Record<string, unknown> }
-    twoChannel.levelShifter = {
-      ...twoChannel.levelShifter,
-      channels: 2,
-      channelPads: (twoChannel.levelShifter.channelPads as unknown[]).slice(0, 2),
-    }
+    const twoChannel = copyOf(SHIFTER, 'two-channel-shifter')
+    const block = twoChannel.levelShifter!
+    twoChannel.levelShifter = { ...block, channels: 2, channelPads: block.channelPads.slice(0, 2) }
     expect(registerParts([twoChannel], 'bundled')[0].status).toBe('added')
     const sheet = everything({ levelShifterPartId: 'two-channel-shifter' }, [{}, {}, {}])
     expect(sheet).toContain('level shifter 2')
@@ -160,7 +157,7 @@ describe('the level shifter part', () => {
   })
 
   describe('manifest block checks', () => {
-    const base = () => JSON.parse(JSON.stringify(PART_CATALOGUE_DATA[SHIFTER])) as Record<string, any>
+    const base = () => JSON.parse(JSON.stringify(PART_CATALOGUE_DATA[SHIFTER])) as Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
     it('refuses a pad label the part does not measure', () => {
       const manifest = base()

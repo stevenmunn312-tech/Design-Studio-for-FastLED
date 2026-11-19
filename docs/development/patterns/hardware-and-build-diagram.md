@@ -800,22 +800,40 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   retargeting do not move lane pins: the hardware panel's Data lanes section
   (`DataLanesSection.tsx`) re-assigns them. Contract in
   [multi-output routing](../../architecture/multi-output-routing.md#data-lanes-experimental).
-- **NLED pixel data extender (experimental):** an LED output's `dataLink`
-  property (`Direct` | `NLED Pixel Data Extender`,
-  `src/state/peripherals/pixelDataExtender.ts`) is a physical-route fact only — firmware
+- **Level shifter part (Board property `levelShifterPartId`, default
+  `sn74ahct125n-dip14`):** one part per board, carried on every output's
+  manifest item as `facts.levelShifterPartId`. Its `levelShifter` block names
+  the chip, package, channels per chip, supply range and the pad labels of each
+  channel's input, output and /OE plus VCC and GND; the pins are looked up in the
+  part's own measured `pads` (`resolveLevelShifterPads`, also run by the manifest
+  validator). `levelShifterGeometry` (`physicalDiagramLayout.ts`) scales the
+  render so its pad pitch is the fixed 25-unit terminal pitch and places each
+  terminal on its pad's row; `wireRouting.ts` takes the geometry, so chip
+  grouping is `ceil(outputs / channels)` everywhere (sheet, connection rows,
+  BOM). The sheet routes four lanes per chip at most (`channels` is 1 to 4). A
+  part this version cannot read draws no chip and the data runs go straight to
+  the panel. The firmware never reads either accessory. Parts of other shapes
+  (a different pinout) need verified Blender assets; a data-only part reusing a
+  known pinout does not.
+- **Data link part (experimental):** an LED output's `dataLinkPartId`
+  property (empty is Direct, otherwise any catalogue part carrying a
+  `pixelDataExtender` block; `src/state/peripherals/pixelDataExtender.ts`)
+  is a physical-route fact only — firmware
   emits the identical one-wire signal either way, so the evaluator and
-  generators need no teaching. Choosing the extender records
-  `dataLinkPartId: NLED_PIXEL_DATA_EXTENDER_PART_ID` on the manifest item; from
+  generators need no teaching. Choosing a link records
+  `dataLinkPartId` on the manifest item; from
   that, `itemLayouts` (`physicalDiagramLayout.ts`) grows the card by
   `OUTPUT_DATA_EXTENDER_HEIGHT` to draw the TX/RX pair below the fixture, and
   `buildConnectionRows`/`buildBomRows` (`buildExports.ts`) route through TX, the
   twisted A/B/GND run, and RX into DIN instead of wiring the output straight to
   DIN. Distance and conductor facts (`pairConductors`, `maxDistanceMeters`) come
-  from the imported part's own `pixelDataExtender` block
-  (`nledPixelDataExtenderSpec()`), never restated as constants. The pair carries
+  from the part's own `pixelDataExtender` block
+  (`dataLinkSpec(props)`), and the BOM and sheet wording (pair name, supply
+  range, conductor list, distance in feet) is built from it too: no id and no
+  NLED string lives in code. A part this version does not hold reads as Direct. The pair carries
   one asynchronous line, so a clocked chipset or a HUB75 ribbon can't use it —
   `findPixelDataExtenderErrors` (via `pixelDataExtenderSupports`) blocks deploy,
-  and `isPropertyEnabled` disables `dataLink` on SPI/HUB75 outputs, but the
+  and `isPropertyEnabled` disables `dataLinkPartId` on SPI/HUB75 outputs, but the
   field stays editable while it already names the extender, so a chipset change
   that invalidated the choice can be undone from the field itself rather than
   getting stuck disabled. See
@@ -1232,6 +1250,17 @@ it and `partOrigin(id)` says where a part came from.
   `downloadable` flag once no branch on a bundled id remains), and a case in
   `downloadableTypes.test.ts`. A block read must return `null` for an unknown part, never a
   default.
+- **LED products are the `ledOutput` block, stamped, not read.** An LED output's optional `partId`
+  (empty is Custom) stamps the part's facts into the node's own properties
+  (`state/output/ledProduct.ts`); the node stays the evaluated truth. Locked while a part is
+  named: `chipset`, a fixed `ledCount`, a grid's `width`/`height` (tile size times the node's
+  tile count), HUB75 `hub75WideScan`, and a stated `wiring`. Editable: `colorOrder` and a cuttable
+  `ledCount` (clamped to `maxCount`, snapped to `cutEvery`). Changing `form` to one the part does
+  not fit, or Make custom, detaches it. Every edit and `normalizeLoadedGraph` re-stamp, so any new
+  locked key must be added to `ledProductFacts` and `lockedLedKeys` together. A part's
+  `part.json` still says `ledLayout`; the importer folds it into `ledOutput` (a strip's pictured
+  `count` is dropped, the overlay gives `maxCount`). `fullWhiteMa` is the datasheet maximum and
+  every value needs a source in `sources`.
 - **A downloaded part never borrows a bundled render.** `partRenderSrc` returns the verified
   bytes for the revision registered now, or `null` and the placeholder. Never fall back to the
   type's default part's picture, and never draw a node that names a part as another part.

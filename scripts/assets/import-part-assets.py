@@ -118,7 +118,7 @@ OVERLAY_FIELDS = (
     # here, in the repository, and checked against the block spec by the
     # manifest test.
     *("microphone", "lineInput", "i2sAudio", "powerAmp", "sdCard", "rtc", "uartPlayer", "rs485", "midiDin",
-      "motionSensor", "keypad", "irReceiver", "tftPanel", "levelShifter"),
+      "motionSensor", "keypad", "irReceiver", "tftPanel", "levelShifter", "ledOutput"),
 )
 # Each overlay-held block maps to the keys it may hold; the app's manifest
 # validator (blockSpecs.ts) checks the values. A part.json that also carries
@@ -139,7 +139,15 @@ OVERLAY_BLOCKS = {
     "tftPanel": ("colorOrder", "mirroredColumns", "invert", "columnOffset", "rowOffset"),
     "levelShifter": ("device", "packageName", "channels", "supplyMinV", "supplyMaxV", "inputHighMinV",
                      "channelPads", "vccPad", "gndPad"),
+    # An LED product's facts. Its geometry (form, count, width, height, diameterMm,
+    # pitchMm) is what part.json already measures as `ledLayout`; the importer folds
+    # that into this block, so an overlay carries the rest and never repeats a
+    # measured key. A part with no `ledLayout` states its own geometry here.
+    "ledOutput": ("form", "chipset", "colorOrder", "supplyVolts", "fullWhiteMa", "pitchMm", "count", "maxCount",
+                  "cutEvery", "width", "height", "wiring", "diameterMm", "maxDataRateMhz", "scan"),
 }
+# The keys part.json's `ledLayout` measures; they become `ledOutput` fields.
+LED_LAYOUT_KEYS = ("form", "count", "width", "height", "diameterMm", "pitchMm")
 OVERLAY_BLOCK_FIELDS = tuple(OVERLAY_BLOCKS)
 OVERLAY_COPY_FIELDS = {"summary": 300, "wiringNote": 600, "hint": 200, "optionLabel": 120}
 # Numbers a copy block may carry, with their inclusive range.
@@ -241,6 +249,9 @@ def merge_overlay(entry: dict, overlay, category_ids: set[str], vocabulary: dict
     measures is refused, not merged.
     """
     part_id = entry["partId"]
+    # `ledLayout` is part.json's name for the geometry the manifest holds in `ledOutput`.
+    led_layout = entry.get("ledLayout")
+    entry = {key: value for key, value in entry.items() if key != "ledLayout"}
     if overlay is None:
         raise OverlayError(f"{part_id}: no overlay in {OVERLAYS_DIR.relative_to(REPO)}/{part_id}.json")
     if not isinstance(overlay, dict):
@@ -337,6 +348,18 @@ def merge_overlay(entry: dict, overlay, category_ids: set[str], vocabulary: dict
     for key in OVERLAY_FIELDS:
         if key in overlay:
             merged[key] = overlay[key]
+    if led_layout is not None:
+        if "ledOutput" not in overlay:
+            raise OverlayError(f"{part_id}: part.json measures ledLayout, so the overlay must carry the ledOutput facts")
+        if not isinstance(led_layout, dict) or not set(led_layout) <= set(LED_LAYOUT_KEYS):
+            raise OverlayError(f"{part_id}: ledLayout may hold only {', '.join(LED_LAYOUT_KEYS)}")
+        repeated = sorted((set(led_layout) & set(overlay["ledOutput"])) - ({"count"} if led_layout.get("form") == "strip" else set()))
+        if repeated:
+            raise OverlayError(f"{part_id}: ledOutput repeats {', '.join(repeated)}, which part.json already measures in ledLayout")
+        # A strip's `count` is the length drawn in its picture (six LEDs of tape), not a
+        # product fact: the overlay says how long the strip may be (`maxCount`).
+        measured = {k: v for k, v in led_layout.items() if not (led_layout.get("form") == "strip" and k == "count")}
+        merged["ledOutput"] = {**measured, **overlay["ledOutput"]}
     return merged
 
 

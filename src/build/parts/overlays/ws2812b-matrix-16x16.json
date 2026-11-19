@@ -20,6 +20,27 @@
         "render"
       ],
       "ref": "https://learn.adafruit.com/adafruit-neopixel-uberguide/neopixel-matrices"
+    },
+    {
+      "facts": [
+        "ledOutput"
+      ],
+      "ref": "https://www.adafruit.com/product/2547 (over 15 A with all 256 LEDs white, about 59 mA each; rounded up to the 60 mA worst case)"
+    },
+    {
+      "facts": [
+        "ledOutput"
+      ],
+      "ref": "https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf (WS2812B datasheet: data is sent in GRB order; operating VDD 4.5 to 5.5 V; the product page says WS2812B or SK6812 with the same protocol)"
     }
-  ]
+  ],
+  "ledOutput": {
+    "chipset": "WS2812B",
+    "colorOrder": "GRB",
+    "supplyVolts": 5,
+    "fullWhiteMa": 60
+  },
+  "copy": {
+    "summary": "16 × 16 · WS2812B · 5 V"
+  }
 }

@@ -783,7 +783,7 @@ Closed, with the work that remains:
 
 - **PowerConverter.** `CONVERTER_PAD_MM` (`controllerGeometry.ts`) is a measured pad table keyed on `lm2596-buck-module`, and `ControllerGraphic.tsx` also changes its stub style when the table has an entry. The part's `powerConverter` block has no `terminalPositions` to read instead, and the block comes from the part's `part.json`. It needs either `terminalPositions` in that `part.json` or a new overlay field. `LEGACY_POWER_CONVERTER_ORDER` in `powerConverter.ts` is the same kind of id list and can move to `copy.optionOrder` at the same time.
 - **TransportDisplay.** `TFT_CONTROLLERS` (`tftSurface.ts`) keeps per-module bench values (`invert`, colour order, mirroring, offsets) per chip, so two modules on one chip cannot differ. The unresolved-panel `ST7789` fallback is the TFT-fallback agent's. Both need block fields.
-- **MatrixOutput.** The NLED data link and the 74AHCT125 are drawn by id (`NLED_PIXEL_DATA_EXTENDER_PART_ID`, the level-shifter render in `PhysicalAssemblyDiagram.tsx`).
+- **MatrixOutput.** The NLED data link and the 74AHCT125 were drawn by id; both are now read from their parts (`dataLinkPartId`, Board `levelShifterPartId`).
 
 Code changes in this round: the light-sensor module list is read from the catalogue (it was an id list that chose the transport); OLED panel size is read from `display.resolutionPx` (capped at the shared panel buffers); the rear-row encoder route reads `encoder.onboardPullUps` instead of an id; fallback item labels in `hardwareManifest.ts` no longer name a bundled part; the rail-converter blocker copy no longer names SD-100.
 

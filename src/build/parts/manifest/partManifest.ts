@@ -13,8 +13,9 @@ import type { ConverterPadsMm, PartCatalogueEntry } from '../partCatalogue'
 import { partTypeById, partTypeDrivesDevice, type PartTypeDefinition } from '../partTypes'
 import { keypadBlockIssue } from './keypadBlock'
 import { levelShifterBlockIssue } from './levelShifterBlock'
+import { ledOutputBlockIssue } from './ledOutputBlock'
 import { tftPanelBlockIssue } from './tftPanelBlock'
-import { DIMENSIONS_SPEC, LED_LAYOUT_SPEC, PART_BLOCK_KEYS, PART_BLOCK_SPECS, RENDER_SPEC } from './blockSpecs'
+import { DIMENSIONS_SPEC, PART_BLOCK_KEYS, PART_BLOCK_SPECS, RENDER_SPEC } from './blockSpecs'
 import { arr, checkField, int, num, obj, opt, str, tuple, type FieldSpec } from './fieldSpec'
 import {
   isInterfaceId,
@@ -126,7 +127,6 @@ const COMMON_FIELDS: Record<string, FieldSpec> = {
   dimensionsMm: DIMENSIONS_SPEC,
   pinLabelsLeftToRight: opt(arr(str({ maxLength: 40 }), 0, 128)),
   notes: opt(arr(str({ maxLength: 600 }), 0, 32)),
-  ledLayout: opt(LED_LAYOUT_SPEC),
   render: opt(RENDER_SPEC),
   pads: opt(arr(obj({
     label: str({ nonEmpty: true, maxLength: 40 }),
@@ -273,6 +273,10 @@ export function validatePartManifest(value: unknown, origin: ManifestOrigin): Pa
     }
   }
   // Rules across a block's own fields, which the per-field shapes cannot say.
+  if (value.ledOutput !== undefined && !errors.some((error) => error.startsWith('ledOutput'))) {
+    const issue = ledOutputBlockIssue(value.ledOutput)
+    if (issue) errors.push(`ledOutput: ${issue}`)
+  }
   if (value.keypad !== undefined && !errors.some((error) => error.startsWith('keypad'))) {
     const issue = keypadBlockIssue(value.keypad)
     if (issue) errors.push(`keypad: ${issue}`)

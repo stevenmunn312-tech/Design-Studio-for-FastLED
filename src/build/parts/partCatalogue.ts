@@ -43,16 +43,42 @@ export interface PartRenderAsset {
   indicators?: RenderIndicator[]
 }
 
-/** The pixel geometry an LED output's asset was built for. */
-export interface PartLedLayout {
+/**
+ * An LED product: the facts an LED output takes from a named part
+ * (docs/design/led-output-parts.md). The node stays the evaluated truth; these
+ * are stamped into its properties by state/output/ledProduct.ts.
+ */
+export interface PartLedOutputSpec {
   form: 'strip' | 'matrix' | 'ring' | 'hub75'
+  /** One of the app's closed `CHIPSET_OPTIONS`; `HUB75` exactly for the hub75 form. */
+  chipset: string
+  /** The wire order the product ships in; absent for HUB75. */
+  colorOrder?: 'GRB' | 'RGB' | 'BGR' | 'BRG' | 'GBR' | 'RBG'
+  /** The rail the LEDs run from. */
+  supplyVolts: number
+  /** Current one LED draws at full white at `supplyVolts`: the datasheet maximum, never typical. */
+  fullWhiteMa: number
+  /** Centre-to-centre LED spacing; a strip's LEDs per metre is 1000 / pitchMm. Absent for a ring. */
+  pitchMm?: number
+  /** A fixed LED count (a ring, a stick). */
   count?: number
+  /** A cuttable strip's reel length in LEDs, cut in multiples of `cutEvery` (default 1). */
+  maxCount?: number
+  cutEvery?: number
+  /** A fixed grid (matrix, HUB75 panel). */
   width?: number
   height?: number
+  /** How the product is wired inside, when its sources say. */
+  wiring?: {
+    serpentine: boolean
+    startCorner: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+    firstRun: 'horizontal' | 'vertical'
+  }
   diameterMm?: number
-  /** Centre-to-centre LED spacing. 4 mm for a P4 HUB75 panel, 10 mm for a
-   *  WS2812B matrix, 16.7 mm for a 60 LEDs/m strip. */
-  pitchMm?: number
+  /** Clocked chipsets only: the fastest SPI clock the product takes. */
+  maxDataRateMhz?: number
+  /** HUB75 scan: 16 for 1:16, 32 for 1:32 (which wires the E row-select line). */
+  scan?: 16 | 32
 }
 
 /**
@@ -692,7 +718,8 @@ export interface PartCatalogueEntry {
   dimensionsMm: { width: number; height: number }
   pinLabelsLeftToRight?: string[]
   notes?: string[]
-  ledLayout?: PartLedLayout
+  /** Present exactly on LED products (strips, rings, matrices, HUB75 panels). */
+  ledOutput?: PartLedOutputSpec
   /** Present exactly on switching-power relay modules. */
   relay?: PartRelaySpec
   /** Present exactly on DC MOSFET switch modules. */
@@ -1264,10 +1291,10 @@ export function displayResolution(partId: string): { width: number; height: numb
 /** Every catalogued ring, smallest first — the counts that were modelled. */
 export function catalogueRings(): Array<{ count: number; diameterMm: number }> {
   return Object.values(PART_CATALOGUE)
-    .filter((entry) => entry.ledLayout?.form === 'ring' && entry.ledLayout.count)
+    .filter((entry) => entry.ledOutput?.form === 'ring' && entry.ledOutput.count)
     .map((entry) => ({
-      count: entry.ledLayout!.count!,
-      diameterMm: entry.ledLayout!.diameterMm ?? entry.dimensionsMm.width,
+      count: entry.ledOutput!.count!,
+      diameterMm: entry.ledOutput!.diameterMm ?? entry.dimensionsMm.width,
     }))
     .sort((a, b) => a.count - b.count)
 }
