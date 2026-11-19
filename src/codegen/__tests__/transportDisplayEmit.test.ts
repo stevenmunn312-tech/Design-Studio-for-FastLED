@@ -5,7 +5,8 @@ import type { StudioNode, StudioEdge } from '../../state/graphStore'
 import {
   diagnosticsGeometry, transportClockGeometry, transportWaitingGeometry,
 } from '../../state/displays/transportDisplay'
-import { TFT_CONTROLLERS, tftMadctl, tftRotatedSize, tftWindowOrigin } from '../../state/displays/tftSurface'
+import { tftMadctl, tftRotatedSize, tftWindowOrigin } from '../../state/displays/tftSurface'
+import { TFT_CONTROLLERS } from '../../state/displays/__tests__/tftFixtures'
 import { TFT_DISPLAY_CPP_FORWARD } from '../displays/tftDisplayCpp'
 
 const PLAIN = 'st7789-tft-240x240'

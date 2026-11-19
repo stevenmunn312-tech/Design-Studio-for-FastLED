@@ -396,6 +396,15 @@ export const PART_BLOCK_SPECS = {
     channels: int(1, 8),
     inputKind: oneOf('line'),
   }),
+  // A colour TFT module's bench values; the chip's RAM and init sequence stay in code, and the
+  // glass size is the `display` block's. `tftPanelBlockIssue` checks that the glass fits the chip.
+  tftPanel: obj({
+    colorOrder: oneOf('RGB', 'BGR'),
+    mirroredColumns: bool(),
+    invert: bool(),
+    columnOffset: opt(int(0, 8192)),
+    rowOffset: opt(int(0, 8192)),
+  }),
   display: obj({
     controller: str({ nonEmpty: true }),
     resolutionPx: tuple(int(1, 8192), int(1, 8192)),

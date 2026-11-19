@@ -3,7 +3,8 @@ import {
   fixedTransportGeometry, nowPlayingGeometry,
   TRANSPORT_DISPLAY_LAYOUTS, type TransportDisplayLayout,
 } from '../transportDisplay'
-import { TFT_CONTROLLERS, tftRotatedSize, type TftRotation } from '../tftSurface'
+import { tftRotatedSize, type TftRotation } from '../tftSurface'
+import { TFT_CONTROLLERS } from './tftFixtures'
 import {
   DEFAULT_XPT2046_CALIBRATION,
   TOUCH_CALIBRATION_CORNERS,

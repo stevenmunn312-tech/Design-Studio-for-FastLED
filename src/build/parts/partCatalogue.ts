@@ -63,6 +63,25 @@ export interface PartLedLayout {
  * resolution typed into the app is a resolution that can disagree with the
  * panel on the bench, and every fixed layout is computed from it.
  */
+/**
+ * The bench values of a colour TFT module, which the controller chip cannot
+ * state because two modules on one chip differ in them. Carried by the part,
+ * beside its `display` block; the chip's frame memory and init sequence stay in
+ * the app. The glass size is the `display` block's `resolutionPx`.
+ */
+export interface PartTftPanelSpec {
+  /** Subpixel order the panel is wired in (MADCTL bit 3). */
+  colorOrder: 'RGB' | 'BGR'
+  /** Whether the glass scans its columns the other way, inverting MADCTL's column-mirror bit. */
+  mirroredColumns: boolean
+  /** Whether the panel needs INVON to show true colour. */
+  invert: boolean
+  /** First column of frame memory the glass shows at rotation 0; 0 when omitted. */
+  columnOffset?: number
+  /** First row of frame memory the glass shows at rotation 0; 0 when omitted. */
+  rowOffset?: number
+}
+
 export interface PartDisplaySpec {
   /** Exact controller, e.g. `SSD1306`, `ST7789`, `TM1637`. */
   controller: string
@@ -743,6 +762,8 @@ export interface PartCatalogueEntry {
   midiDin?: PartMidiDinSpec
   /** Present exactly on the auxiliary-display parts. */
   display?: PartDisplaySpec
+  /** Present exactly on colour TFT modules, beside `display`. */
+  tftPanel?: PartTftPanelSpec
   /** Present exactly on I2S MEMS microphones. */
   microphone?: PartMicrophoneSpec
   /** Present exactly on I2S line-level ADC boards. */

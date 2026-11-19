@@ -28,6 +28,12 @@ export interface PartTypeDefinition {
    * analog level, with no `lightSensor` calibration).
    */
   blockOptional?: boolean
+  /**
+   * Further blocks the type reads, which a part of the type must carry. Used
+   * when the facts of one part type are split across two blocks, as a colour
+   * TFT's are: the shared `display` block and its own `tftPanel`.
+   */
+  requiredBlocks?: readonly PartBlockKey[]
   /** The block field that names the chip, when the code chooses behaviour by it. */
   deviceField?: 'device' | 'controller'
   /**
@@ -92,9 +98,9 @@ export const PART_TYPES: readonly PartTypeDefinition[] = [
   type({ nodeType: 'IRRemoteInput', block: 'irReceiver', downloadable: true }),
   // Displays
   type({ nodeType: 'InfoDisplay', block: 'display', deviceField: 'controller', devices: ['SSD1306', 'SH1106G'], downloadable: true }),
-  // Closed: `TFT_CONTROLLERS` keeps per-module bench values (invert, colour order, offsets) per chip,
-  // so two modules on one chip cannot differ, and the unresolved-panel `ST7789` fallback is still code.
-  type({ nodeType: 'TransportDisplay', block: 'display', deviceField: 'controller', devices: ['ST7789V', 'ILI9341'] }),
+  // The chips are the ones with a register sequence in `tftInitSequence`; the module's colour order,
+  // scan direction, inversion, window offsets and glass size are its `tftPanel` and `display` blocks.
+  type({ nodeType: 'TransportDisplay', block: 'display', requiredBlocks: ['tftPanel'], deviceField: 'controller', devices: ['ST7789V', 'ILI9341'], downloadable: true }),
   type({ nodeType: 'SegmentDisplay', block: 'display', deviceField: 'controller', devices: ['TM1637', 'MAX7219'], downloadable: true }),
   // Audio. The chips are the ones the type's code can drive: the microphone's
   // FastLED factories and the app's SPH0645 adapter, the PCM1802 receive path, and the

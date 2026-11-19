@@ -118,7 +118,7 @@ OVERLAY_FIELDS = (
     # here, in the repository, and checked against the block spec by the
     # manifest test.
     *("microphone", "lineInput", "i2sAudio", "powerAmp", "sdCard", "rtc", "uartPlayer", "rs485", "midiDin",
-      "motionSensor", "keypad", "irReceiver"),
+      "motionSensor", "keypad", "irReceiver", "tftPanel"),
 )
 # Each overlay-held block maps to the keys it may hold; the app's manifest
 # validator (blockSpecs.ts) checks the values. A part.json that also carries
@@ -136,6 +136,7 @@ OVERLAY_BLOCKS = {
     "motionSensor": ("activeLevel", "holdSeconds", "supplyVolts"),
     "keypad": ("rows", "columns", "legends", "rowLabels", "columnLabels"),
     "irReceiver": ("supplyVolts", "carrierKHz"),
+    "tftPanel": ("colorOrder", "mirroredColumns", "invert", "columnOffset", "rowOffset"),
 }
 OVERLAY_BLOCK_FIELDS = tuple(OVERLAY_BLOCKS)
 OVERLAY_COPY_FIELDS = {"summary": 300, "wiringNote": 600, "hint": 200, "optionLabel": 120}
@@ -424,6 +425,14 @@ def validate_overlay_blocks(part_id: str, overlay: dict) -> None:
                 or not _is_number(block.get("supplyVolts")) or block["supplyVolts"] <= 0
                 or ("carrierKHz" in block and (not _is_number(block["carrierKHz"]) or block["carrierKHz"] <= 0))):
             raise OverlayError(f"{part_id}: irReceiver needs supplyVolts and optional carrierKHz")
+    block = overlay.get("tftPanel")
+    if block is not None:
+        if (not isinstance(block, dict) or not {"colorOrder", "mirroredColumns", "invert"} <= set(block) <= set(OVERLAY_BLOCKS["tftPanel"])
+                or block["colorOrder"] not in ("RGB", "BGR")
+                or not isinstance(block["mirroredColumns"], bool) or not isinstance(block["invert"], bool)
+                or any(key in block and (isinstance(block[key], bool) or not isinstance(block[key], int) or not 0 <= block[key] <= 8192)
+                       for key in ("columnOffset", "rowOffset"))):
+            raise OverlayError(f"{part_id}: tftPanel needs colorOrder (RGB or BGR), mirroredColumns and invert, and optional whole-number columnOffset and rowOffset")
 
 
 def load_overlay(part_id: str):

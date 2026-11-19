@@ -4,7 +4,8 @@ import path from 'node:path'
 import { DISPLAY_TEMPLATES, applyDisplayTemplate, templateComposition } from '../displayTemplates'
 import { createDisplayDocument, displayLayoutIssues } from '../displayEditor'
 import { placedWidgets } from '../displayDocument'
-import { TFT_CONTROLLERS, TFT_ROTATIONS, tftRotatedSize } from '../tftSurface'
+import { TFT_ROTATIONS, tftRotatedSize } from '../tftSurface'
+import { TFT_CONTROLLERS } from './tftFixtures'
 
 /**
  * Every template on every panel a design can be mounted on.

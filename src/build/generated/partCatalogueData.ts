@@ -3331,7 +3331,14 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 3,
-    "supplyRail": "v5"
+    "supplyRail": "v5",
+    "tftPanel": {
+      "colorOrder": "BGR",
+      "mirroredColumns": true,
+      "invert": false,
+      "columnOffset": 0,
+      "rowOffset": 0
+    }
   },
   "ili9341-xpt2046-touch-320x240": {
     "manifestVersion": 1,
@@ -3475,7 +3482,14 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 6,
-    "supplyRail": "v3v3"
+    "supplyRail": "v3v3",
+    "tftPanel": {
+      "colorOrder": "BGR",
+      "mirroredColumns": true,
+      "invert": false,
+      "columnOffset": 0,
+      "rowOffset": 0
+    }
   },
   "ina226-current-sensor-module": {
     "manifestVersion": 1,
@@ -9136,7 +9150,14 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 5.9,
-    "supplyRail": "v3v3"
+    "supplyRail": "v3v3",
+    "tftPanel": {
+      "colorOrder": "RGB",
+      "mirroredColumns": false,
+      "invert": false,
+      "columnOffset": 0,
+      "rowOffset": 0
+    }
   },
   "st7789v-xpt2046-touch-240x320": {
     "manifestVersion": 1,
@@ -9307,7 +9328,14 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 7.2,
-    "supplyRail": "v3v3"
+    "supplyRail": "v3v3",
+    "tftPanel": {
+      "colorOrder": "RGB",
+      "mirroredColumns": false,
+      "invert": false,
+      "columnOffset": 0,
+      "rowOffset": 0
+    }
   },
   "tm1637-4digit-display": {
     "manifestVersion": 1,

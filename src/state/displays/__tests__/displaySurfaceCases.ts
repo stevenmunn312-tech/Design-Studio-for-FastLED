@@ -29,9 +29,9 @@ import {
 import { OLED_CONTROLLERS, getPixel, type OledController, type OledSurface } from '../oledSurface'
 import { THUMBNAIL_BYTES, THUMBNAIL_H, THUMBNAIL_W, type PatternThumbnail } from '../../patterns/patternThumbnail'
 import {
-  TFT_CONTROLLERS, TFT_ROTATIONS, rgb565Components, tftRotatedSize,
-  type TftController, type TftRotation, type TftSurface,
+  TFT_ROTATIONS, rgb565Components, tftRotatedSize, type TftController, type TftRotation, type TftSurface,
 } from '../tftSurface'
+import { TFT_CONTROLLERS } from './tftFixtures'
 import {
   TRANSPORT_DISPLAY_LAYOUTS,
   blankTransportData, renderTransportDisplay,

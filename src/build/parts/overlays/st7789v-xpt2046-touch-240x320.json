@@ -111,5 +111,12 @@
     }
   ],
   "padHoleRadiusPx": 7.2,
-  "supplyRail": "v3v3"
+  "supplyRail": "v3v3",
+  "tftPanel": {
+    "colorOrder": "RGB",
+    "mirroredColumns": false,
+    "invert": false,
+    "columnOffset": 0,
+    "rowOffset": 0
+  }
 }

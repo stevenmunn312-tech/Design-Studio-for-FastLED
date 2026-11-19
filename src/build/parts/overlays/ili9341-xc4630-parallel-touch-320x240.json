@@ -143,5 +143,12 @@
     }
   ],
   "padHoleRadiusPx": 3,
-  "supplyRail": "v5"
+  "supplyRail": "v5",
+  "tftPanel": {
+    "colorOrder": "BGR",
+    "mirroredColumns": true,
+    "invert": false,
+    "columnOffset": 0,
+    "rowOffset": 0
+  }
 }

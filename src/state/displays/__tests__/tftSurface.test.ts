@@ -1,40 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
-  TFT_CONTROLLERS,
-  TFT_ROTATIONS,
-  TFT_BYTES_PER_PIXEL,
-  asTftRotation,
-  tftControllerFor,
-  tftMadctl,
-  tftRotatedSize,
-  tftWindowOrigin,
-  rgb565,
-  rgb565Components,
-  createTftSurface,
-  createTftSurfaceFor,
-  clearTftSurface,
-  clearTftDirty,
-  markTftDirty,
-  tftDirtyPixels,
-  setTftPixel,
-  getTftPixel,
-  fillTftRect,
-  drawTftRect,
-  drawTftText,
-  drawTftField,
-  drawTftBar,
-  tftBarFill,
-  tftTextWidth,
-  tftTextHeight,
-  tftTextCapacity,
-  tftFieldTextX,
-  fitTftText,
-  tftSurfaceBytes,
-  tftSurfaceRows,
-  type TftField,
-  type TftRotation,
-  type TftSurface,
+  TFT_ROTATIONS, TFT_BYTES_PER_PIXEL, asTftRotation, tftChipFor, tftMadctl, tftRotatedSize, tftWindowOrigin, rgb565, rgb565Components, createTftSurface, createTftSurfaceFor, clearTftSurface, clearTftDirty, markTftDirty, tftDirtyPixels, setTftPixel, getTftPixel, fillTftRect, drawTftRect, drawTftText, drawTftField, drawTftBar, tftBarFill, tftTextWidth, tftTextHeight, tftTextCapacity, tftFieldTextX, fitTftText, tftSurfaceBytes, tftSurfaceRows, type TftField, type TftRotation, type TftSurface,
 } from '../tftSurface'
+import { TFT_CONTROLLERS } from './tftFixtures'
 import { DISPLAY_FONT } from '../displayFont'
 
 const { w: FONT_W, h: FONT_H } = DISPLAY_FONT
@@ -70,12 +38,13 @@ describe('controllers', () => {
     expect(st7789v.height).toBe(st7789v.ramHeight)
   })
 
-  // ST7789V starts with ST7789. A shortest-match lookup hands the 240x320
-  // module the 240x240 descriptor and every layout is drawn eighty rows short.
-  it('matches the longest controller name, not the first prefix', () => {
-    expect(tftControllerFor('ST7789V')?.id).toBe('ST7789V')
-    expect(tftControllerFor('ST7789')?.id).toBe('ST7789')
-    expect(tftControllerFor('st7789v')?.id).toBe('ST7789V')
+  // A chip is the silicon only: the 240x240 and 240x320 modules on an ST7789V both
+  // resolve to the one chip, and differ in the part's own glass size.
+  it('names the chip, whatever the case, and has none for a bare ST7789', () => {
+    expect(tftChipFor('ST7789V')?.id).toBe('ST7789V')
+    expect(tftChipFor('st7789v')?.id).toBe('ST7789V')
+    expect(tftChipFor('ILI9341')).toMatchObject({ id: 'ILI9341', ramWidth: 240, ramHeight: 320 })
+    expect(tftChipFor('ST7789')).toBeNull()
   })
 
   it('does not answer for a controller it has no descriptor for', () => {
@@ -83,9 +52,9 @@ describe('controllers', () => {
     // is ST7781: a controller that genuinely ships on some XC4630 revisions
     // under the same silkscreen as the ILI9341 one, and that nothing here can
     // drive. Answering for it would hand a real board the wrong command set.
-    expect(tftControllerFor('ST7781')).toBeNull()
-    expect(tftControllerFor('SH1106')).toBeNull()
-    expect(tftControllerFor(undefined)).toBeNull()
+    expect(tftChipFor('ST7781')).toBeNull()
+    expect(tftChipFor('SH1106')).toBeNull()
+    expect(tftChipFor(undefined)).toBeNull()
   })
 
   // Both IPS modules are wired normally-black: without INVON the panel renders

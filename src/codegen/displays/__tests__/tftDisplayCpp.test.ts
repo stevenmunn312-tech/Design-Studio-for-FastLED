@@ -16,9 +16,9 @@ import { DISPLAY_FONT } from '../../../state/displays/displayFont'
 const { w: FONT_W, h: FONT_H } = DISPLAY_FONT
 const DEFAULT_FONT = DISPLAY_FONT
 import {
-  TFT_CONTROLLERS, TFT_ROTATIONS, tftMadctl, tftRotatedSize, tftWindowOrigin,
-  type TftRotation,
+  TFT_ROTATIONS, tftMadctl, tftRotatedSize, tftWindowOrigin, type TftRotation,
 } from '../../../state/displays/tftSurface'
+import { TFT_CONTROLLERS } from '../../../state/displays/__tests__/tftFixtures'
 import {
   TRANSPORT_COLORS, TRANSPORT_PICTURE_INTERVAL_MS,
   fixedTransportGeometry, nowPlayingGeometry, showStatusGeometry, transportPictureBox,
