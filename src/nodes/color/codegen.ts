@@ -54,7 +54,7 @@ export const COLOR_EMITTERS: NodeEmitters = {
     for (const line of adjustColorCpp(id, v('color'), channelColor('color', r, g, b),
       f('hueShift', 'hueShift', 0), f('saturation', 'saturation', 1), f('brightness', 'brightness', 1))) ln(line)
   },
-  Temperature({ ln, v, f, needsKelvin }) {
+  ColorTemperature({ ln, v, f, needsKelvin }) {
     needsKelvin.v = true
     ln(`  CRGB ${v('color')} = ${colorTemperatureCpp(f('kelvin', 'kelvin', 4000))};`)
   },

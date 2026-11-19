@@ -760,7 +760,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   PaletteFromImage: {
     count: { control: 'slider', min: 2, max: 8, step: 1 },
   },
-  Temperature: {
+  ColorTemperature: {
     kelvin: { control: 'slider', min: COLOR_TEMPERATURE_K.min, max: COLOR_TEMPERATURE_K.max, step: 50 },
   },
   AdjustColor: {
@@ -2974,7 +2974,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     saturation: 'Multiplies the colour strength: 0 is grey, 1 unchanged, above 1 richer, up to pure colour.',
     brightness: 'Multiplies the brightness: 0 is off, 1 unchanged, above 1 brighter, up to full.',
   },
-  Temperature: {
+  ColorTemperature: {
     kelvin: 'Colour temperature of the white in kelvin, as LEDs are sold: lower is warmer. 1800 K is candlelight, 2700 K a warm-white bulb, 4000 K neutral, 6500 K daylight and 9000 K blue sky. A wired value is held to the same range.',
   },
   HeatColor: {
@@ -3827,7 +3827,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     ...COLOR_PAIR_LABELS,
     mixMode: 'mix',
   },
-  Temperature: { kelvin: 'temperature (K)' },
+  ColorTemperature: { kelvin: 'temperature (K)' },
   HueShift: { hueShift: 'hue shift (°)' },
   AdjustColor: { hueShift: 'hue shift (°)', saturation: 'saturation (×)', brightness: 'brightness (×)' },
   // Hue, saturation and brightness read the same on every HSV node; "value"

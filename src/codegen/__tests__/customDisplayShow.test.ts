@@ -222,7 +222,7 @@ describe('custom displays in generative shows', () => {
     const doc = addDisplayWidget(addDisplayWidget(document(), 'Colour Swatch'), 'Pattern Browser')
     const swatch = doc.widgets.find((widget) => widget.type === 'Colour Swatch')!.id
     const browser = doc.widgets.find((widget) => widget.type === 'Pattern Browser')!.id
-    const nodes = [panel('tft', { widgetSources: displayWidgetSources(doc) }), node('temp', 'Temperature')]
+    const nodes = [panel('tft', { widgetSources: displayWidgetSources(doc) }), node('temp', 'ColorTemperature')]
     const edges = [
       edge('temp', 'color', 'tft', `widget:${swatch}:value`),
       edge('show', 'display', 'tft', 'display'),

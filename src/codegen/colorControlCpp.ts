@@ -50,7 +50,7 @@ export interface ColorControlSpec {
 export const COLOR_CONTROL_NODES: Readonly<Record<string, ColorControlSpec>> = {
   Color: { outputs: { color: 'color' }, floats: {}, colors: [] },
   HSVToRGB: { outputs: { color: 'color' }, floats: { h: 0, s: 1, v: 1 }, colors: [] },
-  Temperature: { outputs: { color: 'color' }, floats: { kelvin: 4000 }, colors: [] },
+  ColorTemperature: { outputs: { color: 'color' }, floats: { kelvin: 4000 }, colors: [] },
   HeatColor: { outputs: { color: 'color' }, floats: { heat: 0.5 }, colors: [] },
   HueCycle: { outputs: { color: 'color' }, floats: { rate: 0.1, s: 1, v: 1 }, colors: [], needsTime: true },
   GradientSampler: {
@@ -102,7 +102,7 @@ export function colorControlCpp(
       needsHsv = true
       loop = [`  CRGB ${color} = ${hsvColorCpp(props.hueUnits, floats.h, floats.s, floats.v)};`]
       break
-    case 'Temperature':
+    case 'ColorTemperature':
       needsKelvin = true
       loop = [`  CRGB ${color} = ${colorTemperatureCpp(floats.kelvin)};`]
       break

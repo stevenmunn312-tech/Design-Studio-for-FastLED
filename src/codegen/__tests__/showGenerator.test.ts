@@ -329,7 +329,7 @@ describe('showGenerator', () => {
     const tempGroups: GroupRegistry = {
       gt: {
         nodes: [
-          node('t', 'Temperature', { kelvin: 3000 }, [], [{ id: 'color', dataType: 'color' }]),
+          node('t', 'ColorTemperature', { kelvin: 3000 }, [], [{ id: 'color', dataType: 'color' }]),
           node('sp', 'Circle', {}, [{ id: 'edge', dataType: 'color' }], [{ id: 'frame', dataType: 'frame' }]),
           node('go', 'GroupOutput'),
         ],

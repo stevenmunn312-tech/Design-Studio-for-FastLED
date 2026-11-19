@@ -2801,7 +2801,7 @@ describe('evaluateGraph', () => {
 
   it('Temperature yields warm vs cool white points', () => {
     const colorAt = (kelvin: number) => {
-      const t = node('t', 'Temperature', 'color', { kelvin })
+      const t = node('t', 'ColorTemperature', 'color', { kelvin })
       const sc = node('sc', 'SolidColor', 'pattern', {})
       const out = node('out', 'MatrixOutput', 'output', {})
       const f = evaluateGraph([t, sc, out], [

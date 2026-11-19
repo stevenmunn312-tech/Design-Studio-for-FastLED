@@ -153,7 +153,7 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
   {
     // Black-body white point from a colour temperature in Kelvin, 1800–9000
     // (COLOR_TEMPERATURE_K): lower is warmer, as on a bulb's box.
-    type: 'Temperature',
+    type: 'ColorTemperature',
     label: 'Color Temperature',
     category: 'color',
     subcategory: 'Colors',
@@ -338,7 +338,7 @@ export const COLOR_DESCRIPTIONS: Record<string, string> = {
   HSVToRGB: 'Builds a colour from hue, saturation and brightness; hue in ° or 0–255.',
   RGBToHSV: 'Splits a colour into hue, saturation and brightness.',
   AdjustColor: 'Turns the hue of one colour and scales its saturation and brightness.',
-  Temperature: 'White point from a colour temperature: 1800 K candle to 9000 K sky.',
+  ColorTemperature: 'White point from a colour temperature: 1800 K candle to 9000 K sky.',
   HeatColor: 'FastLED HeatColor — a 0–1 heat value to a fire-ramp colour.',
   PaletteSelector: 'Outputs a named preset palette.',
   CustomPalette: 'Builds a palette from 2–8 colour stops you place along a strip.',

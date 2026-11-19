@@ -49,7 +49,7 @@ function withColourAndPattern(mode: 'show' | 'player', fixture: ReturnType<typeo
       sckPin: 17, mosiPin: 18, csPin: 6, dcPin: 7, resetPin: 21, backlightPin: 1,
       // The Pattern Browser reads the selection inside the Display wire.
       widgetSources: displayWidgetSources(document),
-    }), node('temp', 'Temperature'), node('grad', 'GradientSampler', { mixMode: 'hsvLong' })],
+    }), node('temp', 'ColorTemperature'), node('grad', 'GradientSampler', { mixMode: 'hsvLong' })],
     edges: [...fixture.edges,
       edge('temp', 'color', 'grad', 'colorA'),
       edge('grad', 'color', 'panel', `widget:${swatch}:value`),

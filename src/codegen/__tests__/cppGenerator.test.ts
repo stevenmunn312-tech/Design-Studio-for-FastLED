@@ -2767,7 +2767,7 @@ describe('generateCpp', () => {
   })
 
   it('emits a Color Temperature node with the kelvinToRGB helper', () => {
-    const t = node('t', 'Temperature', 'color', { kelvin: 3000 })
+    const t = node('t', 'ColorTemperature', 'color', { kelvin: 3000 })
     const sp = node('sp', 'Shape', 'pattern', { shape: 'ellipse', cx: 2, cy: 2, size: 2 })
     const cpp = generateCpp([t, sp, outputNode], [
       edge('e1', 't', 'sp', 'color', 'edge'),
@@ -5848,7 +5848,7 @@ describe('Saturation / RGBToHSV (codegen)', () => {
    * themselves sockets.
    */
   it('follows a wire into a gradient end rather than baking the field', () => {
-    const temp = node('tp', 'Temperature', 'color', {})
+    const temp = node('tp', 'ColorTemperature', 'color', {})
     for (const type of ['GradientFrame', 'GradientSampler'] as const) {
       const grad = node('g', type, type === 'GradientFrame' ? 'pattern' : 'color', {
         rA: 10, gA: 20, bA: 30, rB: 200, gB: 210, bB: 220,
