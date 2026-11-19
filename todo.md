@@ -39,7 +39,7 @@ more after the freeze.
 
 ### Save format (part of step 1)
 
-- [ ] Remove the pre-1.0 shims: the `uploadTarget` mirror,
+- [x] Remove the pre-1.0 shims: the `uploadTarget` mirror,
   `RETIRED_PROPERTY_KEYS`, the RTC timezone migration and
   `RETIRED_TARGET_HANDLES`.
 - [x] Settle `hueShift`: one unit and one property name across the nodes
@@ -53,9 +53,9 @@ more after the freeze.
   kept for good. Old saves open through `src/state/preV1Aliases.ts`.
 - [x] Make port ids consistent (`mid` against `mids`, and the others like it).
   Done 2026-11-19; old saves open through `src/state/preV1Aliases.ts`.
-- [ ] Give `#share=` links a format version.
-- [ ] Stop custom-shelf patterns vanishing from a saved workspace.
-- [ ] Keep runtime React Flow fields out of saved files.
+- [x] Give `#share=` links a format version.
+- [x] Stop custom-shelf patterns vanishing from a saved workspace.
+- [x] Keep runtime React Flow fields out of saved files.
 - [x] Build the downloadable-parts client side before the freeze, so v1.0.0
   can gain parts without a release: saves embed signed part manifests, and an
   unknown part or part type is an error, not a fallback. All 40 part types are
