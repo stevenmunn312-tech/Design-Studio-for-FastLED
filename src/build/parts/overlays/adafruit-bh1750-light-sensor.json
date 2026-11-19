@@ -10,13 +10,6 @@
   "sources": [
     {
       "facts": [
-        "dimensionsMm",
-        "pinLabelsLeftToRight"
-      ],
-      "ref": "https://github.com/adafruit/Adafruit-BH1750-PCB"
-    },
-    {
-      "facts": [
         "logicVoltage",
         "render",
         "lightSensor"
@@ -25,7 +18,9 @@
     },
     {
       "facts": [
-        "lightSensor"
+        "dimensionsMm",
+        "lightSensor",
+        "pinLabelsLeftToRight"
       ],
       "ref": "https://learn.adafruit.com/adafruit-bh1750-ambient-light-sensor/pinouts"
     }

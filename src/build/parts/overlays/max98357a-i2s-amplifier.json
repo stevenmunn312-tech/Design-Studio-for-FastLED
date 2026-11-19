@@ -10,24 +10,25 @@
   "sources": [
     {
       "facts": [
-        "pinLabelsLeftToRight",
-        "render",
+        "dimensionsMm",
+        "i2sAudio",
         "notes",
-        "i2sAudio"
+        "pinLabelsLeftToRight",
+        "render"
       ],
       "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/overview"
-    },
-    {
-      "facts": [
-        "dimensionsMm"
-      ],
-      "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/downloads"
     },
     {
       "facts": [
         "notes"
       ],
       "ref": "https://cdn-shop.adafruit.com/product-files/3006/MAX98357A-MAX98357B.pdf"
+    },
+    {
+      "facts": [
+        "render"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/pinouts"
     }
   ],
   "copy": {
@@ -42,40 +43,40 @@
   "pads": [
     {
       "label": "LRC",
-      "xPx": 32,
-      "yPx": 535.7
+      "xPx": 31.5,
+      "yPx": 368.0
     },
     {
       "label": "BCLK",
-      "xPx": 88,
-      "yPx": 535.7
+      "xPx": 87.5,
+      "yPx": 368.0
     },
     {
       "label": "DIN",
-      "xPx": 144,
-      "yPx": 535.7
+      "xPx": 143.5,
+      "yPx": 368.0
     },
     {
       "label": "GAIN",
-      "xPx": 200,
-      "yPx": 535.7
+      "xPx": 199.5,
+      "yPx": 368.0
     },
     {
       "label": "SD",
-      "xPx": 256,
-      "yPx": 535.7
+      "xPx": 255.5,
+      "yPx": 368.0
     },
     {
       "label": "GND",
-      "xPx": 312,
-      "yPx": 535.7
+      "xPx": 311.5,
+      "yPx": 368.0
     },
     {
       "label": "VIN",
-      "xPx": 368,
-      "yPx": 535.7
+      "xPx": 367.5,
+      "yPx": 368.0
     }
   ],
-  "padHoleRadiusPx": 10.5,
+  "padHoleRadiusPx": 8.8,
   "supplyRail": "v5"
 }

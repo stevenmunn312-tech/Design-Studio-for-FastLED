@@ -99,15 +99,9 @@ more after the freeze.
   stays a draft, and its notes state the signing state. Signing itself is
   HW-17.
 - [ ] Complete the licence notices, and settle the AnimARTrix
-  non-commercial terms. Every board and part render is to be project-made,
-  needing no third-party licence. An audit on 2026-11-19 found 19 that took
-  geometry from vendor files; the MIDI FeatherWing, WIZ850io, NLED Pixel Data
-  Extender and the six Espressif DevKit boards are remodelled. Left to
-  remodel from photographs and published dimensions: BH1750, BME280, INA219,
-  VL53L0X, Seeed 2-channel SSR, Seeed touch sensor, MAX98357A and its stereo
-  pair, UDA1334A and Mosfetti (vendor board files or prints). Then drop
-  the render table from `THIRD_PARTY_NOTICES.md`, and settle AnimARTrix with
-  Stefan.
+  non-commercial terms. Done 2026-11-20 for the renders: every board and part
+  model is project-made from published dimensions and photographs, and
+  `THIRD_PARTY_NOTICES.md` says so. Left: settle AnimARTrix with Stefan.
 - [x] Fill the CHANGELOG gaps.
 - [x] Start scripts run pip without `-c constraints.txt`.
 

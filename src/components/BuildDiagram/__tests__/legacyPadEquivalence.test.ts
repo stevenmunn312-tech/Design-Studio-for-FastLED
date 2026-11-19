@@ -27,6 +27,14 @@ import {
  * diagram now wires VCC to 5 V; the pad positions are unchanged.
  */
 const CORRECTED_NET: Record<string, 'v5'> = { 'hc-sr501-pir-sensor': 'v5' }
+/*
+ * Remodelled boards whose render frame changed. The BME280 and MAX98357A were
+ * drawn 25.4 mm tall; measured from Adafruit's photographs they are 19.05 and
+ * 19.1 mm, so their renders (and the MAX98357A stereo pair built from it) are
+ * shorter and their header pads moved. Pad count, rail and ground still match
+ * the record; only the points and hole radius are new.
+ */
+const REMODELLED_FRAME = new Set(['adafruit-bme280-environment-sensor', 'max98357a-i2s-amplifier', 'max98357a-stereo-pair'])
 
 interface LegacyRecord {
   partId: string
@@ -70,8 +78,10 @@ describe('manifest-driven Build Diagram facts match the retired per-part tables'
       const item = itemFor(record)
       const layout = { item, x: 0, y: 0, width: 100, height: 100 }
       expect(peripheralPadCount(item)).toBe(record.count)
-      expect(Array.from({ length: record.count }, (_, index) => peripheralPadPoint(layout, index))).toEqual(record.points)
-      expect(peripheralPadRadius(item)).toBe(record.radius)
+      if (!REMODELLED_FRAME.has(record.partId)) {
+        expect(Array.from({ length: record.count }, (_, index) => peripheralPadPoint(layout, index))).toEqual(record.points)
+        expect(peripheralPadRadius(item)).toBe(record.radius)
+      }
       expect(peripheralPowerNet(item)).toBe(CORRECTED_NET[record.partId] ?? record.net)
       expect(peripheralPowerPadIndex(item)).toBe(record.index)
       expect(peripheralGroundPadIndex(item)).toBe(record.ground)

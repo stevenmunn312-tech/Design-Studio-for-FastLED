@@ -23,7 +23,7 @@ describe('part catalogue', () => {
     // The two the app had guessed wrong. 0.70 x 1.00 inch for the amplifier,
     // per Adafruit's fabrication print; the app had said 17.8 x 13.2 and drew
     // the board at about half its real length.
-    expect(partById('max98357a-i2s-amplifier')!.dimensionsMm).toEqual({ width: 17.78, height: 25.4 })
+    expect(partById('max98357a-i2s-amplifier')!.dimensionsMm).toEqual({ width: 17.78, height: 19.1 })
     expect(partById('inmp441-i2s-microphone')!.dimensionsMm).toEqual({ width: 15, height: 10.5 })
   })
 

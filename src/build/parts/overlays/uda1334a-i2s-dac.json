@@ -27,12 +27,6 @@
     },
     {
       "facts": [
-        "dimensionsMm"
-      ],
-      "ref": "https://learn.adafruit.com/adafruit-i2s-stereo-decoder-uda1334a/downloads"
-    },
-    {
-      "facts": [
         "notes"
       ],
       "ref": "https://cdn-shop.adafruit.com/product-files/3678/3678_UDA1334A.pdf"

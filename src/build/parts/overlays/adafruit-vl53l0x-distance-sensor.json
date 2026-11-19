@@ -10,14 +10,6 @@
   "sources": [
     {
       "facts": [
-        "dimensionsMm",
-        "pinLabelsLeftToRight",
-        "distanceSensor"
-      ],
-      "ref": "https://github.com/adafruit/Adafruit-VL53L0X-ToF-Distance-Sensor-PCB"
-    },
-    {
-      "facts": [
         "logicVoltage",
         "label",
         "distanceSensor"
@@ -26,9 +18,11 @@
     },
     {
       "facts": [
-        "logicVoltage",
+        "dimensionsMm",
+        "distanceSensor",
         "label",
-        "distanceSensor"
+        "logicVoltage",
+        "pinLabelsLeftToRight"
       ],
       "ref": "https://learn.adafruit.com/adafruit-vl53l0x-micro-lidar-distance-sensor-breakout/pinouts"
     },

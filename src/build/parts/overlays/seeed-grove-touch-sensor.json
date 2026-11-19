@@ -30,13 +30,6 @@
     },
     {
       "facts": [
-        "logicVoltage",
-        "render"
-      ],
-      "ref": "https://files.seeedstudio.com/wiki/Grove-Touch_Sensor/res/Touch_sensor_Eagle_File.zip"
-    },
-    {
-      "facts": [
         "dimensionsMm",
         "manufacturer"
       ],

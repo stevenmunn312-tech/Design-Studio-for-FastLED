@@ -655,7 +655,7 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       heightPx: 1347,
       indicators: [
         {
-          rectPx: [189.2, 950.7, 41.4, 20.7],
+          rectPx: [108.3, 934.9, 20.7, 41.4],
           color: [255, 15, 8],
           drive: "power",
         },
@@ -744,7 +744,7 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       heightPx: 1774,
       indicators: [
         {
-          rectPx: [277.8, 612.9, 41.3, 20.7],
+          rectPx: [565.0, 819.7, 20.7, 41.3],
           color: [255, 15, 8],
           drive: "power",
         },
@@ -789,7 +789,7 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       heightPx: 1610,
       indicators: [
         {
-          rectPx: [296.8, 562.0, 24.9, 12.5],
+          rectPx: [579.1, 680.1, 24.9, 12.5],
           color: [255, 15, 8],
           drive: "power",
         },
@@ -952,7 +952,7 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       heightPx: 1610,
       indicators: [
         {
-          rectPx: [296.8, 562.0, 24.9, 12.5],
+          rectPx: [579.1, 680.1, 24.9, 12.5],
           color: [255, 15, 8],
           drive: "power",
         },
@@ -1201,7 +1201,7 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       heightPx: 1924,
       indicators: [
         {
-          rectPx: [248.0, 732.8, 41.3, 20.7],
+          rectPx: [521.6, 886.7, 20.7, 41.3],
           color: [255, 15, 8],
           drive: "power",
         },
@@ -1244,7 +1244,7 @@ export const BOARD_CAPABILITY_DATA: Record<string, BoardCapabilityData> = {
       heightPx: 1924,
       indicators: [
         {
-          rectPx: [248.0, 732.8, 41.3, 20.7],
+          rectPx: [521.6, 886.7, 20.7, 41.3],
           color: [255, 15, 8],
           drive: "power",
         },

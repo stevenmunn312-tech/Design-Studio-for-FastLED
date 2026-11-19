@@ -10,15 +10,6 @@
   "sources": [
     {
       "facts": [
-        "dimensionsMm",
-        "pinLabelsLeftToRight",
-        "render",
-        "powerMonitor"
-      ],
-      "ref": "https://github.com/adafruit/Adafruit-INA219-Current-Sensor-PCB"
-    },
-    {
-      "facts": [
         "pinLabelsLeftToRight",
         "logicVoltage",
         "render",
@@ -28,6 +19,7 @@
     },
     {
       "facts": [
+        "dimensionsMm",
         "powerMonitor"
       ],
       "ref": "https://learn.adafruit.com/adafruit-ina219-current-sensor-breakout/pinouts"

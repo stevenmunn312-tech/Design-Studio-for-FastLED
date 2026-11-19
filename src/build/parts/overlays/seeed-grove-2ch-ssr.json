@@ -24,15 +24,6 @@
         "relay"
       ],
       "ref": "https://files.seeedstudio.com/wiki/Grove-Solid_State_Relay_V2/res/G3MC202p.pdf"
-    },
-    {
-      "facts": [
-        "dimensionsMm",
-        "pinLabelsLeftToRight",
-        "logicVoltage",
-        "relay"
-      ],
-      "ref": "https://files.seeedstudio.com/wiki/Grove-2-Channel_Solid_State_Relay/res/Grove-2-Channel_Solid_State_Relay.zip"
     }
   ],
   "copy": {

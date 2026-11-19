@@ -10,14 +10,6 @@
   "sources": [
     {
       "facts": [
-        "dimensionsMm",
-        "pinLabelsLeftToRight",
-        "render"
-      ],
-      "ref": "https://github.com/adafruit/Adafruit-BME280-Breakout-PCB"
-    },
-    {
-      "facts": [
         "pinLabelsLeftToRight",
         "label",
         "environmentSensor"
@@ -26,9 +18,11 @@
     },
     {
       "facts": [
-        "pinLabelsLeftToRight",
+        "dimensionsMm",
+        "environmentSensor",
         "label",
-        "environmentSensor"
+        "pinLabelsLeftToRight",
+        "render"
       ],
       "ref": "https://learn.adafruit.com/adafruit-bme280-humidity-barometric-pressure-temperature-sensor-breakout/pinouts"
     },
@@ -50,40 +44,40 @@
   "pads": [
     {
       "label": "VIN",
-      "xPx": 49,
-      "yPx": 471
+      "xPx": 36.7,
+      "yPx": 362.2
     },
     {
       "label": "3Vo",
-      "xPx": 99,
-      "yPx": 471
+      "xPx": 90.9,
+      "yPx": 362.2
     },
     {
       "label": "GND",
-      "xPx": 149,
-      "yPx": 471
+      "xPx": 145.2,
+      "yPx": 362.2
     },
     {
       "label": "SCK",
-      "xPx": 200,
-      "yPx": 471
+      "xPx": 199.5,
+      "yPx": 362.2
     },
     {
       "label": "SDO",
-      "xPx": 250,
-      "yPx": 471
+      "xPx": 253.8,
+      "yPx": 362.2
     },
     {
       "label": "SDI",
-      "xPx": 301,
-      "yPx": 471
+      "xPx": 308.1,
+      "yPx": 362.2
     },
     {
       "label": "CS",
-      "xPx": 351,
-      "yPx": 471
+      "xPx": 362.3,
+      "yPx": 362.2
     }
   ],
-  "padHoleRadiusPx": 9.5,
+  "padHoleRadiusPx": 9.4,
   "supplyRail": "v3v3"
 }

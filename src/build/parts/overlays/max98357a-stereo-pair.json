@@ -30,6 +30,12 @@
         "render"
       ],
       "ref": "Existing Design Studio MAX98357A asset (local copy in the asset workspace)"
+    },
+    {
+      "facts": [
+        "render"
+      ],
+      "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/pinouts"
     }
   ],
   "copy": {
@@ -45,75 +51,75 @@
   "pads": [
     {
       "label": "L:LRC",
-      "xPx": 24.2,
-      "yPx": 299.7
+      "xPx": 24.8,
+      "yPx": 207.9
     },
     {
       "label": "L:BCLK",
-      "xPx": 54.8,
-      "yPx": 299.7
+      "xPx": 55.2,
+      "yPx": 207.9
     },
     {
       "label": "L:DIN",
-      "xPx": 85.3,
-      "yPx": 299.7
+      "xPx": 85.8,
+      "yPx": 207.9
     },
     {
       "label": "L:GAIN",
-      "xPx": 115.9,
-      "yPx": 299.7
+      "xPx": 116.2,
+      "yPx": 207.9
     },
     {
       "label": "L:SD",
-      "xPx": 146.4,
-      "yPx": 299.7
+      "xPx": 146.8,
+      "yPx": 207.9
     },
     {
       "label": "L:GND",
-      "xPx": 177,
-      "yPx": 299.7
+      "xPx": 177.2,
+      "yPx": 207.9
     },
     {
       "label": "L:VIN",
-      "xPx": 207.5,
-      "yPx": 299.7
+      "xPx": 207.8,
+      "yPx": 207.9
     },
     {
       "label": "R:LRC",
-      "xPx": 274.1,
-      "yPx": 299.7
+      "xPx": 274.2,
+      "yPx": 207.9
     },
     {
       "label": "R:BCLK",
-      "xPx": 304.7,
-      "yPx": 299.7
+      "xPx": 304.8,
+      "yPx": 207.9
     },
     {
       "label": "R:DIN",
       "xPx": 335.2,
-      "yPx": 299.7
+      "yPx": 207.9
     },
     {
       "label": "R:GAIN",
       "xPx": 365.8,
-      "yPx": 299.7
+      "yPx": 207.9
     },
     {
       "label": "R:SD",
-      "xPx": 396.3,
-      "yPx": 299.7
+      "xPx": 396.2,
+      "yPx": 207.9
     },
     {
       "label": "R:GND",
       "xPx": 426.9,
-      "yPx": 299.7
+      "yPx": 207.9
     },
     {
       "label": "R:VIN",
-      "xPx": 457.4,
-      "yPx": 299.7
+      "xPx": 457.2,
+      "yPx": 207.9
     }
   ],
-  "padHoleRadiusPx": 5.1,
+  "padHoleRadiusPx": 4.5,
   "supplyRail": "v5"
 }

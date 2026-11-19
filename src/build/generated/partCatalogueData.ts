@@ -313,7 +313,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "notes": [
       "Reports 16-bit ambient-light measurements directly in lux over I2C; Studio uses continuous high-resolution mode.",
       "Power VIN from 3.3 V or 5 V. The breakout has its own regulator and bidirectional level shifting, plus 10 kΩ I2C pull-ups.",
-      "The default address is 0x23. Tie ADDR high, or bridge the ADDR jumper, for 0x5C.",
+      "The default address is 0x23. Tie the ADDR pin high for 0x5C.",
       "The six-pin header ships loose and is rendered unpopulated. The two JST-SH sockets provide the same power and I2C bus."
     ],
     "lightSensor": {
@@ -330,23 +330,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       "file": "parts/adafruit-bh1750-light-sensor.webp",
       "widthPx": 400,
       "heightPx": 286,
-      "pxPerMm": 14.961,
-      "indicators": [
-        {
-          "rectPx": [
-            57.5,
-            77.3,
-            11.4,
-            21.2
-          ],
-          "color": [
-            26,
-            255,
-            51
-          ],
-          "drive": "power"
-        }
-      ]
+      "pxPerMm": 14.961
     },
     "revision": 1,
     "partTypes": [
@@ -359,13 +343,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "sources": [
       {
         "facts": [
-          "dimensionsMm",
-          "pinLabelsLeftToRight"
-        ],
-        "ref": "https://github.com/adafruit/Adafruit-BH1750-PCB"
-      },
-      {
-        "facts": [
           "logicVoltage",
           "render",
           "lightSensor"
@@ -374,7 +351,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       },
       {
         "facts": [
-          "lightSensor"
+          "dimensionsMm",
+          "lightSensor",
+          "pinLabelsLeftToRight"
         ],
         "ref": "https://learn.adafruit.com/adafruit-bh1750-ambient-light-sensor/pinouts"
       }
@@ -429,8 +408,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "label": "Adafruit BME280 environment sensor",
     "category": "input-control",
     "dimensionsMm": {
-      "width": 19.05,
-      "height": 25.4
+      "width": 17.78,
+      "height": 19.05
     },
     "manufacturer": "Adafruit (product 2652) / Bosch Sensortec BME280",
     "logicVoltage": "3-5 V VIN; onboard regulator and level shifting make I2C safe at either supply",
@@ -467,24 +446,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "render": {
       "file": "parts/adafruit-bme280-environment-sensor.webp",
       "widthPx": 400,
-      "heightPx": 527,
-      "pxPerMm": 19.948,
-      "indicators": [
-        {
-          "rectPx": [
-            74.2,
-            143.6,
-            15.2,
-            28.3
-          ],
-          "color": [
-            26,
-            255,
-            51
-          ],
-          "drive": "power"
-        }
-      ]
+      "heightPx": 427,
+      "pxPerMm": 21.372
     },
     "revision": 1,
     "partTypes": [
@@ -497,14 +460,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "sources": [
       {
         "facts": [
-          "dimensionsMm",
-          "pinLabelsLeftToRight",
-          "render"
-        ],
-        "ref": "https://github.com/adafruit/Adafruit-BME280-Breakout-PCB"
-      },
-      {
-        "facts": [
           "pinLabelsLeftToRight",
           "label",
           "environmentSensor"
@@ -513,9 +468,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       },
       {
         "facts": [
-          "pinLabelsLeftToRight",
+          "dimensionsMm",
+          "environmentSensor",
           "label",
-          "environmentSensor"
+          "pinLabelsLeftToRight",
+          "render"
         ],
         "ref": "https://learn.adafruit.com/adafruit-bme280-humidity-barometric-pressure-temperature-sensor-breakout/pinouts"
       },
@@ -537,41 +494,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "pads": [
       {
         "label": "VIN",
-        "xPx": 49,
-        "yPx": 471
+        "xPx": 36.7,
+        "yPx": 362.2
       },
       {
         "label": "3Vo",
-        "xPx": 99,
-        "yPx": 471
+        "xPx": 90.9,
+        "yPx": 362.2
       },
       {
         "label": "GND",
-        "xPx": 149,
-        "yPx": 471
+        "xPx": 145.2,
+        "yPx": 362.2
       },
       {
         "label": "SCK",
-        "xPx": 200,
-        "yPx": 471
+        "xPx": 199.5,
+        "yPx": 362.2
       },
       {
         "label": "SDO",
-        "xPx": 250,
-        "yPx": 471
+        "xPx": 253.8,
+        "yPx": 362.2
       },
       {
         "label": "SDI",
-        "xPx": 301,
-        "yPx": 471
+        "xPx": 308.1,
+        "yPx": 362.2
       },
       {
         "label": "CS",
-        "xPx": 351,
-        "yPx": 471
+        "xPx": 362.3,
+        "yPx": 362.2
       }
     ],
-    "padHoleRadiusPx": 9.5,
+    "padHoleRadiusPx": 9.4,
     "supplyRail": "v3v3"
   },
   "adafruit-ina219-current-sensor": {
@@ -621,23 +578,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       "file": "parts/adafruit-ina219-current-sensor.webp",
       "widthPx": 400,
       "heightPx": 324,
-      "pxPerMm": 14.961,
-      "indicators": [
-        {
-          "rectPx": [
-            57.5,
-            87.9,
-            11.4,
-            22.7
-          ],
-          "color": [
-            26,
-            255,
-            51
-          ],
-          "drive": "power"
-        }
-      ]
+      "pxPerMm": 14.961
     },
     "revision": 1,
     "partTypes": [
@@ -650,15 +591,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "sources": [
       {
         "facts": [
-          "dimensionsMm",
-          "pinLabelsLeftToRight",
-          "render",
-          "powerMonitor"
-        ],
-        "ref": "https://github.com/adafruit/Adafruit-INA219-Current-Sensor-PCB"
-      },
-      {
-        "facts": [
           "pinLabelsLeftToRight",
           "logicVoltage",
           "render",
@@ -668,6 +600,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       },
       {
         "facts": [
+          "dimensionsMm",
           "powerMonitor"
         ],
         "ref": "https://learn.adafruit.com/adafruit-ina219-current-sensor-breakout/pinouts"
@@ -1298,7 +1231,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "notes": [
       "Time-of-flight laser distance sensor over I2C: about 30 mm to 1.2 m in the default mode, with 3-12% accuracy depending on light and target.",
       "Power VIN from 3.3 V for an ESP controller so the I2C pull-ups stay in the controller domain. The board has a 2.8 V regulator and level shifting.",
-      "The address is 0x29 at power-up and no jumper changes it. Studio can drive each SHDN pin and assign 0x30 to 0x33 so more than one sensor can share the bus.",
+      "The address is 0x29 and no jumper changes it. Two sensors on one bus need their SHDN (XSHUT) pins driven separately at start-up.",
       "2v8 is the regulator output (up to 100 mA); GPIO is the sensor's interrupt output and has no level shifting. SHDN holds the sensor in reset when pulled low. None of the three is needed for basic readings.",
       "The seven-pin row ships loose and is rendered as unpopulated plated holes."
     ],
@@ -1329,14 +1262,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "sources": [
       {
         "facts": [
-          "dimensionsMm",
-          "pinLabelsLeftToRight",
-          "distanceSensor"
-        ],
-        "ref": "https://github.com/adafruit/Adafruit-VL53L0X-ToF-Distance-Sensor-PCB"
-      },
-      {
-        "facts": [
           "logicVoltage",
           "label",
           "distanceSensor"
@@ -1345,9 +1270,11 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       },
       {
         "facts": [
-          "logicVoltage",
+          "dimensionsMm",
+          "distanceSensor",
           "label",
-          "distanceSensor"
+          "logicVoltage",
+          "pinLabelsLeftToRight"
         ],
         "ref": "https://learn.adafruit.com/adafruit-vl53l0x-micro-lidar-distance-sensor-breakout/pinouts"
       },
@@ -5273,7 +5200,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "category": "amplifier",
     "dimensionsMm": {
       "width": 17.78,
-      "height": 25.4
+      "height": 19.1
     },
     "manufacturer": "generic",
     "logicVoltage": "3.3 V / 5 V logic; 2.7–5.5 V supply",
@@ -5293,7 +5220,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "render": {
       "file": "parts/max98357a-i2s-amplifier.webp",
       "widthPx": 400,
-      "heightPx": 568,
+      "heightPx": 429,
       "pxPerMm": 22.047
     },
     "revision": 1,
@@ -5307,24 +5234,25 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "sources": [
       {
         "facts": [
-          "pinLabelsLeftToRight",
-          "render",
+          "dimensionsMm",
+          "i2sAudio",
           "notes",
-          "i2sAudio"
+          "pinLabelsLeftToRight",
+          "render"
         ],
         "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/overview"
-      },
-      {
-        "facts": [
-          "dimensionsMm"
-        ],
-        "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/downloads"
       },
       {
         "facts": [
           "notes"
         ],
         "ref": "https://cdn-shop.adafruit.com/product-files/3006/MAX98357A-MAX98357B.pdf"
+      },
+      {
+        "facts": [
+          "render"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/pinouts"
       }
     ],
     "copy": {
@@ -5335,41 +5263,41 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "pads": [
       {
         "label": "LRC",
-        "xPx": 32,
-        "yPx": 535.7
+        "xPx": 31.5,
+        "yPx": 368.0
       },
       {
         "label": "BCLK",
-        "xPx": 88,
-        "yPx": 535.7
+        "xPx": 87.5,
+        "yPx": 368.0
       },
       {
         "label": "DIN",
-        "xPx": 144,
-        "yPx": 535.7
+        "xPx": 143.5,
+        "yPx": 368.0
       },
       {
         "label": "GAIN",
-        "xPx": 200,
-        "yPx": 535.7
+        "xPx": 199.5,
+        "yPx": 368.0
       },
       {
         "label": "SD",
-        "xPx": 256,
-        "yPx": 535.7
+        "xPx": 255.5,
+        "yPx": 368.0
       },
       {
         "label": "GND",
-        "xPx": 312,
-        "yPx": 535.7
+        "xPx": 311.5,
+        "yPx": 368.0
       },
       {
         "label": "VIN",
-        "xPx": 368,
-        "yPx": 535.7
+        "xPx": 367.5,
+        "yPx": 368.0
       }
     ],
-    "padHoleRadiusPx": 10.5,
+    "padHoleRadiusPx": 8.8,
     "supplyRail": "v5",
     "i2sAudio": {
       "device": "MAX98357A",
@@ -5383,7 +5311,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "category": "amplifier",
     "dimensionsMm": {
       "width": 38.56,
-      "height": 25.4
+      "height": 19.1
     },
     "manufacturer": "generic / Adafruit breakout form",
     "logicVoltage": "3.3 V / 5 V logic; 2.7-5.5 V supply",
@@ -5412,7 +5340,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "render": {
       "file": "parts/max98357a-stereo-pair.webp",
       "widthPx": 483,
-      "heightPx": 325,
+      "heightPx": 249,
       "pxPerMm": 12.007
     },
     "revision": 1,
@@ -5446,6 +5374,12 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "render"
         ],
         "ref": "Existing Design Studio MAX98357A asset (local copy in the asset workspace)"
+      },
+      {
+        "facts": [
+          "render"
+        ],
+        "ref": "https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/pinouts"
       }
     ],
     "copy": {
@@ -5457,76 +5391,76 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
     "pads": [
       {
         "label": "L:LRC",
-        "xPx": 24.2,
-        "yPx": 299.7
+        "xPx": 24.8,
+        "yPx": 207.9
       },
       {
         "label": "L:BCLK",
-        "xPx": 54.8,
-        "yPx": 299.7
+        "xPx": 55.2,
+        "yPx": 207.9
       },
       {
         "label": "L:DIN",
-        "xPx": 85.3,
-        "yPx": 299.7
+        "xPx": 85.8,
+        "yPx": 207.9
       },
       {
         "label": "L:GAIN",
-        "xPx": 115.9,
-        "yPx": 299.7
+        "xPx": 116.2,
+        "yPx": 207.9
       },
       {
         "label": "L:SD",
-        "xPx": 146.4,
-        "yPx": 299.7
+        "xPx": 146.8,
+        "yPx": 207.9
       },
       {
         "label": "L:GND",
-        "xPx": 177,
-        "yPx": 299.7
+        "xPx": 177.2,
+        "yPx": 207.9
       },
       {
         "label": "L:VIN",
-        "xPx": 207.5,
-        "yPx": 299.7
+        "xPx": 207.8,
+        "yPx": 207.9
       },
       {
         "label": "R:LRC",
-        "xPx": 274.1,
-        "yPx": 299.7
+        "xPx": 274.2,
+        "yPx": 207.9
       },
       {
         "label": "R:BCLK",
-        "xPx": 304.7,
-        "yPx": 299.7
+        "xPx": 304.8,
+        "yPx": 207.9
       },
       {
         "label": "R:DIN",
         "xPx": 335.2,
-        "yPx": 299.7
+        "yPx": 207.9
       },
       {
         "label": "R:GAIN",
         "xPx": 365.8,
-        "yPx": 299.7
+        "yPx": 207.9
       },
       {
         "label": "R:SD",
-        "xPx": 396.3,
-        "yPx": 299.7
+        "xPx": 396.2,
+        "yPx": 207.9
       },
       {
         "label": "R:GND",
         "xPx": 426.9,
-        "yPx": 299.7
+        "yPx": 207.9
       },
       {
         "label": "R:VIN",
-        "xPx": 457.4,
-        "yPx": 299.7
+        "xPx": 457.2,
+        "yPx": 207.9
       }
     ],
-    "padHoleRadiusPx": 5.1,
+    "padHoleRadiusPx": 4.5,
     "supplyRail": "v5",
     "i2sAudio": {
       "device": "MAX98357A",
@@ -6004,8 +5938,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       "indicators": [
         {
           "rectPx": [
-            47.2,
-            561.5,
+            47.3,
+            560.7,
             14.5,
             14.7
           ],
@@ -6018,7 +5952,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         },
         {
           "rectPx": [
-            258.4,
+            262.6,
             208.2,
             14.5,
             14.7
@@ -6033,8 +5967,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         },
         {
           "rectPx": [
-            379.0,
-            208.2,
+            384.7,
+            208.0,
             14.5,
             14.7
           ],
@@ -6048,8 +5982,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         },
         {
           "rectPx": [
-            535.6,
-            208.2,
+            536.0,
+            208.3,
             14.5,
             14.7
           ],
@@ -6063,8 +5997,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         },
         {
           "rectPx": [
-            656.1,
-            208.2,
+            657.4,
+            206.8,
             14.5,
             14.7
           ],
@@ -7989,8 +7923,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       "indicators": [
         {
           "rectPx": [
-            458.6,
-            471.0,
+            460.7,
+            471.2,
             16.2,
             9.6
           ],
@@ -8005,7 +7939,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         {
           "rectPx": [
             200.3,
-            471.0,
+            471.2,
             16.2,
             9.6
           ],
@@ -8044,15 +7978,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "relay"
         ],
         "ref": "https://files.seeedstudio.com/wiki/Grove-Solid_State_Relay_V2/res/G3MC202p.pdf"
-      },
-      {
-        "facts": [
-          "dimensionsMm",
-          "pinLabelsLeftToRight",
-          "logicVoltage",
-          "relay"
-        ],
-        "ref": "https://files.seeedstudio.com/wiki/Grove-2-Channel_Solid_State_Relay/res/Grove-2-Channel_Solid_State_Relay.zip"
       }
     ],
     "copy": {
@@ -8153,13 +8078,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "touchSensor"
         ],
         "ref": "https://wiki.seeedstudio.com/Grove-Touch_Sensor/"
-      },
-      {
-        "facts": [
-          "logicVoltage",
-          "render"
-        ],
-        "ref": "https://files.seeedstudio.com/wiki/Grove-Touch_Sensor/res/Touch_sensor_Eagle_File.zip"
       },
       {
         "facts": [
@@ -9864,12 +9782,6 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
           "notes"
         ],
         "ref": "https://learn.adafruit.com/adafruit-i2s-stereo-decoder-uda1334a/pinouts"
-      },
-      {
-        "facts": [
-          "dimensionsMm"
-        ],
-        "ref": "https://learn.adafruit.com/adafruit-i2s-stereo-decoder-uda1334a/downloads"
       },
       {
         "facts": [
