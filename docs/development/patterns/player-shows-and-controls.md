@@ -224,8 +224,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   LEDs are heading: a step while holding gets the normal transition, a step
   mid-transition cuts (`evalPatternShow`, the show sketch's `selTarget` block
   and the player's `cut`), and a transition names its incoming pattern from
-  its first frame. A pattern Confirm port was removed; `normalizeLoadedGraph`
-  drops saved wires into `patternConfirm` (`RETIRED_TARGET_HANDLES`). The result is published once, as the `selection`
+  its first frame. There is no pattern Confirm port. The result is published once, as the `selection`
   (`PatternSelectValue`) inside the engine's `display` envelope — there is no
   separate selection port; a panel only displays it — it does not decide, and does
   not collect its own wire to the collection. Pattern browsing belongs to
@@ -419,8 +418,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - **A Performance Generator's show is drawn in the main LED preview only.**
   `PerformanceGeneratorBody` owns the audio clock and publishes the show and
   position to `showPlayback.ts`; `applyShowPlaybackSignal` composites it over
-  the evaluated frame. The body has no canvas and no switch for this (the
-  retired `showInMainPreview` property is dropped on load), so a show can
+  the evaluated frame. The body has no canvas and no switch for this, so a show can
   never play in the node while the LED output it names stays black.
 - **Frame nodes after an engine are its post-chain.** A Music Player,
   Performance Generator or Pattern Slideshow may reach its LED output through

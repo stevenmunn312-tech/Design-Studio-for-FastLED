@@ -17,8 +17,8 @@ export interface ProjectUploadTarget {
 /**
  * One upload target per Board node, keyed by the Board's id. The primary
  * board's entry is always under `PRIMARY_UPLOAD_TARGET_KEY`, whatever the
- * primary Board node happens to be called, so the pre-multi-board
- * `uploadTarget` field and this map agree on which entry is "the project's".
+ * primary Board node happens to be called, so every reader agrees on which
+ * entry is "the project's".
  * See docs/design/multi-board.md, "Upload targets".
  */
 export type ProjectUploadTargets = Record<string, ProjectUploadTarget>
@@ -46,15 +46,10 @@ export function sameUploadTarget(a: ProjectUploadTarget | undefined, b: ProjectU
     && a?.flashedLink === b?.flashedLink
 }
 
-/**
- * The two save-shape fields, normalised together: the map is read first and
- * the legacy single target fills the primary's slot when the map has none.
- * `uploadTarget` comes back as the primary's entry, so every reader of the old
- * field still sees the right board.
- */
+/** The saved `uploadTargets` map, with every entry cleaned; absent when none survives. */
 export function normalizeProjectUploadTargets(
-  source: { uploadTarget?: unknown; uploadTargets?: unknown } | null | undefined,
-): { uploadTarget: ProjectUploadTarget | undefined; uploadTargets: ProjectUploadTargets | undefined } {
+  source: { uploadTargets?: unknown } | null | undefined,
+): { uploadTargets: ProjectUploadTargets | undefined } {
   const targets: ProjectUploadTargets = {}
   const raw = source?.uploadTargets
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
@@ -63,11 +58,7 @@ export function normalizeProjectUploadTargets(
       if (boardId && target) targets[boardId] = target
     }
   }
-  const legacy = normalizeUploadTarget(source?.uploadTarget)
-  if (legacy && !targets[PRIMARY_UPLOAD_TARGET_KEY]) targets[PRIMARY_UPLOAD_TARGET_KEY] = legacy
-  const uploadTarget = targets[PRIMARY_UPLOAD_TARGET_KEY]
   return {
-    uploadTarget,
     uploadTargets: Object.keys(targets).length > 0 ? targets : undefined,
   }
 }

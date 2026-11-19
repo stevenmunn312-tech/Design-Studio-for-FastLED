@@ -36,6 +36,5 @@ describe('ProjectsPopup', () => {
 
     const copy = useProjectStore.getState().projects.find((project) => project.name === 'Two boards Copy')
     expect(copy?.uploadTargets).toEqual(uploadTargets)
-    expect(copy?.uploadTarget).toEqual(uploadTargets[PRIMARY_UPLOAD_TARGET_KEY])
   })
 })

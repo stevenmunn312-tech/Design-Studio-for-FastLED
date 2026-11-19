@@ -123,23 +123,17 @@ describe('parseProjectFile — upload targets', () => {
     ...extra,
   })
 
-  it('reads a legacy single uploadTarget as the primary board target', () => {
+  it('does not read the single uploadTarget field the map replaced', () => {
     const { project } = parseProjectFile(file({ uploadTarget: primary }), 'fallback')
-    expect(project.uploadTargets).toEqual({ 'board-root': primary })
-    expect(project.uploadTarget).toEqual(primary)
+    expect(project.uploadTargets).toBeUndefined()
+    expect(serializeProject(project)).not.toContain('uploadTarget')
   })
 
-  it('keeps the per-board map, drops malformed entries and mirrors the primary', () => {
+  it('keeps the per-board map, drops malformed entries', () => {
     const { project } = parseProjectFile(file({
       uploadTargets: { 'board-root': primary, 'board-2': second, 'board-3': { selectedFqbn: 7 } },
     }), 'fallback')
     expect(project.uploadTargets).toEqual({ 'board-root': primary, 'board-2': second })
-    expect(project.uploadTarget).toEqual(primary)
-  })
-
-  it('prefers the map over the legacy field when both name the primary', () => {
-    const { project } = parseProjectFile(file({ uploadTarget: second, uploadTargets: { 'board-root': primary } }), 'fallback')
-    expect(project.uploadTarget).toEqual(primary)
   })
 
   it('round-trips the map through serializeProject', () => {

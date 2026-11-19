@@ -939,30 +939,6 @@ describe('graphStore — loadGraph normalization', () => {
     expect(dataOf('lib').category).toBe('show')
   })
 
-  it('drops a Performance Generator\'s retired main-preview switch on load', () => {
-    // The show plays in the main LED preview and nowhere else now. A save from
-    // when that was a choice may carry the switch turned off; nothing reads
-    // it, and it is not kept to come back as a property row.
-    useGraphStore.getState().loadGraph([node('perf', 'PerformanceGenerator', { showInMainPreview: false, minTime: 12 })], [])
-
-    expect(dataOf('perf').properties).not.toHaveProperty('showInMainPreview')
-    expect(dataOf('perf').properties.minTime).toBe(12)
-  })
-
-  it("drops Juggle's retired Trail value and the wire into it on load", () => {
-    // Juggle's tails come from a Trails node now. A save from before carries
-    // its own Trail, and maybe a wire into that input; neither has anywhere
-    // to go, and the other wires stay.
-    useGraphStore.getState().loadGraph(
-      [node('juggle', 'Juggle', { speed: 0.4, trail: 0.6 }), node('knob', 'Math'), node('count', 'Math')],
-      [edge('trail-wire', 'knob', 'result', 'juggle', 'trail'), edge('count-wire', 'count', 'result', 'juggle', 'count')],
-    )
-
-    expect(dataOf('juggle').properties).not.toHaveProperty('trail')
-    expect(dataOf('juggle').properties.speed).toBe(0.4)
-    expect(useGraphStore.getState().edges.map((e) => e.id)).toEqual(['count-wire'])
-  })
-
   it('does not reinterpret retired pre-v1 node types', () => {
     const animated = node('animated', 'AnimatedImage', { playbackRate: 2 })
     const string = node('string', 'LedStringOutput', { ledCount: 120 })
@@ -1086,17 +1062,6 @@ describe('graphStore — loadGraph normalization', () => {
     expect(dataOf('rtc').properties).toEqual({ timeSource: 'DS3231' })
     expect(dataOf('sd').properties).toEqual({ sdCsPin: 10 })
     expect(dataOf('amp').properties).toEqual({ i2sBclk: 26, i2sLrc: 25, i2sDout: 22 })
-  })
-
-  it('loads a Clock\'s old minute offset as the matching fixed-offset zone', () => {
-    const india = node('india', 'RTCInput', { timeSource: 'NTP', timezoneOffsetMinutes: 330 })
-    const odd = node('odd', 'RTCInput', { timeSource: 'NTP', timezoneOffsetMinutes: 135 })
-    const chosen = node('chosen', 'RTCInput', { timeSource: 'NTP', timezoneOffsetMinutes: 60, timeZone: 'Europe/Paris' })
-    useGraphStore.getState().loadGraph([india, odd, chosen], [])
-
-    expect(dataOf('india').properties).toEqual({ timeSource: 'NTP', timeZone: 'UTC+05:30' })
-    expect(dataOf('odd').properties).toEqual({ timeSource: 'NTP', timeZone: 'UTC+02:15' })
-    expect(dataOf('chosen').properties).toEqual({ timeSource: 'NTP', timeZone: 'Europe/Paris' })
   })
 
   it('does not backfill retired effect property shapes on load', () => {

@@ -55,8 +55,7 @@ gesture in all three tabs.
 ## Upload targets
 
 Each board has its own FQBN and port. The project stores
-`uploadTargets: Record<boardId, { selectedFqbn, selectedPort }>`; the old
-single `uploadTarget` is read as the primary board's. `uploadStore.selectedFqbn`
+`uploadTargets: Record<boardId, { selectedFqbn, selectedPort }>`. `uploadStore.selectedFqbn`
 and `selectedPort` describe the **active** board, and the mirror in `App.tsx`
 that keeps the FQBN in step with the Board node's profile now follows the
 active board. Boards upload one at a time, because the helper runs one build
@@ -144,7 +143,7 @@ grounds between boards are the user's wiring, noted on the sheet, not modelled.
   identity); the primary stays `board-root`.
 - Parts and outputs: optional `boardId` property; absent means primary.
 - Board properties: `clockSync` (default `'off'`).
-- Project: `uploadTargets` map; legacy `uploadTarget` is read as the primary's.
+- Project: `uploadTargets` map; the primary's entry is under `PRIMARY_UPLOAD_TARGET_KEY`.
 
 No pre-1.0 migration: a saved project with one board is unchanged.
 

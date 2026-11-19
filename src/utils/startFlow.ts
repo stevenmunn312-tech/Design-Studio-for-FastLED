@@ -17,6 +17,7 @@ import { uniqueProjectName, useProjectStore, type SavedProject } from '../state/
 import { blankWorkspace, captureWorkspace, hasAuthoredWorkspaceContent } from '../state/workspacePersistence'
 import { nextDefaultProjectName } from './projectFileIO'
 import { runTidy } from './tidyGraph'
+import { PRIMARY_UPLOAD_TARGET_KEY } from '../state/uploadTargets'
 import { nodeBodiesLoading } from './nodeBodyLoading'
 import { insertLiveExample, type LiveExampleResult, type LiveExampleSpec } from './insertLiveExample'
 
@@ -248,6 +249,7 @@ async function beginStartProject(name: string, options?: { carryUploadTarget?: b
   }
   const { projects, currentProjectId } = useProjectStore.getState()
   const current = projects.find((project) => project.id === currentProjectId)
+  const primaryTarget = current?.uploadTargets?.[PRIMARY_UPLOAD_TARGET_KEY]
   const ui = useUiStore.getState()
   let replaces = current?.draft ? current.id : undefined
   if (hasAuthoredWorkspaceContent(useGraphStore.getState())) {
@@ -271,7 +273,8 @@ async function beginStartProject(name: string, options?: { carryUploadTarget?: b
     }
   }
   useProjectStore.getState().createProject(name, blankWorkspace(), {
-    uploadTarget: options?.carryUploadTarget ? current?.uploadTarget : undefined,
+    uploadTargets: options?.carryUploadTarget && primaryTarget
+      ? { [PRIMARY_UPLOAD_TARGET_KEY]: primaryTarget } : undefined,
     draft: true,
     replaces,
   })
