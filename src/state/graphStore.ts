@@ -148,7 +148,6 @@ const isStereoVuRailCountKey = (key: string): boolean =>
   (STEREO_VU_RAIL_COUNT_KEYS as readonly string[]).includes(key)
 import { audioCapabilityIntent, type AudioCapabilityKind } from './audio/audioCapabilities'
 import type { RtcTimeSource } from './peripherals/rtc'
-import { fixedOffsetZoneId } from './peripherals/timeZones'
 import {
   INTEGRATED_BOARD_PROFILE_KEY,
   integratedTouchDisplayForBoard,
@@ -561,14 +560,6 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     // An LED output naming a product gets its part's facts back, so a hand-edited save
     // cannot leave a locked value drifting; a Custom output is untouched.
     if (nodeType === 'MatrixOutput') properties = reconcileLedProduct(properties)
-    // A Clock's fixed minute offset, from before it took a time zone: kept as
-    // the matching fixed-offset zone, so a saved clock reads the same time.
-    if (nodeType === 'RTCInput' && 'timezoneOffsetMinutes' in properties) {
-      if (properties.timeZone === undefined) {
-        properties.timeZone = fixedOffsetZoneId(Number(properties.timezoneOffsetMinutes))
-      }
-      delete properties.timezoneOffsetMinutes
-    }
     // An IR receiver mints one output per learned key, so a damaged or
     // truncated `buttons` list would take live wires down with it. The handles
     // its edges already leave from are passed in as required, which is what

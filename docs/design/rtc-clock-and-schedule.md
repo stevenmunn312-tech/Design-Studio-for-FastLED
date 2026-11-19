@@ -145,8 +145,7 @@ holds to the preview's `posixUtcOffsetSeconds`. The ESP cores hold one zone
 for the whole chip, so Graph Health warns when an ESP board's NTP clocks name
 different zones. The string is resolved from the app's table and parsed again
 before it reaches C++; an id nothing names runs as UTC in both runtimes, with
-a warning. A save from before the picker loads its minute offset as the
-matching fixed-offset zone.
+a warning.
 
 ### Preview mirrors the configured source
 
