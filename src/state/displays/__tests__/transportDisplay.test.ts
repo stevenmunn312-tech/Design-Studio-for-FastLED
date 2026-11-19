@@ -28,9 +28,9 @@ import {
   type TransportShowStatusData,
 } from '../transportDisplay'
 import {
-  TFT_CONTROLLERS, TFT_ROTATIONS, createTftSurface, clearTftSurface, getTftPixel, rgb565,
-  fitTftText, tftRotatedSize, tftTextWidth, type TftRect, type TftSurface,
+  TFT_ROTATIONS, createTftSurface, clearTftSurface, getTftPixel, rgb565, fitTftText, tftRotatedSize, tftTextWidth, type TftRect, type TftSurface,
 } from '../tftSurface'
+import { TFT_CONTROLLERS } from './tftFixtures'
 import { DISPLAY_WAITING_TEXT } from '../displaySignal'
 
 const st7789 = TFT_CONTROLLERS.ST7789

@@ -40,7 +40,7 @@ import { PATTERN_SLIDESHOW_ORDERS } from './patterns/patternSlideshow'
 import { MUSIC_PLAYER_SOURCES } from './upload/buildMode'
 import { OLED_ROTATIONS, OLED_TRANSPORT_PINS, OLED_I2C_ADDRESS_OPTIONS, oledControllerFor, oledTransportFor, type OledController, type OledTransport } from './displays/oledSurface'
 import {
-  tftControllerFor, tftTransportFor, TFT_TRANSPORT_PINS, PARALLEL_TOUCH_ANALOG_PIN_KEYS,
+  tftControllerForPanel, tftTransportFor, TFT_TRANSPORT_PINS, PARALLEL_TOUCH_ANALOG_PIN_KEYS,
   type TftController,
 } from './displays/tftSurface'
 import { JUGGLE_COUNT } from '../nodes/generative/juggle'
@@ -5181,30 +5181,23 @@ export function tftControllerForProps(properties: Record<string, unknown>): TftC
   // controller, and no other panel's is substituted: such a node is held
   // (`build/parts/partResolution.ts`) and every reader treats it as unresolved.
   const entry = partById(partIdOrDefault(properties.partId, DEFAULT_TRANSPORT_DISPLAY_PART_ID))
-  const base = tftControllerFor(entry?.display?.controller)
-  if (!base) return null
-  // Which silicon is behind the glass and how large the glass itself is are
-  // two different facts: an ST7789V drives a 240x320 touch module and, on
-  // this square 1.54-inch module, a 240x240 one windowed into the same
-  // 240x320 RAM the base descriptor already states — the same relationship
-  // the OLED's columnOffset expresses for narrower glass on wider RAM. Panel
-  // size comes from the catalogue's own resolutionPx when it disagrees with
-  // the controller-name default, rather than baking one panel size per chip
-  // name and forcing every module on that chip to share it.
-  //
-  // The catalogue states a resolution the way its render faces, and both
-  // ILI9341 modules are rendered landscape, while a descriptor is native
-  // portrait. Copied across as stated, 320x240 became the controller's
-  // native size: rotation 0 then addressed 320 columns of a controller with
-  // 240 in that scan, and every rotation's window origin went eighty pixels
-  // negative. The short side is the native width whichever way it is stated.
-  const resolution = entry?.display?.resolutionPx
-  if (!resolution) return base
-  const width = Math.min(resolution[0], resolution[1])
-  const height = Math.max(resolution[0], resolution[1])
-  if (width === base.width && height === base.height) return base
-  return { ...base, width, height }
+  if (!entry) return null
+  // Which silicon is behind the glass is code (the chip's RAM and init
+  // sequence); the glass size, subpixel order, scan direction, inversion and
+  // window offsets are the part's own facts, read from its `display` and
+  // `tftPanel` blocks. A part without the latter has no descriptor and is held.
+  const cached = TFT_DESCRIPTORS.get(entry)
+  if (cached !== undefined) return cached
+  const { display, tftPanel } = entry
+  const descriptor = display && tftPanel
+    ? tftControllerForPanel(display.controller, display.resolutionPx, tftPanel)
+    : null
+  TFT_DESCRIPTORS.set(entry, descriptor)
+  return descriptor
 }
+
+/** Resolved descriptors by catalogue entry, so a part always resolves to the same object. */
+const TFT_DESCRIPTORS = new WeakMap<object, TftController | null>()
 
 /**
  * `tftControllerForProps` for the code that builds firmware, which only ever

@@ -12,6 +12,7 @@
 import type { PartCatalogueEntry } from '../partCatalogue'
 import { partTypeById, partTypeDrivesDevice, type PartTypeDefinition } from '../partTypes'
 import { keypadBlockIssue } from './keypadBlock'
+import { tftPanelBlockIssue } from './tftPanelBlock'
 import { DIMENSIONS_SPEC, LED_LAYOUT_SPEC, PART_BLOCK_KEYS, PART_BLOCK_SPECS, RENDER_SPEC } from './blockSpecs'
 import { arr, checkField, int, num, obj, opt, str, type FieldSpec } from './fieldSpec'
 import {
@@ -268,6 +269,11 @@ export function validatePartManifest(value: unknown, origin: ManifestOrigin): Pa
     const issue = keypadBlockIssue(value.keypad)
     if (issue) errors.push(`keypad: ${issue}`)
   }
+  if (value.tftPanel !== undefined && value.display !== undefined
+    && !errors.some((error) => error.startsWith('tftPanel') || error.startsWith('display'))) {
+    const issue = tftPanelBlockIssue(value.display, value.tftPanel)
+    if (issue) errors.push(`tftPanel: ${issue}`)
+  }
 
   const typeIds = value.partTypes
   const usableTypes: PartTypeDefinition[] = []
@@ -282,6 +288,11 @@ export function validatePartManifest(value: unknown, origin: ManifestOrigin): Pa
       }
       if (definition.block && !definition.blockOptional && value[definition.block] === undefined) {
         errors.push(`${definition.block}: required by part type ${definition.nodeType}`)
+        continue
+      }
+      const missing = (definition.requiredBlocks ?? []).filter((key) => value[key] === undefined)
+      if (missing.length > 0) {
+        for (const key of missing) errors.push(`${key}: required by part type ${definition.nodeType}`)
         continue
       }
       if (origin === 'downloaded' && !definition.downloadable) {

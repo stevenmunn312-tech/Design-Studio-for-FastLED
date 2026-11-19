@@ -87,5 +87,12 @@
     }
   ],
   "padHoleRadiusPx": 6,
-  "supplyRail": "v3v3"
+  "supplyRail": "v3v3",
+  "tftPanel": {
+    "colorOrder": "BGR",
+    "mirroredColumns": true,
+    "invert": false,
+    "columnOffset": 0,
+    "rowOffset": 0
+  }
 }

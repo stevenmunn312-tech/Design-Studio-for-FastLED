@@ -11,9 +11,9 @@
 
 import { describe, it, expect } from 'vitest'
 import {
-  TFT_CONTROLLERS, TFT_TRANSPORTS, TFT_ROTATIONS, tftControllerFor, tftTransportFor,
-  tftMadctl, tftRotatedSize, tftWindowOrigin,
+  TFT_TRANSPORTS, TFT_ROTATIONS, tftChipFor, tftTransportFor, tftMadctl, tftRotatedSize, tftWindowOrigin,
 } from '../tftSurface'
+import { TFT_CONTROLLERS } from './tftFixtures'
 import { tftControllerForProps } from '../../nodeLibrary'
 import { catalogueDisplays, partById } from '../../../build/parts/partCatalogue'
 
@@ -55,7 +55,7 @@ describe('tftTransportFor', () => {
 
   it('answers with a declared transport for every catalogued colour panel', () => {
     const colour = catalogueDisplays().filter(
-      (entry) => tftControllerFor(entry.display?.controller) !== null,
+      (entry) => tftChipFor(entry.display?.controller) !== null,
     )
     expect(colour.length).toBeGreaterThanOrEqual(4)
     for (const entry of colour) {
@@ -82,10 +82,8 @@ describe('the ILI9341 descriptor', () => {
   })
 
   it('resolves by name without colliding with the ST7789s', () => {
-    expect(tftControllerFor('ILI9341')?.id).toBe('ILI9341')
-    expect(tftControllerFor('ST7789')?.id).toBe('ST7789')
-    // Longest-match-first still holds with a third entry in the table.
-    expect(tftControllerFor('ST7789V')?.id).toBe('ST7789V')
+    expect(tftChipFor('ILI9341')?.id).toBe('ILI9341')
+    expect(tftChipFor('ST7789V')?.id).toBe('ST7789V')
   })
 
   it('states native portrait geometry, as the descriptor contract requires', () => {
@@ -112,7 +110,7 @@ describe('the ILI9341 descriptor', () => {
     // a controller is not a transport, and the pair proves the two axes are
     // genuinely independent.
     for (const partId of [DFROBOT, XC4630]) {
-      expect(tftControllerFor(partById(partId)?.display?.controller)?.id, partId)
+      expect(tftChipFor(partById(partId)?.display?.controller)?.id, partId)
         .toBe('ILI9341')
     }
     expect(tftTransportFor(partById(DFROBOT)?.display?.interface))

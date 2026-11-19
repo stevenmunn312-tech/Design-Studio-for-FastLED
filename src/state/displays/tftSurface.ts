@@ -87,49 +87,45 @@ export interface TftController {
 }
 
 /**
- * The catalogued colour controllers.
+ * A colour controller chip: the silicon, and nothing about any module built
+ * around it.
  *
- * The two ST7789s share everything: the 2.4-inch module turned out to be an
- * ST7789V rather than the ILI9341 its form factor suggests, so one driver
- * covered both and the descriptors differ only in size and inversion.
+ * `ramWidth`/`ramHeight` are the frame memory every panel on this chip is
+ * windowed into. The visible glass size, the subpixel order, the scan
+ * direction, the inversion polarity and the window offsets are facts about the
+ * fitted module, not the chip, so they are not here: a part states them in its
+ * manifest's `tftPanel` block and `tftControllerForPanel` joins the two.
  *
- * The ILI9341 is the first that does not. It differs on both fields a panel
- * can silently get wrong - subpixel order and inversion polarity - and one of
- * its two catalogued modules speaks 8-bit parallel rather than SPI, which is a
- * fact about the *module* and so is derived by `tftTransportFor` below rather
- * than stated here. A controller is not a transport.
- *
- * Its `invert: false` is taken from the datasheet's power-on state, not from a
- * bench run, and `invert` is documented above as a per-module bench value. If a
- * built panel comes up as a photographic negative, that field is the first
- * thing to try.
+ * The init sequences in `tftInitSequence.ts` and the MADCTL tables below are
+ * the other chip-level facts, and stay in code.
  */
-export const TFT_CONTROLLERS: Record<string, TftController> = {
-  ST7789: {
-    id: 'ST7789', width: 240, height: 240, ramWidth: 240, ramHeight: 320,
-    columnOffset: 0, rowOffset: 0, colorOrder: 'RGB', mirroredColumns: false, invert: true,
-  },
-  ST7789V: {
-    id: 'ST7789V', width: 240, height: 320, ramWidth: 240, ramHeight: 320,
-    columnOffset: 0, rowOffset: 0, colorOrder: 'RGB', mirroredColumns: false, invert: false,
-  },
-  /*
-   * Native portrait 240x320, as the descriptor contract requires. The two
-   * catalogued ILI9341 modules both state a landscape 320x240 resolution;
-   * that is the same glass on its side, which `tftControllerForProps` reads
-   * as these figures rather than as a different panel.
-   *
-   * BGR, mirrored columns and no inversion are where it parts company with the
-   * ST7789s above. The ILI9341 wires its subpixels the other way round, so
-   * MADCTL bit 3 has to be set or every panel shows a plausible picture with
-   * red and blue swapped; it scans columns the other way, so the picture is
-   * mirrored without MX; and unlike the ST7789 it powers up already the right
-   * way round, so driving INVON would produce a photographic negative.
-   */
-  ILI9341: {
-    id: 'ILI9341', width: 240, height: 320, ramWidth: 240, ramHeight: 320,
-    columnOffset: 0, rowOffset: 0, colorOrder: 'BGR', mirroredColumns: true, invert: false,
-  },
+export interface TftChip {
+  id: string
+  ramWidth: number
+  ramHeight: number
+}
+
+export const TFT_CHIPS: Record<string, TftChip> = {
+  ST7789V: { id: 'ST7789V', ramWidth: 240, ramHeight: 320 },
+  ILI9341: { id: 'ILI9341', ramWidth: 240, ramHeight: 320 },
+}
+
+/**
+ * The per-module bench values of a colour panel, as a part's manifest states
+ * them (`tftPanel`).
+ *
+ * The ILI9341 differs from the ST7789V on subpixel order and column scan, and
+ * `invert` is a property of the fitted glass: the 1.54-inch 240x240 module and
+ * the 2.4-inch 240x320 one share a chip and both need it off, but a module that
+ * comes up as a photographic negative is fixed in its manifest, not in code.
+ * The offsets place the visible glass inside frame memory at rotation 0.
+ */
+export interface TftPanelFacts {
+  colorOrder: 'RGB' | 'BGR'
+  mirroredColumns: boolean
+  invert: boolean
+  columnOffset?: number
+  rowOffset?: number
 }
 
 /** How a panel's controller is wired to the board. */
@@ -219,20 +215,50 @@ export const PARALLEL_TOUCH_ANALOG_PIN_KEYS: readonly string[] = [
 ]
 
 /**
- * The controller a catalogued part drives, by its declared controller string.
+ * The chip a catalogued part drives, by its declared controller string.
  *
- * Longest name first, which is not a stylistic preference: `ST7789V` starts
- * with `ST7789`, so a shortest-match lookup silently hands the 240x320 module
- * the 240x240 descriptor and every layout below it is drawn eighty rows short.
+ * Longest name first, which is not a stylistic preference: a name that starts
+ * with another must not be taken for the shorter one.
  */
-export function tftControllerFor(controller: string | undefined): TftController | null {
+export function tftChipFor(controller: string | undefined): TftChip | null {
   if (!controller) return null
   const upper = controller.toUpperCase()
-  const keys = Object.keys(TFT_CONTROLLERS).sort((a, b) => b.length - a.length)
+  const keys = Object.keys(TFT_CHIPS).sort((a, b) => b.length - a.length)
   for (const key of keys) {
-    if (upper.startsWith(key)) return TFT_CONTROLLERS[key]
+    if (upper.startsWith(key)) return TFT_CHIPS[key]
   }
   return null
+}
+
+/**
+ * The descriptor a part's panel is: its chip, joined with the module's own
+ * facts, at the glass size its catalogue entry states.
+ *
+ * The catalogue states a resolution the way its render faces, and the ILI9341
+ * modules are rendered landscape, while a descriptor is native portrait. The
+ * short side is the native width whichever way it is stated; read as stated,
+ * rotation 0 would address 320 columns of a controller with 240 in that scan and
+ * every window origin would go eighty pixels negative.
+ */
+export function tftControllerForPanel(
+  controller: string | undefined,
+  resolutionPx: readonly [number, number],
+  panel: TftPanelFacts,
+): TftController | null {
+  const chip = tftChipFor(controller)
+  if (!chip) return null
+  return {
+    id: chip.id,
+    width: Math.min(resolutionPx[0], resolutionPx[1]),
+    height: Math.max(resolutionPx[0], resolutionPx[1]),
+    ramWidth: chip.ramWidth,
+    ramHeight: chip.ramHeight,
+    columnOffset: panel.columnOffset ?? 0,
+    rowOffset: panel.rowOffset ?? 0,
+    colorOrder: panel.colorOrder,
+    mirroredColumns: panel.mirroredColumns,
+    invert: panel.invert,
+  }
 }
 
 /**

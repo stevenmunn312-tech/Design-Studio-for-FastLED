@@ -5,7 +5,8 @@ import {
 } from '../touchCalibrationSketch'
 import { CYD_TOUCH_DISPLAY } from '../../../build/boards/integratedBoardHardware'
 import { tftControllerForProps } from '../../../state/nodeLibrary'
-import { asTftRotation, TFT_CONTROLLERS } from '../../../state/displays/tftSurface'
+import { asTftRotation } from '../../../state/displays/tftSurface'
+import { TFT_CONTROLLERS } from '../../../state/displays/__tests__/tftFixtures'
 import { NO_PIN } from '../../../build/boards/boardGpio'
 
 const CYD = CYD_TOUCH_DISPLAY.panelProperties
