@@ -20,6 +20,26 @@ describe('inlineSvgImages', () => {
     expect(fetchMock).toHaveBeenCalledWith(new URL('/assets/esp32-s3-devkitc-1.png', window.location.href))
     expect(image.getAttribute('href')).toMatch(/^data:image\/png;base64,/)
   })
+
+  it('embeds a downloaded part picture (a blob: URL) so the SVG stands alone', async () => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    const image = document.createElementNS('http://www.w3.org/2000/svg', 'image')
+    const blobUrl = 'blob:http://localhost:3000/5a1b7c2e-0f4d-4c1e-9d55-aa00bb11cc22'
+    image.setAttribute('href', blobUrl)
+    svg.append(image)
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      blob: async () => new Blob(['verified-webp'], { type: 'image/webp' }),
+    } as Response)
+
+    await inlineSvgImages(svg)
+
+    // `new URL(blob:..., base)` keeps the blob URL whole, so the fetch reads the verified bytes.
+    expect(String(fetchMock.mock.calls[0][0])).toBe(blobUrl)
+    expect(image.getAttribute('href')).toMatch(/^data:image\/webp;base64,/)
+    expect(svg.outerHTML).not.toContain('blob:')
+  })
 })
 
 describe('appendSafetyBand', () => {
