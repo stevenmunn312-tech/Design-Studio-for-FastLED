@@ -585,17 +585,17 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
 
   KeypadInput: {
     overview: [
-      'Keypad reads a 4×4 membrane keypad over eight GPIOs: four rows and four columns. Key is the last key pressed, numbered 0 to 15 row by row (1 2 3 A, 4 5 6 B, 7 8 9 C, * 0 # D), and Pressed is true while any key is down.',
+      'Keypad reads a matrix keypad, with one GPIO per row and one per column. The keypad you pick sets how many: the largest is 4×4, which takes eight. Key is the last key pressed, numbered from 0 row by row from the top left, and Pressed is true while any key is down. The Parts list below shows each keypad layout and its legends.',
       'Key holds its value after release, so it works as a selector: pick a pattern, a palette or a level by number. Digit is the last number key pressed, read as the number printed on it, so the key marked 0 is 0 rather than 13 and the letter keys leave it alone. For one key on its own, choose more outputs on the node: each key has an output that is true while it is held.',
       'The keypad is passive — no power, no ground — and rows use the internal pull-up, so avoid input-only pins for them.',
       'In the preview, click the keys drawn on the node.',
     ],
     steps: [
       'Add the keypad from the Hardware tab.',
-      'Wire its eight pins R1–R4 and C1–C4 to the GPIOs shown.',
+      'Wire its row pins (R1, R2 and so on) and column pins (C1, C2 and so on) to the GPIOs shown.',
     ],
     outputs: {
-      key: 'The last key pressed, 0 to 15, row by row from the top left. Held after release.',
+      key: 'The last key pressed, counted from 0 row by row from the top left. Held after release.',
       pressed: 'True while any key is held.',
       digit: 'The last number key pressed, 0 to 9, as printed on it. Held after release; the letter keys, * and # leave it alone.',
       ...KEY_OUTPUTS,
@@ -611,7 +611,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
         scope: ['Mirror', { mirrorMode: 'radial' }],
       },
       wires: ['keypad.key > mirrors.value', 'mirrors.result > scope.segments', 'plasma.frame > scope.frame'],
-      explanation: 'Keypad reports the last key pressed. Map Range turns keys 0 to 15 into 2 to 16 mirror wedges, and Mirror’s Radial fold folds a Plasma into that many segments.',
+      explanation: 'Keypad reports the last key pressed. On the default 4×4 keypad, Map Range turns keys 0 to 15 into 2 to 16 mirror wedges, and Mirror’s Radial fold folds a Plasma into that many segments.',
       preview: 'The {output} starts as a simple two-way mirror. Click keys on the Keypad node: further along the keypad, the more segments the kaleidoscope gets.',
     }),
   },

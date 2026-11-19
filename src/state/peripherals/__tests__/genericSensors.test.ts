@@ -5,7 +5,7 @@ import { controlInputCpp } from '../../../codegen/controlInputCpp'
 import { sensorInputPartEntries } from '../../../components/Hardware/hardwarePartCatalog'
 import { peripheralPowerNet } from '../../../components/BuildDiagram/physicalDiagramLayout'
 import { outputSignalRange } from '../../../nodes/shared/signalRange'
-import { findDeployBlockingErrors, validateGraph } from '../../../utils/validateGraph'
+import { buildGraphDiagnostics, findDeployBlockingErrors, validateGraph } from '../../../utils/validateGraph'
 import type { StudioEdge, StudioNode } from '../../graphStore'
 import { evaluateGraphFull } from '../../graphEvaluator'
 import { useHardwareInputStore } from '../hardwareInputStore'
@@ -400,5 +400,38 @@ describe('shelf and options', () => {
       nodeType: 'AnalogSensorInput', signalPort: 'value', dataType: 'float',
       pinRequests: [{ key: 'pin', capability: 'analogInput' }],
     })
+  })
+})
+
+describe('analog sensor range against the board', () => {
+  const FIVE_V_ID = 'test-5v-analog'
+  beforeAll(() => {
+    PART_CATALOGUE[FIVE_V_ID] = {
+      partId: FIVE_V_ID, label: 'Test 5 V analog', dimensionsMm: { width: 20, height: 20 },
+      analogSensor: {
+        unit: '%', supplyVolts: 5, adcRange: { minVolts: 0, maxVolts: 5 },
+        curve: [{ volts: 0, value: 0 }, { volts: 5, value: 100 }], outputMin: 0, outputMax: 100,
+      },
+    }
+  })
+  afterAll(() => { delete PART_CATALOGUE[FIVE_V_ID] })
+
+  const issues = (partId: string, fqbn: string) => {
+    const graph = sensorGraph(analog(partId), 'value')
+    return buildGraphDiagnostics(graph.nodes, graph.edges, { selectedFqbn: fqbn }).filter((d) => d.id.endsWith('-adc-range'))
+  }
+
+  it('warns, without blocking, when a 5 V output meets a 3.3 V board', () => {
+    const found = issues(FIVE_V_ID, 'esp32:esp32:esp32')
+    expect(found).toHaveLength(1)
+    expect(found[0]).toMatchObject({ severity: 'warning', propertyKey: 'pin' })
+    expect(found[0].fix).toMatch(/divider/)
+    const graph = sensorGraph(analog(FIVE_V_ID), 'value')
+    expect(findDeployBlockingErrors(graph.nodes, graph.edges, 'esp32:esp32:esp32')).toEqual([])
+  })
+
+  it('stays quiet for a 3.3 V part, and for a 5 V board', () => {
+    expect(issues(TEST_SOIL_ID, 'esp32:esp32:esp32')).toEqual([])
+    expect(issues(FIVE_V_ID, 'arduino:avr:uno')).toEqual([])
   })
 })

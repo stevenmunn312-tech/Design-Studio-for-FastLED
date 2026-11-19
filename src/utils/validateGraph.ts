@@ -3386,6 +3386,38 @@ function i2cBusValidationIssues(nodes: StudioNode[]): GraphDiagnostic[] {
   return issues
 }
 
+/**
+ * A 3.3 V controller's ADC reference. A sensor that can swing above it, such as
+ * a 5 V module, would clip or stress the pin (an ESP32 reads cleanly only up to
+ * about 3.1 V with attenuation, so even a full 3.3 V output is near the limit).
+ */
+const ADC_REFERENCE_VOLTS_3V3 = 3.3
+
+/**
+ * An analog sensor whose output can go above what a 3.3 V board's ADC accepts.
+ * A warning, not a blocker: a divider or a 3.3 V supply fixes it, and the part
+ * may already be wired that way. 5 V families (AVR, Uno R4) and an unknown
+ * board are left alone, since the reference there is not known to be lower.
+ */
+function analogSensorRangeIssues(nodes: StudioNode[], fqbn: string): GraphDiagnostic[] {
+  const family = boardFamily(nodes, fqbn)
+  if (family === 'avr' || family === 'renesas' || family === 'unknown') return []
+  const issues: GraphDiagnostic[] = []
+  for (const sensor of nodes.filter((node) => node.data.nodeType === ANALOG_SENSOR_NODE_TYPE)) {
+    const props = sensor.data.properties as Record<string, unknown>
+    const spec = analogSensorSpec(props.partId)
+    if (!spec || spec.adcRange.maxVolts <= ADC_REFERENCE_VOLTS_3V3) continue
+    issues.push({
+      id: `${sensor.id}-adc-range`, severity: 'warning', category: 'pins',
+      title: 'Analog sensor can output more than the pin accepts',
+      message: `${nodeLabel(sensor)} can output up to ${spec.adcRange.maxVolts} V, but this board's analog pins accept ${ADC_REFERENCE_VOLTS_3V3} V at most. A reading above that clips, and a higher voltage can damage the pin.`,
+      fix: 'Power the module from 3.3 V if it allows it, or put a voltage divider (for example 10 kΩ and 20 kΩ) between its output and the pin.',
+      nodeIds: [sensor.id], nodeLabel: nodeLabel(sensor), propertyKey: 'pin',
+    })
+  }
+  return issues
+}
+
 export function findI2cBusErrors(nodes: StudioNode[]): string[] {
   return i2cBusValidationIssues(nodes).map(validationIssueMessage)
 }
@@ -4501,6 +4533,7 @@ export function buildGraphDiagnostics(
   diagnostics.push(...collectedDinMidiValidationIssues(nodes, edges, options.groups))
   diagnostics.push(...webRemoteValidationIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...i2cBusValidationIssues(nodes))
+  diagnostics.push(...analogSensorRangeIssues(nodes, options.selectedFqbn ?? ''))
   diagnostics.push(...stepValueValidationIssues(nodes))
   diagnostics.push(...audioChainValidationIssues(nodes))
   diagnostics.push(...powerAmplifierFeedIssues(nodes, edges))
