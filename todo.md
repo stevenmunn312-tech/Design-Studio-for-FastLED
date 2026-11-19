@@ -100,10 +100,11 @@ more after the freeze.
   only a tag with a pre-release suffix is marked a pre-release, the release
   stays a draft, and its notes state the signing state. Signing itself is
   HW-17.
-- [ ] Complete the licence notices, and settle the AnimARTrix
+- [x] Complete the licence notices, and settle the AnimARTrix
   non-commercial terms. Done 2026-11-20 for the renders: every board and part
   model is project-made from published dimensions and photographs, and
-  `THIRD_PARTY_NOTICES.md` says so. Left: settle AnimARTrix with Stefan.
+  `THIRD_PARTY_NOTICES.md` says so. AnimARTrix ships under its CC BY-NC-SA 4.0
+  terms as they are (decided 2026-11-20).
 - [x] Fill the CHANGELOG gaps.
 - [x] Start scripts run pip without `-c constraints.txt`.
 
