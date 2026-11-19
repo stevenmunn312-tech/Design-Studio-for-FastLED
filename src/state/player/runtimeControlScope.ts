@@ -56,7 +56,7 @@ export const BAKE_TIME_PROPERTIES: Record<string, readonly string[]> = {
     'fixedPalette',
     'useGroupInputs',
   ],
-  Sequencer: ['interval', 'fade'],
+  CrossfadeCycle: ['interval', 'fade'],
   Transition: ['transitionType', 'direction', 'axis', 'tileSize', 'count', 'turns'],
 }
 

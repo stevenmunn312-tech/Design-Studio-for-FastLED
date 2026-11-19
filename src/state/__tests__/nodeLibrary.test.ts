@@ -722,7 +722,7 @@ describe('nodeLibrary', () => {
   })
 
   it('bounds Show duration and SD SPI pins to their runtime ranges', () => {
-    expect(propertyMeta('Sequencer', 'fade')).toEqual({ control: 'slider', min: 0, max: 20, step: 0.1 })
+    expect(propertyMeta('CrossfadeCycle', 'fade')).toEqual({ control: 'slider', min: 0, max: 20, step: 0.1 })
     for (const key of ['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin']) {
       expect(propertyMeta('SDCard', key), key).toEqual({ control: 'slider', min: 0, max: 255, step: 1 })
     }

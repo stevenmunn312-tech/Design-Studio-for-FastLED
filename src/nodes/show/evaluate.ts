@@ -1748,7 +1748,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       display: { kind: 'slideshow', selection: selectionValue, picture: frame } satisfies DisplaySignal,
     }
   },
-  Sequencer({ input, t, W, H }, id, props) {
+  CrossfadeCycle({ input, t, W, H }, id, props) {
     const frames = [
       input(id, 'p0', null) as Frame | null,
       input(id, 'p1', null) as Frame | null,

@@ -269,7 +269,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
   field:  ['FieldFormula', 'GeometryField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldTransform', 'FieldSymmetry', 'FieldToFrame'],
-  show:   ['MusicLibrary', 'PatternCollection', 'TransitionPool', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
+  show:   ['MusicLibrary', 'PatternCollection', 'TransitionPool', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'CrossfadeCycle', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
 /**
@@ -1420,7 +1420,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     levelStart: { control: 'slider', min: 0, max: 1, step: 0.01 },
     levelClicks: { control: 'slider', min: 1, max: ENCODER_LEVEL_MAX_CLICKS, step: 1, entry: 'number' },
   },
-  Sequencer: {
+  CrossfadeCycle: {
     fade: { control: 'slider', min: 0, max: 20, step: 0.1 },
   },
   // The I2S decoder's 0–21 volume steps, typed in the part's hardware panel.
@@ -3365,7 +3365,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     dH: 'Height of the zone as a fraction of the matrix height.',
     dFit: 'On squeezes the whole frame into this zone; off shows only the part of the frame that lies inside the rectangle.',
   },
-  Sequencer: {
+  CrossfadeCycle: {
     interval: 'Seconds each connected input is held before moving to the next. Unconnected inputs are skipped.',
     fade: 'Seconds spent crossfading into the next input at the end of each hold. 0 cuts; capped at the hold.',
   },

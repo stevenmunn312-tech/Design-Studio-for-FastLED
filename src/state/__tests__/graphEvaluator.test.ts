@@ -3709,7 +3709,7 @@ describe('evaluateGraph — groups', () => {
   it('Sequencer shows its first input at t=0', () => {
     const red = node('r', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const grn = node('g', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 })
-    const seq = node('s', 'Sequencer', 'composite', { interval: 4, fade: 1 })
+    const seq = node('s', 'CrossfadeCycle', 'composite', { interval: 4, fade: 1 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [
       edge('e1', 'r', 'frame', 's', 'p0'),
@@ -3723,7 +3723,7 @@ describe('evaluateGraph — groups', () => {
   it('Sequencer crossfades between inputs in the fade window', () => {
     const red = node('r', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const grn = node('g', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 })
-    const seq = node('s', 'Sequencer', 'composite', { interval: 4, fade: 2 })
+    const seq = node('s', 'CrossfadeCycle', 'composite', { interval: 4, fade: 2 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [
       edge('e1', 'r', 'frame', 's', 'p0'),
@@ -3739,7 +3739,7 @@ describe('evaluateGraph — groups', () => {
 
   it('Sequencer passes a single input through unchanged', () => {
     const red = node('r', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
-    const seq = node('s', 'Sequencer', 'composite', {})
+    const seq = node('s', 'CrossfadeCycle', 'composite', {})
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e1', 'r', 'frame', 's', 'p0'), edge('e2', 's', 'frame', 'out', 'frame')]
     const frame = evaluateGraph([red, seq, out], edges, 0, 2, 2)

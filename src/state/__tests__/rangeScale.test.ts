@@ -144,9 +144,9 @@ describe('range scale', () => {
     // in the first twentieth of a linear slider, and pitch. Thresholds,
     // calibration, counts, ports and seeds stay linear.
     expect(logRows.sort()).toEqual([
-      'Breathe.bpm', 'BuzzerOutput.pitchHz', 'ColorTrails.trailLength', 'Interval.interval',
-      'PatternMaster.maxTime', 'PatternMaster.minTime', 'PatternSlideshow.maxTime', 'PatternSlideshow.minTime',
-      'Sequencer.interval', 'Trigger.holdTime', 'Trigger.stableTime',
+      'Breathe.bpm', 'BuzzerOutput.pitchHz', 'ColorTrails.trailLength', 'CrossfadeCycle.interval',
+      'Interval.interval', 'PatternMaster.maxTime', 'PatternMaster.minTime', 'PatternSlideshow.maxTime', 'PatternSlideshow.minTime',
+      'Trigger.holdTime', 'Trigger.stableTime',
     ])
   })
 })

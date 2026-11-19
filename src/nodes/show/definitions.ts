@@ -173,8 +173,8 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     // Timeline-as-a-node: cycles its inputs with a timed crossfade.
     // Labelled Crossfade Cycle: "Sequencer" sent people looking here for the
     // step editor that the Music Player and Pattern Slideshow call Sequence.
-    // The type id stays, so saves load.
-    type: 'Sequencer',
+    // The type id matches the label (it was `Sequencer` before v1.0.0).
+    type: 'CrossfadeCycle',
     label: 'Crossfade Cycle',
     category: 'show',
     inputs: [
@@ -387,7 +387,7 @@ export const SHOW_DESCRIPTIONS: Record<string, string> = {
   PlayerParticles: 'Configures the beat-triggered particle overlay of a player or slideshow.',
   PatternMaster: 'Plays SD, Bluetooth or radio music and changes patterns on a timer or its beats.',
   SongInfo: 'Opens the Music Player’s track report into one wire per field.',
-  Sequencer: 'Crossfades through its inputs on a timer.',
+  CrossfadeCycle: 'Crossfades through its inputs on a timer.',
   PatternCollection: 'Holds show patterns, each with a weight, energy tags, and restart or resume.',
   TransitionPool: 'Transition styles for a Music Player, Slideshow or Performance Generator.',
   PatternSlideshow: 'Plays a collection on a timer, in order, at random, or from a sequence.',

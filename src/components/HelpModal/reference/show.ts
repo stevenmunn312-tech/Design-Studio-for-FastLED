@@ -226,7 +226,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  Sequencer: {
+  CrossfadeCycle: {
     overview: [
       'Crossfade Cycle plays up to four frames in turn: each holds for Interval seconds, then crossfades into the next over Fade seconds. Unwired slots are skipped.',
       'It is the simplest way to rotate between a few looks without a Pattern Collection. For many patterns, random order, music, or a step-by-step Sequence, use Pattern Slideshow or Music Player.',
@@ -241,14 +241,14 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       frame: 'The current frame, or the crossfade between two.',
     },
     example: example({
-      featured: 'Sequencer',
+      featured: 'CrossfadeCycle',
       title: 'Four moods on rotation',
       nodes: {
         sea: ['Pacifica', { palette: 'ocean' }],
         hearth: ['Fire', { fireStyle: 'classic', palette: 'fire' }],
         aurora: ['Noise', { noiseType: 'fbm', palette: 'aurora', speed: 0.25 }],
         stars: ['TwinkleFox', { palette: 'party', density: 0.5 }],
-        rotation: ['Sequencer', { interval: 3, fade: 1 }],
+        rotation: ['CrossfadeCycle', { interval: 3, fade: 1 }],
       },
       wires: ['sea.frame > rotation.p0', 'hearth.frame > rotation.p1', 'aurora.frame > rotation.p2', 'stars.frame > rotation.p3'],
       explanation: 'Crossfade Cycle holds each of four looks — sea, hearth, aurora and twinkling lights — for three seconds, crossfading over one second into the next, then loops.',
