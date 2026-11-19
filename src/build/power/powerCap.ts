@@ -33,7 +33,7 @@ export function ledLoads(nodes: readonly StudioNode[]): Array<{ node: StudioNode
     const props = node.data.properties as Record<string, unknown>
     if (node.data.nodeType === 'MatrixOutput') {
       const leds = outputLedTotal(props)
-      const draw = ledFullWhiteDraw(props.chipset ?? 'WS2812B', outputForm(props))
+      const draw = ledFullWhiteDraw(props.chipset ?? 'WS2812B', outputForm(props), props.partId)
       return [{ node, leds, fullWhiteMw: leds * draw.maPerLed * draw.volts }]
     }
     if (node.data.nodeType === 'StereoVuMeter' && props.enabled !== false) {

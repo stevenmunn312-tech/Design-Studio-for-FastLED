@@ -130,7 +130,7 @@ describe('the level shifter part', () => {
     expect(selectOptionLabel('Board', 'levelShifterPartId', SHIFTER)).toBe('74AHCT125 level shifter (DIP-14)')
   })
 
-  it('draws nothing for a part this version cannot read, and the data runs go straight to the panel', () => {
+  it('holds the output for a shifter this version cannot read: no chip drawn, no output drawn straight to the panel', () => {
     const svg = everything({ levelShifterPartId: 'no-such-shifter' }, [{}])
     expect(svg).not.toContain('level-shifter-1-a1')
     expect(svg).not.toContain('level shifter 1')

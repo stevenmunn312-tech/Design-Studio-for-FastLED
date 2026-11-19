@@ -1,5 +1,6 @@
 import type { StudioNode } from '../state/graphStore'
 import { selectedPhysicalBoardProfile } from './boards/boardProfiles'
+import { resolveLedProduct } from '../state/output/ledProduct'
 
 export type PsramPolicy = 'auto' | 'on' | 'off'
 export type SerialRoute = 'auto' | 'native' | 'uart'
@@ -81,7 +82,9 @@ const TWELVE_VOLT_CHIPSETS: ReadonlySet<string> = new Set(['WS2811', 'WS2815'])
 /** The supply voltage a chipset runs from. FastLED sizes its power cap as
  * volts x milliamps, so the cap must use the strip's own voltage; it is never
  * a user setting. */
-export function ledSupplyVolts(chipset: unknown): number {
+export function ledSupplyVolts(chipset: unknown, partId?: unknown): number {
+  const product = resolveLedProduct(partId)
+  if (product) return product.spec.supplyVolts
   return TWELVE_VOLT_CHIPSETS.has(String(chipset)) ? 12 : 5
 }
 
@@ -103,7 +106,7 @@ export function controllerSettings(nodes: readonly StudioNode[]): ControllerSett
   // dims earliest and so errs toward protecting the supply.
   const outputVolts = nodes
     .filter((node) => node.data.nodeType === 'MatrixOutput')
-    .map((node) => ledSupplyVolts((node.data.properties as Record<string, unknown>).chipset))
+    .map((node) => ledSupplyVolts((node.data.properties as Record<string, unknown>).chipset, (node.data.properties as Record<string, unknown>).partId))
   const automaticPsram = !!profile?.memory?.psramMb && !!profile.psramMode
   return {
     brightness: Math.round(number(props.brightness, DEFAULT_CONTROLLER_SETTINGS.brightness, 0, 255)),

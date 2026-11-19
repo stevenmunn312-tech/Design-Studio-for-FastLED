@@ -4,6 +4,7 @@ import { buildBomRows, buildConnectionRows } from '../../../build/buildExports'
 import { ensureBuildProfile } from '../../../build/buildProfile'
 import { calculateElectricalPlan } from '../../../build/power/electricalPlan'
 import { buildHardwareManifest } from '../../../build/hardwareManifest'
+import { unknownAccessoryParts, unresolvedNodes } from '../../../build/parts/partResolution'
 import {
   itemLayouts,
   OUTPUT_CARD_HEIGHT,
@@ -106,8 +107,13 @@ describe('NLED pixel data extender', () => {
     expect(dataLinkSpec({ dataLinkPartId: '' })).toBeNull()
     // A save from before the property was renamed reads as Direct, with no note.
     expect(dataLinkSpec({ dataLink: 'NLED Pixel Data Extender' })).toBeNull()
-    const item = buildHardwareManifest([outputNode({ dataLinkPartId: 'no-such-extender' })], [], S3).primaryItems[0]
-    expect(outputHasDataExtender(item)).toBe(false)
+    // The output is held with a reason, never drawn as Direct.
+    const manifest = buildHardwareManifest([outputNode({ dataLinkPartId: 'no-such-extender' })], [], S3)
+    expect(manifest.primaryItems).toEqual([])
+    expect(manifest.unsupportedItems[0].reasons?.join(' ')).toContain('"no-such-extender"')
+    expect(unknownAccessoryParts('MatrixOutput', { dataLinkPartId: 'no-such-extender' })).toEqual([{ property: 'dataLinkPartId', id: 'no-such-extender' }])
+    expect(unknownAccessoryParts('MatrixOutput', { dataLinkPartId: '' })).toEqual([])
+    expect(unresolvedNodes([outputNode({ dataLinkPartId: 'no-such-extender' })])).toHaveLength(1)
   })
 
   it('words the conductors from the part rather than restating them', () => {

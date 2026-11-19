@@ -35,6 +35,7 @@ import { isPartPinRef, usesOffBoardI2cBus } from './parts/partReferences'
 import { boardHasInternalDac, hasAudioOutputStage, powerAmplifierFeed, powerAmplifierSource } from '../state/audio/audioOutput'
 import { micModuleFor } from '../state/peripherals/micModules'
 import { LED_OUTPUT_FORM_LABELS, outputForm, outputGridDims, outputLedTotal } from '../state/output/ledOutputForm'
+import { ledProductOf } from '../state/output/ledProduct'
 import { LANE_PIN_KEY_PREFIX, claimedLanePins, dataLanePlan, dataLaneRunsAreColumns } from '../state/output/dataLanes'
 import { chainEntry, matrixWiringApplies, matrixWiringFromProps } from '../state/output/xyLayout'
 import { normalizeButtonBankEntries } from '../state/player/buttonBank'
@@ -90,7 +91,8 @@ import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec, ethernetSpiH
 import { converterRoleFor, DEFAULT_SOURCE_VOLTAGE, powerConverterModuleFor } from '../state/peripherals/powerConverter'
 import { batteryCellSpec, batteryFunctions, batteryModuleSpecFor, packFacts } from '../state/peripherals/battery'
 import { dataLinkPartId, dataLinkSpec } from '../state/peripherals/pixelDataExtender'
-import { levelShifterPartIdFor } from '../state/peripherals/levelShifter'
+import { levelShifterPartIdFor, levelShifterSpec } from '../state/peripherals/levelShifter'
+import { unknownAccessoryParts } from './parts/partResolution'
 import {
   COOLING_FAN_PART_ID,
   coolingFanSpec,
@@ -658,6 +660,17 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
   return uses
 }
 
+const ACCESSORY_REASON_NAMES: Record<string, string> = {
+  partId: 'LED product',
+  dataLinkPartId: 'data link part',
+  levelShifterPartId: 'level shifter',
+}
+
+/** Why an output is held when it names a part this version does not have. */
+function unknownAccessoryReason(property: string, id: string): string {
+  return `The ${ACCESSORY_REASON_NAMES[property] ?? 'part'} "${id}" is not in this version of Design Studio, so this output is not drawn. Choose a part this version lists, or open the project in a newer Design Studio.`
+}
+
 function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number, pinUses: HardwarePinUse[], powerCapMa: number | null): HardwareManifestItem {
   const props = node.data.properties as Record<string, unknown>
   const form = outputForm(props)
@@ -665,10 +678,15 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
   const pixelCount = outputLedTotal(props)
   const chipset = String(props.chipset ?? 'WS2812B')
   const extender = dataLinkSpec(props)
+  const chipsetReasons = BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS.has(chipset)
+    ? []
+    : [`${chipset} needs a dedicated Build Diagram signal and power profile before physical wiring can be generated.`]
+  // A named part this version lacks is held, never drawn as Custom or Direct.
+  const unknownAccessories = unknownAccessoryParts('MatrixOutput', props).map((part) => unknownAccessoryReason(part.property, part.id))
   // A positioned string carries its shape and its physical span, so the
   // diagram can picture where the LEDs hang instead of a straight run.
   const positioned = stringPositions(props)
-  const mmPerUnit = positioned ? positionsMmPerUnit(props, positioned, ledPitchMm(form)) : null
+  const mmPerUnit = positioned ? positionsMmPerUnit(props, positioned, ledPitchMm(form, props.partId)) : null
   const span = positioned && mmPerUnit ? stringSpanMm(positioned, mmPerUnit) : null
   // Where the data-in wire lands on the panel, for the diagram's picture of
   // it. Only an LED matrix in a matrix or panels layout has one to state.
@@ -688,7 +706,7 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
       + (extender ? ' · differential link' : ''),
     sourceNodeId: node.id,
     sourceNodeType: node.data.nodeType,
-    supported: BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS.has(chipset),
+    supported: BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS.has(chipset) && unknownAccessories.length === 0,
     pins: pinUses,
     facts: {
       width,
@@ -700,6 +718,9 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
       ...(wiring ? { serpentine: wiring.serpentine, startCorner: wiring.startCorner, firstRun: wiring.firstRun } : {}),
       ...(dataIn ? { dataIn } : {}),
       chipset,
+      ...(unknownAccessories.length > 0 ? { unknownParts: unknownAccessories } : {}),
+      // The named LED product, so the electrical plan reads its voltage and current.
+      ...(ledProductOf(props) ? { ledPartId: ledProductOf(props)!.partId } : {}),
       ...(positioned && mmPerUnit && span ? {
         positions: positioned.points,
         positionCanvas: { width: positioned.canvasW, height: positioned.canvasH },
@@ -715,9 +736,7 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
       nominalVoltage: ONE_WIRE_NOMINAL_VOLTAGE,
       desiredCurrentCapMa: powerCapMa,
     },
-    reasons: !BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS.has(chipset)
-      ? [`${chipset} needs a dedicated Build Diagram signal and power profile before physical wiring can be generated.`]
-      : undefined,
+    reasons: chipsetReasons.length + unknownAccessories.length > 0 ? [...chipsetReasons, ...unknownAccessories] : undefined,
   }
 }
 
@@ -956,7 +975,18 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           capMaPerLed == null
             ? null
             : Math.round(capMaPerLed * outputLedTotal(node.data.properties as Record<string, unknown>)),
-        ).map((item): HardwareManifestItem => ({ ...item, facts: { ...item.facts, levelShifterPartId } }))
+        ).map((item): HardwareManifestItem => {
+          const withShifter = { ...item, facts: { ...item.facts, levelShifterPartId } }
+          if (levelShifterSpec(levelShifterPartId)) return withShifter
+          // The Board names a level shifter this version lacks: the chip is not
+          // drawn as nothing, the output is held with the reason.
+          return {
+            ...withShifter,
+            supported: false,
+            reasons: [...(item.reasons ?? []), unknownAccessoryReason('levelShifterPartId', levelShifterPartId)],
+            facts: { ...withShifter.facts, unknownParts: [...(Array.isArray(item.facts.unknownParts) ? item.facts.unknownParts : []), unknownAccessoryReason('levelShifterPartId', levelShifterPartId)] },
+          }
+        })
       case 'StereoVuMeter':
         return buildStereoVuMeterItems(node, pins, capMaPerLed)
       case 'MicInput':

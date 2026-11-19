@@ -10,6 +10,7 @@ import { outputForm } from '../../state/output/ledOutputForm'
 import { DEFAULT_CONTROLLER_SETTINGS } from '../../build/controllerSettings'
 import { sanitizePin } from '../hardwarePins'
 import { dataLanePlan } from '../../state/output/dataLanes'
+import { ledDataRateCeilingMhz } from '../../state/output/ledProduct'
 import { defaultDataRateMhz, effectiveDataRateMhz } from '../../build/ledDrivers'
 
 // PSRAM buffer placement (ESP32 family only). When the MatrixOutput node's
@@ -100,7 +101,7 @@ export function ledHardwareFromProps(p: Record<string, unknown>): LedHardware {
   const chipset = hub75 ? HUB75_CHIPSET : pick(p.chipset, CHIPSET_OPTIONS, 'WS2812B')
   // Only a rate the chipset offers ever reaches the template argument, and
   // FastLED's own default is left to FastLED so default sketches stay as they were.
-  const rate = effectiveDataRateMhz(chipset, p.dataRateMhz)
+  const rate = effectiveDataRateMhz(chipset, p.dataRateMhz, ledDataRateCeilingMhz(p))
   return {
     // The form is what makes an output a scan panel; the chipset property is
     // only ever consulted for the addressable forms, so a HUB75 panel can never

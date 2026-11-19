@@ -1002,7 +1002,7 @@ export function calculateElectricalPlan(
       // Only an LED output is refused for its chipset; every other item says
       // why in its own reasons (a missing pin, an unknown part, a voltage the
       // part cannot take).
-      detail: item.kind === 'matrix-output'
+      detail: item.kind === 'matrix-output' && !Array.isArray(item.facts.unknownParts)
         ? `${item.subtitle}. Select a supported 5 V one-wire chipset or add a reviewed physical profile before exporting a build reference.`
         : item.reasons?.join(' ') || `${item.subtitle}.`,
     })
@@ -1016,7 +1016,7 @@ export function calculateElectricalPlan(
   for (const item of outputItems) {
     // The same chipset-aware figure the Board and Checks read, so all three
     // agree. A HUB75 form is a scan panel whatever chipset it still carries.
-    const draw = ledFullWhiteDraw(item.facts.chipset ?? 'WS2812B', item.facts.form)
+    const draw = ledFullWhiteDraw(item.facts.chipset ?? 'WS2812B', item.facts.form, item.facts.ledPartId)
     const nominalVoltage = draw.volts
     // A rail converter makes the LED rail itself; the supply then sits
     // upstream of it, so the output is not drawn on the supply directly.

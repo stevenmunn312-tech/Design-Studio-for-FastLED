@@ -1046,7 +1046,7 @@ export default function HardwarePane() {
                   <span
                     className={styles.lens}
                     style={{
-                      ...lensStyle(output.partId, output.form),
+                      ...lensStyle(output.partId, output.form, output.pitchMm),
                       maskImage: runCutMask(output.partId),
                       WebkitMaskImage: runCutMask(output.partId),
                     }}
