@@ -64,9 +64,11 @@ describe('shelf groups from the category tree', () => {
     expect(groups).not.toContain('Cooling')
   })
 
-  it('keeps the LED outputs flat and the user-rated supply under Supplies', () => {
+  it('keeps the Custom LED outputs flat, groups the LED parts, and files the user-rated supply under Supplies', () => {
     const categories = shelf()
-    expect(categories.find((category) => category.id === 'led-outputs')!.items.every((item) => !item.subcategory)).toBe(true)
+    const led = categories.find((category) => category.id === 'led-outputs')!.items
+    expect(led.filter((item) => !item.partId).every((item) => !item.subcategory)).toBe(true)
+    expect(led.filter((item) => item.partId).every((item) => item.subcategory)).toBe(true)
     const power = categories.find((category) => category.id === 'power')!
     expect(power.items.find((item) => item.nodeType === 'PowerSupply')?.subcategory).toBe('Supplies')
   })

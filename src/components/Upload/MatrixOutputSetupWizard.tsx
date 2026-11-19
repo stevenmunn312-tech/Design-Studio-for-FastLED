@@ -12,6 +12,7 @@ import styles from './Upload.module.css'
 import { Icon } from '../icons/Icon'
 import { controllerSettings } from '../../build/controllerSettings'
 import { useUiStore } from '../../state/uiStore'
+import LedPartPicker from '../Canvas/LedPartPicker'
 import {
   isLinearForm,
   LED_OUTPUT_FORM_LABELS,
@@ -263,10 +264,13 @@ export default function MatrixOutputSetupWizard() {
 
         {step === 1 && (
           <div className={styles.wizardSection}>
-            {/* Read-only on purpose: the LED output node on the Graph is the one
-                editor of what the output *is*. The wizard used to carry its own
+            {/* The part picker is the node's own control (it writes the node), so
+                "which LED product?" is asked here first without a second copy
+                of the fields. Everything below is read-only on purpose: the
+                LED output node on the Graph is the one editor of what the output *is*. The wizard used to carry its own
                 copies of these fields, which made "where do I set my LED count?"
                 a question with three answers. */}
+            <LedPartPicker nodeId={nodeId} properties={props} wide />
             <div className={styles.wizardSummary}>
               <div className={styles.wizardSummaryRow}><span>Physical form</span><strong>{LED_OUTPUT_FORM_LABELS[form]}</strong></div>
               <div className={styles.wizardSummaryRow}><span>Size</span><strong>{outputSizeLabel(props)}</strong></div>

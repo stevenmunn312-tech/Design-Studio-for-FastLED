@@ -6,6 +6,7 @@ import { useGraphStore } from '../../../../state/graphStore'
 import { NODE_LIBRARY } from '../../../../state/nodeLibrary'
 import { isHardwareOnlyNodeType } from '../../../../build/hardware'
 import { partOptionProperty } from '../../../../build/parts/partOptions'
+import { PART_CATALOGUE } from '../../../../build/parts/partCatalogue'
 import { useUploadStore } from '../../../../state/upload/uploadStore'
 
 function setPart(nodeType: string) {
@@ -287,6 +288,18 @@ describe('HardwarePartBody', () => {
     fireEvent.change(volume, { target: { value: '99' } })
     fireEvent.blur(volume)
     expect(useGraphStore.getState().nodes[0].data.properties.maxVolume).toBe(21)
+  })
+
+  it('names the LED part an LED output is, or Custom', () => {
+    setPart('MatrixOutput')
+    const custom = render(<HardwarePartBody nodeId="part" nodeType="MatrixOutput" />)
+    expect(custom.getByTestId('led-part-row').textContent).toBe('Custom')
+    custom.unmount()
+
+    useGraphStore.getState().setLedOutputPart('part', 'ws2812b-ring-24')
+    const named = render(<HardwarePartBody nodeId="part" nodeType="MatrixOutput" />)
+    expect(named.getByTestId('led-part-row').textContent).toContain(PART_CATALOGUE['ws2812b-ring-24'].label)
+    named.unmount()
   })
 
   it('asks which supply powers an LED output only when there is more than one', () => {

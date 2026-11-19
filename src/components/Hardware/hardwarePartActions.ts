@@ -27,9 +27,10 @@ import { partDerivedInputs, partDerivedOutputs } from '../../build/parts/partPor
 import { defaultSourceVoltageFor } from '../../state/peripherals/powerConverter'
 import { buttonBankOutputs, firstButtonBankRow } from '../../state/player/buttonBank'
 import {
-  type FixturePartEntry, type InputPartEntry, fixturePinRequests, inputPartEntries, LED_OUTPUT_ENTRIES, LED_OUTPUT_NODE_TYPE,
+  type FixturePartEntry, type InputPartEntry, fixturePinRequests, inputPartEntries, type LedOutputEntry, LED_OUTPUT_NODE_TYPE,
   MIC_NODE_TYPE,
 } from './hardwarePartCatalog'
+import { resolveLedProduct, stampLedProduct } from '../../state/output/ledProduct'
 import type { Connection } from '@xyflow/react'
 import type { NodeDefinition, StatusLevel } from '../../types'
 import type { PlacementBox } from './floatingPlacement'
@@ -449,6 +450,10 @@ export function benchPartActions({
     setItemMenu(null)
   }
 
+    /** A new LED output's properties, with the named part's facts stamped in and locked; Custom passes through. */
+  const addedLedProperties = (properties: Record<string, unknown>, partId: string | undefined) =>
+    (partId ? stampLedProduct(properties, partId) : null) ?? properties
+
   /*
    * One creator for every form. The node is the same either way; the form
    * and the size that suits it are what the menu entry chose.
@@ -456,10 +461,13 @@ export function benchPartActions({
    * A HUB75 panel is not on the LED data pin — it has its own ribbon, and its
    * pins come from the node's defaults — so it does not consume one.
    */
-  const addLedOutput = (entry: (typeof LED_OUTPUT_ENTRIES)[number]) => {
+  const addLedOutput = (entry: LedOutputEntry) => {
     if (!ledOutputDefinition) return
     const needsDataPin = entry.form !== 'hub75'
     if (needsDataPin && nextLedPin === null) return
+    const product = entry.partId ? resolveLedProduct(entry.partId) : null
+    if (entry.partId && !product) return
+    const label = product?.label ?? LED_OUTPUT_FORM_LABELS[entry.form]
     const nodeId = `${LED_OUTPUT_NODE_TYPE}-${Date.now()}-${Math.round(Math.random() * 1e6)}`
     addNode({
       id: nodeId,
@@ -472,20 +480,20 @@ export function benchPartActions({
         label: LED_OUTPUT_FORM_LABELS[entry.form],
         nodeType: ledOutputDefinition.type,
         category: ledOutputDefinition.category,
-        properties: {
+        properties: addedLedProperties({
           ...resolveDefaultProperties(ledOutputDefinition.type, ledOutputDefinition.defaultProperties),
           form: entry.form,
           ...entry.properties,
           ...(needsDataPin ? { dataPin: nextLedPin } : {}),
-        },
+        }, entry.partId),
         inputs: ledOutputDefinition.inputs,
         outputs: ledOutputDefinition.outputs,
       },
     } as never)
     setStatus(
       needsDataPin
-        ? `Added ${LED_OUTPUT_FORM_LABELS[entry.form]} on pin ${nextLedPin}`
-        : `Added ${LED_OUTPUT_FORM_LABELS[entry.form]} on its own signal ribbon`,
+        ? `Added ${label} on pin ${nextLedPin}`
+        : `Added ${label} on its own signal ribbon`,
       'success',
     )
   }

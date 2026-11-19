@@ -36,6 +36,8 @@ import { stringPositions } from '../../state/output/stringPositions'
 import { partRenderForNodeType } from '../../build/parts/partRenders'
 import { usePartCatalogueVersion } from '../../build/parts/usePartCatalogueVersion'
 import MatrixSizePopup from './MatrixSizePopup'
+import LedPartPicker from './LedPartPicker'
+import { ledCountBounds, ledCountEditable, ledProductOf, ledPropertyLocked } from '../../state/output/ledProduct'
 import BeatDetectBody from './bodies/BeatDetectBody'
 import FFTAnalyzerBody from './bodies/FFTAnalyzerBody'
 import AudioCapabilityBody from './bodies/AudioCapabilityBody'
@@ -645,7 +647,10 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 : gpioRequirement.pullup && !pinSupports(gpioPin, 'pullup')
                   ? `Pin ${val} has no internal pull-up`
                   : pinWarningForCapability(gpioPin, gpioRequirement.capability) ?? gpioPin.note
-        const rowTitle = wired
+        const ledLocked = nodeType === 'MatrixOutput' && ledPropertyLocked(props, key)
+        const rowTitle = ledLocked
+          ? 'Set by the part. Make the output custom to edit it.'
+          : wired
           ? drivenByTouchWidget
             ? `Driven by ${describeSource(portFor(key))}. Drag here to set it from the graph; disconnect to restore the saved value.`
             : `Driven by ${describeSource(portFor(key))}. Disconnect to restore the saved value.`
@@ -658,6 +663,9 @@ const LivePropertyControls = memo(function LivePropertyControls({
                     ? `${val} = ${showNum(expressionResult!)}`
                     : `Number or expression. ${SCALAR_EXPRESSION_HELP}`
                 : gpioNote ?? propertyDescription(nodeType, key)
+        // A cut strip's count runs from one cut unit to the reel, in cut units (state/output/ledProduct.ts).
+        const ledProduct = nodeType === 'MatrixOutput' && key === 'ledCount' ? ledProductOf(props) : null
+        const ledBounds = ledProduct && ledCountEditable(ledProduct.spec) ? ledCountBounds(ledProduct.spec) : null
         const isTransportLayout = nodeType === 'TransportDisplay' && key === 'tftLayout'
         const selectOptions = meta?.control === 'select'
           ? (isTransportLayout ? transportLayoutOptions : propertyOptions(nodeType, key, props))
@@ -740,9 +748,9 @@ const LivePropertyControls = memo(function LivePropertyControls({
               <ClampedNumberInput
                 className={`nodrag ${styles.propInput}`}
                 value={typeof live === 'number' ? live : val}
-                min={meta.min}
-                max={meta.max}
-                step={meta.step}
+                min={ledBounds?.min ?? meta.min}
+                max={ledBounds?.max ?? meta.max}
+                step={ledBounds?.step ?? meta.step}
                 disabled={disabled}
                 ariaLabel={`${controlLabel} value`}
                 onCommit={(value) => writeValue(value)}
@@ -905,11 +913,11 @@ const LivePropertyControls = memo(function LivePropertyControls({
                 const h = Number(props.height ?? 16)
                 const preset = w === h && MATRIX_SIZE_PRESETS.includes(w) ? String(w) : 'custom'
                 return (
-                  <div className={styles.propRow} title="LED matrix dimensions">
+                  <div className={styles.propRow} title={ledPropertyLocked(props, 'width') ? 'Set by the part. Make the output custom to edit it.' : 'LED matrix dimensions'}>
                     <span className={styles.propKey}>size</span>
                     <select
                       className={`nodrag ${styles.propSelect}`}
-                      disabled={locked}
+                      disabled={locked || ledPropertyLocked(props, 'width')}
                       value={preset}
                       aria-label={`${nodeLabel} matrix size`}
                       onWheelCapture={stopWheelWhileFocused}
@@ -950,6 +958,9 @@ const LivePropertyControls = memo(function LivePropertyControls({
                   </button>
                   {open && (
                     <div className={styles.propGroupRows}>
+                      {isMatrixOutput && group.key === 'form' && (
+                        <LedPartPicker nodeId={nodeId} properties={props} disabled={locked} />
+                      )}
                       {group.key === 'layout'
                         ? (
                             <>
