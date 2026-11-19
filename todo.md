@@ -89,16 +89,22 @@ more after the freeze.
 
 ### UI and release
 
-- [ ] Close on Escape through `useEscapeLayer` in ProjectsPopup,
+- [x] Close on Escape through `useEscapeLayer` in ProjectsPopup,
   RecoverPopup, BoardPopup, ArduinoCliPopup, CodeViewPopup,
   HardwareValidationPopup and SdCardPrompt.
-- [ ] Help still says "graph JSON" and "public beta".
-- [ ] The support matrix says FastLED 3.10.5; the pin is 3.10.9.
-- [ ] The tag workflow publishes an unsigned `--prerelease`.
+- [x] Help still says "graph JSON" and "public beta".
+- [x] The support matrix says FastLED 3.10.5; the pin is 3.10.9.
+- [x] The tag workflow publishes an unsigned `--prerelease`. Done 2026-11-19:
+  only a tag with a pre-release suffix is marked a pre-release, the release
+  stays a draft, and its notes state the signing state. Signing itself is
+  HW-17.
 - [ ] Complete the licence notices, and settle the AnimARTrix
-  non-commercial terms.
-- [ ] Fill the CHANGELOG gaps.
-- [ ] Start scripts run pip without `-c constraints.txt`.
+  non-commercial terms. The part renders drawn from vendor design files are
+  listed in `THIRD_PARTY_NOTICES.md` (2026-11-19). Left: confirm or replace
+  the Seeed 2-channel SSR, Seeed touch sensor and WIZ850io renders, whose
+  licence is not confirmed, and settle AnimARTrix with Stefan.
+- [x] Fill the CHANGELOG gaps.
+- [x] Start scripts run pip without `-c constraints.txt`.
 
 ### Helper
 

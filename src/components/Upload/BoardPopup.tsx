@@ -10,6 +10,7 @@ import styles from './Upload.module.css'
 import { Icon } from '../icons/Icon'
 import { controllerSettings } from '../../build/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 
 const EMPTY_CUSTOM_BOARD = { label: '', fqbn: '', core: '', boardUrl: '' }
 
@@ -27,6 +28,7 @@ export default function BoardPopup() {
     closeBoardPopup, openCliPopup,
     addCustomBoard, removeCustomBoard, checkForUpdates, closeUpdatesPopup, upgradeCores,
   } = useUploadStore()
+  useEscapeLayer(closeBoardPopup)
   // The controller settings, PSRAM and RAM are facts about one firmware
   // image: the active board's partition, whose one Board is the board this
   // popup is choosing for (with one board, the whole root graph).

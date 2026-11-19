@@ -73,4 +73,25 @@ describe('SdCardPrompt', () => {
     expect(resolveSdPrompt).toHaveBeenCalledWith('')
     await waitFor(() => expect(listRemovableDrives).not.toHaveBeenCalled())
   })
+
+  it('cancels on Escape while inserting, and swallows Escape once the card is written', () => {
+    const resolveSdPrompt = vi.fn()
+    useUploadStore.setState({
+      sdPrompt: { stage: 'insert', fileCount: 2, totalBytes: 1024 },
+      resolveSdPrompt,
+    })
+    const { rerender } = render(<SdCardPrompt />)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(resolveSdPrompt).toHaveBeenCalledWith(null)
+
+    resolveSdPrompt.mockReset()
+    useUploadStore.setState({ sdPrompt: { stage: 'reinsert', fileCount: 2, totalBytes: 1024 } })
+    rerender(<SdCardPrompt />)
+    const below = vi.fn()
+    window.addEventListener('keydown', below)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    window.removeEventListener('keydown', below)
+    expect(resolveSdPrompt).not.toHaveBeenCalled()
+    expect(below).not.toHaveBeenCalled()
+  })
 })

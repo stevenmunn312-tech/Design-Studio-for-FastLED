@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useUploadStore } from '../../state/upload/uploadStore'
 import styles from './Upload.module.css'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 
 // Shown when the helper is running but neither build engine is usable — fbuild
 // isn't installed (it ships in backend/requirements.txt; a stale venv is the
@@ -9,6 +10,7 @@ import styles from './Upload.module.css'
 // + install one.
 export default function ArduinoCliPopup() {
   const { busy, locate, installCli, closeCliPopup } = useUploadStore()
+  useEscapeLayer(closeCliPopup)
   const [path, setPath] = useState('')
   const [error, setError] = useState<string | null>(null)
 

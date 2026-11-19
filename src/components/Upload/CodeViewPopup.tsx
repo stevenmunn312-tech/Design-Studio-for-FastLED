@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useUploadStore } from '../../state/upload/uploadStore'
 import styles from './Upload.module.css'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 
 // Read-only "show me the code" panel — the exact string the upload tab
 // would export/upload, for learning the generated firmware or debugging a
@@ -23,6 +24,7 @@ export default function CodeViewPopup({
   busy?: boolean
 }) {
   const closeCodeView = useUploadStore((s) => s.closeCodeView)
+  useEscapeLayer(closeCodeView)
   const exportIno = useUploadStore((s) => s.exportIno)
   const copyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')

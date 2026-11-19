@@ -7,6 +7,7 @@ import { useProjectStore } from '../../state/projectStore'
 import { captureWorkspace, blankWorkspace } from '../../state/workspacePersistence'
 import { nextDefaultProjectName } from '../../utils/projectFileIO'
 import styles from './ProjectsPopup.module.css'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 
 function relativeTime(timestamp: number): string {
   const diffSec = Math.max(0, Math.round((Date.now() - timestamp) / 1000))
@@ -21,6 +22,7 @@ function relativeTime(timestamp: number): string {
 
 export default function ProjectsPopup() {
   const closeProjects = useUiStore((s) => s.closeProjects)
+  useEscapeLayer(closeProjects)
   const setStatus = useUiStore((s) => s.setStatus)
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const requestNewProjectDecision = useUiStore((s) => s.requestNewProjectDecision)

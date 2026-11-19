@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useUploadStore } from '../../state/upload/uploadStore'
 import { listRemovableDrives, type RemovableDrive } from '../../utils/backendClient'
 import styles from './Upload.module.css'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 
 /** How often to re-look for a card while the insert prompt is open. The user
  *  is being asked to plug something in *now*, so the list has to keep up with
@@ -30,6 +31,11 @@ export default function SdCardPrompt() {
   const [scanning, setScanning] = useState(false)
 
   const insert = sdPrompt?.stage === 'insert'
+
+  // Escape backs out only while nothing is written. Once the card holds the
+  // files the prompt waits for the card to go back, so Escape is swallowed
+  // rather than reaching anything underneath.
+  useEscapeLayer(() => { if (insert) resolveSdPrompt(null) }, Boolean(sdPrompt))
 
   const rescan = useCallback(async () => {
     setScanning(true)

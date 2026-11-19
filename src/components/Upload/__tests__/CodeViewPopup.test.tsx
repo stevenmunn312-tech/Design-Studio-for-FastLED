@@ -57,4 +57,12 @@ describe('CodeViewPopup', () => {
     fireEvent.click(getByRole('button', { name: '↑ Upload' }))
     expect(onUpload).toHaveBeenCalled()
   })
+
+  it('closes on Escape', () => {
+    const closeCodeView = vi.fn()
+    useUploadStore.setState({ closeCodeView })
+    render(<CodeViewPopup code={CODE} />)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(closeCodeView).toHaveBeenCalledTimes(1)
+  })
 })

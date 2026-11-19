@@ -27,7 +27,7 @@ function AboutTab() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Design Studio for FastLED</div>
         <div className={styles.text}>
-          <strong>Version {__APP_VERSION__}</strong> · public beta
+          <strong>Version {__APP_VERSION__}</strong>
         </div>
         <div className={styles.text}>
           A node-graph authoring environment for FastLED LED strings, matrices, rings, corkscrew installations, and tiled panels — design patterns visually, preview them live, then generate and flash real firmware.
@@ -110,7 +110,7 @@ function QuickStartTab() {
           <div className={styles.step}>
             <div className={styles.stepNum}>5</div>
             <div className={styles.stepText}>
-              <strong>Save or continue.</strong> Projects autosave as you work. Use <strong>File</strong> when you want a named copy, a portable project file, graph JSON, a share link, or a recovery snapshot.
+              <strong>Save or continue.</strong> Projects autosave as you work. Use <strong>File</strong> when you want a named copy, a portable project file, a pattern library file, a share link, or a recovery snapshot.
             </div>
           </div>
         </div>

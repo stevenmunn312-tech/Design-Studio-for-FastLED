@@ -40,6 +40,29 @@ versioning (`0.y.z`) until the first stable release.
   Silk, Echo Basin, Veil of Petals and Pearl Tissue) and Opaline Sunset, a sun
   going down into a glinting sea under an opal sky. A copy of one already in
   My Patterns is hidden while it still matches the bundled pattern.
+- Parts are data. Every bundled board add-on, sensor, display, audio part, LED
+  product and power part is described by a part manifest, and the Hardware
+  shelf groups parts by category, with a search box. Node help lists the
+  parts each node takes. Saves and share links carry the parts they use, so
+  a project opens on a Studio that has never seen them, and an unknown part
+  is held and reported instead of being swapped for a default. Downloading
+  signed parts from a parts library is built in, and is off until a parts
+  host is configured.
+- Digital Sensor and Analog Sensor part types, for parts that are read as a
+  plain pin.
+- The LED output takes an LED product from the parts picker, which fills in
+  and locks the chipset, colour order, voltage and current it states.
+- The Build Diagram asks for a safety acknowledgement the first time it opens
+  on a machine: the wiring, fuse and power figures are guidance, LED currents
+  can start a fire, and mains wiring can kill. The printed sheets, the CSV
+  and the SVG exports carry the same warning.
+- Share links record their format version, and a link made by a newer Design
+  Studio is refused with a message.
+- The macOS download is a `Design Studio for FastLED.app` bundle with the
+  brand icon, in place of a folder and a terminal launcher.
+- Pattern Insights scores each pattern on the displays named by its Best
+  displayed on tags, at fixed sizes, so a score no longer depends on the open
+  project's matrix.
 
 ### Changed
 
@@ -58,6 +81,39 @@ versioning (`0.y.z`) until the first stable release.
   being handed to arduino-cli, nRF52840 boards build with link-time
   optimisation again, and the Raspberry Pi Pico W builds with fbuild. The
   Seeed XIAO nRF52840 and Arduino UNO R4 Minima still build with arduino-cli.
+- Nine node type ids now match their labels (Tempo Clock, Color Temperature,
+  Field Transform, Formula Pattern, Hi-Hat Shards, Crossfade Cycle, Network
+  Ripple, Tile Symmetry and Transition Pool), and port names are consistent
+  across nodes (`mids`, `select`, `enabled`, `color`, `rotation`,
+  `subdivision`). Hue Shift, Adjust Color, Image and Beat Kaleidoscope all
+  take their hue offset in degrees as Hue Shift. Projects, pattern files,
+  library bundles and share links saved before these renames still open. A
+  wire into the old 0–1 Hue Shift input is removed, since its source gave
+  turns, not degrees.
+- Music Player patterns animate on a clock that runs slower in quiet passages
+  and faster at loud peaks and fast tempos, instead of on raw track time.
+- A Dwells & Bursts burst holds each change for two seconds after its
+  transition, so its changes no longer run together.
+- The Music Player starter opens with the full show: every bundled
+  audio-reactive pattern, all 21 transitions, beat-led changes and Player
+  Particles on loud passages.
+- Audio patterns brighten close to evenly from 0% to 100% volume, decoded
+  music rests in calm passages and swells like a room microphone hears it,
+  and pulse inputs rise with the beat instead of being smoothed flat. Ten
+  slow audio patterns move more and three that strobed are calmer.
+- The Stage no longer shows a My Pattern label above the pattern name, and the
+  status bar no longer shows a Frame fps chip that read as a second,
+  disagreeing preview FPS.
+- The Build Diagram turns the fuse block so the trunks leave its studs
+  straight, hops ground runs over the +5 V runs they cross, and draws the
+  power supply from its terminal side so the wires meet its screws.
+- Popups close on Escape one layer at a time: Projects, Recover Snapshot,
+  Board & Port, Arduino CLI, the code view, the hardware validation report,
+  and the SD card prompt while nothing has been written to the card.
+- The start scripts install the helper's dependencies at the pinned versions
+  in `backend/constraints.txt`, and reinstall when either file changes.
+- A draft release is marked a pre-release only for a tag with a pre-release
+  suffix, and its notes state the signing state of each download.
 
 ### Fixed
 
@@ -78,6 +134,37 @@ versioning (`0.y.z`) until the first stable release.
 - String Rainbow Conveyor, String Candle Garland, String Spectrum Conveyor and
   String Singing Candles no longer carry a palette node that nothing used,
   which Graph Health flagged.
+- Firmware and preview agree on Blobs and Breathe at the palette ends, Game of
+  Life's generation interval, the step rate of WaveSim, FluidSim and Turing
+  Field, and mask rounding. A sketch that calls `random8`, `ease8`, `sin8` or
+  other FastLED helpers keeps the FastLED include.
+- A second board is checked against its own board target, not the first
+  board's. ESP32-C3 GPIO11 is no longer offered: it powers the SPI flash.
+- Each LED output draws from one power supply zone. A larger one is split into
+  consecutive feeds per zone, with a warning naming the LED after which to cut
+  +5 V.
+- A looping Music Player no longer drifts and stops after about four and a
+  half hours.
+- Starters lay out after their node bodies load, so the Music Player starter's
+  Transition Pool no longer opens on top of the collection.
+- Formula Points attractors fill the frame, and Silk Attractor pulses on the
+  beat.
+- The Music Player's light lands with the sound in the preview.
+- A pattern whose shelf the browser did not have no longer vanishes from a
+  saved workspace, and saved files no longer carry React Flow's runtime
+  fields.
+- Security: a project file copied into the Projects folder by hand is no
+  longer trusted to run its Formula and Code nodes, the Code node's preview
+  sandbox closes `import()` and the ways to build code at run time, saved
+  select text can no longer reach the sketch, the helper's radio relay refuses
+  addresses on this computer, the Art-Net listener caps its universes, and the
+  desktop window opens only web and mail links.
+- The helper uses the fbuild installed with it, not another one on PATH.
+- The HC-SR501 motion sensor is wired to the 5 V rail, and an analog sensor
+  whose output can rise above a 3.3 V board's ADC reference is flagged.
+- Help's support matrix link and clone step point at `main`.
+- Help's About tab no longer says "public beta", and its saving guide no
+  longer mentions graph JSON.
 
 ### Removed
 

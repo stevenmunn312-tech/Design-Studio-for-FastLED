@@ -412,7 +412,7 @@ Unless a future row says otherwise, treat the following as experimental:
 
 - **Choosing the LED driver on the Board** (`ledDriver` other than Auto): the
   S3's LCD_CAM drivers, the classic ESP32's I2S driver and RMT on the C6 and
-  H2. Built from the pinned FastLED 3.10.5 sources
+  H2. Built from the pinned FastLED 3.10.9 sources
   ([board capabilities](../architecture/board-capabilities.md#choosing-the-driver));
   its compile fixtures (`npm run gen:compile-fixtures -- led-drivers`) have
   not yet been compiled and nothing has run on a board. FastLED itself warns
@@ -487,13 +487,13 @@ Unless a future row says otherwise, treat the following as experimental:
   above). The classic-ESP32 row covers a normal live-graph upload only — its
   SD-show path is still experimental, per the 2026-07-28 note.
 - **The Arduino Nano 33 BLE and Nano RP2040 Connect were withdrawn** on
-  2026-10-08. On Arduino's Mbed core the pinned FastLED 3.10.5 fails in its own
+  2026-10-08. On Arduino's Mbed core FastLED 3.10.5, pinned then, fails in its own
   nRF52 and RP2040 output drivers, so no LED sketch built on either
   ([IR compile record](../reports/compile/ir-compile-checks.md#mbed-nano-boards-on-arduino-cli-8-october-2026)).
   Their Blender assets were deleted, so bringing either back means modelling
   it again.
 - **The Arduino Due was withdrawn** on 2026-10-08. Arduino's SAM core compiles
-  with GCC 4.8.3, which the pinned FastLED 3.10.5 does not build on, so no LED
+  with GCC 4.8.3, which FastLED 3.10.5, pinned then, does not build on, so no LED
   sketch built there. A newer compiler borrowed from another core builds a
   plain LED sketch, but nothing has run on a board
   ([IR compile record](../reports/compile/ir-compile-checks.md#arduino-due-on-arduino-cli-8-october-2026)).
@@ -638,7 +638,7 @@ Unless a future row says otherwise, treat the following as experimental:
   output's chain can be split into equal lanes on whole rows or panels, each
   driven from its own pin, so the board's driver sends them at once
   ([multi-output routing](../architecture/multi-output-routing.md#data-lanes-experimental)).
-  Built from FastLED 3.10.5's documented `addLeds(leds, offset, count)` API;
+  Built from FastLED's documented `addLeds(leds, offset, count)` API (pinned 3.10.9);
   compile fixtures exist for the ESP32-S3 (normal, show, player), the classic
   ESP32 (eight lanes, multi-output, wiring diagnostic) and an Arduino Uno
   (sequential lanes) (`npm run gen:compile-fixtures -- lanes`), but no compile

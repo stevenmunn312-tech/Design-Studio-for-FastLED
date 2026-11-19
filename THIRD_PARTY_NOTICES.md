@@ -64,6 +64,32 @@ Each license is shipped next to its files.
 - If any of those assets are replaced with external artwork, update this file
   before shipping the next release.
 
+## Board and part renders
+
+The board and part pictures in `public/boards/` and `public/parts/` are
+modelled by the project in Blender, mostly from vendors' pinout guides,
+published dimensions and photographs. Product names, logos and silkscreen
+markings shown on them belong to their owners and imply no endorsement.
+
+These part renders take geometry from vendor design files. A render made from
+a CC BY-SA design file is shared under the same licence, not under
+[`LICENSE`](LICENSE), with the attribution below.
+
+| Render | Design file | Licence | What the render takes |
+| --- | --- | --- | --- |
+| `public/parts/adafruit-bh1750-light-sensor.webp` | [Adafruit BH1750 PCB](https://github.com/adafruit/Adafruit-BH1750-PCB), Limor Fried/Ladyada for Adafruit Industries | CC BY-SA 3.0 | Outline, holes, header, sockets and part placement |
+| `public/parts/adafruit-bme280-environment-sensor.webp` | [Adafruit BME280 Breakout PCB](https://github.com/adafruit/Adafruit-BME280-Breakout-PCB), Ladyada for Adafruit Industries | CC BY-SA 3.0 | Outline, header, holes and part placement |
+| `public/parts/adafruit-ina219-current-sensor.webp` | [Adafruit INA219 Current Sensor PCB](https://github.com/adafruit/Adafruit-INA219-Current-Sensor-PCB), Ladyada for Adafruit Industries | CC BY-SA (the README names it; the repository has no licence file giving a version) | Outline, pads, holes, part and silkscreen positions |
+| `public/parts/adafruit-vl53l0x-distance-sensor.webp` | [Adafruit VL53L0X ToF Distance Sensor PCB](https://github.com/adafruit/Adafruit-VL53L0X-ToF-Distance-Sensor-PCB), Adafruit Industries | CC BY-SA 3.0 | Outline, pad row and labels, holes and part placement |
+| `public/parts/adafruit-midi-featherwing.webp` | [Adafruit MIDI FeatherWing PCB](https://github.com/adafruit/Adafruit-MIDI-FeatherWing-PCB), Ladyada for Adafruit Industries; [Adafruit CAD Parts, 4740 MIDI FeatherWing](https://github.com/adafruit/Adafruit_CAD_Parts/tree/main/4740%20MIDI%20FeatherWing), Copyright (c) 2016 Adafruit Industries | Board: CC BY-SA 3.0. 3D models: MIT | Board outline, pads, placement, silkscreen and traces; the PCB, DIN-5 sockets and optocoupler as 3D bodies |
+| `public/parts/seeed-grove-2ch-ssr.webp` | [Grove - 2-Channel Solid State Relay Eagle files](https://wiki.seeedstudio.com/Grove-2-Channel_Solid_State_Relay/), Seeed Technology | Not confirmed: the schematic frame points at CC BY-SA 4.0, and the board file carries no grant | Outline, holes, Grove socket, terminals and part positions |
+| `public/parts/seeed-grove-touch-sensor.webp` | [Grove - Touch Sensor Eagle files](https://wiki.seeedstudio.com/Grove-Touch_Sensor/), Seeed Technology | Not confirmed: no licence text in the files or on the wiki page | Pin order, electrode and mounting tabs |
+| `public/parts/wiz850io-ethernet-module.webp` | [WIZ850io Altium files](https://docs.wiznet.io/Product/ioModule/WIZ850io), WIZnet Co., Ltd. | Not confirmed: the download page states no licence | Outline, pads, tracks, vias and overlay; the MagJack as a 3D body from the board's embedded STEP model |
+
+The three renders whose licence is not confirmed need the vendor's permission,
+or a remodel from photographs and published dimensions, before a release
+ships them.
+
 ## FastLED and helper-vendored libraries
 
 - Generated sketches target the upstream FastLED library.

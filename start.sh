@@ -58,10 +58,11 @@ if [ -n "$PY" ]; then
   fi
   if [ -n "$VENV" ]; then
     STAMP="$VENV/installed-requirements.txt"
-    if ! cmp -s backend/requirements.txt "$STAMP" 2>/dev/null; then
+    # The stamp holds both files, so a change to either pin reinstalls.
+    if ! cat backend/requirements.txt backend/constraints.txt | cmp -s - "$STAMP" 2>/dev/null; then
       say 'Installing upload helper dependencies...'
-      if "$VENV/bin/pip" install -q -r backend/requirements.txt; then
-        cp backend/requirements.txt "$STAMP"
+      if "$VENV/bin/pip" install -q -r backend/requirements.txt -c backend/constraints.txt; then
+        cat backend/requirements.txt backend/constraints.txt > "$STAMP"
       else
         echo 'Helper install failed — the designer still works; uploading to a board stays disabled.'
       fi

@@ -3,6 +3,7 @@ import { useUiStore } from '../../state/uiStore'
 import { restoreWorkspaceSnapshotAfterParts } from '../../state/graphStore'
 import { loadSnapshots } from '../../state/snapshotHistory'
 import styles from './RecoverPopup.module.css'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 
 function relativeTime(timestamp: number): string {
   const diffSec = Math.max(0, Math.round((Date.now() - timestamp) / 1000))
@@ -21,6 +22,7 @@ function relativeTime(timestamp: number): string {
 // bad import that undo can no longer reach.
 export default function RecoverPopup() {
   const closeRecover = useUiStore((s) => s.closeRecover)
+  useEscapeLayer(closeRecover)
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const setStatus = useUiStore((s) => s.setStatus)
   const [snapshots] = useState(() => loadSnapshots())

@@ -77,17 +77,19 @@ if not exist backend\.venv\Scripts\python.exe (
 )
 
 :venvready
-fc backend\requirements.txt backend\.venv\installed-requirements.txt >nul 2>nul
+rem The stamp holds both files, so a change to either pin reinstalls.
+copy /y /b backend\requirements.txt+backend\constraints.txt backend\.venv\wanted-requirements.txt >nul
+fc /b backend\.venv\wanted-requirements.txt backend\.venv\installed-requirements.txt >nul 2>nul
 if not errorlevel 1 goto :venvpath
 echo.
 echo == Installing upload helper dependencies...
-backend\.venv\Scripts\pip install -q -r backend\requirements.txt
+backend\.venv\Scripts\pip install -q -r backend\requirements.txt -c backend\constraints.txt
 if errorlevel 1 (
   echo Helper install failed - the designer still works; uploading to a board
   echo stays disabled.
   goto :venvpath
 )
-copy /y backend\requirements.txt backend\.venv\installed-requirements.txt >nul
+copy /y backend\.venv\wanted-requirements.txt backend\.venv\installed-requirements.txt >nul
 
 :venvpath
 rem The preview server auto-spawns the helper with plain `python`

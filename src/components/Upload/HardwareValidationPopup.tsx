@@ -14,6 +14,7 @@ import {
   type ValidationResult,
 } from '../../utils/hardwareValidation'
 import styles from './Upload.module.css'
+import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 
 function formatSystemInfoHostOs(info: SystemInfo): string {
   return info.os.includes(info.osVersion) ? info.os : `${info.os} build ${info.osVersion}`
@@ -46,6 +47,7 @@ export default function HardwareValidationPopup({
   initialAction: HardwareValidationAction
   onClose: () => void
 }) {
+  useEscapeLayer(onClose)
   const [action, setAction] = useState(initialAction)
   const initialProfile = useMemo(() => buildHardwareValidationProfile({
     nodes, edges, selectedFqbn, helper, capacityResult, action: initialAction,
@@ -134,7 +136,7 @@ export default function HardwareValidationPopup({
       <div className={`${styles.popup} ${styles.validationPopup}`} role="dialog" aria-modal="true" aria-labelledby="hardware-validation-title">
         <div className={styles.popupHeader}>
           <div>
-            <div className={styles.wizardKicker}>Public beta evidence</div>
+            <div className={styles.wizardKicker}>Bench evidence</div>
             <div id="hardware-validation-title" className={styles.wizardTitle}>Hardware validation report</div>
           </div>
           <button className={styles.closeBtn} onClick={onClose} title="Close">×</button>

@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Tag to use if a draft pre-release is created
+        description: Tag for the draft release; a pre-release suffix (v1.0.0-rc.1) marks it a pre-release
         required: true
-        default: v0.8.0
+        default: v1.0.0-rc.1
         type: string
       create_draft_release:
-        description: Create or update a draft GitHub pre-release after all builds pass
+        description: Create or update a draft GitHub release after all builds pass
         required: true
         default: false
         type: boolean
@@ -151,7 +151,7 @@ jobs:
           retention-days: 30
 
   draft-release:
-    name: Assemble draft pre-release
+    name: Assemble draft release
     needs: package
     if: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.create_draft_release == true }}
     runs-on: ubuntu-latest
@@ -178,17 +178,27 @@ jobs:
             | sort -z \
             | xargs -0 cat > release-assets/SHA256SUMS.txt
 
-      - name: Create or update draft pre-release
+      # Always a draft: a person publishes it after reading the notes. Only a
+      # tag with a SemVer pre-release suffix (v1.0.0-rc.1) is marked a
+      # pre-release, so v1.0.0 itself is not. The signing note states what
+      # this workflow ships today; change it in the same commit that adds
+      # Authenticode or Developer ID signing to the package job (root todo,
+      # HW-17).
+      - name: Create or update draft release
         shell: bash
         run: |
           mapfile -t assets < <(find release-assets -maxdepth 1 -type f ! -name '*.sha256' -print | sort)
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
           else
+            prerelease=()
+            if [[ "$RELEASE_TAG" == *-* ]]; then prerelease=(--prerelease); fi
+            notes="**Signing.** The Windows and Linux archives are not code-signed, and the macOS app is signed ad hoc, not notarized, so Windows SmartScreen and macOS Gatekeeper warn on first launch. Check a download against \`SHA256SUMS.txt\`, or its build provenance with \`gh attestation verify <file> --repo $GITHUB_REPOSITORY\`."
             gh release create "$RELEASE_TAG" "${assets[@]}" \
               --target "$GITHUB_SHA" \
               --title "Design Studio for FastLED ${RELEASE_TAG#v}" \
+              --notes "$notes" \
               --generate-notes \
               --draft \
-              --prerelease
+              "${prerelease[@]}"
           fi
