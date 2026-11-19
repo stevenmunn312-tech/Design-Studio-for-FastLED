@@ -440,7 +440,7 @@ pin or bus reference that v1.0.0 does not understand must not reach
    layout are node properties built in code, and nothing reads a part's
    `ledLayout`), and the NLED link and level shifter are drawn by id. Opening
    it is a design change to how an LED output picks its form; the proposal is
-   [LED output parts](../design/led-output-parts.md), awaiting decisions.)*
+   [LED output parts](../design/led-output-parts.md), accepted 2026-11-19.)*
 4. Convert the bundled library through the importer into signed packages, and
    load it through the manifest path at run time. *(Runtime registry done in
    `partCatalogue.ts`; bundled parts stay unsigned, by design: see Saves.)*

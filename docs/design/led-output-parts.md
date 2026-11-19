@@ -1,6 +1,6 @@
 # LED output parts: opening `MatrixOutput` to downloaded parts
 
-Status: **proposal, not built** · Owner: app · Date: 2026-11-19
+Status: **accepted, not built** · Owner: app · Date: 2026-11-19
 
 The [downloadable parts plan](../plans/downloadable-parts.md) opens 39 of 40
 part types. The LED output (`MatrixOutput`, "LED output" in user copy) is the
@@ -228,7 +228,22 @@ within phase A.
 - Level-shifter geometry in code is the likeliest place a hidden id branch
   remains; grep the `levelShifter*` helpers when step 5 starts.
 
-## 8. Open questions
+## 8. Decisions
+
+Steve took every recommended answer on 2026-11-19:
+
+1. Custom stays a first-class choice beside named parts.
+2. A named part's facts are locked, except `colorOrder` and `ledCount` within
+   the part's bounds; "Make custom" detaches the node.
+3. The level shifter is chosen on the Board node: one part for the board,
+   default 74AHCT125, no "direct, no shifter" option yet.
+4. Corkscrew and the positions and network arrangements are node properties
+   over a strip part.
+5. The chipset list is closed in the app; a part naming an unknown chipset is
+   "needs a newer Design Studio".
+
+The questions as they were asked:
+
 
 1. **Is Custom kept as a first-class choice?** Recommended: yes. People have
    strips with no known product, and it keeps today's saves valid.
