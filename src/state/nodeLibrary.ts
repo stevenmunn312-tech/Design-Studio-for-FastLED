@@ -267,7 +267,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // matters more than the library's declaration order (fields compose toward
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
-  signal: ['TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
+  signal: ['TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'TempoClock', 'ScheduleTrigger', 'DMXChannel'],
   field:  ['FieldFormula', 'GeometryField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldTransform', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionPool', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'CrossfadeCycle', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
@@ -1738,7 +1738,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     // Animation-only (disabled for a still image via isPropertyEnabled).
     playbackRate: { control: 'slider', min: 0.25, max: 4, step: 0.05 },
   },
-  Clock: {
+  TempoClock: {
     bpm:         { control: 'slider', min: 40, max: 220, step: 1 },
     beatsPerBar: { control: 'slider', min: 1, max: 16, step: 1 },
     subdivision: { control: 'slider', min: 1, max: 8, step: 1 },
@@ -2889,7 +2889,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     sunday: 'Run on Sundays (Custom days only).',
     enabled: 'Off holds every output low regardless of the clock. A wire into Enabled overrides this.',
   },
-  Clock: {
+  TempoClock: {
     bpm: 'Tempo in beats per minute when nothing is wired into Sync or Tap.',
     beatsPerBar: 'Beats in one bar; Bar pulses on the first beat of each.',
     subdivision: 'Pulses per beat on the Subdivision output (2 = eighth notes at 4/4).',

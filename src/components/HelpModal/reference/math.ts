@@ -129,7 +129,7 @@ export const MATH_REFERENCE: NodeReferenceMap = {
       featured: 'StepValue',
       title: 'Add another juggler every bar',
       nodes: {
-        clock: ['Clock', { bpm: 100, beatsPerBar: 4 }],
+        clock: ['TempoClock', { bpm: 100, beatsPerBar: 4 }],
         jugglers: ['StepValue', { initial: 1, minimum: 1, maximum: 8, step: 1, wrap: true }],
         juggle: ['Juggle', { palette: 'party', speed: 0.55 }],
       },
@@ -421,7 +421,7 @@ export const MATH_REFERENCE: NodeReferenceMap = {
       featured: 'Trigger',
       title: 'One big ripple at the top of every bar',
       nodes: {
-        clock: ['Clock', { bpm: 110 }],
+        clock: ['TempoClock', { bpm: 110 }],
         every4: ['Trigger', { triggerOp: 'pulseDivider', divideBy: 4 }],
         ripple: ['RainRipples', { palette: 'ultraviolet', spawnSpread: 0, count: 4, decay: 2, thickness: 1.6 }],
       },

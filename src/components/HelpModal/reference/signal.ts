@@ -192,7 +192,7 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  Clock: {
+  TempoClock: {
     overview: [
       'Tempo Clock is a musical metronome. For the time of day use Clock. It runs at a BPM and pulses Beat on every beat, Bar on the first beat of each bar, and Subdivision on finer steps within the beat. Phase rises 0 to 1 across each beat.',
       'Tap Tempo sets the BPM from your own taps; Sync locks it to an incoming beat such as Beat Detect’s; Reset restarts the bar. With nothing wired it simply keeps the tempo you set.',
@@ -211,10 +211,10 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
       subdivision: 'True for one frame on each subdivision of the beat.',
     },
     example: example({
-      featured: 'Clock',
+      featured: 'TempoClock',
       title: 'Strobe the party at 128 BPM, no microphone needed',
       nodes: {
-        clock: ['Clock', { bpm: 128, beatsPerBar: 4, subdivision: 2 }],
+        clock: ['TempoClock', { bpm: 128, beatsPerBar: 4, subdivision: 2 }],
         party: ['Confetti', { palette: 'party', speed: 0.55, density: 0.28, trail: 0.37 }],
         strobe: ['BeatFlash', { intensity: 0.8, decay: 0.75, colorSource: 'palette', palette: 'party' }],
       },

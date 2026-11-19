@@ -225,7 +225,7 @@ export const OUTPUT_REFERENCE: NodeReferenceMap = {
       featured: 'BuzzerOutput',
       title: 'A metronome you can see and hear',
       nodes: {
-        clock: ['Clock', { bpm: 90 }],
+        clock: ['TempoClock', { bpm: 90 }],
         click: ['Trigger', { triggerOp: 'oneShot', holdTime: 0.05 }],
         buzzer: ['BuzzerOutput', { sigPin: 26 }],
         tempo: ['BeatFlash', { decay: 0.7, r: 255, g: 230, b: 120 }],

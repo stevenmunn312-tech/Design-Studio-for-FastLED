@@ -198,7 +198,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'Path',
       title: 'Trace a rose in time with the beat',
       nodes: {
-        clock: ['Clock', { bpm: 40 }],
+        clock: ['TempoClock', { bpm: 40 }],
         pen: ['Path', { pathShape: 'rose', scale: 0.9, thickness: 1.4, r: 255, g: 90, b: 200 }],
         ink: ['Trails', { decay: 0.22 }],
       },

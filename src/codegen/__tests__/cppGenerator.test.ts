@@ -1090,7 +1090,7 @@ describe('generateCpp', () => {
   })
 
   it('emits a millis()-based Clock with bpm/beatsPerBar/subdivision baked in', () => {
-    const clk = node('clk', 'Clock', 'signal', { bpm: 128, beatsPerBar: 4, subdivision: 2 })
+    const clk = node('clk', 'TempoClock', 'signal', { bpm: 128, beatsPerBar: 4, subdivision: 2 })
     const cpp = generateCpp([clk], [])
     expect(cpp).toContain('_clkOrigin_clk')
     expect(cpp).toContain('float _clkBpmP_clk = fmaxf(1.0f,128);')
@@ -1107,7 +1107,7 @@ describe('generateCpp', () => {
 
   it('Clock reads tap/sync/reset from wired bool sources', () => {
     const tap = node('tapsrc', 'Compare', 'math', {})
-    const clk = node('clk2', 'Clock', 'signal', { bpm: 100 })
+    const clk = node('clk2', 'TempoClock', 'signal', { bpm: 100 })
     const cpp = generateCpp([tap, clk], [
       edge('e1', 'tapsrc', 'clk2', 'result', 'tap'),
     ])
