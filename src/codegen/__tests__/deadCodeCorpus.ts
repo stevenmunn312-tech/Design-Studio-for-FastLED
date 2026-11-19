@@ -73,7 +73,7 @@ const PATTERNS = {
   noise: single('Noise'),
   warp: group([node('nz', 'Noise'), node('fx', 'FrameWarp', { edgeMode: 'wrap', sampling: 'bilinear' })],
     [edge('a', 'nz', 'frame', 'fx', 'frame'), edge('b', 'fx', 'frame', 'go', 'frame')]),
-  symmetry: group([node('nz', 'Noise'), node('fx', 'Symmetry', { group: 'p6m' })],
+  symmetry: group([node('nz', 'Noise'), node('fx', 'TileSymmetry', { group: 'p6m' })],
     [edge('a', 'nz', 'frame', 'fx', 'frame'), edge('b', 'fx', 'frame', 'go', 'frame')]),
   shape: single('Shape', { shape: 'polygon' }),
   reactive: group([node('au', 'Audio', { sourceId: 'decoder:sd' }), node('fft', 'FFTAnalyzer'), node('sc', 'SolidColor', { b: 60 })],

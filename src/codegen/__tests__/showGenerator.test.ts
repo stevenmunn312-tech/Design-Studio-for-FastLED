@@ -44,7 +44,7 @@ describe('showGenerator', () => {
 
   it.each([
     ['FrameWarp', [...FRAME_SAMPLE_HELPER_CPP.matchAll(/^static inline \S+ (\w+)\(/gm)].map((match) => match[1])],
-    ['Symmetry', ['_wallpaperSourceQ8', '_atan2_16']],
+    ['TileSymmetry', ['_wallpaperSourceQ8', '_atan2_16']],
   ])('emits one sampler for %s patterns with and without transitions', (type, samplers) => {
     const pattern = {
       nodes: [node('src', 'Noise'), node('fx', type), node('go', 'GroupOutput')],
@@ -1700,7 +1700,7 @@ describe('pattern code lifted into a show', () => {
     expect(warp.helpers).toContain(FRAME_SAMPLE_HELPER_CPP)
 
     const symmetryGroup = {
-      nodes: [node('src', 'Noise'), node('sym', 'Symmetry', { group: 'p6m' }), node('go', 'GroupOutput')],
+      nodes: [node('src', 'Noise'), node('sym', 'TileSymmetry', { group: 'p6m' }), node('go', 'GroupOutput')],
       edges: [edge('sym-in', 'src', 'frame', 'sym', 'frame'), edge('sym-out', 'sym', 'frame', 'go', 'frame')],
     }
     const symmetry = buildPatternRenderers(['symmetry-pattern'], { 'symmetry-pattern': symmetryGroup } as unknown as GroupRegistry)

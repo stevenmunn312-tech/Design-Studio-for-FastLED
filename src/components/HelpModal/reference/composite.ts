@@ -319,7 +319,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  Symmetry: {
+  TileSymmetry: {
     overview: [
       'Tile Symmetry repeats a frame through one of nine wallpaper groups: square groups with plain repeats, half turns, mirrors and quarter turns, and hexagonal groups with three- and six-fold turns.',
       'Cells sets how many repeats fit across, Rotation and Spin turn the lattice, and Offset scrolls it. Any pattern becomes a tiled design.',
@@ -327,11 +327,11 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
     inputs: { frame: FRAME_IN },
     outputs: { frame: 'The frame repeated through the symmetry group.' },
     example: example({
-      featured: 'Symmetry',
+      featured: 'TileSymmetry',
       title: 'Fire turned into a tiled mosaic',
       nodes: {
         flames: ['Fire', { fireStyle: 'classic', palette: 'fire' }],
-        tiles: ['Symmetry', { group: 'p6', cells: 2, spin: 10 }],
+        tiles: ['TileSymmetry', { group: 'p6', cells: 2, spin: 10 }],
       },
       wires: ['flames.frame > tiles.frame'],
       output: MATRIX(24, 24),

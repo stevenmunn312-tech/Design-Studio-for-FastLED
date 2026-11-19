@@ -173,7 +173,7 @@ Frame Feedback fixture, source hash and classic-ESP32 result are in the
 
 ## Phase 3 — Symmetry — **complete**
 
-The shipped `FieldSymmetry` and `Symmetry` contracts, append-only group list,
+The shipped `FieldSymmetry` and `TileSymmetry` contracts, append-only group list,
 fundamental-domain picture, transform order, sampling policy, and shared
 preview/firmware fold live in the
 [wallpaper symmetry design note](../design/symmetry-groups.md). The generated

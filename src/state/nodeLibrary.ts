@@ -1496,7 +1496,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     offsetX: { control: 'slider', min: -8, max: 8, step: 0.1 },
     offsetY: { control: 'slider', min: -8, max: 8, step: 0.1 },
   },
-  Symmetry: {
+  TileSymmetry: {
     group: { control: 'select', options: [...WALLPAPER_GROUPS], labels: WALLPAPER_GROUP_LABELS },
     cells: { control: 'slider', min: 0.5, max: 8, step: 0.1 },
     rotation: { control: 'slider', min: -180, max: 180, step: 1 },
@@ -2626,7 +2626,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     offsetX: 'Scrolls the lattice horizontally, measured in cells.',
     offsetY: 'Scrolls the lattice vertically, measured in cells.',
   },
-  Symmetry: {
+  TileSymmetry: {
     group: 'Wallpaper group. p1/p2/pm/pmm/p4/p4m use square cells; p3/p6/p6m use hexagonal cells.',
     cells: 'Number of lattice cells across the canvas width.',
     rotation: 'Rotates the lattice in degrees.',
@@ -3781,7 +3781,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     edgeMode: 'edges',
     motionSpeed: 'motion speed',
   },
-  Symmetry: {
+  TileSymmetry: {
     offsetX: 'offset X',
     offsetY: 'offset Y',
   },

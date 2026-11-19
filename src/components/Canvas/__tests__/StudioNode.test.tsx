@@ -81,7 +81,7 @@ describe('StudioNode', () => {
   })
 
   it('shows a symmetry group as words while storing its code', () => {
-    const { container } = renderNode(makeNode('Symmetry', { ...libraryDefaults('Symmetry') }))
+    const { container } = renderNode(makeNode('TileSymmetry', { ...libraryDefaults('TileSymmetry') }))
     openAllGroups(container)
     const group = container.querySelector('select[aria-label="group value"]') as HTMLSelectElement
     const options = Array.from(group.options)

@@ -1041,7 +1041,7 @@
     },
     "data": {
      "label": "Tile Symmetry",
-     "nodeType": "Symmetry",
+     "nodeType": "TileSymmetry",
      "category": "composite",
      "properties": {
       "group": "p6m",

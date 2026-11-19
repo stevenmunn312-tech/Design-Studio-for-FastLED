@@ -3508,7 +3508,7 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
 
   it('uses the shared bilinear sampler for the frame node', () => {
     const src = node('sym-frame-source', 'GradientFrame', 'pattern', {})
-    const symmetry = node('symmetry', 'Symmetry', 'composite', { group: 'p6m' })
+    const symmetry = node('symmetry', 'TileSymmetry', 'composite', { group: 'p6m' })
     const cpp = generateCpp([src, symmetry, outputNode], [
       edge('sym-frame-in', src.id, symmetry.id, 'frame', 'frame'),
       edge('sym-frame-out', symmetry.id, outputNode.id, 'frame', 'frame'),
@@ -3523,7 +3523,7 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
   it('falls back to p1 without interpolating an unknown persisted group', () => {
     const injectedGroup = '*/ invalid firmware text /*'
     const src = node('sym-frame-source', 'GradientFrame', 'pattern', {})
-    const symmetry = node('symmetry', 'Symmetry', 'composite', { group: injectedGroup })
+    const symmetry = node('symmetry', 'TileSymmetry', 'composite', { group: injectedGroup })
     const cpp = generateCpp([src, symmetry, outputNode], [
       edge('sym-frame-in', src.id, symmetry.id, 'frame', 'frame'),
       edge('sym-frame-out', symmetry.id, outputNode.id, 'frame', 'frame'),

@@ -371,7 +371,7 @@ const WEBSITE_PATTERN_SEEDS: PatternSeed[] = [
         positions: [0, 0.167, 0.333, 0.5, 0.667, 0.833, 1],
       }),
       studioNode('silk', 'Plasma', 60, 40, { speed: 0.1, scale: 0.3 }),
-      studioNode('tiles', 'Symmetry', 380, 40, { group: 'p6m', cells: 1.4, spin: 3 }),
+      studioNode('tiles', 'TileSymmetry', 380, 40, { group: 'p6m', cells: 1.4, spin: 3 }),
       groupOutput('out', 700, 40),
     ],
     [

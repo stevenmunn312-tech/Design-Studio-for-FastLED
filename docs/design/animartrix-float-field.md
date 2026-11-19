@@ -234,7 +234,7 @@ output and presets that shipped with it are in the
 Repeats a field through one of nine square or hexagonal wallpaper groups.
 Cells, rotation, spin and cell-space offsets are property inputs; nearest
 sampling keeps later Field Levels thresholds crisp. It is the scalar twin of
-the frame `Symmetry` effect. The fold, fundamental domains, and shared
+the frame `TileSymmetry` effect. The fold, fundamental domains, and shared
 preview/firmware architecture are in the
 [wallpaper symmetry design note](symmetry-groups.md).
 

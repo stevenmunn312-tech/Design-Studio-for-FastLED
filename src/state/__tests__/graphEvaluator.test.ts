@@ -4463,7 +4463,7 @@ describe('Pattern node expansion - Phase 3 Symmetry', () => {
     const src = node('sym-frame-src', 'GradientFrame', 'pattern', {
       rA: 0, gA: 0, bA: 0, rB: 255, gB: 0, bB: 0,
     })
-    const symmetry = node('symmetry', 'Symmetry', 'composite', identity)
+    const symmetry = node('symmetry', 'TileSymmetry', 'composite', identity)
     const out = node('sym-frame-out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([src, symmetry, out], [
       edge('sym-frame-in', src.id, 'frame', symmetry.id, 'frame'),
