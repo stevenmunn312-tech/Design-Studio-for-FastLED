@@ -504,25 +504,26 @@ the twelve pads on the node stand in for the electrodes, and **Unplug** reads th
 missing. The MPR121 is experimental
 until a physical run is recorded in the support matrix.
 
-### Pick scenes with a 4x4 keypad
+### Pick scenes with a matrix keypad
 
-Choose **Add Hardware → Inputs → 4x4 matrix keypad** for sixteen keys on eight
-GPIOs. The keypad is a passive membrane, so it has no power or ground: its eight
-lines, **R1 to R4** then **C1 to C4**, go to the eight GPIOs shown in the inspector.
+Choose **Add Hardware → Inputs** and pick a matrix keypad, such as the 4x4 one with
+sixteen keys on eight GPIOs. The keypad is a passive membrane, so it has no power or
+ground: its row lines (**R1** and so on) then column lines (**C1** and so on) go to
+the GPIOs shown in the inspector, one per line.
 Rows read through the controller's pull-up, so avoid GPIO 34 to 39 for them, and
 columns are driven low one at a time, so they must be able to output. Check the
 order against the markings on your keypad's tail, because some are printed the other
 way round.
 
-The node publishes **Key**, the last key pressed as an index from 0 to 15 row by
-row (1 2 3 A, 4 5 6 B, 7 8 9 C, * 0 # D), **Pressed**, true while any key is
+The node publishes **Key**, the last key pressed as an index from 0, row by
+row (on the 4x4 keypad: 1 2 3 A, 4 5 6 B, 7 8 9 C, * 0 # D), **Pressed**, true while any key is
 down, and **Digit**, the last number key pressed as the number printed on it (the key
 marked 0 reads 0, and the letter keys, * and # leave it alone). Key and Digit stay at
 their value after the key is released, so they can pick a scene or a preset. For one
 key on its own, choose **more outputs** on the node: each key has an output that is
 true while it is held. Two keys pressed
 together can read as a third, because the matrix has no diodes, and only the first
-key found is reported. In preview, the sixteen buttons on the node stand in for the
+key found is reported. In preview, the buttons on the node stand in for the
 keys. The keypad is experimental until a physical run is recorded in the support
 matrix.
 

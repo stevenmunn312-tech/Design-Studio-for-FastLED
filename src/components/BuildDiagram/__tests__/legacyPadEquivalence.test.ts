@@ -19,6 +19,15 @@ import {
  * those numbers. Do not regenerate it from current code: that would make the
  * comparison say nothing.
  */
+/*
+ * Deliberate corrections to the frozen record. The retired table put the
+ * HC-SR501 PIR on the 3.3 V rail, but the module's own regulator wants 4.5 to
+ * 20 V (its datasheets, cited in the part's `sources`) and its wiring note and
+ * `motionSensor.supplyVolts` already said 5 V. Only OUT is 3.3 V logic. The
+ * diagram now wires VCC to 5 V; the pad positions are unchanged.
+ */
+const CORRECTED_NET: Record<string, 'v5'> = { 'hc-sr501-pir-sensor': 'v5' }
+
 interface LegacyRecord {
   partId: string
   kind: HardwareManifestItem['kind']
@@ -62,7 +71,7 @@ describe('manifest-driven Build Diagram facts match the retired per-part tables'
       expect(peripheralPadCount(item)).toBe(record.count)
       expect(Array.from({ length: record.count }, (_, index) => peripheralPadPoint(layout, index))).toEqual(record.points)
       expect(peripheralPadRadius(item)).toBe(record.radius)
-      expect(peripheralPowerNet(item)).toBe(record.net)
+      expect(peripheralPowerNet(item)).toBe(CORRECTED_NET[record.partId] ?? record.net)
       expect(peripheralPowerPadIndex(item)).toBe(record.index)
       expect(peripheralGroundPadIndex(item)).toBe(record.ground)
     },

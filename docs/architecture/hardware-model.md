@@ -385,9 +385,10 @@ second. The part carries its address list, electrode count and default threshold
 node's `i2cAddress` joins the shared-bus collision check. The Build Diagram powers Vin from
 3V3 and draws only SDA and SCL; IRQ is not needed.
 
-`KeypadInput` is a 4x4 membrane matrix keypad on eight GPIOs. Sixteen boolean
+`KeypadInput` is a membrane matrix keypad of up to 4x4 on one GPIO per row and column;
+the part's `keypad` block sets rows, columns and legends. Sixteen boolean
 ports would make the node taller than it is wide, so it publishes `key`, the last key
-pressed as an index (0 to 15, row by row, in the order printed), and `pressed`, true
+pressed as an index (0 to rows x columns - 1, row by row, in the order printed), and `pressed`, true
 while any key is down; a scene or preset picker wants the index. The firmware scans
 column by column: rows are `INPUT_PULLUP`, one column at a time is driven LOW and the
 others float, and a row that reads LOW is the closed key. Two matching reads accept a

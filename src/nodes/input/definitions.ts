@@ -364,8 +364,8 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // A 4x4 matrix keypad on eight GPIOs. It publishes the last key pressed as an
-    // index (0 to 15, row by row), whether any key is down, and the last number
+    // A matrix keypad (up to 4x4) on one GPIO per row and column. It publishes the
+    // last key pressed as an index (row by row from 0), whether any key is down, and the last number
     // key pressed as a Digit, which is what a preset picker wants. A Key output
     // per key is folded until asked for, so "key A pressed" is one wire.
     type: 'KeypadInput',
@@ -599,7 +599,7 @@ export const INPUT_DESCRIPTIONS: Record<string, string> = {
   TemperatureInput: 'Reads a waterproof DS18B20 probe in degrees Celsius, with a connected flag.',
   MotionVectorInput: 'Reads acceleration and rotation on three axes from an MPU-6050.',
   TouchPadInput: 'Reads twelve capacitive-touch electrodes from an MPR121.',
-  KeypadInput: 'Reads a 4x4 matrix keypad as the last key pressed and a pressed flag.',
+  KeypadInput: 'Reads a matrix keypad (up to 4x4) as the last key pressed and a pressed flag.',
   JoystickInput: 'Reads a thumb joystick: two signed axes and a push switch.',
   DistanceInput: 'Measures distance in mm with an HC-SR04, VL53L0X or VL53L1X.',
   PotInput: 'Reads a potentiometer as a 0–1 value.',

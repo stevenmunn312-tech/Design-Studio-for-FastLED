@@ -2739,7 +2739,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "padHoleRadiusPx": 5.3,
-    "supplyRail": "v3v3",
+    "supplyRail": "v5",
     "motionSensor": {
       "activeLevel": "high",
       "supplyVolts": 5
