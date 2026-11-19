@@ -162,7 +162,7 @@ describe('Frame Transform keeps the looks it replaced', () => {
     const src = source(W, H)
     for (const tick of [10, 37, 95]) {
       const t = tick / 60
-      expect(transformed({ mode: 'smooth', rotateRate: 30, edgeMode: 'black', sampling: 'nearest' }, tick, W, H), `rotate ${tick}`)
+      expect(transformed({ mode: 'smooth', rotationRate: 30, edgeMode: 'black', sampling: 'nearest' }, tick, W, H), `rotate ${tick}`)
         .toEqual(oldTransform(src, 'rotate', 30 * t, 0, W, H))
       expect(transformed({ mode: 'smooth', scaleRate: 70, edgeMode: 'black', sampling: 'nearest' }, tick, W, H), `scale ${tick}`)
         .toEqual(oldTransform(src, 'scale', 70 * t, 0, W, H))
@@ -188,7 +188,7 @@ describe('Frame Transform keeps the looks it replaced', () => {
     const W = 12, H = 10
     const src = source(W, H)
     for (const [zoom, degrees, edgeMode] of [[1.42, 0, 'wrap'], [1.2, -8, 'wrap'], [1.5, 0, 'clamp'], [0.8, 5.5, 'clamp']] as const) {
-      const now = transformed({ mode: 'smooth', scale: zoom, rotate: degrees, edgeMode, sampling: 'bilinear' }, 0, W, H)
+      const now = transformed({ mode: 'smooth', scale: zoom, rotation: degrees, edgeMode, sampling: 'bilinear' }, 0, W, H)
       const before = oldWarpView(src, zoom, degrees, edgeMode, W, H)
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
@@ -238,12 +238,12 @@ describe('Frame Transform firmware', () => {
   })
 
   it('unrolls a fixed quarter turn and integrates only the rates that are set', () => {
-    const fixed = mk({ rotate: 90, flipX: true })
+    const fixed = mk({ rotation: 90, flipX: true })
     expect(fixed).toContain('// Frame Transform: exact')
     expect(fixed.match(/\{ float _nu=_v; _v=1\.0f-_u; _u=_nu; \}/g)).toHaveLength(1)
     expect(fixed).not.toContain('_phase_')
     expect(fixed).not.toContain('_ftK')
-    const spinning = mk({ rotate: 90, rotateRate: 45 })
+    const spinning = mk({ rotation: 90, rotationRate: 45 })
     expect(spinning).toContain('_ftK=')
     expect(spinning).toContain('_phase_ft_rotate')
     expect(spinning).not.toContain('_phase_ft_x')
@@ -252,7 +252,7 @@ describe('Frame Transform firmware', () => {
 
   it('reads a wired value at run time', () => {
     const lfo = node('lfo', 'Wave', 'signal', { frequency: 0.2, amplitude: 180 })
-    const wired = mk({ mode: 'exact' }, [edge('e3', 'lfo', 'ft', 'result', 'rotate')], [lfo])
+    const wired = mk({ mode: 'exact' }, [edge('e3', 'lfo', 'ft', 'result', 'rotation')], [lfo])
     expect(wired).toContain('_ftK=')
     const zoomed = mk({ mode: 'smooth' }, [edge('e3', 'lfo', 'ft', 'result', 'scale')], [lfo])
     expect(zoomed).toContain('float _ftS=constrain(')
@@ -262,7 +262,7 @@ describe('Frame Transform firmware', () => {
   it('samples Smooth through the shared frame sampler with its edge mode', () => {
     // Three in a chain, so no argument is the same at every call and folds away.
     const chain = (['clamp', 'wrap', 'black'] as const).map((edgeMode, i) =>
-      node(`f${i}`, 'FrameTransform', 'composite', { mode: 'smooth', rotate: 20, edgeMode, sampling: i ? 'bilinear' : 'nearest' }))
+      node(`f${i}`, 'FrameTransform', 'composite', { mode: 'smooth', rotation: 20, edgeMode, sampling: i ? 'bilinear' : 'nearest' }))
     const cpp = generateCpp([node('src', 'GradientFrame', 'pattern', {}), ...chain, node('out', 'MatrixOutput', 'output', { width: 8, height: 8 })], [
       edge('e1', 'src', 'f0', 'frame', 'frame'), edge('e2', 'f0', 'f1', 'frame', 'frame'),
       edge('e3', 'f1', 'f2', 'frame', 'frame'), edge('e4', 'f2', 'out', 'frame', 'frame'),

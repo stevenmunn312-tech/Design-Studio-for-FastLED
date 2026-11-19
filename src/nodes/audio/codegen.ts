@@ -284,8 +284,8 @@ export const AUDIO_EMITTERS: NodeEmitters = {
   },
   // Keep in lockstep with the `Vibe` evaluator (vibeLevel).
   Vibe({ node, id, p, ln, v, f, nativeFastLedAudio, hasExplicitAudioInput }) {
-    const levels = ['bass', 'mid', 'treble', 'volume', 'bassAtt', 'midAtt', 'trebleAtt']
-    const spikes = ['bassSpike', 'midSpike', 'trebleSpike']
+    const levels = ['bass', 'mids', 'treble', 'volume', 'bassAtt', 'midsAtt', 'trebleAtt']
+    const spikes = ['bassSpike', 'midsSpike', 'trebleSpike']
     // Only the live FastLED processor carries the detector; a baked show or an
     // unwired node reads as inactive, exactly as the preview does.
     if (!(hasExplicitAudioInput(node.id) && nativeFastLedAudio)) {
@@ -297,14 +297,14 @@ export const AUDIO_EMITTERS: NodeEmitters = {
     const gain = `_vibeGain_${id}`
     ln(`  float ${gain}=constrain(${f('gain', 'gain', 1)},0.25f,4.0f);`)
     const source: Record<string, string> = {
-      bass: '_audioVibeBass', mid: '_audioVibeMid', treble: '_audioVibeTreble', volume: '_audioVibeVolume',
-      bassAtt: '_audioVibeBassAtt', midAtt: '_audioVibeMidAtt', trebleAtt: '_audioVibeTrebleAtt',
+      bass: '_audioVibeBass', mids: '_audioVibeMid', treble: '_audioVibeTreble', volume: '_audioVibeVolume',
+      bassAtt: '_audioVibeBassAtt', midsAtt: '_audioVibeMidAtt', trebleAtt: '_audioVibeTrebleAtt',
     }
     const level = (port: string) => p.unitRange === true
       ? `constrain(${source[port]} * ${gain} * 0.5f, 0.0f, 1.0f)`
       : `${source[port]} * ${gain}`
     ln(`  float ${levels.map((port) => `${v(port)} = ${level(port)}`).join(', ')};`)
-    ln(`  bool ${v('bassSpike')} = _audioVibeBassSpike, ${v('midSpike')} = _audioVibeMidSpike, ${v('trebleSpike')} = _audioVibeTrebleSpike;`)
+    ln(`  bool ${v('bassSpike')} = _audioVibeBassSpike, ${v('midsSpike')} = _audioVibeMidSpike, ${v('trebleSpike')} = _audioVibeTrebleSpike;`)
   },
   SongStructure({ node, ln, v, nativeFastLedAudio, hasExplicitAudioInput }) {
     if (!(hasExplicitAudioInput(node.id) && nativeFastLedAudio)) {

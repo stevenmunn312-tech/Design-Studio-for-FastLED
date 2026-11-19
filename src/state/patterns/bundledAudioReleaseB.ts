@@ -7,7 +7,7 @@ function pitchHold(
   b.node(`${id}Confident`, 'Compare', { b: 0.55 })
   b.wire('pitch', confidence, `${id}Confident`, 'a')
   b.node(`${id}Fallback`, 'Switch', { a: fallback })
-  b.wire('pitch', port, `${id}Fallback`, 'b').wire(`${id}Confident`, 'result', `${id}Fallback`, 'sel')
+  b.wire('pitch', port, `${id}Fallback`, 'b').wire(`${id}Confident`, 'result', `${id}Fallback`, 'select')
   b.node(`${id}Trigger`, 'Logic', { logicOp: 'and' })
   b.wire(triggerSource, triggerHandle, `${id}Trigger`, 'a').wire(`${id}Confident`, 'result', `${id}Trigger`, 'b')
   b.node(id, 'SampleHold')
@@ -61,7 +61,7 @@ function silkAttractor(): AudioReleaseSeed {
   const tilt = b.map('tilt', 'stereo', 'balance', -8, 8)
   b.node('opening', 'FrameTransform', { mode: 'smooth', edgeMode: 'wrap', sampling: 'bilinear' })
   b.wire('filaments', 'frame', 'opening', 'frame').wire(zoom, 'result', 'opening', 'scale')
-  b.wire(tilt, 'result', 'opening', 'rotate')
+  b.wire(tilt, 'result', 'opening', 'rotation')
   return b.finish('opening')
 }
 

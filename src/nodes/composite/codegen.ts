@@ -34,8 +34,8 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
   FrameSwitch({ node, p, ln, ownBuf, srcBuf, boolExpr, incoming }) {
     const ob = ownBuf()
     const a = srcBuf('a'), b = srcBuf('b')
-    const wired = incoming.has(`${node.id}:sel`)
-    if (a && b && wired) ln(`  ::memmove(${ob}, (${boolExpr(node.id, 'sel')}) ? ${b} : ${a}, sizeof(CRGB) * NUM_LEDS);`)
+    const wired = incoming.has(`${node.id}:select`)
+    if (a && b && wired) ln(`  ::memmove(${ob}, (${boolExpr(node.id, 'select')}) ? ${b} : ${a}, sizeof(CRGB) * NUM_LEDS);`)
     else if (a && b) ln(`  ::memmove(${ob}, ${p.select === true ? b : a}, sizeof(CRGB) * NUM_LEDS);`)
     else if (a || b) ln(`  ::memmove(${ob}, ${a ?? b}, sizeof(CRGB) * NUM_LEDS);`)
     else ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
@@ -226,8 +226,8 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
       return speedPhaseCpp((line) => lines.push(line), phaseTag(id, term), local)
     }
     const sum = (a: string | null, b: string | null) => a !== null && b !== null ? `(${a})+${b}` : a ?? b
-    const turnValue = value('rotate', 0)
-    const turn = sum(turnValue, phase('rotateRate', 'rotate', '_ftRr'))
+    const turnValue = value('rotation', 0)
+    const turn = sum(turnValue, phase('rotationRate', 'rotate', '_ftRr'))
     const offsetX = sum(value('offsetX', 0), phase('offsetXRate', 'x', '_ftXr'))
     const offsetY = sum(value('offsetY', 0), phase('offsetYRate', 'y', '_ftYr'))
     // Only Smooth reads the scale: its value held to the slider's range, times
@@ -246,7 +246,7 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     const kernel = smooth
       ? smoothTransformCpp({ degrees: turn, scale, flipX, flipY, offsetX, offsetY })
       : exactTransformCpp({
-        turns: turn === null ? 0 : turn === turnValue && !wired('rotate') ? frameQuarterTurns(p.rotate) : turn,
+        turns: turn === null ? 0 : turn === turnValue && !wired('rotation') ? frameQuarterTurns(p.rotation) : turn,
         flipX, flipY, offsetX, offsetY,
       })
     ln(`  { // Frame Transform: ${smooth ? `smooth, ${edge}, ${bilinear ? 'bilinear' : 'nearest'}` : 'exact'}`)
@@ -268,12 +268,12 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     if (mask) ln(`    for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i].nscale8((${mask}[_i].r + ${mask}[_i].g + ${mask}[_i].b) / 3);`)
     ln(`  }`)
   },
-  // Shift is in turns; _hsv wraps any hue, so a negative or >1 shift is safe.
+  // Hue Shift is in degrees; _hsv wraps any hue, so a negative or >360 shift is safe.
   HueShift({ ln, f, ownBuf, seedFrom, needsHsv }) {
     needsHsv.v = true
     const ob = ownBuf()
-    const shift = f('shift', 'shift', 0)
-    ln(`  { ${seedFrom('frame')} float _dh = (${shift}) * 360.0f; for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = _hsvAdjust(${ob}[_i], _dh, 1.0f); }`)
+    const shift = f('hueShift', 'hueShift', 0)
+    ln(`  { ${seedFrom('frame')} float _dh = (${shift}); for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = _hsvAdjust(${ob}[_i], _dh, 1.0f); }`)
   },
   // RGB→HSV→scale saturation→RGB, on the preview's wheel. Keep brightness
   // scales each channel's distance from the Rec. 709 luma instead, rounding

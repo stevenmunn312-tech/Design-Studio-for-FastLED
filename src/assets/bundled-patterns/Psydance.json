@@ -291,8 +291,8 @@
           "category": "composite",
           "properties": {
             "mode": "smooth",
-            "rotate": 0,
-            "rotateRate": 130,
+            "rotation": 0,
+            "rotationRate": 130,
             "scale": 1,
             "scaleRate": 0,
             "flipX": false,
@@ -311,12 +311,12 @@
               "dataType": "frame"
             },
             {
-              "id": "rotate",
+              "id": "rotation",
               "label": "Rotate (\u00b0)",
               "dataType": "float"
             },
             {
-              "id": "rotateRate",
+              "id": "rotationRate",
               "label": "Rate (\u00b0/s)",
               "dataType": "float"
             },
@@ -784,7 +784,7 @@
         "source": "Math-1784602564188",
         "sourceHandle": "result",
         "target": "Transform-1784601732031",
-        "targetHandle": "rotateRate",
+        "targetHandle": "rotationRate",
         "reconnectable": "target",
         "style": {
           "stroke": "#9aa0a6"

@@ -75,8 +75,8 @@
        "dataType": "float"
       },
       {
-       "id": "mid",
-       "label": "Mid",
+       "id": "mids",
+       "label": "Mids",
        "dataType": "float"
       },
       {
@@ -95,8 +95,8 @@
        "dataType": "float"
       },
       {
-       "id": "midAtt",
-       "label": "Mid smoothed",
+       "id": "midsAtt",
+       "label": "Mids smoothed",
        "dataType": "float"
       },
       {
@@ -110,8 +110,8 @@
        "dataType": "bool"
       },
       {
-       "id": "midSpike",
-       "label": "Mid spike",
+       "id": "midsSpike",
+       "label": "Mids spike",
        "dataType": "bool"
       },
       {
@@ -1379,7 +1379,7 @@
    {
     "id": "e14",
     "source": "vibe",
-    "sourceHandle": "midAtt",
+    "sourceHandle": "midsAtt",
     "target": "forceSpeed",
     "targetHandle": "value",
     "type": "glowEdge",

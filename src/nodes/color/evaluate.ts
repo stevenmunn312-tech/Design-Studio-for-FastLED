@@ -79,7 +79,7 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
   },
   // The inverse of HSVToRGB — shares HueShift/Saturation's inline extraction.
   RGBToHSV({ input, num }, id, props) {
-    const c = (input(id, 'rgb', null) as RGB | null) ?? {
+    const c = (input(id, 'color', null) as RGB | null) ?? {
       r: byte(num(id, 'r', props, 'r', 0) / 255),
       g: byte(num(id, 'g', props, 'g', 0) / 255),
       b: byte(num(id, 'b', props, 'b', 0) / 255),

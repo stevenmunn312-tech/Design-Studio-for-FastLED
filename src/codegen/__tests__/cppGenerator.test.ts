@@ -767,7 +767,7 @@ describe('generateCpp', () => {
     const cpp = generateCpp([pir, solid, other, swap, outputNode], [
       { id: 'e1', source: 'sc', target: 'sw', sourceHandle: 'frame', targetHandle: 'a' },
       { id: 'e4', source: 'sc2', target: 'sw', sourceHandle: 'frame', targetHandle: 'b' },
-      { id: 'e2', source: 'pir', target: 'sw', sourceHandle: 'motion', targetHandle: 'sel' },
+      { id: 'e2', source: 'pir', target: 'sw', sourceHandle: 'motion', targetHandle: 'select' },
       { id: 'e3', source: 'sw', target: 'out', sourceHandle: 'frame', targetHandle: 'frame' },
     ] as never)
     expect(cpp).toContain('pinMode(5, INPUT);')
@@ -1213,7 +1213,7 @@ describe('generateCpp', () => {
         edge('e2', 'tr', 'out', 'frame', 'frame'),
       ])
     }
-    const spin = mk({ mode: 'smooth', rotateRate: 90 })
+    const spin = mk({ mode: 'smooth', rotationRate: 90 })
     expect(spin).toContain('// Frame Transform: smooth, black, bilinear')
     expect(spin).toContain('_ftCo=cosf(_ftA)')
     expect(spin).toMatch(/_sampleFrame\(buf_sc, ?_sx, ?_sy/) // gathers from the source buffer
@@ -1222,7 +1222,7 @@ describe('generateCpp', () => {
   })
 
   it('emits a blank Frame Transform when its frame input is unconnected', () => {
-    const tr = node('tr', 'FrameTransform', 'composite', { mode: 'smooth', rotateRate: 90 })
+    const tr = node('tr', 'FrameTransform', 'composite', { mode: 'smooth', rotationRate: 90 })
     const cpp = generateCpp([tr, outputNode], [edge('e', 'tr', 'out', 'frame', 'frame')])
     expect(cpp).toContain('Frame Transform: no input')
   })
@@ -4715,7 +4715,7 @@ describe('generateCpp — INMP441 audio engine', () => {
     }
     const level = withPorts(node('lvl', 'Math', 'math', { mathOp: 'add', a: 0.3, b: 0 }))
     const gate = withPorts(node('gt', 'Switch', 'math', { a: 0, b: 1 }))
-    const cpp = generateCpp([level, gate], [edge('e1', 'lvl', 'gt', 'result', 'sel')])
+    const cpp = generateCpp([level, gate], [edge('e1', 'lvl', 'gt', 'result', 'select')])
     expect(cpp).toContain('float n_gt_result = ((n_lvl_result >= 0.5f)) ? (1) : (0);')
   })
 
@@ -5435,7 +5435,7 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     const t = tail('sw', 'result')
     const lfo = node('lfo', 'LFO', 'input', {})
     const cpp = generateCpp([lfo, node('sw', 'Switch', 'math', { a: 0.25, b: 0.75 }), ...t.nodes],
-      [...t.edges, edge('s0', 'lfo', 'sw', 'value', 'sel')])
+      [...t.edges, edge('s0', 'lfo', 'sw', 'value', 'select')])
     expect(cpp).toMatch(/float n_sw_result = \(.*n_lfo_value.*\) \? \(0\.75\) : \(0\.25\);/)
     // With nothing selecting B, A is the whole result.
     const fixed = generateCpp([node('sw', 'Switch', 'math', { a: 0.25, b: 0.75 }), ...t.nodes], t.edges)
@@ -5445,7 +5445,7 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     expect(onB).toContain('float n_sw_result = (0.75);')
     // A wire into Select still decides, whatever the switch says.
     const wired = generateCpp([lfo, node('sw', 'Switch', 'math', { a: 0.25, b: 0.75, select: true }), ...t.nodes],
-      [...t.edges, edge('s0', 'lfo', 'sw', 'value', 'sel')])
+      [...t.edges, edge('s0', 'lfo', 'sw', 'value', 'select')])
     expect(wired).toMatch(/float n_sw_result = \(.*n_lfo_value.*\) \? \(0\.75\) : \(0\.25\);/)
   })
 
@@ -5573,7 +5573,7 @@ describe('signal utility nodes (Smooth / SampleHold / Switch / Envelope / FrameS
     expect(cpp).not.toContain('? buf_fb : buf_fa')
   })
 
-  it('FrameSwitch with one wired side copies it regardless of sel', () => {
+  it('FrameSwitch with one wired side copies it regardless of select', () => {
     const a = node('fa', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const fs = node('fs', 'FrameSwitch', 'composite', {})
     const cpp = generateCpp([a, fs, outputNode], [
@@ -5880,7 +5880,7 @@ describe('Saturation / RGBToHSV (codegen)', () => {
     const cpp = generateCpp(
       [c, rh, sc, bm, outputNode],
       [
-        edge('e1', 'c', 'rh', 'rgb', 'rgb'),
+        edge('e1', 'c', 'rh', 'rgb', 'color'),
         edge('e2', 'sc', 'bm', 'frame', 'frame'),
         edge('e3', 'rh', 'bm', 'v', 'brightness'),
         edge('e4', 'bm', 'out', 'frame', 'frame'),

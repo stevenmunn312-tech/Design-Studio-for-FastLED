@@ -27,7 +27,7 @@ describe("Frame Transform's scale rate", () => {
   })
 
   it("names each rate's unit", () => {
-    expect(propertyLabel('FrameTransform', 'rotateRate')).toBe('rate (°/s)')
+    expect(propertyLabel('FrameTransform', 'rotationRate')).toBe('rate (°/s)')
     expect(propertyLabel('FrameTransform', 'scaleRate')).toBe('rate (%/s)')
     expect(propertyLabel('FrameTransform', 'offsetXRate')).toBe('X rate (px/s)')
     expect(propertyLabel('FrameTransform', 'offsetYRate')).toBe('Y rate (px/s)')

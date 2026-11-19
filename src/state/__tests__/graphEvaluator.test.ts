@@ -419,7 +419,7 @@ describe('evaluateGraph', () => {
     for (const [level, open] of [[0.3, false], [0.5, true], [0.9, true]] as const) {
       const source = node(`level-${level}`, 'Math', 'math', { mathOp: 'add', a: level, b: 0 })
       const outputs = evaluateGraphFull([source, gate], [
-        edge('bool-gate', source.id, 'result', 'gate-bool', 'sel'),
+        edge('bool-gate', source.id, 'result', 'gate-bool', 'select'),
       ], 0, W, H).outputs.get('gate-bool')!
       expect(outputs.result).toBe(open ? 1 : 0)
     }
@@ -492,7 +492,7 @@ describe('evaluateGraph', () => {
     expect(out.bassAtt).toBeCloseTo(2.2, 6)
     expect(out.volume).toBeCloseTo(1.8, 6)
     expect(out.bassSpike).toBe(true)
-    expect(out.midSpike).toBe(false)
+    expect(out.midsSpike).toBe(false)
 
     // Gain is clamped to 0.25–4 like the other analysis nodes.
     const clamped = evaluateGraphFull([mic, node('vb2', 'Vibe', 'audio', { gain: 99 })], [edge('ev1', 'micv', 'audio', 'vb2', 'audio')], 1, W, H).outputs.get('vb2')!
@@ -506,7 +506,7 @@ describe('evaluateGraph', () => {
     const vibe = node('vb0', 'Vibe', 'audio', {})
     mockAudio.active = true
     const out = evaluateGraphFull([mic, vibe], [edge('evl', 'micv0', 'audio', 'vb0', 'audio')], 0, W, H).outputs.get('vb0')!
-    expect(out).toMatchObject({ bass: 0, mid: 0, treble: 0, volume: 0, bassAtt: 0, bassSpike: false, trebleSpike: false })
+    expect(out).toMatchObject({ bass: 0, mids: 0, treble: 0, volume: 0, bassAtt: 0, bassSpike: false, trebleSpike: false })
     mockAudio.active = false
   })
 
@@ -588,7 +588,7 @@ describe('evaluateGraph', () => {
   it('Vibe is inactive with no audio source wired', () => {
     const out = evaluateGraphFull([node('vb00', 'Vibe', 'audio', {})], [], 0, W, H).outputs.get('vb00')!
     expect(out.bass).toBe(0)
-    expect(out.midSpike).toBe(false)
+    expect(out.midsSpike).toBe(false)
   })
 
   it('PercussionDetect decays kick/snare/hihat gracefully when audio disconnects instead of snapping to zero', () => {
@@ -732,7 +732,7 @@ describe('evaluateGraph', () => {
     const W16 = 16, H16 = 16
     const T0 = 360000 // ticks ≈ 100 minutes of app clock
     const cases: Array<{ type: string; prop: string; base: number; step: number; props: Record<string, unknown> }> = [
-      { type: 'BeatKaleidoscope', prop: 'reactivity', base: 0.5, step: 0.05, props: { hue: 0, speed: 1 } },
+      { type: 'BeatKaleidoscope', prop: 'reactivity', base: 0.5, step: 0.05, props: { hueShift: 0, speed: 1 } },
       { type: 'SpectraMosaic', prop: 'reactivity', base: 0.5, step: 0.05, props: { bass: 0.5, mids: 0.5, treble: 0.5, speed: 1, tiles: 4 } },
       // TurbulentBloom's warp is steep, so run it slow with a tiny step — the
       // t-scaled bug would still shift its noise phase by hundreds of units.
@@ -4915,13 +4915,13 @@ describe('signal utility nodes', () => {
   it('Switch outputs A or B by the select boolean', () => {
     const run = (on: number) => evaluateScalar(
       [boolSrc('swsel', on), node('sw1', 'Switch', 'math', { a: 2, b: 5 })],
-      [edge('e', 'swsel', 'result', 'sw1', 'sel')],
+      [edge('e', 'swsel', 'result', 'sw1', 'select')],
       'sw1', 'result', 0)
     expect(run(0)).toBe(2)
     expect(run(1)).toBe(5)
   })
 
-  it('Switch defaults to A when sel is unwired', () => {
+  it('Switch defaults to A when select is unwired', () => {
     expect(evaluateScalar([node('sw2', 'Switch', 'math', { a: 3, b: 7 })], [], 'sw2', 'result', 0)).toBe(3)
   })
 
@@ -4930,7 +4930,7 @@ describe('signal utility nodes', () => {
     // A wire into Select overrides the switch.
     expect(evaluateScalar(
       [boolSrc('sw4sel', 0), node('sw4', 'Switch', 'math', { a: 3, b: 7, select: true })],
-      [edge('e', 'sw4sel', 'result', 'sw4', 'sel')],
+      [edge('e', 'sw4sel', 'result', 'sw4', 'select')],
       'sw4', 'result', 0)).toBe(3)
   })
 
@@ -5131,7 +5131,7 @@ describe('signal utility nodes', () => {
       return withOutput(fs, [red, blue, boolSrc('fssel', on)], [
         edge('ea', 'fsa', 'frame', 'fs1', 'a'),
         edge('eb', 'fsb', 'frame', 'fs1', 'b'),
-        edge('es', 'fssel', 'result', 'fs1', 'sel'),
+        edge('es', 'fssel', 'result', 'fs1', 'select'),
       ])
     }
     const a = build(0)
@@ -5156,10 +5156,10 @@ describe('signal utility nodes', () => {
   it('FrameSwitch falls back to the wired side when the selected one is empty', () => {
     const red = node('fsa2', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const fs = node('fs2', 'FrameSwitch', 'composite', {})
-    // Only A wired, sel=true selects the missing B → shows A anyway.
+    // Only A wired, select=true selects the missing B → shows A anyway.
     const g = withOutput(fs, [red, boolSrc('fssel2', 1)], [
       edge('ea', 'fsa2', 'frame', 'fs2', 'a'),
-      edge('es', 'fssel2', 'result', 'fs2', 'sel'),
+      edge('es', 'fssel2', 'result', 'fs2', 'select'),
     ])
     expect(evaluateGraph(g.nodes, g.edges, 0, W, H)![0][0]).toEqual({ r: 255, g: 0, b: 0 })
   })
@@ -5882,7 +5882,7 @@ describe('Saturation and RGBToHSV', () => {
   it('RGBToHSV extracts hue/sat/val from a connected color', () => {
     const c = node('rgbsrc', 'HSVToRGB', 'color', { hueUnits: 'bytes', h: 0, s: 1, v: 1 })   // pure red
     const rh = node('rh', 'RGBToHSV', 'color', {})
-    const { outputs } = evaluateGraphFull([c, rh], [edge('e1', 'rgbsrc', 'color', 'rh', 'rgb')], 0, W, H)
+    const { outputs } = evaluateGraphFull([c, rh], [edge('e1', 'rgbsrc', 'color', 'rh', 'color')], 0, W, H)
     const hsvOut = outputs.get('rh')!
     expect(hsvOut.h).toBeCloseTo(0, 0)
     expect(hsvOut.s).toBeCloseTo(1, 1)
@@ -5892,7 +5892,7 @@ describe('Saturation and RGBToHSV', () => {
   it('RGBToHSV round-trips through HSVToRGB', () => {
     const src = node('hsvsrc', 'HSVToRGB', 'color', { h: 120, s: 1, v: 1 })     // pure green
     const rh = node('rh2', 'RGBToHSV', 'color', {})
-    const { outputs } = evaluateGraphFull([src, rh], [edge('e1', 'hsvsrc', 'color', 'rh2', 'rgb')], 0, W, H)
+    const { outputs } = evaluateGraphFull([src, rh], [edge('e1', 'hsvsrc', 'color', 'rh2', 'color')], 0, W, H)
     const hsvOut = outputs.get('rh2')!
     expect(hsvOut.h).toBeCloseTo(120, 0)
     expect(hsvOut.s).toBeCloseTo(1, 1)
@@ -6181,7 +6181,7 @@ describe('ScheduleTrigger', () => {
     const off = scheduleGraph(
       { rtc: 'rtc-off', sched: 'sched-off' },
       { ...MONDAY, startHour: 19, startMinute: 0, startSecond: 0 },
-      { scheduleMode: 'Window', start: '18:00', end: '20:00', enable: false },
+      { scheduleMode: 'Window', start: '18:00', end: '20:00', enabled: false },
     )
     expect(evaluateGraphFull(off.nodes, off.edges, 0, W, H).outputs.get('sched-off')).toMatchObject({
       active: false,
@@ -6495,7 +6495,7 @@ describe('Clock / Transport', () => {
 
   it('subdivision pulses at the configured rate', () => {
     const clk = () => [node('clk3', 'Clock', 'signal', { bpm: 120, subdivision: 2 })]
-    const at = (tick: number) => evaluateScalar(clk(), [], 'clk3', 'sub', tick)
+    const at = (tick: number) => evaluateScalar(clk(), [], 'clk3', 'subdivision', tick)
     expect(at(0)).toBe(0)
     expect(at(15)).toBe(1)  // half a beat in, subdivision 2 → first subdivision boundary
     expect(at(16)).toBe(0)

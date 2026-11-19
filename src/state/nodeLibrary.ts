@@ -608,8 +608,9 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   intensity:  { control: 'slider', min: 0, max: 2, step: 0.05 },
   s:          { control: 'slider', min: 0, max: 1, step: 0.01 },
   v:          { control: 'slider', min: 0, max: 1, step: 0.01 },
-  // Hue Shift's rotation amount, normalised 0–1 across the full 360° hue wheel.
-  shift:      { control: 'slider', min: 0, max: 1, step: 0.01 },
+  // The one hue-offset unit: degrees round the wheel, wherever a node carries
+  // a hue shift (Adjust Color, Hue Shift, Image, Beat Kaleidoscope).
+  hueShift:   { control: 'slider', min: -180, max: 180, step: 1 },
   // 0–255 byte ranges (FastLED heat sim + CHSV channels).
   cooling:    { control: 'slider', min: 0, max: 255, step: 1 },
   sparking:   { control: 'slider', min: 0, max: 255, step: 1 },
@@ -763,7 +764,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     kelvin: { control: 'slider', min: COLOR_TEMPERATURE_K.min, max: COLOR_TEMPERATURE_K.max, step: 50 },
   },
   AdjustColor: {
-    hueShift: { control: 'slider', min: -180, max: 180, step: 1 },
     saturation: { control: 'slider', min: 0, max: 2, step: 0.01 },
     brightness: { control: 'slider', min: 0, max: 2, step: 0.01 },
   },
@@ -1085,11 +1085,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     blendMode: { control: 'select', options: ['add', 'max'] },
   },
   PrismStorm:       { speed: N01 },
-  // BeatKaleidoscope's hue comes from AudioHue (0-360°), not the generic
-  // FastLED-style hue byte (0-255).
+  // BeatKaleidoscope's hue shift comes from AudioHue (0-360°), so it keeps the
+  // full turn rather than the generic -180 to 180.
   BeatKaleidoscope: {
     speed: N01,
-    hue: { control: 'slider', min: 0, max: 360, step: 1 },
+    hueShift: { control: 'slider', min: 0, max: 360, step: 1 },
   },
   // No generic `tiles` key exists elsewhere (tilesX/tilesY are separate).
   SpectraMosaic: {
@@ -1200,8 +1200,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   // the rows' labels name each unit.
   FrameTransform:  {
     mode: { control: 'select', options: [...FRAME_TRANSFORM_MODES] },
-    rotate: { control: 'slider', min: -180, max: 180, step: 1 },
-    rotateRate: { control: 'slider', min: TRANSFORM_RATE.min, max: TRANSFORM_RATE.max, step: 0.1 },
+    rotation: { control: 'slider', min: -180, max: 180, step: 1 },
+    rotationRate: { control: 'slider', min: TRANSFORM_RATE.min, max: TRANSFORM_RATE.max, step: 0.1 },
     scale: { control: 'slider', min: FRAME_SCALE.min, max: FRAME_SCALE.max, step: 0.05 },
     scaleRate: { control: 'slider', min: TRANSFORM_RATE.min, max: TRANSFORM_RATE.max, step: 0.1 },
     offsetX: { control: 'slider', min: FRAME_OFFSET.min, max: FRAME_OFFSET.max, step: 0.1 },
@@ -1732,7 +1732,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     cropY:     { control: 'slider', min: 0, max: 1, step: 0.01 },
     saturation:{ control: 'slider', min: 0, max: 2, step: 0.01 },
     contrast:  { control: 'slider', min: 0, max: 2, step: 0.01 },
-    hueShift:  { control: 'slider', min: -180, max: 180, step: 1 },
     gamma:     { control: 'slider', min: 1, max: 3.5, step: 0.1 },
     paletteLevels: { control: 'select', options: ['full', '2', '4', '8', '16', '32'] },
     dithering: { control: 'select', options: ['none', 'ordered2x2', 'ordered4x4'] },
@@ -2798,7 +2797,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     blendMode: 'Add sums overlapping rings (brighter); Max keeps the brightest only (no blow-out).',
   },
   BeatKaleidoscope: {
-    hue: 'Palette start offset in degrees (0–360); wire an audio hue into Hue to colour-shift with the music.',
+    hueShift: 'Palette start offset in degrees (0–360); wire an audio hue into Hue Shift to colour-shift with the music.',
     speed: 'Rotation rate (0–1; 0.5 is the default pace, 1 twice as fast); each beat adds wedges and a spin kick that decays.',
   },
   SpectraMosaic: {
@@ -2888,7 +2887,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     friday: 'Run on Fridays (Custom days only).',
     saturday: 'Run on Saturdays (Custom days only).',
     sunday: 'Run on Sundays (Custom days only).',
-    enable: 'Off holds every output low regardless of the clock. A wire into Enable overrides this.',
+    enabled: 'Off holds every output low regardless of the clock. A wire into Enabled overrides this.',
   },
   Clock: {
     bpm: 'Tempo in beats per minute when nothing is wired into Sync or Tap.',
@@ -3272,8 +3271,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   FrameTransform: {
     mode: 'Exact keeps whole pixels: quarter turns, flips and a slide that wraps round the edges, nothing resampled. Smooth turns by any angle, scales, and slides by fractions of a pixel, reading the frame between pixels.',
-    rotate: 'Turn clockwise in degrees. Exact snaps it to the nearest quarter turn and stretches a turned picture to fit a non-square matrix.',
-    rotateRate: 'Keeps the frame turning, in degrees a second. Negative turns counter-clockwise; 0 holds still.',
+    rotation: 'Turn clockwise in degrees. Exact snaps it to the nearest quarter turn and stretches a turned picture to fit a non-square matrix.',
+    rotationRate: 'Keeps the frame turning, in degrees a second. Negative turns counter-clockwise; 0 holds still.',
     scale: 'Smooth only: size about the centre. Above 1 enlarges the frame; below 1 shrinks it and shows the edges.',
     scaleRate: 'Smooth only: keeps the size breathing between double and half the Scale and back, in percent of a doubling a second, so 100 doubles in one second. Negative shrinks first; 0 holds still.',
     flipX: 'Mirror left to right, after the turn.',
@@ -3294,7 +3293,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     brightness: 'Multiplies every pixel. 1 is unchanged, 0 is black, up to 3 boosts (clipped at full white).',
   },
   HueShift: {
-    shift: 'Rotates every colour around the hue wheel. 0.5 turns red into cyan; 1 is a full turn.',
+    hueShift: 'Degrees to turn every colour round the hue wheel: 180 turns red into cyan, 360 is a full turn back to where it started.',
   },
   Gamma: {
     gamma: 'Curve applied before output so mid-tones look right on LEDs. 2.2 to 2.8 suits most strips.',
@@ -3751,8 +3750,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     glitterMode: 'mode',
   },
   FrameTransform: {
-    rotate: 'rotate (°)',
-    rotateRate: 'rate (°/s)',
+    rotation: 'rotate (°)',
+    rotationRate: 'rate (°/s)',
     scale: 'scale (×)',
     scaleRate: 'rate (%/s)',
     flipX: 'flip X',
@@ -3829,6 +3828,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     mixMode: 'mix',
   },
   Temperature: { kelvin: 'temperature (K)' },
+  HueShift: { hueShift: 'hue shift (°)' },
   AdjustColor: { hueShift: 'hue shift (°)', saturation: 'saturation (×)', brightness: 'brightness (×)' },
   // Hue, saturation and brightness read the same on every HSV node; "value"
   // and single letters are jargon.
@@ -4436,7 +4436,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   // Enable and Require Synced Time decide whether the schedule runs at all,
   // so they lead the Timing group rather than sitting among the day rules.
   ScheduleTrigger: [
-    { key: 'timing', label: 'Timing', keys: ['enable', 'scheduleMode', 'start', 'end', 'requireSync'] },
+    { key: 'timing', label: 'Timing', keys: ['enabled', 'scheduleMode', 'start', 'end', 'requireSync'] },
     { key: 'days', label: 'Day Rules', keys: ['dayMode', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] },
   ],
   MatrixOutput: [
@@ -4637,7 +4637,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   // Each move pairs its value with its rate; Exact drops Scale and Sampling.
   FrameTransform: [
     { key: 'mode', label: 'Mode', keys: ['mode'] },
-    { key: 'rotate', label: 'Rotate', keys: ['rotate', 'rotateRate'] },
+    { key: 'rotate', label: 'Rotate', keys: ['rotation', 'rotationRate'] },
     { key: 'scale', label: 'Scale', keys: ['scale', 'scaleRate'] },
     { key: 'offset', label: 'Offset', keys: ['offsetX', 'offsetY', 'offsetXRate', 'offsetYRate'] },
     { key: 'flip', label: 'Flip', keys: ['flipX', 'flipY'] },

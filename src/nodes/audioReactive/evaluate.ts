@@ -1406,7 +1406,7 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
   },
   BeatKaleidoscope({ input, num, pal, t, W, H, stateKey, elapsedT }, id, props) {
     const beatVal = input(id, 'beat', false) as boolean
-    const hue = num(id, 'hue', props, 'hue', 0)
+    const hue = num(id, 'hueShift', props, 'hueShift', 0)
     const energy = num(id, 'reactivity', props, 'reactivity', 0.7)
     const speed = audioSpeedRate(num(id, 'speed', props, 'speed', 0.5))
     const palette = pal(id, 'paletteIn', props, 'palette', 'ultraviolet')

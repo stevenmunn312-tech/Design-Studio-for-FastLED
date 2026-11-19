@@ -263,7 +263,7 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
   FrameSwitch({ input }, id, props) {
     const a = input(id, 'a', null) as Frame | null
     const b = input(id, 'b', null) as Frame | null
-    const sel = Boolean(input(id, 'sel', props.select === true))
+    const sel = Boolean(input(id, 'select', props.select === true))
     return { frame: (sel ? b : a) ?? (sel ? a : b) }
   },
   // Rectangular zones — each of A–D routes its own wired frame into
@@ -435,8 +435,8 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
     if (!src) return { frame: blankFrame(W, H) }
     const key = stateKey(id)
     const smooth = frameTransformMode(props.mode) === 'smooth'
-    const turn = num(id, 'rotate', props, 'rotate', 0)
-      + speedPhase(key, t, num(id, 'rotateRate', props, 'rotateRate', 0), 'rotate')
+    const turn = num(id, 'rotation', props, 'rotation', 0)
+      + speedPhase(key, t, num(id, 'rotationRate', props, 'rotationRate', 0), 'rotate')
     const ox = num(id, 'offsetX', props, 'offsetX', 0)
       + speedPhase(key, t, num(id, 'offsetXRate', props, 'offsetXRate', 0), 'x')
     const oy = num(id, 'offsetY', props, 'offsetY', 0)
@@ -468,7 +468,7 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
   },
   HueShift({ input, num }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
-    const shift = num(id, 'shift', props, 'shift', 0) * 360
+    const shift = num(id, 'hueShift', props, 'hueShift', 0)
     if (!src) { return { frame: null } }
     return {
       frame: src.map(row =>

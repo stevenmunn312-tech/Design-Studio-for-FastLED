@@ -68,7 +68,7 @@ describe('TouchButtonInput', () => {
     const edges = [
       edge('a', 'ocean', 'frame', 'select', 'a'),
       edge('b', 'fire', 'frame', 'select', 'b'),
-      edge('sel', 'touch', 'touched', 'select', 'sel'),
+      edge('sel', 'touch', 'touched', 'select', 'select'),
       edge('out', 'select', 'frame', 'out', 'frame'),
     ]
     const sketch = generateCpp([touch, ocean, fire, select, out], edges)

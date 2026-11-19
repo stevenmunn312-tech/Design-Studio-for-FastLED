@@ -19,7 +19,7 @@ export const MATH_REFERENCE: NodeReferenceMap = {
         points: ['Constant', { value: 5 }],
         star: ['Shape', { shape: 'polygon', size: 6, fill: '#1a0638', edge: '#ffcc33', thickness: 1.5, rotation: 18 }],
         mirror: ['Mirror', { mirrorMode: 'radial' }],
-        spin: ['FrameTransform', { mode: 'smooth', rotateRate: 25, edgeMode: 'black', sampling: 'nearest' }],
+        spin: ['FrameTransform', { mode: 'smooth', rotationRate: 25, edgeMode: 'black', sampling: 'nearest' }],
       },
       wires: ['points.value > star.sides', 'points.value > mirror.segments', 'star.frame > spin.frame', 'spin.frame > mirror.frame'],
       explanation: 'One Constant sets both the star’s number of points and the kaleidoscope’s number of mirrors. Frame Transform turns the star, and Mirror’s Radial fold folds it into the same five-fold symmetry. Set the Constant to 6 or 8 and both follow at once.',
@@ -284,7 +284,7 @@ export const MATH_REFERENCE: NodeReferenceMap = {
     inputs: {
       a: 'The value while Select is false.',
       b: 'The value while Select is true.',
-      sel: 'Chooses between A (false) and B (true). Unwired, the Select switch on the node chooses.',
+      select: 'Chooses between A (false) and B (true). Unwired, the Select switch on the node chooses.',
     },
     outputs: {
       result: 'A or B.',
@@ -293,13 +293,13 @@ export const MATH_REFERENCE: NodeReferenceMap = {
       featured: 'Switch',
       title: 'Colours that roam only while you hold the button',
       nodes: {
-        roam: ['NoiseSignal', { speed: 0.5, min: 0, max: 1 }],
+        roam: ['NoiseSignal', { speed: 0.5, min: 0, max: 360 }],
         hold: ['ButtonBank'],
         gate: ['Switch', { a: 0 }],
         lamp: ['Rainbow', { speed: 0.2, deltaHue: 3 }],
         tint: ['HueShift'],
       },
-      wires: ['roam.value > gate.b', `hold.${FIRST_BUTTON_HANDLE} > gate.sel`, 'gate.result > tint.shift', 'lamp.frame > tint.frame'],
+      wires: ['roam.value > gate.b', `hold.${FIRST_BUTTON_HANDLE} > gate.select`, 'gate.result > tint.hueShift', 'lamp.frame > tint.frame'],
       explanation: 'Noise LFO wanders round the colour wheel, but Switch passes it to Hue Shift only while the Button is held; otherwise it sends A, a fallback of 0. Let go and the rainbow snaps back to its own colours.',
       preview: 'The {output} shows a gentle rainbow. Hold the press control on the Button node and the colours start drifting; release it and they return.',
     }),
@@ -394,7 +394,7 @@ export const MATH_REFERENCE: NodeReferenceMap = {
       wires: [
         'mic.audio > fft.audio',
         'fft.bass > loud.a',
-        'loud.result > choose.sel',
+        'loud.result > choose.select',
         'sea.frame > choose.a',
         'fire.frame > choose.b',
       ],

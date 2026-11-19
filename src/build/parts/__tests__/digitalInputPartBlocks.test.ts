@@ -88,7 +88,7 @@ describe('a downloaded motion sensor', () => {
     ],
     [
       edge('e1', 'a', 'frame', 'sw', 'a'), edge('e2', 'b', 'frame', 'sw', 'b'),
-      edge('e3', 'pir', 'motion', 'sw', 'sel'), edge('e4', 'sw', 'frame', 'out', 'frame'),
+      edge('e3', 'pir', 'motion', 'sw', 'select'), edge('e4', 'sw', 'frame', 'out', 'frame'),
     ],
   )
 

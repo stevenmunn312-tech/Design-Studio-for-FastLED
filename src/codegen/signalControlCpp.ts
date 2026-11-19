@@ -36,11 +36,11 @@ export const TIMED_CONTROL_NODES: Record<string, TimedControlSpec> = {
     outputs: { active: 'bool', start: 'bool', end: 'bool', progress: 'float' },
     inputs: {
       dateTime: { type: 'datetime', fallback: 0 },
-      enable: { type: 'bool', fallback: 1 },
+      enabled: { type: 'bool', fallback: 1 },
     },
   },
   Clock: {
-    outputs: { bpm: 'float', phase: 'float', beat: 'bool', bar: 'bool', sub: 'bool' },
+    outputs: { bpm: 'float', phase: 'float', beat: 'bool', bar: 'bool', subdivision: 'bool' },
     inputs: {
       tap: { type: 'bool', fallback: 0 },
       sync: { type: 'bool', fallback: 0 },
@@ -133,7 +133,7 @@ export function scheduleTriggerCpp(id: string, v: Value, expr: Expr, props: Reco
       `  static float _schedulePrevSeconds_${id} = -1.0f;`,
       `  static int32_t _schedulePrevDay_${id} = -1;`,
     ] : [`  static bool _schedulePrevActive_${id} = false;`]),
-    `  bool _scheduleEnabled_${id} = ${expr.enable};`,
+    `  bool _scheduleEnabled_${id} = ${expr.enabled};`,
     `  float _scheduleSeconds_${id} = constrain(${clock}.secondsOfDay, 0.0f, 86399.999f);`,
     `  bool _scheduleTimeReady_${id} = ${clock}.valid${requireSync ? ` && ${clock}.synced` : ''};`,
   ]
@@ -251,7 +251,7 @@ export function clockCpp(id: string, v: Value, expr: Expr): string[] {
     `  bool ${v('beat')} = _clkBeatCount_${id} > _clkLastBeat_${id};`,
     `  bool ${v('bar')} = ${v('beat')} && (_clkBeatCount_${id} % (uint32_t)${beatsPerBar} == 0u);`,
     `  uint32_t _clkSubCount_${id} = (uint32_t)(_clkElapsed_${id} * (float)${subdivision});`,
-    `  bool ${v('sub')} = _clkSubCount_${id} > _clkLastSub_${id};`,
+    `  bool ${v('subdivision')} = _clkSubCount_${id} > _clkLastSub_${id};`,
     `  _clkLastBeat_${id} = _clkBeatCount_${id}; _clkLastSub_${id} = _clkSubCount_${id};`,
   ]
 }

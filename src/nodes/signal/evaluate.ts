@@ -129,7 +129,7 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
     const clock = input(id, 'dateTime', null) as Partial<RtcPreview> | null
     const valid = clock?.valid === true
     const synced = clock?.synced === true
-    const enabled = Boolean(input(id, 'enable', props.enable !== false))
+    const enabled = Boolean(input(id, 'enabled', props.enabled !== false))
     const weekday = Math.max(0, Math.min(6, Math.round(Number(clock?.weekday ?? 0))))
     const secondsOfDay = Math.max(0, Math.min(86399.999, Number(clock?.secondsOfDay ?? 0)))
     const day = Math.max(1, Math.min(31, Math.round(Number(clock?.day ?? 1))))
@@ -242,7 +242,7 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
     st.lastSubCount = subCount
     clockState.set(key, st)
 
-    return { bpm, phase, beat, bar, sub }
+    return { bpm, phase, beat, bar, subdivision: sub }
   },
   // Metronome — fires a boolean pulse once every `interval` seconds. Stateful
   // (module-level intervalLast), keyed per group instance like other stateful

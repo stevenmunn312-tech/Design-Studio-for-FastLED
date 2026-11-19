@@ -164,7 +164,7 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
     ],
     inputs: {
       dateTime: 'The clock’s DateTime output: the time of day, weekday and date the schedule follows. Nothing fires until the time is real.',
-      enable: 'Off holds every output low. Wire a switch here to pause the schedule.',
+      enabled: 'Off holds every output low. Wire a switch here to pause the schedule.',
     },
     outputs: {
       active: 'True while inside the window on an allowed day.',
@@ -208,7 +208,7 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
       phase: 'Position through the current beat, 0 to 1.',
       beat: 'True for one frame on every beat.',
       bar: 'True for one frame on the first beat of each bar.',
-      sub: 'True for one frame on each subdivision of the beat.',
+      subdivision: 'True for one frame on each subdivision of the beat.',
     },
     example: example({
       featured: 'Clock',

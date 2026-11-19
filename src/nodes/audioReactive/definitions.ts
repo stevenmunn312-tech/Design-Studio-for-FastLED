@@ -367,14 +367,14 @@ export const AUDIO_REACTIVE_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Audio-Reactive',
     inputs: [
       { id: 'beat', label: 'Beat', dataType: 'bool' },
-      { id: 'hue', label: 'Hue', dataType: 'float' },
+      { id: 'hueShift', label: 'Hue Shift (°)', dataType: 'float' },
       { id: 'reactivity', label: 'Reactivity', dataType: 'float' },
       { id: 'speed', label: 'Speed', dataType: 'float' },
       { id: 'paletteIn', label: 'Palette', dataType: 'palette' },
     ],
-    propertyInputs: { hue: 'hue', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn' },
+    propertyInputs: { hueShift: 'hueShift', reactivity: 'reactivity', speed: 'speed', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { hue: 0, reactivity: 0.7, speed: 0.5, palette: 'ultraviolet' },
+    defaultProperties: { hueShift: 0, reactivity: 0.7, speed: 0.5, palette: 'ultraviolet' },
   },
   {
     // Tiled VU mosaic — bass/mids/treble sweep diagonally across the grid cells.

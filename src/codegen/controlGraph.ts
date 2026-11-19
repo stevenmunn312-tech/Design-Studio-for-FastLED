@@ -197,8 +197,8 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
           }
           inputs[inputPort] = expression
         } else if (spec.type === 'bool') {
-          // Enable follows its property (default on). Every other bool defaults off.
-          inputs[inputPort] = inputPort === 'enable' && node.data.properties.enable !== false ? 'true' : 'false'
+          // Enabled follows its property (default on). Every other bool defaults off.
+          inputs[inputPort] = inputPort === 'enabled' && node.data.properties.enabled !== false ? 'true' : 'false'
         } else {
           const value = Number(node.data.properties[inputPort] ?? spec.fallback)
           if (!Number.isFinite(value)) {

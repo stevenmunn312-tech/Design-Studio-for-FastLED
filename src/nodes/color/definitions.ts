@@ -115,7 +115,7 @@ export const COLOR_DEFINITIONS: NodeDefinition[] = [
     category: 'color',
     subcategory: 'Colors',
     inputs: [
-      { id: 'rgb', label: 'Color', dataType: 'color' },
+      { id: 'color', label: 'Color', dataType: 'color' },
       { id: 'r', label: 'R', dataType: 'float' },
       { id: 'g', label: 'G', dataType: 'float' },
       { id: 'b', label: 'B', dataType: 'float' },

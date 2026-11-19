@@ -676,7 +676,7 @@ describe('nodeLibrary', () => {
     expect(sched?.category).toBe('signal')
     expect(sched?.outputs.map((port) => port.id)).toEqual(['active', 'start', 'end', 'progress'])
     // One clock wire, plus the switch that pauses the schedule.
-    expect(sched?.inputs.map((port) => port.id)).toEqual(['dateTime', 'enable'])
+    expect(sched?.inputs.map((port) => port.id)).toEqual(['dateTime', 'enabled'])
     expect(propertyMeta('ScheduleTrigger', 'start')).toEqual({ control: 'time' })
     // The end of a window only makes sense for the Window mode.
     expect(isPropertyEnabled('ScheduleTrigger', 'end', { scheduleMode: 'Window' })).toBe(true)
@@ -834,18 +834,18 @@ describe('nodeLibrary', () => {
   })
 
   it('Frame Transform runs its rates both ways and shows Scale and Sampling only when Smooth', () => {
-    for (const rate of ['rotateRate', 'scaleRate', 'offsetXRate', 'offsetYRate']) {
+    for (const rate of ['rotationRate', 'scaleRate', 'offsetXRate', 'offsetYRate']) {
       expect(propertyMeta('FrameTransform', rate), rate).toMatchObject({ control: 'slider', min: -360, max: 360 })
     }
     for (const key of ['scale', 'scaleRate', 'edgeMode', 'sampling']) {
       expect(isPropertyEnabled('FrameTransform', key, { mode: 'smooth' }), key).toBe(true)
       expect(isPropertyEnabled('FrameTransform', key, { mode: 'exact' }), key).toBe(false)
     }
-    for (const key of ['rotate', 'rotateRate', 'offsetX', 'offsetYRate', 'flipX']) {
+    for (const key of ['rotation', 'rotationRate', 'offsetX', 'offsetYRate', 'flipX']) {
       expect(isPropertyEnabled('FrameTransform', key, { mode: 'exact' }), key).toBe(true)
     }
     // Each rate names its unit.
-    expect(propertyLabel('FrameTransform', 'rotateRate')).toBe('rate (°/s)')
+    expect(propertyLabel('FrameTransform', 'rotationRate')).toBe('rate (°/s)')
     expect(propertyLabel('FrameTransform', 'scaleRate')).toBe('rate (%/s)')
     expect(propertyLabel('FrameTransform', 'offsetXRate')).toBe('X rate (px/s)')
   })

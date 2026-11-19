@@ -157,7 +157,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
         walk: ['Wave', { frequency: 0.1, amplitude: 360, unipolar: true, waveform: 'sawtooth' }],
         colour: ['HSVToRGB', { s: 1, v: 1 }],
         beam: ['Line', { x1: 0, y1: 1, x2: 1, y2: 0 }],
-        spin: ['FrameTransform', { mode: 'smooth', rotateRate: 70, edgeMode: 'black', sampling: 'nearest' }],
+        spin: ['FrameTransform', { mode: 'smooth', rotationRate: 70, edgeMode: 'black', sampling: 'nearest' }],
         trails: ['Trails', { decay: 0.35 }],
       },
       wires: ['walk.result > colour.h', 'colour.color > beam.color', 'beam.frame > spin.frame', 'spin.frame > trails.frame'],
@@ -172,7 +172,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
       'Once a colour is in parts you can change one without the others: rotate the hue to find a complement, lower saturation for a pastel, scale brightness to dim it, then rebuild it with HSV → RGB. For those everyday changes to one colour, Adjust Color does it in a single node.',
     ],
     inputs: {
-      rgb: 'The colour to take apart. Replaces the R, G and B fields.',
+      color: 'The colour to take apart. Replaces the R, G and B fields.',
     },
     outputs: {
       h: 'Hue in degrees, 0 to 360.',
@@ -190,7 +190,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
         fade: ['GradientFrame', { mixMode: 'rgb' }],
       },
       wires: [
-        'base.color > parts.rgb',
+        'base.color > parts.color',
         'parts.h > opposite.a',
         'opposite.result > rebuild.h',
         'parts.s > rebuild.s',

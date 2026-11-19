@@ -148,7 +148,7 @@ const RGB_TRIPLES = [
  * The colour swatches a node draws: one for every complete numeric r/g/b,
  * rA/gA/bA or rB/gB/bB triple in its properties, so a gradient's two colours
  * are two swatches rather than six sliders. Each names the colour port that
- * overrides it (`color`/`rgb`, `colorA`/`a`, `colorB`/`b`), matched the way
+ * overrides it (`color`, `colorA`/`a`, `colorB`/`b`), matched the way
  * `propertyInputs.ts`'s `colorChannels` matches a port to its channels.
  */
 export function rgbSwatches(nodeType: string, props: Record<string, unknown>): RgbSwatch[] {
@@ -158,7 +158,7 @@ export function rgbSwatches(nodeType: string, props: Record<string, unknown>): R
     if (!keys.every((key) => typeof props[key] === 'number')) return []
     const port = colorPorts.find((candidate) => suffix
       ? new RegExp(`^(?:colou?r)?${suffix}$`, 'i').test(candidate.id)
-      : candidate.id === 'color' || candidate.id === 'rgb')?.id ?? `color${suffix}`
+      : candidate.id === 'color')?.id ?? `color${suffix}`
     return [{ keys, port, label: suffix ? `color ${suffix}` : 'color' }]
   })
 }

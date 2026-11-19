@@ -20,9 +20,11 @@ Geiss's MilkDrop v2.25c `DoCustomSoundAnalysis`.
 
 - Input `audio`, property input `gain` (0.25–4, default 1, clamped like the
   other analysis nodes).
-- Outputs `bass`, `mid`, `treble`, `volume` (the mean of the three), the
-  smoothed copies `bassAtt`, `midAtt`, `trebleAtt`, and the bools `bassSpike`,
-  `midSpike`, `trebleSpike`.
+- Outputs `bass`, `mids`, `treble`, `volume` (the mean of the three), the
+  smoothed copies `bassAtt`, `midsAtt`, `trebleAtt`, and the bools `bassSpike`,
+  `midsSpike`, `trebleSpike`. The band is `mids` on the node, as on every other
+  node; the detector's own signal fields, the wire format below and the
+  firmware getters keep `mid`.
 - Levels are relative: about 1.0 at the song's running average and unbounded
   above. They are therefore not in `NORMALIZED_OUTPUTS`, and Graph Health asks
   for a Map Range before a 0–1 input. `gain` scales levels and smoothed

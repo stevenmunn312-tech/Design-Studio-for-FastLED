@@ -182,8 +182,8 @@
               "dataType": "float"
             },
             {
-              "id": "mid",
-              "label": "Mid",
+              "id": "mids",
+              "label": "Mids",
               "dataType": "float"
             },
             {
@@ -202,8 +202,8 @@
               "dataType": "float"
             },
             {
-              "id": "midAtt",
-              "label": "Mid smoothed",
+              "id": "midsAtt",
+              "label": "Mids smoothed",
               "dataType": "float"
             },
             {
@@ -217,8 +217,8 @@
               "dataType": "bool"
             },
             {
-              "id": "midSpike",
-              "label": "Mid spike",
+              "id": "midsSpike",
+              "label": "Mids spike",
               "dataType": "bool"
             },
             {
@@ -727,7 +727,7 @@
           "nodeType": "BeatKaleidoscope",
           "category": "pattern",
           "properties": {
-            "hue": 0,
+            "hueShift": 0,
             "reactivity": 0.7,
             "speed": 0.5,
             "palette": "ultraviolet"
@@ -739,8 +739,8 @@
               "dataType": "bool"
             },
             {
-              "id": "hue",
-              "label": "Hue",
+              "id": "hueShift",
+              "label": "Hue Shift (\u00b0)",
               "dataType": "float"
             },
             {
@@ -945,7 +945,7 @@
           },
           "inputs": [
             {
-              "id": "rgb",
+              "id": "color",
               "label": "Color",
               "dataType": "color"
             },
@@ -1578,7 +1578,7 @@
       {
         "id": "e-Math-1790685884675-in",
         "source": "Vibe-1790679919773",
-        "sourceHandle": "midAtt",
+        "sourceHandle": "midsAtt",
         "target": "Math-1790685884675",
         "targetHandle": "a",
         "type": "glowEdge",
@@ -1711,7 +1711,7 @@
         "source": "PaletteSampler-1790687836727",
         "sourceHandle": "color",
         "target": "RGBToHSV-1790687931641",
-        "targetHandle": "rgb",
+        "targetHandle": "color",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {

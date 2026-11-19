@@ -318,8 +318,8 @@
       "value": 0,
       "inMin": 0,
       "inMax": 1,
-      "outMin": -0.05,
-      "outMax": 0.18
+      "outMin": -18,
+      "outMax": 64.8
      },
      "inputs": [
       {
@@ -369,7 +369,7 @@
      "nodeType": "HueShift",
      "category": "composite",
      "properties": {
-      "shift": 0
+      "hueShift": 0
      },
      "inputs": [
       {
@@ -378,8 +378,8 @@
        "dataType": "frame"
       },
       {
-       "id": "shift",
-       "label": "Shift",
+       "id": "hueShift",
+       "label": "Hue Shift (°)",
        "dataType": "float"
       }
      ],
@@ -561,7 +561,7 @@
     "source": "hueAmt",
     "sourceHandle": "result",
     "target": "hue",
-    "targetHandle": "shift",
+    "targetHandle": "hueShift",
     "type": "glowEdge",
     "reconnectable": "target"
    },

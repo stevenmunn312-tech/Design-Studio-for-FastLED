@@ -44,7 +44,7 @@ export const SIGNAL_EMITTERS: NodeEmitters = {
     const clockUp = incoming.get(`${node.id}:dateTime`)
     scheduleTriggerCpp(id, v, {
       dateTime: clockUp ? `n_${safeId(clockUp.srcId)}_${safeId(clockUp.srcPort)}` : '',
-      enable: incoming.has(`${node.id}:enable`) ? boolExpr(node.id, 'enable') : p.enable !== false ? 'true' : 'false',
+      enabled: incoming.has(`${node.id}:enabled`) ? boolExpr(node.id, 'enabled') : p.enabled !== false ? 'true' : 'false',
     }, p).forEach(ln)
   },
   // A draw every frame, or held from one rising Trigger edge to the next, as

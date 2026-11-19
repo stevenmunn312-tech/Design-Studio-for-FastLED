@@ -118,7 +118,7 @@ export class AudioReleaseBuilder {
     this.node('exposure', 'Math', { mathOp: 'add' })
     this.wire('light', 'result', 'exposure', 'a').wire('dropLight', 'result', 'exposure', 'b')
     this.node('silenceGate', 'Switch', { b: 0 })
-    this.wire('exposure', 'result', 'silenceGate', 'a').wire('features', 'silence', 'silenceGate', 'sel')
+    this.wire('exposure', 'result', 'silenceGate', 'a').wire('features', 'silence', 'silenceGate', 'select')
     // Softens the silence gate's cut and the drop flash's edges. Rising fast
     // keeps it from adding its own lag on top of `lightEnergy`.
     this.node('exposureSmooth', 'Smooth', { response: 0.03, fall: 0.12 })
