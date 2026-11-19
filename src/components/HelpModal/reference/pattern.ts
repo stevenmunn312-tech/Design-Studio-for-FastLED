@@ -107,19 +107,18 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
 
   ClockDisplay: {
     overview: [
-      'Clock Display draws the time on the LEDs: digital in several formats, an analogue face, or either with the date. It also has a Stopwatch and a countdown Timer that need no clock at all.',
+      'Clock Display draws the time on the LEDs: digital in several formats, an analogue face, or either with the date. Its Stopwatch and Timer faces draw the seconds from a Timer node instead, so they need no clock at all.',
       'Wire Clock’s DateTime into it for the clock modes. It shows dashes until the clock is valid, synced and not stale, so a build never shows a believable wrong time.',
-      'X and Y place it, 0 to 1 across the matrix or, with Units set to Pixels, on a pixel. Font picks the digits from the same bitmap fonts as Text: 3×5 packs them edge to edge so HH:MM fits 16 pixels, and the larger fonts leave a column between them. Size scales the digits from 1 to 4, as on Text. Run, Reset and Duration control the stopwatch and timer, and Done pulses when the timer reaches zero. Base draws the clock over another frame.',
+      'X and Y place it, 0 to 1 across the matrix or, with Units set to Pixels, on a pixel. Font picks the digits from the same bitmap fonts as Text: 3×5 packs them edge to edge so HH:MM fits 16 pixels, and the larger fonts leave a column between them. Size scales the digits from 1 to 4, as on Text. Base draws the clock over another frame.',
     ],
     inputs: {
       dateTime: 'The time from Clock’s DateTime output.',
       base: BASE_INPUT,
+      seconds: 'Seconds to show on the Stopwatch and Timer faces, from Timer’s Seconds output. The clock faces ignore it.',
       color: 'Digit or hand colour. Replaces the R, G and B fields.',
     },
     outputs: {
       frame: 'The clock drawing.',
-      seconds: 'Stopwatch or timer seconds.',
-      done: 'True when the timer reaches zero.',
     },
     example: example({
       featured: 'ClockDisplay',

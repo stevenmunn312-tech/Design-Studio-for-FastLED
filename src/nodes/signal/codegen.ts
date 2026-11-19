@@ -2,7 +2,7 @@ import type { NodeEmitters } from '../../codegen/emitContext'
 import { floatLit, safeId, seedProp } from '../../codegen/cppLiterals'
 import { intervalCpp } from '../../codegen/intervalCpp'
 import { timeNodeCpp, waveCpp, waveHzCpp } from '../../codegen/signalTimeCpp'
-import { clockCpp, envelopeCpp, noiseSignalCpp, scheduleTriggerCpp } from '../../codegen/signalControlCpp'
+import { clockCpp, envelopeCpp, noiseSignalCpp, scheduleTriggerCpp, timerCpp } from '../../codegen/signalControlCpp'
 
 export const SIGNAL_EMITTERS: NodeEmitters = {
   TimeNode({ id, ln, needsT }) {
@@ -94,6 +94,15 @@ export const SIGNAL_EMITTERS: NodeEmitters = {
   // beat/bar/subdivision edge semantics) so preview and firmware timing
   // match. Reset is the reset wire. A backward jump of the animation
   // clock resets the preview only, because this node does not read it.
+  // Stopwatch / countdown Timer — millis()-based like TempoClock, so Master
+  // Speed never scales it. Run defaults true and Reset false when unwired.
+  Timer({ node, id, p, ln, v, f, incoming, boolExpr }) {
+    timerCpp(id, v, {
+      run: incoming.get(`${node.id}:run`) ? boolExpr(node.id, 'run') : (p.run === false ? 'false' : 'true'),
+      reset: incoming.get(`${node.id}:reset`) ? boolExpr(node.id, 'reset') : (p.reset === true ? 'true' : 'false'),
+      duration: f('durationSec', 'durationSec', 300),
+    }, p).forEach(ln)
+  },
   TempoClock({ node, id, ln, v, f, boolExpr }) {
     clockCpp(id, v, {
       bpm: f('bpm', 'bpm', 120),

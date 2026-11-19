@@ -88,12 +88,10 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // RTC-fed clock/date display plus local stopwatch/timer modes. The clock
-    // modes normally read one structured DateTime value from RTCInput; the
-    // legacy scalar inputs remain useful for synthetic/test clocks and saves
-    // made before DateTime wiring existed. The
-    // stopwatch/timer modes keep their own state so graph bools can run/pause
-    // or reset them.
+    // RTC-fed clock/date display plus Stopwatch/Timer faces. The clock modes
+    // read one structured DateTime value from RTCInput. The Stopwatch and
+    // Timer faces draw the wired `seconds` float (a Timer node's Seconds);
+    // the transport itself lives in that signal node, not here.
     type: 'ClockDisplay',
     label: 'Clock Display',
     category: 'pattern',
@@ -102,9 +100,7 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
       { id: 'dateTime', label: 'DateTime', dataType: 'datetime' },
       { id: 'base', label: 'Base', dataType: 'frame' },
       { id: 'color', label: 'Color', dataType: 'color' },
-      { id: 'run', label: 'Run', dataType: 'bool' },
-      { id: 'reset', label: 'Reset', dataType: 'bool' },
-      { id: 'durationSec', label: 'Duration (s)', dataType: 'float' },
+      { id: 'seconds', label: 'Seconds', dataType: 'float' },
       { id: 'x', label: 'X', dataType: 'float' },
       { id: 'y', label: 'Y', dataType: 'float' },
       { id: 'radius', label: 'Radius', dataType: 'float' },
@@ -113,18 +109,10 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
       { id: 'b', label: 'B', dataType: 'float' },
     ],
     propertyInputs: {
-      run: 'run', reset: 'reset', durationSec: 'durationSec',
       x: 'x', y: 'y', radius: 'radius',
       r: 'r', g: 'g', b: 'b',
     },
-    outputs: [
-      { id: 'frame', label: 'Frame', dataType: 'frame' },
-      // Stopwatch/Timer readouts, so a transport can drive the rest of the
-      // graph instead of only drawing itself. Clock modes pass the time of day
-      // through on `seconds` and hold `done` low.
-      { id: 'seconds', label: 'Seconds', dataType: 'float' },
-      { id: 'done', label: 'Done', dataType: 'bool' },
-    ],
+    outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       displayMode: 'Digital HH:MM',
       units: 'normalized',
@@ -132,9 +120,6 @@ export const SHAPES_DEFINITIONS: NodeDefinition[] = [
       y: 0.5,
       radius: 6,
       scaleWithMatrix: true,
-      run: true,
-      reset: false,
-      durationSec: 300,
       r: 255,
       g: 220,
       b: 90,

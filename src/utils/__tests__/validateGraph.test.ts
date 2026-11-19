@@ -2066,6 +2066,24 @@ describe('validateGraph', () => {
       )
       expect(stopwatch.some((issue) => issue.id === 'clk-clock-no-time')).toBe(false)
     })
+
+    it('flags a Stopwatch/Timer face with no Seconds wired, and not one with a Timer', () => {
+      const out = node('out', 'MatrixOutput', { width: 8, height: 8 })
+      const bare = buildGraphDiagnostics(
+        [node('clk', 'ClockDisplay', { displayMode: 'Timer' }), out],
+        [edge('e1', 'clk', 'out', 'frame')],
+        {},
+      )
+      expect(bare).toContainEqual(expect.objectContaining({ id: 'clk-clock-no-seconds', severity: 'warning', nodeIds: ['clk'] }))
+      expect(bare.some((issue) => issue.id === 'clk-clock-no-time')).toBe(false)
+
+      const wired = buildGraphDiagnostics(
+        [node('t', 'Timer'), node('clk', 'ClockDisplay', { displayMode: 'Timer' }), out],
+        [edge('e0', 't', 'clk', 'seconds'), edge('e1', 'clk', 'out', 'frame')],
+        {},
+      )
+      expect(wired.some((issue) => issue.id === 'clk-clock-no-seconds')).toBe(false)
+    })
   })
 })
 

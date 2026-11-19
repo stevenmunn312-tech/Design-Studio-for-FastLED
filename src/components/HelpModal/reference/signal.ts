@@ -224,6 +224,35 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
     }),
   },
 
+  Timer: {
+    overview: [
+      'Timer is a stopwatch or a countdown as a signal, with no drawing. In Stopwatch mode Seconds counts up from zero; in Timer mode it counts down from Duration and Done goes true when it reaches zero.',
+      'Run pauses and resumes it (unwired, it runs). Reset zeroes a Stopwatch or restarts a Timer from Duration on a rising edge, so a button or a pulse can retrigger it. Changing Duration restarts the countdown.',
+      'Wire Seconds into Clock Display to see the time, or use Done on its own to start something when the time is up. It runs on the real clock, so Master Speed does not stretch it, and it counts the same on the board.',
+    ],
+    inputs: {
+      run: 'True to count, false to pause. Left unwired it runs.',
+      reset: 'A rising edge zeroes a Stopwatch or restarts a Timer from Duration.',
+      durationSec: 'Countdown length in seconds, up to 99:59:59. Timer mode only.',
+    },
+    outputs: {
+      seconds: 'Seconds elapsed in Stopwatch mode, or remaining in Timer mode.',
+      done: 'True once a Timer has reached zero. A Stopwatch never finishes.',
+    },
+    example: example({
+      featured: 'Timer',
+      title: 'A two-minute countdown on the LEDs',
+      nodes: {
+        count: ['Timer', { mode: 'Timer', durationSec: 120 }],
+        face: ['ClockDisplay', { displayMode: 'Timer', r: 255, g: 160, b: 40 }],
+        output: ['MatrixOutput', { form: 'matrix', width: 32, height: 8 }],
+      },
+      wires: ['count.seconds > face.seconds'],
+      explanation: 'Timer counts down from two minutes and Clock Display draws the remaining time as minutes, seconds and hundredths.',
+      preview: 'The {output} shows a countdown from 02:00 that ticks down in real time.',
+    }),
+  },
+
   DMXChannel: {
     overview: [
       'DMX Channel picks one channel out of a DMX universe and gives it to the graph three ways: Value from 0 to 1, Byte from 0 to 255, and Active when the byte reaches a threshold.',

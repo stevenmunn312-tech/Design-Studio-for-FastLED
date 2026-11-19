@@ -6,6 +6,7 @@ import { envelopeLevel, noiseLfoLevel, noiseLfoOctaves } from './scope'
 import { denormRate, SPEED_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
 import { instanceState } from '../../state/evaluator/memory'
+import { clampTimerDuration, stepTimer, timerMode, timerReadout, type TimerState } from './timerState'
 import type { RtcPreview } from '../../state/peripherals/rtc'
 import { SCHEDULE_DEFAULT_END, SCHEDULE_DEFAULT_START, scheduleTimeSeconds, scheduleWindowProgress } from './schedule'
 
@@ -16,6 +17,8 @@ const intervalLast = instanceState('intervalLast', new Map<string, number>())
 
 // Envelope node — trigger fire time (seconds) + previous trigger level.
 const envState = instanceState('envState', new Map<string, { fire: number; prev: boolean }>())
+// Timer node — Stopwatch/Timer transport state (./timerState.ts).
+const timerState = instanceState('timerState', new Map<string, TimerState>())
 const dmxChannelState = instanceState('dmxChannelState', new Map<string, { last: number; seen: boolean }>())
 // Random with a trigger — the held 0–1 draw and the trigger's previous level.
 const randomHold = instanceState('randomHold', new Map<string, { draw: number; prev: boolean }>())
@@ -243,6 +246,20 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
     clockState.set(key, st)
 
     return { bpm, phase, beat, bar, subdivision: sub }
+  },
+  // Stopwatch / countdown Timer on the wall clock (elapsedT), so Master Speed
+  // never scales it, as on the board's millis(). Stepping and the readout
+  // live in ./timerState.ts; codegen's timerCpp mirrors them.
+  Timer({ input, num, elapsedT: t, stateKey }, id, props) {
+    const mode = timerMode(props.mode)
+    const run = Boolean(input(id, 'run', Boolean(props.run ?? true)))
+    const reset = Boolean(input(id, 'reset', Boolean(props.reset ?? false)))
+    // A Stopwatch has no Duration, so a stale one can never disturb it.
+    const duration = mode === 'Timer' ? clampTimerDuration(num(id, 'durationSec', props, 'durationSec', 300)) : 0
+    const key = stateKey(id)
+    const st = stepTimer(timerState.get(key), t, mode, run, reset, duration)
+    timerState.set(key, st)
+    return timerReadout(st)
   },
   // Metronome — fires a boolean pulse once every `interval` seconds. Stateful
   // (module-level intervalLast), keyed per group instance like other stateful

@@ -6233,11 +6233,14 @@ describe('ClockDisplay', () => {
     const clock = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Digital + Date' })
     try {
       const wired = withOutput(clock, [rtc], [edge('dt', 'rtc', 'dateTime', 'clk', 'dateTime')])
-      const wiredOutput = evaluateGraphFull(wired.nodes, wired.edges, 0, 16, 16).outputs.get('clk')
-      expect(wiredOutput?.seconds).toBe(13 * 3600 + 45 * 60)
+      const wiredFrame = evaluateGraph(wired.nodes, wired.edges, 0, 16, 16)
 
+      // Unwired it draws dashes, not the browser clock's 13:45, so the two frames differ.
       const bare = withOutput(clock)
-      expect(evaluateGraphFull(bare.nodes, bare.edges, 0, 16, 16).outputs.get('clk')?.seconds).toBe(0)
+      const bareFrame = evaluateGraph(bare.nodes, bare.edges, 0, 16, 16)
+      expect(litPixels(wiredFrame)).toBeGreaterThan(0)
+      expect(litPixels(bareFrame)).toBeGreaterThan(0)
+      expect(JSON.stringify(wiredFrame)).not.toEqual(JSON.stringify(bareFrame))
     } finally {
       vi.useRealTimers()
     }
@@ -6264,12 +6267,35 @@ describe('ClockDisplay', () => {
     }
   })
 
-  it('advances its stopwatch mode over time and keeps pixels lit while running', () => {
-    const { nodes, edges } = withOutput(node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Stopwatch', run: true }), [], [])
+  it('draws the wired Seconds on its stopwatch face and keeps pixels lit while running', () => {
+    const { nodes, edges } = withOutput(
+      node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Stopwatch' }),
+      [node('tmr', 'Timer', 'signal', { mode: 'Stopwatch' })],
+      [edge('e0', 'tmr', 'seconds', 'clk', 'seconds')],
+    )
     const start = evaluateGraph(nodes, edges, 0, 16, 16)
     const later = evaluateGraph(nodes, edges, 120, 16, 16)
     expect(litPixels(start)).toBeGreaterThan(0)
     expect(JSON.stringify(start)).not.toEqual(JSON.stringify(later))
+  })
+
+  it('draws the same digits Timer would have shown on its own', () => {
+    const draw = (seconds: number) => {
+      const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Timer' })
+      const src = node('src', 'Math', 'math', { mathOp: 'add', a: seconds, b: 0 })
+      const { nodes, edges } = withOutput(clk, [src], [edge('e0', 'src', 'result', 'clk', 'seconds')])
+      return JSON.stringify(evaluateGraph(nodes, edges, 0, 16, 16))
+    }
+    expect(draw(65)).not.toEqual(draw(5))
+    expect(draw(65)).toEqual(draw(65.004))
+    // An unwired Seconds reads 00:00, as does a negative one.
+    const bare = withOutput(node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Timer' }))
+    expect(JSON.stringify(evaluateGraph(bare.nodes, bare.edges, 0, 16, 16))).toEqual(draw(-3))
+  })
+
+  it('no longer publishes seconds or done', () => {
+    const { nodes, edges } = withOutput(node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Timer' }))
+    expect(Object.keys(evaluateGraphFull(nodes, edges, 0, 16, 16).outputs.get('clk') ?? {})).toEqual(['frame'])
   })
 
   it('draws over a wired base frame instead of blanking it', () => {
@@ -6300,24 +6326,64 @@ describe('ClockDisplay', () => {
     const px = frame[32][32 + 24]
     expect(px.r + px.g + px.b).toBeGreaterThan(0)
   })
+})
+
+describe('Timer', () => {
+  const alone = (props: Record<string, unknown>) => {
+    const tmr = node('tmr', 'Timer', 'signal', props)
+    const clk = node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Timer' })
+    return withOutput(clk, [tmr], [edge('e0', 'tmr', 'seconds', 'clk', 'seconds')])
+  }
 
   it('publishes timer readouts so the transport can drive other nodes', () => {
-    const { nodes, edges } = withOutput(
-      node('clk', 'ClockDisplay', 'pattern', { displayMode: 'Timer', durationSec: 2, run: true }),
-      [], [],
-    )
+    const { nodes, edges } = alone({ mode: 'Timer', durationSec: 2, run: true })
     // The evaluator clamps each step to 0.25 s (same guard the firmware uses),
     // so walk the timer down in real steps rather than one big jump.
     evaluateGraphFull(nodes, edges, 0, 16, 16)
-    const mid = evaluateGraphFull(nodes, edges, 15, 16, 16).outputs.get('clk')
+    const mid = evaluateGraphFull(nodes, edges, 15, 16, 16).outputs.get('tmr')
     expect(mid?.seconds).toBeCloseTo(1.75, 3)
     expect(mid?.done).toBe(false)
     let end = mid
     for (let step = 2; step <= 12; step++) {
-      end = evaluateGraphFull(nodes, edges, step * 15, 16, 16).outputs.get('clk')
+      end = evaluateGraphFull(nodes, edges, step * 15, 16, 16).outputs.get('tmr')
     }
     expect(end?.seconds).toBe(0)
     expect(end?.done).toBe(true)
+  })
+
+  it('counts a Stopwatch up and never finishes', () => {
+    const { nodes, edges } = alone({ mode: 'Stopwatch' })
+    evaluateGraphFull(nodes, edges, 0, 16, 16)
+    let out = evaluateGraphFull(nodes, edges, 15, 16, 16).outputs.get('tmr')
+    for (let step = 2; step <= 8; step++) out = evaluateGraphFull(nodes, edges, step * 15, 16, 16).outputs.get('tmr')
+    expect(out?.seconds).toBeGreaterThan(1)
+    expect(out?.done).toBe(false)
+  })
+
+  it('pauses on Run and restarts on a Reset edge', () => {
+    const run = node('run', 'Math', 'math', { mathOp: 'add', a: 1, b: 0 })
+    const rst = node('rst', 'Math', 'math', { mathOp: 'add', a: 0, b: 0 })
+    const { nodes, edges } = alone({ mode: 'Stopwatch' })
+    nodes.push(run, rst)
+    edges.push(edge('r1', 'run', 'result', 'tmr', 'run'), edge('r2', 'rst', 'result', 'tmr', 'reset'))
+    // One pass per 15 s step; each advances the timer by the 0.25 s clamp.
+    let step = 0
+    const pass = (count: number) => {
+      let seconds = 0
+      for (let i = 0; i < count; i++) seconds = evaluateGraphFull(nodes, edges, step++ * 15, 16, 16).outputs.get('tmr')?.seconds as number
+      return seconds
+    }
+    pass(1)
+    expect(pass(4)).toBeCloseTo(1, 6)
+    run.data.properties.a = 0
+    const held = pass(1)
+    expect(pass(4)).toBeCloseTo(held, 6)
+    run.data.properties.a = 1
+    pass(2)
+    rst.data.properties.a = 1
+    expect(pass(1)).toBe(0)
+    rst.data.properties.a = 0
+    expect(pass(1)).toBeCloseTo(0.25, 6)
   })
 })
 

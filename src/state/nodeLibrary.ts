@@ -267,7 +267,7 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // matters more than the library's declaration order (fields compose toward
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
-  signal: ['TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'TempoClock', 'ScheduleTrigger', 'DMXChannel'],
+  signal: ['TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'TempoClock', 'Timer', 'ScheduleTrigger', 'DMXChannel'],
   field:  ['FieldFormula', 'GeometryField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldTransform', 'FieldSymmetry', 'FieldToFrame'],
   show:   ['MusicLibrary', 'PatternCollection', 'TransitionPool', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'CrossfadeCycle', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
@@ -801,6 +801,9 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     size: TEXT_SIZE_META,
     font: TEXT_FONT_META,
     radius: { control: 'slider', min: 2, max: 16, step: 0.5 },
+  },
+  Timer: {
+    mode: { control: 'select', options: ['Stopwatch', 'Timer'] },
     durationSec: { control: 'slider', min: 0, max: CLOCK_TIMER_MAX_SEC, step: 1, entry: 'number' },
   },
   BeatFlash: {
@@ -2635,10 +2638,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     offsetY: 'Scrolls the lattice vertically, measured in cells.',
   },
   ClockDisplay: {
-    displayMode: 'Clock/date layout plus stopwatch/timer modes. Clock modes read the wired RTC fields when present; stopwatch and timer ignore them.',
-    durationSec: 'Countdown duration in seconds for Timer mode.',
-    run: 'Runs or pauses the stopwatch/timer. Clock/date modes ignore it.',
-    reset: 'Rising-edge reset for the stopwatch/timer; toggle it off and on again to retrigger manually.',
+    displayMode: 'Clock/date layout plus Stopwatch and Timer faces. Clock modes read the wired DateTime; the Stopwatch and Timer faces ignore it and draw the wired Seconds, from a Timer node.',
     radius: 'Analog face radius. Only used by the analog display modes.',
     units: 'How X and Y are read: 0–1, from just off the left (or top) edge to just off the right (or bottom), or Pixels, where 0 is the first pixel and max_x the last.',
     x: 'Horizontal position of the clock: 0 (just off the left) to 1 (just off the right), or a pixel column when Units is Pixels.',
@@ -2888,6 +2888,12 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     saturday: 'Run on Saturdays (Custom days only).',
     sunday: 'Run on Sundays (Custom days only).',
     enabled: 'Off holds every output low regardless of the clock. A wire into Enabled overrides this.',
+  },
+  Timer: {
+    mode: 'Stopwatch counts up from zero; Timer counts down from Duration.',
+    durationSec: 'Countdown length in seconds (Timer mode), up to 99:59:59. Changing it restarts the countdown.',
+    run: 'Runs or pauses the count. Left unwired it runs.',
+    reset: 'Rising-edge reset: zeroes a Stopwatch, restarts a Timer from Duration. Toggle it off and on again to retrigger manually.',
   },
   TempoClock: {
     bpm: 'Tempo in beats per minute when nothing is wired into Sync or Tap.',
@@ -4206,9 +4212,11 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     restSec: 'rest (s)',
     energyGate: 'min energy',
   },
+  Timer: {
+    durationSec: 'duration (s)',
+  },
   ClockDisplay: {
     displayMode: 'display',
-    durationSec: 'duration (s)',
     scaleWithMatrix: 'scale with matrix',
     hAlign: 'align X',
     vAlign: 'align Y',
@@ -4546,7 +4554,6 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   ClockDisplay: [
     { key: 'display', label: 'Display', keys: ['displayMode', 'units', 'x', 'y', 'hAlign', 'vAlign', 'font', 'size', 'radius', 'scaleWithMatrix'] },
-    { key: 'transport', label: 'Transport', keys: ['run', 'reset', 'durationSec'] },
   ],
   ColorTrails: [
     { key: 'audio', label: 'Audio', keys: ['bass', 'mids', 'treble'] },
@@ -5591,15 +5598,13 @@ export function isPropertyEnabled(
   if (nodeType === 'ClockDisplay') {
     const mode = String(properties.displayMode ?? 'Digital HH:MM')
     const analog = mode === 'Analog' || mode === 'Analog + Date'
-    const transport = mode === 'Stopwatch' || mode === 'Timer'
     // Scale with matrix sizes the analogue face, so it goes with Radius.
     if (key === 'radius' || key === 'scaleWithMatrix') return analog
     if (key === 'hAlign' || key === 'vAlign') return !analog
     // Plain Analog draws no digits; Analog + Date draws the date at Size, in Font.
     if (key === 'size' || key === 'font') return mode !== 'Analog'
-    if (key === 'durationSec') return mode === 'Timer'
-    if (key === 'run' || key === 'reset') return transport
   }
+  if (nodeType === 'Timer' && key === 'durationSec') return properties.mode !== 'Stopwatch'
   if (nodeType === 'MatrixOutput') {
     // A named LED product owns these; the node shows the part's value (state/output/ledProduct.ts).
     if (ledPropertyLocked(properties, key)) return false

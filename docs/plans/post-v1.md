@@ -42,10 +42,6 @@ and an Upload information shelf in
   Formula/Field Formula and the gradient patterns repeat likewise. Add
   `noiseType` to Field Noise and a Conway `life` type to Automaton so field
   chains are not stuck with the subset.
-- [ ] **Node review: Clock Display: Split Stopwatch/Timer into a signal node (Low, M).**
-  A transport lives inside a drawing node; anyone wanting only `done` still
-  draws digits. Consider a small Timer signal node with Clock Display drawing
-  a wired `seconds`.
 - [ ] **Node review: Category: Default Ripple and String Particles to the LED output's
   network (Med, M).** Ripple needs the output's network preset, JSON and LEDs
   per edge, and String Particles needs the ring LED count, all copied by hand

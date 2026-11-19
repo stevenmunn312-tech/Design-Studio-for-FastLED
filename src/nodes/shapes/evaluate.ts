@@ -60,16 +60,6 @@ function matrixSizeScale(W: number, H: number): number {
   return sizingSide(W, H) / Math.min(DEFAULT_W, DEFAULT_H)
 }
 
-interface ClockDisplayState {
-  lastT: number
-  elapsed: number
-  remaining: number
-  prevReset: boolean
-  mode: string
-  duration: number
-}
-const clockDisplayState = instanceState('clockDisplayState', new Map<string, ClockDisplayState>())
-
 // ── Fourier Epicycles ─────────────────────────────────────────────────────────
 // Byte-for-byte the sketch's arithmetic (fourierHelperCpp.ts): FastLED's
 // fixed scale8, truncating float-to-byte casts and saturating adds, so the
@@ -611,7 +601,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const base = input(id, 'base', null) as Frame | null
     return { frame: renderText(stateKey(id), text, color, sx, sy, scroll, scrollAxis, t, font, W, H, wrap, letterSpacing, base, size) }
   },
-  ClockDisplay({ input, num, elapsedT: t, W, H, stateKey }, id, props) {
+  ClockDisplay({ input, num, W, H }, id, props) {
     const mode = String(props.displayMode ?? 'Digital HH:MM')
     const colorIn = input(id, 'color', null) as RGB | null
     const color = colorIn ?? {
@@ -643,37 +633,11 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
     const frame = baseIn ? cloneFrame(baseIn) : blankFrame(W, H)
 
     if (CLOCK_TRANSPORT_MODES.has(mode)) {
-      const key = stateKey(id)
-      const run = Boolean(input(id, 'run', Boolean(props.run ?? true)))
-      const reset = Boolean(input(id, 'reset', Boolean(props.reset ?? false)))
-      const duration = Math.min(CLOCK_TIMER_MAX_SEC, Math.max(0, num(id, 'durationSec', props, 'durationSec', 300)))
-      let st = clockDisplayState.get(key)
-      const reinit = !st || t < st.lastT || st.mode !== mode
-      if (!st || reinit) {
-        st = { lastT: t, elapsed: 0, remaining: duration, prevReset: false, mode, duration }
-      }
-      const durationChanged = Math.abs(st.duration - duration) > 1e-6
-      let dt = Math.min(0.25, Math.max(0, t - st.lastT))
-      const resetEdge = reset && !st.prevReset
-      if (durationChanged) {
-        st.duration = duration
-        st.remaining = duration
-        dt = 0
-      }
-      if (resetEdge) {
-        st.elapsed = 0
-        st.remaining = duration
-        dt = 0
-      }
-      if (run) {
-        if (mode === 'Timer') st.remaining = Math.max(0, st.remaining - dt)
-        else st.elapsed += dt
-      }
-      st.lastT = t
-      st.prevReset = reset
-      st.mode = mode
-      clockDisplayState.set(key, st)
-      const text = formatTransportText(mode === 'Timer' ? st.remaining : st.elapsed)
+      // The wired Seconds (a Timer node's output), clamped to what the
+      // two-digit hours readout can show. Unwired it reads zero.
+      const raw = Number(input(id, 'seconds', 0))
+      const shown = Number.isFinite(raw) ? Math.min(CLOCK_TIMER_MAX_SEC, Math.max(0, raw)) : 0
+      const text = formatTransportText(shown)
       blitText(
         frame,
         `${text.main}\n${text.sub}`,
@@ -691,18 +655,8 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
         units,
         size,
       )
-      // A Timer reads "done" the instant it reaches zero; a Stopwatch has
-      // no end, so it never fires.
-      return {
-        frame,
-        seconds: mode === 'Timer' ? st.remaining : st.elapsed,
-        done: mode === 'Timer' && st.remaining <= 0,
-      }
+      return { frame }
     }
-
-    // Clock modes pass the wall clock through so the same node can drive
-    // downstream time logic without a second RTC hop.
-    const clockOut = { seconds: valid ? secondsOfDay : 0, done: false }
 
     if (CLOCK_ANALOG_MODES.has(mode)) {
       const cx = clockCenterAxis(x, units, W, radius)
@@ -713,7 +667,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
         // as the sketch draws it: a pixel row whatever the units.
         blitText(frame, valid ? clockDateText(day, month) : '--.--', scaleRgb(color, 0.9), x, cy + radius + 0.5, font, W, H, 'center', 'start', false, digitGap, units, 'pixels', size)
       }
-      return { frame, ...clockOut }
+      return { frame }
     }
 
     const { hour, minute, second } = clockParts(secondsOfDay)
@@ -752,7 +706,7 @@ export const SHAPES_EVALUATORS: NodeEvaluators = {
       units,
       size,
     )
-    return { frame, ...clockOut }
+    return { frame }
   },
   Line({ input, num, W, H }, id, props) {
     const baseIn = input(id, 'base', null) as Frame | null

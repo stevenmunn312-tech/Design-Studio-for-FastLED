@@ -2503,17 +2503,17 @@
 <g id="lamp-6.94x6.94"><rect x="-2.78" y="-1.53" width="12.49" height="9.99" rx="5.00" fill-opacity="0.34"/><rect width="6.94" height="6.94" rx="1.53"/></g>
 <g id="lamp-8.25x8.25"><rect x="-3.30" y="-1.81" width="14.85" height="11.88" rx="5.94" fill-opacity="0.34"/><rect width="8.25" height="8.25" rx="1.81"/></g>
 </defs>
-<path d="M284,229 C329,229 339,524 384,524" fill="none" stroke="#c9ea47" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M284,229 C329,229 339,524 384,524" fill="none" stroke="#c9ea47" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M284,229 C329,229 339,524 384,524" fill="none" stroke="#c9ea47" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="384" cy="524" r="3" fill="#c9ea47"/>
-<path d="M284,764 C329,764 339,552 384,552" fill="none" stroke="#47c9ea" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M284,764 C329,764 339,552 384,552" fill="none" stroke="#47c9ea" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M284,764 C329,764 339,552 384,552" fill="none" stroke="#47c9ea" stroke-width="1.2" stroke-linecap="round"/>
-<circle cx="384" cy="552" r="3" fill="#47c9ea"/>
-<path d="M624,524 C669,524 679,564 724,564" fill="none" stroke="#47c9ea" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
-<path d="M624,524 C669,524 679,564 724,564" fill="none" stroke="#47c9ea" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
-<path d="M624,524 C669,524 679,564 724,564" fill="none" stroke="#47c9ea" stroke-width="1.2" stroke-linecap="round"/>
+<path d="M284,229 C329,229 339,504 384,504" fill="none" stroke="#c9ea47" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M284,229 C329,229 339,504 384,504" fill="none" stroke="#c9ea47" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M284,229 C329,229 339,504 384,504" fill="none" stroke="#c9ea47" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="384" cy="504" r="3" fill="#c9ea47"/>
+<path d="M284,764 C329,764 339,532 384,532" fill="none" stroke="#47c9ea" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M284,764 C329,764 339,532 384,532" fill="none" stroke="#47c9ea" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M284,764 C329,764 339,532 384,532" fill="none" stroke="#47c9ea" stroke-width="1.2" stroke-linecap="round"/>
+<circle cx="384" cy="532" r="3" fill="#47c9ea"/>
+<path d="M624,504 C669,504 679,564 724,564" fill="none" stroke="#47c9ea" stroke-width="6" opacity="0.14" stroke-linecap="round"/>
+<path d="M624,504 C669,504 679,564 724,564" fill="none" stroke="#47c9ea" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+<path d="M624,504 C669,504 679,564 724,564" fill="none" stroke="#47c9ea" stroke-width="1.2" stroke-linecap="round"/>
 <circle cx="724" cy="564" r="3" fill="#47c9ea"/>
 <g transform="translate(44,44)">
 <defs><linearGradient id="tint-input" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2d342d"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
@@ -2555,10 +2555,10 @@
 <text x="8" y="371.2" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" font-style="italic">state is simulated</text>
 <rect x="0.5" y="0.5" width="239" height="381.8" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
-<g transform="translate(384,244)">
+<g transform="translate(384,224)">
 <defs><linearGradient id="tint-pattern" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#253e4a"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>
-<rect x="0" y="0" width="240" height="456" rx="8" fill="#1f242b" filter="url(#shadow)"/>
-<rect x="0" y="0" width="240" height="456" rx="8" fill="url(#tint-pattern)"/>
+<rect x="0" y="0" width="240" height="484" rx="8" fill="#1f242b" filter="url(#shadow)"/>
+<rect x="0" y="0" width="240" height="484" rx="8" fill="url(#tint-pattern)"/>
 <path d="M0,32 L0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 Z" fill="#47c9ea"/>
 <rect x="1" y="32" width="238" height="12" fill="url(#headerGlow)" opacity="0.18"/>
 <text x="8" y="20.65" font-family="'Audiowide','Trebuchet MS','Arial Black',sans-serif" font-size="13" font-weight="600" fill="#000">Clock · Analog</text>
@@ -2839,25 +2839,22 @@
 <circle cx="0" cy="308" r="9" fill="#5ad1ff" opacity="0.22"/>
 <circle cx="0" cy="308" r="6" fill="#5ad1ff"/>
 <text x="18" y="312" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Base</text>
-<circle cx="240" cy="308" r="9" fill="#9aa0a6" opacity="0.22"/>
-<circle cx="240" cy="308" r="6" fill="#9aa0a6"/>
-<text x="222" y="312" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Seconds</text>
 <circle cx="0" cy="336" r="9" fill="#ffd24a" opacity="0.22"/>
 <circle cx="0" cy="336" r="6" fill="#ffd24a"/>
 <text x="18" y="340" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Color</text>
-<circle cx="240" cy="336" r="9" fill="#c6ff32" opacity="0.22"/>
-<circle cx="240" cy="336" r="6" fill="#c6ff32"/>
-<text x="222" y="340" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Done</text>
-<line x1="8" y1="356.5" x2="232" y2="356.5" stroke="rgba(255,255,255,0.05)"/>
-<text x="8" y="378" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Expose input…</text>
-<text x="8" y="401" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">color</text>
-<rect x="98" y="388" width="28" height="18" rx="4" fill="rgb(255,230,170)" stroke="rgba(255,255,255,0.1)"/>
-<text x="8" y="423" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▸ DISPLAY</text>
-<text x="8" y="444" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bypass</text>
+<circle cx="0" cy="364" r="9" fill="#9aa0a6" opacity="0.22"/>
+<circle cx="0" cy="364" r="6" fill="#9aa0a6"/>
+<text x="18" y="368" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Seconds</text>
+<line x1="8" y1="384.5" x2="232" y2="384.5" stroke="rgba(255,255,255,0.05)"/>
+<text x="8" y="406" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Expose input…</text>
+<text x="8" y="429" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">color</text>
+<rect x="98" y="416" width="28" height="18" rx="4" fill="rgb(255,230,170)" stroke="rgba(255,255,255,0.1)"/>
+<text x="8" y="451" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▸ DISPLAY</text>
+<text x="8" y="472" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">bypass</text>
 <g>
-<rect x="98" y="433.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
+<rect x="98" y="461.5" width="13" height="13" rx="2.5" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.4)"/>
 </g>
-<rect x="0.5" y="0.5" width="239" height="455" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
+<rect x="0.5" y="0.5" width="239" height="483" rx="7.5" fill="none" stroke="rgba(255,255,255,0.1)"/>
 </g>
 <g transform="translate(44,484)">
 <defs><linearGradient id="tint-pattern" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#253e4a"/><stop offset="1" stop-color="#1f242b"/></linearGradient></defs>

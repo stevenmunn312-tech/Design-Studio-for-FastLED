@@ -4898,7 +4898,21 @@ export function buildGraphDiagnostics(
   for (const node of nodes) {
     if (node.data.nodeType !== 'ClockDisplay') continue
     const mode = String((node.data.properties as Record<string, unknown>).displayMode ?? 'Digital HH:MM')
-    if (mode === 'Stopwatch' || mode === 'Timer') continue
+    if (mode === 'Stopwatch' || mode === 'Timer') {
+      // These faces draw a wired Seconds; unwired they sit at 00:00.
+      if (edges.some((e) => e.target === node.id && e.targetHandle === 'seconds')) continue
+      diagnostics.push({
+        id: `${node.id}-clock-no-seconds`,
+        severity: 'warning',
+        category: 'connection',
+        title: `${nodeLabel(node)} has no Timer wired`,
+        message: 'Nothing is connected to Seconds, so preview and generated firmware show 00:00.',
+        fix: 'Wire a Timer node’s Seconds output into this node, or switch it to a clock mode.',
+        nodeIds: [node.id],
+        nodeLabel: nodeLabel(node),
+      })
+      continue
+    }
     if (edges.some((e) => e.target === node.id && e.targetHandle === 'dateTime')) continue
     diagnostics.push({
       id: `${node.id}-clock-no-time`,
@@ -4906,7 +4920,7 @@ export function buildGraphDiagnostics(
       category: 'connection',
       title: `${nodeLabel(node)} has no clock wired`,
       message: 'No DateTime source is connected, so preview and generated firmware display “--:--”.',
-      fix: 'Wire a Clock node’s DateTime output into this node, or switch it to Stopwatch/Timer.',
+      fix: 'Wire a Clock node’s DateTime output into this node, or switch it to Stopwatch/Timer and wire a Timer.',
       nodeIds: [node.id],
       nodeLabel: nodeLabel(node),
     })

@@ -257,7 +257,7 @@ describe('nodeLibrary', () => {
     expect(propertyMeta('FlowField', 'count')).toMatchObject({ min: FLOW_FIELD_COUNT.min, max: FLOW_FIELD_COUNT.max })
     expect(propertyMeta('Starfield', 'count')).toMatchObject({ min: STARFIELD_COUNT.min, max: STARFIELD_COUNT.max })
     expect(propertyMeta('ReactionDiffusion', 'steps')).toMatchObject({ min: 1, max: REACTION_DIFFUSION_MAX_STEPS })
-    expect(propertyMeta('ClockDisplay', 'durationSec')).toMatchObject({ min: 0, max: CLOCK_TIMER_MAX_SEC })
+    expect(propertyMeta('Timer', 'durationSec')).toMatchObject({ min: 0, max: CLOCK_TIMER_MAX_SEC })
     // xyLayout.ts divides a panel layout into at most 16 tiles each way.
     expect(propertyMeta('MatrixOutput', 'tilesX')).toMatchObject({ min: 1, max: 16 })
     expect(propertyMeta('MatrixOutput', 'tilesY')).toMatchObject({ min: 1, max: 16 })
@@ -266,7 +266,7 @@ describe('nodeLibrary', () => {
   it('bounds every number a beginner would otherwise type freely', () => {
     for (const [nodeType, key] of [
       ['Spiral', 'arms'], ['Mirror', 'segments'], ['Shape', 'size'],
-      ['ClockDisplay', 'durationSec'], ['Amplifier', 'maxVolume'],
+      ['Timer', 'durationSec'], ['Amplifier', 'maxVolume'],
       ['RTCInput', 'startYear'], ['Text', 'scroll'], ['Path', 'scale'], ['FrameFeedback', 'angle'],
     ]) {
       expect(propertyMeta(nodeType, key)?.control, `${nodeType}.${key}`).toBe('slider')
@@ -276,7 +276,7 @@ describe('nodeLibrary', () => {
   it('types wide-range settings into a bounded number field rather than a slider', () => {
     for (const [nodeType, key] of [
       ['DMXInput', 'universe'], ['DMXInput', 'udpPort'], ['LightInput', 'maxLux'],
-      ['ClockDisplay', 'durationSec'], ['RTCInput', 'startYear'], ['Amplifier', 'maxVolume'],
+      ['Timer', 'durationSec'], ['RTCInput', 'startYear'], ['Amplifier', 'maxVolume'],
       ['Sunrise', 'duration'], ['Sunrise', 'start'],
     ]) {
       expect(propertyMeta(nodeType, key), `${nodeType}.${key}`).toMatchObject({ control: 'slider', entry: 'number' })
@@ -691,34 +691,44 @@ describe('nodeLibrary', () => {
     expect(isPropertyEnabled('Trigger', 'stableTime', { triggerOp: 'toggle' })).toBe(false)
   })
 
-  it('ClockDisplay offers RTC-fed clock layouts plus stopwatch/timer controls', () => {
+  it('ClockDisplay offers RTC-fed clock layouts plus Stopwatch/Timer faces that draw a wired Seconds', () => {
     const clock = NODE_LIBRARY.find((n) => n.type === 'ClockDisplay')
     expect(clock?.category).toBe('pattern')
     expect(clock?.subcategory).toBe('Shapes & Text')
     expect(clock?.inputs.map((port) => port.id)).toEqual([
-      'dateTime', 'base', 'color', 'run', 'reset', 'durationSec', 'x', 'y', 'radius',
+      'dateTime', 'base', 'color', 'seconds', 'x', 'y', 'radius',
       'r', 'g', 'b',
     ])
-    expect(clock?.outputs.map((port) => port.id)).toEqual(['frame', 'seconds', 'done'])
+    expect(clock?.outputs.map((port) => port.id)).toEqual(['frame'])
     expect(clock?.defaultProperties).toMatchObject({
       displayMode: 'Digital HH:MM',
       x: 0.5,
       y: 0.5,
       radius: 6,
-      run: true,
-      durationSec: 300,
     })
+    expect(clock?.defaultProperties).not.toHaveProperty('run')
+    expect(clock?.defaultProperties).not.toHaveProperty('durationSec')
     expect(propertyMeta('ClockDisplay', 'displayMode')).toEqual({
       control: 'select',
       options: ['Digital HH:MM', 'Digital HH:MM:SS', 'Digital 12H', 'Digital + Date', 'Analog', 'Analog + Date', 'Stopwatch', 'Timer'],
     })
     expect(propertyMeta('ClockDisplay', 'radius')).toMatchObject({ control: 'slider', min: 2, max: 16 })
-    expect(propertyLabel('ClockDisplay', 'durationSec')).toBe('duration (s)')
+    expect(propertyLabel('Timer', 'durationSec')).toBe('duration (s)')
     expect(nodeDisplayLabel('ClockDisplay', { displayMode: 'Analog + Date' }, 'Clock Display')).toBe('Clock · Analog + Date')
     expect(isPropertyEnabled('ClockDisplay', 'radius', { displayMode: 'Analog' })).toBe(true)
     expect(isPropertyEnabled('ClockDisplay', 'radius', { displayMode: 'Digital HH:MM' })).toBe(false)
-    expect(isPropertyEnabled('ClockDisplay', 'durationSec', { displayMode: 'Timer' })).toBe(true)
-    expect(isPropertyEnabled('ClockDisplay', 'durationSec', { displayMode: 'Stopwatch' })).toBe(false)
+  })
+
+  it('Timer is a signal node with a transport, and Duration only matters in Timer mode', () => {
+    const timer = NODE_LIBRARY.find((n) => n.type === 'Timer')
+    expect(timer?.category).toBe('signal')
+    expect(timer?.label).toBe('Timer')
+    expect(timer?.inputs.map((port) => port.id)).toEqual(['run', 'reset', 'durationSec'])
+    expect(timer?.outputs.map((port) => [port.id, port.dataType])).toEqual([['seconds', 'float'], ['done', 'bool']])
+    expect(timer?.defaultProperties).toMatchObject({ mode: 'Timer', run: true, reset: false, durationSec: 300 })
+    expect(propertyMeta('Timer', 'mode')).toEqual({ control: 'select', options: ['Stopwatch', 'Timer'] })
+    expect(isPropertyEnabled('Timer', 'durationSec', { mode: 'Timer' })).toBe(true)
+    expect(isPropertyEnabled('Timer', 'durationSec', { mode: 'Stopwatch' })).toBe(false)
   })
 
   it('bounds Show duration and SD SPI pins to their runtime ranges', () => {

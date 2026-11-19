@@ -10,6 +10,8 @@ import { rateCpp, SPEED_MAX } from '../nodes/shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../nodes/shared/speedClockCpp'
 import { seedOffset } from '../state/evaluator/random'
 import type { ControlDataType } from './scalarControlCpp'
+import { CLOCK_TIMER_MAX_SEC } from '../nodes/shapes/clockTimer'
+import { timerMode } from '../nodes/signal/timerState'
 
 export interface TimedControlInput {
   /** `datetime` is a Clock's `_RtcDateTimeValue`, passed by name. */
@@ -253,6 +255,37 @@ export function clockCpp(id: string, v: Value, expr: Expr): string[] {
     `  uint32_t _clkSubCount_${id} = (uint32_t)(_clkElapsed_${id} * (float)${subdivision});`,
     `  bool ${v('subdivision')} = _clkSubCount_${id} > _clkLastSub_${id};`,
     `  _clkLastBeat_${id} = _clkBeatCount_${id}; _clkLastSub_${id} = _clkSubCount_${id};`,
+  ]
+}
+
+/**
+ * Timer node: a Stopwatch counts up, a Timer counts down from Duration. The
+ * mode is baked, so a Stopwatch carries no Duration state and a Timer no
+ * elapsed counter, and an unwired Reset (constant false) carries no edge
+ * state. Mirrors nodes/signal/timerState.ts stepTimer in wall-clock millis().
+ */
+export function timerCpp(
+  id: string, v: Value, expr: { run: string; reset: string; duration: string }, props: Record<string, unknown>,
+): string[] {
+  const timer = timerMode(props.mode) === 'Timer'
+  const resetWired = expr.reset !== 'false' && expr.reset !== '0'
+  const runAlways = expr.run === 'true' || expr.run === '1'
+  const acc = `_tmrAcc_${id}`, last = `_tmrLastMs_${id}`, prevReset = `_tmrPrevReset_${id}`
+  const start = timer ? `_tmrDur_${id}` : '0.0f'
+  return [
+    ...(timer ? [`  float _tmrDur_${id} = constrain(${expr.duration}, 0.0f, ${CLOCK_TIMER_MAX_SEC}.0f);`] : []),
+    `  static float ${acc} = 0.0f; static uint32_t ${last} = 0;`,
+    ...(timer ? [`  static float _tmrLastDur_${id} = -1.0f;`] : []),
+    ...(resetWired ? [`  static bool ${prevReset} = false;`, `  bool _tmrReset_${id} = ${expr.reset};`] : []),
+    `  uint32_t _tmrNow_${id} = millis();`,
+    `  if (${last} == 0 || _tmrNow_${id} < ${last}) { ${last} = _tmrNow_${id}; ${acc} = ${start};${timer ? ` _tmrLastDur_${id} = _tmrDur_${id};` : ''}${resetWired ? ` ${prevReset} = false;` : ''} }`,
+    `  float _tmrDt_${id} = min(0.25f, max(0.0f, (_tmrNow_${id} - ${last}) / 1000.0f));`,
+    ...(timer ? [`  if (fabsf(_tmrLastDur_${id} - _tmrDur_${id}) > 0.0001f) { ${acc} = _tmrDur_${id}; _tmrLastDur_${id} = _tmrDur_${id}; _tmrDt_${id} = 0.0f; }`] : []),
+    ...(resetWired ? [`  if (_tmrReset_${id} && !${prevReset}) { ${acc} = ${start}; _tmrDt_${id} = 0.0f; }`] : []),
+    `  ${runAlways ? '' : `if (${expr.run}) `}${acc} = ${timer ? `max(0.0f, ${acc} - _tmrDt_${id})` : `${acc} + _tmrDt_${id}`};`,
+    `  ${last} = _tmrNow_${id};${resetWired ? ` ${prevReset} = _tmrReset_${id};` : ''}`,
+    `  float ${v('seconds')} = ${acc};`,
+    `  bool ${v('done')} = ${timer ? `${acc} <= 0.0f` : 'false'};`,
   ]
 }
 
