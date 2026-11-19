@@ -12,7 +12,7 @@ import { validateGraph } from '../../../utils/validateGraph'
 import { boardProfileById } from '../../boards/boardProfiles'
 import { buildHardwareManifest } from '../../hardwareManifest'
 import {
-  PART_CATALOGUE, bundledPartsForType, partOrigin, registerParts, resetRegisteredPartsForTests,
+  PART_CATALOGUE, bundledPartsForType, partOrigin, partRenderSrc, registerParts, resetRegisteredPartsForTests, setDownloadedRender,
 } from '../partCatalogue'
 import { partFieldOptions, PART_FIELDS } from '../partFields'
 import { partOptionProperty, partOptionsFor, resolvePartIdentity } from '../partOptions'
@@ -324,6 +324,11 @@ describe('the registry of part types open to downloads', () => {
       expect(registered, JSON.stringify(registered)).toMatchObject({ status: 'added' })
       expect(partOrigin(copyId)).toBe('downloaded')
       expect(PART_CATALOGUE[copyId]).toBeDefined()
+      // A downloaded part's picture arrives separately, verified by hash against the index
+      // (partsLibrary). Stand in for that fetch with the original's own file, so the copy is
+      // compared with its picture in place, as a user sees it once the download completes.
+      const originalRender = partRenderSrc(part.partId)
+      if (originalRender) setDownloadedRender(copyId, (PART_CATALOGUE[copyId] as unknown as { revision: number }).revision, originalRender)
 
       // A part without the block of a block-optional type may be shelved but not offered as one of
       // the type's modules (a passive speaker is not an amplifier). The copy is then held to the

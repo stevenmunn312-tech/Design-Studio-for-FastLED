@@ -12,6 +12,7 @@ import {
   registerParts,
   registeredPartsForType,
   resetRegisteredPartsForTests,
+  setDownloadedRender,
   subscribeCatalogue,
 } from '../partCatalogue'
 import { PART_OPTIONS, partOptionsFor, resolvePartIdentity } from '../partOptions'
@@ -308,11 +309,16 @@ describe('derived values follow the registry', () => {
     expect(inputPartEntries()).toHaveLength(before)
   })
 
-  it('draws a registered part from its own render', () => {
+  it('draws a registered part from its own verified render, never a bundled file', () => {
     registerParts([fixture(BASE_MONITOR, ['PowerMonitorInput'], 'render-part')], 'downloaded')
+    // The manifest's render.file names a bundled picture; a downloaded part does not borrow it.
+    expect(partRenderForNodeType('PowerMonitorInput', { partId: 'render-part' })?.src ?? null).toBeNull()
+
+    const revision = (PART_CATALOGUE['render-part'] as unknown as { revision: number }).revision
+    setDownloadedRender('render-part', revision, 'blob:verified-render')
     const render = partRenderForNodeType('PowerMonitorInput', { partId: 'render-part' })
     expect(render?.label).toBe('Test render-part')
-    expect(render?.src).toBe(`/${PART_CATALOGUE[BASE_MONITOR].render!.file}`)
+    expect(render?.src).toBe('blob:verified-render')
   })
 
   it('adds a registered converter to the lists derived from the catalogue', () => {
