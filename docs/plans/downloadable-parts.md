@@ -422,8 +422,8 @@ pin or bus reference that v1.0.0 does not understand must not reach
 1. Write manifest schema v1 and its vocabulary, with the validator. *(Done:
    `src/build/parts/manifest/`.)*
 2. Build the part-type and device registry from the existing node types and
-   `device` strings. *(Done: `src/build/parts/partTypes.ts`; no type is open
-   to downloads yet.)*
+   `device` strings. *(Done: `src/build/parts/partTypes.ts`; the `downloadable`
+   flag opens a type, see step 3.)*
 3. Move hand-written per-part data into manifests (the repository overlays
    under [Publishing](#publishing)): option rows, shelf entries, pad geometry,
    supply rail, and the per-part paragraphs in type help. Audit each part type

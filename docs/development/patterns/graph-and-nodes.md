@@ -882,4 +882,3 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   fixed deadline rather than calling `FastLED.delay`; see
   [firmware generation](firmware-generation.md) for why.
 
-- Load a workspace with `loadWorkspaceAfterParts` (graphStore), never bare `loadGraph`, from any entry point that has a save's `parts`: it registers embedded signed parts first and drops a superseded load. Share links too long for envelopes carry `{ revision }` only; resolve with `PartsLibrary.resolveReferenced` before loading.

@@ -42,6 +42,16 @@ describe('HelpModal session state', () => {
     expect(second.getByText('Before the first upload')).toBeTruthy()
   })
 
+  it('explains online parts on the Hardware tab', () => {
+    const view = render(<HelpModal />)
+
+    fireEvent.click(view.getByRole('tab', { name: 'Hardware' }))
+
+    expect(view.getByText('Online parts')).toBeTruthy()
+    expect(view.getByText('Needs a newer Design Studio')).toBeTruthy()
+    expect(view.getByText(/A held node\./)).toBeTruthy()
+  })
+
   it('shows version, license, and credits on the About tab', () => {
     const view = render(<HelpModal />)
 
