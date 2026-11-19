@@ -9,11 +9,11 @@
 //
 // The validator is the only door: nothing reads a manifest it has not passed.
 
-import type { PartCatalogueEntry } from '../partCatalogue'
+import type { ConverterPadsMm, PartCatalogueEntry } from '../partCatalogue'
 import { partTypeById, partTypeDrivesDevice, type PartTypeDefinition } from '../partTypes'
 import { keypadBlockIssue } from './keypadBlock'
 import { DIMENSIONS_SPEC, LED_LAYOUT_SPEC, PART_BLOCK_KEYS, PART_BLOCK_SPECS, RENDER_SPEC } from './blockSpecs'
-import { arr, checkField, int, num, obj, opt, str, type FieldSpec } from './fieldSpec'
+import { arr, checkField, int, num, obj, opt, str, tuple, type FieldSpec } from './fieldSpec'
 import {
   isInterfaceId,
   isPinRole,
@@ -97,6 +97,7 @@ export interface PartManifest extends PartCatalogueEntry {
   padHoleRadiusPx?: number
   supplyRail?: SupplyRail
   powerPadLabel?: string
+  converterPadsMm?: ConverterPadsMm
 }
 
 export type ManifestOrigin = 'bundled' | 'downloaded'
@@ -132,6 +133,12 @@ const COMMON_FIELDS: Record<string, FieldSpec> = {
   }), 0, 128)),
   padHoleRadiusPx: opt(num({ min: 0.1, max: 200 })),
   powerPadLabel: opt(str({ nonEmpty: true, maxLength: 40 })),
+  converterPadsMm: opt(obj({
+    'IN+': tuple(num({ min: 0, max: 1000 }), num({ min: 0, max: 1000 })),
+    'IN-': tuple(num({ min: 0, max: 1000 }), num({ min: 0, max: 1000 })),
+    'OUT+': tuple(num({ min: 0, max: 1000 }), num({ min: 0, max: 1000 })),
+    'OUT-': tuple(num({ min: 0, max: 1000 }), num({ min: 0, max: 1000 })),
+  })),
   revision: int(1, 1_000_000),
   sources: arr(obj({
     facts: arr(str({ nonEmpty: true, maxLength: 60 }), 1, 32),

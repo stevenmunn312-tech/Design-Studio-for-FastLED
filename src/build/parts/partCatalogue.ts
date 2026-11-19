@@ -502,6 +502,8 @@ export interface PartPixelDataExtenderSpec {
   pairConductors: string[]
 }
 
+export type ConverterPadsMm = Record<'IN+' | 'IN-' | 'OUT+' | 'OUT-', [number, number]>
+
 /** A DC-DC converter between a 12/24 V source and a 5 V load. */
 export interface PartPowerConverterSpec {
   /** `controller` powers only the controller and 5 V peripherals; `led-rail` is the LED supply. */
@@ -712,6 +714,13 @@ export interface PartCatalogueEntry {
   supplyRail?: SupplyRail
   /** The pad printing the supply, when the usual supply names would pick the wrong one. */
   powerPadLabel?: string
+  /**
+   * A DC-DC converter's four wire pads, measured from its drawing, in
+   * millimetres from the render's top-left board corner. Present only where the
+   * pads sit at the board corners (the stub drawing then sends positive up and
+   * negative down); absent, the Build Diagram reads the block's `terminalPositions`.
+   */
+  converterPadsMm?: ConverterPadsMm
   /** Present exactly on wired-Ethernet controller modules. */
   ethernet?: PartEthernetSpec
   /** Present exactly on a matched differential pixel-data extender pair. */

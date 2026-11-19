@@ -216,6 +216,8 @@ def test_drawing_facts_are_merged_into_the_manifest(importer, vocabulary):
     {"padHoleRadiusPx": True},
     {"supplyRail": "v48"},
     {"powerPadLabel": "VIN"},  # the part prints no VIN
+    {"converterPadsMm": {"IN+": [1, 1]}},  # needs all four pads
+    {"converterPadsMm": {"IN+": [1, 1], "IN-": [1, 2], "OUT+": [3, 1], "OUT-": [3, "x"]}},
 ])
 def test_drawing_facts_that_break_a_rule_stop_the_import(importer, vocabulary, bad):
     with pytest.raises(importer.OverlayError):

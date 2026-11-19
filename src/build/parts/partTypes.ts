@@ -52,13 +52,16 @@ const type = (definition: Omit<PartTypeDefinition, 'property' | 'downloadable'> 
 export const PART_TYPES: readonly PartTypeDefinition[] = [
   // LED outputs. `MatrixOutput` is every LED output form; a part's `ledLayout` is a top-level
   // manifest field, so the type reads no block. Its other bundled parts are the NLED data link
-  // and the 74AHCT125 level shifter on the data line. Closed: both are drawn by id
-  // (`NLED_PIXEL_DATA_EXTENDER_PART_ID`, the 74AHCT125 render in the Build Diagram).
+  // and the 74AHCT125 level shifter on the data line. Closed, and the bar is a design change, not
+  // id branches: a MatrixOutput node carries no `partId` (its form, size and layout are node
+  // properties built in code, and nothing reads a part's `ledLayout`), so the type offers no part
+  // row and resolves none (`downloadableTypes.test.ts` fails at the option-row check for every
+  // LED part). Also by id: `NLED_PIXEL_DATA_EXTENDER_PART_ID` in the hardware manifest and the
+  // 74AHCT125 render imported by the Build Diagram.
   type({ nodeType: 'MatrixOutput' }),
   // Power
-  // Closed: the controller's converter picture keys a measured pad table on `lm2596-buck-module`
-  // (`CONVERTER_PAD_MM`), and that part's `powerConverter` block has no `terminalPositions` to read instead.
-  type({ nodeType: 'PowerConverter', block: 'powerConverter' }),
+  // The converter picture reads a part's measured pads (`converterPadsMm`) or the block's `terminalPositions`.
+  type({ nodeType: 'PowerConverter', block: 'powerConverter', downloadable: true }),
   type({ nodeType: 'BatteryPack', block: 'batteryCell', downloadable: true }),
   type({ nodeType: 'BatteryModule', block: 'batteryModule', downloadable: true }),
   type({ nodeType: 'PdTriggerSource', block: 'pdTrigger', downloadable: true }),

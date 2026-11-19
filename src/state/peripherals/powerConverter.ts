@@ -1,4 +1,4 @@
-import { PART_CATALOGUE, memoByCatalogue, partById, type PartPowerConverterSpec } from '../../build/parts/partCatalogue'
+import { PART_CATALOGUE, bundledPartsForType, memoByCatalogue, partById, type PartPowerConverterSpec } from '../../build/parts/partCatalogue'
 import { partIdOrDefault } from './partSpec'
 
 /**
@@ -12,15 +12,23 @@ export const POWER_CONVERTER_NODE_TYPE = 'PowerConverter'
 export const DEFAULT_POWER_CONVERTER_PART_ID = 'lm2596-buck-module'
 export const DEFAULT_SOURCE_VOLTAGE = 12
 
-/** Converter modules the app may present, in shelf order. */
-const LEGACY_POWER_CONVERTER_ORDER = ['lm2596-buck-module', 'mean-well-sd-100a-5', 'mean-well-sd-100b-5']
-/** Read through the registry, so a converter registered later joins the list. */
-export const powerConverterPartIds: () => readonly string[] = memoByCatalogue(() => [
-  ...LEGACY_POWER_CONVERTER_ORDER,
-  ...Object.values(PART_CATALOGUE)
-    .filter((entry) => entry.powerConverter && !LEGACY_POWER_CONVERTER_ORDER.includes(entry.partId))
-    .map((entry) => entry.partId),
-])
+/**
+ * Converter modules the app may present, in shelf order: the bundled ones by
+ * their `copy.optionOrder` (the first is the default), then the rest in
+ * catalogue order. Read through the registry, so a converter registered later
+ * joins the list.
+ */
+export const powerConverterPartIds: () => readonly string[] = memoByCatalogue(() => {
+  const ordered = bundledPartsForType(POWER_CONVERTER_NODE_TYPE)
+    .filter((manifest) => manifest.powerConverter)
+    .map((manifest) => manifest.partId)
+  return [
+    ...ordered,
+    ...Object.values(PART_CATALOGUE)
+      .filter((entry) => entry.powerConverter && !ordered.includes(entry.partId))
+      .map((entry) => entry.partId),
+  ]
+})
 
 /**
  * The ambient the plan sizes converters for. An LED installation's supply
