@@ -114,7 +114,7 @@ normal['touchpad-pads'] = (() => {
   const pick = node('pick', 'Switch', { a: 0.2, b: 1 })
   const nodes = [...base.nodes, pick]
   return { ...base, nodes, edges: [...base.edges.filter((entry) => entry.targetHandle !== 'brightness'),
-    wire(nodes, 'pads', 'pad11', 'pick', 'sel'), wire(nodes, 'pick', 'result', 'out', 'brightness')] }
+    wire(nodes, 'pads', 'pad11', 'pick', 'select'), wire(nodes, 'pick', 'result', 'out', 'brightness')] }
 })()
 normal['accel-shake'] = reading(node('imu', 'MotionVectorInput'), 'shake', 'connected')
 normal['dmx-live'] = (() => {
@@ -231,8 +231,8 @@ normal['plasma-sine-grid'] = frame('Plasma', { plasmaStyle: 'sineGrid' })
 normal['plasma-sine-2d'] = frame('Plasma', { plasmaStyle: 'sine2d' })
 normal['noise-contrast'] = frame('Noise', { noiseType: 'fbm', contrast: 2.5 })
 normal['noise-plasma-lava'] = frame('Noise', { noiseType: 'plasma', palette: 'lava' })
-normal['frame-transform-smooth'] = effect('FrameTransform', { mode: 'smooth', rotateRate: 20, scale: 1.3 })
-normal['frame-transform-exact-rate'] = effect('FrameTransform', { mode: 'exact', rotateRate: 90, offsetXRate: 0.2, edgeMode: 'wrap' })
+normal['frame-transform-smooth'] = effect('FrameTransform', { mode: 'smooth', rotationRate: 20, scale: 1.3 })
+normal['frame-transform-exact-rate'] = effect('FrameTransform', { mode: 'exact', rotationRate: 90, offsetXRate: 0.2, edgeMode: 'wrap' })
 normal['shape-field-rose-spin'] = field('ShapeField', { shape: 'rose', petals: 7, spin: 30, fieldMode: 'distance' })
 normal['shape-field-superformula'] = field('ShapeField', { shape: 'superformula', symmetry: 5, n1: 0.4, n2: 1.2, n3: 0.9 })
 normal['mirror-radial-turned'] = effect('Mirror', { mirrorMode: 'radial', segments: 8, rotation: 30, spin: 20 })

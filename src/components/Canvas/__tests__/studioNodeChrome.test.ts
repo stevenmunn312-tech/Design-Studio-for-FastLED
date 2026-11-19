@@ -21,7 +21,7 @@ describe('colour swatches', () => {
 
   it('names the port that overrides an r/g/b swatch', () => {
     expect(rgbSwatches('SolidColor', libraryDefaults('SolidColor'))).toEqual([{ keys: ['r', 'g', 'b'], port: 'color', label: 'color' }])
-    expect(rgbSwatches('RGBToHSV', libraryDefaults('RGBToHSV'))[0].port).toBe('rgb')
+    expect(rgbSwatches('RGBToHSV', libraryDefaults('RGBToHSV'))[0].port).toBe('color')
   })
 })
 

@@ -90,7 +90,7 @@ const midiExample: LiveExampleSpec = {
     { source: 'midi', sourceHandle: 'cc', target: 'hue', targetHandle: 'hueShift' },
     { source: 'noise', sourceHandle: 'frame', target: 'switch', targetHandle: 'a' },
     { source: 'hue', sourceHandle: 'frame', target: 'switch', targetHandle: 'b' },
-    { source: 'midi', sourceHandle: 'gate', target: 'switch', targetHandle: 'sel' },
+    { source: 'midi', sourceHandle: 'gate', target: 'switch', targetHandle: 'select' },
     { source: 'switch', sourceHandle: 'frame', target: 'brightness', targetHandle: 'frame' },
     { source: 'midi', sourceHandle: 'note', target: 'brightness', targetHandle: 'brightness' },
     { source: 'brightness', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' },
@@ -318,7 +318,7 @@ describe('insertLiveExample', () => {
     expect(result.skippedConnections).toEqual([])
     expect(midi?.data.properties).toMatchObject({ note: 60, cc: 1 })
     expect(inputIds(brightness)).toContain('brightness')
-    expect(inputIds(frameSwitch)).toContain('sel')
+    expect(inputIds(frameSwitch)).toContain('select')
   })
 
   it('adds the FFT Analyzer example with bass, mids, and treble routed to a Three Band Spectrum Visualizer', () => {

@@ -29,7 +29,7 @@ describe('Vibe 0–1 Output', () => {
     expect(vibeLevel(2.4, 1, true)).toBe(1)
     expect(vibeLevel(2.4, 1, false)).toBe(2.4)
     const unit = preview({ gain: 1, unitRange: true })
-    expect(unit.mid).toBe(0.5)
+    expect(unit.mids).toBe(0.5)
     expect(unit.bass).toBe(1)
     expect(unit.trebleAtt).toBeCloseTo(0.3, 9)
     // Spikes compare the raw levels, so the toggle leaves them alone.

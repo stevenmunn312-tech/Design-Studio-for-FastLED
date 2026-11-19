@@ -89,7 +89,7 @@ function withLocalClock<T extends { nodes: StudioNode[]; edges: StudioEdge[] }>(
       node('digits', 'SegmentDisplay', { partId: 'tm1637-4digit-display', clkPin: 2, dioPin: 3 })],
     edges: [...graph.edges,
       edge('button', FIRST_BUTTON_HANDLE, 'clk', 'reset'),
-      edge('clk', 'beat', 'sched', 'enable'),
+      edge('clk', 'beat', 'sched', 'enabled'),
       edge('rtc', 'dateTime', 'sched', 'dateTime'),
       edge('sched', 'active', consumer, 'enabled'),
       edge('rtc', 'display', 'digits', 'display')],

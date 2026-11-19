@@ -114,7 +114,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       title: 'Flames blown sideways by the wind',
       nodes: {
         flames: ['Fire', { fireStyle: 'smoke', palette: 'fire' }],
-        wind: ['FrameTransform', { rotate: 90 }],
+        wind: ['FrameTransform', { rotation: 90 }],
       },
       wires: ['flames.frame > wind.frame'],
       output: MATRIX(24, 12),
@@ -221,7 +221,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       nodes: {
         star: ['Shape', { shape: 'polygon', sides: 5, size: 6, filled: false, edge: '#ffd040', thickness: 1 }],
         steps: ['Array', { count: 7, offsetX: 0, offsetY: 0, angle: 24, scale: 0.82, falloff: 0.78, blendMode: 'lighten' }],
-        spin: ['FrameTransform', { mode: 'smooth', rotateRate: 30, edgeMode: 'black', sampling: 'nearest' }],
+        spin: ['FrameTransform', { mode: 'smooth', rotationRate: 30, edgeMode: 'black', sampling: 'nearest' }],
       },
       wires: ['star.frame > steps.frame', 'steps.frame > spin.frame'],
       explanation: 'Shape draws one golden star outline. Array repeats it seven times, each turned 24° more, 18% smaller and a little dimmer, so the copies wind inward like a spiral staircase. Frame Transform slowly turns the whole stack.',
@@ -369,7 +369,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
     inputs: {
       a: 'Shown while Select is false.',
       b: 'Shown while Select is true.',
-      sel: 'Chooses A (false) or B (true).',
+      select: 'Chooses A (false) or B (true).',
     },
     outputs: { frame: 'Frame A or Frame B.' },
     example: example({
@@ -383,7 +383,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
         night: ['Starfield', { speed: 0.12, palette: 'ice' }],
         scene: ['FrameSwitch'],
       },
-      wires: ['clock.secondsOfDay > evening.a', 'evening.result > scene.sel', 'day.frame > scene.a', 'night.frame > scene.b'],
+      wires: ['clock.secondsOfDay > evening.a', 'evening.result > scene.select', 'day.frame > scene.a', 'night.frame > scene.b'],
       explanation: 'Compare is true once Clock’s seconds-since-midnight pass 64800 — six in the evening. Frame Switch shows a warm daylight Sunrise until then and a slow Starfield after.',
       preview: 'The reference time is mid-morning, so the {output} shows warm daylight. After six in the evening it switches to stars.',
     }),

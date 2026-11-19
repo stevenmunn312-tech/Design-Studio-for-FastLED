@@ -192,7 +192,7 @@ describe('typed control graph', () => {
       node('heat', 'HeatColor'), node('temp', 'Temperature'),
       node('grad', 'GradientSampler', { mixMode: 'hsvLong' }),
     ]
-    const edges = [edge('hsv', 'color', 'blend', 'colorA'), edge('blend', 'color', 'rgb', 'rgb')]
+    const edges = [edge('hsv', 'color', 'blend', 'colorA'), edge('blend', 'color', 'rgb', 'color')]
     const graph = createControlGraph(nodes, edges)
     expect(graph.resolve('rgb', 'h', 'float')).toEqual({ nodeId: 'rgb', port: 'h', type: 'float' })
     expect(graph.resolve('temp', 'color', 'color')?.type).toBe('color')

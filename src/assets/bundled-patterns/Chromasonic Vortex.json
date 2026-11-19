@@ -714,8 +714,8 @@
           "category": "composite",
           "properties": {
             "mode": "smooth",
-            "rotate": 0,
-            "rotateRate": 60,
+            "rotation": 0,
+            "rotationRate": 60,
             "scale": 1,
             "scaleRate": 0,
             "flipX": false,
@@ -734,12 +734,12 @@
               "dataType": "frame"
             },
             {
-              "id": "rotate",
+              "id": "rotation",
               "label": "Rotate (°)",
               "dataType": "float"
             },
             {
-              "id": "rotateRate",
+              "id": "rotationRate",
               "label": "Rate (°/s)",
               "dataType": "float"
             },
@@ -1292,7 +1292,7 @@
         "source": "MapRange-1",
         "sourceHandle": "result",
         "target": "Transform-1",
-        "targetHandle": "rotateRate",
+        "targetHandle": "rotationRate",
         "type": "glowEdge",
         "reconnectable": "target",
         "style": {

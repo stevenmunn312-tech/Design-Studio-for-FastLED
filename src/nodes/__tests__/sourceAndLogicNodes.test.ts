@@ -66,7 +66,7 @@ describe('Color', () => {
   })
 
   it('is a control-graph colour source', () => {
-    const graph = createControlGraph([node('c', 'Color', { color: '#ff0000' }), node('hsv', 'RGBToHSV')], [edge('c', 'color', 'hsv', 'rgb')])
+    const graph = createControlGraph([node('c', 'Color', { color: '#ff0000' }), node('hsv', 'RGBToHSV')], [edge('c', 'color', 'hsv', 'color')])
     expect(graph.resolve('hsv', 'h', 'float')).not.toBeNull()
     expect(controlGraphCpp(graph).loop.join('\n')).toContain('CRGB n_c_color = CRGB(255, 0, 0);')
   })

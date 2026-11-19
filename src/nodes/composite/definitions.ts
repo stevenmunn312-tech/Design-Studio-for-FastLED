@@ -90,8 +90,8 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
       // Each socket sits on its property row, so it reads as the row does.
-      { id: 'rotate', label: 'Rotate (°)', dataType: 'float' },
-      { id: 'rotateRate', label: 'Rate (°/s)', dataType: 'float' },
+      { id: 'rotation', label: 'Rotate (°)', dataType: 'float' },
+      { id: 'rotationRate', label: 'Rate (°/s)', dataType: 'float' },
       { id: 'scale', label: 'Scale (×)', dataType: 'float' },
       { id: 'scaleRate', label: 'Rate (%/s)', dataType: 'float' },
       { id: 'offsetX', label: 'Offset X (px)', dataType: 'float' },
@@ -100,13 +100,13 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
       { id: 'offsetYRate', label: 'Y Rate (px/s)', dataType: 'float' },
     ],
     propertyInputs: {
-      rotate: 'rotate', rotateRate: 'rotateRate', scale: 'scale', scaleRate: 'scaleRate',
+      rotation: 'rotation', rotationRate: 'rotationRate', scale: 'scale', scaleRate: 'scaleRate',
       offsetX: 'offsetX', offsetY: 'offsetY', offsetXRate: 'offsetXRate', offsetYRate: 'offsetYRate',
     },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
       mode: 'exact',
-      rotate: 0, rotateRate: 0,
+      rotation: 0, rotationRate: 0,
       scale: 1, scaleRate: 0,
       flipX: false, flipY: false,
       offsetX: 0, offsetY: 0, offsetXRate: 0, offsetYRate: 0,
@@ -359,7 +359,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     },
   },
   {
-    // Manual A/B frame selector — shows A when `sel` is false, B when true
+    // Manual A/B frame selector — shows A when `select` is false, B when true
     // (the bool-driven counterpart of the time-based Sequencer). Falls back to
     // whichever side is wired when the other is empty. Unwired, the `select`
     // switch picks the side, so it works as a manual or remote A/B toggle.
@@ -370,10 +370,10 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     inputs: [
       { id: 'a', label: 'Frame A', dataType: 'frame' },
       { id: 'b', label: 'Frame B', dataType: 'frame' },
-      { id: 'sel', label: 'Select', dataType: 'bool' },
+      { id: 'select', label: 'Select', dataType: 'bool' },
     ],
-    propertyInputs: { select: 'sel' },
-    defaultExposedInputs: ['sel'],
+    propertyInputs: { select: 'select' },
+    defaultExposedInputs: ['select'],
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: { select: false },
   },

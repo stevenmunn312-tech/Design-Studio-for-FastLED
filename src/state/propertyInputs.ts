@@ -87,7 +87,7 @@ function colorChannels(
   portId: string,
   defaults: Readonly<Record<string, unknown>>,
 ): [string, string, string] | null {
-  const suffix = portId === 'color' || portId === 'rgb'
+  const suffix = portId === 'color'
     ? ''
     : /^(?:colou?r)?([ab])$/i.exec(portId)?.[1]?.toUpperCase()
   if (suffix === undefined) return null

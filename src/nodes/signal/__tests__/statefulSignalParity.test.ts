@@ -125,7 +125,7 @@ describe('stateful signal nodes: preview and firmware agree frame by frame', () 
     const lines = timedControlCpp('Clock', 'n', props, {
       tap: 'in_tap', sync: 'false', reset: 'false', bpm: '100', beatsPerBar: '3', subdivision: '2',
     })!
-    for (const port of ['beat', 'bar', 'sub', 'phase', 'bpm']) {
+    for (const port of ['beat', 'bar', 'subdivision', 'phase', 'bpm']) {
       resetEvaluatorState()
       expectSame(preview(SIGNAL_EVALUATORS.Clock, props, port, run), firmware(lines, ['tap'], `n_n_${port}`, run), 1e-2)
     }

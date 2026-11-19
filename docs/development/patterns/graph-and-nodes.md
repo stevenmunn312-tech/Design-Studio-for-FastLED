@@ -585,6 +585,18 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   wired a hue into it. Sliders run −180 to 180 (Beat Kaleidoscope keeps 0 to
   360, the span Audio → Hue emits). FastLED's 0–255 byte wheel is never a
   saved unit: a node that needs it converts when it emits.
+- Port ids follow one vocabulary, and a port id is the property key it
+  carries: the three bands are `bass`, `mids`, `treble` (never `mid`, on
+  Vibe's smoothed and spike outputs either); a selector is `select`; an
+  on/off input is `enabled`; a turn is `rotation`, its speed `rotationRate`;
+  a colour input is `color`; a pulse per subdivision is `subdivision`. No
+  abbreviation stands for a word another node spells out. `r`, `g`, `b`, `h`,
+  `s`, `v`, `x`, `y`, `t` and `a`/`b` stay as channel and operand letters, and
+  an output named after a wire's job (`out`, `result`, `value`) keeps the
+  name its family uses. A rename is clean before v1.0.0: change the
+  definition, both implementations, the help entry and its live example,
+  every bundled pattern and starter that wires or sets it, then grep the old
+  id.
 - A node's `field` output is `field_<id>` in the sketch; any other field
   output (Slice Tiling's `cell`) is `field_<id>_<port>`, declared by
   `ownField(port)`. `srcField` resolves a wire by the port it leaves, where it
@@ -843,7 +855,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   turn (Tile Symmetry's Rotation and Spin) is emitted only while it can move. Where the old nodes were one operation split by parameter,
   the merge is one kernel instead: Field Transform pushes, turns, zooms and
   tiles in a single read, and a rate sits beside each value it moves
-  (`rotateRate`, `offsetXRate`) rather than behind a mode, so the per-mode
+  (`rotationRate`, `offsetXRate`) rather than behind a mode, so the per-mode
   unit label went with the mode. A knob only one value reads is gated by `isPropertyEnabled`,
   and an emitter whose value needs a different block delegates to its own
   function (`fire2012Cpp`, `threeBandCpp`) before destructuring the context.

@@ -154,7 +154,7 @@ export const MATH_EVALUATORS: NodeEvaluators = {
   Switch({ input, num }, id, props) {
     const a = num(id, 'a', props, 'a', 0)
     const b = num(id, 'b', props, 'b', 1)
-    const sel = Boolean(input(id, 'sel', props.select === true))
+    const sel = Boolean(input(id, 'select', props.select === true))
     return { result: sel ? b : a }
   },
   // Bundled trigger/edge utilities — `triggerOp` selects the variant. All

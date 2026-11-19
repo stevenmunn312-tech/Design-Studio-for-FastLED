@@ -117,7 +117,7 @@ describe('Frame Transform and the Blend mask', () => {
     const slid = frameOf([wipe, slide], [edge('w', 'frame', 's', 'frame')], 's', 60)[0]
     expect(lit(slid[4])).toBe(true)
     expect(lit(slid[3])).toBe(false)
-    const cpp = generateCpp([wipe, node('t', 'FrameTransform', { rotate: '270', flipY: true })], [edge('w', 'frame', 't', 'frame')])
+    const cpp = generateCpp([wipe, node('t', 'FrameTransform', { rotation: '270', flipY: true })], [edge('w', 'frame', 't', 'frame')])
     expect(cpp).toContain('// Frame Transform')
     expect(cpp.match(/_nu=_v; _v=1\.0f-_u; _u=_nu;/g)).toHaveLength(3)
     expect(cpp).toContain('_v=1.0f-_v;')

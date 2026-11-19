@@ -41,7 +41,7 @@ export const COLOR_EMITTERS: NodeEmitters = {
   // The inverse of HSVToRGB, on the same wheel as the preview.
   RGBToHSV({ id, ln, v, channelColor, needsHsv }) {
     needsHsv.v = true
-    const rgb = channelColor('rgb', 0, 0, 0)
+    const rgb = channelColor('color', 0, 0, 0)
     ln(`  CRGB _hsv_${id} = ${rgb};`)
     ln(`  float ${v('h')} = _rgbHue(_hsv_${id});`)
     ln(`  float ${v('s')} = _rgbSat(_hsv_${id});`)

@@ -1200,8 +1200,8 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   // the rows' labels name each unit.
   FrameTransform:  {
     mode: { control: 'select', options: [...FRAME_TRANSFORM_MODES] },
-    rotate: { control: 'slider', min: -180, max: 180, step: 1 },
-    rotateRate: { control: 'slider', min: TRANSFORM_RATE.min, max: TRANSFORM_RATE.max, step: 0.1 },
+    rotation: { control: 'slider', min: -180, max: 180, step: 1 },
+    rotationRate: { control: 'slider', min: TRANSFORM_RATE.min, max: TRANSFORM_RATE.max, step: 0.1 },
     scale: { control: 'slider', min: FRAME_SCALE.min, max: FRAME_SCALE.max, step: 0.05 },
     scaleRate: { control: 'slider', min: TRANSFORM_RATE.min, max: TRANSFORM_RATE.max, step: 0.1 },
     offsetX: { control: 'slider', min: FRAME_OFFSET.min, max: FRAME_OFFSET.max, step: 0.1 },
@@ -2887,7 +2887,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     friday: 'Run on Fridays (Custom days only).',
     saturday: 'Run on Saturdays (Custom days only).',
     sunday: 'Run on Sundays (Custom days only).',
-    enable: 'Off holds every output low regardless of the clock. A wire into Enable overrides this.',
+    enabled: 'Off holds every output low regardless of the clock. A wire into Enabled overrides this.',
   },
   Clock: {
     bpm: 'Tempo in beats per minute when nothing is wired into Sync or Tap.',
@@ -3271,8 +3271,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   FrameTransform: {
     mode: 'Exact keeps whole pixels: quarter turns, flips and a slide that wraps round the edges, nothing resampled. Smooth turns by any angle, scales, and slides by fractions of a pixel, reading the frame between pixels.',
-    rotate: 'Turn clockwise in degrees. Exact snaps it to the nearest quarter turn and stretches a turned picture to fit a non-square matrix.',
-    rotateRate: 'Keeps the frame turning, in degrees a second. Negative turns counter-clockwise; 0 holds still.',
+    rotation: 'Turn clockwise in degrees. Exact snaps it to the nearest quarter turn and stretches a turned picture to fit a non-square matrix.',
+    rotationRate: 'Keeps the frame turning, in degrees a second. Negative turns counter-clockwise; 0 holds still.',
     scale: 'Smooth only: size about the centre. Above 1 enlarges the frame; below 1 shrinks it and shows the edges.',
     scaleRate: 'Smooth only: keeps the size breathing between double and half the Scale and back, in percent of a doubling a second, so 100 doubles in one second. Negative shrinks first; 0 holds still.',
     flipX: 'Mirror left to right, after the turn.',
@@ -3750,8 +3750,8 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     glitterMode: 'mode',
   },
   FrameTransform: {
-    rotate: 'rotate (°)',
-    rotateRate: 'rate (°/s)',
+    rotation: 'rotate (°)',
+    rotationRate: 'rate (°/s)',
     scale: 'scale (×)',
     scaleRate: 'rate (%/s)',
     flipX: 'flip X',
@@ -4436,7 +4436,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   // Enable and Require Synced Time decide whether the schedule runs at all,
   // so they lead the Timing group rather than sitting among the day rules.
   ScheduleTrigger: [
-    { key: 'timing', label: 'Timing', keys: ['enable', 'scheduleMode', 'start', 'end', 'requireSync'] },
+    { key: 'timing', label: 'Timing', keys: ['enabled', 'scheduleMode', 'start', 'end', 'requireSync'] },
     { key: 'days', label: 'Day Rules', keys: ['dayMode', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] },
   ],
   MatrixOutput: [
@@ -4637,7 +4637,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   // Each move pairs its value with its rate; Exact drops Scale and Sampling.
   FrameTransform: [
     { key: 'mode', label: 'Mode', keys: ['mode'] },
-    { key: 'rotate', label: 'Rotate', keys: ['rotate', 'rotateRate'] },
+    { key: 'rotate', label: 'Rotate', keys: ['rotation', 'rotationRate'] },
     { key: 'scale', label: 'Scale', keys: ['scale', 'scaleRate'] },
     { key: 'offset', label: 'Offset', keys: ['offsetX', 'offsetY', 'offsetXRate', 'offsetYRate'] },
     { key: 'flip', label: 'Flip', keys: ['flipX', 'flipY'] },

@@ -62,7 +62,7 @@ export const COLOR_CONTROL_NODES: Readonly<Record<string, ColorControlSpec>> = {
   },
   RGBToHSV: {
     outputs: { h: 'float', s: 'float', v: 'float' }, floats: {},
-    colors: [{ port: 'rgb', channels: ['r', 'g', 'b'], defaults: [0, 0, 0] }],
+    colors: [{ port: 'color', channels: ['r', 'g', 'b'], defaults: [0, 0, 0] }],
   },
   AdjustColor: {
     outputs: { color: 'color' }, floats: { hueShift: 0, saturation: 1, brightness: 1 },
@@ -137,7 +137,7 @@ export function colorControlCpp(
       break
     case 'RGBToHSV':
       loop = [
-        `  CRGB _hsv_${id} = ${colors.rgb};`,
+        `  CRGB _hsv_${id} = ${colors.color};`,
         `  float n_${id}_h = _rgbHue(_hsv_${id});`,
         `  float n_${id}_s = _rgbSat(_hsv_${id});`,
         `  float n_${id}_v = _rgbVal(_hsv_${id});`,

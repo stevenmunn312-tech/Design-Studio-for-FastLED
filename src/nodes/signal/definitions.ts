@@ -114,7 +114,7 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
     category: 'signal',
     inputs: [
       { id: 'dateTime', label: 'DateTime', dataType: 'datetime' },
-      { id: 'enable', label: 'Enable', dataType: 'bool' },
+      { id: 'enabled', label: 'Enabled', dataType: 'bool' },
     ],
     outputs: [
       { id: 'active', label: 'Active', dataType: 'bool' },
@@ -124,8 +124,8 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
       // fade or ramp instead of only a hard on/off. Always 0 in Trigger mode.
       { id: 'progress', label: 'Progress', dataType: 'float' },
     ],
-    propertyInputs: { enable: 'enable' },
-    defaultExposedInputs: ['enable'],
+    propertyInputs: { enabled: 'enabled' },
+    defaultExposedInputs: ['enabled'],
     defaultProperties: {
       scheduleMode: 'Window',
       dayMode: 'Every day',
@@ -139,7 +139,7 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
       saturday: true,
       sunday: true,
       requireSync: false,
-      enable: true,
+      enabled: true,
     },
   },
   {
@@ -166,7 +166,7 @@ export const SIGNAL_DEFINITIONS: NodeDefinition[] = [
       { id: 'phase', label: 'Phase (0–1)', dataType: 'float' },
       { id: 'beat', label: 'Beat', dataType: 'bool' },
       { id: 'bar', label: 'Bar', dataType: 'bool' },
-      { id: 'sub', label: 'Subdivision', dataType: 'bool' },
+      { id: 'subdivision', label: 'Subdivision', dataType: 'bool' },
     ],
     defaultProperties: { bpm: 120, beatsPerBar: 4, subdivision: 2 },
   },

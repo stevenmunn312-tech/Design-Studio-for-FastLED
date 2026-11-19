@@ -139,9 +139,9 @@ export function vibeLevel(value: number, gain: number, unitRange: boolean): numb
 }
 
 const VIBE_INACTIVE: Record<string, PortValue> = {
-  bass: 0, mid: 0, treble: 0, volume: 0,
-  bassAtt: 0, midAtt: 0, trebleAtt: 0,
-  bassSpike: false, midSpike: false, trebleSpike: false,
+  bass: 0, mids: 0, treble: 0, volume: 0,
+  bassAtt: 0, midsAtt: 0, trebleAtt: 0,
+  bassSpike: false, midsSpike: false, trebleSpike: false,
 }
 
 const STRUCTURE_INACTIVE: Record<string, PortValue> = {
@@ -445,14 +445,14 @@ export const AUDIO_EVALUATORS: NodeEvaluators = {
     const unit = props.unitRange === true
     return {
       bass: vibeLevel(vibe.bass, gain, unit),
-      mid: vibeLevel(vibe.mid, gain, unit),
+      mids: vibeLevel(vibe.mid, gain, unit),
       treble: vibeLevel(vibe.treble, gain, unit),
       volume: vibeLevel(vibe.volume, gain, unit),
       bassAtt: vibeLevel(vibe.bassAtt, gain, unit),
-      midAtt: vibeLevel(vibe.midAtt, gain, unit),
+      midsAtt: vibeLevel(vibe.midAtt, gain, unit),
       trebleAtt: vibeLevel(vibe.trebleAtt, gain, unit),
       bassSpike: vibe.bassSpike,
-      midSpike: vibe.midSpike,
+      midsSpike: vibe.midSpike,
       trebleSpike: vibe.trebleSpike,
     }
   },

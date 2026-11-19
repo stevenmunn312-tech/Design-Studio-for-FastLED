@@ -370,8 +370,8 @@
           "category": "composite",
           "properties": {
             "mode": "smooth",
-            "rotate": 0,
-            "rotateRate": 0,
+            "rotation": 0,
+            "rotationRate": 0,
             "scale": 1,
             "scaleRate": 0,
             "flipX": false,
@@ -390,12 +390,12 @@
               "dataType": "frame"
             },
             {
-              "id": "rotate",
+              "id": "rotation",
               "label": "Rotate (°)",
               "dataType": "float"
             },
             {
-              "id": "rotateRate",
+              "id": "rotationRate",
               "label": "Rate (°/s)",
               "dataType": "float"
             },

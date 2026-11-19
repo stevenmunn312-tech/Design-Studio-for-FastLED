@@ -34,8 +34,8 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
   FrameSwitch({ node, p, ln, ownBuf, srcBuf, boolExpr, incoming }) {
     const ob = ownBuf()
     const a = srcBuf('a'), b = srcBuf('b')
-    const wired = incoming.has(`${node.id}:sel`)
-    if (a && b && wired) ln(`  ::memmove(${ob}, (${boolExpr(node.id, 'sel')}) ? ${b} : ${a}, sizeof(CRGB) * NUM_LEDS);`)
+    const wired = incoming.has(`${node.id}:select`)
+    if (a && b && wired) ln(`  ::memmove(${ob}, (${boolExpr(node.id, 'select')}) ? ${b} : ${a}, sizeof(CRGB) * NUM_LEDS);`)
     else if (a && b) ln(`  ::memmove(${ob}, ${p.select === true ? b : a}, sizeof(CRGB) * NUM_LEDS);`)
     else if (a || b) ln(`  ::memmove(${ob}, ${a ?? b}, sizeof(CRGB) * NUM_LEDS);`)
     else ln(`  fill_solid(${ob}, NUM_LEDS, CRGB::Black);`)
@@ -226,8 +226,8 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
       return speedPhaseCpp((line) => lines.push(line), phaseTag(id, term), local)
     }
     const sum = (a: string | null, b: string | null) => a !== null && b !== null ? `(${a})+${b}` : a ?? b
-    const turnValue = value('rotate', 0)
-    const turn = sum(turnValue, phase('rotateRate', 'rotate', '_ftRr'))
+    const turnValue = value('rotation', 0)
+    const turn = sum(turnValue, phase('rotationRate', 'rotate', '_ftRr'))
     const offsetX = sum(value('offsetX', 0), phase('offsetXRate', 'x', '_ftXr'))
     const offsetY = sum(value('offsetY', 0), phase('offsetYRate', 'y', '_ftYr'))
     // Only Smooth reads the scale: its value held to the slider's range, times
@@ -246,7 +246,7 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     const kernel = smooth
       ? smoothTransformCpp({ degrees: turn, scale, flipX, flipY, offsetX, offsetY })
       : exactTransformCpp({
-        turns: turn === null ? 0 : turn === turnValue && !wired('rotate') ? frameQuarterTurns(p.rotate) : turn,
+        turns: turn === null ? 0 : turn === turnValue && !wired('rotation') ? frameQuarterTurns(p.rotation) : turn,
         flipX, flipY, offsetX, offsetY,
       })
     ln(`  { // Frame Transform: ${smooth ? `smooth, ${edge}, ${bilinear ? 'bilinear' : 'nearest'}` : 'exact'}`)

@@ -75,7 +75,7 @@ export const MATH_EMITTERS: NodeEmitters = {
   // sketch folds, as the evaluator reads it.
   Switch({ node, p, ln, v, f, boolExpr, incoming }) {
     const a = f('a', 'a', 0), b2 = f('b', 'b', 1)
-    const sel = incoming.has(`${node.id}:sel`) ? boolExpr(node.id, 'sel') : String(p.select === true)
+    const sel = incoming.has(`${node.id}:select`) ? boolExpr(node.id, 'select') : String(p.select === true)
     ln(`  float ${v('result')} = (${sel}) ? (${b2}) : (${a});`)
   },
   Not({ node, ln, v, boolExpr }) {
