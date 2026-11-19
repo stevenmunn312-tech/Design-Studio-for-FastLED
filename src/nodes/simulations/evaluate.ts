@@ -1021,27 +1021,9 @@ function evalReactionDiffusion(nodeId: string, feed: number, kill: number, iters
 // Conway's Game of Life on a toroidal grid. Live cells glow at the palette's hot
 // end; dead cells fade out by `trail`, cooling toward the palette start. Steps
 // at `speed`/sec and reseeds when it stagnates.
-/**
- * One Life generation from `cells` into `next` on a torus, as the sketch steps
- * it, leaving `prev` holding `cells` for the next call. Returns whether the
- * board is stagnant: empty, frozen, or back where it was two generations ago,
- * the blinkers-among-still-lifes loop a small torus often settles into.
- */
-export function golStep(cells: Uint8Array, next: Uint8Array, prev: Uint8Array, W: number, H: number): boolean {
-  let pop = 0, changed = false, changed2 = false
-  for (let y = 0; y < H; y++) {
-    const ym = ((y - 1 + H) % H) * W, yp = ((y + 1) % H) * W, yr = y * W
-    for (let x = 0; x < W; x++) {
-      const xm = (x - 1 + W) % W, xp = (x + 1) % W, i = yr + x
-      const n = cells[ym + xm] + cells[ym + x] + cells[ym + xp] + cells[yr + xm]
-        + cells[yr + xp] + cells[yp + xm] + cells[yp + x] + cells[yp + xp]
-      const nv = cells[i] ? (n === 2 || n === 3 ? 1 : 0) : (n === 3 ? 1 : 0)
-      next[i] = nv; pop += nv; if (nv !== cells[i]) changed = true; if (nv !== prev[i]) changed2 = true
-    }
-  }
-  prev.set(cells)
-  return pop === 0 || !changed || !changed2
-}
+// The Life step is shared with Automaton's life type (state/evaluator/automaton.ts).
+import { stepLife } from '../../state/evaluator/automaton'
+export { stepLife as golStep }
 
 /**
  * Milliseconds between generations, as the sketch's
@@ -1068,7 +1050,7 @@ function evalGameOfLife(nodeId: string, palette: Palette, speed: number, trail: 
   // Elapsed ticks are 60 fps frames; the board compares millis().
   if (((tick - s.lastStep) * 1000) / 60 >= golIntervalMs(speed)) {
     const { cells, next, prev } = s
-    const stagnant = golStep(cells, next, prev, W, H)
+    const stagnant = stepLife(cells, next, prev, W, H)
     s.cells = next; s.next = cells   // swap
     s.stale = stagnant ? s.stale + 1 : 0
     if (s.stale > 3) { reseed(s.cells); s.stale = 0 }

@@ -1,7 +1,9 @@
 import { makeShims, SHIM_NAMES } from '../shared/fastledShims'
 import { sizingSide } from '../shared/stringCanvas'
 import { compileFieldFormula, fieldFormulaReadsPrev } from '../shared/formulaLang'
-import { GEOMETRY_FIELD_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { GEOMETRY_FIELD_SPEED_MAX, NOISE_SCALE_MAX, NOISE_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
+import { fieldNoiseType, sharedNoiseType } from '../generative/noiseTypes'
+import { evalNoiseFieldByType } from '../generative/noiseField'
 import { speedPhase } from '../shared/speedClock'
 import { passFrames, passStepFrames } from '../shared/passClock'
 import { noiseFieldFrame, noiseFieldSum, truchetFrame, truchetPixel, wallpaperFrame, wallpaperSourceQ8 } from '../shared/integerPatterns'
@@ -10,7 +12,7 @@ import { compileFormula, fieldFormulaCache, centeredX, centeredY } from '../../s
 import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame, fieldRange, frameToFieldConversion, pixelToField } from '../../state/evaluator/frames'
 import { allocField, instanceState } from '../../state/evaluator/memory'
 import { wrapXBlend } from '../../state/evaluator/wrapX'
-import { noiseShape, shapeNoise } from '../../state/evaluator/noiseShape'
+import { noiseContrast, noiseContrastOf, noiseShape, shapeNoise, worleyMode } from '../../state/evaluator/noiseShape'
 import {
   FLUID_VEL_OUT, fluidForces, fluidInject, fluidIterations, fluidPuff, fluidStep, makeFluid, type FluidState,
 } from '../../state/evaluator/fluid'
@@ -18,7 +20,7 @@ import { fractalSampler, fractalType } from '../../state/evaluator/fractal'
 import { normalizedSeed, seededRandom, seededRngState, seedOffset } from '../../state/evaluator/random'
 import {
   SAND_SPAWN_RATE, automatonStepDue, automatonStates, automatonType, cyclicStates, cyclicThreshold, elementaryRule,
-  sandJammed, seedElementary, stepBrain, stepCyclic, stepElementary, stepSand, type AutomatonType,
+  LIFE_SEED_DENSITY, LIFE_STALE_LIMIT, sandJammed, seedElementary, stepBrain, stepCyclic, stepElementary, stepLife, stepSand, type AutomatonType,
 } from '../../state/evaluator/automaton'
 import {
   ellipseSd, morphPolygonSd, rectSd, roseSd, superformulaKnobs, superformulaSd, type Superformula,
@@ -31,7 +33,7 @@ import {
   turingStep, turingStepSize,
 } from '../../state/evaluator/turing'
 import { buildSliceChildMatrices, resolveSlicePattern, sliceBit, walkSliceLeaf } from './sliceTiling'
-import { BLUR_RADIUS, GRADIENT_REPEAT, blurRadius, gradientLinearSpan, gradientRadialSpan, gradientRepeat, gradientType, gradientWraps } from './gradientField'
+import { BLUR_RADIUS, GRADIENT_REPEAT, blurRadius, gradientLinearSpan, gradientRadialSpan, gradientRepeat, gradientScrolls, gradientType, gradientWraps } from './gradientField'
 import { type FieldTransformFrame, fieldEdgeMode, fieldTransformFrame, fieldTransformPixel } from './fieldTransform'
 import type { Field, NodeEvaluators } from '../../state/evaluator/types'
 
@@ -373,10 +375,10 @@ function evalWaveSim(
   return out
 }
 
-// Automaton: elementary rows, cyclic spirals, Brian's Brain and falling sand.
+// Automaton: elementary rows, cyclic spirals, Brian's Brain, falling sand and Conway life.
 // One byte per cell; the steps live in state/evaluator/automaton.ts.
 interface AutomatonState {
-  cells: Uint8Array; next: Uint8Array; w: number; h: number; type: string; seed: number
+  cells: Uint8Array; next: Uint8Array; prev: Uint8Array; stale: number; w: number; h: number; type: string; seed: number
   clock: { owed: number; last: number }; prevReset: boolean; stepCount: number
 }
 const fluidState = instanceState('fluidState', new Map<string, FluidState>())
@@ -394,12 +396,13 @@ function evalAutomaton(
     if (type === 'elementary') seedElementary(s.cells, W, H, seed ? rnd : null)
     else if (type === 'cyclic') for (let i = 0; i < N; i++) s.cells[i] = Math.floor(rnd() * states)
     else if (type === 'brianBrain') for (let i = 0; i < N; i++) s.cells[i] = rnd() < 0.15 ? 2 : 0
-    s.stepCount = 0
+    else if (type === 'life') for (let i = 0; i < N; i++) s.cells[i] = rnd() < LIFE_SEED_DENSITY ? 1 : 0
+    s.stepCount = 0; s.stale = 0
   }
   let s = automatonState.get(nodeId)
   if (!s || s.w !== W || s.h !== H || s.type !== type || s.seed !== seed) {
     seededRngState.delete(key)
-    s = { cells: new Uint8Array(N), next: new Uint8Array(N), w: W, h: H, type, seed, clock: { owed: 1, last: now }, prevReset: reset, stepCount: 0 }
+    s = { cells: new Uint8Array(N), next: new Uint8Array(N), prev: new Uint8Array(N), stale: 0, w: W, h: H, type, seed, clock: { owed: 1, last: now }, prevReset: reset, stepCount: 0 }
     fill(s)
     automatonState.set(nodeId, s)
   } else if (reset && !s.prevReset) fill(s)
@@ -410,6 +413,13 @@ function evalAutomaton(
     if (type === 'elementary') stepElementary(s.cells, W, H, rule)
     else if (type === 'cyclic') { stepCyclic(s.cells, s.next, W, H, states, threshold); [s.cells, s.next] = [s.next, s.cells] }
     else if (type === 'brianBrain') { stepBrain(s.cells, s.next, W, H); [s.cells, s.next] = [s.next, s.cells] }
+    else if (type === 'life') {
+      // As the Game of Life pattern: reseed once the board has stagnated for several steps.
+      const stagnant = stepLife(s.cells, s.next, s.prev, W, H);
+      [s.cells, s.next] = [s.next, s.cells]
+      s.stale = stagnant ? s.stale + 1 : 0
+      if (s.stale > LIFE_STALE_LIMIT) { fill(s); s.stale = 0 }
+    }
     else {
       const p = Math.max(0, Math.min(1, spawn)) * SAND_SPAWN_RATE
       for (let x = 0; x < W; x++) if (!s.cells[x] && rnd() < p) s.cells[x] = 1
@@ -653,15 +663,32 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
   },
   FieldNoise({ num, t, W, H, stateKey }, id, props) {
     const key = stateKey(id)
-    const speed   = denormRate(num(id, 'speed', props, 'speed', 0.25), SPEED_MAX.FieldNoise)
-    const scale   = denormRate(num(id, 'scale', props, 'scale', 0.3), SCALE_MAX.FieldNoise)
+    const type = fieldNoiseType(props.noiseType)
+    const shared = sharedNoiseType(type)
+    const speed   = denormRate(num(id, 'speed', props, 'speed', 0.25), shared ? NOISE_SPEED_MAX[shared] : SPEED_MAX.FieldNoise)
+    const scale   = denormRate(num(id, 'scale', props, 'scale', 0.3), shared ? NOISE_SCALE_MAX[shared] : SCALE_MAX.FieldNoise)
     const octaves = num(id, 'octaves', props, 'octaves', 4)
     const seed = normalizedSeed(props.seed)
-    const field = evalFieldNoise(key, speed, scale, octaves, t, W, H, seed)
-    // Seamless left/right join: see state/evaluator/wrapX.ts.
-    const out = props.wrapX === true ? wrapXBlend(field, evalFieldNoise(key, speed, scale, octaves, t, W, H, seed, W), W, H) : field
+    let out: Field
+    if (shared) {
+      // The Noise node's own fields (generative/noiseField.ts), wrapX included.
+      out = evalNoiseFieldByType(key, shared, speed, scale, t, W, H, seed, props.wrapX === true, {
+        worley: worleyMode(props.worleyMode),
+        octaves,
+        frequency: num(id, 'frequency', props, 'frequency', 1.2),
+        orientation: num(id, 'orientation', props, 'orientation', 45),
+      })
+    } else {
+      const field = evalFieldNoise(key, speed, scale, octaves, t, W, H, seed)
+      // Seamless left/right join: see state/evaluator/wrapX.ts.
+      out = props.wrapX === true ? wrapXBlend(field, evalFieldNoise(key, speed, scale, octaves, t, W, H, seed, W), W, H) : field
+    }
+    // Contrast, then shape: both fold about the field's middle.
+    const contrast = noiseContrastOf(props.contrast)
     const shape = noiseShape(props.noiseShape)
-    if (shape !== 'plain') for (let i = 0; i < out.length; i++) out[i] = shapeNoise(out[i], shape)
+    if (contrast !== 1 || shape !== 'plain') {
+      for (let i = 0; i < out.length; i++) out[i] = shapeNoise(contrast !== 1 ? noiseContrast(out[i], contrast) : out[i], shape)
+    }
     return { field: out }
   },
   SliceTiling({ num, t, W, H, stateKey }, id, props) {
@@ -834,14 +861,17 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
   },
   // Keep in lockstep with the `GradientField` emitter: the same normalised
   // coordinates, reach and wrap rule.
-  GradientField({ num, W, H }, id, props) {
+  GradientField({ num, incoming, t, W, H, stateKey }, id, props) {
     const type = gradientType(props.gradientType)
     const repeat = gradientRepeat(Number(props.repeat ?? GRADIENT_REPEAT.default))
     const angle = num(id, 'angle', props, 'angle', 0) * Math.PI / 180
     const cx = num(id, 'cx', props, 'cx', 0.5)
     const cy = num(id, 'cy', props, 'cy', 0.5)
     const offset = num(id, 'offset', props, 'offset', 0)
-    const wraps = gradientWraps(type, repeat)
+    // Scroll, as Palette Gradient has it: ramp cycles a second added after Repeat.
+    const scrolls = gradientScrolls(incoming.has(`${id}:speed`), props.speed)
+    const scroll = scrolls ? speedPhase(stateKey(id), t, denormRate(num(id, 'speed', props, 'speed', 0), SPEED_MAX.GradientField)) : 0
+    const wraps = gradientWraps(type, repeat, scrolls)
     const ca = Math.cos(angle), sa = Math.sin(angle)
     const span = type === 'radial' ? gradientRadialSpan(W, H) : gradientLinearSpan(ca, sa, W, H)
     const px = cx * (W - 1), py = cy * (H - 1)
@@ -853,7 +883,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
         if (type === 'radial') d = Math.sqrt(dx * dx + dy * dy) / span
         else if (type === 'angular') d = (Math.atan2(dy, dx) - angle) / (Math.PI * 2) + 0.5
         else d = (dx * ca + dy * sa) / span + 0.5
-        const v = (d + offset) * repeat
+        const v = (d + offset) * repeat + scroll
         out[y * W + x] = wraps ? ((v % 1) + 1) % 1 : clamp01(v)
       }
     }

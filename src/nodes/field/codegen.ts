@@ -1,4 +1,6 @@
-import { rateCpp, SPEED_MAX, SCALE_MAX, GEOMETRY_FIELD_SPEED_MAX } from '../shared/speedRange'
+import { rateCpp, NOISE_SCALE_MAX, NOISE_SPEED_MAX, SPEED_MAX, SCALE_MAX, GEOMETRY_FIELD_SPEED_MAX } from '../shared/speedRange'
+import { fieldNoiseType, sharedNoiseType } from '../generative/noiseTypes'
+import { emitNoiseVariantCpp } from '../generative/noiseFieldCpp'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
 import { passFramesCpp, passStepFramesCpp } from '../shared/passClockCpp'
 import {
@@ -11,15 +13,15 @@ import { seedProp, floatLit } from '../../codegen/cppLiterals'
 import { seedOffset } from '../../state/evaluator/random'
 import { wrapXBlockLines } from '../../codegen/helpers/wrapXHelperCpp'
 import { fieldRangeCpp, frameToFieldConversion, pixelToFieldCpp } from '../../state/evaluator/frames'
-import { noiseShape, noiseShapeCpp } from '../../state/evaluator/noiseShape'
+import { noiseContrastCpp, noiseContrastOf, noiseShape, noiseShapeCpp, worleyMode } from '../../state/evaluator/noiseShape'
 import { GOLDEN_RATIO, LISSAJOUS_FIELD_SAMPLES } from './evaluate'
 import { resolveSlicePattern } from './sliceTiling'
-import { BLUR_RADIUS, GRADIENT_REPEAT, gradientRepeat, gradientType, gradientWraps } from './gradientField'
+import { BLUR_RADIUS, GRADIENT_REPEAT, gradientRepeat, gradientScrolls, gradientType, gradientWraps } from './gradientField'
 import { FIELD_ZOOM, fieldEdgeMode, fieldSamples, fieldTiles, fieldTransformCpp } from './fieldTransform'
 import { wallpaperGroupIndex, WALLPAPER_GROUPS } from '../../state/evaluator/symmetry'
 import { truchetLattice, truchetMotif, truchetMotifIndex, truchetOrientationCount } from '../../state/evaluator/truchet'
 import {
-  AUTOMATON_SPEED_MAX, AUTOMATON_SPEED_MIN, AUTOMATON_STEP_DUE, SAND_SPAWN_RATE, automatonStates, automatonType, cyclicStates, cyclicThreshold,
+  AUTOMATON_SPEED_MAX, AUTOMATON_SPEED_MIN, AUTOMATON_STEP_DUE, LIFE_SEED_DENSITY, LIFE_STALE_LIMIT, SAND_SPAWN_RATE, automatonStates, automatonType, cyclicStates, cyclicThreshold,
 } from '../../state/evaluator/automaton'
 import {
   FLUID_BUOYANCY_GAIN, FLUID_FORCE_GAIN, FLUID_INJECT_VY, FLUID_ITERATIONS_MAX, FLUID_ITERATIONS_MIN, FLUID_PUFF_SPEED, FLUID_VEL_OUT,
@@ -32,6 +34,7 @@ import { TURING_ITERATIONS_MAX, TURING_STEP_MAX, TURING_STEP_MIN, turingRadii } 
 import { SHAPE_FIELD_KINDS } from '../../state/evaluator/sdf'
 import { centeredCpp } from '../../state/evaluator/formula'
 import { SIZING_SIDE_CPP } from '../shared/stringCanvas'
+import { lifeGenerationCpp } from '../shared/lifeStepCpp'
 
 function byteArray8(bytes: Uint8Array): string {
   return Array.from({ length: 8 }, (_, i) => `0x${(bytes[i] ?? 0).toString(16).padStart(2, '0')}`).join(',')
@@ -67,31 +70,46 @@ export const FIELD_EMITTERS: NodeEmitters = {
   },
   // Same fBm construction as FractalNoise's codegen (inoise8), but written
   // straight to the field buffer instead of through a palette.
-  FieldNoise({ id, p, ln: emitLine, f, ownField, needsT, needsWrapX }) {
+  FieldNoise({ id, p, ln: emitLine, f, ownField, needsT, needsWrapX, needsWorley, needsSimplex }) {
     needsT.v = true
     const block: string[] = []
     const ln = (line: string) => { block.push(line) }
     const of = ownField()
-    const speed = rateCpp(f('speed', 'speed', 0.25), SPEED_MAX.FieldNoise)
-    const scale = rateCpp(f('scale', 'scale', 0.3), SCALE_MAX.FieldNoise)
+    const shared = sharedNoiseType(fieldNoiseType(p.noiseType))
     const seed = seedProp(p)
-    ln(`  { // Field noise (fBm via inoise8)`)
-    ln(`    float _spd=${speed},_sc=${scale};`)
-    const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
-    // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
-    const octaves = `(int)constrain(${f('octaves', 'octaves', 4)},1.0f,6.0f)`
-    for (const line of noiseFieldFrameCpp('_sc', seed ? `${ph}+${floatLit(seedOffset(seed, 0), 6)}` : ph, octaves)) ln(`    ${line}`)
-    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
-    for (const line of NOISE_FIELD_PIXEL_CPP) ln(`      ${line}`)
-    ln(`      ${of}[_y*WIDTH+_x]=_fv*_fnInv;}}`)
+    if (shared) {
+      // The Noise node's own blocks (generative/noiseFieldCpp.ts).
+      emitNoiseVariantCpp(shared, {
+        id, ln, f, of, seed, worley: worleyMode(p.worleyMode), needsSimplex, needsWorley,
+        speed: rateCpp(f('speed', 'speed', 0.25), NOISE_SPEED_MAX[shared]),
+        scale: rateCpp(f('scale', 'scale', 0.3), NOISE_SCALE_MAX[shared]),
+      })
+    } else {
+      const speed = rateCpp(f('speed', 'speed', 0.25), SPEED_MAX.FieldNoise)
+      const scale = rateCpp(f('scale', 'scale', 0.3), SCALE_MAX.FieldNoise)
+      ln(`  { // Field noise (fBm via inoise8)`)
+      ln(`    float _spd=${speed},_sc=${scale};`)
+      const ph = speedPhaseCpp(ln, phaseTag(id), '_spd')
+      // Integer kernel (shared/integerPatterns.ts): the floats run once a frame.
+      const octaves = `(int)constrain(${f('octaves', 'octaves', 4)},1.0f,6.0f)`
+      for (const line of noiseFieldFrameCpp('_sc', seed ? `${ph}+${floatLit(seedOffset(seed, 0), 6)}` : ph, octaves)) ln(`    ${line}`)
+      ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
+      for (const line of NOISE_FIELD_PIXEL_CPP) ln(`      ${line}`)
+      ln(`      ${of}[_y*WIDTH+_x]=_fv*_fnInv;}}`)
+    }
     if (p.wrapX === true) {
       needsWrapX.v = true
       for (const line of wrapXBlockLines(block, of)) emitLine(line)
     } else {
       for (const line of block) emitLine(line)
     }
+    // Contrast, then shape, as the preview applies them; neither is emitted at rest.
+    const contrast = noiseContrastOf(p.contrast)
     const shape = noiseShape(p.noiseShape)
-    if (shape !== 'plain') emitLine(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=${noiseShapeCpp(shape, `${of}[_i]`)};`)
+    if (contrast !== 1 || shape !== 'plain') {
+      const value = contrast !== 1 ? noiseContrastCpp(`${of}[_i]`, contrast) : `${of}[_i]`
+      emitLine(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=${noiseShapeCpp(shape, value)};`)
+    }
   },
   SliceTiling({ node, id, p, ln, f, ownField, edges, needsT, needsLattice, globalLines }) {
     needsT.v = true
@@ -379,12 +397,13 @@ export const FIELD_EMITTERS: NodeEmitters = {
     // Neighbour count of state `want` on the torus, for cyclic and Brian's Brain.
     const count = (want: string) => `int _nb=0; for(int _dy=-1;_dy<=1;_dy++) for(int _dx=-1;_dx<=1;_dx++){ if(!_dx&&!_dy) continue; if(${A}c[((_y+_dy+HEIGHT)%HEIGHT)*WIDTH+((_x+_dx+WIDTH)%WIDTH)]==${want}) _nb++; }`
     ln(`  { // Automaton (${type})`)
-    ln(`    static uint8_t ${A}c[NUM_LEDS], ${A}n[NUM_LEDS]; static bool ${A}init=false, ${A}pr=false; static uint32_t ${A}t=0, ${A}k=0; static float ${A}ow=1.0f;`)
+    ln(`    static uint8_t ${A}c[NUM_LEDS], ${A}n[NUM_LEDS]${type === 'life' ? `, ${A}p[NUM_LEDS]` : ''}; static bool ${A}init=false, ${A}pr=false; static uint32_t ${A}t=0, ${A}k=0; static float ${A}ow=1.0f;${type === 'life' ? ` static uint8_t ${A}s=0;` : ''}`)
     if (seed) ln(`    static bool ${A}sd=false; if(!${A}sd){ random16_set_seed(${seed}u); ${A}sd=true; }`)
     ln(`    auto _fill=[&](){ memset(${A}c,0,sizeof(${A}c)); ${A}k=0;`)
     if (type === 'elementary') ln(seed ? `      for(int _x=0;_x<WIDTH;_x++) ${A}c[_x]=random8()<128?1:0;` : `      ${A}c[WIDTH/2]=1;`)
     else if (type === 'cyclic') ln(`      for(int _i=0;_i<NUM_LEDS;_i++) ${A}c[_i]=random8(${states});`)
     else if (type === 'brianBrain') ln(`      for(int _i=0;_i<NUM_LEDS;_i++) ${A}c[_i]=random8()<38?2:0;`)
+    else if (type === 'life') ln(`      ${A}s=0; for(int _i=0;_i<NUM_LEDS;_i++) ${A}c[_i]=random8()<${Math.round(LIFE_SEED_DENSITY * 256)}?1:0;`)
     ln(`    };`)
     ln(`    bool _rs=(${boolExpr(node.id, 'reset')});`)
     ln(`    if(!${A}init){ _fill(); ${A}init=true; ${A}t=millis(); } else if(_rs&&!${A}pr) _fill();`)
@@ -404,6 +423,10 @@ export const FIELD_EMITTERS: NodeEmitters = {
       ln(`      for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ uint8_t _s=${A}c[_y*WIDTH+_x],_w=(_s+1)%${states}; ${count('_w')}`)
       ln(`        ${A}n[_y*WIDTH+_x]=_nb>=${threshold}?_w:_s; }`)
       ln(`      memcpy(${A}c,${A}n,sizeof(${A}c)); }`)
+    } else if (type === 'life') {
+      // The Game of Life pattern's generation, then its reseed once stagnant.
+      for (const line of lifeGenerationCpp(`${A}c`, `${A}n`, `${A}p`, `${A}s`)) ln(line)
+      ln(`      if(${A}s>${LIFE_STALE_LIMIT}){ _fill(); } }`)
     } else if (type === 'brianBrain') {
       ln(`      for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ uint8_t _s=${A}c[_y*WIDTH+_x]; ${count('2')}`)
       ln(`        ${A}n[_y*WIDTH+_x]=_s==2?1:(_s==1?0:(_nb==2?2:0)); }`)
@@ -488,23 +511,30 @@ export const FIELD_EMITTERS: NodeEmitters = {
     if (steps >= 2) ln(`      _v=roundf(_v*${steps - 1}.0f)/${steps - 1}.0f;`)
     ln(`      ${of}[_i]=${invert ? '1.0f-_v' : '_v'}; } }`)
   },
-  GradientField({ p, ln, f, ownField }) {
+  GradientField({ node, id, p, ln, f, ownField, edges, needsT }) {
     const of = ownField()
     const type = gradientType(p.gradientType)
     const repeat = gradientRepeat(Number(p.repeat ?? GRADIENT_REPEAT.default))
-    const wraps = gradientWraps(type, repeat)
+    const scrolls = gradientScrolls(edges.some((e) => e.target === node.id && e.targetHandle === 'speed'), p.speed)
+    const wraps = gradientWraps(type, repeat, scrolls)
     // Pixels from the pivot, one unit on both axes (gradientField.ts).
     ln(`  { /* GradientField: ${type} */`)
     if (type !== 'radial') ln(`    float _ga=(${f('angle', 'angle', 0)})*0.017453292519943f;`)
     if (type === 'linear') ln(`    float _gca=cosf(_ga),_gsa=sinf(_ga),_gsp=fmaxf(1e-6f,fabsf(_gca)*(WIDTH-1)+fabsf(_gsa)*(HEIGHT-1));`)
     if (type === 'radial') ln(`    float _gsp=fmaxf(1e-6f,0.5f*sqrtf((float)((WIDTH-1)*(WIDTH-1)+(HEIGHT-1)*(HEIGHT-1))));`)
     ln(`    float _gcx=${f('cx', 'cx', 0.5)}*(WIDTH-1),_gcy=${f('cy', 'cy', 0.5)}*(HEIGHT-1),_gof=${f('offset', 'offset', 0)},_grp=${floatLit(repeat)};`)
+    let scroll = ''
+    if (scrolls) {
+      needsT.v = true
+      ln(`    float _gsc=${rateCpp(f('speed', 'speed', 0), SPEED_MAX.GradientField)};`)
+      scroll = `+${speedPhaseCpp(ln, phaseTag(id), '_gsc')}`
+    }
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)
     ln(`      float _dx=_x-_gcx,_dy=_y-_gcy;`)
     if (type === 'radial') ln(`      float _d=sqrtf(_dx*_dx+_dy*_dy)/_gsp;`)
     else if (type === 'angular') ln(`      float _d=(atan2f(_dy,_dx)-_ga)/6.283185307f+0.5f;`)
     else ln(`      float _d=(_dx*_gca+_dy*_gsa)/_gsp+0.5f;`)
-    ln(`      float _v=(_d+_gof)*_grp;`)
+    ln(`      float _v=(_d+_gof)*_grp${scroll};`)
     ln(wraps
       ? `      _v=fmodf(_v,1.0f); if(_v<0.0f)_v+=1.0f; ${of}[_y*WIDTH+_x]=_v;}}`
       : `      ${of}[_y*WIDTH+_x]=constrain(_v,0.0f,1.0f);}}`)

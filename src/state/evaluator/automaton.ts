@@ -3,7 +3,7 @@
 // the cells (plus, for sand, the spawn draws made by the caller), so the C++
 // loops in nodes/field/codegen.ts can repeat them line for line.
 
-export const AUTOMATON_TYPES = ['elementary', 'cyclic', 'brianBrain', 'sand'] as const
+export const AUTOMATON_TYPES = ['elementary', 'cyclic', 'brianBrain', 'sand', 'life'] as const
 export type AutomatonType = typeof AUTOMATON_TYPES[number]
 export const automatonType = (v: unknown): AutomatonType =>
   (AUTOMATON_TYPES as readonly string[]).includes(String(v)) ? (v as AutomatonType) : 'elementary'
@@ -15,6 +15,10 @@ export const CYCLIC_THRESHOLD_MAX = 8
 export const AUTOMATON_SPEED_MIN = 1
 export const AUTOMATON_SPEED_MAX = 60
 export const SAND_SPAWN_RATE = 0.3
+/** Conway life: the share of cells alive at a (re)start, 77 in 256 on the controller. */
+export const LIFE_SEED_DENSITY = 0.3
+/** Stagnant generations in a row after which life reseeds. */
+export const LIFE_STALE_LIMIT = 3
 /** Brian's Brain states: 0 off, 1 dying, 2 on. */
 export const BRAIN_STATES = 3
 
@@ -98,6 +102,28 @@ export function stepBrain(cells: Uint8Array, next: Uint8Array, W: number, H: num
       next[y * W + x] = s === 2 ? 1 : s === 1 ? 0 : neighbours(cells, W, H, x, y, (v) => v === 2) === 2 ? 2 : 0
     }
   }
+}
+
+/**
+ * One Life generation from `cells` into `next` on a torus, as the sketch steps
+ * it, leaving `prev` holding `cells` for the next call. Returns whether the
+ * board is stagnant: empty, frozen, or back where it was two generations ago,
+ * the blinkers-among-still-lifes loop a small torus often settles into.
+ */
+export function stepLife(cells: Uint8Array, next: Uint8Array, prev: Uint8Array, W: number, H: number): boolean {
+  let pop = 0, changed = false, changed2 = false
+  for (let y = 0; y < H; y++) {
+    const ym = ((y - 1 + H) % H) * W, yp = ((y + 1) % H) * W, yr = y * W
+    for (let x = 0; x < W; x++) {
+      const xm = (x - 1 + W) % W, xp = (x + 1) % W, i = yr + x
+      const n = cells[ym + xm] + cells[ym + x] + cells[ym + xp] + cells[yr + xm]
+        + cells[yr + xp] + cells[yp + xm] + cells[yp + x] + cells[yp + xp]
+      const nv = cells[i] ? (n === 2 || n === 3 ? 1 : 0) : (n === 3 ? 1 : 0)
+      next[i] = nv; pop += nv; if (nv !== cells[i]) changed = true; if (nv !== prev[i]) changed2 = true
+    }
+  }
+  prev.set(cells)
+  return pop === 0 || !changed || !changed2
 }
 
 /**

@@ -33,8 +33,8 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
 
   FieldNoise: {
     overview: [
-      'Field Noise is fractal noise as a field: soft, organic, cloud-like values that drift over time. It is the field cousin of the Noise pattern’s fBm mode.',
-      'Scale sets the size of the features, Octaves the amount of fine detail, and Speed the drift. Shape folds the noise into sharp ridges or rounded billows. Wrap X joins the left and right edges for a ring or corkscrew.',
+      'Field Noise is noise as a field: soft, organic values that drift over time. By default it is fractal noise, clouds of layered detail; Type switches it to any of the Noise pattern’s algorithms: simplex clouds, a looping 4D noise, Worley cells, plasma, or Gabor bands.',
+      'Scale sets the size of the features, Octaves the amount of fine detail in the cloud types, and Speed the drift. Worley Mode, Frequency and Orientation tune the Worley and Gabor types, and Contrast spreads the field about its middle. Shape folds the noise into sharp ridges or rounded billows. Wrap X joins the left and right edges for a ring or corkscrew.',
       'Layered noise averages towards the middle, so most of the field sits between about 0.4 and 0.65. Set Field → Frame’s Low and High round those values and the palette’s darkest and brightest colours come into play.',
     ],
     outputs: { field: FIELD_OUT },
@@ -197,7 +197,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
 
   Automaton: {
     overview: [
-      'Automaton runs a cellular automaton as a field. Elementary rules scroll a one-dimensional pattern down the canvas; Cyclic makes spirals where colours chase each other; Brian’s Brain makes sparks that never rest; Sand drops grains that pile up.',
+      'Automaton runs a cellular automaton as a field. Elementary rules scroll a one-dimensional pattern down the canvas; Cyclic makes spirals where colours chase each other; Brian’s Brain makes sparks that never rest; Sand drops grains that pile up; Life runs Conway’s Game of Life, which reseeds itself when the board settles.',
       'Rule picks the elementary rule (rule 90 draws Sierpinski’s triangle, 30 is chaos). Reset starts again from the seed.',
     ],
     inputs: {
@@ -350,7 +350,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
   GradientField: {
     overview: [
       'Gradient Field is a ramp as a field: linear along an angle, radial from a centre, or angular like a pinwheel. It measures in pixels, so rings stay round and the angle is true on a wide or tall panel, and a linear ramp runs edge to edge at 0 and 90 degrees and corner to corner on a diagonal.',
-      'Repeat makes it wrap several times across the canvas, turning it into stripes, rings or spokes. Offset slides the ramp; wire a ramp into it to scroll them.',
+      'Repeat makes it wrap several times across the canvas, turning it into stripes, rings or spokes. Offset slides the ramp by hand; Scroll slides it on its own clock, as the Palette Gradient pattern does, so a still field can become moving stripes, rings or a turning pinwheel without a second node.',
     ],
     outputs: { field: FIELD_OUT },
     example: example({
