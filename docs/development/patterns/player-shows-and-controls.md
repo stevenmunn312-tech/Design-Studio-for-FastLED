@@ -418,8 +418,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - **A Performance Generator's show is drawn in the main LED preview only.**
   `PerformanceGeneratorBody` owns the audio clock and publishes the show and
   position to `showPlayback.ts`; `applyShowPlaybackSignal` composites it over
-  the evaluated frame. The body has no canvas and no switch for this (the
-  retired `showInMainPreview` property is dropped on load), so a show can
+  the evaluated frame. The body has no canvas and no switch for this, so a show can
   never play in the node while the LED output it names stays black.
 - **Frame nodes after an engine are its post-chain.** A Music Player,
   Performance Generator or Pattern Slideshow may reach its LED output through

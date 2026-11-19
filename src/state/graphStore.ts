@@ -551,7 +551,6 @@ const LIBRARY_DEF = new Map(NODE_LIBRARY.map((def) => [def.type, def]))
 // labels, and port definitions stay canonical across save/load. Programmatic
 // group-family nodes keep their saved shape.
 function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes: StudioNode[]; edges: StudioEdge[] } {
-  const typeById = new Map(nodes.map((n) => [n.id, (n.data as StudioNodeData).nodeType]))
   const normalizedNodes = nodes.map((n) => {
     const data = n.data as StudioNodeData
     const nodeType = data.nodeType
@@ -562,15 +561,6 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
     // An LED output naming a product gets its part's facts back, so a hand-edited save
     // cannot leave a locked value drifting; a Custom output is untouched.
     if (nodeType === 'MatrixOutput') properties = reconcileLedProduct(properties)
-    // A network node's own copy of the network settings, from before the
-    // Board held the one identity every network user shares
-    // (peripherals/boardNetwork.ts), and a Clock's DS3231 wiring and a DMX or
-    // MIDI node's UART and pins, from before each part was one of its own,
-    // and a Performance Generator's main-preview switch.
-    // Nothing reads them, so they are dropped rather than drawn as rows that
-    // do nothing; pre-1.0, not migrated.
-    const retired = RETIRED_PROPERTY_KEYS[nodeType]
-    if (retired) for (const key of retired) delete properties[key]
     // A Clock's fixed minute offset, from before it took a time zone: kept as
     // the matching fixed-offset zone, so a saved clock reads the same time.
     if (nodeType === 'RTCInput' && 'timezoneOffsetMinutes' in properties) {
@@ -636,39 +626,8 @@ function normalizeLoadedGraph(nodes: StudioNode[], edges: StudioEdge[]): { nodes
   })
   return {
     nodes: syncAutomaticStereoVuLedCounts(normalizedNodes),
-    edges: edges.filter((e) => !RETIRED_PROPERTY_KEYS[typeById.get(e.target) ?? '']?.includes(e.targetHandle ?? '')).map((e) => ({ ...e })),
+    edges: edges.map((e) => ({ ...e })),
   }
-}
-
-/** The network settings each network node carried before they moved to the Board. */
-const NODE_NETWORK_KEYS = ['wifiSsid', 'wifiPassword', 'wifiHostname', 'useDhcp', 'staticIp', 'staticGateway', 'staticSubnet', 'staticDns']
-/**
- * What a Clock carried while it was also the DS3231 on the bench: the module's
- * identity, I2C pins and the board it was attached to. They are the RtcModule
- * part's now (peripherals/rtcModule.ts).
- */
-const RETIRED_CLOCK_PART_KEYS = ['partId', 'sdaPin', 'sclPin', 'boardId', 'assignedPins', 'assignedPinsBoard', 'userPinsByBoard']
-/**
- * What a DMX node and a MIDI node carried while they were also the DMX512
- * transceiver and the DIN jack: the UART the user picked and the wiring. They
- * are the DmxTransceiver's and MidiInterface's now, with the UART allocated.
- */
-const RETIRED_DMX_WIRING_KEYS = ['dmxPort', 'dmxTxPin', 'dmxRxPin', 'dmxEnablePin']
-const RETIRED_MIDI_WIRING_KEYS = ['midiUart', 'midiRxPin']
-const RETIRED_PROPERTY_KEYS: Readonly<Record<string, readonly string[]>> = {
-  DMXInput: [...NODE_NETWORK_KEYS, ...RETIRED_DMX_WIRING_KEYS],
-  DdpInput: NODE_NETWORK_KEYS,
-  WebRemoteInput: NODE_NETWORK_KEYS,
-  RTCInput: [...NODE_NETWORK_KEYS, ...RETIRED_CLOCK_PART_KEYS],
-  StreamOutput: NODE_NETWORK_KEYS,
-  PatternMaster: ['wifiHostname'],
-  MidiInput: RETIRED_MIDI_WIRING_KEYS,
-  // The switch that kept a show out of the main LED preview, from when the
-  // node body had a canvas of its own to draw it in instead.
-  PerformanceGenerator: ['showInMainPreview'],
-  // Juggle's own fade, from before its tails came only from a Trails node
-  // spliced after it; a wire into the old Trail input goes with it.
-  Juggle: ['trail'],
 }
 
 /**

@@ -60,23 +60,4 @@ describe('PerformanceGeneratorBody', () => {
     expect(useShowPlayback.getState()).toMatchObject({ nodeId: null, show: null })
   })
 
-  it('plays in the main preview for a save that still carries the retired switch turned off', async () => {
-    useGraphStore.getState().loadGraph([{
-      id: 'perf',
-      type: 'studioNode',
-      position: { x: 0, y: 0 },
-      data: {
-        label: 'Performance Generator', nodeType: 'PerformanceGenerator', category: 'show',
-        properties: { showInMainPreview: false }, inputs: [], outputs: [],
-      },
-    } as never], [])
-    // Loading a graph restores its (empty) music library; the song comes after.
-    await waitForMusicLibraryRestore()
-    useMusicStore.setState({ entries: [entry] })
-
-    render(<PerformanceGeneratorBody nodeId="perf" />)
-
-    expect(await screen.findByRole('button', { name: /song\.mp3/ })).toBeTruthy()
-    expect(useShowPlayback.getState()).toMatchObject({ nodeId: 'perf', show })
-  })
 })
