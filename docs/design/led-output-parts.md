@@ -1,10 +1,10 @@
 # LED output parts: opening `MatrixOutput` to downloaded parts
 
-Status: **accepted, not built** · Owner: app · Date: 2026-11-19
+Status: **built** (work-breakdown steps 1 to 6, 2026-11-19) · Owner: app · Date: 2026-11-19
 
-The [downloadable parts plan](../plans/downloadable-parts.md) opens 39 of 40
-part types. The LED output (`MatrixOutput`, "LED output" in user copy) is the
-one left closed, and LED products are the family users will ask for most:
+The [downloadable parts plan](../plans/downloadable-parts.md) opened 39 of 40
+part types; this note opened the last. The LED output (`MatrixOutput`, "LED
+output" in user copy) was the one left closed, and LED products are the family users will ask for most:
 strips of every density and chipset, rings, matrices, panels, HUB75. This note
 proposes how an LED output takes a part. The save format closes at v1.0.0, so
 the decision is needed before then. Pre-1.0 clean breaks are allowed

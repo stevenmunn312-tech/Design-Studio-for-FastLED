@@ -8,7 +8,7 @@ import { openExampleProject } from '../../utils/startFlow'
 import { exampleGraphSrc, mainPreviewSrc, nodeCardSrc } from '../../utils/nodeReferenceAssets'
 import { exampleUsesMicrophone, liveExampleForNode } from './liveExamples'
 import { nodeReferenceEntry } from './reference'
-import { partHelpEntries } from './partHelp'
+import { accessoryHelpEntries, partHelpEntries, type PartHelpEntry } from './partHelp'
 import { usePartCatalogueVersion } from '../../build/parts/usePartCatalogueVersion'
 import { PORT_DESCRIPTIONS } from './portCopy'
 import { Icon, PortIcon } from '../icons/Icon'
@@ -344,32 +344,52 @@ async function openLiveExample(node: NodeDefinition) {
   }
 }
 
-/** The parts a node can drive, generated from the catalogue so a new part shows up without an app release. */
+function PartList({ parts }: { parts: PartHelpEntry[] }) {
+  return (
+    <ul className={styles.partList}>
+      {parts.map((part) => (
+        <li key={part.partId} className={styles.partItem}>
+          <div className={styles.partName}>
+            <b>{part.label}</b>
+            {part.manufacturer && <span>{part.manufacturer}</span>}
+          </div>
+          {part.summary && <p>{part.summary}</p>}
+          {part.wiringNote && <p>{part.wiringNote}</p>}
+          {(part.logicVoltage || part.limits.length > 0) && (
+            <p className={styles.partFacts}>
+              {[part.logicVoltage && `Logic ${part.logicVoltage}`, ...part.limits].filter(Boolean).join(' · ')}
+            </p>
+          )}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * The parts a node can drive, generated from the catalogue so a new part shows up without an app release,
+ * then the accessories it names beside them (the LED output's data links, the Board's level shifters).
+ */
 export function PartHelpSection({ nodeType }: { nodeType: string }) {
   usePartCatalogueVersion() // render again when a part arrives; partHelpEntries is cached per catalogue version
   const parts = partHelpEntries(nodeType)
-  if (parts.length === 0) return null
+  const accessories = accessoryHelpEntries(nodeType)
+  if (parts.length === 0 && !accessories) return null
   return (
-    <section className={styles.manualSection} aria-label="Parts for this node">
-      <h2>Parts for this node</h2>
-      <ul className={styles.partList}>
-        {parts.map((part) => (
-          <li key={part.partId} className={styles.partItem}>
-            <div className={styles.partName}>
-              <b>{part.label}</b>
-              {part.manufacturer && <span>{part.manufacturer}</span>}
-            </div>
-            {part.summary && <p>{part.summary}</p>}
-            {part.wiringNote && <p>{part.wiringNote}</p>}
-            {(part.logicVoltage || part.limits.length > 0) && (
-              <p className={styles.partFacts}>
-                {[part.logicVoltage && `Logic ${part.logicVoltage}`, ...part.limits].filter(Boolean).join(' · ')}
-              </p>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
+    <>
+      {parts.length > 0 && (
+        <section className={styles.manualSection} aria-label="Parts for this node">
+          <h2>Parts for this node</h2>
+          <PartList parts={parts} />
+        </section>
+      )}
+      {accessories && (
+        <section className={styles.manualSection} aria-label={accessories.heading}>
+          <h2>{accessories.heading}</h2>
+          <PartList parts={accessories.parts} />
+        </section>
+      )}
+    </>
   )
 }
 

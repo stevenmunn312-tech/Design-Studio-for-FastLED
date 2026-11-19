@@ -24,7 +24,7 @@ import type { PartManifest } from '../manifest/partManifest'
  * names (`dataLinkPartId`) and the level shifter the Board names
  * (`levelShifterPartId`). A copy of either under a fresh id must draw, list and
  * wire exactly as the bundled part does, which is the claim that nothing in
- * the app branches on a bundled id. (The type is still closed to downloads; the
+ * the app branches on a bundled id. (The type is open to downloads; the
  * copies register as bundled, which a test may do.)
  */
 

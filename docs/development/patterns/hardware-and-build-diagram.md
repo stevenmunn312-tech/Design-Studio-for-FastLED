@@ -1256,6 +1256,15 @@ it and `partOrigin(id)` says where a part came from.
   `part.json` still says `ledLayout`; the importer folds it into `ledOutput` (a strip's pictured
   `count` is dropped, the overlay gives `maxCount`). `fullWhiteMa` is the datasheet maximum and
   every value needs a source in `sources`.
+- **An LED output part is an LED product or one accessory.** `MatrixOutput` is open to downloads
+  (`downloadable: true`). The data link (`pixelDataExtender`) and the Board's level shifter
+  (`levelShifter`) are also filed under it, for the shelf and for the selects that name them, but
+  `PartTypeDefinition.accessoryBlocks` makes a part carry `ledOutput` or exactly one accessory block,
+  never both and never none. The LED product picker, `ledProducts()`, the option rows and the shelf's
+  product rows all key on `ledOutput`, so an accessory is never offered as an LED product; help lists
+  data links and level shifters apart from the products (`accessoryHelpEntries`). The registry test
+  proves a fresh-id copy of each LED product through `stampLedProduct`, and each accessory through
+  the select that names it.
 - **A downloaded part never borrows a bundled render.** `partRenderSrc` returns the verified
   bytes for the revision registered now, or `null` and the placeholder. Never fall back to the
   type's default part's picture, and never draw a node that names a part as another part.

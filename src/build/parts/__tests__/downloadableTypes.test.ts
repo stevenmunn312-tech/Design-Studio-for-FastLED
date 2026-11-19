@@ -1,16 +1,25 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { generateCpp } from '../../../codegen/cppGenerator'
-import { itemLayouts, peripheralGroundPadIndex, peripheralPadCount, peripheralPadPoint, peripheralPadRadius, peripheralPowerNet, peripheralRearRoute, peripheralPowerPadIndex } from '../../../components/BuildDiagram/physicalDiagramLayout'
+import PhysicalAssemblyDiagram from '../../../components/BuildDiagram/PhysicalAssemblyDiagram'
+import { diagramContentBottom, itemLayouts, peripheralGroundPadIndex, peripheralPadCount, peripheralPadPoint, peripheralPadRadius, peripheralPowerNet, peripheralRearRoute, peripheralPowerPadIndex } from '../../../components/BuildDiagram/physicalDiagramLayout'
 import { inputPartEntries } from '../../../components/Hardware/hardwarePartCatalog'
+import { hardwareShelfCategories } from '../../../components/Hardware/hardwareShelfModel'
 import { useBenchParts } from '../../../components/Hardware/useBenchParts'
 import { evaluateGraphFull, resetEvaluatorState } from '../../../state/graphEvaluator'
 import type { StudioEdge, StudioNode } from '../../../state/graphStore'
-import { libraryDefaults, NODE_LIBRARY, propertyMetaFor, propertyOptions } from '../../../state/nodeLibrary'
+import { libraryDefaults, NODE_LIBRARY, propertyMetaFor, propertyOptions, selectOptionLabel } from '../../../state/nodeLibrary'
 import { FIRST_BUTTON_HANDLE, singleButtonRow } from '../../../state/player/buttonBank'
+import { applyLedProductEdit, stampLedProduct } from '../../../state/output/ledProduct'
+import { ledProducts } from '../../../state/output/ledProductCatalogue'
 import { validateGraph } from '../../../utils/validateGraph'
 import { boardProfileById } from '../../boards/boardProfiles'
-import { buildHardwareManifest } from '../../hardwareManifest'
+import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv } from '../../buildExports'
+import { ensureBuildProfile } from '../../buildProfile'
+import { boardPinForUse, boardPinLabelForUse, buildHardwareManifest } from '../../hardwareManifest'
+import { calculateElectricalPlan } from '../../power/electricalPlan'
 import {
   PART_CATALOGUE, bundledPartsForType, partOrigin, partRenderSrc, registerParts, resetRegisteredPartsForTests, setDownloadedRender,
 } from '../partCatalogue'
@@ -93,9 +102,27 @@ const UNBUNDLED_BASES: Record<string, PartManifest[]> = {
   ],
 }
 
-/** The property a node of this type stores its part in: `partId` for most, `model` for an Amplifier. */
+/**
+ * The properties of a node that names a part: `partId` for most, `model` for an Amplifier. An LED
+ * output names its product the way the picker does, which stamps the product's facts into the node.
+ */
 function namingPart(nodeType: string, partId: string): Record<string, unknown> {
+  if (nodeType === 'MatrixOutput') {
+    const stamped = stampLedProduct({ ...libraryDefaults('MatrixOutput'), width: 8, height: 8, dataPin: 5 }, partId)
+    if (!stamped) throw new Error(`${partId} is not an LED product`)
+    return stamped
+  }
   return { [partOptionProperty(nodeType) ?? 'partId']: partId }
+}
+
+/** What the part's holder carries besides the part: an LED output is its own sink, every other type needs one. */
+function companions(nodeType: string): StudioNode[] {
+  return nodeType === 'MatrixOutput' ? [] : [node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 })]
+}
+
+/** True for a part filed under LED outputs as an accessory (a data link or a level shifter), not an LED product. */
+function isAccessory(definition: PartTypeDefinition, part: PartManifest): boolean {
+  return (definition.accessoryBlocks ?? []).some((key) => (part as unknown as Record<string, unknown>)[key] !== undefined)
 }
 
 const FRESH_ID_SUFFIX = '-registry-copy'
@@ -143,6 +170,15 @@ function firmwareGraphs(nodeType: string, properties: Record<string, unknown>): 
   const out = node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 })
   const part = node('part', nodeType, properties)
   const graphs: Array<{ nodes: StudioNode[]; edges: StudioEdge[] }> = []
+  if (nodeType === 'MatrixOutput') {
+    // The product as the picker stamps it, then with the installer's own edits (colour order and,
+    // for a cuttable strip, a count) applied, which is the part of a product that stays editable.
+    const edited = node('part', nodeType, applyLedProductEdit(properties, { colorOrder: 'BRG', ledCount: 30 }))
+    for (const holder of [part, edited]) {
+      graphs.push({ nodes: [node('fill', 'SolidColor'), holder], edges: [edge('frame', 'fill', 'frame', 'part', 'frame')] })
+    }
+    return graphs
+  }
   if (nodeType === 'InfoDisplay' || nodeType === 'TransportDisplay' || nodeType === 'SegmentDisplay') {
     graphs.push({
       nodes: [node('fill', 'SolidColor'), out, part],
@@ -180,7 +216,43 @@ function firmwareGraphs(nodeType: string, properties: Record<string, unknown>): 
   return graphs
 }
 
-const BENCH_BOARD = boardProfileById('esp32-generic-devkit-38pin')
+const BENCH_BOARD = boardProfileById('esp32-generic-devkit-38pin')!
+
+const SHEET_BOARD = boardProfileById('espressif-esp32-s3-devkitc-1')!
+
+/**
+ * Everything the Build Diagram sheet and its exports say about a build that names an accessory part:
+ * a level shifter on the Board, or a data link on some outputs. Equal for a part and its copy once
+ * the new id is read back as the old one.
+ */
+function accessorySheet(part: PartManifest, partId: string): string {
+  const isShifter = (part as unknown as Record<string, unknown>).levelShifter !== undefined
+  const outputs = [{}, { form: 'strip', ledCount: 12 }, {}, {}, {}, {}].map((props, index) => ({
+    form: 'matrix', width: 8, height: 8, dataPin: 5 + index, ...props, ...(isShifter ? {} : { dataLinkPartId: partId }),
+  }))
+  const nodes = [node('board', 'Board', isShifter ? { levelShifterPartId: partId } : {}), ...outputs.map((props, index) => node(`out${index}`, 'MatrixOutput', props))]
+  const manifest = buildHardwareManifest(nodes, [], 'esp32:esp32:esp32s3')
+  const items = manifest.primaryItems
+  const buildProfile = ensureBuildProfile({ version: 1 } as never)
+  const plan = calculateElectricalPlan(manifest, buildProfile, SHEET_BOARD)
+  const connections = items.flatMap((item) => item.pins.map((pin) => ({
+    id: `${item.id}:${pin.propertyKey}`, itemId: item.id, pinLabel: boardPinLabelForUse(SHEET_BOARD, pin),
+    useLabel: pin.label, boardAnchorId: boardPinForUse(SHEET_BOARD, pin)?.anchorId,
+  })))
+  const svg = renderToStaticMarkup(createElement(PhysicalAssemblyDiagram, {
+    boardProfile: SHEET_BOARD, items, plan, connections, selectedItemId: 'controller', onSelectItem: () => undefined,
+    exportScope: 'complete-build',
+  }))
+  return JSON.stringify({
+    manifest,
+    layouts: itemLayouts(items).map((layout) => [layout.item.id, layout.x, layout.y, layout.width, layout.height]),
+    bottom: diagramContentBottom(items),
+    rows: connectionsCsv(buildConnectionRows(items, plan, SHEET_BOARD)),
+    bom: bomCsv(buildBomRows(manifest, plan, buildProfile, SHEET_BOARD)),
+    validation: validateGraph(nodes, [], 'esp32:esp32:esp32s3'),
+    svg,
+  })
+}
 
 /** Everything the app derives from a part-backed node, as text with ids swapped for `readAs`. */
 function observe(nodeType: string, partId: string, readAs: string): Record<string, string> {
@@ -194,8 +266,10 @@ function observe(nodeType: string, partId: string, readAs: string): Record<strin
   result.evaluation = text([...evaluateGraphFull([part], [], 0, 8, 8).outputs.entries()])
   result.firmware = text(firmwareGraphs(nodeType, properties).map((graph) => generateCpp(graph.nodes, graph.edges)))
 
-  const manifest = buildHardwareManifest([part, node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 })], [], 'esp32:esp32:esp32')
+  const manifest = buildHardwareManifest([part, ...companions(nodeType)], [], 'esp32:esp32:esp32')
   result.manifest = text(manifest)
+  // Power: what the plan says the build draws and the supply it needs.
+  result.power = text(calculateElectricalPlan(manifest, ensureBuildProfile({ version: 1 } as never), BENCH_BOARD))
   const items = [...manifest.primaryItems, ...manifest.items]
   result.layout = text(itemLayouts(manifest.items))
   result.pads = text(items.filter((item) => item.facts.partId === partId).map((item) => {
@@ -213,7 +287,7 @@ function observe(nodeType: string, partId: string, readAs: string): Record<strin
     }
   }))
 
-  result.validation = text(validateGraph([part, node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 })], [], 'esp32:esp32:esp32'))
+  result.validation = text(validateGraph([part, ...companions(nodeType)], [], 'esp32:esp32:esp32'))
 
   // Every property row the node draws: its control, its range and the options its part allows.
   result.properties = text(Object.keys(libraryDefaults(nodeType)).map((key) => [
@@ -237,7 +311,19 @@ function observe(nodeType: string, partId: string, readAs: string): Record<strin
     if (!captions && key === 'label' && 'key' in this) return this.key
     return item === undefined ? '__undefined__' : item
   }).split(partId).join(readAs)
-  result.bench = `${bench_(bench.current.inputParts, false)}\n${bench_(bench.current.fixtureParts, true)}`
+  result.bench = `${bench_(bench.current.inputParts, false)}\n${bench_(bench.current.fixtureParts, true)}\n${bench_(bench.current.ledOutputs, true)}`
+
+  if (nodeType === 'MatrixOutput') {
+    // The picker's rows and the shelf's entries for the product, as a user chooses it.
+    result.picker = text(ledProducts().filter((product) => product.partId === partId))
+    const shelf = hardwareShelfCategories({
+      nodes: [], selectedFqbn: 'esp32:esp32:esp32', boardProfile: BENCH_BOARD, nextLedPin: 5, hasPartOfType: () => false,
+      inputPartBlocker: () => null, addInputPart: vi.fn(), addFixturePart: vi.fn(), addLedOutput: vi.fn(),
+    })
+    // The `key` is made from the part id; `onSelect` is a function.
+    result.shelf = text(shelf.flatMap((category) => category.items.filter((item) => item.partId === partId).map((item) => (
+      { category: category.id, item: { ...item, onSelect: undefined } }))))
+  }
   return result
 }
 
@@ -309,7 +395,29 @@ describe('the registry of part types open to downloads', () => {
       const copyId = freshId(part.partId)
       // A base is a downloaded part itself; a bundled one is already in the catalogue.
       if (!bundled) expect(registerParts([part], 'downloaded')[0], part.partId).toMatchObject({ status: 'added' })
+      // An accessory is proved through the select that names it, not through a node of its own.
+      if (isAccessory(definition, part)) {
+        const original = accessorySheet(part, part.partId)
+        expect(original, `${part.partId} adds nothing to the sheet`).toContain((part as unknown as Record<string, unknown>).levelShifter ? 'level shifter 2' : 'TWISTED')
+        const [added] = registerParts([syntheticOf(part, copyId)], 'downloaded')
+        expect(added, JSON.stringify(added)).toMatchObject({ status: 'added' })
+        expect(partOrigin(copyId)).toBe('downloaded')
+        const render = partRenderSrc(part.partId)
+        if (render) setDownloadedRender(copyId, (PART_CATALOGUE[copyId] as unknown as { revision: number }).revision, render)
+        const copy = accessorySheet(part, copyId)
+        expect(firstDifference(copy.split(copyId).join(part.partId), original), part.partId).toBe('same')
+        // The select lists the copy beside the original, under the original's label.
+        const [property, nodeType] = (part as unknown as Record<string, unknown>).levelShifter ? ['levelShifterPartId', 'Board'] : ['dataLinkPartId', 'MatrixOutput']
+        expect(propertyOptions(nodeType, property, {})).toEqual(expect.arrayContaining([part.partId, copyId]))
+        expect(selectOptionLabel(nodeType, property, copyId)).toBe(selectOptionLabel(nodeType, property, part.partId))
+        // An accessory is never an LED product: not in the picker, the shelf's product rows or the output's options.
+        expect(ledProducts().some((product) => product.partId === copyId || product.partId === part.partId)).toBe(false)
+        expect(partOptionsFor('MatrixOutput').some((option) => option.id === copyId || option.id === part.partId)).toBe(false)
+        return
+      }
       const original = observe(definition.nodeType, part.partId, part.partId)
+      // The picker and shelf rows must exist for the original, or their equality proves nothing.
+      if (definition.nodeType === 'MatrixOutput') for (const key of ['picker', 'shelf']) expect(original[key], `${part.partId} ${key}`).not.toBe('[]')
       // The comparison means nothing if the part adds nothing to the sketch.
       const catalogueNode = NODE_LIBRARY.find((entry) => entry.type === definition.nodeType)!
       if (catalogueNode.inputs.length + catalogueNode.outputs.length > 0) {
@@ -358,4 +466,27 @@ describe('the registry of part types open to downloads', () => {
       expect(differences.join('\n'), `${definition.nodeType} ${part.partId}`).toBe('')
     },
   )
+})
+
+describe('an LED output part is an LED product or one accessory', () => {
+  const strip = () => JSON.parse(JSON.stringify(bundledPartsForType('MatrixOutput').find((part) => part.partId === 'ws2812b-strip')!)) as Record<string, unknown>
+  const shifter = () => JSON.parse(JSON.stringify(bundledPartsForType('MatrixOutput').find((part) => part.levelShifter)!)) as Record<string, unknown>
+
+  it('refuses a part that is both, and a part that is neither', () => {
+    const both = { ...strip(), levelShifter: shifter().levelShifter }
+    expect(JSON.stringify(validatePartManifest(syntheticOf(both as unknown as PartManifest, 'both-led-and-shifter'), 'downloaded'))).toContain('not both')
+    const neither = strip()
+    delete neither.ledOutput
+    expect(validatePartManifest(syntheticOf(neither as unknown as PartManifest, 'neither-led-nor-accessory'), 'downloaded').status).toBe('invalid')
+  })
+
+  it('keeps accessories out of the LED product list, the picker rows and the output options', () => {
+    const accessories = bundledPartsForType('MatrixOutput').filter((part) => !part.ledOutput)
+    expect(accessories.map((part) => part.partId).sort()).toEqual(['nled-pixel-data-extender-pair', 'sn74ahct125n-dip14'])
+    for (const accessory of accessories) {
+      expect(ledProducts().some((product) => product.partId === accessory.partId)).toBe(false)
+      expect(partOptionsFor('MatrixOutput').some((option) => option.id === accessory.partId)).toBe(false)
+      expect(stampLedProduct({ ...libraryDefaults('MatrixOutput') }, accessory.partId)).toBeNull()
+    }
+  })
 })

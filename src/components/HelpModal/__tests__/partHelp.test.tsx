@@ -5,7 +5,7 @@ import { partTypeById } from '../../../build/parts/partTypes'
 import type { PartManifest } from '../../../build/parts/manifest/partManifest'
 import { PART_MANIFEST_VERSION } from '../../../build/parts/manifest/vocabulary'
 import { PartHelpSection } from '../NodeReference'
-import { partHelpEntries } from '../partHelp'
+import { accessoryHelpEntries, partHelpEntries } from '../partHelp'
 
 const MOSFETTI = 'monkmakes-mosfetti'
 
@@ -93,5 +93,38 @@ describe('generated part help', () => {
     } finally {
       restore()
     }
+  })
+
+  describe('the LED output', () => {
+    const accessoryIds = ['nled-pixel-data-extender-pair', 'sn74ahct125n-dip14']
+
+    it('lists its bundled LED products with their facts, and no accessory among them', () => {
+      const ids = partHelpEntries('MatrixOutput').map((part) => part.partId)
+      expect(ids).toEqual(expect.arrayContaining(['ws2812b-strip', 'ws2812b-ring-24', 'ws2812b-matrix-16x16', 'hub75-panel-64x64-p4']))
+      for (const id of accessoryIds) expect(ids).not.toContain(id)
+      const strip = partHelpEntries('MatrixOutput').find((part) => part.partId === 'ws2812b-strip')!
+      expect(strip.limits.join(' ')).toMatch(/WS2812B/)
+      expect(strip.limits.join(' ')).toMatch(/5 V/)
+    })
+
+    it('lists the data links on the LED output and the level shifters on the Board, apart from the products', () => {
+      expect(accessoryHelpEntries('MatrixOutput')?.parts.map((part) => part.partId)).toEqual(['nled-pixel-data-extender-pair'])
+      expect(accessoryHelpEntries('Board')?.parts.map((part) => part.partId)).toEqual(['sn74ahct125n-dip14'])
+      expect(accessoryHelpEntries('Board')?.parts[0].limits.join(' ')).toMatch(/4 channels/)
+      expect(accessoryHelpEntries('Blur')).toBeNull()
+      const { container } = render(<PartHelpSection nodeType="Board" />)
+      expect(container.querySelector('section[aria-label="Level shifters for this node"]')).not.toBeNull()
+      expect(container.querySelector('section[aria-label="Parts for this node"]')).toBeNull()
+    })
+
+    it('shows a registered LED part under Parts for this node', () => {
+      const strip = JSON.parse(JSON.stringify(PART_CATALOGUE['ws2812b-strip'])) as PartManifest
+      act(() => {
+        registerParts([{ ...strip, partId: 'help-copy-strip', label: 'Help copy strip', manifestVersion: PART_MANIFEST_VERSION, revision: 1, verification: 'reviewed', sources: [{ facts: ['dimensionsMm'], ref: 'https://example.test/datasheet' }] }], 'downloaded')
+      })
+      const { container } = render(<PartHelpSection nodeType="MatrixOutput" />)
+      expect(screen.getByText('Help copy strip')).toBeTruthy()
+      expect(container.querySelector('section[aria-label="Data links for this node"]')).not.toBeNull()
+    })
   })
 })
