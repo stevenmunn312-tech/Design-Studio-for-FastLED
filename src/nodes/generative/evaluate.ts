@@ -458,7 +458,9 @@ function evalBlobs(key: string, speed: number, scale: number, count: number, t: 
   return buildFrame(W, H, (x, y) => {
       let f = 0
       for (let i = 0; i < n; i++) { const dx = x - bx[i], dy = y - by[i]; f += r2 / (dx * dx + dy * dy + 1) }
-      return samplePalette(palette, f / (f + 1))
+      // A field strength, so the ends hold: a blob's core is the palette's
+      // last colour, not a blend back toward its first.
+      return samplePaletteClamped(palette, f / (f + 1))
     })
 }
 
@@ -590,7 +592,8 @@ const CORE_GENERATIVE_EVALUATORS: NodeEvaluators = {
     const minLevel = clamp01(num(id, 'minLevel', props, 'minLevel', 0.05))
     const env = breatheEnvelope(breatheCurve(props.curve), speedPhase(stateKey(id), t, bpm / 60))
     const level = minLevel + (1 - minLevel) * env
-    const c = scaleRgb(samplePalette(pal(id, 'paletteIn', props, 'palette', 'ocean'), env), level)
+    // The envelope is an amount, so the peak holds the palette's last colour.
+    const c = scaleRgb(samplePaletteClamped(pal(id, 'paletteIn', props, 'palette', 'ocean'), env), level)
     return { frame: buildFrame(W, H, () => c) }
   },
   Confetti({ num, pal, t, W, H, stateKey }, id, props) {

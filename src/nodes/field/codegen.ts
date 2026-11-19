@@ -1,5 +1,6 @@
 import { rateCpp, SPEED_MAX, SCALE_MAX, GEOMETRY_FIELD_SPEED_MAX } from '../shared/speedRange'
 import { phaseTag, speedPhaseCpp } from '../shared/speedClockCpp'
+import { passFramesCpp, passStepFramesCpp } from '../shared/passClockCpp'
 import {
   NOISE_FIELD_PIXEL_CPP, noiseFieldFrameCpp, truchetFrameCpp, truchetPixelCpp, wallpaperFrameCpp,
 } from '../shared/integerPatterns'
@@ -240,7 +241,8 @@ export const FIELD_EMITTERS: NodeEmitters = {
   },
   // turingStep's twin runs in the shared helper; the radii are baked because
   // `scales` and `baseRadius` are properties. The seed loop is evalTuringField's.
-  TuringField({ node, id, p, ln, f, ownField, boolExpr, needsWorley, needsTuring }) {
+  TuringField({ node, id, p, ln, f, ownField, boolExpr, needsWorley, needsTuring, needsT }) {
+    needsT.v = true
     needsWorley.v = true
     needsTuring.v = true
     const of = ownField()
@@ -252,12 +254,15 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    if(_reset&&!${A}prev){ ${A}epoch++; ${A}init=false; } ${A}prev=_reset;`)
     ln(`    if(!${A}init){ for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++)`)
     ln(`      ${A}a[_y*WIDTH+_x]=_worleyHash(_x+(int)${A}epoch*31,_y-(int)${A}epoch*17,${seedProp(p)}u)*2.0f-1.0f; ${A}init=true; }`)
-    ln(`    int _iters=max(1,min(${TURING_ITERATIONS_MAX},(int)floorf(${f('speed', 'speed', 2)})));`)
+    // Speed is iterations a 60 fps frame, run for each whole frame owed.
+    const frames = passStepFramesCpp(ln, `${phaseTag(id)}_steps`, passFramesCpp(ln, phaseTag(id)))
+    ln(`    int _iters=max(1,min(${TURING_ITERATIONS_MAX},(int)floorf(${f('speed', 'speed', 2)})))*${frames};`)
     ln(`    float _step=constrain(${f('stepSize', 'stepSize', 0.05)},${floatLit(TURING_STEP_MIN)},${floatLit(TURING_STEP_MAX)});`)
     ln(`    for(int _it=0;_it<_iters;_it++) _turingStep(${A}a,${A}p,WIDTH,HEIGHT,${A}r,${radii.length},_step);`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=constrain((${A}a[_i]+1.0f)*0.5f,0.0f,1.0f); }`)
   },
-  WaveSim({ node, id, p, ln, f, ownField, boolExpr, edges, floatExpr }) {
+  WaveSim({ node, id, p, ln, f, ownField, boolExpr, edges, floatExpr, needsT }) {
+    needsT.v = true
     const wrapEdges = p.wrapEdges !== false, halfDuplex = p.halfDuplex === true
     const of = ownField()
     const trig = boolExpr(node.id, 'trigger')
@@ -282,7 +287,10 @@ export const FIELD_EMITTERS: NodeEmitters = {
     const next = cycles ? ` ${A}pulse++;` : ''
     ln(`    if(!${A}init){ for(int _i=0;_i<NUM_LEDS;_i++){ ${A}p[_i]=0; ${A}c[_i]=0; ${A}n[_i]=0; } _wsInject_${id}(${at('0')},${impulseL}); ${A}init=true; }`)
     ln(`    bool _tr=(${trig}); if(_tr&&!${A}prev){ _wsInject_${id}(${at(`${A}pulse`)},${impulseL});${next} } ${A}prev=_tr;`)
-    ln(`    for(int _it=0;_it<${speed};_it++){`)
+    // Speed is wave steps a 60 fps frame, run for each whole frame owed.
+    const frames = passStepFramesCpp(ln, `${phaseTag(id)}_steps`, passFramesCpp(ln, phaseTag(id)))
+    ln(`    int _wsIters=${speed}*${frames};`)
+    ln(`    for(int _it=0;_it<_wsIters;_it++){`)
     ln(`      for(int _y=0;_y<HEIGHT;_y++){ int _ym=${wrapEdges ? '((_y-1+HEIGHT)%HEIGHT)' : 'max(_y-1,0)'}*WIDTH,_yp=${wrapEdges ? '((_y+1)%HEIGHT)' : 'min(_y+1,HEIGHT-1)'}*WIDTH,_yr=_y*WIDTH;`)
     ln(`        for(int _x=0;_x<WIDTH;_x++){ int _xm=${wrapEdges ? '(_x-1+WIDTH)%WIDTH' : 'max(_x-1,0)'},_xp=${wrapEdges ? '(_x+1)%WIDTH' : 'min(_x+1,WIDTH-1)'},_i=_yr+_x; float _avg=(${A}c[_ym+_x]+${A}c[_yp+_x]+${A}c[_yr+_xm]+${A}c[_yr+_xp])*0.5f; ${A}n[_i]=constrain((_avg-${A}p[_i])*${dampL},-1.0f,1.0f); } }`)
     ln(`      ::memcpy(${A}p,${A}c,sizeof(${A}p)); ::memcpy(${A}c,${A}n,sizeof(${A}c)); }`)
@@ -290,8 +298,9 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`    if(_peak<0.002f){ _wsInject_${id}(${at(`${A}pulse`)},${impulseL}*0.6f);${next} }`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=constrain(${halfDuplex ? `${A}c[_i]` : `fabsf(${A}c[_i])`}*1.5f,0.0f,1.0f); }`)
   },
-  FluidSim({ node, id, p, ln, f, ownField, srcField, boolExpr, edges, needsFluid }) {
+  FluidSim({ node, id, p, ln, f, ownField, srcField, boolExpr, edges, needsFluid, needsT }) {
     needsFluid.v = true
+    needsT.v = true
     // Each velocity output costs a field buffer, so it is written only when a wire reads it.
     const wired = (port: string) => edges.some((e) => e.source === node.id && e.sourceHandle === port)
     const dye = ownField(), ovx = wired('velocityX') ? ownField('velocityX') : null, ovy = wired('velocityY') ? ownField('velocityY') : null
@@ -301,22 +310,26 @@ export const FIELD_EMITTERS: NodeEmitters = {
     ln(`  { // Fluid`)
     ln(`    static float ${A}u[NUM_LEDS], ${A}v[NUM_LEDS], ${A}u0[NUM_LEDS], ${A}v0[NUM_LEDS], ${A}d[NUM_LEDS], ${A}d0[NUM_LEDS]; static bool ${A}pr=false;`)
     ln(`    float _px=constrain(${f('injectX', 'injectX', 0.5)},0.0f,1.0f)*(WIDTH-1),_py=constrain(${f('injectY', 'injectY', 0.85)},0.0f,1.0f)*(HEIGHT-1),_R=fmaxf(1.5f,fminf((float)WIDTH,(float)HEIGHT)*0.08f),_am=fmaxf(0.0f,${f('inject', 'inject', 0.6)});`)
-    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ float _dx=_x-_px,_dy=_y-_py,_g=expf(-(_dx*_dx+_dy*_dy)/(_R*_R)); int _i=_y*WIDTH+_x; ${A}d[_i]+=_am*_g; ${A}v[_i]-=${floatLit(FLUID_INJECT_VY)}*_am*_g; }`)
     ln(`    bool _tr=(${boolExpr(node.id, 'trigger')});`)
     ln(`    if(_tr&&!${A}pr){ float _R2=_R*2.0f;`)
     ln(`      for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ float _dx=_x-_px,_dy=_y-_py,_ds=sqrtf(_dx*_dx+_dy*_dy),_g=expf(-(_ds*_ds)/(_R2*_R2)); int _i=_y*WIDTH+_x; float _k=_ds>1e-6f?${floatLit(FLUID_PUFF_SPEED)}*_g/_ds:0.0f; ${A}d[_i]+=_g; ${A}u[_i]+=_dx*_k; ${A}v[_i]+=_dy*_k; } }`)
     ln(`    ${A}pr=_tr;`)
+    // The puff is an edge, so it lands once; the inflow, forces and solver
+    // are a frame's worth each, run for each whole 60 fps frame owed.
+    const frames = passStepFramesCpp(ln, `${phaseTag(id)}_steps`, passFramesCpp(ln, phaseTag(id)))
+    ln(`    int _it=constrain((int)floorf(${f('quality', 'quality', 8)}),${FLUID_ITERATIONS_MIN},${FLUID_ITERATIONS_MAX});`)
+    ln(`    for(int _st=0;_st<${frames};_st++){`)
+    ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ float _dx=_x-_px,_dy=_y-_py,_g=expf(-(_dx*_dx+_dy*_dy)/(_R*_R)); int _i=_y*WIDTH+_x; ${A}d[_i]+=_am*_g; ${A}v[_i]-=${floatLit(FLUID_INJECT_VY)}*_am*_g; }`)
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++){`)
     if (fx) ln(`      ${A}u[_i]+=(${fx}[_i]-0.5f)*2.0f*${floatLit(FLUID_FORCE_GAIN)};`)
     if (fy) ln(`      ${A}v[_i]+=(${fy}[_i]-0.5f)*2.0f*${floatLit(FLUID_FORCE_GAIN)};`)
     ln(`      ${A}v[_i]-=${floatLit(buoy * FLUID_BUOYANCY_GAIN, 6)}*${A}d[_i]; }`)
-    ln(`    int _it=constrain((int)floorf(${f('quality', 'quality', 8)}),${FLUID_ITERATIONS_MIN},${FLUID_ITERATIONS_MAX});`)
     // Viscosity and diffusion are skipped outright when fixed at zero.
     const active = (port: string) => edges.some((e) => e.target === node.id && e.targetHandle === port) || Number(p[port] ?? 0) > 0
     if (active('viscosity')) ln(`    _fluidViscosity(${A}u,${A}v,${A}u0,${A}v0,WIDTH,HEIGHT,_it,${f('viscosity', 'viscosity', 0)});`)
     ln(`    _fluidVelocity(${A}u,${A}v,${A}u0,${A}v0,WIDTH,HEIGHT,_it);`)
     if (active('diffusion')) ln(`    _fluidDiffuse(${A}d,${A}d0,WIDTH,HEIGHT,_it,${f('diffusion', 'diffusion', 0)});`)
-    ln(`    _fluidDye(${A}d,${A}d0,${A}u,${A}v,WIDTH,HEIGHT,${f('dissipation', 'dissipation', 0.02)});`)
+    ln(`    _fluidDye(${A}d,${A}d0,${A}u,${A}v,WIDTH,HEIGHT,${f('dissipation', 'dissipation', 0.02)}); }`)
     const vel = (out: string | null, a: string) => (out ? ` ${out}[_i]=constrain(0.5f+${A}${a}[_i]*${floatLit(FLUID_VEL_OUT)},0.0f,1.0f);` : '')
     ln(`    for(int _i=0;_i<NUM_LEDS;_i++){ ${dye}[_i]=constrain(${A}d[_i],0.0f,1.0f);${vel(ovx, 'u')}${vel(ovy, 'v')} }`)
     ln(`  }`)

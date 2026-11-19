@@ -147,17 +147,19 @@ export function boardSyncServiceCallCpp(role: ClockSyncRole, show: SyncShowArgs 
  * A follower running a show adopts the leader's pattern, transition and
  * phase start whenever they differ from its own and it is not mid-transition.
  * `transType` is the variable to adopt the transition style into, or null
- * where the show has a fixed style.
+ * where the show has a fixed style. An index past this board's own
+ * `PATTERN_COUNT` (a leader running a longer collection) is ignored, so the
+ * follower keeps its own pattern rather than render one it does not have.
  */
 export function boardSyncFollowerAdoptCpp(opts: { transitions: boolean; transType: string | null; cursor?: string | null }): string[] {
   const cursor = (target: string) => opts.cursor ? ` _selSetActive(${opts.cursor}, PATTERN_COUNT, ${target});` : ''
   if (!opts.transitions) {
     return [
-      `  if (_syncLocked() && _syncHasShow && _syncCur != cur) { cur = _syncCur; phaseStart = _syncPhaseStart;${cursor('cur')} }`,
+      `  if (_syncLocked() && _syncHasShow && _syncCur < PATTERN_COUNT && _syncCur != cur) { cur = _syncCur; phaseStart = _syncPhaseStart;${cursor('cur')} }`,
     ]
   }
   return [
-    `  if (_syncLocked() && _syncHasShow) {`,
+    `  if (_syncLocked() && _syncHasShow && _syncCur < PATTERN_COUNT && _syncNxt < PATTERN_COUNT) {`,
     `    if (!transitioning && _syncTransitioning && _syncNxt != cur) {`,
     `      cur = _syncCur; nxt = _syncNxt;${opts.transType ? ` ${opts.transType} = _syncTrans;` : ''} transitioning = true; phaseStart = _syncPhaseStart;${cursor('nxt')}`,
     `    } else if (!transitioning && !_syncTransitioning && _syncCur != cur) {`,
@@ -170,7 +172,7 @@ export function boardSyncFollowerAdoptCpp(opts: { transitions: boolean; transTyp
 /** A sequence owns its cursor, so a sequence-driven follower adopts `cur` only. */
 export function boardSyncFollowerAdoptSequenceCpp(): string[] {
   return [
-    `  if (_syncLocked() && _syncHasShow && !transitioning && _syncCur != cur) cur = _syncCur;`,
+    `  if (_syncLocked() && _syncHasShow && !transitioning && _syncCur < PATTERN_COUNT && _syncCur != cur) cur = _syncCur;`,
   ]
 }
 

@@ -70,7 +70,7 @@ import { waveSample } from '../../nodes/signal/wave'
 import { blobSpan } from '../../nodes/generative/evaluate'
 import { plasmaFrame } from '../../nodes/shared/integerPatterns'
 import { particlePoolSize } from '../../nodes/simulations/particleModes'
-import { boidPalettePosition, golStep } from '../../nodes/simulations/evaluate'
+import { boidPalettePosition, golIntervalMs, golStep } from '../../nodes/simulations/evaluate'
 import { NODE_LIBRARY, isPropertyEnabled, libraryDefaults } from '../nodeLibrary'
 import { samplePalette } from '../palettes/ledColor'
 import type { StudioNode, StudioEdge } from '../graphStore'
@@ -1827,6 +1827,17 @@ describe('evaluateGraph', () => {
     expect(frame![0][0].r).toBeLessThan(110)
   })
 
+  it('Mask scales each byte as the sketch nscale8 does', () => {
+    // nscale8 by the truncated average: (v * (s + 1)) >> 8. Rounding a
+    // fractional share gave 8 and 1 here where the board gives 7 and 0.
+    const content = node('w', 'SolidColor', 'pattern', { r: 255, g: 10, b: 1 })
+    const mask    = node('m', 'SolidColor', 'pattern', { r: 200, g: 200, b: 201 })
+    const msk     = node('mk', 'Mask', 'composite', {})
+    const edges = [edge('e1', 'w', 'frame', 'mk', 'frame'), edge('e2', 'm', 'frame', 'mk', 'mask')]
+    const frame = evaluateGraphFull([content, mask, msk], edges, 0, 2, 2).outputs.get('mk')!.frame as { r: number; g: number; b: number }[][]
+    expect(frame[0][0]).toEqual({ r: 200, g: 7, b: 0 })
+  })
+
   it('Mask with no mask input passes the frame through', () => {
     const content = node('w', 'SolidColor', 'pattern', { r: 200, g: 100, b: 50 })
     const msk     = node('mk', 'Mask', 'composite', {})
@@ -2727,6 +2738,32 @@ describe('evaluateGraph', () => {
     const first = lit[0]
     const ok = lit.every((px) => px.r === first.r && px.g === first.g && px.b === first.b)
     expect(ok).toBe(true)
+  })
+
+  it('GameOfLife spaces generations by the sketch millisecond interval', () => {
+    expect(golIntervalMs(8)).toBe(125)
+    expect(golIntervalMs(25)).toBe(40)
+    expect(golIntervalMs(0)).toBe(1000)
+    // 25 a second: 40 ms is 2.4 ticks, so the third tick steps, not the second.
+    const gol = node('g', 'GameOfLife', 'pattern', { speed: 25, trail: 0, seed: 3 })
+    const frames = [0, 1, 2, 3].map((tick) => JSON.stringify(evaluateGraphFull([gol], [], tick, 12, 12).outputs.get('g')!.frame))
+    expect(frames[1]).toBe(frames[0])
+    expect(frames[2]).toBe(frames[1])
+    expect(frames[3]).not.toBe(frames[2])
+  })
+
+  it.each(['WaveSim', 'TuringField', 'FluidSim'])('%s steps once a 60 fps frame, not once a pass', (type) => {
+    // Eight frames' time at 60 fps and at 30 fps leave the same field: a
+    // slower board catches up whole steps rather than running slow.
+    const run = (id: string, stride: number) => {
+      const sim = node(id, type, 'field', {})
+      let field: Float32Array | undefined
+      for (let tick = 0; tick <= 8; tick += stride) field = evaluateGraphFull([sim], [], tick, 12, 12).outputs.get(id)!.field as Float32Array
+      return [...field!]
+    }
+    const at60 = run('fast', 1)
+    expect(run('slow', 2)).toEqual(at60)
+    expect(run('once', 8)).not.toEqual(at60)
   })
 
   it('GameOfLife counts a board flipping between two states as stagnant', () => {

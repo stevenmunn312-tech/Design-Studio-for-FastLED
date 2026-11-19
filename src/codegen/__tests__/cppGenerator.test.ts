@@ -3615,7 +3615,7 @@ describe('Pattern node expansion - Phase 5 Turing Field and Reaction Diffusion c
     expect(cpp).toContain('/* Turing Field: radii 2,3,6,12 */')
     expect(cpp).toContain('static float _tf_turinga[NUM_LEDS], _tf_turingp[(WIDTH+1)*(HEIGHT+1)]; static const int _tf_turingr[4]={2,3,6,12};')
     expect(cpp).toContain('_worleyHash(_x+(int)_tf_turingepoch*31,_y-(int)_tf_turingepoch*17,21u)*2.0f-1.0f')
-    expect(cpp).toContain('int _iters=fl::max(1,fl::min(4,(int)floorf(2)));')
+    expect(cpp).toContain('int _iters=fl::max(1,fl::min(4,(int)floorf(2)))*_psf_turing_steps;')
     expect(cpp).toContain('float _step=constrain(0.05,0.01f,0.2f);')
     expect(cpp).toContain('_turingStep(_tf_turinga,_tf_turingp,WIDTH,HEIGHT,_tf_turingr,4,_step);')
     expect(cpp).toContain('field_turing[_i]=constrain((_tf_turinga[_i]+1.0f)*0.5f,0.0f,1.0f);')
