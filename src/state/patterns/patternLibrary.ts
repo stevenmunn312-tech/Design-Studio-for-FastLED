@@ -187,6 +187,43 @@ function loadCategories(): PatternCategory[] {
   }
 }
 
+/**
+ * The shelf list with a shelf added for every `categoryId` a pattern names that
+ * the list lacks. A pattern file carries only its shelf's id, while the shelf
+ * list is kept per browser, so a pattern from the Patterns folder, an import
+ * or another browser can name a shelf that is not here, and the sidebar lists
+ * it under no shelf at all. The name was never saved, so the shelf comes back
+ * as "Recovered shelf" for the person to rename or delete (deleting moves its
+ * patterns to unsorted). Returns the same array when nothing is missing.
+ */
+export function withRecoveredShelves(categories: PatternCategory[], patterns: SavedPattern[]): PatternCategory[] {
+  const known = new Set(categories.map((category) => category.id))
+  const missing = [...new Set(patterns.flatMap((pattern) => (
+    pattern.categoryId && !known.has(pattern.categoryId) ? [pattern.categoryId] : []
+  )))]
+  if (missing.length === 0) return categories
+  const names = new Set(categories.map((category) => category.name.toLocaleLowerCase()))
+  const recovered = missing.map((id) => {
+    let name = 'Recovered shelf'
+    for (let n = 2; names.has(name.toLocaleLowerCase()); n += 1) name = `Recovered shelf ${n}`
+    names.add(name.toLocaleLowerCase())
+    return { id, name }
+  })
+  return [...categories, ...recovered]
+}
+
+/** The state update for a new pattern list: the patterns, and the shelf list
+ *  with any shelf they name but it lacks recovered and saved. */
+function withShelves(current: PatternCategory[], patterns: SavedPattern[]): { patterns: SavedPattern[]; categories: PatternCategory[] } {
+  const categories = withRecoveredShelves(current, patterns)
+  if (categories !== current) persistCategories(categories)
+  return { patterns, categories }
+}
+
+function initialLibrary(): { patterns: SavedPattern[]; categories: PatternCategory[] } {
+  return withShelves(loadCategories(), load())
+}
+
 function persistCategories(categories: PatternCategory[]) {
   try {
     localStorage.setItem(
@@ -219,8 +256,7 @@ interface LibraryState {
 }
 
 export const usePatternLibrary = create<LibraryState>((set, get) => ({
-  patterns: load(),
-  categories: loadCategories(),
+  ...initialLibrary(),
 
   savePattern: (p, options) =>
     set((s) => {
@@ -256,7 +292,7 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
           if (!keptIds.has(id)) void queuePatternDelete(id)
         }
       }
-      return { patterns }
+      return withShelves(s.categories, patterns)
     }),
 
   putPattern: (item) =>
@@ -272,7 +308,7 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
           if (!keptIds.has(id)) void queuePatternDelete(id)
         }
       }
-      return { patterns }
+      return withShelves(s.categories, patterns)
     }),
 
   renamePattern: (id, name) =>
@@ -424,7 +460,7 @@ export const usePatternLibrary = create<LibraryState>((set, get) => ({
       journal.pendingDeletes,
     )
     persist(patterns)
-    set({ patterns: withBundledPatterns(patterns) })
+    set((s) => withShelves(s.categories, withBundledPatterns(patterns)))
   },
 }))
 

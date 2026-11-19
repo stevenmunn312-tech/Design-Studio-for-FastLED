@@ -18,7 +18,7 @@ const EDGE_RUNTIME_KEYS = ['selected', 'zIndex'] as const
 
 function without<T extends object>(value: T, keys: readonly string[]): T {
   if (!keys.some((key) => key in value)) return value
-  const copy: Record<string, unknown> = { ...value }
+  const copy = { ...value } as Record<string, unknown>
   for (const key of keys) delete copy[key]
   return copy as T
 }
