@@ -276,9 +276,9 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ### Tempo Clock
 
-![Tempo Clock node](../../public/node-cards/clock.svg)
+![Tempo Clock node](../../public/node-cards/tempo-clock.svg)
 
-![Tempo Clock example graph](../../public/node-cards/graphs/clock.svg)
+![Tempo Clock example graph](../../public/node-cards/graphs/tempo-clock.svg)
 
 ### Schedule Trigger
 
@@ -436,9 +436,9 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ### Color Temperature
 
-![Color Temperature node](../../public/node-cards/temperature.svg)
+![Color Temperature node](../../public/node-cards/color-temperature.svg)
 
-![Color Temperature example graph](../../public/node-cards/graphs/temperature.svg)
+![Color Temperature example graph](../../public/node-cards/graphs/color-temperature.svg)
 
 ### Heat Color
 
@@ -750,9 +750,9 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ### Network Ripple
 
-![Network Ripple node](../../public/node-cards/ripple.svg)
+![Network Ripple node](../../public/node-cards/network-ripple.svg)
 
-![Network Ripple example graph](../../public/node-cards/graphs/ripple.svg)
+![Network Ripple example graph](../../public/node-cards/graphs/network-ripple.svg)
 
 ### Starfield
 
@@ -906,9 +906,9 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ### Hi-Hat Shards
 
-![Hi-Hat Shards node](../../public/node-cards/prism-storm.svg)
+![Hi-Hat Shards node](../../public/node-cards/hi-hat-shards.svg)
 
-![Hi-Hat Shards example graph](../../public/node-cards/graphs/prism-storm.svg)
+![Hi-Hat Shards example graph](../../public/node-cards/graphs/hi-hat-shards.svg)
 
 ### Audio Flow
 
@@ -930,9 +930,9 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ### Formula Pattern
 
-![Formula Pattern node](../../public/node-cards/custom-formula.svg)
+![Formula Pattern node](../../public/node-cards/formula-pattern.svg)
 
-![Formula Pattern example graph](../../public/node-cards/graphs/custom-formula.svg)
+![Formula Pattern example graph](../../public/node-cards/graphs/formula-pattern.svg)
 
 ### Code
 
@@ -1040,9 +1040,9 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ### Field Transform
 
-![Field Transform node](../../public/node-cards/field-warp.svg)
+![Field Transform node](../../public/node-cards/field-transform.svg)
 
-![Field Transform example graph](../../public/node-cards/graphs/field-warp.svg)
+![Field Transform example graph](../../public/node-cards/graphs/field-transform.svg)
 
 ### Field Symmetry
 
@@ -1144,9 +1144,9 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ### Tile Symmetry
 
-![Tile Symmetry node](../../public/node-cards/symmetry.svg)
+![Tile Symmetry node](../../public/node-cards/tile-symmetry.svg)
 
-![Tile Symmetry example graph](../../public/node-cards/graphs/symmetry.svg)
+![Tile Symmetry example graph](../../public/node-cards/graphs/tile-symmetry.svg)
 
 ### Blur 2D
 
@@ -1182,9 +1182,9 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ### Transition Pool
 
-![Transition Pool node](../../public/node-cards/transition-set.svg)
+![Transition Pool node](../../public/node-cards/transition-pool.svg)
 
-![Transition Pool example graph](../../public/node-cards/graphs/transition-set.svg)
+![Transition Pool example graph](../../public/node-cards/graphs/transition-pool.svg)
 
 ### Player Controls
 
@@ -1218,9 +1218,9 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ### Crossfade Cycle
 
-![Crossfade Cycle node](../../public/node-cards/sequencer.svg)
+![Crossfade Cycle node](../../public/node-cards/crossfade-cycle.svg)
 
-![Crossfade Cycle example graph](../../public/node-cards/graphs/sequencer.svg)
+![Crossfade Cycle example graph](../../public/node-cards/graphs/crossfade-cycle.svg)
 
 ### Transition
 

@@ -30,7 +30,7 @@
 <text x="222" y="56" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Bass</text>
 <circle cx="240" cy="80" r="9" fill="#9aa0a6" opacity="0.22"/>
 <circle cx="240" cy="80" r="6" fill="#9aa0a6"/>
-<text x="222" y="84" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Mid</text>
+<text x="222" y="84" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Mids</text>
 <circle cx="240" cy="108" r="9" fill="#9aa0a6" opacity="0.22"/>
 <circle cx="240" cy="108" r="6" fill="#9aa0a6"/>
 <text x="222" y="112" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Treble</text>
@@ -42,7 +42,7 @@
 <text x="222" y="168" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Bass smoothed</text>
 <circle cx="240" cy="192" r="9" fill="#9aa0a6" opacity="0.22"/>
 <circle cx="240" cy="192" r="6" fill="#9aa0a6"/>
-<text x="222" y="196" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Mid smoothed</text>
+<text x="222" y="196" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Mids smoothed</text>
 <circle cx="240" cy="220" r="9" fill="#9aa0a6" opacity="0.22"/>
 <circle cx="240" cy="220" r="6" fill="#9aa0a6"/>
 <text x="222" y="224" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Treble smoothed</text>
@@ -51,7 +51,7 @@
 <text x="222" y="252" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Bass spike</text>
 <circle cx="240" cy="276" r="9" fill="#c6ff32" opacity="0.22"/>
 <circle cx="240" cy="276" r="6" fill="#c6ff32"/>
-<text x="222" y="280" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Mid spike</text>
+<text x="222" y="280" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Mids spike</text>
 <circle cx="240" cy="304" r="9" fill="#c6ff32" opacity="0.22"/>
 <circle cx="240" cy="304" r="6" fill="#c6ff32"/>
 <text x="222" y="308" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" text-anchor="end">Treble spike</text>
