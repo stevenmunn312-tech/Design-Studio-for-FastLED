@@ -84,6 +84,19 @@ GPIO or internal pull-up; unplugging a graph noodle does not erase the physical
 button or its wiring. Remove the row from that Hardware inspector when the
 physical button is no longer part of the build.
 
+### Search for a part that is not on the shelf
+
+The shelf's search box also queries the online parts library when your copy of
+Studio can reach one. Matches that are not already on the shelf show under
+**Online parts library**, with a **Download** button; a newer revision of a part
+you installed shows under **Updates available**. Each download is checked against
+a signed list before it is installed, and **Uninstall** (refused while the open
+project still uses the part) is on the shelf's **Downloaded parts** list. A
+project or share link carries the downloaded parts it uses, so it opens on
+another computer. If a project names a part this version does not have, the node
+is held and Upload is blocked until the part is installed. The in-app **Help**
+(Hardware tab, **Online parts**) has the details.
+
 ### Add a capacitive touch button
 
 Choose **Inputs → Touch Button** for the Seeed Grove Touch Sensor. Power VCC

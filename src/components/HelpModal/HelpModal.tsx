@@ -358,6 +358,26 @@ function HardwareTab() {
       <div className={styles.divider} />
 
       <div className={styles.section}>
+        <div className={styles.sectionTitle}>Online parts</div>
+        <div className={styles.text}>
+          The <strong>Hardware shelf</strong> search box also looks in the online parts library, when one is available to your copy of Studio. Matches that are not already on your shelf appear under <strong>Online parts library</strong>; <strong>Download</strong> adds one to the shelf like any other part.
+        </div>
+        <div className={styles.definitionGrid}>
+          <div><strong>What an online part is</strong><span>A data file describing one module: its size, pins, wiring notes and the settings it adds to a node. It contains no program code, and it uses the same nodes and firmware as the parts that ship with Studio.</span></div>
+          <div><strong>How it is checked</strong><span>The library list is signed, and each download must match the size and fingerprint that list gives and carry a valid signature. A part that fails any check is not installed. Pictures are checked the same way, and a part without a verified picture is drawn as a plain placeholder.</span></div>
+          <div><strong>Update</strong><span>When a newer revision exists, the shelf lists it under <strong>Updates available</strong>. Updating replaces your downloaded copy with the newer revision.</span></div>
+          <div><strong>Uninstall</strong><span>Downloaded parts are listed on the shelf with <strong>Uninstall</strong>. It is refused while the open project, its undo history or the copy buffer still uses the part, so nothing in your project is left without its part. Remove those nodes first. Parts that ship with Studio cannot be uninstalled.</span></div>
+          <div><strong>Needs a newer Design Studio</strong><span>The part, or the library itself, was published in a format this version does not understand. Update Studio and it appears.</span></div>
+          <div><strong>Projects and share links</strong><span>A saved project, and a share link, carries every downloaded part it uses, signature included, so it opens on another computer without a download. Only a very large share link carries just the part&apos;s name and revision, and Studio fetches it from the library when it is available.</span></div>
+        </div>
+        <div className={styles.note}>
+          <strong>A held node.</strong> If a project uses a part this version does not have, its node is held: its settings and wires are kept exactly as saved, but it is left out of the preview and the firmware, and Upload is blocked. The Checks drawer names the part. To resolve it, download the part from the shelf search, or open the project in a newer Design Studio, or choose a different part on the node. A held node comes back to life as soon as its part is installed.
+        </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      <div className={styles.section}>
         <div className={styles.sectionTitle}>Hardware tab versus Build Diagram</div>
         <div className={styles.text}>
           The Hardware tab answers <em>what is connected to this board?</em> Its links are automatic and are not a wiring plan. The <strong>Build Diagram</strong> tab answers <em>how should I assemble it?</em> with pin-level connections, power distribution, fuses, parts and connection lists, SVG export, and printable sheets.

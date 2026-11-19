@@ -1215,6 +1215,35 @@ it and `partOrigin(id)` says where a part came from.
   after. A type is closed to downloads until its `downloadable` flag flips, so a
   test of the downloaded rules opens the type it uses and restores it.
 
+## Adding a part, adding a block, and the load and uninstall rules
+
+- **Add a part.** Measured facts come from the Blender asset's `part.json`; everything else is
+  the repository overlay `src/build/parts/overlays/<part-id>.json` (see
+  [hardware asset import](../hardware-asset-import.md)). Run
+  `python scripts/assets/import-part-assets.py "<Parts folder>" --only <part-id>` to regenerate
+  `partCatalogueData.ts` and the render, never a whole re-encode, then commit only the importer's
+  output. Give the part `verification: reviewed`, or `bench` only with a recorded run. Do not add
+  the id to any code list: `downloadableTypes.test.ts` fails when a bundled part of an open type
+  differs from a fresh-id copy.
+- **Add a block** (a new facts record a type reads, such as `motionSensor`). Touch all of:
+  its spec and validator in `manifest/blockSpecs.ts`, the field-name list in `OVERLAY_BLOCKS` in
+  `import-part-assets.py` (a block `part.json` cannot carry), the optional field on
+  `PartCatalogueEntry` and its reader, the type's `block` in `partTypes.ts` (and its
+  `downloadable` flag once no branch on a bundled id remains), and a case in
+  `downloadableTypes.test.ts`. A block read must return `null` for an unknown part, never a
+  default.
+- **A downloaded part never borrows a bundled render.** `partRenderSrc` returns the verified
+  bytes for the revision registered now, or `null` and the placeholder. Never fall back to the
+  type's default part's picture, and never draw a node that names a part as another part.
+- **Load a workspace with `loadWorkspaceAfterParts`**, never bare `loadGraph`, from every entry
+  point that has a save's `parts`: it registers
+  embedded envelopes first and drops a superseded load. A share link too long for envelopes
+  carries `{ revision }` only; resolve with `PartsLibrary.resolveReferenced` before loading.
+- **Uninstall is refused while a part is in use.** `PartsLibrary.uninstall(partId, { inUse })`
+  takes `partIdsInUse()` (`graphStore`): every open project's graphs, undo/redo history and the
+  copy clipboard. Extend that function when a new place can hold a node; do not delete a part a
+  node still names. See [part packages](../../design/part-packages.md#uninstall).
+
 ## Saves carry their parts
 
 A workspace has an optional `parts` map (`src/build/parts/savedParts.ts`): `{ [partId]: { revision, envelope? } }`, written by `captureWorkspace`. Only a downloaded part carries its signed envelope; bundled parts list a revision only. On load, `registerEmbeddedParts` (`signedParts.ts`) verifies each envelope against the trusted keys and registers it as `downloaded` before the graph loads; an unsigned, tampered, unknown-key or wrong-id copy never registers and its node stays held. Pattern files carry no part nodes (hardware nodes are group-excluded). `SAVE_FORMAT_VERSION` stays 1: the field is optional and an older app ignores it.
