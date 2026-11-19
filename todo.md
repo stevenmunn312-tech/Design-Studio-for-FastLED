@@ -109,9 +109,15 @@ more after the freeze.
 
 ### Helper
 
-- [ ] Two arduino-cli compiles can share a temporary workspace.
-- [ ] Cancelling an fbuild build can leave the daemon compiling.
-- [ ] A Bluetooth player on fbuild is not switched to arduino-cli by itself.
+- [x] Two arduino-cli compiles can share a temporary workspace. Done
+  2026-11-20: the sketch folders were never shared, but the core cache and
+  library folder were; arduino-cli compiles now take the build lock fbuild
+  uses. Left: an overlapped build's private temp folder leaves its
+  `%LOCALAPPDATA%\arduino\sketches` build directory behind.
+- [ ] Cancelling an fbuild build can leave the daemon compiling. Cancel kills
+  only the `fbuild build` client; the long-lived daemon is not its child.
+  Needs a real build to confirm before stopping the daemon on cancel.
+- [x] A Bluetooth player on fbuild is not switched to arduino-cli by itself.
 - [ ] Decide the ESP32 deploy experiment (`-b 115200`).
 
 ## 3. fbuild upkeep

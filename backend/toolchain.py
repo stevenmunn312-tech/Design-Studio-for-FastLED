@@ -224,22 +224,26 @@ def _active_engine() -> str:
     return "fbuild" if _FBUILD_BIN else "arduino-cli"
 
 
-def _engine_for_board(fqbn: str) -> str:
-    """The engine that builds for this board: `_active_engine`,
+def _engine_for_board(fqbn: str, ino: str = "") -> str:
+    """The engine that builds `ino` for this board: `_active_engine`,
     unless that is fbuild and fbuild cannot build it.
 
     The app offers boards the fbuild scaffold does not declare (`_PIO_BOARDS`).
     With fbuild the default engine they would all stop on "no fbuild board
-    mapping", so they build with arduino-cli where it is installed."""
-    return "arduino-cli" if _engine_switch_note(fqbn) else _active_engine()
+    mapping", so they build with arduino-cli where it is installed. The
+    Bluetooth Music Player is the one sketch fbuild cannot build on any board:
+    its libraries are vendored for arduino-cli only."""
+    return "arduino-cli" if _engine_switch_note(fqbn, ino) else _active_engine()
 
 
-def _engine_switch_note(fqbn: str) -> str:
+def _engine_switch_note(fqbn: str, ino: str = "") -> str:
     """The log line for a build `_engine_for_board` moves from fbuild to
     arduino-cli, or "" when it moves nothing. One place decides both, so the
     log never names a reason the choice did not use."""
     if _active_engine() != "fbuild" or not _ARDUINO_CLI:
         return ""
+    if _BLUETOOTH_A2DP_INCLUDE in ino:
+        return "  [engine] the Bluetooth Music Player builds with arduino-cli only: building with arduino-cli.\n"
     if ":".join(fqbn.split(":")[:3]) not in _PIO_BOARDS:
         return f"  [engine] fbuild has no environment for {fqbn}: building with arduino-cli.\n"
     return ""
@@ -771,8 +775,8 @@ class _FbuildBuildLock:
             self._cond.notify_all()
 
     def touch(self):
-        """Stamp progress. A no-op when unheld, so the arduino-cli path (which
-        shares `_run_phase` but takes no lock) costs nothing."""
+        """Stamp progress. A no-op when unheld: an arduino-cli upload runs
+        `_run_phase` after its compile has released the lock."""
         with self._cond:
             if self._held_by is not None:
                 self._progress_at = time.monotonic()

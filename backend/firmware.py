@@ -234,6 +234,152 @@ def _overflow_message(fqbn: str, lines, measured: dict[str, int] | None = None) 
 _compiled_uploads: dict[str, tuple] = {}
 
 
+def _wait_for_build_lock(label):
+    """Take the helper's build lock, narrating any wait. Returns the token, or
+    None after `_FBUILD_LOCK_TIMEOUT_S`, having said why nothing was built.
+
+    One build at a time, whichever engine runs it. fbuild's project scaffold is
+    one shared directory; arduino-cli's core cache and library folder are shared
+    by every sketch, and two compiles overlapping in them have produced
+    `ld: file truncated`. An upload and a capacity check are the usual pair.
+
+    The wait is taken in slices instead of one blocking `acquire`, and narrated.
+    The UI derives its status from this stream, so a build queued behind
+    another one used to produce no output at all for up to the timeout: the
+    Upload button sat on "Starting…" for three minutes with nothing to
+    distinguish queued from compiling from wedged."""
+    lock = toolchain._fbuild_build_lock
+    token = lock.acquire(0, toolchain._FBUILD_LOCK_STALE_S)
+    if token is None:
+        waited = 0.0
+        yield ("\n  [waiting] another build is running — "
+               "queued behind it, nothing is wrong\n")
+        while token is None and waited < toolchain._FBUILD_LOCK_TIMEOUT_S:
+            step = min(toolchain._FBUILD_LOCK_POLL_S, toolchain._FBUILD_LOCK_TIMEOUT_S - waited)
+            token = lock.acquire(step, toolchain._FBUILD_LOCK_STALE_S)
+            waited += step
+            if token is None and waited < toolchain._FBUILD_LOCK_TIMEOUT_S:
+                yield f"  [waiting] still queued ({int(waited)}s of {int(toolchain._FBUILD_LOCK_TIMEOUT_S)}s)…\n"
+    if token is None:
+        yield (
+            f"\n=== ✗ {label}: another build is still running (waited "
+            f"{toolchain._FBUILD_LOCK_TIMEOUT_S}s) ===\n"
+            "  Builds run one at a time because they share the build caches.\n"
+            "  Nothing was compiled or sent to the board — your sketch is fine.\n"
+            "  Wait for the other build to finish and try again; if it never\n"
+            f"  does, it is treated as abandoned after {toolchain._FBUILD_LOCK_STALE_S}s and\n"
+            "  the next attempt takes over automatically.\n"
+        )
+    return token
+
+
+def _arduino_compile(label, sketch_dir, fqbn, output_dir=None):
+    """The arduino-cli compile step of `_compile_upload`: stage the libraries
+    the sketch includes, compile, and report its size. Returns the exit code.
+    Runs under the build lock, which `_compile_upload` holds around it."""
+    compile_lines = []
+    rc = yield from toolchain._ensure_arduino_fastled_lib()
+    if rc != 0:
+        return rc
+    uses_lvgl = any(
+        toolchain._LVGL_INCLUDE_MARKER in path.read_text(encoding="utf-8")
+        for path in sketch_dir.glob("*.ino")
+    )
+    if uses_lvgl:
+        rc = yield from toolchain._ensure_arduino_lvgl_lib()
+        if rc != 0:
+            return rc
+    compile_args = toolchain._ARDUINO_BASE + ["compile", "-v", "--fqbn", fqbn]
+    uses_ir = any(toolchain._IRREMOTE_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+    if uses_ir:
+        rc = yield from toolchain._ensure_arduino_irremote_lib()
+        if rc != 0:
+            return rc
+    uses_hub75 = any(toolchain._HUB75_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+    if uses_hub75:
+        rc = yield from toolchain._ensure_arduino_hub75_lib()
+        if rc != 0:
+            return rc
+    uses_zero_i2s = any(toolchain._ZERO_I2S_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+    if uses_zero_i2s:
+        rc = yield from toolchain._ensure_arduino_zero_i2s_lib()
+        if rc != 0:
+            return rc
+    uses_vl53l0x = any(toolchain._VL53L0X_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+    if uses_vl53l0x:
+        rc = yield from toolchain._ensure_arduino_vl53l0x_lib()
+        if rc != 0:
+            return rc
+    uses_vl53l1x = any(toolchain._VL53L1X_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+    if uses_vl53l1x:
+        rc = yield from toolchain._ensure_arduino_vl53l1x_lib()
+        if rc != 0:
+            return rc
+    uses_bluetooth = any(toolchain._BLUETOOTH_A2DP_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+    if uses_bluetooth:
+        rc = yield from toolchain._ensure_arduino_bluetooth_libs()
+        if rc != 0:
+            return rc
+        compile_args += [
+            "--library", str(toolchain._ARDUINO_A2DP_LIB_DIR),
+            "--library", str(toolchain._ARDUINO_AUDIO_TOOLS_LIB_DIR),
+        ]
+    uses_audio = any("#include <Audio.h>" in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
+    if uses_audio:
+        rc = yield from toolchain._ensure_arduino_audio_lib()
+        if rc != 0:
+            return rc
+        compile_args += ["--library", str(toolchain._ARDUINO_AUDIO_LIB_DIR)]
+    # The FastLED flags must reach the library's own translation units, where
+    # no sketch define does. Each extra_flags property is set once, so the
+    # LVGL define rides in the same value.
+    extra_flags = toolchain._FASTLED_BUILD_FLAGS
+    if uses_lvgl:
+        # The sketch directory is already on Arduino's include path. This flag
+        # makes every separately compiled LVGL translation unit include the
+        # generated header instead of falling back to LVGL's broad defaults.
+        # LVGL itself is C while the generated sketch is C++, so both compiler
+        # recipes need the define; setting only cpp.extra_flags configures the
+        # caller but leaves the runtime compiled with its default catalogue.
+        extra_flags = f"{extra_flags} -DLV_CONF_INCLUDE_SIMPLE"
+    if uses_hub75:
+        # Installed without Adafruit GFX, so the library must not include it.
+        extra_flags = f"{extra_flags} {toolchain._HUB75_BUILD_FLAG}"
+    compile_args += [
+        "--build-property", f"compiler.c.extra_flags={extra_flags}",
+        "--build-property", f"compiler.cpp.extra_flags={extra_flags}",
+    ]
+    if output_dir is not None:
+        # arduino-cli keeps its artifacts in a cache directory it names itself;
+        # this copies them somewhere the caller can read. Only the firmware
+        # export asks for it, so an ordinary upload's build is unchanged.
+        compile_args += ["--output-dir", str(output_dir)]
+    compile_args.append(str(sketch_dir))
+    rc = yield from toolchain._run_phase(
+        f"{label} · compile", compile_args,
+        sink=compile_lines,
+    )
+    if rc != 0:
+        # A capacity overflow is the interesting failure — say so plainly so the
+        # UI can show "won't fit" instead of a wall of linker errors.
+        if _looks_like_overflow(compile_lines):
+            yield _overflow_message(fqbn, compile_lines)
+        return rc
+
+    report = _size_report(compile_lines)
+    if report["flash"] is not None:
+        ram = f" · ram {report['ram']}%" if report["ram"] is not None else ""
+        yield f"  [size] flash {report['flash']}%{ram}\n"
+        tight = [
+            f"{kind} {report[kind]}%"
+            for kind in ("flash", "ram")
+            if report[kind] is not None and report[kind] >= _SIZE_WARN_PCT
+        ]
+        if tight:
+            yield f"  [size-warning] little headroom left ({', '.join(tight)})\n"
+    return 0
+
+
 @toolchain._reports_total_time
 def _compile_upload(
     label, sketch_dir, fqbn, port, output_dir=None, usb_cdc=False, flash_mb=None,
@@ -269,106 +415,15 @@ def _compile_upload(
         yield "  Reusing compiled firmware — skipping compilation.\n"
     else:
         _compiled_uploads.pop(build_key, None)
-        compile_lines = []
-        rc = yield from toolchain._ensure_arduino_fastled_lib()
+        token = yield from _wait_for_build_lock(label)
+        if token is None:
+            return -1, "busy"
+        try:
+            rc = yield from _arduino_compile(label, sketch_dir, fqbn, output_dir)
+        finally:
+            toolchain._fbuild_build_lock.release(token)
         if rc != 0:
             return rc, "compile"
-        uses_lvgl = any(
-            toolchain._LVGL_INCLUDE_MARKER in path.read_text(encoding="utf-8")
-            for path in sketch_dir.glob("*.ino")
-        )
-        if uses_lvgl:
-            rc = yield from toolchain._ensure_arduino_lvgl_lib()
-            if rc != 0:
-                return rc, "compile"
-        compile_args = toolchain._ARDUINO_BASE + ["compile", "-v", "--fqbn", fqbn]
-        uses_ir = any(toolchain._IRREMOTE_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
-        if uses_ir:
-            rc = yield from toolchain._ensure_arduino_irremote_lib()
-            if rc != 0:
-                return rc, "compile"
-        uses_hub75 = any(toolchain._HUB75_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
-        if uses_hub75:
-            rc = yield from toolchain._ensure_arduino_hub75_lib()
-            if rc != 0:
-                return rc, "compile"
-        uses_zero_i2s = any(toolchain._ZERO_I2S_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
-        if uses_zero_i2s:
-            rc = yield from toolchain._ensure_arduino_zero_i2s_lib()
-            if rc != 0:
-                return rc, "compile"
-        uses_vl53l0x = any(toolchain._VL53L0X_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
-        if uses_vl53l0x:
-            rc = yield from toolchain._ensure_arduino_vl53l0x_lib()
-            if rc != 0:
-                return rc, "compile"
-        uses_vl53l1x = any(toolchain._VL53L1X_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
-        if uses_vl53l1x:
-            rc = yield from toolchain._ensure_arduino_vl53l1x_lib()
-            if rc != 0:
-                return rc, "compile"
-        uses_bluetooth = any(toolchain._BLUETOOTH_A2DP_INCLUDE in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
-        if uses_bluetooth:
-            rc = yield from toolchain._ensure_arduino_bluetooth_libs()
-            if rc != 0:
-                return rc, "compile"
-            compile_args += [
-                "--library", str(toolchain._ARDUINO_A2DP_LIB_DIR),
-                "--library", str(toolchain._ARDUINO_AUDIO_TOOLS_LIB_DIR),
-            ]
-        uses_audio = any("#include <Audio.h>" in path.read_text(encoding="utf-8") for path in sketch_dir.glob("*.ino"))
-        if uses_audio:
-            rc = yield from toolchain._ensure_arduino_audio_lib()
-            if rc != 0:
-                return rc, "compile"
-            compile_args += ["--library", str(toolchain._ARDUINO_AUDIO_LIB_DIR)]
-        # The FastLED flags must reach the library's own translation units, where
-        # no sketch define does. Each extra_flags property is set once, so the
-        # LVGL define rides in the same value.
-        extra_flags = toolchain._FASTLED_BUILD_FLAGS
-        if uses_lvgl:
-            # The sketch directory is already on Arduino's include path. This flag
-            # makes every separately compiled LVGL translation unit include the
-            # generated header instead of falling back to LVGL's broad defaults.
-            # LVGL itself is C while the generated sketch is C++, so both compiler
-            # recipes need the define; setting only cpp.extra_flags configures the
-            # caller but leaves the runtime compiled with its default catalogue.
-            extra_flags = f"{extra_flags} -DLV_CONF_INCLUDE_SIMPLE"
-        if uses_hub75:
-            # Installed without Adafruit GFX, so the library must not include it.
-            extra_flags = f"{extra_flags} {toolchain._HUB75_BUILD_FLAG}"
-        compile_args += [
-            "--build-property", f"compiler.c.extra_flags={extra_flags}",
-            "--build-property", f"compiler.cpp.extra_flags={extra_flags}",
-        ]
-        if output_dir is not None:
-            # arduino-cli keeps its artifacts in a cache directory it names itself;
-            # this copies them somewhere the caller can read. Only the firmware
-            # export asks for it, so an ordinary upload's build is unchanged.
-            compile_args += ["--output-dir", str(output_dir)]
-        compile_args.append(str(sketch_dir))
-        rc = yield from toolchain._run_phase(
-            f"{label} · compile", compile_args,
-            sink=compile_lines,
-        )
-        if rc != 0:
-            # A capacity overflow is the interesting failure — say so plainly so the
-            # UI can show "won't fit" instead of a wall of linker errors.
-            if _looks_like_overflow(compile_lines):
-                yield _overflow_message(fqbn, compile_lines)
-            return rc, "compile"
-
-        report = _size_report(compile_lines)
-        if report["flash"] is not None:
-            ram = f" · ram {report['ram']}%" if report["ram"] is not None else ""
-            yield f"  [size] flash {report['flash']}%{ram}\n"
-            tight = [
-                f"{kind} {report[kind]}%"
-                for kind in ("flash", "ram")
-                if report[kind] is not None and report[kind] >= _SIZE_WARN_PCT
-            ]
-            if tight:
-                yield f"  [size-warning] little headroom left ({', '.join(tight)})\n"
 
         _compiled_uploads[build_key] = build_identity
         yield "  [compiled] firmware ready for upload\n"
@@ -705,10 +760,10 @@ def _fbuild_build(label, env, sink):
     return rc
 
 
-def _engine_switch_lines(fqbn):
+def _engine_switch_lines(fqbn, ino=""):
     """The line saying a build left fbuild for arduino-cli, when one did. An
     empty string is never yielded: a zero-length chunk can end the stream."""
-    note = toolchain._engine_switch_note(fqbn)
+    note = toolchain._engine_switch_note(fqbn, ino)
     if note:
         yield note
 
@@ -736,38 +791,14 @@ def _compile_upload_fbuild(
             "Install it with `pip install fbuild`, or switch the engine to arduino-cli.",
         ))
     # fbuild compiles every cached directory under lib/, so the Bluetooth
-    # libraries are vendored for arduino-cli alone (toolchain.py).
+    # libraries are vendored for arduino-cli alone (toolchain.py). With
+    # arduino-cli installed, `_engine_for_board` never sends one here.
     if toolchain._BLUETOOTH_A2DP_INCLUDE in ino:
-        yield (f"\n=== ✗ {label}: the Bluetooth Music Player builds with arduino-cli only. "
-               "Switch the build engine to arduino-cli in Board & Port. ===\n")
+        yield (f"\n=== ✗ {label}: the Bluetooth Music Player builds with arduino-cli only, "
+               "and arduino-cli is not installed. Set it up from Board & Port. ===\n")
         return -1, "compile"
-    # Take the wait in slices instead of one blocking `acquire`, and narrate it.
-    # The UI derives its status from this stream, so a build queued behind
-    # another one used to produce no output at all for up to
-    # `_FBUILD_LOCK_TIMEOUT_S` — the Upload button sat on "Starting…" for three
-    # minutes with nothing to distinguish queued from compiling from wedged.
-    # Saying so costs one line and turns a mystery into a wait.
-    token = toolchain._fbuild_build_lock.acquire(0, toolchain._FBUILD_LOCK_STALE_S)
+    token = yield from _wait_for_build_lock(label)
     if token is None:
-        waited = 0.0
-        yield ("\n  [waiting] the build directory is busy with another build — "
-               "queued behind it, nothing is wrong\n")
-        while token is None and waited < toolchain._FBUILD_LOCK_TIMEOUT_S:
-            step = min(toolchain._FBUILD_LOCK_POLL_S, toolchain._FBUILD_LOCK_TIMEOUT_S - waited)
-            token = toolchain._fbuild_build_lock.acquire(step, toolchain._FBUILD_LOCK_STALE_S)
-            waited += step
-            if token is None and waited < toolchain._FBUILD_LOCK_TIMEOUT_S:
-                yield f"  [waiting] still queued ({int(waited)}s of {int(toolchain._FBUILD_LOCK_TIMEOUT_S)}s)…\n"
-    if token is None:
-        yield (
-            f"\n=== ✗ {label}: another fbuild build is still running (waited "
-            f"{toolchain._FBUILD_LOCK_TIMEOUT_S}s) ===\n"
-            "  Builds are serialized because they share one project directory.\n"
-            "  Nothing was compiled or sent to the board — your sketch is fine.\n"
-            "  Wait for the other build to finish and try again; if it never\n"
-            f"  does, it is treated as abandoned after {toolchain._FBUILD_LOCK_STALE_S}s and\n"
-            "  the next attempt takes over automatically.\n"
-        )
         return -1, "busy"
     try:
         env = toolchain._fbuild_env_for_fqbn(fqbn, flash_mb, usb_cdc)
@@ -1521,7 +1552,7 @@ def upload(payload: dict = Body(...)):
         return JSONResponse({"ok": False, "error": "arduino-cli not found"}, status_code=400)
     ino = payload.get("ino") or ""
     fqbn = (payload.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
-    engine = toolchain._engine_for_board(fqbn)
+    engine = toolchain._engine_for_board(fqbn, ino)
     port = (payload.get("port") or "").strip()
     try:
         files = toolchain._sketch_files_from(payload.get("files"))
@@ -1549,7 +1580,7 @@ def upload(payload: dict = Body(...)):
         return StreamingResponse(stream(), media_type="text/plain")
 
     def stream():
-        yield from _engine_switch_lines(fqbn)
+        yield from _engine_switch_lines(fqbn, ino)
         with _sketch_workspace(toolchain.SKETCH, ino, **_files_kw(files)) as sketch_dir:
             rc, phase = yield from _compile_upload(
                 "Sketch", sketch_dir, fqbn, port, usb_cdc=usb_cdc,
@@ -1594,7 +1625,7 @@ def compile_check(payload: dict = Body(...)):
 
     ino = (payload.get("ino") or "").strip()
     fqbn = (payload.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
-    engine = toolchain._engine_for_board(fqbn)
+    engine = toolchain._engine_for_board(fqbn, ino)
     if not ino:
         return JSONResponse({"ok": False, "error": "no sketch to compile"}, status_code=400)
     # The SD player is flashed from its own workspace (see `_build_flash`).
@@ -1773,7 +1804,7 @@ def compile_binary(payload: dict = Body(...)):
 
     ino = (payload.get("ino") or "").strip()
     fqbn = (payload.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
-    engine = toolchain._engine_for_board(fqbn)
+    engine = toolchain._engine_for_board(fqbn, ino)
     if not ino:
         return JSONResponse({"ok": False, "error": "no sketch to compile"}, status_code=400)
     # The SD player is flashed from its own workspace (see `_build_flash`).
@@ -1809,7 +1840,7 @@ def compile_binary(payload: dict = Body(...)):
                     if env else None
                 )
             else:
-                yield from _engine_switch_lines(fqbn)
+                yield from _engine_switch_lines(fqbn, ino)
                 with _sketch_workspace(toolchain.SKETCH, ino, **_files_kw(files)) as sketch_dir:
                     rc, _phase = yield from _compile_upload(
                         "Export binary", sketch_dir, fqbn, "", output_dir=out_dir,
@@ -1895,7 +1926,7 @@ async def upload_show(
     except ValueError as exc:
         return JSONResponse({"ok": False, "error": f"meta is not valid JSON: {exc}"}, status_code=400)
     fqbn = (info.get("fqbn") or toolchain._DEFAULT_FQBN).strip()
-    engine = toolchain._engine_for_board(fqbn)
+    engine = toolchain._engine_for_board(fqbn, player)
     port = (info.get("port") or "").strip()
     flash_mb = toolchain._flash_mb_from(info)
     usb_cdc = toolchain._usb_cdc_from(info)
@@ -1925,7 +1956,7 @@ async def upload_show(
         use_port = port if target_port is None else target_port
         if engine == "fbuild":
             return (yield from _compile_upload_fbuild(label, ino, fqbn, use_port, flash_mb, usb_cdc))
-        yield from _engine_switch_lines(fqbn)
+        yield from _engine_switch_lines(fqbn, ino)
         with _sketch_workspace(PLAYER_SKETCH if label == "Player" else label.split()[0].lower(), ino) as sketch_dir:
             return (yield from _compile_upload(
                 label, sketch_dir, fqbn, use_port, usb_cdc=usb_cdc,

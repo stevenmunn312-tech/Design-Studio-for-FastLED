@@ -1,5 +1,17 @@
 # Build helper
 
+- **One build at a time, either engine.** fbuild builds and arduino-cli
+  compiles both take the token lock through `_wait_for_build_lock`
+  (`firmware.py`), which narrates `[waiting]` and returns `busy` after
+  `_FBUILD_LOCK_TIMEOUT_S`. fbuild needs it for its one project directory;
+  arduino-cli because every sketch shares its core cache and library folder,
+  and overlapping compiles there have produced `ld: file truncated`. An
+  arduino-cli upload releases the lock after compiling, so a capacity check can
+  compile while the board flashes.
+- The Bluetooth Music Player builds with arduino-cli only. `_engine_for_board`
+  takes the sketch and moves it off fbuild by itself; fbuild refuses it only
+  when arduino-cli is not installed.
+
 - Project file saves hold `_project_file_lock` across revision comparison,
   atomic replacement and rename cleanup; listing and deletion share that lock.
   An older `updatedAt` cannot overwrite a newer saved workspace. Write to a
@@ -17,7 +29,9 @@
   carries `diskBase`, the `updatedAt` of the disk version it descends from
   (stamped by `reconcileProjectsFromDisk` and on every acknowledged save,
   never written to the file). A save sends it as `baseUpdatedAt`, counting the
-  tab's own unacknowledged saves (`sentByThisTab`), and `save_project` refuses
+  tab's own unacknowledged saves (`sentByThisTab`; the sync journal's `sent`
+  carries them across a reload, so a file found at one is this browser's own
+  save and becomes the base), and `save_project` refuses
   with `conflict` when the file is newer than that base. Reconcile keeps such a
   copy beside the file as "(browser copy)" instead of over it. On 2026-10-30 a
   blank copy, stale because the 1.7 MB project no longer fit in localStorage

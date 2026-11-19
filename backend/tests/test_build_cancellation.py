@@ -52,8 +52,10 @@ def start(generator):
         pass
 
 
-@pytest.mark.parametrize("finish_check_first", [True, False])
-def test_overlapping_capacity_check_does_not_own_upload_cancellation(tmp_path, processes, finish_check_first):
+def test_a_capacity_check_queues_behind_an_upload_and_does_not_own_its_cancel(tmp_path, processes, monkeypatch):
+    # Two arduino-cli compiles share the core cache and the library folder, and
+    # overlapping ones have produced `ld: file truncated`: the check waits.
+    monkeypatch.setattr(toolchain, "_FBUILD_LOCK_POLL_S", 0.01)
     upload_dir = tmp_path / "upload"
     check_dir = tmp_path / "check"
     for directory in (upload_dir, check_dir):
@@ -63,23 +65,19 @@ def test_overlapping_capacity_check_does_not_own_upload_cancellation(tmp_path, p
     check = firmware._compile_upload("Capacity check", check_dir, "arduino:avr:uno", "")
     try:
         start(upload)
-        toolchain._background_build(lambda: start(check))()
+        assert "[waiting]" in toolchain._background_build(lambda: next(check))()
+        assert len(processes) == 1  # the check started no compiler beside the upload's
         assert toolchain._cancel_active_build() is True
         assert processes[0].stopped is True
-        assert processes[1].stopped is False
-        assert toolchain._build_was_cancelled() is False
         # Resume on another worker, as Starlette does for streamed responses.
         with ThreadPoolExecutor(max_workers=1) as worker:
-            if finish_check_first:
-                check_log, check_result = worker.submit(drain, check).result()
-                upload_log, upload_result = worker.submit(drain, upload).result()
-            else:
-                upload_log, upload_result = worker.submit(drain, upload).result()
-                check_log, check_result = worker.submit(drain, check).result()
-        assert check_result == (0, "compile")
-        assert "CANCELLED" not in check_log
+            upload_log, upload_result = worker.submit(drain, upload).result()
+            check_log, check_result = worker.submit(drain, check).result()
         assert upload_result == (toolchain._BUILD_CANCELLED, "compile")
         assert "CANCELLED" in upload_log
+        assert check_result == (0, "compile")
+        assert "CANCELLED" not in check_log
+        assert processes[1].stopped is False
         assert len(processes) == 2  # neither run starts an upload process
     finally:
         upload.close()

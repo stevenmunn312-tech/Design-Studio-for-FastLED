@@ -1230,3 +1230,18 @@ def test_a_board_fbuild_does_not_declare_builds_with_arduino_cli(monkeypatch):
     monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "arduino-cli")
     monkeypatch.setattr(toolchain, "_load_config", lambda: {"engine": "arduino-cli"})
     assert toolchain._engine_for_board("esp32:esp32:esp32s3") == "arduino-cli"
+
+
+def test_a_bluetooth_player_on_fbuild_builds_with_arduino_cli(monkeypatch):
+    # fbuild cannot build the Bluetooth player on any board; it used to stop
+    # and ask the person to switch engines by hand.
+    monkeypatch.setattr(toolchain, "_load_config", lambda: {"engine": "fbuild"})
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "fbuild")
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", "arduino-cli")
+    player = f"{toolchain._BLUETOOTH_A2DP_INCLUDE}\nvoid setup() {{}}\nvoid loop() {{}}\n"
+    assert toolchain._engine_for_board("esp32:esp32:esp32s3", player) == "arduino-cli"
+    assert "Bluetooth Music Player" in toolchain._engine_switch_note("esp32:esp32:esp32s3", player)
+    assert toolchain._engine_for_board("esp32:esp32:esp32s3", "void setup() {}\n") == "fbuild"
+    # No arduino-cli: fbuild keeps it and refuses with that reason.
+    monkeypatch.setattr(toolchain, "_ARDUINO_CLI", None)
+    assert toolchain._engine_for_board("esp32:esp32:esp32s3", player) == "fbuild"
