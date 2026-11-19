@@ -1118,7 +1118,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
     count: { control: 'slider', min: STARFIELD_COUNT.min, max: STARFIELD_COUNT.max, step: 1 },
   },
-  Ripple: {
+  NetworkRipple: {
     speed: N01, trail: N01,
     rate:      { control: 'slider', min: 0, max: 10, step: 0.1 },
     lifetime:  { control: 'slider', min: RIPPLE_LIFETIME_SEC.min, max: RIPPLE_LIFETIME_SEC.max, step: 0.1 },
@@ -2522,7 +2522,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     cutRate: 'Scene cuts per second.',
     brightness: 'Overall level of the screen glow, 0 off to 1 full.',
   },
-  Ripple: {
+  NetworkRipple: {
     networkPreset: 'The network the ripples run on. Match the LED output\'s network so each ripple lands on its LEDs: Hexagons, Triangles, or the same custom JSON.',
     network: 'The custom network JSON, the same text as the LED output\'s.',
     ledsPerEdge: 'LEDs along each edge, the same as the LED output\'s.',
@@ -4026,7 +4026,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   Truchet: {
     lineWidth: 'line width',
   },
-  Ripple: {
+  NetworkRipple: {
     networkPreset: 'network',
     network: 'network JSON',
     ledsPerEdge: 'LEDs per edge',
@@ -4564,7 +4564,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'motion', label: 'Motion', keys: ['speed'] },
     { key: 'audio', label: 'Audio Reactivity', keys: ['audioAmount'] },
   ],
-  Ripple: [
+  NetworkRipple: [
     { key: 'network', label: 'Network', keys: ['networkPreset', 'network', 'ledsPerEdge'] },
     { key: 'ripples', label: 'Ripples', keys: ['behaviour', 'startNode', 'speed', 'rate', 'lifetime', 'width', 'trail', 'seed'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
@@ -5541,7 +5541,7 @@ export function isPropertyEnabled(
     if (key === 'color' || key === 'r' || key === 'g' || key === 'b') return !palette
   }
   // As on the LED output, the network JSON is read only by the custom preset.
-  if (nodeType === 'Ripple' && key === 'network') {
+  if (nodeType === 'NetworkRipple' && key === 'network') {
     return properties.networkPreset === 'custom'
   }
   if (nodeType === 'Path' && key === 'customPoints') {

@@ -565,7 +565,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
   // and carries no trigonometry. The network is fitted to the render canvas
   // at start-up with the same rule as fitNetworkToCanvas, so a multi-render
   // pass lands its LEDs where its own canvas puts them.
-  Ripple({ node, id, p, ln, f, ownBuf, paletteExpr, boolExpr, needsT }) {
+  NetworkRipple({ node, id, p, ln, f, ownBuf, paletteExpr, boolExpr, needsT }) {
     needsT.v = true
     const ob = ownBuf({ persists: true })
     const { shape, ledsPerEdge } = rippleShape(p)
@@ -575,7 +575,7 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     const lifetime = Math.max(RIPPLE_LIFETIME_SEC.min, Math.min(RIPPLE_LIFETIME_SEC.max, Number(p.lifetime ?? RIPPLE_LIFETIME_SEC.default)))
     const width = Math.max(RIPPLE_WIDTH.min, Math.min(RIPPLE_WIDTH.max, Math.round(Number(p.width ?? RIPPLE_WIDTH.default))))
     const startNode = Math.round(Number(p.startNode ?? -1))
-    const speed = rateCpp(f('speed', 'speed', 0.4), SPEED_MAX.Ripple)
+    const speed = rateCpp(f('speed', 'speed', 0.4), SPEED_MAX.NetworkRipple)
     const pal = paletteExpr(node.id, 'paletteIn', p)
     const seed = seedProp(p)
     const A = `_rp_${id}`

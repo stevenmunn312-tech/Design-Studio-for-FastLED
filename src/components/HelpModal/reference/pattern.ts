@@ -787,7 +787,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  Ripple: {
+  NetworkRipple: {
     overview: [
       'Network Ripple sends points of light along the edges of a segment network, a string laid out as a small graph of hexagons or triangles. At every node a ripple decides where to go next: straight on, always left or right, the sharpest turn, down every edge at once, or at random.',
       'It is made for an LED output whose string layout is Network. Give the node the same network and LEDs per edge as the output, so each ripple lands on the LEDs that form the edge.',
@@ -797,10 +797,10 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       trigger: 'Each rising edge starts one ripple at the start node.',
     },
     example: example({
-      featured: 'Ripple',
+      featured: 'NetworkRipple',
       title: 'Light racing round the honeycomb',
       nodes: {
-        ripples: ['Ripple', { networkPreset: 'hexagons', ledsPerEdge: 4, behaviour: 'straight', rate: 1.5, speed: 0.3, palette: 'synthwave', width: 3, trail: 0.41 }],
+        ripples: ['NetworkRipple', { networkPreset: 'hexagons', ledsPerEdge: 4, behaviour: 'straight', rate: 1.5, speed: 0.3, palette: 'synthwave', width: 3, trail: 0.41 }],
       },
       output: { form: 'strip', stripLayout: 'network', networkPreset: 'hexagons', ledsPerEdge: 4, positionsWidth: 24, positionsHeight: 12 },
       explanation: 'Network Ripple starts a new point of light about every second, and each one runs along the honeycomb keeping as straight a line as the hexagons allow, so the lights weave through the cells and cross one another, each trailing its own colour.',

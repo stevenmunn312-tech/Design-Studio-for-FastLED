@@ -3141,7 +3141,7 @@ describe('generateCpp', () => {
 
 describe('Ripple codegen', () => {
   it('bakes the network and its turning tables, fits them at start-up, and keeps the trail buffer', () => {
-    const ripple = node('rp', 'Ripple', 'pattern', { networkPreset: 'hexagons', ledsPerEdge: 4, behaviour: 'left', width: 2 })
+    const ripple = node('rp', 'NetworkRipple', 'pattern', { networkPreset: 'hexagons', ledsPerEdge: 4, behaviour: 'left', width: 2 })
     const cpp = generateCpp([ripple, outputNode], [edge('e1', 'rp', 'out', 'frame', 'frame')])
     expect(cpp).toContain('// Ripple on a 19-edge network')
     expect(cpp).toContain('static const float _rp_rpnd[16][2] PROGMEM')
@@ -3154,9 +3154,9 @@ describe('Ripple codegen', () => {
   })
 
   it('explode splits down every edge and random draws from the outgoing list', () => {
-    const explode = generateCpp([node('rp', 'Ripple', 'pattern', { behaviour: 'explode' }), outputNode], [edge('e1', 'rp', 'out', 'frame', 'frame')])
+    const explode = generateCpp([node('rp', 'NetworkRipple', 'pattern', { behaviour: 'explode' }), outputNode], [edge('e1', 'rp', 'out', 'frame', 'frame')])
     expect(explode).toContain('for(int _c=1;_c<_cnt;_c++)')
-    const random = generateCpp([node('rp', 'Ripple', 'pattern', { behaviour: 'random', seed: 7 }), outputNode], [edge('e1', 'rp', 'out', 'frame', 'frame')])
+    const random = generateCpp([node('rp', 'NetworkRipple', 'pattern', { behaviour: 'random', seed: 7 }), outputNode], [edge('e1', 'rp', 'out', 'frame', 'frame')])
     expect(random).toContain('random16(_cnt)')
     expect(random).toContain('random16_set_seed(')
   })

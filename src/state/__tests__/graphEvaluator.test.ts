@@ -3908,12 +3908,12 @@ describe('Transition variants', () => {
   }
 })
 
-describe('Ripple', () => {
+describe('NetworkRipple', () => {
   type Px = { r: number; g: number; b: number }
   const lit = (frame: Px[][]) => frame.flat().filter((p) => p.r + p.g + p.b > 0).length
 
   it('starts a ripple on a rising trigger and runs it along the network, leaving a trail', () => {
-    const ripple = node('rp', 'Ripple', 'pattern', { networkPreset: 'hexagons', ledsPerEdge: 4, rate: 0, startNode: 0, speed: 0.5, width: 2, trail: 0.22, seed: 1 })
+    const ripple = node('rp', 'NetworkRipple', 'pattern', { networkPreset: 'hexagons', ledsPerEdge: 4, rate: 0, startNode: 0, speed: 0.5, width: 2, trail: 0.22, seed: 1 })
     const trig = node('tg', 'Constant', 'math', { value: 0 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e1', 'tg', 'value', 'rp', 'trigger'), edge('e2', 'rp', 'frame', 'out', 'frame')]
@@ -3932,7 +3932,7 @@ describe('Ripple', () => {
   })
 
   it('keeps its ripples as instance state, cleared on reset', () => {
-    const ripple = node('rp', 'Ripple', 'pattern', { networkPreset: 'triangles', ledsPerEdge: 3, rate: 5, speed: 0.5, seed: 2 })
+    const ripple = node('rp', 'NetworkRipple', 'pattern', { networkPreset: 'triangles', ledsPerEdge: 3, rate: 5, speed: 0.5, seed: 2 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e2', 'rp', 'frame', 'out', 'frame')]
     evaluateGraphFull([ripple, out], edges, 0, W, H)
