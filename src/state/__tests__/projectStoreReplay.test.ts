@@ -109,6 +109,38 @@ describe('project pending-save replay', () => {
     expect(calls[1][0]).not.toHaveProperty('diskBase')
   })
 
+  // Review 2026-11-18: the helper wrote save 200, the tab reloaded before the
+  // reply, and an edit at 300 was still in the browser. The file is this
+  // browser's own save, so 300 descends from it and replaces it.
+  it('takes a save the tab sent but never heard back about as its base after a reload', async () => {
+    const backend = await import('../../utils/backendClient')
+    const first = await import('../projectStore')
+    vi.mocked(backend.saveProjectToDisk).mockReturnValue(new Promise(() => {}))
+    const now = vi.spyOn(Date, 'now').mockReturnValue(200)
+    const created = first.useProjectStore.getState().createProject('Quick', project(1, 1).workspace)
+    const sent = vi.mocked(backend.saveProjectToDisk).mock.calls[0][0]
+    now.mockReturnValue(300)
+    first.useProjectStore.getState().saveCurrentWorkspace(project(2, 1).workspace)
+    now.mockRestore()
+    const local = first.useProjectStore.getState().projects.find((entry) => entry.id === created.id)!
+    expect([sent.updatedAt, local.updatedAt]).toEqual([200, 300])
+
+    vi.resetModules()
+    vi.clearAllMocks()
+    const reloaded = await import('../../utils/backendClient')
+    vi.mocked(reloaded.listProjects).mockResolvedValue([sent])
+    vi.mocked(reloaded.saveProjectToDisk).mockResolvedValue(true)
+    const { useProjectStore } = await import('../projectStore')
+    expect(await useProjectStore.getState().refreshFromDisk()).toEqual([])
+    const projects = useProjectStore.getState().projects
+    expect(projects.map((entry) => entry.name)).toEqual(['Quick'])
+    expect(projects[0].workspace).toEqual(local.workspace)
+    expect(vi.mocked(reloaded.saveProjectToDisk)).toHaveBeenCalledWith(
+      expect.objectContaining({ id: created.id, updatedAt: local.updatedAt }),
+      expect.objectContaining({ baseUpdatedAt: sent.updatedAt }),
+    )
+  })
+
   // The 2026-10-30 loss: newer by its clock, but edited from an older save.
   it('keeps a stale-based browser workspace beside the file instead of over it', async () => {
     const local = { ...project(0, 900), diskBase: 50 }

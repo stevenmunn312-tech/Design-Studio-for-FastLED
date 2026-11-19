@@ -12,6 +12,26 @@ import { withSaveFormat } from '../state/saveFormat'
 const ENV_URL = (import.meta.env as Record<string, string | undefined>).VITE_BACKEND_URL
 export const BACKEND_URL = (ENV_URL ?? 'http://localhost:8008').replace(/\/$/, '')
 
+/** How long a request-and-reply call waits before the helper counts as offline. */
+const REQUEST_TIMEOUT_MS = 15_000
+/** Calls that run a tool or open every serial port before they answer. */
+const TOOL_REQUEST_TIMEOUT_MS = 60_000
+/** Downloads every board-manager index before it answers. */
+const CORE_INDEX_TIMEOUT_MS = 180_000
+
+/**
+ * A request-and-reply call to the helper, given up after `timeoutMs`. A helper
+ * that accepts the connection but never answers otherwise leaves its caller
+ * waiting for good: a save that never settles, a project list that never
+ * loads. Each caller already treats a failed request as "helper offline". Builds, installs, uploads, log
+ * streams and native file dialogs run as long as they need, and use `fetch`.
+ */
+function helperFetch(path: string, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
+  const timeout = AbortSignal.timeout(timeoutMs)
+  const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout
+  return fetch(`${BACKEND_URL}${path}`, { ...init, signal })
+}
+
 export interface BackendHealth {
   ok: boolean
   arduinoCli: boolean
@@ -52,7 +72,7 @@ export interface SerialPort {
 /** Ping the helper. Returns its health, or null if it isn't reachable. */
 export async function checkBackend(signal?: AbortSignal): Promise<BackendHealth | null> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/health`, { signal })
+    const res = await helperFetch(`/api/health`, { signal })
     if (!res.ok) return null
     return (await res.json()) as BackendHealth
   } catch {
@@ -71,7 +91,7 @@ export interface SystemInfo {
  *  helper isn't reachable. */
 export async function getSystemInfo(signal?: AbortSignal): Promise<SystemInfo | null> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/system-info`, { signal })
+    const res = await helperFetch(`/api/system-info`, { signal })
     if (!res.ok) return null
     return (await res.json()) as SystemInfo
   } catch {
@@ -84,7 +104,7 @@ export async function getSystemInfo(signal?: AbortSignal): Promise<SystemInfo | 
  *  core update checks). Only takes effect if that engine's binary was found. */
 export async function setEngine(engine: 'fbuild' | 'arduino-cli'): Promise<{ ok: boolean; engine?: string; error?: string }> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/engine`, {
+    const res = await helperFetch(`/api/engine`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ engine }),
@@ -100,7 +120,7 @@ export async function setEngine(engine: 'fbuild' | 'arduino-cli'): Promise<{ ok:
  *  the Upload tab polls with, since a full scan opens every port to name it. */
 export async function listPorts(quick = false): Promise<SerialPort[]> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/serial/ports${quick ? '?quick=1' : ''}`)
+    const res = await helperFetch(`/api/serial/ports${quick ? '?quick=1' : ''}`, {}, TOOL_REQUEST_TIMEOUT_MS)
     const data = await res.json()
     return data.ok ? (data.ports as SerialPort[]) : []
   } catch {
@@ -127,11 +147,11 @@ export async function setRtcDateTime(
   dateTime: string,
 ): Promise<{ ok: boolean; dateTime?: string; serialMessage?: string; error?: string }> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/rtc/set`, {
+    const res = await helperFetch(`/api/rtc/set`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ port, dateTime }),
-    })
+    }, TOOL_REQUEST_TIMEOUT_MS)
     return (await res.json()) as { ok: boolean; dateTime?: string; serialMessage?: string; error?: string }
   } catch (error) {
     return { ok: false, error: String(error) }
@@ -146,7 +166,7 @@ export async function setRtcDateTime(
 /** Open (or reuse) a serial port for a live-streaming session. */
 export async function startStream(port: string, baud: number): Promise<{ ok: boolean; error?: string }> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/stream/start`, {
+    const res = await helperFetch(`/api/stream/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ port, baud }),
@@ -162,7 +182,7 @@ export async function startStream(port: string, baud: number): Promise<{ ok: boo
  *  live streaming isn't worth surfacing as an error, just skip it. */
 export async function sendStreamFrame(packet: Uint8Array, signal?: AbortSignal): Promise<boolean> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/stream/frame`, {
+    const res = await helperFetch(`/api/stream/frame`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/octet-stream' },
       body: packet,
@@ -177,7 +197,7 @@ export async function sendStreamFrame(packet: Uint8Array, signal?: AbortSignal):
 /** Close the stream port. Best-effort — safe to call even if nothing is open. */
 export async function stopStream(): Promise<void> {
   try {
-    await fetch(`${BACKEND_URL}/api/stream/stop`, { method: 'POST' })
+    await helperFetch(`/api/stream/stop`, { method: 'POST' })
   } catch {
     // helper offline — nothing to clean up
   }
@@ -209,7 +229,7 @@ export interface ArtnetSnapshotResponse {
  *  whether the helper joins the sACN multicast group for that universe. */
 export async function startArtnetListener(port: number, protocol: 'Art-Net' | 'sACN' = 'Art-Net', universe = 0): Promise<{ ok: boolean; error?: string }> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/artnet/start`, {
+    const res = await helperFetch(`/api/artnet/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ port, protocol, universe }),
@@ -222,7 +242,7 @@ export async function startArtnetListener(port: number, protocol: 'Art-Net' | 's
 
 export async function stopArtnetListener(): Promise<void> {
   try {
-    await fetch(`${BACKEND_URL}/api/artnet/stop`, { method: 'POST' })
+    await helperFetch(`/api/artnet/stop`, { method: 'POST' })
   } catch {
     // helper offline — nothing to clean up
   }
@@ -230,7 +250,7 @@ export async function stopArtnetListener(): Promise<void> {
 
 export async function getArtnetStatus(universe: number): Promise<ArtnetStatusResponse | null> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/artnet/status?${new URLSearchParams({ universe: String(universe) })}`)
+    const res = await helperFetch(`/api/artnet/status?${new URLSearchParams({ universe: String(universe) })}`)
     if (!res.ok) return null
     return (await res.json()) as ArtnetStatusResponse
   } catch {
@@ -240,7 +260,7 @@ export async function getArtnetStatus(universe: number): Promise<ArtnetStatusRes
 
 export async function getArtnetSnapshot(universe: number): Promise<ArtnetSnapshotResponse | null> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/artnet/snapshot?${new URLSearchParams({ universe: String(universe) })}`)
+    const res = await helperFetch(`/api/artnet/snapshot?${new URLSearchParams({ universe: String(universe) })}`)
     if (!res.ok) return null
     return (await res.json()) as ArtnetSnapshotResponse
   } catch {
@@ -264,7 +284,7 @@ export interface DdpFrameResponse {
 
 export async function startDdpListener(port: number): Promise<{ ok: boolean; error?: string }> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/ddp/start`, {
+    const res = await helperFetch(`/api/ddp/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ port }),
@@ -277,7 +297,7 @@ export async function startDdpListener(port: number): Promise<{ ok: boolean; err
 
 export async function stopDdpListener(): Promise<void> {
   try {
-    await fetch(`${BACKEND_URL}/api/ddp/stop`, { method: 'POST' })
+    await helperFetch(`/api/ddp/stop`, { method: 'POST' })
   } catch {
     // helper offline — nothing to clean up
   }
@@ -285,7 +305,7 @@ export async function stopDdpListener(): Promise<void> {
 
 export async function getDdpFrame(pixels: number): Promise<DdpFrameResponse | null> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/ddp/frame?${new URLSearchParams({ pixels: String(pixels) })}`)
+    const res = await helperFetch(`/api/ddp/frame?${new URLSearchParams({ pixels: String(pixels) })}`)
     if (!res.ok) return null
     return (await res.json()) as DdpFrameResponse
   } catch {
@@ -296,7 +316,7 @@ export async function getDdpFrame(pixels: number): Promise<DdpFrameResponse | nu
 /** Installed board-core ids (e.g. `esp32:esp32`), so the board manager can show status. */
 export async function listCores(): Promise<string[]> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/cores`)
+    const res = await helperFetch(`/api/cores`, {}, TOOL_REQUEST_TIMEOUT_MS)
     const data = await res.json()
     return data.ok ? (data.cores as string[]) : []
   } catch {
@@ -307,11 +327,11 @@ export async function listCores(): Promise<string[]> {
 /** Point the helper at a user-supplied arduino-cli binary. Returns the result. */
 export async function locateCli(path: string): Promise<{ ok: boolean; error?: string; version?: string }> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/arduino-cli/locate`, {
+    const res = await helperFetch(`/api/arduino-cli/locate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path }),
-    })
+    }, TOOL_REQUEST_TIMEOUT_MS)
     return await res.json()
   } catch (e) {
     return { ok: false, error: String(e) }
@@ -342,12 +362,12 @@ export interface CoreUpdate { core: string; installed: string; latest: string }
  *  installed cores have a newer version available. */
 export async function checkCoreUpdates(urls: string[] = [], signal?: AbortSignal): Promise<CoreUpdate[]> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/core/updates`, {
+    const res = await helperFetch(`/api/core/updates`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ urls }),
       signal,
-    })
+    }, CORE_INDEX_TIMEOUT_MS)
     const data = await res.json()
     return data.ok ? (data.updates as CoreUpdate[]) : []
   } catch {
@@ -473,7 +493,7 @@ export async function exportBinary(
  */
 export async function cancelBuild(): Promise<boolean> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/build/cancel`, { method: 'POST' })
+    const res = await helperFetch(`/api/build/cancel`, { method: 'POST' })
     const data = await res.json()
     return !!data.cancelled
   } catch {
@@ -485,7 +505,7 @@ export async function cancelBuild(): Promise<boolean> {
  *  which stops an upload and never the check beside it. */
 export async function cancelCompileCheck(): Promise<boolean> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/compile-check/cancel`, { method: 'POST' })
+    const res = await helperFetch(`/api/compile-check/cancel`, { method: 'POST' })
     const data = await res.json()
     return !!data.cancelled
   } catch {
@@ -589,7 +609,7 @@ export interface RemovableDrive {
  */
 export async function listRemovableDrives(): Promise<RemovableDrive[]> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/removable-drives`)
+    const res = await helperFetch(`/api/removable-drives`)
     if (!res.ok) return []
     const json = await res.json()
     return Array.isArray(json.drives) ? (json.drives as RemovableDrive[]) : []
@@ -623,7 +643,7 @@ export async function copyToSdCard(
  *  the caller treats as "offline — keep the localStorage copy"). */
 export async function listPatterns(): Promise<SavedPattern[] | null> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/patterns`)
+    const res = await helperFetch(`/api/patterns`)
     if (!res.ok) return null
     const data = await res.json()
     return data.ok ? (data.patterns as SavedPattern[]) : null
@@ -635,7 +655,7 @@ export async function listPatterns(): Promise<SavedPattern[] | null> {
 /** Write one pattern to its own file. Returns false when the helper is absent. */
 export async function savePatternToDisk(pattern: SavedPattern): Promise<boolean> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/patterns`, {
+    const res = await helperFetch(`/api/patterns`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(withSaveFormat(pattern)),
@@ -650,7 +670,7 @@ export async function savePatternToDisk(pattern: SavedPattern): Promise<boolean>
 /** Delete a pattern's file by id. Returns false when the helper is absent. */
 export async function deletePatternFromDisk(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/patterns/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    const res = await helperFetch(`/api/patterns/${encodeURIComponent(id)}`, { method: 'DELETE' })
     const data = await res.json()
     return !!data.ok
   } catch {
@@ -662,7 +682,7 @@ export async function deletePatternFromDisk(id: string): Promise<boolean> {
  *  helper is absent (caller should hide/disable the reveal button in that case). */
 export async function revealPatternsFolder(): Promise<boolean> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/patterns/reveal`, { method: 'POST' })
+    const res = await helperFetch(`/api/patterns/reveal`, { method: 'POST' })
     const data = await res.json()
     return !!data.ok
   } catch {
@@ -675,7 +695,7 @@ export async function revealPatternsFolder(): Promise<boolean> {
 /** All saved projects on disk, or `null` if the helper is unreachable. */
 export async function listProjects(): Promise<SavedProject[] | null> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/projects`)
+    const res = await helperFetch(`/api/projects`)
     if (!res.ok) return null
     const data = await res.json()
     return data.ok ? (data.projects as SavedProject[]) : null
@@ -694,7 +714,7 @@ export async function saveProjectToDisk(
   options: { baseUpdatedAt?: number; onConflict?: () => void } = {},
 ): Promise<boolean> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/projects`, {
+    const res = await helperFetch(`/api/projects`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(withSaveFormat(options.baseUpdatedAt === undefined ? project : { ...project, baseUpdatedAt: options.baseUpdatedAt })),
@@ -710,7 +730,7 @@ export async function saveProjectToDisk(
 /** Delete a project's file by id. Returns false when the helper is absent. */
 export async function deleteProjectFromDisk(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/projects/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    const res = await helperFetch(`/api/projects/${encodeURIComponent(id)}`, { method: 'DELETE' })
     const data = await res.json()
     return !!data.ok
   } catch {
@@ -743,7 +763,12 @@ export async function saveProjectWithDialog(project: SavedProject): Promise<Save
     })
     const data = await res.json() as { ok?: boolean; canceled?: boolean; project?: SavedProject }
     if (data.canceled) throw new DOMException('The user aborted a request.', 'AbortError')
-    return data.ok && data.project ? data.project : null
+    // The helper wrote this version, in the Projects folder when that is where
+    // the person chose. It is the base the copy descends from: without it the
+    // autosave that follows names no base and the helper refuses it as a
+    // conflict with the file it has just written ("Not saved" after a good
+    // Save As).
+    return data.ok && data.project ? { ...data.project, diskBase: data.project.updatedAt } : null
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error
     return null

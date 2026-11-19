@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { engineVersionNumber, uploadShow } from '../backendClient'
+import { engineVersionNumber, saveProjectToDisk, saveProjectWithDialog, uploadShow } from '../backendClient'
 
 describe('backendClient uploadShow', () => {
   afterEach(() => {
@@ -27,6 +27,41 @@ describe('backendClient uploadShow', () => {
       flashMb: 16,
       usbCdcOnBoot: true,
     })
+  })
+})
+
+describe('backendClient request timeout', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  // A helper that takes the connection and never answers counts as offline.
+  it('gives up on a save the helper never answers', async () => {
+    // Fake timers do not reach AbortSignal.timeout, so fire it by hand.
+    const timer = new AbortController()
+    const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(timer.signal)
+    vi.stubGlobal('fetch', vi.fn((_url: string, init?: RequestInit) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
+    })))
+    const saved = saveProjectToDisk({
+      id: 'p', name: 'P', createdAt: 1, updatedAt: 1, workspace: { nodes: [], edges: [] },
+    })
+    expect(timeout).toHaveBeenCalledWith(15_000)
+    timer.abort(new DOMException('timed out', 'TimeoutError'))
+    await expect(saved).resolves.toBe(false)
+  })
+})
+
+describe('backendClient saveProjectWithDialog', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  // Review 2026-11-18: the save that follows a Save As named no base, and the
+  // helper refused it against the file the dialog had just written.
+  it('takes the version the dialog wrote as the copy\'s disk base', async () => {
+    const project = { id: 'p', name: 'Lamp', createdAt: 1, updatedAt: 500, workspace: { nodes: [], edges: [] } }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ ok: true, canceled: false, project })))
+    await expect(saveProjectWithDialog(project)).resolves.toEqual({ ...project, diskBase: 500 })
   })
 })
 

@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './themes/tokens.css'
 import App from './App'
+import { ErrorBoundary } from './components/Layout/ErrorBoundary'
 
 // Dev-only: warn if any infinitely-animated element grows a CSS filter again
 // (an unbounded GPU-memory leak in Chromium). Tree-shaken out of production.
@@ -41,6 +42,8 @@ if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary label="Design Studio" root>
+      <App />
+    </ErrorBoundary>
   </StrictMode>
 )

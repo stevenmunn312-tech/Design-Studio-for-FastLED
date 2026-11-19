@@ -64,11 +64,13 @@ more after the freeze.
 
 ### Data safety
 
-- [ ] Stop a reload in the middle of a save producing a false
-  "(browser copy)" duplicate.
-- [ ] Add an error boundary, so one component throwing does not blank the app.
-- [ ] Give the `backendClient` fetches a timeout.
-- [ ] Fix Save As reporting "Not saved" after a save that worked.
+- [x] Stop a reload in the middle of a save producing a false
+  "(browser copy)" duplicate. Done 2026-11-20: the sync journal keeps each
+  sent, unacknowledged version, and a file found at one is taken as the base.
+- [x] Add an error boundary, so one component throwing does not blank the app.
+- [x] Give the `backendClient` fetches a timeout. Request-and-reply calls only;
+  builds, installs, uploads, streams and native dialogs run as long as they need.
+- [x] Fix Save As reporting "Not saved" after a save that worked.
 
 ### Power and hardware
 

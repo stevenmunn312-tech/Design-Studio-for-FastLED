@@ -35,6 +35,7 @@ import { usePerformanceDeckSession } from './state/player/performanceDeckSession
 import { serializeKeyCombo } from './state/player/performanceDeck'
 import { dispatchDeckAction } from './state/player/performanceDeckActions'
 import { PanelResizeHandle } from './components/Layout/PanelResizeHandle'
+import { ErrorBoundary } from './components/Layout/ErrorBoundary'
 import { DEFAULT_PREVIEW_WIDTH, DEFAULT_SIDEBAR_WIDTH, MAX_PREVIEW_WIDTH, MAX_SIDEBAR_WIDTH, MIN_PREVIEW_WIDTH, MIN_SIDEBAR_WIDTH } from './state/layoutPresets'
 import { enterStagePresentation, exitStagePresentation } from './utils/stagePresentation'
 import { HARDWARE_SHELF_HOST_ID } from './components/Hardware/hardwareShelfHost'
@@ -744,7 +745,7 @@ export default function App() {
                   >
                     {sidebarHosted
                       ? <div id={sidebarHostId} className={styles.sidebarShelfHost} />
-                      : <Sidebar />}
+                      : <ErrorBoundary label="The node library"><Sidebar /></ErrorBoundary>}
                   </div>
                 </div>
                 {sidebarOpen && (
@@ -774,6 +775,7 @@ export default function App() {
             )}
             <div className={styles.splitCanvas}>
               <div className={styles.graphPane}>
+                <ErrorBoundary label="This workspace" resetKey={`${workspaceMode}:${designWorkspaceView.kind}`}>
                 {workspaceMode === 'build' && !stageMode ? (
                   <Suspense fallback={null}>
                     <BuildDiagramWorkspace />
@@ -787,6 +789,7 @@ export default function App() {
                 ) : (
                   <NodeGraphCanvas />
                 )}
+                </ErrorBoundary>
                 <FirstProjectGuide />
               </div>
             </div>
@@ -798,7 +801,7 @@ export default function App() {
               inert={!previewShown && !stageMode}
               id="preview-panel"
             >
-              <LEDPreview />
+              <ErrorBoundary label="The LED preview"><LEDPreview /></ErrorBoundary>
             </div>
           </div>
           {!displayEditorOpen && previewPanelOpen && !stageMode && (
@@ -825,9 +828,11 @@ export default function App() {
             <span className={styles.previewHandleArrow} aria-hidden="true">{previewPanelOpen ? '›' : '‹'}</span>
           </button>}
           {deckOpen && (
-            <Suspense fallback={null}>
-              <PerformanceDeck />
-            </Suspense>
+            <ErrorBoundary label="The performance deck" floating>
+              <Suspense fallback={null}>
+                <PerformanceDeck />
+              </Suspense>
+            </ErrorBoundary>
           )}
         </div>
         {!stageMode && workspaceMode !== 'build' && <GraphHealthDrawer />}
@@ -835,6 +840,7 @@ export default function App() {
       <div className={styles.statusShell}><StatusBar /></div>
       <PerformanceDeckMidiBridge />
       <LiveTouchScreen />
+      <ErrorBoundary label="This dialog" floating>
       <Suspense fallback={null}>
         <AppDialogHost />
         {/* Headless. Drives the live capacity check from here rather than a
@@ -856,6 +862,7 @@ export default function App() {
         {projectsOpen && <ProjectsPopup />}
         {ratingsOpen && <PatternRatingsPopup />}
       </Suspense>
+      </ErrorBoundary>
     </div>
   )
 }

@@ -1,0 +1,63 @@
+.region,
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-ui);
+}
+
+.region {
+  margin: var(--space-1);
+  background: var(--bg-panel);
+  border: 1px solid var(--error);
+  border-radius: var(--radius-card);
+}
+
+.floating {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 1300;
+  max-width: min(480px, calc(100vw - 2 * var(--space-2)));
+  margin: 0;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 8px 24px var(--active-shadow);
+}
+
+.root {
+  min-height: 100vh;
+  justify-content: center;
+  align-items: center;
+  background: var(--bg-primary);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.detail {
+  margin: 0;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.button {
+  padding: var(--space-0) var(--space-1);
+  color: var(--accent-ui-text);
+  background: var(--accent-ui);
+  border: none;
+  border-radius: var(--radius-control);
+  font: inherit;
+  cursor: pointer;
+}

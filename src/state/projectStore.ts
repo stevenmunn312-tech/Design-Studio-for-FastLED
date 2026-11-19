@@ -99,6 +99,7 @@ const SYNC_KEY = 'design-studio-for-fastled.projects-sync.v1'
 const LEGACY_AUTOSAVE_KEY = 'design-studio-for-fastled-graph'
 const DISK_SYNC = !import.meta.env.VITEST
 const RECENT_PROJECT_LIMIT = 6
+const SENT_VERSION_LIMIT = 20
 
 // ── Helper sync journal ──────────────────────────────────────────────────────
 // Mirrors the pattern library's journal (patternLibrary.ts). Disk is
@@ -110,6 +111,13 @@ const RECENT_PROJECT_LIMIT = 6
 interface ProjectSyncJournal {
   pendingUpserts: string[]
   pendingDeletes: string[]
+  /**
+   * The `updatedAt` of each save sent and not yet acknowledged, per project.
+   * A reload between the helper writing a save and the tab hearing back finds
+   * the file at one of these versions: this browser wrote it, so it is a base
+   * the browser copy descends from, not another writer's save.
+   */
+  sent?: Record<string, number[]>
 }
 
 function loadSyncJournal(): ProjectSyncJournal {
@@ -119,15 +127,37 @@ function loadSyncJournal(): ProjectSyncJournal {
     const ids = (value: unknown) => Array.isArray(value)
       ? [...new Set(value.filter((id): id is string => typeof id === 'string' && !!id))]
       : []
-    return { pendingUpserts: ids(parsed.pendingUpserts), pendingDeletes: ids(parsed.pendingDeletes) }
+    const sent: Record<string, number[]> = {}
+    if (parsed.sent && typeof parsed.sent === 'object') {
+      for (const [id, versions] of Object.entries(parsed.sent)) {
+        const valid = Array.isArray(versions)
+          ? versions.filter((version): version is number => typeof version === 'number' && Number.isFinite(version))
+          : []
+        if (valid.length > 0) sent[id] = valid
+      }
+    }
+    return {
+      pendingUpserts: ids(parsed.pendingUpserts),
+      pendingDeletes: ids(parsed.pendingDeletes),
+      ...(Object.keys(sent).length > 0 ? { sent } : {}),
+    }
   } catch {
     return { pendingUpserts: [], pendingDeletes: [] }
   }
 }
 
+function withSent(journal: ProjectSyncJournal, id: string, versions: number[]): ProjectSyncJournal {
+  const sent = { ...journal.sent }
+  if (versions.length > 0) sent[id] = versions
+  else delete sent[id]
+  const next: ProjectSyncJournal = { pendingUpserts: journal.pendingUpserts, pendingDeletes: journal.pendingDeletes }
+  if (Object.keys(sent).length > 0) next.sent = sent
+  return next
+}
+
 function persistSyncJournal(journal: ProjectSyncJournal) {
   try {
-    if (journal.pendingUpserts.length === 0 && journal.pendingDeletes.length === 0) {
+    if (journal.pendingUpserts.length === 0 && journal.pendingDeletes.length === 0 && !journal.sent) {
       localStorage.removeItem(SYNC_KEY)
     } else {
       localStorage.setItem(SYNC_KEY, JSON.stringify(journal))
@@ -141,11 +171,18 @@ function updateSyncJournal(update: (journal: ProjectSyncJournal) => ProjectSyncJ
   persistSyncJournal(update(loadSyncJournal()))
 }
 
-function markPendingUpsert(id: string) {
-  updateSyncJournal((journal) => ({
-    pendingUpserts: [...new Set([...journal.pendingUpserts, id])],
-    pendingDeletes: journal.pendingDeletes.filter((entry) => entry !== id),
-  }))
+function markPendingUpsert(id: string, sentVersion?: number) {
+  updateSyncJournal((journal) => {
+    const next = {
+      ...journal,
+      pendingUpserts: [...new Set([...journal.pendingUpserts, id])],
+      pendingDeletes: journal.pendingDeletes.filter((entry) => entry !== id),
+    }
+    if (sentVersion === undefined) return next
+    // Bounded: with the helper offline every autosave is sent and none lands.
+    const versions = [...new Set([...(journal.sent?.[id] ?? []), sentVersion])].slice(-SENT_VERSION_LIMIT)
+    return withSent(next, id, versions)
+  })
 }
 
 function clearPendingUpsert(id: string) {
@@ -155,11 +192,26 @@ function clearPendingUpsert(id: string) {
   }))
 }
 
+/**
+ * The helper wrote `version`: it and every earlier save of this tab are
+ * settled. The project stays journalled while a later save is still out.
+ */
+function acknowledgeSave(id: string, version: number) {
+  updateSyncJournal((journal) => {
+    const later = (journal.sent?.[id] ?? []).filter((entry) => entry > version)
+    const next = withSent(journal, id, later)
+    return later.length > 0
+      ? next
+      : { ...next, pendingUpserts: next.pendingUpserts.filter((entry) => entry !== id) }
+  })
+}
+
 function markPendingDelete(id: string) {
-  updateSyncJournal((journal) => ({
+  updateSyncJournal((journal) => withSent({
+    ...journal,
     pendingUpserts: journal.pendingUpserts.filter((entry) => entry !== id),
     pendingDeletes: [...new Set([...journal.pendingDeletes, id])],
-  }))
+  }, id, []))
 }
 
 function clearPendingDelete(id: string) {
@@ -205,7 +257,7 @@ function saveBase(project: SavedProject): number | undefined {
 /** Write a project to disk, journalling it until the helper acknowledges. */
 function queueProjectUpsert(project: SavedProject) {
   if (!DISK_SYNC) return
-  markPendingUpsert(project.id)
+  markPendingUpsert(project.id, project.updatedAt)
   const baseUpdatedAt = saveBase(project)
   sentByThisTab.set(project.id, Math.max(sentByThisTab.get(project.id) ?? -Infinity, project.updatedAt))
   void saveProjectToDisk(forDisk(project), {
@@ -220,7 +272,7 @@ function queueProjectUpsert(project: SavedProject) {
       if (project.id === useProjectStore.getState().currentProjectId) warnIfSavedNowhere()
       return
     }
-    clearPendingUpsert(project.id)
+    acknowledgeSave(project.id, project.updatedAt)
     // The file now holds this version, so later edits descend from it. Kept
     // in memory; the next persist carries it to storage.
     useProjectStore.setState((state) => ({
@@ -230,6 +282,37 @@ function queueProjectUpsert(project: SavedProject) {
         : entry),
     }))
   })
+}
+
+/**
+ * Settle the saves this browser sent that the disk listing shows landed: each
+ * file at a sent version becomes the browser copy's base. Versions the file
+ * has passed are dropped; any later one is still in flight.
+ */
+function adoptOwnSaves(disk: SavedProject[]) {
+  const sent = loadSyncJournal().sent
+  if (!sent) return
+  const landed = new Map<string, number>()
+  for (const file of disk) {
+    if (sent[file.id]?.includes(file.updatedAt)) landed.set(file.id, file.updatedAt)
+  }
+  updateSyncJournal((journal) => {
+    let next = journal
+    for (const file of disk) {
+      const versions = journal.sent?.[file.id]
+      if (versions) next = withSent(next, file.id, versions.filter((version) => version > file.updatedAt))
+    }
+    return next
+  })
+  if (landed.size === 0) return
+  useProjectStore.setState((state) => ({
+    projects: state.projects.map((project) => {
+      const version = landed.get(project.id)
+      return version !== undefined && (project.diskBase ?? -Infinity) < version
+        ? { ...project, diskBase: version }
+        : project
+    }),
+  }))
 }
 
 /** Delete a project's file, journalling it until the helper acknowledges. */
@@ -736,6 +819,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         'info',
       )
     }
+
+    // A save this browser sent can land on disk without the tab hearing back,
+    // when it reloads in between. The file then holds this browser's own
+    // version, so the copy here descends from it: stamp that base before the
+    // stale-base checks below, or they keep a false "(browser copy)".
+    adoptOwnSaves(disk)
 
     // Replay unacknowledged deletions first, and filter the already-fetched
     // snapshot regardless of whether the retry succeeded, so a slow or failing
