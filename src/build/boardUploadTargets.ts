@@ -1,14 +1,19 @@
 import type { StudioNode } from '../state/graphStore'
 import { PRIMARY_UPLOAD_TARGET_KEY, type ProjectUploadTargets } from '../state/uploadTargets'
 import { boardNodesIn, primaryBoardId } from './boardPartition'
+import { resolveBoardSelection } from './boards/boardProfiles'
 
 /** Board node id to the FQBN that board builds for. */
 export type BoardFqbnTargets = Record<string, string>
 
 /**
- * The FQBN a board validates against: its own target, else the primary's
- * (which the project keeps under `PRIMARY_UPLOAD_TARGET_KEY` whatever the
- * primary Board node is called), else the caller's default.
+ * The FQBN a board validates against: its own target (for the primary, also
+ * the project's primary target, kept under `PRIMARY_UPLOAD_TARGET_KEY`
+ * whatever the primary Board node is called), else the first target its own
+ * Board profile builds for, else, for the primary only, the caller's
+ * default. A second board never borrows the primary's: an ESP32-S3 beside an
+ * Uno was once checked as an Uno. With nothing of its own it gets '', which
+ * validates against no target.
  */
 export function boardFqbn(
   nodes: readonly StudioNode[],
@@ -16,10 +21,15 @@ export function boardFqbn(
   boardId: string,
   defaultFqbn = '',
 ): string {
+  const primary = primaryBoardId(nodes)
+  const board = nodes.find((node) => node.id === boardId && node.data.nodeType === 'Board')
+  // The conventional key names the primary unless a later Board carries it.
+  const isPrimary = boardId === primary || (boardId === PRIMARY_UPLOAD_TARGET_KEY && !board) || boardNodesIn(nodes).length === 0
+  const profileFqbn = board ? resolveBoardSelection(board.data.properties).profile?.compatibleFqbns[0] : undefined
   return targets[boardId]
-    || targets[primaryBoardId(nodes)]
-    || targets[PRIMARY_UPLOAD_TARGET_KEY]
-    || defaultFqbn
+    || (isPrimary ? targets[primary] || targets[PRIMARY_UPLOAD_TARGET_KEY] : '')
+    || profileFqbn
+    || (isPrimary ? defaultFqbn : '')
     || ''
 }
 

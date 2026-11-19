@@ -72,9 +72,9 @@ more after the freeze.
 
 ### Power and hardware
 
-- [ ] Validate a second board against its own FQBN, not the primary's
+- [x] Validate a second board against its own FQBN, not the primary's
   (`boardUploadTargets.ts:19`).
-- [ ] ESP32-C3 GPIO11: check the pin rule against the module.
+- [x] ESP32-C3 GPIO11: check the pin rule against the module.
 
 ### Firmware and preview parity
 

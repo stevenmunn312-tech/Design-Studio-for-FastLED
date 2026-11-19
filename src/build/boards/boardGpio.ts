@@ -277,7 +277,7 @@ const ESP32_S2_GPIO = boardPins({
 })
 
 const ESP32_C3_GPIO = boardPins({
-  digital: [...range(0, 11), ...range(18, 21)],
+  digital: [...range(0, 10), ...range(18, 21)],
   analog: range(0, 5),
   warnings: {
     2: 'Strapping pin — check the required boot level',
@@ -289,7 +289,12 @@ const ESP32_C3_GPIO = boardPins({
     18: 'Native USB D− on boards using USB-JTAG',
     19: 'Native USB D+ on boards using USB-JTAG',
   },
-  unavailable: Object.fromEntries(range(12, 17).map((pin) => [pin, 'Connected to integrated SPI flash on common modules'])),
+  unavailable: {
+    // VDD_SPI: it powers the SPI flash, and is a GPIO only once the
+    // VDD_SPI_AS_GPIO eFuse is burned, which no stock C3 board ships with.
+    11: 'VDD_SPI: powers the SPI flash unless an eFuse makes it a GPIO',
+    ...Object.fromEntries(range(12, 17).map((pin) => [pin, 'Connected to integrated SPI flash on common modules'])),
+  },
 })
 
 const ESP32_C6_GPIO = boardPins({

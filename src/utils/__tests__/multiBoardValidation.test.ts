@@ -88,10 +88,21 @@ describe('multiBoardValidation — one board', () => {
     expect(boardLabel(nodes, 'board-9')).toBe('Board 1')
 
     expect(boardFqbn(nodes, { 'board-2': UNO, 'board-root': S3 }, 'board-2')).toBe(UNO)
-    expect(boardFqbn(nodes, { 'board-root': S3 }, 'board-3')).toBe(S3)
-    expect(boardFqbn(nodes, {}, 'board-3', ESP32)).toBe(ESP32)
+    expect(boardFqbn(nodes, {}, 'board-root', ESP32)).toBe(ESP32)
+    expect(boardFqbn(nodes, { 'board-root': S3 }, 'board-3', ESP32)).toBe('')
     // The primary's target is keyed by the conventional id whatever the primary is called.
-    expect(boardFqbn([board('b1'), board('b2')], { 'board-root': S3 }, 'b2')).toBe(S3)
+    expect(boardFqbn([board('b1'), board('b2')], { 'board-root': S3 }, 'b1')).toBe(S3)
+  })
+
+  it('validates a second board against its own Board, never the primary', () => {
+    const nodes = [board('board-root'), board('board-2'), node('board-3', 'Board', { profileId: 'espressif-esp32-s3-devkitc-1' })]
+    // No target and no profile of its own: no target at all, not the primary's.
+    expect(boardFqbn(nodes, { 'board-root': UNO }, 'board-2', UNO)).toBe('')
+    // A chosen profile with no stored target builds for the profile's own.
+    expect(boardFqbn(nodes, { 'board-root': UNO }, 'board-3', UNO)).toBe(S3)
+    // A stored target still wins over the profile, and the primary keeps its fallbacks.
+    expect(boardFqbn(nodes, { 'board-3': ESP32 }, 'board-3')).toBe(ESP32)
+    expect(boardFqbn(nodes, {}, 'board-root', ESP32)).toBe(ESP32)
 
     const targets = boardFqbnTargets(nodes, {
       'board-root': { selectedFqbn: S3, selectedPort: 'COM3' },

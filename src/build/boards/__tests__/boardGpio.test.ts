@@ -30,6 +30,15 @@ describe('board GPIO capability catalogue', () => {
     expect(pinSupports(espInputOnly, 'pullup')).toBe(false)
   })
 
+  it('keeps ESP32-C3 GPIO11 off the usable list: it is VDD_SPI, the flash supply', () => {
+    for (const fqbn of ['esp32:esp32:esp32c3', 'esp32:esp32:XIAO_ESP32C3', 'esp32:esp32:lolin_c3_mini']) {
+      const c3 = boardGpioInfo(fqbn)!
+      expect(c3.recommended.some((pin) => pin.pin === 11), fqbn).toBe(false)
+      expect(c3.caution.find((pin) => pin.pin === 11)?.note, fqbn).toMatch(/VDD_SPI/)
+      expect(c3.recommended.some((pin) => pin.pin === 10), fqbn).toBe(true)
+    }
+  })
+
   it('marks classic ESP32 ADC2 pins with their Wi-Fi conflict', () => {
     const adc2 = boardGpioInfo('esp32:esp32:esp32')!.recommended.find((pin) => pin.pin === 25)!
     expect(pinSupports(adc2, 'analogInput')).toBe(true)
