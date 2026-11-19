@@ -2,6 +2,7 @@ import { rootGraphNodes, useGraphStore, useNodeProperties } from '../../../state
 import { useShallow } from 'zustand/react/shallow'
 import { useUiStore } from '../../../state/uiStore'
 import { outputSizeLabel } from '../../../state/output/ledOutputForm'
+import { ledProductOf, ledPartId } from '../../../state/output/ledProduct'
 import { PART_FIELDS, partFieldOptions } from '../../../build/parts/partFields'
 import {
   isGpioPinProperty,
@@ -17,7 +18,7 @@ import PartIdentity from '../../Hardware/PartIdentity'
 import BoardPinPicker from '../../Hardware/BoardPinPicker'
 import DataLanesSection from './DataLanesSection'
 import { normalizeButtonBankEntries } from '../../../state/player/buttonBank'
-import { partPinLabelForProperty } from '../../../build/parts/partCatalogue'
+import { partPinLabelForProperty, partRenderSrc } from '../../../build/parts/partCatalogue'
 import { i2sAudioStage } from '../../../state/audio/audioOutput'
 import { resolvePartIdentity } from '../../../build/parts/partOptions'
 import { usePartCatalogueVersion } from '../../../build/parts/usePartCatalogueVersion'
@@ -242,6 +243,22 @@ export default function HardwarePartBody({ nodeId, nodeType = 'Amplifier' }: Pro
           {/* What the output *is* has one editor, the node on the Graph; this
               inspector owns how it is wired. A second set of fields here gave
               "where do I set my LED count?" two answers. */}
+          <div className={styles.row} title="Which LED part this output is; chosen on the LED output node">
+            <span className={styles.key}>LED part</span>
+            <span className={styles.value} data-testid="led-part-row">
+              {(() => {
+                const product = ledProductOf(props)
+                const src = product ? partRenderSrc(product.partId) : null
+                const saved = ledPartId(props)
+                return (
+                  <>
+                    {src && <img src={src} alt="" width={20} height={20} className={styles.partThumb} />}
+                    {product ? product.label : saved ? `${saved} (not in this version)` : 'Custom'}
+                  </>
+                )
+              })()}
+            </span>
+          </div>
           <div className={styles.row} title="LED count, chipset and colour order are set on the LED output node">
             <span className={styles.key}>LEDs</span>
             <span className={styles.value}>{outputSizeLabel(props)} · {String(props.chipset ?? '')} · {String(props.colorOrder ?? '')}</span>

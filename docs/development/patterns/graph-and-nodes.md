@@ -882,3 +882,5 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   fixed deadline rather than calling `FastLED.delay`; see
   [firmware generation](firmware-generation.md) for why.
 
+
+- LED output part picker: `LedPartPicker` is the one control for `partId` (node, setup wizard); it only calls `setLedOutputPart` / `makeLedOutputCustom`. Locked keys stay visible but disabled via `editableProperties` (`ledPropertyLocked`), and the shelf lists Custom forms first, then catalogue LED parts grouped by the category tree.

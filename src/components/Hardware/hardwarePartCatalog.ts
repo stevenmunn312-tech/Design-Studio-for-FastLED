@@ -974,11 +974,15 @@ export const LED_OUTPUT_NODE_TYPE = 'MatrixOutput'
  * one node type behind them, because all forms share a port signature and the
  * bundling rule says that is one node with a variant property.
  */
-export const LED_OUTPUT_ENTRIES: Array<{
+export interface LedOutputEntry {
   form: LedOutputForm
   hint: string
   properties: Record<string, unknown>
-}> = [
+  /** The LED product this entry adds; absent for the Custom starting points. */
+  partId?: string
+}
+
+export const LED_OUTPUT_ENTRIES: LedOutputEntry[] = [
   { form: 'strip', hint: 'A run of addressable tape', properties: { ledCount: 60 } },
   { form: 'matrix', hint: 'An addressable panel', properties: { width: 16, height: 16 } },
   { form: 'ring', hint: 'A circle of addressable LEDs', properties: { ledCount: 24 } },

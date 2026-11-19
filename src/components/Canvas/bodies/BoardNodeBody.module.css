@@ -241,3 +241,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* The LED part's picture beside its name in the Hardware tab row. */
+.partThumb {
+  vertical-align: middle;
+  margin-right: var(--space-0);
+  object-fit: contain;
+}
