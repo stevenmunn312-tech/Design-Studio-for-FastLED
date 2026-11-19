@@ -4693,7 +4693,26 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "copy": {
-      "summary": "Controller ·4.5-35 V in, 5 V 2 A at 40 °C"
+      "summary": "Controller ·4.5-35 V in, 5 V 2 A at 40 °C",
+      "optionOrder": 1
+    },
+    "converterPadsMm": {
+      "IN+": [
+        1.84,
+        1.97
+      ],
+      "IN-": [
+        1.84,
+        19.11
+      ],
+      "OUT+": [
+        41.34,
+        1.97
+      ],
+      "OUT-": [
+        41.34,
+        19.11
+      ]
     }
   },
   "lr7843-mosfet-module": {
@@ -5577,7 +5596,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "copy": {
-      "summary": "LED rail ·10-18 V in, 5 V 18 A at 40 °C"
+      "summary": "LED rail ·10-18 V in, 5 V 18 A at 40 °C",
+      "optionOrder": 2
     }
   },
   "mean-well-sd-100b-5": {
@@ -5674,7 +5694,8 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       }
     ],
     "copy": {
-      "summary": "LED rail ·20-36 V in, 5 V 17.3 A at 40 °C"
+      "summary": "LED rail ·20-36 V in, 5 V 17.3 A at 40 °C",
+      "optionOrder": 3
     }
   },
   "microsd-breakout-3v3": {

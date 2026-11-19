@@ -112,7 +112,7 @@ PART_MANIFEST_VERSION = 1
 # from the part's own part.json, and an overlay never overrides one.
 OVERLAY_FIELDS = (
     "revision", "partTypes", "categories", "verification", "sources", "interfaces", "copy",
-    "pads", "padHoleRadiusPx", "supplyRail", "powerPadLabel",
+    "pads", "padHoleRadiusPx", "supplyRail", "powerPadLabel", "converterPadsMm",
     # Type blocks that part.json has never carried: the repo-held facts of the
     # audio, storage, clock, comms and simple input types. They are written
     # here, in the repository, and checked against the block spec by the
@@ -382,6 +382,18 @@ def validate_drawing_facts(part_id: str, entry: dict, overlay: dict, vocabulary:
         pins = entry.get("pinLabelsLeftToRight")
         if pins is not None and label.upper() not in [pin.upper() for pin in pins]:
             raise OverlayError(f"{part_id}: powerPadLabel {label!r} is not one of the part's pin labels")
+    if "converterPadsMm" in overlay:
+        pads = overlay["converterPadsMm"]
+        names = ("IN+", "IN-", "OUT+", "OUT-")
+        if not isinstance(pads, dict) or set(pads) != set(names):
+            raise OverlayError(f"{part_id}: converterPadsMm needs exactly IN+, IN-, OUT+ and OUT-")
+        if "powerConverter" not in entry:
+            raise OverlayError(f"{part_id}: converterPadsMm belongs on a part with a powerConverter block")
+        for name in names:
+            point = pads[name]
+            if (not isinstance(point, list) or len(point) != 2
+                    or not all(_is_number(v) and 0 <= v <= 1000 for v in point)):
+                raise OverlayError(f"{part_id}: converterPadsMm.{name} must be an [x, y] point in millimetres from 0 to 1000")
 
 
 def _text_list(value, count: int, max_length: int) -> bool:

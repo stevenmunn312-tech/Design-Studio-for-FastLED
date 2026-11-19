@@ -56,9 +56,8 @@ export const PART_TYPES: readonly PartTypeDefinition[] = [
   // (`NLED_PIXEL_DATA_EXTENDER_PART_ID`, the 74AHCT125 render in the Build Diagram).
   type({ nodeType: 'MatrixOutput' }),
   // Power
-  // Closed: the controller's converter picture keys a measured pad table on `lm2596-buck-module`
-  // (`CONVERTER_PAD_MM`), and that part's `powerConverter` block has no `terminalPositions` to read instead.
-  type({ nodeType: 'PowerConverter', block: 'powerConverter' }),
+  // The converter picture reads a part's measured pads (`converterPadsMm`) or the block's `terminalPositions`.
+  type({ nodeType: 'PowerConverter', block: 'powerConverter', downloadable: true }),
   type({ nodeType: 'BatteryPack', block: 'batteryCell', downloadable: true }),
   type({ nodeType: 'BatteryModule', block: 'batteryModule', downloadable: true }),
   type({ nodeType: 'PdTriggerSource', block: 'pdTrigger', downloadable: true }),

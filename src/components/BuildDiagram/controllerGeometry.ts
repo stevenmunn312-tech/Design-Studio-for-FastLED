@@ -375,15 +375,6 @@ const CONTROLLER_RENDERS: Record<string, ControllerRender> = Object.fromEntries(
   })
 )
 
-/**
- * Wire-pad centres of each controller converter, in millimetres from its
- * render's top-left board corner: the same drawing figures its Blender model
- * was built from, so the stubs land on the drilled pads.
- */
-export const CONVERTER_PAD_MM: Record<string, Record<'IN+' | 'IN-' | 'OUT+' | 'OUT-', [number, number]>> = {
-  'lm2596-buck-module': { 'IN+': [1.84, 1.97], 'IN-': [1.84, 19.11], 'OUT+': [41.34, 1.97], 'OUT-': [41.34, 19.11] },
-}
-
 /** Sheet width of the converter where the USB power block would otherwise sit. */
 export const CONVERTER_SHEET_WIDTH = 184
 

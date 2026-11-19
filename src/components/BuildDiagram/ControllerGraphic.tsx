@@ -6,7 +6,6 @@ import { CustomBoardGraphicFragment } from '../Hardware/CustomBoardGraphic'
 import styles from './BuildDiagramWorkspace.module.css'
 import { NetStub } from './netStubs'
 import {
-  CONVERTER_PAD_MM,
   CONVERTER_SHEET_WIDTH,
   controllerRender,
   renderTerminalPoint,
@@ -49,9 +48,9 @@ export function ControllerConverterGraphic({ supply, boardProfile, shadowFilter,
   const scale = CONVERTER_SHEET_WIDTH / render.widthPx
   const height = render.heightPx * scale
   const marginPx = (render.widthPx - (entry.dimensionsMm.width * pxPerMm)) / 2
-  // Pads measured from the model's drawing where the table has them, else the
+  // Pads measured from the model's drawing where the part carries them (`converterPadsMm`), else the
   // catalogue's own terminal positions: input pair first, output pair last.
-  const padsMm = CONVERTER_PAD_MM[supply.partId]
+  const padsMm = entry.converterPadsMm
   const positions = entry.powerConverter?.terminalPositions
   const ratioOf = (name: ConverterPad): [number, number] | undefined => {
     if (padsMm) {

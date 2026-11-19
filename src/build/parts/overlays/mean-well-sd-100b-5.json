@@ -26,6 +26,7 @@
     }
   ],
   "copy": {
-    "summary": "LED rail ·20-36 V in, 5 V 17.3 A at 40 °C"
+    "summary": "LED rail ·20-36 V in, 5 V 17.3 A at 40 °C",
+    "optionOrder": 3
   }
 }
