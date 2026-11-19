@@ -46,16 +46,3 @@ and an Upload information shelf in
   A transport lives inside a drawing node; anyone wanting only `done` still
   draws digits. Consider a small Timer signal node with Clock Display drawing
   a wired `seconds`.
-- [ ] **Node review: Category: Default Ripple and String Particles to the LED output's
-  network (Med, M).** Ripple needs the output's network preset, JSON and LEDs
-  per edge, and String Particles needs the ring LED count, all copied by hand
-  with nothing keeping them in sync. Default both to "match LED output" read
-  from the root graph's MatrixOutput, with the current fields as an override.
-  The Ripple default `ledsPerEdge: 14` rarely matches a real build and the
-  Help example uses 4. For String Particles, a ring form gives the ring track
-  and LED count and a strip form gives row. Open questions before building
-  it: which output to match when a board drives several (the multi-board
-  partition model feeds consumers the active board's partition), what the
-  preview does inside a group or pattern where no LED output is reachable,
-  and how a "match" value is saved so a later output change follows it.
-  Evidence `src/state/nodeLibrary.ts:2244`, `:2261`.

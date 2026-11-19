@@ -51,6 +51,7 @@ import MidiInputBody from './bodies/MidiInputBody'
 import DmxInputBody from './bodies/DmxInputBody'
 import DdpInputBody from './bodies/DdpInputBody'
 import RtcInputBody from './bodies/RtcInputBody'
+import LedMatchNote from './bodies/LedMatchNote'
 import { pinSupports, pinWarningForCapability } from '../../build/boards/boardGpio'
 import { buttonBankOutputs } from '../../state/player/buttonBank'
 import { webRemoteOutputs } from '../../state/peripherals/webRemote'
@@ -1720,6 +1721,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
         {d.nodeType === 'DMXInput' && <DmxInputBody nodeId={id} />}
         {d.nodeType === 'DdpInput' && <DdpInputBody nodeId={id} />}
         {d.nodeType === 'RTCInput' && <RtcInputBody nodeId={id} />}
+        {(d.nodeType === 'NetworkRipple' || d.nodeType === 'StringParticles') && props.ledSource === 'match' && <LedMatchNote nodeId={id} />}
         {d.nodeType === 'MidiInput' && (
           <MidiInputBody
             nodeId={id}

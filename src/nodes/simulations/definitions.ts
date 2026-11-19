@@ -178,13 +178,15 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
     ],
     propertyInputs: { spawn: 'spawn', speed: 'speed', trail: 'trail', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { track: 'row', mode: 'drift', count: 12, ringLeds: 60, bed: 0.3, spawn: 0.5, speed: 0.5, trail: 0.46, palette: 'rainbow', seed: 0 },
+    defaultProperties: { track: 'row', mode: 'drift', count: 12, ringLeds: 60, ledSource: 'match', bed: 0.3, spawn: 0.5, speed: 0.5, trail: 0.46, palette: 'rainbow', seed: 0 },
   },
   {
     // Ripples travelling the edges of a segment network, choosing a turn at
     // every node: the Chromancer model (docs/design/segment-networks.md).
-    // Repeats the LED output's network by property, as String Particles
-    // repeats a ring's LED count. Labelled Network Ripple: it draws only on a
+    // Matches the LED output's network by default (ledSource, resolved in
+    // state/output/ledOutputMatch.ts), as String Particles matches a ring's
+    // LED count; its own network fields are the Custom override and the
+    // fallback where no output is reachable. Labelled Network Ripple: it draws only on a
     // segment network, apart from Radial Burst's and Rain Ripples' rings.
     type: 'NetworkRipple',
     label: 'Network Ripple',
@@ -200,7 +202,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
     propertyInputs: { speed: 'speed', rate: 'rate', trail: 'trail', palette: 'paletteIn' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
     defaultProperties: {
-      networkPreset: 'hexagons', network: '', ledsPerEdge: 14, behaviour: 'straight', startNode: -1,
+      ledSource: 'match', networkPreset: 'hexagons', network: '', ledsPerEdge: 4, behaviour: 'straight', startNode: -1,
       speed: 0.4, rate: 1, lifetime: 3, width: 3, trail: 0.46, palette: 'rainbow', seed: 0,
     },
   },

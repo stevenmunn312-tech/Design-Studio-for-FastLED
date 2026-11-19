@@ -1,0 +1,7 @@
+/* The line a node shows when Match LED output found no output to match. */
+.note {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}

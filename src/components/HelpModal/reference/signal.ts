@@ -42,7 +42,7 @@ export const SIGNAL_REFERENCE: NodeReferenceMap = {
       title: 'Launch a meteor every two seconds',
       nodes: {
         every: ['Interval', { interval: 2 }],
-        sky: ['StringParticles', { track: 'row', mode: 'meteors', palette: 'emberglow', bed: 0.35, trail: 0.53 }],
+        sky: ['StringParticles', { mode: 'meteors', palette: 'emberglow', bed: 0.35, trail: 0.53 }],
       },
       wires: ['every.pulse > sky.trigger'],
       output: STRIP(60),

@@ -12,6 +12,7 @@ import {
   LUMINOVA_BLUR, LUMINOVA_MAX, LUMINOVA_NOISE_LANE, LUMINOVA_NOISE_SEPARATION, LUMINOVA_NOISE_SPEED, LUMINOVA_STEP,
   LUMINOVA_TURN, LUMINOVA_WANDER, luminovaEmitters,
 } from '../../state/evaluator/luminova'
+import { matchedLedProperties } from '../../state/output/ledOutputMatch'
 import { MAX_STRING_PARTICLES, STRING_PARTICLE_DECAY, ringTrackLeds, stringTrack } from '../../state/evaluator/stringTrack'
 import {
   RIPPLE_LIFETIME_SEC, RIPPLE_MAX_RIPPLES, RIPPLE_WIDTH, arrivalEnd, buildRippleTables, rippleBehaviour, rippleShape,
@@ -565,7 +566,9 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
   // and carries no trigonometry. The network is fitted to the render canvas
   // at start-up with the same rule as fitNetworkToCanvas, so a multi-render
   // pass lands its LEDs where its own canvas puts them.
-  NetworkRipple({ node, id, p, ln, f, ownBuf, paletteExpr, boolExpr, needsT }) {
+  NetworkRipple({ node, id, p: own, ln, f, ownBuf, paletteExpr, boolExpr, needsT, nodes: graphNodes, edges: graphEdges }) {
+    // Match LED output: the first fitting output on this partition, else the node's own network.
+    const p = matchedLedProperties('NetworkRipple', node.id, own, graphNodes, graphEdges).value
     needsT.v = true
     const ob = ownBuf({ persists: true })
     const { shape, ledsPerEdge } = rippleShape(p)
@@ -640,7 +643,8 @@ export const SIMULATIONS_EMITTERS: NodeEmitters = {
     ln(`  }`)
     void arrivalEnd
   },
-  StringParticles({ node, id, p, ln, f, ownBuf, paletteExpr, boolExpr, needsT }) {
+  StringParticles({ node, id, p: own, ln, f, ownBuf, paletteExpr, boolExpr, needsT, nodes: graphNodes, edges: graphEdges }) {
+    const p = matchedLedProperties('StringParticles', node.id, own, graphNodes, graphEdges).value
     const ob = ownBuf()
     const track = stringTrack(p.track), meteors = p.mode === 'meteors'
     const ringLeds = ringTrackLeds(p.ringLeds)

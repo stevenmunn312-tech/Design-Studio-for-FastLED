@@ -14,6 +14,7 @@ import {
   LUMINOVA_BLUR, LUMINOVA_NOISE_LANE, LUMINOVA_NOISE_SEPARATION, LUMINOVA_NOISE_SPEED, LUMINOVA_STEP,
   LUMINOVA_TURN, LUMINOVA_WANDER, luminovaEmitters,
 } from '../../state/evaluator/luminova'
+import { matchedLedProperties } from '../../state/output/ledOutputMatch'
 import { MAX_STRING_PARTICLES, STRING_PARTICLE_DECAY, ringTrackLeds, stringTrack, trackIndices, trackSplat, wrapTrack, type StringTrack } from '../../state/evaluator/stringTrack'
 import {
   RIPPLE_LIFETIME_SEC, RIPPLE_MAX_RIPPLES, RIPPLE_WIDTH, advanceRipple, buildRippleTables, rippleBehaviour, ripplePoint,
@@ -1206,7 +1207,9 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     const palette = pal(id, 'paletteIn', props, 'palette', 'ocean')
     return { frame: evalFlowField(stateKey(id), speed, scale, count, trail, t, palette, W, H, normalizedSeed(props.seed), props.flowMode === 'curl') }
   },
-  StringParticles({ input, num, pal, t, W, H, stateKey }, id, props) {
+  StringParticles({ input, num, pal, t, W, H, stateKey, nodes, edges, capabilityNodes }, id, props0) {
+    // Match LED output: the ring or strip the output drives, else the node's own track.
+    const props = matchedLedProperties('StringParticles', id, props0, capabilityNodes, capabilityNodes === nodes ? edges : []).value
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.5), SPEED_MAX.StringParticles)
     const trail = num(id, 'trail', props, 'trail', 0.46)
     const spawn = num(id, 'spawn', props, 'spawn', 0.5)
@@ -1220,7 +1223,9 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     }
     return { frame: evalStringParticles(stateKey(id), opts, spawn, Boolean(input(id, 'trigger', false)), speed, trail, t, palette, W, H, normalizedSeed(props.seed)) }
   },
-  NetworkRipple({ input, num, pal, t, W, H, stateKey }, id, props) {
+  NetworkRipple({ input, num, pal, t, W, H, stateKey, nodes, edges, capabilityNodes }, id, props0) {
+    // Match LED output: the output's network and LEDs per edge, else the node's own.
+    const props = matchedLedProperties('NetworkRipple', id, props0, capabilityNodes, capabilityNodes === nodes ? edges : []).value
     const speed = denormRate(num(id, 'speed', props, 'speed', 0.4), SPEED_MAX.NetworkRipple)
     const rate = Math.max(0, num(id, 'rate', props, 'rate', 1))
     const trail = num(id, 'trail', props, 'trail', 0.46)

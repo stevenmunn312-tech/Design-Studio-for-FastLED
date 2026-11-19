@@ -915,3 +915,5 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 
 - LED output part picker: `LedPartPicker` is the one control for `partId` (node, setup wizard); it only calls `setLedOutputPart` / `makeLedOutputCustom`. Locked keys stay visible but disabled via `editableProperties` (`ledPropertyLocked`), and the shelf lists Custom forms first, then catalogue LED parts grouped by the category tree.
+
+- Match LED output (`NetworkRipple`, `StringParticles`): `ledSource` is `match` for a new node and reads the first fitting LED output on its board partition live, through `matchedLedProperties` in `state/output/ledOutputMatch.ts`, in the evaluator and the emitter alike; a missing key reads `custom`, so old saves keep their own fields. Read the matched properties, never the raw ones, in both handlers. `ledSource.ts` stays import-free because `nodeLibrary` imports it and `ledOutputMatch` imports the library.

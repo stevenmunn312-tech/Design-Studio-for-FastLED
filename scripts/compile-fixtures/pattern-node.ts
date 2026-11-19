@@ -506,8 +506,8 @@ const phase9String = (() => {
     node('lfo', 'NoiseSignal', { speed: 0.3, min: 0.2, max: 1 }),
     node('tick', 'Interval', { interval: 0.6 }),
     node('noise', 'Noise', { noiseType: 'worley', worleyMode: 'edges', wrapX: true, noiseShape: 'billow', speed: 0.3, scale: 0.4 }),
-    node('drift', 'StringParticles', { track: 'row', mode: 'drift', count: 24 }),
-    node('meteors', 'StringParticles', { track: 'row', mode: 'meteors', count: 20, bed: 0.3 }),
+    node('drift', 'StringParticles', { ledSource: 'custom', track: 'row', mode: 'drift', count: 24 }),
+    node('meteors', 'StringParticles', { ledSource: 'custom', track: 'row', mode: 'meteors', count: 20, bed: 0.3 }),
     node('gradient', 'GradientFrame', { mixMode: 'hsvLong' }),
     node('polar', 'PolarGradient', { repeat: 2, spin: 0.2 }),
     node('path', 'Path', { pathShape: 'custom', customPoints: CUSTOM_OUTLINE, t: 0.3 }),
@@ -548,7 +548,7 @@ const phase9String = (() => {
 
 const phase9Ring = (() => {
   const nodes = [
-    node('sp', 'StringParticles', { track: 'ring', ringLeds: 60, mode: 'meteors', count: 32 }),
+    node('sp', 'StringParticles', { ledSource: 'custom', track: 'ring', ringLeds: 60, mode: 'meteors', count: 32 }),
     node('tick', 'Interval', { interval: 0.5 }),
     node('flow', 'FlowField', { flowMode: 'curl', count: 60 }),
     node('b', 'Blend', { blendMode: 'add', amount: 0.7 }),

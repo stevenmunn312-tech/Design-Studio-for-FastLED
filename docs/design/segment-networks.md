@@ -124,11 +124,14 @@ file carries it and a share link works; the editor only spares the typing.
 
 `NetworkRipple` (labelled Network Ripple; category `pattern`, Simulations) draws ripples that start at a
 node and travel along edges, choosing at each node how to continue. Like
-String Particles' `track` and `ringLeds`, the pattern repeats the output's
-geometry by property rather than reading the output: it holds the same
-`networkPreset`, `network` and `ledsPerEdge`, so one Ripple matches one
-network, and a mismatch shows in the preview as the LED Output pane draws the
-string.
+String Particles' track, it reads the LED output by default: `ledSource` is
+`match` (new nodes) or `custom`. Match takes `networkPreset`, `network` and
+`ledsPerEdge` from the first LED output on the node's board partition with a
+Network layout, in the preview and the sketch alike
+(`src/state/output/ledOutputMatch.ts`), so a later change to the output is
+followed. Custom, and Match where no such output is reachable (a standalone
+saved pattern, a thumbnail, a group open on its own), use the node's own three
+fields, and the node says so. A node saved with no `ledSource` is Custom.
 
 - Inputs: `trigger` (bool, a rising edge starts one ripple), `speed`,
   `rate` (ripples started on their own each second), `fade` and `palette`.

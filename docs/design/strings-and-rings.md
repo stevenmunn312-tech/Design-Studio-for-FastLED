@@ -21,9 +21,12 @@ will use it too.
 | `ring` | `ringLeds` (3–4096, `MAX_LED_RUN`) | `ringSampleMap(ringLeds, 0, 'cw', W, H)[k]` |
 
 - The ring track is the inscribed circle through pixel centres that an LED
-  Ring's output reads. Set `ringLeds` to the output's LED count and every
-  particle lands on a pixel the ring samples; any other count still draws on the
-  circle, but not on every ring pixel.
+  Ring's output reads. String Particles' `ledSource` is `match` for a new node:
+  the first ring or strip LED output on its board partition gives the ring track
+  at the output's LED count, or the row (`ledOutputMatch.ts`), so every particle
+  lands on a pixel the ring samples. `custom`, and Match with no such output,
+  read `track` and `ringLeds`; a count other than the output's still draws on the
+  circle, but not on every ring pixel. A node saved with no `ledSource` is custom.
 - The sketch computes the ring's index table once at start-up from `WIDTH` and
   `HEIGHT`, with the same rounding as `ringSampleMap`, so it stays correct when
   the output is supersampled.
