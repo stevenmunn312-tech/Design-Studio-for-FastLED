@@ -241,6 +241,9 @@ Steve took every recommended answer on 2026-11-19:
    over a strip part.
 5. The chipset list is closed in the app; a part naming an unknown chipset is
    "needs a newer Design Studio".
+6. Picking a part in the node's picker may change the output's form (a strip
+   node given a ring part becomes a ring). The bench stays one way to set the
+   form and the picker is a second (decided 2026-11-19, after step 4).
 
 The questions as they were asked:
 
