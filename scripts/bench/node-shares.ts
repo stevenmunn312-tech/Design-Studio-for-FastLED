@@ -34,7 +34,7 @@ const edge = (source: string, sh: string, target: string, th: string) =>
 const outOf = (type: string, dataType: string) => def(type).outputs.find((o) => o.dataType === dataType)!.id
 
 const SKIP = new Set(['SDVideo', 'Image', 'DdpInput', 'ClockDisplay', 'Code', 'SpectrumVisualizer', 'Waveform',
-  'SolidColor', 'PatternMaster', 'PatternSlideshow', 'PerformanceGenerator', 'Sequencer', 'Transition', 'FieldToFrame'])
+  'SolidColor', 'PatternMaster', 'PatternSlideshow', 'PerformanceGenerator', 'CrossfadeCycle', 'Transition', 'FieldToFrame'])
 const generators = NODE_LIBRARY.filter((d) => d.outputs.some((o) => o.dataType === 'frame')
   && !d.inputs.some((i) => i.dataType === 'frame' && i.id !== 'base') && !SKIP.has(d.type)).map((d) => d.type)
 const effects = NODE_LIBRARY.filter((d) => d.category === 'composite' && d.inputs.some((i) => i.id === 'frame')

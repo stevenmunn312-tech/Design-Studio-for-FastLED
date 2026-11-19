@@ -35,7 +35,7 @@
         },
         "data": {
           "label": "Hi-Hat Shards",
-          "nodeType": "PrismStorm",
+          "nodeType": "HiHatShards",
           "category": "pattern",
           "properties": {
             "reactivity": 0.7,

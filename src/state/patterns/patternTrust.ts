@@ -14,7 +14,8 @@
 // id and the wiring around it are deliberately left out - moving a node, or
 // dropping the same pattern twice, is not new code. Changing the code itself
 // is, so an edited copy of someone else's formula needs its own decision.
-import type { GraphContent } from '../graphStore'
+import type { GraphContent, StudioNode } from '../graphStore'
+import { upgradePreV1Content, upgradePreV1TrustEntry } from '../preV1Aliases'
 import type { GroupRegistry } from '../graphEvaluator'
 import { BUNDLED_PATTERNS } from './bundledPatterns'
 import { dmxUsesNetwork } from '../peripherals/dmxTransceiver'
@@ -26,10 +27,10 @@ const KEY = 'design-studio-for-fastled.known-content.v2'
 const LEGACY_KEY = 'design-studio-for-fastled.trusted-pattern-content.v1'
 
 /** The node types whose preview logic the trust boundary actually gates — see
- *  the `trusted` checks in graphEvaluator's `CustomFormula`/`FieldFormula`/
+ *  the `trusted` checks in graphEvaluator's `FormulaPattern`/`FieldFormula`/
  *  `Code` cases. A subgraph containing none of these renders identically
  *  trusted or not, so there is nothing to ask the user about. */
-const TRUST_GATED_NODE_TYPES = new Set(['CustomFormula', 'FieldFormula', 'Expression', 'Code'])
+const TRUST_GATED_NODE_TYPES = new Set(['FormulaPattern', 'FieldFormula', 'Expression', 'Code'])
 
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize)
@@ -90,7 +91,9 @@ function load(): Set<string> {
   try {
     const raw = localStorage.getItem(KEY)
     const parsed = raw ? JSON.parse(raw) : []
-    if (Array.isArray(parsed)) for (const entry of parsed) if (typeof entry === 'string') known.add(entry)
+    // Remembered before round eight's renames, an entry names the old type id
+    // (preV1Aliases.ts, removed before v1.0.0).
+    if (Array.isArray(parsed)) for (const entry of parsed) if (typeof entry === 'string') known.add(upgradePreV1TrustEntry(entry))
   } catch { /* unreadable: start empty */ }
   try {
     const legacy = localStorage.getItem(LEGACY_KEY)
@@ -99,7 +102,8 @@ function load(): Set<string> {
       for (const entry of entries) {
         if (typeof entry !== 'string') continue
         const subgraph = JSON.parse(entry) as { nodes?: unknown[] }
-        for (const fp of contentFingerprints(subgraph.nodes ?? [])) known.add(fp)
+        const nodes = upgradePreV1Content((subgraph.nodes ?? []) as StudioNode[], []).nodes
+        for (const fp of contentFingerprints(nodes)) known.add(fp)
       }
     }
   } catch { /* a damaged legacy entry is simply not carried over */ }
@@ -165,7 +169,7 @@ export function isPatternContentTrusted(subgraph: GraphContent): boolean {
 
 /**
  * Whether running this subgraph would actually execute anything the trust
- * boundary gates — a `CustomFormula`, `FieldFormula`, or `Code` node, either
+ * boundary gates — a `FormulaPattern`, `FieldFormula`, or `Code` node, either
  * directly or inside a nested group. Used to decide whether running the
  * pattern is worth interrupting the user for; a pattern built from ordinary
  * nodes renders the same either way, so it never prompts.
@@ -206,7 +210,7 @@ const WORKSPACE_ONLY_GATED_NODE_TYPES = new Set(['DMXInput', 'DdpInput'])
 
 /** What an untrusted workspace is currently holding back. */
 export interface WorkspaceTrustHolds {
-  /** A CustomFormula/FieldFormula/Code node renders blank until trusted. */
+  /** A FormulaPattern/FieldFormula/Code node renders blank until trusted. */
   formulaOrCode: boolean
   /** A network-mode DMXInput (Art-Net or sACN) keeps its UDP listener closed until trusted. */
   artnet: boolean

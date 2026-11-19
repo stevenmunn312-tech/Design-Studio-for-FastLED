@@ -21,7 +21,7 @@ export const SHOW_PIPELINE_NOTES: Record<string, string> = {
   PerformanceGenerator: 'builds the timed .show file exported to the SD card; no equivalent in a normal sketch',
   SDCard: 'SD SPI storage configuration; emitted by the Player sketch (Upload show to SD)',
   PatternCollection: 'resolved by the show controller generator once its Show Engine drives a LED output',
-  TransitionSet: 'transition pool read by the Show Engine / Performance Generator, not emitted directly',
+  TransitionPool: 'transition pool read by the Show Engine / Performance Generator, not emitted directly',
 }
 
 const playerOrSlideshow: NodeEmitter = ({ node, ln, ownBuf }) => {
@@ -332,7 +332,7 @@ export const SHOW_EMITTERS: NodeEmitters = {
     })) ln(line)
     playerControlNodes.push(id)
   },
-  Sequencer({ id, p, ln, ownBuf, srcBuf, needsT }) {
+  CrossfadeCycle({ id, p, ln, ownBuf, srcBuf, needsT }) {
     const ob = ownBuf()
     const interval = Number(p.interval ?? 4), fade = Number(p.fade ?? 1)
     const bufs = ['p0', 'p1', 'p2', 'p3'].map((port) => srcBuf(port)).filter((b): b is string => !!b)

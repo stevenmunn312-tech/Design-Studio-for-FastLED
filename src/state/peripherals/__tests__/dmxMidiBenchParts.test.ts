@@ -254,19 +254,4 @@ describe('the DMX transceiver and MIDI interface as bench parts', () => {
     expect(ids('board-2')).toContain('max485')
     expect(ids('board-root')).not.toContain('dmx')
   })
-
-  it('drops the old UART and pin properties when a save from before is loaded', () => {
-    load([
-      node('board-root', 'Board'),
-      node('dmx', 'DMXInput', { inputMode: 'DMX512', dmxPort: 2, dmxTxPin: 17, dmxRxPin: 16, dmxEnablePin: 21 }),
-      node('keys', 'MidiInput', { midiSource: 'DIN (UART)', midiUart: 2, midiRxPin: 16 }),
-    ])
-    const loaded = rootGraphNodes(useGraphStore.getState())
-    const dmx = loaded.find((entry) => entry.id === 'dmx')!.data.properties
-    const keys = loaded.find((entry) => entry.id === 'keys')!.data.properties
-    for (const key of ['dmxPort', 'dmxTxPin', 'dmxRxPin', 'dmxEnablePin']) expect(dmx).not.toHaveProperty(key)
-    for (const key of ['midiUart', 'midiRxPin']) expect(keys).not.toHaveProperty(key)
-    expect(dmx).toMatchObject({ inputMode: 'DMX512' })
-    expect(keys).toMatchObject({ midiSource: 'DIN (UART)' })
-  })
 })

@@ -198,7 +198,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       featured: 'Path',
       title: 'Trace a rose in time with the beat',
       nodes: {
-        clock: ['Clock', { bpm: 40 }],
+        clock: ['TempoClock', { bpm: 40 }],
         pen: ['Path', { pathShape: 'rose', scale: 0.9, thickness: 1.4, r: 255, g: 90, b: 200 }],
         ink: ['Trails', { decay: 0.22 }],
       },
@@ -787,7 +787,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  Ripple: {
+  NetworkRipple: {
     overview: [
       'Network Ripple sends points of light along the edges of a segment network, a string laid out as a small graph of hexagons or triangles. At every node a ripple decides where to go next: straight on, always left or right, the sharpest turn, down every edge at once, or at random.',
       'It is made for an LED output whose string layout is Network. Give the node the same network and LEDs per edge as the output, so each ripple lands on the LEDs that form the edge.',
@@ -797,10 +797,10 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       trigger: 'Each rising edge starts one ripple at the start node.',
     },
     example: example({
-      featured: 'Ripple',
+      featured: 'NetworkRipple',
       title: 'Light racing round the honeycomb',
       nodes: {
-        ripples: ['Ripple', { networkPreset: 'hexagons', ledsPerEdge: 4, behaviour: 'straight', rate: 1.5, speed: 0.3, palette: 'synthwave', width: 3, trail: 0.41 }],
+        ripples: ['NetworkRipple', { networkPreset: 'hexagons', ledsPerEdge: 4, behaviour: 'straight', rate: 1.5, speed: 0.3, palette: 'synthwave', width: 3, trail: 0.41 }],
       },
       output: { form: 'strip', stripLayout: 'network', networkPreset: 'hexagons', ledsPerEdge: 4, positionsWidth: 24, positionsHeight: 12 },
       explanation: 'Network Ripple starts a new point of light about every second, and each one runs along the honeycomb keeping as straight a line as the hexagons allow, so the lights weave through the cells and cross one another, each trailing its own colour.',
@@ -1370,7 +1370,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  PrismStorm: {
+  HiHatShards: {
     overview: [
       'Hi-Hat Shards draws noise shards with a direction, which snap to a new angle on every hi-hat hit. Mids speed the drift and treble sharpens the grain.',
     ],
@@ -1378,13 +1378,13 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       audio: BAND_AUDIO_INPUT,
     },
     example: example({
-      featured: 'PrismStorm',
+      featured: 'HiHatShards',
       title: 'Shards that snap on the hi-hat',
       nodes: {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.6, tilt: 0.4 }],
         drums: ['PercussionDetect', { sensitivity: 0.6 }],
-        storm: ['PrismStorm', { palette: 'amethyst' }],
+        storm: ['HiHatShards', { palette: 'amethyst' }],
       },
       wires: ['mic.audio > fft.audio', 'mic.audio > drums.audio', 'fft.mids > storm.mids', 'fft.treble > storm.treble', 'drums.hihat > storm.hihat'],
       explanation: 'FFT Analyzer’s mids and treble set how fast and how fine the Hi-Hat Shards are, and Percussion Detect’s hi-hat lane snaps them to a new angle on each tick.',
@@ -1467,7 +1467,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  CustomFormula: {
+  FormulaPattern: {
     overview: [
       'Formula Pattern colours every pixel from a formula you write. It knows x and y (0 to 1), cx and cy (centred), r and angle (polar), t (time), W and H, two inputs a and b, the usual maths, and FastLED’s helpers such as sin8 and beatsin8.',
       'The formula’s result, 0 to 1 and wrapping, is looked up in the palette. One line can make ripples, spirals, interference patterns and checkerboards. Wire a pot, a Web Remote slider or an audio level into A or B to steer it.',
@@ -1475,10 +1475,10 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Formulas run only once you have answered Run it on the bar above the canvas; until then a project from another computer shows black.',
     ],
     example: example({
-      featured: 'CustomFormula',
+      featured: 'FormulaPattern',
       title: 'Write a ripple in one line',
       nodes: {
-        ripple: ['CustomFormula', { formula: 'sin(r*18 - t*4)*0.5 + 0.5', palette: 'ocean' }],
+        ripple: ['FormulaPattern', { formula: 'sin(r*18 - t*4)*0.5 + 0.5', palette: 'ocean' }],
       },
       explanation: 'Formula Pattern draws sin(r·18 − t·4): r is distance from the centre, so the formula makes rings, and subtracting time moves them outward. The ocean palette colours the result.',
       preview: 'The {output} shows blue rings rippling outward from the centre.',

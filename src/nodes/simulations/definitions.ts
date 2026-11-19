@@ -186,7 +186,7 @@ export const SIMULATIONS_DEFINITIONS: NodeDefinition[] = [
     // Repeats the LED output's network by property, as String Particles
     // repeats a ring's LED count. Labelled Network Ripple: it draws only on a
     // segment network, apart from Radial Burst's and Rain Ripples' rings.
-    type: 'Ripple',
+    type: 'NetworkRipple',
     label: 'Network Ripple',
     category: 'pattern',
     subcategory: 'Simulations',
@@ -293,7 +293,7 @@ export const SIMULATIONS_DESCRIPTIONS: Record<string, string> = {
   FormulaPoints: 'Points by formula: phyllotaxis, Lissajous/rose, logistic map, de Jong attractor.',
   FlowField: 'Particles drifting along a noise flow field, with trails.',
   StringParticles: 'Particles on one line: a string, a column or an LED ring.',
-  Ripple: 'Ripples that travel the edges of a segment network, turning at each node.',
+  NetworkRipple: 'Ripples that travel the edges of a segment network, turning at each node.',
   Starfield: 'Warp starfield — stars fly outward from the centre, brightening as they near.',
   Boids: 'Flocking swarm — agents steer by separation, alignment and cohesion.',
   ReactionDiffusion: 'Gray-Scott reaction-diffusion — organic spots & stripes, with named presets.',

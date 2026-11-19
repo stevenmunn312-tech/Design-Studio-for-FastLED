@@ -234,7 +234,7 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  Temperature: {
+  ColorTemperature: {
     overview: [
       'Color Temperature gives a white from a colour temperature in kelvin, the number LED strips and bulbs are sold by. Lower is warmer: 1800 K is candlelight, 2700 K a warm-white bulb, 4000 K (the default) neutral, 6500 K daylight and 9000 K clear blue sky.',
       'It is the natural way to make tunable white — warm for evenings, cool for working — or to tint a scene toward firelight or daylight.',
@@ -247,12 +247,12 @@ export const COLOR_REFERENCE: NodeReferenceMap = {
       color: 'The white for that temperature.',
     },
     example: example({
-      featured: 'Temperature',
+      featured: 'ColorTemperature',
       title: 'A knob from candlelight to daylight',
       nodes: {
         knob: ['PotInput'],
         range: ['MapRange', { inMin: 0, inMax: 1, outMin: 1800, outMax: 6500, clampOutput: true }],
-        white: ['Temperature'],
+        white: ['ColorTemperature'],
         lamp: ['SolidColor'],
         output: ['MatrixOutput', STRIP(60)],
       },

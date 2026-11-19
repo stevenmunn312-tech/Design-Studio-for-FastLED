@@ -263,13 +263,13 @@ const CASES: GateCase[] = [
   {
     name: 'formula source the sandbox parser rejects',
     nodes: [
-      node('cf', 'CustomFormula', { formula: '0.0f; digitalWrite(2, HIGH); float _x = 0' }),
+      node('cf', 'FormulaPattern', { formula: '0.0f; digitalWrite(2, HIGH); float _x = 0' }),
       node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
     ],
     edges: [edge('e1', 'cf', 'out')],
     fqbn: S3,
-    blocks: /CustomFormula has an invalid formula/,
-    names: ['CustomFormula', 'digitalWrite'],
+    blocks: /FormulaPattern has an invalid formula/,
+    names: ['FormulaPattern', 'digitalWrite'],
     diagnostic: 'cf-formula',
   },
   {

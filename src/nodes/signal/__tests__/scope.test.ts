@@ -5,7 +5,7 @@ import { SIGNAL_EVALUATORS } from '../evaluate'
 describe('signal node scopes', () => {
   it('draw only the nodes whose shape is the point', () => {
     for (const type of ['Wave', 'NoiseSignal', 'Envelope']) expect(signalScopeSamples(type, {}), type).toHaveLength(64)
-    for (const type of ['Random', 'TimeNode', 'Interval', 'Clock']) expect(signalScopeSamples(type, {}), type).toBeNull()
+    for (const type of ['Random', 'TimeNode', 'Interval', 'TempoClock']) expect(signalScopeSamples(type, {}), type).toBeNull()
   })
 
   it('trace an Envelope from rest up through its attack and back to 0', () => {

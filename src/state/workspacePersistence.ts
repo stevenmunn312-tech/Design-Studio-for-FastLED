@@ -17,7 +17,7 @@ export interface PersistedWorkspace {
   graphs?: WorkspaceExtras['graphs']
   activeGraphId?: string
   buildProfile?: BuildProfile
-  /** Whether this workspace's CustomFormula/FieldFormula/Code nodes are
+  /** Whether this workspace's FormulaPattern/FieldFormula/Code nodes are
    *  allowed to evaluate their preview logic (see todo.md's P0 trust-boundary
    *  item). `graphStore.loadGraph` believes it as given, so every path a
    *  workspace arrives by forces it false unless the content was made here;

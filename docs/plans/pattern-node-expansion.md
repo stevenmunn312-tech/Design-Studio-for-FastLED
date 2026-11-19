@@ -173,7 +173,7 @@ Frame Feedback fixture, source hash and classic-ESP32 result are in the
 
 ## Phase 3 — Symmetry — **complete**
 
-The shipped `FieldSymmetry` and `Symmetry` contracts, append-only group list,
+The shipped `FieldSymmetry` and `TileSymmetry` contracts, append-only group list,
 fundamental-domain picture, transform order, sampling policy, and shared
 preview/firmware fold live in the
 [wallpaper symmetry design note](../design/symmetry-groups.md). The generated
@@ -503,7 +503,7 @@ through step 11 of the
       estimate, not a bench measurement, and no per-board figures are recorded
       yet. Compile record: [Phase 11](../reports/compile/pattern-node-compile-checks.md).
 - [x] **Segment networks.** A layout where strings are edges of a graph and a
-      `Ripple` pattern travels node to node with turning rules, the Chromancer
+      `NetworkRipple` pattern travels node to node with turning rules, the Chromancer
       model. Shipped as root todo D-06; the model, editor, pattern and the
       millimetre positions the Build Diagram needs are designed in
       [segment networks](../design/segment-networks.md).

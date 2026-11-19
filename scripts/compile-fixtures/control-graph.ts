@@ -49,7 +49,7 @@ function withColourAndPattern(mode: 'show' | 'player', fixture: ReturnType<typeo
       sckPin: 17, mosiPin: 18, csPin: 6, dcPin: 7, resetPin: 21, backlightPin: 1,
       // The Pattern Browser reads the selection inside the Display wire.
       widgetSources: displayWidgetSources(document),
-    }), node('temp', 'Temperature'), node('grad', 'GradientSampler', { mixMode: 'hsvLong' })],
+    }), node('temp', 'ColorTemperature'), node('grad', 'GradientSampler', { mixMode: 'hsvLong' })],
     edges: [...fixture.edges,
       edge('temp', 'color', 'grad', 'colorA'),
       edge('grad', 'color', 'panel', `widget:${swatch}:value`),
@@ -84,7 +84,7 @@ function withLocalClock<T extends { nodes: StudioNode[]; edges: StudioEdge[] }>(
         // A zone with daylight saving, so the build carries its rule.
         ? { timeSource, ntpServer: 'pool.ntp.org', timeZone: 'Europe/Paris' }
         : { timeSource }),
-      node('clk', 'Clock'),
+      node('clk', 'TempoClock'),
       node('sched', 'ScheduleTrigger'),
       node('digits', 'SegmentDisplay', { partId: 'tm1637-4digit-display', clkPin: 2, dioPin: 3 })],
     edges: [...graph.edges,

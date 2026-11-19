@@ -131,7 +131,7 @@ describe('renderShowFrame', () => {
     const groups = {
       formulaGroup: {
         nodes: [
-          mk('formula', 'CustomFormula', { formula: '1', palette: 'rainbow' }, [], [{ id: 'frame', dataType: 'frame' }]),
+          mk('formula', 'FormulaPattern', { formula: '1', palette: 'rainbow' }, [], [{ id: 'frame', dataType: 'frame' }]),
           mk('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
         ],
         edges: [{ id: 'ie', source: 'formula', sourceHandle: 'frame', target: 'go', targetHandle: 'frame' }],

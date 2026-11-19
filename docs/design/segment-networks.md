@@ -4,7 +4,7 @@ Design for root todo D-06, pulled into v1 on 2026-10-21 from
 [pattern node expansion, Phase 11](../plans/pattern-node-expansion.md#phase-11--output-layout-and-media-follow-ons).
 Two pieces, in this order: positioned strings measured in millimetres, so the
 Build Diagram can draw a string where it hangs; then segment networks, a
-string laid along the edges of a graph with a `Ripple` pattern that travels
+string laid along the edges of a graph with a `NetworkRipple` pattern that travels
 node to node, the Chromancer model. Written 2026-10-22; all four steps
 shipped by 2026-10-23.
 
@@ -122,7 +122,7 @@ file carries it and a share link works; the editor only spares the typing.
 
 ### The Network Ripple pattern
 
-`Ripple` (labelled Network Ripple; category `pattern`, Simulations) draws ripples that start at a
+`NetworkRipple` (labelled Network Ripple; category `pattern`, Simulations) draws ripples that start at a
 node and travel along edges, choosing at each node how to continue. Like
 String Particles' `track` and `ringLeds`, the pattern repeats the output's
 geometry by property rather than reading the output: it holds the same
@@ -182,7 +182,7 @@ adds nothing beyond the node's own frame buffer.
    is typed until the editor lands).
 3. The layout editor. Tests: add, connect, flip, reorder, Escape.
    **Shipped 2026-10-23.**
-4. `Ripple`: shared kernel, evaluator, codegen, help entry with a live example,
+4. `NetworkRipple`: shared kernel, evaluator, codegen, help entry with a live example,
    README count. Tests: each behaviour's node choice on the hexagon, lifetime,
    parity of the kernel, codegen snapshot. **Shipped 2026-10-23.**
 

@@ -63,7 +63,7 @@ describe('the band patterns', () => {
   it('are the fourteen band patterns plus AnimARTrix, each with Audio declared last', () => {
     expect(BAND_PATTERNS.map((definition) => definition.type).sort()).toEqual([
       'Animartrix', 'AudioCascade', 'AudioFlow', 'BassPulse', 'BassRings', 'ColorTrails', 'EmberPulse', 'GravityWell',
-      'MidrangeBloom', 'MidrangeWaves', 'PrismStorm', 'SpectraMosaic', 'TreblePrism', 'TrebleSparks', 'TurbulentBloom',
+      'HiHatShards', 'MidrangeBloom', 'MidrangeWaves', 'SpectraMosaic', 'TreblePrism', 'TrebleSparks', 'TurbulentBloom',
     ])
     for (const definition of BAND_PATTERNS) expect(definition.inputs.at(-1)?.id, definition.type).toBe('audio')
   })

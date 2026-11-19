@@ -6,11 +6,11 @@ import type { NodeDefinition } from '../../types'
 export const CODE_DEFINITIONS: NodeDefinition[] = [
 
   // ── Formula Pattern ───────────────────────────────────────────────────
-  // Type id `CustomFormula`; labelled Formula Pattern because it outputs a
+  // Type id `FormulaPattern`; labelled Formula Pattern because it outputs a
   // frame, beside Expression (a number), Field Formula (a field) and Formula
   // Shapes, which share its formula language.
   {
-    type: 'CustomFormula',
+    type: 'FormulaPattern',
     label: 'Formula Pattern',
     category: 'pattern',
     subcategory: 'Code',
@@ -66,6 +66,6 @@ export const CODE_DEFINITIONS: NodeDefinition[] = [
 ]
 
 export const CODE_DESCRIPTIONS: Record<string, string> = {
-  CustomFormula: 'Per-pixel JS expression f(x, y, t) — with cx/cy/r/angle and FastLED shims.',
+  FormulaPattern: 'Per-pixel JS expression f(x, y, t) — with cx/cy/r/angle and FastLED shims.',
   Code: 'Paste raw FastLED C++ that writes into leds[].',
 }

@@ -44,7 +44,7 @@ describe('showGenerator', () => {
 
   it.each([
     ['FrameWarp', [...FRAME_SAMPLE_HELPER_CPP.matchAll(/^static inline \S+ (\w+)\(/gm)].map((match) => match[1])],
-    ['Symmetry', ['_wallpaperSourceQ8', '_atan2_16']],
+    ['TileSymmetry', ['_wallpaperSourceQ8', '_atan2_16']],
   ])('emits one sampler for %s patterns with and without transitions', (type, samplers) => {
     const pattern = {
       nodes: [node('src', 'Noise'), node('fx', type), node('go', 'GroupOutput')],
@@ -329,7 +329,7 @@ describe('showGenerator', () => {
     const tempGroups: GroupRegistry = {
       gt: {
         nodes: [
-          node('t', 'Temperature', { kelvin: 3000 }, [], [{ id: 'color', dataType: 'color' }]),
+          node('t', 'ColorTemperature', { kelvin: 3000 }, [], [{ id: 'color', dataType: 'color' }]),
           node('sp', 'Circle', {}, [{ id: 'edge', dataType: 'color' }], [{ id: 'frame', dataType: 'frame' }]),
           node('go', 'GroupOutput'),
         ],
@@ -518,10 +518,10 @@ describe('showGenerator', () => {
     expect(r.functions[0]).toContain('patternGain')
   })
 
-  it('draws the transition pool from a wired TransitionSet (names → style ids)', () => {
+  it('draws the transition pool from a wired TransitionPool (names → style ids)', () => {
     const withSet = [
       ...nodes,
-      node('ts', 'TransitionSet', { transitions: ['iris', 'zoom'] }, [], [{ id: 'transitions', dataType: 'transitionset' }]),
+      node('ts', 'TransitionPool', { transitions: ['iris', 'zoom'] }, [], [{ id: 'transitions', dataType: 'transitionset' }]),
     ]
     const withEdge = [...edges, edge('e3', 'ts', 'transitions', 'pm', 'transitions')]
     const cpp = generateShowSketch(withSet, withEdge, groups)
@@ -1256,8 +1256,8 @@ describe('show sketch weight', () => {
     expect(cpp).not.toContain('case 15: {  // zoom')
   })
 
-  it('keeps exactly the styles a wired TransitionSet selects', () => {
-    const set = node('ts', 'TransitionSet', { transitions: ['wipe', 'zoom'] })
+  it('keeps exactly the styles a wired TransitionPool selects', () => {
+    const set = node('ts', 'TransitionPool', { transitions: ['wipe', 'zoom'] })
     const cpp = show(['g0', 'g1'], [set], [edge('e3', 'ts', 'transitions', 'pm', 'transitions')])
     expect(cpp).toContain('case 1: {  // wipe')
     expect(cpp).toContain('case 15: {  // zoom')
@@ -1292,7 +1292,7 @@ describe('show sketch weight', () => {
       nodes: [node('src', 'Noise'), node('warp', 'FrameWarp', { edgeMode: 'wrap', sampling: 'bilinear' }), node('go', 'GroupOutput')],
       edges: [edge('wi', 'src', 'frame', 'warp', 'frame'), edge('wo', 'warp', 'frame', 'go', 'frame')],
     }
-    const set = node('ts', 'TransitionSet', { transitions: ['dolly'] })
+    const set = node('ts', 'TransitionPool', { transitions: ['dolly'] })
     const cpp = generateShowSketch(
       [node('pc', 'PatternCollection', { patternIds: ['g0', 'warp'] }), master, out, set],
       [...wiring, edge('e3', 'ts', 'transitions', 'pm', 'transitions')],
@@ -1700,7 +1700,7 @@ describe('pattern code lifted into a show', () => {
     expect(warp.helpers).toContain(FRAME_SAMPLE_HELPER_CPP)
 
     const symmetryGroup = {
-      nodes: [node('src', 'Noise'), node('sym', 'Symmetry', { group: 'p6m' }), node('go', 'GroupOutput')],
+      nodes: [node('src', 'Noise'), node('sym', 'TileSymmetry', { group: 'p6m' }), node('go', 'GroupOutput')],
       edges: [edge('sym-in', 'src', 'frame', 'sym', 'frame'), edge('sym-out', 'sym', 'frame', 'go', 'frame')],
     }
     const symmetry = buildPatternRenderers(['symmetry-pattern'], { 'symmetry-pattern': symmetryGroup } as unknown as GroupRegistry)

@@ -31,7 +31,7 @@ describe('node body wheel behavior', () => {
           id: 'transitions',
           type: 'studioNode',
           position: { x: 0, y: 0 },
-          data: nodeData('TransitionSet', { transitions: ['wipe'] }),
+          data: nodeData('TransitionPool', { transitions: ['wipe'] }),
         },
         {
           id: 'collection',
@@ -51,14 +51,14 @@ describe('node body wheel behavior', () => {
     })
   })
 
-  it('lets wheel zoom pass through TransitionSet chips', () => {
+  it('lets wheel zoom pass through TransitionPool chips', () => {
     const { container, getByRole } = render(<TransitionSetBody nodeId="transitions" />)
     expect(container.firstElementChild?.className).not.toContain('nowheel')
     fireEvent.click(getByRole('button', { name: /Transitions.*1 selected/i }))
     expect(container.querySelector('[aria-label="Scrub transition thumbnail progress"]')).toBeTruthy()
   })
 
-  it('collapses the TransitionSet slider and catalogue by default', () => {
+  it('collapses the TransitionPool slider and catalogue by default', () => {
     const { queryByLabelText, getByRole } = render(<TransitionSetBody nodeId="transitions" />)
     const section = getByRole('button', { name: /Transitions.*1 selected/i })
     expect(section.getAttribute('aria-expanded')).toBe('false')

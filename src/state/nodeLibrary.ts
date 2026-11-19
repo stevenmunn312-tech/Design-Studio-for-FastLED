@@ -267,9 +267,9 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // matters more than the library's declaration order (fields compose toward
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
-  signal: ['TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'GeometryField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldWarp', 'FieldSymmetry', 'FieldToFrame'],
-  show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
+  signal: ['TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'TempoClock', 'ScheduleTrigger', 'DMXChannel'],
+  field:  ['FieldFormula', 'GeometryField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldTransform', 'FieldSymmetry', 'FieldToFrame'],
+  show:   ['MusicLibrary', 'PatternCollection', 'TransitionPool', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'CrossfadeCycle', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
 /**
@@ -760,7 +760,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
   PaletteFromImage: {
     count: { control: 'slider', min: 2, max: 8, step: 1 },
   },
-  Temperature: {
+  ColorTemperature: {
     kelvin: { control: 'slider', min: COLOR_TEMPERATURE_K.min, max: COLOR_TEMPERATURE_K.max, step: 50 },
   },
   AdjustColor: {
@@ -1084,7 +1084,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     decay:     { control: 'slider', min: 0.3, max: 3, step: 0.05 },
     blendMode: { control: 'select', options: ['add', 'max'] },
   },
-  PrismStorm:       { speed: N01 },
+  HiHatShards:       { speed: N01 },
   // BeatKaleidoscope's hue shift comes from AudioHue (0-360°), so it keeps the
   // full turn rather than the generic -180 to 180.
   BeatKaleidoscope: {
@@ -1118,7 +1118,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     seed: { control: 'slider', min: 0, max: 9999, step: 1 },
     count: { control: 'slider', min: STARFIELD_COUNT.min, max: STARFIELD_COUNT.max, step: 1 },
   },
-  Ripple: {
+  NetworkRipple: {
     speed: N01, trail: N01,
     rate:      { control: 'slider', min: 0, max: 10, step: 0.1 },
     lifetime:  { control: 'slider', min: RIPPLE_LIFETIME_SEC.min, max: RIPPLE_LIFETIME_SEC.max, step: 0.1 },
@@ -1420,7 +1420,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     levelStart: { control: 'slider', min: 0, max: 1, step: 0.01 },
     levelClicks: { control: 'slider', min: 1, max: ENCODER_LEVEL_MAX_CLICKS, step: 1, entry: 'number' },
   },
-  Sequencer: {
+  CrossfadeCycle: {
     fade: { control: 'slider', min: 0, max: 20, step: 0.1 },
   },
   // The I2S decoder's 0–21 volume steps, typed in the part's hardware panel.
@@ -1478,7 +1478,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     edgeMode: { control: 'select', options: ['clamp', 'wrap', 'black'] },
     sampling: { control: 'select', options: ['bilinear', 'nearest'] },
   },
-  FieldWarp: {
+  FieldTransform: {
     strength: { control: 'slider', min: FIELD_STRENGTH.min, max: FIELD_STRENGTH.max, step: 0.1 },
     angle: { control: 'slider', min: -180, max: 180, step: 1 },
     spin: { control: 'slider', min: -360, max: 360, step: 1 },
@@ -1496,7 +1496,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     offsetX: { control: 'slider', min: -8, max: 8, step: 0.1 },
     offsetY: { control: 'slider', min: -8, max: 8, step: 0.1 },
   },
-  Symmetry: {
+  TileSymmetry: {
     group: { control: 'select', options: [...WALLPAPER_GROUPS], labels: WALLPAPER_GROUP_LABELS },
     cells: { control: 'slider', min: 0.5, max: 8, step: 0.1 },
     rotation: { control: 'slider', min: -180, max: 180, step: 1 },
@@ -1738,7 +1738,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     // Animation-only (disabled for a still image via isPropertyEnabled).
     playbackRate: { control: 'slider', min: 0.25, max: 4, step: 0.05 },
   },
-  Clock: {
+  TempoClock: {
     bpm:         { control: 'slider', min: 40, max: 220, step: 1 },
     beatsPerBar: { control: 'slider', min: 1, max: 16, step: 1 },
     subdivision: { control: 'slider', min: 1, max: 8, step: 1 },
@@ -2424,7 +2424,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Color: {
     color: 'The colour on the Color output. Click the swatch to pick another.',
   },
-  CustomFormula: {
+  FormulaPattern: {
     formula: FORMULA_LANG_HELP,
     a: 'Free number available in the formula as a; wire a control to animate it.',
     b: 'Free number available in the formula as b.',
@@ -2522,7 +2522,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     cutRate: 'Scene cuts per second.',
     brightness: 'Overall level of the screen glow, 0 off to 1 full.',
   },
-  Ripple: {
+  NetworkRipple: {
     networkPreset: 'The network the ripples run on. Match the LED output\'s network so each ripple lands on its LEDs: Hexagons, Triangles, or the same custom JSON.',
     network: 'The custom network JSON, the same text as the LED output\'s.',
     ledsPerEdge: 'LEDs along each edge, the same as the LED output\'s.',
@@ -2626,7 +2626,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     offsetX: 'Scrolls the lattice horizontally, measured in cells.',
     offsetY: 'Scrolls the lattice vertically, measured in cells.',
   },
-  Symmetry: {
+  TileSymmetry: {
     group: 'Wallpaper group. p1/p2/pm/pmm/p4/p4m use square cells; p3/p6/p6m use hexagonal cells.',
     cells: 'Number of lattice cells across the canvas width.',
     rotation: 'Rotates the lattice in degrees.',
@@ -2889,7 +2889,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     sunday: 'Run on Sundays (Custom days only).',
     enabled: 'Off holds every output low regardless of the clock. A wire into Enabled overrides this.',
   },
-  Clock: {
+  TempoClock: {
     bpm: 'Tempo in beats per minute when nothing is wired into Sync or Tap.',
     beatsPerBar: 'Beats in one bar; Bar pulses on the first beat of each.',
     subdivision: 'Pulses per beat on the Subdivision output (2 = eighth notes at 4/4).',
@@ -2974,7 +2974,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     saturation: 'Multiplies the colour strength: 0 is grey, 1 unchanged, above 1 richer, up to pure colour.',
     brightness: 'Multiplies the brightness: 0 is off, 1 unchanged, above 1 brighter, up to full.',
   },
-  Temperature: {
+  ColorTemperature: {
     kelvin: 'Colour temperature of the white in kelvin, as LEDs are sold: lower is warmer. 1800 K is candlelight, 2700 K a warm-white bulb, 4000 K neutral, 6500 K daylight and 9000 K blue sky. A wired value is held to the same range.',
   },
   HeatColor: {
@@ -3249,7 +3249,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     value: 'What B reads while the B field is unwired, 0 to 1. Wire a level here to scale, raise or threshold A by it.',
     t: 'Mix only: crossfade between A and B. 0 shows only A, 1 only B. Wire a signal to animate it.',
   },
-  FieldWarp: {
+  FieldTransform: {
     dx: 'A field that pushes each pixel sideways. 0.5 is no push.',
     dy: 'A field that pushes each pixel up or down. 0.5 is no push.',
     strength: 'How far the Offset X and Y fields can push each pixel, in pixels. A field value of 0.5 is no push.',
@@ -3365,7 +3365,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     dH: 'Height of the zone as a fraction of the matrix height.',
     dFit: 'On squeezes the whole frame into this zone; off shows only the part of the frame that lies inside the rectangle.',
   },
-  Sequencer: {
+  CrossfadeCycle: {
     interval: 'Seconds each connected input is held before moving to the next. Unconnected inputs are skipped.',
     fade: 'Seconds spent crossfading into the next input at the end of each hold. 0 cuts; capped at the hold.',
   },
@@ -3548,7 +3548,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     colorSource: 'Palette colours the rings by their distance from the well; Solid uses the R, G, B colour. A wired palette always colours, and a wired Color replaces both.',
     palette: 'Palette the rings take by distance from the well, nearest first, when Color is Palette.',
   },
-  PrismStorm: {
+  HiHatShards: {
     speed: 'Shard drift rate (0–1; 0.5 is the default pace, 1 twice as fast); mids speed it up, treble sharpens the grain, each hi-hat hit snaps the angle.',
   },
   SampleHold: {
@@ -3584,7 +3584,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     patternEnergy: 'Calm, lively, or peak, tagged on each row. Any band means no limit. The Music Player reads the band from the track, and the Performance Generator reads it from the section. A slideshow ignores these unless a sequence step asks for a band. If nothing matches, any pattern may play.',
     patternEntry: 'Restart, the usual setting, clears a pattern’s state and starts its clock as the transition that brings it in begins. Resume keeps the state and the show clock, including while another pattern is showing.',
   },
-  TransitionSet: {
+  TransitionPool: {
     transitions: 'The transition styles in the pool, picked in the body. The player chooses among them at each change.',
   },
 
@@ -3735,7 +3735,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     offsetY: 'offset Y',
     spin: 'spin (°/s)',
   },
-  FieldWarp: {
+  FieldTransform: {
     angle: 'angle (°)',
     spin: 'spin (°/s)',
     tilesX: 'tiles X',
@@ -3781,7 +3781,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     edgeMode: 'edges',
     motionSpeed: 'motion speed',
   },
-  Symmetry: {
+  TileSymmetry: {
     offsetX: 'offset X',
     offsetY: 'offset Y',
   },
@@ -3827,8 +3827,9 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     ...COLOR_PAIR_LABELS,
     mixMode: 'mix',
   },
-  Temperature: { kelvin: 'temperature (K)' },
+  ColorTemperature: { kelvin: 'temperature (K)' },
   HueShift: { hueShift: 'hue shift (°)' },
+  BeatKaleidoscope: { hueShift: 'hue shift (°)' },
   AdjustColor: { hueShift: 'hue shift (°)', saturation: 'saturation (×)', brightness: 'brightness (×)' },
   // Hue, saturation and brightness read the same on every HSV node; "value"
   // and single letters are jargon.
@@ -4026,7 +4027,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   Truchet: {
     lineWidth: 'line width',
   },
-  Ripple: {
+  NetworkRipple: {
     networkPreset: 'network',
     network: 'network JSON',
     ledsPerEdge: 'LEDs per edge',
@@ -4564,7 +4565,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'motion', label: 'Motion', keys: ['speed'] },
     { key: 'audio', label: 'Audio Reactivity', keys: ['audioAmount'] },
   ],
-  Ripple: [
+  NetworkRipple: [
     { key: 'network', label: 'Network', keys: ['networkPreset', 'network', 'ledsPerEdge'] },
     { key: 'ripples', label: 'Ripples', keys: ['behaviour', 'startNode', 'speed', 'rate', 'lifetime', 'width', 'trail', 'seed'] },
     { key: 'color', label: 'Color', keys: ['palette'] },
@@ -4624,7 +4625,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   // Field Transform mirrors Frame Warp's push and sampling, with the turn,
   // zoom and tiles between them.
-  FieldWarp: [
+  FieldTransform: [
     { key: 'push', label: 'Push', keys: ['strength'] },
     { key: 'turn', label: 'Turn', keys: ['angle', 'spin'] },
     { key: 'scale', label: 'Zoom & Tiles', keys: ['zoom', 'tilesX', 'tilesY'] },
@@ -5541,7 +5542,7 @@ export function isPropertyEnabled(
     if (key === 'color' || key === 'r' || key === 'g' || key === 'b') return !palette
   }
   // As on the LED output, the network JSON is read only by the custom preset.
-  if (nodeType === 'Ripple' && key === 'network') {
+  if (nodeType === 'NetworkRipple' && key === 'network') {
     return properties.networkPreset === 'custom'
   }
   if (nodeType === 'Path' && key === 'customPoints') {

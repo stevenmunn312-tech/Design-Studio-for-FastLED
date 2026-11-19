@@ -127,14 +127,14 @@ const WEBSITE_PATTERN_SEEDS: PatternSeed[] = [
       studioNode('rings', 'GradientField', -580, -320, { gradientType: 'radial' }),
       studioNode('glassX', 'FieldNoise', -580, 20, { speed: 0.09, scale: 0.2, octaves: 1, seed: 5 }),
       studioNode('glassY', 'FieldNoise', -580, 360, { speed: 0.07, scale: 0.2, octaves: 1, seed: 17 }),
-      studioNode('water', 'FieldWarp', -260, -140, { strength: 1.4 }),
+      studioNode('water', 'FieldTransform', -260, -140, { strength: 1.4 }),
       studioNode('ripples', 'FieldToFrame', 60, -100),
       studioNode('breathWave', 'Wave', -1220, 40, { waveform: 'sine', rateUnit: 'Hz', frequency: 0.07 }),
       studioNode('breath', 'MapRange', -900, 40, { outMin: 0.25, outMax: 0.34 }),
       // The halo. Its distance field reads 0 outside the ring, 0.5 on it and up
       // to 1 in the pool inside, and moonlight puts its white at 0.5.
       studioNode('disc', 'ShapeField', -580, 700, { shape: 'ellipse', fieldMode: 'distance', range: 0.2 }),
-      studioNode('lens', 'FieldWarp', -260, 260, { strength: 1.4 }),
+      studioNode('lens', 'FieldTransform', -260, 260, { strength: 1.4 }),
       studioNode('moonlight', 'CustomPalette', -260, 660, {
         colors: ['#000000', '#0a1a6a', '#35c8e8', '#ffffff', '#ffe2c0', '#0a5a6a', '#031c26'],
         positions: [0, 0.3, 0.44, 0.5, 0.57, 0.7, 1],
@@ -371,7 +371,7 @@ const WEBSITE_PATTERN_SEEDS: PatternSeed[] = [
         positions: [0, 0.167, 0.333, 0.5, 0.667, 0.833, 1],
       }),
       studioNode('silk', 'Plasma', 60, 40, { speed: 0.1, scale: 0.3 }),
-      studioNode('tiles', 'Symmetry', 380, 40, { group: 'p6m', cells: 1.4, spin: 3 }),
+      studioNode('tiles', 'TileSymmetry', 380, 40, { group: 'p6m', cells: 1.4, spin: 3 }),
       groupOutput('out', 700, 40),
     ],
     [

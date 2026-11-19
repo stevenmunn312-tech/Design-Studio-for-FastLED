@@ -36,7 +36,7 @@ export const CATEGORY_TAG: Record<string, string> = {
 export const NODE_WIDTH_OVERRIDES: Record<string, number> = {
   MusicLibrary: 300,
   Code: 320,
-  CustomFormula: 320,
+  FormulaPattern: 320,
   FieldFormula: 320,
   Expression: 320,
   PerformanceGenerator: 300,
@@ -209,7 +209,7 @@ export function editableProperties(
       && !(isComment && k === 'text')
       // Formula Pattern's and Expression's `formula` get the Code node's editor
       // in the body, with its parse error beneath it.
-      && !((nodeType === 'CustomFormula' || nodeType === 'Expression') && k === 'formula')
+      && !((nodeType === 'FormulaPattern' || nodeType === 'Expression') && k === 'formula')
       // PSRAM controls render in the upload tab — their visibility depends
       // on whether the *selected board* supports PSRAM, which only it knows.
       && k !== 'usePsram' && k !== 'psramPolicy' && k !== 'psramMode' && k !== 'serialRoute'

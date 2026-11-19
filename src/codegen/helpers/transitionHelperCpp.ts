@@ -336,7 +336,7 @@ export function transitionSupportCpp(styleIds: readonly number[]): string[] {
  *
  * `type` is a runtime value, so the compiler cannot drop the arms a sketch
  * never reaches, but every engine knows its reachable set at generation time:
- * the wired TransitionSet pool, or crossfade alone. The crossfade arm is
+ * the wired TransitionPool pool, or crossfade alone. The crossfade arm is
  * `default:` and is dropped with the rest when crossfade is not reachable.
  * A single reachable style needs no dispatch, so its arm is the whole body.
  * Emit `transitionSupportCpp(styleIds)` above it.

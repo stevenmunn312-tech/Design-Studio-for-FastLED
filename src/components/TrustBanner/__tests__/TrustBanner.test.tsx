@@ -38,7 +38,7 @@ describe('TrustBanner', () => {
   })
 
   it('warns when the workspace holds a formula node', () => {
-    setWorkspace([node('cf', 'CustomFormula'), node('o', 'MatrixOutput')])
+    setWorkspace([node('cf', 'FormulaPattern'), node('o', 'MatrixOutput')])
     const { getByRole } = render(<TrustBanner />)
     expect(getByRole('status').textContent).toMatch(/Run code from this file\?.*Formula and Code nodes will run once you say so/)
   })
@@ -65,21 +65,21 @@ describe('TrustBanner', () => {
   })
 
   it('stays silent once the workspace is trusted', () => {
-    setWorkspace([node('cf', 'CustomFormula')], { trusted: true })
+    setWorkspace([node('cf', 'FormulaPattern')], { trusted: true })
     expect(render(<TrustBanner />).queryByRole('status')).toBeNull()
   })
 
   it('treats a formula added in a trusted project as the user’s own work', () => {
     // Made here, so it is known here: no banner, now or when it reappears.
     setWorkspace([node('p', 'Plasma')], { trusted: true })
-    setWorkspace([node('p', 'Plasma'), node('cf', 'CustomFormula', { formula: 'x * 2' })], { trusted: true })
-    setWorkspace([node('cf2', 'CustomFormula', { formula: 'x * 2' })])
+    setWorkspace([node('p', 'Plasma'), node('cf', 'FormulaPattern', { formula: 'x * 2' })], { trusted: true })
+    setWorkspace([node('cf2', 'FormulaPattern', { formula: 'x * 2' })])
     expect(useGraphStore.getState().trusted).toBe(true)
     expect(render(<TrustBanner />).queryByRole('status')).toBeNull()
   })
 
   it('trusts the workspace when the button is used', () => {
-    setWorkspace([node('cf', 'CustomFormula')])
+    setWorkspace([node('cf', 'FormulaPattern')])
     const { getByRole } = render(<TrustBanner />)
     fireEvent.click(getByRole('button', { name: 'Run it' }))
     expect(useGraphStore.getState().trusted).toBe(true)

@@ -431,7 +431,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'base', type: 'FieldNoise', col: 0, row: 0, properties: { speed: 0.15, scale: 0.4 } },
       { id: 'dx', type: 'FieldNoise', col: 0, row: 1, properties: { speed: 0.2, scale: 0.8 } },
       { id: 'dy', type: 'FieldNoise', col: 0, row: 2, properties: { speed: 0.22, scale: 0.8 } },
-      { id: 'warp', type: 'FieldWarp', col: 1, row: 1, properties: { strength: 1.5 } },
+      { id: 'warp', type: 'FieldTransform', col: 1, row: 1, properties: { strength: 1.5 } },
       { id: 'tofr', type: 'FieldToFrame', col: 2, row: 1 },
       { id: 'out', type: 'MatrixOutput', properties: { form: 'matrix' }, col: 3, row: 1 },
       tutorialNote(
@@ -470,7 +470,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
       { id: 'audio', type: 'Audio', properties: { sourceId: audioCapabilityIntent('decoder') }, col: 0, row: 0 },
       { id: 'controls', type: 'ControlMap', col: 0, row: 1 },
       { id: 'collection', type: 'PatternCollection', col: 0, row: 2 },
-      { id: 'transitions', type: 'TransitionSet', properties: { transitions: [...ALL_TRANSITIONS] }, col: 0, row: 3 },
+      { id: 'transitions', type: 'TransitionPool', properties: { transitions: [...ALL_TRANSITIONS] }, col: 0, row: 3 },
       { id: 'particles', type: 'PlayerParticles', properties: { randomColor: true, randomStyle: true, energyGate: 0.89 }, col: 0, row: 4 },
       { id: 'beat', type: 'BeatDetect', col: 0, row: 5 },
       {

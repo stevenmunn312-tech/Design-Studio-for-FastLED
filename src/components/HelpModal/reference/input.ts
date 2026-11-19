@@ -851,7 +851,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       nodes: {
         rtc: ['RTCInput', { timeSource: 'Compile Time' }],
         daylight: ['Expression', { formula: '1800 + 4700*(0.5 - 0.5*cos(a/86400*2*PI))' }],
-        white: ['Temperature'],
+        white: ['ColorTemperature'],
         fill: ['SolidColor'],
       },
       wires: ['rtc.secondsOfDay > daylight.a', 'daylight.result > white.kelvin', 'white.color > fill.color'],

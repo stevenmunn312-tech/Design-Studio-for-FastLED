@@ -41,7 +41,7 @@ Everything else is **derived and needs no row**. Prefer extending a derivation
 over adding a fifth list:
 
 - `SHOW_TRANSITIONS` is `Object.keys(TRANSITION_IDS)`.
-- The `Transition` node's chip grid and the `TransitionSet` picker read
+- The `Transition` node's chip grid and the `TransitionPool` picker read
   `PROPERTY_META.transitionType.options` and render live thumbnails by calling
   `compositeTransition` directly — so a new style gets a working preview chip
   for free, and a broken one is visible in the picker before it is ever wired.
@@ -192,7 +192,7 @@ style id and a progress value alone.
 
 `transitionHelperCpp(styleIds)` strips the `case` arms a sketch cannot reach.
 
-- The **show generator** knows its pool at generation time (a `TransitionSet`
+- The **show generator** knows its pool at generation time (a `TransitionPool`
   baked into a const array), so it narrows, and a crossfade-only show carries
   none of the other twenty.
 - The **SD player** selects styles at runtime from the `.show` file and can be

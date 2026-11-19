@@ -41,7 +41,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
   FieldFormula({ p, ln, f, ownField, srcField, needsT, needsShims, needsPhi }) {
     needsT.v = true
     const raw = String(p.formula ?? 'sin8(r*200 + t*60)/255')
-    // Same fail-closed validation as CustomFormula above.
+    // Same fail-closed validation as FormulaPattern above.
     const cpp = fieldFormulaCpp(raw)
     const safe = cpp !== null
     if (safe && usesShims(raw)) needsShims.v = true
@@ -574,7 +574,7 @@ export const FIELD_EMITTERS: NodeEmitters = {
   // left out: no push without an offset field, no turn while Angle and Spin
   // are unwired at 0, no zoom at an unwired 1, no tiles at an unwired 1 × 1,
   // and the read count is fixed here unless Tiles or Zoom is wired.
-  FieldWarp({ node, id, p, ln, f, ownField, srcField, incoming, needsT }) {
+  FieldTransform({ node, id, p, ln, f, ownField, srcField, incoming, needsT }) {
     const of = ownField()
     const src = srcField('field'), dx = srcField('dx'), dy = srcField('dy')
     if (!src) { ln(`  for(int _i=0;_i<NUM_LEDS;_i++) ${of}[_i]=0.0f; // Field Transform: no input`); return }

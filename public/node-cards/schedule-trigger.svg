@@ -40,7 +40,7 @@
 <line x1="8" y1="156.5" x2="232" y2="156.5" stroke="rgba(255,255,255,0.05)"/>
 <text x="8" y="178" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">Expose input…</text>
 <text x="8" y="202" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0" letter-spacing="0.03em">▸ TIMING</text>
-<text x="10" y="223" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">enable</text>
+<text x="10" y="223" font-family="'JetBrains Mono','Cascadia Mono','Consolas',monospace" font-size="12" fill="#a0a0a0">enabled</text>
 <g>
 <rect x="98" y="212.5" width="13" height="13" rx="2.5" fill="#4a7dff"/>
 <path d="M101,219 l3,3 l4.5,-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>

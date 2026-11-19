@@ -181,9 +181,9 @@ export const SIGNAL_EVALUATORS: NodeEvaluators = {
     return { active, start, end, progress }
   },
   // Free-running BPM clock/transport — see ClockState above and the
-  // matching `Clock` case in cppGenerator.ts (millis()-based, same edge
+  // matching `TempoClock` case in cppGenerator.ts (millis()-based, same edge
   // semantics so preview and firmware timing match).
-  Clock({ input, num, elapsedT: t, stateKey }, id, props) {
+  TempoClock({ input, num, elapsedT: t, stateKey }, id, props) {
     const key = stateKey(id)
     const prevSt = clockState.get(key)
     // Clock reset (t jumped backward) — start clean, same convention as

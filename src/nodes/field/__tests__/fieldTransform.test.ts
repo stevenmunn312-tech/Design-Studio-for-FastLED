@@ -99,7 +99,7 @@ describe('Field Transform kernel', () => {
 function transformed(properties: Record<string, unknown>, source: string, W: number, H: number, tick = 0): Float32Array {
   resetEvaluatorState()
   const src = node('src', 'FieldFormula', 'field', { formula: source })
-  const ft = node('ft', 'FieldWarp', 'field', properties)
+  const ft = node('ft', 'FieldTransform', 'field', properties)
   const paint = node('paint', 'FieldToFrame', 'field', {})
   const out = node('out', 'MatrixOutput', 'output', {})
   const { outputs } = evaluateGraphFull([src, ft, paint, out], [
@@ -190,7 +190,7 @@ describe('Field Transform firmware', () => {
     const src = node('src', 'FieldFormula', 'field', { formula: 'x' })
     const paint = node('paint', 'FieldToFrame', 'field', {})
     const out = node('out', 'MatrixOutput', 'output', { width: 8, height: 8 })
-    return generateCpp([src, ...extra, node('ft', 'FieldWarp', 'field', properties), paint, out], [
+    return generateCpp([src, ...extra, node('ft', 'FieldTransform', 'field', properties), paint, out], [
       edge('e1', 'src', 'ft', 'field', 'field'), edge('e2', 'ft', 'paint', 'field', 'field'),
       edge('e3', 'paint', 'out', 'frame', 'frame'), ...wires,
     ])

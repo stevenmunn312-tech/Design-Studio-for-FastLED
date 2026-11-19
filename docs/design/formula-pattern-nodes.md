@@ -6,7 +6,7 @@ Status: `FormulaField` and `FormulaPoints` both implemented (2026-08-12);
 
 ## Problem
 
-`CustomFormula`/`FieldFormula` already let a user type an arbitrary per-pixel
+`FormulaPattern`/`FieldFormula` already let a user type an arbitrary per-pixel
 expression, and `src/nodes/shared/fastledShims.ts` gives that sandbox FastLED's
 fixed-point primitives. But a number of well-known parametric/closed-form
 formulas — golden-angle phyllotaxis, Lissajous curves, the superformula,
@@ -81,7 +81,7 @@ pixel from where the old field did.
 Per-pixel closed-form expression selected by a curated dropdown instead of
 free text, output as a `field` (0–1) so it composes with the rest of the
 float-field pipeline — chain a `FieldToFrame` for palette mapping, or feed
-it into Field Transform (`FieldWarp`) or `FieldMath` first.
+it into Field Transform (`FieldTransform`) or `FieldMath` first.
 
 **Ports:** none — as built, there is no `phase` input. The externally-driven
 `phase` port originally sketched here was cut for the smallest-first
@@ -207,7 +207,7 @@ one can mutate the buffer.
 ## A `PHI` constant — implemented
 
 `src/nodes/shared/formulaLang.ts`'s `MATH_CONSTANTS` now defines `PHI:
-1.618033988749895` alongside `PI`, so any *free-text* `CustomFormula`/
+1.618033988749895` alongside `PI`, so any *free-text* `FormulaPattern`/
 `FieldFormula` expression can write `PHI` instead of the literal. Since
 preview and firmware must agree, `cppGenerator.ts` also gained a `needsPhi`
 flag (mirroring the existing `needsShims` gating): a formula referencing
@@ -219,7 +219,7 @@ the generated sketch, so the same expression compiles unchanged on-device.
 - **`FieldFormula`/`FieldNoise`** — `GeometryField` is a third raw-field
   generator beside them: curated/parametric instead of free-text
   (`FieldFormula`) or fBm-noise-based (`FieldNoise`). All three feed the
-  same downstream `FieldToFrame`/`FieldMath`/`FieldWarp` (Field Transform)
+  same downstream `FieldToFrame`/`FieldMath`/`FieldTransform` (Field Transform)
   pipeline unmodified.
 - **`Particles`/`Trails`/`ColorTrails`** — `FormulaPoints` is a curated,
   closed-form-math sibling: `Particles` is procedural/randomized motion,

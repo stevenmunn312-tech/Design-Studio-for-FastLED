@@ -35,7 +35,7 @@ function linesOf(source: string, marker: string): string[] {
 
 describe('time-dependent control sources', () => {
   it.each([
-    ['Clock', 'beat', 'bool', '_clkOrigin_'],
+    ['TempoClock', 'beat', 'bool', '_clkOrigin_'],
     ['Envelope', 'result', 'float', '_envT_'],
     ['NoiseSignal', 'value', 'float', 'inoise16'],
   ] as const)('%s keeps the normal sketch emitter and the wall clock', (nodeType, port, type, marker) => {
@@ -64,7 +64,7 @@ describe('time-dependent control sources', () => {
 
   it('uses the reset wire and ignores a backward animation jump', () => {
     const button = node('button', 'ButtonBank', { buttons: singleButtonRow(5) })
-    const clk = node('clk', 'Clock', { bpm: 128, beatsPerBar: 4, subdivision: 2 })
+    const clk = node('clk', 'TempoClock', { bpm: 128, beatsPerBar: 4, subdivision: 2 })
     const edges = [edge('button', FIRST_BUTTON_HANDLE, 'clk', 'reset')]
     const graph = createControlGraph([button, clk], edges)
     expect(graph.resolve('clk', 'beat', 'bool')).not.toBeNull()

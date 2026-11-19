@@ -161,7 +161,7 @@ function bands(fqbn: string, board: StudioNode, mic: StudioNode[]): Graph {
   const nodes = [board, ...mic,
     node('ember', 'EmberPulse', { colorSource: 'palette', palette: 'lava' }), node('well', 'GravityWell'),
     // Hi-Hat Shards: the type id keeps its old name.
-    node('shards', 'PrismStorm'), node('trix', 'Animartrix'),
+    node('shards', 'HiHatShards'), node('trix', 'Animartrix'),
     node('mix1', 'Blend'), node('mix2', 'Blend'), node('mix3', 'Blend'), matrix()]
   const fed: Wire[] = mic.length ? ['ember', 'well', 'shards', 'trix'].map((id) => ['audio', 'audio', id, 'audio'] as Wire) : []
   return graph(fqbn, nodes, [...fed, ['ember', 'frame', 'mix1', 'a'], ['well', 'frame', 'mix1', 'b'],

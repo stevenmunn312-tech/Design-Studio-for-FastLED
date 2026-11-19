@@ -189,7 +189,7 @@ describe('typed control graph', () => {
   it('emits self-contained colour nodes with the normal sketch formulas', () => {
     const nodes = [
       node('hsv', 'HSVToRGB'), node('blend', 'GradientSampler', { mixMode: 'rgb' }), node('rgb', 'RGBToHSV'),
-      node('heat', 'HeatColor'), node('temp', 'Temperature'),
+      node('heat', 'HeatColor'), node('temp', 'ColorTemperature'),
       node('grad', 'GradientSampler', { mixMode: 'hsvLong' }),
     ]
     const edges = [edge('hsv', 'color', 'blend', 'colorA'), edge('blend', 'color', 'rgb', 'color')]

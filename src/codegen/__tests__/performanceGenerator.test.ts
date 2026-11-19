@@ -411,7 +411,7 @@ describe('generateShow — boundary fades', () => {
   })
 })
 
-describe('generateShow — extra transitions from a wired TransitionSet', () => {
+describe('generateShow — extra transitions from a wired TransitionPool', () => {
   it('only ever uses the rule-based crossfade/wipe/dissolve pool when no extras are given', () => {
     const show = generateShow(analysis)
     const types = show.events.filter((e) => e.cmd === 'TRANSITION').map((e) => e.params.type)
@@ -419,7 +419,7 @@ describe('generateShow — extra transitions from a wired TransitionSet', () => 
     expect(types.every((t) => ['crossfade', 'wipe', 'dissolve'].includes(t as string))).toBe(true)
   })
 
-  it('mixes in the extra pool when a TransitionSet is wired', () => {
+  it('mixes in the extra pool when a TransitionPool is wired', () => {
     // Force the 50/50 gate to always take the extra branch, and its index pick
     // to always land on the first entry, so the result is deterministic.
     const spy = vi.spyOn(Math, 'random').mockReturnValue(0)

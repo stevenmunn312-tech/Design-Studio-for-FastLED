@@ -1220,8 +1220,8 @@ export const SIMULATIONS_EVALUATORS: NodeEvaluators = {
     }
     return { frame: evalStringParticles(stateKey(id), opts, spawn, Boolean(input(id, 'trigger', false)), speed, trail, t, palette, W, H, normalizedSeed(props.seed)) }
   },
-  Ripple({ input, num, pal, t, W, H, stateKey }, id, props) {
-    const speed = denormRate(num(id, 'speed', props, 'speed', 0.4), SPEED_MAX.Ripple)
+  NetworkRipple({ input, num, pal, t, W, H, stateKey }, id, props) {
+    const speed = denormRate(num(id, 'speed', props, 'speed', 0.4), SPEED_MAX.NetworkRipple)
     const rate = Math.max(0, num(id, 'rate', props, 'rate', 1))
     const trail = num(id, 'trail', props, 'trail', 0.46)
     const palette = pal(id, 'paletteIn', props, 'palette', 'rainbow')

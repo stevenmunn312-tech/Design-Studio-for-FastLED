@@ -39,7 +39,7 @@ export const TIMED_CONTROL_NODES: Record<string, TimedControlSpec> = {
       enabled: { type: 'bool', fallback: 1 },
     },
   },
-  Clock: {
+  TempoClock: {
     outputs: { bpm: 'float', phase: 'float', beat: 'bool', bar: 'bool', subdivision: 'bool' },
     inputs: {
       tap: { type: 'bool', fallback: 0 },
@@ -266,7 +266,7 @@ export function timedControlCpp(
     case 'Envelope': return envelopeCpp(id, v, inputs, props, attackWired)
     case 'NoiseSignal': return noiseSignalCpp(id, v, inputs, props)
     case 'ScheduleTrigger': return scheduleTriggerCpp(id, v, inputs, props)
-    case 'Clock': return clockCpp(id, v, inputs)
+    case 'TempoClock': return clockCpp(id, v, inputs)
     default: return null
   }
 }

@@ -912,7 +912,7 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
   },
   // Field Transform. Keep in lockstep with its emitter: Angle plus the Spin
   // integrated on the node's speed clock is the turn.
-  FieldWarp({ input, num, t, W, H, stateKey }, id, props) {
+  FieldTransform({ input, num, t, W, H, stateKey }, id, props) {
     const fv = input(id, 'field', null)
     const dxv = input(id, 'dx', null)
     const dyv = input(id, 'dy', null)

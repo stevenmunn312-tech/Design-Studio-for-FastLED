@@ -223,7 +223,7 @@
     },
     "data": {
      "label": "Field Transform",
-     "nodeType": "FieldWarp",
+     "nodeType": "FieldTransform",
      "category": "field",
      "properties": {
       "strength": 2,

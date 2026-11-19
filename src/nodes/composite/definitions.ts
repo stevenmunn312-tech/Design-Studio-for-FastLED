@@ -302,7 +302,7 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
   {
     // Wallpaper-group repetition for a finished frame. Square and hexagonal
     // groups select their matching lattice automatically.
-    type: 'Symmetry',
+    type: 'TileSymmetry',
     label: 'Tile Symmetry',
     category: 'composite',
     subcategory: 'Geometry',
@@ -423,7 +423,7 @@ export const COMPOSITE_DESCRIPTIONS: Record<string, string> = {
   Mirror: 'Mirrors a frame across an axis or into kaleidoscope wedges, with optional glow.',
   Trails: 'Fades the previous frame and re-lightens where the input is brighter.',
   FrameWarp: 'Displaces each pixel by two fields or a built-in swirl, ripple or turbulence.',
-  Symmetry: 'Repeats a frame through a square or hexagonal wallpaper symmetry group.',
+  TileSymmetry: 'Repeats a frame through a square or hexagonal wallpaper symmetry group.',
   FrameFeedback: 'Recursive delay — blend a faded prior output over the live input.',
   FrameSwitch: 'Shows frame A or B, selected by a boolean.',
   Zones: 'Routes up to four wired frames into their own rectangle of the matrix.',

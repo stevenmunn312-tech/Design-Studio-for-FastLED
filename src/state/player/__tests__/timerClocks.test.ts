@@ -22,7 +22,7 @@ afterEach(() => {
 describe('hardware timers ignore Master Speed', () => {
   it.each([
     ['Interval', { interval: 0.2 }, ''],
-    ['Clock', { bpm: 120 }, ''],
+    ['TempoClock', { bpm: 120 }, ''],
     ['NoiseSignal', { speed: 0.5, seed: 7 }, ''],
     ['Envelope', { attack: 0.1, decay: 0.5 }, 'trigger'],
     ['Smooth', { response: 0.3 }, 'value'],

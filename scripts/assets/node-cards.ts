@@ -70,7 +70,7 @@ import { environmentPreviewDefaults, environmentPreviewReading } from '../../src
 import { temperaturePreviewDefault, temperaturePreviewReading } from '../../src/state/peripherals/temperatureSensor'
 import { joystickAxis } from '../../src/state/peripherals/joystick'
 import { mirrorGlows } from '../../src/nodes/composite/mirror'
-import { KEYPAD_LEGENDS } from '../../src/state/peripherals/keypad'
+import { keypadLegends } from '../../src/state/peripherals/keypad'
 import { touchPadElectrodeCount } from '../../src/state/peripherals/touchPad'
 import { MOTION_VECTOR_AXES, motionVectorPreviewDefault, motionVectorPreviewReading } from '../../src/state/peripherals/motionVector'
 import { distancePreviewDefault, distancePreviewReading } from '../../src/state/peripherals/distanceSensor'
@@ -231,7 +231,7 @@ const EMBEDDED_UI: Record<string, { label: string; h: number; top?: boolean }> =
   TouchInput: { label: 'calibrate touch', h: 28 },
   PatternCollection: { label: 'choose saved patterns or connect…', h: 98 },
   Transition: { label: 'transition picker', h: 387 },
-  TransitionSet: { label: '▸ transitions · 0 selected', h: 27 },
+  TransitionPool: { label: '▸ transitions · 0 selected', h: 27 },
   PaletteBank: { label: '▸ palettes · 0 in bank', h: 208 },
 }
 
@@ -1039,7 +1039,7 @@ function hardwareWidgets(def: NodeDefinition, props: Record<string, unknown>): W
         return pot(fraction, axis.startsWith('accel') ? `${axis.slice(5)} ${value.toFixed(2)} g` : `${axis.slice(4)} ${Math.round(value)}°/s`)
       })
     case 'KeypadInput':
-      return [{ h: WIDGET_MARGIN + KEY_H * 4 + KEY_GAP * 3, render: (x, y, w) => keypadWidgetSvg(KEYPAD_LEGENDS, x, y + WIDGET_MARGIN, w) }]
+      return [{ h: WIDGET_MARGIN + KEY_H * 4 + KEY_GAP * 3, render: (x, y, w) => keypadWidgetSvg([...keypadLegends(partId)], x, y + WIDGET_MARGIN, w) }]
     case 'TouchPadInput': {
       const count = touchPadElectrodeCount(partId)
       const rows = Math.ceil(count / 4)

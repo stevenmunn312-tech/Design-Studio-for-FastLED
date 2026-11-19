@@ -13,7 +13,7 @@ pipeline that the current node graph cannot express:
 
 Design Studio for FastLED's current model goes **frame generators → frame → composites → output**.
 There is no intermediate scalar layer. A user who pastes a typical ANIMartRIX snippet
-into `CustomFormula` immediately hits two gaps:
+into `FormulaPattern` immediately hits two gaps:
 
 - **No polar coordinate vars** — `r` (radius from center) and `angle` are absent.
 - **No FastLED trig shims** — `sin8`, `cos8`, `beatsin8`, `beatsin16`, `sin16`, `scale8`
@@ -30,7 +30,7 @@ This is the smallest extension that unlocks the whole ANIMartRIX vocabulary whil
 fitting cleanly into the existing port-type system.
 
 ```
-FieldFormula → FieldMath → FieldWarp → FieldToFrame → MatrixOutput
+FieldFormula → FieldMath → FieldTransform → FieldToFrame → MatrixOutput
                   ↑              ↑
            DistanceField    FieldFormula
 ```
@@ -234,13 +234,13 @@ output and presets that shipped with it are in the
 Repeats a field through one of nine square or hexagonal wallpaper groups.
 Cells, rotation, spin and cell-space offsets are property inputs; nearest
 sampling keeps later Field Levels thresholds crisp. It is the scalar twin of
-the frame `Symmetry` effect. The fold, fundamental domains, and shared
+the frame `TileSymmetry` effect. The fold, fundamental domains, and shared
 preview/firmware architecture are in the
 [wallpaper symmetry design note](symmetry-groups.md).
 
 ---
 
-### `FieldWarp` — Field Transform (category: `field`)
+### `FieldTransform` — Field Transform (category: `field`)
 
 Samples an input `field` at coordinates shifted by two offset fields, then
 turned, zoomed and tiled. The current contract, including the turn, zoom,
@@ -252,20 +252,20 @@ tiles and edge modes it took over from Field Rotate and Field Tile, is in
 - **Output:** `field`
 
 Two `FieldFormula` nodes computing `sin8(y*8 + t*40)/255` and
-`cos8(x*8 + t*40)/255` fed into a `DistanceField`'s `FieldWarp` produces
+`cos8(x*8 + t*40)/255` fed into a `DistanceField`'s `FieldTransform` produces
 the classic ANIMartRIX plasma warp with about six nodes and no code.
 
 ---
 
-## CustomFormula enhancements (existing node)
+## FormulaPattern enhancements (existing node)
 
-`CustomFormula` already outputs a `frame` by sampling a per-pixel expression.
+`FormulaPattern` already outputs a `frame` by sampling a per-pixel expression.
 It gets the same FastLED trig shim additions and the same new vars (`cx`, `cy`,
-`r`, `angle`) as `FieldFormula` — so users who already use `CustomFormula` can
+`r`, `angle`) as `FieldFormula` — so users who already use `FormulaPattern` can
 start writing ANIMartRIX-style expressions immediately without switching nodes.
 
-The difference between `CustomFormula` and `FieldFormula` is the output type:
-`CustomFormula` always emits a `frame` (palette baked in); `FieldFormula` emits
+The difference between `FormulaPattern` and `FieldFormula` is the output type:
+`FormulaPattern` always emits a `frame` (palette baked in); `FieldFormula` emits
 a `field` (palette applied downstream by `FieldToFrame`), enabling field
 composition.
 
@@ -294,7 +294,7 @@ The C++ shim table:
 Integer overflow / saturation: `sin8`/`qadd8`/`scale8` operate on `uint8_t` in
 firmware but receive JS floats in the preview sandbox. The shims clamp/round to
 match; minor differences in patterns that depend on exact uint8 wrap-around are
-documented as a known divergence (same as `CustomFormula`'s existing caveat).
+documented as a known divergence (same as `FormulaPattern`'s existing caveat).
 
 ---
 
@@ -302,7 +302,7 @@ documented as a known divergence (same as `CustomFormula`'s existing caveat).
 
 ### Phase 1 — `field` type + `FieldFormula` + `FieldToFrame` — **implemented**
 *Scope:* The minimum viable ANIMartRIX node. Shipped: the `field` type, both
-nodes, the `CustomFormula` enhancement, evaluator + codegen, and the shared
+nodes, the `FormulaPattern` enhancement, evaluator + codegen, and the shared
 `src/nodes/shared/fastledShims.ts` module, with unit tests for the shims, the evaluator
 field chain, and the codegen.
 
@@ -310,7 +310,7 @@ field chain, and the codegen.
 - Add `FieldFormula` node: expression sandbox with extended vars + FastLED shims,
   `field` output.
 - Add `FieldToFrame` node: maps field through a palette.
-- Add same FastLED shims + `cx`/`cy`/`r`/`angle` to the existing `CustomFormula`
+- Add same FastLED shims + `cx`/`cy`/`r`/`angle` to the existing `FormulaPattern`
   sandbox (backward-compatible; existing graphs unaffected).
 - **Evaluator:** `FieldFormula` compiles the expression once (keyed by text, like
   `formulaCache`), runs it per pixel, writes a `Float32Array`. `FieldToFrame`
@@ -322,11 +322,11 @@ field chain, and the codegen.
 This phase alone ports the majority of ANIMartRIX patterns as
 `FieldFormula → FieldToFrame → MatrixOutput`.
 
-### Phase 2 — `DistanceField`, `FieldMath`, `FieldWarp` — **implemented**
+### Phase 2 — `DistanceField`, `FieldMath`, `FieldTransform` — **implemented**
 *Scope:* Field composition without needing any custom formula.
 
 - Three new nodes (see above): `DistanceField` and `FieldMath` (pattern),
-  `FieldWarp` (composite). `FieldMath`'s `fieldOp` follows the bundled-node
+  `FieldTransform` (composite). `FieldMath`'s `fieldOp` follows the bundled-node
   pattern (header reflects the op); `DistanceField` overrides the shared `scale`
   slider to 1–4 via `PROPERTY_META_OVERRIDES`.
 - Evaluator cases + codegen cases for each; field nodes share the `field_<id>`
@@ -347,9 +347,9 @@ that spin or mirror the field.
 - `FieldTile` (composite) — tiles/repeats a field `tilesX`×`tilesY` times.
 
 **Resolved (open question):** these first shipped as **standalone nodes**, not
-`FieldWarp` presets, because rotate and tile are a *whole-field coordinate
+`FieldTransform` presets, because rotate and tile are a *whole-field coordinate
 transform* rather than an additive offset field. That was later reversed:
-both merged into `FieldWarp` as Field Transform, which applies the offset push
+both merged into `FieldTransform` as Field Transform, which applies the offset push
 and then the whole-field turn, zoom and tiles in one read, and fixes Field
 Rotate's forced wrap and Field Tile's skipped pixels. See
 [Frame Warp and the transform nodes](frame-warp.md#field-transform).
@@ -358,7 +358,7 @@ Rotate's forced wrap and Field Tile's skipped pixels. See
 
 ## Relationship to existing nodes
 
-- **`CustomFormula`** — kept as-is (frame output); enhanced with new vars + shims.
+- **`FormulaPattern`** — kept as-is (frame output); enhanced with new vars + shims.
   `FieldFormula` is the field-output sibling, not a replacement.
 - **`Noise`** (the bundled Simplex/Worley/etc. node) — has a `field` output
   beside `frame`: the raw noise values pre-palette, for composition.

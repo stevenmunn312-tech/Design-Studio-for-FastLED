@@ -1787,7 +1787,7 @@ export function findFormulaErrors(nodes: StudioNode[]): string[] {
 /** The sandboxed parser a formula node's `formula` must pass, or null for any
  *  other node. Expression is one value a frame, so its vocabulary is smaller. */
 function formulaValidator(nodeType: string): ((formula: string) => boolean) | null {
-  if (nodeType === 'CustomFormula') return isNodeFormulaValid
+  if (nodeType === 'FormulaPattern') return isNodeFormulaValid
   if (nodeType === 'FieldFormula') return isFieldFormulaValid
   if (nodeType === 'Expression') return isScalarFormulaValid
   return null

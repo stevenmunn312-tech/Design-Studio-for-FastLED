@@ -121,7 +121,7 @@ const phase3Nodes = [
     group: 'p4m', cells: 2.4, rotation: 12, spin: 18, offsetX: 0.15, offsetY: -0.2,
   }),
   node('color', 'FieldToFrame', { palette: 'synthwave', brightness: 1 }),
-  node('symmetry', 'Symmetry', {
+  node('symmetry', 'TileSymmetry', {
     group: 'p6m', cells: 1.8, rotation: -8, spin: -12, offsetX: -0.1, offsetY: 0.25,
   }),
   node('out', 'MatrixOutput', { form: 'matrix', width: 16, height: 16, dataPin: 5 }),

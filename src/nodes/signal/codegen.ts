@@ -90,11 +90,11 @@ export const SIGNAL_EMITTERS: NodeEmitters = {
     }, p, incoming.has(`${node.id}:attack`)).forEach(ln)
   },
   // Free-running BPM clock/transport — millis()-based, mirroring the
-  // stateful `Clock` case in graphEvaluator.ts (same tap/sync EMA and
+  // stateful `TempoClock` case in graphEvaluator.ts (same tap/sync EMA and
   // beat/bar/subdivision edge semantics) so preview and firmware timing
   // match. Reset is the reset wire. A backward jump of the animation
   // clock resets the preview only, because this node does not read it.
-  Clock({ node, id, ln, v, f, boolExpr }) {
+  TempoClock({ node, id, ln, v, f, boolExpr }) {
     clockCpp(id, v, {
       bpm: f('bpm', 'bpm', 120),
       beatsPerBar: f('beatsPerBar', 'beatsPerBar', 4),

@@ -411,7 +411,7 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  FieldWarp: {
+  FieldTransform: {
     overview: [
       'Field Transform moves a field around before it is painted. Two other fields push each pixel: Offset X sideways, Offset Y up and down, with 0.5 meaning no push, and Strength sets how far, in pixels. Warping by smooth noise makes anything look liquid — stripes ripple like a flag, rings wobble like jelly.',
       'Angle turns the field about the centre and Spin keeps it turning, in degrees a second. Zoom enlarges it above 1 and shrinks it below, and Tiles X and Y repeat it across the canvas from the top-left corner. A shrunk or tiled field blends the pixels it squeezes together, so fine detail softens rather than dropping out.',
@@ -424,13 +424,13 @@ export const FIELD_REFERENCE: NodeReferenceMap = {
     },
     outputs: { field: FIELD_OUT },
     example: example({
-      featured: 'FieldWarp',
+      featured: 'FieldTransform',
       title: 'Stripes rippling like a flag',
       nodes: {
         stripes: ['GradientField', { gradientType: 'linear', angle: 0, repeat: 3 }],
         windX: ['FieldNoise', { speed: 0.4, scale: 0.25, octaves: 2, seed: 3 }],
         windY: ['FieldNoise', { speed: 0.4, scale: 0.25, octaves: 2, seed: 7 }],
-        flutter: ['FieldWarp', { strength: 3 }],
+        flutter: ['FieldTransform', { strength: 3 }],
         paint: ['FieldToFrame', { palette: 'party' }],
       },
       wires: ['stripes.field > flutter.field', 'windX.field > flutter.dx', 'windY.field > flutter.dy', 'flutter.field > paint.field'],

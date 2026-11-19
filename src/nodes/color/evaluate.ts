@@ -105,7 +105,7 @@ export const COLOR_EVALUATORS: NodeEvaluators = {
       num(id, 'saturation', props, 'saturation', 1),
       num(id, 'brightness', props, 'brightness', 1)) }
   },
-  Temperature({ num }, id, props) {
+  ColorTemperature({ num }, id, props) {
     return { color: kelvinToRgb(clampColorTemperature(num(id, 'kelvin', props, 'kelvin', 4000))) }
   },
   HeatColor({ num }, id, props) {

@@ -737,13 +737,13 @@ describe('evaluateGraph', () => {
       // TurbulentBloom's warp is steep, so run it slow with a tiny step — the
       // t-scaled bug would still shift its noise phase by hundreds of units.
       { type: 'TurbulentBloom', prop: 'treble', base: 0.5, step: 0.01, props: { bass: 0.5, mids: 0.5, reactivity: 0.7, speed: 0.1 } },
-      // PrismStorm's mids also zooms its shard field, so keep the spatial
+      // HiHatShards's mids also zooms its shard field, so keep the spatial
       // frequency low (treble 0) and the step tiny — the t-scaled bug would
       // still spin the held orientation by ~96° on this step.
-      { type: 'PrismStorm', prop: 'mids', base: 0.5, step: 0.002, props: { treble: 0, hihat: 0, reactivity: 0.7, speed: 1 } },
+      { type: 'HiHatShards', prop: 'mids', base: 0.5, step: 0.002, props: { treble: 0, hihat: 0, reactivity: 0.7, speed: 1 } },
       { type: 'AudioFlow', prop: 'mids', base: 0.5, step: 0.02, props: { bass: 0.5, treble: 0.3, speed: 0.5, scale: 0.5 } },
     ]
-    // PrismStorm seeds its held shard orientation from Math.random; pin it so
+    // HiHatShards seeds its held shard orientation from Math.random; pin it so
     // the measured frame delta (palette-wrap pixels included) is deterministic.
     const rnd = vi.spyOn(Math, 'random').mockReturnValue(0.42)
     try {
@@ -1102,13 +1102,13 @@ describe('evaluateGraph', () => {
   // the async decoupled-cadence contract, timeout/respawn, and fail-closed
   // behavior at that integration point instead.
 
-  // todo.md's P0 trust-boundary item: an untrusted graph's CustomFormula/
+  // todo.md's P0 trust-boundary item: an untrusted graph's FormulaPattern/
   // FieldFormula/Code nodes must not run their preview logic. `evaluateGraph`/
   // `evaluateGraphFull` take `trusted` as their final parameter (default
   // `true`, so every other test above — none of which pass it — is
   // unaffected); these three cover the `trusted=false` fallback explicitly.
-  it('CustomFormula renders black when the graph is untrusted, instead of running the formula', () => {
-    const cf = node('cf', 'CustomFormula', 'pattern', { formula: 'sin(x*6+t)*0.5+0.5' })
+  it('FormulaPattern renders black when the graph is untrusted, instead of running the formula', () => {
+    const cf = node('cf', 'FormulaPattern', 'pattern', { formula: 'sin(x*6+t)*0.5+0.5' })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e1', 'cf', 'frame', 'out', 'frame')]
     const trustedFrame = evaluateGraph([cf, out], edges, 0, W, H, {}, '', new Set(), {}, null, true)
@@ -1158,9 +1158,9 @@ describe('evaluateGraph', () => {
       edges: [edge('ge', gen.id, 'frame', 'gout', 'frame')],
     })
     const formulaNode = (id: string) =>
-      node(id, 'CustomFormula', 'pattern', { formula: 'sin(x*6+t)*0.5+0.5' })
+      node(id, 'FormulaPattern', 'pattern', { formula: 'sin(x*6+t)*0.5+0.5' })
 
-    it('a Group forwards untrusted to its subgraph, blanking a nested CustomFormula', () => {
+    it('a Group forwards untrusted to its subgraph, blanking a nested FormulaPattern', () => {
       const groups = { pg: patternGroup(formulaNode('cf')) }
       const grp = node('grp', 'Group', 'pattern', { groupId: 'pg' })
       const out = node('out', 'MatrixOutput', 'output', {})
@@ -1219,7 +1219,7 @@ describe('evaluateGraph', () => {
       }
     }
 
-    it("the Show Engine forwards untrusted to a collected pattern's CustomFormula", () => {
+    it("the Show Engine forwards untrusted to a collected pattern's FormulaPattern", () => {
       const groups = { pg: patternGroup(formulaNode('cf')) }
       const t = showGraph('pmT')
       expect(litPixels(evaluateGraph(t.nodes, t.edges, 0, W, H, groups, '', new Set(), {}, null, true))).toBeGreaterThan(0)
@@ -2801,7 +2801,7 @@ describe('evaluateGraph', () => {
 
   it('Temperature yields warm vs cool white points', () => {
     const colorAt = (kelvin: number) => {
-      const t = node('t', 'Temperature', 'color', { kelvin })
+      const t = node('t', 'ColorTemperature', 'color', { kelvin })
       const sc = node('sc', 'SolidColor', 'pattern', {})
       const out = node('out', 'MatrixOutput', 'output', {})
       const f = evaluateGraph([t, sc, out], [
@@ -2855,7 +2855,7 @@ describe('evaluateGraph', () => {
       { type: 'Plasma', extra: { plasmaStyle: 'sineGrid' } },
       { type: 'Plasma', extra: { plasmaStyle: 'sine2d' } },
       { type: 'PaletteGradient' }, { type: 'Blobs' }, { type: 'FlowField' },
-      { type: 'AudioFlow' }, { type: 'ColorTrails' }, { type: 'MidrangeWaves' }, { type: 'MidrangeBloom' }, { type: 'AudioCascade' }, { type: 'ReactionDiffusion' }, { type: 'CustomFormula' },
+      { type: 'AudioFlow' }, { type: 'ColorTrails' }, { type: 'MidrangeWaves' }, { type: 'MidrangeBloom' }, { type: 'AudioCascade' }, { type: 'ReactionDiffusion' }, { type: 'FormulaPattern' },
     ]
     for (const { type, extra } of patterns) {
       const label = type + (extra?.noiseType ? `-${extra.noiseType}` : '') + (extra?.plasmaStyle ? `-${extra.plasmaStyle}` : '')
@@ -3709,7 +3709,7 @@ describe('evaluateGraph — groups', () => {
   it('Sequencer shows its first input at t=0', () => {
     const red = node('r', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const grn = node('g', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 })
-    const seq = node('s', 'Sequencer', 'composite', { interval: 4, fade: 1 })
+    const seq = node('s', 'CrossfadeCycle', 'composite', { interval: 4, fade: 1 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [
       edge('e1', 'r', 'frame', 's', 'p0'),
@@ -3723,7 +3723,7 @@ describe('evaluateGraph — groups', () => {
   it('Sequencer crossfades between inputs in the fade window', () => {
     const red = node('r', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const grn = node('g', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 })
-    const seq = node('s', 'Sequencer', 'composite', { interval: 4, fade: 2 })
+    const seq = node('s', 'CrossfadeCycle', 'composite', { interval: 4, fade: 2 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [
       edge('e1', 'r', 'frame', 's', 'p0'),
@@ -3739,7 +3739,7 @@ describe('evaluateGraph — groups', () => {
 
   it('Sequencer passes a single input through unchanged', () => {
     const red = node('r', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
-    const seq = node('s', 'Sequencer', 'composite', {})
+    const seq = node('s', 'CrossfadeCycle', 'composite', {})
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e1', 'r', 'frame', 's', 'p0'), edge('e2', 's', 'frame', 'out', 'frame')]
     const frame = evaluateGraph([red, seq, out], edges, 0, 2, 2)
@@ -3908,12 +3908,12 @@ describe('Transition variants', () => {
   }
 })
 
-describe('Ripple', () => {
+describe('NetworkRipple', () => {
   type Px = { r: number; g: number; b: number }
   const lit = (frame: Px[][]) => frame.flat().filter((p) => p.r + p.g + p.b > 0).length
 
   it('starts a ripple on a rising trigger and runs it along the network, leaving a trail', () => {
-    const ripple = node('rp', 'Ripple', 'pattern', { networkPreset: 'hexagons', ledsPerEdge: 4, rate: 0, startNode: 0, speed: 0.5, width: 2, trail: 0.22, seed: 1 })
+    const ripple = node('rp', 'NetworkRipple', 'pattern', { networkPreset: 'hexagons', ledsPerEdge: 4, rate: 0, startNode: 0, speed: 0.5, width: 2, trail: 0.22, seed: 1 })
     const trig = node('tg', 'Constant', 'math', { value: 0 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e1', 'tg', 'value', 'rp', 'trigger'), edge('e2', 'rp', 'frame', 'out', 'frame')]
@@ -3932,7 +3932,7 @@ describe('Ripple', () => {
   })
 
   it('keeps its ripples as instance state, cleared on reset', () => {
-    const ripple = node('rp', 'Ripple', 'pattern', { networkPreset: 'triangles', ledsPerEdge: 3, rate: 5, speed: 0.5, seed: 2 })
+    const ripple = node('rp', 'NetworkRipple', 'pattern', { networkPreset: 'triangles', ledsPerEdge: 3, rate: 5, speed: 0.5, seed: 2 })
     const out = node('out', 'MatrixOutput', 'output', {})
     const edges = [edge('e2', 'rp', 'frame', 'out', 'frame')]
     evaluateGraphFull([ripple, out], edges, 0, W, H)
@@ -4265,7 +4265,7 @@ describe('Wave Sim options', () => {
   })
 })
 
-describe('Float Field — Phase 2 (ShapeField falloff / FieldMath / FieldWarp)', () => {
+describe('Float Field — Phase 2 (ShapeField falloff / FieldMath / FieldTransform)', () => {
   // Read a node's `field` output directly.
   function fieldOut(nodeId: string, nodes: StudioNode[], edges: StudioEdge[], tick = 0): Float32Array {
     const { outputs } = evaluateGraphFull(nodes, edges, tick, W, H)
@@ -4323,20 +4323,20 @@ describe('Float Field — Phase 2 (ShapeField falloff / FieldMath / FieldWarp)',
     expect([...fld].every((v) => Math.abs(v - 0.5) < 1e-6)).toBe(true)
   })
 
-  it('FieldWarp with no offset returns the source field unchanged', () => {
+  it('FieldTransform with no offset returns the source field unchanged', () => {
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
-    const fw = node('fw', 'FieldWarp', 'composite', { strength: 2 })
+    const fw = node('fw', 'FieldTransform', 'composite', { strength: 2 })
     const g = withFieldTail('fw', [src, fw], [edge('e1', 'src', 'field', 'fw', 'field')])
     const ref = fieldOut('src', g.nodes, g.edges)
     const warped = fieldOut('fw', g.nodes, g.edges)
     expect([...warped]).toEqual([...ref])
   })
 
-  it('FieldWarp shifts the sample when an offset field is wired', () => {
+  it('FieldTransform shifts the sample when an offset field is wired', () => {
     // x-ramp source; a constant 1.0 dx field pushes the sample +strength px in x.
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
     const dx = node('dx', 'FieldFormula', 'pattern', { formula: '1' })  // → +strength
-    const fw = node('fw', 'FieldWarp', 'composite', { strength: 1 })
+    const fw = node('fw', 'FieldTransform', 'composite', { strength: 1 })
     const g = withFieldTail('fw', [src, dx, fw], [
       edge('e1', 'src', 'field', 'fw', 'field'),
       edge('e2', 'dx', 'field', 'fw', 'dx'),
@@ -4347,11 +4347,11 @@ describe('Float Field — Phase 2 (ShapeField falloff / FieldMath / FieldWarp)',
     expect(warped[0]).toBeCloseTo(ref[1])
   })
 
-  it('FieldWarp blends between pixels by default and steps with nearest sampling', () => {
+  it('FieldTransform blends between pixels by default and steps with nearest sampling', () => {
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
     const dx = node('dx', 'FieldFormula', 'pattern', { formula: '0.75' })  // → +strength/2
     const render = (props: Record<string, unknown>) => {
-      const fw = node('fw', 'FieldWarp', 'composite', { strength: 1, ...props })
+      const fw = node('fw', 'FieldTransform', 'composite', { strength: 1, ...props })
       const g = withFieldTail('fw', [src, dx, fw], [edge('e1', 'src', 'field', 'fw', 'field'), edge('e2', 'dx', 'field', 'fw', 'dx')])
       return { warped: fieldOut('fw', g.nodes, g.edges), ref: fieldOut('src', g.nodes, g.edges) }
     }
@@ -4463,7 +4463,7 @@ describe('Pattern node expansion - Phase 3 Symmetry', () => {
     const src = node('sym-frame-src', 'GradientFrame', 'pattern', {
       rA: 0, gA: 0, bA: 0, rB: 255, gB: 0, bB: 0,
     })
-    const symmetry = node('symmetry', 'Symmetry', 'composite', identity)
+    const symmetry = node('symmetry', 'TileSymmetry', 'composite', identity)
     const out = node('sym-frame-out', 'MatrixOutput', 'output', {})
     const frame = evaluateGraph([src, symmetry, out], [
       edge('sym-frame-in', src.id, 'frame', symmetry.id, 'frame'),
@@ -4782,7 +4782,7 @@ describe('Float Field — Phase 3 (Field Transform turn and tiles)', () => {
 
   it('Field Transform at 0° with no spin returns the source unchanged', () => {
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
-    const fr = node('fr', 'FieldWarp', 'composite', { angle: 0, spin: 0 })
+    const fr = node('fr', 'FieldTransform', 'composite', { angle: 0, spin: 0 })
     const g = withFieldTail('fr', [src, fr], [edge('e1', 'src', 'field', 'fr', 'field')])
     const ref = fieldOut('src', g.nodes, g.edges)
     const rot = fieldOut('fr', g.nodes, g.edges)
@@ -4793,7 +4793,7 @@ describe('Float Field — Phase 3 (Field Transform turn and tiles)', () => {
     // x-ramp: value depends only on column. After a 90° turn it should vary
     // by row instead — i.e. each row becomes (near) constant across columns.
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
-    const fr = node('fr', 'FieldWarp', 'composite', { angle: 90 })
+    const fr = node('fr', 'FieldTransform', 'composite', { angle: 90 })
     const g = withFieldTail('fr', [src, fr], [edge('e1', 'src', 'field', 'fr', 'field')])
     const rot = fieldOut('fr', g.nodes, g.edges)
     for (let y = 0; y < H; y++) {
@@ -4804,7 +4804,7 @@ describe('Float Field — Phase 3 (Field Transform turn and tiles)', () => {
 
   it('Field Transform spin advances with time', () => {
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
-    const fr = node('fr', 'FieldWarp', 'composite', { angle: 0, spin: 90 })
+    const fr = node('fr', 'FieldTransform', 'composite', { angle: 0, spin: 90 })
     const g = withFieldTail('fr', [src, fr], [edge('e1', 'src', 'field', 'fr', 'field')])
     const at0 = fieldOut('fr', g.nodes, g.edges, 0)
     const at1s = fieldOut('fr', g.nodes, g.edges, 60)  // tick/60 = 1s → 90° spin
@@ -4813,7 +4813,7 @@ describe('Float Field — Phase 3 (Field Transform turn and tiles)', () => {
 
   it('Field Transform tiles 2×1 repeat the field horizontally, each pixel averaging the two it squeezes', () => {
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
-    const ft = node('ft', 'FieldWarp', 'composite', { tilesX: 2, tilesY: 1, edgeMode: 'wrap' })
+    const ft = node('ft', 'FieldTransform', 'composite', { tilesX: 2, tilesY: 1, edgeMode: 'wrap' })
     const g = withFieldTail('ft', [src, ft], [edge('e1', 'src', 'field', 'ft', 'field')])
     const ref = fieldOut('src', g.nodes, g.edges)
     const tiled = fieldOut('ft', g.nodes, g.edges)
@@ -4823,7 +4823,7 @@ describe('Float Field — Phase 3 (Field Transform turn and tiles)', () => {
 
   it('Field Transform holds tile counts below 1 at one copy', () => {
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'px/(W-1)' })
-    const ft = node('ft', 'FieldWarp', 'composite', { tilesX: 0, tilesY: 0 })
+    const ft = node('ft', 'FieldTransform', 'composite', { tilesX: 0, tilesY: 0 })
     const g = withFieldTail('ft', [src, ft], [edge('e1', 'src', 'field', 'ft', 'field')])
     const ref = fieldOut('src', g.nodes, g.edges)
     const tiled = fieldOut('ft', g.nodes, g.edges)
@@ -6473,7 +6473,7 @@ describe('Clock / Transport', () => {
   const boolSrc = (id: string, on: number) => node(id, 'Compare', 'math', { a: on, b: 0.5 })
 
   it('free-runs phase/beat/bar from the bpm property', () => {
-    const clk = () => [node('clk1', 'Clock', 'signal', { bpm: 120, beatsPerBar: 4, subdivision: 2 })]
+    const clk = () => [node('clk1', 'TempoClock', 'signal', { bpm: 120, beatsPerBar: 4, subdivision: 2 })]
     const at = (tick: number, port: string) => evaluateScalar(clk(), [], 'clk1', port, tick)
     // 120 BPM = 2 beats/sec = a beat every 30 ticks (@60 ticks/sec).
     expect(at(0, 'phase')).toBe(0)
@@ -6489,12 +6489,12 @@ describe('Clock / Transport', () => {
 
   it('bpm output reflects the free-run property when untapped', () => {
     expect(evaluateScalar(
-      [node('clk2', 'Clock', 'signal', { bpm: 96 })], [], 'clk2', 'bpm', 0,
+      [node('clk2', 'TempoClock', 'signal', { bpm: 96 })], [], 'clk2', 'bpm', 0,
     )).toBe(96)
   })
 
   it('subdivision pulses at the configured rate', () => {
-    const clk = () => [node('clk3', 'Clock', 'signal', { bpm: 120, subdivision: 2 })]
+    const clk = () => [node('clk3', 'TempoClock', 'signal', { bpm: 120, subdivision: 2 })]
     const at = (tick: number) => evaluateScalar(clk(), [], 'clk3', 'subdivision', tick)
     expect(at(0)).toBe(0)
     expect(at(15)).toBe(1)  // half a beat in, subdivision 2 → first subdivision boundary
@@ -6504,7 +6504,7 @@ describe('Clock / Transport', () => {
   it('tap tempo derives bpm from the interval between two taps and re-zeros phase', () => {
     const graph = (on: number) => [
       boolSrc('tapsrc', on),
-      node('clk4', 'Clock', 'signal', { bpm: 90 }),
+      node('clk4', 'TempoClock', 'signal', { bpm: 90 }),
     ]
     const edges = [edge('e', 'tapsrc', 'result', 'clk4', 'tap')]
     const at = (tick: number, on: number, port: string) => evaluateScalar(graph(on), edges, 'clk4', port, tick)
@@ -6518,7 +6518,7 @@ describe('Clock / Transport', () => {
   it('sync pulses re-zero phase the same way tap does', () => {
     const graph = (on: number) => [
       boolSrc('syncsrc', on),
-      node('clk5', 'Clock', 'signal', { bpm: 60 }),
+      node('clk5', 'TempoClock', 'signal', { bpm: 60 }),
     ]
     const edges = [edge('e', 'syncsrc', 'result', 'clk5', 'sync')]
     const at = (tick: number, on: number) => evaluateScalar(graph(on), edges, 'clk5', 'phase', tick)
@@ -6530,7 +6530,7 @@ describe('Clock / Transport', () => {
   it('reset re-zeros phase and beat/bar counters', () => {
     const graph = (on: number) => [
       boolSrc('rstsrc', on),
-      node('clk6', 'Clock', 'signal', { bpm: 120, beatsPerBar: 4 }),
+      node('clk6', 'TempoClock', 'signal', { bpm: 120, beatsPerBar: 4 }),
     ]
     const edges = [edge('e', 'rstsrc', 'result', 'clk6', 'reset')]
     const at = (tick: number, on: number, port: string) => evaluateScalar(graph(on), edges, 'clk6', port, tick)

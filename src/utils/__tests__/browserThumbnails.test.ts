@@ -139,7 +139,7 @@ describe('baking for a graph', () => {
     const groups = {
       formula: {
         nodes: [
-          node('f', 'CustomFormula', { formula: '1', a: 0, b: 0, palette: 'rainbow' }),
+          node('f', 'FormulaPattern', { formula: '1', a: 0, b: 0, palette: 'rainbow' }),
           node('o', 'GroupOutput'),
         ],
         edges: [edge('e', 'f', 'frame', 'o', 'frame')],

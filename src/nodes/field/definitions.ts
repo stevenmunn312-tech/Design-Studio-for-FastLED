@@ -381,9 +381,9 @@ export const FIELD_DEFINITIONS: NodeDefinition[] = [
   {
     // Field Transform (./fieldTransform.ts), the field twin of Frame Warp: two
     // fields push each read, then a turn (Angle plus Spin), a zoom and tiles
-    // about the canvas, read bilinear at an edge mode. It keeps the FieldWarp
+    // about the canvas, read bilinear at an edge mode. It keeps the FieldTransform
     // type id and took over Field Rotate and Field Tile.
-    type: 'FieldWarp',
+    type: 'FieldTransform',
     label: 'Field Transform',
     category: 'field',
     inputs: [
@@ -447,6 +447,6 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = {
   GradientField: 'A linear, radial or angular ramp across the matrix, with offset and repeat.',
   FieldBlur: 'Box-blurs a field by a radius in pixels.',
   ShapeField: 'Ellipse, rectangle, polygon, rose or superformula as a fill, glow or falloff.',
-  FieldWarp: 'Pushes, turns, zooms and tiles a field, read smoothly between pixels.',
+  FieldTransform: 'Pushes, turns, zooms and tiles a field, read smoothly between pixels.',
   FieldSymmetry: 'Repeats a field through a square or hexagonal wallpaper symmetry group.',
 }

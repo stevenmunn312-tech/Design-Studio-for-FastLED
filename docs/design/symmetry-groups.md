@@ -4,7 +4,7 @@ Status: implemented · Owner: app · Date: 2026-09-28
 
 ## Purpose
 
-`FieldSymmetry` and `Symmetry` repeat source material through a wallpaper
+`FieldSymmetry` and `TileSymmetry` repeat source material through a wallpaper
 group. The field node keeps hard scalar boundaries with nearest-neighbour
 sampling; the frame node uses the shared bilinear sampler, so images and
 finished patterns stay smooth while moving.

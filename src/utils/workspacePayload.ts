@@ -1,6 +1,7 @@
 import type { StudioEdge, StudioNode, WorkspaceExtras } from '../state/graphStore'
 import type { PersistedWorkspace } from '../state/workspacePersistence'
 import { sanitizeSavedParts } from '../build/parts/savedParts'
+import { upgradePreV1Workspace } from '../state/preV1Aliases'
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -88,7 +89,10 @@ export function sanitizeWorkspacePayload(value: unknown): SanitizedWorkspacePayl
     dropped += saved.dropped
     workspace.parts = saved.parts
   }
-  return { dropped, workspace }
+  // Round eight's renames (preV1Aliases.ts, removed before v1.0.0). A wire
+  // whose value changed unit is dropped and counted with the skipped items.
+  const upgraded = upgradePreV1Workspace(workspace)
+  return { dropped: dropped + upgraded.retiredWires, workspace: upgraded.workspace }
 }
 
 export function workspaceLoadStatus(base: string, dropped: number): string {

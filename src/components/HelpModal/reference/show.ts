@@ -158,7 +158,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       nodes: {
         patterns: ['PatternCollection'],
         mic: ['MicInput'],
-        transitions: ['TransitionSet'],
+        transitions: ['TransitionPool'],
         beat: ['BeatDetect'],
         controls: ['ControlMap'],
         particles: ['PlayerParticles'],
@@ -226,7 +226,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  Sequencer: {
+  CrossfadeCycle: {
     overview: [
       'Crossfade Cycle plays up to four frames in turn: each holds for Interval seconds, then crossfades into the next over Fade seconds. Unwired slots are skipped.',
       'It is the simplest way to rotate between a few looks without a Pattern Collection. For many patterns, random order, music, or a step-by-step Sequence, use Pattern Slideshow or Music Player.',
@@ -241,14 +241,14 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       frame: 'The current frame, or the crossfade between two.',
     },
     example: example({
-      featured: 'Sequencer',
+      featured: 'CrossfadeCycle',
       title: 'Four moods on rotation',
       nodes: {
         sea: ['Pacifica', { palette: 'ocean' }],
         hearth: ['Fire', { fireStyle: 'classic', palette: 'fire' }],
         aurora: ['Noise', { noiseType: 'fbm', palette: 'aurora', speed: 0.25 }],
         stars: ['TwinkleFox', { palette: 'party', density: 0.5 }],
-        rotation: ['Sequencer', { interval: 3, fade: 1 }],
+        rotation: ['CrossfadeCycle', { interval: 3, fade: 1 }],
       },
       wires: ['sea.frame > rotation.p0', 'hearth.frame > rotation.p1', 'aurora.frame > rotation.p2', 'stars.frame > rotation.p3'],
       explanation: 'Crossfade Cycle holds each of four looks — sea, hearth, aurora and twinkling lights — for three seconds, crossfading over one second into the next, then loops.',
@@ -285,7 +285,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  TransitionSet: {
+  TransitionPool: {
     overview: [
       'Transition Pool is a set of transition styles for a show to choose from. Tick the styles you want in its body; the player picks among them at each pattern change.',
       'Wire it into a Music Player or a Pattern Slideshow for live shows, or a Performance Generator for a music-synced one. Without a pool, shows crossfade.',
@@ -295,11 +295,11 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
     },
     outcome: SHOW_OUTCOME + ' Each change then uses one of the ticked transition styles.',
     example: example({
-      featured: 'TransitionSet',
+      featured: 'TransitionPool',
       title: 'Give a show its own set of moves',
       nodes: {
         patterns: ['PatternCollection'],
-        moves: ['TransitionSet', { transitions: ['iris', 'spiral', 'cube', 'blinds'] }],
+        moves: ['TransitionPool', { transitions: ['iris', 'spiral', 'cube', 'blinds'] }],
         player: ['PatternMaster'],
         card: ['SDCard'],
         amp: ['Amplifier'],
@@ -376,7 +376,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       nodes: {
         music: ['MusicLibrary'],
         patterns: ['PatternCollection'],
-        transitions: ['TransitionSet'],
+        transitions: ['TransitionPool'],
         generator: ['PerformanceGenerator', { paletteMode: 'mood', minTime: 8 }],
       },
       wires: ['patterns.patternset > generator.patternset', 'transitions.transitions > generator.transitions'],

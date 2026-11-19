@@ -83,7 +83,7 @@ describe('starterTemplates', () => {
       ['Audio', 'audio', 'PatternMaster', 'audio'],
       ['ControlMap', 'controls', 'PatternMaster', 'controls'],
       ['PatternCollection', 'patternset', 'PatternMaster', 'patternset'],
-      ['TransitionSet', 'transitions', 'PatternMaster', 'transitions'],
+      ['TransitionPool', 'transitions', 'PatternMaster', 'transitions'],
       ['PlayerParticles', 'particleFx', 'PatternMaster', 'particleFx'],
       ['Audio', 'audio', 'BeatDetect', 'audio'],
       ['BeatDetect', 'beat', 'PatternMaster', 'beat'],
@@ -105,7 +105,7 @@ describe('starterTemplates', () => {
     // library order, energy pacing with dwells and bursts, and particle
     // volleys of any style and colour once the music is loud.
     const transitionTypes = (PROPERTY_META.transitionType as { options: readonly string[] }).options
-    expect(nodeByType.get('TransitionSet')!.data.properties.transitions).toEqual([...transitionTypes])
+    expect(nodeByType.get('TransitionPool')!.data.properties.transitions).toEqual([...transitionTypes])
     expect(nodeByType.get('PatternMaster')!.data.properties).toMatchObject({
       order: 'Sequential', beatTransitions: true, minTime: 4, maxTime: 8, transitionSec: 1,
       energyPacing: true, dwellsAndBursts: true,

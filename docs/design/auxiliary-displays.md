@@ -222,7 +222,7 @@ size, label length, and a per-type property whitelist — before anything reads
 them, and unknown types or keys are dropped rather than carried through.
 
 This is the same trust boundary the workspace already draws around
-`CustomFormula`, `FieldFormula`, and `Code` nodes, and it exists for the same
+`FormulaPattern`, `FieldFormula`, and `Code` nodes, and it exists for the same
 reason: an imported workspace is someone else's file.
 
 ## Signals a display needs

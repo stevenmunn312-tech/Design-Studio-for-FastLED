@@ -260,7 +260,7 @@ music-free case. Nobody would find that, so nobody did.
   `showGenerator.ts` both read this through `slideshowSettings`. The inline
   editor disables the listening rows without Audio Reactive.
 - **Transitions with a fade built in.** Transition 0 means a cut. Above it,
-  with nothing wired, a fade, rather than requiring a `TransitionSet` to get
+  with nothing wired, a fade, rather than requiring a `TransitionPool` to get
   the one transition everybody wants first. A separate Transitions switch gave
   the same cut as 0 and was removed.
 - **Audio is live-only and off by default.** A music-free player has no decoder
@@ -429,7 +429,7 @@ corkscrew or positioned string plays a show like any other output.
 2. **Collection node** ✅ — absorb patterns into an internal list; `patternset` data
    type; declutter.
 3. **Music Player upgrade** ✅ — `patternset` input, transition-pool selection
-   (via a wired `TransitionSet`), beat trigger (audio-gated); live random-show
+   (via a wired `TransitionPool`), beat trigger (audio-gated); live random-show
    preview.
 4. **Codegen** ✅ — per-pattern `render_pN()` functions + the controller `.ino`
    (random pattern + random transition on triggers), as a single file rather
@@ -449,7 +449,7 @@ particle overlay flow; see `docs/release/beta-support-matrix.md`.
 
 ## Relationship to existing nodes
 
-`PatternMaster` remains the internal node type for Music Player. `Sequencer`
+`PatternMaster` remains the internal node type for Music Player. `CrossfadeCycle`
 (Crossfade Cycle: cycles four inputs with crossfade) is the smaller
 fixed-input alternative;
 Music Player instead consumes a Pattern Collection and can use the transition catalogue

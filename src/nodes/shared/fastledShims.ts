@@ -6,7 +6,7 @@
 // uint8_t/uint16_t and returning the same. In the JS preview we approximate them
 // with floating-point math. Minor differences in expressions that rely on exact
 // 8-/16-bit wrap or saturation are a known, documented divergence (the same
-// caveat the CustomFormula / Code-node notes carry).
+// caveat the FormulaPattern / Code-node notes carry).
 
 const TAU = Math.PI * 2
 

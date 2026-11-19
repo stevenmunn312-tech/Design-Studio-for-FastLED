@@ -46,7 +46,7 @@ value-producing nodes, topologically evaluated once per frame); "all LEDs blue"
 is three nodes instead of five; and a graph of hand-wired loops is just C++ with
 extra steps, harder to read than the C++ itself.
 
-A `CustomFormula`-style per-pixel `f(x, y, t)` node remains the sanctioned
+A `FormulaPattern`-style per-pixel `f(x, y, t)` node remains the sanctioned
 escape hatch for pixel-level control — not a `Loop` node.
 
 ### 2. One engine, two workspaces, via encapsulation
@@ -71,7 +71,7 @@ add a conceptual rewrite for negligible benefit. Reuse the frame engine.
 
 The compositing workspace stays a free-form graph (so patterns can be layered
 and blended). Time-based sequencing ("pattern A for 30s, crossfade to B") is
-encapsulated in a `Sequencer` node that holds a small timeline of its inputs.
+encapsulated in a `CrossfadeCycle` node that holds a small timeline of its inputs.
 This keeps a single paradigm while still offering a real timeline affordance
 where it is needed.
 
@@ -120,11 +120,11 @@ where it is needed.
   function-per-group + per-buffer form (emit `void pattern_<id>(CRGB* out)` and
   blend buffers in `loop()`) is deferred and lands together with real frame
   compositing in Phase 3.
-- **Phase 3 — Compositing richness.** _Done:_ the `Sequencer` node (preview +
+- **Phase 3 — Compositing richness.** _Done:_ the `CrossfadeCycle` node (preview +
   codegen) and the **per-layer buffer codegen** — each frame node renders into
   its own `CRGB buf_<id>` and `MatrixOutput` copies the final buffer to `leds`,
   so `Blend` emits frame compositing and `Transition` provides crossfade, wipe,
-  and dissolve modes. `Sequencer` emits a millis-driven crossfade
+  and dissolve modes. `CrossfadeCycle` emits a millis-driven crossfade
   across its input buffers. **Exposed group parameters** also landed: grouping a
   selection turns each boundary input edge into a `GroupInput` node + a port on
   the `Group` node, so external values (math, audio, a hardware knob) drive a

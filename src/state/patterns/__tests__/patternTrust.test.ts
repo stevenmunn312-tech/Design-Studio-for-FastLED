@@ -37,7 +37,7 @@ describe('patternNeedsTrust', () => {
     ], [edge('e1', 's', 'b'), edge('e2', 'b', 'o')]))).toBe(false)
   })
 
-  it.each(['CustomFormula', 'FieldFormula', 'Code'])('is true for a top-level %s node', (nodeType) => {
+  it.each(['FormulaPattern', 'FieldFormula', 'Code'])('is true for a top-level %s node', (nodeType) => {
     expect(patternNeedsTrust(content([node('x', nodeType), node('o', 'GroupOutput')]))).toBe(true)
   })
 
@@ -56,7 +56,7 @@ describe('patternNeedsTrust', () => {
   it('is true for a gated node two groups down', () => {
     const groups = {
       outer: content([node('g2', 'Group', { groupId: 'inner' }), node('oo', 'GroupOutput')]),
-      inner: content([node('cf', 'CustomFormula'), node('io', 'GroupOutput')]),
+      inner: content([node('cf', 'FormulaPattern'), node('io', 'GroupOutput')]),
     }
     expect(patternNeedsTrust(content([node('g', 'Group', { groupId: 'outer' })]), groups)).toBe(true)
   })
@@ -72,7 +72,7 @@ describe('patternNeedsTrust', () => {
 })
 
 describe('pattern content trust store', () => {
-  const subgraph = content([node('cf', 'CustomFormula', { formula: '0.5' }), node('o', 'GroupOutput')])
+  const subgraph = content([node('cf', 'FormulaPattern', { formula: '0.5' }), node('o', 'GroupOutput')])
 
   it('remembers a trusted subgraph by content', () => {
     expect(isPatternContentTrusted(subgraph)).toBe(false)
@@ -82,7 +82,7 @@ describe('pattern content trust store', () => {
 
   it('does not carry trust over to an edited copy', () => {
     trustPatternContent(subgraph)
-    const edited = content([node('cf', 'CustomFormula', { formula: '0.9' }), node('o', 'GroupOutput')])
+    const edited = content([node('cf', 'FormulaPattern', { formula: '0.9' }), node('o', 'GroupOutput')])
     expect(isPatternContentTrusted(edited)).toBe(false)
   })
 })
@@ -93,8 +93,8 @@ describe('known content', () => {
   })
 
   it('remembers code by what it is, not where it sits', () => {
-    rememberContent([node('cf', 'CustomFormula', { formula: 'x' })])
-    const moved = { ...node('other-id', 'CustomFormula', { formula: 'x' }), position: { x: 300, y: 40 } }
+    rememberContent([node('cf', 'FormulaPattern', { formula: 'x' })])
+    const moved = { ...node('other-id', 'FormulaPattern', { formula: 'x' }), position: { x: 300, y: 40 } }
     expect(isContentKnown([moved as StudioNode, node('p', 'Plasma')])).toBe(true)
   })
 
@@ -116,10 +116,10 @@ describe('known content', () => {
   })
 
   it('carries over patterns trusted under the old whole-pattern store', () => {
-    const legacy = JSON.stringify({ edges: [], nodes: [node('cf', 'CustomFormula', { formula: 'old' })] })
+    const legacy = JSON.stringify({ edges: [], nodes: [node('cf', 'FormulaPattern', { formula: 'old' })] })
     localStorage.setItem('design-studio-for-fastled.trusted-pattern-content.v1', JSON.stringify([legacy]))
     reloadKnownContentForTests()
-    expect(isContentKnown([node('x', 'CustomFormula', { formula: 'old' })])).toBe(true)
+    expect(isContentKnown([node('x', 'FormulaPattern', { formula: 'old' })])).toBe(true)
   })
 })
 
@@ -137,7 +137,7 @@ describe('workspaceTrustHolds', () => {
     expect(workspaceNeedsTrust([node('p', 'Plasma'), node('o', 'MatrixOutput')])).toBe(false)
   })
 
-  it.each(['CustomFormula', 'FieldFormula', 'Code'])('reports %s in the active graph', (nodeType) => {
+  it.each(['FormulaPattern', 'FieldFormula', 'Code'])('reports %s in the active graph', (nodeType) => {
     const holds = workspaceTrustHolds([node('x', nodeType), node('o', 'MatrixOutput')])
     expect(holds.formulaOrCode).toBe(true)
     expect(holds.artnet).toBe(false)
@@ -148,7 +148,7 @@ describe('workspaceTrustHolds', () => {
     // them, so a formula one level down is blocked and must still be reported.
     const holds = workspaceTrustHolds(
       [node('g', 'Group', { groupId: 'grp' }), node('o', 'MatrixOutput')],
-      { grp: content([node('cf', 'CustomFormula'), node('go', 'GroupOutput')]) },
+      { grp: content([node('cf', 'FormulaPattern'), node('go', 'GroupOutput')]) },
     )
     expect(holds.formulaOrCode).toBe(true)
   })
@@ -170,7 +170,7 @@ describe('workspaceTrustHolds', () => {
 
   it('reports both kinds together', () => {
     const holds = workspaceTrustHolds([
-      node('cf', 'CustomFormula'),
+      node('cf', 'FormulaPattern'),
       node('d', 'DMXInput', { inputMode: 'Art-Net' }),
     ])
     expect(holds).toEqual({ formulaOrCode: true, artnet: true })

@@ -48,7 +48,7 @@ function freshShow(
 }
 
 /**
- * The TransitionSet wired into a Performance Generator's `transitions` input:
+ * The TransitionPool wired into a Performance Generator's `transitions` input:
  * its pool of extra transition styles (empty when none is wired). Resolved
  * live from the graph, same as `wiredCollection`.
  */

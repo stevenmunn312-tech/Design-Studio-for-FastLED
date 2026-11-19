@@ -1090,7 +1090,7 @@ describe('generateCpp', () => {
   })
 
   it('emits a millis()-based Clock with bpm/beatsPerBar/subdivision baked in', () => {
-    const clk = node('clk', 'Clock', 'signal', { bpm: 128, beatsPerBar: 4, subdivision: 2 })
+    const clk = node('clk', 'TempoClock', 'signal', { bpm: 128, beatsPerBar: 4, subdivision: 2 })
     const cpp = generateCpp([clk], [])
     expect(cpp).toContain('_clkOrigin_clk')
     expect(cpp).toContain('float _clkBpmP_clk = fmaxf(1.0f,128);')
@@ -1107,7 +1107,7 @@ describe('generateCpp', () => {
 
   it('Clock reads tap/sync/reset from wired bool sources', () => {
     const tap = node('tapsrc', 'Compare', 'math', {})
-    const clk = node('clk2', 'Clock', 'signal', { bpm: 100 })
+    const clk = node('clk2', 'TempoClock', 'signal', { bpm: 100 })
     const cpp = generateCpp([tap, clk], [
       edge('e1', 'tapsrc', 'clk2', 'result', 'tap'),
     ])
@@ -1594,7 +1594,7 @@ describe('generateCpp', () => {
   it('emits a time-based Sequencer over its input buffers', () => {
     const a = node('a', 'SolidColor', 'pattern', { r: 255, g: 0, b: 0 })
     const b = node('b', 'SolidColor', 'pattern', { r: 0, g: 255, b: 0 })
-    const seq = node('s', 'Sequencer', 'composite', { interval: 4, fade: 1 })
+    const seq = node('s', 'CrossfadeCycle', 'composite', { interval: 4, fade: 1 })
     const cpp = generateCpp([a, b, seq, outputNode], [
       edge('e1', 'a', 's', 'frame', 'p0'),
       edge('e2', 'b', 's', 'frame', 'p1'),
@@ -1608,7 +1608,7 @@ describe('generateCpp', () => {
 
   it('a single-input Sequencer just copies that buffer', () => {
     const a = node('a', 'SolidColor', 'pattern', { r: 1, g: 2, b: 3 })
-    const seq = node('s', 'Sequencer', 'composite', {})
+    const seq = node('s', 'CrossfadeCycle', 'composite', {})
     const cpp = generateCpp([a, seq, outputNode], [
       edge('e1', 'a', 's', 'frame', 'p0'),
       edge('e2', 's', 'out', 'frame', 'frame'),
@@ -2565,8 +2565,8 @@ describe('generateCpp', () => {
     expect(cpp).toContain('float _pp=_tn*2+_phase_g; buf_g[_y*WIDTH+_x]=ColorFromPalette(paldef_rainbow,(uint8_t)((_pp-floorf(_pp))*255));')
   })
 
-  it('declares CustomFormula A/B inputs before using them', () => {
-    const formula = node('cf', 'CustomFormula', 'pattern', { formula: 'sin(r + a + b + t)', a: 0.2, b: 0.4 })
+  it('declares FormulaPattern A/B inputs before using them', () => {
+    const formula = node('cf', 'FormulaPattern', 'pattern', { formula: 'sin(r + a + b + t)', a: 0.2, b: 0.4 })
     const cpp = generateCpp([formula, outputNode], [edge('e', 'cf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float a=0.2, b=0.4;')
     expect(cpp.indexOf('float a=')).toBeLessThan(cpp.indexOf('float _v=sinf((((r+a)+b)+t));'))
@@ -2576,9 +2576,9 @@ describe('generateCpp', () => {
   // same sandboxed-parser check the preview does. Before this, the raw string
   // was pasted straight into `float _v=<formula>;`, so an untrusted project
   // could smuggle arbitrary C++ into a sketch the user then flashed.
-  it('refuses to emit CustomFormula source that the sandbox parser rejects', () => {
+  it('refuses to emit FormulaPattern source that the sandbox parser rejects', () => {
     const injected = '0.0f; digitalWrite(2, HIGH); float _x = 0'
-    const cf = node('cf', 'CustomFormula', 'pattern', { formula: injected })
+    const cf = node('cf', 'FormulaPattern', 'pattern', { formula: injected })
     const cpp = generateCpp([cf, outputNode], [edge('e', 'cf', 'out', 'frame', 'frame')])
     expect(cpp).not.toContain('digitalWrite(2, HIGH)')
     expect(cpp).toContain('float _v=0.0f;')
@@ -2598,7 +2598,7 @@ describe('generateCpp', () => {
   })
 
   it('prints a valid formula from its parse tree, with float literals', () => {
-    const cf = node('cf', 'CustomFormula', 'pattern', { formula: 'sin(x*6+t)*0.5+0.5' })
+    const cf = node('cf', 'FormulaPattern', 'pattern', { formula: 'sin(x*6+t)*0.5+0.5' })
     const cpp = generateCpp([cf, outputNode], [edge('e', 'cf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('float _v=((sinf(((x*6.0f)+t))*0.5f)+0.5f);')
     expect(cpp).not.toContain('invalid formula')
@@ -2767,7 +2767,7 @@ describe('generateCpp', () => {
   })
 
   it('emits a Color Temperature node with the kelvinToRGB helper', () => {
-    const t = node('t', 'Temperature', 'color', { kelvin: 3000 })
+    const t = node('t', 'ColorTemperature', 'color', { kelvin: 3000 })
     const sp = node('sp', 'Shape', 'pattern', { shape: 'ellipse', cx: 2, cy: 2, size: 2 })
     const cpp = generateCpp([t, sp, outputNode], [
       edge('e1', 't', 'sp', 'color', 'edge'),
@@ -3141,7 +3141,7 @@ describe('generateCpp', () => {
 
 describe('Ripple codegen', () => {
   it('bakes the network and its turning tables, fits them at start-up, and keeps the trail buffer', () => {
-    const ripple = node('rp', 'Ripple', 'pattern', { networkPreset: 'hexagons', ledsPerEdge: 4, behaviour: 'left', width: 2 })
+    const ripple = node('rp', 'NetworkRipple', 'pattern', { networkPreset: 'hexagons', ledsPerEdge: 4, behaviour: 'left', width: 2 })
     const cpp = generateCpp([ripple, outputNode], [edge('e1', 'rp', 'out', 'frame', 'frame')])
     expect(cpp).toContain('// Ripple on a 19-edge network')
     expect(cpp).toContain('static const float _rp_rpnd[16][2] PROGMEM')
@@ -3154,9 +3154,9 @@ describe('Ripple codegen', () => {
   })
 
   it('explode splits down every edge and random draws from the outgoing list', () => {
-    const explode = generateCpp([node('rp', 'Ripple', 'pattern', { behaviour: 'explode' }), outputNode], [edge('e1', 'rp', 'out', 'frame', 'frame')])
+    const explode = generateCpp([node('rp', 'NetworkRipple', 'pattern', { behaviour: 'explode' }), outputNode], [edge('e1', 'rp', 'out', 'frame', 'frame')])
     expect(explode).toContain('for(int _c=1;_c<_cnt;_c++)')
-    const random = generateCpp([node('rp', 'Ripple', 'pattern', { behaviour: 'random', seed: 7 }), outputNode], [edge('e1', 'rp', 'out', 'frame', 'frame')])
+    const random = generateCpp([node('rp', 'NetworkRipple', 'pattern', { behaviour: 'random', seed: 7 }), outputNode], [edge('e1', 'rp', 'out', 'frame', 'frame')])
     expect(random).toContain('random16(_cnt)')
     expect(random).toContain('random16_set_seed(')
   })
@@ -3343,10 +3343,10 @@ describe('Float Field — Phase 2 codegen', () => {
     expect(cpp).toContain('fabsf(_a - _b)')
   })
 
-  it('FieldWarp samples the source field with a clamped offset', () => {
+  it('FieldTransform samples the source field with a clamped offset', () => {
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'x' })
     const dx = node('dx', 'FieldFormula', 'pattern', { formula: '1' })
-    const fw = node('fw', 'FieldWarp', 'composite', { strength: 2 })
+    const fw = node('fw', 'FieldTransform', 'composite', { strength: 2 })
     const t = tail('fw')
     const cpp = generateCpp([src, dx, fw, ...t.nodes], [
       edge('e1', 'src', 'fw', 'field', 'field'),
@@ -3508,7 +3508,7 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
 
   it('uses the shared bilinear sampler for the frame node', () => {
     const src = node('sym-frame-source', 'GradientFrame', 'pattern', {})
-    const symmetry = node('symmetry', 'Symmetry', 'composite', { group: 'p6m' })
+    const symmetry = node('symmetry', 'TileSymmetry', 'composite', { group: 'p6m' })
     const cpp = generateCpp([src, symmetry, outputNode], [
       edge('sym-frame-in', src.id, symmetry.id, 'frame', 'frame'),
       edge('sym-frame-out', symmetry.id, outputNode.id, 'frame', 'frame'),
@@ -3523,7 +3523,7 @@ describe('Pattern node expansion - Phase 3 Symmetry codegen', () => {
   it('falls back to p1 without interpolating an unknown persisted group', () => {
     const injectedGroup = '*/ invalid firmware text /*'
     const src = node('sym-frame-source', 'GradientFrame', 'pattern', {})
-    const symmetry = node('symmetry', 'Symmetry', 'composite', { group: injectedGroup })
+    const symmetry = node('symmetry', 'TileSymmetry', 'composite', { group: injectedGroup })
     const cpp = generateCpp([src, symmetry, outputNode], [
       edge('sym-frame-in', src.id, symmetry.id, 'frame', 'frame'),
       edge('sym-frame-out', symmetry.id, outputNode.id, 'frame', 'frame'),
@@ -3845,7 +3845,7 @@ describe('Float Field — Phase 3 codegen', () => {
 
   it('Field Transform emits a time-driven turn sampling the source field', () => {
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'x' })
-    const fr = node('fr', 'FieldWarp', 'composite', { angle: 0, spin: 45 })
+    const fr = node('fr', 'FieldTransform', 'composite', { angle: 0, spin: 45 })
     const t = tail('fr')
     const cpp = generateCpp([src, fr, ...t.nodes], [
       edge('e1', 'src', 'fr', 'field', 'field'),
@@ -3859,7 +3859,7 @@ describe('Float Field — Phase 3 codegen', () => {
 
   it('Field Transform bakes fixed tile counts and averages the pixels each copy squeezes', () => {
     const src = node('src', 'FieldFormula', 'pattern', { formula: 'x' })
-    const ft = node('ft', 'FieldWarp', 'composite', { tilesX: 3, tilesY: 2, edgeMode: 'wrap' })
+    const ft = node('ft', 'FieldTransform', 'composite', { tilesX: 3, tilesY: 2, edgeMode: 'wrap' })
     const t = tail('ft')
     const cpp = generateCpp([src, ft, ...t.nodes], [
       edge('e1', 'src', 'ft', 'field', 'field'),
@@ -3953,14 +3953,14 @@ describe('Geometry Field codegen', () => {
     expect(cpp).toContain('sinf(_fa*_sp+_rot),_ly=sinf(_fb*_sp)')
   })
 
-  it('CustomFormula referencing PHI emits the golden-ratio #define', () => {
-    const cf = node('cf', 'CustomFormula', 'pattern', { formula: 'sin(x*PHI)' })
+  it('FormulaPattern referencing PHI emits the golden-ratio #define', () => {
+    const cf = node('cf', 'FormulaPattern', 'pattern', { formula: 'sin(x*PHI)' })
     const cpp = generateCpp([cf, outputNode], [edge('e1', 'cf', 'out', 'frame', 'frame')])
     expect(cpp).toContain('#define PHI 1.618033988749895f')
   })
 
   it('a formula without PHI does not emit the define', () => {
-    const cf = node('cf', 'CustomFormula', 'pattern', { formula: 'sin(x)' })
+    const cf = node('cf', 'FormulaPattern', 'pattern', { formula: 'sin(x)' })
     const cpp = generateCpp([cf, outputNode], [edge('e1', 'cf', 'out', 'frame', 'frame')])
     expect(cpp).not.toContain('#define PHI')
   })
@@ -4993,7 +4993,7 @@ describe('generateCpp — INMP441 audio engine', () => {
       ['BeatKaleidoscope', ['_bkPhase_n1+=_bkDt_n1', 'float _rot=_bkPhase_n1']],
       ['SpectraMosaic', ['_smPhase_n1+=_smDt_n1', 'float _phase=_cx*0.6f+_cy*0.9f+_smPhase_n1;']],
       ['TurbulentBloom', ['_tbFast_n1+=_tbDt_n1', 'float _tFast=_tbFast_n1,_tSlow=_tbSlow_n1;']],
-      ['PrismStorm', ['_psPhase_n1+=_psDt_n1', 'float _drift=_psPhase_n1;']],
+      ['HiHatShards', ['_psPhase_n1+=_psDt_n1', 'float _drift=_psPhase_n1;']],
       ['AudioFlow', ['_afPhase_n1+=_afDt_n1', 'float _flow=_afPhase_n1;']],
     ]
     for (const [type, expected] of cases) {
@@ -5848,7 +5848,7 @@ describe('Saturation / RGBToHSV (codegen)', () => {
    * themselves sockets.
    */
   it('follows a wire into a gradient end rather than baking the field', () => {
-    const temp = node('tp', 'Temperature', 'color', {})
+    const temp = node('tp', 'ColorTemperature', 'color', {})
     for (const type of ['GradientFrame', 'GradientSampler'] as const) {
       const grad = node('g', type, type === 'GradientFrame' ? 'pattern' : 'color', {
         rA: 10, gA: 20, bA: 30, rB: 200, gB: 210, bB: 220,
@@ -6189,7 +6189,7 @@ describe('bypassed nodes (codegen)', () => {
   it('a bypassed field node memcpys its input field buffer', () => {
     const fn = node('fn', 'FieldNoise', 'pattern', { speed: 0.4, scale: 0.3, octaves: 3 })
     const fw = withPorts(
-      node('fw', 'FieldWarp', 'composite', { spin: 10, bypassed: true }),
+      node('fw', 'FieldTransform', 'composite', { spin: 10, bypassed: true }),
       [{ id: 'field', dataType: 'field' }, { id: 'angle', dataType: 'float' }],
       [{ id: 'field', dataType: 'field' }],
     )
@@ -6354,7 +6354,7 @@ describe('show-pipeline nodes in a normal sketch', () => {
   // These five have no emit() case by design — a different generator handles
   // them. The default branch used to label them "not yet supported in code
   // gen", which two shipped starters baked into their exported .ino.
-  const SHOW_PIPELINE = ['MusicLibrary', 'PerformanceGenerator', 'SDCard', 'PatternCollection', 'TransitionSet']
+  const SHOW_PIPELINE = ['MusicLibrary', 'PerformanceGenerator', 'SDCard', 'PatternCollection', 'TransitionPool']
 
   it('explains where each one is handled instead of calling it unsupported', () => {
     for (const type of SHOW_PIPELINE) {

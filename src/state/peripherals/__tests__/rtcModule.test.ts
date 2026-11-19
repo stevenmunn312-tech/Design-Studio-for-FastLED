@@ -151,18 +151,4 @@ describe('the Clock and its DS3231 provider', () => {
     expect(ensureRootClockNode('DS3231')).toBeNull()
     expect(clocks()).toHaveLength(1)
   })
-
-  it('drops the Clock\'s old DS3231 wiring when a save from before is loaded', () => {
-    load([
-      node('board-root', 'Board'),
-      { ...node('clock', 'RTCInput'), data: { ...node('clock', 'RTCInput').data, properties: {
-        ...libraryDefaults('RTCInput'), timeSource: 'DS3231', partId: 'ds3231-rtc-module', sdaPin: 21, sclPin: 22,
-        boardId: 'board-root', assignedPins: { sdaPin: 21, sclPin: 22 },
-      } } },
-    ])
-    const clock = rootGraphNodes(useGraphStore.getState()).find((entry) => entry.id === 'clock')!
-    for (const key of ['partId', 'sdaPin', 'sclPin', 'boardId', 'assignedPins']) expect(clock.data.properties).not.toHaveProperty(key)
-    expect(clock.data.properties).toMatchObject({ timeSource: 'DS3231' })
-    expect(clock.data.label).toBe('Clock')
-  })
 })

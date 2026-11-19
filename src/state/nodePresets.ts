@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { NodeDefinition } from '../types'
 import { NODE_LIBRARY, propertyMeta } from './nodeLibrary'
 import { effectiveRangeScale, rangePosition, rangeValueAt, snapRangeValue } from './rangeScale'
+import { upgradePreV1Properties, upgradePreV1Type } from './preV1Aliases'
 import { NOISE_PRESETS, type BuiltInPreset } from '../nodes/generative/noiseTypes'
 
 const KEY = 'design-studio-for-fastled.node-presets.v1'
@@ -125,7 +126,8 @@ function load(): NodePreset[] {
       p.properties && typeof p.properties === 'object' &&
       typeof p.createdAt === 'number' &&
       typeof p.updatedAt === 'number'
-    )
+    // Presets saved before round eight's renames (preV1Aliases.ts, removed before v1.0.0).
+    ).map((p) => ({ ...p, nodeType: upgradePreV1Type(p.nodeType), properties: upgradePreV1Properties(p.nodeType, p.properties) }))
   } catch {
     return []
   }

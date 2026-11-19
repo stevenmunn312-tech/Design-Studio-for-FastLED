@@ -114,7 +114,7 @@ describe('stateful signal nodes: preview and firmware agree frame by frame', () 
   })
 
   it('Clock counts beats, bars and subdivisions and learns a tapped tempo', () => {
-    const props = { ...libraryDefaults('Clock'), bpm: 100, beatsPerBar: 3, subdivision: 2 }
+    const props = { ...libraryDefaults('TempoClock'), bpm: 100, beatsPerBar: 3, subdivision: 2 }
     // Taps 0.5 s apart from frame 40, then left alone.
     let lastTap = -Infinity
     const run = frames(500, (ms, i) => {
@@ -122,12 +122,12 @@ describe('stateful signal nodes: preview and firmware agree frame by frame', () 
       if (tap) lastTap = ms
       return { tap }
     })
-    const lines = timedControlCpp('Clock', 'n', props, {
+    const lines = timedControlCpp('TempoClock', 'n', props, {
       tap: 'in_tap', sync: 'false', reset: 'false', bpm: '100', beatsPerBar: '3', subdivision: '2',
     })!
     for (const port of ['beat', 'bar', 'subdivision', 'phase', 'bpm']) {
       resetEvaluatorState()
-      expectSame(preview(SIGNAL_EVALUATORS.Clock, props, port, run), firmware(lines, ['tap'], `n_n_${port}`, run), 1e-2)
+      expectSame(preview(SIGNAL_EVALUATORS.TempoClock, props, port, run), firmware(lines, ['tap'], `n_n_${port}`, run), 1e-2)
     }
   })
 

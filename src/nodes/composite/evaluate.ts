@@ -361,7 +361,7 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       return sampleFrame(src, x + pushX * strength, y + pushY * strength, edgeMode, bilinear)
     }) }
   },
-  Symmetry({ input, num, t, W, H, stateKey }, id, props) {
+  TileSymmetry({ input, num, t, W, H, stateKey }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
     if (!src) return { frame: null }
     const group = props.group ?? 'p4m'
