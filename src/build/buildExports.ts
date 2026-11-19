@@ -7,6 +7,8 @@ import { partById, sharedPadsAcrossBoards } from './parts/partCatalogue'
 import { planSourceLabel, planSourceVoltageLabel } from './power/planSource'
 import { standardFuseRatingFor } from './power/electricalRules'
 import { chargerUsesCellPads, protectionPads } from '../state/peripherals/battery'
+import { levelShifterSpec } from '../state/peripherals/levelShifter'
+import { conductorCountWord, conductorPhrase } from '../state/peripherals/pixelDataExtender'
 import { uartPlayerSpec, uartPlayerSupplyLabel } from '../state/peripherals/dfPlayer'
 
 export interface BuildConnectionRow {
@@ -105,6 +107,9 @@ export function buildConnectionRows(
   const logicSupplyId = includedPlanOutputs.flatMap((output) => output.injections)
     .find((injection) => injection.supplyId)?.supplyId ?? 'supply-1'
   const logicDistribution = `${supplyLabelFor(plan, logicSupplyId)} fuse-block distribution`
+  // The Board's one level shifter part, carried on its outputs. A part this version cannot read
+  // leaves the data runs unshifted in the rows rather than naming a chip that is not in the build.
+  const shifterSpec = levelShifterSpec(String(outputs[0]?.facts.levelShifterPartId ?? ''))
 
   const battery = plan.battery
   if (battery && items.some((item) => item.id === battery.packItemId)) {
@@ -241,14 +246,18 @@ export function buildConnectionRows(
     const pin = item.pins[0]
     if (!pin) return
     const outputPlan = includedPlanOutputs.find((output) => output.itemId === item.id)
-    const chip = Math.floor(outputIndex / 4) + 1
-    const channel = (outputIndex % 4) + 1
-    const shifter = `74AHCT125 level shifter ${chip}`
+    const chip = shifterSpec ? Math.floor(outputIndex / shifterSpec.channels) + 1 : 0
+    const channelPads = shifterSpec?.channelPads[outputIndex % shifterSpec.channels]
+    const shifter = shifterSpec ? `${shifterSpec.device} level shifter ${chip}` : controller
     const resistor = `${item.title} 330 ohm data resistor`
     const extenderPartId = typeof item.facts.dataLinkPartId === 'string' ? item.facts.dataLinkPartId : ''
     const extenderLabel = extenderPartId ? (partById(extenderPartId)?.label ?? 'Pixel Data Extender TX/RX pair') : ''
-    rows.push({ from: controller, fromTerminal: boardTerminal(pin), to: shifter, toTerminal: `A${channel}`, purpose: '3.3 V LED data' })
-    rows.push({ from: shifter, fromTerminal: `Y${channel}`, to: resistor, toTerminal: 'Input', purpose: '5 V conditioned LED data' })
+    if (shifterSpec && channelPads) {
+      rows.push({ from: controller, fromTerminal: boardTerminal(pin), to: shifter, toTerminal: channelPads.in, purpose: '3.3 V LED data' })
+      rows.push({ from: shifter, fromTerminal: channelPads.out, to: resistor, toTerminal: 'Input', purpose: '5 V conditioned LED data' })
+    } else {
+      rows.push({ from: controller, fromTerminal: boardTerminal(pin), to: resistor, toTerminal: 'Input', purpose: '3.3 V LED data' })
+    }
     if (extenderPartId) {
       rows.push({ from: resistor, fromTerminal: 'Output', to: `${item.title} ${extenderLabel} TX`, toTerminal: 'DATA', purpose: 'Series-protected pixel data into transmitter' })
       rows.push({ from: `${item.title} ${extenderLabel} TX`, fromTerminal: 'A', to: `${item.title} ${extenderLabel} RX`, toTerminal: 'A', purpose: 'Twisted differential conductor A' })
@@ -273,13 +282,13 @@ export function buildConnectionRows(
           : 'Series-protected LED data',
       })
     }
-    rows.push({ from: shifter, fromTerminal: `/OE${channel}`, to: 'Common ground bus', toTerminal: 'GND', purpose: 'Enable level-shifter channel' })
+    if (shifterSpec && channelPads) rows.push({ from: shifter, fromTerminal: channelPads.oe, to: 'Common ground bus', toTerminal: 'GND', purpose: 'Enable level-shifter channel' })
   })
   if (outputs.length > 0) {
     rows.push({ from: controller, fromTerminal: 'GND', to: 'Common ground bus', toTerminal: 'GND', purpose: 'Common ground reference' })
-    for (let chip = 1; chip <= Math.ceil(outputs.length / 4); chip += 1) {
-      rows.push({ from: logicDistribution, fromTerminal: '+5V bus', to: `74AHCT125 level shifter ${chip}`, toTerminal: 'VCC', purpose: 'Level-shifter power' })
-      rows.push({ from: 'Common ground bus', fromTerminal: 'GND', to: `74AHCT125 level shifter ${chip}`, toTerminal: 'GND', purpose: 'Level-shifter ground' })
+    for (let chip = 1; shifterSpec && chip <= Math.ceil(outputs.length / shifterSpec.channels); chip += 1) {
+      rows.push({ from: logicDistribution, fromTerminal: '+5V bus', to: `${shifterSpec.device} level shifter ${chip}`, toTerminal: shifterSpec.vccPad, purpose: 'Level-shifter power' })
+      rows.push({ from: 'Common ground bus', fromTerminal: 'GND', to: `${shifterSpec.device} level shifter ${chip}`, toTerminal: shifterSpec.gndPad, purpose: 'Level-shifter ground' })
     }
   }
 
@@ -399,12 +408,30 @@ export function buildBomRows(
   }
   const outputs = plan.outputs.filter((output) => items.some((item) => item.id === output.itemId))
   if (outputs.length > 0) {
-    rows.push({ quantity: String(Math.ceil(outputs.length / 4)), item: '74AHCT125 level shifter', specification: '5 V supply, TTL-compatible input; one channel per LED data route', status: 'calculated' })
+    const bomShifter = levelShifterSpec(String(items.find((item) => item.kind === 'matrix-output')?.facts.levelShifterPartId ?? ''))
+    if (bomShifter) {
+      rows.push({
+        quantity: String(Math.ceil(outputs.length / bomShifter.channels)),
+        item: `${bomShifter.device} level shifter`,
+        specification: `${bomShifter.supplyMinV}-${bomShifter.supplyMaxV} V supply, input high from ${bomShifter.inputHighMinV} V; one channel per LED data route`,
+        status: 'calculated',
+      })
+    }
     rows.push({ quantity: String(outputs.length), item: 'Data-line resistor', specification: '330 ohm at each LED data entry', status: 'calculated' })
-    const extended = items.filter((item) => typeof item.facts.dataLinkPartId === 'string')
-    if (extended.length > 0) {
-      rows.push({ quantity: String(extended.length), item: 'NLED Pixel Data Extender TX/RX pair', specification: 'Matched one-wire transmitter and receiver; power both ends from 3.3-12 V', status: 'configured' })
-      rows.push({ quantity: `${extended.length} run${extended.length === 1 ? '' : 's'}`, item: 'Differential pixel-data cable', specification: 'Three twisted conductors: A, B and common ground; maximum 1000 ft / 304.8 m per manufacturer', status: 'configured' })
+    // One line per link part: each names its own pair, supply range and conductors.
+    const linkPartIds = [...new Set(items.map((item) => item.facts.dataLinkPartId).filter((id): id is string => typeof id === 'string'))]
+    for (const linkPartId of linkPartIds) {
+      const link = partById(linkPartId)
+      const spec = link?.pixelDataExtender
+      if (!link || !spec) continue
+      const count = items.filter((item) => item.facts.dataLinkPartId === linkPartId).length
+      rows.push({ quantity: String(count), item: link.label, specification: `Matched one-wire transmitter and receiver; power both ends from ${spec.supplyMinV}-${spec.supplyMaxV} V`, status: 'configured' })
+      rows.push({
+        quantity: `${count} run${count === 1 ? '' : 's'}`,
+        item: 'Differential pixel-data cable',
+        specification: `${conductorCountWord(spec.pairConductors.length)} twisted conductors: ${conductorPhrase(spec.pairConductors)}; maximum ${Math.round(spec.maxDistanceMeters * 3.28084)} ft / ${spec.maxDistanceMeters} m per manufacturer`,
+        status: 'configured',
+      })
     }
   }
   if (plan.totals && outputs.length > 0) {

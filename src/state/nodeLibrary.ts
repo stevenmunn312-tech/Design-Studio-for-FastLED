@@ -71,7 +71,8 @@ import { MAX_STEREO_VU_RAIL_LEDS } from './audio/stereoVuSizing'
 import { POSITION_PRESETS, POSITIONS_MM_PER_UNIT_MAX, STRIP_LAYOUTS, usesNetwork, usesPositions } from './output/stringPositions'
 import { NETWORK_LEDS_PER_EDGE, NETWORK_MAX_NODES, NETWORK_PRESETS } from './output/segmentNetwork'
 import { RIPPLE_BEHAVIOURS, RIPPLE_LIFETIME_SEC, RIPPLE_WIDTH } from '../nodes/shared/rippleNetwork'
-import { DIRECT_PIXEL_DATA_LINK, PIXEL_DATA_LINK_OPTIONS } from './peripherals/pixelDataExtender'
+import { dataLinkLabel, dataLinkPartId, dataLinkPartIds } from './peripherals/pixelDataExtender'
+import { DEFAULT_LEVEL_SHIFTER_PART_ID, levelShifterPartIds } from './peripherals/levelShifter'
 import { relayChannelPropertyEnabled, relayMaxPinKeys } from './peripherals/relayModule'
 import { ALL_POWER_SWITCH_CHANNELS, POWER_SWITCH_LOAD_TYPES, POWER_SWITCH_LOAD_TYPE_LABELS, powerSwitchPropertyEnabled, powerSwitchPropertyLabel } from './peripherals/powerSwitch'
 import { PRESENCE_RX_PIN_KEY } from './peripherals/presenceSensor'
@@ -853,10 +854,13 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     brightness: { control: 'slider', min: 0, max: 255, step: 1 },
     overclock: { control: 'slider', min: 1, max: 2, step: 0.05 },
     frameRate: { control: 'slider', min: FRAME_RATE.min, max: FRAME_RATE.max, step: 1 },
+    // One level shifter part for every LED data line on the board; `propertyOptions` lists the catalogue's.
+    levelShifterPartId: { control: 'select', options: [DEFAULT_LEVEL_SHIFTER_PART_ID] },
   },
   MatrixOutput: {
     form: { control: 'select', options: LED_OUTPUT_FORMS },
-    dataLink: { control: 'select', options: [...PIXEL_DATA_LINK_OPTIONS] },
+    // Empty is Direct; `propertyOptions` lists the link parts the catalogue holds.
+    dataLinkPartId: { control: 'select', options: [''] },
     outputBrightness: { control: 'slider', min: 0, max: 1, step: 0.01 },
     outputGamma: { control: 'slider', min: LED_OUTPUT_GAMMA.min, max: LED_OUTPUT_GAMMA.max, step: 0.1 },
     dataPin: { control: 'slider', min: 0, max: MAX_PIN_NUMBER, step: 1 },
@@ -1846,6 +1850,9 @@ export function propertyMetaFor(
  * the table below. Anything else reads as itself.
  */
 export function selectOptionLabel(nodeType: string, key: string, option: string): string {
+  // Accessory parts read as the part's own name; the empty link is ordinary wiring.
+  if (nodeType === 'MatrixOutput' && key === 'dataLinkPartId') return option === '' ? 'Direct' : dataLinkLabel(option)
+  if (nodeType === 'Board' && key === 'levelShifterPartId') return partById(option)?.label ?? option
   const bundled = BUNDLED_TITLES[nodeType]
   if (bundled?.prop === key && bundled.labels[option]) {
     const prefix = sharedTitlePrefix(nodeType)
@@ -1932,6 +1939,16 @@ export function propertyOptions(
   if (meta?.control !== 'select') return []
   const partOptions = PART_SELECT_OPTIONS[nodeType]?.[key]
   if (partOptions) return partOptions(properties.partId)
+  // Accessory parts are chosen from the catalogue, so a downloaded one is offered the moment it registers.
+  // A saved id this version does not hold stays in the list, so the field still shows it.
+  if (nodeType === 'MatrixOutput' && key === 'dataLinkPartId') {
+    const saved = dataLinkPartId(properties)
+    return ['', ...dataLinkPartIds(), ...(saved !== '' && !dataLinkPartIds().includes(saved) ? [saved] : [])]
+  }
+  if (nodeType === 'Board' && key === 'levelShifterPartId') {
+    const saved = String(properties.levelShifterPartId ?? '').trim()
+    return [...levelShifterPartIds(), ...(saved !== '' && !levelShifterPartIds().includes(saved) ? [saved] : [])]
+  }
   if (nodeType === 'MatrixOutput' && key === 'dataRateMhz') {
     return dataRateOptionsMhz(String(properties.chipset ?? 'WS2812B')).map(String)
   }
@@ -2007,7 +2024,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   use: "How a board that both protects and charges is wired. Charging only connects its battery pads to the protected bus beside a higher-rated protection board, and leaves its own output pads unused.",
   feeds: "What this converter powers: the 5 V LED rail, or the controller through its 5 V input pin in place of USB. Offered only by a module rated for either.",
   sourceVoltage: "The DC supply feeding the converter, in volts. It must sit inside the module's input range and above its output by the module's dropout.",
-  dataLink: 'How the one-wire pixel signal reaches the LEDs. Direct is ordinary short wiring; NLED Pixel Data Extender inserts its matched TX/RX pair and a twisted A/B/ground run for long distance.',
+  dataLinkPartId: 'How the one-wire pixel signal reaches the LEDs. Direct is ordinary short wiring; a data link part inserts its matched TX/RX pair and a twisted run between them for long distance.',
   form: 'What this output physically is — a string, matrix, ring, corkscrew, or HUB75 scan panel. Everything else on the node follows from it.',
   ledCount: 'How many LEDs are on this physical chain.',
   ringStartAngle: 'Where LED 0 sits on the ring, in degrees clockwise from the top — set it to wherever the data-in pad ended up.',
@@ -3386,6 +3403,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     ledDriver: 'Which FastLED driver sends the LEDs. Auto keeps FastLED\'s own choice. A parallel driver sends many outputs at once (LCD_CAM on the ESP32-S3, I2S on the classic ESP32); every output it sends must then share one chipset timing, and it takes a peripheral a HUB75 panel or I2S audio may need. Experimental: built from FastLED\'s documentation and not yet bench-tested. Offered only for the boards that have another driver.',
     milliamps: 'Current the supply can give the LEDs. FastLED dims automatically to stay under it.',
     profileId: 'The exact controller board the sketch is built for, chosen from the hardware shelf. Empty means not chosen yet.',
+    levelShifterPartId: 'The level shifter chip every LED data line on this board runs through, from the 3.3 V controller pin up to the LED strip\'s 5 V logic. One part serves the whole board; the Build Diagram draws as many chips as the outputs need. The sketch is the same whichever part is chosen.',
     wifiHostname: 'Name the board announces on the network, up to 32 letters, digits and hyphens. Every network feature on this board uses it: the Web Remote and the radio station page are at this name followed by .local. Empty uses fastled-board (fastled-board-2 and so on for further boards).',
     useDhcp: 'Lets the router hand out the board\'s address. Turn off to type a fixed IP below. Applies over Wi-Fi and over a wired Ethernet link alike.',
     staticIp: 'Fixed IPv4 address for the board, for example 192.168.1.50. Used only when DHCP is off.',
@@ -3988,6 +4006,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     sclPin: 'SCL pin',
   },
   Board: {
+    levelShifterPartId: 'level shifter',
     powerLimit: 'power cap',
     frameRate: 'frame rate',
     ledDriver: 'LED driver',
@@ -4040,7 +4059,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   MatrixOutput: {
     outputBrightness: 'brightness',
     outputGamma: 'gamma',
-    dataLink: 'data link',
+    dataLinkPartId: 'data link',
     colorOrder: 'color order',
     dataRateMhz: 'data rate (MHz)',
     ledCount: 'LED count',
@@ -4394,6 +4413,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   // Its Wi-Fi name and password sit beside these in the Board's settings, kept
   // on this machine rather than as properties (networkCredentials.ts).
   Board: [
+    { key: 'dataLine', label: 'LED Data Line', keys: ['levelShifterPartId'] },
     { key: 'network', label: 'Network', keys: [...BOARD_NETWORK_KEYS] },
   ],
   DMXInput: [
@@ -4426,7 +4446,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
       'corkscrewTurns', 'corkscrewStartAngle', 'corkscrewDirection',
       'corkscrewDiameterMm', 'corkscrewHeightMm',
     ] },
-    { key: 'wiring', label: 'Wiring', keys: ['chipset', 'dataLink', 'colorOrder', 'dataPin', 'dataLanes', 'lanePins', 'clockPin', 'dataRateMhz', 'serpentine'] },
+    { key: 'wiring', label: 'Wiring', keys: ['chipset', 'dataLinkPartId', 'colorOrder', 'dataPin', 'dataLanes', 'lanePins', 'clockPin', 'dataRateMhz', 'serpentine'] },
     { key: 'hub75', label: 'HUB75 Wiring', keys: [
       'hub75R1Pin', 'hub75G1Pin', 'hub75B1Pin', 'hub75R2Pin', 'hub75G2Pin', 'hub75B2Pin',
       'hub75APin', 'hub75BPin', 'hub75CPin', 'hub75DPin', 'hub75WideScan', 'hub75EPin',
@@ -5600,7 +5620,7 @@ export function isPropertyEnabled(
     if (key === 'dataPin' || key === 'colorOrder') return !hub75
     // Stays editable while it names an extender, so a chipset change that
     // made the choice invalid can still be undone from the field itself.
-    if (key === 'dataLink') return (!hub75 && !spi) || String(properties.dataLink ?? DIRECT_PIXEL_DATA_LINK) !== DIRECT_PIXEL_DATA_LINK
+    if (key === 'dataLinkPartId') return (!hub75 && !spi) || dataLinkPartId(properties) !== ''
     // Serpentine zig-zags alternate *rows*, which a one-row form does not have.
     if (key === 'serpentine') return !hub75 && !linear
     // Only an LED matrix has a corner and a direction to choose, and a custom

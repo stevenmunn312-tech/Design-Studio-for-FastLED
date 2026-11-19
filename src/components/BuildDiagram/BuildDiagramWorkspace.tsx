@@ -18,6 +18,9 @@ import { customBoardEndpointFingerprint, customBoardGeometry, customBoardPowerPa
 import { bomCsv, buildBomRows, buildConnectionRows, connectionsCsv } from '../../build/buildExports'
 import { boardPinForUse, boardPinLabelForUse, buildHardwareManifest, type HardwareManifestItem, type HardwarePinUse } from '../../build/hardwareManifest'
 import { fuseBlockAllocations } from '../../build/power/powerDistribution'
+import { partById } from '../../build/parts/partCatalogue'
+import { levelShifterSpec } from '../../state/peripherals/levelShifter'
+import { conductorPhrase } from '../../state/peripherals/pixelDataExtender'
 import { supplyCoverage, supplyCoverageSentences, zoneSupplySegments } from '../../build/power/powerCap'
 import { useBoardPartition, useGraphStore } from '../../state/graphStore'
 import { useProjectStore } from '../../state/projectStore'
@@ -411,7 +414,11 @@ export default function BuildDiagramWorkspace() {
       unsupportedItems: [],
     }, buildProfile, exactBoard)
   }, [buildProfile, exactBoard, manifest, visiblePrimaryItems])
-  const extenderOutputCount = outputItems.filter((item) => typeof item.facts.dataLinkPartId === 'string').length
+  const levelShifter = levelShifterSpec(String(outputItems[0]?.facts.levelShifterPartId ?? ''))
+  const linkCounts = useMemo(() => outputItems.reduce((counts, item) => {
+    const partId = item.facts.dataLinkPartId
+    return typeof partId === 'string' ? counts.set(partId, (counts.get(partId) ?? 0) + 1) : counts
+  }, new Map<string, number>()), [outputItems])
   const partsSummary = useMemo(() => {
     const lines: Array<{ id: string; quantity: string; label: string; pending?: boolean }> = []
     if (exactBoard) lines.push({ id: 'board', quantity: '1', label: exactBoard.label })
@@ -424,15 +431,18 @@ export default function BuildDiagramWorkspace() {
       lines.push({ id: item.id, quantity: '1', label: item.title })
     }
     if (outputItems.length > 0) {
-      lines.push({ id: 'level-shifter', quantity: String(Math.max(1, Math.ceil(outputItems.length / 4))), label: '74AHCT125 level shifter' })
+      if (levelShifter) lines.push({ id: 'level-shifter', quantity: String(Math.max(1, Math.ceil(outputItems.length / levelShifter.channels))), label: `${levelShifter.device} level shifter` })
       lines.push({ id: 'resistors', quantity: String(outputItems.length), label: '330 ohm data resistor' })
       const feedCount = electricalPlan.outputs.reduce((sum, output) => sum + output.recommendedFeedCount, 0)
       const fuseRatings = [...new Set(electricalPlan.outputs.flatMap((output) => output.injections.map((injection) => injection.fuse.ratingMa)).filter((value): value is number => !!value))]
       lines.push({ id: 'fuses', quantity: String(feedCount), label: `${fuseRatings.map(formatCurrentMa).join(' / ') || 'Rated'} branch fuse` })
       lines.push({ id: 'power-output-capacitors', quantity: String(feedCount), label: '1000uF 6.3 V low-ESR electrolytic capacitor' })
-      if (extenderOutputCount > 0) {
-        lines.push({ id: 'nled-pixel-data-extender', quantity: String(extenderOutputCount), label: 'NLED Pixel Data Extender TX/RX pair' })
-        lines.push({ id: 'nled-pixel-data-cable', quantity: 'As required', label: '3-conductor twisted cable for A, B and common ground' })
+      for (const [linkPartId, count] of linkCounts) {
+        const link = partById(linkPartId)
+        if (!link?.pixelDataExtender) continue
+        const { pairConductors } = link.pixelDataExtender
+        lines.push({ id: `${linkPartId}-pair`, quantity: String(count), label: link.label })
+        lines.push({ id: `${linkPartId}-cable`, quantity: 'As required', label: `${pairConductors.length}-conductor twisted cable for ${conductorPhrase(pairConductors)}` })
       }
     }
     if (electricalPlan.totals) {
@@ -466,7 +476,7 @@ export default function BuildDiagramWorkspace() {
     const conductors = [...new Set(electricalPlan.outputs.map((output) => output.conductor ? `AWG ${output.conductor.awg} / ${output.conductor.crossSectionMm2} mm2 copper` : '').filter(Boolean))]
     if (conductors.length > 0) lines.push({ id: 'wire', quantity: 'As required', label: conductors.join(' / ') })
     return lines
-  }, [electricalPlan.battery, electricalPlan.outputs, electricalPlan.totals, exactBoard, extenderOutputCount, outputItems.length, primaryItems])
+  }, [electricalPlan.battery, electricalPlan.outputs, electricalPlan.totals, exactBoard, levelShifter, linkCounts, outputItems.length, primaryItems])
   const exportItems = exportMode === 'complete-build' ? primaryItems : visiblePrimaryItems
   const exportItemIds = useMemo(() => new Set(exportItems.map((item) => item.id)), [exportItems])
   const exportConnectionRows = useMemo(

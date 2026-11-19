@@ -16,8 +16,9 @@ function layoutFor(partId: string, kind: HardwareManifestItem['kind']): ItemLayo
 }
 
 describe('measured pad geometry', () => {
+  // A level shifter is drawn by its own graphic from its `levelShifter` block (see levelShifter.test.ts).
   const entries = Object.keys(PART_CATALOGUE_DATA)
-    .filter((partId) => modulePadGeometry(partId))
+    .filter((partId) => modulePadGeometry(partId) && !PART_CATALOGUE_DATA[partId].levelShifter)
     .map((partId) => [partId, modulePadGeometry(partId)!] as const)
 
   it('covers the modules that have been measured', () => {

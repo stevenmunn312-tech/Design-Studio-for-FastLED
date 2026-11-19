@@ -4,11 +4,9 @@ import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import type { HardwareManifestItem } from '../../build/hardwareManifest'
 import {
   type LevelShifterTerminalPoint,
+  type LevelShifterGeometry,
   LEVEL_SHIFTER_X,
-  LEVEL_SHIFTER_RENDER_X,
-  LEVEL_SHIFTER_RENDER_WIDTH,
   levelShifterChipY,
-  LEVEL_SHIFTER_HEIGHT,
   type ItemLayout,
   peripheralApproach,
   peripheralSignalEndPoint,
@@ -131,23 +129,23 @@ const LEVEL_SHIFTER_PIN_LEAD_OVERLAP = 4
  * short overlaid lead restores only the physical pin connection on top of the
  * photograph without pulling the complete harness over the package body.
  */
-export function levelShifterPinLeadPath(point: LevelShifterTerminalPoint, chipY: number) {
+export function levelShifterPinLeadPath(geometry: LevelShifterGeometry, point: LevelShifterTerminalPoint, chipY: number) {
   const x = point.x - LEVEL_SHIFTER_X
   const y = point.y - chipY
   const outsideImageX = point.side === 'left'
-    ? LEVEL_SHIFTER_RENDER_X - LEVEL_SHIFTER_PIN_LEAD_OVERLAP
-    : LEVEL_SHIFTER_RENDER_X + LEVEL_SHIFTER_RENDER_WIDTH + LEVEL_SHIFTER_PIN_LEAD_OVERLAP
+    ? geometry.render.x - LEVEL_SHIFTER_PIN_LEAD_OVERLAP
+    : geometry.render.x + geometry.render.width + LEVEL_SHIFTER_PIN_LEAD_OVERLAP
   return `M${x} ${y}H${outsideImageX}`
 }
 
 /** Between the controller-side input approach and the chip body (starts x=453). */
-function levelShifterEntryX(outputIndex: number) {
-  return 402 + ((outputIndex % 4) * LS_CORRIDOR_SPACING)
+function levelShifterEntryX(geometry: LevelShifterGeometry, outputIndex: number) {
+  return 402 + ((outputIndex % geometry.channels) * LS_CORRIDOR_SPACING)
 }
 
 /** Between the chip body (ends x=587) and the output corridors. */
-function levelShifterWrapX(outputIndex: number) {
-  return 591 + ((outputIndex % 4) * 9)
+function levelShifterWrapX(geometry: LevelShifterGeometry, outputIndex: number) {
+  return 591 + ((outputIndex % geometry.channels) * 9)
 }
 
 /** Between the chip and the LED panels (start x=820). */
@@ -156,20 +154,21 @@ function levelShifterOutputX(outputIndex: number) {
 }
 
 /** Lane below each chip, used by whichever side has to wrap around it. */
-function levelShifterDetourY(outputIndex: number) {
-  return levelShifterChipY(outputIndex) + LEVEL_SHIFTER_HEIGHT + 18 + ((outputIndex % 4) * 13)
+function levelShifterDetourY(geometry: LevelShifterGeometry, outputIndex: number) {
+  return levelShifterChipY(geometry, outputIndex) + geometry.frameHeight + 18 + ((outputIndex % geometry.channels) * 13)
 }
 
-export function routeToLevelShifterInput(outputIndex: number, point: LevelShifterTerminalPoint) {
+export function routeToLevelShifterInput(geometry: LevelShifterGeometry, outputIndex: number, point: LevelShifterTerminalPoint) {
   if (point.side === 'left') return `M390 ${point.y}H${point.x}`
   // Leave the input approach vertically before wrapping under the chip. Travelling
   // right first can reuse the exact Y channel of a previous channel's output
   // (Y2 and A3 are level on this DIP), drawing two different wires on top of
   // each other between the entry corridors.
-  return `M390 ${point.y}V${levelShifterDetourY(outputIndex)}H${levelShifterWrapX(outputIndex)}V${point.y}H${point.x}`
+  return `M390 ${point.y}V${levelShifterDetourY(geometry, outputIndex)}H${levelShifterWrapX(geometry, outputIndex)}V${point.y}H${point.x}`
 }
 
 export function routeFromLevelShifterOutput(
+  geometry: LevelShifterGeometry,
   outputIndex: number,
   point: LevelShifterTerminalPoint,
   targetX: number,
@@ -177,7 +176,7 @@ export function routeFromLevelShifterOutput(
 ) {
   const corridorX = levelShifterOutputX(outputIndex)
   if (point.side === 'right') return `M${point.x} ${point.y}H${corridorX}V${targetY}H${targetX}`
-  return `M${point.x} ${point.y}H${levelShifterEntryX(outputIndex)}V${levelShifterDetourY(outputIndex)}H${corridorX}V${targetY}H${targetX}`
+  return `M${point.x} ${point.y}H${levelShifterEntryX(geometry, outputIndex)}V${levelShifterDetourY(geometry, outputIndex)}H${corridorX}V${targetY}H${targetX}`
 }
 
 /**

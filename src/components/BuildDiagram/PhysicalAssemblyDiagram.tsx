@@ -2,7 +2,7 @@ import { useId, useRef, type CSSProperties } from 'react'
 import type { ElectricalPlanSummary } from '../../build/power/electricalPlan'
 import type { PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { POWER_PATH_KINDS, type HardwareManifestItem } from '../../build/hardwareManifest'
-import levelShifterRender from '../../assets/components/sn74ahct125n-dip14.webp'
+import { partRenderSrc } from '../../build/parts/partCatalogue'
 import resistorRender from '../../assets/components/330ohm-blue-axial-resistor.webp'
 import styles from './BuildDiagramWorkspace.module.css'
 import { NetStub, CommonNetCallout } from './netStubs'
@@ -36,12 +36,11 @@ import {
   DIVIDER_RESISTOR_W,
   levelShifterSupplyPoint,
   levelShifterChipY,
+  levelShifterChipCount,
+  levelShifterForItems,
+  levelShifterPinLabel,
   LEVEL_SHIFTER_X,
   LEVEL_SHIFTER_WIDTH,
-  LEVEL_SHIFTER_RENDER_X,
-  LEVEL_SHIFTER_RENDER_Y,
-  LEVEL_SHIFTER_RENDER_WIDTH,
-  LEVEL_SHIFTER_RENDER_HEIGHT,
   type LevelShifterTerminalPoint,
   COMMON_NET_CALLOUT_HEIGHT,
   COMMON_NET_CALLOUT_GAP,
@@ -108,6 +107,9 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
   const boardLabel = boardProfile.label
   const layouts = itemLayouts(items)
   const outputLayouts = layouts.filter((layout) => layout.item.kind === 'matrix-output')
+  // The Board's one level shifter part, read from its manifest. Without one this version can draw
+  // there is nothing to route through, and the data runs go straight from the controller to the panel.
+  const shifter = levelShifterForItems(items)
   const peripheralLayouts = layouts.filter((layout) => layout.item.kind !== 'matrix-output' && !POWER_PATH_KINDS.has(layout.item.kind))
   const outputConnections = connections.filter((connection) => outputLayouts.some((layout) => layout.item.id === connection.itemId))
   const controllerConnections = [...outputConnections, ...connections.filter((connection) => !outputConnections.includes(connection))]
@@ -223,20 +225,21 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
           const wireClass = active ? styles.signalWire : styles.dimWire
           const wireStyle = active ? { stroke: presentation.color } : undefined
           const signalTip = `${connection.pinLabel} · ${connection.useLabel}`
-          const shifterName = `Level shifter ${Math.floor(index / 4) + 1}`
+          const shifterName = `Level shifter ${shifter ? Math.floor(index / shifter.channels) + 1 : 1}`
+          const channelPads = shifter?.spec.channelPads[index % shifter.channels]
           // Without the shifter layer there is nothing to route through, so the
           // data run goes straight from the controller pin to the panel.
-          if (!layers.levelShifter) {
+          if (!layers.levelShifter || !shifter || !channelPads) {
             return <HoverWire key={layout.item.id} tip={signalTip} data-wire={`${layout.item.id}-data-in`} data-signal-role={presentation.role} d={routeFromController(controllerPoint, layout.x, outputDataTerminalY(layout), rightLaneSlot(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), leftLaneSlots.size, detourBaseY, topBandY)} className={wireClass} style={wireStyle} />
           }
-          const inputPoint = levelShifterTerminalPoint(index, 'a')
-          const outputPoint = levelShifterTerminalPoint(index, 'y')
+          const inputPoint = levelShifterTerminalPoint(shifter, index, 'a')
+          const outputPoint = levelShifterTerminalPoint(shifter, index, 'y')
           const resistorX = dataResistorX(layout.x)
           const terminalY = outputDataTerminalY(layout)
           return <g key={layout.item.id}>
-            <HoverWire tip={`${signalTip} · to ${shifterName} A${(index % 4) + 1}`} data-wire={`${layout.item.id}-data-in`} data-signal-role={presentation.role} d={routeFromController(controllerPoint, 390, inputPoint.y, rightLaneSlot(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), leftLaneSlots.size, detourBaseY, topBandY)} className={wireClass} style={wireStyle} />
-            <HoverWire tip={`${signalTip} · ${shifterName} A${(index % 4) + 1}`} data-wire={`${layout.item.id}-level-shifter-input`} data-signal-role={presentation.role} d={routeToLevelShifterInput(index, inputPoint)} className={wireClass} style={wireStyle} />
-            <HoverWire tip={`${shifterName} Y${(index % 4) + 1} · 5 V data to 330Ω resistor`} data-wire={`${layout.item.id}-conditioned-data`} data-signal-role={presentation.role} d={routeFromLevelShifterOutput(index, outputPoint, resistorX, terminalY)} className={wireClass} style={wireStyle} />
+            <HoverWire tip={`${signalTip} · to ${shifterName} ${channelPads.in}`} data-wire={`${layout.item.id}-data-in`} data-signal-role={presentation.role} d={routeFromController(controllerPoint, 390, inputPoint.y, rightLaneSlot(connection, controllerIndex), leftLaneSlot(connection, controllerIndex), leftLaneSlots.size, detourBaseY, topBandY)} className={wireClass} style={wireStyle} />
+            <HoverWire tip={`${signalTip} · ${shifterName} ${channelPads.in}`} data-wire={`${layout.item.id}-level-shifter-input`} data-signal-role={presentation.role} d={routeToLevelShifterInput(shifter, index, inputPoint)} className={wireClass} style={wireStyle} />
+            <HoverWire tip={`${shifterName} ${channelPads.out} · 5 V data to 330Ω resistor`} data-wire={`${layout.item.id}-conditioned-data`} data-signal-role={presentation.role} d={routeFromLevelShifterOutput(shifter, index, outputPoint, resistorX, terminalY)} className={wireClass} style={wireStyle} />
             <HoverWire tip={`330Ω resistor · ${layout.item.title} DIN`} data-wire={`${layout.item.id}-led-data`} data-signal-role={presentation.role} d={`M${resistorX + DATA_RESISTOR_WIDTH} ${terminalY}H${layout.x}`} className={wireClass} style={wireStyle} />
           </g>
         })}
@@ -395,15 +398,15 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             )}
           </g>
         })}
-        {layers.levelShifter && Array.from({ length: Math.ceil(outputLayouts.length / 4) }, (_, chipIndex) => {
-          const usedChannels = Math.min(4, outputLayouts.length - (chipIndex * 4))
-          const vccPoint = levelShifterSupplyPoint(chipIndex, 'vcc')
-          const groundPoint = levelShifterSupplyPoint(chipIndex, 'gnd')
+        {layers.levelShifter && shifter && Array.from({ length: levelShifterChipCount(outputLayouts.length, shifter) }, (_, chipIndex) => {
+          const usedChannels = Math.min(shifter.channels, outputLayouts.length - (chipIndex * shifter.channels))
+          const vccPoint = levelShifterSupplyPoint(shifter, chipIndex, 'vcc')
+          const groundPoint = levelShifterSupplyPoint(shifter, chipIndex, 'gnd')
           return <g key={`level-shifter-wires-${chipIndex}`}>
             <NetStub x={vccPoint.x} y={vccPoint.y} kind="v5" direction="right" wireId={`level-shifter-${chipIndex + 1}-vcc`} />
             <NetStub x={groundPoint.x} y={groundPoint.y} kind="gnd" direction="left" lead={26} wireId={`level-shifter-${chipIndex + 1}-ground`} />
             {Array.from({ length: usedChannels }, (_, channelIndex) => {
-              const oePoint = levelShifterTerminalPoint((chipIndex * 4) + channelIndex, 'oe')
+              const oePoint = levelShifterTerminalPoint(shifter, (chipIndex * shifter.channels) + channelIndex, 'oe')
               // /OE ties low. Four identical cross-canvas runs per chip carried no
               // information beyond that, so each becomes a stub on its own pin side.
               return <NetStub
@@ -431,7 +434,7 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
         {usesThreeVolt && controller3v3 && <NetStub x={controller3v3.x} y={controller3v3.y} kind="v3v3" direction={controller3v3.side} lead={26} wireId="controller-3v3-rail" />}
       </g>
 
-      {layers.levelShifter && outputLayouts.length > 0 && <g filter={shadowFilter}>
+      {layers.levelShifter && shifter && outputLayouts.length > 0 && <g filter={shadowFilter}>
         {outputLayouts.map((layout) => (
           <g key={`${layout.item.id}-resistor`} data-data-resistor-for={layout.item.id} transform={`translate(${dataResistorX(layout.x)} ${outputDataTerminalY(layout) - (DATA_RESISTOR_HEIGHT / 2)})`}>
             {/* On the incoming data wire, clear of the strip's GND stub label that
@@ -449,36 +452,35 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
             />
           </g>
         ))}
-        {Array.from({ length: Math.ceil(outputLayouts.length / 4) }, (_, chipIndex) => {
-          const chipY = levelShifterChipY(chipIndex * 4)
-          const usedChannels = Math.min(4, outputLayouts.length - (chipIndex * 4))
-          const vccPoint = levelShifterSupplyPoint(chipIndex, 'vcc')
-          const groundPoint = levelShifterSupplyPoint(chipIndex, 'gnd')
+        {Array.from({ length: levelShifterChipCount(outputLayouts.length, shifter) }, (_, chipIndex) => {
+          const chipY = levelShifterChipY(shifter, chipIndex * shifter.channels)
+          const usedChannels = Math.min(shifter.channels, outputLayouts.length - (chipIndex * shifter.channels))
+          const vccPoint = levelShifterSupplyPoint(shifter, chipIndex, 'vcc')
+          const groundPoint = levelShifterSupplyPoint(shifter, chipIndex, 'gnd')
+          const shifterRender = partRenderSrc(shifter.partId)
           return <g key={`level-shifter-${chipIndex}`} transform={`translate(${LEVEL_SHIFTER_X} ${chipY})`}>
-            <text x={LEVEL_SHIFTER_WIDTH / 2} y="-14" textAnchor="middle" className={styles.physicalComponentLabel}>74AHCT125 DIP-14 level shifter {chipIndex + 1}</text>
-            <image data-component-render="sn74ahct125n-dip14" href={levelShifterRender} x={LEVEL_SHIFTER_RENDER_X} y={LEVEL_SHIFTER_RENDER_Y} width={LEVEL_SHIFTER_RENDER_WIDTH} height={LEVEL_SHIFTER_RENDER_HEIGHT} preserveAspectRatio="xMidYMid meet" className={styles.physicalBoardRender} />
+            <text x={LEVEL_SHIFTER_WIDTH / 2} y="-14" textAnchor="middle" className={styles.physicalComponentLabel}>{shifter.name} level shifter {chipIndex + 1}</text>
+            {shifterRender && <image data-component-render={shifter.partId} href={shifterRender} x={shifter.render.x} y={shifter.render.y} width={shifter.render.width} height={shifter.render.height} preserveAspectRatio="xMidYMid meet" className={styles.physicalBoardRender} />}
             <path
               data-level-shifter-pin-lead={`level-shifter-${chipIndex + 1}-vcc`}
-              d={levelShifterPinLeadPath(vccPoint, chipY)}
+              d={levelShifterPinLeadPath(shifter, vccPoint, chipY)}
               className={styles.powerWire}
             />
             <path
               data-level-shifter-pin-lead={`level-shifter-${chipIndex + 1}-gnd`}
-              d={levelShifterPinLeadPath(groundPoint, chipY)}
+              d={levelShifterPinLeadPath(shifter, groundPoint, chipY)}
               className={styles.groundWire}
             />
             <g data-terminal={`level-shifter-${chipIndex + 1}-vcc`}>
               <circle cx={vccPoint.x - LEVEL_SHIFTER_X} cy={vccPoint.y - chipY} r="6" fill="#d84938" stroke="#ffd1d7" strokeWidth="2" />
-              <text x={vccPoint.x - LEVEL_SHIFTER_X - 12} y={vccPoint.y - chipY + 4} textAnchor="end" className={styles.physicalChipLabel}>P14 VCC</text>
+              <text x={vccPoint.x - LEVEL_SHIFTER_X - 12} y={vccPoint.y - chipY + 4} textAnchor="end" className={styles.physicalChipLabel}>{levelShifterPinLabel(shifter, shifter.spec.vccPad)}</text>
             </g>
-            {Array.from({ length: 4 }, (_, channelIndex) => {
-              const outputIndex = (chipIndex * 4) + channelIndex
-              const inputPoint = levelShifterTerminalPoint(outputIndex, 'a')
-              const outputPoint = levelShifterTerminalPoint(outputIndex, 'y')
-              const oePoint = levelShifterTerminalPoint(outputIndex, 'oe')
-              const inputPin = [2, 5, 9, 12][channelIndex]
-              const outputPin = [3, 6, 8, 11][channelIndex]
-              const oePin = [1, 4, 10, 13][channelIndex]
+            {Array.from({ length: shifter.channels }, (_, channelIndex) => {
+              const outputIndex = (chipIndex * shifter.channels) + channelIndex
+              const inputPoint = levelShifterTerminalPoint(shifter, outputIndex, 'a')
+              const outputPoint = levelShifterTerminalPoint(shifter, outputIndex, 'y')
+              const oePoint = levelShifterTerminalPoint(shifter, outputIndex, 'oe')
+              const channelPads = shifter.spec.channelPads[channelIndex]
               const outputLayout = outputLayouts[outputIndex]
               const connection = outputLayout && outputConnections.find((entry) => entry.itemId === outputLayout.item.id)
               const presentation = connection && signalPresentation(connection)
@@ -494,30 +496,30 @@ export default function PhysicalAssemblyDiagram({ boardProfile, items, connectio
                 {channelIndex < usedChannels && <>
                   <path
                     data-level-shifter-pin-lead={`level-shifter-${chipIndex + 1}-a${channelIndex + 1}`}
-                    d={levelShifterPinLeadPath(inputPoint, chipY)}
+                    d={levelShifterPinLeadPath(shifter, inputPoint, chipY)}
                     className={signalLeadClass}
                     style={signalLeadStyle}
                   />
                   <path
                     data-level-shifter-pin-lead={`level-shifter-${chipIndex + 1}-y${channelIndex + 1}`}
-                    d={levelShifterPinLeadPath(outputPoint, chipY)}
+                    d={levelShifterPinLeadPath(shifter, outputPoint, chipY)}
                     className={signalLeadClass}
                     style={signalLeadStyle}
                   />
                   <path
                     data-level-shifter-pin-lead={`level-shifter-${chipIndex + 1}-oe${channelIndex + 1}`}
-                    d={levelShifterPinLeadPath(oePoint, chipY)}
+                    d={levelShifterPinLeadPath(shifter, oePoint, chipY)}
                     className={styles.groundWire}
                   />
                 </>}
-                <g data-terminal={`level-shifter-${chipIndex + 1}-a${channelIndex + 1}`}>{terminal(inputPoint, `P${inputPin} A${channelIndex + 1}`)}</g>
-                <g data-terminal={`level-shifter-${chipIndex + 1}-y${channelIndex + 1}`}>{terminal(outputPoint, `P${outputPin} Y${channelIndex + 1}`)}</g>
-                <g data-terminal={`level-shifter-${chipIndex + 1}-oe${channelIndex + 1}`}>{terminal(oePoint, `P${oePin} /OE${channelIndex + 1}`)}</g>
+                <g data-terminal={`level-shifter-${chipIndex + 1}-a${channelIndex + 1}`}>{terminal(inputPoint, levelShifterPinLabel(shifter, channelPads.in))}</g>
+                <g data-terminal={`level-shifter-${chipIndex + 1}-y${channelIndex + 1}`}>{terminal(outputPoint, levelShifterPinLabel(shifter, channelPads.out))}</g>
+                <g data-terminal={`level-shifter-${chipIndex + 1}-oe${channelIndex + 1}`}>{terminal(oePoint, levelShifterPinLabel(shifter, channelPads.oe))}</g>
               </g>
             })}
             <g data-terminal={`level-shifter-${chipIndex + 1}-gnd`}>
               <circle cx={groundPoint.x - LEVEL_SHIFTER_X} cy={groundPoint.y - chipY} r="6" fill="#202425" stroke="#f2c766" strokeWidth="2" />
-              <text x={groundPoint.x - LEVEL_SHIFTER_X + 12} y={groundPoint.y - chipY + 4} className={styles.physicalChipLabel}>P7 GND</text>
+              <text x={groundPoint.x - LEVEL_SHIFTER_X + 12} y={groundPoint.y - chipY + 4} className={styles.physicalChipLabel}>{levelShifterPinLabel(shifter, shifter.spec.gndPad)}</text>
             </g>
           </g>
         })}

@@ -129,9 +129,10 @@ import { motionVectorAddress, motionVectorAddressOptions } from '../state/periph
 import { touchPadAddress, touchPadAddressOptions } from '../state/peripherals/touchPad'
 import { findDataLaneErrors, findDataLaneIssuesInGraph } from './dataLaneValidation'
 import {
-  NLED_PIXEL_DATA_LINK,
+  dataLinkLabel,
+  dataLinkPartId,
   pixelDataExtenderSupports,
-  usesNledPixelDataExtender,
+  usesDataLink,
 } from '../state/peripherals/pixelDataExtender'
 
 export interface ValidationResult {
@@ -1445,13 +1446,13 @@ export function findPixelDataExtenderErrors(nodes: StudioNode[]): string[] {
     .filter((node) => node.data.nodeType === 'MatrixOutput')
     .flatMap((node) => {
       const props = node.data.properties as Record<string, unknown>
-      if (!usesNledPixelDataExtender(props)
+      if (!usesDataLink(props)
         || pixelDataExtenderSupports(props, CLOCKLESS_CHIPSET_OPTIONS)) return []
       const label = nodeLabel(node)
       const chipset = outputForm(props) === 'hub75'
         ? 'HUB75 signal ribbon'
         : `${String(props.chipset ?? 'this chipset')} data and clock lines`
-      return [`${label}: ${NLED_PIXEL_DATA_LINK} carries one asynchronous pixel-data line, not ${chipset}. Set data link to Direct, or choose a one-wire clockless chipset.`]
+      return [`${label}: ${dataLinkLabel(dataLinkPartId(props))} carries one asynchronous pixel-data line, not ${chipset}. Set data link to Direct, or choose a one-wire clockless chipset.`]
     })
 }
 
@@ -4815,7 +4816,7 @@ export function buildGraphDiagnostics(
         title: 'Pixel data extender is incompatible with this output',
         message: extenderIssue,
         fix: 'Set data link to Direct, or choose a one-wire clockless chipset.',
-        nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput), propertyKey: 'dataLink',
+        nodeIds: [matrixOutput.id], nodeLabel: nodeLabel(matrixOutput), propertyKey: 'dataLinkPartId',
       })
     }
   }

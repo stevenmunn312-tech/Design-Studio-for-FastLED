@@ -8594,7 +8594,7 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       "heightPx": 654,
       "pxPerMm": 33.476
     },
-    "revision": 1,
+    "revision": 2,
     "partTypes": [
       "MatrixOutput"
     ],
@@ -8606,7 +8606,9 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
       {
         "facts": [
           "dimensionsMm",
-          "logicVoltage"
+          "logicVoltage",
+          "levelShifter",
+          "pads"
         ],
         "ref": "https://www.ti.com/lit/ds/symlink/sn74ahct125.pdf"
       },
@@ -8616,7 +8618,112 @@ export const PART_CATALOGUE_DATA: Record<string, PartManifest> = {
         ],
         "ref": "Design Studio Build Diagram asset (local copy in the asset workspace)"
       }
-    ]
+    ],
+    "pads": [
+      {
+        "label": "/OE1",
+        "xPx": 9.6,
+        "yPx": 71.5
+      },
+      {
+        "label": "A1",
+        "xPx": 9.6,
+        "yPx": 156.5
+      },
+      {
+        "label": "Y1",
+        "xPx": 9.6,
+        "yPx": 241.5
+      },
+      {
+        "label": "/OE2",
+        "xPx": 9.6,
+        "yPx": 326.5
+      },
+      {
+        "label": "A2",
+        "xPx": 9.6,
+        "yPx": 411.5
+      },
+      {
+        "label": "Y2",
+        "xPx": 9.6,
+        "yPx": 496.5
+      },
+      {
+        "label": "GND",
+        "xPx": 9.6,
+        "yPx": 581.5
+      },
+      {
+        "label": "Y3",
+        "xPx": 390.4,
+        "yPx": 581.5
+      },
+      {
+        "label": "A3",
+        "xPx": 390.4,
+        "yPx": 496.5
+      },
+      {
+        "label": "/OE3",
+        "xPx": 390.4,
+        "yPx": 411.5
+      },
+      {
+        "label": "Y4",
+        "xPx": 390.4,
+        "yPx": 326.5
+      },
+      {
+        "label": "A4",
+        "xPx": 390.4,
+        "yPx": 241.5
+      },
+      {
+        "label": "/OE4",
+        "xPx": 390.4,
+        "yPx": 156.5
+      },
+      {
+        "label": "VCC",
+        "xPx": 390.4,
+        "yPx": 71.5
+      }
+    ],
+    "padHoleRadiusPx": 12,
+    "levelShifter": {
+      "device": "74AHCT125",
+      "packageName": "DIP-14",
+      "channels": 4,
+      "supplyMinV": 4.5,
+      "supplyMaxV": 5.5,
+      "inputHighMinV": 2,
+      "channelPads": [
+        {
+          "in": "A1",
+          "out": "Y1",
+          "oe": "/OE1"
+        },
+        {
+          "in": "A2",
+          "out": "Y2",
+          "oe": "/OE2"
+        },
+        {
+          "in": "A3",
+          "out": "Y3",
+          "oe": "/OE3"
+        },
+        {
+          "in": "A4",
+          "out": "Y4",
+          "oe": "/OE4"
+        }
+      ],
+      "vccPad": "VCC",
+      "gndPad": "GND"
+    }
   },
   "speaker-4ohm-3w-40mm": {
     "manifestVersion": 1,
