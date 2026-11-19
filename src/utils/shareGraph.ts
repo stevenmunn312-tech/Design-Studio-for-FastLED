@@ -3,6 +3,7 @@ import type { StudioNode, StudioEdge, WorkspaceExtras } from '../state/graphStor
 import type { SavedParts } from '../build/parts/savedParts'
 import { NewerSaveFormatError, newerSaveFormat, withSaveFormat } from '../state/saveFormat'
 import type { PersistedWorkspace } from '../state/workspacePersistence'
+import { stripRuntimeFields } from '../state/runtimeFields'
 import { isWorkspacePayload, sanitizeWorkspacePayload } from './workspacePayload'
 
 const HASH_KEY = 'share'
@@ -20,7 +21,7 @@ export interface SharedWorkspaceRead {
 }
 
 function urlFor(workspace: WorkspacePayload): string {
-  const compressed = compressToEncodedURIComponent(JSON.stringify(withSaveFormat(workspace)))
+  const compressed = compressToEncodedURIComponent(JSON.stringify(withSaveFormat(stripRuntimeFields(workspace))))
   const url = new URL(window.location.href)
   url.hash = `${HASH_KEY}=${compressed}`
   return url.toString()

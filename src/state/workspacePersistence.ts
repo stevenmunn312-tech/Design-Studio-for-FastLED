@@ -6,6 +6,7 @@ import type { PersistedMusicEntry } from './player/musicLibraryPersistence'
 import type { DisplayDocumentRegistry } from './displays/displayDocument'
 import type { SavedParts } from '../build/parts/savedParts'
 import { collectSavedParts } from '../build/parts/signedParts'
+import { stripRuntimeFields } from './runtimeFields'
 
 /** The full workspace shape that needs to persist across autosave, project
  *  switches, JSON export/import, and rolling recovery snapshots. */
@@ -55,7 +56,9 @@ export function hasAuthoredWorkspaceContent(state: Pick<PersistedWorkspace, 'nod
 }
 
 export function cloneWorkspace(workspace: PersistedWorkspace): PersistedWorkspace {
-  return structuredClone(workspace)
+  // The one place a workspace is copied for persistence, so the one place
+  // React Flow's runtime fields are removed (runtimeFields.ts).
+  return structuredClone(stripRuntimeFields(workspace))
 }
 
 export function captureWorkspace(
