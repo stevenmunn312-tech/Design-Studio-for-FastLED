@@ -269,7 +269,7 @@ const TERMINAL_NODE_TYPES = new Set([
 ])
 
 /**
- * Golden ratio for a CustomFormula/FieldFormula expression that uses PHI,
+ * Golden ratio for a FormulaPattern/FieldFormula expression that uses PHI,
  * matching formulaLang.ts's MATH_CONSTANTS.PHI. One constant, because the show
  * generator lifts it out of a pattern's sketch by its exact text.
  */

@@ -268,8 +268,8 @@ export const SUBCATEGORY_ORDER: Record<string, readonly string[]> = {
 // Field → Frame; the show category reads top-to-bottom like the show flow).
 const CATEGORY_NODE_ORDER: Record<string, readonly string[]> = {
   signal: ['TimeNode', 'Interval', 'Random', 'NoiseSignal', 'Envelope', 'Wave', 'Clock', 'ScheduleTrigger', 'DMXChannel'],
-  field:  ['FieldFormula', 'GeometryField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldWarp', 'FieldSymmetry', 'FieldToFrame'],
-  show:   ['MusicLibrary', 'PatternCollection', 'TransitionSet', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
+  field:  ['FieldFormula', 'GeometryField', 'FieldNoise', 'SliceTiling', 'Truchet', 'WaveSim', 'Automaton', 'FractalField', 'FluidSim', 'TuringField', 'GradientField', 'ShapeField', 'FrameToField', 'FieldMath', 'FieldLevels', 'FieldBlur', 'FieldTransform', 'FieldSymmetry', 'FieldToFrame'],
+  show:   ['MusicLibrary', 'PatternCollection', 'TransitionPool', 'ControlMap', 'PlayerParticles', 'PatternMaster', 'PatternSlideshow', 'SongInfo', 'Sequencer', 'Transition', 'PerformanceGenerator', 'SDCard'],
 }
 
 /**
@@ -1084,7 +1084,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     decay:     { control: 'slider', min: 0.3, max: 3, step: 0.05 },
     blendMode: { control: 'select', options: ['add', 'max'] },
   },
-  PrismStorm:       { speed: N01 },
+  HiHatShards:       { speed: N01 },
   // BeatKaleidoscope's hue shift comes from AudioHue (0-360°), so it keeps the
   // full turn rather than the generic -180 to 180.
   BeatKaleidoscope: {
@@ -1478,7 +1478,7 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     edgeMode: { control: 'select', options: ['clamp', 'wrap', 'black'] },
     sampling: { control: 'select', options: ['bilinear', 'nearest'] },
   },
-  FieldWarp: {
+  FieldTransform: {
     strength: { control: 'slider', min: FIELD_STRENGTH.min, max: FIELD_STRENGTH.max, step: 0.1 },
     angle: { control: 'slider', min: -180, max: 180, step: 1 },
     spin: { control: 'slider', min: -360, max: 360, step: 1 },
@@ -2424,7 +2424,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Color: {
     color: 'The colour on the Color output. Click the swatch to pick another.',
   },
-  CustomFormula: {
+  FormulaPattern: {
     formula: FORMULA_LANG_HELP,
     a: 'Free number available in the formula as a; wire a control to animate it.',
     b: 'Free number available in the formula as b.',
@@ -3249,7 +3249,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     value: 'What B reads while the B field is unwired, 0 to 1. Wire a level here to scale, raise or threshold A by it.',
     t: 'Mix only: crossfade between A and B. 0 shows only A, 1 only B. Wire a signal to animate it.',
   },
-  FieldWarp: {
+  FieldTransform: {
     dx: 'A field that pushes each pixel sideways. 0.5 is no push.',
     dy: 'A field that pushes each pixel up or down. 0.5 is no push.',
     strength: 'How far the Offset X and Y fields can push each pixel, in pixels. A field value of 0.5 is no push.',
@@ -3548,7 +3548,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     colorSource: 'Palette colours the rings by their distance from the well; Solid uses the R, G, B colour. A wired palette always colours, and a wired Color replaces both.',
     palette: 'Palette the rings take by distance from the well, nearest first, when Color is Palette.',
   },
-  PrismStorm: {
+  HiHatShards: {
     speed: 'Shard drift rate (0–1; 0.5 is the default pace, 1 twice as fast); mids speed it up, treble sharpens the grain, each hi-hat hit snaps the angle.',
   },
   SampleHold: {
@@ -3584,7 +3584,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     patternEnergy: 'Calm, lively, or peak, tagged on each row. Any band means no limit. The Music Player reads the band from the track, and the Performance Generator reads it from the section. A slideshow ignores these unless a sequence step asks for a band. If nothing matches, any pattern may play.',
     patternEntry: 'Restart, the usual setting, clears a pattern’s state and starts its clock as the transition that brings it in begins. Resume keeps the state and the show clock, including while another pattern is showing.',
   },
-  TransitionSet: {
+  TransitionPool: {
     transitions: 'The transition styles in the pool, picked in the body. The player chooses among them at each change.',
   },
 
@@ -3735,7 +3735,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     offsetY: 'offset Y',
     spin: 'spin (°/s)',
   },
-  FieldWarp: {
+  FieldTransform: {
     angle: 'angle (°)',
     spin: 'spin (°/s)',
     tilesX: 'tiles X',
@@ -4624,7 +4624,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
   ],
   // Field Transform mirrors Frame Warp's push and sampling, with the turn,
   // zoom and tiles between them.
-  FieldWarp: [
+  FieldTransform: [
     { key: 'push', label: 'Push', keys: ['strength'] },
     { key: 'turn', label: 'Turn', keys: ['angle', 'spin'] },
     { key: 'scale', label: 'Zoom & Tiles', keys: ['zoom', 'tilesX', 'tilesY'] },

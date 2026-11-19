@@ -5,7 +5,7 @@ import type { NodeEmitters } from '../../codegen/emitContext'
 import { centeredCpp } from '../../state/evaluator/formula'
 
 export const CODE_EMITTERS: NodeEmitters = {
-  CustomFormula({ node, p, ln, f, ownBuf, paletteExpr, needsT, needsShims, needsPhi }) {
+  FormulaPattern({ node, p, ln, f, ownBuf, paletteExpr, needsT, needsShims, needsPhi }) {
     needsT.v = true
     const raw = String(p.formula ?? 'sin(x*6+t)*0.5+0.5')
     // Fail closed on anything the sandboxed parser rejects: a formula
@@ -21,7 +21,7 @@ export const CODE_EMITTERS: NodeEmitters = {
     const formula = cpp ?? '0.0f'
     const ob = ownBuf()
     const pal = paletteExpr(node.id, 'paletteIn', p)
-    ln(`  { /* CustomFormula: ${safe ? raw.replace(/\*\//g, '* /') : 'invalid formula — rendering blank' } */`)
+    ln(`  { /* FormulaPattern: ${safe ? raw.replace(/\*\//g, '* /') : 'invalid formula — rendering blank' } */`)
     ln(`    float a=${f('a', 'a', 0)}, b=${f('b', 'b', 0)}; (void)a; (void)b;`)
     ln(`    float W=WIDTH, H=HEIGHT; (void)W; (void)H;`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){`)

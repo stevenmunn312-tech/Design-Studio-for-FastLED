@@ -1905,7 +1905,7 @@ describe('graphStore — custom display documents', () => {
 })
 
 // todo.md's P0 trust-boundary item: imported/shared/pattern-dropped content
-// must not run CustomFormula/FieldFormula/Code preview logic until the user
+// must not run FormulaPattern/FieldFormula/Code preview logic until the user
 // explicitly trusts it. `loadGraph` itself just honours whatever `trusted`
 // value its caller passes (the load paths in App.tsx/MenuBar.tsx are the ones
 // responsible for forcing `false` on untrusted content) — these tests cover
@@ -2106,7 +2106,7 @@ describe('graphStore — trust boundary', () => {
   })
 
   it('loadGraph keeps content from elsewhere untrusted while it holds unknown code', () => {
-    useGraphStore.getState().loadGraph([node('f', 'CustomFormula', { formula: 'x' })], [], { trusted: false })
+    useGraphStore.getState().loadGraph([node('f', 'FormulaPattern', { formula: 'x' })], [], { trusted: false })
     expect(useGraphStore.getState().trusted).toBe(false)
   })
 
@@ -2119,10 +2119,10 @@ describe('graphStore — trust boundary', () => {
 
   it('remembers code made in a trusted project, so it is known in every later project', () => {
     useGraphStore.getState().loadGraph([node('sc', 'SolidColor')], [])
-    useGraphStore.setState({ nodes: [...useGraphStore.getState().nodes, node('f', 'CustomFormula', { formula: 'mine' })] })
+    useGraphStore.setState({ nodes: [...useGraphStore.getState().nodes, node('f', 'FormulaPattern', { formula: 'mine' })] })
     // The same code arriving later from a file (or a saved pattern) is the
     // user's own, wherever it sits on the canvas.
-    const moved = { ...node('f2', 'CustomFormula', { formula: 'mine' }), position: { x: 400, y: 90 } }
+    const moved = { ...node('f2', 'FormulaPattern', { formula: 'mine' }), position: { x: 400, y: 90 } }
     useGraphStore.getState().loadGraph([moved], [], { trusted: false })
     expect(useGraphStore.getState().trusted).toBe(true)
   })
@@ -2172,7 +2172,7 @@ describe('graphStore — trust boundary', () => {
     const saved = {
       id: 'p1', name: 'MyPattern', createdAt: 0,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-      subgraph: { nodes: [node('f', 'CustomFormula')], edges: [] },
+      subgraph: { nodes: [node('f', 'FormulaPattern')], edges: [] },
     } as unknown as import('../patterns/patternLibrary').SavedPattern
     useGraphStore.getState().instantiatePattern(saved, { x: 0, y: 0 })
     expect(useGraphStore.getState().trusted).toBe(false)
@@ -2205,7 +2205,7 @@ describe('graphStore — trust boundary', () => {
     const saved = {
       id: 'p1', name: 'MyPattern', createdAt: 0,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-      subgraph: { nodes: [node('a', 'CustomFormula')], edges: [] },
+      subgraph: { nodes: [node('a', 'FormulaPattern')], edges: [] },
     } as unknown as import('../patterns/patternLibrary').SavedPattern
 
     useGraphStore.getState().instantiatePattern(saved, { x: 0, y: 0 })
@@ -2224,7 +2224,7 @@ describe('graphStore — trust boundary', () => {
     const savedA = {
       id: 'p1', name: 'MyPattern', createdAt: 0,
       inputs: [], outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-      subgraph: { nodes: [node('a', 'CustomFormula')], edges: [] },
+      subgraph: { nodes: [node('a', 'FormulaPattern')], edges: [] },
     } as unknown as import('../patterns/patternLibrary').SavedPattern
     const savedB = {
       id: 'p2', name: 'OtherPattern', createdAt: 0,

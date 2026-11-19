@@ -33,7 +33,7 @@ function evalCustomFormula(formula: string, a: number, b: number, palette: Palet
 // (the sandboxed Worker that actually runs the transpiled body) — see those
 // files, and docs/design/code-node.md for the transpile rules.
 export const CODE_EVALUATORS: NodeEvaluators = {
-  CustomFormula({ num, pal, t, W, H, trusted }, id, props) {
+  FormulaPattern({ num, pal, t, W, H, trusted }, id, props) {
     const a = num(id, 'a', props, 'a', 0)
     const b = num(id, 'b', props, 'b', 0)
     const formula = String(props.formula ?? 'sin(x*6+t)*0.5+0.5')

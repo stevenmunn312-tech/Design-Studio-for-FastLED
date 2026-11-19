@@ -231,7 +231,7 @@ const EMBEDDED_UI: Record<string, { label: string; h: number; top?: boolean }> =
   TouchInput: { label: 'calibrate touch', h: 28 },
   PatternCollection: { label: 'choose saved patterns or connect…', h: 98 },
   Transition: { label: 'transition picker', h: 387 },
-  TransitionSet: { label: '▸ transitions · 0 selected', h: 27 },
+  TransitionPool: { label: '▸ transitions · 0 selected', h: 27 },
   PaletteBank: { label: '▸ palettes · 0 in bank', h: 208 },
 }
 

@@ -109,7 +109,7 @@ function createEvalNode(
   // Prebuilt lookup maps for callers that create many evaluators over the same
   // graph (e.g. sampling a scope across a tick series) — see buildEvalMaps.
   shared: EvalMaps | null = null,
-  // Whether CustomFormula/FieldFormula/Code nodes may evaluate their preview
+  // Whether FormulaPattern/FieldFormula/Code nodes may evaluate their preview
   // logic (todo.md's P0 trust-boundary item) — appended last so every existing
   // positional call site keeps working unchanged, defaulting to trusted.
   trusted = true,
@@ -251,7 +251,7 @@ export function evaluateGraph(
   groupStack: ReadonlySet<string> = new Set(),
   groupInputs: Record<string, PortValue> = {},
   audioOverride: AudioOverride | null = null,
-  // Whether CustomFormula/FieldFormula/Code nodes may evaluate their preview
+  // Whether FormulaPattern/FieldFormula/Code nodes may evaluate their preview
   // logic — appended last so existing positional callers keep working
   // unchanged, defaulting to trusted (todo.md's P0 trust-boundary item).
   trusted = true,
@@ -424,7 +424,7 @@ export function evaluateGraphFull(
   gridH = DEFAULT_H,
   groups: GroupRegistry = {},
   auxNodes = true,
-  // Whether CustomFormula/FieldFormula/Code nodes may evaluate their preview
+  // Whether FormulaPattern/FieldFormula/Code nodes may evaluate their preview
   // logic — appended last so existing positional callers keep working
   // unchanged, defaulting to trusted (todo.md's P0 trust-boundary item).
   trusted = true,

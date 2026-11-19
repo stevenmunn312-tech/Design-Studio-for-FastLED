@@ -39,13 +39,13 @@ export function wiredPatternCollection(
 }
 
 /**
- * The style names of the TransitionSet wired into a show engine's
+ * The style names of the TransitionPool wired into a show engine's
  * `transitions` input, or `[]` when none is wired. Music Player, Pattern
  * Slideshow and Performance Generator all read their pool here, so the
  * preview, the show file and the firmware draw from the same styles.
  */
 export function wiredTransitionStyles(nodes: StudioNode[], edges: Edge[], engineId: string): string[] {
   const link = edges.find((edge) => edge.target === engineId && edge.targetHandle === 'transitions')
-  const set = link && nodes.find((node) => node.id === link.source && nodeType(node) === 'TransitionSet')
+  const set = link && nodes.find((node) => node.id === link.source && nodeType(node) === 'TransitionPool')
   return set ? ((set.data.properties as { transitions?: string[] }).transitions ?? []) : []
 }

@@ -227,7 +227,7 @@ export { PARTICLE_STYLES }
 
 // ── Transition map: from section type → transition style ──────────────────────
 
-// `extra` is the pool from a TransitionSet node wired into the Performance
+// `extra` is the pool from a TransitionPool node wired into the Performance
 // Generator's `transitions` input (empty when none is wired). When present, it
 // has a 50/50 chance of overriding the rule-based pick below, so a show gets a
 // taste of the wider 21-style catalogue instead of only ever crossfade/wipe/dissolve.
@@ -475,7 +475,7 @@ export function generateShow(
   // Per-pattern eligible section types, aligned by index with `patternIds`.
   // An empty (or missing) entry means the pattern is eligible in any section.
   sectionTags: string[][] = [],
-  // Extra transition styles from a wired TransitionSet node (see chooseTransition).
+  // Extra transition styles from a wired TransitionPool node (see chooseTransition).
   extraTransitions: string[] = [],
   // Weights and energy tags aligned with `patternIds`. Omitted entries weigh 1
   // and match every band, which keeps an unweighted collection on today's draw.
@@ -720,7 +720,7 @@ export function showFileToJson(show: ShowFile): string {
 //   TRANSITION:    typeId(float), duration
 
 // Mirrors the `Transition` node's 21-style catalogue (nodeLibrary.ts
-// PROPERTY_META.transitionType) so a style chosen from a wired TransitionSet
+// PROPERTY_META.transitionType) so a style chosen from a wired TransitionPool
 // round-trips through the binary export. crossfade/wipe/dissolve keep their
 // original ids for backward compatibility with already-exported `.show` files,
 // and the table is append-only for the same reason: a new style takes the next

@@ -1,6 +1,6 @@
 /**
  * Field Transform's kernel, shared by preview and sketch. The node keeps the
- * `FieldWarp` type id; it took over Field Rotate and Field Tile.
+ * `FieldTransform` type id; it took over Field Rotate and Field Tile.
  *
  * A destination pixel reads the source field back through three steps:
  *

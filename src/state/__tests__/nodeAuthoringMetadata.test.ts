@@ -49,7 +49,7 @@ describe('splice targets', () => {
     // where a drop lands, silently.
     expect(spliceTargetPorts(def('Mask'), 'frame', 'frame')).toEqual({ inPort: 'frame', outPort: 'frame' })
     expect(spliceTargetPorts(def('Zones'), 'frame', 'frame')).toEqual({ inPort: 'base', outPort: 'frame' })
-    expect(spliceTargetPorts(def('FieldWarp'), 'field', 'field')).toEqual({ inPort: 'field', outPort: 'field' })
+    expect(spliceTargetPorts(def('FieldTransform'), 'field', 'field')).toEqual({ inPort: 'field', outPort: 'field' })
     expect(spliceTargetPorts(def('Clamp'), 'float', 'float')).toEqual({ inPort: 'value', outPort: 'result' })
     expect(spliceTargetPorts(def('MapRange'), 'float', 'float')).toEqual({ inPort: 'value', outPort: 'result' })
   })

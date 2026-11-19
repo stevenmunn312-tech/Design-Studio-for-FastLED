@@ -18,7 +18,7 @@ function edge(id: string, source: string, target: string): StudioEdge {
 
 describe('per-output native preview rendering', () => {
   it('evaluates a 60x1 strip and 16x16 matrix at their own dimensions', () => {
-    const pattern = node('pattern', 'CustomFormula', 'pattern', { formula: 'x/(W-1)' })
+    const pattern = node('pattern', 'FormulaPattern', 'pattern', { formula: 'x/(W-1)' })
     const strip = node('strip', 'MatrixOutput', 'output', { form: 'strip', ledCount: 60, dataPin: 5 })
     const matrix = node('matrix', 'MatrixOutput', 'output', { form: 'matrix', width: 16, height: 16, dataPin: 6 })
     const nodes = [pattern, strip, matrix]

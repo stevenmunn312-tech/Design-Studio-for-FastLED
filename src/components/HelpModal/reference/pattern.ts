@@ -1370,7 +1370,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  PrismStorm: {
+  HiHatShards: {
     overview: [
       'Hi-Hat Shards draws noise shards with a direction, which snap to a new angle on every hi-hat hit. Mids speed the drift and treble sharpens the grain.',
     ],
@@ -1378,13 +1378,13 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       audio: BAND_AUDIO_INPUT,
     },
     example: example({
-      featured: 'PrismStorm',
+      featured: 'HiHatShards',
       title: 'Shards that snap on the hi-hat',
       nodes: {
         mic: ['MicInput'],
         fft: ['FFTAnalyzer', { smoothing: 0.6, tilt: 0.4 }],
         drums: ['PercussionDetect', { sensitivity: 0.6 }],
-        storm: ['PrismStorm', { palette: 'amethyst' }],
+        storm: ['HiHatShards', { palette: 'amethyst' }],
       },
       wires: ['mic.audio > fft.audio', 'mic.audio > drums.audio', 'fft.mids > storm.mids', 'fft.treble > storm.treble', 'drums.hihat > storm.hihat'],
       explanation: 'FFT Analyzer’s mids and treble set how fast and how fine the Hi-Hat Shards are, and Percussion Detect’s hi-hat lane snaps them to a new angle on each tick.',
@@ -1467,7 +1467,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  CustomFormula: {
+  FormulaPattern: {
     overview: [
       'Formula Pattern colours every pixel from a formula you write. It knows x and y (0 to 1), cx and cy (centred), r and angle (polar), t (time), W and H, two inputs a and b, the usual maths, and FastLED’s helpers such as sin8 and beatsin8.',
       'The formula’s result, 0 to 1 and wrapping, is looked up in the palette. One line can make ripples, spirals, interference patterns and checkerboards. Wire a pot, a Web Remote slider or an audio level into A or B to steer it.',
@@ -1475,10 +1475,10 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
       'Formulas run only once you have answered Run it on the bar above the canvas; until then a project from another computer shows black.',
     ],
     example: example({
-      featured: 'CustomFormula',
+      featured: 'FormulaPattern',
       title: 'Write a ripple in one line',
       nodes: {
-        ripple: ['CustomFormula', { formula: 'sin(r*18 - t*4)*0.5 + 0.5', palette: 'ocean' }],
+        ripple: ['FormulaPattern', { formula: 'sin(r*18 - t*4)*0.5 + 0.5', palette: 'ocean' }],
       },
       explanation: 'Formula Pattern draws sin(r·18 − t·4): r is distance from the centre, so the formula makes rings, and subtracting time moves them outward. The ocean palette colours the result.',
       preview: 'The {output} shows blue rings rippling outward from the centre.',

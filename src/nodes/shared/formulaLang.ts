@@ -1,4 +1,4 @@
-// A small sandboxed expression language for CustomFormula / FieldFormula.
+// A small sandboxed expression language for FormulaPattern / FieldFormula.
 //
 // Formulas used to compile straight to `new Function(...)`, which — despite
 // a `"use strict"` prologue — still binds to the real global environment:
@@ -413,9 +413,9 @@ export function compileFormulaSource(source: string, { variables, callableVariab
   }
 }
 
-// ── The CustomFormula / FieldFormula node contract ────────────────────────
+// ── The FormulaPattern / FieldFormula node contract ────────────────────────
 //
-// Per-pixel formula closure. Args are positional and shared by CustomFormula
+// Per-pixel formula closure. Args are positional and shared by FormulaPattern
 // and FieldFormula: x, y, cx, cy, r, angle, t, W, H, a, b, fieldIn, then the
 // FastLED shims (sin8, cos8, …) in SHIM_NAMES order.
 //
@@ -431,7 +431,7 @@ export function compileFormulaSource(source: string, { variables, callableVariab
 // sketch able to run source the preview had already refused (fixed 2026-08-14).
 export const NODE_FORMULA_VARIABLES = ['x', 'y', 'cx', 'cy', 'r', 'angle', 't', 'W', 'H', 'a', 'b', 'fieldIn'] as const
 
-/** Compile a CustomFormula/FieldFormula source string; `null` when invalid. */
+/** Compile a FormulaPattern/FieldFormula source string; `null` when invalid. */
 export function compileNodeFormula(source: string): FormulaFn | null {
   return compileFormulaSource(source, { variables: NODE_FORMULA_VARIABLES, callableVariables: SHIM_NAMES })
 }
@@ -441,12 +441,12 @@ export function isNodeFormulaValid(source: string): boolean {
   return compileNodeFormula(source) !== null
 }
 
-/** A CustomFormula's C++ expression; `null` when invalid. */
+/** A FormulaPattern's C++ expression; `null` when invalid. */
 export function nodeFormulaCpp(source: string): string | null {
   return formulaToCpp(source, NODE_FORMULA_VARIABLES)
 }
 
-/** Why a CustomFormula/FieldFormula source does not parse, for the editor;
+/** Why a FormulaPattern/FieldFormula source does not parse, for the editor;
  *  `null` when it is valid. Agrees with `isNodeFormulaValid`. */
 export function nodeFormulaError(source: string): string | null {
   return formulaError(source, NODE_FORMULA_VARIABLES)

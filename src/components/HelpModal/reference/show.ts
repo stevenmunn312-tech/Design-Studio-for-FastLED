@@ -158,7 +158,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       nodes: {
         patterns: ['PatternCollection'],
         mic: ['MicInput'],
-        transitions: ['TransitionSet'],
+        transitions: ['TransitionPool'],
         beat: ['BeatDetect'],
         controls: ['ControlMap'],
         particles: ['PlayerParticles'],
@@ -285,7 +285,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
     }),
   },
 
-  TransitionSet: {
+  TransitionPool: {
     overview: [
       'Transition Pool is a set of transition styles for a show to choose from. Tick the styles you want in its body; the player picks among them at each pattern change.',
       'Wire it into a Music Player or a Pattern Slideshow for live shows, or a Performance Generator for a music-synced one. Without a pool, shows crossfade.',
@@ -295,11 +295,11 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
     },
     outcome: SHOW_OUTCOME + ' Each change then uses one of the ticked transition styles.',
     example: example({
-      featured: 'TransitionSet',
+      featured: 'TransitionPool',
       title: 'Give a show its own set of moves',
       nodes: {
         patterns: ['PatternCollection'],
-        moves: ['TransitionSet', { transitions: ['iris', 'spiral', 'cube', 'blinds'] }],
+        moves: ['TransitionPool', { transitions: ['iris', 'spiral', 'cube', 'blinds'] }],
         player: ['PatternMaster'],
         card: ['SDCard'],
         amp: ['Amplifier'],
@@ -376,7 +376,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
       nodes: {
         music: ['MusicLibrary'],
         patterns: ['PatternCollection'],
-        transitions: ['TransitionSet'],
+        transitions: ['TransitionPool'],
         generator: ['PerformanceGenerator', { paletteMode: 'mood', minTime: 8 }],
       },
       wires: ['patterns.patternset > generator.patternset', 'transitions.transitions > generator.transitions'],

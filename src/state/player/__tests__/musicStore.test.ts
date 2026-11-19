@@ -82,7 +82,7 @@ describe('musicStore manual edits', () => {
   })
 })
 
-describe('musicStore — wired TransitionSet', () => {
+describe('musicStore — wired TransitionPool', () => {
   beforeEach(() => {
     useMusicStore.setState({ entries: [] })
     useGraphStore.setState({
@@ -93,14 +93,14 @@ describe('musicStore — wired TransitionSet', () => {
     })
   })
 
-  it('mixes a wired TransitionSet pool into the regenerated show', () => {
+  it('mixes a wired TransitionPool pool into the regenerated show', () => {
     seedEntry()
     useGraphStore.setState({
       nodes: [
         { id: 'gen', type: 'studioNode', position: { x: 0, y: 0 },
           data: { label: 'Performance Generator', nodeType: 'PerformanceGenerator', category: 'show', properties: {} } },
         { id: 'ts', type: 'studioNode', position: { x: 0, y: 0 },
-          data: { label: 'Transitions', nodeType: 'TransitionSet', category: 'composite', properties: { transitions: ['iris', 'zoom'] } } },
+          data: { label: 'Transitions', nodeType: 'TransitionPool', category: 'composite', properties: { transitions: ['iris', 'zoom'] } } },
       ] as unknown as ReturnType<typeof useGraphStore.getState>['nodes'],
       edges: [
         { id: 'e1', source: 'ts', sourceHandle: 'transitions', target: 'gen', targetHandle: 'transitions' },

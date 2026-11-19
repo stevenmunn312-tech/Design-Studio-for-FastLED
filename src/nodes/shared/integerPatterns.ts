@@ -248,7 +248,7 @@ export function prismPixel(x: number, y: number, f: PrismFrame): number {
   return Math.min(255, scale8(PRISM_SHARD_TABLE[p8], f.shardGain) + scale8(PRISM_FLASH_TABLE[f8], f.flashGain))
 }
 
-// ── PrismStorm ────────────────────────────────────────────────────────────────
+// ── HiHatShards ────────────────────────────────────────────────────────────────
 // Nine Worley cells around each pixel, each adding a Gaussian-windowed cosine
 // across the storm's orientation. Coordinates are 1/256 of a cell, from a
 // scale with 16 fractional bits so the far edge does not drift; the

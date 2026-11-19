@@ -1513,8 +1513,8 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const isCode = d.nodeType === 'Code'
   // Formula Pattern and Expression embed the Code node's editor with their
   // parse error beneath it; Expression's vocabulary is the scalar one.
-  const isFormulaNode = d.nodeType === 'CustomFormula' || d.nodeType === 'Expression'
-  const formulaError = d.nodeType === 'CustomFormula' ? nodeFormulaError(String(props.formula ?? ''))
+  const isFormulaNode = d.nodeType === 'FormulaPattern' || d.nodeType === 'Expression'
+  const formulaError = d.nodeType === 'FormulaPattern' ? nodeFormulaError(String(props.formula ?? ''))
     : d.nodeType === 'Expression' ? scalarFormulaError(String(props.formula ?? ''))
     : null
   const signalKey = outPort ? `${id}:${outPort.id}` : null
@@ -1952,7 +1952,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
           {(d.nodeType === 'PatternSlideshow' || d.nodeType === 'PatternMaster') && <SequenceBody nodeId={id} />}
           {d.nodeType === 'Transition' && <TransitionPickerBody nodeId={id} />}
-          {d.nodeType === 'TransitionSet' && <TransitionSetBody nodeId={id} />}
+          {d.nodeType === 'TransitionPool' && <TransitionSetBody nodeId={id} />}
           {d.nodeType === 'PaletteBank' && <PaletteBankBody nodeId={id} />}
 
 

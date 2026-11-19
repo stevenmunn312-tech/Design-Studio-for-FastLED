@@ -50,7 +50,7 @@ describe('a placed source', () => {
   })
 
   it.each([
-    ['TransitionSet', 'transitions', 'PatternMaster', 'transitions'],
+    ['TransitionPool', 'transitions', 'PatternMaster', 'transitions'],
     ['PatternCollection', 'patternset', 'PatternMaster', 'patternset'],
     ['PlayerParticles', 'particleFx', 'PatternMaster', 'particleFx'],
     ['RTCInput', 'dateTime', 'ClockDisplay', 'dateTime'],
@@ -68,7 +68,7 @@ describe('a placed consumer', () => {
   it('reaches back to the only source of each kind it takes', () => {
     const nodes = [
       node('mic', 'MicInput'), node('collection', 'PatternCollection'),
-      node('pool', 'TransitionSet'), node('particles', 'PlayerParticles'), node('player', 'PatternMaster'),
+      node('pool', 'TransitionPool'), node('particles', 'PlayerParticles'), node('player', 'PatternMaster'),
     ]
     expect(dropConnections('player', nodes, [])).toEqual(expect.arrayContaining([
       { source: 'mic', sourceHandle: 'audio', target: 'player', targetHandle: 'audio' },
@@ -138,7 +138,7 @@ describe('autoConnectPlacedNode', () => {
   beforeEach(() => useGraphStore.getState().loadGraph([node('player', 'PatternMaster')], []))
 
   it('draws the wire for a node just added to the canvas', () => {
-    useGraphStore.getState().addNode(node('pool', 'TransitionSet'))
+    useGraphStore.getState().addNode(node('pool', 'TransitionPool'))
     expect(autoConnectPlacedNode('pool')).toBe(1)
     expect(useGraphStore.getState().edges).toEqual([
       expect.objectContaining({ source: 'pool', sourceHandle: 'transitions', target: 'player', targetHandle: 'transitions' }),

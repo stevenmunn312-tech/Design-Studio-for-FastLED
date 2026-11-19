@@ -1462,7 +1462,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
       elapsedTick,
       trusted, capabilityNodes, audioOverride, audio, evaluateGraph,
     })
-    // Transitions come from a wired TransitionSet (the same node type feeds
+    // Transitions come from a wired TransitionPool (the same node type feeds
     // PerformanceGenerator); with nothing wired the show just crossfades.
     const wiredPool = input(id, 'transitions', null) as string[] | null
     const pool = wiredPool && wiredPool.length ? wiredPool : ['crossfade']
@@ -1768,7 +1768,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
   // Generator wired to it mixes them into its rule-based picks (resolved
   // live from the graph by musicStore, not through this frame-eval path —
   // this case just keeps the port well-defined for any generic probe).
-  TransitionSet(_c, _id, props) {
+  TransitionPool(_c, _id, props) {
     return { transitions: (props.transitions as string[] | undefined) ?? [] }
   },
   PerformanceGenerator({ inputSourceType, input, elapsedT: t, W, H, stateKey, incoming, nodeMap }, id) {

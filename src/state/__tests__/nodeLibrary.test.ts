@@ -165,8 +165,8 @@ describe('nodeLibrary', () => {
   })
 
   it('gives formula nodes editable inputs and in-app vocabulary help', () => {
-    expect(NODE_LIBRARY.find((n) => n.type === 'CustomFormula')?.defaultProperties).toMatchObject({ a: 0, b: 0 })
-    const help = propertyDescription('CustomFormula', 'formula') ?? ''
+    expect(NODE_LIBRARY.find((n) => n.type === 'FormulaPattern')?.defaultProperties).toMatchObject({ a: 0, b: 0 })
+    const help = propertyDescription('FormulaPattern', 'formula') ?? ''
     expect(help).toMatch(/Variables: x, y, cx, cy, r, angle, t, W, H, a, b\./)
     expect(help).toMatch(/Constants: PI, PHI\./)
     for (const name of [...MATH_FUNCTION_NAMES, ...SHIM_NAMES]) expect(help, name).toMatch(new RegExp(`[ :]${name}[,.]`))

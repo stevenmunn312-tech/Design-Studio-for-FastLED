@@ -12,7 +12,7 @@ const AUDIO_SPEED_SCALE = 2
 export const AUDIO_SPEED_NODE_TYPES: ReadonlySet<string> = new Set([
   'BassRings', 'MidrangeWaves', 'MidrangeBloom', 'TreblePrism', 'AudioCascade', 'KickShock',
   'VocalAurora', 'BeatKaleidoscope', 'SpectraMosaic', 'EmberPulse', 'TurbulentBloom',
-  'GravityWell', 'RainRipples', 'PrismStorm',
+  'GravityWell', 'RainRipples', 'HiHatShards',
 ])
 
 /** The internal rate for a slider value. */

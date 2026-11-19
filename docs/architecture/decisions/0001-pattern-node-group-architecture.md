@@ -46,7 +46,7 @@ value-producing nodes, topologically evaluated once per frame); "all LEDs blue"
 is three nodes instead of five; and a graph of hand-wired loops is just C++ with
 extra steps, harder to read than the C++ itself.
 
-A `CustomFormula`-style per-pixel `f(x, y, t)` node remains the sanctioned
+A `FormulaPattern`-style per-pixel `f(x, y, t)` node remains the sanctioned
 escape hatch for pixel-level control — not a `Loop` node.
 
 ### 2. One engine, two workspaces, via encapsulation

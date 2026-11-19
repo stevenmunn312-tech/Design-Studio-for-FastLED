@@ -786,7 +786,7 @@ const STANDARD_LATE_SEEDS: BundledSeed[] = [
       }),
       studioNode('height', 'GradientField', -1540, -160, { angle: 90 }),
       studioNode('drift', 'FieldNoise', -1860, -80, { speed: 0.06, scale: 0.16, octaves: 1, seed: 7 }),
-      studioNode('haze', 'FieldWarp', -580, -180, { strength: 1.3 }),
+      studioNode('haze', 'FieldTransform', -580, -180, { strength: 1.3 }),
       studioNode('scene', 'FieldToFrame', -260, -220),
       // The sun, cut off at the horizon.
       studioNode('sunGlow', 'ShapeField', -1220, -520, { fieldMode: 'falloff', cy: 0.6, size: 0.1, range: 0.2 }),
@@ -799,7 +799,7 @@ const STANDARD_LATE_SEEDS: BundledSeed[] = [
       studioNode('roll', 'Wave', -2500, 40, { frequency: 0.02, unipolar: false, waveform: 'sawtooth' }),
       studioNode('swell', 'GradientField', -2180, 40, { angle: 90, repeat: 5 }),
       studioNode('crest', 'FieldMath', -1860, 260, { fieldOp: 'difference', value: 0.5 }),
-      studioNode('chop', 'FieldWarp', -1540, 180, { strength: 1.6 }),
+      studioNode('chop', 'FieldTransform', -1540, 180, { strength: 1.6 }),
       studioNode('glints', 'FieldLevels', -1220, 320, { low: 0.14, high: 0.36 }),
       studioNode('column', 'ShapeField', -1220, 600, { cy: 0.84, aspect: 0.65, softness: 0.14 }),
       studioNode('path', 'FieldMath', -900, 180, { fieldOp: 'multiply' }),

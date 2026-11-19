@@ -830,20 +830,20 @@ describe('validateGraph', () => {
 
   describe('findFormulaErrors', () => {
     it('accepts a formula the sandbox parser compiles', () => {
-      expect(findFormulaErrors([node('cf', 'CustomFormula', { formula: 'sin(x*6+t)*0.5+0.5' })])).toEqual([])
+      expect(findFormulaErrors([node('cf', 'FormulaPattern', { formula: 'sin(x*6+t)*0.5+0.5' })])).toEqual([])
       expect(findFormulaErrors([node('ff', 'FieldFormula', { formula: 'sin8(r*200 + t*60)/255' })])).toEqual([])
     })
 
     it('reports formula source that would otherwise reach the C++ generator raw', () => {
-      const nodes = [node('cf', 'CustomFormula', { formula: '0.0f; digitalWrite(2, HIGH); float _x = 0' })]
+      const nodes = [node('cf', 'FormulaPattern', { formula: '0.0f; digitalWrite(2, HIGH); float _x = 0' })]
       expect(findFormulaErrors(nodes)).toEqual([
-        expect.stringMatching(/CustomFormula has an invalid formula/),
+        expect.stringMatching(/FormulaPattern has an invalid formula/),
       ])
     })
 
     it('blocks export/upload by folding into validateGraph errors', () => {
       const nodes = [
-        node('cf', 'CustomFormula', { formula: 'globalThis' }),
+        node('cf', 'FormulaPattern', { formula: 'globalThis' }),
         node('out', 'MatrixOutput'),
       ]
       const { errors } = validateGraph(nodes, [edge('e', 'cf', 'out', 'frame')])
@@ -852,7 +852,7 @@ describe('validateGraph', () => {
 
     it('raises a repairable Graph Health diagnostic', () => {
       const nodes = [
-        node('cf', 'CustomFormula', { formula: 'fetch("x")' }),
+        node('cf', 'FormulaPattern', { formula: 'fetch("x")' }),
         node('out', 'MatrixOutput'),
       ]
       const diagnostics = buildGraphDiagnostics(nodes, [edge('e', 'cf', 'out', 'frame')])

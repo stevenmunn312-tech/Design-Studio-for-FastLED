@@ -518,10 +518,10 @@ describe('showGenerator', () => {
     expect(r.functions[0]).toContain('patternGain')
   })
 
-  it('draws the transition pool from a wired TransitionSet (names → style ids)', () => {
+  it('draws the transition pool from a wired TransitionPool (names → style ids)', () => {
     const withSet = [
       ...nodes,
-      node('ts', 'TransitionSet', { transitions: ['iris', 'zoom'] }, [], [{ id: 'transitions', dataType: 'transitionset' }]),
+      node('ts', 'TransitionPool', { transitions: ['iris', 'zoom'] }, [], [{ id: 'transitions', dataType: 'transitionset' }]),
     ]
     const withEdge = [...edges, edge('e3', 'ts', 'transitions', 'pm', 'transitions')]
     const cpp = generateShowSketch(withSet, withEdge, groups)
@@ -1256,8 +1256,8 @@ describe('show sketch weight', () => {
     expect(cpp).not.toContain('case 15: {  // zoom')
   })
 
-  it('keeps exactly the styles a wired TransitionSet selects', () => {
-    const set = node('ts', 'TransitionSet', { transitions: ['wipe', 'zoom'] })
+  it('keeps exactly the styles a wired TransitionPool selects', () => {
+    const set = node('ts', 'TransitionPool', { transitions: ['wipe', 'zoom'] })
     const cpp = show(['g0', 'g1'], [set], [edge('e3', 'ts', 'transitions', 'pm', 'transitions')])
     expect(cpp).toContain('case 1: {  // wipe')
     expect(cpp).toContain('case 15: {  // zoom')
@@ -1292,7 +1292,7 @@ describe('show sketch weight', () => {
       nodes: [node('src', 'Noise'), node('warp', 'FrameWarp', { edgeMode: 'wrap', sampling: 'bilinear' }), node('go', 'GroupOutput')],
       edges: [edge('wi', 'src', 'frame', 'warp', 'frame'), edge('wo', 'warp', 'frame', 'go', 'frame')],
     }
-    const set = node('ts', 'TransitionSet', { transitions: ['dolly'] })
+    const set = node('ts', 'TransitionPool', { transitions: ['dolly'] })
     const cpp = generateShowSketch(
       [node('pc', 'PatternCollection', { patternIds: ['g0', 'warp'] }), master, out, set],
       [...wiring, edge('e3', 'ts', 'transitions', 'pm', 'transitions')],

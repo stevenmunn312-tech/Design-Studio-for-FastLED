@@ -501,7 +501,7 @@ const ANIMATED_TYPES = new Set([
   'SpectrumVisualizer', 'Waveform', 'BassPulse', 'BassRings', 'MidrangeWaves', 'MidrangeBloom',
   'TrebleSparks', 'TreblePrism', 'AudioCascade', 'BeatFlash', 'KickShock', 'VocalAurora',
   'BeatKaleidoscope', 'SpectraMosaic', 'PercussionBlobs', 'EmberPulse', 'TurbulentBloom',
-  'GravityWell', 'RainRipples', 'PrismStorm', 'AudioFlow', 'ColorTrails', 'WaveSim', 'Truchet', 'TuringField', 'Automaton', 'FourierEpicycles',
+  'GravityWell', 'RainRipples', 'HiHatShards', 'AudioFlow', 'ColorTrails', 'WaveSim', 'Truchet', 'TuringField', 'Automaton', 'FourierEpicycles',
 ])
 
 /** A node that keeps a still source from reading as a static utility. A

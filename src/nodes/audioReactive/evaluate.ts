@@ -104,10 +104,10 @@ const emberBurst = instanceState('emberBurst', new Map<string, BeatEnvelope>())
 interface Ripple { x: number; y: number; born: number }
 interface RainRipplesState { ripples: (Ripple | null)[]; next: number; prevTrig: boolean }
 const rainRipplesState = instanceState('rainRipplesState', new Map<string, RainRipplesState>())
-// PrismStorm — held shard orientation (degrees), snapped on a hihat rising edge.
+// HiHatShards — held shard orientation (degrees), snapped on a hihat rising edge.
 const prismOrientation = instanceState('prismOrientation', new Map<string, { v: number; prev: boolean }>())
 // Integrated audio-modulated drift phases (VocalAurora, BeatKaleidoscope,
-// SpectraMosaic, TurbulentBloom, PrismStorm, AudioFlow). These nodes animate
+// SpectraMosaic, TurbulentBloom, HiHatShards, AudioFlow). These nodes animate
 // by a rate that depends on a live audio level, so the phase must be
 // integrated frame by frame: multiplying absolute t by the rate would
 // re-scale all accumulated time on every level fluctuation, jumping the
@@ -1497,7 +1497,7 @@ export const AUDIO_REACTIVE_EVALUATORS: NodeEvaluators = {
     const blendMode = String(props.blendMode ?? 'max') === 'add' ? 'add' : 'max'
     return { frame: evalRainRipples(stateKey(id), trigger, energy, speed, t, palette, W, H, count, decay, thickness, spawnSpread, blendMode) }
   },
-  PrismStorm(ctx, id, props) {
+  HiHatShards(ctx, id, props) {
     const { num, pal, t, W, H, stateKey } = ctx
     const bands = audioBands(ctx, id)
     const treble = bands.num(id, 'treble', props, 'treble', 0.5)

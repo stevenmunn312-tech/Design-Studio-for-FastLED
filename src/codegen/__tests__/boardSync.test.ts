@@ -65,7 +65,7 @@ function pooledShow(role: Role) {
     board(role),
     node('pc', 'PatternCollection', { patternIds: ['g0', 'g1'] }),
     node('pm', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1 }),
-    node('tr', 'TransitionSet', { transitions: ['crossfade', 'wipe'] }),
+    node('tr', 'TransitionPool', { transitions: ['crossfade', 'wipe'] }),
     node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
   ]
   const edges = [

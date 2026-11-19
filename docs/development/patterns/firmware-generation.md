@@ -483,7 +483,7 @@ sketch still carries only what the graph reaches.
   never touched, because positional initialisers depend on layout.
   A bare `(void)name;` silencer is not a read: a declaration whose only other
   mentions are silencers loses them first and then goes, so FieldFormula and
-  CustomFormula stop paying `sqrtf`/`atan2f` per pixel for an `r` or `angle`
+  FormulaPattern stop paying `sqrtf`/`atan2f` per pixel for an `r` or `angle`
   the formula never names. Unread is judged per block as well as sketch-wide
   (mentions from the declaration to its block's close), so two nodes' blocks
   that each declare `r` are judged apart; a name any `#` line mentions falls

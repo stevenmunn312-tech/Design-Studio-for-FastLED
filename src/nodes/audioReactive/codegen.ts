@@ -858,7 +858,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     ln(`    }`)
     ln(`  }`)
   },
-  PrismStorm(ctx) {
+  HiHatShards(ctx) {
     const { node, id, p, ln, f, ownBuf, paletteExpr, needsT } = ctx
     const bands = audioBandsCpp(ctx, ['mids', 'treble'])
     needsT.v = true
@@ -869,7 +869,7 @@ export const AUDIO_REACTIVE_EMITTERS: NodeEmitters = {
     const energy = f('reactivity', 'reactivity', 0.7)
     const speed = audioSpeedRateCpp(f('speed', 'speed', 0.5))
     const pal = paletteExpr(node.id, 'paletteIn', p)
-    ln(`  { // PrismStorm`)
+    ln(`  { // HiHatShards`)
     ln(`    static float _psOri_${id}=0; static bool _psInit_${id}=false,_psPrevAbove_${id}=false;`)
     ln(`    if(!_psInit_${id}){ _psOri_${id}=random16()/65535.0f*360.0f; _psInit_${id}=true; }`)
     ln(`    bool _above=(${hihat})>0.55f;`)

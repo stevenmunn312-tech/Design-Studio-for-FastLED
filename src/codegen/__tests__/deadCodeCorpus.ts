@@ -126,7 +126,7 @@ function slideshow(
     node('collection', 'PatternCollection', { patternIds: names }),
     node('show', 'PatternSlideshow', { interval: 8, transitionSec: 1, ...properties }),
     node('out', 'MatrixOutput', { width: 16, height: 16, dataPin: 5, chipset: 'WS2812B', colorOrder: 'GRB' }),
-    ...(transitions ? [node('pool', 'TransitionSet', { transitions })] : []),
+    ...(transitions ? [node('pool', 'TransitionPool', { transitions })] : []),
     ...(extra.nodes ?? []),
   ]
   const edges = [
@@ -166,7 +166,7 @@ function showSketches(): Record<string, string> {
     // One pattern never changes, so no show can composite a transition.
     'performance-one-pattern': performance(['solid']),
     'performance-audio-controls': performance(['reactive', 'warp'], { useGroupInputs: true }, [
-      node('pool', 'TransitionSet', { transitions: ['iris', 'cube'] }),
+      node('pool', 'TransitionPool', { transitions: ['iris', 'cube'] }),
       node('button', 'ButtonBank', { buttons: singleButtonRow(12, { pullup: true }) }), node('controls', 'ControlMap', { controls: ['playPause'] }),
     ], [
       edge('pool', 'pool', 'transitions', 'perf', 'transitions'),

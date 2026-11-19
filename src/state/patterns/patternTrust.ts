@@ -26,10 +26,10 @@ const KEY = 'design-studio-for-fastled.known-content.v2'
 const LEGACY_KEY = 'design-studio-for-fastled.trusted-pattern-content.v1'
 
 /** The node types whose preview logic the trust boundary actually gates — see
- *  the `trusted` checks in graphEvaluator's `CustomFormula`/`FieldFormula`/
+ *  the `trusted` checks in graphEvaluator's `FormulaPattern`/`FieldFormula`/
  *  `Code` cases. A subgraph containing none of these renders identically
  *  trusted or not, so there is nothing to ask the user about. */
-const TRUST_GATED_NODE_TYPES = new Set(['CustomFormula', 'FieldFormula', 'Expression', 'Code'])
+const TRUST_GATED_NODE_TYPES = new Set(['FormulaPattern', 'FieldFormula', 'Expression', 'Code'])
 
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize)
@@ -165,7 +165,7 @@ export function isPatternContentTrusted(subgraph: GraphContent): boolean {
 
 /**
  * Whether running this subgraph would actually execute anything the trust
- * boundary gates — a `CustomFormula`, `FieldFormula`, or `Code` node, either
+ * boundary gates — a `FormulaPattern`, `FieldFormula`, or `Code` node, either
  * directly or inside a nested group. Used to decide whether running the
  * pattern is worth interrupting the user for; a pattern built from ordinary
  * nodes renders the same either way, so it never prompts.
@@ -206,7 +206,7 @@ const WORKSPACE_ONLY_GATED_NODE_TYPES = new Set(['DMXInput', 'DdpInput'])
 
 /** What an untrusted workspace is currently holding back. */
 export interface WorkspaceTrustHolds {
-  /** A CustomFormula/FieldFormula/Code node renders blank until trusted. */
+  /** A FormulaPattern/FieldFormula/Code node renders blank until trusted. */
   formulaOrCode: boolean
   /** A network-mode DMXInput (Art-Net or sACN) keeps its UDP listener closed until trusted. */
   artnet: boolean

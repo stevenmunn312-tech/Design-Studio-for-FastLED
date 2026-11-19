@@ -141,7 +141,7 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
       // Board's network, and can serve a phone page for picking and adding
       // stations at the Board's hostname.
       stations: [], stationPage: false,
-      // Transition styles come from a wired TransitionSet; unwired ⇒ crossfade.
+      // Transition styles come from a wired TransitionPool; unwired ⇒ crossfade.
       // Controls and particle FX are supplied by their dedicated bundle nodes.
       seed: 0,
     },
@@ -206,7 +206,7 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     // Music Player and a Pattern Slideshow pick one of them at each change;
     // a Performance Generator's generateShow mixes them into its rule-based
     // crossfade/wipe/dissolve picks instead of only ever using those three.
-    type: 'TransitionSet',
+    type: 'TransitionPool',
     label: 'Transition Pool',
     category: 'show',
     inputs: [],
@@ -228,7 +228,7 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
      * resolver, with Beat Transitions, Energy Pacing and Dwells & Bursts
      * waiting on Audio Reactive. What differs is what a
      * slideshow actually needs: transitions that default to a fade without
-     * requiring a TransitionSet, and reactivity off unless asked for — the
+     * requiring a TransitionPool, and reactivity off unless asked for — the
      * point of the mode is slow patterns that do not twitch at room noise.
      * See docs/design/generative-pattern-show.md#pattern-slideshow.
      */
@@ -389,7 +389,7 @@ export const SHOW_DESCRIPTIONS: Record<string, string> = {
   SongInfo: 'Opens the Music Player’s track report into one wire per field.',
   Sequencer: 'Crossfades through its inputs on a timer.',
   PatternCollection: 'Holds show patterns, each with a weight, energy tags, and restart or resume.',
-  TransitionSet: 'Transition styles for a Music Player, Slideshow or Performance Generator.',
+  TransitionPool: 'Transition styles for a Music Player, Slideshow or Performance Generator.',
   PatternSlideshow: 'Plays a collection on a timer, in order, at random, or from a sequence.',
   PerformanceGenerator: 'Plans a timed show from music. Edit it in lanes, with ramps and locked sections.',
   SDCard: 'SD card on SPI that the music player and shows read; a bench part, not wired.',

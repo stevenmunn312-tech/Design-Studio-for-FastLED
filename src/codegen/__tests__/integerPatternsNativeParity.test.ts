@@ -124,7 +124,7 @@ describe.skipIf(!HAS_GPP)('integer pattern kernels native parity', () => {
     }
   }, 60_000)
 
-  it.each(SIZES)('PrismStorm matches on %ix%i', (W, H) => {
+  it.each(SIZES)('HiHatShards matches on %ix%i', (W, H) => {
     // The tables come from the frame lines; the frame integers are set after them.
     const tables = stormFrameCpp('0.0f', '1.0f', '0.5f', '0.0f', '1.0f', '0.0f', 'n').filter((l) => l.startsWith('static'))
     for (const f of [

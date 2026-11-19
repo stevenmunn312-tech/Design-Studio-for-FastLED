@@ -316,7 +316,7 @@ describe('ratePattern trust gate', () => {
     subgraph: { nodes, edges },
   })
   const formulaPattern = (id: string) => savedPattern(id, [
-    node('cf', 'CustomFormula', 'pattern', { formula: `sin(x*6+t)*0.5+0.${id.length}` }),
+    node('cf', 'FormulaPattern', 'pattern', { formula: `sin(x*6+t)*0.5+0.${id.length}` }),
     node('out', 'GroupOutput', 'output'),
   ], [edge('e1', 'cf', 'out', 'frame', 'frame')])
 
@@ -399,7 +399,7 @@ describe('captureWindows trust threading', () => {
     id: 'thread', name: 'thread', createdAt: 0, inputs: [], outputs: [],
     subgraph: {
       nodes: [
-        node('cf', 'CustomFormula', 'pattern', { formula: '0.9' }),
+        node('cf', 'FormulaPattern', 'pattern', { formula: '0.9' }),
         node('out', 'GroupOutput', 'output'),
       ],
       edges: [edge('e1', 'cf', 'out', 'frame', 'frame')],
@@ -505,7 +505,7 @@ describe('render weight', () => {
     const formula: SavedPattern = {
       id: 'cost-skip', name: 'cost skip', createdAt: 0, inputs: [], outputs: [],
       subgraph: {
-        nodes: [node('cf', 'CustomFormula', 'pattern', { formula: 'sin(x*6+t)*0.5+0.31' }), node('out', 'GroupOutput', 'output')],
+        nodes: [node('cf', 'FormulaPattern', 'pattern', { formula: 'sin(x*6+t)*0.5+0.31' }), node('out', 'GroupOutput', 'output')],
         edges: [edge('e1', 'cf', 'out', 'frame', 'frame')],
       },
     }

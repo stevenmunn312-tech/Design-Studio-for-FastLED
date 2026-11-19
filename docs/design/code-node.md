@@ -5,7 +5,7 @@ Status: implemented (first-slice scope shipped; preview fidelity for the FastLED
 A **Code node** lets a user paste raw FastLED/Arduino C++ — a loop body that
 writes directly into `leds[]` — and have it both (a) compile into the generated
 sketch verbatim and (b) approximate in the live LED preview. It is the
-imperative, frame-filling sibling of the existing `CustomFormula` node (which
+imperative, frame-filling sibling of the existing `FormulaPattern` node (which
 compiles a single expression per pixel via the sandboxed parser in
 `src/nodes/shared/formulaLang.ts`).
 
@@ -117,7 +117,7 @@ very first call for a new instance) rather than blocking on the worker
 round-trip — the same decoupled-cadence pattern already used elsewhere for
 per-node live previews, so a Code node's displayed frame can lag the true
 render tick by roughly one round trip. See the sandbox runtime and worker modules below for
-the sibling `CustomFormula`/`FieldFormula` fix (a parsed expression grammar
+the sibling `FormulaPattern`/`FieldFormula` fix (a parsed expression grammar
 instead of `new Function`, since those don't need general-purpose execution).
 
 Mirror `formulaCache`: cache the transpiled function keyed by `globalCode + code`

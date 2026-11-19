@@ -80,7 +80,7 @@ describe('centred coordinates on a one-pixel axis', () => {
       expect(sketch('GeometryField', { formulaType }), formulaType).toContain(`      ${centeredCpp('_cx', '_cy')}`)
     }
     expect(sketch('ShapeField', {})).toContain(`float _short=(float)${SIZING_SIDE_CPP},`)
-    const formula = generateCpp([node('c', 'CustomFormula', { formula: 'r' }), node('out', 'MatrixOutput')],
+    const formula = generateCpp([node('c', 'FormulaPattern', { formula: 'r' }), node('out', 'MatrixOutput')],
       [{ id: 'e', source: 'c', sourceHandle: 'frame', target: 'out', targetHandle: 'frame' }] as StudioEdge[],
       {}, { deferPruning: true })
     expect(formula).toContain(`      ${centeredCpp('cx', 'cy')}`)
@@ -114,8 +114,8 @@ describe('centred fields on a 60-LED strip', () => {
     expect(values[0]).toBe(0)
     expect(values[15]).toBeCloseTo(0.5, 5)
     // Formula Pattern: the middle LED is r = 0, the palette's first colour.
-    const frame = output('CustomFormula', { formula: 'r*0.5', palette: 'rainbow' }, W, H).frame as Frame
-    const zero = output('CustomFormula', { formula: '0', palette: 'rainbow' }, W, H).frame as Frame
+    const frame = output('FormulaPattern', { formula: 'r*0.5', palette: 'rainbow' }, W, H).frame as Frame
+    const zero = output('FormulaPattern', { formula: '0', palette: 'rainbow' }, W, H).frame as Frame
     expect(frame[0][30]).toEqual(zero[0][30])
     expect(frame[0][0]).not.toEqual(zero[0][0])
   })
@@ -125,8 +125,8 @@ describe('centred fields on a matrix', () => {
   // Captured before the one-pixel rule: every matrix renders byte for byte
   // as it did.
   const cases: [string, Record<string, unknown>][] = [
-    ['CustomFormula', { formula: 'sin(r*8 - t*2)*0.5+0.5' }],
-    ['CustomFormula', { formula: 'angle/6.283 + cy*0.25 + 0.5' }],
+    ['FormulaPattern', { formula: 'sin(r*8 - t*2)*0.5+0.5' }],
+    ['FormulaPattern', { formula: 'angle/6.283 + cy*0.25 + 0.5' }],
     ['FieldFormula', {}],
     ['FieldFormula', { formula: 'cx*cy*0.5+0.5' }],
     ['GeometryField', { formulaType: 'fibonacciSpiral' }],

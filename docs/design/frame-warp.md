@@ -2,7 +2,7 @@
 
 Three nodes move pixels around without drawing any: **Frame Warp** displaces a
 finished frame per pixel, **Frame Transform** turns, scales, flips and slides a
-whole frame, and **Field Transform** (`FieldWarp`) does both for a scalar field
+whole frame, and **Field Transform** (`FieldTransform`) does both for a scalar field
 before it is painted. Each has one kernel per side, the preview in TypeScript
 beside the C++ the sketch emits, so the two cannot drift.
 
@@ -95,7 +95,7 @@ code, and both kernels against their C++ through `compileCppSnippet`.
 
 ## Field Transform
 
-`FieldWarp` (`src/nodes/field/fieldTransform.ts`) is labelled Field Transform
+`FieldTransform` (`src/nodes/field/fieldTransform.ts`) is labelled Field Transform
 and mirrors Frame Warp for fields: a destination pixel is pushed by
 `(2v - 1) × Strength` canvas pixels from the Offset X and Y fields, turned by
 Angle plus the integrated Spin about the canvas centre, zoomed (above 1

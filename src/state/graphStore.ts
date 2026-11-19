@@ -234,7 +234,7 @@ interface GraphState {
   graphData: Record<string, GraphContent>
 
   // ── Trust boundary (todo.md P0) ─────────────────────────────────────────
-  /** Whether the active workspace's CustomFormula/FieldFormula/Code nodes may
+  /** Whether the active workspace's FormulaPattern/FieldFormula/Code nodes may
    *  evaluate their preview logic. Load paths start content from elsewhere
    *  (share link, import, project file) at `false` whatever it claims; the
    *  trust subscription below then trusts it whenever everything in it is
