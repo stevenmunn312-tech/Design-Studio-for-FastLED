@@ -4,6 +4,7 @@ import { cloneWorkspace } from '../state/workspacePersistence'
 import { normalizeDisplayDocuments } from '../state/displays/displayDocument'
 import { normalizeProjectUploadTargets } from '../state/uploadTargets'
 import { isWorkspacePayload, sanitizeWorkspacePayload } from './workspacePayload'
+import { stripRuntimeFields } from '../state/runtimeFields'
 import { NewerSaveFormatError, newerSaveFormat, withSaveFormat } from '../state/saveFormat'
 
 interface FilePickerAcceptType {
@@ -122,7 +123,7 @@ export function buildProjectSnapshot(
 }
 
 export function serializeProject(project: SavedProject): string {
-  return JSON.stringify(withSaveFormat(project), null, 2)
+  return JSON.stringify(withSaveFormat({ ...project, workspace: stripRuntimeFields(project.workspace) }), null, 2)
 }
 
 export interface ParsedProjectFile {
