@@ -295,10 +295,10 @@ describe('uploadStore', () => {
     useUploadStore.getState().setSelectedPort('COM7')
 
     const showA = useProjectStore.getState().createProject('Show A', workspace(['a']), {
-      uploadTarget: {
+      uploadTargets: { 'board-root': {
         selectedFqbn: 'rp2040:rp2040:rpipico',
         selectedPort: 'COM9',
-      },
+      } },
     })
 
     expect(useUploadStore.getState().selectedFqbn).toBe('rp2040:rp2040:rpipico')
@@ -539,7 +539,6 @@ describe('uploadStore — one target per board', () => {
       'board-root': { selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: 'COM7' },
       'board-2': { selectedFqbn: 'rp2040:rp2040:rpipico', selectedPort: 'COM9' },
     })
-    expect(project?.uploadTarget).toEqual({ selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: 'COM7' })
   })
 
   it('a second board with no target yet keeps the board type but not the other board’s port', async () => {

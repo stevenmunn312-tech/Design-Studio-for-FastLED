@@ -98,7 +98,6 @@ export default function ProjectsPopup() {
     // A multi-board project keeps one upload target per board; the copy takes
     // all of them, not only the primary's.
     const project = createProject(name, fresh?.workspace ?? workspace, {
-      uploadTarget: currentProject.uploadTarget,
       uploadTargets: currentProject.uploadTargets,
     })
     await loadWorkspaceAfterParts(project.workspace.nodes, project.workspace.edges, project.workspace)

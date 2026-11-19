@@ -20,9 +20,6 @@ export interface SavedProject {
   createdAt: number
   updatedAt: number
   workspace: PersistedWorkspace
-  /** The primary board's target — kept in step with `uploadTargets` so the
-   *  pre-multi-board readers and saves still see the project's board. */
-  uploadTarget?: ProjectUploadTarget
   /** One target per Board node id; see docs/design/multi-board.md. */
   uploadTargets?: ProjectUploadTargets
   /**
@@ -59,7 +56,6 @@ interface PersistedCurrentWorkspace {
   createdAt?: number
   updatedAt: number
   workspace: PersistedWorkspace
-  uploadTarget?: ProjectUploadTarget
   uploadTargets?: ProjectUploadTargets
   diskBase?: number
   draft?: true
@@ -73,7 +69,6 @@ interface ProjectState {
     name: string,
     workspace?: PersistedWorkspace,
     options?: {
-      uploadTarget?: ProjectUploadTarget
       uploadTargets?: ProjectUploadTargets
       /** Open it as a draft: see `SavedProject.draft`. */
       draft?: boolean
@@ -324,7 +319,6 @@ function persistCurrentWorkspaceSnapshot(project: SavedProject | undefined): voi
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
       workspace: project.workspace,
-      uploadTarget: project.uploadTarget,
       uploadTargets: project.uploadTargets,
       diskBase: project.diskBase,
       draft: project.draft,
@@ -358,7 +352,7 @@ function warnIfSavedNowhere() {
 function makeProject(
   name: string,
   workspace: PersistedWorkspace = blankWorkspace(),
-  targets?: { uploadTarget?: ProjectUploadTarget; uploadTargets?: ProjectUploadTargets; draft?: boolean },
+  targets?: { uploadTargets?: ProjectUploadTargets; draft?: boolean },
 ): SavedProject {
   const now = Date.now()
   return {
@@ -718,7 +712,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       project.id === projectId
         ? {
             ...project,
-            uploadTarget: uploadTargets.uploadTarget,
             uploadTargets: uploadTargets.uploadTargets,
             updatedAt: now,
           }

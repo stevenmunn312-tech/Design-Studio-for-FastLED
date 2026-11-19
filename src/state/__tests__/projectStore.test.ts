@@ -145,33 +145,35 @@ describe('projectStore', () => {
     })
 
     const showA = useProjectStore.getState().createProject('Show A', workspace(['a']), {
-      uploadTarget: {
+      uploadTargets: { 'board-root': {
         selectedFqbn: 'rp2040:rp2040:rpipico',
         selectedPort: 'COM9',
-      },
+      } },
     })
 
-    expect(showA.uploadTarget).toEqual({
+    expect(showA.uploadTargets?.['board-root']).toEqual({
       selectedFqbn: 'rp2040:rp2040:rpipico',
       selectedPort: 'COM9',
     })
 
     useProjectStore.getState().switchProject(mainId)
-    expect(useProjectStore.getState().projects.find((project) => project.id === mainId)?.uploadTarget).toEqual({
+    expect(useProjectStore.getState().projects.find((project) => project.id === mainId)?.uploadTargets?.['board-root']).toEqual({
       selectedFqbn: 'esp32:esp32:esp32s3',
       selectedPort: 'COM7',
     })
 
     const raw = JSON.parse(localStorage.getItem('design-studio-for-fastled.projects.v1') ?? '{}') as {
-      projects?: Array<{ id: string; uploadTarget?: { selectedFqbn: string; selectedPort: string } }>
+      projects?: Array<{ id: string; uploadTarget?: unknown; uploadTargets?: Record<string, { selectedFqbn: string; selectedPort: string }> }>
     }
-    expect(raw.projects?.find((project) => project.id === showA.id)?.uploadTarget).toEqual({
+    const saved = raw.projects?.find((project) => project.id === showA.id)
+    expect(saved?.uploadTargets?.['board-root']).toEqual({
       selectedFqbn: 'rp2040:rp2040:rpipico',
       selectedPort: 'COM9',
     })
+    expect(saved).not.toHaveProperty('uploadTarget')
   })
 
-  it('keeps one upload target per board, the primary mirrored into the legacy field', async () => {
+  it('keeps one upload target per board', async () => {
     const { useProjectStore } = await freshStore()
     const id = useProjectStore.getState().createProject('Rig', workspace(['main'])).id
     const target = (boardId: string) => useProjectStore.getState().projects
@@ -182,8 +184,6 @@ describe('projectStore', () => {
 
     expect(target('board-root')).toEqual({ selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: 'COM7' })
     expect(target('board-2')).toEqual({ selectedFqbn: 'rp2040:rp2040:rpipico', selectedPort: 'COM9' })
-    expect(useProjectStore.getState().projects.find((project) => project.id === id)?.uploadTarget)
-      .toEqual({ selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: 'COM7' })
 
     // A second board's target does not disturb the primary's, and the map
     // survives a reload.
@@ -193,23 +193,6 @@ describe('projectStore', () => {
       'board-root': { selectedFqbn: 'esp32:esp32:esp32s3', selectedPort: 'COM7' },
       'board-2': { selectedFqbn: 'rp2040:rp2040:rpipico', selectedPort: 'COM9' },
     })
-  })
-
-  it('reads a legacy single uploadTarget as the primary board target', async () => {
-    const legacy = {
-      currentProjectId: 'p1',
-      recentProjectIds: [],
-      projects: [{
-        id: 'p1', name: 'Old', createdAt: 1, updatedAt: 1,
-        workspace: workspace(['main']),
-        uploadTarget: { selectedFqbn: 'esp32:esp32:esp32', selectedPort: 'COM3' },
-      }],
-    }
-    localStorage.setItem('design-studio-for-fastled.projects.v1', JSON.stringify(legacy))
-    const { useProjectStore } = await freshStore()
-    const project = useProjectStore.getState().projects.find((entry) => entry.id === 'p1')
-    expect(project?.uploadTargets).toEqual({ 'board-root': { selectedFqbn: 'esp32:esp32:esp32', selectedPort: 'COM3' } })
-    expect(project?.uploadTarget).toEqual({ selectedFqbn: 'esp32:esp32:esp32', selectedPort: 'COM3' })
   })
 
   it('restores the current project from the small hint key when the full project blob stops persisting', async () => {

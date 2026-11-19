@@ -12,6 +12,7 @@ import { useAudioStore } from '../../state/audio/audioStore'
 import { graphAudioCapabilityKind, graphAudioCapabilitySource, graphPreviewsComputerInput } from '../../state/audio/audioCapabilities'
 import { useShowPlayback } from '../../state/player/showPlayback'
 import { useProjectStore } from '../../state/projectStore'
+import { PRIMARY_UPLOAD_TARGET_KEY } from '../../state/uploadTargets'
 import { boardByFqbn, useUploadStore } from '../../state/upload/uploadStore'
 import {
   micSupportedForBoardProfile,
@@ -352,7 +353,7 @@ export default function MenuBar() {
     const width = Number(output?.data.properties.width ?? 16)
     const height = Number(output?.data.properties.height ?? 16)
     const ledCount = Math.max(1, Math.round(width) * Math.round(height))
-    const fqbn = currentProject?.uploadTarget?.selectedFqbn ?? useUploadStore.getState().selectedFqbn
+    const fqbn = currentProject?.uploadTargets?.[PRIMARY_UPLOAD_TARGET_KEY]?.selectedFqbn ?? useUploadStore.getState().selectedFqbn
     const board = boardByFqbn(fqbn)
     const boardIdentity = `${board?.label ?? ''} ${fqbn}`.toLowerCase()
     const controller = boardIdentity.includes('esp8266') ? 'ESP8266'
