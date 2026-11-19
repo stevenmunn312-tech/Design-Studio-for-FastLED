@@ -488,7 +488,7 @@ New part types that missed v1.0.0.
 ## Open questions
 
 - Which static host serves the index, and where the signing key is kept.
-- Whether renders are embedded in the save or fetched and cached by hash.
+- ~~Whether renders are embedded in the save or fetched and cached by hash.~~ Decided: fetched and cached by hash ([part packages](../design/part-packages.md#pictures-for-installed-parts-decided-2026-11-19)).
 - Which bundled part ships first for each of the two generic types.
 - How a part that is later found wrong is withdrawn: a new revision, a warning
   on saves that embed the old one, or both.

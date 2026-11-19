@@ -13,6 +13,7 @@ import {
 } from './cache'
 import { parseEnvelope, verifyEnvelope, type SignedEnvelope, type VerifyFailure } from './envelope'
 import {
+  MAX_RENDER_BYTES,
   MAX_RENDER_PX,
   offeredParts,
   parseIndexPayload,
@@ -322,6 +323,8 @@ export function createPartsClient<M>(options: PartsClientOptions<M>): PartsClien
   const getRender = async (part: IndexPart): Promise<RenderResult> => {
     const ref = part.render
     if (!ref) return { ok: false, reason: 'no-render' }
+    // The schema drops an oversized reference; this keeps a hand-built one from being fetched too.
+    if (ref.bytes > MAX_RENDER_BYTES) return { ok: false, reason: 'size-mismatch' }
     const cacheKey = `render:${ref.sha256}`
     const cachedBytes = await cache().get(cacheKey)
     if (cachedBytes) {

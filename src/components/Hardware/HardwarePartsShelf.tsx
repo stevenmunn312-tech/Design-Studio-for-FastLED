@@ -6,6 +6,7 @@ import { partById } from '../../build/parts/partCatalogue'
 import { usePartCatalogueVersion } from '../../build/parts/usePartCatalogueVersion'
 import { tokenize } from '../../build/parts/remote/search'
 import RemotePartsSection from './RemotePartsSection'
+import InstalledPartsSection from './InstalledPartsSection'
 
 export { HARDWARE_SHELF_HOST_ID } from './hardwareShelfHost'
 
@@ -204,6 +205,7 @@ export default function HardwarePartsShelf({
         )}
 
         <RemotePartsSection query={query} />
+        <InstalledPartsSection />
       </div>
     </aside>
   )

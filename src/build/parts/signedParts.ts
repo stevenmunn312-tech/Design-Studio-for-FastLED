@@ -113,6 +113,12 @@ export async function registerSignedParts(
   return results
 }
 
+/** Drop the remembered envelope (and any unverified copy) of a part that was uninstalled. */
+export function forgetSignedPart(partId: string): void {
+  envelopes.delete(partId)
+  unverified.delete(partId)
+}
+
 /** The signed envelope a registered downloaded part came in, if this session holds it. */
 export function signedEnvelopeFor(partId: string): SignedEnvelope | undefined {
   if (partOrigin(partId) !== 'downloaded') return undefined

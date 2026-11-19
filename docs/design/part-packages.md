@@ -96,6 +96,50 @@ was downloaded.
 - Fetches use a timeout and abort (15 s), omit credentials, and never run at
   import time or with no base URL.
 
+## Pictures for installed parts (decided 2026-11-19)
+
+Renders are **fetched and cached by hash, never embedded in a save**. A save
+carries the signed envelope only, so it stays small and a render can never be
+smuggled in through a project file. The signed manifest keeps its `render`
+block (pixel size, indicators, pad positions), whose `file` names a site asset
+for a bundled part and means nothing for a downloaded one.
+
+- `partRenderSrc(partId)` is the one lookup the bench, the Build Diagram and the
+  shelf thumbnails share. For a downloaded part it returns an object URL for
+  the verified bytes, for the revision registered now, or `null` (the existing
+  placeholder).
+- `PartsLibrary.loadRender` takes the index entry's pinned `render`, gets the
+  bytes through `getRender` (sha256, byte length, WebP, at most 2 MB and 2048 px
+  a side), and also requires the size to equal the signed manifest's
+  `render.widthPx`/`heightPx`, because pads and indicators are measured on that
+  picture. Any failure leaves the part drawing its placeholder.
+- Installing remembers the reference (`render-ref:<partId>`) beside the
+  envelope; the bytes sit in the cache under `render:<sha256>`. A later session
+  attaches the picture offline, re-verified.
+- A part that arrived in a save has no remembered reference; it gets its picture
+  from the index once the index loads, for the same revision only
+  (`attachMissingRenders`). Offline, it shows the placeholder.
+- Search results show a thumbnail fetched and verified on demand.
+
+## Share links
+
+A share link carries each downloaded part's signed envelope, so it opens
+offline and in an app with no parts host. Measured on the bundled manifests
+(0.7 to 4.7 KB raw), one envelope adds about 0.8 to 4 KB to the compressed
+link, so one or two parts fit under the 30 KB limit unless the graph is already
+large. When envelopes would push the link past that limit, `buildShareUrl`
+carries only `{ revision }` per part. The receiving app resolves those from the
+signed index for the session (`PartsLibrary.resolveReferenced`, not installed)
+and the status line names any part it could not get; their nodes stay held.
+
+## Uninstall
+
+`PartsLibrary.uninstall(partId, { inUse })` unregisters a downloaded part and
+deletes its remembered envelope and picture. The shelf passes `partIdsInUse()`
+(open project graphs, undo/redo history, copy clipboard); a used part is
+refused with a message instead of vanishing. Saves are unaffected: they embed
+the envelope and re-register it on open.
+
 ## Client API
 
 `createPartsClient({ validateManifest, baseUrl?, trustedKeys?, cache?, fetch?, timeoutMs? })`

@@ -22,8 +22,8 @@
 // `configured: false`: it makes no request and `loadIndex` says so.
 
 import { validatePartManifest, type PartManifest } from './manifest/partManifest'
-import { partById, partOrigin } from './partCatalogue'
-import { registerSignedParts, type SignedPartFailure } from './signedParts'
+import { hasDownloadedRender, partById, partOrigin, registeredPartManifests, setDownloadedRender, unregisterPart } from './partCatalogue'
+import { forgetSignedPart, registerSignedParts, type SignedPartFailure } from './signedParts'
 import { readEnvelopeShape } from './savedParts'
 import { decodeText, encodeText } from './remote/cache'
 import {
@@ -39,6 +39,8 @@ import { PARTS_BASE_URL } from './remote/trustedKeys'
 
 const INSTALLED_IDS_KEY = 'installed-ids'
 const installedKey = (partId: string): string => `installed:${partId}`
+/** Which picture an installed part uses: the index's pinned reference, so a later session finds the cached bytes offline. */
+const renderRefKey = (partId: string): string => `render-ref:${partId}`
 const MAX_INSTALLED = 256
 
 export type InstallFailure =
@@ -68,11 +70,47 @@ export interface PartsLibrary {
   install(part: IndexPart): Promise<InstallOutcome>
   /** Register every remembered part again. Returns how many registered. Never throws. */
   restoreInstalled(): Promise<number>
+  /**
+   * Fetch, verify and attach the picture an index entry names. True when the
+   * part now has its picture. A part with no picture, a picture that fails
+   * verification or one that does not match the manifest's render size leaves
+   * the part drawing its placeholder.
+   */
+  loadRender(part: Pick<IndexPart, 'partId' | 'revision' | 'render'>): Promise<boolean>
+  /**
+   * The verified bytes of an index entry's picture, for a result row that is
+   * not installed. Null when there is none or it did not verify.
+   */
+  renderBytes(part: Pick<IndexPart, 'render'>): Promise<Uint8Array | null>
+  /**
+   * Attach pictures to downloaded parts that have none: from the remembered
+   * reference first (offline), then from the index when it names the same
+   * revision. A save opened on another machine gets its pictures this way.
+   */
+  attachMissingRenders(index?: { parts: readonly IndexPart[] } | null): Promise<void>
+  /**
+   * Resolve the parts a share link named by id and revision only (it left the
+   * signed envelope out to stay short): fetch each from the index, verify and
+   * register it for this session without installing it. Returns the part ids
+   * that could not be resolved (no parts host, not offered at that revision,
+   * download or verification failed).
+   */
+  resolveReferenced(parts: Record<string, { revision: number; envelope?: unknown }>): Promise<string[]>
+  /**
+   * Forget a downloaded part: unregister it, delete the remembered envelope and
+   * picture. Refuses a part `inUse` reports as used (the caller owns the
+   * project, the library does not). Saves keep working: they embed the envelope.
+   */
+  uninstall(partId: string, options?: { inUse?: (partId: string) => boolean }): Promise<UninstallOutcome>
 }
+
+export type UninstallOutcome =
+  | { ok: true; partId: string }
+  | { ok: false; reason: 'in-use' | 'not-downloaded' }
 
 export interface PartsLibraryOptions {
   baseUrl?: string
-  client?: Pick<PartsClient<PartManifest>, 'loadIndex' | 'getPackage' | 'trustedKeys'>
+  client?: Pick<PartsClient<PartManifest>, 'loadIndex' | 'getPackage' | 'getRender' | 'trustedKeys'>
   clientOptions?: Partial<PartsClientOptions<PartManifest>>
   cache?: PartsCache
 }
@@ -122,9 +160,80 @@ export function createPartsLibrary(options: PartsLibraryOptions = {}): PartsLibr
     await cache().set(installedKey(partId), encodeText(envelopeText))
   }
 
+  const objectUrls = new Map<string, string>()
+
+  const renderBytes = async (part: Pick<IndexPart, 'render'>): Promise<Uint8Array | null> => {
+    if (!part.render) return null
+    try {
+      const result = await client().getRender(part as IndexPart)
+      return result.ok ? result.bytes : null
+    } catch {
+      return null
+    }
+  }
+
+  const showBytes = (partId: string, revision: number, bytes: Uint8Array): boolean => {
+    if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return false
+    const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'image/webp' }))
+    if (!setDownloadedRender(partId, revision, url)) {
+      URL.revokeObjectURL(url)
+      return false
+    }
+    const old = objectUrls.get(partId)
+    if (old) URL.revokeObjectURL(old)
+    objectUrls.set(partId, url)
+    return true
+  }
+
+  const loadRender = async (part: Pick<IndexPart, 'partId' | 'revision' | 'render'>): Promise<boolean> => {
+    try {
+      if (!part.render || partOrigin(part.partId) !== 'downloaded') return false
+      const registered = partById(part.partId) as { revision?: number; render?: { widthPx: number; heightPx: number } } | undefined
+      // The picture is for one revision; pads and indicators are measured on it.
+      if (!registered || registered.revision !== part.revision) return false
+      const wanted = registered.render
+      if (!wanted || wanted.widthPx !== part.render.widthPx || wanted.heightPx !== part.render.heightPx) return false
+      const bytes = await renderBytes(part)
+      if (!bytes || !showBytes(part.partId, part.revision, bytes)) return false
+      // Remembered only after it verified, so the next session needs no network.
+      await cache().set(renderRefKey(part.partId), encodeText(JSON.stringify({ revision: part.revision, render: part.render })))
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  const attachMissingRenders = async (index?: { parts: readonly IndexPart[] } | null): Promise<void> => {
+    try {
+      for (const manifest of registeredPartManifests()) {
+        const id = manifest.partId
+        if (partOrigin(id) !== 'downloaded' || hasDownloadedRender(id)) continue
+        const remembered = await cache().get(renderRefKey(id))
+        const text = remembered ? decodeText(remembered) : null
+        let attached = false
+        if (text !== null) {
+          try {
+            const value = JSON.parse(text) as { revision?: number; render?: IndexPart['render'] }
+            if (value.render && typeof value.revision === 'number') {
+              attached = await loadRender({ partId: id, revision: value.revision, render: value.render })
+            }
+          } catch {
+            // An unreadable reference is the same as none.
+          }
+        }
+        const offered = index?.parts.find((entry) => entry.partId === id && entry.revision === manifest.revision)
+        if (!attached && offered?.render) await loadRender(offered)
+      }
+    } catch {
+      // Pictures are an extra; the part already works.
+    }
+  }
+
   const loadIndex = async (opts?: { refresh?: boolean }): Promise<IndexLoadResult> => {
     if (!configured) return { ok: false, reason: 'not-configured' }
-    return client().loadIndex(opts)
+    const result = await client().loadIndex(opts)
+    if (result.ok) void attachMissingRenders(result.index)
+    return result
   }
 
   const install = async (part: IndexPart): Promise<InstallOutcome> => {
@@ -164,6 +273,8 @@ export function createPartsLibrary(options: PartsLibraryOptions = {}): PartsLibr
       }
       const revision = (partById(part.partId) as { revision?: number } | undefined)?.revision ?? part.revision
       await remember(part.partId, JSON.stringify(downloaded.envelope))
+      // Best effort and after the part is usable: no picture means the placeholder.
+      await loadRender({ partId: part.partId, revision, render: part.render })
       return { ok: true, status: registration.status, partId: part.partId, revision }
     } catch {
       return { ok: false, reason: 'network' }
@@ -193,6 +304,8 @@ export function createPartsLibrary(options: PartsLibraryOptions = {}): PartsLibr
       if (envelopes.length === 0) return 0
       const keys = await client().trustedKeys()
       const results = await registerSignedParts(envelopes, { keys, expectedIds })
+      // Pictures come from the cache by their pinned hash: no network needed.
+      await attachMissingRenders(null)
       return results.filter((result) => {
         const status = result.registration?.status
         return !result.failure && (status === 'added' || status === 'replaced' || status === 'unchanged')
@@ -202,7 +315,60 @@ export function createPartsLibrary(options: PartsLibraryOptions = {}): PartsLibr
     }
   }
 
-  return { configured, loadIndex, install, restoreInstalled }
+  const resolveReferenced = async (
+    parts: Record<string, { revision: number; envelope?: unknown }>,
+  ): Promise<string[]> => {
+    const unresolved: string[] = []
+    let index: IndexLoadResult | null = null
+    for (const [id, entry] of Object.entries(parts)) {
+      if (entry.envelope !== undefined) continue
+      const origin = partOrigin(id)
+      if (origin === 'bundled') continue
+      const have = (partById(id) as { revision?: number } | undefined)?.revision
+      if (typeof have === 'number' && have >= entry.revision) continue
+      try {
+        if (!configured) { unresolved.push(id); continue }
+        index ??= await loadIndex()
+        const offered = index.ok
+          ? index.index.parts.find((part) => part.partId === id && part.revision === entry.revision)
+          : undefined
+        if (!offered) { unresolved.push(id); continue }
+        const downloaded = await client().getPackage(offered)
+        if (!downloaded.ok) { unresolved.push(id); continue }
+        const keys = await client().trustedKeys()
+        const [result] = await registerSignedParts([downloaded.envelope], { keys, expectedIds: [id] })
+        const status = result.registration?.status
+        if (result.failure || !(status === 'added' || status === 'replaced' || status === 'unchanged')) unresolved.push(id)
+      } catch {
+        unresolved.push(id)
+      }
+    }
+    return unresolved
+  }
+
+  const uninstall = async (
+    partId: string,
+    opts?: { inUse?: (partId: string) => boolean },
+  ): Promise<UninstallOutcome> => {
+    if (partOrigin(partId) !== 'downloaded') return { ok: false, reason: 'not-downloaded' }
+    if (opts?.inUse?.(partId)) return { ok: false, reason: 'in-use' }
+    unregisterPart(partId)
+    forgetSignedPart(partId)
+    const url = objectUrls.get(partId)
+    if (url) URL.revokeObjectURL(url)
+    objectUrls.delete(partId)
+    try {
+      const ids = await readIds(cache())
+      await cache().set(INSTALLED_IDS_KEY, encodeText(JSON.stringify(ids.filter((id) => id !== partId))))
+      await cache().delete(installedKey(partId))
+      await cache().delete(renderRefKey(partId))
+    } catch {
+      // The part is gone for this session; a stale record restores at most a re-verified copy.
+    }
+    return { ok: true, partId }
+  }
+
+  return { configured, loadIndex, install, restoreInstalled, loadRender, renderBytes, attachMissingRenders, resolveReferenced, uninstall }
 }
 
 let shared: PartsLibrary | null = null

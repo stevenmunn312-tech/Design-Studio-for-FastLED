@@ -1,7 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useUiStore, visibleLiveTouchScreen } from './state/uiStore'
-import { boardPartitionOf, rootGraphNodes, useGraphStore } from './state/graphStore'
-import { registerEmbeddedParts } from './build/parts/signedParts'
+import { boardPartitionOf, loadWorkspaceAfterParts, rootGraphNodes, useGraphStore } from './state/graphStore'
 import { getPartsLibrary } from './build/parts/partsLibrary'
 import { useAudioStore } from './state/audio/audioStore'
 import { useShowPlayback } from './state/player/showPlayback'
@@ -228,8 +227,12 @@ export default function App() {
           // Never trust a share link's own `trusted` claim — force it false
           // regardless of what the payload says (see todo.md's P0 trust item).
           // Signed parts the link carries are verified and registered first.
-          await registerEmbeddedParts(workspace.parts)
-          useGraphStore.getState().loadGraph(workspace.nodes, workspace.edges, {
+          // A link too long to carry envelopes names its parts by id and
+          // revision; fetch those from the signed index first.
+          const unresolvedParts = workspace.parts
+            ? await getPartsLibrary().resolveReferenced(workspace.parts)
+            : []
+          await loadWorkspaceAfterParts(workspace.nodes, workspace.edges, {
             parts: workspace.parts,
             graphData: workspace.graphData,
             graphs: workspace.graphs,
@@ -255,8 +258,10 @@ export default function App() {
           useGraphStore.temporal.getState().clear()
           clearShareHash()
           useUiStore.getState().setStatus(
-            workspaceLoadStatus('Share link opened', shared.dropped),
-            shared.dropped > 0 ? 'info' : 'success',
+            unresolvedParts.length > 0
+              ? `Share link opened, but these parts could not be downloaded: ${unresolvedParts.join(', ')}. Their nodes are held until the parts are available.`
+              : workspaceLoadStatus('Share link opened', shared.dropped),
+            shared.dropped > 0 || unresolvedParts.length > 0 ? 'info' : 'success',
           )
           return
         } catch {
@@ -285,9 +290,8 @@ export default function App() {
           blankWorkspace(),
         )
       if (!current) return
-      await registerEmbeddedParts(current.workspace.parts)
+      await loadWorkspaceAfterParts(current.workspace.nodes, current.workspace.edges, current.workspace)
       if (cancelled) return
-      useGraphStore.getState().loadGraph(current.workspace.nodes, current.workspace.edges, current.workspace)
       landOnStartingWorkspace()
       if (firstVisit) useUiStore.getState().openTemplates()
       await waitForMusicLibraryRestore()

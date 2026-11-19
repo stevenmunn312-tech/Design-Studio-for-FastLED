@@ -24,7 +24,7 @@
 
 .part {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: calc(var(--space-0) * 2);
   padding: calc(var(--space-0) * 1.5);
@@ -94,4 +94,22 @@
   font-family: var(--font-body);
   font-size: var(--fs-label);
   line-height: 1.4;
+}
+
+.thumb {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--line) 68%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-primary) 50%, transparent);
+  color: var(--text-secondary);
+}
+
+.thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
