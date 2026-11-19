@@ -224,28 +224,17 @@ def _active_engine() -> str:
     return "fbuild" if _FBUILD_BIN else "arduino-cli"
 
 
-# fbuild 2.5.51 does not link the ESP8266 core's network libraries: a sketch
-# that includes one fails at link with undefined references to WiFiClient,
-# ESP8266WebServer and the rest (NodeMCU and D1 mini alike, 2026-11-11).
-_ESP8266_NETWORK_INCLUDE = re.compile(r"^[ \t]*#include[ \t]*<(?:ESP8266\w+|WiFi\w*)\.h>", re.M)
-# Nor does it find the UNO R4 WiFi core's bundled WiFiS3 library: the include
-# itself fails with "WiFiS3.h: No such file or directory" (2026-11-12).
-_UNO_R4_NETWORK_INCLUDE = re.compile(r"^[ \t]*#include[ \t]*<WiFi\w*\.h>", re.M)
-
-
-def _engine_for_board(fqbn: str, ino: str = "") -> str:
-    """The engine that builds this sketch for this board: `_active_engine`,
+def _engine_for_board(fqbn: str) -> str:
+    """The engine that builds for this board: `_active_engine`,
     unless that is fbuild and fbuild cannot build it.
 
     The app offers boards the fbuild scaffold does not declare (`_PIO_BOARDS`).
     With fbuild the default engine they would all stop on "no fbuild board
-    mapping". An ESP8266 sketch that uses Wi-Fi would stop at link, and an
-    UNO R4 WiFi one at its WiFiS3 include. All three build with arduino-cli
-    where it is installed."""
-    return "arduino-cli" if _engine_switch_note(fqbn, ino) else _active_engine()
+    mapping", so they build with arduino-cli where it is installed."""
+    return "arduino-cli" if _engine_switch_note(fqbn) else _active_engine()
 
 
-def _engine_switch_note(fqbn: str, ino: str = "") -> str:
+def _engine_switch_note(fqbn: str) -> str:
     """The log line for a build `_engine_for_board` moves from fbuild to
     arduino-cli, or "" when it moves nothing. One place decides both, so the
     log never names a reason the choice did not use."""
@@ -253,10 +242,6 @@ def _engine_switch_note(fqbn: str, ino: str = "") -> str:
         return ""
     if ":".join(fqbn.split(":")[:3]) not in _PIO_BOARDS:
         return f"  [engine] fbuild has no environment for {fqbn}: building with arduino-cli.\n"
-    if fqbn.startswith("esp8266:") and _ESP8266_NETWORK_INCLUDE.search(ino):
-        return "  [engine] fbuild cannot link ESP8266 Wi-Fi sketches yet: building with arduino-cli.\n"
-    if fqbn.startswith("arduino:renesas_uno:unor4wifi") and _UNO_R4_NETWORK_INCLUDE.search(ino):
-        return "  [engine] fbuild cannot find the UNO R4 WiFi network library yet: building with arduino-cli.\n"
     return ""
 
 
@@ -566,7 +551,6 @@ def _remove_build_cache_tree(path: Path) -> None:
 _FBUILD_ESP32_PLATFORM = (
     "https://github.com/pioarduino/platform-espressif32/releases/download/55.03.312-1/platform-espressif32.zip"
 )
-_NRF52_NO_LTO = "build_unflags = -flto"
 
 _PIO_BOARDS: dict[str, dict] = {
     "esp32:esp32:esp32s3": {
@@ -680,11 +664,11 @@ _PIO_BOARDS: dict[str, dict] = {
         "arduino_board": "STMicroelectronics:stm32:Nucleo_144", "arduino_options": {"pnum": "NUCLEO_F439ZI"},
     },
     "arduino:renesas_uno:unor4wifi": {"platform": "renesas-ra", "board": "uno_r4_wifi"},
-    # Offered boards mapped on 2026-11-12, each to the board id fbuild 2.5.51
-    # ships a manifest for. The manifest carries the flash size and USB mode,
-    # so none needs a variant here. Four more were tried and stay on
-    # arduino-cli (runbook, "Boards mapped on 12 November 2026"): Pico W, UNO
-    # R4 Minima and XIAO nRF52840.
+    # Offered boards mapped on 2026-11-12, each to the board id fbuild ships a
+    # manifest for. The manifest carries the flash size and USB mode, so none
+    # needs a variant here. The XIAO nRF52840 and UNO R4 Minima stay on
+    # arduino-cli: a FastLED sketch still fails on each on 2.5.52 (runbook,
+    # "Boards mapped on 12 November 2026" and §18).
     "esp32:esp32:XIAO_ESP32C3": {"platform": "espressif32", "board": "seeed_xiao_esp32c3"},
     "esp32:esp32:XIAO_ESP32C6": {"platform": "espressif32", "board": "seeed_xiao_esp32c6"},
     # The Arduino core gives these two boards no "Huge APP" partition menu entry.
@@ -701,17 +685,10 @@ _PIO_BOARDS: dict[str, dict] = {
     "esp8266:esp8266:huzzah": {"platform": "espressif8266", "board": "huzzah"},
     "rp2040:rp2040:rpipico2w": {"platform": "raspberrypi", "board": "rpipico2w"},
     "arduino:avr:micro": {"platform": "atmelavr", "board": "micro"},
-    # fbuild 2.5.51 compiles the Adafruit nRF52 core with link-time
-    # optimisation, which the core is not written for: its FreeRTOS port loads
-    # `pxCurrentTCB` and `__isr_vector` through `ldr rN, =symbol` in naked
-    # functions, and in one LTO unit the literal pool lands out of range
-    # ("offset out of range") once the image holds more than a blink.
-    "adafruit:nrf52:pca10056": {
-        "platform": "nordicnrf52", "board": "nrf52840_dk", "ini_lines": [_NRF52_NO_LTO],
-    },
-    "adafruit:nrf52:feather52840": {
-        "platform": "nordicnrf52", "board": "adafruit_feather_nrf52840", "ini_lines": [_NRF52_NO_LTO],
-    },
+    "adafruit:nrf52:pca10056": {"platform": "nordicnrf52", "board": "nrf52840_dk"},
+    "adafruit:nrf52:feather52840": {"platform": "nordicnrf52", "board": "adafruit_feather_nrf52840"},
+    # Built on fbuild since 2.5.52 (fbuild#2014).
+    "rp2040:rp2040:rpipicow": {"platform": "raspberrypi", "board": "rpipicow"},
     "SparkFun:avr:promicro": {"platform": "atmelavr", "board": "sparkfun_promicro16"},
 }
 
@@ -1057,11 +1034,7 @@ def _write_fbuild_ini() -> None:
 
         lines += env_block(
             None, None,
-            extra_lines=[
-                *(["board_build.partitions = huge_app.csv"] if is_esp32 else []),
-                # A board's own lines, such as a flag fbuild must not apply.
-                *meta.get("ini_lines", []),
-            ],
+            extra_lines=["board_build.partitions = huge_app.csv"] if is_esp32 else [],
         )
         # One env per flash size the board is actually sold in, so a bigger
         # module is measured and partitioned against its own flash rather than

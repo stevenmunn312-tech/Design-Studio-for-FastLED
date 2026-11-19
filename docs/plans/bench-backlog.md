@@ -284,7 +284,7 @@ chooses the supported combinations from whatever is on record at release.
   WiFiS3 on an Arduino UNO R4 WiFi: an NTP-synced Clock Display and a
   desk-driven Art-Net universe. Both compile on arduino-cli, core 1.6.0
   ([record](../reports/compile/v1-targeted-pass-compile-checks.md), 2026-11-12);
-  fbuild does not find `WiFiS3.h`, so the app builds these with arduino-cli.
+  fbuild builds them since 2.5.52.
 - **D-05 wired Ethernet:** the WIZ850io on a real network: link-up, DHCP and
   static addressing, Art-Net over the cable, NTP sync, and cable pull/replug
   recovery; the row's requirements are in the support matrix.

@@ -53,6 +53,11 @@ versioning (`0.y.z`) until the first stable release.
   unfurling from a lit heart. A copy of the old Peacock Mosaic Drift or Prism
   Fracture in a collection keeps the old graph until it is updated from the
   library.
+- Firmware builds with fbuild 2.5.52 (2.5.51 before). ESP8266 sketches that
+  use Wi-Fi and UNO R4 WiFi network sketches now build with fbuild instead of
+  being handed to arduino-cli, nRF52840 boards build with link-time
+  optimisation again, and the Raspberry Pi Pico W builds with fbuild. The
+  Seeed XIAO nRF52840 and Arduino UNO R4 Minima still build with arduino-cli.
 
 ### Fixed
 

@@ -106,7 +106,7 @@ jobs:
       # One cache, restored by every shard and saved by one. A shard's cache is
       # about 7.8 GB and the repository keeps 10 GB, so a cache for each shard of
       # each commit took over a quarter of an hour to save after every job and
-      # was evicted by the next. Bump `builds-v4` to refresh it.
+      # was evicted by the next. Bump `builds-v5` to refresh it.
       - id: builds
         uses: actions/cache/restore@v4
         with:
@@ -116,9 +116,9 @@ jobs:
             !~/.fbuild/prod/cache/toolchains/pioarduino-esptool
             !~/.fbuild/prod/cache/toolchains/tasmota-esptool
             ~/AppData/Local/Arduino15/packages
-          key: builds-v4-${{ hashFiles('backend/requirements.txt') }}
+          key: builds-v5-${{ hashFiles('backend/requirements.txt') }}
           restore-keys: |
-            builds-v4-
+            builds-v5-
 
       - name: Build shard ${{ matrix.shard }}
         shell: bash
@@ -146,7 +146,7 @@ jobs:
             !~/.fbuild/prod/cache/toolchains/pioarduino-esptool
             !~/.fbuild/prod/cache/toolchains/tasmota-esptool
             ~/AppData/Local/Arduino15/packages
-          key: builds-v4-${{ hashFiles('backend/requirements.txt') }}
+          key: builds-v5-${{ hashFiles('backend/requirements.txt') }}
 
       # The run folder plus every fbuild log and report beside the sketches,
       # at the paths summary.json names.

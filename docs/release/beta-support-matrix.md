@@ -1158,8 +1158,9 @@ Notes:
   SNTP client, the RTC runs its own SNTP exchange over `WiFiUDP`. It is
   compiled on arduino-cli with core 1.6.0
   ([record](../reports/compile/v1-targeted-pass-compile-checks.md), 2026-11-12)
-  and has not been bench-tested; fbuild does not find `WiFiS3.h`, so the app
-  builds these sketches with arduino-cli. The Web Remote stays ESP-only (it needs the
+  and has not been bench-tested. fbuild found `WiFiS3.h` from 2.5.52
+  (2026-11-19, a three-line probe), and the app builds these sketches on
+  either engine. The Web Remote stays ESP-only (it needs the
   core web server), and the W5500 module is still refused on the R4.
 - NTP inside generative-show and SD-player firmware is **experimental**: it
   compiles (D-03, 13 October 2026, over Wi-Fi and over the WIZ850io) through

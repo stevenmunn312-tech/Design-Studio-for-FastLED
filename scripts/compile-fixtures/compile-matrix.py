@@ -300,6 +300,7 @@ MAPPED_BOARDS = {
     "lolin-s3": "esp32:esp32:lolin_s3", "d1": "esp8266:esp8266:d1", "huzzah": "esp8266:esp8266:huzzah",
     "pico-2-w": "rp2040:rp2040:rpipico2w", "micro": "arduino:avr:micro", "pro-micro": "SparkFun:avr:promicro",
     "feather-nrf52840": "adafruit:nrf52:feather52840", "nrf52840-dk": "adafruit:nrf52:pca10056",
+    "pico-w": "rp2040:rp2040:rpipicow",
 }
 
 
@@ -391,16 +392,11 @@ def install_arduino_cores(legs: list[Leg], say) -> bool:
 
 
 # Boards built on arduino-cli alone, though the fbuild scaffold declares them.
-ARDUINO_CLI_ONLY: dict[str, str] = {
-    # Its only legs are Wi-Fi sketches. A plain sketch builds and flashes on fbuild (bench, 2026-11-11).
-    "esp8266:esp8266:d1_mini": "fbuild 2.5.51 does not link the ESP8266 core's network libraries (runbook §15)",
-}
+ARDUINO_CLI_ONLY: dict[str, str] = {}
 
 
 # Fixture families built on arduino-cli alone, on a board whose other legs fbuild builds.
-ARDUINO_CLI_ONLY_FAMILIES: dict[str, str] = {
-    "uno-r4-wifi": "fbuild 2.5.51 does not find the UNO R4 WiFi core's WiFiS3 library (runbook §16)",
-}
+ARDUINO_CLI_ONLY_FAMILIES: dict[str, str] = {}
 
 
 # Third-party cores the helper has no package index for: a user adds the URL, a runner cannot.

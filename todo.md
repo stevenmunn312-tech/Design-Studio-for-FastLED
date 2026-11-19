@@ -109,31 +109,27 @@ State and section numbers are in the
 passed 65 of 66 legs on 2026-11-10; the one failure was the DMX library, since
 replaced by the sketch's own receiver.
 
-The two open items are release gates, decided 2026-11-17: the freeze (step 5)
-waits for an fbuild release that carries the fixes for
-[#2012](https://github.com/FastLED/fbuild/issues/2012) to
+The pin moved to fbuild 2.5.52 on 2026-11-19. That release carries every fix
+for [#2012](https://github.com/FastLED/fbuild/issues/2012) to
 [#2020](https://github.com/FastLED/fbuild/issues/2020) and
-[#1995](https://github.com/FastLED/fbuild/pull/1995), so the full matrix runs
-on the fbuild that v1 pins. Zach said on 2026-11-15 that the fixes would come
-within a couple of days; 2.5.51 (2026-11-04) is still the latest release on
-2026-11-17. A workaround whose fault that release does not fix stays, and is
-recorded as a limitation in step 6. Upstream `main` at `e218404b` (2026-11-17)
-fixes #1994, #2012, #2013, #2014, #2015, #2018 and #2020 by probe, and the
-#2019 HUB75 and Zero DMA entries resolve; FastLED 3.10.9 waits for upstream to
-rerun the mirror by hand, and a bare `@x.y.z` pin resolves as `^x.y.z` (report
-drafted, not posted). PR #2028 fixes #2016 (FastLED links on the Feather
-nRF52840 without `_NRF52_NO_LTO`), and PR #2030 fixes the #2017 blink; both
-merged on 2026-11-17, as #1995 did on 2026-11-11, and none is in a release on
-2026-11-18. A FastLED sketch on the XIAO nRF52840 still fails at link on
-`__wrap_realloc` (PR comment drafted, not posted)
-([runbook](docs/runbooks/fbuild-workarounds.md#probes)).
+[#1995](https://github.com/FastLED/fbuild/pull/1995), and the probes read the
+ESP8266 Wi-Fi link (§15), `WiFiS3.h` (§16), nRF52840 LTO (§17), Pico W and
+UNO R4 Minima as GONE, so those workarounds are removed and the Pico W is
+mapped. The Minima builds a blink but not FastLED: 2.5.52 compiles the core's
+`WiFiS3` library for it (§18, new, not reported). Still present: the
+XIAO nRF52840 fails at link on `__wrap_realloc` (PR comment drafted, not
+posted), a bare `@x.y.z` pin resolves as `^x.y.z` (report drafted, not
+posted), and the §5 overflow line is not a size the helper reads
+([runbook](docs/runbooks/fbuild-workarounds.md#probes)). A fault 2.5.52 does
+not fix is recorded as a limitation in step 6.
 
 - [x] Map each offered board that has no fbuild environment (`_PIO_BOARDS`)
   and that fbuild knows, then compile each one. Eighteen were tried on
   2026-11-12 and fourteen build: the XIAO, LOLIN and Adafruit ESP32 variants,
   two more ESP8266 boards, Pico 2 W, Micro and Pro Micro. The Feather
   nRF52840 builds with LTO unflagged. Pico W, Uno R4 Minima and XIAO nRF52840
-  do not, and stay on arduino-cli through `_engine_for_board`
+  did not; the Pico W is mapped since 2.5.52, and the Minima (§18) and XIAO
+  stay on arduino-cli through `_engine_for_board`
   ([runbook](docs/runbooks/fbuild-workarounds.md#boards-mapped-on-12-november-2026)).
 - [x] Draft upstream reports for the four boards that do not build: Pico W,
   UNO R4 Minima, Feather nRF52840 and XIAO nRF52840 (`xiaoble_adafruit`), in
@@ -175,22 +171,21 @@ merged on 2026-11-17, as #1995 did on 2026-11-11, and none is in a release on
   posted upstream. Reviewed, rebuilt on 2.5.51 and posted on 2026-11-14 as
   [#2012](https://github.com/FastLED/fbuild/issues/2012) to [#2020](https://github.com/FastLED/fbuild/issues/2020)
   ([runbook](docs/runbooks/fbuild-workarounds.md#boards-mapped-on-12-november-2026)).
-- [ ] **Release gate.** Bump the fbuild pin to the release that carries the
+- [x] **Release gate.** Bump the fbuild pin to the release that carries the
   fixes for #2012 to #2020, run `fbuild-probes.py` on it, and drop the
-  workarounds whose probes read GONE. In the commit that moves the pin, also
-  change `builds-v4` to `builds-v5` in `.github/workflows/compile-matrix.yml`:
-  its `restore-keys` prefix otherwise restores the 2.5.51 build cache under
-  the new fbuild. Among those workarounds: fbuild does not find the
-  UNO R4 WiFi core's `WiFiS3.h` (§16,
-  [#2020](https://github.com/FastLED/fbuild/issues/2020)), so those sketches
-  build with arduino-cli until then.
-- [ ] **Release gate.** When an fbuild release carries upstream #1995, the
-  fix for [#1994](https://github.com/FastLED/fbuild/issues/1994) (merged on
-  2026-11-11, after 2.5.51): move the pin, drop `_ESP8266_NETWORK_INCLUDE`
-  and the D1 mini entry in `ARDUINO_CLI_ONLY`, rebuild the Wi-Fi legs, and
-  flash a Web Remote to the D1 mini through fbuild, which upstream asked for.
-  Until then an ESP8266 sketch that uses Wi-Fi builds with arduino-cli (§15),
-  which worked on a D1 mini on 2026-11-11.
+  workarounds whose probes read GONE. Done on 2.5.52 (2026-11-19), with the
+  matrix cache key moved to `builds-v5`.
+- [ ] Rebuild the ESP8266 Wi-Fi, `uno-r4-wifi`, nRF52840 and new `boards`
+  Pico W legs on fbuild 2.5.52 in the GitHub matrix.
+- [ ] Draft an upstream report for §18: on 2.5.52 a FastLED sketch for the
+  UNO R4 Minima compiles the core's `WiFiS3` library and fails on `D24`.
+  Steve reviews before posting.
+- [ ] Flash a Web Remote to the D1 mini through fbuild, which upstream asked
+  for on [#1994](https://github.com/FastLED/fbuild/issues/1994). Needs Steve's
+  bench.
+- [ ] Retire the helper's `.dram0.dummy` subtraction (`_without_ram_placeholder`)
+  if 2.5.52's ESP32-S3 RAM figure no longer counts the placeholder
+  ([#2013](https://github.com/FastLED/fbuild/issues/2013)). No probe covers it.
 
 ## 4. HW-17 · Distribution smoke tests
 

@@ -222,11 +222,8 @@ def test_write_fbuild_ini_emits_a_section_per_board_and_psram_variant(tmp_path, 
     assert "platform = espressif32\n" not in text
     assert "platform = atmelavr" in uno_section
 
-    # The Adafruit nRF52 core does not link under fbuild's LTO.
-    for env in ("adafruit_nrf52_pca10056", "adafruit_nrf52_feather52840"):
-        assert "build_unflags = -flto" in text.split(f"[env:{env}]")[1].split("[env:")[0]
-    assert "build_unflags" not in uno_section
-    # fbuild 2.5.51 carries the SAMD51 identity into library sources itself.
+    assert "build_unflags" not in text
+    # fbuild carries the SAMD51 identity into library sources itself.
     feather_m4_section = text.split("[env:adafruit_samd_adafruit_feather_m4]")[1].split("[env:")[0]
     assert "__SAMD51" not in feather_m4_section
     # FastLED 3.10.9 builds on SAMD51 as released: no alias or SPI override.
@@ -1220,20 +1217,10 @@ def test_a_board_fbuild_does_not_declare_builds_with_arduino_cli(monkeypatch):
     assert toolchain._engine_for_board("esp32:esp32:esp32s3:PSRAM=opi") == "fbuild"
     assert toolchain._engine_for_board("esp8266:esp8266:d1_mini") == "fbuild"
     assert toolchain._engine_for_board("esp32:esp32:nodemcu-32s") == "arduino-cli"
-    # fbuild 2.5.51 cannot link the ESP8266 core's network libraries.
-    wifi = "#include <FastLED.h>\n#include <ESP8266WiFi.h>\nvoid setup() {}\n"
-    assert toolchain._engine_for_board("esp8266:esp8266:d1_mini", wifi) == "arduino-cli"
-    assert toolchain._engine_for_board("esp8266:esp8266:d1_mini", "#include <FastLED.h>\n") == "fbuild"
-    assert toolchain._engine_for_board("esp32:esp32:esp32", "#include <WiFi.h>\n") == "fbuild"
-    # Nor find the UNO R4 WiFi core's WiFiS3 library.
-    r4 = "#include <FastLED.h>\n#include <WiFiS3.h>\nvoid setup() {}\n"
-    assert toolchain._engine_for_board("arduino:renesas_uno:unor4wifi", r4) == "arduino-cli"
-    assert toolchain._engine_for_board("arduino:renesas_uno:unor4wifi", "#include <FastLED.h>\n") == "fbuild"
-    assert "UNO R4 WiFi network library" in toolchain._engine_switch_note("arduino:renesas_uno:unor4wifi", r4)
+    assert toolchain._engine_for_board("arduino:renesas_uno:unor4wifi") == "fbuild"
     # The log says why a build left fbuild, and says nothing when it did not.
-    assert "cannot link ESP8266 Wi-Fi" in toolchain._engine_switch_note("esp8266:esp8266:d1_mini", wifi)
     assert "no environment for esp32:esp32:nodemcu-32s" in toolchain._engine_switch_note("esp32:esp32:nodemcu-32s")
-    assert toolchain._engine_switch_note("esp8266:esp8266:d1_mini", "#include <FastLED.h>\n") == ""
+    assert toolchain._engine_switch_note("esp8266:esp8266:d1_mini") == ""
     # A saved choice of fbuild still cannot build a board it has no environment for.
     monkeypatch.setattr(toolchain, "_load_config", lambda: {"engine": "fbuild"})
     assert toolchain._engine_for_board("esp32:esp32:nodemcu-32s") == "arduino-cli"

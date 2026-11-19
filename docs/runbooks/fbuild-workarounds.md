@@ -12,8 +12,12 @@ an internal record.
   [#1671](https://github.com/FastLED/fbuild/issues/1671),
   [#1672](https://github.com/FastLED/fbuild/issues/1672) and
   [#1673](https://github.com/FastLED/fbuild/issues/1673).
-- **Current repository pin:** 2.5.51 (`backend/requirements.txt` and
-  `backend/constraints.txt`), moved from 2.5.45 on 2026-11-10 with FastLED
+- **Current repository pin:** 2.5.52 (`backend/requirements.txt` and
+  `backend/constraints.txt`), moved from 2.5.51 on 2026-11-19. It is tag
+  `v2.5.52` at `48f10475` and carries every upstream fix for #2012 to #2020
+  and #1995; the [probes](#probes) retired §15, §16, §17 and the Pico W
+  exclusion. The UNO R4 Minima builds a blink but not FastLED (§18).
+  2.5.51 was moved from 2.5.45 on 2026-11-10 with FastLED
   3.10.9, which asks for 2.5.49 or newer. The full run on 2.5.51 passed 65 of
   66 legs on 2026-11-10; the failure is a library fault on both engines
   ([record](#fastled-3109-and-fbuild-2551-run-10-november-2026)). 2.5.45
@@ -86,9 +90,10 @@ an internal record.
 | 12 | Windows: LVGL archive spawn exceeds the command-length limit | **2.5.26** | Re-archive with a response file, then continue | **No — fixed in 2.5.44** ([#1656](https://github.com/FastLED/fbuild/issues/1656)); no leg of the 2.5.51 run needed it, workaround removed 2026-11-10 |
 | 13 | Windows: every daemon compile opens a visible console window that takes focus | **2.5.44** (also 2.5.37) | None possible: zccache is fbuild's only compile backend | **No — fixed in 2.5.45** ([#1722](https://github.com/FastLED/fbuild/issues/1722), by #1723 with zccache 1.15.6): no window opened during a compile in the desktop app on 2.5.51, 2026-11-11 |
 | 14 | Daemon refuses to start after the last one exited | **2.5.51** | Run the build once more after 15 s, then say plainly that nothing was compiled | Yes — seen once, 2026-11-11, not reproduced and not reported; see §14 |
-| 15 | ESP8266: the core's network libraries are not linked | **2.5.51** | Build ESP8266 sketches that include one with arduino-cli | Yes — [#1994](https://github.com/FastLED/fbuild/issues/1994), filed 2026-11-11; see §15 |
-| 16 | UNO R4 WiFi: the core's bundled `WiFiS3.h` is not found | **2.5.51** | Build UNO R4 WiFi sketches that include it with arduino-cli | Yes — found 2026-11-12, reported as [#2020](https://github.com/FastLED/fbuild/issues/2020); see §16 |
-| 17 | nRF52840: `-flto` breaks the Adafruit core's FreeRTOS port at link | **2.5.51** | `build_unflags = -flto` on the nRF52840 environments | Yes — found 2026-11-12, reported as [#2016](https://github.com/FastLED/fbuild/issues/2016); see §17 |
+| 15 | ESP8266: the core's network libraries are not linked | **2.5.51** | Build ESP8266 sketches that include one with arduino-cli | **No — fixed in 2.5.52** ([#1994](https://github.com/FastLED/fbuild/issues/1994), by #1995); workaround removed 2026-11-19; see §15 |
+| 16 | UNO R4 WiFi: the core's bundled `WiFiS3.h` is not found | **2.5.51** | Build UNO R4 WiFi sketches that include it with arduino-cli | **No — fixed in 2.5.52** ([#2020](https://github.com/FastLED/fbuild/issues/2020)); workaround removed 2026-11-19; see §16 |
+| 17 | nRF52840: `-flto` breaks the Adafruit core's FreeRTOS port at link | **2.5.51** | `build_unflags = -flto` on the nRF52840 environments | **No — fixed in 2.5.52** ([#2016](https://github.com/FastLED/fbuild/issues/2016), by #2028); workaround removed 2026-11-19; see §17 |
+| 18 | UNO R4 Minima: a FastLED sketch compiles the core's `WiFiS3` library | **2.5.52** | Leave the Minima unmapped, so it builds with arduino-cli | Yes — found 2026-11-19, not reported; see §18 |
 
 ---
 
@@ -943,7 +948,11 @@ nRF52840 builds since the §17 workaround:
 | Seeed XIAO nRF52840 | `xiaoble_adafruit` | Compiling the core: `Uart.h:27:10: fatal error: variant.h: No such file or directory`. The board names the `Seeed_XIAO_nRF52840` variant, which the Adafruit framework fbuild fetches (1.10601.0) does not carry. `xiaoble`, tried first, is not a board id ([#293](https://github.com/FastLED/fbuild/issues/293)) |
 
 All four were rebuilt on 2.5.51 and reported on 2026-11-14; the logs are in
-the run's `compile-matrix-record` artifact.
+the run's `compile-matrix-record` artifact. On 2.5.52 (2026-11-19) the Pico W
+builds the pattern sketch and is mapped, with a `boards` leg of its own; the
+Feather nRF52840 builds without the §17 workaround. The UNO R4 Minima builds
+a blink but not the pattern sketch (§18). The XIAO nRF52840 still
+fails, now at link on `__wrap_realloc` (see [Probes](#probes)).
 
 | Board | Issue | Cause found in fbuild's source |
 | --- | --- | --- |
@@ -1064,22 +1073,30 @@ backend/.venv/Scripts/python scripts/compile-fixtures/fbuild-probes.py
 PRESENT means the build fails as this runbook describes, GONE that the
 workaround can be retired, CHANGED that it fails another way. `--fbuild PATH`
 probes another binary, such as a build of upstream `main`, without moving the
-pin. Results on 2.5.51 (2026-11-12) and on unreleased `main` at `e218404b`
-(2.5.52, built from source on 2026-11-17; its `--version` hash can lag the
-checkout, so record the commit from Git):
+pin. Results on 2.5.51 (2026-11-12), on unreleased `main` at `e218404b`
+(built from source on 2026-11-17; its `--version` hash can lag the
+checkout, so record the commit from Git), and on the 2.5.52 release
+(`48f10475`, 2026-11-19):
 
-| Probe | Where | 2.5.51 | `main` `e218404b` |
-| --- | --- | --- | --- |
-| `overflow-no-size` | §5, #1658 | PRESENT: the new `RAM: dram0_0_seg overflowed by` line is not a size the helper reads, so the estimate stays (§5). Recorded as GONE until 2026-11-18, when the probe matched any line starting `RAM:`; it now asks the helper's own parser | not rerun with the corrected probe |
-| `esp8266-wifi-link` | §15, #1994 | PRESENT | GONE |
-| `wifis3` | §16, #2020 | PRESENT | GONE |
-| `nrf52-lto` | §17, #2016 | PRESENT | PRESENT; GONE on PR #2028 (`e992e3d1`, merged 2026-11-17) |
-| `pico-w` | Boards mapped, #2014 | PRESENT | GONE |
-| `r4-minima` | Boards mapped, #2015 | PRESENT | GONE |
-| `xiaoble` | Boards mapped, #2017 | PRESENT (`variant.h`, with the id `xiaoble_adafruit`) | PRESENT; CHANGED on PRs #2028 + #2030 (merged 2026-11-17, `212497f7`): links fail on `__wrap_realloc` |
-| `lib-deps-git-ref` | §1, #2018 | PRESENT | GONE: fetches `archive/3.0.12.zip` |
-| `lib-deps-registry` | §1, #2019 | PRESENT | GONE |
-| `lib-deps-exact-pin` | §1 | PRESENT | PRESENT |
+| Probe | Where | 2.5.51 | `main` `e218404b` | 2.5.52 |
+| --- | --- | --- | --- | --- |
+| `overflow-no-size` | §5, #1658 | PRESENT: the new `RAM: dram0_0_seg overflowed by` line is not a size the helper reads, so the estimate stays (§5). Recorded as GONE until 2026-11-18, when the probe matched any line starting `RAM:`; it now asks the helper's own parser | not rerun with the corrected probe | PRESENT: the helper's estimate reads 137% |
+| `esp8266-wifi-link` | §15, #1994 | PRESENT | GONE | GONE |
+| `wifis3` | §16, #2020 | PRESENT | GONE | GONE |
+| `nrf52-lto` | §17, #2016 | PRESENT | PRESENT; GONE on PR #2028 (`e992e3d1`, merged 2026-11-17) | GONE |
+| `pico-w` | Boards mapped, #2014 | PRESENT | GONE | GONE |
+| `r4-minima` | Boards mapped, #2015 | PRESENT | GONE | GONE |
+| `xiaoble` | Boards mapped, #2017 | PRESENT (`variant.h`, with the id `xiaoble_adafruit`) | PRESENT; CHANGED on PRs #2028 + #2030 (merged 2026-11-17, `212497f7`): links fail on `__wrap_realloc` | CHANGED: `undefined reference to '__wrap_realloc'` |
+| `lib-deps-git-ref` | §1, #2018 | PRESENT | GONE: fetches `archive/3.0.12.zip` | GONE |
+| `lib-deps-registry` | §1, #2019 | PRESENT | GONE | GONE |
+| `lib-deps-exact-pin` | §1 | PRESENT | PRESENT | PRESENT |
+
+On 2.5.52 the GONE probes retired §15, §16 and §17, and the Pico W is mapped
+in `_PIO_BOARDS` (the pattern sketch builds: 418,796 bytes of flash, 75,151
+of RAM). `r4-minima` builds a blink only; a FastLED sketch fails another way
+(§18), so the Minima stays unmapped. The two `lib-deps` probes that read GONE
+retire nothing: the libraries stay vendored while a bare version pin is still
+read as a range (`lib-deps-exact-pin`).
 
 `lib-deps-registry` builds Adafruit Zero DMA for a SAMD51 board, since it
 is SAMD-only. On #2019 Zach found two causes: names with spaces or
@@ -1410,7 +1427,8 @@ is alive and what it is. That is the evidence an upstream report needs.
 bundled libraries' headers to the include path and never compiles their
 sources (`esp8266/orchestrator.rs`). Upstream confirmed it and fixed it in
 [#1995](https://github.com/FastLED/fbuild/pull/1995), merged on 2026-11-11
-and not yet released on 2026-11-18; the workaround stays until the pin can move.
+and released in 2.5.52. **Workaround removed 2026-11-19**, when the
+`esp8266-wifi-link` probe read GONE on 2.5.52. What follows is the record.
 
 **Symptom.** An ESP8266 sketch that includes `ESP8266WiFi.h`,
 `ESP8266WebServer.h`, `ESP8266mDNS.h` or `WiFiUdp.h` compiles and then fails:
@@ -1440,7 +1458,9 @@ the desktop app with fbuild as the engine, built in 19 s and flashed.
 
 ## 16. UNO R4 WiFi sketches that use the network do not compile
 
-**Found on 2.5.51 (2026-11-12). Reported on 2026-11-14 as [#2020](https://github.com/FastLED/fbuild/issues/2020).** #1995 changes only the ESP8266 builder, so it is not expected to cover this.
+**Found on 2.5.51 (2026-11-12). Reported on 2026-11-14 as [#2020](https://github.com/FastLED/fbuild/issues/2020).**
+**Fixed in 2.5.52; workaround removed 2026-11-19**, when the `wifis3` probe
+read GONE. What follows is the record.
 
 **Symptom.** An Arduino UNO R4 WiFi sketch that includes `WiFiS3.h`, the
 network library bundled with the Renesas core, stops at the include:
@@ -1469,6 +1489,10 @@ stands.
 ---
 
 ## 17. nRF52840 sketches fail at link under LTO
+
+**Fixed in 2.5.52 by #2028; workaround removed 2026-11-19**, when the
+`nrf52-lto` probe (a FastLED sketch on `nrf52840_dk`, no `build_unflags`)
+read GONE. What follows is the record.
 
 **Symptom.** On fbuild 2.5.51 any FastLED sketch for an nRF52840 board
 compiles and then stops at link:
@@ -1503,3 +1527,32 @@ toolchain (`without_release_lto`).
 fbuild reports 235,520 bytes of RAM for every nRF52840 image, blink or not,
 so that figure is not the sketch's: it counts the `.heap` reservation, now
 [#2027](https://github.com/FastLED/fbuild/issues/2027). #2028 does not change it.
+
+---
+
+## 18. UNO R4 Minima: a FastLED sketch compiles the core's WiFiS3 library
+
+**Found on 2.5.52 (2026-11-19). Not reported.**
+
+**Symptom.** The pattern sketch (`family-fixtures/pattern.ino`, which includes
+only `FastLED.h`) for `uno_r4_minima` compiles the Renesas core's `WiFiS3`
+library and stops in it, twice in a row:
+
+```text
+ArduinoCore-renesas/libraries/WiFiS3/src/Modem.cpp:426:34: error: 'D24' was not declared in this scope; did you mean 'D4'?
+  426 |    ModemClass modem = ModemClass(D24,D25);
+```
+
+The Minima has no radio and no `D24`. A blink builds (the `r4-minima` probe
+reads GONE), so the board fix (#2015) holds.
+
+**Likely cause, inferred, not read from fbuild's source.** FastLED includes
+`<WiFi.h>` inside a platform guard (`platforms/arm/rp/wifi_rp.cpp.hpp`,
+`platforms/esp/8266/ota/ota_impl.cpp.hpp`). fbuild's include scan does not
+evaluate the guard, and since 2.5.52 makes the Renesas core's bundled
+libraries discoverable (#2020, by #2022), `WiFi.h` resolves to `WiFiS3` for
+every Renesas board. On the UNO R4 WiFi that library compiles; on the Minima
+it cannot.
+
+**Workaround.** The Minima has no `_PIO_BOARDS` entry, so `_engine_for_board`
+builds it with arduino-cli where installed, as before 2.5.52.
