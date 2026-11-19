@@ -471,7 +471,7 @@ pin or bus reference that v1.0.0 does not understand must not reach
 
 Steps 1 to 5, 8 and 9 change nothing a user sees when they are done well, so
 they are proved by the existing suites plus a full compile matrix, the same as
-any refactor. Steps 6 and 7 are proved against a test index on a local server.
+any refactor. Steps 6 and 7 are proved against a test index on a local server. The proof is `src/build/parts/__tests__/partsEndToEnd.test.ts`: a real `127.0.0.1` HTTP server serving a site built by `scripts/parts/sign.mjs`.
 All of it rides the one pre-release matrix run in [root todo](../../todo.md)
 step 5; it does not need a run of its own.
 
