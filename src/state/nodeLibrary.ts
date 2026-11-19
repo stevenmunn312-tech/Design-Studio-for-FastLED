@@ -3829,6 +3829,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   },
   ColorTemperature: { kelvin: 'temperature (K)' },
   HueShift: { hueShift: 'hue shift (°)' },
+  BeatKaleidoscope: { hueShift: 'hue shift (°)' },
   AdjustColor: { hueShift: 'hue shift (°)', saturation: 'saturation (×)', brightness: 'brightness (×)' },
   // Hue, saturation and brightness read the same on every HSV node; "value"
   // and single letters are jargon.

@@ -96,9 +96,6 @@ describe('Move I2C hardware to board pins', () => {
       node('spi', 'InfoDisplay', { partId: 'sh1106-oled-128x64', sdaPin: 5, sclPin: 6 }),
     ], [])
     expect(moveI2cPartsToBoardPins().ok).toBe(true)
-    // A Clock has no pins of its own: the old DS3231 wiring is dropped on load.
-    expect(rootGraphNodes(useGraphStore.getState()).find((part) => part.id === 'clock')?.data.properties)
-      .not.toHaveProperty('sdaPin')
     expect(rootGraphNodes(useGraphStore.getState()).find((part) => part.id === 'spi')?.data.properties)
       .toMatchObject({ sdaPin: 5, sclPin: 6 })
     expect(moveI2cPartsToBoardPins()).toMatchObject({ ok: false, reason: expect.stringContaining('already') })

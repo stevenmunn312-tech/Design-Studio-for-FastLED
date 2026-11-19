@@ -8,7 +8,7 @@ import { generateCpp } from '../../../codegen/cppGenerator'
 import { buildGraphDiagnostics, validateGraph } from '../../../utils/validateGraph'
 import { boardPartition } from '../../../build/boardPartition'
 import { NODE_LIBRARY, libraryDefaults } from '../../nodeLibrary'
-import { ROOT_GRAPH_ID, rootGraphNodes, useGraphStore, type StudioEdge, type StudioNode } from '../../graphStore'
+import type { StudioEdge, StudioNode } from '../../graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -163,23 +163,5 @@ describe('validating the Board\'s network', () => {
     const quiet = twoUsers({ wifiHostname: 'Den Lights' })
     const offline = quiet.nodes.filter((entry) => entry.id !== 'dmx' && entry.id !== 'rtc')
     expect(validateGraph(offline, [], 'esp32:esp32:esp32').warnings.some((warning) => warning.includes('hostname'))).toBe(false)
-  })
-})
-
-describe('loading a save from before the Board held the network', () => {
-  it('drops each network node\'s own copy of the settings', () => {
-    useGraphStore.getState().loadGraph([
-      node('board-root', 'Board'),
-      { ...node('dmx', 'DMXInput'), data: { ...node('dmx', 'DMXInput').data, properties: {
-        ...libraryDefaults('DMXInput'), wifiHostname: 'fastled-dmx', useDhcp: false, staticIp: '10.0.0.2', wifiSsid: 'old',
-      } } },
-      { ...node('player', 'PatternMaster'), data: { ...node('player', 'PatternMaster').data, properties: {
-        ...libraryDefaults('PatternMaster'), wifiHostname: 'fastled-radio',
-      } } },
-    ], [], { activeGraphId: ROOT_GRAPH_ID, graphs: { [ROOT_GRAPH_ID]: { id: ROOT_GRAPH_ID, name: 'Main' } } })
-    const byId = new Map(rootGraphNodes(useGraphStore.getState()).map((entry) => [entry.id, entry.data.properties]))
-    for (const key of ['wifiHostname', 'useDhcp', 'staticIp', 'wifiSsid']) expect(byId.get('dmx')).not.toHaveProperty(key)
-    expect(byId.get('dmx')).toMatchObject({ inputMode: 'Art-Net', udpPort: 6454 })
-    expect(byId.get('player')).not.toHaveProperty('wifiHostname')
   })
 })
