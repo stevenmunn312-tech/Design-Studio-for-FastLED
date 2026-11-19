@@ -8,7 +8,7 @@ import {
   BUZZER_PART_ID, BUZZER_PIN_FALLBACK, BUZZER_PITCH_DEFAULT_HZ, BUZZER_VARIANT_INPUTS, buzzerInputs,
 } from '../../state/peripherals/buzzer'
 import { DARLINGTON_PART_ID, DARLINGTON_PIN_FALLBACKS, darlingtonInputs, darlingtonPinKeys } from '../../state/peripherals/darlingtonDriver'
-import { DIRECT_PIXEL_DATA_LINK } from '../../state/peripherals/pixelDataExtender'
+import { DEFAULT_LEVEL_SHIFTER_PART_ID } from '../../state/peripherals/levelShifter'
 import { BOARD_NETWORK_DEFAULTS } from '../../state/peripherals/boardNetwork'
 import {
   ALL_POWER_SWITCH_CHANNELS, DEFAULT_POWER_SWITCH_PART_ID, POWER_SWITCH_LEVEL_DEFAULT, POWER_SWITCH_PIN_FALLBACKS,
@@ -74,6 +74,9 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       ledDriver: 'auto',
       powerLimit: false,
       milliamps: 2000,
+      // The level shifter part every LED data line on this board runs through.
+      // Wiring only: the sketch is the same whichever part is chosen.
+      levelShifterPartId: DEFAULT_LEVEL_SHIFTER_PART_ID,
       psramPolicy: 'auto',
       psramMode: 'opi',
       serialRoute: 'auto',
@@ -153,8 +156,9 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       corkscrewHeightMm: 300,
       chipset: 'WS2812B',
       // The physical data route only. Firmware still emits the chipset's one
-      // wire signal; the Build Diagram inserts the chosen TX/RX accessory.
-      dataLink: DIRECT_PIXEL_DATA_LINK,
+      // wire signal; the Build Diagram inserts the chosen TX/RX accessory part.
+      // Empty is Direct.
+      dataLinkPartId: '',
       colorOrder: 'GRB',
       dataPin: 5,
       // A long chain split into equal lanes, each fed from its own pin

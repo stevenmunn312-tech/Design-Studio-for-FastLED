@@ -89,13 +89,8 @@ import {
 import { DEFAULT_ETHERNET_PART_ID, ETHERNET_PIN_KEYS, ethernetSpec, ethernetSpiHostForFqbn } from '../state/peripherals/ethernetModule'
 import { converterRoleFor, DEFAULT_SOURCE_VOLTAGE, powerConverterModuleFor } from '../state/peripherals/powerConverter'
 import { batteryCellSpec, batteryFunctions, batteryModuleSpecFor, packFacts } from '../state/peripherals/battery'
-import {
-  DIRECT_PIXEL_DATA_LINK,
-  NLED_PIXEL_DATA_EXTENDER_PART_ID,
-  NLED_PIXEL_DATA_LINK,
-  nledPixelDataExtenderSpec,
-  usesNledPixelDataExtender,
-} from '../state/peripherals/pixelDataExtender'
+import { dataLinkPartId, dataLinkSpec } from '../state/peripherals/pixelDataExtender'
+import { levelShifterPartIdFor } from '../state/peripherals/levelShifter'
 import {
   COOLING_FAN_PART_ID,
   coolingFanSpec,
@@ -669,8 +664,7 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
   const { width, height } = outputGridDims(props)
   const pixelCount = outputLedTotal(props)
   const chipset = String(props.chipset ?? 'WS2812B')
-  const dataLink = String(props.dataLink ?? DIRECT_PIXEL_DATA_LINK)
-  const extender = usesNledPixelDataExtender(props) ? nledPixelDataExtenderSpec() : null
+  const extender = dataLinkSpec(props)
   // A positioned string carries its shape and its physical span, so the
   // diagram can picture where the LEDs hang instead of a straight run.
   const positioned = stringPositions(props)
@@ -691,7 +685,7 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
       ? `${width}×${height} ${chipset} route`
       : `${pixelCount}-LED ${chipset} ${form} route`)
       + (span ? ` · positioned over ${span.widthMm} × ${span.heightMm} mm` : '')
-      + (dataLink === NLED_PIXEL_DATA_LINK ? ' · differential link' : ''),
+      + (extender ? ' · differential link' : ''),
     sourceNodeId: node.id,
     sourceNodeType: node.data.nodeType,
     supported: BUILD_DIAGRAM_5V_ONE_WIRE_CHIPSETS.has(chipset),
@@ -706,7 +700,6 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
       ...(wiring ? { serpentine: wiring.serpentine, startCorner: wiring.startCorner, firstRun: wiring.firstRun } : {}),
       ...(dataIn ? { dataIn } : {}),
       chipset,
-      dataLink,
       ...(positioned && mmPerUnit && span ? {
         positions: positioned.points,
         positionCanvas: { width: positioned.canvasW, height: positioned.canvasH },
@@ -715,7 +708,7 @@ function buildMatrixOutputItem(node: StudioNode, ordinal: number, count: number,
         closestLedSpacingMm: closestLedSpacingMm(positioned, mmPerUnit),
       } : {}),
       ...(extender ? {
-        dataLinkPartId: NLED_PIXEL_DATA_EXTENDER_PART_ID,
+        dataLinkPartId: dataLinkPartId(props),
         dataLinkMaxDistanceMeters: extender.maxDistanceMeters,
         dataLinkConductors: extender.pairConductors,
       } : {}),
@@ -945,6 +938,9 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
     return `A UART is allocated once a ${reader} reads it`
   }
 
+  // One level shifter part for the whole board, chosen on the Board node; every LED data route runs through it.
+  const levelShifterPartId = levelShifterPartIdFor(
+    nodes.find((node) => node.data.nodeType === 'Board')?.data.properties as Record<string, unknown> | undefined)
   const items = hardwareNodes.map((node) => {
     const pins = pinUsesByNodeId.get(node.id) ?? []
     if (!BUILD_DIAGRAM_SUPPORTED_NODE_TYPES.has(node.data.nodeType) && node.data.nodeType !== 'MatrixOutput') {
@@ -960,7 +956,7 @@ export function buildHardwareManifest(nodes: StudioNode[], edges: StudioEdge[], 
           capMaPerLed == null
             ? null
             : Math.round(capMaPerLed * outputLedTotal(node.data.properties as Record<string, unknown>)),
-        )
+        ).map((item): HardwareManifestItem => ({ ...item, facts: { ...item.facts, levelShifterPartId } }))
       case 'StereoVuMeter':
         return buildStereoVuMeterItems(node, pins, capMaPerLed)
       case 'MicInput':

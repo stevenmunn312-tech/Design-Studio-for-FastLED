@@ -118,7 +118,7 @@ OVERLAY_FIELDS = (
     # here, in the repository, and checked against the block spec by the
     # manifest test.
     *("microphone", "lineInput", "i2sAudio", "powerAmp", "sdCard", "rtc", "uartPlayer", "rs485", "midiDin",
-      "motionSensor", "keypad", "irReceiver", "tftPanel", "ledOutput"),
+      "motionSensor", "keypad", "irReceiver", "tftPanel", "levelShifter", "ledOutput"),
 )
 # Each overlay-held block maps to the keys it may hold; the app's manifest
 # validator (blockSpecs.ts) checks the values. A part.json that also carries
@@ -137,6 +137,8 @@ OVERLAY_BLOCKS = {
     "keypad": ("rows", "columns", "legends", "rowLabels", "columnLabels"),
     "irReceiver": ("supplyVolts", "carrierKHz"),
     "tftPanel": ("colorOrder", "mirroredColumns", "invert", "columnOffset", "rowOffset"),
+    "levelShifter": ("device", "packageName", "channels", "supplyMinV", "supplyMaxV", "inputHighMinV",
+                     "channelPads", "vccPad", "gndPad"),
     # An LED product's facts. Its geometry (form, count, width, height, diameterMm,
     # pitchMm) is what part.json already measures as `ledLayout`; the importer folds
     # that into this block, so an overlay carries the rest and never repeats a
@@ -456,6 +458,25 @@ def validate_overlay_blocks(part_id: str, overlay: dict) -> None:
                 or any(key in block and (isinstance(block[key], bool) or not isinstance(block[key], int) or not 0 <= block[key] <= 8192)
                        for key in ("columnOffset", "rowOffset"))):
             raise OverlayError(f"{part_id}: tftPanel needs colorOrder (RGB or BGR), mirroredColumns and invert, and optional whole-number columnOffset and rowOffset")
+    block = overlay.get("levelShifter")
+    if block is not None:
+        channels = block.get("channels") if isinstance(block, dict) else None
+        pad_labels = {pad.get("label") for pad in overlay.get("pads") or [] if isinstance(pad, dict)}
+        channel_pads = block.get("channelPads") if isinstance(block, dict) else None
+        if (not isinstance(block, dict) or set(block) != set(OVERLAY_BLOCKS["levelShifter"])
+                or not all(isinstance(block[key], str) and block[key].strip() for key in ("device", "packageName", "vccPad", "gndPad"))
+                or not isinstance(channels, int) or isinstance(channels, bool) or not 1 <= channels <= 4
+                or not all(_is_number(block[key]) and block[key] > 0 for key in ("supplyMinV", "supplyMaxV", "inputHighMinV"))
+                or block["supplyMaxV"] < block["supplyMinV"]
+                or not isinstance(channel_pads, list) or len(channel_pads) != channels
+                or not all(isinstance(pads, dict) and set(pads) == {"in", "out", "oe"}
+                           and all(isinstance(label, str) and label.strip() for label in pads.values())
+                           for pads in channel_pads)):
+            raise OverlayError(f"{part_id}: levelShifter needs device, packageName, one to four channels with that many channelPads (in, out, oe), a supply range, inputHighMinV, vccPad and gndPad")
+        named = [block["vccPad"], block["gndPad"], *(label for pads in channel_pads for label in pads.values())]
+        missing = sorted({label for label in named if label not in pad_labels})
+        if missing:
+            raise OverlayError(f"{part_id}: levelShifter names pad(s) the part does not measure: {', '.join(missing)}")
 
 
 def load_overlay(part_id: str):

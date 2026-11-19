@@ -379,6 +379,7 @@ export function OutputGraphic({ layout, connection, selected, plan, powerPlanBel
   const extenderPartId = extender ? String(item.facts.dataLinkPartId) : ''
   const extenderRender = extenderPartId ? partRenderSrc(extenderPartId) : null
   const maxDistanceFeet = Math.round(Number(item.facts.dataLinkMaxDistanceMeters ?? 0) * 3.28084)
+  const linkConductors = Array.isArray(item.facts.dataLinkConductors) ? item.facts.dataLinkConductors.map(String) : []
   const titleLines = fitPartTitle(item.title, width)
   const titleOffsets = stackedBaselineOffsets(-OUTPUT_TITLE_BASELINE, titleLines.length)
   return (
@@ -440,7 +441,7 @@ export function OutputGraphic({ layout, connection, selected, plan, powerPlanBel
             <text x={x + 9} y={extenderY + 44} className={styles.physicalPinLabel}>TX DATA</text>
           </g>
           <HoverWire
-            tip="Conditioned pixel data · into the NLED transmitter"
+            tip="Conditioned pixel data · into the link transmitter"
             data-wire={`${item.id}-extender-tx-data`}
             data-signal-role={presentation.role}
             d={`M${x} ${extenderY + 51}H${x + EXTENDER_RENDER_INSET}`}
@@ -448,7 +449,7 @@ export function OutputGraphic({ layout, connection, selected, plan, powerPlanBel
             style={{ stroke: presentation.color }}
           />
           <HoverWire
-            tip="NLED receiver data out · to LED DIN"
+            tip="Link receiver data out · to LED DIN"
             data-wire={`${item.id}-extender-rx-data`}
             data-signal-role={presentation.role}
             d={`M${x + width - EXTENDER_RENDER_INSET} ${extenderY + 51}H${x + width - 8}V${y + 6}H${x}V${y + dataOffset}`}
@@ -456,7 +457,7 @@ export function OutputGraphic({ layout, connection, selected, plan, powerPlanBel
             style={{ stroke: presentation.color }}
           />
           <text x={x + (width / 2)} y={extenderY + 91} textAnchor="middle" className={styles.physicalPinLabel}>
-            A↔A · B↔B · GND↔GND · TWISTED
+            {`${linkConductors.map((name) => `${name}↔${name}`).join(' · ')} · TWISTED`}
           </text>
           <text x={x + (width / 2)} y={extenderY + 105} textAnchor="middle" className={styles.physicalBoardSubSilk}>
             {`POWER BOTH ENDS · ${maxDistanceFeet || 1000} FT MAX`}

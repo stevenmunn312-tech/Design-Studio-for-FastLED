@@ -142,7 +142,7 @@ describe('Build Diagram lanes', () => {
   })
 
   it('gives every lane its own extender pair', () => {
-    const split = node('out', 'MatrixOutput', matrix({ dataLanes: 2, lanePins: [5], dataLink: 'NLED Pixel Data Extender' }))
+    const split = node('out', 'MatrixOutput', matrix({ dataLanes: 2, lanePins: [5], dataLinkPartId: 'nled-pixel-data-extender-pair' }))
     const outputs = buildHardwareManifest([split], [], 'esp32:esp32:esp32s3').primaryItems
       .filter((item) => item.kind === 'matrix-output')
     expect(outputs.map((item) => typeof item.facts.dataLinkPartId)).toEqual(['string', 'string'])

@@ -12,6 +12,7 @@
 import type { ConverterPadsMm, PartCatalogueEntry } from '../partCatalogue'
 import { partTypeById, partTypeDrivesDevice, type PartTypeDefinition } from '../partTypes'
 import { keypadBlockIssue } from './keypadBlock'
+import { levelShifterBlockIssue } from './levelShifterBlock'
 import { ledOutputBlockIssue } from './ledOutputBlock'
 import { tftPanelBlockIssue } from './tftPanelBlock'
 import { DIMENSIONS_SPEC, PART_BLOCK_KEYS, PART_BLOCK_SPECS, RENDER_SPEC } from './blockSpecs'
@@ -279,6 +280,10 @@ export function validatePartManifest(value: unknown, origin: ManifestOrigin): Pa
   if (value.keypad !== undefined && !errors.some((error) => error.startsWith('keypad'))) {
     const issue = keypadBlockIssue(value.keypad)
     if (issue) errors.push(`keypad: ${issue}`)
+  }
+  if (value.levelShifter !== undefined && !errors.some((error) => error.startsWith('levelShifter') || error.startsWith('pads'))) {
+    const issue = levelShifterBlockIssue(value.levelShifter, value.pads, value.render)
+    if (issue) errors.push(`levelShifter: ${issue}`)
   }
   if (value.tftPanel !== undefined && value.display !== undefined
     && !errors.some((error) => error.startsWith('tftPanel') || error.startsWith('display'))) {

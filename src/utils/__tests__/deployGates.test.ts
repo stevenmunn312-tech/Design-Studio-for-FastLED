@@ -188,11 +188,11 @@ const CASES: GateCase[] = [
     name: 'a one-wire pixel data extender on a clocked chipset',
     nodes: [
       node('sc', 'SolidColor'),
-      node('out', 'MatrixOutput', { width: 8, height: 8, chipset: 'APA102', dataPin: 5, clockPin: 6, dataLink: 'NLED Pixel Data Extender' }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, chipset: 'APA102', dataPin: 5, clockPin: 6, dataLinkPartId: 'nled-pixel-data-extender-pair' }),
     ],
     edges: [edge('e1', 'sc', 'out')],
     fqbn: S3,
-    blocks: /NLED Pixel Data Extender carries one asynchronous pixel-data line/,
+    blocks: /NLED Pixel Data Extender TX.RX pair carries one asynchronous pixel-data line/,
     names: ['MatrixOutput', 'APA102', 'Direct'],
     diagnostic: 'out-pixel-data-extender',
   },

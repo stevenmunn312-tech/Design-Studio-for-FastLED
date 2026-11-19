@@ -547,6 +547,24 @@ export interface PartPixelDataExtenderSpec {
   pairConductors: string[]
 }
 
+/** A level shifter on an LED data line; its pads are the part's own `pads`, found by label. */
+export interface PartLevelShifterSpec {
+  /** The chip, as the BOM and the sheet name it. */
+  device: string
+  /** The package, as the sheet names it. */
+  packageName: string
+  /** Channels one chip carries; the sheet puts this many LED outputs on each chip. */
+  channels: number
+  supplyMinV: number
+  supplyMaxV: number
+  /** The lowest input voltage read as high: what the controller's logic must reach. */
+  inputHighMinV: number
+  /** Per channel, the pad labels of its input, output and output enable. */
+  channelPads: Array<{ in: string; out: string; oe: string }>
+  vccPad: string
+  gndPad: string
+}
+
 export type ConverterPadsMm = Record<'IN+' | 'IN-' | 'OUT+' | 'OUT-', [number, number]>
 
 /** A DC-DC converter between a 12/24 V source and a 5 V load. */
@@ -771,6 +789,8 @@ export interface PartCatalogueEntry {
   ethernet?: PartEthernetSpec
   /** Present exactly on a matched differential pixel-data extender pair. */
   pixelDataExtender?: PartPixelDataExtenderSpec
+  /** Present exactly on a level shifter chip for an LED data line. */
+  levelShifter?: PartLevelShifterSpec
   /** Present exactly on DC-DC converter modules. */
   powerConverter?: PartPowerConverterSpec
   /** Present exactly on individual battery cells. */

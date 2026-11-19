@@ -59,7 +59,8 @@ describe('manifest-driven Build Diagram facts match the retired per-part tables'
 
   it('covers every bundled part that was measured', () => {
     const covered = new Set(records.map((record) => record.partId))
-    const measured = Object.keys(PART_CATALOGUE).filter((partId) => modulePadGeometry(partId))
+    // A level shifter is drawn by its own graphic from its `levelShifter` block, not as a module header.
+    const measured = Object.keys(PART_CATALOGUE).filter((partId) => modulePadGeometry(partId) && !PART_CATALOGUE[partId].levelShifter)
     expect(measured.filter((partId) => !covered.has(partId))).toEqual([])
   })
 

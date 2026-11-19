@@ -2,6 +2,8 @@ import type { ElectricalPlanSummary } from '../../build/power/electricalPlan'
 import { POWER_PATH_KINDS, type HardwareManifestItem } from '../../build/hardwareManifest'
 import { fuseBlockAllocations, type FuseBlockCircuitCount } from '../../build/power/powerDistribution'
 import { partById, partPinLabelForProperty, sharedPadsAcrossBoards } from '../../build/parts/partCatalogue'
+import { levelShifterFor, type LevelShifter } from '../../state/peripherals/levelShifter'
+import type { LevelShifterPin } from '../../build/parts/manifest/levelShifterBlock'
 import { keypadSpec } from '../../state/peripherals/keypad'
 import { CONVERTER_SHEET_WIDTH } from './controllerGeometry'
 import { oledTransportFor, type OledTransport } from '../../state/displays/oledSurface'
@@ -1049,7 +1051,8 @@ export const OUTPUT_CARD_PITCH = OUTPUT_CARD_HEIGHT + OUTPUT_CARD_LABEL_HEIGHT +
 export const LEVEL_SHIFTER_X = 430
 export const LEVEL_SHIFTER_Y = 276
 export const LEVEL_SHIFTER_WIDTH = 180
-export const LEVEL_SHIFTER_HEIGHT = 230
+/** The chip's frame is at least this tall; a package with more rows grows it. */
+const LEVEL_SHIFTER_MIN_HEIGHT = 230
 /** Clears the four detour lanes that wrap under each chip (deepest is +57). */
 export const LEVEL_SHIFTER_GAP = 76
 
@@ -1059,56 +1062,127 @@ export type LevelShifterTerminalPoint = {
   side: 'left' | 'right'
 }
 
+/** Where the first terminal row and the column of left pins sit inside a chip's frame, and the pitch between rows. */
 const LEVEL_SHIFTER_LEFT_PIN_X = 35
-const LEVEL_SHIFTER_RIGHT_PIN_X = 147
-/** Terminal rows are fixed; the corridors and lanes around the chip are cut to them. */
 const LEVEL_SHIFTER_FIRST_ROW = 41
 const LEVEL_SHIFTER_PIN_PITCH = 25
-const LEVEL_SHIFTER_PIN_ROWS = Array.from({ length: 7 }, (_, row) => LEVEL_SHIFTER_FIRST_ROW + (row * LEVEL_SHIFTER_PIN_PITCH))
-/**
- * The legs as measured on `sn74ahct125n-dip14.webp` (400x654): the first leg
- * centred at 71.5 px, then one every 85 px. The photograph is scaled and placed
- * from those numbers so each leg lands on its terminal row — a fitted box with
- * a hand-typed pitch drifted a whole leg-width off by pin 7.
- */
-const LEVEL_SHIFTER_RENDER_PX = { width: 400, height: 654, firstLeg: 71.5, legPitch: 85 } as const
-const LEVEL_SHIFTER_RENDER_SCALE = LEVEL_SHIFTER_PIN_PITCH / LEVEL_SHIFTER_RENDER_PX.legPitch
-export const LEVEL_SHIFTER_RENDER_WIDTH = LEVEL_SHIFTER_RENDER_PX.width * LEVEL_SHIFTER_RENDER_SCALE
-export const LEVEL_SHIFTER_RENDER_HEIGHT = LEVEL_SHIFTER_RENDER_PX.height * LEVEL_SHIFTER_RENDER_SCALE
-export const LEVEL_SHIFTER_RENDER_Y = LEVEL_SHIFTER_FIRST_ROW - (LEVEL_SHIFTER_RENDER_PX.firstLeg * LEVEL_SHIFTER_RENDER_SCALE)
-/** Centred on the two pin columns, so both rows of leg tips reach their terminals. */
-export const LEVEL_SHIFTER_RENDER_X = ((LEVEL_SHIFTER_LEFT_PIN_X + LEVEL_SHIFTER_RIGHT_PIN_X) - LEVEL_SHIFTER_RENDER_WIDTH) / 2
-const LEVEL_SHIFTER_CHANNEL_PINS = [
-  { a: ['left', 1], y: ['left', 2], oe: ['left', 0] },
-  { a: ['left', 4], y: ['left', 5], oe: ['left', 3] },
-  { a: ['right', 5], y: ['right', 6], oe: ['right', 4] },
-  { a: ['right', 2], y: ['right', 3], oe: ['right', 1] },
-] as const
+/** From the last terminal row to the frame's bottom edge. */
+const LEVEL_SHIFTER_BOTTOM_MARGIN = 39
 
-export function levelShifterChipY(outputIndex: number) {
-  return LEVEL_SHIFTER_Y + (Math.floor(outputIndex / 4) * (LEVEL_SHIFTER_HEIGHT + LEVEL_SHIFTER_GAP))
+/**
+ * A level shifter chip as the sheet draws it: its picture scaled and placed
+ * from the part's own measured pads, and each terminal on the row its pad
+ * sits on. Terminal rows are fixed by the pitch; the picture is scaled so its
+ * pad pitch is that pitch, so each leg lands on its terminal. Nothing here is
+ * known about a particular chip: the pads, the channel count and the pin
+ * names come from the part's `levelShifter` block and `pads`.
+ */
+export interface LevelShifterGeometry {
+  partId: string
+  /** The chip and package, as its sheet label names them: "74AHCT125 DIP-14". */
+  name: string
+  channels: number
+  /** Pin number by pad label, and the label each pad is printed with. */
+  pinNumbers: ReadonlyMap<string, number>
+  spec: LevelShifter['spec']
+  /** Pin x inside the frame, by side. */
+  leftPinX: number
+  rightPinX: number
+  pinRows: readonly number[]
+  frameHeight: number
+  render: { x: number; y: number; width: number; height: number }
+  channelPins: LevelShifter['pads']['channelPins']
+  vcc: LevelShifterPin
+  gnd: LevelShifterPin
 }
 
-export function levelShifterTerminalPoint(
-  outputIndex: number,
-  terminal: 'a' | 'y' | 'oe',
-): LevelShifterTerminalPoint {
-  const pin = LEVEL_SHIFTER_CHANNEL_PINS[outputIndex % 4][terminal]
-  const side = pin[0]
+export function levelShifterGeometry(shifter: LevelShifter | null): LevelShifterGeometry | null {
+  if (!shifter) return null
+  const { pads, render, spec } = shifter
+  const scale = LEVEL_SHIFTER_PIN_PITCH / pads.rowPitchPx
+  const width = render.widthPx * scale
+  const height = render.heightPx * scale
+  // The columns sit as far apart as the pads do; a millionth of a unit is measurement noise.
+  const leftPinX = LEVEL_SHIFTER_LEFT_PIN_X
+  const rightPinX = leftPinX + (Math.round((pads.rightXPx - pads.leftXPx) * scale * 1000) / 1000)
+  const pinRows = Array.from({ length: pads.rows }, (_, row) => LEVEL_SHIFTER_FIRST_ROW + (row * LEVEL_SHIFTER_PIN_PITCH))
   return {
-    x: LEVEL_SHIFTER_X + (side === 'left' ? LEVEL_SHIFTER_LEFT_PIN_X : LEVEL_SHIFTER_RIGHT_PIN_X),
-    y: levelShifterChipY(outputIndex) + LEVEL_SHIFTER_PIN_ROWS[pin[1]],
-    side,
+    partId: shifter.partId,
+    name: `${spec.device} ${spec.packageName}`,
+    channels: spec.channels,
+    pinNumbers: pads.pinNumbers,
+    spec,
+    leftPinX,
+    rightPinX,
+    pinRows,
+    frameHeight: Math.max(LEVEL_SHIFTER_MIN_HEIGHT, pinRows[pinRows.length - 1] + LEVEL_SHIFTER_BOTTOM_MARGIN),
+    render: {
+      // Centred on the two pin columns, so both rows of leg tips reach their terminals.
+      x: ((leftPinX + rightPinX) - width) / 2,
+      y: LEVEL_SHIFTER_FIRST_ROW - (pads.firstRowPx * scale),
+      width,
+      height,
+    },
+    channelPins: pads.channelPins,
+    vcc: pads.vcc,
+    gnd: pads.gnd,
   }
 }
 
+/**
+ * The level shifter the sheet's LED outputs run through: the one part the
+ * Board names, carried on every output item. Null when the sheet has no output
+ * or the part is not one this version can draw, and nothing is drawn then.
+ */
+export function levelShifterForItems(items: readonly HardwareManifestItem[]): LevelShifterGeometry | null {
+  const output = items.find((item) => item.kind === 'matrix-output')
+  const partId = output?.facts?.levelShifterPartId
+  return typeof partId === 'string' ? levelShifterGeometry(levelShifterFor(partId)) : null
+}
+
+/** How many chips `outputs` LED outputs need: one channel per output. */
+export function levelShifterChipCount(outputs: number, geometry: LevelShifterGeometry | null): number {
+  return geometry && outputs > 0 ? Math.ceil(outputs / geometry.channels) : 0
+}
+
+/** Bottom edge of the last chip's frame and the gap under it, or 0 when no chip is drawn. */
+function levelShifterBottom(outputs: number, geometry: LevelShifterGeometry | null): number {
+  return geometry && outputs > 0
+    ? LEVEL_SHIFTER_Y + (levelShifterChipCount(outputs, geometry) * (geometry.frameHeight + LEVEL_SHIFTER_GAP))
+    : 0
+}
+
+export function levelShifterChipY(geometry: LevelShifterGeometry, outputIndex: number) {
+  return LEVEL_SHIFTER_Y + (Math.floor(outputIndex / geometry.channels) * (geometry.frameHeight + LEVEL_SHIFTER_GAP))
+}
+
+function levelShifterPinPoint(geometry: LevelShifterGeometry, pin: LevelShifterPin, chipY: number): LevelShifterTerminalPoint {
+  return {
+    x: LEVEL_SHIFTER_X + (pin.side === 'left' ? geometry.leftPinX : geometry.rightPinX),
+    y: chipY + geometry.pinRows[pin.row],
+    side: pin.side,
+  }
+}
+
+export function levelShifterTerminalPoint(
+  geometry: LevelShifterGeometry,
+  outputIndex: number,
+  terminal: 'a' | 'y' | 'oe',
+): LevelShifterTerminalPoint {
+  return levelShifterPinPoint(geometry, geometry.channelPins[outputIndex % geometry.channels][terminal], levelShifterChipY(geometry, outputIndex))
+}
+
 export function levelShifterSupplyPoint(
+  geometry: LevelShifterGeometry,
   chipIndex: number,
   terminal: 'vcc' | 'gnd',
 ): LevelShifterTerminalPoint {
-  return terminal === 'vcc'
-    ? { x: LEVEL_SHIFTER_X + LEVEL_SHIFTER_RIGHT_PIN_X, y: levelShifterChipY(chipIndex * 4) + LEVEL_SHIFTER_PIN_ROWS[0], side: 'right' }
-    : { x: LEVEL_SHIFTER_X + LEVEL_SHIFTER_LEFT_PIN_X, y: levelShifterChipY(chipIndex * 4) + LEVEL_SHIFTER_PIN_ROWS[6], side: 'left' }
+  return levelShifterPinPoint(geometry, terminal === 'vcc' ? geometry.vcc : geometry.gnd, levelShifterChipY(geometry, chipIndex * geometry.channels))
+}
+
+/** The pin number and printed name of a pad, as a terminal label reads: "P2 A1". */
+export function levelShifterPinLabel(geometry: LevelShifterGeometry, padLabel: string): string {
+  return `P${geometry.pinNumbers.get(padLabel)} ${padLabel}`
 }
 
 /**
@@ -1275,9 +1349,7 @@ export function itemLayouts(items: HardwareManifestItem[]): ItemLayout[] {
     outputY += height + OUTPUT_CARD_LABEL_HEIGHT + ((titleLines - 1) * PART_TITLE_LINE_PITCH) + 14
     return layout
   })
-  const shifterBottom = outputs.length > 0
-    ? LEVEL_SHIFTER_Y + (Math.ceil(outputs.length / 4) * (LEVEL_SHIFTER_HEIGHT + LEVEL_SHIFTER_GAP))
-    : 0
+  const shifterBottom = levelShifterBottom(outputs.length, levelShifterForItems(items))
   // Each row is only as deep as its own lane stack needs, so a lone button
   // does not reserve the space an encoder-heavy row would.
   const rowSignalCounts: number[] = []
@@ -1338,9 +1410,7 @@ const ALL_HEIGHT_LAYERS: DiagramHeightLayers = { levelShifter: true, powerDistri
 export function diagramContentBottom(items: HardwareManifestItem[], layers: DiagramHeightLayers = ALL_HEIGHT_LAYERS) {
   const layouts = itemLayouts(items)
   const outputCount = layouts.filter((layout) => layout.item.kind === 'matrix-output').length
-  const shifterBottom = layers.levelShifter && outputCount > 0
-    ? LEVEL_SHIFTER_Y + (Math.ceil(outputCount / 4) * (LEVEL_SHIFTER_HEIGHT + LEVEL_SHIFTER_GAP))
-    : 0
+  const shifterBottom = layers.levelShifter ? levelShifterBottom(outputCount, levelShifterForItems(items)) : 0
   return Math.max(0, shifterBottom, ...layouts.map((layout) => layout.y + layout.height))
 }
 

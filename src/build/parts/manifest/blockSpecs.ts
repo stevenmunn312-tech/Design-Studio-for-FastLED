@@ -274,6 +274,23 @@ export const PART_BLOCK_SPECS = {
     supplyMaxV: positive(),
     pairConductors: arr(str({ maxLength: 40 }), 1, 16),
   }),
+  // A level shifter on an LED data line: the package's pad labels per channel and for the supply,
+  // looked up among the part's own `pads`. The diagram routes four lanes per chip at most.
+  levelShifter: obj({
+    device: str({ nonEmpty: true, maxLength: 40 }),
+    packageName: str({ nonEmpty: true, maxLength: 40 }),
+    channels: int(1, 4),
+    supplyMinV: positive(),
+    supplyMaxV: positive(),
+    inputHighMinV: positive(),
+    channelPads: arr(obj({
+      in: str({ nonEmpty: true, maxLength: 40 }),
+      out: str({ nonEmpty: true, maxLength: 40 }),
+      oe: str({ nonEmpty: true, maxLength: 40 }),
+    }), 1, 4),
+    vccPad: str({ nonEmpty: true, maxLength: 40 }),
+    gndPad: str({ nonEmpty: true, maxLength: 40 }),
+  }),
   powerConverter: obj({
     role: oneOf('controller', 'led-rail'),
     roles: opt(arr(oneOf('controller', 'led-rail'), 1, 2)),
