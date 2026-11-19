@@ -188,7 +188,7 @@ describe('Frame Transform keeps the looks it replaced', () => {
     const W = 12, H = 10
     const src = source(W, H)
     for (const [zoom, degrees, edgeMode] of [[1.42, 0, 'wrap'], [1.2, -8, 'wrap'], [1.5, 0, 'clamp'], [0.8, 5.5, 'clamp']] as const) {
-      const now = transformed({ mode: 'smooth', scale: zoom, rotate: degrees, edgeMode, sampling: 'bilinear' }, 0, W, H)
+      const now = transformed({ mode: 'smooth', scale: zoom, rotation: degrees, edgeMode, sampling: 'bilinear' }, 0, W, H)
       const before = oldWarpView(src, zoom, degrees, edgeMode, W, H)
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
