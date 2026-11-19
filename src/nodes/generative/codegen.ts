@@ -322,7 +322,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     ln(`    float _p=fmodf(${ph},1.0f); if(_p<0.0f)_p+=1.0f;`)
     ln(`    float _env=${breatheEnvelopeCpp(curve, '_p')};`)
     ln(`    float _min=constrain(${f('minLevel', 'minLevel', 0.05)},0.0f,1.0f),_lv=_min+(1.0f-_min)*_env;`)
-    ln(`    CRGB _c=ColorFromPalette(${pal},(uint8_t)(_env*255.0f)); _c.r=(uint8_t)(_c.r*_lv); _c.g=(uint8_t)(_c.g*_lv); _c.b=(uint8_t)(_c.b*_lv);`)
+    ln(`    CRGB _c=ColorFromPalette(${pal},(uint8_t)(_env*255.0f),255,LINEARBLEND_NOWRAP); _c.r=(uint8_t)(_c.r*_lv); _c.g=(uint8_t)(_c.g*_lv); _c.b=(uint8_t)(_c.b*_lv);`)
     ln(`    fill_solid(${ob},NUM_LEDS,_c); }`)
   },
   Confetti({ node, id, p, ln, f, ownBuf, paletteExpr, needsT }) {
@@ -432,7 +432,7 @@ const CORE_GENERATIVE_EMITTERS: NodeEmitters = {
     ln(`    for(int _i=0;_i<_count;_i++){ _bx[_i]=WIDTH*(0.5f+0.4f*sin(${ph}*(0.7f+_i*0.13f)+_i*1.7f)); _by[_i]=HEIGHT*(0.5f+0.4f*cos(${ph}*(0.6f+_i*0.17f)+_i*2.3f)); }`)
     ln(`    for(int _y=0;_y<HEIGHT;_y++) for(int _x=0;_x<WIDTH;_x++){ float _f=0;`)
     ln(`      for(int _i=0;_i<_count;_i++){ float _dx=_x-_bx[_i],_dy=_y-_by[_i]; _f+=_r2/(_dx*_dx+_dy*_dy+1.0f); }`)
-    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_f/(_f+1.0f))*255)); }}`)
+    ln(`      ${ob}[_y*WIDTH+_x]=ColorFromPalette(${pal},(uint8_t)((_f/(_f+1.0f))*255),255,LINEARBLEND_NOWRAP); }}`)
   },
 }
 

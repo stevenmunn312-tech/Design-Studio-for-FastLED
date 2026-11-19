@@ -3,6 +3,7 @@ import { sizingSide } from '../shared/stringCanvas'
 import { compileFieldFormula, fieldFormulaReadsPrev } from '../shared/formulaLang'
 import { GEOMETRY_FIELD_SPEED_MAX, denormRate, SPEED_MAX, SCALE_MAX } from '../shared/speedRange'
 import { speedPhase } from '../shared/speedClock'
+import { passFrames, passStepFrames } from '../shared/passClock'
 import { noiseFieldFrame, noiseFieldSum, truchetFrame, truchetPixel, wallpaperFrame, wallpaperSourceQ8 } from '../shared/integerPatterns'
 import type { Frame } from '../../state/palettes/ledColor'
 import { compileFormula, fieldFormulaCache, centeredX, centeredY } from '../../state/evaluator/formula'
@@ -88,7 +89,8 @@ const turingState = instanceState('turingState', new Map<string, TuringState>())
  * McCabe multi-scale Turing field. The state restarts from its seeded noise
  * when the canvas size or seed changes, and from a fresh epoch of that noise on
  * each rising edge of `reset`, so the same edges give the same pattern on the
- * controller.
+ * controller. `stepFrames` is the whole 60 fps frames owed this pass
+ * (`passStepFrames`): the per-frame iterations run once for each.
  */
 export function evalTuringField(
   nodeId: string,
@@ -100,6 +102,7 @@ export function evalTuringField(
   seed: number,
   W = DEFAULT_W,
   H = DEFAULT_H,
+  stepFrames = 1,
 ): Field {
   const N = W * H
   let s = turingState.get(nodeId)
@@ -119,7 +122,7 @@ export function evalTuringField(
 
   const radii = turingRadii(scalesValue, baseRadiusValue)
   const stepSize = turingStepSize(stepSizeValue)
-  const iterations = turingIterations(speedValue)
+  const iterations = turingIterations(speedValue) * stepFrames
   for (let it = 0; it < iterations; it++) turingStep(s.a, s.prefix, W, H, radii, stepSize)
 
   const out = allocField(N)
@@ -316,7 +319,7 @@ function injectWaveSimRipple(field: Float32Array, [px, py]: [number, number], im
 // wired splash position, or null for the cycle.
 function evalWaveSim(
   nodeId: string, trigger: boolean, speed: number, damping: number, impulse: number, wrapEdges: boolean, halfDuplex: boolean,
-  splashX: number | null, splashY: number | null, W = DEFAULT_W, H = DEFAULT_H,
+  splashX: number | null, splashY: number | null, W = DEFAULT_W, H = DEFAULT_H, stepFrames = 1,
 ): Field {
   const N = W * H
   let s = waveSimState.get(nodeId)
@@ -340,7 +343,8 @@ function evalWaveSim(
   }
   s.prevTrigger = trigger
 
-  const iters = Math.max(1, Math.min(12, Math.floor(speed)))
+  // Speed is wave steps a 60 fps frame, run for each whole frame owed.
+  const iters = Math.max(1, Math.min(12, Math.floor(speed))) * stepFrames
   const damp = Math.max(0.8, Math.min(0.999, damping))
   for (let it = 0; it < iters; it++) {
     for (let y = 0; y < H; y++) {
@@ -712,9 +716,10 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
     }
     return { field: evalGeometryField(stateKey(id), fp, t, W, H) }
   },
-  TuringField({ input, num, W, H, stateKey }, id, props) {
+  TuringField({ input, num, t, W, H, stateKey }, id, props) {
+    const key = stateKey(id)
     return { field: evalTuringField(
-      stateKey(id),
+      key,
       Boolean(input(id, 'reset', false)),
       num(id, 'speed', props, 'speed', 2),
       num(id, 'stepSize', props, 'stepSize', 0.05),
@@ -722,28 +727,38 @@ export const FIELD_EVALUATORS: NodeEvaluators = {
       props.baseRadius ?? 1,
       normalizedSeed(props.seed),
       W, H,
+      passStepFrames(`${key}:steps`, passFrames(key, t)),
     ) }
   },
-  WaveSim({ input, num, W, H, stateKey }, id, props) {
+  WaveSim({ input, num, t, W, H, stateKey }, id, props) {
+    const key = stateKey(id)
     const trigger = Boolean(input(id, 'trigger', false))
     const speed = num(id, 'speed', props, 'speed', 4)
     const damping = num(id, 'damping', props, 'damping', 0.985)
     const impulse = Math.max(0.1, Math.min(1, num(id, 'impulse', props, 'impulse', 1)))
     const at = (port: string) => { const v = input(id, port, null); return typeof v === 'number' ? v : null }
-    return { field: evalWaveSim(stateKey(id), trigger, speed, damping, impulse, props.wrapEdges !== false, props.halfDuplex === true, at('splashX'), at('splashY'), W, H) }
+    const steps = passStepFrames(`${key}:steps`, passFrames(key, t))
+    return { field: evalWaveSim(key, trigger, speed, damping, impulse, props.wrapEdges !== false, props.halfDuplex === true, at('splashX'), at('splashY'), W, H, steps) }
   },
-  FluidSim({ input, num, W, H, stateKey }, id, props) {
+  FluidSim({ input, num, t, W, H, stateKey }, id, props) {
     const key = stateKey(id)
     let s = fluidState.get(key)
     if (!s || s.w !== W || s.h !== H) { s = makeFluid(W, H); fluidState.set(key, s) }
     const trigger = Boolean(input(id, 'trigger', false))
     const px = num(id, 'injectX', props, 'injectX', 0.5), py = num(id, 'injectY', props, 'injectY', 0.85)
-    fluidInject(s, px, py, num(id, 'inject', props, 'inject', 0.6))
+    // The puff is an edge, so it lands once; the inflow, forces and solver
+    // are a frame's worth each, run for each whole 60 fps frame owed.
     if (trigger && !s.prevTrigger) fluidPuff(s, px, py)
     s.prevTrigger = trigger
     const fx = input(id, 'forceX', null), fy = input(id, 'forceY', null)
-    fluidForces(s, fx instanceof Float32Array ? fx : null, fy instanceof Float32Array ? fy : null, Number(props.buoyancy ?? 0.5))
-    fluidStep(s, fluidIterations(num(id, 'quality', props, 'quality', 8)), num(id, 'viscosity', props, 'viscosity', 0), num(id, 'diffusion', props, 'diffusion', 0), num(id, 'dissipation', props, 'dissipation', 0.02))
+    const amount = num(id, 'inject', props, 'inject', 0.6), iterations = fluidIterations(num(id, 'quality', props, 'quality', 8))
+    const viscosity = num(id, 'viscosity', props, 'viscosity', 0), diffusion = num(id, 'diffusion', props, 'diffusion', 0), dissipation = num(id, 'dissipation', props, 'dissipation', 0.02)
+    const steps = passStepFrames(`${key}:steps`, passFrames(key, t))
+    for (let step = 0; step < steps; step++) {
+      fluidInject(s, px, py, amount)
+      fluidForces(s, fx instanceof Float32Array ? fx : null, fy instanceof Float32Array ? fy : null, Number(props.buoyancy ?? 0.5))
+      fluidStep(s, iterations, viscosity, diffusion, dissipation)
+    }
     const n = W * H, dye = allocField(n), vx = allocField(n), vy = allocField(n)
     for (let i = 0; i < n; i++) {
       dye[i] = Math.max(0, Math.min(1, s.d[i]))

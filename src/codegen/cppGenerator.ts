@@ -1823,8 +1823,10 @@ const FASTLED_INCLUDE = '#include <FastLED.h>'
  * that way costs a compile we already pay for today, while being wrong the
  * other way breaks the build.
  */
-function withoutUnusedFastLed(lines: string[]): string[] {
-  const uses = /\b(FastLED|CRGB|CHSV|CLEDController|CPixelView|fill_solid|fill_rainbow|fill_gradient\w*|nscale8\w*|blend8|beatsin\d*|inoise\d*|EVERY_N_\w+|qadd8|qsub8|scale8\w*)\b/
+export function withoutUnusedFastLed(lines: string[]): string[] {
+  // `fl::` is FastLED's own namespace; the lib8tion names cover the random,
+  // wave, easing and fixed-point maths helpers emitted code calls by name.
+  const uses = /\bfl::|\b(FastLED|CRGB\w*|CHSV|CHSVPalette\w*|ColorFromPalette|CLEDController|CPixelView|fill_solid|fill_rainbow|fill_gradient\w*|fadeToBlackBy|fadeLightBy|nblend|blend|nscale8\w*|blend8|beat(?:sin)?\d*|inoise\d*|EVERY_N_\w+|q(?:add|sub|mul)\d+|scale\d+\w*|random\d+\w*|ease\d+\w*|(?:sin|cos)\d+|(?:tri|quad|cubic)wave\d+|lerp\d+by\d+|map8|sqrt16|(?:dim|brighten)8\w*|avg\d+\w*|(?:abs|add|sub|mul)8)\b/
   const needed = lines.some((line) => line !== FASTLED_INCLUDE && uses.test(line))
   if (needed) return lines
   return lines.filter((line) => line !== FASTLED_INCLUDE)

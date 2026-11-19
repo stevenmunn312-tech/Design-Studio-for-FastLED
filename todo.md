@@ -73,14 +73,14 @@ more after the freeze.
 
 ### Firmware and preview parity
 
-- [ ] `withoutUnusedFastLed` misses `random8`/`random16`, `ease8*`,
+- [x] `withoutUnusedFastLed` misses `random8`/`random16`, `ease8*`,
   `sin8`/`sin16` and `fl::` (`cppGenerator.ts:1815`).
-- [ ] Blobs and Breathe: palette wrap differs between preview and board.
-- [ ] Game of Life: `Math.round` on the interval.
-- [ ] WaveSim, FluidSim and TuringField step once per pass, not once per
+- [x] Blobs and Breathe: palette wrap differs between preview and board.
+- [x] Game of Life: `Math.round` on the interval.
+- [x] WaveSim, FluidSim and TuringField step once per pass, not once per
   frame.
-- [ ] Bounds-check the sync follower index.
-- [ ] Mask rounding differs between preview and board.
+- [x] Bounds-check the sync follower index.
+- [x] Mask rounding differs between preview and board.
 
 ### UI and release
 

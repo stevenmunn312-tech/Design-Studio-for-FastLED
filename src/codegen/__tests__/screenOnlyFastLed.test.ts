@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import { addDisplayWidget, createDisplayDocument } from '../../state/displays/displayEditor'
-import { generateCpp } from '../cppGenerator'
+import { generateCpp, withoutUnusedFastLed } from '../cppGenerator'
 import type { StudioNode } from '../../state/graphStore'
 
 /**
@@ -74,5 +74,28 @@ describe('FastLED in a screen-only sketch', () => {
       expect(code).toContain('lv_screen_load(')
       expect(code).toContain('_cdServiceLvgl();')
     }
+  })
+})
+
+describe('withoutUnusedFastLed', () => {
+  const sketchWith = (line: string) => withoutUnusedFastLed(['#include <FastLED.h>', 'void loop() {', line, '}'])
+
+  it.each([
+    '  uint8_t r = random8();',
+    '  uint16_t r = random16(100);',
+    '  uint8_t e = ease8InOutQuad(x);',
+    '  uint8_t s = sin8(t);',
+    '  int16_t s = sin16(t);',
+    '  uint8_t c = cos8(t);',
+    '  uint8_t w = triwave8(t);',
+    '  uint8_t l = lerp8by8(a, b, f);',
+    '  int m = fl::max(a, b);',
+    '  fl::i16 v = 0;',
+  ])('keeps the include for %s', (line) => {
+    expect(sketchWith(line)).toContain('#include <FastLED.h>')
+  })
+
+  it('drops it when nothing names FastLED', () => {
+    expect(sketchWith('  delay(1);')).not.toContain('#include <FastLED.h>')
   })
 })

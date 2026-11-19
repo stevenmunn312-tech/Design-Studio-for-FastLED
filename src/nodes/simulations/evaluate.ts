@@ -1042,6 +1042,16 @@ export function golStep(cells: Uint8Array, next: Uint8Array, prev: Uint8Array, W
   return pop === 0 || !changed || !changed2
 }
 
+/**
+ * Milliseconds between generations, as the sketch's
+ * `(uint32_t)(1000.0f / max(1.0f, speed))` truncates them. The preview once
+ * rounded a whole number of 60 fps ticks instead, so 8 generations a second
+ * ran at 7.5 and 25 at 30.
+ */
+export function golIntervalMs(speed: number): number {
+  return Math.floor(1000 / Math.max(1, speed))
+}
+
 function evalGameOfLife(nodeId: string, palette: Palette, speed: number, trail: number, tick: number, W = DEFAULT_W, H = DEFAULT_H, seed = 0): Frame {
   const N = W * H
   const reseed = (cells: Uint8Array) => {
@@ -1054,8 +1064,8 @@ function evalGameOfLife(nodeId: string, palette: Palette, speed: number, trail: 
     s = { cells, next: new Uint8Array(N), prev: new Uint8Array(N), bright: new Float32Array(N), w: W, h: H, seed, lastStep: -1e9, stale: 0 }
     golState.set(nodeId, s)
   }
-  const interval = Math.max(1, Math.round(60 / Math.max(1, Math.min(60, speed))))
-  if (tick - s.lastStep >= interval) {
+  // Elapsed ticks are 60 fps frames; the board compares millis().
+  if (((tick - s.lastStep) * 1000) / 60 >= golIntervalMs(speed)) {
     const { cells, next, prev } = s
     const stagnant = golStep(cells, next, prev, W, H)
     s.cells = next; s.next = cells   // swap

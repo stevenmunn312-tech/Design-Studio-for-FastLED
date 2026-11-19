@@ -25,7 +25,7 @@ import { usesNetwork } from '../../codegen/peripherals/networkCpp'
 import { midiUsesUart } from '../../state/peripherals/midiSource'
 import { MidiEngine } from '../../midi/midiEngine'
 import { findPreviewOnlyWarnings } from '../../utils/validateGraph'
-import type { Frame } from '../../state/palettes/ledColor'
+import { samplePaletteClamped, type Frame } from '../../state/palettes/ledColor'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
@@ -85,6 +85,15 @@ describe('the one-dimensional classics', () => {
     const cpp = generateCpp([node('b', 'Breathe', { curve: 'natural' })], [])
     expect(cpp).toContain('// Breathe')
     expect(cpp).toContain('expf(sinf(')
+  })
+
+  it('Breathe and Blobs hold the palette ends on both sides', () => {
+    // Triangle at 60 bpm peaks at half a second: tick 30 at 60 fps.
+    const peak = frameOf([node('b', 'Breathe', { curve: 'triangle', bpm: 60, palette: 'ocean' })], [], 'b', 30)[0][0]
+    expect(peak).toEqual(samplePaletteClamped('ocean', 1))
+    expect(peak).not.toEqual(samplePaletteClamped('ocean', 0))
+    expect(generateCpp([node('b', 'Breathe')], [])).toContain('(uint8_t)(_env*255.0f),255,LINEARBLEND_NOWRAP)')
+    expect(generateCpp([node('m', 'Blobs')], [])).toContain('(uint8_t)((_f/(_f+1.0f))*255),255,LINEARBLEND_NOWRAP)')
   })
 })
 

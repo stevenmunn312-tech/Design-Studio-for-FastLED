@@ -458,8 +458,10 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
       frame: src.map((row, y) =>
         row.map((px, x) => {
           const m = maskF?.[y]?.[x]
-          const a = m ? (m.r + m.g + m.b) / 3 / 255 : 1
-          return { r: Math.round(px.r * a), g: Math.round(px.g * a), b: Math.round(px.b * a) }
+          if (!m) return { ...px }
+          // The sketch's `nscale8` by the truncated average brightness.
+          const a = Math.trunc((m.r + m.g + m.b) / 3)
+          return { r: scale8(px.r, a), g: scale8(px.g, a), b: scale8(px.b, a) }
         })
       ),
     }
