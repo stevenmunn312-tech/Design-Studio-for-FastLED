@@ -577,6 +577,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   wired each sketch resolves it at generation time. `propertyMetaFor` draws a
   position as a 0–1 slider or, in pixels, a free number (Line's then takes an
   expression).
+- A hue offset is `hueShift`, in degrees, on every node that carries one
+  (Adjust Color, Hue Shift, Image, Beat Kaleidoscope). Degrees are the wheel
+  Hue Cycle, HSV → RGB, Harmony Palette and Audio → Hue already speak, and
+  Adjust Color and Image had them first; the 0–1 "turns" Hue Shift once took
+  needed a ×360 in both implementations and a Map Range in every patch that
+  wired a hue into it. Sliders run −180 to 180 (Beat Kaleidoscope keeps 0 to
+  360, the span Audio → Hue emits). FastLED's 0–255 byte wheel is never a
+  saved unit: a node that needs it converts when it emits.
 - A node's `field` output is `field_<id>` in the sketch; any other field
   output (Slice Tiling's `cell`) is `field_<id>_<port>`, declared by
   `ownField(port)`. `srcField` resolves a wire by the port it leaves, where it

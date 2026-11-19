@@ -67,10 +67,10 @@ describe('the sketch HSV helper', () => {
 
   it('shifts hue and scales saturation as Hue Shift and Saturation do', () => {
     const frame = [colors]
-    for (const shift of [-1.25, -0.3, 0, 0.1, 0.5, 1.7]) {
+    for (const shift of [-450, -108, 0, 36, 180, 612]) {
       const ctx = { input: () => frame, num: () => shift } as unknown as EvalContext
       const out = COMPOSITE_EVALUATORS.HueShift!(ctx, 'n', {}, node, 'HueShift').frame as RGB[][]
-      colors.forEach((c, i) => expect(sketch._hsvAdjust(c, shift * 360, 1), `shift ${shift}`).toEqual(out[0][i]))
+      colors.forEach((c, i) => expect(sketch._hsvAdjust(c, shift, 1), `shift ${shift}`).toEqual(out[0][i]))
     }
     for (const amount of [0, 0.4, 1, 2.5]) {
       const ctx = { input: () => frame, num: () => amount } as unknown as EvalContext

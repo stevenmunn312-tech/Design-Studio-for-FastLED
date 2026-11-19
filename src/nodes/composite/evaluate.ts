@@ -466,7 +466,7 @@ export const COMPOSITE_EVALUATORS: NodeEvaluators = {
   },
   HueShift({ input, num }, id, props) {
     const src = input(id, 'frame', null) as Frame | null
-    const shift = num(id, 'shift', props, 'shift', 0) * 360
+    const shift = num(id, 'hueShift', props, 'hueShift', 0)
     if (!src) { return { frame: null } }
     return {
       frame: src.map(row =>

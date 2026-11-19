@@ -608,8 +608,9 @@ export const PROPERTY_META: Record<string, PropertyControl> = {
   intensity:  { control: 'slider', min: 0, max: 2, step: 0.05 },
   s:          { control: 'slider', min: 0, max: 1, step: 0.01 },
   v:          { control: 'slider', min: 0, max: 1, step: 0.01 },
-  // Hue Shift's rotation amount, normalised 0–1 across the full 360° hue wheel.
-  shift:      { control: 'slider', min: 0, max: 1, step: 0.01 },
+  // The one hue-offset unit: degrees round the wheel, wherever a node carries
+  // a hue shift (Adjust Color, Hue Shift, Image, Beat Kaleidoscope).
+  hueShift:   { control: 'slider', min: -180, max: 180, step: 1 },
   // 0–255 byte ranges (FastLED heat sim + CHSV channels).
   cooling:    { control: 'slider', min: 0, max: 255, step: 1 },
   sparking:   { control: 'slider', min: 0, max: 255, step: 1 },
@@ -763,7 +764,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     kelvin: { control: 'slider', min: COLOR_TEMPERATURE_K.min, max: COLOR_TEMPERATURE_K.max, step: 50 },
   },
   AdjustColor: {
-    hueShift: { control: 'slider', min: -180, max: 180, step: 1 },
     saturation: { control: 'slider', min: 0, max: 2, step: 0.01 },
     brightness: { control: 'slider', min: 0, max: 2, step: 0.01 },
   },
@@ -1085,11 +1085,11 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     blendMode: { control: 'select', options: ['add', 'max'] },
   },
   PrismStorm:       { speed: N01 },
-  // BeatKaleidoscope's hue comes from AudioHue (0-360°), not the generic
-  // FastLED-style hue byte (0-255).
+  // BeatKaleidoscope's hue shift comes from AudioHue (0-360°), so it keeps the
+  // full turn rather than the generic -180 to 180.
   BeatKaleidoscope: {
     speed: N01,
-    hue: { control: 'slider', min: 0, max: 360, step: 1 },
+    hueShift: { control: 'slider', min: 0, max: 360, step: 1 },
   },
   // No generic `tiles` key exists elsewhere (tilesX/tilesY are separate).
   SpectraMosaic: {
@@ -1732,7 +1732,6 @@ export const PROPERTY_META_OVERRIDES: Record<string, Record<string, PropertyCont
     cropY:     { control: 'slider', min: 0, max: 1, step: 0.01 },
     saturation:{ control: 'slider', min: 0, max: 2, step: 0.01 },
     contrast:  { control: 'slider', min: 0, max: 2, step: 0.01 },
-    hueShift:  { control: 'slider', min: -180, max: 180, step: 1 },
     gamma:     { control: 'slider', min: 1, max: 3.5, step: 0.1 },
     paletteLevels: { control: 'select', options: ['full', '2', '4', '8', '16', '32'] },
     dithering: { control: 'select', options: ['none', 'ordered2x2', 'ordered4x4'] },
@@ -2798,7 +2797,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     blendMode: 'Add sums overlapping rings (brighter); Max keeps the brightest only (no blow-out).',
   },
   BeatKaleidoscope: {
-    hue: 'Palette start offset in degrees (0–360); wire an audio hue into Hue to colour-shift with the music.',
+    hueShift: 'Palette start offset in degrees (0–360); wire an audio hue into Hue Shift to colour-shift with the music.',
     speed: 'Rotation rate (0–1; 0.5 is the default pace, 1 twice as fast); each beat adds wedges and a spin kick that decays.',
   },
   SpectraMosaic: {
@@ -3294,7 +3293,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     brightness: 'Multiplies every pixel. 1 is unchanged, 0 is black, up to 3 boosts (clipped at full white).',
   },
   HueShift: {
-    shift: 'Rotates every colour around the hue wheel. 0.5 turns red into cyan; 1 is a full turn.',
+    hueShift: 'Degrees to turn every colour round the hue wheel: 180 turns red into cyan, 360 is a full turn back to where it started.',
   },
   Gamma: {
     gamma: 'Curve applied before output so mid-tones look right on LEDs. 2.2 to 2.8 suits most strips.',
@@ -3829,6 +3828,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
     mixMode: 'mix',
   },
   Temperature: { kelvin: 'temperature (K)' },
+  HueShift: { hueShift: 'hue shift (°)' },
   AdjustColor: { hueShift: 'hue shift (°)', saturation: 'saturation (×)', brightness: 'brightness (×)' },
   // Hue, saturation and brightness read the same on every HSV node; "value"
   // and single letters are jargon.

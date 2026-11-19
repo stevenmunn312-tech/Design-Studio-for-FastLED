@@ -268,12 +268,12 @@ export const COMPOSITE_EMITTERS: NodeEmitters = {
     if (mask) ln(`    for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i].nscale8((${mask}[_i].r + ${mask}[_i].g + ${mask}[_i].b) / 3);`)
     ln(`  }`)
   },
-  // Shift is in turns; _hsv wraps any hue, so a negative or >1 shift is safe.
+  // Hue Shift is in degrees; _hsv wraps any hue, so a negative or >360 shift is safe.
   HueShift({ ln, f, ownBuf, seedFrom, needsHsv }) {
     needsHsv.v = true
     const ob = ownBuf()
-    const shift = f('shift', 'shift', 0)
-    ln(`  { ${seedFrom('frame')} float _dh = (${shift}) * 360.0f; for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = _hsvAdjust(${ob}[_i], _dh, 1.0f); }`)
+    const shift = f('hueShift', 'hueShift', 0)
+    ln(`  { ${seedFrom('frame')} float _dh = (${shift}); for (int _i = 0; _i < NUM_LEDS; _i++) ${ob}[_i] = _hsvAdjust(${ob}[_i], _dh, 1.0f); }`)
   },
   // RGB→HSV→scale saturation→RGB, on the preview's wheel. Keep brightness
   // scales each channel's distance from the Rec. 709 luma instead, rounding

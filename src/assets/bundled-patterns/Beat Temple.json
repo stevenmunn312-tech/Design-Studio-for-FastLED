@@ -291,7 +291,7 @@
      "nodeType": "BeatKaleidoscope",
      "category": "pattern",
      "properties": {
-      "hue": 0,
+      "hueShift": 0,
       "reactivity": 0.7,
       "speed": 0.45,
       "palette": "ultraviolet"
@@ -303,8 +303,8 @@
        "dataType": "bool"
       },
       {
-       "id": "hue",
-       "label": "Hue",
+       "id": "hueShift",
+       "label": "Hue Shift (°)",
        "dataType": "float"
       },
       {
@@ -692,7 +692,7 @@
     "source": "hue",
     "sourceHandle": "hue",
     "target": "kal",
-    "targetHandle": "hue",
+    "targetHandle": "hueShift",
     "type": "glowEdge",
     "reconnectable": "target"
    },

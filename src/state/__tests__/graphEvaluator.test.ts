@@ -732,7 +732,7 @@ describe('evaluateGraph', () => {
     const W16 = 16, H16 = 16
     const T0 = 360000 // ticks ≈ 100 minutes of app clock
     const cases: Array<{ type: string; prop: string; base: number; step: number; props: Record<string, unknown> }> = [
-      { type: 'BeatKaleidoscope', prop: 'reactivity', base: 0.5, step: 0.05, props: { hue: 0, speed: 1 } },
+      { type: 'BeatKaleidoscope', prop: 'reactivity', base: 0.5, step: 0.05, props: { hueShift: 0, speed: 1 } },
       { type: 'SpectraMosaic', prop: 'reactivity', base: 0.5, step: 0.05, props: { bass: 0.5, mids: 0.5, treble: 0.5, speed: 1, tiles: 4 } },
       // TurbulentBloom's warp is steep, so run it slow with a tiny step — the
       // t-scaled bug would still shift its noise phase by hundreds of units.

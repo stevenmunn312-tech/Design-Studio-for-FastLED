@@ -1206,7 +1206,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
   BeatKaleidoscope: {
     overview: [
       'Beat Kaleidoscope mirrors a plasma into wedges, and on every beat it snaps to more wedges and kicks into a spin that winds down.',
-      'Hue shifts the palette round the wheel; wire Audio → Hue into it and the colours follow the mix as well as the beat.',
+      'Hue Shift turns the palette round the wheel, in degrees; wire Audio → Hue into it and the colours follow the mix as well as the beat.',
     ],
     inputs: {
       beat: 'Each rising edge adds wedges and a spin kick.',
@@ -1228,7 +1228,7 @@ export const PATTERN_REFERENCE: NodeReferenceMap = {
         'fft.mids > hue.mids',
         'fft.treble > hue.treble',
         'beat.beat > scope.beat',
-        'hue.hue > scope.hue',
+        'hue.hue > scope.hueShift',
       ],
       explanation: 'Beat Detect kicks Beat Kaleidoscope into a spin on every beat, while Audio → Hue turns the balance of the bands into a hue that shifts its palette.',
       preview: 'Play music near the microphone. The {output} shows a mirrored ultraviolet plasma that snaps and spins on each beat, its colours drifting with the mix.',

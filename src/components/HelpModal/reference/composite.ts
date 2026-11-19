@@ -148,7 +148,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
 
   HueShift: {
     overview: [
-      'Hue Shift turns every colour in a frame round the colour wheel by the same amount. 0.5 turns red into cyan; 1 is a full turn back to where it started.',
+      'Hue Shift turns every colour in a frame round the colour wheel by the same amount. Its amount is in degrees: 180 turns red into cyan, and 360 is a full turn back to where it started.',
       'It recolours any pattern without touching its shape or brightness — green fire, purple water — and with a moving signal the colours cycle.',
     ],
     inputs: { frame: FRAME_IN },
@@ -158,7 +158,7 @@ export const COMPOSITE_REFERENCE: NodeReferenceMap = {
       title: 'Witch’s fire',
       nodes: {
         flames: ['Fire', { fireStyle: 'classic', palette: 'fire' }],
-        brew: ['HueShift', { shift: 0.33 }],
+        brew: ['HueShift', { hueShift: 120 }],
       },
       wires: ['flames.frame > brew.frame'],
       explanation: 'Hue Shift turns Fire’s colours a third of the way round the wheel, so reds and oranges become greens and the fire burns like a cauldron.',

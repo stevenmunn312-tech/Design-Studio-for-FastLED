@@ -67,7 +67,7 @@ const encoderExample: LiveExampleSpec = {
     { key: 'out', type: 'MatrixOutput', dx: 540, dy: -225 },
   ],
   edges: [
-    { source: 'encoder', sourceHandle: 'position', target: 'hue', targetHandle: 'shift' },
+    { source: 'encoder', sourceHandle: 'position', target: 'hue', targetHandle: 'hueShift' },
     { source: 'noise', sourceHandle: 'frame', target: 'hue', targetHandle: 'frame' },
     { source: 'hue', sourceHandle: 'frame', target: 'flash', targetHandle: 'frame' },
     { source: 'encoder', sourceHandle: 'pressed', target: 'flash', targetHandle: 'beat' },
@@ -87,7 +87,7 @@ const midiExample: LiveExampleSpec = {
   ],
   edges: [
     { source: 'noise', sourceHandle: 'frame', target: 'hue', targetHandle: 'frame' },
-    { source: 'midi', sourceHandle: 'cc', target: 'hue', targetHandle: 'shift' },
+    { source: 'midi', sourceHandle: 'cc', target: 'hue', targetHandle: 'hueShift' },
     { source: 'noise', sourceHandle: 'frame', target: 'switch', targetHandle: 'a' },
     { source: 'hue', sourceHandle: 'frame', target: 'switch', targetHandle: 'b' },
     { source: 'midi', sourceHandle: 'gate', target: 'switch', targetHandle: 'sel' },
@@ -302,7 +302,7 @@ describe('insertLiveExample', () => {
     expect(state.nodes).toHaveLength(5)
     expect(state.edges).toHaveLength(5)
     expect(result.skippedConnections).toEqual([])
-    expect(inputIds(hue)).toContain('shift')
+    expect(inputIds(hue)).toContain('hueShift')
     expect(inputIds(flash)).toContain('beat')
   })
 

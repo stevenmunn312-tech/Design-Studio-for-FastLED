@@ -134,11 +134,11 @@ export const COMPOSITE_DEFINITIONS: NodeDefinition[] = [
     subcategory: 'Color',
     inputs: [
       { id: 'frame', label: 'Frame', dataType: 'frame' },
-      { id: 'shift', label: 'Shift', dataType: 'float' },
+      { id: 'hueShift', label: 'Hue Shift (°)', dataType: 'float' },
     ],
-    propertyInputs: { shift: 'shift' },
+    propertyInputs: { hueShift: 'hueShift' },
     outputs: [{ id: 'frame', label: 'Frame', dataType: 'frame' }],
-    defaultProperties: { shift: 0 },
+    defaultProperties: { hueShift: 0 },
   },
   {
     // Perceptual gamma correction (FastLED napplyGamma_video) so gradients and
