@@ -9,6 +9,11 @@
 // (backend/storage.py). Raise the number when a saved shape changes in a way
 // an older app cannot read, together with a migration for the older shape.
 //
+// A `#share=` link carries the same workspace shape as a project file, so it
+// uses this same number (`formatVersion` beside `nodes` in the link's payload)
+// and is refused the same way; a link without one predates versions and reads
+// as format 1.
+//
 // A file without a version was written before versions existed (0.x) and
 // reads as format 1. Display documents keep their own `schemaVersion`, and a
 // library bundle its own `version`.
@@ -28,14 +33,14 @@ export function newerSaveFormat(value: unknown): number | null {
 }
 
 /** Why a newer file was refused, for a status line or an import error. */
-export function newerSaveFormatMessage(kind: 'project' | 'pattern', version: number): string {
-  return `This ${kind} was saved by a newer Design Studio (format ${version}; this version reads format ${SAVE_FORMAT_VERSION}). Update Design Studio to open it.`
+export function newerSaveFormatMessage(kind: 'project' | 'pattern' | 'share link', version: number): string {
+  return `This ${kind} was ${kind === 'share link' ? 'made' : 'saved'} by a newer Design Studio (format ${version}; this version reads format ${SAVE_FORMAT_VERSION}). Update Design Studio to open it.`
 }
 
 /** Thrown by a parser that refuses a newer file, so the caller can show the
  *  reason instead of a generic "invalid file". */
 export class NewerSaveFormatError extends Error {
-  constructor(kind: 'project' | 'pattern', version: number) {
+  constructor(kind: 'project' | 'pattern' | 'share link', version: number) {
     super(newerSaveFormatMessage(kind, version))
     this.name = 'NewerSaveFormatError'
   }

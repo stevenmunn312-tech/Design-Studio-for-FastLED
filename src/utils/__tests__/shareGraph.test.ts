@@ -115,4 +115,26 @@ describe('shareGraph', () => {
       { ...read!.workspace, trusted: false },
     )).not.toThrow()
   })
+
+  it('stamps the current format version on a link, outside the workspace it loads', async () => {
+    const { decompressFromEncodedURIComponent } = await import('lz-string')
+    const { SAVE_FORMAT_VERSION } = await import('../../state/saveFormat')
+    const url = buildShareUrl(workspace)
+    const payload = JSON.parse(decompressFromEncodedURIComponent(new URL(url).hash.slice('#share='.length))!)
+    expect(payload.formatVersion).toBe(SAVE_FORMAT_VERSION)
+    window.location.hash = new URL(url).hash
+    expect(readSharedWorkspace()?.workspace).not.toHaveProperty('formatVersion')
+  })
+
+  it('reads a link from before versions as the current format', () => {
+    share({ nodes: [], edges: [] })
+    expect(readSharedWorkspace()?.dropped).toBe(0)
+  })
+
+  it('refuses a link made by a newer app with a plain message', async () => {
+    const { SAVE_FORMAT_VERSION, NewerSaveFormatError } = await import('../../state/saveFormat')
+    share({ formatVersion: SAVE_FORMAT_VERSION + 1, nodes: [], edges: [] })
+    expect(() => readSharedWorkspace()).toThrow(NewerSaveFormatError)
+    expect(() => readSharedWorkspace()).toThrow(/share link was made by a newer Design Studio/)
+  })
 })

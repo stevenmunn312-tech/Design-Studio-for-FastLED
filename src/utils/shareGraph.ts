@@ -1,6 +1,8 @@
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string'
 import type { StudioNode, StudioEdge, WorkspaceExtras } from '../state/graphStore'
 import type { SavedParts } from '../build/parts/savedParts'
+import { NewerSaveFormatError, newerSaveFormat, withSaveFormat } from '../state/saveFormat'
+import type { PersistedWorkspace } from '../state/workspacePersistence'
 import { isWorkspacePayload, sanitizeWorkspacePayload } from './workspacePayload'
 
 const HASH_KEY = 'share'
@@ -18,7 +20,7 @@ export interface SharedWorkspaceRead {
 }
 
 function urlFor(workspace: WorkspacePayload): string {
-  const compressed = compressToEncodedURIComponent(JSON.stringify(workspace))
+  const compressed = compressToEncodedURIComponent(JSON.stringify(withSaveFormat(workspace)))
   const url = new URL(window.location.href)
   url.hash = `${HASH_KEY}=${compressed}`
   return url.toString()
@@ -50,18 +52,31 @@ export function shareUrlSizeWarning(url: string): string | null {
   return `This share link is ${kb} KB. Links past about 30 KB get cut off by browsers and chat apps. Use Save Project File for a project this size.`
 }
 
+/** The workspace a `#share=` link carries, or null when there is none or it is
+ *  unreadable. Throws `NewerSaveFormatError` for a link a newer app made: it
+ *  is refused whole, since sanitizing would drop what that app added. */
 export function readSharedWorkspace(): SharedWorkspaceRead | null {
   const hash = window.location.hash.replace(/^#/, '')
   if (!hash.startsWith(`${HASH_KEY}=`)) return null
   const compressed = hash.slice(HASH_KEY.length + 1)
+  let parsed: unknown
   try {
     const json = decompressFromEncodedURIComponent(compressed)
     if (!json) return null
-    const parsed: unknown = JSON.parse(json)
+    parsed = JSON.parse(json)
+  } catch {
+    return null
+  }
+  const newer = newerSaveFormat(parsed)
+  if (newer !== null) throw new NewerSaveFormatError('share link', newer)
+  try {
     if (!isWorkspacePayload(parsed)) return null
     const sanitized = sanitizeWorkspacePayload(parsed)
     if (!sanitized) return null
-    return { workspace: sanitized.workspace, dropped: sanitized.dropped }
+    // The version describes the link, not the workspace.
+    const workspace: PersistedWorkspace & { formatVersion?: number } = { ...sanitized.workspace }
+    delete workspace.formatVersion
+    return { workspace, dropped: sanitized.dropped }
   } catch {
     return null
   }

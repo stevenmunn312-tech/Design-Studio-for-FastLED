@@ -21,6 +21,7 @@ import { useMusicStore } from './state/player/musicStore'
 import { isMusicLibraryRestoring, waitForMusicLibraryRestore } from './state/player/musicLibraryPersistence'
 import { useProjectStore } from './state/projectStore'
 import { readSharedWorkspace, clearShareHash } from './utils/shareGraph'
+import { NewerSaveFormatError } from './state/saveFormat'
 import { clearLibraryHash, importLibraryBundle, libraryImportStatus, readLibraryHash } from './state/library/libraryBundle'
 import { workspaceLoadStatus } from './utils/workspacePayload'
 import { pushSnapshot } from './state/snapshotHistory'
@@ -264,10 +265,13 @@ export default function App() {
             shared.dropped > 0 || unresolvedParts.length > 0 ? 'info' : 'success',
           )
           return
-        } catch {
+        } catch (error) {
           if (cancelled) return
           clearShareHash()
-          useUiStore.getState().setStatus('Share link could not be opened', 'error')
+          useUiStore.getState().setStatus(
+            error instanceof NewerSaveFormatError ? error.message : 'Share link could not be opened',
+            'error',
+          )
         }
       }
       const keptCopies = await useProjectStore.getState().refreshFromDisk()
