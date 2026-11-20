@@ -929,7 +929,8 @@ fbuild 2.5.52. **262 passed.** The Arduino Nano ESP32 passes on fbuild.
   discoverable, so FastLED's guarded `<WiFi.h>` include (the same cause as
   §18) pulls in a library the plain Pico cannot build. The board is now
   mapped to `rpipico`, the Earle Philhower core, as arduino-cli builds it,
-  and both legs pass locally on 2.5.52.
+  and both legs pass on 2.5.52, locally and on GitHub
+  ([run 44655397875](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/44655397875)), so all 264 legs pass.
 
 ---
 
