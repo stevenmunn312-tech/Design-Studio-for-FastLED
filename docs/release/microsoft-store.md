@@ -111,7 +111,10 @@ covers it. Every other test should pass; investigate any that does not.
    desktop process."
 5. **Listing:** description, at least one screenshot (1366x768 or larger),
    category Developer tools, the age-rating questionnaire, a privacy policy
-   URL and a support contact. Say in the description that the app downloads
+   URL and a support contact. The privacy policy is
+   [`PRIVACY.md`](../../PRIVACY.md); give its GitHub URL,
+   `https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/blob/main/PRIVACY.md`,
+   and keep it in step with what the app stores and sends. Say in the description that the app downloads
    compilers and board support packages (Arduino CLI, ESP32 and RP2040 cores,
    FastLED) on first use, and that it needs a USB connection to a
    microcontroller board to upload.
