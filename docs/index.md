@@ -220,6 +220,7 @@ gates are separate documents.
 - [Beta Support Matrix](release/beta-support-matrix.md)
 - [Desktop Distribution](release/desktop-distribution.md)
 - [Microsoft Store](release/microsoft-store.md)
+- [Store listing copy](release/store-listing.md)
 - [Supported Platform Policy](release/supported-platform-policy.md)
 - [Versioning and Releases](release/versioning-and-releases.md)
 

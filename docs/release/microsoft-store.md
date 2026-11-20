@@ -109,7 +109,8 @@ covers it. Every other test should pass; investigate any that does not.
    firmware with the Arduino toolchain, flashes microcontrollers over USB
    serial ports, and opens native file dialogs, which needs a full-trust
    desktop process."
-5. **Listing:** description, at least one screenshot (1366x768 or larger),
+5. **Listing:** the copy is in [Store listing](store-listing.md):
+   description, at least one screenshot (1366x768 or larger),
    category Developer tools, the age-rating questionnaire, a privacy policy
    URL and a support contact. The privacy policy is
    [`PRIVACY.md`](../../PRIVACY.md); give its GitHub URL,
