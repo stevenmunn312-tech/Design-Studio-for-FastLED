@@ -606,7 +606,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   alias table, `src/state/preV1Aliases.ts`, which every workspace and pattern
   load, import and share link passes. It is the only file that may name an old
   id (with its test), it removes a wire into the old 0 to 1 Hue Shift input
-  (the value is now degrees), and todo.md step 6 deletes it. A rename made
+  (the value is now degrees), and todo.md HW-18 deletes it. A rename made
   after the freeze needs a real migration, not an entry there.
 - A node's `field` output is `field_<id>` in the sketch; any other field
   output (Slice Tiling's `cell`) is `field_<id>_<port>`, declared by

@@ -1,4 +1,4 @@
-// PRE-1.0 ONLY. Delete this file in todo.md step 6's leftover sweep.
+// PRE-1.0 ONLY. Delete this file in todo.md HW-18's leftover sweep.
 //
 // The one place old save shapes are named. Before v1.0.0 a saved shape that
 // changes is removed cleanly (CLAUDE.md, Saves), but Steve's saves, share links

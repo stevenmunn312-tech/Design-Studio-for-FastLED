@@ -2,7 +2,7 @@
 // renames opens as the new shape and generates the same firmware as a save
 // written with the new ids. The old ids below are written out as literals on
 // purpose: this file and the table are the only places that may name them, and
-// both go when the table is removed in todo.md step 6.
+// both go when the table is removed in todo.md HW-18.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NODE_LIBRARY } from '../nodeLibrary'
 import { generateCpp } from '../../codegen/cppGenerator'
