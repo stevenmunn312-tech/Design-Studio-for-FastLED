@@ -912,6 +912,27 @@ Espressif Python on the laptop still holds 2.5.45.
 
 ---
 
+## Code-freeze run on fbuild 2.5.52 (20 November 2026)
+
+The whole matrix ran on GitHub on the frozen commit
+([run 44648953155](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/44648953155),
+20 Windows runners, commit `f4596f5`): 264 legs on Arduino CLI 1.5.1 and
+fbuild 2.5.52. **262 passed.** The Arduino Nano ESP32 passes on fbuild.
+
+- **The two failures were the app's own board mapping, not an fbuild fault.**
+  `ir/normal@rp2040` and `power-switch/gated-rp2040@rp2040` stopped in the
+  Mbed core's WiFi library
+  (`WiFi.h:188: 'WiFiAccessPoint' does not name a type`). `_PIO_BOARDS`
+  mapped `rp2040:rp2040:rpipico` to fbuild's `pico` board, which is Arduino's
+  Mbed core, not the Earle Philhower core that FQBN names. Through 2.5.51
+  FastLED compiled there anyway; 2.5.52 makes the core's bundled libraries
+  discoverable, so FastLED's guarded `<WiFi.h>` include (the same cause as
+  §18) pulls in a library the plain Pico cannot build. The board is now
+  mapped to `rpipico`, the Earle Philhower core, as arduino-cli builds it,
+  and both legs pass locally on 2.5.52.
+
+---
+
 ## Boards mapped on 12 November 2026
 
 Eighteen offered boards had no fbuild environment and built with arduino-cli

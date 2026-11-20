@@ -635,7 +635,9 @@ _PIO_BOARDS: dict[str, dict] = {
     "teensy:avr:teensy31": {"platform": "teensy", "board": "teensy31"},
     "teensy:avr:teensy30": {"platform": "teensy", "board": "teensy30"},
     "teensy:avr:teensyLC": {"platform": "teensy", "board": "teensyLC"},
-    "rp2040:rp2040:rpipico": {"platform": "raspberrypi", "board": "pico"},
+    # fbuild's `pico` board is the Mbed core; `rpipico` is the Earle Philhower
+    # core this FQBN names (runbook, "Code-freeze run on fbuild 2.5.52").
+    "rp2040:rp2040:rpipico": {"platform": "raspberrypi", "board": "rpipico"},
     "rp2040:rp2040:rpipico2": {"platform": "raspberrypi", "board": "rpipico2"},
     "rp2040:rp2040:adafruit_kb2040": {"platform": "raspberrypi", "board": "adafruit_kb2040"},
     "arduino:samd:nano_33_iot": {"platform": "atmelsam", "board": "nano_33_iot"},
