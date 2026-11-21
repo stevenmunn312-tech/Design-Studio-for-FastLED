@@ -46,7 +46,8 @@ and recovery evidence
   publish through the [Microsoft Store](docs/release/microsoft-store.md) MSIX,
   which the Store signs. The listing is filled in; the MSIX is built from the
   `v1.0.0` tag and submitted after step 4's tag, not before. A 1.0.0.0 package
-  built from `ce83f98` was submitted early on 2026-11-20 and withdrawn.
+  built from `ce83f98` was submitted early on 2026-11-20; it stays as a dry
+  run of certification, never published, and is deleted once its result is in.
 - [ ] Run the Windows package on a clean account or machine, through launch
   and an upload.
 - [x] Reconcile the fbuild 2.5.4 tools the macOS bundle substitutes with the
