@@ -49,7 +49,7 @@ describe('README module list', () => {
 
   it('states the current module count everywhere it is advertised', () => {
     const total = NODE_LIBRARY.length
-    expect(README).toContain(`**Public beta · ${total} modules`)
+    expect(README).toContain(`**Version 1.0 · ${total} modules`)
     expect(README).toContain(`Choose from ${total} modules`)
     expect(README).toContain(`Show all ${total} modules by category`)
   })
