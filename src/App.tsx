@@ -738,7 +738,9 @@ export default function App() {
     <div data-surface={stageMode ? 'dark' : undefined} className={`${styles.app} ${stageMode ? styles.appStage : ''} ${stageCursorHidden ? styles.appStageCursorHidden : ''}`}>
       <div className={styles.menuShell}><MenuBar /></div>
       {!stageMode && <TrustBanner />}
-      <div className={`${styles.workspace} ${stageMode ? styles.workspaceStage : ''} ${workspaceMode === 'build' ? styles.workspaceBuild : ''}`}>
+      {/* The main landmark, so a screen reader's landmark keys reach the
+          workspace as well as the menu bar, library and status bar. */}
+      <main className={`${styles.workspace} ${stageMode ? styles.workspaceStage : ''} ${workspaceMode === 'build' ? styles.workspaceBuild : ''}`}>
         {!stageMode && <WorkspaceTabs />}
         <div className={styles.workspaceCanvas}>
           <div className={`${styles.mainRegion} ${workspaceMode === 'build' && previewPanelOpen ? styles.mainRegionBuildPreviewOpen : ''}`}>
@@ -843,7 +845,7 @@ export default function App() {
           )}
         </div>
         {!stageMode && workspaceMode !== 'build' && <GraphHealthDrawer />}
-      </div>
+      </main>
       <div className={styles.statusShell}><StatusBar /></div>
       <PerformanceDeckMidiBridge />
       <LiveTouchScreen />

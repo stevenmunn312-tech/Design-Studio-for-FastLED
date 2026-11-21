@@ -9,7 +9,8 @@ Everything else moved out on 2026-11-12:
 
 - **Bench and community testing** is in the
   [bench backlog](docs/plans/bench-backlog.md). It runs in parallel and holds up
-  nothing here; step 3 (HW-18) uses whatever evidence is on record when it is reached.
+  nothing here; HW-18 set the v1 scope from the evidence on record on
+  2026-11-21 ([support matrix](docs/release/beta-support-matrix.md)).
 - **Work deferred until after v1** is in the
   [post-v1 list](docs/plans/post-v1.md).
 - **The code freeze** was declared on 2026-11-20 on fbuild 2.5.52, and the
@@ -52,37 +53,6 @@ and recovery evidence
 - [ ] Run the Linux package on a clean machine.
 - [x] Record a checksum and a provenance record for every archive. The
   package workflow writes a SHA-256 file and a GitHub attestation for each.
-
-## 3. HW-18 · v1 scope and format baseline
-
-The pre-1.0 compatibility sweep is done
-([cleanup record](docs/release/versioning-and-releases.md#pre-v1-cleanup-record)).
-
-- [x] Remove any pre-1.0 leftover found since the sweep, the same way,
-  without a migration. Done 2026-11-21: the first trust store's fold-in
-  ([cleanup record](docs/release/versioning-and-releases.md#pre-v1-cleanup-record)).
-- [x] Delete `src/state/preV1Aliases.ts`, its test and its call sites. Done
-  2026-11-21; Steve's saved projects held none of the old ids.
-- [x] Choose the supported combinations from the evidence on record in the
-  [bench backlog](docs/plans/bench-backlog.md) and the reports, and update the
-  [support matrix](docs/release/beta-support-matrix.md). Everything else stays
-  experimental. Done 2026-11-21: the recorded ESP32-S3, classic ESP32 and
-  ESP8266 rows on Windows 11 with Chrome, no rerun on the freeze build; the
-  S3 SD show (#194) and Wi-Fi records were added.
-- [x] Reconcile the release copy with that scope. Done 2026-11-21: README,
-  Help and the hardware report drop "beta"; the Store listing copy already
-  matched. The website is not in this repository.
-- [x] Freeze the panel, document and control save format. It becomes the
-  compatibility baseline. Done 2026-11-21: format 1, guarded by
-  `saveFormatBaseline.test.ts`
-  ([versioning](docs/release/versioning-and-releases.md#development-lines-and-the-v1-baseline)).
-- [x] Record the limitations and deferments. Done 2026-11-21 in the
-  [support matrix](docs/release/beta-support-matrix.md#known-limitations-in-v100);
-  deferments stay in the [post-v1 list](docs/plans/post-v1.md).
-- [ ] Repeat the
-  [keyboard and screen-reader smoke test](docs/release/accessibility-smoke-test.md)
-  on the candidate build; the recorded pass (2026-07-26) predates the
-  workspace tabs and shelves.
 
 ## 4. Release
 

@@ -89,16 +89,16 @@ the change: lint, 1,478 tests across 93 files, and the production build.
 
 ## Completion record
 
-Status: **Keyboard and NVDA focus-mode passes recorded on the v1 candidate; the browse-mode checks below are still to do by hand.**
+Status: **Passed on the v1 candidate** (keyboard 2026-11-21, NVDA 2026-11-22).
 
-The 2026-07-26 pass predates the workspace tabs and shelves, so the v1
-candidate needs both scenarios again (todo.md HW-18).
+The 2026-07-26 pass predated the workspace tabs and shelves, so both
+scenarios were repeated on the v1 candidate.
 
 | Date | Tester | Windows | Chrome | NVDA | Build | Keyboard | Screen reader | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-26 | User-confirmed | Version not supplied | Version not supplied | Version not supplied | Local Vite app | Pass | Pass | NVDA pass confirmed by the user; exact environment versions were not supplied. |
 | 2026-11-21 | Claude Code, keys only | 11 (10.0.26300) | Chromium 156.0.8078.100 (Claude desktop browser pane) | Not run | Local Vite app, helper blocked | Pass after fixes | Pending | See the v1 candidate keyboard pass below. |
-| 2026-11-22 | Claude Code, NVDA speech log | 11 (10.0.26300) | Google Chrome | 2026.3.1 | Local Vite app, helper blocked | — | Pass after fixes, browse-mode checks pending | See the v1 candidate NVDA pass below. |
+| 2026-11-22 | Claude Code (speech log) and user (browse mode) | 11 (10.0.26300) | Google Chrome | 2026.3.1 | Local Vite app, helper blocked | — | Pass after fixes | See the v1 candidate NVDA pass below. |
 
 ## v1 candidate keyboard pass — 2026-11-21
 
@@ -167,11 +167,12 @@ Known and left:
   focus settles on the graph editor.
 - Node search announces neither its result count nor that it is a search.
 
-Browse-mode checks still to do by hand (about 5 minutes, NVDA in Chrome):
+Browse-mode checks, done by the user with NVDA in Chrome (NVDA's landmark
+key D stands in for the elements list on a keyboard without Insert; use
+Caps Lock as the NVDA key there):
 
-1. Insert+F7, Landmarks: banner, navigation, complementary and content info
-   are listed; note that there is no main landmark.
-2. Arrow through a collapsed node property group and the closed Checks
-   drawer in browse mode: their contents must not be read.
-3. Arrow past the LED preview and node previews: no stream of unnamed
-   graphics; Record and the transport buttons have names.
+1. Landmarks: banner, navigation, complementary and content info were
+   found. There was no main landmark; the workspace is now a `<main>`.
+2. Collapsed node property groups read as collapsed buttons and the closed
+   Checks drawer read only its summary: their contents were not read.
+3. The LED preview was quiet: no run of unnamed graphics.

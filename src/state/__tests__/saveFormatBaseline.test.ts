@@ -1,4 +1,4 @@
-// The v1 save-format baseline (frozen 2026-11-21, todo.md HW-18).
+// The v1 save-format baseline (frozen 2026-11-21; versioning-and-releases.md).
 //
 // A saved project names node types, port ids (on edges and exposed inputs)
 // and property keys. Removing or renaming any of them after v1.0.0 makes a v1
