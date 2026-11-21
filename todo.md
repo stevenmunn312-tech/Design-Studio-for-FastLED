@@ -22,18 +22,6 @@ Everything else moved out on 2026-11-12:
   before 2026-09-24 in the
   [earlier archive](docs/archive/hardware-todo-to-2026-09-24.md).
 
-## 1. Close the save format to new shapes
-
-- [ ] Land or drop every remaining merge, rename and removed property. None is
-  open on 2026-11-12. From here a saved shape changes only to remove a pre-1.0
-  leftover, until step 3 (HW-18) freezes the format.
-- [x] Give project and pattern files a format version before the freeze.
-  Done 2026-11-17: `formatVersion: 1` from `src/state/saveFormat.ts`; newer
-  files are refused on open and import, left out of the folder listings, and
-  never overwritten by the helper. Graph JSON import and export were removed,
-  so the project file is the one workspace shape
-  ([versioning](docs/release/versioning-and-releases.md#development-lines-and-the-v1-baseline)).
-
 ## 2. HW-17 · Distribution smoke tests
 
 Exit: per-platform launch and install, helper discovery, permissions, offline
@@ -82,8 +70,10 @@ The pre-1.0 compatibility sweep is done
   ESP8266 rows on Windows 11 with Chrome, no rerun on the freeze build; the
   S3 SD show (#194) and Wi-Fi records were added.
 - [ ] Reconcile the release copy with that scope.
-- [ ] Freeze the panel, document and control save format. It becomes the
-  compatibility baseline.
+- [x] Freeze the panel, document and control save format. It becomes the
+  compatibility baseline. Done 2026-11-21: format 1, guarded by
+  `saveFormatBaseline.test.ts`
+  ([versioning](docs/release/versioning-and-releases.md#development-lines-and-the-v1-baseline)).
 - [x] Record the limitations and deferments. Done 2026-11-21 in the
   [support matrix](docs/release/beta-support-matrix.md#known-limitations-in-v100);
   deferments stay in the [post-v1 list](docs/plans/post-v1.md).

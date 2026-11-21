@@ -8,6 +8,8 @@
 // overwrite a file whose version is newer than the save it receives
 // (backend/storage.py). Raise the number when a saved shape changes in a way
 // an older app cannot read, together with a migration for the older shape.
+// Format 1 froze with v1.0.0 (versioning-and-releases.md); its node names are
+// held by __tests__/saveFormatBaseline.json.
 //
 // A `#share=` link carries the same workspace shape as a project file, so it
 // uses this same number (`formatVersion` beside `nodes` in the link's payload)

@@ -1,0 +1,4322 @@
+{
+  "formatVersion": 1,
+  "displayDocumentSchemaVersion": 1,
+  "nodes": {
+    "AdjustColor": {
+      "inputs": [
+        "brightness",
+        "color",
+        "hueShift",
+        "saturation"
+      ],
+      "outputs": [
+        "color"
+      ],
+      "properties": [
+        "b",
+        "brightness",
+        "g",
+        "hueShift",
+        "r",
+        "saturation"
+      ]
+    },
+    "Amplifier": {
+      "inputs": [],
+      "outputs": [],
+      "properties": [
+        "i2sBclk",
+        "i2sDout",
+        "i2sLrc",
+        "maxVolume",
+        "model"
+      ]
+    },
+    "AnalogSensorInput": {
+      "inputs": [],
+      "outputs": [
+        "value"
+      ],
+      "properties": [
+        "partId",
+        "pin"
+      ]
+    },
+    "Animartrix": {
+      "inputs": [
+        "audio",
+        "audioAmount",
+        "bass",
+        "beat",
+        "hihat",
+        "kick",
+        "mids",
+        "snare",
+        "speed",
+        "treble"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "audioAmount",
+        "bass",
+        "effect",
+        "hihat",
+        "kick",
+        "mids",
+        "snare",
+        "speed",
+        "treble"
+      ]
+    },
+    "Array": {
+      "inputs": [
+        "angle",
+        "count",
+        "falloff",
+        "frame",
+        "offsetX",
+        "offsetY",
+        "scale"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "angle",
+        "blendMode",
+        "count",
+        "falloff",
+        "offsetX",
+        "offsetY",
+        "scale"
+      ]
+    },
+    "Audio": {
+      "inputs": [],
+      "outputs": [
+        "audio"
+      ],
+      "properties": [
+        "sourceId"
+      ]
+    },
+    "AudioCascade": {
+      "inputs": [
+        "audio",
+        "bass",
+        "mids",
+        "paletteIn",
+        "reactivity",
+        "speed",
+        "treble"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "bass",
+        "mids",
+        "palette",
+        "reactivity",
+        "speed",
+        "treble"
+      ]
+    },
+    "AudioFeatures": {
+      "inputs": [
+        "audio",
+        "gate",
+        "sensitivity",
+        "smoothing"
+      ],
+      "outputs": [
+        "energy",
+        "level",
+        "loudness",
+        "silence",
+        "vocals"
+      ],
+      "properties": [
+        "gate",
+        "sensitivity",
+        "smoothing"
+      ]
+    },
+    "AudioFlow": {
+      "inputs": [
+        "audio",
+        "bass",
+        "mids",
+        "paletteIn",
+        "scale",
+        "speed",
+        "treble"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "bass",
+        "mids",
+        "palette",
+        "scale",
+        "speed",
+        "treble"
+      ]
+    },
+    "AudioHue": {
+      "inputs": [
+        "bass",
+        "bassWeight",
+        "mids",
+        "midsWeight",
+        "treble",
+        "trebleWeight"
+      ],
+      "outputs": [
+        "hue"
+      ],
+      "properties": [
+        "bass",
+        "bassWeight",
+        "hueSpan",
+        "hueStart",
+        "mids",
+        "midsWeight",
+        "mode",
+        "treble",
+        "trebleWeight"
+      ]
+    },
+    "Automaton": {
+      "inputs": [
+        "reset",
+        "rule",
+        "spawn",
+        "speed"
+      ],
+      "outputs": [
+        "field"
+      ],
+      "properties": [
+        "automatonType",
+        "rule",
+        "seed",
+        "spawn",
+        "speed",
+        "states",
+        "threshold"
+      ]
+    },
+    "BassPulse": {
+      "inputs": [
+        "audio",
+        "bass",
+        "paletteIn"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "bass",
+        "palette"
+      ]
+    },
+    "BassRings": {
+      "inputs": [
+        "audio",
+        "bass",
+        "paletteIn",
+        "reactivity",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "bass",
+        "palette",
+        "reactivity",
+        "speed"
+      ]
+    },
+    "BatteryModule": {
+      "inputs": [],
+      "outputs": [],
+      "properties": [
+        "partId"
+      ]
+    },
+    "BatteryPack": {
+      "inputs": [],
+      "outputs": [],
+      "properties": [
+        "parallel",
+        "partId",
+        "series"
+      ]
+    },
+    "BeatDetect": {
+      "inputs": [
+        "attack",
+        "audio",
+        "decay",
+        "threshold"
+      ],
+      "outputs": [
+        "beat",
+        "bpm"
+      ],
+      "properties": [
+        "attack",
+        "decay",
+        "threshold"
+      ]
+    },
+    "BeatFlash": {
+      "inputs": [
+        "attack",
+        "b",
+        "beat",
+        "decay",
+        "frame",
+        "g",
+        "intensity",
+        "paletteIn",
+        "r"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "attack",
+        "b",
+        "colorSource",
+        "decay",
+        "flashMode",
+        "g",
+        "intensity",
+        "palette",
+        "r"
+      ]
+    },
+    "BeatKaleidoscope": {
+      "inputs": [
+        "beat",
+        "hueShift",
+        "paletteIn",
+        "reactivity",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "hueShift",
+        "palette",
+        "reactivity",
+        "speed"
+      ]
+    },
+    "BeatPhase": {
+      "inputs": [
+        "beat",
+        "bpm"
+      ],
+      "outputs": [
+        "bar",
+        "count",
+        "phase"
+      ],
+      "properties": [
+        "beatsPerBar",
+        "bpm"
+      ]
+    },
+    "Blend": {
+      "inputs": [
+        "a",
+        "amount",
+        "b",
+        "mask"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "amount",
+        "blendMode"
+      ]
+    },
+    "Blobs": {
+      "inputs": [
+        "count",
+        "paletteIn",
+        "size",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "count",
+        "palette",
+        "size",
+        "speed"
+      ]
+    },
+    "Blur2D": {
+      "inputs": [
+        "amount",
+        "frame"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "amount"
+      ]
+    },
+    "Board": {
+      "inputs": [],
+      "outputs": [],
+      "properties": [
+        "brightness",
+        "clockSync",
+        "frameRate",
+        "ledDriver",
+        "levelShifterPartId",
+        "milliamps",
+        "overclock",
+        "powerLimit",
+        "profileId",
+        "psramMode",
+        "psramPolicy",
+        "reportTelemetry",
+        "serialRoute",
+        "staticDns",
+        "staticGateway",
+        "staticIp",
+        "staticSubnet",
+        "useDhcp",
+        "wifiHostname"
+      ]
+    },
+    "Boids": {
+      "inputs": [
+        "alignment",
+        "b",
+        "cohesion",
+        "color",
+        "count",
+        "g",
+        "paletteIn",
+        "r",
+        "separation",
+        "speed",
+        "visualRange"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "alignment",
+        "b",
+        "cohesion",
+        "colorMode",
+        "count",
+        "g",
+        "palette",
+        "r",
+        "seed",
+        "separation",
+        "speed",
+        "visualRange"
+      ]
+    },
+    "Breathe": {
+      "inputs": [
+        "bpm",
+        "minLevel",
+        "paletteIn"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "bpm",
+        "curve",
+        "minLevel",
+        "palette"
+      ]
+    },
+    "BrightnessMod": {
+      "inputs": [
+        "brightness",
+        "frame"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "brightness"
+      ]
+    },
+    "ButtonBank": {
+      "inputs": [],
+      "outputs": [
+        "add-button"
+      ],
+      "properties": [
+        "buttons"
+      ]
+    },
+    "BuzzerOutput": {
+      "inputs": [
+        "on",
+        "pitch"
+      ],
+      "outputs": [],
+      "properties": [
+        "partId",
+        "pitchHz",
+        "sigPin"
+      ]
+    },
+    "Candle": {
+      "inputs": [
+        "flicker",
+        "warmth"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "flicker",
+        "mode",
+        "warmth"
+      ]
+    },
+    "Clamp": {
+      "inputs": [
+        "max",
+        "min",
+        "value"
+      ],
+      "outputs": [
+        "result"
+      ],
+      "properties": [
+        "max",
+        "min",
+        "value"
+      ]
+    },
+    "ClockDisplay": {
+      "inputs": [
+        "b",
+        "base",
+        "color",
+        "dateTime",
+        "g",
+        "r",
+        "radius",
+        "seconds",
+        "x",
+        "y"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "b",
+        "displayMode",
+        "font",
+        "g",
+        "hAlign",
+        "r",
+        "radius",
+        "scaleWithMatrix",
+        "size",
+        "units",
+        "vAlign",
+        "x",
+        "y"
+      ]
+    },
+    "Code": {
+      "inputs": [
+        "a",
+        "b",
+        "frame"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "a",
+        "b",
+        "code",
+        "globalCode"
+      ]
+    },
+    "Color": {
+      "inputs": [],
+      "outputs": [
+        "color"
+      ],
+      "properties": [
+        "color"
+      ]
+    },
+    "ColorTemperature": {
+      "inputs": [
+        "kelvin"
+      ],
+      "outputs": [
+        "color"
+      ],
+      "properties": [
+        "kelvin"
+      ]
+    },
+    "ColorTrails": {
+      "inputs": [
+        "audio",
+        "bass",
+        "beat",
+        "colorSpeed",
+        "displacement",
+        "endpointSpeed",
+        "flowScale",
+        "flowSpeed",
+        "flowStrength",
+        "mids",
+        "paletteIn",
+        "trailLength",
+        "treble",
+        "xScale",
+        "xSpeed",
+        "xStrength",
+        "yScale",
+        "ySpeed",
+        "yStrength"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "bass",
+        "colorSpeed",
+        "displacement",
+        "endpointSpeed",
+        "flowMode",
+        "flowScale",
+        "flowSpeed",
+        "flowStrength",
+        "independentAxes",
+        "injectionMode",
+        "mids",
+        "palette",
+        "seed",
+        "trailLength",
+        "treble",
+        "xScale",
+        "xSpeed",
+        "xStrength",
+        "yScale",
+        "ySpeed",
+        "yStrength"
+      ]
+    },
+    "ColorWipe": {
+      "inputs": [
+        "paletteIn",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "axis",
+        "direction",
+        "palette",
+        "speed"
+      ]
+    },
+    "Comment": {
+      "inputs": [],
+      "outputs": [],
+      "properties": [
+        "color",
+        "text"
+      ]
+    },
+    "Compare": {
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "outputs": [
+        "result"
+      ],
+      "properties": [
+        "a",
+        "b",
+        "compareOp",
+        "hysteresis"
+      ]
+    },
+    "Confetti": {
+      "inputs": [
+        "density",
+        "paletteIn",
+        "speed",
+        "trail"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "density",
+        "palette",
+        "seed",
+        "speed",
+        "trail"
+      ]
+    },
+    "Constant": {
+      "inputs": [],
+      "outputs": [
+        "value"
+      ],
+      "properties": [
+        "value"
+      ]
+    },
+    "ControlMap": {
+      "inputs": [
+        "brightness",
+        "brightnessDown",
+        "brightnessUp",
+        "controlsIn",
+        "ledToggle",
+        "next",
+        "patternNext",
+        "patternPrevious",
+        "patternSelect",
+        "playPause",
+        "previous",
+        "volume",
+        "volumeDown",
+        "volumeUp"
+      ],
+      "outputs": [
+        "controls"
+      ],
+      "properties": [
+        "brightnessStep",
+        "debounceMs",
+        "repeatDelayMs",
+        "repeatIntervalMs",
+        "volumeStep"
+      ]
+    },
+    "CoolingFanOutput": {
+      "inputs": [
+        "speed"
+      ],
+      "outputs": [
+        "rpm",
+        "running"
+      ],
+      "properties": [
+        "partId",
+        "pwmPin",
+        "speed",
+        "tachPin"
+      ]
+    },
+    "CrossfadeCycle": {
+      "inputs": [
+        "p0",
+        "p1",
+        "p2",
+        "p3"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "fade",
+        "interval"
+      ]
+    },
+    "CustomPalette": {
+      "inputs": [
+        "color0",
+        "color1",
+        "color2",
+        "color3"
+      ],
+      "outputs": [
+        "palette"
+      ],
+      "properties": []
+    },
+    "DanceFlash": {
+      "inputs": [
+        "b",
+        "beat",
+        "frame",
+        "g",
+        "paletteIn",
+        "r"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "b",
+        "colorSource",
+        "g",
+        "gap",
+        "palette",
+        "r",
+        "seed"
+      ]
+    },
+    "DarlingtonDriverOutput": {
+      "inputs": [
+        "channel1",
+        "channel2",
+        "channel3",
+        "channel4",
+        "channel5",
+        "channel6",
+        "channel7",
+        "channel8"
+      ],
+      "outputs": [],
+      "properties": [
+        "drive1Pin",
+        "drive2Pin",
+        "drive3Pin",
+        "drive4Pin",
+        "drive5Pin",
+        "drive6Pin",
+        "drive7Pin",
+        "drive8Pin",
+        "partId"
+      ]
+    },
+    "DdpInput": {
+      "inputs": [],
+      "outputs": [
+        "frame",
+        "live"
+      ],
+      "properties": [
+        "udpPort"
+      ]
+    },
+    "DFPlayerOutput": {
+      "inputs": [
+        "next",
+        "play",
+        "previous",
+        "track",
+        "volume"
+      ],
+      "outputs": [
+        "playing"
+      ],
+      "properties": [
+        "audioOutput",
+        "busyPin",
+        "partId",
+        "play",
+        "track",
+        "uartRxPin",
+        "uartTxPin",
+        "volume"
+      ]
+    },
+    "DigitalRain": {
+      "inputs": [
+        "density",
+        "flicker",
+        "paletteIn",
+        "speed",
+        "tailLength"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "density",
+        "direction",
+        "flicker",
+        "palette",
+        "seed",
+        "speed",
+        "tailLength"
+      ]
+    },
+    "DigitalSensorInput": {
+      "inputs": [],
+      "outputs": [
+        "active"
+      ],
+      "properties": [
+        "partId",
+        "pin"
+      ]
+    },
+    "DistanceInput": {
+      "inputs": [],
+      "outputs": [
+        "connected",
+        "distance"
+      ],
+      "properties": [
+        "echoPin",
+        "i2cAddress",
+        "partId",
+        "sclPin",
+        "sdaPin",
+        "trigPin",
+        "xshutPin"
+      ]
+    },
+    "DMXChannel": {
+      "inputs": [
+        "activeThreshold",
+        "dmx"
+      ],
+      "outputs": [
+        "active",
+        "byte",
+        "changed",
+        "value"
+      ],
+      "properties": [
+        "activeThreshold",
+        "channel"
+      ]
+    },
+    "DMXInput": {
+      "inputs": [],
+      "outputs": [
+        "dmx",
+        "live"
+      ],
+      "properties": [
+        "inputMode",
+        "udpPort",
+        "universe"
+      ]
+    },
+    "DmxTransceiver": {
+      "inputs": [],
+      "outputs": [],
+      "properties": [
+        "dmxEnablePin",
+        "dmxRxPin",
+        "dmxTxPin",
+        "partId"
+      ]
+    },
+    "Ease": {
+      "inputs": [
+        "t"
+      ],
+      "outputs": [
+        "result"
+      ],
+      "properties": [
+        "easeType",
+        "t"
+      ]
+    },
+    "EmberPulse": {
+      "inputs": [
+        "audio",
+        "bass",
+        "beat",
+        "mids",
+        "paletteIn",
+        "reactivity",
+        "speed",
+        "treble"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "bass",
+        "colorSource",
+        "mids",
+        "palette",
+        "reactivity",
+        "speed",
+        "treble"
+      ]
+    },
+    "EncoderInput": {
+      "inputs": [],
+      "outputs": [
+        "level",
+        "position",
+        "pressed"
+      ],
+      "properties": [
+        "debug",
+        "levelClicks",
+        "levelStart",
+        "pinA",
+        "pinB",
+        "pinSW",
+        "pullup",
+        "resetOnPress"
+      ]
+    },
+    "Envelope": {
+      "inputs": [
+        "attack",
+        "decay",
+        "trigger"
+      ],
+      "outputs": [
+        "result"
+      ],
+      "properties": [
+        "attack",
+        "decay"
+      ]
+    },
+    "EnvironmentInput": {
+      "inputs": [],
+      "outputs": [
+        "humidity",
+        "pressure",
+        "temperature"
+      ],
+      "properties": [
+        "i2cAddress",
+        "partId",
+        "sclPin",
+        "sdaPin"
+      ]
+    },
+    "EthernetModule": {
+      "inputs": [],
+      "outputs": [],
+      "properties": [
+        "csPin",
+        "intPin",
+        "misoPin",
+        "mosiPin",
+        "partId",
+        "resetPin",
+        "sckPin"
+      ]
+    },
+    "Expression": {
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "outputs": [
+        "result"
+      ],
+      "properties": [
+        "a",
+        "b",
+        "formula"
+      ]
+    },
+    "FFTAnalyzer": {
+      "inputs": [
+        "audio",
+        "gain",
+        "smoothing",
+        "tilt"
+      ],
+      "outputs": [
+        "bass",
+        "mids",
+        "treble"
+      ],
+      "properties": [
+        "bands",
+        "gain",
+        "smoothing",
+        "tilt"
+      ]
+    },
+    "FieldBlur": {
+      "inputs": [
+        "field",
+        "radius"
+      ],
+      "outputs": [
+        "field"
+      ],
+      "properties": [
+        "radius"
+      ]
+    },
+    "FieldFormula": {
+      "inputs": [
+        "a",
+        "b",
+        "fieldIn"
+      ],
+      "outputs": [
+        "field"
+      ],
+      "properties": [
+        "a",
+        "b",
+        "formula"
+      ]
+    },
+    "FieldLevels": {
+      "inputs": [
+        "field",
+        "high",
+        "low"
+      ],
+      "outputs": [
+        "field"
+      ],
+      "properties": [
+        "high",
+        "invert",
+        "low",
+        "steps"
+      ]
+    },
+    "FieldMath": {
+      "inputs": [
+        "a",
+        "b",
+        "t",
+        "value"
+      ],
+      "outputs": [
+        "field"
+      ],
+      "properties": [
+        "fieldOp",
+        "t",
+        "value"
+      ]
+    },
+    "FieldNoise": {
+      "inputs": [
+        "frequency",
+        "octaves",
+        "orientation",
+        "scale",
+        "speed"
+      ],
+      "outputs": [
+        "field"
+      ],
+      "properties": [
+        "contrast",
+        "frequency",
+        "noiseShape",
+        "noiseType",
+        "octaves",
+        "orientation",
+        "scale",
+        "seed",
+        "speed",
+        "worleyMode",
+        "wrapX"
+      ]
+    },
+    "FieldSymmetry": {
+      "inputs": [
+        "cells",
+        "field",
+        "offsetX",
+        "offsetY",
+        "rotation",
+        "spin"
+      ],
+      "outputs": [
+        "field"
+      ],
+      "properties": [
+        "cells",
+        "group",
+        "offsetX",
+        "offsetY",
+        "rotation",
+        "spin"
+      ]
+    },
+    "FieldToFrame": {
+      "inputs": [
+        "brightness",
+        "field",
+        "high",
+        "low",
+        "paletteIn"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "brightness",
+        "high",
+        "low",
+        "palette"
+      ]
+    },
+    "FieldTransform": {
+      "inputs": [
+        "angle",
+        "dx",
+        "dy",
+        "field",
+        "spin",
+        "strength",
+        "tilesX",
+        "tilesY",
+        "zoom"
+      ],
+      "outputs": [
+        "field"
+      ],
+      "properties": [
+        "angle",
+        "edgeMode",
+        "sampling",
+        "spin",
+        "strength",
+        "tilesX",
+        "tilesY",
+        "zoom"
+      ]
+    },
+    "Fire": {
+      "inputs": [
+        "cooling",
+        "intensity",
+        "paletteIn",
+        "sparking",
+        "turbulence"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "cooling",
+        "direction",
+        "fireStyle",
+        "intensity",
+        "mirror",
+        "palette",
+        "seed",
+        "sparking",
+        "turbulence"
+      ]
+    },
+    "FlowField": {
+      "inputs": [
+        "count",
+        "paletteIn",
+        "scale",
+        "speed",
+        "trail"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "count",
+        "flowMode",
+        "palette",
+        "scale",
+        "seed",
+        "speed",
+        "trail"
+      ]
+    },
+    "FluidSim": {
+      "inputs": [
+        "diffusion",
+        "dissipation",
+        "forceX",
+        "forceY",
+        "inject",
+        "injectX",
+        "injectY",
+        "quality",
+        "trigger",
+        "viscosity"
+      ],
+      "outputs": [
+        "field",
+        "velocityX",
+        "velocityY"
+      ],
+      "properties": [
+        "buoyancy",
+        "diffusion",
+        "dissipation",
+        "inject",
+        "injectX",
+        "injectY",
+        "quality",
+        "viscosity"
+      ]
+    },
+    "FormatDateTime": {
+      "inputs": [
+        "dateTime"
+      ],
+      "outputs": [
+        "text"
+      ],
+      "properties": [
+        "dateTimeFormat"
+      ]
+    },
+    "FormatNumber": {
+      "inputs": [
+        "value"
+      ],
+      "outputs": [
+        "text"
+      ],
+      "properties": [
+        "decimals",
+        "maxIntegerDigits",
+        "padWidth",
+        "prefix",
+        "showSign",
+        "suffix",
+        "value"
+      ]
+    },
+    "FormulaPattern": {
+      "inputs": [
+        "a",
+        "b",
+        "paletteIn"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "a",
+        "b",
+        "formula",
+        "palette"
+      ]
+    },
+    "FormulaPoints": {
+      "inputs": [
+        "chaos",
+        "count",
+        "dotSize",
+        "freqA",
+        "freqB",
+        "paletteIn",
+        "petals",
+        "speed",
+        "trail"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "chaos",
+        "count",
+        "dotSize",
+        "formulaType",
+        "freqA",
+        "freqB",
+        "palette",
+        "petals",
+        "preset",
+        "speed",
+        "trail"
+      ]
+    },
+    "FourierEpicycles": {
+      "inputs": [
+        "b",
+        "base",
+        "color",
+        "g",
+        "harmonics",
+        "persistence",
+        "r",
+        "scale",
+        "speed",
+        "thickness"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "b",
+        "customPoints",
+        "g",
+        "harmonics",
+        "maxHarmonics",
+        "outline",
+        "persistence",
+        "r",
+        "scale",
+        "showCircles",
+        "showPen",
+        "speed",
+        "thickness"
+      ]
+    },
+    "FractalField": {
+      "inputs": [
+        "cIm",
+        "cRe",
+        "centerX",
+        "centerY",
+        "depth",
+        "rotation"
+      ],
+      "outputs": [
+        "field"
+      ],
+      "properties": [
+        "cIm",
+        "cRe",
+        "centerX",
+        "centerY",
+        "depth",
+        "fractalType",
+        "iterations",
+        "rotation",
+        "smooth"
+      ]
+    },
+    "FrameFeedback": {
+      "inputs": [
+        "amount",
+        "angle",
+        "fade",
+        "frame",
+        "offsetX",
+        "offsetY",
+        "scale"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "amount",
+        "angle",
+        "blendMode",
+        "delayFrames",
+        "fade",
+        "feedbackTransform",
+        "offsetX",
+        "offsetY",
+        "scale"
+      ]
+    },
+    "FrameSwitch": {
+      "inputs": [
+        "a",
+        "b",
+        "select"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "select"
+      ]
+    },
+    "FrameToField": {
+      "inputs": [
+        "frame"
+      ],
+      "outputs": [
+        "field"
+      ],
+      "properties": [
+        "conversion"
+      ]
+    },
+    "FrameTransform": {
+      "inputs": [
+        "frame",
+        "offsetX",
+        "offsetXRate",
+        "offsetY",
+        "offsetYRate",
+        "rotation",
+        "rotationRate",
+        "scale",
+        "scaleRate"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "edgeMode",
+        "flipX",
+        "flipY",
+        "mode",
+        "offsetX",
+        "offsetXRate",
+        "offsetY",
+        "offsetYRate",
+        "rotation",
+        "rotationRate",
+        "sampling",
+        "scale",
+        "scaleRate"
+      ]
+    },
+    "FrameWarp": {
+      "inputs": [
+        "dx",
+        "dy",
+        "frame",
+        "motionSpeed",
+        "strength"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "edgeMode",
+        "motion",
+        "motionSpeed",
+        "sampling",
+        "strength"
+      ]
+    },
+    "FrequencyBand": {
+      "inputs": [
+        "audio",
+        "gain",
+        "highHz",
+        "lowHz",
+        "smoothing"
+      ],
+      "outputs": [
+        "level"
+      ],
+      "properties": [
+        "band",
+        "gain",
+        "highHz",
+        "lowHz",
+        "smoothing"
+      ]
+    },
+    "Function": {
+      "inputs": [
+        "x"
+      ],
+      "outputs": [
+        "result"
+      ],
+      "properties": [
+        "fn",
+        "x"
+      ]
+    },
+    "GameOfLife": {
+      "inputs": [
+        "paletteIn",
+        "speed",
+        "trail"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "palette",
+        "seed",
+        "speed",
+        "trail"
+      ]
+    },
+    "Gamma": {
+      "inputs": [
+        "frame",
+        "gamma"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "gamma"
+      ]
+    },
+    "Gauge": {
+      "inputs": [
+        "base",
+        "paletteIn",
+        "value"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "arcStart",
+        "arcSweep",
+        "direction",
+        "gaugeStyle",
+        "palette",
+        "peakHold",
+        "ringLeds",
+        "segments",
+        "thickness",
+        "value"
+      ]
+    },
+    "GeometryField": {
+      "inputs": [
+        "bandWidth",
+        "density",
+        "freqA",
+        "freqB",
+        "phase",
+        "speed",
+        "thickness",
+        "tightness",
+        "turns"
+      ],
+      "outputs": [
+        "field"
+      ],
+      "properties": [
+        "bandWidth",
+        "density",
+        "formulaType",
+        "freqA",
+        "freqB",
+        "phase",
+        "speed",
+        "thickness",
+        "tightness",
+        "turns"
+      ]
+    },
+    "Glitter": {
+      "inputs": [
+        "b",
+        "color",
+        "density",
+        "frame",
+        "g",
+        "r"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "b",
+        "density",
+        "g",
+        "glitterMode",
+        "r",
+        "seed"
+      ]
+    },
+    "GradientField": {
+      "inputs": [
+        "angle",
+        "cx",
+        "cy",
+        "offset",
+        "speed"
+      ],
+      "outputs": [
+        "field"
+      ],
+      "properties": [
+        "angle",
+        "cx",
+        "cy",
+        "gradientType",
+        "offset",
+        "repeat",
+        "speed"
+      ]
+    },
+    "GradientFrame": {
+      "inputs": [
+        "angle",
+        "bA",
+        "bB",
+        "colorA",
+        "colorB",
+        "gA",
+        "gB",
+        "rA",
+        "rB"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "angle",
+        "bA",
+        "bB",
+        "gA",
+        "gB",
+        "mixMode",
+        "rA",
+        "rB"
+      ]
+    },
+    "GradientSampler": {
+      "inputs": [
+        "colorA",
+        "colorB",
+        "t"
+      ],
+      "outputs": [
+        "color"
+      ],
+      "properties": [
+        "bA",
+        "bB",
+        "gA",
+        "gB",
+        "mixMode",
+        "rA",
+        "rB",
+        "t"
+      ]
+    },
+    "GravityWell": {
+      "inputs": [
+        "audio",
+        "b",
+        "bass",
+        "color",
+        "g",
+        "paletteIn",
+        "r",
+        "reactivity",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "b",
+        "bass",
+        "colorSource",
+        "g",
+        "palette",
+        "r",
+        "reactivity",
+        "speed"
+      ]
+    },
+    "HarmonyPalette": {
+      "inputs": [
+        "hue",
+        "saturation",
+        "shade",
+        "spread",
+        "value"
+      ],
+      "outputs": [
+        "palette"
+      ],
+      "properties": [
+        "harmony",
+        "hue",
+        "saturation",
+        "shade",
+        "spread",
+        "value"
+      ]
+    },
+    "HeatColor": {
+      "inputs": [
+        "heat"
+      ],
+      "outputs": [
+        "color"
+      ],
+      "properties": [
+        "heat"
+      ]
+    },
+    "HiHatShards": {
+      "inputs": [
+        "audio",
+        "hihat",
+        "mids",
+        "paletteIn",
+        "reactivity",
+        "speed",
+        "treble"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "hihat",
+        "mids",
+        "palette",
+        "reactivity",
+        "speed",
+        "treble"
+      ]
+    },
+    "HSVToRGB": {
+      "inputs": [
+        "h",
+        "s",
+        "v"
+      ],
+      "outputs": [
+        "color"
+      ],
+      "properties": [
+        "h",
+        "hueUnits",
+        "s",
+        "v"
+      ]
+    },
+    "HueCycle": {
+      "inputs": [
+        "rate",
+        "s",
+        "v"
+      ],
+      "outputs": [
+        "color"
+      ],
+      "properties": [
+        "rate",
+        "s",
+        "v"
+      ]
+    },
+    "HueShift": {
+      "inputs": [
+        "frame",
+        "hueShift"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "hueShift"
+      ]
+    },
+    "Image": {
+      "inputs": [
+        "brightness",
+        "contrast",
+        "cropX",
+        "cropY",
+        "gamma",
+        "hueShift",
+        "playbackRate",
+        "positionX",
+        "positionY",
+        "rotation",
+        "saturation",
+        "zoom"
+      ],
+      "outputs": [
+        "frame",
+        "image"
+      ],
+      "properties": [
+        "background",
+        "brightness",
+        "contrast",
+        "cropX",
+        "cropY",
+        "dithering",
+        "fit",
+        "flipX",
+        "flipY",
+        "gamma",
+        "hueShift",
+        "loop",
+        "monochrome",
+        "paletteLevels",
+        "playbackRate",
+        "positionX",
+        "positionY",
+        "rotation",
+        "sampling",
+        "saturation",
+        "zoom"
+      ]
+    },
+    "InfoDisplay": {
+      "inputs": [
+        "display",
+        "enabled"
+      ],
+      "outputs": [],
+      "properties": [
+        "csPin",
+        "dcPin",
+        "enabled",
+        "i2cAddress",
+        "mosiPin",
+        "oledRotation",
+        "partId",
+        "resetPin",
+        "sckPin",
+        "sclPin",
+        "sdaPin"
+      ]
+    },
+    "Interval": {
+      "inputs": [
+        "interval"
+      ],
+      "outputs": [
+        "pulse"
+      ],
+      "properties": [
+        "interval"
+      ]
+    },
+    "Invert": {
+      "inputs": [
+        "frame"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": []
+    },
+    "IRRemoteInput": {
+      "inputs": [],
+      "outputs": [
+        "learn-button"
+      ],
+      "properties": [
+        "buttons",
+        "debug",
+        "pin"
+      ]
+    },
+    "JoystickInput": {
+      "inputs": [],
+      "outputs": [
+        "pressed",
+        "x",
+        "y"
+      ],
+      "properties": [
+        "deadzone",
+        "partId",
+        "swPin",
+        "xPin",
+        "yPin"
+      ]
+    },
+    "Juggle": {
+      "inputs": [
+        "count",
+        "paletteIn",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "count",
+        "palette",
+        "seed",
+        "speed"
+      ]
+    },
+    "KeypadInput": {
+      "inputs": [],
+      "outputs": [
+        "digit",
+        "key",
+        "key0",
+        "key1",
+        "key10",
+        "key11",
+        "key12",
+        "key13",
+        "key14",
+        "key15",
+        "key2",
+        "key3",
+        "key4",
+        "key5",
+        "key6",
+        "key7",
+        "key8",
+        "key9",
+        "pressed"
+      ],
+      "properties": [
+        "col1Pin",
+        "col2Pin",
+        "col3Pin",
+        "col4Pin",
+        "partId",
+        "row1Pin",
+        "row2Pin",
+        "row3Pin",
+        "row4Pin"
+      ]
+    },
+    "KickShock": {
+      "inputs": [
+        "decay",
+        "hihat",
+        "kick",
+        "paletteIn",
+        "reactivity",
+        "snare",
+        "spawnSpread",
+        "speed",
+        "thickness",
+        "tiles"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "blendMode",
+        "count",
+        "decay",
+        "hihat",
+        "kick",
+        "palette",
+        "reactivity",
+        "snare",
+        "spawnSpread",
+        "speed",
+        "thickness",
+        "tiles"
+      ]
+    },
+    "LevelMeter": {
+      "inputs": [
+        "level",
+        "paletteIn"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "axis",
+        "level",
+        "origin",
+        "palette",
+        "peakHold"
+      ]
+    },
+    "LightInput": {
+      "inputs": [],
+      "outputs": [
+        "level",
+        "lux"
+      ],
+      "properties": [
+        "i2cAddress",
+        "maxLux",
+        "partId",
+        "pin",
+        "sclPin",
+        "sdaPin"
+      ]
+    },
+    "Lightning": {
+      "inputs": [
+        "intensity",
+        "rate",
+        "trigger"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "color",
+        "intensity",
+        "rate"
+      ]
+    },
+    "Line": {
+      "inputs": [
+        "b",
+        "base",
+        "color",
+        "g",
+        "r",
+        "thickness",
+        "x1",
+        "x2",
+        "y1",
+        "y2"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "b",
+        "g",
+        "r",
+        "thickness",
+        "units",
+        "x1",
+        "x2",
+        "y1",
+        "y2"
+      ]
+    },
+    "LineInput": {
+      "inputs": [],
+      "outputs": [
+        "audio"
+      ],
+      "properties": [
+        "channel",
+        "gain",
+        "i2sBclk",
+        "i2sDout",
+        "i2sLrclk",
+        "i2sMclk",
+        "noiseGate",
+        "partId",
+        "serialDebug"
+      ]
+    },
+    "Logic": {
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "outputs": [
+        "result"
+      ],
+      "properties": [
+        "logicOp"
+      ]
+    },
+    "MapRange": {
+      "inputs": [
+        "inMax",
+        "inMin",
+        "outMax",
+        "outMin",
+        "value"
+      ],
+      "outputs": [
+        "result"
+      ],
+      "properties": [
+        "clampOutput",
+        "inMax",
+        "inMin",
+        "outMax",
+        "outMin",
+        "value"
+      ]
+    },
+    "Mask": {
+      "inputs": [
+        "frame",
+        "mask"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": []
+    },
+    "MasterSpeed": {
+      "inputs": [
+        "speed"
+      ],
+      "outputs": [],
+      "properties": [
+        "speed"
+      ]
+    },
+    "Math": {
+      "inputs": [
+        "a",
+        "b"
+      ],
+      "outputs": [
+        "result"
+      ],
+      "properties": [
+        "a",
+        "b",
+        "mathOp"
+      ]
+    },
+    "MatrixOutput": {
+      "inputs": [
+        "brightness",
+        "brightnessDown",
+        "brightnessUp",
+        "controls",
+        "enabled",
+        "frame",
+        "ledToggle"
+      ],
+      "outputs": [
+        "display"
+      ],
+      "properties": [
+        "chipset",
+        "clockPin",
+        "colorOrder",
+        "corkscrewDiameterMm",
+        "corkscrewDirection",
+        "corkscrewHeightMm",
+        "corkscrewStartAngle",
+        "corkscrewTurns",
+        "correction",
+        "customXYMap",
+        "dataLanes",
+        "dataLinkPartId",
+        "dataPin",
+        "dataRateMhz",
+        "dither",
+        "enabled",
+        "firstRun",
+        "form",
+        "height",
+        "hub75APin",
+        "hub75B1Pin",
+        "hub75B2Pin",
+        "hub75BPin",
+        "hub75CPin",
+        "hub75ClkPin",
+        "hub75ColorDepthBits",
+        "hub75DPin",
+        "hub75EPin",
+        "hub75G1Pin",
+        "hub75G2Pin",
+        "hub75LatPin",
+        "hub75OePin",
+        "hub75R1Pin",
+        "hub75R2Pin",
+        "hub75WideScan",
+        "lanePins",
+        "layout",
+        "ledCount",
+        "ledsPerEdge",
+        "network",
+        "networkPreset",
+        "outputBrightness",
+        "outputGamma",
+        "positions",
+        "positionsHeight",
+        "positionsMmPerUnit",
+        "positionsPreset",
+        "positionsWidth",
+        "renderResolution",
+        "ringDirection",
+        "ringStartAngle",
+        "routeMode",
+        "routeX",
+        "routeY",
+        "serpentine",
+        "startCorner",
+        "stripLayout",
+        "tileRotations",
+        "tileSerpentine",
+        "tilesX",
+        "tilesY",
+        "whitePoint",
+        "width"
+      ]
+    },
+    "MicInput": {
+      "inputs": [],
+      "outputs": [
+        "audio"
+      ],
+      "properties": [
+        "channel",
+        "gain",
+        "i2sSck",
+        "i2sSd",
+        "i2sWs",
+        "noiseGate",
+        "serialDebug"
+      ]
+    },
+    "MidiInput": {
+      "inputs": [],
+      "outputs": [
+        "cc",
+        "gate",
+        "note"
+      ],
+      "properties": [
+        "cc",
+        "channel",
+        "midiSource",
+        "note"
+      ]
+    },
+    "MidiInterface": {
+      "inputs": [],
+      "outputs": [],
+      "properties": [
+        "midiRxPin",
+        "partId"
+      ]
+    },
+    "MidrangeBloom": {
+      "inputs": [
+        "audio",
+        "mids",
+        "paletteIn",
+        "reactivity",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "mids",
+        "palette",
+        "reactivity",
+        "speed"
+      ]
+    },
+    "MidrangeWaves": {
+      "inputs": [
+        "audio",
+        "mids",
+        "paletteIn",
+        "reactivity",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "mids",
+        "palette",
+        "reactivity",
+        "speed"
+      ]
+    },
+    "Mirror": {
+      "inputs": [
+        "b",
+        "color",
+        "frame",
+        "g",
+        "glowAmount",
+        "r",
+        "rotation",
+        "segments",
+        "spin"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "b",
+        "g",
+        "glow",
+        "glowAmount",
+        "mirrorMode",
+        "r",
+        "rotation",
+        "segments",
+        "spin"
+      ]
+    },
+    "MotionInput": {
+      "inputs": [],
+      "outputs": [
+        "motion"
+      ],
+      "properties": [
+        "partId",
+        "pin"
+      ]
+    },
+    "MotionVectorInput": {
+      "inputs": [],
+      "outputs": [
+        "accelX",
+        "accelY",
+        "accelZ",
+        "connected",
+        "gyroX",
+        "gyroY",
+        "gyroZ",
+        "shake"
+      ],
+      "properties": [
+        "i2cAddress",
+        "partId",
+        "sclPin",
+        "sdaPin"
+      ]
+    },
+    "MusicLibrary": {
+      "inputs": [],
+      "outputs": [],
+      "properties": []
+    },
+    "NetworkRipple": {
+      "inputs": [
+        "paletteIn",
+        "rate",
+        "speed",
+        "trail",
+        "trigger"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "behaviour",
+        "ledSource",
+        "ledsPerEdge",
+        "lifetime",
+        "network",
+        "networkPreset",
+        "palette",
+        "rate",
+        "seed",
+        "speed",
+        "startNode",
+        "trail",
+        "width"
+      ]
+    },
+    "Noise": {
+      "inputs": [
+        "frequency",
+        "octaves",
+        "orientation",
+        "paletteIn",
+        "scale",
+        "speed"
+      ],
+      "outputs": [
+        "field",
+        "frame"
+      ],
+      "properties": [
+        "contrast",
+        "frequency",
+        "noiseShape",
+        "noiseType",
+        "octaves",
+        "orientation",
+        "palette",
+        "scale",
+        "seed",
+        "speed",
+        "worleyMode",
+        "wrapX"
+      ]
+    },
+    "NoiseSignal": {
+      "inputs": [
+        "max",
+        "min",
+        "speed"
+      ],
+      "outputs": [
+        "value"
+      ],
+      "properties": [
+        "max",
+        "min",
+        "octaves",
+        "seed",
+        "speed"
+      ]
+    },
+    "Not": {
+      "inputs": [
+        "x"
+      ],
+      "outputs": [
+        "result"
+      ],
+      "properties": []
+    },
+    "Pacifica": {
+      "inputs": [
+        "paletteIn",
+        "scale",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "palette",
+        "scale",
+        "speed"
+      ]
+    },
+    "PaletteBank": {
+      "inputs": [
+        "next",
+        "previous",
+        "select"
+      ],
+      "outputs": [
+        "index",
+        "name",
+        "palette"
+      ],
+      "properties": [
+        "blend",
+        "palettes",
+        "select"
+      ]
+    },
+    "PaletteBlend": {
+      "inputs": [
+        "amount",
+        "paletteA",
+        "paletteB"
+      ],
+      "outputs": [
+        "palette"
+      ],
+      "properties": [
+        "amount",
+        "paletteA",
+        "paletteB"
+      ]
+    },
+    "PaletteFromImage": {
+      "inputs": [
+        "image"
+      ],
+      "outputs": [
+        "palette"
+      ],
+      "properties": [
+        "count"
+      ]
+    },
+    "PaletteGradient": {
+      "inputs": [
+        "angle",
+        "paletteIn",
+        "repeat",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "angle",
+        "palette",
+        "repeat",
+        "speed"
+      ]
+    },
+    "PaletteSampler": {
+      "inputs": [
+        "paletteIn",
+        "t"
+      ],
+      "outputs": [
+        "color"
+      ],
+      "properties": [
+        "ends",
+        "palette",
+        "t"
+      ]
+    },
+    "PaletteSelector": {
+      "inputs": [],
+      "outputs": [
+        "palette"
+      ],
+      "properties": [
+        "palette"
+      ]
+    },
+    "PaletteSweep": {
+      "inputs": [
+        "paletteIn",
+        "rate"
+      ],
+      "outputs": [
+        "color"
+      ],
+      "properties": [
+        "easing",
+        "motion",
+        "palette",
+        "rate"
+      ]
+    },
+    "PaletteTransform": {
+      "inputs": [
+        "blackPoint",
+        "brightness",
+        "offset",
+        "paletteIn"
+      ],
+      "outputs": [
+        "palette"
+      ],
+      "properties": [
+        "blackPoint",
+        "brightness",
+        "offset",
+        "paletteIn",
+        "reverse"
+      ]
+    },
+    "Particles": {
+      "inputs": [
+        "bounce",
+        "decay",
+        "gravity",
+        "paletteIn",
+        "rate",
+        "size",
+        "spread"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "bounce",
+        "count",
+        "decay",
+        "gravity",
+        "palette",
+        "particleType",
+        "rate",
+        "seed",
+        "size",
+        "spread"
+      ]
+    },
+    "Path": {
+      "inputs": [
+        "b",
+        "base",
+        "color",
+        "g",
+        "r",
+        "scale",
+        "speed",
+        "t",
+        "thickness"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "b",
+        "customPoints",
+        "g",
+        "pathShape",
+        "r",
+        "scale",
+        "speed",
+        "t",
+        "thickness"
+      ]
+    },
+    "PatternCollection": {
+      "inputs": [
+        "pattern"
+      ],
+      "outputs": [
+        "patternset"
+      ],
+      "properties": [
+        "patternIds",
+        "patternSections"
+      ]
+    },
+    "PatternMaster": {
+      "inputs": [
+        "audio",
+        "beat",
+        "brightnessDown",
+        "brightnessUp",
+        "controls",
+        "ledToggle",
+        "maxTime",
+        "minTime",
+        "next",
+        "particleFx",
+        "patternNext",
+        "patternPrevious",
+        "patternset",
+        "playPause",
+        "previous",
+        "transitionSec",
+        "transitions",
+        "volume",
+        "volumeDown",
+        "volumeUp"
+      ],
+      "outputs": [
+        "display",
+        "frame"
+      ],
+      "properties": [
+        "beatTransitions",
+        "bluetoothName",
+        "dwellsAndBursts",
+        "energyPacing",
+        "maxTime",
+        "minTime",
+        "musicSource",
+        "order",
+        "seed",
+        "stationPage",
+        "stations",
+        "transitionSec",
+        "volume"
+      ]
+    },
+    "PatternSlideshow": {
+      "inputs": [
+        "audio",
+        "beat",
+        "controls",
+        "maxTime",
+        "minTime",
+        "particleFx",
+        "patternNext",
+        "patternPrevious",
+        "patternset",
+        "transitionSec",
+        "transitions"
+      ],
+      "outputs": [
+        "display",
+        "frame"
+      ],
+      "properties": [
+        "audioReactive",
+        "beatTransitions",
+        "dwellsAndBursts",
+        "energyPacing",
+        "maxTime",
+        "minTime",
+        "order",
+        "seed",
+        "transitionSec"
+      ]
+    },
+    "PdTriggerSource": {
+      "inputs": [],
+      "outputs": [],
+      "properties": [
+        "partId",
+        "requestedVoltage"
+      ]
+    },
+    "PercussionBlobs": {
+      "inputs": [
+        "decay",
+        "hihat",
+        "kick",
+        "paletteIn",
+        "size",
+        "snare",
+        "spawnSpread"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "blendMode",
+        "count",
+        "decay",
+        "hihat",
+        "kick",
+        "palette",
+        "size",
+        "snare",
+        "spawnSpread"
+      ]
+    },
+    "PercussionDetect": {
+      "inputs": [
+        "audio",
+        "decay",
+        "sensitivity",
+        "separation"
+      ],
+      "outputs": [
+        "hihat",
+        "kick",
+        "snare"
+      ],
+      "properties": [
+        "decay",
+        "sensitivity",
+        "separation"
+      ]
+    },
+    "PerformanceGenerator": {
+      "inputs": [
+        "brightnessDown",
+        "brightnessUp",
+        "controls",
+        "ledToggle",
+        "next",
+        "patternset",
+        "playPause",
+        "previous",
+        "transitions",
+        "volumeDown",
+        "volumeUp"
+      ],
+      "outputs": [
+        "display",
+        "frame"
+      ],
+      "properties": [
+        "beatIntensity",
+        "energySensitivity",
+        "fixedPalette",
+        "minTime",
+        "paletteMode",
+        "transitionSec",
+        "useGroupInputs"
+      ]
+    },
+    "PitchDetect": {
+      "inputs": [
+        "audio"
+      ],
+      "outputs": [
+        "confidence",
+        "hz",
+        "keyConfidence",
+        "keyMinor",
+        "keyRoot",
+        "note",
+        "noteOn",
+        "pitchClass",
+        "velocity"
+      ],
+      "properties": []
+    },
+    "Plasma": {
+      "inputs": [
+        "paletteIn",
+        "scale",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "palette",
+        "plasmaStyle",
+        "scale",
+        "speed"
+      ]
+    },
+    "PlayerParticles": {
+      "inputs": [
+        "color",
+        "enabled",
+        "intensity",
+        "randomColor",
+        "randomStyle"
+      ],
+      "outputs": [
+        "particleFx"
+      ],
+      "properties": [
+        "color",
+        "enabled",
+        "energyGate",
+        "intensity",
+        "randomColor",
+        "randomStyle",
+        "restSec",
+        "style",
+        "volleyBursts"
+      ]
+    },
+    "PolarGradient": {
+      "inputs": [
+        "angleOffset",
+        "paletteIn",
+        "radialMix",
+        "radialScroll",
+        "repeat",
+        "spin"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "angleOffset",
+        "palette",
+        "radialMix",
+        "radialScroll",
+        "repeat",
+        "spin"
+      ]
+    },
+    "Poline": {
+      "inputs": [
+        "colorA",
+        "colorB",
+        "colorC"
+      ],
+      "outputs": [
+        "palette"
+      ],
+      "properties": [
+        "anchorA",
+        "anchorB",
+        "anchorC",
+        "points",
+        "position"
+      ]
+    },
+    "PotInput": {
+      "inputs": [],
+      "outputs": [
+        "value"
+      ],
+      "properties": [
+        "pin"
+      ]
+    },
+    "PowerAmplifier": {
+      "inputs": [],
+      "outputs": [],
+      "properties": [
+        "partId"
+      ]
+    },
+    "PowerConverter": {
+      "inputs": [],
+      "outputs": [],
+      "properties": [
+        "partId",
+        "sourceVoltage"
+      ]
+    },
+    "PowerMonitorInput": {
+      "inputs": [],
+      "outputs": [
+        "amps",
+        "display",
+        "overcurrent",
+        "volts",
+        "watts"
+      ],
+      "properties": [
+        "debug",
+        "i2cAddress",
+        "overcurrentAmps",
+        "partId",
+        "sclPin",
+        "sdaPin"
+      ]
+    },
+    "PowerSupply": {
+      "inputs": [],
+      "outputs": [],
+      "properties": [
+        "ratedCurrentA",
+        "voltage"
+      ]
+    },
+    "PowerSwitchOutput": {
+      "inputs": [
+        "brightness",
+        "color",
+        "level",
+        "level2",
+        "level3",
+        "level4",
+        "level5",
+        "level6",
+        "level7",
+        "level8",
+        "on",
+        "on2",
+        "on3",
+        "on4",
+        "on5",
+        "on6",
+        "on7",
+        "on8"
+      ],
+      "outputs": [],
+      "properties": [
+        "brightness",
+        "color",
+        "level",
+        "level2",
+        "level3",
+        "level4",
+        "level5",
+        "level6",
+        "level7",
+        "level8",
+        "loadType",
+        "partId",
+        "signal2Pin",
+        "signal3Pin",
+        "signal4Pin",
+        "signal5Pin",
+        "signal6Pin",
+        "signal7Pin",
+        "signal8Pin",
+        "signalPin"
+      ]
+    },
+    "PresenceInput": {
+      "inputs": [],
+      "outputs": [
+        "connected",
+        "distance",
+        "moving",
+        "presence",
+        "still"
+      ],
+      "properties": [
+        "partId",
+        "rxPin"
+      ]
+    },
+    "Pride2015": {
+      "inputs": [
+        "paletteIn",
+        "scale",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "palette",
+        "scale",
+        "speed"
+      ]
+    },
+    "PwmDriverOutput": {
+      "inputs": [
+        "channel0",
+        "channel1",
+        "channel10",
+        "channel11",
+        "channel12",
+        "channel13",
+        "channel14",
+        "channel15",
+        "channel2",
+        "channel3",
+        "channel4",
+        "channel5",
+        "channel6",
+        "channel7",
+        "channel8",
+        "channel9"
+      ],
+      "outputs": [],
+      "properties": [
+        "i2cAddress",
+        "partId",
+        "pwmHz",
+        "sclPin",
+        "sdaPin"
+      ]
+    },
+    "RadialBurst": {
+      "inputs": [
+        "paletteIn",
+        "rings",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "palette",
+        "rings",
+        "speed"
+      ]
+    },
+    "Rainbow": {
+      "inputs": [
+        "deltaHue",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "axis",
+        "deltaHue",
+        "speed"
+      ]
+    },
+    "RainRipples": {
+      "inputs": [
+        "decay",
+        "paletteIn",
+        "reactivity",
+        "spawnSpread",
+        "speed",
+        "thickness",
+        "trigger"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "blendMode",
+        "count",
+        "decay",
+        "palette",
+        "reactivity",
+        "spawnSpread",
+        "speed",
+        "thickness"
+      ]
+    },
+    "Random": {
+      "inputs": [
+        "max",
+        "min",
+        "trigger"
+      ],
+      "outputs": [
+        "value"
+      ],
+      "properties": [
+        "max",
+        "min",
+        "seed"
+      ]
+    },
+    "ReactionDiffusion": {
+      "inputs": [
+        "feed",
+        "kill",
+        "paletteIn",
+        "steps"
+      ],
+      "outputs": [
+        "field",
+        "frame"
+      ],
+      "properties": [
+        "feed",
+        "kill",
+        "palette",
+        "rdPreset",
+        "seed",
+        "steps"
+      ]
+    },
+    "RelayOutput": {
+      "inputs": [
+        "channel1"
+      ],
+      "outputs": [],
+      "properties": [
+        "in1Pin",
+        "in2Pin",
+        "in3Pin",
+        "in4Pin",
+        "in5Pin",
+        "in6Pin",
+        "in7Pin",
+        "in8Pin",
+        "partId"
+      ]
+    },
+    "RGBToHSV": {
+      "inputs": [
+        "b",
+        "color",
+        "g",
+        "r"
+      ],
+      "outputs": [
+        "h",
+        "s",
+        "v"
+      ],
+      "properties": [
+        "b",
+        "g",
+        "r"
+      ]
+    },
+    "RTCInput": {
+      "inputs": [],
+      "outputs": [
+        "dateTime",
+        "day",
+        "display",
+        "hour",
+        "minute",
+        "month",
+        "second",
+        "secondsOfDay",
+        "stale",
+        "synced",
+        "valid",
+        "weekday",
+        "weekend",
+        "year"
+      ],
+      "properties": [
+        "ntpServer",
+        "startDay",
+        "startHour",
+        "startMinute",
+        "startMonth",
+        "startSecond",
+        "startYear",
+        "timeSource",
+        "timeZone"
+      ]
+    },
+    "RtcModule": {
+      "inputs": [],
+      "outputs": [],
+      "properties": [
+        "partId",
+        "sclPin",
+        "sdaPin"
+      ]
+    },
+    "SampleHold": {
+      "inputs": [
+        "trigger",
+        "value"
+      ],
+      "outputs": [
+        "result"
+      ],
+      "properties": [
+        "value"
+      ]
+    },
+    "Saturation": {
+      "inputs": [
+        "amount",
+        "frame"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "amount",
+        "keepBrightness"
+      ]
+    },
+    "Scanner": {
+      "inputs": [
+        "paletteIn",
+        "speed",
+        "trail",
+        "width"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "axis",
+        "palette",
+        "speed",
+        "trail",
+        "width"
+      ]
+    },
+    "ScheduleTrigger": {
+      "inputs": [
+        "dateTime",
+        "enabled"
+      ],
+      "outputs": [
+        "active",
+        "end",
+        "progress",
+        "start"
+      ],
+      "properties": [
+        "dayMode",
+        "enabled",
+        "end",
+        "friday",
+        "monday",
+        "requireSync",
+        "saturday",
+        "scheduleMode",
+        "start",
+        "sunday",
+        "thursday",
+        "tuesday",
+        "wednesday"
+      ]
+    },
+    "SDCard": {
+      "inputs": [],
+      "outputs": [],
+      "properties": [
+        "sdCsPin",
+        "sdMisoPin",
+        "sdMosiPin",
+        "sdSckPin"
+      ]
+    },
+    "SDVideo": {
+      "inputs": [
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "loop",
+        "speed"
+      ]
+    },
+    "SegmentDisplay": {
+      "inputs": [
+        "display",
+        "enabled"
+      ],
+      "outputs": [],
+      "properties": [
+        "brightness",
+        "clkPin",
+        "csPin",
+        "dinPin",
+        "dioPin",
+        "enabled",
+        "partId",
+        "showColon"
+      ]
+    },
+    "Shape": {
+      "inputs": [
+        "aspect",
+        "base",
+        "cx",
+        "cy",
+        "edge",
+        "fill",
+        "rotation",
+        "sides",
+        "size",
+        "thickness"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "aspect",
+        "cx",
+        "cy",
+        "edge",
+        "fill",
+        "filled",
+        "rotation",
+        "scaleWithMatrix",
+        "shape",
+        "sides",
+        "size",
+        "thickness",
+        "units",
+        "wrap"
+      ]
+    },
+    "ShapeField": {
+      "inputs": [
+        "a",
+        "aspect",
+        "b",
+        "cx",
+        "cy",
+        "n1",
+        "n2",
+        "n3",
+        "petals",
+        "rotation",
+        "sides",
+        "size",
+        "spin",
+        "symmetry"
+      ],
+      "outputs": [
+        "field"
+      ],
+      "properties": [
+        "a",
+        "aspect",
+        "b",
+        "cx",
+        "cy",
+        "fieldMode",
+        "n1",
+        "n2",
+        "n3",
+        "petals",
+        "range",
+        "rotation",
+        "shape",
+        "sides",
+        "size",
+        "softness",
+        "spin",
+        "symmetry"
+      ]
+    },
+    "SliceTiling": {
+      "inputs": [
+        "cells",
+        "edge",
+        "morph",
+        "rotation",
+        "spin",
+        "warp"
+      ],
+      "outputs": [
+        "cell",
+        "field"
+      ],
+      "properties": [
+        "bits",
+        "bitsB",
+        "cells",
+        "depth",
+        "edge",
+        "lattice",
+        "morph",
+        "preset",
+        "rotation",
+        "seed",
+        "spin",
+        "symmetry",
+        "warp"
+      ]
+    },
+    "Smooth": {
+      "inputs": [
+        "fall",
+        "response",
+        "value"
+      ],
+      "outputs": [
+        "result"
+      ],
+      "properties": [
+        "fall",
+        "response",
+        "value"
+      ]
+    },
+    "SolidColor": {
+      "inputs": [
+        "b",
+        "color",
+        "g",
+        "r"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "b",
+        "g",
+        "r"
+      ]
+    },
+    "SongInfo": {
+      "inputs": [
+        "display"
+      ],
+      "outputs": [
+        "album",
+        "artist",
+        "bitrate",
+        "duration",
+        "elapsed",
+        "genre",
+        "playing",
+        "progress",
+        "remaining",
+        "status",
+        "title",
+        "volume",
+        "year"
+      ],
+      "properties": []
+    },
+    "SongStructure": {
+      "inputs": [
+        "audio"
+      ],
+      "outputs": [
+        "arousal",
+        "beatNumber",
+        "building",
+        "buildupProgress",
+        "downbeat",
+        "drop",
+        "dropImpact",
+        "measurePhase",
+        "tempoStable",
+        "valence"
+      ],
+      "properties": []
+    },
+    "SpectraMosaic": {
+      "inputs": [
+        "audio",
+        "bass",
+        "mids",
+        "paletteIn",
+        "reactivity",
+        "speed",
+        "tiles",
+        "treble"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "bass",
+        "mids",
+        "palette",
+        "reactivity",
+        "speed",
+        "tiles",
+        "treble"
+      ]
+    },
+    "SpectrumVisualizer": {
+      "inputs": [
+        "audio",
+        "bass",
+        "gain",
+        "mids",
+        "paletteIn",
+        "peakGravity",
+        "peakHold",
+        "reactivity",
+        "smoothing",
+        "speed",
+        "tilt",
+        "treble",
+        "waterfallSpeed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "bands",
+        "gain",
+        "mirror",
+        "palette",
+        "peakGravity",
+        "peakHold",
+        "reactivity",
+        "smoothing",
+        "speed",
+        "style",
+        "tilt",
+        "waterfallSpeed"
+      ]
+    },
+    "Spiral": {
+      "inputs": [
+        "arms",
+        "paletteIn",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "arms",
+        "palette",
+        "speed"
+      ]
+    },
+    "Starfield": {
+      "inputs": [
+        "count",
+        "paletteIn",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "count",
+        "palette",
+        "seed",
+        "speed"
+      ]
+    },
+    "StepValue": {
+      "inputs": [
+        "decrease",
+        "increase",
+        "reset"
+      ],
+      "outputs": [
+        "value"
+      ],
+      "properties": [
+        "initial",
+        "maximum",
+        "minimum",
+        "step",
+        "wrap"
+      ]
+    },
+    "StereoLevels": {
+      "inputs": [
+        "audio"
+      ],
+      "outputs": [
+        "balance",
+        "left",
+        "right"
+      ],
+      "properties": []
+    },
+    "StereoVuMeter": {
+      "inputs": [
+        "audio",
+        "paletteIn"
+      ],
+      "outputs": [],
+      "properties": [
+        "attackMs",
+        "beatAccent",
+        "brightness",
+        "chipset",
+        "colorOrder",
+        "cycleInterval",
+        "enabled",
+        "gain",
+        "leftClockPin",
+        "leftColor",
+        "leftDataPin",
+        "leftDirection",
+        "leftLedCount",
+        "noiseGate",
+        "palette",
+        "peakFall",
+        "peakHoldMs",
+        "releaseMs",
+        "responseCurve",
+        "rightClockPin",
+        "rightColor",
+        "rightDataPin",
+        "rightDirection",
+        "rightLedCount",
+        "swapChannels",
+        "targetOutputId",
+        "trailAmount",
+        "visualizationMode",
+        "visualizationPolicy"
+      ]
+    },
+    "StreamOutput": {
+      "inputs": [
+        "frame"
+      ],
+      "outputs": [],
+      "properties": [
+        "baud",
+        "host",
+        "port",
+        "streamProtocol"
+      ]
+    },
+    "StringParticles": {
+      "inputs": [
+        "paletteIn",
+        "spawn",
+        "speed",
+        "trail",
+        "trigger"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "bed",
+        "count",
+        "ledSource",
+        "mode",
+        "palette",
+        "ringLeds",
+        "seed",
+        "spawn",
+        "speed",
+        "track",
+        "trail"
+      ]
+    },
+    "Sunrise": {
+      "inputs": [
+        "duration",
+        "progress",
+        "start",
+        "trigger"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "duration",
+        "mode",
+        "progress",
+        "start"
+      ]
+    },
+    "Switch": {
+      "inputs": [
+        "a",
+        "b",
+        "select"
+      ],
+      "outputs": [
+        "result"
+      ],
+      "properties": [
+        "a",
+        "b",
+        "select"
+      ]
+    },
+    "TemperatureInput": {
+      "inputs": [],
+      "outputs": [
+        "connected",
+        "temperature"
+      ],
+      "properties": [
+        "partId",
+        "pin"
+      ]
+    },
+    "TempoClock": {
+      "inputs": [
+        "beatsPerBar",
+        "bpm",
+        "reset",
+        "subdivision",
+        "sync",
+        "tap"
+      ],
+      "outputs": [
+        "bar",
+        "beat",
+        "bpm",
+        "phase",
+        "subdivision"
+      ],
+      "properties": [
+        "beatsPerBar",
+        "bpm",
+        "subdivision"
+      ]
+    },
+    "Text": {
+      "inputs": [
+        "b",
+        "base",
+        "color",
+        "g",
+        "r",
+        "scroll",
+        "text",
+        "x",
+        "y"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "b",
+        "font",
+        "g",
+        "hAlign",
+        "letterSpacing",
+        "r",
+        "scroll",
+        "scrollAxis",
+        "size",
+        "text",
+        "units",
+        "vAlign",
+        "wrap",
+        "x",
+        "y"
+      ]
+    },
+    "TextValue": {
+      "inputs": [],
+      "outputs": [
+        "text"
+      ],
+      "properties": [
+        "text"
+      ]
+    },
+    "TheaterChase": {
+      "inputs": [
+        "paletteIn",
+        "spacing",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "axis",
+        "direction",
+        "palette",
+        "spacing",
+        "speed"
+      ]
+    },
+    "TileSymmetry": {
+      "inputs": [
+        "cells",
+        "frame",
+        "offsetX",
+        "offsetY",
+        "rotation",
+        "spin"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "cells",
+        "group",
+        "offsetX",
+        "offsetY",
+        "rotation",
+        "spin"
+      ]
+    },
+    "TimeNode": {
+      "inputs": [],
+      "outputs": [
+        "dt",
+        "time"
+      ],
+      "properties": []
+    },
+    "Timer": {
+      "inputs": [
+        "durationSec",
+        "reset",
+        "run"
+      ],
+      "outputs": [
+        "done",
+        "seconds"
+      ],
+      "properties": [
+        "durationSec",
+        "mode",
+        "reset",
+        "run"
+      ]
+    },
+    "TouchButtonInput": {
+      "inputs": [],
+      "outputs": [
+        "touched"
+      ],
+      "properties": [
+        "partId",
+        "pin"
+      ]
+    },
+    "TouchInput": {
+      "inputs": [],
+      "outputs": [
+        "controls"
+      ],
+      "properties": [
+        "panelId",
+        "touchFlipX",
+        "touchFlipY",
+        "touchXMax",
+        "touchXMin",
+        "touchYMax",
+        "touchYMin"
+      ]
+    },
+    "TouchPadInput": {
+      "inputs": [],
+      "outputs": [
+        "connected",
+        "count",
+        "electrode",
+        "pad0",
+        "pad1",
+        "pad10",
+        "pad11",
+        "pad2",
+        "pad3",
+        "pad4",
+        "pad5",
+        "pad6",
+        "pad7",
+        "pad8",
+        "pad9",
+        "touched"
+      ],
+      "properties": [
+        "i2cAddress",
+        "partId",
+        "releaseThreshold",
+        "sclPin",
+        "sdaPin",
+        "touchThreshold"
+      ]
+    },
+    "Trails": {
+      "inputs": [
+        "decay",
+        "frame"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "decay"
+      ]
+    },
+    "Transition": {
+      "inputs": [
+        "a",
+        "b",
+        "t"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "axis",
+        "count",
+        "direction",
+        "t",
+        "tileSize",
+        "transitionType",
+        "turns"
+      ]
+    },
+    "TransitionPool": {
+      "inputs": [],
+      "outputs": [
+        "transitions"
+      ],
+      "properties": [
+        "transitions"
+      ]
+    },
+    "TransportDisplay": {
+      "inputs": [
+        "display",
+        "enabled"
+      ],
+      "outputs": [],
+      "properties": [
+        "backlightPin",
+        "csPin",
+        "d0Pin",
+        "d1Pin",
+        "d2Pin",
+        "d3Pin",
+        "d4Pin",
+        "d5Pin",
+        "d6Pin",
+        "d7Pin",
+        "dcPin",
+        "displayId",
+        "enabled",
+        "misoPin",
+        "mosiPin",
+        "partId",
+        "rdPin",
+        "resetPin",
+        "sckPin",
+        "tftLayout",
+        "tftRotation",
+        "touchCsPin",
+        "touchIrqPin",
+        "touchMisoPin",
+        "touchMosiPin",
+        "touchSckPin",
+        "wrPin"
+      ]
+    },
+    "TreblePrism": {
+      "inputs": [
+        "audio",
+        "paletteIn",
+        "reactivity",
+        "speed",
+        "treble"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "palette",
+        "reactivity",
+        "speed",
+        "treble"
+      ]
+    },
+    "TrebleSparks": {
+      "inputs": [
+        "audio",
+        "density",
+        "paletteIn",
+        "treble"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "density",
+        "palette",
+        "treble"
+      ]
+    },
+    "Trigger": {
+      "inputs": [
+        "off",
+        "on",
+        "trigger"
+      ],
+      "outputs": [
+        "out"
+      ],
+      "properties": [
+        "delayTime",
+        "divideBy",
+        "holdTime",
+        "initialState",
+        "stableTime",
+        "triggerOp"
+      ]
+    },
+    "Truchet": {
+      "inputs": [
+        "cells",
+        "lineWidth",
+        "reroll",
+        "rotation",
+        "scroll"
+      ],
+      "outputs": [
+        "field"
+      ],
+      "properties": [
+        "cells",
+        "lattice",
+        "lineWidth",
+        "motif",
+        "rotation",
+        "scroll",
+        "seed"
+      ]
+    },
+    "TurbulentBloom": {
+      "inputs": [
+        "audio",
+        "bass",
+        "mids",
+        "paletteIn",
+        "reactivity",
+        "speed",
+        "treble"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "bass",
+        "mids",
+        "palette",
+        "reactivity",
+        "speed",
+        "treble"
+      ]
+    },
+    "TuringField": {
+      "inputs": [
+        "reset",
+        "speed",
+        "stepSize"
+      ],
+      "outputs": [
+        "field"
+      ],
+      "properties": [
+        "baseRadius",
+        "scales",
+        "seed",
+        "speed",
+        "stepSize"
+      ]
+    },
+    "TVSimulator": {
+      "inputs": [
+        "brightness",
+        "cutRate"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "brightness",
+        "cutRate"
+      ]
+    },
+    "TwinkleFox": {
+      "inputs": [
+        "density",
+        "paletteIn",
+        "speed"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "density",
+        "palette",
+        "seed",
+        "speed"
+      ]
+    },
+    "Vibe": {
+      "inputs": [
+        "audio",
+        "gain"
+      ],
+      "outputs": [
+        "bass",
+        "bassAtt",
+        "bassSpike",
+        "mids",
+        "midsAtt",
+        "midsSpike",
+        "treble",
+        "trebleAtt",
+        "trebleSpike",
+        "volume"
+      ],
+      "properties": [
+        "gain",
+        "unitRange"
+      ]
+    },
+    "VocalAurora": {
+      "inputs": [
+        "paletteIn",
+        "reactivity",
+        "silence",
+        "speed",
+        "vocals"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "palette",
+        "reactivity",
+        "speed",
+        "vocals"
+      ]
+    },
+    "Wave": {
+      "inputs": [
+        "amplitude",
+        "bpm",
+        "frequency",
+        "offset",
+        "phase"
+      ],
+      "outputs": [
+        "result"
+      ],
+      "properties": [
+        "amplitude",
+        "bpm",
+        "frequency",
+        "offset",
+        "phase",
+        "rateUnit",
+        "unipolar",
+        "waveform"
+      ]
+    },
+    "Waveform": {
+      "inputs": [
+        "audio",
+        "base",
+        "gain",
+        "paletteIn",
+        "smoothing",
+        "thickness"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "gain",
+        "palette",
+        "smoothing",
+        "style",
+        "thickness"
+      ]
+    },
+    "WaveSim": {
+      "inputs": [
+        "damping",
+        "impulse",
+        "speed",
+        "splashX",
+        "splashY",
+        "trigger"
+      ],
+      "outputs": [
+        "field"
+      ],
+      "properties": [
+        "damping",
+        "halfDuplex",
+        "impulse",
+        "speed",
+        "wrapEdges"
+      ]
+    },
+    "WebRemoteInput": {
+      "inputs": [],
+      "outputs": [
+        "add-control"
+      ],
+      "properties": [
+        "controls",
+        "title"
+      ]
+    },
+    "Wireframe3D": {
+      "inputs": [
+        "b",
+        "base",
+        "color",
+        "g",
+        "perspectiveStrength",
+        "r",
+        "scale",
+        "spinX",
+        "spinY",
+        "spinZ"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "b",
+        "depthShade",
+        "g",
+        "model",
+        "perspectiveStrength",
+        "projection",
+        "r",
+        "scale",
+        "spinX",
+        "spinY",
+        "spinZ"
+      ]
+    },
+    "Zones": {
+      "inputs": [
+        "a",
+        "b",
+        "base",
+        "c",
+        "d"
+      ],
+      "outputs": [
+        "frame"
+      ],
+      "properties": [
+        "aEnabled",
+        "aFit",
+        "aH",
+        "aW",
+        "aX",
+        "aY",
+        "bEnabled",
+        "bFit",
+        "bH",
+        "bW",
+        "bX",
+        "bY",
+        "cEnabled",
+        "cFit",
+        "cH",
+        "cW",
+        "cX",
+        "cY",
+        "dEnabled",
+        "dFit",
+        "dH",
+        "dW",
+        "dX",
+        "dY"
+      ]
+    }
+  }
+}

@@ -601,8 +601,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   so the help article, the canvas and a saved file name it the same way. The
   ones that differ (`RTCInput`, `MatrixOutput`, `PatternMaster`,
   `TransportDisplay`, `InfoDisplay`, `ControlMap`, `BatteryModule`,
-  `NoiseSignal`) are kept for good. A rename made after the v1.0.0 format
-  freeze needs a real migration and a release note; there is no alias table
+  `NoiseSignal`) are kept for good. The format froze on 2026-11-21: renaming
+  or removing a type, port or property now fails `saveFormatBaseline.test.ts`,
+  and needs a migration, a raised `SAVE_FORMAT_VERSION` and a release note;
+  there is no alias table
   ([cleanup record](../../release/versioning-and-releases.md#pre-v1-cleanup-record)).
 - A node's `field` output is `field_<id>` in the sketch; any other field
   output (Slice Tiling's `cell`) is `field_<id>_<port>`, declared by
