@@ -446,7 +446,7 @@ function findGaps(profile: Omit<HardwareValidationProfile, 'gaps' | 'checks'>): 
     gaps.push({
       id: 'exact-target',
       label: 'Exact controller + LED configuration',
-      reason: 'No recorded beta row matches this board, engine, chipset, dimensions, layout, and PSRAM combination.',
+      reason: 'No supported row matches this board, engine, chipset, dimensions, layout, and PSRAM combination.',
     })
   }
 
@@ -710,7 +710,7 @@ export function formatHardwareValidationReport(submission: HardwareValidationSub
     .join('\n')
 
   return [
-    '# Design Studio for FastLED beta hardware validation',
+    '# Design Studio for FastLED hardware validation',
     '',
     '## Exact environment and configuration',
     '',
@@ -737,7 +737,7 @@ export function formatHardwareValidationReport(submission: HardwareValidationSub
 }
 
 export function hardwareValidationIssueUrl(report: string, profile: HardwareValidationProfile): string {
-  const title = `[Beta hardware] ${profile.controller.board} · ${ACTION_LABELS[profile.action]} · ${profile.configurationKey}`
+  const title = `[Hardware report] ${profile.controller.board} · ${ACTION_LABELS[profile.action]} · ${profile.configurationKey}`
   const query = new URLSearchParams({ title, body: report })
   return `https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues/new?${query}`
 }

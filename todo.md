@@ -69,7 +69,9 @@ The pre-1.0 compatibility sweep is done
   experimental. Done 2026-11-21: the recorded ESP32-S3, classic ESP32 and
   ESP8266 rows on Windows 11 with Chrome, no rerun on the freeze build; the
   S3 SD show (#194) and Wi-Fi records were added.
-- [ ] Reconcile the release copy with that scope.
+- [x] Reconcile the release copy with that scope. Done 2026-11-21: README,
+  Help and the hardware report drop "beta"; the Store listing copy already
+  matched. The website is not in this repository.
 - [x] Freeze the panel, document and control save format. It becomes the
   compatibility baseline. Done 2026-11-21: format 1, guarded by
   `saveFormatBaseline.test.ts`

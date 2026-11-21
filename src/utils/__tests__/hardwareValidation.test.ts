@@ -341,6 +341,6 @@ describe('hardware validation profiles', () => {
     expect(report).not.toContain('COM7')
     expect(report).not.toContain('My Secret Project')
     const issueUrl = new URL(hardwareValidationIssueUrl(report, profile))
-    expect(issueUrl.searchParams.get('title')).toContain('[Beta hardware] ESP32-S3')
+    expect(issueUrl.searchParams.get('title')).toContain('[Hardware report] ESP32-S3')
   })
 })

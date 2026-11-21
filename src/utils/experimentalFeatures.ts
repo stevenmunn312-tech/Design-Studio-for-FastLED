@@ -8,7 +8,7 @@
 
 export const EXPERIMENTAL_LABEL = 'experimental'
 
-export const EXPERIMENTAL_NOTE = 'Present in the product, not yet validated on a bench; see the beta support matrix.'
+export const EXPERIMENTAL_NOTE = 'Present in the product, not yet validated on a bench; see the support matrix.'
 
 /**
  * Select options the matrix lists under "Experimental until validated", by

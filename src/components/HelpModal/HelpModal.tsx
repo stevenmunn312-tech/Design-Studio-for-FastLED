@@ -35,7 +35,7 @@ function AboutTab() {
         <div className={styles.text}>
           Maintained by <strong>Steven Munn</strong>. The core is released under the{' '}
           <a className={styles.link} href={`${REPO_URL}/blob/main/LICENSE`} target="_blank" rel="noopener noreferrer">MIT License</a>.
-          Source, issues, and beta hardware reports live on{' '}
+          Source, issues, and hardware reports live on{' '}
           <a className={styles.link} href={REPO_URL} target="_blank" rel="noopener noreferrer">GitHub</a>.
         </div>
       </div>
@@ -840,7 +840,7 @@ function UploadTab() {
         </div>
         <div className={styles.text}>
           <SupportedHardwareSummary />
-          {' '}Treat every other combination as experimental and check the <a className={styles.link} href={`${REPO_URL}/blob/main/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">beta support matrix</a> for the exact scope.
+          {' '}Treat every other combination as experimental and check the <a className={styles.link} href={`${REPO_URL}/blob/main/docs/release/beta-support-matrix.md`} target="_blank" rel="noopener noreferrer">support matrix</a> for the exact scope.
         </div>
       </div>
     </>
@@ -859,10 +859,10 @@ function SupportedHardwareSummary() {
     void loadSupportMatrixSummary().then((loaded) => { if (!cancelled) setSummary(loaded) })
     return () => { cancelled = true }
   }, [])
-  if (!summary) return <>Recorded public-beta validation is listed, row by row, in the beta support matrix.</>
+  if (!summary) return <>Supported hardware is listed, row by row, in the support matrix.</>
   return (
     <>
-      Recorded public-beta validation covers <strong>{summary.ledRows} LED-output</strong> and <strong>{summary.displayRows} auxiliary-display</strong> combinations, on {summary.boards.join(', ')}.
+      Supported hardware covers <strong>{summary.ledRows} LED-output</strong> and <strong>{summary.displayRows} auxiliary-display</strong> combinations, on {summary.boards.join(', ')}.
     </>
   )
 }

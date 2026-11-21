@@ -4,9 +4,9 @@
 
 Design Studio for FastLED is a live, node-based creative environment for LED strings, matrices, rings, corkscrew installations, and tiled panels. Connect patterns, palettes, signals, effects, audio analysis, and hardware output; watch the result move instantly; then generate or upload the same design as FastLED C++.
 
-**Public beta · 231 modules · included patterns · Windows, macOS, and Linux packaging · MIT core**
+**Version 1.0 · 231 modules · included patterns · Windows, macOS, and Linux packaging · MIT core**
 
-[Check beta releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-the-beta)
+[Releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) · [Run from source](#run-from-source) · [Help test hardware](#help-test-hardware)
 
 ![A Field Transform patch running in Design Studio for FastLED: three noise fields bend one image, shown live on a 16×16 LED matrix](docs/images/readme/design-studio-overview.webp)
 
@@ -61,13 +61,13 @@ Press **Stage View** or **F10** to turn the workspace into a clean operator view
 
 ## Get started
 
-### Portable desktop beta
+### Portable desktop packages
 
 Check [GitHub Releases](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/releases) for an archive for your operating system. Extract it and launch **Design Studio for FastLED** (`Design Studio for FastLED.exe` on Windows).
 
 The portable package is designed to include the Studio, local upload helper, `fbuild`, and `esptool`, so users do not need to install Node.js or Python. Keep the launcher open while using USB upload, local project files, and disk-backed Pattern Library features. See [Desktop distribution](docs/release/desktop-distribution.md) for packaging status and limitations.
 
-> Desktop packages are beta builds and are not yet code-signed or notarized. Only run archives downloaded from this repository’s official release page. See [Security messages](#security-and-privacy) below.
+> The portable archives are not code-signed or notarized. Only run archives downloaded from this repository’s official release page. See [Security messages](#security-and-privacy) below.
 
 ### Run from source
 
@@ -120,7 +120,7 @@ Music Library → Performance Generator → SD Card → LED Output
 
 Analyze MP3s, generate a timed show, hand-edit its event timeline, audition it against the music, and package the player, show data, and tracks for SD-card playback. Edit lanes opens the show under the section bands, beat grid and energy envelope. Speed, brightness, energy and named inputs can ramp, and an edit locks that section so Regenerate keeps it. A Pattern Collection can provide the visual vocabulary.
 
-> Music-synced SD provisioning is experimental. See the [Beta support matrix](docs/release/beta-support-matrix.md) before planning a production installation.
+> Music-synced SD shows are tested end to end on one ESP32-S3 build and are experimental on every other board. See the [support matrix](docs/release/beta-support-matrix.md) before planning a production installation.
 
 ## From preview to hardware
 
@@ -207,9 +207,9 @@ Built-in patterns are immutable examples. Your own patterns remain yours to rena
 
 Everything that ships with Studio, and everything you make on your own computer, is trusted. A share link, file or pattern made on another computer can carry Formula/Code nodes or an Art-Net listener that Studio hasn't run on yours before; only those parts wait until you choose **Trust it**, and everything else runs normally. Studio remembers what you trust on that computer, for every project, so the same code is never asked about twice. Upload still asks first while something is untrusted, since generated firmware runs on your board with no sandbox around it.
 
-## Beta hardware scope
+## Supported hardware
 
-These builds have been tested end to end on real hardware, so you can start from them with confidence:
+Version 1.0 supports the builds below, each tested end to end on real hardware for the paths it names. Start from one of them with confidence:
 
 | Board and LEDs | Validated paths |
 | --- | --- |
@@ -218,13 +218,14 @@ These builds have been tested end to end on real hardware, so you can start from
 | Classic ESP32 Generic DevKit 38-pin · 16×16 WS2812B matrix · Windows 11 / Chrome · `fbuild` 2.5.16 | Normal live-graph upload |
 | Classic ESP-32D DevKit v1 30-pin · DS3231 · WS2812B matrix · Windows 11 / Chrome · `fbuild` | Set RTC from Studio, read it in firmware, and render Clock Display |
 | ESP32-S3 with OPI PSRAM · 60×1 and 65×1 WS2812B strings · Windows 11 / Chrome · `fbuild` 2.5.18 | Normal upload and Live Stream, with and without an INMP441 microphone driving the audio response |
+| ESP32-S3 N16R8 with OPI PSRAM · microSD · MAX98357A · 16×16 WS2812B matrix · Windows 11 / Chrome · `fbuild` 2.5.18 | Music-synced SD show: card provisioning, player upload, clean audio and lighting in sync through a whole track |
 | ESP32-S3 · microSD · MAX98357A · 16×16 matrix plus a Stereo VU Meter pair · Windows 11 / Chrome · `fbuild` 2.5.21 | SD Music Player with all twelve VU visualizations, a fifteen-minute soak and power draw at the cap |
 | ESP32-S3 N16R8 · LDR light sensor · 32×1 WS2812B string · Windows 11 / Chrome · `fbuild` 2.5.21 | Light Sensor driving LED brightness |
 | ESP32-S3 · rotary encoder · ST7789 panel · 16×16 matrix · Windows 11 / Chrome · `arduino-cli` | Encoder choosing the slideshow pattern, with the panel naming it |
 
-The full, dated list is the [Beta support matrix](docs/release/beta-support-matrix.md). Other boards, parts and layouts are built to work too; they just haven't been bench-tested by this project yet. If something doesn't behave the way you expect, please [open a GitHub issue](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues): if it's a bug we'll fix it, and your build may join the tested list.
+The full, dated list, including the displays tested on the ESP32-S3, is the [support matrix](docs/release/beta-support-matrix.md). These builds were recorded between June and September 2026 on earlier engine versions. Every other board family (ESP32-C3, C6 and S2, RP2040, Teensy, AVR, SAMD, STM32, nRF52, UNO R4) compiles but is experimental, as are other parts and layouts: they are built to work, but this project hasn't bench-tested them yet. If something doesn't behave the way you expect, please [open a GitHub issue](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues): if it's a bug we'll fix it, and your build may join the tested list.
 
-## Help test the beta
+## Help test hardware
 
 Real hardware reports are the fastest way to grow the list of tested builds. The Upload tab's **Share a report…** button prepares one and shows exactly what will be copied or downloaded; nothing is submitted automatically.
 
@@ -242,7 +243,7 @@ Read the [Hardware validation guide](docs/release/beta-hardware-validation.md), 
 
 ## Security and privacy
 
-- **Unsigned beta packages:** Windows SmartScreen or macOS Gatekeeper may warn because desktop builds are not yet signed/notarized. Only make a one-time exception for an archive you intentionally downloaded from this repository’s release page; do not disable operating-system protections globally.
+- **Unsigned portable packages:** Windows SmartScreen or macOS Gatekeeper may warn because the portable archives are not signed or notarized. Only make a one-time exception for an archive you intentionally downloaded from this repository’s release page; do not disable operating-system protections globally.
 - **Microphone:** audio-reactive preview requires browser permission. Denying it simply leaves live audio nodes inactive.
 - **Local helper:** USB upload, streaming, native file dialogs, and disk-backed project/pattern sync use a localhost service on your machine.
 - **Network credentials:** Art-Net and NTP credentials stay in browser-local storage and are excluded from projects and share links. Generated network-enabled firmware necessarily embeds them in plain text, so treat exported `.ino` files accordingly.
