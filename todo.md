@@ -38,7 +38,7 @@ and recovery evidence
   built from `ce83f98` was submitted early on 2026-11-20; it stays as a dry
   run of certification, never published, and is deleted once its result is in.
 - [ ] Run the Windows package on a clean account or machine, through launch
-  and an upload.
+  and an upload ([clean-machine smoke test](docs/release/clean-machine-smoke-test.md)).
 - [x] Reconcile the fbuild 2.5.4 tools the macOS bundle substitutes with the
   pinned Python dependency
   ([package workflow](docs/release/desktop-distribution.md#github-package-workflow)).

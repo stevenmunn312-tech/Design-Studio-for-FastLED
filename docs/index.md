@@ -215,6 +215,7 @@ The [beta support matrix](release/beta-support-matrix.md) is the authority for
 supported versus experimental hardware. Policy, reporting procedure and release
 gates are separate documents.
 
+- [Clean-Machine Smoke Test](release/clean-machine-smoke-test.md)
 - [Keyboard and Screen-Reader Smoke Test](release/accessibility-smoke-test.md)
 - [Beta Hardware Validation](release/beta-hardware-validation.md)
 - [Beta Support Matrix](release/beta-support-matrix.md)
