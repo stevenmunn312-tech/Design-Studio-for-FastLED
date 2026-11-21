@@ -629,4 +629,31 @@ describe('NodeGraphCanvas start screen', () => {
 
     expect(useUiStore.getState().statusText).toBe('Ready')
   })
+
+  it('says which port is waiting and what it connected, for a keyboard connection', () => {
+    const fft = {
+      id: 'fft', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: 'FFT Analyzer', nodeType: 'FFTAnalyzer', category: 'audio', properties: {},
+        inputs: [], outputs: [{ id: 'bass', label: 'Bass', dataType: 'float' }],
+      },
+    }
+    const plasma = {
+      id: 'plasma', type: 'studioNode', position: { x: 0, y: 0 },
+      data: {
+        label: 'Plasma', nodeType: 'Plasma', category: 'pattern', properties: {},
+        inputs: [{ id: 'speed', label: 'Speed', dataType: 'float' }], outputs: [],
+      },
+    }
+    useGraphStore.getState().loadGraph([fft as never, plasma as never], [])
+    render(<NodeGraphCanvas />)
+
+    const start = reactFlowProps.onClickConnectStart as (event: unknown, params: unknown) => void
+    start({}, { nodeId: 'fft', handleId: 'bass', handleType: 'source' })
+    expect(useUiStore.getState().statusText).toBe('Choose a destination port for FFT Analyzer Bass')
+
+    const onConnect = reactFlowProps.onConnect as (connection: unknown) => void
+    onConnect({ source: 'fft', sourceHandle: 'bass', target: 'plasma', targetHandle: 'speed' })
+    expect(useUiStore.getState().statusText).toBe('Connected FFT Analyzer Bass to Plasma Speed')
+  })
 })

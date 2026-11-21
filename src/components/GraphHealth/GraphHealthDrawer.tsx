@@ -1,4 +1,5 @@
 import { useGroupRegistry } from '../../hooks/useGroupRegistry'
+import { checksAnnouncement } from './checksAnnouncement'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   addPatternCollectionTo,
@@ -436,7 +437,11 @@ export default function GraphHealthDrawer() {
             )}
           </span>
         </button>
-        <div className={styles.telemetry} aria-live="polite">
+        {/* What a screen reader hears when the checks change: one sentence
+            naming the worst problem, not the counts, board chip and chevron
+            run together ("1 blocks upload1 suggestionESP32"). */}
+        <span className={styles.srOnly} aria-live="polite">{checksAnnouncement(errors, warnings, highestPriority?.title)}</span>
+        <div className={styles.telemetry}>
           {errors > 0 && <span className={`${styles.count} ${styles.errorCount}`}>{errors === 1 ? '1 blocks upload' : `${errors} block upload`}</span>}
           {warnings > 0 && <span className={`${styles.count} ${styles.warningCount}`}>{warnings} suggestion{warnings === 1 ? '' : 's'}</span>}
           {diagnostics.length === 0 && <span className={`${styles.count} ${styles.clearCount}`}>All good</span>}

@@ -126,8 +126,10 @@ describe('GraphHealthDrawer', () => {
       node('oled', 'InfoDisplay', { partId: 'ssd1306-oled-096-128x64-i2c', sdaPin: 25, sclPin: 26, boardId: 'board-2' }),
     ], [])
     useUiStore.setState({ activeBoardId: 'board-root' })
-    const { getByText } = render(<GraphHealthDrawer />)
-    const card = getByText(/I2C parts are on more than one bus/).closest('article')!
+    const { getAllByText } = render(<GraphHealthDrawer />)
+    // The spoken summary names the worst issue too; the card is the one in an article.
+    const card = getAllByText(/I2C parts are on more than one bus/)
+      .map((element) => element.closest('article')).find(Boolean)!
     fireEvent.click(within(card).getByRole('button', { name: 'Show DS3231 RTC hardware' }))
     expect(useUiStore.getState().activeBoardId).toBe('board-2')
     expect(useUiStore.getState().hardwareInspectorNodeId).toBe('rtc')

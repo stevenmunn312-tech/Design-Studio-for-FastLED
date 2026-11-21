@@ -1020,7 +1020,7 @@ export default function MatrixOutputDeployPopup({
             onClick={openCodeView}
             title={hasBuildOutput ? 'View the generated .ino sketch' : 'Connect a pattern to the LED output to view the generated .ino sketch'}
           >
-            {'</>'} View Code
+            <span aria-hidden="true">{'</>'}</span> View Code
           </button>
           </div>
         </section>

@@ -17,6 +17,7 @@ import {
   type IsValidConnection,
   type OnConnectEnd,
   type OnConnectStart,
+  type OnDelete,
   type OnConnect,
   type OnReconnect,
   type OnMove,
@@ -63,6 +64,12 @@ import { Icon } from '../icons/Icon'
 const nodeTypes: NodeTypes = { studioNode: StudioNode as any }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const edgeTypes: EdgeTypes = { glowEdge: GlowEdge as any }
+
+/** A node's name as the canvas shows and announces it. */
+function spokenNodeName(node: StudioGraphNode): string {
+  const data = node.data as { label?: string; nodeType?: string; properties?: Record<string, unknown> }
+  return nodeDisplayLabel(data.nodeType ?? '', data.properties ?? {}, data.label ?? data.nodeType ?? 'Untitled')
+}
 
 const minimapNodeColor = (n: Node) =>
   CATEGORY_COLOR[(n.data as { category?: string }).category ?? ''] ?? '#444'
@@ -383,7 +390,9 @@ function NodeGraphCanvasInner() {
   const selectedNodeLabel = useMemo(() => {
     if (!selectedNodeId) return null
     const node = nodes.find((entry) => entry.id === selectedNodeId)
-    return node ? String((node.data as { label?: string }).label ?? 'signal path') : null
+    // The name the canvas and its accessible labels use, so "Tracing" names the
+    // node the way the node names itself (LED String, not its library label).
+    return node ? spokenNodeName(node) : null
   }, [nodes, selectedNodeId])
   const hasTerminalFrame = useMemo(() => {
     const terminalIds = new Set(nodes
@@ -577,6 +586,33 @@ function NodeGraphCanvasInner() {
     [getNode]
   )
 
+  /** "Juggle Frame": a node and one of its ports, as the canvas labels them. */
+  const spokenPort = useCallback((nodeId: string | null | undefined, handleId: string | null | undefined, side: 'source' | 'target') => {
+    const node = nodeId ? useGraphStore.getState().nodes.find((entry) => entry.id === nodeId) : undefined
+    if (!node) return 'that port'
+    const ports = (side === 'source' ? node.data.outputs : node.data.inputs) as { id: string; label?: string }[] | undefined
+    const port = ports?.find((entry) => entry.id === handleId)?.label ?? handleId ?? ''
+    return `${spokenNodeName(node)} ${port}`.trim()
+  }, [])
+
+  // Keyboard connections (Enter on a port, then on another) are otherwise
+  // silent to a screen reader: say which port is waiting for its partner.
+  // A drag shows its own wire landing, so only a click (keyboard) connection
+  // says "Connected …" when it completes; a drag stays quiet.
+  const clickConnecting = useRef(false)
+  const onClickConnectStart: OnConnectStart = useCallback((_event, params) => {
+    clickConnecting.current = true
+    const source = params.handleType === 'source'
+    setStatus(`Choose a ${source ? 'destination' : 'source'} port for ${spokenPort(params.nodeId, params.handleId, source ? 'source' : 'target')}`, 'info')
+  }, [setStatus, spokenPort])
+
+  const announceDeletion: OnDelete = useCallback(({ nodes: removedNodes, edges: removedEdges }) => {
+    const names = removedNodes.map((node) => spokenNodeName(node as StudioGraphNode))
+    if (names.length === 1) setStatus(`Deleted ${names[0]}`, 'info')
+    else if (names.length > 1) setStatus(`Deleted ${names.length} nodes`, 'info')
+    else if (removedEdges.length > 0) setStatus(`Deleted ${removedEdges.length === 1 ? 'a connection' : `${removedEdges.length} connections`}`, 'info')
+  }, [setStatus])
+
   const handleConnect: OnConnect = useCallback(
     (connection) => {
       // Absorbing a pattern into a collection: dropping a Group's frame output on
@@ -619,9 +655,12 @@ function NodeGraphCanvasInner() {
         sourceHandle: connection.sourceHandle ?? null,
         targetHandle: connection.targetHandle ?? null,
       } as StudioEdge])[0]
+      const announce = clickConnecting.current
+      clickConnecting.current = false
       if (hint) setStatus(hint, 'info')
+      else if (announce) setStatus(`Connected ${spokenPort(connection.source, connection.sourceHandle, 'source')} to ${spokenPort(connection.target, connection.targetHandle, 'target')}`, 'info')
     },
-    [onConnect, spreadNodes, fireConnectionCeremony, getNode, setStatus, addToCollection]
+    [onConnect, spreadNodes, fireConnectionCeremony, getNode, setStatus, addToCollection, spokenPort]
   )
 
   // Grabbing a connected input dot: let the noodle stay visible while it is
@@ -1412,6 +1451,9 @@ function NodeGraphCanvasInner() {
         onEdgesChange={onEdgesChange}
         onConnect={handleConnect}
         onConnectStart={onConnectStart}
+        onClickConnectStart={onClickConnectStart}
+        onClickConnectEnd={() => { if (!clickConnecting.current) return; window.setTimeout(() => { clickConnecting.current = false }, 0) }}
+        onDelete={announceDeletion}
         onConnectEnd={onConnectEnd}
         onReconnectStart={onReconnectStart}
         onReconnect={onReconnect}

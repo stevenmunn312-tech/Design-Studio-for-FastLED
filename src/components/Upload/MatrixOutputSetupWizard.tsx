@@ -165,6 +165,7 @@ export default function MatrixOutputSetupWizard() {
               className={`${styles.wizardButtonBase} ${styles.wizardStep} ${index === step ? styles.wizardStepActive : ''}`}
               onClick={() => setStep(index)}
               aria-current={index === step ? 'step' : undefined}
+              aria-label={`Step ${index + 1}: ${item.title}`}
             >
               <span className={styles.wizardStepIndex}>{index + 1}</span>
               <span className={styles.wizardStepText}>{item.title}</span>

@@ -89,7 +89,7 @@ the change: lint, 1,478 tests across 93 files, and the production build.
 
 ## Completion record
 
-Status: **Keyboard passed on the v1 candidate; NVDA pass pending.**
+Status: **Keyboard and NVDA focus-mode passes recorded on the v1 candidate; the browse-mode checks below are still to do by hand.**
 
 The 2026-07-26 pass predates the workspace tabs and shelves, so the v1
 candidate needs both scenarios again (todo.md HW-18).
@@ -98,6 +98,7 @@ candidate needs both scenarios again (todo.md HW-18).
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-26 | User-confirmed | Version not supplied | Version not supplied | Version not supplied | Local Vite app | Pass | Pass | NVDA pass confirmed by the user; exact environment versions were not supplied. |
 | 2026-11-21 | Claude Code, keys only | 11 (10.0.26300) | Chromium 156.0.8078.100 (Claude desktop browser pane) | Not run | Local Vite app, helper blocked | Pass after fixes | Pending | See the v1 candidate keyboard pass below. |
+| 2026-11-22 | Claude Code, NVDA speech log | 11 (10.0.26300) | Google Chrome | 2026.3.1 | Local Vite app, helper blocked | — | Pass after fixes, browse-mode checks pending | See the v1 candidate NVDA pass below. |
 
 ## v1 candidate keyboard pass — 2026-11-21
 
@@ -123,3 +124,54 @@ Steps 1 to 4 and 9 passed as written. The first run failed on:
 
 After the fixes, every step above passed on a second run. Node search still
 moves through its results with Tab rather than the arrow keys.
+
+## v1 candidate NVDA pass — 2026-11-22
+
+NVDA 2026.3.1 ran with its log at the input/output level, which records every
+utterance. Claude drove the nine steps in Chrome (with Chrome in the
+foreground) and read the log. That covers what NVDA says as focus moves and
+live regions change. It cannot press NVDA's own commands, so the browse-mode
+checks below were not run.
+
+Heard correctly from the start: the dialog titles with focus inside and
+restored on close; menu items with their positions ("New Project, 1 of 13");
+workspace tabs ("Graph, tab, selected, 2 of 4"); toggle buttons with their
+state; nodes with their input and output counts and selection; connections
+with both ends; ports with direction, node, port and type; slider values,
+including after undo; React Flow's move announcement; and "Saved project".
+
+Defects found and fixed:
+
+- **Keyboard connections were silent.** Enter on a port now says "Choose a
+  destination port for Juggle Frame", and completing it says "Connected
+  Juggle Frame to LED String Frame". A mouse drag stays quiet.
+- **Deletions were silent.** Now "Deleted Field Blur" or "Deleted a
+  connection".
+- **The Checks summary ran together** as "1 blocks upload1 suggestionESP32⌄".
+  It now speaks one sentence: "Checks: 1 problem blocks upload, 1
+  suggestion. LED output has no input."
+- **The status bar said "Ready"** after every message as it reset; the idle
+  text is no longer announced.
+- **"Tracing LED Matrix"** used the library label; it now names the node as
+  the canvas does ("Tracing LED String").
+- **Wizard steps read "1Controller"**; now "Step 1: Controller, current step".
+- **Start Gallery cards ran their text together** ("FireEasyShape the
+  classic…"); now "Fire, Easy. Shape the classic…".
+- **View Code read its `</>` glyph**; the glyph is hidden from speech.
+
+Known and left:
+
+- Moving onto a connection first says "graphic": React Flow wraps each edge
+  in its own unnamed `<svg>`, which the app does not render.
+- After a deletion, NVDA can briefly announce a Pattern Library button before
+  focus settles on the graph editor.
+- Node search announces neither its result count nor that it is a search.
+
+Browse-mode checks still to do by hand (about 5 minutes, NVDA in Chrome):
+
+1. Insert+F7, Landmarks: banner, navigation, complementary and content info
+   are listed; note that there is no main landmark.
+2. Arrow through a collapsed node property group and the closed Checks
+   drawer in browse mode: their contents must not be read.
+3. Arrow past the LED preview and node previews: no stream of unnamed
+   graphics; Record and the transport buttons have names.

@@ -82,14 +82,19 @@ export default function StatusBar() {
           className={styles.indicator}
           style={{ background: LEVEL_COLOR[statusLevel], color: LEVEL_COLOR[statusLevel] }}
         />
+        <span className={styles.message} style={{ color: LEVEL_COLOR[statusLevel] }} aria-hidden="true">
+          {statusText}
+        </span>
+        {/* Spoken copy of the message. Every message falls back to "Ready"
+            after five seconds; announcing that too made a screen reader say
+            "Ready" after everything it had just said. */}
         <span
-          className={styles.message}
-          style={{ color: LEVEL_COLOR[statusLevel] }}
+          className={styles.srOnly}
           role={statusLevel === 'error' ? 'alert' : 'status'}
           aria-live={statusLevel === 'error' ? 'assertive' : 'polite'}
           aria-atomic="true"
         >
-          {statusText}
+          {statusLevel === 'idle' ? '' : statusText}
         </span>
       </div>
 

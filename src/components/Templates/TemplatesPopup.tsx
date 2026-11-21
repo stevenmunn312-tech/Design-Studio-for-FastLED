@@ -228,6 +228,9 @@ export default function TemplatesPopup() {
             type="button"
             className={`${styles.card} ${styles.blankCard} ${lastStartChoice === 'blank' ? styles.cardRemembered : ''}`}
             onClick={() => { void loadBlank() }}
+            // The card's text runs together when read as one name
+            // ("Blank CanvasStart clean…"), so it gets a spoken one.
+            aria-label={`Start blank: Blank Canvas${lastStartChoice === 'blank' ? ', last start' : ''}. Start clean, but keep starters one click away from the new Start button.`}
           >
             <BlankPreview />
             <div className={styles.cardBody}>
@@ -248,6 +251,7 @@ export default function TemplatesPopup() {
               key={template.id}
               className={`${styles.card} ${lastStartChoice === template.id ? styles.cardRemembered : ''}`}
               onClick={() => { void loadTemplate(template) }}
+              aria-label={`${template.name}, ${template.guide.level}${lastStartChoice === template.id ? ', last start' : ''}. ${template.description}`}
             >
               <TemplatePreview template={template} />
               <div className={styles.cardBody}>
