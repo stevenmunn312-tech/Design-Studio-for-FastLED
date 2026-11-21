@@ -75,7 +75,7 @@ shown on them belong to their owners and imply no endorsement.
 
 ## FastLED and helper-vendored libraries
 
-- Generated sketches target the upstream FastLED library.
+- Generated sketches target the upstream FastLED library, pinned at 3.10.9.
 - FastLED's upstream repository publishes the library under the MIT license.
 - The source repo does not vendor FastLED by default, but the helper may clone
   FastLED into `backend/.fbuild-project/lib/FastLED/` at build time when using
@@ -93,6 +93,26 @@ shown on them belong to their owners and imply no endorsement.
   (c) 2025 LVGL Kft; preserve the checkout's `LICENCE.txt` when redistributing
   the cached runtime. The ST7789V panel and XPT2046 touch drivers remain
   project-authored inline code and introduce no additional library dependency.
+- Other libraries the helper fetches, at pinned versions, only when a sketch
+  needs them. They are downloaded onto the user's machine from their
+  publishers and compiled into that user's firmware; the app package does
+  not contain them.
+
+  | Library | Version | License | Used for |
+  | --- | --- | --- | --- |
+  | [ESP32-audioI2S](https://github.com/schreibfaul1/ESP32-audioI2S) | 3.0.12 | GPL-3.0 | SD and internet-radio Music Player |
+  | [arduino-audio-tools](https://github.com/pschatzmann/arduino-audio-tools) | 1.2.6 | GPL-3.0 | Bluetooth Music Player |
+  | [ESP32-A2DP](https://github.com/pschatzmann/ESP32-A2DP) | 1.8.9 | Apache-2.0 | Bluetooth Music Player |
+  | [Arduino-IRremote](https://github.com/Arduino-IRremote/Arduino-IRremote) | 4.7.1 | MIT | IR receiver |
+  | [Pololu VL53L0X](https://github.com/pololu/vl53l0x-arduino) | 1.3.1 | MIT-style (Pololu) | VL53L0X distance sensor |
+  | [Pololu VL53L1X](https://github.com/pololu/vl53l1x-arduino) | 1.3.1 | MIT-style (Pololu), with ST's BSD-3-Clause terms | VL53L1X distance sensor |
+  | [Adafruit Zero I2S](https://github.com/adafruit/Adafruit_ZeroI2S) | 1.2.4 | MIT | SAMD I2S audio |
+  | [Adafruit Zero DMA](https://github.com/adafruit/Adafruit_ZeroDMA) | 1.1.4 | MIT | SAMD I2S audio |
+
+  Firmware built with a GPL-3.0 library is a combined work under GPL-3.0.
+  That matters only to someone who distributes such firmware (for example,
+  selling a device running it): they then owe its recipients the source.
+  Building and running it on your own hardware carries no obligation.
 
 ## Stefan Petrick / AnimARTrix
 
@@ -149,9 +169,26 @@ shown on them belong to their owners and imply no endorsement.
   a prebuilt package rather than as source.
 - Portable desktop bundles include the Python runtime plus FastAPI (MIT),
   Uvicorn (BSD-3-Clause), python-multipart (Apache-2.0), pyserial
-  (BSD-3-Clause), fbuild (BSD-3-Clause), and esptool (GPL-2.0-or-later).
+  (BSD-3-Clause), fbuild 2.5.52 (AGPL-3.0-only since 2026-08-18; earlier
+  releases were BSD-3-Clause), and esptool 5.3.1 (GPL-2.0-or-later).
   The packager copies available upstream license files into
   `third-party-licenses/` and emits a version/license/source manifest there.
+  fbuild's wheel ships no license file, so its AGPL text is kept in
+  `desktop/assets/licenses/fbuild-LICENSE.txt` and copied in.
+- fbuild and esptool are bundled unmodified, as separate programs the helper
+  runs; the helper does not import their code. Their complete source for the
+  bundled versions is at
+  [FastLED/fbuild v2.5.52](https://github.com/FastLED/fbuild/tree/v2.5.52) and
+  [espressif/esptool v5.3.1](https://github.com/espressif/esptool/tree/v5.3.1),
+  and the manifest names both.
+- Tools downloaded at run time, not bundled: on first use the helper fetches
+  [Arduino CLI](https://github.com/arduino/arduino-cli) 1.5.1 (GPL-3.0) and
+  the board platforms, compilers and cores a board needs, from their
+  publishers (for example
+  [pioarduino platform-espressif32](https://github.com/pioarduino/platform-espressif32),
+  Apache-2.0, and [arduino-pico](https://github.com/earlephilhower/arduino-pico),
+  LGPL-2.1). They are installed on the user's machine under their own
+  licenses and are not redistributed with the app.
 - The Windows bundle also includes pywebview (BSD-3-Clause), pythonnet (MIT),
   clr-loader (MIT), Bottle (MIT) and proxy_tools (MIT) for its native window,
   plus the Microsoft WebView2 SDK assemblies that pywebview ships, which are

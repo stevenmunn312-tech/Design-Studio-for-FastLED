@@ -171,8 +171,9 @@ On 2026-07-17, a Windows x86-64 bundle was built and launch-smoked locally:
 - packaged Design Studio for FastLED shell returned HTTP 200;
 - `/api/desktop/status` identified the frozen launcher;
 - bundled `fbuild 2.5.0` and `esptool 5.3.1` executed successfully in the
-  original packaging smoke; the current dependency set pins `fbuild 2.5.37`
-  and `esptool 5.3.1`, so release candidates must repeat this check;
+  original packaging smoke; the current dependency set pins `fbuild 2.5.52`
+  (relicensed AGPL-3.0-only on 2026-08-18; see `THIRD_PARTY_NOTICES.md`)
+  and `esptool 5.3.1`, and the package workflow repeats this check;
 - output was a 61 MB ZIP / 168 MB unpacked one-folder bundle.
 
 This validates the packaging mechanism, not a public support promise. Before a

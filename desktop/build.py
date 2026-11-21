@@ -45,7 +45,7 @@ def runtime_packages() -> dict[str, tuple[str, str]]:
         "uvicorn": ("BSD-3-Clause", "https://github.com/encode/uvicorn"),
         "python-multipart": ("Apache-2.0", "https://github.com/Kludex/python-multipart"),
         "pyserial": ("BSD-3-Clause", "https://github.com/pyserial/pyserial"),
-        "fbuild": ("BSD-3-Clause", "https://github.com/FastLED/fbuild"),
+        "fbuild": ("AGPL-3.0-only", "https://github.com/FastLED/fbuild"),
         "esptool": ("GPL-2.0-or-later", "https://github.com/espressif/esptool"),
         "pyinstaller": ("GPL-2.0-or-later with bootloader exception", "https://pyinstaller.org"),
     }
@@ -263,10 +263,16 @@ def install_dependency_notices(app_dir: Path) -> None:
                 destination = notice_dir / f"{package}-{item.name}"
                 if not destination.exists():
                     shutil.copy2(source, destination)
+    # fbuild (relicensed AGPL-3.0-only on 2026-08-18) ships no license file in
+    # its wheel, so the text from its pinned tag is kept in the repository.
+    shutil.copy2(ROOT / "desktop" / "assets" / "licenses" / "fbuild-LICENSE.txt", notice_dir / "fbuild-LICENSE.txt")
+    copyleft = {name: importlib.metadata.version(name) for name in ("fbuild", "esptool")}
     manifest.extend([
         "",
-        "The fbuild wheel declares BSD-3-Clause but does not currently ship a",
-        "standalone license file; its upstream license declaration is linked above.",
+        "fbuild (AGPL-3.0-only) and esptool (GPL-2.0-or-later) are bundled unmodified",
+        "as separate programs. Their complete source for the exact versions here:",
+        f"  fbuild {copyleft['fbuild']}: https://github.com/FastLED/fbuild/tree/v{copyleft['fbuild']}",
+        f"  esptool {copyleft['esptool']}: https://github.com/espressif/esptool/tree/v{copyleft['esptool']}",
         "The pyserial BSD notice is recorded in the repository's THIRD_PARTY_NOTICES.md.",
     ])
     if os.name == "nt":

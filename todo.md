@@ -66,7 +66,10 @@ is the authority; these are its steps.
   [supported platform policy](docs/release/supported-platform-policy.md)
   against the validation evidence. Done 2026-11-22.
 - [ ] Review `THIRD_PARTY_NOTICES.md` for new bundled assets and dependency
-  changes.
+  changes. Reviewed 2026-11-22: fbuild's AGPL relicence, the fetched firmware
+  libraries and the run-time tools are now recorded. Open: where the display
+  design pack in `public/display-assets/` came from (the importer reads an
+  external "Player Controls" pack); confirm it is yours to ship, then tick.
 - [ ] Run the verification gates: lint, tests and `tsc -b`, and the backend
   tests.
 - [ ] Build each advertised desktop archive on its target OS with
