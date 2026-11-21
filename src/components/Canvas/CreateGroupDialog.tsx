@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useEscapeLayer } from '../../hooks/useEscapeLayer'
+import { useModalFocus } from '../../hooks/useModalFocus'
+import { useModalInitialFocus } from '../../hooks/useModalInitialFocus'
 import { useGraphStore } from '../../state/graphStore'
 import PatternTagChips from '../PatternTags/PatternTagChips'
 import type { PatternFormTag } from '../../state/patterns/patternTags'
@@ -35,7 +36,9 @@ export default function CreateGroupDialog({ selectedIds, onClose, onCreate }: Pr
   const [saveToLibrary, setSaveToLibrary] = useState(false)
   const [bestOn, setBestOn] = useState<PatternFormTag[]>([])
   const [checkedPalettes, setCheckedPalettes] = useState<Set<string>>(new Set())
-  useEscapeLayer(onClose)
+  const dialogRef = useModalFocus<HTMLDivElement>(onClose)
+  const nameRef = useRef<HTMLInputElement>(null)
+  useModalInitialFocus(nameRef)
 
   // Candidates: selected nodes with an unwired `paletteIn` port — a node
   // whose palette is already driven by something else is left alone.
@@ -68,7 +71,7 @@ export default function CreateGroupDialog({ selectedIds, onClose, onCreate }: Pr
 
   return createPortal(
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className={styles.popup} role="dialog" aria-label="Create group">
+      <div ref={dialogRef} className={styles.popup} role="dialog" aria-modal="true" aria-label="Create group" tabIndex={-1}>
         <div className={styles.header}>
           <span>Create Group</span>
           <button className={styles.closeBtn} onClick={onClose} title="Cancel">×</button>
@@ -77,6 +80,7 @@ export default function CreateGroupDialog({ selectedIds, onClose, onCreate }: Pr
         <label className={styles.field}>
           <span className={styles.fieldLabel}>Name</span>
           <input
+            ref={nameRef}
             className={styles.textInput}
             autoFocus
             value={name}

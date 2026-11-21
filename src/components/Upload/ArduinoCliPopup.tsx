@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useUploadStore } from '../../state/upload/uploadStore'
 import styles from './Upload.module.css'
-import { useEscapeLayer } from '../../hooks/useEscapeLayer'
+import { useModalFocus } from '../../hooks/useModalFocus'
 
 // Shown when the helper is running but neither build engine is usable — fbuild
 // isn't installed (it ships in backend/requirements.txt; a stale venv is the
@@ -10,7 +10,7 @@ import { useEscapeLayer } from '../../hooks/useEscapeLayer'
 // + install one.
 export default function ArduinoCliPopup() {
   const { busy, locate, installCli, closeCliPopup } = useUploadStore()
-  useEscapeLayer(closeCliPopup)
+  const dialogRef = useModalFocus<HTMLDivElement>(closeCliPopup)
   const [path, setPath] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -22,7 +22,7 @@ export default function ArduinoCliPopup() {
 
   return (
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeCliPopup() }}>
-      <div className={styles.popup} role="dialog" aria-label="Compiler not found">
+      <div ref={dialogRef} className={styles.popup} role="dialog" aria-modal="true" aria-label="Compiler not found" tabIndex={-1}>
         <div className={styles.popupHeader}>
           <span>Compiler not found</span>
           <button className={styles.closeBtn} onClick={closeCliPopup} title="Close">×</button>

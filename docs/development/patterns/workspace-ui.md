@@ -267,9 +267,22 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   thumbnail scrub) stay raw ranges: there is no value to type. With no
   `renderValue`/`wrapClassName` it renders the bare input, so a grid row that
   counts its children keeps its columns.
-- Tab walks a node's property controls only. Port handles and the Control Deck
-  pin buttons carry `tabIndex={-1}`: a click still focuses a handle, and Enter
-  or Space then opens its port chooser.
+- Tab walks a node's property controls plus one stop for its ports: the first
+  port handle carries `tabIndex={0}` and every other `-1`. From a focused port
+  the arrow keys step through the node's ports (Home/End to the ends) and stop
+  there, so React Flow does not also nudge the node; Enter or Space starts or
+  finishes a connection. Control Deck pin buttons stay out of the Tab order.
+  With no port reachable, a connection needed the pointer, which the v1
+  keyboard pass caught ([smoke test](../../release/accessibility-smoke-test.md)).
+- Keyboard focus never falls to the page body on the canvas
+  (`Canvas/canvasFocus.ts`): a node added from search takes focus, Escape
+  leaves it on the node React Flow blurs, and a deletion moves it to the graph
+  editor. React Flow's stylesheet strips the focus outline from nodes and
+  edges; `NodeGraphCanvas.module.css` restores it.
+- An overlay dialog uses `useModalFocus` (focus in, Tab trapped, Escape,
+  focus restored), and a dialog that starts on a field adds
+  `useModalInitialFocus`. Only an anchored popover that leaves the page usable
+  may skip it.
 
 - Inline property rows (`.propRow` in `StudioNode.module.css`) are a
   `minmax(0, 1fr) 112px 16px` grid: label, one shared control column, and a

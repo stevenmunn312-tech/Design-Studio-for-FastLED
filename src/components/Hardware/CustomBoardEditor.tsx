@@ -1,5 +1,6 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { useEscapeLayer } from '../../hooks/useEscapeLayer'
+import { useId, useMemo, useRef, useState } from 'react'
+import { useModalFocus } from '../../hooks/useModalFocus'
+import { useModalInitialFocus } from '../../hooks/useModalInitialFocus'
 import { boardPinVerdict, boardProfileById, selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { boardI2cDefault, profileI2cDefault } from '../../build/boards/boardI2cDefaults'
 import { customBoardRowsFromReference, resolveCustomBoard } from '../../build/boards/customBoardProfile'
@@ -101,9 +102,9 @@ export default function CustomBoardEditor({ boardNodeId, saved, onClose }: Props
   const [pendingCopy, setPendingCopy] = useState<Pick<CustomBoardDefinition, 'leftPins' | 'rightPins'> | null>(null)
   const [applyIssues, setApplyIssues] = useState<CustomBoardIssue[]>([])
 
-  useEffect(() => { nameRef.current?.focus() }, [])
   // Opened from the board menu, so it answers Escape before the menu does.
-  useEscapeLayer(onClose)
+  const dialogRef = useModalFocus<HTMLElement>(onClose)
+  useModalInitialFocus(nameRef)
 
   const reference = boardProfileById(draft.referenceProfileId)
   const template = customBoardTemplate(draft.referenceProfileId)
@@ -205,7 +206,7 @@ export default function CustomBoardEditor({ boardNodeId, saved, onClose }: Props
     <div className={styles.backdrop} onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose()
     }}>
-      <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <section ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <header className={styles.header}>
           <div>
             <h2 id={titleId} className={styles.title}>Custom board</h2>

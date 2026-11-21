@@ -23,6 +23,15 @@
   z-index: 4;
 }
 
+/* React Flow's stylesheet removes the outline from a focused node and edge,
+   which left keyboard focus on the canvas invisible. Put the app's ring back;
+   the extra `.react-flow` raises specificity over the library's rule. */
+:global(.react-flow .react-flow__node.selectable:focus-visible),
+:global(.react-flow .react-flow__edge:focus-visible) {
+  outline: 2px solid var(--accent-ui);
+  outline-offset: 3px;
+}
+
 .canvasFocused {}
 
 .canvasIdle {}

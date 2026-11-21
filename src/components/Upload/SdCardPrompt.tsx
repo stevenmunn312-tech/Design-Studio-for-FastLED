@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useUploadStore } from '../../state/upload/uploadStore'
 import { listRemovableDrives, type RemovableDrive } from '../../utils/backendClient'
 import styles from './Upload.module.css'
-import { useEscapeLayer } from '../../hooks/useEscapeLayer'
+import { useModalFocus } from '../../hooks/useModalFocus'
 
 /** How often to re-look for a card while the insert prompt is open. The user
  *  is being asked to plug something in *now*, so the list has to keep up with
@@ -24,6 +24,13 @@ const RESCAN_MS = 1500
  * play.
  */
 export default function SdCardPrompt() {
+  const active = useUploadStore((s) => s.sdPrompt !== null)
+  // Always mounted; the dialog is its own component so the modal focus trap
+  // finds its element on first mount and is torn down when the prompt closes.
+  return active ? <SdCardDialog /> : null
+}
+
+function SdCardDialog() {
   const sdPrompt = useUploadStore((s) => s.sdPrompt)
   const resolveSdPrompt = useUploadStore((s) => s.resolveSdPrompt)
   const [drives, setDrives] = useState<RemovableDrive[]>([])
@@ -35,7 +42,7 @@ export default function SdCardPrompt() {
   // Escape backs out only while nothing is written. Once the card holds the
   // files the prompt waits for the card to go back, so Escape is swallowed
   // rather than reaching anything underneath.
-  useEscapeLayer(() => { if (insert) resolveSdPrompt(null) }, Boolean(sdPrompt))
+  const dialogRef = useModalFocus<HTMLDivElement>(() => { if (insert) resolveSdPrompt(null) })
 
   const rescan = useCallback(async () => {
     setScanning(true)
@@ -61,7 +68,7 @@ export default function SdCardPrompt() {
 
   return (
     <div className={styles.overlay}>
-      <div className={styles.popup} role="dialog" aria-label={insert ? 'Insert the SD card' : 'Return the SD card'}>
+      <div ref={dialogRef} className={styles.popup} role="dialog" aria-modal="true" aria-label={insert ? 'Insert the SD card' : 'Return the SD card'} tabIndex={-1}>
         <div className={styles.popupHeader}>
           <span>{insert ? 'Put the SD card in the reader' : 'Put the SD card back'}</span>
         </div>

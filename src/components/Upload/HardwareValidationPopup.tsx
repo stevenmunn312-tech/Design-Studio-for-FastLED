@@ -14,7 +14,7 @@ import {
   type ValidationResult,
 } from '../../utils/hardwareValidation'
 import styles from './Upload.module.css'
-import { useEscapeLayer } from '../../hooks/useEscapeLayer'
+import { useModalFocus } from '../../hooks/useModalFocus'
 
 function formatSystemInfoHostOs(info: SystemInfo): string {
   return info.os.includes(info.osVersion) ? info.os : `${info.os} build ${info.osVersion}`
@@ -47,7 +47,7 @@ export default function HardwareValidationPopup({
   initialAction: HardwareValidationAction
   onClose: () => void
 }) {
-  useEscapeLayer(onClose)
+  const dialogRef = useModalFocus<HTMLDivElement>(onClose)
   const [action, setAction] = useState(initialAction)
   const initialProfile = useMemo(() => buildHardwareValidationProfile({
     nodes, edges, selectedFqbn, helper, capacityResult, action: initialAction,
@@ -133,7 +133,7 @@ export default function HardwareValidationPopup({
 
   return createPortal(
     <div className={`${styles.overlay} ${styles.validationOverlay}`} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <div className={`${styles.popup} ${styles.validationPopup}`} role="dialog" aria-modal="true" aria-labelledby="hardware-validation-title">
+      <div ref={dialogRef} className={`${styles.popup} ${styles.validationPopup}`} role="dialog" aria-modal="true" aria-labelledby="hardware-validation-title" tabIndex={-1}>
         <div className={styles.popupHeader}>
           <div>
             <div className={styles.wizardKicker}>Bench evidence</div>

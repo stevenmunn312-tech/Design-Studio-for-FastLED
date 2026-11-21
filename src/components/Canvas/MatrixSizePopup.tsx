@@ -1,5 +1,6 @@
-import { useState, type KeyboardEvent } from 'react'
-import { useEscapeLayer } from '../../hooks/useEscapeLayer'
+import { useRef, useState, type KeyboardEvent } from 'react'
+import { useModalFocus } from '../../hooks/useModalFocus'
+import { useModalInitialFocus } from '../../hooks/useModalInitialFocus'
 import styles from './MatrixSizePopup.module.css'
 
 interface Props {
@@ -17,7 +18,9 @@ export default function MatrixSizePopup({ width, height, onApply, onClose }: Pro
   const [w, setW] = useState(String(width))
   const [h, setH] = useState(String(height))
 
-  useEscapeLayer(onClose)
+  const dialogRef = useModalFocus<HTMLDivElement>(onClose)
+  const widthRef = useRef<HTMLInputElement>(null)
+  useModalInitialFocus(widthRef)
 
   const clamp = (v: string) => Math.max(1, Math.min(64, Math.round(Number(v)) || 1))
 
@@ -38,7 +41,7 @@ export default function MatrixSizePopup({ width, height, onApply, onClose }: Pro
       className={`nodrag nowheel ${styles.overlay}`}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className={styles.popup} role="dialog" aria-label="Custom matrix size">
+      <div ref={dialogRef} className={styles.popup} role="dialog" aria-modal="true" aria-label="Custom matrix size" tabIndex={-1}>
         <div className={styles.header}>
           <span>Custom Size</span>
           <button className={styles.closeBtn} onClick={onClose} title="Cancel">×</button>
@@ -47,6 +50,7 @@ export default function MatrixSizePopup({ width, height, onApply, onClose }: Pro
           <label className={styles.field}>
             <span className={styles.fieldLabel}>Width (X)</span>
             <input
+              ref={widthRef}
               className={styles.numInput}
               type="number"
               min={1}

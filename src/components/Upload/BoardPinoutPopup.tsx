@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { boardPinVerdict, boardProfileById, selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { rootGraphNodes, useGraphStore } from '../../state/graphStore'
 import { useUploadStore } from '../../state/upload/uploadStore'
-import { useEscapeLayer } from '../../hooks/useEscapeLayer'
+import { useModalFocus } from '../../hooks/useModalFocus'
 import { CustomBoardGraphic } from '../Hardware/CustomBoardGraphic'
 import type { PhysicalBoardPinProfile, PhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import styles from './BoardPinout.module.css'
@@ -61,19 +61,33 @@ export default function BoardPinoutPopup() {
     }
   }, [profile])
 
-  // Opened from the board menu, so Escape closes the pinout and not the menu.
-  useEscapeLayer(closePinout, Boolean(profile))
-
   if (!profile) return null
 
+  return <PinoutDialog profile={profile} left={left} right={right} other={other} onClose={closePinout} />
+}
+
+// Mounted only while a board is shown, so the modal focus trap finds its
+// dialog on first mount.
+function PinoutDialog({ profile, left, right, other, onClose }: {
+  profile: PhysicalBoardProfile
+  left: PhysicalBoardPinProfile[]
+  right: PhysicalBoardPinProfile[]
+  other: PhysicalBoardPinProfile[]
+  onClose: () => void
+}) {
+  // Opened from the board menu, so Escape closes the pinout and not the menu.
+  const dialogRef = useModalFocus<HTMLDivElement>(onClose)
+
   return (
-    <div className={styles.overlay} onClick={closePinout} role="presentation">
+    <div className={styles.overlay} onClick={onClose} role="presentation">
       <div
+        ref={dialogRef}
         className={styles.popup}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={`${profile.label} pinout`}
+        tabIndex={-1}
       >
         <div className={styles.header}>
           <div>
@@ -90,7 +104,7 @@ export default function BoardPinoutPopup() {
               </div>
             )}
           </div>
-          <button className={styles.closeBtn} onClick={closePinout} aria-label="Close pinout">×</button>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close pinout">×</button>
         </div>
 
         <div className={styles.board}>

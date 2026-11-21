@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useUploadStore } from '../../state/upload/uploadStore'
 import styles from './Upload.module.css'
-import { useEscapeLayer } from '../../hooks/useEscapeLayer'
+import { useModalFocus } from '../../hooks/useModalFocus'
 
 // Read-only "show me the code" panel — the exact string the upload tab
 // would export/upload, for learning the generated firmware or debugging a
@@ -24,7 +24,7 @@ export default function CodeViewPopup({
   busy?: boolean
 }) {
   const closeCodeView = useUploadStore((s) => s.closeCodeView)
-  useEscapeLayer(closeCodeView)
+  const dialogRef = useModalFocus<HTMLDivElement>(closeCodeView)
   const exportIno = useUploadStore((s) => s.exportIno)
   const copyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
@@ -50,7 +50,7 @@ export default function CodeViewPopup({
 
   return createPortal(
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeCodeView() }}>
-      <div className={styles.codePopup} role="dialog" aria-label="Generated code">
+      <div ref={dialogRef} className={styles.codePopup} role="dialog" aria-modal="true" aria-label="Generated code" tabIndex={-1}>
         <div className={styles.popupHeader}>
           <span>Generated Sketch <span className={styles.codeLineCount}>{code === null ? 'generating…' : `${lineCount} lines`}</span></span>
           <div className={styles.codeHeaderActions}>
@@ -70,7 +70,7 @@ export default function CodeViewPopup({
             <button className={styles.consoleCopyBtn} onClick={copyCode} disabled={!code} title="Copy the full sketch as text" aria-live="polite">
               {copyLabel}
             </button>
-            <button className={styles.closeBtn} onClick={closeCodeView} title="Close">×</button>
+            <button className={styles.closeBtn} onClick={closeCodeView} title="Close" aria-label="Close generated code">×</button>
           </div>
         </div>
         {code ? (

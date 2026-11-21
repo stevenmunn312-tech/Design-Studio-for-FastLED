@@ -1,23 +1,27 @@
 import { useEffect, useRef } from 'react'
-import { useEscapeLayer } from '../../hooks/useEscapeLayer'
+import { useModalFocus } from '../../hooks/useModalFocus'
 import { useProjectStore } from '../../state/projectStore'
 import { useUiStore } from '../../state/uiStore'
 import styles from './NewProjectPrompt.module.css'
 
+// Always mounted; the dialog is its own component so the modal focus trap
+// finds its element on first mount and is torn down when the prompt closes.
 export default function NewProjectPrompt() {
+  const open = useUiStore((s) => s.newProjectPrompt.open)
+  return open ? <NewProjectDialog /> : null
+}
+
+function NewProjectDialog() {
   const prompt = useUiStore((s) => s.newProjectPrompt)
   const resolveNewProjectDecision = useUiStore((s) => s.resolveNewProjectDecision)
   // The prompt is always about the open project.
   const draft = useProjectStore((s) => s.projects.find((project) => project.id === s.currentProjectId)?.draft === true)
   const primaryButtonRef = useRef<HTMLButtonElement>(null)
 
-  useEffect(() => {
-    if (prompt.open) primaryButtonRef.current?.focus()
-  }, [prompt.open])
-  // Always mounted, so the layer follows the prompt rather than the component.
-  useEscapeLayer(() => resolveNewProjectDecision('cancel'), prompt.open)
-
-  if (!prompt.open) return null
+  const dialogRef = useModalFocus<HTMLDivElement>(() => resolveNewProjectDecision('cancel'))
+  // The primary button is also the first focusable element, which is where the
+  // modal focus lands; this keeps it explicit.
+  useEffect(() => { primaryButtonRef.current?.focus() }, [])
 
   return (
     <div
@@ -26,7 +30,7 @@ export default function NewProjectPrompt() {
         if (event.target === event.currentTarget) resolveNewProjectDecision('cancel')
       }}
     >
-      <div className={styles.modal} role="dialog" aria-label="Save current project before continuing" aria-modal="true">
+      <div ref={dialogRef} className={styles.modal} role="dialog" aria-label="Save current project before continuing" aria-modal="true" tabIndex={-1}>
         <div className={styles.header}>
           <span className={styles.title}>Save current project before continuing?</span>
         </div>

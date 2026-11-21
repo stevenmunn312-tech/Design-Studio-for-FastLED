@@ -61,6 +61,9 @@ const NewProjectPrompt = lazy(() => import('./components/NewProjectPrompt/NewPro
 const RecoverPopup = lazy(() => import('./components/Recover/RecoverPopup'))
 const TemplatesPopup = lazy(() => import('./components/Templates/TemplatesPopup'))
 const PatternRatingsPopup = lazy(() => import('./components/PatternRatings/PatternRatingsPopup'))
+
+/** Input types with no text of their own to undo. */
+const NON_TEXT_INPUT_TYPES = new Set(['range', 'checkbox', 'radio', 'color', 'button', 'submit', 'reset', 'file'])
 const ProjectsPopup = lazy(() => import('./components/Projects/ProjectsPopup'))
 const BuildDiagramWorkspace = lazy(() => import('./components/BuildDiagram/BuildDiagramWorkspace'))
 const HardwarePane = lazy(() => import('./components/Hardware/HardwarePane'))
@@ -649,8 +652,12 @@ export default function App() {
         }
       }
 
+      // A slider, checkbox or colour well has no text undo of its own, so
+      // Ctrl/Cmd shortcuts still reach the graph from one: otherwise Ctrl+Z
+      // after nudging a property slider with the keyboard did nothing.
       const mod = e.ctrlKey || e.metaKey
-      if (!mod || isTyping) return
+      const editsText = isTyping && !(el instanceof HTMLInputElement && NON_TEXT_INPUT_TYPES.has(el.type))
+      if (!mod || editsText) return
 
       if (e.key === 'z' && !e.shiftKey) {
         e.preventDefault()

@@ -55,6 +55,7 @@ import { isHardwareLibraryHiddenNodeType } from '../../build/hardware'
 import { BUTTON_BANK_ADD_HANDLE } from '../../state/player/buttonBank'
 import { outputSignalRange } from '../../nodes/shared/signalRange'
 import { boardLinkWireLabels, NO_BOARD_LINK_LABELS } from './boardLinkWireLabels'
+import { keepGraphFocus } from './canvasFocus'
 import styles from './NodeGraphCanvas.module.css'
 import { Icon } from '../icons/Icon'
 
@@ -1196,7 +1197,9 @@ function NodeGraphCanvasInner() {
       wiredOutputs.get(node.id) ?? EMPTY_HANDLES, data.showAllOutputs === true).length
     return {
       ...node,
-      ariaLabel: `${label} node${node.id === selectedNodeId ? ', selected' : ''}. ${inputs} input${inputs === 1 ? '' : 's'}, ${outputs} output${outputs === 1 ? '' : 's'}.`,
+      // `selected` is what the canvas draws as selected; `selectedNodeId` can
+      // still name a node the keyboard has since moved the selection off.
+      ariaLabel: `${label} node${node.selected ? ', selected' : ''}. ${inputs} input${inputs === 1 ? '' : 's'}, ${outputs} output${outputs === 1 ? '' : 's'}.`,
       // The selected node sits above its neighbours, and stays there.
       //
       // React Flow's own elevateNodesOnSelect never fires for a selection made
@@ -1439,6 +1442,8 @@ function NodeGraphCanvasInner() {
         defaultEdgeOptions={{ type: 'glowEdge' }}
         proOptions={{ hideAttribution: true }}
         aria-label="Node graph editor"
+        tabIndex={-1}
+        onKeyDownCapture={keepGraphFocus}
       >
         {uiEffectsEnabled && (
           <div className={styles.atmosphere} aria-hidden="true">

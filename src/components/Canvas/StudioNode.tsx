@@ -198,11 +198,36 @@ function applyNodeSignal(
   meter?.style.setProperty('--signal-energy', energy)
 }
 
+const PORT_STEP: Record<string, number> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }
+
+/**
+ * Keyboard for a port handle. Each node's ports are one Tab stop (its first
+ * port carries `tabIndex={0}`, every other `-1`), so Tab still walks a node's
+ * properties rather than every socket. From a focused port the arrow keys step
+ * through the node's ports in DOM order, property sockets included, and
+ * Home/End jump to the ends; Enter or Space starts or finishes a connection.
+ * The arrows stop here so React Flow does not also nudge the node.
+ */
 function activateHandleFromKeyboard(event: React.KeyboardEvent<HTMLDivElement>) {
-  if (event.key !== 'Enter' && event.key !== ' ') return
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.click()
+    return
+  }
+  const step = PORT_STEP[event.key]
+  if (step === undefined && event.key !== 'Home' && event.key !== 'End') return
+  const node = event.currentTarget.closest('.react-flow__node')
+  if (!node) return
+  const ports = Array.from(node.querySelectorAll<HTMLElement>('.react-flow__handle[role="button"]'))
+  const index = ports.indexOf(event.currentTarget)
+  if (index < 0) return
   event.preventDefault()
   event.stopPropagation()
-  event.currentTarget.click()
+  const next = event.key === 'Home' ? 0
+    : event.key === 'End' ? ports.length - 1
+      : (index + (step ?? 0) + ports.length) % ports.length
+  ports[next].focus()
 }
 
 function connectionTargetHint(
@@ -1600,7 +1625,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               id={input.id}
               title={`${input.label} · ${input.dataType}${connectionHint ? ` — ${connectionHint.title}` : ''}`}
               role="button"
-              tabIndex={-1}
+              tabIndex={index === 0 ? 0 : -1}
               isConnectable={!micUnavailable}
               aria-disabled={micUnavailable}
               aria-label={`Connect to ${displayName} ${input.label} input, ${input.dataType}${connectionHint ? `. ${connectionHint.aria}` : ''}. Press Enter or Space to ${sourceMap.has(input.id) ? 'replace the existing connection' : 'choose a source port'}.`}
@@ -1624,7 +1649,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
               id={output.id}
               title={`${output.label} · ${output.dataType}`}
               role="button"
-              tabIndex={-1}
+              tabIndex={index === 0 && compactInputs.length === 0 ? 0 : -1}
               isConnectable={!micUnavailable}
               aria-disabled={micUnavailable}
               aria-label={`Connect from ${displayName} ${output.label} output, ${output.dataType}. Press Enter or Space to choose a destination port.`}
@@ -1893,7 +1918,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                     id={input.id}
                     title={`${input.label} · ${input.dataType}${inputHint ? ` — ${inputHint.title}` : ''}`}
                     role="button"
-                    tabIndex={-1}
+                    tabIndex={i === 0 ? 0 : -1}
                     isConnectable={!micUnavailable}
                     aria-disabled={micUnavailable}
                     aria-label={`Connect to ${displayName} ${input.label} input, ${input.dataType}${inputHint ? `. ${inputHint.aria}` : ''}. Press Enter or Space to ${sourceMap.has(input.id) ? 'replace the existing connection' : 'choose a source port'}.`}
@@ -1913,7 +1938,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                   id={output.id}
                   title={`${output.label} · ${output.dataType}`}
                   role="button"
-                  tabIndex={-1}
+                  tabIndex={i === 0 && !input ? 0 : -1}
                   isConnectable={!micUnavailable}
                   aria-disabled={micUnavailable}
                   aria-label={`Connect from ${displayName} ${output.label} output, ${output.dataType}. Press Enter or Space to choose a destination port.`}

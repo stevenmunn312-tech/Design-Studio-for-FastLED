@@ -26,8 +26,8 @@ vi.mock('@xyflow/react', async (orig) => {
   return {
     ...actual,
     useUpdateNodeInternals: () => vi.fn(),
-    Handle: ({ type, id, style, ...rest }: { type: string; id: string; style?: React.CSSProperties } & React.HTMLAttributes<HTMLSpanElement>) => (
-      <span data-handle={`${type}:${id}`} style={style} {...rest} />
+    Handle: ({ type, id, style, className, ...rest }: { type: string; id: string; style?: React.CSSProperties } & React.HTMLAttributes<HTMLSpanElement>) => (
+      <span data-handle={`${type}:${id}`} style={style} {...rest} className={`react-flow__handle ${className ?? ''}`} />
     ),
   }
 })
@@ -1115,20 +1115,36 @@ describe('StudioNode', () => {
     expect(bass.style.right).toBe('-8px')
   })
 
-  it('names connection handles and keeps them out of the Tab order', () => {
-    const { container, getByRole } = renderNode(makeNode('FFTAnalyzer', { bands: 24, gain: 1, smoothing: 0.72 }))
+  it('names connection handles and gives each node one Tab stop for its ports', () => {
+    const n = makeNode('FFTAnalyzer', { bands: 24, gain: 1, smoothing: 0.72 })
+    useGraphStore.setState({ nodes: [n], edges: [] })
+    const props = { id: n.id, data: n.data, selected: false } as unknown as NodeProps<Node<StudioNodeData>>
+    // React Flow wraps each node in `.react-flow__node`; the arrow keys walk
+    // the ports inside it.
+    const { container, getByRole } = render(<div className="react-flow__node"><StudioNode {...props} /></div>)
     const input = getByRole('button', { name: /Connect to FFT Analyzer Audio input/ })
     const output = getByRole('button', { name: /Connect from FFT Analyzer Bass output/ })
+    const ports = Array.from(container.querySelectorAll<HTMLElement>('[role="button"][data-handle]'))
+    expect(ports).toHaveLength(4)
 
-    // Tab walks the properties; a pin is reached by clicking it (which still
-    // focuses it, so Enter or Space then opens the port chooser).
-    expect(input.getAttribute('tabindex')).toBe('-1')
-    expect(output.getAttribute('tabindex')).toBe('-1')
+    // Tab walks the properties plus one stop for the ports: the first port.
+    expect(input.getAttribute('tabindex')).toBe('0')
+    expect(ports.filter((port) => port.getAttribute('tabindex') === '0')).toEqual([input])
+
+    // From there the arrow keys step through the node's ports and wrap.
+    input.focus()
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(ports[1])
+    fireEvent.keyDown(ports[1], { key: 'End' })
+    expect(document.activeElement).toBe(ports[3])
+    fireEvent.keyDown(ports[3], { key: 'ArrowRight' })
+    expect(document.activeElement).toBe(ports[0])
+    fireEvent.keyDown(ports[0], { key: 'ArrowUp' })
+    expect(document.activeElement).toBe(ports[3])
 
     const click = vi.spyOn(output as HTMLElement, 'click')
     fireEvent.keyDown(output, { key: 'Enter' })
     expect(click).toHaveBeenCalledOnce()
-    expect(container.querySelectorAll('[role="button"][data-handle]')).toHaveLength(4)
   })
 
   it('programmatically labels common property controls', () => {

@@ -3,7 +3,7 @@ import { useUiStore } from '../../state/uiStore'
 import { restoreWorkspaceSnapshotAfterParts } from '../../state/graphStore'
 import { loadSnapshots } from '../../state/snapshotHistory'
 import styles from './RecoverPopup.module.css'
-import { useEscapeLayer } from '../../hooks/useEscapeLayer'
+import { useModalFocus } from '../../hooks/useModalFocus'
 
 function relativeTime(timestamp: number): string {
   const diffSec = Math.max(0, Math.round((Date.now() - timestamp) / 1000))
@@ -22,7 +22,7 @@ function relativeTime(timestamp: number): string {
 // bad import that undo can no longer reach.
 export default function RecoverPopup() {
   const closeRecover = useUiStore((s) => s.closeRecover)
-  useEscapeLayer(closeRecover)
+  const dialogRef = useModalFocus<HTMLDivElement>(closeRecover)
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const setStatus = useUiStore((s) => s.setStatus)
   const [snapshots] = useState(() => loadSnapshots())
@@ -45,7 +45,7 @@ export default function RecoverPopup() {
 
   return (
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeRecover() }}>
-      <div className={styles.popup} role="dialog" aria-label="Recovery snapshots">
+      <div ref={dialogRef} className={styles.popup} role="dialog" aria-modal="true" aria-label="Recovery snapshots" tabIndex={-1}>
         <div className={styles.header}>
           <span>Recovery Snapshots</span>
           <button className={styles.closeBtn} onClick={closeRecover} title="Close">×</button>

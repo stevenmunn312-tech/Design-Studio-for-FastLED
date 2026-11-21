@@ -7,7 +7,7 @@ import { useProjectStore } from '../../state/projectStore'
 import { captureWorkspace, blankWorkspace } from '../../state/workspacePersistence'
 import { nextDefaultProjectName } from '../../utils/projectFileIO'
 import styles from './ProjectsPopup.module.css'
-import { useEscapeLayer } from '../../hooks/useEscapeLayer'
+import { useModalFocus } from '../../hooks/useModalFocus'
 
 function relativeTime(timestamp: number): string {
   const diffSec = Math.max(0, Math.round((Date.now() - timestamp) / 1000))
@@ -22,7 +22,7 @@ function relativeTime(timestamp: number): string {
 
 export default function ProjectsPopup() {
   const closeProjects = useUiStore((s) => s.closeProjects)
-  useEscapeLayer(closeProjects)
+  const dialogRef = useModalFocus<HTMLDivElement>(closeProjects)
   const setStatus = useUiStore((s) => s.setStatus)
   const requestConfirm = useUiStore((s) => s.requestConfirm)
   const requestNewProjectDecision = useUiStore((s) => s.requestNewProjectDecision)
@@ -152,7 +152,7 @@ export default function ProjectsPopup() {
 
   return (
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeProjects() }}>
-      <div className={styles.popup} role="dialog" aria-label="Projects">
+      <div ref={dialogRef} className={styles.popup} role="dialog" aria-modal="true" aria-label="Projects" tabIndex={-1}>
         <div className={styles.header}>
           <span>Projects</span>
           <button className={styles.closeBtn} onClick={closeProjects} title="Close">×</button>

@@ -7,7 +7,7 @@ passes with a real screen reader.
 
 ## Supported test environment
 
-Run the primary pass on the supported public-beta desktop combination:
+Run the primary pass on the supported desktop combination:
 
 - Windows 11
 - the supported Chrome release recorded in `beta-support-matrix.md`
@@ -28,11 +28,14 @@ Do not use a mouse or touchpad during this pass.
 3. Start with the Juggle starter.
 4. Press `Ctrl+K`, search for a node, and add it with the keyboard.
 5. Focus a source port, press Enter or Space to start a connection, focus a
-   compatible destination port, and press Enter or Space to finish it.
+   compatible destination port, and press Enter or Space to finish it. Each
+   node's ports are one Tab stop (its first port); the arrow keys step between
+   a node's ports from there, and Home/End jump to the ends.
 6. Focus a node and verify selection, arrow-key movement, property editing,
    undo/redo, deletion, and Escape behavior.
-7. Open LED output Setup and Upload Tools. Verify initial focus, forward and
-   reverse focus trapping, Escape-to-close, and focus restoration.
+7. On the Upload tab, open the LED output **Setup…** wizard and **View Code**.
+   Verify initial focus, forward and reverse focus trapping, Escape-to-close,
+   and focus restoration.
 8. Select the supported board and port, read the upload-readiness result, and
    export a sketch. If the validation machine has the supported hardware,
    perform the normal upload path as well.
@@ -86,11 +89,37 @@ the change: lint, 1,478 tests across 93 files, and the production build.
 
 ## Completion record
 
-Status: **Passed**.
+Status: **Keyboard passed on the v1 candidate; NVDA pass pending.**
 
-The release exit criterion was checked after the keyboard-only and NVDA
-scenarios were confirmed.
+The 2026-07-26 pass predates the workspace tabs and shelves, so the v1
+candidate needs both scenarios again (todo.md HW-18).
 
 | Date | Tester | Windows | Chrome | NVDA | Build | Keyboard | Screen reader | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-26 | User-confirmed | Version not supplied | Version not supplied | Version not supplied | Local Vite app | Pass | Pass | NVDA pass confirmed by the user; exact environment versions were not supplied. |
+| 2026-11-21 | Claude Code, keys only | 11 (10.0.26300) | Chromium 156.0.8078.100 (Claude desktop browser pane) | Not run | Local Vite app, helper blocked | Pass after fixes | Pending | See the v1 candidate keyboard pass below. |
+
+## v1 candidate keyboard pass — 2026-11-21
+
+Run with keys only, in the Claude desktop app's browser pane, against the
+local Vite app with the helper blocked, so step 8 read the readiness result
+and opened the generated sketch but selected no port and uploaded nothing.
+Steps 1 to 4 and 9 passed as written. The first run failed on:
+
+- **Ports unreachable (step 5).** Since 2026-11-04 every port handle carried
+  `tabIndex={-1}`, so a connection needed the pointer. Each node's first port
+  is now a Tab stop and the arrow keys walk the rest.
+- **No focus ring on a node or connection.** React Flow's stylesheet removes
+  the outline; `NodeGraphCanvas.module.css` puts the app's ring back.
+- **Untrapped modals (step 7).** The generated-code viewer and 15 other
+  overlay dialogs did not move focus in or trap Tab; they now use
+  `useModalFocus`. The Live Touch Screen window and the hardware inspector are
+  popovers and stay unblocking.
+- **Focus dropped to the page** after adding a node from search, deleting a
+  node or connection, and Escape on a node (`canvasFocus.ts`).
+- **Smaller:** Ctrl+Z did nothing while a slider had focus; a node's label
+  could still say "selected" after the selection moved; the code viewer's
+  close button was named "×".
+
+After the fixes, every step above passed on a second run. Node search still
+moves through its results with Tab rather than the arrow keys.

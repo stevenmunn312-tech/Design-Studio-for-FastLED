@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useEscapeLayer } from '../../../hooks/useEscapeLayer'
+import { useModalFocus } from '../../../hooks/useModalFocus'
 import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react'
 import { rootGraphEdges, rootGraphNodes, useGraphStore } from '../../../state/graphStore'
 import { useHardwareInputStore } from '../../../state/peripherals/hardwareInputStore'
@@ -242,7 +242,14 @@ async function beginLearn(nodeId: string) {
   void useIrLearnStore.getState().prepare()
 }
 
+// Always mounted with the node; the dialog is its own component so the modal
+// focus trap finds its element on first mount and is torn down with the session.
 function LearnDialog({ nodeId }: { nodeId: string }) {
+  const active = useIrLearnStore((state) => state.session?.nodeId === nodeId)
+  return active ? <LearnDialogContent nodeId={nodeId} /> : null
+}
+
+function LearnDialogContent({ nodeId }: { nodeId: string }) {
   const session = useIrLearnStore((state) => state.session?.nodeId === nodeId ? state.session : null)
   const confirm = useIrLearnStore((state) => state.confirm)
   const cancel = useIrLearnStore((state) => state.cancel)
@@ -254,12 +261,12 @@ function LearnDialog({ nodeId }: { nodeId: string }) {
   })
   const [label, setLabel] = useState('')
   useEffect(() => setLabel(''), [session?.captured, session?.nodeId])
-  useEscapeLayer(cancel, Boolean(session))
+  const dialogRef = useModalFocus<HTMLDivElement>(cancel)
   if (!session || typeof document === 'undefined') return null
   const captured = session.captured
   return createPortal(
     <div className={`nodrag nowheel ${styles.overlay}`} onMouseDown={(event) => { if (event.target === event.currentTarget) cancel() }}>
-      <div className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="ir-learn-title">
+      <div ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="ir-learn-title" tabIndex={-1}>
         <h2 id="ir-learn-title">Map IR remote buttons</h2>
         {session.preparing && <p role="status">{session.compiled || uploadStatus.phase === 'uploading' ? 'Uploading…' : uploadStatus.phase === 'working' ? uploadStatus.message : 'Compiling…'}</p>}
         {session.phase === 'listening' && !session.preparing && (

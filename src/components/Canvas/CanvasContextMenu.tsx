@@ -9,6 +9,7 @@ import type { NodeDefinition, NodePort } from '../../types'
 import { isHardwareLibraryHiddenNodeType } from '../../build/hardware'
 import CreateGroupDialog, { type CreateGroupResult } from './CreateGroupDialog'
 import { createGroupFromSelection } from './groupStatus'
+import { focusNodeSoon } from './canvasFocus'
 import styles from './CanvasContextMenu.module.css'
 
 const FFT_BAND_IDS = ['bass', 'mids', 'treble'] as const
@@ -291,6 +292,8 @@ export default function CanvasContextMenu({ x, y, flowPosition, connectFrom, onP
     if (!canAddNodeType(nodes, def.type)) return
     const id = `${def.type}-${Date.now()}`
     addNode(createNode(def, id, flowPosition))
+    // The popup that held focus closes below; the new node takes it.
+    focusNodeSoon(id)
     // Auto-wire the dragged output to the new node's first compatible input.
     if (connectFrom) {
       const shouldFanOutAudio =

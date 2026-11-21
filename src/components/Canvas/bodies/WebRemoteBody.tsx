@@ -39,7 +39,7 @@ import { displayWidgetDefinition, isDisplayRgb, TOUCH_CONTROL_ADD_DATA_TYPE, TOU
 import type { DisplayWidgetProperty } from '../../../state/displays/displayDocument'
 import { portColor } from '../../../state/nodeLibrary'
 import { RANGE_SCALES } from '../../../state/rangeScale'
-import { useEscapeLayer } from '../../../hooks/useEscapeLayer'
+import { useModalFocus } from '../../../hooks/useModalFocus'
 import { portHandleStyle } from '../nodeHandleStyle'
 import { stopWheelWhileFocused } from '../wheelBehavior'
 import styles from './WebRemoteBody.module.css'
@@ -322,7 +322,7 @@ function PhonePreview({ nodeId, title, controls, onClose }: {
 }) {
   const frame = useRef<HTMLIFrameElement>(null)
   const html = useMemo(() => webRemotePageHtml(title, controls), [title, controls])
-  useEscapeLayer(onClose)
+  const dialogRef = useModalFocus<HTMLDivElement>(onClose)
 
   useEffect(() => {
     const state = () => controls.map((control) => {
@@ -356,7 +356,7 @@ function PhonePreview({ nodeId, title, controls, onClose }: {
   if (typeof document === 'undefined') return null
   return createPortal(
     <div className={`nodrag nowheel ${styles.overlay}`} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <div className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby={`${nodeId}-phone-title`}>
+      <div ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby={`${nodeId}-phone-title`} tabIndex={-1}>
         <div className={styles.dialogHead}>
           <h2 id={`${nodeId}-phone-title`}>Phone preview</h2>
           <button type="button" className={styles.toolButton} onClick={onClose}>Close</button>

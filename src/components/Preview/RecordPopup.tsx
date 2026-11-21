@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useGraphStore, getGroupRegistry } from '../../state/graphStore'
 import { useUiStore } from '../../state/uiStore'
-import { useEscapeLayer } from '../../hooks/useEscapeLayer'
+import { useModalFocus } from '../../hooks/useModalFocus'
 import { useShowPlayback } from '../../state/player/showPlayback'
 import { outputRoutes } from '../../state/output/outputRouting'
 import { latestStreamFrameCopy } from '../../state/output/streamStore'
@@ -86,7 +86,7 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
   // Abandon any in-flight capture when the dialog unmounts.
   useEffect(() => () => { cancelRef.current = true }, [])
 
-  useEscapeLayer(() => { cancelRef.current = true; onClose() })
+  const dialogRef = useModalFocus<HTMLDivElement>(() => { cancelRef.current = true; onClose() })
 
   const webmMime = pickWebmMime()
   const totalFrames = Math.max(1, Math.round(durationSec * fps))
@@ -319,7 +319,7 @@ export default function RecordPopup({ onClose }: { onClose: () => void }) {
 
   return createPortal(
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose() }}>
-      <div className={styles.popup} role="dialog" aria-label="Record and export the preview">
+      <div ref={dialogRef} className={styles.popup} role="dialog" aria-modal="true" aria-label="Record and export the preview" tabIndex={-1}>
         <div className={styles.header}>
           <span>Record &amp; Export</span>
           <button className={styles.closeBtn} onClick={() => { cancelRef.current = true; onClose() }} title="Close">×</button>

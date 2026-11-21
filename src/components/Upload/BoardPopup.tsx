@@ -10,7 +10,7 @@ import styles from './Upload.module.css'
 import { Icon } from '../icons/Icon'
 import { controllerSettings } from '../../build/controllerSettings'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
-import { useEscapeLayer } from '../../hooks/useEscapeLayer'
+import { useModalFocus } from '../../hooks/useModalFocus'
 
 const EMPTY_CUSTOM_BOARD = { label: '', fqbn: '', core: '', boardUrl: '' }
 
@@ -28,7 +28,7 @@ export default function BoardPopup() {
     closeBoardPopup, openCliPopup,
     addCustomBoard, removeCustomBoard, checkForUpdates, closeUpdatesPopup, upgradeCores,
   } = useUploadStore()
-  useEscapeLayer(closeBoardPopup)
+  const dialogRef = useModalFocus<HTMLDivElement>(closeBoardPopup)
   // The controller settings, PSRAM and RAM are facts about one firmware
   // image: the active board's partition, whose one Board is the board this
   // popup is choosing for (with one board, the whole root graph).
@@ -75,7 +75,7 @@ export default function BoardPopup() {
   if (updatesPopupOpen) {
     return (
       <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeBoardPopup() }}>
-        <div className={styles.popup} role="dialog" aria-label="Board updates">
+        <div ref={dialogRef} className={styles.popup} role="dialog" aria-modal="true" aria-label="Board updates" tabIndex={-1}>
           <div className={styles.popupHeader}>
             <span>Board Updates</span>
             <button className={styles.closeBtn} onClick={closeBoardPopup} title="Close">×</button>
@@ -113,7 +113,7 @@ export default function BoardPopup() {
 
   return (
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) closeBoardPopup() }}>
-      <div className={styles.popup} role="dialog" aria-label="Board settings">
+      <div ref={dialogRef} className={styles.popup} role="dialog" aria-modal="true" aria-label="Board settings" tabIndex={-1}>
         <div className={styles.popupHeader}>
           <span>Board &amp; Port</span>
           <button className={styles.closeBtn} onClick={closeBoardPopup} title="Close">×</button>

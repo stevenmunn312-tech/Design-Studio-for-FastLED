@@ -3,7 +3,7 @@ import type {
   PhysicalBoardPinProfile,
   PhysicalBoardProfile,
 } from '../../build/boards/boardProfiles'
-import { useEscapeLayer } from '../../hooks/useEscapeLayer'
+import { useModalFocus } from '../../hooks/useModalFocus'
 import styles from './BoardPinoutPicker.module.css'
 
 /*
@@ -111,13 +111,13 @@ export default function BoardPinoutPicker({ profiles, selectedId, onPick, onClos
   onPick: (profileId: string) => void
   onClose: () => void
 }) {
-  useEscapeLayer(onClose)
+  const dialogRef = useModalFocus<HTMLElement>(onClose)
 
   return (
     <div className={styles.backdrop} onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose()
     }}>
-      <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="board-picker-title">
+      <section ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="board-picker-title" tabIndex={-1}>
         <div className={styles.header}>
           <div>
             <h2 id="board-picker-title" className={styles.title}>Choose your board</h2>
