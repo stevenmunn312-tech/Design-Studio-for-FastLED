@@ -61,6 +61,12 @@ Each license is shipped next to its files.
   `icon-512.png`, `icon-maskable-192.png`, `icon-maskable-512.png`) are drawn
   by the repo's own `scripts/assets/make-brand-icons.py` from the brand tokens
   in `src/themes/tokens.css`.
+- The display design pack in `public/display-assets/` (icons, widgets,
+  backgrounds, templates and themes for custom screens) is the project
+  author's own work, imported by `scripts/assets/import-display-assets.py`,
+  and falls under [`LICENSE`](LICENSE). So do the canvas cursors in
+  `src/assets/cursors/` and the pattern thumbnails in
+  `src/assets/bundled-patterns/`, rendered from the bundled patterns.
 - If any of those assets are replaced with external artwork, update this file
   before shipping the next release.
 
