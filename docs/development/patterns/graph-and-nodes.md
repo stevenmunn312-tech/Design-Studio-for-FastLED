@@ -601,13 +601,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   so the help article, the canvas and a saved file name it the same way. The
   ones that differ (`RTCInput`, `MatrixOutput`, `PatternMaster`,
   `TransportDisplay`, `InfoDisplay`, `ControlMap`, `BatteryModule`,
-  `NoiseSignal`) are kept for good. Round eight renamed nine ids and a set of
-  ports and properties; saves from before it open through the one pre-1.0
-  alias table, `src/state/preV1Aliases.ts`, which every workspace and pattern
-  load, import and share link passes. It is the only file that may name an old
-  id (with its test), it removes a wire into the old 0 to 1 Hue Shift input
-  (the value is now degrees), and todo.md HW-18 deletes it. A rename made
-  after the freeze needs a real migration, not an entry there.
+  `NoiseSignal`) are kept for good. A rename made after the v1.0.0 format
+  freeze needs a real migration and a release note; there is no alias table
+  ([cleanup record](../../release/versioning-and-releases.md#pre-v1-cleanup-record)).
 - A node's `field` output is `field_<id>` in the sketch; any other field
   output (Slice Tiling's `cell`) is `field_<id>_<port>`, declared by
   `ownField(port)`. `srcField` resolves a wire by the port it leaves, where it

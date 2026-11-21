@@ -14,17 +14,12 @@
 // id and the wiring around it are deliberately left out - moving a node, or
 // dropping the same pattern twice, is not new code. Changing the code itself
 // is, so an edited copy of someone else's formula needs its own decision.
-import type { GraphContent, StudioNode } from '../graphStore'
-import { upgradePreV1Content, upgradePreV1TrustEntry } from '../preV1Aliases'
+import type { GraphContent } from '../graphStore'
 import type { GroupRegistry } from '../graphEvaluator'
 import { BUNDLED_PATTERNS } from './bundledPatterns'
 import { dmxUsesNetwork } from '../peripherals/dmxTransceiver'
 
 const KEY = 'design-studio-for-fastled.known-content.v2'
-/** The first store remembered whole pattern subgraphs, positions included.
- *  Its entries are folded into this one on load, so nothing trusted before is
- *  asked about again. */
-const LEGACY_KEY = 'design-studio-for-fastled.trusted-pattern-content.v1'
 
 /** The node types whose preview logic the trust boundary actually gates — see
  *  the `trusted` checks in graphEvaluator's `FormulaPattern`/`FieldFormula`/
@@ -91,22 +86,8 @@ function load(): Set<string> {
   try {
     const raw = localStorage.getItem(KEY)
     const parsed = raw ? JSON.parse(raw) : []
-    // Remembered before round eight's renames, an entry names the old type id
-    // (preV1Aliases.ts, removed before v1.0.0).
-    if (Array.isArray(parsed)) for (const entry of parsed) if (typeof entry === 'string') known.add(upgradePreV1TrustEntry(entry))
+    if (Array.isArray(parsed)) for (const entry of parsed) if (typeof entry === 'string') known.add(entry)
   } catch { /* unreadable: start empty */ }
-  try {
-    const legacy = localStorage.getItem(LEGACY_KEY)
-    const entries = legacy ? JSON.parse(legacy) : []
-    if (Array.isArray(entries)) {
-      for (const entry of entries) {
-        if (typeof entry !== 'string') continue
-        const subgraph = JSON.parse(entry) as { nodes?: unknown[] }
-        const nodes = upgradePreV1Content((subgraph.nodes ?? []) as StudioNode[], []).nodes
-        for (const fp of contentFingerprints(nodes)) known.add(fp)
-      }
-    }
-  } catch { /* a damaged legacy entry is simply not carried over */ }
   return known
 }
 
@@ -277,7 +258,6 @@ export function clearPatternContentTrustForTests(): void {
   knownFingerprints = new Set()
   try {
     localStorage.removeItem(KEY)
-    localStorage.removeItem(LEGACY_KEY)
   } catch { /* ignore */ }
 }
 

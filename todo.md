@@ -44,7 +44,9 @@ and recovery evidence
   Chromium, 2026-11-14.
 - [ ] Sign the Windows launcher and bundled executables with Authenticode, or
   publish through the [Microsoft Store](docs/release/microsoft-store.md) MSIX,
-  which the Store signs.
+  which the Store signs. The listing is filled in; the MSIX is built from the
+  `v1.0.0` tag and submitted after step 4's tag, not before. A 1.0.0.0 package
+  built from `ce83f98` was submitted early on 2026-11-20 and withdrawn.
 - [ ] Run the Windows package on a clean account or machine, through launch
   and an upload.
 - [x] Reconcile the fbuild 2.5.4 tools the macOS bundle substitutes with the
@@ -67,12 +69,11 @@ and recovery evidence
 The pre-1.0 compatibility sweep is done
 ([cleanup record](docs/release/versioning-and-releases.md#pre-v1-cleanup-record)).
 
-- [ ] Remove any pre-1.0 leftover found since the sweep, the same way,
-  without a migration.
-- [ ] Delete `src/state/preV1Aliases.ts`, its test and its call sites (grep
-  `preV1Aliases`) in that same leftover sweep. It is the one place the nine
-  renamed type ids and round eight's port and property renames are named; after
-  the freeze an old save needs a real migration, not this table.
+- [x] Remove any pre-1.0 leftover found since the sweep, the same way,
+  without a migration. Done 2026-11-21: the first trust store's fold-in
+  ([cleanup record](docs/release/versioning-and-releases.md#pre-v1-cleanup-record)).
+- [x] Delete `src/state/preV1Aliases.ts`, its test and its call sites. Done
+  2026-11-21; Steve's saved projects held none of the old ids.
 - [ ] Choose the supported combinations from the evidence on record in the
   [bench backlog](docs/plans/bench-backlog.md) and the reports, and update the
   [support matrix](docs/release/beta-support-matrix.md). Everything else stays
@@ -80,10 +81,9 @@ The pre-1.0 compatibility sweep is done
 - [ ] Reconcile the release copy with that scope.
 - [ ] Freeze the panel, document and control save format. It becomes the
   compatibility baseline.
-- [ ] Record the limitations and deferments, including the boards fbuild
-  2.5.52 cannot build, which stay on arduino-cli: the UNO R4 Minima (§18) and
-  the XIAO nRF52840
-  ([runbook](docs/runbooks/fbuild-workarounds.md#probes)).
+- [x] Record the limitations and deferments. Done 2026-11-21 in the
+  [support matrix](docs/release/beta-support-matrix.md#known-limitations-in-v100);
+  deferments stay in the [post-v1 list](docs/plans/post-v1.md).
 - [ ] Repeat the
   [keyboard and screen-reader smoke test](docs/release/accessibility-smoke-test.md)
   on the candidate build; the recorded pass (2026-07-26) predates the
@@ -111,3 +111,6 @@ is the authority; these are its steps.
 - [ ] Commit the version bump and changelog.
 - [ ] Create the annotated tag `v1.0.0` on that commit.
 - [ ] Push the commit and the tag together.
+- [ ] Build the MSIX from the tag, run WACK, upload it to the draft Store
+  submission and submit it for certification
+  ([Microsoft Store](docs/release/microsoft-store.md#submit)).

@@ -110,6 +110,18 @@ a migration from the previous format.
   workspace file is no longer a save shape: Open Project File reads only the
   project format, which Save Project File As writes. Project and pattern files
   gained `formatVersion: 1`.
+- 2026-11-21: deleted the round-eight alias table (`src/state/preV1Aliases.ts`)
+  that let saves from before 2026-11-19 open with the nine old type ids
+  (`Clock`, `Temperature`, `FieldWarp`, `CustomFormula`, `PrismStorm`,
+  `Sequencer`, `Ripple`, `Symmetry`, `TransitionSet`) and the renamed ports and
+  properties. A save that still uses them now opens with those nodes unknown.
+  Also dropped the fold-in of the first trust store
+  (`trusted-pattern-content.v1`, replaced 2026-09-26), so content trusted only
+  there is asked about once more. Kept on purpose: the Amplifier's
+  `MAX98357A` model value (the node's current default), bench layout ids such
+  as `microwave-motion` (current ids, not aliases), and the whole-show freeze
+  for a music entry edited before show locks (2026-10-19), which lives in the
+  music library rather than in a save file.
 
 ## Version scheme
 

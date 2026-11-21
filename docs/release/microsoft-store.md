@@ -100,9 +100,13 @@ covers it. Every other test should pass; investigate any that does not.
 
 ## Submit
 
+Submit only the package built from the release tag, once every release step
+before the tag is done. The Store wants each submission's version higher than
+the last, so an interim package forces a version bump to replace it.
+
 1. Register a Partner Center developer account (free for individuals; needs
    identity verification) and reserve the name **Design Studio for FastLED**.
-2. Build with the reserved identity values and run WACK.
+2. Build from the release tag with the reserved identity values and run WACK.
 3. Create a submission and upload the `.msix`.
 4. **Restricted capability:** explain `runFullTrust`. Suggested text: "Design
    Studio is a desktop development tool. It runs a local helper that compiles

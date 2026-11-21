@@ -173,7 +173,6 @@ export const SHOW_DEFINITIONS: NodeDefinition[] = [
     // Timeline-as-a-node: cycles its inputs with a timed crossfade.
     // Labelled Crossfade Cycle: "Sequencer" sent people looking here for the
     // step editor that the Music Player and Pattern Slideshow call Sequence.
-    // The type id matches the label (it was `Sequencer` before v1.0.0).
     type: 'CrossfadeCycle',
     label: 'Crossfade Cycle',
     category: 'show',

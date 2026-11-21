@@ -114,13 +114,6 @@ describe('known content', () => {
     reloadKnownContentForTests()
     expect(isContentKnown([node('c', 'Code', { code: 'a' })])).toBe(true)
   })
-
-  it('carries over patterns trusted under the old whole-pattern store', () => {
-    const legacy = JSON.stringify({ edges: [], nodes: [node('cf', 'FormulaPattern', { formula: 'old' })] })
-    localStorage.setItem('design-studio-for-fastled.trusted-pattern-content.v1', JSON.stringify([legacy]))
-    reloadKnownContentForTests()
-    expect(isContentKnown([node('x', 'FormulaPattern', { formula: 'old' })])).toBe(true)
-  })
 })
 
 describe('workspaceTrustHolds', () => {

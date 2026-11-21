@@ -1180,6 +1180,39 @@ Notes:
   supported. See [`rtc-clock-and-schedule.md`](../design/rtc-clock-and-schedule.md)
   for the full contract.
 
+## Known limitations in v1.0.0
+
+Recorded on 2026-11-21 against fbuild 2.5.52 and arduino-cli 1.5.1, the pins
+the code-freeze compile matrix passed on. Work deferred past v1 is in the
+[post-v1 list](../plans/post-v1.md).
+
+- **Boards fbuild cannot build.** These build with arduino-cli even when fbuild
+  is the engine, and the build log says so:
+  - UNO R4 Minima: a FastLED sketch compiles the core's `WiFiS3` library
+    ([runbook §18](../runbooks/fbuild-workarounds.md#18-uno-r4-minima-a-fastled-sketch-compiles-the-cores-wifis3-library)).
+  - Seeed XIAO nRF52840: the link fails on `__wrap_realloc`
+    ([runbook, probes](../runbooks/fbuild-workarounds.md#probes)).
+  - Any sketch with the Bluetooth Music Player, on every board.
+- **One build at a time.** fbuild shares one project folder, so the helper
+  queues builds rather than running two at once
+  ([runbook §3](../runbooks/fbuild-workarounds.md#3-the-project-scaffold-is-shared-with-no-concurrency-safety)).
+- **Over-limit builds.** When the linker overflows, fbuild prints no size
+  summary, so the helper shows its own estimate
+  ([§5](../runbooks/fbuild-workarounds.md#5-a-hard-linker-overflow-produces-no-size-summary-at-all)).
+  An ESP32 build over its RAM limit is refused on the measured percentage,
+  because fbuild reports it as a success
+  ([§11](../runbooks/fbuild-workarounds.md#11-a-build-over-the-boards-limits-reports-success)).
+- **fbuild daemon restart.** If the daemon refuses to start, the helper
+  retries once after 15 seconds and then says plainly that nothing was
+  compiled ([§14](../runbooks/fbuild-workarounds.md#14-the-daemon-refuses-to-start-after-the-last-one-exited)).
+- **Bundled libraries.** FastLED and the optional libraries are vendored
+  rather than fetched through `lib_deps`, because fbuild still reads a bare
+  version pin as a range
+  ([§1](../runbooks/fbuild-workarounds.md#1-lib_deps-registry-resolution-is-not-implemented)).
+- **Saves from before 2026-11-19.** Projects and patterns that use the
+  pre-round-eight node ids no longer open with those nodes
+  ([cleanup record](versioning-and-releases.md#pre-v1-cleanup-record)).
+
 ## How to graduate a new supported row
 
 When a new combo is validated, record all of the following in the same note or
