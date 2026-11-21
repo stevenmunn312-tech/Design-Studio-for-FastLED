@@ -1,9 +1,17 @@
 # Beta Support Matrix
 
-Design Studio for FastLED is still pre-release. For the public beta, a combination only
-counts as **supported** when the repo contains a recorded validation note for
-the exact environment and path that were exercised. Everything else stays
-**experimental** until the record is expanded.
+For v1.0.0, a combination counts as **supported** only when the repo contains
+a recorded validation note for the exact environment and path that were
+exercised. Everything else stays **experimental** until the record is
+expanded.
+
+**v1.0.0 scope** (chosen 2026-11-21): the ESP32-S3, classic ESP32 and ESP8266
+rows below, on Windows 11 with Chrome, for exactly the features and upload
+paths each row names. Every other board family compiles in the freeze matrix
+(fbuild 2.5.52, arduino-cli 1.5.1) but has no hardware record, so it is
+experimental. The rows were recorded from June to September 2026 on fbuild
+2.5.0 to 2.5.21 and arduino-cli; none has been rerun on the freeze engine or
+FastLED 3.10.9.
 
 ## Status levels
 
@@ -32,11 +40,12 @@ the exact environment and path that were exercised. Everything else stays
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch, compile, flash, and run it on hardware | Validation `hw-f57928b9` (`2026-07-25`): color order, orientation, and power cap passed |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | 🧪 Flash Wiring Test | Flash the standalone wiring-diagnostic sketch and confirm LEDs display correctly | Validation `hw-7adaec6f` (`2026-07-25`): full diagnostic sequence passed |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 150.0.7871.187 | ESP8266 | WS2812B | 10x1 | Strip (non-matrix) | `arduino-cli` | ⚡ Flash Stream Receiver + 📡 Live Stream | Flash the Adalight stream receiver once, then push live-preview frames to the board over serial | Validation `hw-b0b34ed3` (`2026-07-25`): passed after the one-row frame-dimension fix |
+| Supported | Windows 11 Home (build 10.0.26200) | Chrome 151.0.7922.173 | ESP32-S3 (N16R8, OPI PSRAM) + microSD + MAX98357A | WS2812B | 16x16 | Single rectangular matrix (serpentine) | `fbuild` 2.5.18 | SD provisioning, then USB flash via `esptool` through the helper's normal Upload path | Provision the SD card with a song and its music-synced show, flash the player, and verify clean I2S audio, audio/visual sync through the whole track, and collection-driven group-input modulation, with baked song envelopes | [GitHub issue #194](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues/194) (`hw-5cd82ee2`, `2026-08-24`): all twelve checks passed; a 33-pattern show ran a 36.6 s track to clean EOF |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.64 | ESP32-S3 + microSD + MAX98357A | WS2812B | 16x16 matrix plus paired 32x1 VU rails | Single rectangular matrix (serpentine) flanked by a Stereo VU Meter fixture (left GPIO 42, right GPIO 2, data-in Bottom both sides) | `fbuild` 2.5.21 | USB flash via `esptool` through the helper's normal Upload path | Generate the SD Music Player sketch with a Stereo VU Meter, compile, flash, and run the full fifteen-item bench matrix: silence, channel separation, mono mirroring, a calibrated level staircase, ballistics, clipping, all twelve visualizations, all four selection policies, a fifteen-minute soak with the matrix rendering concurrently, track-skip and card-pull interruption, channel swap, both data-in directions, and power draw at the cap | [Bench record (`2026-09-02`)](../reports/bench/stereo-vu-bench.md#bench-record--2026-09-02): all fifteen passed; 2.90-2.92 A measured against a 3000 mA cap at 4.82 V far-end, strips barely warm after ten minutes. Found and fixed two level-scale defects (`c43113f3`, `173dcc3d`) that compile and browser tests could not see |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 (Generic N16R8, 44-pin dual USB-C) + photosensitive LDR module (KS6026 form) | WS2812B | 32x1 | LED string (non-matrix, non-serpentine) | `fbuild` 2.5.21 | USB flash via `esptool` through the helper's normal Upload path | Generate a live-graph sketch whose `Light Sensor` on GPIO2/ADC1 drives LED output brightness through Map Range and Smooth; compile, flash, and verify the strip tracks light across covered, normal room light, and direct torch | [Input-peripheral bench record (`2026-09-02`)](../reports/bench/input-peripheral-bench.md#ldr-light-sensor--2026-09-02): all three light conditions passed; ADC measured across the full range with a probe sketch using the same `analogRead(pin) / 4095.0f` expression the generator emits |
 | Supported | Windows 11 Home (build 10.0.26200) | Chrome 152.0.7977.76 | ESP32-S3 + plain rotary encoder (A GPIO8, B GPIO9, switch GPIO21) | WS2812B | 16x16 | Single rectangular matrix, with an ST7789 1.54-inch panel on Show Status | `arduino-cli` | USB flash via `esptool` through the helper's normal Upload path | Generate a ten-pattern generative show whose pattern selection is driven by a physical encoder through Player Controls into the Pattern Slideshow's Controls input; compile, flash, and verify that turning the encoder changes the running pattern on the LEDs and the panel names it | [Rotary encoder bench record (`2026-09-08`)](../reports/bench/input-peripheral-bench.md#rotary-encoder-pattern-selection--2026-09-08): review finding F1 repaired on hardware — the same chain was dropped by the show generator before `1608c790` |
 
-These are the only fully recorded public-beta support rows today.
+These are the only fully recorded support rows for v1.0.0.
 
 ## Auxiliary display hardware validation
 
@@ -578,10 +587,7 @@ Unless a future row says otherwise, treat the following as experimental:
 - `arduino-cli` hardware combinations beyond the recorded rows above. It is the
   recommended ESP32 workflow because of fbuild's repeat-upload latency, but that
   operational recommendation is not a substitute for a dated hardware-validation row.
-- PSRAM modes except OPI on the exact ESP32-S3 + 60x1 normal-upload/live-stream
-  and 65x1 microphone/live-stream rows above.
-- Baked song envelopes and collection-driven modulation in the music-show
-  pipeline.
+- PSRAM modes except OPI on the exact ESP32-S3 rows above that name it.
 - **The FastLED audio detector nodes: Vibe, Song Structure, Pitch Detect and
   Waveform.** They compile on classic ESP32 and ESP32-S3 with an INMP441
   engine, and their browser ports are tested against synthetic signals, but
@@ -589,7 +595,9 @@ Unless a future row says otherwise, treat the following as experimental:
   about 175 Hz to 1 kHz only, and its key output is a coarse estimate.
   Baked shows and the SD player carry none of them, so they read inactive
   there.
-- SD show provisioning and player upload (music-sync shows remain experimental).
+- SD show provisioning and player upload on every board except the ESP32-S3
+  row above. The classic ESP32 run on 2026-07-28 failed; its four defects
+  were fixed with no confirming pass.
 - **Show sequencing.** Collection weights, calm/lively/peak tags, restart and
   resume entry, lane editing, ramps, named float inputs, and Sequence order on
   the Pattern Slideshow and the Music Player. The four ESP32-S3 fixtures
@@ -1127,9 +1135,11 @@ Unless a future row says otherwise, treat the following as experimental:
   exercise short presses, holds/repeats, alternating and unknown keys, and
   rapid presses in normal, slideshow and SD/player firmware, including a long
   clockless LED run while `show()` is active.
-- **Wi-Fi-dependent firmware generally**, including NTP time sync for the RTC
-  Clock node — no board has confirmed a real network connection, and neither
-  the software clock's drift nor an actual NTP sync has been validated.
+- **Wi-Fi-dependent firmware beyond the recorded runs.** NTP time sync is
+  validated only on the ESP32-S3 + ST7789V row (`2026-09-11`), and board
+  links and the Web Remote only in the
+  [board-link bench](../reports/bench/board-link-bench.md). The software
+  clock's long-run drift is unmeasured.
 
   Everything above is covered by unit, codegen, and backend tests only. A DMX
   hardware row also needs the transceiver part number and wiring, the

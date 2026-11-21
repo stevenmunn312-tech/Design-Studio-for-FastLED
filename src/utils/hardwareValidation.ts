@@ -400,6 +400,13 @@ const RECORDED_HARDWARE_TARGETS: RecordedHardwareTarget[] = [
     actions: ['microphone', 'live-stream'],
     features: ['LED String geometry', 'PSRAM (opi)', 'INMP441/on-device microphone'],
   },
+  {
+    evidence: 'GitHub issue #194, hw-5cd82ee2 (2026-08-24)',
+    fqbn: 'esp32:esp32:esp32s3', engine: 'fbuild', chipset: 'WS2812B',
+    form: 'matrix', width: 16, height: 16, layout: 'matrix', serpentine: true, psram: 'opi',
+    actions: ['sd-show'],
+    features: ['PSRAM (opi)', 'Baked song envelopes', 'Group-input modulation', 'SD show provisioning/player'],
+  },
 ]
 
 /**

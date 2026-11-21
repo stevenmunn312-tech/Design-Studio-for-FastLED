@@ -75,10 +75,12 @@ The pre-1.0 compatibility sweep is done
   ([cleanup record](docs/release/versioning-and-releases.md#pre-v1-cleanup-record)).
 - [x] Delete `src/state/preV1Aliases.ts`, its test and its call sites. Done
   2026-11-21; Steve's saved projects held none of the old ids.
-- [ ] Choose the supported combinations from the evidence on record in the
+- [x] Choose the supported combinations from the evidence on record in the
   [bench backlog](docs/plans/bench-backlog.md) and the reports, and update the
   [support matrix](docs/release/beta-support-matrix.md). Everything else stays
-  experimental.
+  experimental. Done 2026-11-21: the recorded ESP32-S3, classic ESP32 and
+  ESP8266 rows on Windows 11 with Chrome, no rerun on the freeze build; the
+  S3 SD show (#194) and Wi-Fi records were added.
 - [ ] Reconcile the release copy with that scope.
 - [ ] Freeze the panel, document and control save format. It becomes the
   compatibility baseline.
