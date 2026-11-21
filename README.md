@@ -10,17 +10,17 @@ Design Studio for FastLED is a live, node-based creative environment for LED str
 
 ![A Field Transform patch running in Design Studio for FastLED: three noise fields bend one image, shown live on a 16×16 LED matrix](docs/images/readme/design-studio-overview.webp)
 
-## What's new in 0.8
+## What's new in 1.0
 
-Version 0.8.0 (2026-11-16) is the first release built from the line heading to v1.0. Highlights:
+Version 1.0.0 is the first stable release. Its save format is the compatibility baseline: projects, patterns and share links you make in 1.0 open in every later version.
 
-- **A hardware workbench.** Pick the exact board, add the parts you own from the Hardware shelf, and get filtered pin pickers, bus-aware checks, power and fuse sizing, and a printable Build Diagram. A project can hold several boards.
-- **Displays and screens.** OLED, TFT, segment and MAX7219 displays with ready-made layouts, plus touch-screen designs with sliders, dials, charts, spectrum views and text entry. Web Remote serves a phone control page from an ESP32.
-- **Music everywhere.** The Music Player plays from SD, internet radio or Bluetooth, paces itself to the song's energy, and drives a Stereo VU Meter fixture. Song analysis now carries FastLED's 16 equalizer bins per frame.
-- **More to make with.** New pattern, field, palette and logic nodes, 100 bundled audio-reactive patterns, Pattern Insights cost estimates, library bundles for sharing, and new studio themes.
-- **A native Windows window.** The Windows desktop app opens in its own window instead of a browser tab.
+- **A supported core.** ESP32-S3, classic ESP32 and ESP8266 builds are tested end to end on real hardware; see [Supported hardware](#supported-hardware). Every other board family builds and is marked experimental.
+- **Power you can trust.** Enter the power supplies you own; the Board, Checks and the Build Diagram size the cap, fuses and wiring to them, and say how bright your LEDs can run.
+- **Parts as data.** Every bundled board add-on, sensor, display, audio, LED and power part has a manifest; the Hardware shelf groups and searches them, and projects carry the parts they use.
+- **Keyboard and screen reader.** Connections can be made without a mouse, dialogs keep focus, and NVDA announces nodes, ports, connections, checks and status. Checked with NVDA 2026.3.1.
+- **Eleven more patterns** on the Standard shelf, and five rebuilt.
 
-Projects saved by 0.7 or earlier are not migrated. Retired node types and properties are no longer recognised, so an older project can lose settings or show unsupported nodes; keep a copy of anything important before opening it in 0.8. See [Versioning and releases](docs/release/versioning-and-releases.md) and the [changelog](CHANGELOG.md).
+Upgrading from 0.8: nine node types and several ports were renamed so ids match their labels. A 0.8 project that uses them opens with those nodes unknown; keep 0.8 for old projects, or rebuild those nodes. See the [changelog](CHANGELOG.md) and [Versioning and releases](docs/release/versioning-and-releases.md).
 
 ## From idea to LEDs—without breaking your flow
 

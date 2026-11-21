@@ -2,12 +2,41 @@
 
 All notable changes to this project should be documented in this file.
 
-The format is based on Keep a Changelog and the project uses pre-1.0 semantic
-versioning (`0.y.z`) until the first stable release.
+The format is based on Keep a Changelog and the project uses semantic
+versioning. 1.0.0 is the first stable release: its save format is the
+compatibility baseline, so a later version opens every v1 project, pattern and
+share link, migrating it where a shape has changed.
 
 ## [Unreleased]
 
+Version 1.0.0. The release supports the ESP32-S3, classic ESP32 and ESP8266
+combinations recorded in the
+[support matrix](docs/release/beta-support-matrix.md), on Windows 11 with
+Chrome; every other board family builds but is experimental.
+
+**Upgrading from 0.8.0:** nine node types and several ports were renamed (see
+Changed). Projects, patterns and share links saved by 0.8.0 that use those
+nodes open with them unknown, and their settings are lost. Rebuild those
+nodes, or keep 0.8.0 for old projects.
+
 ### Added
+
+- The save format is frozen as the v1 baseline. A test holds every node type,
+  port and property a saved file can name, so a later change to one must come
+  with a migration.
+- Keyboard and screen-reader access, checked with NVDA:
+  - Each node's ports are one Tab stop, and the arrow keys step between
+    them, so a connection can be made without a mouse. Starting one says
+    which port is waiting; finishing it says what was connected.
+  - Nodes and connections show a focus ring.
+  - Every overlay dialog takes focus, keeps Tab inside, closes on Escape and
+    returns focus.
+  - Focus stays on the canvas after adding, deleting or deselecting.
+  - Deletions are announced, Checks speak one sentence, the status bar no
+    longer says "Ready" after every message, and the workspace is a main
+    landmark.
+- A privacy policy ([PRIVACY.md](PRIVACY.md)): the app collects nothing and
+  sends nothing to the developer.
 
 - **Power Supply** on the Hardware shelf, under Power: enter the volts and
   rated amps off the label of a supply you already have, one per supply. With
@@ -86,10 +115,8 @@ versioning (`0.y.z`) until the first stable release.
   Ripple, Tile Symmetry and Transition Pool), and port names are consistent
   across nodes (`mids`, `select`, `enabled`, `color`, `rotation`,
   `subdivision`). Hue Shift, Adjust Color, Image and Beat Kaleidoscope all
-  take their hue offset in degrees as Hue Shift. Projects, pattern files,
-  library bundles and share links saved before these renames still open. A
-  wire into the old 0–1 Hue Shift input is removed, since its source gave
-  turns, not degrees.
+  take their hue offset in degrees as Hue Shift. Saves that use the old ids
+  are not migrated (see Upgrading from 0.8.0 above).
 - Music Player patterns animate on a clock that runs slower in quiet passages
   and faster at loud peaks and fast tempos, instead of on raw track time.
 - A Dwells & Bursts burst holds each change for two seconds after its
@@ -165,12 +192,19 @@ versioning (`0.y.z`) until the first stable release.
 - Help's support matrix link and clone step point at `main`.
 - Help's About tab no longer says "public beta", and its saving guide no
   longer mentions graph JSON.
+- The plain Raspberry Pi Pico builds with fbuild on the Earle Philhower core
+  its board names, not the Mbed core, where a FastLED sketch failed on the
+  core's Wi-Fi headers.
+- Ctrl+Z and Ctrl+Y work while a property slider has keyboard focus.
 
 ### Removed
 
 - File → Import Graph JSON and Export Graph JSON. Save Project File As and
   Open Project File cover the same workspace; a bare graph JSON file no longer
   opens as a project.
+- The pre-1.0 alias table that let saves from before the node renames open.
+- Content trusted only in the first trust store (replaced on 2026-09-26) is
+  asked about once more.
 
 ## [0.8.0] - 2026-11-16
 

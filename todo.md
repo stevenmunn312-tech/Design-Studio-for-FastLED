@@ -62,9 +62,9 @@ is the authority; these are its steps.
 - [ ] Update `README.md` and `CHANGELOG.md`, and empty this file.
 - [x] Set the version in `package.json` to `1.0.0`. Done 2026-11-20, ahead of
   the release, so the first Microsoft Store package is 1.0.0.0.
-- [ ] Review the support matrix and the
+- [x] Review the support matrix and the
   [supported platform policy](docs/release/supported-platform-policy.md)
-  against the validation evidence.
+  against the validation evidence. Done 2026-11-22.
 - [ ] Review `THIRD_PARTY_NOTICES.md` for new bundled assets and dependency
   changes.
 - [ ] Run the verification gates: lint, tests and `tsc -b`, and the backend
