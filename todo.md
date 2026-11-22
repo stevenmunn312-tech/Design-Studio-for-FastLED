@@ -13,6 +13,21 @@ this file when they are done.
   [support matrix](docs/release/beta-support-matrix.md), the
   [smoke tests](docs/release/clean-machine-smoke-test.md) and Git history.
 
+## Halted 2026-11-23: release blocker
+
+**Do not submit or publish anything.** With Windows long-path support off
+(the Windows default), fbuild cannot extract the ESP32 toolchain or Arduino
+framework at all: even its own short fallback folder `C:\fb-<hash>\` leaves
+files such as `esp_matter\connectedhomeip\...` past 260 characters. Seen on
+a new standard account with `LongPathsEnabled = 0` running Store package
+1.0.1 (log: `C:\Users\Public\Downloads\Uploading to COM3 (esp32esp32esp32s.txt`).
+fbuild suggests `fbuild --fix-win`. Every earlier passing run used this PC,
+where long paths are on machine-wide, so none of them covered this. It
+affects the Store package and the portable ZIP alike. No fix is chosen yet.
+
+State: the Store holds only the certified, unpublished 1.0.0 dry run (leave
+it alone); tags `v1.0.0` and `v1.0.1` exist with private draft releases.
+
 ## Publish
 
 v1.0.1 is the release: the same app as v1.0.0 plus the short build folder a
