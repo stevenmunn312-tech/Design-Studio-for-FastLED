@@ -84,6 +84,11 @@ launcher:
   subprocess passes `NO_CONSOLE_WINDOW` from `backend/subprocess_flags.py`;
   without it each arduino-cli, fbuild, esptool or PowerShell call would open a
   console window. Add the flag to any new spawn site.
+- **Downloaded copies:** Windows marks every file extracted from a downloaded
+  ZIP, and .NET Framework refuses to load marked assemblies, so pythonnet
+  could not start and the window fell back to the browser. The packager writes
+  `Design Studio for FastLED.exe.config` with `loadFromRemoteSources` beside
+  the launcher, Microsoft's switch for a host that trusts its own folder.
 - **Missing WebView2:** pywebview would fall back to the retired MSHTML
   engine, so the launcher checks the renderer and instead opens the default
   browser, showing a message box whose OK button stops the helper.

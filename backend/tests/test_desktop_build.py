@@ -157,3 +157,16 @@ def test_smoke_names_each_failed_check():
         "Cross-Origin-Embedder-Policy: credentialless",
         "bundled fbuild found",
     ]
+
+
+def test_windows_launcher_config_lets_net_load_a_downloaded_copy(tmp_path):
+    # A ZIP downloaded from the internet marks every extracted file, and .NET
+    # Framework then refuses pythonnet's Python.Runtime.dll: the window fell back
+    # to the browser on a clean account (2026-11-22).
+    import xml.etree.ElementTree as ET
+
+    config = build.write_launcher_config(tmp_path)
+    assert config.name == f"{build.executable_name(build.APP_NAME)}.config"
+    assert config.parent == tmp_path
+    switch = ET.parse(config).getroot().find("runtime/loadFromRemoteSources")
+    assert switch is not None and switch.get("enabled") == "true"

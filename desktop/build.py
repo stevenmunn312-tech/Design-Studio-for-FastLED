@@ -203,6 +203,30 @@ def install_bundle_files(app_dir: Path, esptool: Path) -> None:
         shutil.copy2(ROOT / name, notices / name)
     shutil.copy2(ROOT / "desktop" / "bundle-readme.txt", notices / "README.txt")
     install_dependency_notices(notices)
+    if os.name == "nt":
+        write_launcher_config(app_dir)
+
+
+# Windows marks every file extracted from a downloaded ZIP as coming from the
+# internet, and .NET Framework then refuses to load those assemblies: pythonnet
+# failed on Python.Runtime.dll, so the window fell back to the browser on every
+# downloaded copy (clean-machine smoke test, 2026-11-22). `loadFromRemoteSources`
+# is Microsoft's documented switch for a host that trusts its own folder. It
+# changes nothing on disk, and a Store install, which carries no mark, ignores it.
+LAUNCHER_CONFIG = """<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <runtime>
+    <loadFromRemoteSources enabled="true"/>
+  </runtime>
+</configuration>
+"""
+
+
+def write_launcher_config(app_dir: Path) -> Path:
+    """The .NET application config beside the Windows launcher."""
+    config = executable_dir(app_dir) / f"{executable_name(APP_NAME)}.config"
+    config.write_text(LAUNCHER_CONFIG, encoding="utf-8")
+    return config
 
 
 def release_version(version: str) -> str:
