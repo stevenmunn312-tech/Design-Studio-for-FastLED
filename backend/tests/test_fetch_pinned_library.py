@@ -6,7 +6,6 @@ A clean Windows account has no git, and the first build there failed on
 import io
 import zipfile
 
-import pytest
 
 import toolchain
 
@@ -110,8 +109,9 @@ def test_an_entry_that_escapes_the_library_is_refused(tmp_path, monkeypatch):
 
 def test_fbuild_is_pointed_at_the_pinned_esptool():
     # fbuild otherwise installs its own esptool with `uv`, which a clean
-    # machine does not have. A value the user set wins.
-    if toolchain._ESPTOOL_BIN is None:
-        pytest.skip("no esptool installed with this interpreter")
-    expected = toolchain.os.environ.get("FBUILD_ESPTOOL_PATH", "").strip() or toolchain._ESPTOOL_BIN
+    # machine does not have. A value the user set wins. Compared with what the
+    # module itself resolved at import: conftest swaps a placeholder into
+    # `_ESPTOOL_BIN` on hosts without esptool (CI), so that is not the source.
+    resolved = toolchain._find_interpreter_esptool()
+    expected = toolchain.os.environ.get("FBUILD_ESPTOOL_PATH", "").strip() or resolved
     assert toolchain._TOOLCHAIN_ENV.get("FBUILD_ESPTOOL_PATH") == expected
