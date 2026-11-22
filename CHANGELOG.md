@@ -9,6 +9,21 @@ share link, migrating it where a shape has changed.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-22
+
+The first Microsoft Store release. The same app as 1.0.0, with one fix for
+the Store install.
+
+### Fixed
+
+- On Windows, library downloads and build output go in
+  `.design-studio-for-fastled` in your user folder. A Microsoft Store install
+  keeps its data under a much longer folder, and on a PC with long paths off
+  (the Windows default) the deepest build files would have passed Windows'
+  260-character limit for anyone with a username of about nine characters or
+  more, failing their first build. Uninstalling leaves this cache behind; it
+  is safe to delete. Projects stay in Documents.
+
 ## [1.0.0] - 2026-11-22
 
 The first stable release. It supports the ESP32-S3, classic ESP32 and ESP8266

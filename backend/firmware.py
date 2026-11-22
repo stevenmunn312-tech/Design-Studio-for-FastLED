@@ -47,7 +47,7 @@ PROVISION_BAUD = 921600  # negotiated after the handshake; falls back to 115200
 # Only the compiled core survived across builds, in a separate path-independent
 # cache — which is why arduino-cli was still faster than a cold fbuild but never
 # got faster on a second run of the same design.
-_SKETCH_DIR_ROOT = toolchain._DATA_DIR / "sketches"
+_SKETCH_DIR_ROOT = toolchain._BUILD_DIR / "sketches"
 
 # A shared directory needs a guard: a capacity check and an upload can run at
 # once, and two builds writing different sketches into one folder would flash a

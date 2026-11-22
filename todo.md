@@ -1,8 +1,8 @@
-# After the v1.0.0 tag
+# Shipping v1.0.1
 
-v1.0.0 was tagged on 2026-11-22. Only the steps that ship it are here; tick a
-step when its outcome is recorded where it belongs, and empty this file when
-they are done.
+v1.0.0 and v1.0.1 were tagged on 2026-11-22. Only the steps that ship v1.0.1
+are here; tick a step when its outcome is recorded where it belongs, and empty
+this file when they are done.
 
 - **Bench and community testing** is in the
   [bench backlog](docs/plans/bench-backlog.md).
@@ -15,17 +15,18 @@ they are done.
 
 ## Publish
 
-- [ ] Review the draft GitHub release the package run assembles from the
-  `v1.0.0` tag (Windows, Linux and both macOS archives, with checksums and
-  provenance), then publish it.
-- [ ] Microsoft Store: WACK passed on the tag's MSIX on 2026-11-22 (23 tests,
-  only the optional Blocked executables failing; SHA-256 `58d5ad50…dad2e`),
-  and it launched packaged and uploaded to an ESP32-S3. Next: cancel the
-  certified dry-run submission (it was built from `ce83f98`, before the
-  clean-machine fixes), swap in the new package from run 45019039682,
-  resubmit, and **Publish now**
-  once certified. If Partner Center refuses a second 1.0.0.0, the fix is a
-  version change only ([Microsoft Store](docs/release/microsoft-store.md#submit)).
+v1.0.1 is the release: the same app as v1.0.0 plus the short build folder a
+Store install needs. The v1.0.0 draft release and its MSIX are superseded.
+
+- [ ] Test the v1.0.1 Store package the way a real user meets it: Windows
+  long paths **off**, a new account with a long username, first build and
+  upload ([clean-machine smoke test](docs/release/clean-machine-smoke-test.md)).
+- [ ] Run WACK on the v1.0.1 MSIX.
+- [ ] Microsoft Store: cancel the certified dry-run submission, swap in the
+  1.0.1.0 package, resubmit, and **Publish now** once certified
+  ([Microsoft Store](docs/release/microsoft-store.md#submit)).
+- [ ] Review the v1.0.1 draft GitHub release and publish it; delete the
+  v1.0.0 draft.
 
 ## macOS and Linux
 

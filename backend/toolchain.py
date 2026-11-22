@@ -48,6 +48,11 @@ _HELPER_DIR = Path(__file__).parent
 # root. Source checkouts keep the helper's machine state beside it when the env
 # var is absent.
 _DATA_DIR = Path(os.environ.get("FLS_DATA_DIR") or _HELPER_DIR)
+# Build trees (the fbuild project, vendored libraries, sketch workspaces) nest
+# deep enough that a long data root crosses Windows' 260-character path limit.
+# The desktop launcher points this at a short folder (user_data.py
+# `default_build_dir`); otherwise builds stay in the data root.
+_BUILD_DIR = Path(os.environ.get("FLS_BUILD_DIR") or _DATA_DIR)
 _CONFIG_PATH = _DATA_DIR / ".helper-config.json"
 _BIN_DIR = _DATA_DIR / "bin"  # where a self-installed arduino-cli lands
 
@@ -255,7 +260,7 @@ def _engine_switch_note(fqbn: str, ino: str = "") -> str:
 # fresh temp directory — everything shares this one stable project. Only
 # `src/main.ino` is rewritten per request; the `[env:*]` sections (one per
 # `BOARDS` entry, plus PSRAM variants) are static.
-_FBUILD_PROJECT_DIR = _DATA_DIR / ".fbuild-project"
+_FBUILD_PROJECT_DIR = _BUILD_DIR / ".fbuild-project"
 _FBUILD_SRC_DIR = _FBUILD_PROJECT_DIR / "src"
 _FBUILD_INI_PATH = _FBUILD_PROJECT_DIR / "platformio.ini"
 _FBUILD_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "FastLED"
@@ -274,7 +279,7 @@ _FASTLED_BUILD_FLAGS = "-DFASTLED_DISABLE_DBG=1"
 _FBUILD_AUDIO_LIB_DIR = _FBUILD_PROJECT_DIR / "lib" / "ESP32-audioI2S"
 # Arduino uses its own immutable cache, so fbuild's optional-library staging
 # cannot hide Audio.h underneath an Arduino compile. Never replace user libs.
-_ARDUINO_AUDIO_LIB_DIR = _DATA_DIR / ".arduino-libraries" / "ESP32-audioI2S"
+_ARDUINO_AUDIO_LIB_DIR = _BUILD_DIR / ".arduino-libraries" / "ESP32-audioI2S"
 _PLAYER_AUDIO_VERSION = "3.0.12"
 _arduino_audio_lock = threading.Lock()
 # A Music Player whose source is Bluetooth is an A2DP speaker instead
@@ -286,8 +291,8 @@ _arduino_audio_lock = threading.Lock()
 _BLUETOOTH_A2DP_INCLUDE = '#include "BluetoothA2DPSink.h"'
 _BLUETOOTH_A2DP_VERSION = "v1.8.9"
 _BLUETOOTH_AUDIO_TOOLS_VERSION = "v1.2.6"
-_ARDUINO_A2DP_LIB_DIR = _DATA_DIR / ".arduino-libraries" / "ESP32-A2DP"
-_ARDUINO_AUDIO_TOOLS_LIB_DIR = _DATA_DIR / ".arduino-libraries" / "arduino-audio-tools"
+_ARDUINO_A2DP_LIB_DIR = _BUILD_DIR / ".arduino-libraries" / "ESP32-A2DP"
+_ARDUINO_AUDIO_TOOLS_LIB_DIR = _BUILD_DIR / ".arduino-libraries" / "arduino-audio-tools"
 _arduino_bluetooth_lock = threading.Lock()
 # HUB75 scan-panel output (docs/design/hub75-output.md) — FastLED
 # has no native HUB75 driver, so a HUB75 MatrixOutput route needs this DMA

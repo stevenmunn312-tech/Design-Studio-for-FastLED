@@ -15,7 +15,10 @@ certificate of our own. The portable ZIP on GitHub stays unsigned.
   place instead and survives.) Projects and My Patterns live in
   `Documents\Design Studio for FastLED`, so neither case can lose them; only
   rebuildable data (toolchains, caches, the WebView2 profile, `desktop.log`)
-  is in AppData. A packaged app still reads the real AppData, so the
+  is in AppData. Build trees go to `%USERPROFILE%\.design-studio-for-fastled`
+  instead, because the redirected AppData path leaves them past Windows'
+  260-character limit ([runtime layout](desktop-distribution.md#runtime-layout));
+  an uninstall leaves that cache behind. A packaged app still reads the real AppData, so the
   first-start migration finds content the portable build left there.
 - **No self-update.** Store apps update only through new Store submissions.
 - **Manifest:** `desktop/assets/AppxManifest.xml`. A full-trust desktop app

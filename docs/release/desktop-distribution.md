@@ -149,8 +149,16 @@ per-user roots (`backend/user_data.py`):
 | Linux | `~/Documents/Design Studio for FastLED` | `$XDG_DATA_HOME/design-studio-for-fastled` or `~/.local/share/design-studio-for-fastled` |
 
 The data root holds helper configuration, downloaded Arduino CLI binaries,
-fbuild's project/toolchain cache, compile output, the WebView2 profile and
-`desktop.log`. Projects and patterns are kept apart in Documents because they
+the WebView2 profile and `desktop.log`. Build trees (the fbuild project with
+its vendored libraries, the Arduino library cache and sketch workspaces) go
+to a build root: on Windows `%USERPROFILE%\.design-studio-for-fastled`,
+elsewhere the data root (`FLS_BUILD_DIR` overrides it, and an explicit
+`FLS_DATA_DIR` keeps them in the data root). A Store install redirects the
+data root into `AppData\Local\Packages\<package>\LocalCache\Local`, about
+130 characters before the username, and the build trees nest about 127 more,
+past Windows' 260-character limit on a PC with long paths off (the default).
+The profile folder is not redirected, so uninstalling leaves the build root
+behind; everything in it is rebuildable. Projects and patterns are kept apart in Documents because they
 are the person's own work: an MSIX (Store) install redirects AppData into the
 package and deletes it on uninstall, and Documents is where people look.
 Windows resolves Documents through the shell, so a redirected (OneDrive)

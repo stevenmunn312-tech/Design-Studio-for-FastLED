@@ -163,3 +163,26 @@ def test_only_web_links_are_handed_to_the_browser(monkeypatch):
                 "search-ms:query=x", "C:/Windows/System32/calc.exe"]:
         launcher.hand_to_browser(uri)
     assert opened == ["https://github.com/owner/repo", "http://example.com/", "mailto:someone@example.com"]
+
+
+def test_builds_go_to_a_short_root_unless_the_data_root_was_chosen(monkeypatch, tmp_path):
+    # A Store install's data root is ~130 characters before the username;
+    # builds nest ~127 deeper, past Windows' 260-character limit when long
+    # paths are off. The default data root sends builds to a short folder.
+    import user_data
+
+    short = tmp_path / "short"
+    monkeypatch.setattr(launcher, "install_dir", lambda: tmp_path / "installed")
+    monkeypatch.setattr(user_data, "default_data_dir", lambda system=None: tmp_path / "data")
+    monkeypatch.setattr(user_data, "default_build_dir", lambda system=None: short)
+    for key in ("FLS_DATA_DIR", "FLS_BUILD_DIR"):
+        monkeypatch.delenv(key, raising=False)
+
+    launcher.configure_environment()
+    assert os.environ["FLS_BUILD_DIR"] == str(short)
+
+    # An explicit data root (an isolated run) keeps its builds with it.
+    monkeypatch.delenv("FLS_BUILD_DIR")
+    monkeypatch.delenv("FLS_DATA_DIR")
+    launcher.configure_environment(tmp_path / "isolated")
+    assert "FLS_BUILD_DIR" not in os.environ

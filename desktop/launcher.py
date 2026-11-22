@@ -62,13 +62,19 @@ def configure_environment(data_dir: Path | None = None) -> Path:
     and patterns are the helper storage's own choice (Documents), not set here.
     """
     _source_backend_on_path()
-    from user_data import default_data_dir
+    from user_data import default_build_dir, default_data_dir
 
     # FLS_DATA_DIR is the same override the helper's storage honours, so the
     # launcher's own files (WebView2 profile, desktop.log) follow it too.
+    data_overridden = data_dir is not None or bool(os.environ.get("FLS_DATA_DIR"))
     data = (data_dir or Path(os.environ.get("FLS_DATA_DIR") or default_data_dir())).resolve()
     data.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("FLS_DATA_DIR", str(data))
+    # Build trees go to a short root on Windows (see `default_build_dir`). An
+    # explicit data root keeps them with it, so an isolated run stays isolated.
+    build = default_build_dir()
+    if build is not None and not data_overridden:
+        os.environ.setdefault("FLS_BUILD_DIR", str(build))
 
     tools = install_dir() / "tools"
     if tools.is_dir():

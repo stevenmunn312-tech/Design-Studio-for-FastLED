@@ -164,3 +164,12 @@ def test_an_overridden_content_folder_is_never_filled_from_app_data():
     for name in ("FLS_CONTENT_DIR", "FLS_PATTERNS_DIR", "FLS_PROJECTS_DIR"):
         assert storage._legacy_content_dir({name: "isolated"}) is None
     assert storage._legacy_content_dir({"FLS_DATA_DIR": "caches only"}) == default_data_dir()
+
+
+def test_build_trees_get_a_short_root_only_on_windows(monkeypatch, tmp_path):
+    from user_data import default_build_dir
+
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    assert default_build_dir("Windows") == tmp_path / ".design-studio-for-fastled"
+    assert default_build_dir("Linux") is None
+    assert default_build_dir("Darwin") is None

@@ -28,6 +28,22 @@ def default_data_dir(system: str | None = None) -> Path:
     return base / "design-studio-for-fastled"
 
 
+def default_build_dir(system: str | None = None) -> Path | None:
+    """Return a short root for build trees, or None to keep them in the data root.
+
+    Builds nest FastLED and compiler output about 127 characters deep. A
+    Microsoft Store install redirects the data root into
+    `AppData\\Local\\Packages\\<package>\\LocalCache\\Local\\…`, about 130
+    characters before a long username, which crosses Windows' 260-character
+    path limit on a PC with long paths off (the default). The user's profile
+    folder is not redirected, so builds go there on Windows. Uninstalling the
+    Store app leaves this cache behind; everything in it is rebuildable.
+    """
+    if (system or platform.system()) == "Windows":
+        return Path.home() / ".design-studio-for-fastled"
+    return None
+
+
 APP_FOLDER_NAME = "Design Studio for FastLED"
 
 

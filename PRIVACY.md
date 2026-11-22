@@ -2,7 +2,7 @@
 
 Design Studio for FastLED
 
-Effective 20 November 2026
+Effective 22 November 2026
 
 Design Studio for FastLED is a free desktop application for designing LED
 effects and uploading them to microcontroller boards. It runs on your own
@@ -26,16 +26,20 @@ over the network, and why.
   `Design Studio for FastLED`.
 - **Tools and caches** (compilers, board support packages, libraries, build
   output), the embedded browser's profile and a diagnostic log
-  (`desktop.log`) are kept in the application's data folder. The log records
-  the application's own operation and is never sent anywhere.
+  (`desktop.log`) are kept in the application's data folder. On Windows the
+  libraries and build output go in `.design-studio-for-fastled` in your user
+  folder instead, because their paths are too long for the data folder. The
+  log records the application's own operation and is never sent anywhere.
 - **Network settings** you enter for your devices, such as Wi-Fi network
   names and passwords and Art-Net and NTP settings, are kept in the
   application's local storage. They are not saved in project files or share
   links.
 
 Uninstalling the Microsoft Store version removes its data folder; for the
-portable version, delete the folder yourself. Either way, your projects in
-Documents remain until you delete them.
+portable version, delete the folder yourself. The build cache in
+`.design-studio-for-fastled` is not removed by an uninstall; it holds only
+downloaded libraries and build output, and you can delete it at any time.
+Either way, your projects in Documents remain until you delete them.
 
 ## Microphone
 
