@@ -614,8 +614,8 @@ def test_fbuild_lvgl_vendor_is_exactly_pinned_and_writes_config(tmp_path, monkey
     monkeypatch.setattr(toolchain, "_fbuild_lvgl_lib_ready", False)
     calls = []
 
-    def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
-        calls.append(args)
+    def fake_fetch(label, url, tag, library_dir, keep=None):
+        calls.append(tag)
         library.mkdir(parents=True)
         (library / "library.properties").write_text(
             f"name=lvgl\nversion={toolchain._LVGL_VERSION}\n", encoding="utf-8",
@@ -624,10 +624,10 @@ def test_fbuild_lvgl_vendor_is_exactly_pinned_and_writes_config(tmp_path, monkey
         yield "cloned\n"
         return 0
 
-    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
+    monkeypatch.setattr(toolchain, "_fetch_pinned_library", fake_fetch)
 
     assert "cloned\n" in list(toolchain._ensure_fbuild_lvgl_lib())
-    assert calls[0][calls[0].index("--branch") + 1] == f"v{toolchain._LVGL_VERSION}"
+    assert calls == [f"v{toolchain._LVGL_VERSION}"]
     assert config.read_text(encoding="utf-8") == toolchain._LV_CONF_TEXT
 
 
@@ -641,7 +641,7 @@ def test_fbuild_lvgl_vendor_replaces_wrong_or_incomplete_cache(tmp_path, monkeyp
     monkeypatch.setattr(toolchain, "_FBUILD_LV_CONF_PATH", tmp_path / "lib" / "lv_conf.h")
     monkeypatch.setattr(toolchain, "_fbuild_lvgl_lib_ready", False)
 
-    def fake_run_phase(label, args, sink=None, cwd=None, tool_env=None):
+    def fake_fetch(label, url, tag, library_dir, keep=None):
         assert not stale.exists()
         library.mkdir(parents=True)
         (library / "library.properties").write_text(
@@ -651,7 +651,7 @@ def test_fbuild_lvgl_vendor_replaces_wrong_or_incomplete_cache(tmp_path, monkeyp
         yield "cloned\n"
         return 0
 
-    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
+    monkeypatch.setattr(toolchain, "_fetch_pinned_library", fake_fetch)
 
     list(toolchain._ensure_fbuild_lvgl_lib())
     assert toolchain._lvgl_checkout_matches_pin(library)
@@ -1121,15 +1121,15 @@ def test_vendoring_replaces_a_checkout_whose_git_packs_are_read_only(monkeypatch
 
     cloned = []
 
-    def fake_run_phase(label, args, sink=None, cwd=None):
-        cloned.append(args)
-        # Stands in for the clone, leaving the marker the next run looks for.
+    def fake_fetch(label, url, tag, library_dir, keep=None):
+        cloned.append(tag)
+        # Stands in for the download, leaving the marker the next run looks for.
         (stale / "src").mkdir(parents=True, exist_ok=True)
         (stale / "src" / "Audio.h").write_text("// upstream", encoding="utf-8")
         yield "cloned\n"
         return 0
 
-    monkeypatch.setattr(toolchain, "_run_phase", fake_run_phase)
+    monkeypatch.setattr(toolchain, "_fetch_pinned_library", fake_fetch)
 
     lines = list(toolchain._ensure_fbuild_audio_lib())
 

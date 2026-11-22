@@ -68,12 +68,12 @@ def test_a_failed_fastled_checkout_is_tried_again_by_the_next_build(tmp_path, mo
     monkeypatch.setattr(toolchain, "_fastled_checkout_matches_pin", lambda path: False)
     clones = []
 
-    def failing_clone(label, args):
-        clones.append(args)
-        yield "fatal: unable to access\n"
-        return 128
+    def failing_fetch(label, url, tag, library_dir, keep=None):
+        clones.append(tag)
+        yield "[error] could not download FastLED: no network\n"
+        return 1
 
-    monkeypatch.setattr(toolchain, "_run_phase", failing_clone)
+    monkeypatch.setattr(toolchain, "_fetch_pinned_library", failing_fetch)
 
     assert "[error]" in "".join(toolchain._ensure_fbuild_project())
     assert toolchain._fbuild_project_ready is False

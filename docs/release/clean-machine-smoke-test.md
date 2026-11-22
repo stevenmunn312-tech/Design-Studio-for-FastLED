@@ -6,7 +6,11 @@ developer toolchain, or this repository on it. It is the HW-17 evidence for
 launch and install, helper discovery, permissions, offline use and recovery
 ([desktop distribution](desktop-distribution.md#signing-and-publishing)).
 The packaging workflow's own launch smoke runs on CI runners and does not
-replace it.
+replace it: a developer machine or runner has git, uv and Python on PATH, and
+the first run on a clean account showed the helper had quietly relied on two
+of them. To approximate a clean machine locally, run the helper with `PATH`
+cut down to `C:\Windows\System32` and fresh `FLS_DATA_DIR` and
+`FLS_CONTENT_DIR` folders.
 
 Record the results in [Results](#results) with the package's run number and
 commit.
@@ -110,3 +114,4 @@ The same steps apply, with these differences:
 
 | Date | Platform | Package (run, commit) | Tester | Result | Notes |
 | --- | --- | --- | --- | --- | --- |
+| 2026-11-22 | Windows 11, standard account | 44913821613, `a4b9cbfc` | Steve | **Fail** at step 6 | The first build stopped before compiling: the helper cloned FastLED with `git`, and fbuild installed its own esptool with `uv`, and a clean account has neither. Fixed: pinned libraries download as GitHub tag archives, and fbuild is pointed at the bundled esptool through `FBUILD_ESPTOOL_PATH`. Steps 7 to 11 not reached. |

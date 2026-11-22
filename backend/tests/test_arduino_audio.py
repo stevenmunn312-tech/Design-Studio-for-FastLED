@@ -10,18 +10,17 @@ def test_private_audio_checkout_is_pinned_and_reused(tmp_path, monkeypatch):
     monkeypatch.setattr(toolchain, "_ARDUINO_AUDIO_LIB_DIR", library)
     calls = []
 
-    def run(label, args, **kwargs):
-        calls.append(args)
+    def fetch(label, url, tag, library_dir, keep=None):
+        calls.append((tag, library_dir))
         (library / "src").mkdir(parents=True)
         (library / "src/Audio.h").write_text("// pinned audio", encoding="utf-8")
-        yield "cloned\n"
+        yield "downloaded\n"
         return 0
 
-    monkeypatch.setattr(toolchain, "_run_phase", run)
+    monkeypatch.setattr(toolchain, "_fetch_pinned_library", fetch)
     _, rc = firmware._drain_compile(toolchain._ensure_arduino_audio_lib())
     assert rc == 0
-    assert calls[0][calls[0].index("--branch") + 1] == "3.0.12"
-    assert calls[0][-1] == str(library)
+    assert calls[0] == ("3.0.12", library)
     assert (library / ".fls-version").read_text(encoding="utf-8") == "3.0.12"
     assert firmware._drain_compile(toolchain._ensure_arduino_audio_lib()) == ([], 0)
     assert len(calls) == 1
@@ -32,14 +31,14 @@ def test_incomplete_audio_clone_is_retried_even_when_header_exists(tmp_path, mon
     monkeypatch.setattr(toolchain, "_ARDUINO_AUDIO_LIB_DIR", library)
     calls = []
 
-    def run(*args, **kwargs):
+    def fetch(*args, **kwargs):
         calls.append(1)
         (library / "src").mkdir(parents=True)
         (library / "src/Audio.h").touch()
-        yield "partial clone\n"
+        yield "partial download\n"
         return 1 if len(calls) == 1 else 0
 
-    monkeypatch.setattr(toolchain, "_run_phase", run)
+    monkeypatch.setattr(toolchain, "_fetch_pinned_library", fetch)
     assert firmware._drain_compile(toolchain._ensure_arduino_audio_lib())[1] == 1
     assert not (library / ".fls-version").exists()
     assert firmware._drain_compile(toolchain._ensure_arduino_audio_lib())[1] == 0
@@ -98,23 +97,18 @@ def test_bluetooth_libraries_are_pinned_sparse_and_reused(tmp_path, monkeypatch)
     monkeypatch.setattr(toolchain, "_ARDUINO_AUDIO_TOOLS_LIB_DIR", tools)
     calls = []
 
-    def run(label, args, **kwargs):
-        calls.append(args)
-        if "clone" in args:
-            library = Path(args[-1])
-            (library / "src").mkdir(parents=True)
-            header = "BluetoothA2DPSink.h" if library == a2dp else "AudioTools.h"
-            (library / "src" / header).write_text("// pinned", encoding="utf-8")
+    def fetch(label, url, tag, library_dir, keep=None):
+        calls.append((tag, keep))
+        (library_dir / "src").mkdir(parents=True)
+        header = "BluetoothA2DPSink.h" if library_dir == a2dp else "AudioTools.h"
+        (library_dir / "src" / header).write_text("// pinned", encoding="utf-8")
         yield "ok\n"
         return 0
 
-    monkeypatch.setattr(toolchain, "_run_phase", run)
+    monkeypatch.setattr(toolchain, "_fetch_pinned_library", fetch)
     assert firmware._drain_compile(toolchain._ensure_arduino_bluetooth_libs())[1] == 0
-    clones = [args for args in calls if "clone" in args]
-    assert [args[args.index("--branch") + 1] for args in clones] == ["v1.8.9", "v1.2.6"]
-    # audio-tools' examples pass Windows' path limit; only src/ is checked out.
-    assert "--sparse" not in clones[0] and "--sparse" in clones[1]
-    assert ["git", "-C", str(tools), "sparse-checkout", "set", "src"] in calls
+    # audio-tools' examples pass Windows' path limit; only src/ is extracted.
+    assert calls == [("v1.8.9", None), ("v1.2.6", "src")]
     assert (a2dp / ".fls-version").read_text(encoding="utf-8") == "v1.8.9"
     assert (tools / ".fls-version").read_text(encoding="utf-8") == "v1.2.6"
     calls.clear()

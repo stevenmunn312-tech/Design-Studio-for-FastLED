@@ -71,16 +71,16 @@ def test_fbuild_vendors_the_pinned_tag_over_a_stale_checkout(tmp_path, monkeypat
     monkeypatch.setattr(toolchain, "_fbuild_project_ready", False)
     clones = []
 
-    def fake_clone(label, args):
-        clones.append(args)
+    def fake_fetch(label, url, tag, library_dir, keep=None):
+        clones.append(tag)
         _fastled_checkout(library, toolchain._FASTLED_VERSION)
-        yield "cloned\n"
+        yield "downloaded\n"
         return 0
 
-    monkeypatch.setattr(toolchain, "_run_phase", fake_clone)
+    monkeypatch.setattr(toolchain, "_fetch_pinned_library", fake_fetch)
     output = "".join(toolchain._ensure_fbuild_project())
     assert "[error]" not in output
-    assert clones[0][clones[0].index("--branch") + 1] == toolchain._FASTLED_VERSION
+    assert clones == [toolchain._FASTLED_VERSION]
 
 
 def test_pinned_esp32_core_is_installed_and_reported_at_its_pin():

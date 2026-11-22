@@ -1098,6 +1098,87 @@ def _fastled_checkout_matches_pin(path: Path) -> bool:
     )
 
 
+def _github_tag_archive(repo_url: str, tag: str) -> str:
+    """The ZIP GitHub serves for one tag of a repository."""
+    base = repo_url.removesuffix(".git").rstrip("/")
+    return f"{base}/archive/refs/tags/{tag}.zip"
+
+
+def _fetch_pinned_library(label, repo_url, tag, library_dir, keep=None):
+    """Download one pinned tag of a GitHub library into `library_dir`.
+
+    The archive GitHub serves for a tag holds the files a shallow clone of that
+    tag checks out, so this needs no git: a clean Windows account has none, and
+    the first build there failed on `git clone` before it began (the
+    clean-machine smoke test, 2026-11-22). `keep` names the one directory to
+    extract beside the root files, for a library whose other trees pass
+    Windows' path limit. The archive is extracted beside the target and moved
+    into place only once complete, so a cancelled or failed download never
+    leaves a half library for the pin check to judge. Yields progress lines and
+    returns 0, 1 for a failure, or `_BUILD_CANCELLED`.
+    """
+    url = _github_tag_archive(repo_url, tag)
+    yield f"\n=== vendor {label} {tag} ===\n$ download {url}\n"
+    started = time.monotonic()
+    library_dir.parent.mkdir(parents=True, exist_ok=True)
+    staging = library_dir.with_name(f"{library_dir.name}.download")
+    if staging.exists():
+        _remove_build_cache_tree(staging)
+    keep_prefix = f"{keep.strip('/')}/" if keep else None
+    try:
+        with io.BytesIO() as archive:
+            with urllib.request.urlopen(url, timeout=60) as response:
+                total = int(response.headers.get("Content-Length") or 0)
+                received = 0
+                reported = -1
+                while True:
+                    if _build_was_cancelled():
+                        yield "\n*** CANCELLED *** Stopped at your request.\n"
+                        return _BUILD_CANCELLED
+                    chunk = response.read(256 * 1024)
+                    if not chunk:
+                        break
+                    archive.write(chunk)
+                    received += len(chunk)
+                    megabytes = received // (1024 * 1024)
+                    if megabytes != reported and megabytes % 5 == 0:
+                        reported = megabytes
+                        size = f" of {total // (1024 * 1024)} MB" if total else " MB"
+                        yield f"  {megabytes}{size}\n"
+            archive.seek(0)
+            root = staging.resolve()
+            with zipfile.ZipFile(archive) as bundle:
+                for entry in bundle.infolist():
+                    # Every entry sits under one `<repo>-<tag>/` folder.
+                    relative = entry.filename.split("/", 1)[1] if "/" in entry.filename else ""
+                    if not relative:
+                        continue
+                    if keep_prefix and not (
+                        relative.startswith(keep_prefix)
+                        or ("/" not in relative and not entry.is_dir())
+                    ):
+                        continue
+                    target = (staging / relative).resolve()
+                    if not target.is_relative_to(root):
+                        raise ValueError(f"unsafe path in the archive: {entry.filename}")
+                    if entry.is_dir():
+                        target.mkdir(parents=True, exist_ok=True)
+                        continue
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with bundle.open(entry) as source, target.open("wb") as destination:
+                        shutil.copyfileobj(source, destination)
+    except Exception as error:  # noqa: BLE001 — any failure is reported, never raised mid-stream
+        if staging.exists():
+            _remove_build_cache_tree(staging)
+        yield f"[error] could not download {label} {tag}: {error}\n"
+        return 1
+    if library_dir.exists():
+        _remove_build_cache_tree(library_dir)
+    staging.rename(library_dir)
+    yield f"[{label} {tag} · {time.monotonic() - started:.0f}s]\n"
+    return 0
+
+
 _arduino_fastled_lib_ready = False
 
 
@@ -1146,16 +1227,8 @@ def _ensure_fbuild_project():
         # cache and replace this exact vendored directory.
         if _FBUILD_LIB_DIR.exists():
             _remove_build_cache_tree(_FBUILD_LIB_DIR)
-        # `--progress`: git draws its counters only when stderr is a
-        # terminal, and ours is a pipe — without it a clone of any size is
-        # a silent wait, indistinguishable from a hang. `_iter_stream_lines`
-        # is what lets those counters through, since git writes them with
-        # carriage returns rather than newlines.
-        rc = yield from _run_phase(
-            "vendor FastLED",
-            ["git", "clone", "--progress", "--branch", _FASTLED_VERSION, "--depth", "1",
-             "https://github.com/FastLED/FastLED.git", str(_FBUILD_LIB_DIR)],
-        )
+        rc = yield from _fetch_pinned_library(
+            "FastLED", "https://github.com/FastLED/FastLED", _FASTLED_VERSION, _FBUILD_LIB_DIR)
         if rc != 0 or not _fastled_checkout_matches_pin(_FBUILD_LIB_DIR):
             yield f"[error] failed to vendor FastLED {_FASTLED_VERSION} — the build below will fail on FastLED.h\n"
             # Not ready: the next build tries the clone again, instead of every
@@ -1171,11 +1244,8 @@ def _clone_player_audio_lib(library_dir):
     library_dir.parent.mkdir(parents=True, exist_ok=True)
     if library_dir.exists():
         _remove_build_cache_tree(library_dir)
-    return (yield from _run_phase(
-        "vendor ESP32-audioI2S",
-        ["git", "clone", "--progress", "--branch", _PLAYER_AUDIO_VERSION, "--depth", "1",
-         "https://github.com/schreibfaul1/ESP32-audioI2S.git", str(library_dir)],
-    ))
+    return (yield from _fetch_pinned_library(
+        "ESP32-audioI2S", "https://github.com/schreibfaul1/ESP32-audioI2S", _PLAYER_AUDIO_VERSION, library_dir))
 
 
 def _ensure_arduino_audio_lib():
@@ -1195,26 +1265,14 @@ def _ensure_arduino_audio_lib():
 
 
 def _clone_pinned_library(label, url, tag, library_dir, sparse_dir=None):
-    """Clone one pinned tag into `library_dir`, replacing any older checkout.
+    """Fetch one pinned tag into `library_dir`, replacing any older copy.
 
-    `sparse_dir` checks out only that directory (plus the root files Arduino
-    reads, such as library.properties). arduino-audio-tools carries hundreds of
+    `sparse_dir` keeps only that directory (plus the root files Arduino reads,
+    such as library.properties). arduino-audio-tools carries hundreds of
     examples whose paths pass Windows' 260-character limit, and the library
     itself is all under src/.
     """
-    library_dir.parent.mkdir(parents=True, exist_ok=True)
-    if library_dir.exists():
-        _remove_build_cache_tree(library_dir)
-    clone = ["git", "-c", "advice.detachedHead=false", "clone", "--progress", "--branch", tag, "--depth", "1"]
-    if sparse_dir:
-        clone += ["--filter=blob:none", "--sparse"]
-    rc = yield from _run_phase(f"vendor {label}", [*clone, url, str(library_dir)])
-    if rc != 0 or not sparse_dir:
-        return rc
-    return (yield from _run_phase(
-        f"vendor {label} sources",
-        ["git", "-C", str(library_dir), "sparse-checkout", "set", sparse_dir],
-    ))
+    return (yield from _fetch_pinned_library(label, url, tag, library_dir, keep=sparse_dir))
 
 
 def _ensure_arduino_bluetooth_libs():
@@ -1288,11 +1346,8 @@ def _ensure_fbuild_hub75_lib():
     # default branch — same "known-good tag, not a tracked branch" rule as the
     # other vendored libs above; re-pin deliberately (bump the tag here) rather
     # than floating.
-    rc = yield from _run_phase(
-        "vendor ESP32-HUB75-MatrixPanel-DMA",
-        ["git", "clone", "--progress", "--branch", _HUB75_VERSION, "--depth", "1",
-         "https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA.git", str(_FBUILD_HUB75_LIB_DIR)],
-    )
+    rc = yield from _fetch_pinned_library(
+        "ESP32-HUB75-MatrixPanel-DMA", "https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA.git", _HUB75_VERSION, _FBUILD_HUB75_LIB_DIR)
     if rc != 0:
         yield "[error] failed to vendor ESP32-HUB75-MatrixPanel-DMA — HUB75 builds will fail on ESP32-HUB75-MatrixPanel-I2S-DMA.h\n"
     _fbuild_hub75_lib_ready = True
@@ -1322,10 +1377,8 @@ def _ensure_fbuild_zero_i2s_lib():
     for label, tag, url, path in libraries:
         if path.exists():
             _remove_build_cache_tree(path)
-        rc = yield from _run_phase(
-            f"vendor {label}",
-            ["git", "clone", "--progress", "--branch", tag, "--depth", "1", url, str(path)],
-        )
+        rc = yield from _fetch_pinned_library(
+            label, url, tag, path)
         if rc != 0:
             yield f"[error] failed to vendor {label} — the SAMD51 microphone build will fail\n"
             return
@@ -1380,11 +1433,8 @@ def _ensure_fbuild_lvgl_lib(ino: str = ""):
     _FBUILD_LVGL_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
     if _FBUILD_LVGL_LIB_DIR.exists():
         _remove_build_cache_tree(_FBUILD_LVGL_LIB_DIR)
-    rc = yield from _run_phase(
-        "vendor LVGL",
-        ["git", "clone", "--progress", "--branch", f"v{_LVGL_VERSION}", "--depth", "1",
-         "https://github.com/lvgl/lvgl.git", str(_FBUILD_LVGL_LIB_DIR)],
-    )
+    rc = yield from _fetch_pinned_library(
+        "LVGL", "https://github.com/lvgl/lvgl.git", f"v{_LVGL_VERSION}", _FBUILD_LVGL_LIB_DIR)
     if rc != 0:
         yield "[error] failed to vendor pinned LVGL — custom Display builds will fail on lvgl.h\n"
         return
@@ -1433,11 +1483,8 @@ def _ensure_fbuild_irremote_lib():
     _FBUILD_IRREMOTE_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
     if _FBUILD_IRREMOTE_LIB_DIR.exists():
         _remove_build_cache_tree(_FBUILD_IRREMOTE_LIB_DIR)
-    rc = yield from _run_phase(
-        "vendor Arduino-IRremote",
-        ["git", "clone", "--progress", "--branch", f"v{_IRREMOTE_VERSION}", "--depth", "1",
-         "https://github.com/Arduino-IRremote/Arduino-IRremote.git", str(_FBUILD_IRREMOTE_LIB_DIR)],
-    )
+    rc = yield from _fetch_pinned_library(
+        "Arduino-IRremote", "https://github.com/Arduino-IRremote/Arduino-IRremote.git", f"v{_IRREMOTE_VERSION}", _FBUILD_IRREMOTE_LIB_DIR)
     if rc != 0 or not _irremote_checkout_matches_pin(_FBUILD_IRREMOTE_LIB_DIR):
         yield (
             f"[error] failed to vendor Arduino-IRremote {_IRREMOTE_VERSION}. "
@@ -1558,11 +1605,8 @@ def _ensure_fbuild_vl53l0x_lib():
     _FBUILD_VL53L0X_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
     if _FBUILD_VL53L0X_LIB_DIR.exists():
         _remove_build_cache_tree(_FBUILD_VL53L0X_LIB_DIR)
-    rc = yield from _run_phase(
-        "vendor Pololu VL53L0X",
-        ["git", "clone", "--progress", "--branch", _VL53L0X_VERSION, "--depth", "1",
-         "https://github.com/pololu/vl53l0x-arduino.git", str(_FBUILD_VL53L0X_LIB_DIR)],
-    )
+    rc = yield from _fetch_pinned_library(
+        "Pololu VL53L0X", "https://github.com/pololu/vl53l0x-arduino.git", _VL53L0X_VERSION, _FBUILD_VL53L0X_LIB_DIR)
     if rc != 0 or not _vl53l0x_checkout_matches_pin(_FBUILD_VL53L0X_LIB_DIR):
         yield (
             f"[error] failed to vendor Pololu VL53L0X {_VL53L0X_VERSION}. "
@@ -1606,11 +1650,8 @@ def _ensure_fbuild_vl53l1x_lib():
     _FBUILD_VL53L1X_LIB_DIR.parent.mkdir(parents=True, exist_ok=True)
     if _FBUILD_VL53L1X_LIB_DIR.exists():
         _remove_build_cache_tree(_FBUILD_VL53L1X_LIB_DIR)
-    rc = yield from _run_phase(
-        "vendor Pololu VL53L1X",
-        ["git", "clone", "--progress", "--branch", _VL53L1X_VERSION, "--depth", "1",
-         "https://github.com/pololu/vl53l1x-arduino.git", str(_FBUILD_VL53L1X_LIB_DIR)],
-    )
+    rc = yield from _fetch_pinned_library(
+        "Pololu VL53L1X", "https://github.com/pololu/vl53l1x-arduino.git", _VL53L1X_VERSION, _FBUILD_VL53L1X_LIB_DIR)
     if rc != 0 or not _vl53l1x_checkout_matches_pin(_FBUILD_VL53L1X_LIB_DIR):
         yield (
             f"[error] failed to vendor Pololu VL53L1X {_VL53L1X_VERSION}. "
@@ -1751,6 +1792,15 @@ def _write_fbuild_main(ino: str, files: dict[str, str] | None = None) -> None:
 # prints build output through the locale codec (cp1252 on Windows) and dies with
 # UnicodeEncodeError on the first non-cp1252 character.
 _TOOLCHAIN_ENV = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
+
+# fbuild otherwise provisions its own esptool for every ESP32 build, from a
+# source archive it installs with `uv`, which a clean machine does not have:
+# the first build on a fresh Windows account failed there (clean-machine smoke
+# test, 2026-11-22). `FBUILD_ESPTOOL_PATH` is fbuild's documented override and
+# the one variable its daemon keeps through its environment reset; it names the
+# pinned esptool this helper already uploads with. A value the user set wins.
+if _ESPTOOL_BIN and not os.environ.get("FBUILD_ESPTOOL_PATH", "").strip():
+    _TOOLCHAIN_ENV["FBUILD_ESPTOOL_PATH"] = _ESPTOOL_BIN
 
 
 # The build currently running, so a user who picked the wrong board can stop it
