@@ -25,9 +25,9 @@ on:
           - macos-intel-only
           - macos-only
           - linux-only
-  push:
-    tags:
-      - "v*"
+  # No tag trigger: pushing a release tag must not start paid Windows and
+  # macOS runners. Steve starts this workflow by hand when he chooses; the
+  # release is built locally (docs/release/desktop-distribution.md).
 
 permissions:
   contents: write

@@ -258,10 +258,12 @@ signs it; see [Microsoft Store](microsoft-store.md).
 
 `.github/workflows/desktop-packages.yml` runs the host-specific packager on
 Windows, Linux, macOS Apple Silicon, and macOS Intel. It records a SHA-256 file
-beside each archive and retains the outputs as Actions artifacts. Manual runs
-default to artifact-only validation; tag runs, or an explicit manual opt-in,
-assemble the passing artifacts into a draft release, marked a pre-release only
-for a tag with a pre-release suffix (`v1.0.0-rc.1`). Its notes open with the
+beside each archive and retains the outputs as Actions artifacts. It runs only
+when started by hand, never on a tag push, because its Windows and macOS
+runners are billed; releases are built locally. A run defaults to
+artifact-only validation; an explicit opt-in assembles the passing artifacts
+into a draft release, marked a pre-release only for a tag with a pre-release
+suffix (`v1.0.0-rc.1`). Its notes open with the
 signing state of each archive. The Windows job also
 packs the [Microsoft Store](microsoft-store.md) MSIX into its own artifact,
 which never goes into the release.
