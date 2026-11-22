@@ -9,7 +9,9 @@ share link, migrating it where a shape has changed.
 
 ## [Unreleased]
 
-Version 1.0.0. The release supports the ESP32-S3, classic ESP32 and ESP8266
+## [1.0.0] - 2026-11-22
+
+The first stable release. It supports the ESP32-S3, classic ESP32 and ESP8266
 combinations recorded in the
 [support matrix](docs/release/beta-support-matrix.md), on Windows 11 with
 Chrome; every other board family builds but is experimental.
@@ -196,6 +198,14 @@ nodes, or keep 0.8.0 for old projects.
   its board names, not the Mbed core, where a FastLED sketch failed on the
   core's Wi-Fi headers.
 - Ctrl+Z and Ctrl+Y work while a property slider has keyboard focus.
+- The desktop package builds on a computer with no developer tools. The helper
+  had needed git to fetch FastLED and the other pinned libraries, and fbuild
+  had needed uv to install its esptool; libraries now download as release
+  archives and fbuild uses the bundled esptool.
+- The Windows desktop app opens in its own window when unzipped from a
+  download. Windows had marked the extracted files as coming from the
+  internet, .NET refused to load them, and the app opened in the browser
+  instead.
 
 ### Removed
 
