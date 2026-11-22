@@ -52,6 +52,9 @@ and recovery evidence
   ([macOS app](docs/release/desktop-distribution.md#macos-app)).
 - [ ] Sign the macOS app with a Developer ID and the hardened runtime, then
   notarize and staple it. Needs an Apple Developer Program membership.
+  Decided 2026-11-22: Steve joins the Apple program only once Microsoft
+  certifies the Store dry run; if it is not certified, v1 is not released.
+  The macOS steps wait on that result.
 - [ ] Run the macOS package on a clean machine, Apple Silicon and Intel.
 - [ ] Run the Linux package on a clean machine.
 - [x] Record a checksum and a provenance record for every archive. The
