@@ -215,6 +215,15 @@ bundle with its tools in `Contents/MacOS/tools`, the notices in
 Mac: Gatekeeper's handling of the ad hoc signature on a downloaded copy, and
 the window's look, are still unchecked.
 
+On 2026-11-22 the Windows package passed the
+[clean-machine smoke test](clean-machine-smoke-test.md) on a fresh standard
+account (run [`44968147471`](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/actions/runs/44968147471),
+`35d4d8af`): launch in its own window, microphone, COM port with no driver,
+first upload to an ESP32-S3, save, second launch, recovery after a forced
+end, an offline rebuild and upload, and a clean exit. The first two runs
+found that the helper needed git and uv and that a downloaded ZIP fell back
+to the browser; both are fixed.
+
 On 2026-11-14 the offline PWA was relaunched from a clean browser profile: a
 production build served on localhost, one online load in a new Chromium
 profile, the browser closed and the server stopped, then the browser started
