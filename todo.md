@@ -21,7 +21,9 @@ Store install needs. The v1.0.0 draft release and its MSIX are superseded.
 - [ ] Test the v1.0.1 Store package the way a real user meets it: Windows
   long paths **off**, a new account with a long username, first build and
   upload ([clean-machine smoke test](docs/release/clean-machine-smoke-test.md)).
-- [ ] Run WACK on the v1.0.1 MSIX.
+- [x] Run WACK on the v1.0.1 MSIX. PASS on 2026-11-22: 23 tests, only the
+  optional Blocked executables failing; SHA-256 `b37c5187…cbc7bc1`, from run
+  45024212167.
 - [ ] Microsoft Store: cancel the certified dry-run submission, swap in the
   1.0.1.0 package, resubmit, and **Publish now** once certified
   ([Microsoft Store](docs/release/microsoft-store.md#submit)).
