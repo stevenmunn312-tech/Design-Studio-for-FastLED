@@ -18,9 +18,12 @@ they are done.
 - [ ] Review the draft GitHub release the package run assembles from the
   `v1.0.0` tag (Windows, Linux and both macOS archives, with checksums and
   provenance), then publish it.
-- [ ] Microsoft Store: run WACK on the MSIX built from the tag, cancel the
+- [ ] Microsoft Store: WACK passed on the tag's MSIX on 2026-11-22 (23 tests,
+  only the optional Blocked executables failing; SHA-256 `58d5ad50…dad2e`),
+  and it launched packaged and uploaded to an ESP32-S3. Next: cancel the
   certified dry-run submission (it was built from `ce83f98`, before the
-  clean-machine fixes), swap in the new package, resubmit, and **Publish now**
+  clean-machine fixes), swap in the new package from run 45019039682,
+  resubmit, and **Publish now**
   once certified. If Partner Center refuses a second 1.0.0.0, the fix is a
   version change only ([Microsoft Store](docs/release/microsoft-store.md#submit)).
 
