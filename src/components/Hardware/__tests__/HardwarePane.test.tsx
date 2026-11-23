@@ -537,6 +537,21 @@ describe('HardwarePane', () => {
     expect(part!.querySelectorAll('svg[viewBox="0 0 1 1"] > g')).toHaveLength(120)
   })
 
+  it('opens each added LED output for inspection, so a second click is not a silent second output', () => {
+    render(<HardwarePane />)
+
+    addPart('LED outputs', 'LED Ring')
+    const first = useGraphStore.getState().nodes.filter((entry) => entry.data.nodeType === 'MatrixOutput')
+    expect(first).toHaveLength(1)
+    expect(useUiStore.getState().hardwareInspectorNodeId).toBe(first[0].id)
+
+    addPart('LED outputs', 'LED Ring')
+    const both = useGraphStore.getState().nodes.filter((entry) => entry.data.nodeType === 'MatrixOutput')
+    expect(both).toHaveLength(2)
+    const added = both.find((entry) => entry.id !== first[0].id)!
+    expect(useUiStore.getState().hardwareInspectorNodeId).toBe(added.id)
+  })
+
   it('adds PCM1802 line in with four distinct board-owned pins', () => {
     render(<HardwarePane />)
 

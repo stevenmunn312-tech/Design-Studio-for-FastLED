@@ -843,6 +843,12 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 ## Hardware workbench
 
+- A shelf card adds a part on every click; it never selects one. LED outputs
+  have no limit, so `addLedOutput` opens the new output's wiring panel
+  (`setInspectorNodeId`) and each enabled card carries a `+` mark. Without
+  both, a card reads as a choice that did not take and a second click adds a
+  second output unnoticed. A panel opened by a part action has no anchor:
+  `HardwarePane` waits for the new part to stop moving, then anchors to it.
 - Hardware shelf subcategories live in `hardwareShelfModel.ts`, ordered by
   purpose and node type. Small, single-purpose categories stay flat. Subcategory
   headings in `HardwarePartsShelf` follow the filtered items, so search never

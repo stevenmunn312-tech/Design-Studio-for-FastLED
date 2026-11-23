@@ -576,6 +576,33 @@ export default function HardwarePane() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardMenuRequested, boardProfile, clearBoardMenuRequest])
 
+  /* An inspector opened without an anchor is for a part the shelf just added.
+     Its element is not on the bench until the next frame, and the bench then
+     re-fits around it, so the panel would open at the default corner, away
+     from the new part. Anchor it once the part has stopped moving. */
+  useEffect(() => {
+    if (!inspectorNodeId || inspectorAnchor) return
+    let frame = 0
+    let framesLeft = 60
+    let last: DOMRect | null = null
+    const settle = () => {
+      const rect = [...(sectionRef.current?.querySelectorAll<HTMLElement>('[data-hardware-node-id]') ?? [])]
+        .find((element) => element.dataset.hardwareNodeId === inspectorNodeId)
+        ?.getBoundingClientRect() ?? null
+      const still = rect && last && rect.left === last.left && rect.top === last.top && rect.width === last.width
+      framesLeft -= 1
+      if (rect && (still || framesLeft <= 0)) {
+        setInspectorAnchor(anchorBox(rect))
+        return
+      }
+      last = rect
+      if (framesLeft > 0) frame = requestAnimationFrame(settle)
+    }
+    frame = requestAnimationFrame(settle)
+    return () => cancelAnimationFrame(frame)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inspectorNodeId, inspectorAnchor])
+
   if (!boardProfile) return null
 
   const inspectorPartAnchor = (): PlacementBox => {
@@ -594,7 +621,13 @@ export default function HardwarePane() {
   }
   const { addFixturePart, removeHardwareItem, addLedOutput } = benchPartActions({
     addNode, connectRoot, removeNodeCompletely, nodes, viewCenter, setStatus, inspectorNodeId,
-    setInspectorNodeId, setItemMenu, selectedFqbn, inputParts, ledOutputs, boardProfile,
+    // A part action never has the part's element to hand, so the last panel's
+    // anchor is dropped and the effect above finds the new one.
+    setInspectorNodeId: (nodeId) => {
+      setInspectorAnchor(null)
+      setInspectorNodeId(nodeId)
+    },
+    setItemMenu, selectedFqbn, inputParts, ledOutputs, boardProfile,
     nextLedPin, fixtureParts, hasPartOfType, ledOutputDefinition,
   })
   const shelfCategories = hardwareShelfCategories({

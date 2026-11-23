@@ -490,6 +490,10 @@ export function benchPartActions({
         outputs: ledOutputDefinition.outputs,
       },
     } as never)
+    // Open the new output's settings on the bench. Without this the only sign
+    // of the add is the status line, the shelf card looks like a choice that
+    // did not take, and a second click quietly adds a second output.
+    setInspectorNodeId(nodeId)
     setStatus(
       needsDataPin
         ? `Added ${label} on pin ${nextLedPin}`

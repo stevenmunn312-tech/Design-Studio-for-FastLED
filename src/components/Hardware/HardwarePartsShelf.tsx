@@ -191,6 +191,9 @@ export default function HardwarePartsShelf({
                           <strong>{item.label}</strong>
                           <small>{item.disabledReason ?? item.hint}</small>
                         </span>
+                        {/* Every card adds a part; the mark says so, so a card
+                            does not read as a choice between options. */}
+                        {!item.disabled && <span className={styles.addMark} aria-hidden="true">+</span>}
                       </button>
                     </Fragment>
                   ))}
