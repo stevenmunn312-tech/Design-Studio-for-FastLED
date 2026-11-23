@@ -132,6 +132,22 @@ export function ledOutputGamma(props: Record<string, unknown> | undefined): numb
 }
 
 /**
+ * The lowest value this output's Gamma still lights; anything under it is off.
+ *
+ * FastLED's video gamma never lets a lit channel reach zero: every value from
+ * 1 up comes out as at least 1. At Gamma 2.2 the first fourteen values belong
+ * below half an LED step, so a pattern resting near black lit every LED at 1,
+ * a faint even glow over the whole fixture where the design is dark. Those
+ * values are rounded down to off, as plain rounding would have them, and the
+ * video curve keeps everything from here up. The preview and the sketch use
+ * this one number (`ledOutputGammaFloorCpp`).
+ */
+export function ledOutputGammaFloor(gamma: number): number {
+  if (!(gamma > LED_OUTPUT_GAMMA_OFF)) return 0
+  return Math.ceil(255 * (0.5 / 255) ** (1 / gamma) - 1e-9)
+}
+
+/**
  * The part of a `playercontrols` bundle an LED output can act on.
  *
  * Structural rather than the imported `PlayerControls`, for two reasons. The
@@ -307,13 +323,18 @@ export function ledOutputStatus(
  * actually something to do.
  *
  * Gamma goes first, through FastLED's own `napplyGamma_video` table
- * (nodes/composite/gamma.ts), as the sketch runs it before its dimmer: a
- * trailing Gamma node did the same, so the field replaces one exactly.
+ * (nodes/composite/gamma.ts), as the sketch runs it before its dimmer, with
+ * the values under `ledOutputGammaFloor` turned off first.
  */
 export function applyLedOutputRuntime(frame: Frame, runtime: LedOutputRuntime, gamma = LED_OUTPUT_GAMMA_OFF): Frame {
   const table = gamma === LED_OUTPUT_GAMMA_OFF ? null : gammaVideoTable(gamma)
   if (!table && isLedOutputPassThrough(runtime)) return frame
   const scale = runtime.enabled ? runtime.brightness : 0
-  const curve = (v: number) => (table ? table[Math.max(0, Math.min(255, Math.round(v)))] : v)
+  const floor = ledOutputGammaFloor(gamma)
+  const curve = (v: number) => {
+    if (!table) return v
+    const value = Math.max(0, Math.min(255, Math.round(v)))
+    return value < floor ? 0 : table[value]
+  }
   return frame.map((row) => row.map((px) => ({ r: curve(px.r) * scale, g: curve(px.g) * scale, b: curve(px.b) * scale })))
 }

@@ -18,7 +18,8 @@ function node(id: string, nodeType: string, props: Record<string, unknown> = {})
 }
 const edge = (id: string, source: string, sourceHandle: string, target: string, targetHandle: string) =>
   ({ id, source, sourceHandle, target, targetHandle }) as unknown as StudioEdge
-const out = () => node('out', 'MatrixOutput', { width: 8, height: 8, chipset: 'WS2812B', colorOrder: 'GRB', dataPin: 5 })
+// Gamma off: these tests compare the patterns' own frames through the output.
+const out = () => node('out', 'MatrixOutput', { width: 8, height: 8, chipset: 'WS2812B', colorOrder: 'GRB', dataPin: 5, outputGamma: 1 })
 
 function render(type: string, props: Record<string, unknown>, tick: number) {
   resetEvaluatorState()

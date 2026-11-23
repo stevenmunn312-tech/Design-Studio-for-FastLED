@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { LED_OUTPUT_GAMMA_DEFAULT, LED_OUTPUT_GAMMA_OFF, applyLedOutputRuntime, ledOutputGamma } from '../ledOutputRuntime'
-import { ledOutputGammaExpr, ledOutputRuntimeCpp } from '../../../codegen/output/ledOutputRuntimeCpp'
+import {
+  LED_OUTPUT_GAMMA_DEFAULT, LED_OUTPUT_GAMMA_OFF, applyLedOutputRuntime, ledOutputGamma, ledOutputGammaFloor,
+} from '../ledOutputRuntime'
+import {
+  ledOutputGammaExpr, ledOutputGammaFloorCpp, ledOutputGammaPixelCpp, ledOutputRuntimeCpp,
+} from '../../../codegen/output/ledOutputRuntimeCpp'
 import { gammaVideoTable } from '../../../nodes/composite/gamma'
 import { evaluateGraphFull } from '../../graphEvaluator'
 import { NODE_LIBRARY, isPropertyEnabled, libraryDefaults } from '../../nodeLibrary'
@@ -74,17 +78,36 @@ describe('the preview', () => {
   })
 
   it('curves through the table the board applies, before the dimmer, and copies', () => {
-    const f: Frame = [[{ r: 200, g: 100, b: 5 }]]
+    const f: Frame = [[{ r: 200, g: 100, b: 20 }]]
     const table = gammaVideoTable(2.2)
     expect(applyLedOutputRuntime(f, { enabled: true, brightness: 1 }, 2.2)[0][0])
-      .toEqual({ r: table[200], g: table[100], b: table[5] })
+      .toEqual({ r: table[200], g: table[100], b: table[20] })
     expect(applyLedOutputRuntime(f, { enabled: true, brightness: 0.5 }, 2.2)[0][0])
-      .toEqual({ r: table[200] * 0.5, g: table[100] * 0.5, b: table[5] * 0.5 })
-    expect(f[0][0]).toEqual({ r: 200, g: 100, b: 5 })
+      .toEqual({ r: table[200] * 0.5, g: table[100] * 0.5, b: table[20] * 0.5 })
+    expect(f[0][0]).toEqual({ r: 200, g: 100, b: 20 })
   })
 
-  // The point of the field: a finished graph drops its last node and looks the same.
-  it('shows what a trailing Gamma node showed, dimmed or not', () => {
+  // FastLED's video gamma lights every non-zero value at 1 or more. At 2.2
+  // the values under 15 belong below half an LED step, and left at 1 they
+  // glow faintly across a fixture whose pattern is resting near black.
+  it('turns off the values under the gamma floor instead of lighting them at 1', () => {
+    expect(ledOutputGammaFloor(LED_OUTPUT_GAMMA_OFF)).toBe(0)
+    expect(ledOutputGammaFloor(2.2)).toBe(15)
+    expect(ledOutputGammaFloor(2.8)).toBeGreaterThan(ledOutputGammaFloor(2.2))
+    const table = gammaVideoTable(2.2)
+    expect(table[5]).toBe(1)
+    const lit = (value: number) =>
+      applyLedOutputRuntime([[{ r: value, g: 0, b: 0 }]], { enabled: true, brightness: 1 }, 2.2)[0][0].r
+    expect(lit(5)).toBe(0)
+    expect(lit(14)).toBe(0)
+    expect(lit(15)).toBe(table[15])
+    expect(lit(15)).toBeGreaterThan(0)
+  })
+
+  // The point of the field: a finished graph drops its last node and looks the
+  // same, except under the gamma floor, where the node lights a channel at
+  // the video curve's 1 and the output turns it off.
+  it('shows what a trailing Gamma node showed, dimmed or not, above the floor', () => {
     for (const outputBrightness of [1, 0.4]) {
       const withNode = rendered(
         [ramp, node('g', 'Gamma', { gamma: 2.4 }), output({ outputBrightness })],
@@ -94,7 +117,18 @@ describe('the preview', () => {
         [ramp, output({ outputBrightness, outputGamma: 2.4 })],
         [edge('e1', 'ramp', 'frame', 'out', 'frame')],
       )
-      expect(withField).toEqual(withNode)
+      let turnedOff = 0
+      withField.forEach((row, y) => row.forEach((pixel, x) => {
+        for (const channel of ['r', 'g', 'b'] as const) {
+          const fromNode = withNode[y][x][channel]
+          if (pixel[channel] === fromNode) continue
+          expect(pixel[channel]).toBe(0)
+          expect(fromNode).toBeLessThanOrEqual(outputBrightness)
+          turnedOff += 1
+        }
+      }))
+      // The ramp's dark end does reach under the floor.
+      expect(turnedOff).toBeGreaterThan(0)
     }
   })
 })
@@ -126,10 +160,21 @@ describe('the sketches', () => {
     const lines = ledOutputRuntimeCpp({
       id: 'o', array: 'leds', count: 'NUM_LEDS', enabledExpr: 'on', brightnessExpr: null, gammaExpr: '2.80f',
     })
+    const floor = ledOutputGammaFloorCpp('leds', 'NUM_LEDS', '2.80f')
     expect(lines).toEqual([
+      ...floor,
       '  napplyGamma_video(leds, NUM_LEDS, 2.80f);  // LED output gamma',
       '  if (!(on)) fill_solid(leds, NUM_LEDS, CRGB::Black);',
     ])
+  })
+
+  it('turns off the values under the gamma floor before the video gamma, as the preview does', () => {
+    const floor = ledOutputGammaFloor(2.2)
+    expect(ledOutputGammaFloorCpp('leds', 'NUM_LEDS', '2.20f').join(' '))
+      .toContain(`if (_gp.r < ${floor}) _gp.r = 0; if (_gp.g < ${floor}) _gp.g = 0; if (_gp.b < ${floor}) _gp.b = 0;`)
+    expect(ledOutputGammaPixelCpp('2.20f'))
+      .toBe(`if (_c.r < ${floor}) _c.r = 0; if (_c.g < ${floor}) _c.g = 0; if (_c.b < ${floor}) _c.b = 0; napplyGamma_video(_c, 2.20f); `)
+    expect(ledOutputGammaPixelCpp(null)).toBe('')
   })
 
   // With several outputs the blit scales each pixel by the Board's level

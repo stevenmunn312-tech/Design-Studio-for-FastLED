@@ -16,7 +16,7 @@
 // the sketch it always did.
 
 import {
-  LED_OUTPUT_GAMMA_OFF, LED_OUTPUT_RUNTIME_DEFAULT, ledOutputGamma, ledOutputManualRuntime, ledOutputStatus,
+  LED_OUTPUT_GAMMA_OFF, LED_OUTPUT_RUNTIME_DEFAULT, ledOutputGamma, ledOutputGammaFloor, ledOutputManualRuntime, ledOutputStatus,
 } from '../../state/output/ledOutputRuntime'
 import { nodeDisplayLabel } from '../../state/nodeLibrary'
 import type { LedStatusExpressions } from '../displays/displaySourceExpressions'
@@ -110,7 +110,33 @@ export function ledOutputGammaExpr(props: Record<string, unknown> | undefined): 
  * goes before every dimmer. Empty while gamma is off.
  */
 export function ledOutputGammaPixelCpp(gammaExpr: string | null): string {
-  return gammaExpr ? `napplyGamma_video(_c, ${gammaExpr}); ` : ''
+  if (!gammaExpr) return ''
+  const floor = ledOutputGammaFloorOf(gammaExpr)
+  const off = floor > 0
+    ? `if (_c.r < ${floor}) _c.r = 0; if (_c.g < ${floor}) _c.g = 0; if (_c.b < ${floor}) _c.b = 0; `
+    : ''
+  return `${off}napplyGamma_video(_c, ${gammaExpr}); `
+}
+
+/** `ledOutputGammaFloor` for a `ledOutputGammaExpr` literal such as `2.20f`. */
+function ledOutputGammaFloorOf(gammaExpr: string): number {
+  return ledOutputGammaFloor(Number.parseFloat(gammaExpr))
+}
+
+/**
+ * Turn off the values under the gamma floor across an array, before the
+ * video gamma that would otherwise light every one of them at 1; see
+ * `ledOutputGammaFloor`. Empty when the curve has no floor.
+ */
+export function ledOutputGammaFloorCpp(array: string, count: string, gammaExpr: string, indent = '  '): string[] {
+  const floor = ledOutputGammaFloorOf(gammaExpr)
+  if (floor <= 0) return []
+  return [
+    `${indent}for (int _gf = 0; _gf < ${count}; _gf++) {  // under the gamma floor is off, not 1`,
+    `${indent}  CRGB& _gp = ${array}[_gf];`,
+    `${indent}  if (_gp.r < ${floor}) _gp.r = 0; if (_gp.g < ${floor}) _gp.g = 0; if (_gp.b < ${floor}) _gp.b = 0;`,
+    `${indent}}`,
+  ]
 }
 
 /** One output's physical destination, whatever geometry produced it. */
@@ -150,7 +176,10 @@ export interface LedOutputRuntimeEmit {
 export function ledOutputRuntimeCpp(emit: LedOutputRuntimeEmit): string[] {
   const i = emit.indent ?? '  '
   const gamma = emit.gammaExpr
-    ? [`${i}napplyGamma_video(${emit.array}, ${emit.count}, ${emit.gammaExpr});  // LED output gamma`]
+    ? [
+        ...ledOutputGammaFloorCpp(emit.array, emit.count, emit.gammaExpr, i),
+        `${i}napplyGamma_video(${emit.array}, ${emit.count}, ${emit.gammaExpr});  // LED output gamma`,
+      ]
     : []
   if (!emit.enabledExpr && !emit.brightnessExpr) return gamma
   const lines: string[] = [...gamma]

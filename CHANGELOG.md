@@ -22,6 +22,10 @@ share link, migrating it where a shape has changed.
   what that does on hardware: brighter and washed out. Set Gamma to 2.2 on
   the LED output (Rendering) to get the designed look on screen and on the
   LEDs. HUB75 outputs are unaffected.
+- With Gamma on, an LED output turns off the values too dark for the LEDs to
+  show (under 15 of 255 at Gamma 2.2). FastLED's gamma lit every one of them
+  at its lowest step, so a pattern resting near black glowed faintly across
+  the whole fixture.
 
 - Audio patterns playing decoded music (the Music Player, shows and the
   hardware player) reach full brightness at a lower level. Full was set for
