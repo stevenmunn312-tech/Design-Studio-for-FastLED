@@ -43,6 +43,22 @@ it alone); tags `v1.0.0` and `v1.0.1` exist with private draft releases. The
 1.0.1 builds are also on an unlisted preview page on the website for one
 invited tester.
 
+## Fresh preview for the invited tester
+
+`main` has moved well past 1.0.1 (first-launch showcase, true-light previews,
+Gamma 2.2 default, the gamma floor, the loudness retune, the volume fix, the
+shelf fix). The preview page still serves 1.0.1.
+
+- [ ] Bench-check Gamma 2.2 on a real matrix against the preview: colours and
+  contrast match, a fade reaches off without stepping badly, Gamma 1 looks
+  washed out on both. Steve, 2026-11-24.
+- [ ] Once that passes, run the Desktop Packages workflow on GitHub for all
+  four platforms (Steve approved this one run on 2026-11-23). Use a
+  pre-release tag, not `v1.0.0` or `v1.0.1`; no draft release.
+- [ ] Replace the files on the preview page (bucket folder unchanged, so the
+  link stays the same) and tell the tester what is still open: ESP32 builds
+  with long paths off, unsigned builds.
+
 ## Publish
 
 v1.0.1 is the release: the same app as v1.0.0 plus the short build folder a
