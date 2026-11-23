@@ -98,6 +98,17 @@ export function isLedOutputPassThrough(runtime: LedOutputRuntime): boolean {
 
 /** The output's Gamma field while it is off. 1 is no curve, and it applies nothing. */
 export const LED_OUTPUT_GAMMA_OFF = 1
+/**
+ * The Gamma a new LED output starts with.
+ *
+ * LEDs are linear and screens are not, so a pattern designed by eye on a
+ * screen is far too bright in its low and middle values when its numbers go
+ * to LEDs unchanged. 2.2 is the screen's own curve: with it the LEDs emit the
+ * light the pattern's colours describe. The previews agree, because they show
+ * the light the LEDs emit (see ledDisplay.ts). A saved output keeps the value
+ * it was saved with.
+ */
+export const LED_OUTPUT_GAMMA_DEFAULT = 2.2
 /** The Gamma field's range, the Gamma node's own. */
 export const LED_OUTPUT_GAMMA = { min: 1, max: 3.5 } as const
 

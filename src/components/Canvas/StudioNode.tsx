@@ -1849,6 +1849,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
                   height={outputShape.height}
                   cols={outputShape.cols}
                   rows={outputShape.rows}
+                  ledValues
                 />
               ) : (
                 <div

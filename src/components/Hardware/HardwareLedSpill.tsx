@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import type { CSSProperties } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
+import { ledDisplayValue } from '../../state/output/ledDisplay'
 import type { Frame } from '../../state/graphEvaluator'
 
 /**
@@ -86,7 +87,8 @@ export default function HardwareLedSpill({
         if (!n) continue
         poolRefs.current[index]?.setAttribute(
           'color',
-          `rgb(${Math.round(r / n)} ${Math.round(g / n)} ${Math.round(b / n)})`,
+          // Averaged as light, then shown through the display curve.
+          `rgb(${ledDisplayValue(r / n)} ${ledDisplayValue(g / n)} ${ledDisplayValue(b / n)})`,
         )
       }
     }

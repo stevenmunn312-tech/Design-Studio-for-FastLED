@@ -9,6 +9,26 @@ share link, migrating it where a shape has changed.
 
 ## [Unreleased]
 
+### Changed
+
+- The LED previews show the light the LEDs emit. An LED is far brighter in
+  its low and middle values than a screen showing the same numbers, so the
+  preview, the LED output's thumbnail, the Hardware bench, recordings and
+  share captures now draw LED values through a display curve. A pattern's own
+  thumbnail is unchanged: it shows the colours the pattern makes.
+- A new LED output starts with Gamma 2.2 (it was 1, off). With it the LEDs
+  match the colours designed on screen, and the preview looks as it did
+  before. An output saved with Gamma 1 keeps it, and its preview now shows
+  what that does on hardware: brighter and washed out. Set Gamma to 2.2 on
+  the LED output (Rendering) to get the designed look on screen and on the
+  LEDs. HUB75 outputs are unaffected.
+
+### Fixed
+
+- Adding an LED output from the Hardware shelf opens that output's wiring
+  panel beside it, and each shelf card shows a `+`. Before, the only sign was
+  a status line, and a second click quietly added a second output.
+
 ## [1.0.1] - 2026-11-22
 
 The first Microsoft Store release. The same app as 1.0.0, with one fix for

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
+import { ledDisplayValue } from '../../state/output/ledDisplay'
 import { EMITTER_GLOW, LED_CELL_FILL } from './ledPreviewGeometry'
 import type { StereoVuFrame } from '../../state/audio/stereoVuMeter'
 
@@ -48,9 +49,10 @@ export default function HardwareVuRailPreview({
         const position = rows[row].index
         const wireIndex = dataIn === 'Bottom' ? count - position - 1 : position
         const pixel = pixels[wireIndex]
-        const r = Math.round((pixel?.r ?? 0) * scale)
-        const g = Math.round((pixel?.g ?? 0) * scale)
-        const b = Math.round((pixel?.b ?? 0) * scale)
+        // LED values, shown through the display curve (ledDisplay.ts).
+        const r = ledDisplayValue((pixel?.r ?? 0) * scale)
+        const g = ledDisplayValue((pixel?.g ?? 0) * scale)
+        const b = ledDisplayValue((pixel?.b ?? 0) * scale)
         refs.current[row]?.setAttribute('fill', `rgb(${r} ${g} ${b})`)
       }
     }

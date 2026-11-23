@@ -3440,7 +3440,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   MatrixOutput: {
     enabled: 'Blackout for this output. Off shows nothing; a wired Enabled input overrides it.',
     outputBrightness: 'This output\'s own dimmer, 0 to 1, on top of the Board\'s master level. A wired Brightness input overrides it.',
-    outputGamma: 'Gamma correction for everything this output sends, so mid-tones look right on the LEDs: 1 is off, 2.2 to 2.8 suits most strips. It replaces a Gamma node at the end of the graph; use one or the other, not both.',
+    outputGamma: 'Gamma correction for everything this output sends. LEDs are far brighter in their low and middle values than a screen showing the same numbers, so a new output starts at 2.2, which makes the LEDs match the colours you designed. 1 is off: the LEDs then look washed out and much brighter, and the preview shows that. 2.2 to 2.8 suits most strips. It replaces a Gamma node at the end of the graph; use one or the other, not both.',
     width: 'LEDs across the matrix.',
     height: 'LEDs down the matrix.',
     serpentine: 'On for panels whose rows zig-zag (most flexible panels). Off if every row runs the same way.',

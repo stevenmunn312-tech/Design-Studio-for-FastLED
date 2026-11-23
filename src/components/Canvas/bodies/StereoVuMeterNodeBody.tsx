@@ -3,11 +3,14 @@ import { rootGraphNodes, useGraphStore, useRootNodes } from '../../../state/grap
 import { LED_OUTPUT_FORM_LABELS, outputForm } from '../../../state/output/ledOutputForm'
 import { usePreviewStore } from '../../../state/previewStore'
 import type { RGB } from '../../../state/palettes/ledColor'
+import { ledDisplayValue } from '../../../state/output/ledDisplay'
 import type { StereoVuFrame } from '../../../state/audio/stereoVuMeter'
 import { stereoVuRailCounts } from '../../../state/audio/stereoVuSizing'
 import styles from './StereoVuMeterNodeBody.module.css'
 
-const rgbCss = (color: RGB): string => `rgb(${color.r} ${color.g} ${color.b})`
+// The rails hold LED values, shown through the display curve (ledDisplay.ts).
+const rgbCss = (color: RGB): string =>
+  `rgb(${ledDisplayValue(color.r)} ${ledDisplayValue(color.g)} ${ledDisplayValue(color.b)})`
 
 function Rail({ pixels, side }: { pixels: RGB[]; side: 'Left' | 'Right' }) {
   return (

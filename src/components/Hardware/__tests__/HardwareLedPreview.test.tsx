@@ -34,7 +34,9 @@ describe('HardwareLedPreview', () => {
     ])
 
     expect(emitters(container))
-      .toEqual(['rgb(255 0 0)', 'rgb(0 255 0)', 'rgb(0 0 255)', 'rgb(12 34 56)'])
+      // LED values, drawn through the display curve (ledDisplay.ts):
+      // 12/34/56 are shown as 64/102/128.
+      .toEqual(['rgb(255 0 0)', 'rgb(0 255 0)', 'rgb(0 0 255)', 'rgb(64 102 128)'])
   })
 
   it('scales every emitter by the published master brightness', () => {
@@ -46,7 +48,8 @@ describe('HardwareLedPreview', () => {
 
     // 200/100/50 x 128/255. Applied here rather than baked into the published
     // frame, so a source node's thumbnail dims by exactly the same value.
-    expect(emitters(container)).toEqual(['rgb(100 50 25)'])
+    // 200/100/50 x 128/255 is LED value 100/50/25, shown as 167/122/89.
+    expect(emitters(container)).toEqual(['rgb(167 122 89)'])
   })
 
   it('samples a frame down when the emitter grid is coarser than it', () => {
@@ -64,7 +67,8 @@ describe('HardwareLedPreview', () => {
     })
 
     // Proportional, not a corner crop: the two emitters read columns 0 and 2.
-    expect(emitters(container)).toEqual(['rgb(10 0 0)', 'rgb(30 0 0)'])
+    // LED values 10 and 30, shown as 59 and 96.
+    expect(emitters(container)).toEqual(['rgb(59 0 0)', 'rgb(96 0 0)'])
   })
 
   it('lights a centred square cell, whatever the part', () => {
@@ -88,7 +92,8 @@ describe('HardwareLedPreview', () => {
     )
 
     publish([[{ r: 255, g: 20, b: 10 }]])
-    expect(emitters(container)).toEqual(['rgb(255 20 10)'])
+    // LED value 255/20/10, shown as 255/80/59.
+    expect(emitters(container)).toEqual(['rgb(255 80 59)'])
 
     publish(null)
     expect(emitters(container)).toEqual(['rgb(0 0 0)'])

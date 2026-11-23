@@ -18,12 +18,13 @@ export type PreviewKind = 'frame' | 'palette' | 'color'
  * the output node and the hardware bay cannot drift apart again, and the
  * emitter look is the one the user is actually designing for.
  */
-function FrameThumb({ nodeId, port, height, cols, rows }: {
+function FrameThumb({ nodeId, port, height, cols, rows, ledValues }: {
   nodeId: string
   port: string
   height?: number
   cols: number
   rows: number
+  ledValues: boolean
 }) {
   const grid = thumbGrid(cols, rows)
   return (
@@ -34,6 +35,7 @@ function FrameThumb({ nodeId, port, height, cols, rows }: {
         cols={grid.cols}
         rows={grid.rows}
         cellFill={LED_CELL_FILL}
+        ledValues={ledValues}
         className={styles.frame}
       />
     </div>
@@ -61,6 +63,7 @@ export default function NodePreview({
   cols = 16,
   rows = 16,
   valueOverride,
+  ledValues = false,
 }: {
   nodeId: string
   kind: PreviewKind
@@ -70,8 +73,11 @@ export default function NodePreview({
   cols?: number
   rows?: number
   valueOverride?: unknown
+  /** True on an LED output's thumbnail, whose frame holds LED values; see
+   *  `HardwareLedPreview`. A pattern's frame holds screen colours. */
+  ledValues?: boolean
 }) {
-  if (kind === 'frame') return <FrameThumb nodeId={nodeId} port={port} height={height} cols={cols} rows={rows} />
+  if (kind === 'frame') return <FrameThumb nodeId={nodeId} port={port} height={height} cols={cols} rows={rows} ledValues={ledValues} />
   return <ScalarPreview nodeId={nodeId} kind={kind} port={port} valueOverride={valueOverride} />
 }
 

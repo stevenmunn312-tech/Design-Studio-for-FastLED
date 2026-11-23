@@ -1,6 +1,19 @@
 import type { Frame } from '../../state/graphEvaluator'
 import type { PreviewStyle } from './previewStyles'
 import type { ShapeLayout } from '../Hardware/ledPreviewGeometry'
+import { ledDisplayValue } from '../../state/output/ledDisplay'
+
+// Frames hold LED values; everything drawn here goes through the display
+// curve first (see ledDisplay.ts). `shown` reuses one object, so read its
+// fields before the next call.
+type Rgb = { r: number; g: number; b: number }
+const SHOWN: Rgb = { r: 0, g: 0, b: 0 }
+function shown(pixel: Rgb): Rgb {
+  SHOWN.r = ledDisplayValue(pixel.r)
+  SHOWN.g = ledDisplayValue(pixel.g)
+  SHOWN.b = ledDisplayValue(pixel.b)
+  return SHOWN
+}
 
 // ── Canvas-2D LED sprites (shared by the live fallback renderer and export) ──
 // Drawing every lit LED as two `arc` fills with shadowBlur — a per-LED
@@ -66,7 +79,7 @@ export function renderGridFrame(
   ctx.globalCompositeOperation = 'lighter'
   for (let y = 0; y < gridH; y++) {
     for (let x = 0; x < gridW; x++) {
-      const { r, g, b } = frame[y][x]
+      const { r, g, b } = shown(frame[y][x])
       drawEmitterSpill(ctx, (x + 0.5) * pixel, (y + 0.5) * pixel, pixel, r, g, b, emitterScale, 1)
     }
   }
@@ -74,7 +87,7 @@ export function renderGridFrame(
 
   for (let y = 0; y < gridH; y++) {
     for (let x = 0; x < gridW; x++) {
-      const { r, g, b } = frame[y][x]
+      const { r, g, b } = shown(frame[y][x])
       drawEmitterCore(ctx, (x + 0.5) * pixel, (y + 0.5) * pixel, pixel, r, g, b, emitterScale, 1)
     }
   }
@@ -156,7 +169,12 @@ export function renderShapeFrame(
   }
 
   const srcW = frame[0]?.length ?? 0
-  const read = (index: number) => (srcW > 0 ? frame[Math.floor(index / srcW)]?.[index % srcW] : undefined) ?? { r: 0, g: 0, b: 0 }
+  const read = (index: number): Rgb => {
+    const pixel = srcW > 0 ? frame[Math.floor(index / srcW)]?.[index % srcW] : undefined
+    return pixel
+      ? { r: ledDisplayValue(pixel.r), g: ledDisplayValue(pixel.g), b: ledDisplayValue(pixel.b) }
+      : { r: 0, g: 0, b: 0 }
+  }
   // Back emitters first so the front of a corkscrew covers its far side.
   const order = layout.emitters.map((emitter, index) => ({ emitter, index }))
     .sort((a, b) => a.emitter.opacity - b.emitter.opacity)
@@ -370,9 +388,9 @@ export function renderDiffusionFrame(
     for (let x = 0; x < gridW; x++) {
       const i = (y * gridW + x) * 4
       const p = frame[y]?.[x] ?? { r: 0, g: 0, b: 0 }
-      image.data[i] = p.r
-      image.data[i + 1] = p.g
-      image.data[i + 2] = p.b
+      image.data[i] = ledDisplayValue(p.r)
+      image.data[i + 1] = ledDisplayValue(p.g)
+      image.data[i + 2] = ledDisplayValue(p.b)
       image.data[i + 3] = 255
     }
   }

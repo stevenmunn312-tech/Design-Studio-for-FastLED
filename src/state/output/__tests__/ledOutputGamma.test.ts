@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { LED_OUTPUT_GAMMA_OFF, applyLedOutputRuntime, ledOutputGamma } from '../ledOutputRuntime'
+import { LED_OUTPUT_GAMMA_DEFAULT, LED_OUTPUT_GAMMA_OFF, applyLedOutputRuntime, ledOutputGamma } from '../ledOutputRuntime'
 import { ledOutputGammaExpr, ledOutputRuntimeCpp } from '../../../codegen/output/ledOutputRuntimeCpp'
 import { gammaVideoTable } from '../../../nodes/composite/gamma'
 import { evaluateGraphFull } from '../../graphEvaluator'
@@ -39,9 +39,12 @@ function rendered(nodes: StudioNode[], edges: StudioEdge[], id = 'out'): Frame {
 }
 
 describe('the field', () => {
-  it('is off on a new output, and off is the identity', () => {
-    expect(libraryDefaults('MatrixOutput').outputGamma).toBe(LED_OUTPUT_GAMMA_OFF)
-    expect(ledOutputGamma(libraryDefaults('MatrixOutput'))).toBe(LED_OUTPUT_GAMMA_OFF)
+  it('starts a new output at the screen curve, and reads a missing field as off', () => {
+    // 2.2 makes the LEDs emit the light the pattern's screen colours describe;
+    // see LED_OUTPUT_GAMMA_DEFAULT. Off is still the identity, and is what an
+    // output with no field at all reads as.
+    expect(libraryDefaults('MatrixOutput').outputGamma).toBe(LED_OUTPUT_GAMMA_DEFAULT)
+    expect(ledOutputGamma(libraryDefaults('MatrixOutput'))).toBe(2.2)
     expect(ledOutputGamma(undefined)).toBe(LED_OUTPUT_GAMMA_OFF)
     expect(ledOutputGamma({ outputGamma: 'x' })).toBe(LED_OUTPUT_GAMMA_OFF)
   })

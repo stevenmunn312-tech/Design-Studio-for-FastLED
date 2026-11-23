@@ -106,7 +106,7 @@ describe('SD Video node preview', () => {
 
   function play(props: Record<string, unknown>, t: number, W = 4, H = 2) {
     return evaluateGraph(
-      [node('v', 'SDVideo', 'pattern', props), node('out', 'MatrixOutput', 'output', {})],
+      [node('v', 'SDVideo', 'pattern', props), node('out', 'MatrixOutput', 'output', { outputGamma: 1 })],
       [edge('e', 'v', 'frame', 'out', 'frame')], t * 60, W, H,
     )!
   }
@@ -174,7 +174,7 @@ describe('importer helpers', () => {
 describe('SD Video deploy checks', () => {
   const clip = { id: 'c', name: 'a.mp4', w: 16, h: 16, fps: 30, frames: 10 }
   const graph = (videoProps: Record<string, unknown>, extra: StudioNode[] = []) => ({
-    nodes: [node('v', 'SDVideo', 'pattern', videoProps), node('out', 'MatrixOutput', 'output', {}), ...extra],
+    nodes: [node('v', 'SDVideo', 'pattern', videoProps), node('out', 'MatrixOutput', 'output', { outputGamma: 1 }), ...extra],
     edges: [edge('e', 'v', 'frame', 'out', 'frame')],
   })
 
@@ -192,8 +192,8 @@ describe('SD Video deploy checks', () => {
   })
 
   it('says nothing about a node that feeds no output, or about no SD Video at all', () => {
-    const parked = { nodes: [node('v', 'SDVideo', 'pattern', {}), node('out', 'MatrixOutput', 'output', {})], edges: [] }
+    const parked = { nodes: [node('v', 'SDVideo', 'pattern', {}), node('out', 'MatrixOutput', 'output', { outputGamma: 1 })], edges: [] }
     expect(findSdVideoErrors(parked.nodes, parked.edges, 'esp32:esp32:esp32')).toEqual([])
-    expect(findSdVideoErrors([node('out', 'MatrixOutput', 'output', {})], [], '')).toEqual([])
+    expect(findSdVideoErrors([node('out', 'MatrixOutput', 'output', { outputGamma: 1 })], [], '')).toEqual([])
   })
 })

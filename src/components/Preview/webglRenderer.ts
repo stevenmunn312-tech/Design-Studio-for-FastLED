@@ -1,5 +1,6 @@
 import type { Frame } from '../../state/graphEvaluator'
 import { PREVIEW_STYLE_CODE, isDiffusedStyle, type PreviewStyle } from './previewStyles'
+import { ledDisplayValue } from '../../state/output/ledDisplay'
 
 // ── Shaders ───────────────────────────────────────────────────────────────────
 
@@ -267,7 +268,11 @@ export class WebGLLEDRenderer {
       for (let x = 0; x < gridW; x++) {
         const i = (y * gridW + x) * 4
         const p = frame[y]?.[x] ?? { r: 0, g: 0, b: 0 }
-        d[i] = p.r; d[i+1] = p.g; d[i+2] = p.b; d[i+3] = 255
+        // The texture holds screen values, not LED values (see ledDisplay.ts),
+        // and the shader is unchanged: it always did treat the texture as
+        // screen colour. With the output's Gamma at 2.2 the two curves cancel
+        // and this draws exactly what it drew before the display curve.
+        d[i] = ledDisplayValue(p.r); d[i+1] = ledDisplayValue(p.g); d[i+2] = ledDisplayValue(p.b); d[i+3] = 255
       }
     }
 

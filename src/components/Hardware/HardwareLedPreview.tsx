@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import type { CSSProperties } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
 import type { Frame } from '../../state/graphEvaluator'
+import { LED_DISPLAY_GAMMA, ledDisplayValue } from '../../state/output/ledDisplay'
 import {
   CORKSCREW_LED_RADIUS_X, CORKSCREW_LED_RADIUS_Y, EMITTER_GLOW, RING_LED_RADIUS,
   corkscrewUnitPoints, ringUnitPoints,
@@ -31,6 +32,7 @@ export type { CorkscrewGeometry, PositionsGeometry, RingGeometry }
 export default function HardwareLedPreview({
   nodeId,
   port = 'previewFrame',
+  ledValues = true,
   cols,
   rows,
   cellFill = 1,
@@ -48,6 +50,13 @@ export default function HardwareLedPreview({
    *  node that lights it are drawn by one renderer rather than two that agree
    *  only by coincidence. */
   port?: string
+  /** Whether the frame holds LED values, as an LED output's does: the numbers
+   *  sent to the LEDs, after the output's Gamma. Those are drawn through the
+   *  display curve, so the screen emits the light the LEDs would (see
+   *  ledDisplay.ts). A source node's thumbnail passes false: its frame holds
+   *  the pattern's own colours, which are already screen colours. With the
+   *  output's Gamma at 2.2 the two draw the same picture. */
+  ledValues?: boolean
   /** The emitter grid. May be coarser than the frame — a source thumbnail
    *  caps its cell count — in which case the frame is sampled down into it. */
   cols: number
@@ -190,6 +199,7 @@ export default function HardwareLedPreview({
       const srcW = frame[0]?.length ?? 0
       if (!srcW || !srcH) return
       const previous = previousRef.current
+      const colourScale = scale ** (1 / LED_DISPLAY_GAMMA)
       // Proportional, so a grid coarser than the frame samples down instead of
       // showing a corner of it. An LED output's grid always equals its routed
       // frame exactly, which makes this the identity map for that caller.
@@ -209,9 +219,18 @@ export default function HardwareLedPreview({
           : Math.min(srcW - 1, Math.floor((index % cols) * srcW / cols))
         const pixel = frame[Math.min(srcH - 1, srcY)]?.[Math.min(srcW - 1, srcX)]
         if (!pixel) continue
-        const r = Math.max(0, Math.min(255, Math.round(pixel.r * scale)))
-        const g = Math.max(0, Math.min(255, Math.round(pixel.g * scale)))
-        const b = Math.max(0, Math.min(255, Math.round(pixel.b * scale)))
+        // The master brightness scales light. LED values are scaled and then
+        // shown through the display curve; screen colours are scaled by the
+        // curve's own share of that dimming, so both dim alike.
+        const r = ledValues
+          ? ledDisplayValue(pixel.r * scale)
+          : Math.max(0, Math.min(255, Math.round(pixel.r * colourScale)))
+        const g = ledValues
+          ? ledDisplayValue(pixel.g * scale)
+          : Math.max(0, Math.min(255, Math.round(pixel.g * colourScale)))
+        const b = ledValues
+          ? ledDisplayValue(pixel.b * scale)
+          : Math.max(0, Math.min(255, Math.round(pixel.b * colourScale)))
         const packed = (r << 16) | (g << 8) | b
         if (previous[index] === packed) continue
         previous[index] = packed
@@ -230,7 +249,7 @@ export default function HardwareLedPreview({
     }
     read(usePreviewStore.getState())
     return usePreviewStore.subscribe(read)
-  }, [cols, corkscrew, count, nodeId, port, positions, ring, rows, run])
+  }, [cols, corkscrew, count, ledValues, nodeId, port, positions, ring, rows, run])
 
   if (positions) {
     // Canvas units are the viewBox, so the string sits over the picture it

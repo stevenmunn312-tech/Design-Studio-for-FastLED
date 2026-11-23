@@ -195,6 +195,21 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   that key. The W×H readout, streaming and recording stay on the physical
   one-row frame. The pane remains the one visible per-frame canvas; the node
   and bay previews stay SVG for the leak reason `HardwareLedPreview` explains.
+- **LED values and screen colours are two scales; know which a frame holds.**
+  An LED is linear (value 110 of 255 is 43% of full light) and a screen is not
+  (pixel 110 is about 16%). A frame out of an LED output holds LED values, the
+  numbers sent to the LEDs after the output's Gamma; anything that draws one
+  maps each channel through `ledDisplayValue`
+  (`src/state/output/ledDisplay.ts`) at draw time and never changes the frame:
+  both preview renderers, `HardwareLedPreview` with `ledValues`, the VU rail,
+  the bench spill, recordings and share captures. A pattern's own frame holds
+  screen colours and is drawn as it is (`NodePreview` passes `ledValues`
+  false). The two meet at Gamma 2.2, the default for a new output
+  (`LED_OUTPUT_GAMMA_DEFAULT`): the curves cancel, the LED output's picture
+  equals the pattern's, and the renderers draw exactly what they drew before
+  the curve existed, which is why their shader and sprite constants were left
+  alone. Master brightness scales light, so a screen-colour thumbnail dims by
+  `scale ** (1 / LED_DISPLAY_GAMMA)` to keep step with the output beside it.
 - The Output matrix heading hangs above its frame on a negative `top` inside a
   clipping `.canvasWrap`, so it only survives when the wrap's `padding-top` is
   at least the heading's offset — true at full height, but a height-limited

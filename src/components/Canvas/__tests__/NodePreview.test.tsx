@@ -53,8 +53,9 @@ describe('NodePreview', () => {
         128,
       )
     })
-    // 200/100/50 x 128/255, rounded.
-    expect(container.querySelector('svg > g')?.getAttribute('fill')).toBe('rgb(100 50 25)')
+    // A pattern's frame holds screen colours and brightness scales light, so
+    // the colour dims by (128/255) ^ (1/2.2): 200/100/50 x 0.731, rounded.
+    expect(container.querySelector('svg > g')?.getAttribute('fill')).toBe('rgb(146 73 37)')
   })
 
   it('shows the frame thumbnail undimmed at full master brightness', () => {

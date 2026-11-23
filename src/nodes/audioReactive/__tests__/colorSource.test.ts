@@ -26,7 +26,8 @@ function node(id: string, nodeType: string, props: Record<string, unknown> = {},
 }
 const edge = (id: string, source: string, sourceHandle: string, target: string, targetHandle: string) =>
   ({ id, source, sourceHandle, target, targetHandle }) as StudioEdge
-const out = () => node('out', 'MatrixOutput', { width: 16, height: 16 })
+// Gamma off: these tests read the nodes' own colours through the output.
+const out = () => node('out', 'MatrixOutput', { width: 16, height: 16, outputGamma: 1 })
 
 function frameOf(nodes: StudioNode[], edges: StudioEdge[], tick = 30, size = 16): Frame {
   resetEvaluatorState()

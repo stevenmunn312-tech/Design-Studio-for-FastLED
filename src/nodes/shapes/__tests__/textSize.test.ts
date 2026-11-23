@@ -191,7 +191,9 @@ describe('Text and Clock Display at size 1', () => {
     [{ text: 'PX', units: 'pixels', x: 3, y: 2, letterSpacing: 2 }, 24, 8, 0],
   ]
   const clockModes = ['Digital HH:MM', 'Digital HH:MM:SS', 'Digital 12H', 'Digital + Date', 'Analog + Date', 'Stopwatch', 'Timer']
-  const sketch = (nodes: StudioNode[], edges: StudioEdge[] = []) => generateCpp([...nodes, node('out', 'MatrixOutput')], edges)
+  // Gamma off, so the sketch compared is the nodes' own code and not the
+  // output's gamma pass.
+  const sketch = (nodes: StudioNode[], edges: StudioEdge[] = []) => generateCpp([...nodes, node('out', 'MatrixOutput', { outputGamma: 1 })], edges)
 
   it('renders as before', () => {
     const hashes = [
