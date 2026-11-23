@@ -12,7 +12,7 @@
   justify-content: center;
   gap: calc(var(--space-0) * 4);
   padding: calc(var(--space-0) * 5);
-  background: #000;
+  background: black;
   color: var(--text-primary);
 }
 
