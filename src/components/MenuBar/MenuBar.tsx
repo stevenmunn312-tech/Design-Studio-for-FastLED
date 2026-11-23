@@ -773,6 +773,10 @@ export default function MenuBar() {
               <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); useFirstProjectGuide.getState().start() }}>
                 First Project Guide
               </button>
+              <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); useUiStore.getState().openShowcase() }}
+                title="The light show that greets a first visit">
+                Watch the Intro
+              </button>
               <button className={styles.menuItem} role="menuitem" onClick={() => { closeMenus(); void handleCopyShareLink() }}>
                 Copy Graph Link
               </button>

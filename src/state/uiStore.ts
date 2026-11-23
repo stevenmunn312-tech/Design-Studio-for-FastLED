@@ -356,6 +356,9 @@ interface UiState {
   helpNodeReference: HelpNodeReferenceState
   recoverOpen: boolean
   templatesOpen: boolean
+  /** The first-launch showcase: a full-screen show that greets a first visit
+   *  and can be watched again from the File menu. Session-only. */
+  showcaseOpen: boolean
   projectsOpen: boolean
   ratingsOpen: boolean
   newProjectPrompt: NewProjectPromptState
@@ -447,6 +450,8 @@ interface UiState {
   closeRecover: () => void
   openTemplates: () => void
   closeTemplates: () => void
+  openShowcase: () => void
+  closeShowcase: () => void
   openProjects: () => void
   closeProjects: () => void
   openRatings: () => void
@@ -613,6 +618,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
   recoverOpen: false,
   templatesOpen: false,
+  showcaseOpen: false,
   ratingsOpen: false,
   projectsOpen: false,
   newProjectPrompt: { open: false, projectName: '', actionLabel: 'creating a new project', destinationLabel: 'a new blank project' },
@@ -846,6 +852,8 @@ export const useUiStore = create<UiState>((set, get) => ({
   closeRecover: () => set({ recoverOpen: false }),
   openTemplates: () => set({ templatesOpen: true }),
   closeTemplates: () => set({ templatesOpen: false }),
+  openShowcase: () => set({ showcaseOpen: true }),
+  closeShowcase: () => set({ showcaseOpen: false }),
   openRatings: () => set({ ratingsOpen: true }),
   closeRatings: () => set({ ratingsOpen: false }),
   openProjects: () => set({ projectsOpen: true }),

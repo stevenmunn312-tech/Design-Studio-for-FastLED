@@ -286,3 +286,12 @@
     display: none;
   }
 }
+
+/* Held black under the first-launch showcase and while a first visit is
+   being decided. One below the showcase (130), above the workspace's popups. */
+.showcaseCover {
+  position: fixed;
+  inset: 0;
+  z-index: 129;
+  background: #000;
+}

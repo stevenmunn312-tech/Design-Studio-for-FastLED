@@ -4,6 +4,7 @@ import { STARTER_TEMPLATES, buildBoardAwareStarter, type StarterTemplate } from 
 import { starterPlayerPatterns, starterShowPatterns, starterSlideshowPatterns } from '../state/patterns/starterShowPatterns'
 import type { SavedPattern } from '../state/patterns/patternLibrary'
 import { useMusicStore } from '../state/player/musicStore'
+import { usePlayerTransport } from '../state/player/playerTransport'
 import { waitForMusicLibraryRestore } from '../state/player/musicLibraryPersistence'
 import { DEMO_TRACK_FILE, fetchDemoTrack } from '../state/player/demoTrack'
 import { performanceOptionsFromProperties } from '../codegen/performanceGenerator'
@@ -343,4 +344,75 @@ export function startBlankCanvas(options?: StartFlowOptions) {
   useUiStore.getState().setHardwareShelfCategory(BLANK_BENCH_SHELF_CATEGORY)
   finishStartFlow('blank', 'Started with a blank canvas', undefined, options)
   landOnStartingWorkspace()
+}
+
+/** The board and matrix the first-launch showcase plays its show on. */
+export const SHOWCASE_BOARD_PROFILE = 'generic-esp32-s3-n16r8-44pin-dual-usbc'
+export const SHOWCASE_MATRIX_SIZE = 32
+/** How long the show waits for the demo track before giving up. */
+const SHOWCASE_TRACK_WAIT_MS = 15_000
+
+/**
+ * Start the show the first-launch showcase plays: the Music Player starter as
+ * a project of its own, with its demo track running. Resolves false when the
+ * person cancels the save prompt or the track never loads, having said why.
+ *
+ * It is a start choice like any starter, so open work is offered a save first.
+ * A first visit has a blank project, which a starter replaces without asking.
+ *
+ * The starter is then set up for the screen it is about to be shown on:
+ *  - the ESP32-S3 N16R8, the board this show is built for, with every part's
+ *    pins assigned again for it (the starter took them from whichever board
+ *    was open, and the SD card would sit on a pin the S3 does not have);
+ *  - a 32 x 32 matrix, the showcase opener's size, so the lights do not
+ *    change size when the show takes over;
+ *  - the Graph workspace with the preview open and running, because the
+ *    preview evaluates at full rate, and owns the music player, only then.
+ */
+export async function openShowcaseShow(): Promise<boolean> {
+  if (!await openStarterProject('generative-show', { closeTemplates: true })) return false
+  const board = useGraphStore.getState().nodes.find((node) => node.data.nodeType === 'Board')
+  if (board) useGraphStore.getState().selectBoardProfile(board.id, SHOWCASE_BOARD_PROFILE)
+  const placed = rootGraphNodes(useGraphStore.getState())
+  const profile = selectedPhysicalBoardProfile(placed)
+  if (profile) {
+    useGraphStore.setState({
+      nodes: retargetHardwarePins(placed, profile, profile.compatibleFqbns[0] ?? useUploadStore.getState().selectedFqbn).nodes,
+    })
+  }
+  const graph = useGraphStore.getState()
+  const output = graph.nodes.find((node) => node.data.nodeType === 'MatrixOutput')
+  if (output) graph.updateNodeProperties(output.id, { width: SHOWCASE_MATRIX_SIZE, height: SHOWCASE_MATRIX_SIZE })
+  // Setting the show up is not something to undo into.
+  useGraphStore.temporal.getState().clear()
+
+  const ui = useUiStore.getState()
+  ui.showGraphWithPreview()
+  if (!ui.evaluationRunning) ui.toggleEvaluation()
+
+  // `localTrack` is the track the transport under the preview has loaded.
+  for (let waited = 0; waited < SHOWCASE_TRACK_WAIT_MS && !usePlayerTransport.getState().localTrack; waited += 150) {
+    await new Promise((resolve) => setTimeout(resolve, 150))
+  }
+  const transport = usePlayerTransport.getState()
+  if (!transport.localTrack) {
+    ui.setStatus('The demo track did not load, so the show has no music to follow', 'error')
+    return false
+  }
+  if (!transport.playing) {
+    transport.dispatchControls({ sourceId: 'showcase', playPause: true, previous: false, next: false })
+  }
+  return true
+}
+
+/**
+ * Lay the showcase's project out for the canvas the person is about to see.
+ * The starter laid itself out under the showcase, before its matrix and board
+ * changed; not an Undo step.
+ */
+export function settleShowcaseProject() {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    runTidy({ quiet: true, scope: 'all' })
+    useGraphStore.temporal.getState().clear()
+  }))
 }

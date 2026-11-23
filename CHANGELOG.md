@@ -9,6 +9,15 @@ share link, migrating it where a shape has changed.
 
 ## [Unreleased]
 
+### Added
+
+- A first visit opens on a light show instead of the workspace: Opaline Sunset
+  with a Play button, then the Music Player show running to its demo track as
+  bare lights, then **Enter the Studio**, which lands in that show's project
+  on an ESP32-S3 with the graph laid out. **Skip to the studio** leads to the
+  Start Gallery, where a first visit used to begin. **File > Watch the Intro**
+  plays it again.
+
 ### Changed
 
 - The LED previews show the light the LEDs emit. An LED is far brighter in

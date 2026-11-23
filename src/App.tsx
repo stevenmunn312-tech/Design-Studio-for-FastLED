@@ -27,7 +27,7 @@ import { workspaceLoadStatus } from './utils/workspacePayload'
 import { pushSnapshot } from './state/snapshotHistory'
 import { blankWorkspace, captureWorkspace } from './state/workspacePersistence'
 import { nextDefaultProjectName } from './utils/projectFileIO'
-import { landOnStartingWorkspace } from './utils/startFlow'
+import { landOnStartingWorkspace, openShowcaseShow, settleShowcaseProject } from './utils/startFlow'
 import TrustBanner from './components/TrustBanner/TrustBanner'
 import GraphHealthDrawer from './components/GraphHealth/GraphHealthDrawer'
 import PerformanceDeckMidiBridge from './components/PerformanceDeck/PerformanceDeckMidiBridge'
@@ -60,6 +60,8 @@ const HelpModal = lazy(() => import('./components/HelpModal/HelpModal'))
 const NewProjectPrompt = lazy(() => import('./components/NewProjectPrompt/NewProjectPrompt'))
 const RecoverPopup = lazy(() => import('./components/Recover/RecoverPopup'))
 const TemplatesPopup = lazy(() => import('./components/Templates/TemplatesPopup'))
+// The show that greets a first visit; File > Watch the Intro opens it again.
+const FirstLaunchShowcase = lazy(() => import('./components/Showcase/FirstLaunchShowcase'))
 const PatternRatingsPopup = lazy(() => import('./components/PatternRatings/PatternRatingsPopup'))
 
 /** Input types with no text of their own to undo. */
@@ -94,6 +96,14 @@ export default function App() {
   const helpOpen = useUiStore((s) => s.helpOpen)
   const recoverOpen = useUiStore((s) => s.recoverOpen)
   const templatesOpen = useUiStore((s) => s.templatesOpen)
+  const showcaseOpen = useUiStore((s) => s.showcaseOpen)
+  // Whether this might be a first visit, known before anything is drawn: no
+  // project and no start choice in this browser. The helper's project folder
+  // is read later and settles it; until then the screen is held black, so a
+  // first visit never sees the workspace ahead of its showcase.
+  const [firstVisitUndecided, setFirstVisitUndecided] = useState(
+    () => useProjectStore.getState().projects.length === 0 && useUiStore.getState().lastStartChoice === null,
+  )
   const projectsOpen = useUiStore((s) => s.projectsOpen)
   const ratingsOpen = useUiStore((s) => s.ratingsOpen)
   const toggleSidebar = useUiStore((s) => s.toggleSidebar)
@@ -288,8 +298,7 @@ export default function App() {
       }
       const state = useProjectStore.getState()
       // Nothing saved on this machine at all, here or in the helper's project
-      // folder: someone's very first visit. Greet it with the Start Gallery,
-      // whose first card is the recommended first patch.
+      // folder: someone's very first visit. Greet it with the showcase.
       const firstVisit = state.projects.length === 0 && useUiStore.getState().lastStartChoice === null
       const current = state.projects.find((project) => project.id === state.currentProjectId)
         ?? state.projects[0]
@@ -301,7 +310,10 @@ export default function App() {
       await loadWorkspaceAfterParts(current.workspace.nodes, current.workspace.edges, current.workspace)
       if (cancelled) return
       landOnStartingWorkspace()
-      if (firstVisit) useUiStore.getState().openTemplates()
+      // A first visit opens on the showcase. Its Skip leads to the Start
+      // Gallery, which is what a first visit used to open on.
+      if (firstVisit) useUiStore.getState().openShowcase()
+      setFirstVisitUndecided(false)
       await waitForMusicLibraryRestore()
       if (cancelled) return
       workspaceHydrated.current = true
@@ -321,7 +333,9 @@ export default function App() {
         }
       }
     }
-    void init()
+    // However start-up ends (a share link, a failure, an early return), the
+    // first-visit hold is released, or the screen would stay black.
+    void init().finally(() => { if (!cancelled) setFirstVisitUndecided(false) })
     return () => { cancelled = true }
   }, [])
 
@@ -849,6 +863,11 @@ export default function App() {
       <div className={styles.statusShell}><StatusBar /></div>
       <PerformanceDeckMidiBridge />
       <LiveTouchScreen />
+      {/* Black from the first frame while the showcase is up or a first visit
+          is still being decided. Outside the dialogs' Suspense boundary: that
+          one shows nothing while any dialog is still loading, the showcase
+          included, and the workspace showed through. */}
+      {(showcaseOpen || firstVisitUndecided) && <div className={styles.showcaseCover} />}
       <ErrorBoundary label="This dialog" floating>
       <Suspense fallback={null}>
         <AppDialogHost />
@@ -868,6 +887,19 @@ export default function App() {
         <NewProjectPrompt />
         {recoverOpen && <RecoverPopup />}
         {templatesOpen && <TemplatesPopup />}
+        {showcaseOpen && (
+          <FirstLaunchShowcase
+            onPlay={openShowcaseShow}
+            onSkip={() => {
+              useUiStore.getState().closeShowcase()
+              useUiStore.getState().openTemplates()
+            }}
+            onOpenStudio={() => {
+              useUiStore.getState().closeShowcase()
+              settleShowcaseProject()
+            }}
+          />
+        )}
         {projectsOpen && <ProjectsPopup />}
         {ratingsOpen && <PatternRatingsPopup />}
       </Suspense>

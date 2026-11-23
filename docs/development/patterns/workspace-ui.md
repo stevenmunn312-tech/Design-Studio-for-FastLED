@@ -195,6 +195,27 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   that key. The W×H readout, streaming and recording stay on the physical
   one-row frame. The pane remains the one visible per-frame canvas; the node
   and bay previews stay SVG for the leak reason `HardwareLedPreview` explains.
+- **The first-launch showcase sits over the real workspace; it does not fake
+  one.** `FirstLaunchShowcase` (`src/components/Showcase/`) is mounted from
+  `uiStore.showcaseOpen`, which `App` opens for a first visit (no project and
+  no start choice, the rule that used to open the Start Gallery) and
+  **File > Watch the Intro** opens again. Its opener is a bundled pattern
+  evaluated on its own. Its show is the Music Player starter loaded as a
+  project by `openShowcaseShow` (`startFlow.ts`), running in the workspace
+  underneath; the showcase draws the preview's own frames from
+  `terminalFrameTap` with the preview's `WebGLLEDRenderer`, so nothing is
+  rendered twice and a light is the same light as on Stage. Traps that cost a
+  day: the preview only evaluates at full rate and owns the music player while
+  its panel is open and unfrozen, so the show switches to Graph with the
+  preview open (on Hardware it stayed black); the starter takes its pins from
+  the board that was open, so after the board is set they are assigned again
+  (`retargetHardwarePins`); the starter lays itself out under the showcase
+  before its matrix and board change, so `settleShowcaseProject` tidies on the
+  way in; and the black cover (`App.module.css` `.showcaseCover`) is drawn
+  outside the dialogs' shared `Suspense` boundary, which shows nothing at all
+  while any dialog is still loading. The showcase is at z-index 130: above
+  the popups (120), below the prompts (140), so a save prompt raised while
+  the show starts is seen and not buried under the black.
 - **LED values and screen colours are two scales; know which a frame holds.**
   An LED is linear (value 110 of 255 is 43% of full light) and a screen is not
   (pixel 110 is about 16%). A frame out of an LED output holds LED values, the

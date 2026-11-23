@@ -8,6 +8,7 @@ import { evaluateGraphFull, type Frame } from '../../state/graphEvaluator'
 import { usePreviewStore } from '../../state/previewStore'
 import { useShowPlayback } from '../../state/player/showPlayback'
 import { localTrackTitle, usePlayerTransport } from '../../state/player/playerTransport'
+import { terminalFrameTap } from './terminalFrameTap'
 import { readAudioFileTags, type AudioTags } from '../../audio/id3Tags'
 import { usePatternLibrary } from '../../state/patterns/patternLibrary'
 import { useMusicStore } from '../../state/player/musicStore'
@@ -717,6 +718,8 @@ export default function LEDPreview() {
           }
           if (pass === selectedPass || outputs.size === 0) { outputs = result.outputs; terminalFrame = result.frame }
         }
+        // For the first-launch showcase; see terminalFrameTap.ts.
+        terminalFrameTap.frame = terminalFrame
         // Every pass this frame has read the live beats; release them so the
         // next engine frame starts clean (see state/audio/beatLatch.ts).
         consumeLiveBeats()
