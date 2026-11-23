@@ -167,9 +167,11 @@ an ESP32-S3.
 - Nothing is submitted or published. The Store holds only the certified,
   unpublished 1.0.0 dry run; leave it alone.
 - Tags `v1.0.0` and `v1.0.1` exist on GitHub with private draft releases.
-- On 2026-11-23, `LongPathsEnabled` was still `0` on Steve's PC after the test.
-  To turn it back on, run in an administrator PowerShell:
-  `Set-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem LongPathsEnabled 1`
+- `LongPathsEnabled` on Steve's PC: `0` through the tests of 2026-11-23, set
+  back to `1` by Steve that evening for bench work. To reproduce the blocker
+  again, set it to `0` in an administrator PowerShell
+  (`Set-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem LongPathsEnabled 0`)
+  and use the `storetest-longname` account.
 - The `storetest-longname` account still exists and can be kept for the retest.
 
 ## Rules that apply
