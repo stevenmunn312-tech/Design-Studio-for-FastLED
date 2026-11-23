@@ -42,6 +42,13 @@ share link, migrating it where a shape has changed.
   track included, never got past about three quarters. It now reaches full
   in that music's loud passages. Very loud masters spend more time near the
   top than before. Microphone and line input are unchanged.
+- A Performance Generator show whose collection has audio patterns follows
+  its song the way a Music Player does. The patterns that listen fade to
+  black whenever the song goes silent and come back as it returns, and the
+  patterns move slower through quiet passages and faster through loud ones
+  and at higher tempos. Patterns that do not listen keep playing, and the
+  show's own events keep song time. The preview and the SD player agree.
+  Bake the preview again to see it in a show baked before.
 
 ### Fixed
 

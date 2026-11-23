@@ -593,7 +593,15 @@ export function generatePlayerSketch(
     ? sequenceTransitions || (rotates && (patternTiming.transitionSec > 0 || !!opts.controlGraph?.timingInputs.transitionSec))
     : transitionIds.length > 0
   const drawsFrame = c.hasPrimaryLedOutput || collection
-  const fadesAudio = genericCollection && reactivePatterns(renderers)
+  // A show-file player whose collection listens to a song with a baked
+  // envelope takes the music as the Music Player takes its decoder: silence
+  // fades the listening patterns and the pattern clock follows loudness and
+  // tempo, as renderShowFrame does in the preview.
+  // Only a collection that says a pattern listens: hand-built renderers
+  // without the answer keep song time.
+  const bakedListening = !genericPlayer && collection && !!opts.audioEnvelope
+    && (renderers?.audioReactive?.some(Boolean) ?? false)
+  const fadesAudio = (genericCollection && reactivePatterns(renderers)) || bakedListening
   // A wired Enabled can switch the overlay on, as in the preview.
   const particleLive = opts.controlGraph?.particleInputs ?? {}
   const particles = !genericPlayer || (genericCollection && playerParticlesActive(opts.particleFx, particleLive))
@@ -656,7 +664,9 @@ export function generatePlayerSketch(
   // baked envelope both measure absolute RMS), so reading it needs the meters.
   // The motion clock reads loudness and tempo whenever the collection's
   // patterns get live analysis (motionClockCpp, state/player/motionClock.ts).
-  const motionClock = collection && decoderTap
+  // A baked show has no live tempo, so its clock reads the show's own.
+  const motionClock = collection && (decoderTap || bakedListening)
+  const showTempo = bakedListening && !decoderTap
   const needsLoudness = motionClock || /\b_audioLoudness\b/.test(consumerCode)
   const needsStereoLevels = hasStereoVu || needsLoudness || /\b_audio(?:Left|Right)Level\b/.test(consumerCode)
   const needsSpectrum = /\b_audioSpectrum\b/.test(consumerCode)
@@ -1703,7 +1713,7 @@ void audio_info(const char* info) {
 static const uint8_t PLAYER_MAX_VOLUME = ${c.maxVolume};
 uint32_t audioPosMs = 0;      // elapsed playback time, never read-ahead bytes
 uint32_t showDurationMs = 0;  // header duration; also the EOF event boundary
-bool audioEnded = false;
+${showTempo ? 'float showBpm = 120.0f;       // header tempo; paces the pattern clock\n' : ''}bool audioEnded = false;
 // True only after the decoder accepted a playable file. Kept separately from
 // pause/EOF so the OLED can distinguish a quiet player from a broken one.
 bool playbackReady = false;
@@ -1861,7 +1871,7 @@ ${!genericPlayer ? `bool loadShowFile(const char* path) {
   f.read(header, 15);
   if (header[0]!='S'||header[1]!='H'||header[2]!='O'||header[3]!='W') { f.close(); return false; }
 
-  showDurationMs = ((uint32_t)header[7]) | ((uint32_t)header[8]<<8) |
+${showTempo ? '  showBpm = (float)(header[5] | (header[6] << 8)) / 10.0f;\n' : ''}  showDurationMs = ((uint32_t)header[7]) | ((uint32_t)header[8]<<8) |
                    ((uint32_t)header[9]<<16) | ((uint32_t)header[10]<<24);
   eventCount = ((uint32_t)header[11]) | ((uint32_t)header[12]<<8) |
                ((uint32_t)header[13]<<16) | ((uint32_t)header[14]<<24);
@@ -2927,7 +2937,7 @@ ${fadesAudio && reactiveAudio ? `  // Fade the player down during genuine silenc
   float audioFadeRate = audioFadeTarget < audioFade ? ${SILENCE_RELEASE_RATE}f : ${SILENCE_ATTACK_RATE}f;
   audioFade += (audioFadeTarget - audioFade) * audioFadeRate;
 ` : ''}
-${motionClock ? `${motionClockCpp().join('\n')}\n  float t = motionMs / 1000.0f;` : '  float t = posMs / 1000.0f;'}
+${motionClock ? `${motionClockCpp('posMs', '_audioLoudness', showTempo ? 'showBpm' : '_audioBpm').join('\n')}\n  float t = motionMs / 1000.0f;` : '  float t = posMs / 1000.0f;'}
 ${rampSample}
 ${patternDraw}${!genericPlayer ? `  // Beat flash overlay
   if (flashLevel > 0.01f) {

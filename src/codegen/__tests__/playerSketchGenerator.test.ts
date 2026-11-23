@@ -26,6 +26,39 @@ describe('playerSketchGenerator', () => {
     expect(/float\s+_audioBass\b/.test(sketch)).toBe(fades)
   })
 
+  // A show-file player takes its song's baked envelope as the Music Player
+  // takes the decoder, when the collection listens: renderShowFrame's twin.
+  it('fades and paces a show-file collection that listens to a baked envelope', () => {
+    const renderers = (audioReactive: boolean[]) => ({
+      buffers: [], helpers: [],
+      functions: ['void render_p0(uint32_t ms) { (void)ms; }', 'void render_p1(uint32_t ms) { (void)ms; }'],
+      count: 2, params: [], audioReactive,
+    })
+    const listening = generatePlayerSketch({}, renderers([true, false]), { audioEnvelope: true })
+    expect(listening).toContain('float audioEnergy = constrain((_audioBass + _audioMids + _audioTreble) / 3.0f, 0.0f, 1.0f);')
+    expect(listening).toContain('static const bool PATTERN_AUDIO_REACTIVE[2] = { true, false };')
+    expect(listening).toContain('? fadeFor(prevPatternId) + (fadeFor(patternId) - fadeFor(prevPatternId)) * tp')
+    // The clock reads the baked loudness and the tempo in the show's header.
+    expect(listening).toContain('showBpm = (float)(header[5] | (header[6] << 8)) / 10.0f;')
+    expect(listening).toContain('    float bpm = showBpm;')
+    expect(listening).toContain('fmaxf(_audioLoudness, 0.0f)')
+    expect(listening).toContain('  float t = motionMs / 1000.0f;')
+    const loop = listening.slice(listening.indexOf('void loop() {'))
+    expect(loop.indexOf('updateShowAudio(posMs);')).toBeLessThan(loop.indexOf('float audioEnergy'))
+    expect(loop.indexOf('float audioEnergy')).toBeLessThan(loop.indexOf('static uint32_t motionPos'))
+
+    // No pattern listens, or the show carries no envelope: song time, no fade.
+    for (const plain of [
+      generatePlayerSketch({}, renderers([false, false]), { audioEnvelope: true }),
+      generatePlayerSketch({}, renderers([true, false]), { audioEnvelope: false }),
+    ]) {
+      expect(plain).not.toContain('audioFade')
+      expect(plain).not.toContain('motionMs')
+      expect(plain).not.toContain('showBpm')
+      expect(plain).toContain('  float t = posMs / 1000.0f;')
+    }
+  })
+
   // A track whose header the library gave up on stops it without an EOF;
   // the Music Player moves on rather than sitting silent until Next.
   it('skips a track that stopped before it played, but not a paused one', () => {

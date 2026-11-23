@@ -20,6 +20,9 @@ import { applyRamp, blankRampChannel, channelAt, type RampChannel } from './show
 import { SHOW_DEFAULTS } from './showEventMeta'
 import { clearInstanceStateByPrefix, touchInstanceStatePrefix } from '../evaluator/memory'
 import type { PatternEntryPolicy } from '../patterns/patternPick'
+import { isAudioReactiveSubgraph } from '../patterns/audioReactiveSubgraph'
+import { blankMotionClock, motionClockStep, type MotionClock } from './motionClock'
+import { silenceFadeStep, silenceFadeTarget } from './playerDynamics'
 
 export interface ShowState {
   pattern: string
@@ -300,6 +303,21 @@ function detectorCursorFor(show: ShowFile): ShowDetectorCursor {
   return cursor
 }
 
+// What a collection show takes from its song while it plays, as the Music
+// Player takes it from the decoder: the pattern clock runs on the music's
+// loudness and tempo (motionClock.ts), and the patterns that listen go to
+// black in silence (playerDynamics.ts). One show plays at a time, so the
+// state is one object, like `entrySlots`. The performance player keeps the
+// same two in its loop (`motionMs`, `audioFade`).
+const liveMusic: { motion: MotionClock | null; fade: number | null; fadeMs: number } = { motion: null, fade: null, fadeMs: 0 }
+
+/** Forget the motion clock and the silence fade, for a test that starts clean. */
+export function resetShowMusicState(): void {
+  liveMusic.motion = null
+  liveMusic.fade = null
+  liveMusic.fadeMs = 0
+}
+
 /** The collection group a state plays, or undefined when it plays a built-in. */
 function stateGroupId(show: ShowFile, st: ShowState): string | undefined {
   return show.patternSet && st.patternIndex >= 0 ? show.patternSet[st.patternIndex] : undefined
@@ -412,10 +430,22 @@ export function renderShowFrame(
   const tr = activeTransitionAt(show, timeMs)
   const fromState = tr ? showStateAt(show, tr.startMs - 1) : null
   const samePattern = !fromState || showRendererKey(show, fromState) === showRendererKey(show, st)
+  // A collection that listens to a song with a baked envelope moves with the
+  // music: the patterns' clock is the song position warped by its loudness
+  // and the show's tempo. Events, transitions and ramps keep song time.
+  const listens = (groupId: string | undefined) => !!groupId && isAudioReactiveSubgraph(groups[groupId]?.nodes ?? [])
+  const music = show.patternSet?.some(listens) ? audioOverride : null
+  let patternMs = timeMs
+  if (music) {
+    liveMusic.motion ??= blankMotionClock(timeMs / 1000)
+    patternMs = motionClockStep(liveMusic.motion, timeMs / 1000, Number(music.loudness ?? 0), show.bpm) * 1000
+  } else {
+    liveMusic.motion = null
+  }
   const clockFor = (state: ShowState, slot: 'current' | 'incoming') => {
     const groupId = stateGroupId(show, state)
-    if (!groupId) return timeMs
-    return entryClock(groupId, timeMs, policyOf(state.patternIndex), slot)
+    if (!groupId) return patternMs
+    return entryClock(groupId, patternMs, policyOf(state.patternIndex), slot)
   }
   let result: Frame
   if (tr && fromState && !samePattern) {
@@ -428,16 +458,35 @@ export function renderShowFrame(
     result = renderStateFrame(show, st, clockFor(st, 'current'), W, H, groups, useGroupInputs, audioOverride, trusted)
   }
 
-  const b = Math.max(0, Math.min(1, st.brightness / 255))
+  // Silence fade: a pattern that listens goes to black as the song goes quiet
+  // and comes back as it returns; one that does not keeps playing. Stepped by
+  // the frames the position moved, so a bake at another rate fades alike and
+  // a pause holds. Mid-transition the factor crosses with the composite.
+  let fade = 1
+  if (music) {
+    const target = silenceFadeTarget((music.micBass + music.micMids + music.micTreble) / 3)
+    liveMusic.fade = liveMusic.fade === null ? target : silenceFadeStep(liveMusic.fade, target, (timeMs - liveMusic.fadeMs) * 0.06)
+    liveMusic.fadeMs = timeMs
+    const level = liveMusic.fade
+    const fadeOf = (state: ShowState) => (listens(stateGroupId(show, state)) ? level : 1)
+    fade = tr && fromState && !samePattern
+      ? fadeOf(fromState) + (fadeOf(st) - fadeOf(fromState)) * tr.progress
+      : fadeOf(st)
+  } else {
+    liveMusic.fade = null
+  }
+
+  const b = Math.max(0, Math.min(1, st.brightness / 255)) * fade
   const flash = beatFlashAt(show, timeMs)
   const ov = particleOverlayAt(show, timeMs, W, H)
   for (let y = 0; y < result.length; y++) {
     for (let x = 0; x < result[y].length; x++) {
       const px = result[y][x]
       // Firmware applies the white flash + additive particle sparks to the raw
-      // frame, then FastLED's global brightness scales the result in show().
-      // Keep that order so a brightness of zero (silence) is truly dark and the
-      // sparks fade with it — and so preview matches the device.
+      // frame, then the silence fade, then FastLED's global brightness scales
+      // the result in show(). Keep that order so a brightness of zero
+      // (silence) is truly dark and the sparks fade with it — and so preview
+      // matches the device.
       const sp = ov?.[y][x]
       px.r = Math.round((Math.min(255, px.r + (255 - px.r) * flash + (sp?.r ?? 0))) * b)
       px.g = Math.round((Math.min(255, px.g + (255 - px.g) * flash + (sp?.g ?? 0))) * b)

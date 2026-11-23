@@ -89,8 +89,10 @@ export function silenceFadeTarget(energy: number): number {
   return Math.max(0, Math.min(1, (e - SILENCE_ENERGY_FLOOR) / SILENCE_ENERGY_RANGE))
 }
 
-/** One frame of the fade moving toward `target`. */
-export function silenceFadeStep(fade: number, target: number): number {
+/** The fade moving toward `target` for `frames` 60 Hz frames: one for a
+ *  player stepped every frame, the frames a show's position moved for a show
+ *  preview, which is also drawn at other rates and seeked. */
+export function silenceFadeStep(fade: number, target: number, frames = 1): number {
   const rate = target < fade ? SILENCE_RELEASE_RATE : SILENCE_ATTACK_RATE
-  return fade + (target - fade) * rate
+  return fade + (target - fade) * (frames === 1 ? rate : 1 - Math.pow(1 - rate, Math.max(0, frames)))
 }

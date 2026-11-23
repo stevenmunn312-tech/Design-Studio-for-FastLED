@@ -87,6 +87,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   Decoder-fed Beat Detect nodes can supply SD control pulses; other unsupported
   audio/control sources must fail validation rather than silently use the decoder.
   Authored Performance Generator event schedules do not use this option.
+- **A collection show takes its song the same two ways.** When a Performance
+  Generator show's collection listens and the show carries a baked envelope,
+  `renderShowFrame` (`showPreview.ts`) and the show-file player
+  (`bakedListening` in `playerSketchGenerator.ts`) run the motion clock and
+  the silence fade from that envelope, with the Music Player's constants and
+  the same `PATTERN_AUDIO_REACTIVE[]` answer. Tempo is the show's own `bpm`
+  (`showBpm`, read from the header), since a baked show has no live tempo.
+  Events, ramps and transitions keep song time. The preview keeps one clock
+  and one fade for whichever show is playing, and steps the fade by the
+  frames the position moved (`silenceFadeStep`'s third argument), so a bake
+  at another frame rate fades alike and a pause holds. The authored
+  `SET_BRIGHTNESS` blackout `generateShow` writes for a silent gap still
+  applies, and still covers shows of built-in patterns, which do not listen.
 - **Music Source is where the music comes from, not a second player.**
   `musicSource` is `SD Card`, `Bluetooth` or `Internet Radio`; `musicPlayerSource` and
   `musicPlayerHasMusic` in `src/state/upload/buildMode.ts` are the one answer

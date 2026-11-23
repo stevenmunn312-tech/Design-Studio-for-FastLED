@@ -11,7 +11,8 @@ vi.mock('../../graphEvaluator', async (importOriginal) => {
 })
 
 import { evaluateGraph } from '../../graphEvaluator'
-import { showStateAt, beatFlashAt, renderShowFrame, sectionAt } from '../showPreview'
+import { showStateAt, beatFlashAt, renderShowFrame, resetShowMusicState, sectionAt } from '../showPreview'
+import { MOTION_QUIET } from '../motionClock'
 import type { ShowEvent, ShowFile } from '../../../types/showFile'
 import { encodeSpectrumBytes, SPECTRUM_TRACK_BINS } from '../../../audio/spectrumTrack'
 
@@ -533,5 +534,79 @@ describe('renderShowFrame', () => {
     }
     const px = renderShowFrame(dimShow, 0, 1, 1)[0][0]
     expect(px).toEqual({ r: 64, g: 64, b: 64 })
+  })
+})
+
+// A collection show takes the music as the Music Player does: the patterns
+// that listen go to black in silence, and their clock follows the loudness.
+describe('renderShowFrame with a listening collection', () => {
+  const mk = (id: string, nodeType: string, properties: Record<string, unknown>, inputs: unknown[] = [], outputs: unknown[] = []) =>
+    ({ id, type: 'studioNode', position: { x: 0, y: 0 }, data: { label: nodeType, nodeType, category: 'pattern', properties, inputs, outputs } })
+  const white = (listening: boolean) => ({
+    nodes: [
+      mk('white', 'SolidColor', { r: 255, g: 255, b: 255 }, [], [{ id: 'frame', dataType: 'frame' }]),
+      ...(listening ? [mk('audio', 'GroupInput', { paramId: 'audio' }, [], [{ id: 'out', dataType: 'audio' }])] : []),
+      mk('go', 'GroupOutput', {}, [{ id: 'frame', dataType: 'frame' }], []),
+    ],
+    edges: [{ id: 'e', source: 'white', sourceHandle: 'frame', target: 'go', targetHandle: 'frame' }],
+  })
+  const groups = { listens: white(true), plain: white(false) } as unknown as Parameters<typeof renderShowFrame>[4]
+  /** A 10 Hz envelope with every band and both meters at `levels`. */
+  const musicShow = (levels: number[], events: ShowEvent[], patternSet = ['listens', 'plain']): ShowFile => ({
+    version: 2, songTitle: 'M', durationMs: levels.length * 100, bpm: 120, patternSet,
+    audio: {
+      version: 3, rateHz: 10, bass: levels, mids: levels, treble: levels, leftLevel: levels, rightLevel: levels, channelCount: 2,
+      spectrum: encodeSpectrumBytes(new Uint8Array(SPECTRUM_TRACK_BINS * levels.length)),
+    },
+    events: [{ t: 0, cmd: 'SET_BRIGHTNESS', params: { value: 255 } }, ...events],
+  })
+  const red = (frame: ReturnType<typeof renderShowFrame>) => frame[0][0].r
+
+  it('holds a listening pattern at black in silence and leaves the others lit', () => {
+    resetShowMusicState()
+    const silent = musicShow(new Array<number>(20).fill(0), [
+      { t: 0, cmd: 'SET_PATTERN', params: { index: 0 } },
+      { t: 1000, cmd: 'SET_PATTERN', params: { index: 1 } },
+    ])
+    expect(red(renderShowFrame(silent, 0, 2, 2, groups))).toBe(0)
+    expect(red(renderShowFrame(silent, 500, 2, 2, groups))).toBe(0)
+    expect(red(renderShowFrame(silent, 1500, 2, 2, groups))).toBe(255)
+  })
+
+  it('fades out as the song goes quiet and back as it returns, at any frame rate', () => {
+    // One second loud, two silent, one loud.
+    const levels = [...new Array<number>(10).fill(1), ...new Array<number>(20).fill(0), ...new Array<number>(10).fill(1)]
+    const song = musicShow(levels, [{ t: 0, cmd: 'SET_PATTERN', params: { index: 0 } }])
+    const play = (fps: number) => {
+      resetShowMusicState()
+      const at: Record<number, number> = {}
+      for (let i = 0; i <= 4 * fps; i++) {
+        const ms = Math.round((i / fps) * 1000)
+        at[ms] = red(renderShowFrame(song, ms, 2, 2, groups))
+      }
+      return at
+    }
+    const smooth = play(60)
+    expect(smooth[0]).toBe(255)
+    // The release is slow: a short pause dims, it does not cut.
+    expect(smooth[1200]).toBeGreaterThan(100)
+    expect(smooth[1200]).toBeLessThan(255)
+    expect(smooth[2800]).toBeLessThan(5)
+    expect(smooth[3500]).toBeGreaterThan(250)
+    const coarse = play(20)
+    for (const ms of [1200, 2000, 2800, 3500]) expect(Math.abs(coarse[ms] - smooth[ms])).toBeLessThan(12)
+  })
+
+  it('runs the listening collection on the motion clock and the rest on song time', () => {
+    const ticks = (patternSet: string[]) => {
+      resetShowMusicState()
+      const quiet = musicShow(new Array<number>(30).fill(0), [{ t: 0, cmd: 'SET_PATTERN', params: { index: 0 } }], patternSet)
+      vi.mocked(evaluateGraph).mockClear()
+      for (let i = 0; i <= 120; i++) renderShowFrame(quiet, (i / 60) * 1000, 2, 2, groups)
+      return Number(vi.mocked(evaluateGraph).mock.calls.at(-1)?.[2])
+    }
+    // Two seconds of song: 120 ticks on song time, 0.4x of that in silence.
+    expect(ticks(['plain'])).toBeCloseTo(120, 3)
+    expect(ticks(['listens'])).toBeCloseTo(120 * MOTION_QUIET, 3)
   })
 })
