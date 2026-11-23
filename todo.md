@@ -16,17 +16,32 @@ this file when they are done.
 ## Halted 2026-11-23: release blocker
 
 **Do not submit or publish anything.** With Windows long-path support off
-(the Windows default), fbuild cannot extract the ESP32 toolchain or Arduino
-framework at all: even its own short fallback folder `C:\fb-<hash>\` leaves
-files such as `esp_matter\connectedhomeip\...` past 260 characters. Seen on
-a new standard account with `LongPathsEnabled = 0` running Store package
-1.0.1 (log: `C:\Users\Public\Downloads\Uploading to COM3 (esp32esp32esp32s.txt`).
-fbuild suggests `fbuild --fix-win`. Every earlier passing run used this PC,
-where long paths are on machine-wide, so none of them covered this. It
-affects the Store package and the portable ZIP alike. No fix is chosen yet.
+(the Windows default), fbuild 2.5.52 cannot install the ESP32 toolchain or
+Arduino framework, so the app's default engine cannot build any ESP32 sketch.
+Seen on a new standard account with `LongPathsEnabled = 0` running Store
+package 1.0.1; it affects the Store package and the portable ZIP alike. Every
+earlier passing run used this PC with long paths on machine-wide, so none of
+them covered this. The cause, the measurements and the test conditions are in
+the [long-paths blocker](docs/release/long-paths-blocker.md) handoff.
+
+- Cause: fbuild's fallback accepts paths up to 247 characters, and the ESP32
+  packages need 245 to 290 below the cache root. No cache folder can work.
+- Reported upstream on 2026-11-23 as FastLED/fbuild#2156. FastLED/fbuild#2159
+  (a repair prompt at start-up) does not cover it: the app runs fbuild without
+  a terminal, and a standard user cannot approve the prompt.
+- arduino-cli installs and builds the ESP32-S3 under the same conditions
+  (Steve's test, 2026-11-23). Other ESP32 boards are untested.
+- Decision, 2026-11-23: wait for the fbuild fix. If it does not come, the
+  fallback is to have the app use arduino-cli for ESP32 boards when long paths
+  are off.
+
+- [ ] A fixed fbuild is released: move the pin, rerun the minimal project in
+  `tmp/fbuild-longpath-repro`, then the smoke test under Publish below.
 
 State: the Store holds only the certified, unpublished 1.0.0 dry run (leave
-it alone); tags `v1.0.0` and `v1.0.1` exist with private draft releases.
+it alone); tags `v1.0.0` and `v1.0.1` exist with private draft releases. The
+1.0.1 builds are also on an unlisted preview page on the website for one
+invited tester.
 
 ## Publish
 
