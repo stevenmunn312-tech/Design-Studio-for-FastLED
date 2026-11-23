@@ -51,7 +51,13 @@ function silentDecoderAudio(): AudioData {
  * firmware analyses the decoder's stream before its volume
  * (`_decoderVolumeComp`), and the preview has to match. So an element this
  * engine has taken over plays at full level into the graph, and a gain node
- * between the source and the speakers carries the volume; see `setVolume`. */
+ * between the source and the speakers carries the volume; see `setVolume`.
+ *
+ * Volume zero is the one level analysis does follow. A muted player is
+ * silent, a board whose decoder is at volume 0 measures silence and its
+ * lights rest, and lights that kept dancing to music nobody can hear would
+ * be the surprise. So analysis is fed through a gate that is open at any
+ * audible volume and closed at zero. */
 const clampVolume = (volume: number): number => (Number.isFinite(volume) ? Math.max(0, Math.min(1, volume)) : 1)
 
 export class DecoderAudioEngine {
@@ -66,6 +72,7 @@ export class DecoderAudioEngine {
   private sources = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>()
   private audibleSources = new WeakSet<HTMLMediaElement>()
   private volumeGains = new WeakMap<HTMLMediaElement, GainNode>()
+  private analysisGate: GainNode | null = null
   private element: HTMLMediaElement | null = null
   private source: MediaElementAudioSourceNode | null = null
   private analyser: AnalyserNode | null = null
@@ -132,14 +139,18 @@ export class DecoderAudioEngine {
       channelAnalyser.smoothingTimeConstant = 0
     }
 
-    source.connect(analyser)
-    source.connect(splitter)
+    const analysisGate = context.createGain()
+    analysisGate.gain.value = (this.volumeGains.get(element)?.gain.value ?? 1) > 0 ? 1 : 0
+    source.connect(analysisGate)
+    analysisGate.connect(analyser)
+    analysisGate.connect(splitter)
     splitter.connect(leftAnalyser, 0)
     splitter.connect(rightAnalyser, 1)
 
     this.element = element
     this.source = source
     this.analyser = analyser
+    this.analysisGate = analysisGate
     this.splitter = splitter
     this.leftAnalyser = leftAnalyser
     this.rightAnalyser = rightAnalyser
@@ -167,6 +178,8 @@ export class DecoderAudioEngine {
     if (gain) {
       gain.gain.value = clampVolume(volume)
       if (element.volume !== 1) element.volume = 1
+      // Silence is the one volume the lights follow; see the class comment.
+      if (element === this.element && this.analysisGate) this.analysisGate.gain.value = gain.gain.value > 0 ? 1 : 0
     } else {
       element.volume = clampVolume(volume)
     }
@@ -182,8 +195,8 @@ export class DecoderAudioEngine {
       current.removeEventListener('emptied', this.stopSampling)
     }
     this.stopSampling()
-    if (this.source && this.analyser) this.source.disconnect(this.analyser)
-    if (this.source && this.splitter) this.source.disconnect(this.splitter)
+    if (this.source && this.analysisGate) this.source.disconnect(this.analysisGate)
+    this.analysisGate?.disconnect()
     this.splitter?.disconnect()
     this.analyser?.disconnect()
     this.leftAnalyser?.disconnect()
@@ -191,6 +204,7 @@ export class DecoderAudioEngine {
     this.element = null
     this.source = null
     this.analyser = null
+    this.analysisGate = null
     this.splitter = null
     this.leftAnalyser = null
     this.rightAnalyser = null

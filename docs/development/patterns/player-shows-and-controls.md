@@ -762,7 +762,10 @@ that are easy to split across preview and firmware:
   volume therefore never touches `player.volume`: it goes through
   `DecoderAudioEngine.setVolume`, which keeps the element at 1 and carries the
   volume on a gain node between the source and the speakers, after the
-  analysis tap. The mono FFT feed is deliberately left uncompensated: it rides
+  analysis tap. Volume zero is the one level analysis does follow: a gate in
+  front of the analysers closes at zero and opens at any audible volume, so a
+  muted player rests the lights, as a board at decoder volume 0 measures
+  silence (`DECODER_VOLUME_TABLE[0]` is 0, and no compensation can undo it). The mono FFT feed is deliberately left uncompensated: it rides
   FastLED's own adaptive normalization and has no absolute scale to preserve,
   unlike a meter.
 - **The decoder tap's analysis runs in its own task on core 0, never in the
