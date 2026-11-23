@@ -1019,9 +1019,11 @@ export default function LEDPreview() {
     if (transport) playerRef.current?.pause()
   }, [transport])
 
-  // One volume for both modes: apply the shared value to the local element.
+  // One volume for both modes: apply the shared value to the local player.
+  // Through the decoder engine, never `player.volume`, so the lights do not
+  // follow the volume slider (see DecoderAudioEngine).
   useEffect(() => {
-    if (playerRef.current) playerRef.current.volume = volume
+    if (playerRef.current) useDecoderAudioStore.getState().setPlayerVolume(playerRef.current, volume)
   }, [volume, currentTrack])
 
   const openFilePicker = () => {
@@ -1102,7 +1104,7 @@ export default function LEDPreview() {
   const onLoadedMetadata = () => {
     const player = playerRef.current
     if (!player) return
-    player.volume = usePlayerTransport.getState().volume
+    useDecoderAudioStore.getState().setPlayerVolume(player, usePlayerTransport.getState().volume)
     setMusicDuration(Number.isFinite(player.duration) ? player.duration : 0)
     setMusicReady(true)
     if (pendingPlayRef.current) {

@@ -754,7 +754,15 @@ that are easy to split across preview and firmware:
   `DECODER_VOLUME_TABLE`, states the starting `_decoderVolumeComp` as a constant
   in setup, and recomputes it alongside `audio.setVolume()` whenever a controls
   build changes volume at runtime — so the compensation can't drift out of step
-  with the knob. The mono FFT feed is deliberately left uncompensated: it rides
+  with the knob. The browser preview has the same trap in another place: a
+  media element's own `volume` scales the samples its
+  `MediaElementAudioSourceNode` hands to the graph, so with the volume set on
+  the `<audio>` element the meters, spectrum and Loudness all tracked the
+  transport's slider (measured: half volume, 0.44 of the meter). The player's
+  volume therefore never touches `player.volume`: it goes through
+  `DecoderAudioEngine.setVolume`, which keeps the element at 1 and carries the
+  volume on a gain node between the source and the speakers, after the
+  analysis tap. The mono FFT feed is deliberately left uncompensated: it rides
   FastLED's own adaptive normalization and has no absolute scale to preserve,
   unlike a meter.
 - **The decoder tap's analysis runs in its own task on core 0, never in the

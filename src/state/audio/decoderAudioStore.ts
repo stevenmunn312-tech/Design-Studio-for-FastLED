@@ -8,6 +8,9 @@ interface DecoderAudioState extends AudioData {
   attachPlayer: (element: HTMLMediaElement) => void
   detachPlayer: (element?: HTMLMediaElement) => void
   resumePlayer: () => void
+  /** The player's volume. Goes through the engine so analysis never hears
+   *  it; see `DecoderAudioEngine.setVolume`. */
+  setPlayerVolume: (element: HTMLMediaElement, volume: number) => void
   /** Clear the latched beat once an evaluation pass has read it. */
   consumeBeat: () => void
 }
@@ -42,6 +45,7 @@ export const useDecoderAudioStore = create<DecoderAudioState>()((set) => {
     attachPlayer: (element) => engine.attach(element),
     detachPlayer: (element) => engine.detach(element),
     resumePlayer: () => engine.resume(),
+    setPlayerVolume: (element, volume) => engine.setVolume(element, volume),
     consumeBeat: () => set((s) => (s.beat ? { beat: false } : s)),
   }
 })

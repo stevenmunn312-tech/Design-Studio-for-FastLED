@@ -42,7 +42,18 @@ function silentDecoderAudio(): AudioData {
 
 /** Analyse the audio element used by the in-app music player. The media source
  * remains connected to the AudioContext destination when analysis is detached,
- * so changing the Audio node back to Microphone never mutes normal playback. */
+ * so changing the Audio node back to Microphone never mutes normal playback.
+ *
+ * Volume is applied after the analysis tap. A media element's own `volume`
+ * scales the samples its source node hands to the graph, so with the volume
+ * on the element the meters, the spectrum and every pattern that follows
+ * Loudness tracked the volume slider: half volume, half the light. The
+ * firmware analyses the decoder's stream before its volume
+ * (`_decoderVolumeComp`), and the preview has to match. So an element this
+ * engine has taken over plays at full level into the graph, and a gain node
+ * between the source and the speakers carries the volume; see `setVolume`. */
+const clampVolume = (volume: number): number => (Number.isFinite(volume) ? Math.max(0, Math.min(1, volume)) : 1)
+
 export class DecoderAudioEngine {
   private static singleton: DecoderAudioEngine | null = null
 
@@ -54,6 +65,7 @@ export class DecoderAudioEngine {
   private context: AudioContext | null = null
   private sources = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>()
   private audibleSources = new WeakSet<HTMLMediaElement>()
+  private volumeGains = new WeakMap<HTMLMediaElement, GainNode>()
   private element: HTMLMediaElement | null = null
   private source: MediaElementAudioSourceNode | null = null
   private analyser: AnalyserNode | null = null
@@ -98,7 +110,14 @@ export class DecoderAudioEngine {
       this.sources.set(element, source)
     }
     if (!this.audibleSources.has(element)) {
-      source.connect(context.destination)
+      // Speakers hear the source through the volume gain; analysis below taps
+      // the source itself. The element's own volume moves onto the gain.
+      const gain = context.createGain()
+      gain.gain.value = clampVolume(element.volume)
+      element.volume = 1
+      source.connect(gain)
+      gain.connect(context.destination)
+      this.volumeGains.set(element, gain)
       this.audibleSources.add(element)
     }
 
@@ -134,6 +153,23 @@ export class DecoderAudioEngine {
     element.addEventListener('emptied', this.stopSampling)
     if (!element.paused && !element.ended) this.startSampling()
     else this.emit(silentDecoderAudio())
+  }
+
+  /**
+   * Set how loud `element` plays, without changing what analysis hears.
+   *
+   * Before this engine has taken the element over, its sound goes straight to
+   * the speakers and its own `volume` is the only control there is. After,
+   * the gain node carries it and the element stays at full level.
+   */
+  setVolume(element: HTMLMediaElement, volume: number): void {
+    const gain = this.volumeGains.get(element)
+    if (gain) {
+      gain.gain.value = clampVolume(volume)
+      if (element.volume !== 1) element.volume = 1
+    } else {
+      element.volume = clampVolume(volume)
+    }
   }
 
   detach(element?: HTMLMediaElement): void {

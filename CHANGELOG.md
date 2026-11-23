@@ -25,6 +25,10 @@ share link, migrating it where a shape has changed.
 
 ### Fixed
 
+- The Music Player preview's volume slider no longer dims the lights. The
+  preview measured the music after the volume was applied, so at the default
+  90% every audio pattern ran about a tenth dimmer than on hardware, and
+  turning the music down turned the show down with it.
 - Adding an LED output from the Hardware shelf opens that output's wiring
   panel beside it, and each shelf card shows a `+`. Before, the only sign was
   a status line, and a second click quietly added a second output.
