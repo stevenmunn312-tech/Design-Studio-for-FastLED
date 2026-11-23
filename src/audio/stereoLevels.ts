@@ -86,12 +86,21 @@ export function audioLoudness(source: StereoLevelSource): number {
  * 0.34. Capture has a gain knob to land there. Decoded music has none: it
  * reaches the meter at line level, where 41 mastered tracks sat at 0.22, 0.63
  * and 1.0 (pinned), so the stage stayed fully open and a quiet passage lit as
- * brightly as a drop. Scaled by `DECODED_LOUDNESS_SCALE`, a pinned meter
- * reads 0.3, the room's loud peak and the top of the energy stage's ramps,
+ * brightly as a drop. Scaled by `DECODED_LOUDNESS_SCALE`, the meter reaches
+ * 0.3, the room's loud peak and the top of the energy stage's ramps, at 0.75,
  * and the scale stays a straight line below it: the stage's response is
- * linear in the meter, from silence to full volume.
+ * linear in the meter from silence up to that level.
+ *
+ * It was 0.3, full only on a pinned meter, which fits the loudest commercial
+ * masters (about -9 LUFS) and nothing quieter. Music at streaming level never
+ * got there: the bundled demo track is -15.7 LUFS with peaks at -1.7 dBFS,
+ * its meter sat at 0.24, 0.47 and 0.75 (10th, 50th, 90th percentile), and its
+ * loudest passages ran the stage at three quarters. 0.4 puts full at that
+ * track's loud tenth. The cost is at the other end: a loud master spends more
+ * of its time near the top (median about 0.84 of full, up from 0.63). One
+ * fixed scale cannot suit both, and a quiet show is the worse failure.
  */
-export const DECODED_LOUDNESS_SCALE = 0.3
+export const DECODED_LOUDNESS_SCALE = 0.4
 
 export function decodedLoudness(leftLevel: number, rightLevel: number): number {
   return clamp01(Math.max(finiteLevel(leftLevel) ?? 0, finiteLevel(rightLevel) ?? 0) * DECODED_LOUDNESS_SCALE)

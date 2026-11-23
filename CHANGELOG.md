@@ -23,6 +23,13 @@ share link, migrating it where a shape has changed.
   the LED output (Rendering) to get the designed look on screen and on the
   LEDs. HUB75 outputs are unaffected.
 
+- Audio patterns playing decoded music (the Music Player, shows and the
+  hardware player) reach full brightness at a lower level. Full was set for
+  the loudest commercial masters, so music at streaming level, the demo
+  track included, never got past about three quarters. It now reaches full
+  in that music's loud passages. Very loud masters spend more time near the
+  top than before. Microphone and line input are unchanged.
+
 ### Fixed
 
 - The Music Player preview's volume slider no longer dims the lights. The
