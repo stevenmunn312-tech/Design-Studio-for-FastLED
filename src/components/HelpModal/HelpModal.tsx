@@ -58,7 +58,15 @@ function AboutTab() {
             <div className={styles.tipText}>
               <strong>FastLED</strong> — the{' '}
               <a className={styles.link} href="https://github.com/FastLED/FastLED" target="_blank" rel="noopener noreferrer">FastLED library</a>{' '}
-              by Daniel Garcia, Mark Kriegsman, and the FastLED community powers all generated firmware. Fire 2012 implements Mark Kriegsman's classic algorithm; Pride 2015, Pacifica, and TwinkleFox are original homages named for his demos.
+              by Daniel Garcia, Mark Kriegsman, and the FastLED community powers all generated firmware. It is maintained today by <strong>Zach Vorhies</strong>. Fire 2012 implements Mark Kriegsman's classic algorithm; Pride 2015, Pacifica, and TwinkleFox are original homages named for his demos.
+            </div>
+          </div>
+          <div className={styles.tip}>
+            <div className={styles.tipIcon}><Icon name="sparkle" /></div>
+            <div className={styles.tipText}>
+              <strong>fbuild</strong> — the{' '}
+              <a className={styles.link} href="https://github.com/FastLED/fbuild" target="_blank" rel="noopener noreferrer">fbuild build tool</a>{' '}
+              by Zach Vorhies compiles and uploads your sketches. It fetches each board's toolchain by itself, so there is nothing to install first.
             </div>
           </div>
           <div className={styles.tip}>
