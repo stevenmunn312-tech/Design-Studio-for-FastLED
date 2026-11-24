@@ -1,0 +1,103 @@
+name: macOS App Test
+
+# Builds the macOS app on an Apple silicon runner, drives it with the
+# Playwright UI test, then opens it the way Finder does and photographs the
+# desktop. The screenshots are the proof; download them from the run's
+# artifacts.
+#
+# Manual only: macOS runners are billed, so nothing starts this but a person.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-app-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build, test and screenshot on Apple silicon
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-packaging.txt
+            backend/constraints.txt
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install desktop packaging dependencies
+        run: python -m pip install -r backend/requirements-packaging.txt -c backend/constraints.txt
+
+      - name: Build and launch-smoke the app
+        run: npm run package:desktop -- --no-archive
+
+      - name: Install the Playwright browser
+        run: npx playwright install chromium
+
+      # Starts the built launcher headless on port 8008 with a fresh data
+      # folder, runs e2e/, and stops it again.
+      - name: Run the Playwright UI test
+        run: npm run test:e2e
+
+      # The real launch: an app window in the runner's Chrome, with the
+      # default data folder. Fails if the window did not come from the
+      # Chromium route, or if the Studio outlives its window's browser.
+      - name: Open the app and photograph the desktop
+        shell: bash
+        run: |
+          mkdir -p artifacts/macos-window
+          open "release/desktop/Design Studio for FastLED.app"
+
+          for _ in $(seq 1 60); do
+            curl -fs -m 1 http://localhost:8008/api/desktop/status && break
+            sleep 1
+          done
+          curl -fs -m 2 http://localhost:8008/api/desktop/status > /dev/null
+
+          sleep 20  # let the window open and the welcome screen draw
+          screencapture -x artifacts/macos-window/desktop.png
+
+          pgrep -fl -- "--app=http://localhost:8008/" | tee artifacts/macos-window/app-window-process.txt
+
+          pkill -f -- "--app=http://localhost:8008/"
+          for _ in $(seq 1 20); do
+            curl -fs -m 1 http://localhost:8008/api/desktop/status > /dev/null || exit 0
+            sleep 1
+          done
+          echo "The Studio kept serving after its app window's browser quit."
+          exit 1
+
+      - name: Collect the launcher log
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          mkdir -p artifacts/macos-window
+          find "$HOME/Library" -name desktop.log -path "*FastLED*" -exec cp {} artifacts/macos-window/ \; 2>/dev/null || true
+
+      - name: Upload screenshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: macos-app-test-screenshots
+          path: |
+            artifacts/e2e
+            artifacts/macos-window
+          if-no-files-found: error
+          retention-days: 14

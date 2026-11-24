@@ -18,6 +18,7 @@
     "test": "node --disable-warning=DEP0040 ./node_modules/vitest/vitest.mjs run",
     "test:watch": "node --disable-warning=DEP0040 ./node_modules/vitest/vitest.mjs",
     "test:coverage": "node --disable-warning=DEP0040 ./node_modules/vitest/vitest.mjs run --coverage",
+    "test:e2e": "node --disable-warning=DEP0040 ./node_modules/@playwright/test/cli.js test",
     "package:desktop": "python desktop/build.py",
     "gen:node-cards": "node scripts/run-ts.mjs scripts/assets/node-cards.ts",
     "gen:compile-fixtures": "node scripts/compile-fixtures/run.mjs",
@@ -37,6 +38,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
+    "@playwright/test": "^1.65.1",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^26.0.1",

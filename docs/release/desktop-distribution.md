@@ -365,3 +365,23 @@ in place of the pinned release. The 2.5.51 wheel's tools run on both Mac
 runners, so since 2026-11-14 the jobs print each tool's architecture and
 version and bundle the wheel's own. If a later pin's tools stop running, that
 step or the launch smoke fails.
+
+## UI test and macOS app test
+
+`npm run test:e2e` runs the Playwright test in `e2e/` against the packaged app
+in `release/desktop/`, so build it first with `npm run package:desktop`. The
+test starts the launcher headless on port 8008 (the built page always calls
+the helper there) with a fresh data folder, and refuses to run while another
+Studio holds that port. It walks one first run: the welcome dialog, the Fire
+starter lighting the LED preview, the Upload tab reaching the helper, and no
+console errors. Screenshots land in `artifacts/e2e/`. Install the browser once
+with `npx playwright install chromium`.
+
+`.github/workflows/macos-app-test.yml` runs that on an Apple silicon runner:
+it builds the app, runs the UI test, then opens the app as Finder would,
+photographs the desktop with `screencapture`, checks that the window came from
+the Chromium route, and checks that the Studio stops when that browser quits.
+The screenshots and `desktop.log` are the run's
+`macos-app-test-screenshots` artifact. It starts by hand only; the runner is
+billed. It does not click the Dock icon or close the window, so those still
+need a person at a Mac.
