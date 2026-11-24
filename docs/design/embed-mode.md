@@ -1,7 +1,7 @@
 # Embed mode: a live demo in an iframe
 
 Status: pilot. Built and checked in a cross-origin iframe on a development
-machine. The container image is written but has not been built or deployed.
+machine. The container image is written but has not been built or deployed here.
 
 Embed mode runs the Studio's web app as a live demo inside another site's
 page. A visitor gets the real editor and the real preview, opened on one
@@ -63,6 +63,9 @@ The root `Dockerfile` builds the web app and serves `dist/` with nginx
 (`deploy/nginx.conf.template`), listening on `$PORT`. It sends no
 `X-Frame-Options` and no `frame-ancestors` policy, so any site may frame it.
 The image holds the browser app only.
+
+`render.yaml` is a Render Blueprint for that image: one web service on the
+free plan, with automatic deploys off so a deploy is started by hand.
 
 The same `dist/` can be served by any static host; the container exists for
 hosts that build from a Dockerfile. The address without `?embed` is the full

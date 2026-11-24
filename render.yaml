@@ -1,0 +1,11 @@
+# Render Blueprint for the embeddable demo (docs/design/embed-mode.md): the
+# web app as a static site in a container, built from the root Dockerfile.
+services:
+  - type: web
+    name: design-studio-demo
+    runtime: docker
+    plan: free
+    healthCheckPath: /
+    # Deploys are started by hand. `main` takes many commits a day, and each
+    # automatic deploy would spend the workspace's build minutes.
+    autoDeployTrigger: 'off'
