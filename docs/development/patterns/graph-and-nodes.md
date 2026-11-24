@@ -141,6 +141,11 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   rule. Imported nested groups must first pass through `withRegisteredGroups`;
   `collectionPatternMatchesLibrary` compares reachable nested content with
   normalized group references so freshly registered ids do not look stale.
+  It compares authored content only (node id, type, properties, exposed
+  inputs, edge endpoints; label and ports only for group-family nodes), because
+  `normalizeLoadedGraph` refreshes a library node's label and ports and the
+  canvas adds `selected`, `dragging` and `measured`. Comparing whole nodes
+  flagged every reloaded copy as stale.
 - Hardware belongs to the root graph and must be queried through root-graph
   selectors, not the currently open pattern group.
 - Persisted project and pattern formats become compatibility-sensitive at the

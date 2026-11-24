@@ -12,6 +12,7 @@ import type { GroupRegistry } from '../graphEvaluator'
 import { listPatterns, savePatternToDisk, deletePatternFromDisk } from '../../utils/backendClient'
 import { patternFormTags, type PatternFormTag } from './patternTags'
 import { isContentKnown } from './patternTrust'
+import { NODE_LIBRARY } from '../nodeLibrary'
 import { readableSaves } from '../saveFormat'
 import { useUiStore } from '../uiStore'
 import {
@@ -643,6 +644,38 @@ function remapGroupRefs(content: GraphContent, idMap: Map<string, string>): Grap
   }
 }
 
+const LIBRARY_NODE_TYPES = new Set(NODE_LIBRARY.map((def) => def.type))
+
+/**
+ * What a pattern's author decided, without what the workspace adds to a node
+ * it holds. Loading a project refreshes a library node's label, category and
+ * ports from the current node library, and the canvas adds selection, drag and
+ * measured size. None of that is a library edit. Programmatic nodes (the group
+ * family) own their label and ports, so theirs still count. Position is layout.
+ */
+function authoredContent(content: GraphContent): unknown {
+  return {
+    nodes: content.nodes.map((node) => {
+      const data = node.data
+      return {
+        id: node.id,
+        nodeType: data.nodeType,
+        properties: data.properties,
+        exposedInputs: data.exposedInputs,
+        ...(LIBRARY_NODE_TYPES.has(data.nodeType)
+          ? {}
+          : { label: data.label, inputs: data.inputs, outputs: data.outputs }),
+      }
+    }),
+    edges: content.edges.map((edge) => ({
+      source: edge.source,
+      sourceHandle: edge.sourceHandle ?? null,
+      target: edge.target,
+      targetHandle: edge.targetHandle ?? null,
+    })),
+  }
+}
+
 /** Compare a collected copy with its library content, including nested groups.
  * Registration can rename group ids, so compare references in traversal order
  * rather than treating a newly registered copy as a different pattern. */
@@ -656,8 +689,8 @@ export function collectionPatternMatchesLibrary(
     const ids = Object.keys(nested)
     const idMap = new Map(ids.map((id, index) => [id, `nested-${index}`]))
     return JSON.stringify(canonicalize({
-      content: remapGroupRefs(content, idMap),
-      groups: ids.map((id) => remapGroupRefs(nested[id], idMap)),
+      content: authoredContent(remapGroupRefs(content, idMap)),
+      groups: ids.map((id) => authoredContent(remapGroupRefs(nested[id], idMap))),
     }))
   }
   return fingerprint(copy, graphData) === fingerprint(saved.subgraph, { ...graphData, ...saved.groups })

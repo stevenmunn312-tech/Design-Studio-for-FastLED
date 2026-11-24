@@ -154,6 +154,48 @@ describe('PatternCollectionBody', () => {
     expect(state.graphData.nested.nodes).toEqual([])
   })
 
+  it('does not offer an update for what loading or the canvas adds to a copy', () => {
+    const color = {
+      id: 'color', type: 'studioNode', position: { x: 0, y: 0 },
+      data: nodeData('SolidColor', { color: '#ff0000' }),
+    }
+    const saved: SavedPattern = {
+      id: 'lib-solid', name: 'Pulse', createdAt: 1, inputs: [], outputs: [],
+      subgraph: { nodes: [color] as never, edges: [] },
+    }
+    usePatternLibrary.setState({ patterns: [saved] })
+    // The copy as a reloaded, opened project holds it: ports and label
+    // refreshed from a newer node library, moved, selected and measured.
+    const held = {
+      ...color,
+      position: { x: 40, y: 12 },
+      selected: true,
+      dragging: false,
+      measured: { width: 180, height: 96 },
+      data: {
+        ...color.data,
+        label: 'Solid colour (renamed)',
+        inputs: [...color.data.inputs, { id: 'added', label: 'Added', dataType: 'float' }],
+      },
+    }
+    useGraphStore.setState({
+      graphs: {
+        root: { id: 'root', name: 'Main' },
+        'group-1': { id: 'group-1', name: 'Pulse', sourcePatternId: 'lib-solid' },
+        'group-2': { id: 'group-2', name: 'Spark' },
+      },
+      graphData: { 'group-1': { nodes: [held] as never, edges: [] }, 'group-2': { nodes: [], edges: [] } },
+    })
+    const view = render(<PatternCollectionBody nodeId="collection" />)
+    expect(view.queryByRole('button', { name: 'Update from library' })).toBeNull()
+
+    const edited = structuredClone(saved)
+    edited.subgraph.nodes[0].data.properties.color = '#00ff00'
+    usePatternLibrary.setState({ patterns: [edited] })
+    view.rerender(<PatternCollectionBody nodeId="collection" />)
+    expect(view.getByRole('button', { name: 'Update from library' })).toBeTruthy()
+  })
+
   it('empties the collection in one confirmed edit, discarding its subgraphs', async () => {
     useGraphStore.setState({ graphData: { 'group-1': { nodes: [], edges: [] }, 'group-2': { nodes: [], edges: [] } } })
     const confirm = vi.fn().mockResolvedValue(true)
