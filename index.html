@@ -9,11 +9,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Design Studio for FastLED</title>
     <script>
-      // Embed mode (`?embed`, docs/design/embed-mode.md): an embedded demo
+      // Embed mode (`?iframe=true`, docs/design/embed-mode.md): an embedded demo
       // keeps everything in memory, so it neither reads nor writes what this
       // browser has saved. Here, ahead of every module, because stores read
       // localStorage as they load.
-      if (new URLSearchParams(location.search).has('embed')) {
+      if (new URLSearchParams(location.search).get('iframe') === 'true') {
         const items = new Map()
         Object.defineProperty(window, 'localStorage', {
           configurable: true,

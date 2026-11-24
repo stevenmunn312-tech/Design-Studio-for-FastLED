@@ -297,7 +297,7 @@ export async function openStarterProject(template: StarterTemplate | string, opt
 export const EMBED_DEFAULT_STARTER = 'field-warp'
 
 /**
- * Open the starter an embedded demo asked for (`?embed=<starter id>`), as the
+ * Open the starter an embedded demo asked for (`&starter=<starter id>`), as the
  * session's one project. See docs/design/embed-mode.md.
  */
 export function openEmbedStarter(requested: string): Promise<boolean> {

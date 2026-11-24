@@ -525,7 +525,7 @@ describe('embedded demo starter', () => {
     expect(openName()).toBe('Juggle')
   })
 
-  // `?embed` alone, or a starter that has since been renamed or removed.
+  // `?iframe=true` alone, or a starter that has since been renamed or removed.
   it.each(['', 'no-such-starter'])('opens the overview patch when the link names "%s"', async (requested) => {
     await expect(openEmbedStarter(requested)).resolves.toBe(true)
     expect(openName()).toBe('Field Transform Demo')

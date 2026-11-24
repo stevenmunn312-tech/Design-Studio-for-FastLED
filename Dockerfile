@@ -1,6 +1,6 @@
 # The Studio's web app as a static site, for hosting the embeddable demo
 # (docs/design/embed-mode.md). This image holds the browser app only: no upload
-# helper, no compiler, nothing that reaches a board. Open it with `?embed`.
+# helper, no compiler, nothing that reaches a board. Open it with `?iframe=true`.
 #
 #   docker build -t design-studio-web .
 #   docker run --rm -p 8080:8080 design-studio-web

@@ -9,13 +9,13 @@ starter, with nothing installed.
 
 ## Live demo
 
-The pilot runs at <https://design-studio-demo-u0i3.onrender.com/?embed>. It is
+The pilot runs at <https://design-studio-demo-u0i3.onrender.com/?iframe=true>. It is
 on a free instance that sleeps when idle, so the first visit after a quiet
 spell waits about a minute on the host's loading page. To frame it:
 
 ```html
 <iframe
-  src="https://design-studio-demo-u0i3.onrender.com/?embed"
+  src="https://design-studio-demo-u0i3.onrender.com/?iframe=true"
   title="Design Studio for FastLED demo"
   width="100%" height="760"
   allow="fullscreen; microphone; midi"
@@ -26,15 +26,15 @@ spell waits about a minute on the host's loading page. To frame it:
 
 | Address | Opens |
 | --- | --- |
-| `/?embed` | Field Transform Demo, the patch in the README's overview picture |
-| `/?embed=<starter id>` | that Start Gallery starter (`juggle`, `fire`, `audio-spectrum`, …) |
+| `/?iframe=true` | Field Transform Demo, the patch in the README's overview picture |
+| `/?iframe=true&starter=<starter id>` | that Start Gallery starter (`juggle`, `fire`, `audio-spectrum`, …) |
 
 An id that names no starter opens the default. Ids are the `id` fields of
 `STARTER_TEMPLATES` (`src/state/patterns/starterTemplates.ts`).
 
 ```html
 <iframe
-  src="https://your-host.example/?embed"
+  src="https://your-host.example/?iframe=true"
   title="Design Studio for FastLED demo"
   width="100%" height="760"
   allow="fullscreen; microphone"
@@ -83,7 +83,7 @@ The image holds the browser app only.
 free plan, with automatic deploys off so a deploy is started by hand.
 
 The same `dist/` can be served by any static host; the container exists for
-hosts that build from a Dockerfile. The address without `?embed` is the full
+hosts that build from a Dockerfile. The address without `?iframe=true` is the full
 web app, which looks for a helper on the visitor's own machine as it does
 anywhere else.
 

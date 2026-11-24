@@ -6,15 +6,17 @@ describe('embed link', () => {
   it('reads the starter an embed link names', () => {
     expect(embedRequest('')).toBeNull()
     expect(embedRequest('?other=1')).toBeNull()
-    expect(embedRequest('?embed')).toBe('')
-    expect(embedRequest('?embed=fire')).toBe('fire')
+    expect(embedRequest('?starter=fire')).toBeNull()
+    expect(embedRequest('?iframe=false')).toBeNull()
+    expect(embedRequest('?iframe=true')).toBe('')
+    expect(embedRequest('?iframe=true&starter=fire')).toBe('fire')
   })
 
   // index.html swaps localStorage for memory before any module loads, so it
   // cannot import the parameter's name; it must read the same one.
   it('is read by index.html under the same name', () => {
     const page = readFileSync('index.html', 'utf8')
-    expect(page).toContain(`new URLSearchParams(location.search).has('${EMBED_PARAM}')`)
+    expect(page).toContain(`new URLSearchParams(location.search).get('${EMBED_PARAM}') === 'true'`)
     expect(page.indexOf("'localStorage'")).toBeLessThan(page.indexOf('type="module"'))
   })
 })
