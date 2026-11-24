@@ -331,6 +331,7 @@ function detectSilences(
 
 export interface PerformanceOptions {
   beatIntensity:      number   // 0-1, how aggressive beat flashes are
+  beatFlash:          boolean  // white full-frame flashes among the beat accents
   transitionSec:      number   // seconds a pattern change takes
   paletteMode:        'mood' | 'fixed' | 'cycle'
   fixedPalette?:      string
@@ -399,6 +400,8 @@ export function performanceOptionsFromProperties(properties: Record<string, unkn
     : 'rainbow'
   return {
     beatIntensity: clamp(properties.beatIntensity, 0.8, 0, 1),
+    // A show saved before the checkbox existed flashed, so absent means on.
+    beatFlash: properties.beatFlash !== false,
     energySensitivity: clamp(properties.energySensitivity, 0.7, 0, 1),
     transitionSec: clamp(properties.transitionSec, 0.5, 0.1, 3),
     paletteMode,
@@ -409,6 +412,7 @@ export function performanceOptionsFromProperties(properties: Record<string, unkn
 
 const DEFAULT_OPTIONS: PerformanceOptions = {
   beatIntensity:      0.8,
+  beatFlash:          true,
   transitionSec:      0.5,
   paletteMode:        'mood',
   energySensitivity:  0.7,
@@ -619,7 +623,8 @@ export function generateShow(
         hue: Math.round(Math.random() * 255),
         style: Math.floor(Math.random() * PARTICLE_STYLES.length),
       })
-    } else {
+    } else if (opts.beatFlash) {
+      // Off leaves this beat bare: the particle bursts keep their own share.
       push(t, 'BEAT_FLASH', {
         intensity: Math.round(intensity * WHITE_FLASH_INTENSITY_SCALE * 255),
         decay: Math.round(decayValue * 255),

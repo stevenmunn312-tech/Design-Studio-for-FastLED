@@ -49,6 +49,7 @@ export const BAKE_TIME_PROPERTIES: Record<string, readonly string[]> = {
   PatternSlideshow: ['order', 'beatTransitions', 'energyPacing', 'dwellsAndBursts', 'audioReactive', 'seed'],
   PerformanceGenerator: [
     'beatIntensity',
+    'beatFlash',
     'energySensitivity',
     'transitionSec',
     'minTime',

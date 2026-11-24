@@ -3405,6 +3405,7 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   },
   PerformanceGenerator: {
     beatIntensity: 'How hard each detected beat flashes the pattern, 0 none to 1 full.',
+    beatFlash: 'Flash the whole frame white on some beats. Off keeps the particle bursts and drops the white flashes.',
     energySensitivity: 'How readily loud sections speed patterns up and trigger surges, 0 calm to 1 eager.',
     transitionSec: 'Seconds a pattern change takes when the show switches patterns.',
     minTime: 'Minimum seconds a pattern stays before the show may switch on a beat.',
@@ -3669,6 +3670,7 @@ const EXPLICIT_PROPERTY_LABELS: Record<string, Record<string, string>> = {
   // one hold is Min Time and one change Transition, on every engine.
   PerformanceGenerator: {
     beatIntensity: 'Beat Intensity',
+    beatFlash: 'Beat Flash',
     energySensitivity: 'Energy Sensitivity',
     transitionSec: 'Transition (s)',
     minTime: 'Min Time (s)',
@@ -4614,7 +4616,7 @@ export const PROPERTY_GROUPS: Record<string, PropertyGroup[]> = {
     { key: 'shape', label: 'Shape', keys: ['tileSize', 'count', 'turns'] },
   ],
   PerformanceGenerator: [
-    { key: 'response', label: 'Response', keys: ['beatIntensity', 'energySensitivity'] },
+    { key: 'response', label: 'Response', keys: ['beatIntensity', 'beatFlash', 'energySensitivity'] },
     { key: 'timing', label: 'Timing', keys: ['transitionSec', 'minTime'] },
     { key: 'palette', label: 'Palette', keys: ['paletteMode', 'fixedPalette'] },
     { key: 'inputs', label: 'Inputs', keys: ['useGroupInputs'] },

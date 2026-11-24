@@ -20,6 +20,9 @@ share link, migrating it where a shape has changed.
 
 ### Changed
 
+- The Performance Generator has a **Beat Flash** checkbox. Off drops the
+  white full-frame flashes from a generated show and keeps the particle
+  bursts. It starts on, as shows flashed before.
 - The LED previews show the light the LEDs emit. An LED is far brighter in
   its low and middle values than a screen showing the same numbers, so the
   preview, the LED output's thumbnail, the Hardware bench, recordings and

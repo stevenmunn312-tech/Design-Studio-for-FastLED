@@ -68,6 +68,7 @@ describe('performanceOptionsFromProperties', () => {
       fixedPalette: 'ice',
     })).toEqual({
       beatIntensity: 1,
+      beatFlash: true,
       energySensitivity: 0,
       transitionSec: 3,
       paletteMode: 'fixed',
@@ -355,6 +356,19 @@ describe('generateShow — beat accents (flash vs particles)', () => {
       expect(show.events.some((e) => e.cmd === 'BEAT_FLASH')).toBe(true)
       expect(show.events.some((e) => e.cmd === 'PARTICLE_BURST')).toBe(false)
     } finally { spy.mockRestore() }
+  })
+
+  it('drops the white flashes and keeps the particle bursts with Beat Flash off', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0.99)   // every accent rolls a flash
+    try {
+      expect(generateShow(analysis, { beatFlash: false }).events.some((e) => e.cmd === 'BEAT_FLASH' || e.cmd === 'PARTICLE_BURST')).toBe(false)
+      expect(generateShow(analysis).events.some((e) => e.cmd === 'BEAT_FLASH')).toBe(true)
+    } finally { random.mockRestore() }
+    const mixed = generateShow({ ...analysis, beats: { timestamps: Array.from({ length: 40 }, (_, i) => 2000 + i * 50), bpm: 120, confidence: 0.9 } }, { beatFlash: false })
+    expect(mixed.events.some((e) => e.cmd === 'BEAT_FLASH')).toBe(false)
+    expect(mixed.events.some((e) => e.cmd === 'PARTICLE_BURST')).toBe(true)
+    expect(performanceOptionsFromProperties({}).beatFlash).toBe(true)
+    expect(performanceOptionsFromProperties({ beatFlash: false }).beatFlash).toBe(false)
   })
 
   it('softens full-frame white flashes without reducing particle intensity', () => {
