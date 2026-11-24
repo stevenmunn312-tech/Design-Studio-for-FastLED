@@ -75,6 +75,19 @@ Each of these cost time to learn on this pass.
 - **Test a guess before changing the app.** `--css "<rules>"` injects a
   stylesheet into a scenario. Hiding the pointer glow, or promoting the
   viewport layer, took one run each to confirm or rule out.
+- **Check that the browser was not slowed while you measured.** About one
+  run in ten of the same scenario came out several times slower than its
+  neighbours, with the same zoom, the same thumbnails and the same machine
+  speed going in. The script now times one fixed loop of arithmetic inside
+  the page before and after each recording. In every slow run that loop took
+  1.3 to 10 times longer afterwards (229 to 1861 ms against 178), and in no
+  fast run did it: the whole page was running slowly, an unrelated loop as
+  much as the app. A profile taken during one showed the noise functions
+  costing 40 ms a frame instead of 6 and no new function at the top. Runs
+  like that are set aside and counted in the summary line. What slows the
+  process was not established (it happens in headless Chromium here, more
+  often when the frame limit is lifted); nothing says a visible Chrome window
+  does it, and nothing says it does not.
 - **Size matters more than the project.** Everything held 60 fps on the
   starters' 16 x 16 matrix. The same field-warp starter at 64 x 64 ran at 17.
 
@@ -116,7 +129,7 @@ Same protocol before and after (`--no-profile --repeat 2`, the median run):
 | Every Music Player starter page and preview style, idle | 59.8 fps, 1 dropped in 5 s | 60.0 fps, 0 dropped |
 | Microphone starter, idle | 58.2 fps, 9 dropped | 59.6 fps, 2 dropped |
 | Hardware and Build Diagram, starters with the most parts | 60.0 fps, 0 dropped | 60.0 fps, 0 dropped |
-| Matrix 64 x 64, field-warp | 16.9 fps, 200 ms frames | 58.6 to 60.0 fps, 0 to 7 dropped, 33 ms worst |
+| Matrix 64 x 64, field-warp | 16.9 to 45 fps, 100 to 200 ms frames | 60.0 fps, 0 dropped, 17 ms worst, in 11 runs of 12; the twelfth was a browser-slowed run |
 | Matrix 64 x 64, fire | 37.7 fps, 100 ms frames | 60.0 fps, 0 dropped |
 | Matrix 64 x 64, Music Player (Standard and Neon) | 59.8 / 59.6 fps | 60.0 fps, 0 dropped |
 | Ring of 240 / 1024 LEDs | 52.3 / 45.9 fps | 60.0 fps, 0 dropped |
@@ -143,6 +156,11 @@ With the 60 Hz limit lifted (`--uncapped`), after the fixes:
 
 ## Still below 60, and why
 
+- **Headroom at the largest matrix is thin.** Field-warp at 64 x 64 holds 60,
+  with the main thread busy 60 to 65% of the time under the profiler: the
+  noise functions are 35% of the profile. A slower processor than this
+  laptop's would not hold it.
+
 - **A 64 x 64 matrix evaluated at 128 x 128 ("2x smooth") on field-warp: 19 to
   38 fps.** Three noise fields of four octaves over 16,384 cells are 196,000
   noise calls a frame, about 27 ms of arithmetic after row 9 halved it. It is
@@ -168,7 +186,10 @@ With the 60 Hz limit lifted (`--uncapped`), after the fixes:
   and draw take 4 ms of main-thread time in every five seconds (7 ms at
   128 x 128), and the GPU process is busy 16% of the time in the heaviest
   style (169 texture reads a pixel) with no task over 16 ms. There is one draw
-  call a frame, so nothing to batch. What limited a large output was rows 7,
+  call a frame, so nothing to batch. The preview is also paced to the
+  controller's frame rate on purpose (60 steps a second by default,
+  `LEDPreview.tsx`), because it shows what the LEDs will do; a faster display
+  does not get more preview frames whichever thread draws them. What limited a large output was rows 7,
   8 and 9: thumbnails in the page, a JSON round trip and noise arithmetic.
   A worker drawing to an `OffscreenCanvas` would move the 0.1% that is drawing
   and leave the evaluation that feeds it where it is; moving the evaluator

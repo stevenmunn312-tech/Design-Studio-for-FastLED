@@ -270,6 +270,10 @@ export default function HardwareLedPreview({
         Math.max(0, Math.min(255, state.brightness)) / 255,
       )
     }
+    // A picture is only remade when a colour changes, and unlit is where the
+    // colours start: without this first one, an output whose first frame is all
+    // black would show no LEDs at all, where a small grid shows them unlit.
+    if (raster) showPicture()
     read(usePreviewStore.getState())
     return usePreviewStore.subscribe(read)
   }, [cols, corkscrew, count, ledValues, nodeId, port, positions, raster, ring, rows, run])

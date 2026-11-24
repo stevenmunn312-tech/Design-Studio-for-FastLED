@@ -14,6 +14,9 @@
 //   - every requestAnimationFrame interval (fps, percentiles, dropped frames),
 //   - long animation frames and long tasks, with the scripts behind them,
 //   - a sampling CPU profile, reduced to the functions with the most self time.
+// Every run times one fixed piece of arithmetic inside the page before and
+// after it records. A run where that slowed by half or more is set aside and
+// counted: the browser was slowed, and the frame rate was not the app's.
 // `--trace` records a DevTools performance trace instead of the CPU profile
 // (artifacts/perf/<label>-<scenario>.trace.json opens in the Performance panel)
 // and breaks the main thread's time down by kind of work. `--repeat <n>` runs
@@ -57,6 +60,21 @@ const WARM = flag('warm')
 // shaders compiled on an earlier run are read from its disk cache. Run a
 // scenario twice with the same folder; the second run is the returning visit.
 const PROFILE_DIR = option('profile-dir', '')
+// Milliseconds to wait between repeated runs of a scenario, for a machine
+// that slows down when it gets hot.
+const REST_MS = Number(option('rest', '0'))
+
+// How fast this machine is right now: the time one fixed piece of arithmetic
+// takes, here in the harness and again inside the page. A laptop that has run
+// flat out for a few minutes is throttled to a fraction of its speed, and a
+// frame rate measured then says nothing about the app. Each run records both,
+// so a slow run can be told from a slow machine.
+function workload() {
+  const started = performance.now()
+  let value = 0
+  for (let i = 0; i < 40_000_000; i++) value = (value + (i ^ (value >>> 3))) | 0
+  return Math.round(performance.now() - started) + (value & 0)
+}
 const TRACE = flag('trace')
 const REPEAT = Number(option('repeat', '1'))
 const PROFILE = !flag('no-profile') && !TRACE
@@ -447,6 +465,8 @@ async function runScenario(browser, scenario, kept) {
     await scenario.setup(page)
     await page.waitForTimeout(2500)
   }
+  const machine = { harness: workload(), page: await page.evaluate(workload) }
+  await page.waitForTimeout(500)
   const gpu = await page.evaluate(() => {
     const gl = document.createElement('canvas').getContext('webgl')
     const info = gl?.getExtension('WEBGL_debug_renderer_info')
@@ -474,11 +494,37 @@ async function runScenario(browser, scenario, kept) {
   if (scenario.during) await scenario.during(page)
   const remaining = MEASURE_MS - (Date.now() - started)
   if (remaining > 0) await page.waitForTimeout(remaining)
+  // What the page looked like while it was measured, to explain a run that
+  // differs from its neighbours.
+  const state = await page.evaluate(() => ({
+    zoom: Number(/scale\(([\d.]+)\)/.exec(document.querySelector('.react-flow__viewport')?.style.transform ?? '')?.[1] ?? 0),
+    elements: document.querySelectorAll('*').length,
+    svgRects: document.querySelectorAll('.react-flow__node svg rect').length,
+    pictures: document.querySelectorAll('.react-flow__node svg image').length,
+    canvases: [...document.querySelectorAll('canvas')].map((canvas) => `${canvas.width}x${canvas.height}`).join(' '),
+    status: document.querySelector('[class*="statusbar"]')?.textContent?.replace(/\s+/g, ' ').slice(0, 160) ?? '',
+  }))
   const collected = await page.evaluate(() => {
     window.__perf.recording = false
     return { frames: window.__perf.frames, longFrames: window.__perf.longFrames, longTasks: window.__perf.longTasks }
   })
-  const profile = PROFILE ? (await session.send('Profiler.stop')).profile : { nodes: [], samples: [], timeDeltas: [] }
+  // The same workload again, straight after the recording: if the page now
+  // takes several times longer over it, the browser process was slowed down
+  // during the run and the frame rate is the machine's, not the app's.
+  machine.pageAfter = await page.evaluate(workload)
+  let profile = PROFILE ? (await session.send('Profiler.stop')).profile : { nodes: [], samples: [], timeDeltas: [] }
+  // A run measured without the profiler that turned out slow is profiled
+  // afterwards, while it is still slow: the profiler was not there to cause
+  // it, and is the only way to see what the page is doing.
+  let diagnosed = false
+  if (!PROFILE && !TRACE && frameStats(collected.frames).dropped > 10) {
+    await session.send('Profiler.enable')
+    await session.send('Profiler.setSamplingInterval', { interval: 200 })
+    await session.send('Profiler.start')
+    await page.waitForTimeout(3000)
+    profile = (await session.send('Profiler.stop')).profile
+    diagnosed = true
+  }
   let trace
   if (TRACE) {
     const buffer = await browser.stopTracing()
@@ -492,10 +538,16 @@ async function runScenario(browser, scenario, kept) {
   await context.close().catch(() => {})
   return {
     name: scenario.name,
+    diagnosed,
+    machine,
+    state,
     trace,
     gpu,
     errors,
     ...frameStats(collected.frames),
+    // Every frame interval, to the tenth of a millisecond: whether a slow run
+    // was slow throughout or for a moment.
+    series: collected.frames.map((value) => Math.round(value * 10) / 10),
     longTasks: collected.longTasks.length,
     longFrames: collected.longFrames.sort((a, b) => b.duration - a.duration).slice(0, 8),
     longFrameCount: collected.longFrames.length,
@@ -530,13 +582,24 @@ try {
       const runs = [await runScenario(browser, scenario, kept)]
       for (let run = 1; run < REPEAT; run++) {
         await browser.close().catch(() => {})
+        if (REST_MS) await new Promise((resolve) => setTimeout(resolve, REST_MS))
         ;({ browser, kept } = await launch())
         runs.push(await runScenario(browser, scenario, kept))
       }
       const inOrder = runs.map((run) => `${run.dropped} dropped, ${run.max.toFixed(0)} ms`)
+      // Each run in the order it ran: frame rate, then how long the fixed
+      // workload took in the page (a bigger number is a slower machine).
+      const pace = runs.map((run) => `${run.fps.toFixed(0)} fps, ${run.dropped} dropped @ ${run.machine.page} ms before and ${run.machine.pageAfter} ms after, zoom ${run.state.zoom.toFixed(2)}, ${run.state.svgRects} rects, ${run.state.pictures} pictures`)
+      // A run in which the page's own fixed workload slowed by half or more
+      // was not measuring the app (see "When the browser itself slows down"
+      // in the performance profile doc). It is counted and set aside, unless
+      // every run was like that.
+      const slowed = runs.filter((run) => run.machine.pageAfter > run.machine.page * 1.5)
+      const sound = slowed.length < runs.length ? runs.filter((run) => !slowed.includes(run)) : runs
       // The median run by dropped frames, with every run's count beside it.
       runs.sort((a, b) => a.dropped - b.dropped || a.max - b.max)
-      const result = { ...runs[Math.floor(runs.length / 2)], runsDropped: runs.map((run) => run.dropped), runsFps: runs.map((run) => Number(run.fps.toFixed(1))), inOrder }
+      sound.sort((a, b) => a.dropped - b.dropped || a.max - b.max)
+      const result = { ...sound[Math.floor(sound.length / 2)], machineSlowedRuns: slowed.length, runsDropped: runs.map((run) => run.dropped), runsFps: runs.map((run) => Number(run.fps.toFixed(1))), inOrder, pace, slowest: runs[runs.length - 1] }
       results.push(result)
       const row = [
         result.name.padEnd(36), `${result.fps.toFixed(1)} fps`.padStart(10),
@@ -544,7 +607,9 @@ try {
         `max ${result.max.toFixed(0)}`.padStart(8), `drop ${result.dropped}`.padStart(8),
         `LoAF ${result.longFrameCount}`.padStart(8), `busy ${(result.cpu.busy * 100).toFixed(0)}%`.padStart(9),
         REPEAT > 1 ? `  runs dropped [${result.runsDropped.join(', ')}]` : '',
+        result.machineSlowedRuns ? `  (${result.machineSlowedRuns} set aside: browser slowed)` : '',
         REPEAT > 1 && PROFILE_DIR ? `  in order [${result.inOrder.join(', ')}]` : '',
+        REPEAT > 1 ? '' : `  machine ${result.machine.page} then ${result.machine.pageAfter} ms`,
       ]
       console.log(row.join(' '))
       if (result.errors.length) console.log('   page errors:', result.errors.slice(0, 3).join(' | '))

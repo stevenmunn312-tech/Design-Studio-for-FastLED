@@ -71,6 +71,19 @@ describe('HardwareLedPreview as one picture', () => {
     expect(pictures.length).toBe(made)
   })
 
+  // Unlit is where the colours start, so an all-black frame changes nothing;
+  // the LEDs must still be drawn, unlit, as a small grid draws them.
+  it('shows unlit LEDs before any frame, and for a first frame that is all black', () => {
+    // The first frame is already there when the thumbnail mounts, and is black.
+    publish(solid(32, 32, { r: 0, g: 0, b: 0 }))
+    const { container } = render(<HardwareLedPreview nodeId="output" cols={32} rows={32} />)
+
+    expect(pictures.length).toBeGreaterThan(0)
+    expect(pictures.every((picture) => picture.colours.every((colour) => colour === 0))).toBe(true)
+    const latest = `data:picture-${pictures.length}`
+    expect(Array.from(container.querySelectorAll('image')).map((image) => image.getAttribute('href'))).toEqual([latest, latest])
+  })
+
   it('goes black when the route goes away', () => {
     render(<HardwareLedPreview nodeId="output" cols={32} rows={32} />)
     publish(solid(32, 32, { r: 255, g: 255, b: 255 }))
