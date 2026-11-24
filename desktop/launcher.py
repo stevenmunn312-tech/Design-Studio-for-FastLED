@@ -168,6 +168,12 @@ def _focus_running_window(port: int) -> bool:
 
 def _port_available(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        if os.name != "nt":
+            # As uvicorn binds. Without it Linux and macOS refuse the port for
+            # about a minute after the last Studio closed, while its finished
+            # connections linger. On Windows the option would instead let this
+            # bind succeed over a live listener.
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             sock.bind((HOST, port))
         except OSError:

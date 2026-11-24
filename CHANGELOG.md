@@ -61,6 +61,9 @@ share link, migrating it where a shape has changed.
 
 ### Fixed
 
+- The macOS and Linux desktop packages start again straight after closing.
+  For about a minute after the Studio closed, a new launch reported that
+  port 8008 was in use.
 - A Performance Generator show changes pattern with the music. Section
   changes used to come about a second before the drop or breakdown they
   marked; they now land on its beat, with the palette, speed and brightness

@@ -275,9 +275,34 @@ On 2026-11-24 the Chromium app window was added for macOS and Linux. Checked
 so far, on Windows 11 with Chrome only: the helper's unit tests, and the
 process model the launcher relies on (the first `--app` process on a profile
 stays up until stopped, and a second start on that profile hands over and
-exits within a second). No macOS or Linux bundle has been built or launched
-with it: the Dock behaviour, the desktop entry's icon match and the Tk
-fallbacks are unverified.
+exits within a second).
+
+The same day a Linux x86-64 bundle was built and launched under WSL2
+(Ubuntu 22.04, WSLg forced to X11, Python 3.10 rather than the workflow's
+3.11, Google Chrome 158):
+
+- the packaging smoke passed and wrote an 86 MB `.tar.gz`;
+- the Studio opened in a Chrome app window of class
+  `design-studio-for-fastled`, rendered its intro and raised Chrome's Web MIDI
+  prompt;
+- the launcher wrote its desktop entry;
+- a second launch opened a second window and exited;
+- closing the window ended the browser, the helper and the launcher, and a
+  launch two seconds later came up;
+- with a browser that exits at once and no terminal, the control window
+  appeared and closing it stopped the helper; with a terminal the launcher
+  printed the address and stopped on Ctrl+C;
+- with the port taken and no terminal, the error alert appeared.
+
+That run found one fault, since fixed: the launcher's port check bound
+without `SO_REUSEADDR`, so Linux refused the port for about a minute after
+the Studio closed and a quick relaunch reported port 8008 in use.
+
+Still unverified: a real Linux desktop (WSLg has no application menu or
+taskbar, so the entry's menu item and icon match were not seen), Wayland,
+other browsers and distributions, and everything on macOS, where no bundle
+has been built or launched with the app window and the Dock behaviour is
+untested.
 
 On 2026-11-14 the offline PWA was relaunched from a clean browser profile: a
 production build served on localhost, one online load in a new Chromium

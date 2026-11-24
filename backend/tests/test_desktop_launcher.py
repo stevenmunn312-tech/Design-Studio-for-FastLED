@@ -311,3 +311,23 @@ def test_output_goes_to_the_log_only_when_nobody_would_see_it(monkeypatch):
 
     monkeypatch.setattr(launcher.sys, "stdout", None)  # the windowed Windows build
     assert launcher.logs_to_file(headless=False, macos_app=False) is True
+
+
+def test_a_listening_port_is_not_available_and_a_closed_one_is():
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        if os.name != "nt":
+            # As uvicorn's listener; its connections inherit the option.
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind((launcher.HOST, 0))
+        listener.listen(1)
+        port = listener.getsockname()[1]
+        assert launcher._port_available(port) is False
+        # A finished connection lingers on the port after the listener closes;
+        # Linux and macOS then refuse a plain bind for about a minute.
+        with socket.create_connection((launcher.HOST, port)) as client:
+            served, _ = listener.accept()
+            served.close()
+            client.recv(1)
+    assert launcher._port_available(port) is True
