@@ -52,6 +52,17 @@ share link, migrating it where a shape has changed.
 
 ### Fixed
 
+- A Performance Generator show changes pattern with the music. Section
+  changes used to come about a second before the drop or breakdown they
+  marked; they now land on its beat, with the palette, speed and brightness
+  that go with them. Between sections a pattern holds for whole phrases (four
+  bars, or less for a short Min Time) counted from the last change, where it
+  used to switch on whichever beat followed Min Time. A change inside a
+  section takes a switch of its own, and no pattern is brought in just before
+  the next change. Regenerate a show to get the new timing.
+- A Pattern Collection no longer offers **Update from library** for a pattern
+  nobody changed. Reopening a project, or opening a collected pattern, was
+  enough to mark its copy as out of date.
 - The Music Player preview's volume slider no longer dims the lights. The
   preview measured the music after the volume was applied, so at the default
   90% every audio pattern ran about a tenth dimmer than on hardware, and

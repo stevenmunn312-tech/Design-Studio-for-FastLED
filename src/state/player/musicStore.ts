@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { SongAnalysis, ShowFile, SongSection } from '../../types/showFile'
 import { generateShow } from '../../codegen/performanceGenerator'
+import { alignSectionsToMusic, songGrid } from '../../audio/songStructure'
 import type { PerformanceOptions } from '../../codegen/performanceGenerator'
 import { useGraphStore } from '../graphStore'
 import { wiredPatternCollection, wiredTransitionStyles } from '../patterns/patternCollectionWiring'
@@ -32,6 +33,19 @@ function eventKey(event: ShowFile['events'][number]): string {
 function wiredProfiles() {
   const { nodes, edges } = useGraphStore.getState()
   return wiredPatternCollection(nodes, edges)
+}
+
+/**
+ * A song analysed before section boundaries were moved onto the beat the music
+ * steps on gets them moved now, so the timeline's section bands sit where the
+ * regenerated show switches. Aligned sections come back unchanged.
+ */
+function withAlignedSections(analysis: SongAnalysis): SongAnalysis {
+  const grid = songGrid(analysis.beats.timestamps, analysis.beats.bpm, analysis.durationMs)
+  const sections = alignSectionsToMusic(analysis.sections, analysis.energy, grid)
+  const moved = sections.some((section, i) =>
+    section.startMs !== analysis.sections[i].startMs || section.endMs !== analysis.sections[i].endMs)
+  return moved ? { ...analysis, sections } : analysis
 }
 
 function freshShow(
@@ -227,16 +241,17 @@ export const useMusicStore = create<MusicState>((set, get) => ({
   regenerateShow: (id, options = {}) => {
     const entry = get().entries.find(e => e.id === id)
     if (!entry?.analysis) return
+    const analysis = withAlignedSections(entry.analysis)
     if (!entry.show) {
-      const show = freshShow(entry.analysis, options, entry.analysis.sections)
-      set(s => ({ entries: s.entries.map(e => e.id === id ? { ...e, show, edited: false } : e) }))
+      const show = freshShow(analysis, options, analysis.sections)
+      set(s => ({ entries: s.entries.map(e => e.id === id ? { ...e, analysis, show, edited: false } : e) }))
       return
     }
-    const fresh = freshShow(entry.analysis, options, entry.show.sections ?? entry.analysis.sections)
+    const fresh = freshShow(analysis, options, entry.show.sections ?? analysis.sections)
     const locks = effectiveLocks(entry.show, !!entry.edited)
     const show = locks.length > 0 ? regenerateKeepingLocks(entry.show, fresh, locks) : fresh
     set(s => ({
-      entries: s.entries.map(e => e.id === id ? { ...e, show, edited: locks.length > 0 } : e),
+      entries: s.entries.map(e => e.id === id ? { ...e, analysis, show, edited: locks.length > 0 } : e),
     }))
   },
 

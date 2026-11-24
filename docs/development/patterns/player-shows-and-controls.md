@@ -100,6 +100,19 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   at another frame rate fades alike and a pause holds. The authored
   `SET_BRIGHTNESS` blackout `generateShow` writes for a silent gap still
   applies, and still covers shows of built-in patterns, which do not listen.
+- **A generated show switches where the song changes, on its beat grid.**
+  `audio/songStructure.ts` owns this. `detectSections` reads a two-second
+  smoothed envelope, so its boundaries come about a second early and between
+  beats; `alignSectionsToMusic` moves each onto the strongest step within
+  2.5 s and leaves one already on a step alone, so it is safe to apply twice
+  (analysis applies it, `generateShow` applies it to whatever sections it is
+  given, and `regenerateShow` writes it back to an older analysis so the
+  section bands match). Inside a section, `structureChanges` peaks take a
+  switch, and each stretch between changes switches on whole phrases counted
+  from its own start (`holdBeats`: the minimum hold rounded up to 16, 8, 4 or
+  2 beats). No phrase switch falls within the minimum hold of the next
+  change. `songGrid` continues the tracked beats over trimmed quiet ends, and
+  lays an even grid at the tempo when fewer than eight beats were tracked.
 - **Music Source is where the music comes from, not a second player.**
   `musicSource` is `SD Card`, `Bluetooth` or `Internet Radio`; `musicPlayerSource` and
   `musicPlayerHasMusic` in `src/state/upload/buildMode.ts` are the one answer

@@ -12,6 +12,9 @@ import {
   clampPatternWeight, energyBandFromIntensity, isEnergyBand, nextPatternIndex, sectionEnergyIntensity,
   type EnergyBand, type PickEntry,
 } from '../state/patterns/patternPick'
+import {
+  alignSectionsToMusic, nearestBeatIndex, songGrid, structureChanges, type SongGrid, type StructureChange,
+} from '../audio/songStructure'
 
 // Frame rate of the baked audio envelope (see bakeEnvelope). 50 Hz is smooth
 // enough for per-frame band reactivity while staying small (21 bytes/frame).
@@ -335,59 +338,47 @@ export interface PerformanceOptions {
   minTime:            number   // minimum seconds to hold a pattern before a beat-aligned switch
 }
 
-// ── Beat-aligned switch scheduling ────────────────────────────────────────────
+// ── Phrase-aligned switch scheduling ──────────────────────────────────────────
 
-/** The first beat at or after `t`. Falls back to `t` itself when the track has
- *  no beat that late (sparse/absent beat data), so scheduling degrades to plain
- *  time-based rather than never switching. */
-function nextBeatAtOrAfter(beats: number[], t: number): number {
-  for (let i = 0; i < beats.length; i++) if (beats[i] >= t) return beats[i]
-  return t
+/** Beats a pattern holds: the minimum hold rounded up to whole phrases. A
+ *  phrase is four bars where the hold spans one, shrinking by halves for a
+ *  shorter hold, so a switch lands where the music turns over. */
+function holdBeats(minHoldMs: number, periodMs: number): number {
+  const unit = [16, 8, 4, 2].find((beats) => beats * periodMs <= minHoldMs) ?? 1
+  return Math.max(unit, Math.ceil(minHoldMs / periodMs / unit - 1e-6) * unit)
 }
 
-/** Timestamps (ms) of significant energy surges — a rise in overall energy over
- *  a ~500 ms window exceeding `threshold`. These are candidate pattern-switch
- *  points *within* a section (a mid-section build or sub-drop), reported once per
- *  leading edge so a long ramp doesn't register at every sample along it. */
-function detectEnergySurges(energy: EnergyPoint[], threshold: number): number[] {
-  const out: number[] = []
-  const WINDOW = 5   // ~500 ms at the analyzer's ~100 ms sampling
-  for (let i = WINDOW; i < energy.length; i++) {
-    const rise = energy[i].overall - energy[i - WINDOW].overall
-    const prevRise = energy[i - 1].overall - (energy[i - 1 - WINDOW]?.overall ?? 0)
-    if (rise >= threshold && !(prevRise >= threshold)) out.push(energy[i].t)
-  }
-  return out
-}
-
-/** Pattern-switch timestamps for one section: the section start, then switches
- *  that hold at least `minHoldMs` and snap forward to the next beat (so a change
- *  lands on the music, even if that means holding a little longer). A significant
- *  energy surge inside the section adds an extra beat-aligned switch, provided it
- *  is at least half the minimum hold away from its neighbours. */
+/** Pattern-switch timestamps for one section. The section start switches, and
+ *  so does each change of character inside it (strongest first, at least half
+ *  the minimum hold from the section's ends and from each other). Each stretch
+ *  between those then switches every `holdBeats` counted from its own start,
+ *  because a phrase restarts where the music changes. No such switch falls
+ *  within the minimum hold of the next change, so a pattern never arrives only
+ *  to be replaced a moment later. */
 function sectionSwitchTimes(
-  section: SongSection, beats: number[], minHoldMs: number, surges: number[],
+  section: SongSection, grid: SongGrid, minHoldMs: number, changes: readonly StructureChange[],
 ): number[] {
-  const END_MARGIN = 500   // don't switch right before the section ends
-  const times = [section.startMs]
-  let last = section.startMs
-  // Periodic: hold at least minHoldMs, then snap to the next beat.
-  for (;;) {
-    const beat = nextBeatAtOrAfter(beats, last + minHoldMs)
-    if (beat >= section.endMs - END_MARGIN) break
-    times.push(beat)
-    last = beat
+  const guard = minHoldMs * 0.5
+  const cuts = [section.startMs]
+  for (const change of [...changes].sort((x, y) => y.strength - x.strength)) {
+    if (change.t - section.startMs < guard || section.endMs - change.t < guard) continue
+    if (cuts.some((cut) => Math.abs(cut - change.t) < guard)) continue
+    cuts.push(change.t)
   }
-  // Energy surges: a big musical change earns a change mid-hold, but keep a floor
-  // so we don't switch twice within a couple of seconds.
-  for (const s of surges) {
-    if (s <= section.startMs || s >= section.endMs - END_MARGIN) continue
-    const beat = nextBeatAtOrAfter(beats, s)
-    if (beat >= section.endMs - END_MARGIN) continue
-    if (times.some((t) => Math.abs(t - beat) < minHoldMs * 0.5)) continue
-    times.push(beat)
-  }
-  return times.sort((a, b) => a - b)
+  cuts.sort((x, y) => x - y)
+  const step = holdBeats(minHoldMs, grid.periodMs)
+  const times: number[] = []
+  cuts.forEach((cut, k) => {
+    const end = cuts[k + 1] ?? section.endMs
+    times.push(cut)
+    const from = nearestBeatIndex(grid, cut)
+    for (let n = 1; ; n++) {
+      const t = grid.beats[from + n * step]
+      if (t === undefined || end - t < minHoldMs) break
+      times.push(t)
+    }
+  })
+  return times
 }
 
 export const SHOW_PALETTES = STUDIO_PALETTES
@@ -428,6 +419,10 @@ const DEFAULT_OPTIONS: PerformanceOptions = {
 // at the same numeric intensity. Keep flashes punchy without washing the whole
 // matrix to white; Beat Intensity still scales both accent types normally.
 const WHITE_FLASH_INTENSITY_SCALE = 0.55
+// The summed band change (see structureChanges) that earns a switch inside a
+// section, from Energy Sensitivity 0 down to Energy Sensitivity 1.
+const CHANGE_THRESHOLD_MAX = 0.9
+const CHANGE_THRESHOLD_RANGE = 0.5
 const SHOW_BOUNDARY_FADE_MS = 5000
 
 /** Brightness in force at `timeMs` from events pushed so far, ignoring ramps.
@@ -496,7 +491,11 @@ export function generateShow(
     sections: sectionTags[index] ?? [],
   }))
   const hasEnergyTags = entries.some((entry) => entry.energy.length > 0)
-  const sectionEnergies = analysis.sections.map((section) => section.energy)
+  // Every section-timed event reads the boundaries moved onto the beat where
+  // the music steps, so a drop's pattern, palette and brightness arrive with it.
+  const grid = songGrid(analysis.beats.timestamps, analysis.beats.bpm, analysis.durationMs)
+  const sections = alignSectionsToMusic(analysis.sections, analysis.energy, grid)
+  const sectionEnergies = sections.map((section) => section.energy)
   const eligibleIndices = (type: SongSection['type']): number[] => {
     const eligible: number[] = []
     for (let i = 0; i < entries.length; i++) {
@@ -526,11 +525,9 @@ export function generateShow(
   const baseSpeed = speedFromBpm(analysis.beats.bpm)
 
   // ── 1. Section-level events ───────────────────────────────────────────────
-  const beats = analysis.beats.timestamps
   const minHoldMs = opts.minTime * 1000
-  // Higher energy sensitivity → lower surge threshold → more mid-section switches.
-  const surgeThreshold = 0.35 - opts.energySensitivity * 0.15
-  const surges = detectEnergySurges(analysis.energy, surgeThreshold)
+  // Higher energy sensitivity → a smaller change counts → more mid-section switches.
+  const changes = structureChanges(analysis.energy, grid, CHANGE_THRESHOLD_MAX - opts.energySensitivity * CHANGE_THRESHOLD_RANGE)
 
   let prevSectionType: SongSection['type'] | null = null
   // The very first pattern of the show is a plain cut-in (nothing to fade from);
@@ -541,19 +538,18 @@ export function generateShow(
   let prevIdx: number | undefined
   let prevName: string | undefined
 
-  for (const section of analysis.sections) {
+  for (const section of sections) {
     const palette = opts.paletteMode === 'cycle'
       ? choosePalette(section.energy, analysis.mood.valence)
       : basePalette
 
-    // Pattern switches: hold each pattern at least `minTime` seconds, then
-    // switch on the next beat (holding a little longer to sync with the music),
-    // plus an extra switch on any significant energy surge within the section.
-    // Section boundaries always switch (drops/choruses are their own sections).
+    // Pattern switches: at the section start, at each change of character
+    // inside it, and between those on whole phrases of at least `minTime`
+    // seconds (see sectionSwitchTimes).
     // Collapses to one switch at the section start when only a single pattern is
     // eligible.
     const poolN = useCollection ? eligibleIndices(section.type).length : SECTION_PATTERNS[section.type].length
-    const switchTimes = poolN < 2 ? [section.startMs] : sectionSwitchTimes(section, beats, minHoldMs, surges)
+    const switchTimes = poolN < 2 ? [section.startMs] : sectionSwitchTimes(section, grid, minHoldMs, changes)
 
     for (let k = 0; k < switchTimes.length; k++) {
       const st = switchTimes[k]
@@ -599,7 +595,7 @@ export function generateShow(
   // eligible beat is either a white BEAT_FLASH or a colored PARTICLE_BURST, so
   // the show isn't just flashing — bursts are favoured in high-energy sections.
   const sectionAt = (ms: number): SongSection | undefined =>
-    analysis.sections.find(s => ms >= s.startMs && ms < s.endMs)
+    sections.find(s => ms >= s.startMs && ms < s.endMs)
 
   const decayValue = 1 - opts.beatIntensity * 0.5   // 0.5-1
 
@@ -632,7 +628,7 @@ export function generateShow(
   }
 
   // ── 3. Buildup energy ramps ───────────────────────────────────────────────
-  for (const section of analysis.sections) {
+  for (const section of sections) {
     if (section.type !== 'buildup') continue
     const durationMs = section.endMs - section.startMs
     const speed = Math.min(3, baseSpeed * (1 + 1.5 * opts.energySensitivity))

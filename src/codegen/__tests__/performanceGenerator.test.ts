@@ -174,24 +174,26 @@ describe('generateShow — collection vs enum patterns', () => {
   // A single long section so within-section cycling has room to switch.
   const longAnalysis: SongAnalysis = {
     ...analysis,
-    durationMs: 20000,
-    sections: [{ startMs: 0, endMs: 20000, type: 'drop', energy: 0.9 }],
+    durationMs: 30000,
+    sections: [{ startMs: 0, endMs: 30000, type: 'drop', energy: 0.9 }],
   }
+  const LONG_SWITCHES = [0, 8000, 16000, 24000]
 
   it('cycles through several patterns within a long section', () => {
-    // 20s section, 5s min hold → switches at 0/5/10/15s; a 3-pattern collection
-    // gives real variety. (No beats past 2s in this fixture, so switches fall
-    // back to plain time-based, which is what makes the count deterministic.)
+    // 30s section, 5s min hold. Too few beats are tracked to trust, so the
+    // grid is even at 120 BPM: a 5s hold rounds up to two 8-beat phrases (8s),
+    // switching at 8s and 16s. A switch at 24s would be replaced 6s later by
+    // the section's end, which is still a full hold, so it stays too.
     const ids = ['g0', 'g1', 'g2']
     const show = generateShow(longAnalysis, { minTime: 5 }, ids)
     const setPatterns = show.events.filter((e) => e.cmd === 'SET_PATTERN')
-    expect(setPatterns).toHaveLength(4)
+    expect(setPatterns.map((e) => e.t)).toEqual(LONG_SWITCHES)
     // No two consecutive slots repeat the same pattern.
     for (let i = 1; i < setPatterns.length; i++) {
       expect(setPatterns[i].params.index).not.toBe(setPatterns[i - 1].params.index)
     }
     // Each switch after the first is preceded by a transition.
-    expect(show.events.filter((e) => e.cmd === 'TRANSITION')).toHaveLength(3)
+    expect(show.events.filter((e) => e.cmd === 'TRANSITION')).toHaveLength(LONG_SWITCHES.length - 1)
   })
 
   it('cycles enum patterns too, avoiding immediate repeats', () => {
@@ -254,9 +256,9 @@ describe('generateShow — collection vs enum patterns', () => {
     expect(setPatterns[0].params.index).toBe(0)
   })
 
-  it('snaps within-section switches to the beat after the minimum hold', () => {
-    // Beats every 700ms so the 5s hold never lands exactly on one — each switch
-    // must fall on a beat *after* at least 5s have elapsed (hold longer to sync).
+  it('switches within a section on whole phrases of at least the minimum hold', () => {
+    // Beats every 700ms: a 5s hold rounds up to two bars (8 beats, 5.6s), so
+    // every switch falls on a beat a whole number of bars after the last.
     const beatsArr = Array.from({ length: 60 }, (_, i) => i * 700)
     const beatSong: SongAnalysis = {
       ...analysis,
@@ -270,11 +272,52 @@ describe('generateShow — collection vs enum patterns', () => {
       expect(beatsArr).toContain(setPatterns[i].t)        // lands on a beat
       expect(setPatterns[i].t - setPatterns[i - 1].t).toBeGreaterThanOrEqual(5000)  // held ≥ minimum
     }
+    expect(setPatterns.map((e) => e.t)).toEqual([0, 5600, 11200, 16800, 22400])
   })
 
-  it('adds an extra beat-aligned switch on a significant energy surge', () => {
-    // Energy is flat then jumps hard at 15s. With a 10s hold the periodic schedule
-    // switches at ~10s and ~20s; the surge forces an extra switch near 15s.
+  it('never brings a pattern in within the minimum hold of the section end', () => {
+    const beatsArr = Array.from({ length: 60 }, (_, i) => i * 500)
+    const song: SongAnalysis = {
+      ...analysis,
+      durationMs: 30000,
+      beats: { timestamps: beatsArr, bpm: 120, confidence: 0.9 },
+      sections: [
+        { startMs: 0, endMs: 21000, type: 'verse', energy: 0.5 },
+        { startMs: 21000, endMs: 30000, type: 'drop', energy: 0.9 },
+      ],
+    }
+    // 8s holds from 0: 8s, then 16s would be replaced 5s later at the drop.
+    const times = generateShow(song, { minTime: 8 }, ['x', 'y', 'z']).events
+      .filter((e) => e.cmd === 'SET_PATTERN').map((e) => e.t)
+    expect(times).toEqual([0, 8000, 21000])
+  })
+
+  it('moves a section boundary onto the beat the music steps on', () => {
+    // The section says 9s, as a smoothed detector does; the song steps at 10.5s.
+    const energy: EnergyPoint[] = []
+    for (let t = 0; t <= 30000; t += 100) {
+      const level = t >= 10500 ? 0.9 : 0.2
+      energy.push({ t, bass: level, mids: level, treble: level, overall: level })
+    }
+    const song: SongAnalysis = {
+      ...analysis,
+      durationMs: 30000,
+      beats: { timestamps: Array.from({ length: 60 }, (_, i) => i * 500), bpm: 120, confidence: 0.9 },
+      energy,
+      sections: [
+        { startMs: 0, endMs: 9000, type: 'verse', energy: 0.2 },
+        { startMs: 9000, endMs: 30000, type: 'drop', energy: 0.9 },
+      ],
+    }
+    const show = generateShow(song, { minTime: 30 }, ['x', 'y'])
+    expect(show.events.filter((e) => e.cmd === 'SET_PATTERN').map((e) => e.t)).toEqual([0, 10500])
+    expect(show.events.filter((e) => e.cmd === 'SET_ENERGY').map((e) => e.t)).toEqual([0, 10500])
+  })
+
+  it('switches on a change of character inside a section, not just before it', () => {
+    // Energy is flat then jumps hard at 15s. Counting holds from the section
+    // start alone would switch at 12s and 24s; the change takes the switch
+    // instead, and nothing is brought in during the hold before it.
     const energy: EnergyPoint[] = []
     for (let t = 0; t <= 30000; t += 100) energy.push({ t, bass: 0, mids: 0, treble: 0, overall: t >= 15000 ? 0.9 : 0.1 })
     const beatsArr = Array.from({ length: 120 }, (_, i) => i * 250)
@@ -287,8 +330,8 @@ describe('generateShow — collection vs enum patterns', () => {
     }
     const withSurge = generateShow(surgeSong, { minTime: 10 }, ['x', 'y', 'z']).events.filter((e) => e.cmd === 'SET_PATTERN')
     const noSurge = generateShow({ ...surgeSong, energy: [] }, { minTime: 10 }, ['x', 'y', 'z']).events.filter((e) => e.cmd === 'SET_PATTERN')
-    expect(withSurge.length).toBeGreaterThan(noSurge.length)
-    expect(withSurge.some((e) => e.t === 15000)).toBe(true)
+    expect(noSurge.map((e) => e.t)).toEqual([0, 12000])
+    expect(withSurge.map((e) => e.t)).toEqual([0, 15000])
   })
 })
 

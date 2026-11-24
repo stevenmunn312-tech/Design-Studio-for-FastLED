@@ -28,6 +28,7 @@ import { encodeSpectrumBytes, SPECTRUM_TRACK_BINS, type SpectrumTrack } from './
 import { correlateWithProfile, MAJOR_PROFILE, MINOR_PROFILE } from './fastledPitch'
 import { fftInPlace, MIC_FFT_SIZE, MIC_SPECTRUM_BARS } from './micAnalysis'
 import { ENERGY_HOP_MS, detectSections, normalizeEnergy } from './songAnalysisCommon'
+import { alignSectionsToMusic, songGrid } from './songStructure'
 import {
   DETECTOR_EVENTS, encodeDetectorBytes, encodePitchRecord, encodeStructureRecord, encodeVibeRecord,
   PITCH_RECORD_BYTES, STRUCTURE_RECORD_BYTES, VIBE_RECORD_BYTES, type DetectorTracks,
@@ -538,7 +539,9 @@ export function analyzeSongSamples(
   const { onset, frameRate, energy, spectrum } = framePass(mono, sampleRate)
   const { beats, clarity } = extractBeats(onset, frameRate)
   const key = detectKey(mono, sampleRate)
-  const sections = detectSections(energy, durationMs)
+  const sections = alignSectionsToMusic(
+    detectSections(energy, durationMs), energy, songGrid(beats.timestamps, beats.bpm, durationMs),
+  )
   const mood = estimateMood(energy, key?.key ?? '', key?.scale ?? 'major', rhythmDrive(clarity))
   const detectors = bakeDetectorTracks(mono, sampleRate)
   return { title, durationMs, beats, energy, spectrum, detectors, sections, mood }

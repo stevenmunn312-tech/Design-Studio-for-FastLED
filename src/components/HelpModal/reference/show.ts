@@ -24,7 +24,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         shows: ['PerformanceGenerator', { paletteMode: 'mood' }],
       },
       demoTrack: true,
-      explanation: 'Music Library opens with the demo track already analysed. It analyses the songs you drop into it, and Performance Generator plans a show for each, with no wire between them: patterns on the sections, flashes on the beats, palettes from the mood. Audio patterns in a wired collection follow the song as they do in a Music Player: they fade to black in silence and move faster as the music gets louder. The generator’s Show goes to the LED output that will play it.',
+      explanation: 'Music Library opens with the demo track already analysed. It analyses the songs you drop into it, and Performance Generator plans a show for each, with no wire between them: patterns on the sections, flashes on the beats, palettes from the mood. A pattern changes on the beat a section starts and wherever the song changes character, and otherwise holds for whole phrases of at least Min Time. Audio patterns in a wired collection follow the song as they do in a Music Player: they fade to black in silence and move faster as the music gets louder. The generator’s Show goes to the LED output that will play it.',
       preview: 'The {output} plays the generated show once songs are analysed; press play in the Performance Generator body to watch it.',
       workflow: true,
     }),
