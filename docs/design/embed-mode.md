@@ -7,6 +7,21 @@ Embed mode runs the Studio's web app as a live demo inside another site's
 page. A visitor gets the real editor and the real preview, opened on one
 starter, with nothing installed.
 
+## Live demo
+
+The pilot runs at <https://design-studio-demo-u0i3.onrender.com/?embed>. It is
+on a free instance that sleeps when idle, so the first visit after a quiet
+spell waits about a minute on the host's loading page. To frame it:
+
+```html
+<iframe
+  src="https://design-studio-demo-u0i3.onrender.com/?embed"
+  title="Design Studio for FastLED demo"
+  width="100%" height="760"
+  allow="fullscreen; microphone; midi"
+></iframe>
+```
+
 ## The link
 
 | Address | Opens |
