@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { listProjects, saveProjectToDisk, deleteProjectFromDisk } from '../utils/backendClient'
 import type { PersistedWorkspace } from './workspacePersistence'
-import { blankWorkspace, cloneWorkspace } from './workspacePersistence'
+import { blankWorkspace, cloneWorkspace, ownedWorkspace } from './workspacePersistence'
 import { useUiStore } from './uiStore'
 import { readableSaves } from './saveFormat'
 import {
@@ -384,6 +384,36 @@ function loadCurrentWorkspaceSnapshot(): SavedProject | null {
   }
 }
 
+// A project's text for storage, kept for as long as that project object
+// lives. A save replaces one project and leaves the others as they were, so
+// the others are not written out as text again, and the open project's
+// workspace, which two storage keys both hold, is serialised once. With a
+// dozen projects an autosave used to serialise every one of them, on the
+// main thread, ten seconds after each edit.
+const workspaceJsonCache = new WeakMap<PersistedWorkspace, string>()
+const projectJsonCache = new WeakMap<SavedProject, string>()
+
+/** `JSON.stringify({ ...fields, workspace })`, reusing the workspace's text. */
+function jsonWithWorkspace(fields: Record<string, unknown>, workspace: PersistedWorkspace): string {
+  let workspaceJson = workspaceJsonCache.get(workspace)
+  if (workspaceJson === undefined) {
+    workspaceJson = JSON.stringify(workspace) ?? 'null'
+    workspaceJsonCache.set(workspace, workspaceJson)
+  }
+  const head = JSON.stringify(fields)
+  return `${head.slice(0, -1)}${head.length > 2 ? ',' : ''}"workspace":${workspaceJson}}`
+}
+
+function projectJson(project: SavedProject): string {
+  let json = projectJsonCache.get(project)
+  if (json === undefined) {
+    const { workspace, ...fields } = project
+    json = jsonWithWorkspace(fields, workspace)
+    projectJsonCache.set(project, json)
+  }
+  return json
+}
+
 function persistCurrentWorkspaceSnapshot(project: SavedProject | undefined): void {
   if (!project) {
     // No current project: drop the snapshot too, so a deleted project can't
@@ -396,16 +426,15 @@ function persistCurrentWorkspaceSnapshot(project: SavedProject | undefined): voi
     return
   }
   try {
-    localStorage.setItem(CURRENT_WORKSPACE_KEY, JSON.stringify({
+    localStorage.setItem(CURRENT_WORKSPACE_KEY, jsonWithWorkspace({
       projectId: project.id,
       name: project.name,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
-      workspace: project.workspace,
       uploadTargets: project.uploadTargets,
       diskBase: project.diskBase,
       draft: project.draft,
-    }))
+    }, project.workspace))
     browserCopySaved = true
   } catch {
     // Keep running when storage is unavailable or full, but remember it: with
@@ -647,11 +676,9 @@ function persist(state: PersistedState) {
   persistCurrentProjectHint(state.currentProjectId)
   persistCurrentWorkspaceSnapshot(state.projects.find((project) => project.id === state.currentProjectId))
   try {
-    localStorage.setItem(KEY, JSON.stringify({
-      currentProjectId: state.currentProjectId,
-      projects: state.projects,
-      recentProjectIds: state.recentProjectIds,
-    }))
+    localStorage.setItem(KEY, `{"currentProjectId":${JSON.stringify(state.currentProjectId)},"projects":[${
+      state.projects.map(projectJson).join(',')
+    }],"recentProjectIds":${JSON.stringify(state.recentProjectIds)}}`)
   } catch {
     // Keep the in-memory copy when storage is unavailable or full.
   }
@@ -761,7 +788,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   saveCurrentWorkspace: (workspace, options) => {
     const state = get()
     const now = Date.now()
-    const snapshot = cloneWorkspace(workspace)
+    const snapshot = ownedWorkspace(workspace)
     const projects = state.projects.map((project) => {
       if (project.id !== state.currentProjectId) return project
       const saved: SavedProject = { ...project, workspace: snapshot, updatedAt: now }

@@ -125,6 +125,7 @@ and known traps; [CLAUDE.md](../CLAUDE.md) routes agents to the same files.
 ### Repeatable testing
 
 - [Touch, LVGL and heap budgets: the bench procedure](development/testing/display-budget-bench.md)
+- [Performance profile: frame rate and main-thread spikes](development/testing/performance-profile.md)
 
 ## Active plans
 

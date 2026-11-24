@@ -1,10 +1,4 @@
 .canvas {
-  /* The field palette itself lives in tokens.css, shared with the bench. */
-  --field-energy: 0.12;
-  --field-focus-energy: 0;
-  --field-x: 50%;
-  --field-y: 50%;
-  --field-hover: 0;
   flex: 1;
   height: 100%;
   overflow: hidden;
@@ -45,21 +39,32 @@
 }
 
 .cursorWake {
-  opacity: var(--field-hover);
-  background:
-    radial-gradient(circle 210px at var(--field-x) var(--field-y), color-mix(in srgb, var(--field-color) 18%, transparent), transparent 68%),
-    radial-gradient(circle 110px at var(--field-x) var(--field-y), color-mix(in srgb, var(--text-primary) 3.5%, transparent), transparent 72%);
-  transition: opacity 180ms ease-out;
-}
+  /* The dotted glow under the pointer: a 300px box carried there by a
+     transform, so the browser moves one small picture. It used to be a mask
+     over the whole canvas, drawn again in full for every pointer move, and
+     the first of those cost a 70 ms frame at the start of each pan and drag.
 
-.cursorWake::after {
-  content: '';
+     The variables are set on this element, not on the canvas: a custom
+     property is inherited, so one written on the canvas restyles every node
+     each time it changes. The field palette lives in tokens.css. */
+  --field-x: 0px;
+  --field-y: 0px;
+  --field-hover: 0;
   position: absolute;
-  inset: 0;
+  top: -150px;
+  left: -150px;
+  width: 300px;
+  height: 300px;
+  transform: translate(var(--field-x), var(--field-y));
+  opacity: var(--field-hover);
   background-image: radial-gradient(circle, color-mix(in srgb, var(--field-color) 40%, transparent) 0 1px, transparent 1.25px);
   background-size: 20px 20px;
-  -webkit-mask-image: radial-gradient(circle 150px at var(--field-x) var(--field-y), black, transparent 76%);
-  mask-image: radial-gradient(circle 150px at var(--field-x) var(--field-y), black, transparent 76%);
+  /* Offset by the box's own position, so the dots stay on the canvas grid
+     while the box moves over them. */
+  background-position: calc(150px - var(--field-x)) calc(150px - var(--field-y));
+  -webkit-mask-image: radial-gradient(circle 150px at 50% 50%, black, transparent 76%);
+  mask-image: radial-gradient(circle 150px at 50% 50%, black, transparent 76%);
+  transition: opacity 180ms ease-out;
 }
 
 .connectionRipple {

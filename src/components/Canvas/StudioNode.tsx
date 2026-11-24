@@ -443,15 +443,19 @@ const LivePropertyControls = memo(function LivePropertyControls({
 
   // Live upstream values for this node's wired inputs, pulled from the shared
   // evaluation pass (previewStore). Serialised so the props section only
-  // re-renders when one of its own driven values changes. Frames (2D arrays)
-  // aren't shown in inline editors, so they're skipped to keep the payload small.
+  // re-renders when one of its own driven values changes. An inline editor
+  // shows a number, a switch, a choice or a colour, never a list, so every
+  // array is skipped: a frame, and also a field or a palette. A field is one
+  // number per LED and changes every frame; serialising it made each node
+  // wired to one write out thousands of numbers and render again on every
+  // publish (8 ms of each at 64 x 64).
   const liveJson = usePreviewStore((s) => {
     if (!uiEffectsEnabled || sourceMap.size === 0) return ''
     const o: Record<string, unknown> = {}
     for (const [handle, src] of sourceMap) {
       const v = s.outputs.get(src.srcId)?.[src.srcPort]
       if (v === undefined || v === null) continue
-      if (Array.isArray(v) && Array.isArray((v as unknown[])[0])) continue
+      if (Array.isArray(v) || ArrayBuffer.isView(v)) continue
       // Audio cables carry full spectrum arrays. They drive dedicated node
       // bodies, never scalar property editors, so serialising them into this
       // small live-value payload every publish is pure work.

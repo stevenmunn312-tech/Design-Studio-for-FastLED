@@ -369,19 +369,30 @@ export default function App() {
       }
     }
 
+    const whenIdle = (work: () => void): number => (
+      typeof window.requestIdleCallback === 'function'
+        ? window.requestIdleCallback(work, { timeout: AUTOSAVE_IDLE_TIMEOUT })
+        : window.setTimeout(work, 0)
+    )
+
     const queueAutosave = () => {
       const run = async () => {
         autosaveIdle.current = null
         await waitForMusicLibraryRestore()
         if (!workspaceHydrated.current) return
         const state = latestAutosaveState.current
-        if (state) useProjectStore.getState().saveCurrentWorkspace(captureWorkspace(state))
+        if (!state) return
+        // Two idle slices, not one. Copying a large project and writing it out
+        // each take most of a frame; done together they held the main thread
+        // for three. An edit between the two cancels the write, as it cancels
+        // any queued autosave, and schedules a save of the newer state.
+        const workspace = captureWorkspace(state)
+        autosaveIdle.current = whenIdle(() => {
+          autosaveIdle.current = null
+          useProjectStore.getState().saveCurrentWorkspace(workspace)
+        })
       }
-      if (typeof window.requestIdleCallback === 'function') {
-        autosaveIdle.current = window.requestIdleCallback(run, { timeout: AUTOSAVE_IDLE_TIMEOUT })
-      } else {
-        autosaveIdle.current = window.setTimeout(run, 0)
-      }
+      autosaveIdle.current = whenIdle(() => { void run() })
     }
 
     const scheduleAutosave = (state = useGraphStore.getState()) => {

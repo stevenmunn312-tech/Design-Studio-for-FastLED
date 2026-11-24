@@ -143,41 +143,50 @@ static inline uint8_t inoise8(uint16_t x, uint16_t y) {
   int8_t n = lerp7by8(X1, X2, v); n += 64; uint32_t t = (uint8_t)n + (uint8_t)n; return t > 255 ? 255 : (uint8_t)t;
 }`
 
-const avg7 = (i: number, j: number) => i8((i >> 1) + (j >> 1) + (i & 1))
+// The permutation table and the ease curve as typed lookups for the 3-D noise
+// below, which a field node calls once per octave per LED per frame.
+const NOISE_P8 = Uint8Array.from(NOISE_P)
+const EASE8 = Uint8Array.from({ length: 256 }, (_, i) => ease8InOutQuad(i))
 
+/**
+ * FastLED's 3-D `grad8` with its sixteen cases folded: the hash picks which
+ * two of x, y, z are averaged (`avg7`) and whether each is negated. All int8.
+ */
 function grad8x3(hash: number, x: number, y: number, z: number): number {
-  const n = (v: number) => i8(-v)
-  switch (hash & 0xf) {
-    case 0: case 12: return avg7(x, y)
-    case 1: case 13: return avg7(n(x), y)
-    case 2: case 14: return avg7(x, n(y))
-    case 3: case 15: return avg7(n(x), n(y))
-    case 4: return avg7(x, z)
-    case 5: return avg7(n(x), z)
-    case 6: return avg7(x, n(z))
-    case 7: return avg7(n(x), n(z))
-    case 8: return avg7(y, z)
-    case 9: return avg7(n(y), z)
-    case 10: return avg7(y, n(z))
-    default: return avg7(n(y), n(z))
-  }
+  const h = hash & 0xf
+  let u = h < 8 || h >= 12 ? x : y
+  let v = h < 4 || h >= 12 ? y : z
+  if (h & 1) u = (-u << 24) >> 24
+  if (h & 2) v = (-v << 24) >> 24
+  return (((u >> 1) + (v >> 1) + (u & 1)) << 24) >> 24
 }
 
-/** FastLED `inoise8(x, y, z)`, bit for bit. */
+/** `lerp7by8` with `scale8` written in: (value * (frac + 1)) >> 8. */
+function lerp7(a: number, b: number, frac: number): number {
+  return b > a
+    ? ((a + ((((b - a) & 0xff) * (frac + 1)) >> 8)) << 24) >> 24
+    : ((a - ((((a - b) & 0xff) * (frac + 1)) >> 8)) << 24) >> 24
+}
+
+/**
+ * FastLED `inoise8(x, y, z)`, bit for bit. Written for speed: at 64 x 64 a
+ * noise field calls this 16,384 times a frame. `lib8tionNoise.test.ts` holds
+ * the plain transcription of the C and checks the two never differ.
+ */
 export function inoise8x3(x: number, y: number, z: number): number {
-  x &= 0xffff; y &= 0xffff; z &= 0xffff
-  const X = x >> 8, Y = y >> 8, Z = z >> 8
-  const A = (NOISE_P[X] + Y) & 0xff, AA = (NOISE_P[A] + Z) & 0xff, AB = (NOISE_P[A + 1] + Z) & 0xff
-  const B = (NOISE_P[X + 1] + Y) & 0xff, BA = (NOISE_P[B] + Z) & 0xff, BB = (NOISE_P[B + 1] + Z) & 0xff
-  const u = ease8InOutQuad(x & 0xff), v = ease8InOutQuad(y & 0xff), w = ease8InOutQuad(z & 0xff)
-  const xx = (x & 0xff) >> 1, yy = (y & 0xff) >> 1, zz = (z & 0xff) >> 1
-  const xn = i8(xx - 128), yn = i8(yy - 128), zn = i8(zz - 128)
-  const X1 = lerp7by8(grad8x3(NOISE_P[AA], xx, yy, zz), grad8x3(NOISE_P[BA], xn, yy, zz), u)
-  const X2 = lerp7by8(grad8x3(NOISE_P[AB], xx, yn, zz), grad8x3(NOISE_P[BB], xn, yn, zz), u)
-  const X3 = lerp7by8(grad8x3(NOISE_P[AA + 1], xx, yy, zn), grad8x3(NOISE_P[BA + 1], xn, yy, zn), u)
-  const X4 = lerp7by8(grad8x3(NOISE_P[AB + 1], xx, yn, zn), grad8x3(NOISE_P[BB + 1], xn, yn, zn), u)
-  const n = i8(lerp7by8(lerp7by8(X1, X2, v), lerp7by8(X3, X4, v), w) + 64) & 0xff
-  return Math.min(255, n + n)
+  const X = (x >> 8) & 0xff, Y = (y >> 8) & 0xff, Z = (z >> 8) & 0xff
+  const xl = x & 0xff, yl = y & 0xff, zl = z & 0xff
+  const A = (NOISE_P8[X] + Y) & 0xff, AA = (NOISE_P8[A] + Z) & 0xff, AB = (NOISE_P8[A + 1] + Z) & 0xff
+  const B = (NOISE_P8[X + 1] + Y) & 0xff, BA = (NOISE_P8[B] + Z) & 0xff, BB = (NOISE_P8[B + 1] + Z) & 0xff
+  const u = EASE8[xl], v = EASE8[yl], w = EASE8[zl]
+  const xx = xl >> 1, yy = yl >> 1, zz = zl >> 1
+  const xn = xx - 128, yn = yy - 128, zn = zz - 128
+  const X1 = lerp7(grad8x3(NOISE_P8[AA], xx, yy, zz), grad8x3(NOISE_P8[BA], xn, yy, zz), u)
+  const X2 = lerp7(grad8x3(NOISE_P8[AB], xx, yn, zz), grad8x3(NOISE_P8[BB], xn, yn, zz), u)
+  const X3 = lerp7(grad8x3(NOISE_P8[AA + 1], xx, yy, zn), grad8x3(NOISE_P8[BA + 1], xn, yy, zn), u)
+  const X4 = lerp7(grad8x3(NOISE_P8[AB + 1], xx, yn, zn), grad8x3(NOISE_P8[BB + 1], xn, yn, zn), u)
+  const n = (lerp7(lerp7(X1, X2, v), lerp7(X3, X4, v), w) + 64) & 0xff
+  return n > 127 ? 255 : n + n
 }
 
 /** FastLED's 3-D `inoise8`, copied for host builds; needs `INOISE8_HOST_CPP` first. */

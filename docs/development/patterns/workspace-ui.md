@@ -342,6 +342,44 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 - A `<button>` does not inherit `color`, so `currentColor` inside one is the
   browser's button text colour, not its parent's. Set `color: inherit` on a
   button that fills itself with its lane or node colour.
+- **A custom property written often goes on the element that reads it, never
+  on a workspace root.** Custom properties are inherited, so one set on the
+  graph canvas wrapper restyles every node under it each time it changes. The
+  pointer glow's `--field-x`/`--field-y` were written there on every pointer
+  move and the field colour ten times a second; a drag asks for layout on each
+  move (d3's `pointer()` reads `getBoundingClientRect`), so each move paid for
+  a restyle of the whole graph: 45 fps and 250 ms frames panning the Music
+  Player starter. They are now set on `.cursorWake` and the focus badge's dot,
+  the two elements that draw them, and the glow moves once a frame. A property
+  nothing reads is not written at all.
+- **The viewport is a compositor layer only while it moves.**
+  `holdViewportLayer` (`NodeGraphCanvas.tsx`) sets `will-change: transform` on
+  `.react-flow__viewport` from `onMoveStart` to `onMoveEnd`. Without it each
+  wheel step rasters every node again at the new scale (a 180 ms frame at the
+  start of a zoom on integrated graphics). Left on, the graph would stay at
+  the scale it was first drawn at and blur when zoomed in, and an idle canvas
+  would keep a layer it does not need.
+- **Measure layout where the browser has already done it.** A
+  `getBoundingClientRect` inside a paint or pointer handler forces layout in
+  the middle of a frame. `PreviewSpectrum` reads its canvas size in its
+  `ResizeObserver` callback and reuses it for every paint.
+- **A node thumbnail of more than 256 LEDs is one picture, not one element
+  per LED.** `HardwareLedPreview` draws a small grid as an SVG group per LED
+  and writes each `fill`; a 64 x 64 output was 8192 rects restyled eight
+  times a second, and held the editor at 17 fps. Above `RASTER_CELLS` a plain
+  grid is drawn one pixel per LED into a canvas that is never in the page
+  (`ledPreviewRaster.ts`) and shown as an SVG `<image>` behind a mask of LED
+  shapes. The canvas stays off the page for the leak reason the component
+  describes; the image was soaked for five minutes before it was adopted.
+  Shaped outputs and broken runs place each LED themselves and stay groups.
+- **A live value shown in a property row is a scalar.** `StudioNode` skips
+  every array when it gathers a node's live upstream values: serialising a
+  field (one number per LED, new every frame) cost 8 ms a publish per wired
+  node at 64 x 64 and re-rendered the node each time.
+- **Find a frame-rate problem with `scripts/perf/profile.mjs`, not by eye.**
+  See [performance profile](../testing/performance-profile.md) for the
+  procedure and the traps in measuring (the profiler itself drops frames; a
+  fresh browser profile compiles shaders on first use).
 - **Scrollable lists inside nodes need `nowheel` and a max-height.** React Flow
   turns the wheel into canvas zoom, so an overflowing list inside a node either
   zooms the canvas or, uncapped, grows the node taller than the canvas. Give the

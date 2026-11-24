@@ -61,11 +61,25 @@ export function cloneWorkspace(workspace: PersistedWorkspace): PersistedWorkspac
   return structuredClone(stripRuntimeFields(workspace))
 }
 
+// Copies `captureWorkspace` has made and nothing has stored yet.
+const freshCopies = new WeakSet<PersistedWorkspace>()
+
+/**
+ * A copy of `workspace` for the caller to keep. A workspace that came
+ * straight from `captureWorkspace` is that copy already and is handed over
+ * as it is, once; anything else, or the same one a second time, is copied.
+ * An autosave used to copy a large project twice, a frame's worth of work
+ * each time.
+ */
+export function ownedWorkspace(workspace: PersistedWorkspace): PersistedWorkspace {
+  return freshCopies.delete(workspace) ? workspace : cloneWorkspace(workspace)
+}
+
 export function captureWorkspace(
   state: Pick<PersistedWorkspace, 'nodes' | 'edges' | 'graphData' | 'graphs' | 'activeGraphId' | 'buildProfile' | 'trusted' | 'performanceDeck' | 'displayDocuments'>
 ): PersistedWorkspace {
   const allNodes = [...state.nodes, ...Object.values(state.graphData ?? {}).flatMap((graph) => graph.nodes)]
-  return cloneWorkspace({
+  const copy = cloneWorkspace({
     nodes: state.nodes,
     edges: state.edges,
     graphData: state.graphData,
@@ -78,4 +92,6 @@ export function captureWorkspace(
     musicLibrary: captureMusicLibrary(),
     parts: collectSavedParts(allNodes),
   })
+  freshCopies.add(copy)
+  return copy
 }

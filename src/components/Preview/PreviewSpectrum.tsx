@@ -397,6 +397,7 @@ export default function PreviewSpectrum({
   } | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const livePaintFrameRef = useRef<number | null>(null)
+  const sizeRef = useRef<{ width: number; height: number } | null>(null)
   const lastLivePaintRef = useRef(0)
 
   useEffect(() => {
@@ -415,9 +416,12 @@ export default function PreviewSpectrum({
     // compositor memory unbounded in Chromium.
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
     if (!ctx) return
-    const rect = canvas.getBoundingClientRect()
-    const width = Math.max(1, rect.width)
-    const height = Math.max(1, rect.height)
+    // The size comes from the resize observer below. Measuring here asked the
+    // browser for layout on every paint, in the middle of a frame.
+    const size = sizeRef.current ?? canvas.getBoundingClientRect()
+    sizeRef.current = size
+    const width = Math.max(1, size.width)
+    const height = Math.max(1, size.height)
     const dpr = Math.min(2, window.devicePixelRatio || 1)
     const bufferWidth = Math.max(1, Math.round(width * dpr))
     const bufferHeight = Math.max(1, Math.round(height * dpr))
@@ -492,7 +496,12 @@ export default function PreviewSpectrum({
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const observer = new ResizeObserver(() => paintRef.current())
+    // Layout is already settled when the observer reports, so measuring here
+    // costs nothing; the paint then reuses the size.
+    const observer = new ResizeObserver(() => {
+      sizeRef.current = canvas.getBoundingClientRect()
+      paintRef.current()
+    })
     observer.observe(canvas)
     paintRef.current()
     let disposed = false

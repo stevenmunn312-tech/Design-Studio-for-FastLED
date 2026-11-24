@@ -25,6 +25,16 @@ share link, migrating it where a shape has changed.
 
 ### Changed
 
+- Panning the canvas, dragging a node and dragging a slider hold 60 frames a
+  second on integrated graphics, where a large project used to fall to 53
+  with frames of up to a fifth of a second. Zooming no longer starts with a
+  180 ms frame, and autosave no longer holds the editor for 49 ms after an
+  edit to a large project. `scripts/perf/profile.mjs` measures all of it; see
+  `docs/development/testing/performance-profile.md`.
+- A large LED output no longer slows the editor. A 64 x 64 matrix ran the
+  Field Transform starter at 17 frames a second and Fire at 38; both now hold
+  60, as do rings and corkscrews of hundreds of LEDs, which ran at 46 to 52.
+  Node thumbnails of more than 256 LEDs are drawn as one picture.
 - The macOS and Linux desktop packages open the Studio in its own window,
   with no tabs or address bar, when Google Chrome, Microsoft Edge, Brave or
   Chromium is installed; that browser draws the window. Linux also adds the

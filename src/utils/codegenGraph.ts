@@ -28,23 +28,7 @@ export interface CodegenGraph {
  *  maintains on each node. */
 export function codegenSignature(nodes: StudioNode[], edges: StudioEdge[]): string {
   const parts: string[] = []
-  for (const node of nodes) {
-    const data = node.data as {
-      nodeType?: string
-      label?: unknown
-      properties?: unknown
-      inputs?: unknown
-      outputs?: unknown
-    }
-    parts.push(
-      node.id,
-      String(data.nodeType ?? ''),
-      String(data.label ?? ''),
-      JSON.stringify(data.properties ?? null),
-      JSON.stringify(data.inputs ?? null),
-      JSON.stringify(data.outputs ?? null),
-    )
-  }
+  for (const node of nodes) parts.push(node.id, dataSignature(node.data))
   parts.push('|')
   for (const edge of edges) {
     parts.push(
@@ -56,6 +40,33 @@ export function codegenSignature(nodes: StudioNode[], edges: StudioEdge[]): stri
   // (["ab", "x"] reading the same as ["a", "bx"]) — node ids and labels are
   // user-controllable, and a false match here means a missed re-check.
   return parts.join('\u0000')
+}
+
+// A node's `data` is replaced, never changed in place, and moving a node
+// keeps the same `data` object. Keyed on it, a drag (a new node array on
+// every pointer move) signs the graph without serialising a single property.
+const dataSignatures = new WeakMap<object, string>()
+
+function dataSignature(nodeData: object): string {
+  let signature = dataSignatures.get(nodeData)
+  if (signature === undefined) {
+    const data = nodeData as {
+      nodeType?: string
+      label?: unknown
+      properties?: unknown
+      inputs?: unknown
+      outputs?: unknown
+    }
+    signature = [
+      String(data.nodeType ?? ''),
+      String(data.label ?? ''),
+      JSON.stringify(data.properties ?? null),
+      JSON.stringify(data.inputs ?? null),
+      JSON.stringify(data.outputs ?? null),
+    ].join('\u0000')
+    dataSignatures.set(nodeData, signature)
+  }
+  return signature
 }
 
 // Per-subgraph signatures, keyed on the subgraph's own arrays: an edit inside

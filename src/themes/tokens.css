@@ -473,8 +473,8 @@
 
   /* Ambient field — the drifting colour behind a full-canvas workspace. Shared
      so the graph canvas and the hardware bench read as one room rather than
-     two that happen to be dark. Each workspace still sets its own
-     `--field-energy`, which is how loud its own atmosphere is. */
+     two that happen to be dark. The graph canvas moves `--field-color` to its
+     strongest signal, on the elements that draw it (NodeGraphCanvas.tsx). */
   --field-color: rgb(0 191 255);
   --field-color-2: rgb(255 77 141);
   --field-color-3: rgb(0 224 164);

@@ -299,6 +299,11 @@ function NodeGraphCanvasInner() {
     clearLocatedEdges: s.clearLocatedEdges,
   })))
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const cursorWake = useRef<HTMLDivElement>(null)
+  const focusDot = useRef<HTMLSpanElement | null>(null)
+  const fieldColor = useRef('')
+  const cursorPoint = useRef({ x: 0, y: 0 })
+  const cursorFrame = useRef(0)
   const leftInset = sidebarOpen ? sidebarWidth ?? DEFAULT_SIDEBAR_W : 0
   const rightInset = previewPanelOpen ? previewWidth ?? DEFAULT_PREVIEW_W : 0
   const [canvasWidth, setCanvasWidth] = useState<number | null>(null)
@@ -412,7 +417,23 @@ function NodeGraphCanvasInner() {
     if (rippleTimer.current) window.clearTimeout(rippleTimer.current)
     if (sparkDelayTimer.current) window.clearTimeout(sparkDelayTimer.current)
     if (sparkClearTimer.current) window.clearTimeout(sparkClearTimer.current)
+    if (cursorFrame.current) cancelAnimationFrame(cursorFrame.current)
   }, [])
+
+  // The field colour follows the strongest signal in the graph. It is written
+  // on the two elements that draw it, never on the canvas wrapper: a custom
+  // property set there is inherited by every node, so each change restyled the
+  // whole graph, and a drag, which asks for layout on every pointer move, paid
+  // for that restyle each time.
+  const paintFieldColor = useCallback((element: HTMLElement | null) => {
+    if (!element) return
+    if (fieldColor.current) element.style.setProperty('--field-color', fieldColor.current)
+    else element.style.removeProperty('--field-color')
+  }, [])
+  const focusDotRef = useCallback((element: HTMLSpanElement | null) => {
+    focusDot.current = element
+    paintFieldColor(element)
+  }, [paintFieldColor])
 
   useEffect(() => {
     if (!uiEffectsEnabled) return
@@ -421,30 +442,17 @@ function NodeGraphCanvasInner() {
       const now = performance.now()
       if (now - lastUpdate < 100) return
       lastUpdate = now
-      const strongest = Array.from(state.signals.values())
-        .sort((a, b) => b.energy - a.energy)
-        .slice(0, 3)
-      const primary = strongest[0]
-      const secondary = strongest[1]
-      const tertiary = strongest[2]
-      let focusEnergy = 0
-      if (selectedNodeId) {
-        const selectedNode = nodes.find((entry) => entry.id === selectedNodeId)
-        const outputs = (selectedNode?.data as { outputs?: Array<{ id: string }> } | undefined)?.outputs ?? []
-        for (const output of outputs) {
-          const signal = state.signals.get(`${selectedNodeId}:${output.id}`)
-          if (signal) focusEnergy = Math.max(focusEnergy, signal.energy)
-        }
+      let color = ''
+      let energy = -Infinity
+      for (const signal of state.signals.values()) {
+        if (signal.energy > energy) { energy = signal.energy; color = signal.emissive }
       }
-      const wrapper = wrapperRef.current
-      if (!wrapper) return
-      wrapper.style.setProperty('--field-color', primary?.emissive ?? 'rgb(0 191 255)')
-      wrapper.style.setProperty('--field-color-2', secondary?.emissive ?? 'rgb(255 77 141)')
-      wrapper.style.setProperty('--field-color-3', tertiary?.emissive ?? 'rgb(0 224 164)')
-      wrapper.style.setProperty('--field-energy', String(0.16 + (primary?.energy ?? 0) * 0.34))
-      wrapper.style.setProperty('--field-focus-energy', String(Math.max(focusEnergy, primary?.energy ?? 0)))
+      if (color === fieldColor.current) return
+      fieldColor.current = color
+      paintFieldColor(cursorWake.current)
+      paintFieldColor(focusDot.current)
     })
-  }, [nodes, selectedNodeId, uiEffectsEnabled])
+  }, [paintFieldColor, uiEffectsEnabled])
 
   const fireConnectionCeremony = useCallback((connection: {
     source: string | null
@@ -502,18 +510,28 @@ function NodeGraphCanvasInner() {
     }
   }, [flowToScreenPosition, getNode, setSparkPort, uiEffectsEnabled])
 
+  // The glow under the pointer moves once a frame, however many pointer events
+  // that frame brought, and on its own element (see `paintFieldColor`).
   const updateCursorField = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (!uiEffectsEnabled) return
-    const wrapper = wrapperRef.current
-    if (!wrapper) return
-    const rect = wrapper.getBoundingClientRect()
-    wrapper.style.setProperty('--field-x', `${event.clientX - rect.left}px`)
-    wrapper.style.setProperty('--field-y', `${event.clientY - rect.top}px`)
-    wrapper.style.setProperty('--field-hover', '0.38')
+    cursorPoint.current = { x: event.clientX, y: event.clientY }
+    if (cursorFrame.current) return
+    cursorFrame.current = requestAnimationFrame(() => {
+      cursorFrame.current = 0
+      const wake = cursorWake.current
+      const wrapper = wrapperRef.current
+      if (!wake || !wrapper) return
+      const rect = wrapper.getBoundingClientRect()
+      wake.style.setProperty('--field-x', `${cursorPoint.current.x - rect.left}px`)
+      wake.style.setProperty('--field-y', `${cursorPoint.current.y - rect.top}px`)
+      wake.style.setProperty('--field-hover', '0.38')
+    })
   }, [uiEffectsEnabled])
 
   const quietCursorField = useCallback(() => {
-    wrapperRef.current?.style.setProperty('--field-hover', '0')
+    if (cursorFrame.current) cancelAnimationFrame(cursorFrame.current)
+    cursorFrame.current = 0
+    cursorWake.current?.style.setProperty('--field-hover', '0')
   }, [])
 
   // Publish the click-to-add drop point (in flow coords) so sidebar clicks land
@@ -555,7 +573,22 @@ function NodeGraphCanvasInner() {
 
   // On pan/zoom: remember the viewport (so a reload restores it) and refresh
   // the click-to-add centre.
-  const handleMoveEnd = useCallback<OnMove>((_, vp) => { saveViewport(vp); publishCenter() }, [publishCenter])
+  // While the view is panned or zoomed, the viewport is held as its own
+  // compositor layer, so the browser moves and scales one picture of the
+  // graph. Without it each wheel step rasters every node again at the new
+  // scale: a 180 ms frame at the start of a zoom on integrated graphics. It
+  // is let go when the gesture ends, so the graph is redrawn sharp at the
+  // scale it stopped on and no layer is kept for an idle canvas.
+  const holdViewportLayer = useCallback((held: boolean) => {
+    const viewport = wrapperRef.current?.querySelector<HTMLElement>('.react-flow__viewport')
+    if (viewport) viewport.style.willChange = held ? 'transform' : ''
+  }, [])
+  const handleMoveStart = useCallback<OnMove>(() => holdViewportLayer(true), [holdViewportLayer])
+  const handleMoveEnd = useCallback<OnMove>((_, vp) => {
+    holdViewportLayer(false)
+    saveViewport(vp)
+    publishCenter()
+  }, [holdViewportLayer, publishCenter])
   const [contextMenu, setContextMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null)
   const [canvasMenu, setCanvasMenu] = useState<
     {
@@ -1339,7 +1372,7 @@ function NodeGraphCanvasInner() {
       <GroupControls />
       {selectedNodeLabel && (
         <div className={styles.focusBadge} role="status">
-          <span aria-hidden="true" />
+          <span ref={focusDotRef} aria-hidden="true" />
           Tracing {selectedNodeLabel}
         </div>
       )}
@@ -1466,6 +1499,7 @@ function NodeGraphCanvasInner() {
         onNodeContextMenu={onNodeContextMenu}
         onPaneContextMenu={onPaneContextMenu}
         onPaneClick={onPaneClick}
+        onMoveStart={handleMoveStart}
         onMoveEnd={handleMoveEnd}
         onInit={publishCenter}
         isValidConnection={isValidConnection}
@@ -1489,7 +1523,7 @@ function NodeGraphCanvasInner() {
       >
         {uiEffectsEnabled && (
           <div className={styles.atmosphere} aria-hidden="true">
-            <div className={styles.cursorWake} />
+            <div ref={cursorWake} className={styles.cursorWake} />
           </div>
         )}
         <Background

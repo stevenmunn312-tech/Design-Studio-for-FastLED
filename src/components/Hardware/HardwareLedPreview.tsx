@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useId, useMemo, useRef } from 'react'
 import type { CSSProperties } from 'react'
 import { usePreviewStore } from '../../state/previewStore'
 import type { Frame } from '../../state/graphEvaluator'
@@ -8,6 +8,8 @@ import {
   corkscrewUnitPoints, ringUnitPoints,
   type CorkscrewGeometry, type PositionsGeometry, type RingGeometry,
 } from './ledPreviewGeometry'
+
+import { RASTER_CELLS, canRasterThumbnails, thumbnailUrl } from './ledPreviewRaster'
 
 export type { CorkscrewGeometry, PositionsGeometry, RingGeometry }
 
@@ -28,6 +30,10 @@ export type { CorkscrewGeometry, PositionsGeometry, RingGeometry }
  *
  * Painted imperatively from a `previewStore` subscription — this runs at the
  * evaluator's ~60fps and must never re-render React.
+ *
+ * A plain grid of more than `RASTER_CELLS` LEDs is drawn as one picture behind
+ * a mask of LED shapes instead (ledPreviewRaster.ts): a thousand groups cost a
+ * frame and a half to restyle each time their colours change.
  */
 export default function HardwareLedPreview({
   nodeId,
@@ -88,6 +94,9 @@ export default function HardwareLedPreview({
   const cellRefs = useRef<Array<SVGElement | null>>([])
   const previousRef = useRef<Uint32Array>(new Uint32Array(0))
   const onScreenRef = useRef(true)
+  const imageRefs = useRef<Array<SVGImageElement | null>>([])
+  // Ids for the mask and pattern, safe inside `url(#…)`.
+  const maskId = `led-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
 
   const count = run ? run.cells.length : ring?.ledCount ?? corkscrew?.ledCount ?? positions?.points.length ?? cols * rows
 
@@ -111,9 +120,13 @@ export default function HardwareLedPreview({
     }
   }, [corkscrew])
 
+  // One picture for a large plain grid; shaped outputs and broken runs place
+  // each LED themselves and stay one group per LED.
+  const raster = !ring && !corkscrew && !positions && !run && count > RASTER_CELLS && canRasterThumbnails()
+
   const cells = useMemo(
-    () => Array.from({ length: count }, (_, index) => index),
-    [count],
+    () => Array.from({ length: raster ? 0 : count }, (_, index) => index),
+    [count, raster],
   )
 
   /*
@@ -185,6 +198,12 @@ export default function HardwareLedPreview({
   }, [])
 
   useEffect(() => {
+    // The picture of every LED's current colour, shown by each layer's image.
+    const showPicture = () => {
+      const url = thumbnailUrl(previousRef.current, cols, rows)
+      if (url === null) return
+      for (const image of imageRefs.current) image?.setAttribute('href', url)
+    }
     const paint = (frame: Frame | undefined, scale: number) => {
       if (!onScreenRef.current) return
       // A missing route is a real blackout, not "keep the last good frame".
@@ -192,7 +211,8 @@ export default function HardwareLedPreview({
       // frame is still painted rather than mistaken for an unchanged one.
       if (!frame) {
         previousRef.current.fill(0)
-        for (const cell of cellRefs.current) cell?.setAttribute('fill', 'rgb(0 0 0)')
+        if (raster) showPicture()
+        else for (const cell of cellRefs.current) cell?.setAttribute('fill', 'rgb(0 0 0)')
         return
       }
       const srcH = frame.length
@@ -200,6 +220,7 @@ export default function HardwareLedPreview({
       if (!srcW || !srcH) return
       const previous = previousRef.current
       const colourScale = scale ** (1 / LED_DISPLAY_GAMMA)
+      let changed = false
       // Proportional, so a grid coarser than the frame samples down instead of
       // showing a corner of it. An LED output's grid always equals its routed
       // frame exactly, which makes this the identity map for that caller.
@@ -234,8 +255,10 @@ export default function HardwareLedPreview({
         const packed = (r << 16) | (g << 8) | b
         if (previous[index] === packed) continue
         previous[index] = packed
-        cellRefs.current[index]?.setAttribute('fill', `rgb(${r} ${g} ${b})`)
+        if (raster) changed = true
+        else cellRefs.current[index]?.setAttribute('fill', `rgb(${r} ${g} ${b})`)
       }
+      if (changed) showPicture()
     }
 
     // The Board's master brightness is applied here rather than baked into the
@@ -249,7 +272,59 @@ export default function HardwareLedPreview({
     }
     read(usePreviewStore.getState())
     return usePreviewStore.subscribe(read)
-  }, [cols, corkscrew, count, ledValues, nodeId, port, positions, ring, rows, run])
+  }, [cols, corkscrew, count, ledValues, nodeId, port, positions, raster, ring, rows, run])
+
+  if (raster) {
+    // The same shapes `Lamp` draws for one LED, as the holes of a mask: the
+    // surround at its own opacity, then the package. Each layer shows the one
+    // picture through its own holes.
+    const layers = [
+      ...EMITTER_GLOW.map((layer) => ({
+        x: lamp.x - (lamp.width * (layer.along - 1) / 2),
+        y: lamp.y - (lamp.height * (layer.across - 1) / 2),
+        width: lamp.width * layer.along,
+        height: lamp.height * layer.across,
+        rx: lamp.height * layer.across * 0.5,
+        opacity: layer.opacity,
+      })),
+      { ...lamp, rx: Math.min(lamp.width, lamp.height) * 0.22, opacity: 1 },
+    ]
+    return (
+      <svg
+        ref={wrapRef}
+        className={className}
+        style={style}
+        viewBox={`0 0 ${cols} ${rows}`}
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <defs>
+          {layers.map((layer, index) => (
+            <pattern key={`p${index}`} id={`${maskId}-p${index}`} width="1" height="1" patternUnits="userSpaceOnUse">
+              <rect x={layer.x} y={layer.y} width={layer.width} height={layer.height} rx={layer.rx} fill="white" />
+            </pattern>
+          ))}
+          {layers.map((_, index) => (
+            <mask key={`m${index}`} id={`${maskId}-m${index}`} maskUnits="userSpaceOnUse" x="0" y="0" width={cols} height={rows}>
+              <rect width={cols} height={rows} fill={`url(#${maskId}-p${index})`} />
+            </mask>
+          ))}
+        </defs>
+        {layers.map((layer, index) => (
+          <image
+            key={index}
+            ref={(element) => { imageRefs.current[index] = element }}
+            width={cols}
+            height={rows}
+            preserveAspectRatio="none"
+            opacity={layer.opacity}
+            mask={`url(#${maskId}-m${index})`}
+            style={{ imageRendering: 'pixelated' }}
+          />
+        ))}
+      </svg>
+    )
+  }
 
   if (positions) {
     // Canvas units are the viewBox, so the string sits over the picture it
