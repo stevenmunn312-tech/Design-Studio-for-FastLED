@@ -1,0 +1,14 @@
+# The web image is built from source inside the container.
+.git
+.claude
+.agents
+.vs
+node_modules
+dist
+tmp
+artifacts
+release
+.desktop-build
+backend
+desktop
+e2e

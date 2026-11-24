@@ -17,6 +17,11 @@ share link, migrating it where a shape has changed.
   on an ESP32-S3 with the graph laid out. **Skip to the studio** leads to the
   Start Gallery, where a first visit used to begin. **File > Watch the Intro**
   plays it again.
+- Embed mode, a pilot: the web app opened with `?embed` runs as a live demo
+  inside another site's iframe. It opens on the Field Transform starter (or
+  `?embed=<starter id>`), keeps everything in memory and never contacts the
+  upload helper. A `Dockerfile` builds the web app as a static site for
+  hosting it. See `docs/design/embed-mode.md`.
 
 ### Changed
 

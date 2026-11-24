@@ -1,0 +1,23 @@
+# Serves the built web app (see ../Dockerfile). No X-Frame-Options and no
+# frame-ancestors policy, on purpose: the demo is made to be framed by other
+# sites (docs/design/embed-mode.md).
+server {
+  listen ${PORT};
+  root /usr/share/nginx/html;
+
+  gzip on;
+  gzip_types text/css application/javascript application/json image/svg+xml;
+
+  # Hashed build output never changes under its name.
+  location /assets/ {
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    try_files $uri =404;
+  }
+
+  # The page and the service worker are checked on every visit, so a new
+  # deploy is picked up.
+  location / {
+    add_header Cache-Control "no-cache";
+    try_files $uri /index.html;
+  }
+}

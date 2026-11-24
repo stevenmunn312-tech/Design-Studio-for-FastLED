@@ -292,6 +292,19 @@ export async function openStarterProject(template: StarterTemplate | string, opt
   return true
 }
 
+/** What an embed link that names no starter, or one that does not exist,
+ *  opens: the patch in the README's overview picture. */
+export const EMBED_DEFAULT_STARTER = 'field-warp'
+
+/**
+ * Open the starter an embedded demo asked for (`?embed=<starter id>`), as the
+ * session's one project. See docs/design/embed-mode.md.
+ */
+export function openEmbedStarter(requested: string): Promise<boolean> {
+  const known = STARTER_TEMPLATES.some((template) => template.id === requested)
+  return openStarterProject(known ? requested : EMBED_DEFAULT_STARTER)
+}
+
 /**
  * Open a node-reference example as a new project named after its node.
  *

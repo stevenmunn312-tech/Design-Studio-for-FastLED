@@ -8,6 +8,26 @@
     <link rel="preload" href="/fonts/JetBrainsMono-latin.woff2" as="font" type="font/woff2" crossorigin />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Design Studio for FastLED</title>
+    <script>
+      // Embed mode (`?embed`, docs/design/embed-mode.md): an embedded demo
+      // keeps everything in memory, so it neither reads nor writes what this
+      // browser has saved. Here, ahead of every module, because stores read
+      // localStorage as they load.
+      if (new URLSearchParams(location.search).has('embed')) {
+        const items = new Map()
+        Object.defineProperty(window, 'localStorage', {
+          configurable: true,
+          value: {
+            get length() { return items.size },
+            key: function (index) { return Array.from(items.keys())[index] ?? null },
+            getItem: function (key) { return items.has(String(key)) ? items.get(String(key)) : null },
+            setItem: function (key, value) { items.set(String(key), String(value)) },
+            removeItem: function (key) { items.delete(String(key)) },
+            clear: function () { items.clear() },
+          },
+        })
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

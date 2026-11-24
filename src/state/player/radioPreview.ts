@@ -7,7 +7,7 @@
 // do not share it. The relay also reports each station's `StreamTitle`.
 // Without the helper the stations cannot play here; the board does not care.
 
-import { BACKEND_URL } from '../../utils/backendClient'
+import { BACKEND_URL, helperRequest } from '../../utils/backendClient'
 import type { RadioStation } from './radioStations'
 
 /** As on the board (RADIO_START_TIMEOUT_MS): a station has this long to start. */
@@ -52,7 +52,7 @@ export function splitStreamTitle(streamTitle: string): { title: string; artist?:
 /** What the station last said is on air, or '' when it said nothing or the helper is away. */
 export async function fetchRadioTitle(stationUrl: string, signal?: AbortSignal): Promise<string> {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/radio/now?url=${encodeURIComponent(stationUrl)}`, { signal })
+    const response = await helperRequest(`/api/radio/now?url=${encodeURIComponent(stationUrl)}`, { signal })
     const data = await response.json() as { title?: unknown }
     return typeof data.title === 'string' ? data.title : ''
   } catch {

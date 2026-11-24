@@ -8,9 +8,14 @@ import { splitSketchBundle } from '../codegen/sketchBundle'
 import type { SavedPattern } from '../state/patterns/patternLibrary'
 import type { SavedProject } from '../state/projectStore'
 import { withSaveFormat } from '../state/saveFormat'
+import { EMBEDDED } from './embedMode'
 
 const ENV_URL = (import.meta.env as Record<string, string | undefined>).VITE_BACKEND_URL
-export const BACKEND_URL = (ENV_URL ?? 'http://localhost:8008').replace(/\/$/, '')
+// An embedded demo has no helper; `.invalid` never resolves, so an address
+// built from this (the radio relay an <audio> element plays) reaches nothing.
+export const BACKEND_URL = EMBEDDED
+  ? 'http://helper.invalid'
+  : (ENV_URL ?? 'http://localhost:8008').replace(/\/$/, '')
 
 /** How long a request-and-reply call waits before the helper counts as offline. */
 const REQUEST_TIMEOUT_MS = 15_000
@@ -20,16 +25,27 @@ const TOOL_REQUEST_TIMEOUT_MS = 60_000
 const CORE_INDEX_TIMEOUT_MS = 180_000
 
 /**
+ * Every request to the helper is made here. An embedded demo has no helper:
+ * it runs on someone else's page, where `localhost:8008` would be the
+ * visitor's own Studio and its Projects folder. Refusing here reads to every
+ * caller as "helper offline".
+ */
+export function helperRequest(path: string, init?: RequestInit): Promise<Response> {
+  if (EMBEDDED) return Promise.reject(new Error('The upload helper is not available in an embedded demo'))
+  return fetch(`${BACKEND_URL}${path}`, init)
+}
+
+/**
  * A request-and-reply call to the helper, given up after `timeoutMs`. A helper
  * that accepts the connection but never answers otherwise leaves its caller
  * waiting for good: a save that never settles, a project list that never
  * loads. Each caller already treats a failed request as "helper offline". Builds, installs, uploads, log
- * streams and native file dialogs run as long as they need, and use `fetch`.
+ * streams and native file dialogs run as long as they need, and use `helperRequest`.
  */
 function helperFetch(path: string, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
   const timeout = AbortSignal.timeout(timeoutMs)
   const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout
-  return fetch(`${BACKEND_URL}${path}`, { ...init, signal })
+  return helperRequest(path, { ...init, signal })
 }
 
 export interface BackendHealth {
@@ -136,7 +152,7 @@ export async function monitorSerial(
   signal: AbortSignal,
 ): Promise<void> {
   const query = new URLSearchParams({ port, baud: String(baud) })
-  const res = await fetch(`${BACKEND_URL}/api/serial/monitor?${query}`, { signal })
+  const res = await helperRequest(`/api/serial/monitor?${query}`, { signal })
   if (!res.ok) throw new Error(`Serial monitor failed (${res.status})`)
   await pipeStream(res, onData)
 }
@@ -340,14 +356,14 @@ export async function locateCli(path: string): Promise<{ ok: boolean; error?: st
 
 /** Download + install the arduino-cli binary, streaming progress to `onLog`. */
 export async function installCli(onLog: (chunk: string) => void, signal?: AbortSignal): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/api/arduino-cli/install`, { method: 'POST', signal })
+  const res = await helperRequest(`/api/arduino-cli/install`, { method: 'POST', signal })
   await pipeStream(res, onLog)
 }
 
 /** Install a board core (+ FastLED lib), streaming progress to `onLog`. `url`
  *  registers a custom board-manager index first (a user-added board). */
 export async function installCore(core: string, onLog: (chunk: string) => void, signal?: AbortSignal, url?: string): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/api/core/install`, {
+  const res = await helperRequest(`/api/core/install`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ core, url }),
@@ -378,7 +394,7 @@ export async function checkCoreUpdates(urls: string[] = [], signal?: AbortSignal
 /** Upgrade one or more installed board cores (all outdated cores when `cores`
  *  is omitted), streaming progress to `onLog`. */
 export async function upgradeCores(cores: string[], urls: string[], onLog: (chunk: string) => void, signal?: AbortSignal): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/api/core/upgrade`, {
+  const res = await helperRequest(`/api/core/upgrade`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ cores, urls }),
@@ -423,7 +439,7 @@ export async function uploadSketch(
   usbCdcOnBoot?: boolean,
   reuseCompiled?: boolean,
 ): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/api/upload`, {
+  const res = await helperRequest(`/api/upload`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...sketchBody(code), fqbn, port, flashMb, usbCdcOnBoot, reuseCompiled }),
@@ -462,7 +478,7 @@ export async function exportBinary(
   opts: { name?: string; flashMb?: number; usbCdcOnBoot?: boolean } = {},
   signal?: AbortSignal,
 ): Promise<BinaryExport> {
-  const res = await fetch(`${BACKEND_URL}/api/compile-binary`, {
+  const res = await helperRequest(`/api/compile-binary`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...sketchBody(code), fqbn, ...opts }),
@@ -544,7 +560,7 @@ export async function compileCheck(
   code: string, fqbn: string, signal?: AbortSignal, flashMb?: number, usbCdcOnBoot?: boolean,
   subject: 'sketch' | 'player' = 'sketch',
 ): Promise<CompileCheckResult> {
-  const res = await fetch(`${BACKEND_URL}/api/compile-check`, {
+  const res = await helperRequest(`/api/compile-check`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     // The SD player is measured in the sketch folder its upload builds in, so
@@ -588,7 +604,7 @@ export async function uploadShow(
   }))
   form.append('player', opts.player)
   for (const f of opts.files) form.append('files', f.data, f.path.split('/').pop() ?? 'file')
-  const res = await fetch(`${BACKEND_URL}/api/upload-show`, { method: 'POST', body: form, signal })
+  const res = await helperRequest(`/api/upload-show`, { method: 'POST', body: form, signal })
   await pipeStream(res, onLog)
 }
 
@@ -631,7 +647,7 @@ export async function copyToSdCard(
   const form = new FormData()
   form.append('meta', JSON.stringify({ drive: opts.drive, paths: opts.files.map((f) => f.path) }))
   for (const f of opts.files) form.append('files', f.data, f.path.split('/').pop() ?? 'file')
-  const res = await fetch(`${BACKEND_URL}/api/sd-copy`, { method: 'POST', body: form, signal })
+  const res = await helperRequest(`/api/sd-copy`, { method: 'POST', body: form, signal })
   await pipeStream(res, onLog)
 }
 
@@ -741,7 +757,7 @@ export async function deleteProjectFromDisk(id: string): Promise<boolean> {
 /** Open a native OS project picker through the helper. Returns the raw file text, or null if unavailable/canceled. */
 export async function openProjectDialog(): Promise<{ text: string; name: string } | null> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/projects/dialog/open`, { method: 'POST' })
+    const res = await helperRequest(`/api/projects/dialog/open`, { method: 'POST' })
     const data = await res.json() as { ok?: boolean; canceled?: boolean; text?: string; name?: string }
     if (data.canceled) throw new DOMException('The user aborted a request.', 'AbortError')
     return data.ok && typeof data.text === 'string' && typeof data.name === 'string'
@@ -756,7 +772,7 @@ export async function openProjectDialog(): Promise<{ text: string; name: string 
 /** Save a project through a native OS save dialog. Returns the saved project, or null if unavailable/canceled. */
 export async function saveProjectWithDialog(project: SavedProject): Promise<SavedProject | null> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/projects/dialog/save`, {
+    const res = await helperRequest(`/api/projects/dialog/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(withSaveFormat(project)),

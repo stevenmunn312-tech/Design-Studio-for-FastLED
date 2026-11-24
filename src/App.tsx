@@ -27,7 +27,8 @@ import { workspaceLoadStatus } from './utils/workspacePayload'
 import { pushSnapshot } from './state/snapshotHistory'
 import { blankWorkspace, captureWorkspace } from './state/workspacePersistence'
 import { nextDefaultProjectName } from './utils/projectFileIO'
-import { landOnStartingWorkspace, openShowcaseShow, settleShowcaseProject } from './utils/startFlow'
+import { landOnStartingWorkspace, openEmbedStarter, openShowcaseShow, settleShowcaseProject } from './utils/startFlow'
+import { EMBED_REQUEST } from './utils/embedMode'
 import TrustBanner from './components/TrustBanner/TrustBanner'
 import GraphHealthDrawer from './components/GraphHealth/GraphHealthDrawer'
 import PerformanceDeckMidiBridge from './components/PerformanceDeck/PerformanceDeckMidiBridge'
@@ -234,6 +235,17 @@ export default function App() {
       // Parts installed from the online library in an earlier session, re-verified
       // before any project loads so a save finds them already registered.
       await getPartsLibrary().restoreInstalled()
+      // An embedded demo opens on its starter and nothing else: no saved
+      // project to read (its storage is memory), no helper, no showcase.
+      if (EMBED_REQUEST !== null) {
+        // Opening the starter twice would ask to save the first copy.
+        if (cancelled) return
+        await openEmbedStarter(EMBED_REQUEST)
+        await waitForMusicLibraryRestore()
+        if (cancelled) return
+        workspaceHydrated.current = true
+        return
+      }
       if (window.location.hash.replace(/^#/, '').startsWith('share=')) {
         try {
           const shared = readSharedWorkspace()

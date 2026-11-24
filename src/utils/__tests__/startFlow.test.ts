@@ -6,7 +6,9 @@ import { DEMO_TRACK_FILE } from '../../state/player/demoTrack'
 import { DEMO_MUSIC_ENTRY_ID } from '../../state/player/musicLibraryPersistence'
 import {
   landOnStartingWorkspace,
+  EMBED_DEFAULT_STARTER,
   openBlankProject,
+  openEmbedStarter,
   openExampleProject,
   openStarterProject,
   startBlankCanvas,
@@ -504,5 +506,29 @@ describe('opening a start choice as its own project', () => {
       expect(currentName()).toBe('Music Player example')
       expect(project('Music Player example 2')).toBeUndefined()
     })
+  })
+})
+
+describe('embedded demo starter', () => {
+  beforeEach(() => {
+    useProjectStore.setState({ projects: [], currentProjectId: '', recentProjectIds: [] })
+    useGraphStore.getState().loadGraph([], [])
+  })
+
+  const openName = () => {
+    const { projects, currentProjectId } = useProjectStore.getState()
+    return projects.find((entry) => entry.id === currentProjectId)?.name
+  }
+
+  it('opens the starter the link names', async () => {
+    await expect(openEmbedStarter('juggle')).resolves.toBe(true)
+    expect(openName()).toBe('Juggle')
+  })
+
+  // `?embed` alone, or a starter that has since been renamed or removed.
+  it.each(['', 'no-such-starter'])('opens the overview patch when the link names "%s"', async (requested) => {
+    await expect(openEmbedStarter(requested)).resolves.toBe(true)
+    expect(openName()).toBe('Field Transform Demo')
+    expect(EMBED_DEFAULT_STARTER).toBe('field-warp')
   })
 })

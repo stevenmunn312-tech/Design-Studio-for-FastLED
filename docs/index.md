@@ -85,6 +85,7 @@ Feature contracts and rationale live here. Task ordering belongs in
 
 ### Workspace and reference design
 
+- [Embed mode: a live demo in an iframe](design/embed-mode.md)
 - [Library sharing: patterns, palettes and collections](design/library-sharing.md)
 - [Node reference layout and upkeep](design/node-reference-layout.md)
 - [One canvas, four workspaces](design/workspace-tabs.md)
