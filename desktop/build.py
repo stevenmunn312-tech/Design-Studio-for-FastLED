@@ -104,7 +104,8 @@ def launcher_platform_args(target: str = sys.platform) -> list[str]:
     """Windows gets a console-less launcher (the Studio opens in its own
     WebView2 window) carrying the app icon, which the window reuses, and a
     manifest declaring per-monitor DPI awareness. macOS gets an ``.app``
-    bundle, which ``--windowed`` makes; Linux keeps a terminal launcher."""
+    bundle, which ``--windowed`` makes. Linux has no console subsystem to
+    drop; its launcher adds itself to the application menu when it runs."""
     if target == "win32":
         return [
             "--windowed",
@@ -364,8 +365,9 @@ def smoke_test_macos_window(app: Path) -> None:
     """Launch the macOS app the way Finder does and check it stays up.
 
     The headless smoke never builds the app's window, so a missing Tk would
-    only show on a user's Mac. This run opens the browser and the window, and
-    fails if the app quits once its server is answering.
+    only show on a user's Mac. This run opens the Studio (an app window where
+    the Mac has a Chromium browser, else the default browser and the control
+    window), and fails if the app quits once its server is answering.
     """
     launcher = executable_dir(app) / APP_NAME
     port = 18081

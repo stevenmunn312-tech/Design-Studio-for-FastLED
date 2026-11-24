@@ -3,9 +3,11 @@
 The frozen distribution serves the production Vite build and the existing
 FastAPI upload helper from one localhost process. On Windows the Studio opens
 in its own native window, drawn by the system Microsoft Edge WebView2 runtime
-through pywebview; elsewhere, or when WebView2 is unavailable, it opens the
-user's default browser. The macOS app bundle also shows a small window that
-keeps the Studio running until the user quits it. PyInstaller supplies the
+through pywebview. On macOS and Linux it opens in an app window of an
+installed Chromium browser (Chrome, Edge, Brave or Chromium), with its own
+profile. Where neither is available the Studio opens in the user's default
+browser, and a launcher with no terminal shows a small window that keeps the
+Studio running until the user quits it. PyInstaller supplies the
 Python runtime; bundled fbuild/esptool tools remove the need for a separate
 Node or Python installation.
 """
@@ -13,7 +15,9 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -221,8 +225,6 @@ def applescript_string(text: str) -> str:
 
 def _macos_alert(text: str) -> None:
     """Show a blocking macOS alert; it works before any window exists."""
-    import subprocess
-
     script = f"display alert {applescript_string(APP_NAME)} message {applescript_string(text)} as critical"
     subprocess.run(["osascript", "-e", script], check=False)
 
@@ -233,6 +235,40 @@ def _report_error(text: str) -> None:
         _message_box(text, error=True)
     elif is_macos_app():
         _macos_alert(text)
+    elif os.name != "nt" and not _in_terminal():
+        _tk_alert(text)
+
+
+def _in_terminal() -> bool:
+    """True when somebody can read this process's output and press Ctrl+C."""
+    return _has_console() and sys.stdout.isatty()
+
+
+def _tk_alert(text: str) -> None:
+    """Show a blocking error box on Linux, where a desktop launch has no terminal."""
+    try:
+        import tkinter as tk
+        from tkinter import messagebox
+
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror(APP_NAME, text)
+        root.destroy()
+    except Exception as exc:  # no Tk in this build, or no display
+        print(f"Could not show the error window: {exc}", file=sys.stderr)
+
+
+def logs_to_file(*, headless: bool, macos_app: bool) -> bool:
+    """Whether output goes to ``desktop.log`` because nobody would see it.
+
+    The headless smoke test reads the launcher's own output, and a Windows
+    console build keeps its console.
+    """
+    if not _has_console():
+        return True
+    if headless or os.name == "nt":
+        return False
+    return macos_app or not sys.stdout.isatty()
 
 
 # ── Native window (Windows, WebView2) ─────────────────────────────────────────
@@ -387,17 +423,229 @@ def run_native_window(app, url: str, data: Path) -> None:
         app.state.desktop_focus = None
 
 
-# ── macOS app window ──────────────────────────────────────────────────────────
+# ── Chromium app window (macOS, Linux) ────────────────────────────────────────
 
-def run_macos_control_window(url: str) -> None:
-    """Keep the macOS app running, with a small window, until the user quits.
+# The window class a Linux desktop matches against the desktop entry
+# (StartupWMClass, and the entry's file name on Wayland) to pick the icon.
+LINUX_APP_ID = "design-studio-for-fastled"
+MACOS_CHROMIUM_APPS = ("Google Chrome", "Microsoft Edge", "Brave Browser", "Chromium")
+LINUX_CHROMIUM_COMMANDS = (
+    "google-chrome", "google-chrome-stable", "microsoft-edge", "microsoft-edge-stable",
+    "brave-browser", "chromium", "chromium-browser",
+)
+# A browser still running after this long has opened a window of its own.
+CHROMIUM_STARTUP_SECONDS = 3.0
 
-    The Studio itself opens in the default browser: WKWebView lacks Web MIDI
-    and the File System Access pickers. A Finder-launched app has no terminal,
-    so this window is the user's handle on the local server. Closing it only
-    hides it, as with any Mac app; Quit (the button, Cmd+Q, or the Dock menu)
-    stops the Studio. Clicking the Dock icon or opening the app again shows the
-    window and opens the Studio in the browser.
+
+def is_snap_browser(path: str) -> bool:
+    """True for a snap-packaged browser, or the script Ubuntu installs to start one.
+
+    A snap is confined to the non-hidden part of the home folder, so it cannot
+    keep its profile in the Studio's data root.
+    """
+    resolved = Path(path).resolve()
+    if resolved.name == "snap" or "snap" in resolved.parts[:2]:
+        return True
+    try:
+        with resolved.open("rb") as handle:
+            head = handle.read(2048)
+    except OSError:
+        return False
+    return head.startswith(b"#!") and b"/snap/" in head
+
+
+def find_chromium(platform: str = sys.platform, home: Path | None = None, which=shutil.which) -> str | None:
+    """An installed Chromium browser that can show the Studio in an app window.
+
+    macOS and Linux only: their system web views (WKWebView, WebKitGTK) lack
+    Web MIDI and the File System Access pickers, and Windows has WebView2.
+    """
+    if platform == "darwin":
+        for root in (Path("/Applications"), (home or Path.home()) / "Applications"):
+            for name in MACOS_CHROMIUM_APPS:
+                executable = root / f"{name}.app" / "Contents" / "MacOS" / name
+                if executable.is_file():
+                    return str(executable)
+    elif platform.startswith("linux"):
+        for name in LINUX_CHROMIUM_COMMANDS:
+            found = which(name)
+            if found and not is_snap_browser(found):
+                return found
+    return None
+
+
+def chromium_command(executable: str, url: str, profile: Path, platform: str = sys.platform) -> list[str]:
+    """Start ``executable`` with the Studio in a window with no tabs or address bar.
+
+    Its own profile keeps localStorage (autosave, preferences) and granted
+    microphone/MIDI permissions apart from the user's browsing, and makes this
+    browser process the Studio's alone, so its exit means the Studio closed.
+    """
+    command = [
+        executable,
+        f"--app={url}",
+        f"--user-data-dir={profile}",
+        "--no-first-run",
+        "--no-default-browser-check",
+        # Otherwise the process can outlive its last window.
+        "--disable-background-mode",
+    ]
+    if platform.startswith("linux"):
+        # A new profile would otherwise ask to unlock the login keyring.
+        command += [f"--class={LINUX_APP_ID}", "--password-store=basic"]
+    return command
+
+
+def _spawn(command: list[str]) -> subprocess.Popen:
+    return subprocess.Popen(
+        command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+
+
+def start_chromium(command: list[str], startup_seconds: float = CHROMIUM_STARTUP_SECONDS) -> subprocess.Popen | None:
+    """Open the app window; None when the browser did not stay up.
+
+    A browser that exits at once either failed or handed the window to a copy
+    already running on this profile, whose exit the launcher could not see.
+    Both fall back to the default browser.
+    """
+    try:
+        process = _spawn(command)
+    except OSError as exc:
+        print(f"App window unavailable: {exc}", file=sys.stderr)
+        return None
+    try:
+        code = process.wait(timeout=startup_seconds)
+    except subprocess.TimeoutExpired:
+        return process
+    print(f"App window unavailable: {command[0]} exited with status {code}", file=sys.stderr)
+    return None
+
+
+def _stop_process(process: subprocess.Popen) -> None:
+    process.terminate()
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+
+
+def run_chromium_window(app, process: subprocess.Popen, command: list[str], *, macos_app: bool) -> None:
+    """Keep the Studio running until its Chromium app window's browser exits."""
+
+    def reopen() -> None:
+        # The running browser takes the request and opens the Studio window.
+        _spawn(command)
+
+    app.state.desktop_focus = reopen
+    try:
+        if macos_app:
+            _run_macos_dock_loop(process, reopen)
+        else:
+            process.wait()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        app.state.desktop_focus = None
+        if process.poll() is None:
+            _stop_process(process)
+
+
+def _run_macos_dock_loop(process: subprocess.Popen, reopen) -> None:
+    """Answer the Dock while the app window's browser runs.
+
+    A Mac browser keeps running after its last window closes, as Mac apps do,
+    so closing the Studio window does not stop the Studio. Clicking the app in
+    the Dock opens the window again; quitting the browser window (Cmd+Q) or
+    this app stops it. Tk supplies the event loop and stays hidden.
+    """
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.title(APP_NAME)
+    root.withdraw()
+
+    def watch() -> None:
+        if process.poll() is not None:
+            root.destroy()
+        else:
+            root.after(500, watch)
+
+    root.createcommand("::tk::mac::ReopenApplication", reopen)
+    root.createcommand("::tk::mac::Quit", root.destroy)
+    root.after(500, watch)
+    root.mainloop()
+
+
+# ── Linux desktop entry ───────────────────────────────────────────────────────
+
+def desktop_entry_exec(path: str) -> str:
+    """``path`` as one quoted argument of a desktop entry's Exec key.
+
+    The Desktop Entry Specification escapes ``"``, `````, ``$`` and ``\\``
+    inside the quotes, doubles ``%``, and then escapes every backslash once
+    more as a string value.
+    """
+    quoted = path
+    for char in ("\\", '"', "`", "$"):
+        quoted = quoted.replace(char, "\\" + char)
+    return ('"' + quoted + '"').replace("\\", "\\\\").replace("%", "%%")
+
+
+def linux_desktop_entry(executable: Path, icon: Path) -> str:
+    return "\n".join([
+        "[Desktop Entry]",
+        "Type=Application",
+        f"Name={APP_NAME}",
+        "Comment=Design LED patterns and upload them to a microcontroller",
+        f"Exec={desktop_entry_exec(str(executable))}",
+        f"Icon={icon}",
+        "Terminal=false",
+        "Categories=Development;Electronics;",
+        f"StartupWMClass={LINUX_APP_ID}",
+        "",
+    ])
+
+
+def install_linux_desktop_entry(
+    executable: Path | None = None, icon: Path | None = None, applications: Path | None = None,
+) -> Path | None:
+    """Add the Studio to the desktop's application menu, pointing at this copy.
+
+    The bundle is a portable folder with no installer, so the launcher writes
+    its own entry on each start; that also follows the folder when it moves.
+    The entry gives the menu item and the app window its icon.
+    """
+    executable = executable or Path(sys.executable).resolve()
+    icon = icon or resource_dir() / "web" / "icon-512.png"
+    if applications is None:
+        data_home = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+        applications = Path(data_home) / "applications"
+    entry = applications / f"{LINUX_APP_ID}.desktop"
+    content = linux_desktop_entry(executable, icon)
+    try:
+        if entry.is_file() and entry.read_text(encoding="utf-8") == content:
+            return entry
+        applications.mkdir(parents=True, exist_ok=True)
+        entry.write_text(content, encoding="utf-8")
+    except OSError as exc:
+        print(f"Could not write {entry}: {exc}", file=sys.stderr)
+        return None
+    return entry
+
+
+# ── Control window (default-browser fallback) ─────────────────────────────────
+
+def run_control_window(url: str, *, hide_on_close: bool) -> None:
+    """Keep the Studio running, with a small window, until the user quits.
+
+    Used when no Chromium browser can show an app window, so the Studio is in
+    the default browser, and the launcher has no terminal: this window is then
+    the user's handle on the local server. On macOS (``hide_on_close``) closing
+    it only hides it, as with any Mac app; Quit (the button, Cmd+Q, or the Dock
+    menu) stops the Studio, and clicking the Dock icon or opening the app again
+    shows the window and opens the Studio in the browser. On Linux closing the
+    window stops the Studio.
     """
     import tkinter as tk
     from tkinter import ttk
@@ -405,6 +653,11 @@ def run_macos_control_window(url: str) -> None:
     root = tk.Tk()
     root.title(APP_NAME)
     root.resizable(False, False)
+    keep_running = (
+        "Keep this app running while you use it. Quit it to stop the Studio."
+        if hide_on_close else
+        "Keep this window open while you use it. Close it to stop the Studio."
+    )
 
     def open_studio() -> None:
         webbrowser.open(url)
@@ -420,10 +673,7 @@ def run_macos_control_window(url: str) -> None:
         row=0, column=0, columnspan=2, sticky="w")
     ttk.Label(
         frame,
-        text=(
-            f"The Studio opens in your web browser at {url}\n"
-            "Keep this app running while you use it. Quit it to stop the Studio."
-        ),
+        text=f"The Studio opens in your web browser at {url}\n{keep_running}",
         justify="left",
     ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 16))
     ttk.Button(frame, text="Quit", command=root.destroy).grid(row=2, column=0, sticky="w")
@@ -431,9 +681,10 @@ def run_macos_control_window(url: str) -> None:
     frame.columnconfigure(1, weight=1)
     root.bind("<Return>", lambda _event: open_studio())
 
-    root.protocol("WM_DELETE_WINDOW", root.withdraw)
-    root.createcommand("::tk::mac::ReopenApplication", reopen)
-    root.createcommand("::tk::mac::Quit", root.destroy)
+    if hide_on_close:
+        root.protocol("WM_DELETE_WINDOW", root.withdraw)
+        root.createcommand("::tk::mac::ReopenApplication", reopen)
+        root.createcommand("::tk::mac::Quit", root.destroy)
     root.mainloop()
 
 
@@ -451,6 +702,22 @@ def _start_server(app, port: int):
 def _stop_server(server, thread: threading.Thread) -> None:
     server.should_exit = True
     thread.join(timeout=10)
+
+
+def _print_terminal_notice(url: str, data: Path) -> None:
+    print("Design Studio for FastLED is starting in your browser.")
+    print(f"Local address: {url}")
+    print(f"User data:     {data}")
+    print("Keep this window open while using the Studio; press Ctrl+C to stop it.")
+
+
+def _wait_for_interrupt(thread: threading.Thread) -> None:
+    """Serve until Ctrl+C (or until the process is ended, with no terminal)."""
+    try:
+        while thread.is_alive():
+            thread.join(timeout=0.5)
+    except KeyboardInterrupt:
+        pass
 
 
 def main() -> int:
@@ -473,19 +740,20 @@ def main() -> int:
         )
         return 2
 
+    # Read before output moves to the log file.
+    in_terminal = console and (os.name == "nt" or _in_terminal())
     data = configure_environment()
-    # The headless smoke test reads the macOS app's own output.
-    if not _has_console() or (macos_app and not headless):
+    if logs_to_file(headless=headless, macos_app=macos_app):
         _log_to_file(data / "desktop.log")
     app = create_app()
+    chromium = None if headless or os.name == "nt" else find_chromium()
+    if sys.platform.startswith("linux") and is_frozen() and not headless:
+        install_linux_desktop_entry()
 
-    if headless or (console and not native_window_available()):
+    if headless or (in_terminal and chromium is None and not native_window_available()):
         if not headless:
             threading.Thread(target=_open_when_ready, args=(port,), daemon=True).start()
-            print("Design Studio for FastLED is starting in your browser.")
-            print(f"Local address: {url}")
-            print(f"User data:     {data}")
-            print("Keep this window open while using the Studio; press Ctrl+C to stop it.")
+            _print_terminal_notice(url, data)
         import uvicorn
 
         uvicorn.run(app, host=HOST, port=port, log_level="warning", access_log=False)
@@ -497,12 +765,13 @@ def main() -> int:
         _report_error(f"{APP_NAME} could not start its local server. Details are in {data / 'desktop.log'}.")
         return 1
     try:
+        command = chromium_command(chromium, url, data / "Chromium") if chromium else None
+        window = start_chromium(command) if command else None
         if native_window_available():
             run_native_window(app, url, data)
-        elif macos_app:
-            webbrowser.open(url)
-            run_macos_control_window(url)
-        else:
+        elif window is not None:
+            run_chromium_window(app, window, command, macos_app=macos_app)
+        elif os.name == "nt":
             # Windowed build without WebView2: the message box is the only
             # handle the user has on the background server.
             webbrowser.open(url)
@@ -511,6 +780,17 @@ def main() -> int:
                 "WebView2 Runtime is not installed.\n\n"
                 "Keep this message open while you use the Studio. Choose OK to stop it."
             )
+        else:
+            webbrowser.open(url)
+            if in_terminal:
+                _print_terminal_notice(url, data)
+                _wait_for_interrupt(thread)
+            else:
+                try:
+                    run_control_window(url, hide_on_close=macos_app)
+                except Exception as exc:  # no Tk in this build, or no display
+                    print(f"Control window unavailable: {exc}", file=sys.stderr)
+                    _wait_for_interrupt(thread)
     finally:
         _stop_server(server, thread)
     return 0

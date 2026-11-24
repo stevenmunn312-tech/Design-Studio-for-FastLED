@@ -8,14 +8,26 @@ Studio opens in your web browser instead and shows a message you keep open
 while you work.
 
 On macOS, open "Design Studio for FastLED.app" (drag it to Applications
-first if you like). The Studio opens in your normal web browser, and a small
-window shows that it is running. Closing that window keeps the Studio running;
-choose Quit (or press Cmd+Q) to stop it. Clicking the app in the Dock opens
-the Studio again.
+first if you like). With Google Chrome, Microsoft Edge, Brave or Chromium
+installed, the Studio opens in its own window, drawn by that browser and shown
+under that browser's icon in the Dock. Closing the window keeps the Studio
+running; press Cmd+Q in it, or quit Design Studio for FastLED, to stop it.
+Clicking Design Studio for FastLED in the Dock opens the window again.
+Without one of those browsers the Studio opens in your normal web browser,
+and a small window shows that it is running; choose Quit there to stop it.
 
-On Linux, launch "Design Studio for FastLED". Your normal web browser opens
-automatically. Keep the launcher window open while using the Studio; press
-Ctrl+C in it to stop the local application.
+On Linux, launch "Design Studio for FastLED". With Google Chrome, Microsoft
+Edge, Brave or Chromium installed (not as a snap), the Studio opens in its own
+window; close that window to stop it. The first launch adds Design Studio for
+FastLED to your application menu. Without one of those browsers the Studio
+opens in your normal web browser: started from a terminal, press Ctrl+C there
+to stop it; started from the desktop, close the small window it shows. If you
+delete the folder, also delete
+~/.local/share/applications/design-studio-for-fastled.desktop.
+
+The Studio's own window keeps its settings apart from your everyday browser,
+so web links you open from it arrive in a browser window that is not signed in
+to your accounts.
 
 Node.js and Python are included and do not need to be installed separately.
 The first firmware compile may still download board toolchains and can take

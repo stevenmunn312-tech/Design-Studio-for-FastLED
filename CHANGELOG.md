@@ -20,6 +20,12 @@ share link, migrating it where a shape has changed.
 
 ### Changed
 
+- The macOS and Linux desktop packages open the Studio in its own window,
+  with no tabs or address bar, when Google Chrome, Microsoft Edge, Brave or
+  Chromium is installed; that browser draws the window. Linux also adds the
+  Studio to the application menu on first launch. Without one of those
+  browsers the Studio opens in the default browser as before. Both packages
+  remain experimental and are not yet tested on a Mac or a Linux desktop.
 - The Performance Generator has a **Beat Flash** checkbox. Off drops the
   white full-frame flashes from a generated show and keeps the particle
   bursts. It starts on, as shows flashed before.

@@ -186,3 +186,128 @@ def test_builds_go_to_a_short_root_unless_the_data_root_was_chosen(monkeypatch, 
     monkeypatch.delenv("FLS_DATA_DIR")
     launcher.configure_environment(tmp_path / "isolated")
     assert "FLS_BUILD_DIR" not in os.environ
+
+
+# ── Chromium app window (macOS, Linux) ────────────────────────────────────────
+
+def test_find_chromium_prefers_an_installed_mac_browser(tmp_path):
+    edge = tmp_path / "Applications" / "Microsoft Edge.app" / "Contents" / "MacOS" / "Microsoft Edge"
+    edge.parent.mkdir(parents=True)
+    edge.write_bytes(b"")
+
+    assert launcher.find_chromium("darwin", home=tmp_path) == str(edge)
+    assert launcher.find_chromium("darwin", home=tmp_path / "nobody") in (None, *_system_mac_browsers())
+    assert launcher.find_chromium("win32") is None
+
+
+def _system_mac_browsers() -> list[str]:
+    return [f"/Applications/{name}.app/Contents/MacOS/{name}" for name in launcher.MACOS_CHROMIUM_APPS]
+
+
+def test_find_chromium_skips_snap_browsers_on_linux(tmp_path):
+    # Ubuntu's chromium-browser is a script that starts the snap, which cannot
+    # keep a profile in the hidden data root.
+    wrapper = tmp_path / "chromium-browser"
+    wrapper.write_text("#!/bin/sh\nexec /snap/bin/chromium \"$@\"\n", encoding="utf-8")
+    brave = tmp_path / "brave-browser"
+    brave.write_bytes(b"\x7fELF")
+    installed = {"chromium-browser": str(wrapper), "brave-browser": str(brave)}
+
+    assert launcher.is_snap_browser(str(wrapper))
+    assert not launcher.is_snap_browser(str(brave))
+    assert launcher.find_chromium("linux", which=installed.get) == str(brave)
+    assert launcher.find_chromium("linux", which={"chromium-browser": str(wrapper)}.get) is None
+
+
+def test_chromium_command_opens_an_app_window_on_its_own_profile(tmp_path):
+    profile = tmp_path / "Chromium"
+    mac = launcher.chromium_command("/x/chrome", ORIGIN, profile, "darwin")
+    linux = launcher.chromium_command("/x/chrome", ORIGIN, profile, "linux")
+
+    assert mac[:3] == ["/x/chrome", f"--app={ORIGIN}", f"--user-data-dir={profile}"]
+    assert not any(arg.startswith("--class=") for arg in mac)
+    assert f"--class={launcher.LINUX_APP_ID}" in linux
+
+
+def test_a_browser_that_exits_at_once_is_not_an_app_window():
+    stays = [sys.executable, "-c", "import time; time.sleep(30)"]
+    process = launcher.start_chromium(stays, startup_seconds=0.5)
+    try:
+        assert process is not None and process.poll() is None
+    finally:
+        launcher._stop_process(process)
+
+    assert launcher.start_chromium([sys.executable, "-c", "pass"], startup_seconds=10) is None
+    assert launcher.start_chromium([str(Path("no-such-browser").resolve())]) is None
+
+
+def test_the_studio_runs_until_the_app_window_browser_exits():
+    from fastapi import FastAPI
+
+    app = FastAPI()
+    launcher.add_desktop_routes(app)
+    seen = []
+    process = launcher._spawn([sys.executable, "-c", "import time; time.sleep(0.5)"])
+
+    class Watched:
+        def wait(self):
+            seen.append(app.state.desktop_focus is not None)
+            return process.wait()
+
+        poll = process.poll
+
+    launcher.run_chromium_window(app, Watched(), ["unused"], macos_app=False)
+    assert seen == [True]  # a second launch can reopen the window while it runs
+    assert app.state.desktop_focus is None
+    assert process.poll() is not None
+
+
+# ── Linux desktop entry ───────────────────────────────────────────────────────
+
+def test_desktop_entry_exec_quotes_the_path():
+    assert launcher.desktop_entry_exec("/opt/Design Studio for FastLED/Design Studio for FastLED") == (
+        '"/opt/Design Studio for FastLED/Design Studio for FastLED"'
+    )
+    assert launcher.desktop_entry_exec('/a/$b/"c"/100%') == '"/a/\\\\$b/\\\\"c\\\\"/100%%"'
+
+
+def test_linux_desktop_entry_is_written_once_and_follows_the_bundle(tmp_path):
+    applications = tmp_path / "share" / "applications"
+    icon = Path("/opt/studio/_internal/web/icon-512.png")
+
+    entry = launcher.install_linux_desktop_entry(Path("/opt/studio/Studio"), icon, applications)
+    assert entry == applications / "design-studio-for-fastled.desktop"
+    text = entry.read_text(encoding="utf-8")
+    assert f'Exec="{Path("/opt/studio/Studio")}"'.replace("\\", "\\\\\\\\") in text
+    assert f"Icon={icon}" in text
+    assert "Terminal=false" in text
+    # The app window's class, so the desktop gives it this entry's icon.
+    assert f"StartupWMClass={launcher.LINUX_APP_ID}" in text
+
+    written = entry.stat().st_mtime_ns
+    assert launcher.install_linux_desktop_entry(Path("/opt/studio/Studio"), icon, applications) == entry
+    assert entry.stat().st_mtime_ns == written
+
+    launcher.install_linux_desktop_entry(Path("/home/me/moved/Studio"), icon, applications)
+    assert "moved" in entry.read_text(encoding="utf-8")
+
+
+def test_output_goes_to_the_log_only_when_nobody_would_see_it(monkeypatch):
+    class Stream:
+        def __init__(self, tty):
+            self._tty = tty
+
+        def isatty(self):
+            return self._tty
+
+    monkeypatch.setattr(launcher.sys, "stdout", Stream(True))
+    assert launcher.logs_to_file(headless=False, macos_app=True) is (os.name != "nt")
+    assert launcher.logs_to_file(headless=True, macos_app=True) is False
+    assert launcher.logs_to_file(headless=False, macos_app=False) is False
+
+    monkeypatch.setattr(launcher.sys, "stdout", Stream(False))  # started from the desktop
+    assert launcher.logs_to_file(headless=False, macos_app=False) is (os.name != "nt")
+    assert launcher.logs_to_file(headless=True, macos_app=False) is False
+
+    monkeypatch.setattr(launcher.sys, "stdout", None)  # the windowed Windows build
+    assert launcher.logs_to_file(headless=False, macos_app=False) is True

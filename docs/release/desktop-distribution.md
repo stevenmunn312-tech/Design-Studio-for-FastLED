@@ -5,7 +5,9 @@ separate Node.js or Python installation. The package deliberately keeps the
 tested web UI: one native launcher contains the Python runtime and upload
 helper and serves the production Vite assets on localhost. On Windows it shows
 them in a native window drawn by the system WebView2 runtime; on macOS and
-Linux it opens the user's default browser. The macOS package is an
+Linux it shows them in an app window of an installed Chromium browser, and
+opens the default browser where there is none (see
+[macOS and Linux window](#macos-and-linux-window)). The macOS package is an
 application bundle, `Design Studio for FastLED.app`.
 
 ## Why this shape
@@ -14,9 +16,10 @@ application bundle, `Design Studio for FastLED.app`.
   code rather than maintaining a second Electron/Tauri backend.
 - It avoids bundling a second browser engine. Windows draws the window with
   the Edge WebView2 runtime that is part of the operating system, which is the
-  same Chromium engine the browser policy already covers. macOS and Linux keep
-  the default browser, because their system web views (WKWebView, WebKitGTK)
-  lack Web MIDI and the File System Access pickers.
+  same Chromium engine the browser policy already covers. macOS and Linux
+  borrow a Chromium browser the user already has, because their system web
+  views (WKWebView, WebKitGTK) lack Web MIDI and the File System Access
+  pickers.
 - PyInstaller's one-folder mode is inspectable and easier to diagnose than a
   one-file executable. It also keeps the native `fbuild`, `fbuild-daemon`, and
   frozen `esptool` tools beside the launcher.
@@ -100,6 +103,48 @@ The pywebview overrides replace three of its WebView2 event handlers, so
 `backend/constraints.txt` pins pywebview exactly; re-check them on every
 upgrade (`backend/tests/test_desktop_launcher.py` asserts they still exist).
 
+## macOS and Linux window
+
+On macOS and Linux the launcher looks for Google Chrome, Microsoft Edge,
+Brave or Chromium (`find_chromium` in `desktop/launcher.py`: the application
+folders on macOS, `PATH` on Linux) and starts it with `--app=<url>`, which
+gives a window with no tabs or address bar. Nothing is bundled.
+
+- **Profile:** `--user-data-dir=<data root>/Chromium` keeps localStorage and
+  granted microphone/MIDI permissions between launches, apart from the user's
+  browsing. It also makes that browser process the Studio's alone, so the
+  launcher waits on it: when it exits, the helper stops.
+- **Linux:** closing the window ends the browser, so it stops the Studio.
+  `--class=design-studio-for-fastled` names the window, and the launcher
+  writes `~/.local/share/applications/design-studio-for-fastled.desktop`
+  (under `$XDG_DATA_HOME` when set) on each start of a frozen bundle, pointing
+  at wherever the folder now is. The entry gives the application-menu item and
+  the window its icon (the bundled `web/icon-512.png`). Nothing removes it
+  when the folder is deleted.
+- **macOS:** a Mac browser keeps running after its last window closes, so
+  closing the window leaves the Studio running. A hidden Tk root answers the
+  Dock: clicking the app opens the window again, and Cmd+Q in the window or
+  quitting the app stops the Studio. The window belongs to the browser, so the
+  Dock shows it under the browser's icon, beside the app's own.
+- **Second launch** asks the running instance to open the window
+  (`POST /api/desktop/focus`). The launcher cannot tell whether one is already
+  open, so this, like a Dock click, can open a second Studio window.
+- **Links** to other sites open in a browser window on the Studio's profile,
+  which is not signed in to the user's accounts.
+- **Snap browsers** are skipped: a snap cannot write a profile inside the
+  hidden data root. Ubuntu's `chromium-browser` is a script that starts the
+  snap, and is skipped too.
+- **A browser that exits within three seconds** did not open a window of its
+  own: it failed, or handed the window to a copy left running on the profile
+  whose exit the launcher could not see. The launcher then falls back.
+- **Fallback:** with no usable Chromium browser the Studio opens in the
+  default browser. From a terminal the launcher prints the address and stops
+  on Ctrl+C. With no terminal (the macOS app, or Linux started from the
+  desktop) it shows a small Tk window: on macOS closing it only hides it and
+  **Quit** stops the helper; on Linux closing it stops the helper. Output then
+  goes to `desktop.log` in the data root, and a startup error such as port
+  8008 in use shows as an alert.
+
 ## macOS app
 
 PyInstaller's `--windowed` mode builds `Design Studio for FastLED.app`. The
@@ -115,16 +160,9 @@ once a signed build ships. The icon is `desktop/assets/app.icns`, which
 `scripts/assets/make-brand-icons.py` draws on Apple's 1024 grid with the
 artwork in the central 824 square.
 
-A Finder-launched app has no terminal, so the launcher, when it runs inside a
-bundle, opens the Studio in the default browser and shows a small window (Tk,
-from the bundled Python) that keeps the helper running:
-
-- **Closing the window** only hides it, as with any Mac app. **Quit**, Cmd+Q
-  or the Dock menu's Quit stops the helper.
-- **A Dock click or a second open** shows the window and opens the Studio in
-  the browser again. macOS does not start a second copy of an open app.
-- **Startup errors**, such as port 8008 in use, show as a macOS alert.
-- **Output** goes to `desktop.log` in the data root.
+A Finder-launched app has no terminal, so the app needs a window of its own;
+[macOS and Linux window](#macos-and-linux-window) describes it. Tk comes from
+the bundled Python. macOS does not start a second copy of an open app.
 
 PyInstaller signs the bundle before the tools, notices and `Info.plist`
 changes go in, which breaks its seal, and macOS reports an app with a broken
@@ -149,7 +187,8 @@ per-user roots (`backend/user_data.py`):
 | Linux | `~/Documents/Design Studio for FastLED` | `$XDG_DATA_HOME/design-studio-for-fastled` or `~/.local/share/design-studio-for-fastled` |
 
 The data root holds helper configuration, downloaded Arduino CLI binaries,
-the WebView2 profile and `desktop.log`. Build trees (the fbuild project with
+the WebView2 (Windows) or Chromium (macOS, Linux) profile and `desktop.log`.
+Build trees (the fbuild project with
 its vendored libraries, the Arduino library cache and sketch workspaces) go
 to a build root: on Windows `%USERPROFILE%\.design-studio-for-fastled`,
 elsewhere the data root (`FLS_BUILD_DIR` overrides it, and an explicit
@@ -231,6 +270,14 @@ first upload to an ESP32-S3, save, second launch, recovery after a forced
 end, an offline rebuild and upload, and a clean exit. The first two runs
 found that the helper needed git and uv and that a downloaded ZIP fell back
 to the browser; both are fixed.
+
+On 2026-11-24 the Chromium app window was added for macOS and Linux. Checked
+so far, on Windows 11 with Chrome only: the helper's unit tests, and the
+process model the launcher relies on (the first `--app` process on a profile
+stays up until stopped, and a second start on that profile hands over and
+exits within a second). No macOS or Linux bundle has been built or launched
+with it: the Dock behaviour, the desktop entry's icon match and the Tk
+fallbacks are unverified.
 
 On 2026-11-14 the offline PWA was relaunched from a clean browser profile: a
 production build served on localhost, one online load in a new Chromium
