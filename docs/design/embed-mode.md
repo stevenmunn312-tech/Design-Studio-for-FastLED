@@ -1,7 +1,7 @@
 # Embed mode: a live demo in an iframe
 
-Status: pilot. Built and checked in a cross-origin iframe on a development
-machine. The container image is written but has not been built or deployed here.
+Status: pilot. Checked in a cross-origin iframe, both on a development machine
+and from the container image running on Render's free plan (2026-11-24).
 
 Embed mode runs the Studio's web app as a live demo inside another site's
 page. A visitor gets the real editor and the real preview, opened on one
