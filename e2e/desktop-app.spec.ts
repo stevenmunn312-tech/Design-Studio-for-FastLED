@@ -67,8 +67,9 @@ test('a first run opens on the welcome dialog and enters the studio', async () =
 })
 
 test('the Fire starter loads and lights the LED preview', async () => {
-  await page.getByRole('button', { name: 'Open Start Gallery' }).click()
+  // Skipping the welcome dialog opens the Start Gallery by itself.
   const gallery = page.getByRole('dialog', { name: 'Start gallery' })
+  await expect(gallery).toBeVisible()
   await gallery.getByRole('button', { name: /^Fire, Easy/ }).click()
   await expect(gallery).toBeHidden()
 
