@@ -236,6 +236,7 @@ Historical context, not current task status.
 - [> **Archived 2026-09-24.** This is the backlog as it stood before it was](archive/hardware-todo-to-2026-09-24.md)
 - [v1.0.0 backlog: completed items to 2026-11-12](archive/todo-completed-to-2026-11-12.md)
 - [Brief: evaluate the graph off the main thread (done 2026-11-25)](archive/evaluator-worker-brief-to-2026-11-25.md)
+- [App review — 3 November 2026 (all items done)](archive/2026-11-03-app-review.md)
 
 ## Maintaining these docs
 

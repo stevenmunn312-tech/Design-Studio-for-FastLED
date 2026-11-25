@@ -1,3 +1,7 @@
+> **Archived 2026-11-26.** All 50 items are ticked, each with its outcome.
+> The paths are relative to the repository root as it stood at `3219e6e7`,
+> and many have moved since. Nothing here is current.
+
 # App review — 3 November 2026
 
 Review of the `Hardware` branch at `3219e6e7` by three read-only code audits
