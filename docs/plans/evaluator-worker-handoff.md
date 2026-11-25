@@ -7,8 +7,8 @@ first, not a task to begin typing.
 [evaluator worker design](evaluator-worker-design.md) answers the seven
 questions below with measurements, and phases 1 and 2 (graphs of store-free
 and audio node types: Field Transform, the microphone starter) are built and
-measured there. Phase 2 waits on Steve's listening check; phases 3 and 4 on
-his go-ahead.
+measured there; Steve listened to phase 2 and judged it fine. Phases 3 and 4
+wait on his go-ahead.
 
 ## What this is for
 

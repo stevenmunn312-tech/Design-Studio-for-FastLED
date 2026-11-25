@@ -4,8 +4,8 @@ Written 2026-11-25 from the [handoff](evaluator-worker-handoff.md). It answers
 the handoff's seven questions with measurements, and proposes a first step.
 
 **Status, 2026-11-25:** phases 1 and 2 are built (see [Phase 1 as built](#phase-1-as-built)
-and [Phase 2 as built](#phase-2-as-built)). Phase 2 waits on Steve's listening
-check before it ships; phases 3 and 4 each wait on his go-ahead.
+and [Phase 2 as built](#phase-2-as-built)). Phases 3 and 4 each wait on
+Steve's go-ahead.
 
 ## Recommendation in one paragraph
 
@@ -380,6 +380,6 @@ profile shows the change: in phase 1 the main thread ran
 and `postMessage`. The Music Player starter still evaluates on the main
 thread (its collection is a show, phase 4).
 
-Not checked: listening. Steve judges audio-reactive patterns by ear, so the
-microphone's extra step and the decoder's shorter hold need his ear on a
-real song before this ships.
+Listened 2026-11-25: Steve heard the microphone and in-app music paths on
+the working build and judged them fine, at a steady 60 fps, so the extra
+step needs no further compensation.
