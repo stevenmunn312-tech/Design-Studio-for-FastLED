@@ -1,7 +1,12 @@
 # Handoff: evaluate the graph off the main thread
 
-Written 2026-11-25 for the session that takes this on. Nothing here has been
-started. It is a plan to make first, not a task to begin typing.
+Written 2026-11-25 for the session that takes this on. It is a plan to make
+first, not a task to begin typing.
+
+**Status, 2026-11-25:** the plan is made:
+[evaluator worker design](evaluator-worker-design.md) answers the seven
+questions below with measurements and proposes a first step. No app code has
+changed. Building it waits on Steve's go-ahead.
 
 ## What this is for
 

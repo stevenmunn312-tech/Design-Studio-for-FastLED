@@ -138,6 +138,7 @@ rollout steps or explicitly proposed work, not a second copy of the root checkli
 - [Deferred until after v1](plans/post-v1.md)
 - [Downloadable parts](plans/downloadable-parts.md)
 - [Handoff: evaluate the graph off the main thread](plans/evaluator-worker-handoff.md)
+- [Design: evaluate the preview graph in a worker](plans/evaluator-worker-design.md)
 - [Hardware expansion roadmap](plans/hardware-expansion-roadmap.md)
 - [Pattern node expansion — tiling, warp, Turing and Fourier nodes](plans/pattern-node-expansion.md)
 - [Power conversion and supply protection](plans/power-conversion-and-protection.md)
