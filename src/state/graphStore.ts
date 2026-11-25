@@ -42,7 +42,9 @@ import {
   CUSTOM_BOARD_PROFILE_ID, customBoardIssueBlocksApply, type CustomBoardDefinition, type CustomBoardIssue,
 } from '../build/boards/customBoard'
 import { DEFAULT_BOARD_PROFILE_ID, isHardwareManagedSignalNodeType, isHardwareNodeType, isHardwareOnlyNodeType, ROOT_BOARD_NODE_ID } from '../build/hardware'
-import { controllerSettings, DEFAULT_BOARD_CONTROLLER_PROPERTIES, FRAME_RATE } from '../build/controllerSettings'
+import { controllerSettings, DEFAULT_BOARD_CONTROLLER_PROPERTIES } from '../build/controllerSettings'
+import { FRAME_RATE } from '../build/frameRate'
+import { setGraphReader } from './graphReader'
 import {
   boardIdOf,
   boardLinkSchema,
@@ -3853,6 +3855,10 @@ export const useGraphStore = create<GraphState>()(
 // in `pastStates`. The prune's own set is a no-op notify when nothing was
 // orphaned, and its orphan-removing set fires before the timer is re-armed
 // (the timer is cleared before the action runs), so this cannot self-loop.
+// The evaluator reads names and screen designs through this seam, so the
+// preview worker need not load this module (see graphReader.ts).
+setGraphReader(() => useGraphStore.getState())
+
 useGraphStore.subscribe(() => {
   if (orphanPruneTimer) scheduleOrphanGraphPrune()
 })

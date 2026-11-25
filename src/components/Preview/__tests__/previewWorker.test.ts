@@ -9,6 +9,7 @@ import { STARTER_TEMPLATES } from '../../../state/patterns/starterTemplates'
 import { consumeLiveBeats } from '../../../state/audio/liveAudioSignal'
 import { blankDmxSnapshot } from '../../../state/peripherals/dmx'
 import { EVALUATOR_STORES } from '../evaluatorStores'
+import { setGraphReader, type GraphReadState } from '../../../state/graphReader'
 import { evaluatePreviewPasses, selectPreviewRoute } from '../previewEvaluation'
 import {
   createPreviewWorkerHandler, plainData, snapshotLiveState, unpackFrame, unpackPorts,
@@ -66,7 +67,15 @@ function settled(value: unknown): unknown {
 
 /** Every live store as it starts: no audio, no input, nothing heard. */
 const QUIET = snapshotLiveState()
-const storeNamed = (name: string) => EVALUATOR_STORES.find(([entry]) => entry === name)![1]
+// The graph's names reach the evaluator through its seam, not a store.
+const graphReaderStore = {
+  setState: (data: Record<string, unknown>) => {
+    setGraphReader(() => ({ graphs: (data.graphs ?? {}) as GraphReadState['graphs'], displayDocuments: {} }))
+  },
+}
+const storeNamed = (name: string) => name === 'graphReader'
+  ? graphReaderStore
+  : EVALUATOR_STORES.find(([entry]) => entry === name)![1]
 function quieten(): void {
   for (const [name, data] of Object.entries(QUIET)) storeNamed(name).setState(data)
 }
@@ -279,7 +288,7 @@ describe('preview worker', () => {
             localClock: () => posMs,
           },
           useHardwareInputStore: { button: new Map([['motion', i === 5 || i === 6]]), pot: new Map(), encoder: new Map() },
-          useGraphStore: { graphs: { plasma: { id: 'plasma', name: 'Plasma' }, fire: { id: 'fire', name: 'Fire' } } },
+          graphReader: { graphs: { plasma: { id: 'plasma', name: 'Plasma' }, fire: { id: 'fire', name: 'Fire' } } },
         },
       }
     })

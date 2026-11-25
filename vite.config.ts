@@ -130,7 +130,7 @@ export default defineConfig(() => {
           // pinout view is shown, and the display design pack (~390 vector
           // assets) only inside a custom display's editor — keep them all out
           // of the precache so the base install stays small; runtime-cache them
-          // after first use. The preview worker (about 2.4 MB, the evaluator
+          // after first use. The preview worker (about 1.4 MB, the evaluator
           // with every store it reaches) loads only once a graph it can run is
           // open, and the preview evaluates on the main thread without it.
           globIgnores: [

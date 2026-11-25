@@ -66,7 +66,7 @@ import {
   TRANSPORT_TOUCH_ACTION_TYPES,
 } from '../../state/displays/transportTouch'
 import { displayHasTouch } from '../../build/parts/partCatalogue'
-import { useGraphStore } from '../../state/graphStore'
+import { graphReadState } from '../../state/graphReader'
 import { isDisplaySignal, type DisplaySignal } from '../../state/displays/displaySignal'
 import { tftControllerForProps } from '../../state/nodeLibrary'
 import { previewAudioCapabilityKind } from '../../state/audio/audioCapabilities'
@@ -190,7 +190,7 @@ export const INPUT_EVALUATORS: NodeEvaluators = {
       const widgetOutputs = ((node.data.outputs as { id: string; dataType?: string }[] | undefined) ?? [])
         .filter((port) => parseDisplayWidgetPortId(port.id))
       const samples: Record<string, PortValue> = {}
-      const shownDocument = useGraphStore.getState().displayDocuments[designId]
+      const shownDocument = graphReadState().displayDocuments[designId]
       for (const port of widgetOutputs) {
         const parsed = parseDisplayWidgetPortId(port.id)!
         // A ranged control rests where it starts, the value the renderer

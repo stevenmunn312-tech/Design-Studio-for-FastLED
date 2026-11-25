@@ -2,7 +2,8 @@ import { useDisplayRuntimeStore } from '../displays/displayRuntimeStore'
 import { displayRuntimeId } from '../displays/mountedDisplays'
 import { toggleWidgetSource } from '../displays/designControlBundle'
 import type { ButtonEdgeState } from '../player/transportBridge'
-import { type StudioNode, useGraphStore } from '../graphStore'
+import type { StudioNode } from '../graphStore'
+import { graphReadState } from '../graphReader'
 import type { PatternSelectionState } from '../patterns/patternSelection'
 import { clamp01 } from './frames'
 import type { PlayerControls, PortValue, AudioSignal, PlayerParticles } from './types'
@@ -52,7 +53,7 @@ export function toggleTapPress(
   const source = nodeMap.get(wire?.srcId ?? '')
   if (!wire || source?.data.nodeType !== 'TouchInput') return null
   const toggle = toggleWidgetSource(source, wire.srcPort, nodeMap,
-    useGraphStore.getState().displayDocuments)
+    graphReadState().displayDocuments)
   if (!toggle) return null
   const count = useDisplayRuntimeStore.getState().readDisplayWidget(
     displayRuntimeId(toggle.panelId, toggle.documentId, [...nodeMap.values()]),

@@ -226,14 +226,25 @@ the fallback is only for browsers without workers.
 
 ## Costs and risks
 
-- **Bundle size.** The worker bundle is about 600 KB gzipped, mostly
-  catalogues and React Flow reached through `graphStore`. It parses off the
-  main thread, but it adds to the download and to the service-worker
-  precache, which already reports a file too large. Making the node modules
-  import only graph *types* would cut it. Phase 4 was planned to do that by
-  removing the mid-evaluation store reads; as built it sends the graph's
-  names in the snapshot instead, so the bundle is unchanged (see Phase 4 as
-  built).
+- **Bundle size.** The worker was 2.44 MB minified, 600 KB gzipped, most of
+  it React Flow, uploads and catalogues reached through `graphStore`. Since
+  2026-11-25 it is **1.41 MB minified, 344 KB gzipped** (production build):
+  the evaluator reads the graph store's names and screen designs through
+  `state/graphReader.ts`, which `graphStore.ts` registers itself with, so no
+  evaluator module imports the store; `FRAME_RATE` moved to
+  `build/frameRate.ts` so the node library no longer loads controller
+  settings; and `EVALUATOR_STORES` lists only the twelve stores the
+  evaluator still reaches, which `evaluatorStores.test.ts` checks against
+  an esbuild bundle and which also fails if `graphStore.ts` or React Flow
+  returns to the worker. In the worker the names come with each request and
+  reading the screen designs throws, as a blocked store does. What is left,
+  and why it stays: board profiles and their capability data (about
+  340 KB), reached only through the multi-board partition's onboard-Ethernet
+  check, which ledOutputMatch needs for Network Ripple and String
+  Particles; the part catalogue (183 KB), which sensor previews read; the
+  display asset catalogue (114 KB), which the display registry's widget
+  validation reads; and the node library itself (190 KB). Each would take
+  a refactor of the module that owns it.
 - **Memory.** A second copy of the evaluator's pools and node state, at most
   the size of the live preview's.
 - **Two paths to keep correct** until the gate covers everything. The
@@ -296,7 +307,8 @@ How it differs from the plan above:
 - **The worker starts the first time a graph qualifies**, so a project that
   never qualifies never downloads it. It is kept out of the service worker's
   precache and cached on first use (`vite.config.ts`): at 2.4 MB minified it
-  is over the precache limit, and offline before first use the preview
+  was over the precache limit (1.41 MB since the trim, under it; whether it
+  goes back into the precache is Steve's call), and offline before first use the preview
   evaluates on the main thread.
 - **Until the worker's first answer the main thread evaluates**, so the
   preview never shows the idle sweep on the way in.

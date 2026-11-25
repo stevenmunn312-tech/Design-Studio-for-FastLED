@@ -34,7 +34,8 @@ import { outputForm, outputLedTotal } from '../state/output/ledOutputForm'
 import { stereoVuRailCounts } from '../state/audio/stereoVuSizing'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
 import { targetFamilyFromFqbn, type BuildTargetFamily } from '../build/buildProfile'
-import { controllerSettings, FRAME_RATE } from '../build/controllerSettings'
+import { controllerSettings } from '../build/controllerSettings'
+import { FRAME_RATE } from '../build/frameRate'
 import {
   CHIPSET_WIRE, chipsetSendMicros, clockedRateFix, effectiveDataRateMhz, ledDriverFacts, rmtOutputsThatFit,
   suggestParallelLedDriver, type LedDriverFacts, type SelectableLedDriver,

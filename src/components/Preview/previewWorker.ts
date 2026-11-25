@@ -3,6 +3,7 @@ import type { Frame, GroupDef, GroupRegistry } from '../../state/graphEvaluator'
 import { outputRoutes } from '../../state/output/outputRouting'
 import { EVALUATOR_STORES } from './evaluatorStores'
 import { playerPositionMs, usePlayerTransport, type PreviewPlayerCommand } from '../../state/player/playerTransport'
+import { graphReadState, setGraphReader, type GraphReadState } from '../../state/graphReader'
 import type { AudioCapabilityKind } from '../../state/audio/audioCapabilities'
 import { openGroupInputsFor } from '../../state/evaluator/openGroupInputs'
 import { evaluatePreviewPasses, selectPreviewRoute, type PreviewRouteBuffers } from './previewEvaluation'
@@ -32,15 +33,20 @@ import { evaluatePreviewPasses, selectPreviewRoute, type PreviewRouteBuffers } f
 export const LIVE_STATE_STORES: ReadonlySet<string> = new Set([
   'useAudioStore', 'useDecoderAudioStore', 'useUiStore',
   'useHardwareInputStore', 'useMidiStore', 'useDmxStore', 'useDdpStore',
-  'usePlayerTransport', 'useGraphStore',
+  'usePlayerTransport',
 ])
 
 /** For a store of which an admitted node reads only a little (the rest is the
  *  app's, and large), the fields sent. Every other live store is sent whole. */
 export const LIVE_FIELDS: Readonly<Record<string, readonly string[]>> = {
   useUiStore: ['testSignal'],
-  useGraphStore: ['graphs'],
 }
+
+/** What the worker is sent of the graph store, read through `graphReader.ts`:
+ *  the graphs' names, which a show publishes for its patterns. The screen
+ *  designs are a display panel's, and display panels stay on this thread. */
+export const LIVE_GRAPH_FIELDS: readonly (keyof GraphReadState)[] = ['graphs']
+const LIVE_GRAPH_KEY = 'graphReader'
 
 /** Store actions an admitted node calls, which the worker catches and the
  *  main thread makes: only the transport's presses. */
@@ -186,11 +192,22 @@ export function snapshotLiveState(): PreviewLiveState {
     posMs: playerPositionMs(player),
     transport: player.transport ? plainData(player.transport) : null,
   }
+  live[LIVE_GRAPH_KEY] = { graphs: graphReadState().graphs }
   return live
 }
 
-function applyLiveState(live: PreviewLiveState): void {
+/** Write the live state where the evaluator reads it; returns how to put
+ *  the graph reader back, since a test runs the handler on the main thread. */
+function applyLiveState(live: PreviewLiveState): () => void {
   for (const [name, store] of LIVE_STORES) if (live[name]) store.setState(live[name])
+  const graphs = (live[LIVE_GRAPH_KEY]?.graphs ?? {}) as GraphReadState['graphs']
+  const previous = setGraphReader(() => ({
+    graphs,
+    get displayDocuments(): GraphReadState['displayDocuments'] {
+      throw new Error(`${STORE_READ_ERROR}: graph store displayDocuments`)
+    },
+  }))
+  return () => { setGraphReader(previous) }
 }
 
 /** A node's ports ready to post: frames packed, live signals made plain. */
@@ -268,8 +285,9 @@ export function createPreviewWorkerHandler(): (request: PreviewWorkerRequest) =>
     // nothing plays.
     const dispatch = usePlayerTransport.getState().dispatchControls
     usePlayerTransport.setState({ dispatchControls: (command) => { playerCommands.push(command) } })
+    let restoreGraphReader = () => {}
     try {
-      applyLiveState(request.live)
+      restoreGraphReader = applyLiveState(request.live)
       const routes = outputRoutes(nodes)
       const selectedRoute = selectPreviewRoute(routes, request.selectedRouteId)
       const result = evaluatePreviewPasses({
@@ -312,6 +330,7 @@ export function createPreviewWorkerHandler(): (request: PreviewWorkerRequest) =>
       return { ...base, terminal: null, routed: [], outputs: null, error: message, fatal: message.startsWith(STORE_READ_ERROR) }
     } finally {
       usePlayerTransport.setState({ dispatchControls: dispatch })
+      restoreGraphReader()
     }
   }
 }

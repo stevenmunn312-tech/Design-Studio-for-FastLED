@@ -6,7 +6,8 @@ import {
 } from '../../state/player/patternPacing'
 import { normalizeButtonEdgeSettings, blankButtonEdgeState, buttonEdge } from '../../state/player/transportBridge'
 import { pressEdgeSettings } from '../../state/player/pressSource'
-import { type StudioNode, useGraphStore } from '../../state/graphStore'
+import type { StudioNode } from '../../state/graphStore'
+import { graphReadState } from '../../state/graphReader'
 import { songInfoOutputs, blankSongInfo, resolveSongInfo } from '../../state/player/songInfo'
 import {
   type PatternSlideshowOrder,
@@ -1565,7 +1566,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     // and publishing the pre-show snapshot left the panel a frame behind
     // the LEDs on the first frame of every collection.
     const selectionView = patternSelectionView(selection, ids)
-    const graphNames = useGraphStore.getState().graphs
+    const graphNames = graphReadState().graphs
     const selectionValue: PatternSelectValue | null = ids.length > 0
       ? {
         ids,
@@ -1733,7 +1734,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     // its own advance moves this cursor, and publishing the pre-show
     // snapshot leaves a panel a frame behind the LEDs.
     const view = patternSelectionView(selection, ids)
-    const graphNames = useGraphStore.getState().graphs
+    const graphNames = graphReadState().graphs
     const selectionValue: PatternSelectValue = ids.length > 0
       ? {
         ids,
@@ -1824,7 +1825,7 @@ export const SHOW_EVALUATORS: NodeEvaluators = {
     const activeIndex = owned && player.patternIndex >= 0
       ? Math.min(player.patternIndex, Math.max(0, ids.length - 1))
       : 0
-    const graphNames = useGraphStore.getState().graphs
+    const graphNames = graphReadState().graphs
     const selection: PatternSelectValue | null = ids.length > 0
       ? {
         ids,

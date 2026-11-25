@@ -162,7 +162,10 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   transport are caught in the worker and made on the main thread
   (`CAUGHT_ACTIONS`); a node that starts writing any other store needs the
   same. Touch and display panels stay on the main thread: the display
-  runtime is written by panels and read by the app. `workerEvaluable`
+  runtime is written by panels and read by the app. An evaluator module
+  never imports `graphStore.ts` at runtime: it reads names and screen
+  designs through `state/graphReader.ts`, and `evaluatorStores.test.ts`
+  fails if the store or React Flow reaches the worker again. `workerEvaluable`
   (`workerGate.ts`) admits a graph only when every node, through its groups,
   is a type whose preview reads nothing else; the rest run on the main
   thread. A node handler that starts reading another store or another UI

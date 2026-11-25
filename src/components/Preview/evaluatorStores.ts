@@ -2,15 +2,6 @@ import { useNetworkCredentialsStore } from '../../state/peripherals/networkCrede
 import { useUiStore } from '../../state/uiStore'
 import { useDisplayRuntimeStore } from '../../state/displays/displayRuntimeStore'
 import { useBoardLinkKeyStore } from '../../state/peripherals/boardLinkKey'
-import { useProjectStore } from '../../state/projectStore'
-import { useStreamStore } from '../../state/output/streamStore'
-import { useStreamReceiverRecord } from '../../state/output/streamReceiverRecord'
-import { useTouchCalibrationStore } from '../../state/displays/touchCalibrationStore'
-import { useIrLearnStore } from '../../state/peripherals/irLearnStore'
-import { useDeviceTelemetryStore } from '../../state/upload/deviceTelemetryStore'
-import { useUploadStore } from '../../state/upload/uploadStore'
-import { useNodeDefaults } from '../../state/nodeDefaults'
-import { useGraphStore } from '../../state/graphStore'
 import { useAudioStore } from '../../state/audio/audioStore'
 import { useDecoderAudioStore } from '../../state/audio/decoderAudioStore'
 import { useDmxStore } from '../../state/peripherals/dmxStore'
@@ -22,11 +13,13 @@ import { usePlayerTransport } from '../../state/player/playerTransport'
 
 /**
  * Every Zustand store the evaluator's modules can reach. In the preview
- * worker these stores exist but hold nothing, so the worker makes each
- * `getState` throw, and workerGate.test.ts spies on each while the allowed
- * node types run. Found by bundling `graphEvaluator.ts` with esbuild and
- * listing the reached modules that `export const use… = create`; repeat that
- * when a node starts reading a new store.
+ * worker those not sent with each request hold nothing, so the worker makes
+ * their `getState` throw, and workerGate.test.ts spies on each while the
+ * allowed node types run. `evaluatorStores.test.ts` bundles the evaluator
+ * with esbuild and holds this list to the stores it reaches, so a node that
+ * starts reading a new store fails there first. The graph store is not one:
+ * the evaluator reads it through `state/graphReader.ts`, which keeps it, and
+ * React Flow and the catalogues behind it, out of the worker.
  */
 export interface EvaluatorStore {
   getState: () => unknown
@@ -38,15 +31,6 @@ export const EVALUATOR_STORES: ReadonlyArray<readonly [string, EvaluatorStore]> 
   ['useUiStore', useUiStore],
   ['useDisplayRuntimeStore', useDisplayRuntimeStore],
   ['useBoardLinkKeyStore', useBoardLinkKeyStore],
-  ['useProjectStore', useProjectStore],
-  ['useStreamStore', useStreamStore],
-  ['useStreamReceiverRecord', useStreamReceiverRecord],
-  ['useTouchCalibrationStore', useTouchCalibrationStore],
-  ['useIrLearnStore', useIrLearnStore],
-  ['useDeviceTelemetryStore', useDeviceTelemetryStore],
-  ['useUploadStore', useUploadStore],
-  ['useNodeDefaults', useNodeDefaults],
-  ['useGraphStore', useGraphStore],
   ['useAudioStore', useAudioStore],
   ['useDecoderAudioStore', useDecoderAudioStore],
   ['useDmxStore', useDmxStore],

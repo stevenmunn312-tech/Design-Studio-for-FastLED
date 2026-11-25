@@ -1,13 +1,12 @@
 import type { StudioNode } from '../state/graphStore'
 import { selectedPhysicalBoardProfile } from './boards/boardProfiles'
 import { resolveLedProduct } from '../state/output/ledProduct'
+import { FRAME_RATE } from './frameRate'
 
 export type PsramPolicy = 'auto' | 'on' | 'off'
 export type SerialRoute = 'auto' | 'native' | 'uart'
 
 /** Project-wide firmware/output policy owned by the singleton Board node. */
-/** Frames per second the loop is paced to; the preview gates to the same. */
-export const FRAME_RATE = { min: 1, max: 120, default: 60 } as const
 
 /**
  * The master level as the percentage the Board and the Control Deck show, so

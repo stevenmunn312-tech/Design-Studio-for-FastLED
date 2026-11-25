@@ -11,7 +11,7 @@
  * 30 ms could not pass 16 fps. A fixed deadline makes the cap something the
  * sketch meets whenever a frame's work and send fit inside it.
  */
-import { FRAME_RATE } from '../build/controllerSettings'
+import { FRAME_RATE } from '../build/frameRate'
 
 function clampFps(frameRate: number): number {
   return Math.max(FRAME_RATE.min, Math.min(FRAME_RATE.max, Number.isFinite(frameRate) ? frameRate : FRAME_RATE.default))

@@ -139,7 +139,7 @@ import { FIELD_EDGE_MODES, FIELD_STRENGTH, FIELD_TILES, FIELD_ZOOM } from '../no
 import { METER_ORIGINS, METER_PEAK_HOLD } from '../nodes/audioReactive/levelMeter'
 import { BAND_HZ, BAND_PRESETS } from '../audio/frequencyBand'
 import { BEAT_PHASE_BAR, BEAT_PHASE_BPM } from '../audio/beatPhase'
-import { FRAME_RATE } from '../build/controllerSettings'
+import { FRAME_RATE } from '../build/frameRate'
 import { DMX_INPUT_MODES, dmxUsesNetwork } from './peripherals/dmxTransceiver'
 import { BOARD_NETWORK_KEYS, isBoardStaticAddressKey } from './peripherals/boardNetwork'
 import { ADALIGHT_BAUDS, STREAM_PROTOCOLS, streamUsesNetwork } from '../nodes/output/frameStream'

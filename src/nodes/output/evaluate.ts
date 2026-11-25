@@ -7,7 +7,7 @@ import {
 } from '../../state/displays/displayRegistry'
 import { displayScreenAt, displayScreenIndex, displayScreens } from '../../state/displays/displayDocument'
 import { readDisplaySourceField } from '../../state/displays/displaySourceFields'
-import { useGraphStore } from '../../state/graphStore'
+import { graphReadState } from '../../state/graphReader'
 import { normalizeButtonEdgeSettings, blankButtonEdgeState, buttonEdge } from '../../state/player/transportBridge'
 import { pressEdgeSettings } from '../../state/player/pressSource'
 import {
@@ -306,7 +306,7 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
     if (designId && enabled) {
       const runtime = useDisplayRuntimeStore.getState()
       const runtimeId = displayRuntimeId(id, designId, nodes)
-      const shownDocument = useGraphStore.getState().displayDocuments[designId]
+      const shownDocument = graphReadState().displayDocuments[designId]
       const shownWidgets = shownDocument?.widgets ?? []
       // The Screen input moves the glass when its selection changes, as
       // `screenInputLines` does on the device.
