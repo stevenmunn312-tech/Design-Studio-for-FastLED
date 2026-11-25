@@ -38,7 +38,7 @@ export function outputLatencyMs(context: { baseLatency?: number; outputLatency?:
 
 /** Extra time, ms, the preview takes before a frame is drawn: one step while
  *  the preview worker evaluates, since its frame is shown a step after the
- *  audio it read (see docs/plans/evaluator-worker-design.md), else 0. */
+ *  audio it read (see docs/design/preview-worker.md), else 0. */
 let previewPipelineMs = 0
 
 /** Set by the preview loop each frame. */

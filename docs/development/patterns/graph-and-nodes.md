@@ -174,7 +174,7 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `workerGate.test.ts` records every store and live field each allowed type
   reads, and the worker makes any other store read throw and turns itself
   off. A new store the evaluator reaches joins `EVALUATOR_STORES`. See
-  [evaluator worker design](../../plans/evaluator-worker-design.md).
+  [evaluator worker design](../../design/preview-worker.md).
 - **A float wired into a bool port is a switch at 0.5.** `portsCompatible`
   lets float feed bool, and any nonzero level used to read true, so a Kick
   envelope wired to a pattern's Beat fired on every frame of its tail. The

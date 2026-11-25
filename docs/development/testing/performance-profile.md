@@ -176,7 +176,7 @@ With the 60 Hz limit lifted (`--uncapped`), after the fixes:
   was 51 fps at full processor speed and 26 at half: three four-octave
   noise fields over 16,384 cells, on the main thread. Since 2026-11-25 a
   graph built only from node types that read no store but the audio ones is
-  evaluated in a worker ([evaluator worker design](../../plans/evaluator-worker-design.md)):
+  evaluated in a worker ([evaluator worker design](../../design/preview-worker.md)):
   the same case holds 60 fps with the main thread idle, at half speed, and
   dragging a node over it runs at 57 fps where it ran at 23. Audio, inputs
   and shows followed: only a graph with a Touch node or a display panel

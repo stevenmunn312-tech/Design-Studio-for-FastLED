@@ -15,7 +15,7 @@ import { NODE_EVALUATOR_TABLES } from '../../state/graphEvaluator'
  * types has neither. workerGate.test.ts spies on every store while each type
  * runs, wired and unwired, and records which live fields it reads; the
  * worker makes any other store read throw, so a miss falls back rather than
- * reading defaults. See docs/plans/evaluator-worker-design.md.
+ * reading defaults. See docs/design/preview-worker.md.
  */
 const WORKER_CATEGORIES = [
   'audio', 'audioReactive', 'color', 'composite', 'field', 'generative', 'graph', 'input', 'math', 'shapes', 'show',
@@ -29,7 +29,7 @@ const WORKER_EXCLUDED_TYPES = new Set<string>([
   'SDVideo',
   // The glass in front of a Display Panel: it samples the panel's display
   // runtime, which panels also write and the app draws from, so it stays
-  // with them on the main thread. See docs/plans/evaluator-worker-design.md.
+  // with them on the main thread. See docs/design/preview-worker.md.
   'TouchInput',
 ])
 

@@ -8,7 +8,7 @@
 > and judged the timing fine, then excellent. The worker bundle was trimmed
 > from 2.44 MB to 1.41 MB minified and is in the service worker's precache.
 > The design, what was built in each phase and every measurement are in the
-> [evaluator worker design](../plans/evaluator-worker-design.md); this brief
+> [evaluator worker design](../design/preview-worker.md); this brief
 > is kept as the starting point it was, and nothing below is open.
 
 Written 2026-11-25 for the session that took this on.

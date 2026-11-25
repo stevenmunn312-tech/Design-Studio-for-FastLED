@@ -748,7 +748,7 @@ export default function LEDPreview() {
         // A graph whose every node reads no store is evaluated in the preview
         // worker, for the time its frame will be shown; until the worker's
         // first answer, and for any other graph, this thread evaluates it.
-        // See docs/plans/evaluator-worker-design.md.
+        // See docs/design/preview-worker.md.
         const workerGate = workerEvaluable(graphNodes, graphEdges, groups)
         // Started the first time a graph qualifies, so a project that never
         // does never downloads it.

@@ -312,7 +312,7 @@ const SCENARIOS = [
     },
   },
   // The editor with the heaviest preview behind it: the page, not the
-  // preview, is what this measures (see docs/plans/evaluator-worker-design.md).
+  // preview, is what this measures (see docs/design/preview-worker.md).
   {
     name: 'drag node, matrix 64x64 2x smooth (field-warp)', starter: 'field-warp',
     setup: output({ size: '64', 'render resolution': '2x smooth' }),

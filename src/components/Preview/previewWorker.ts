@@ -17,7 +17,7 @@ import { evaluatePreviewPasses, selectPreviewRoute, type PreviewRouteBuffers } f
  * and answers with packed frames. A frame crosses as a Float64Array of
  * r, g, b per pixel, so every value arrives exactly as the evaluator made it,
  * and its buffer is transferred, not copied. The main thread hands buffers
- * back with its next request. See docs/plans/evaluator-worker-design.md.
+ * back with its next request. See docs/design/preview-worker.md.
  *
  * Live state goes with each request: the data of the stores an admitted
  * node reads (audio, the hardware-input widgets, MIDI, DMX, DDP, the player

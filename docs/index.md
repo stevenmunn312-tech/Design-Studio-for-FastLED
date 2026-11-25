@@ -49,6 +49,7 @@ Feature contracts and rationale live here. Task ordering belongs in
 - [Transition catalogue](design/transition-catalogue.md)
 - [Truchet Tiles](design/truchet-tiles.md)
 - [Turing Field and Reaction Diffusion companions](design/turing-field.md)
+- [Preview worker: evaluating the graph off the main thread](design/preview-worker.md)
 
 ### Audio and shows
 
@@ -137,7 +138,6 @@ rollout steps or explicitly proposed work, not a second copy of the root checkli
 - [Bench and community testing backlog](plans/bench-backlog.md)
 - [Deferred until after v1](plans/post-v1.md)
 - [Downloadable parts](plans/downloadable-parts.md)
-- [Design: evaluate the preview graph in a worker](plans/evaluator-worker-design.md)
 - [Hardware expansion roadmap](plans/hardware-expansion-roadmap.md)
 - [Pattern node expansion — tiling, warp, Turing and Fourier nodes](plans/pattern-node-expansion.md)
 - [Power conversion and supply protection](plans/power-conversion-and-protection.md)

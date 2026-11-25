@@ -1,7 +1,10 @@
-# Design: evaluate the preview graph in a worker
+# Preview worker: evaluating the graph off the main thread
 
-Written 2026-11-25 from the [brief](../archive/evaluator-worker-brief-to-2026-11-25.md), now archived. It answers
-the handoff's seven questions with measurements, and proposes a first step.
+How the live preview evaluates the graph in a worker, why it is built this
+way, and what each phase measured. Written 2026-11-25 as the plan answering
+the seven questions of the [brief](../archive/evaluator-worker-brief-to-2026-11-25.md),
+now archived; the sections up to "Proposed first step" are that plan, and
+the "as built" sections record what was built and where it differs.
 
 **Status, 2026-11-25:** all four phases are built (see [Phase 1 as built](#phase-1-as-built),
 [Phase 2](#phase-2-as-built), [Phase 3](#phase-3-as-built) and [Phase 4](#phase-4-as-built)).
