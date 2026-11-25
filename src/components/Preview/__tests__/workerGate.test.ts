@@ -117,24 +117,25 @@ describe('preview worker gate', () => {
     const reads = unsentReadsWhile(() => {
       void useUiStore.getState().previewStyle
       void useUiStore.getState().testSignal
-      void EVALUATOR_STORES.find(([name]) => name === 'useMidiStore')![1].getState()
+      void EVALUATOR_STORES.find(([name]) => name === 'useGraphStore')![1].getState()
     })
-    expect(reads.sort()).toEqual(['useMidiStore', 'useUiStore.previewStyle'])
+    expect(reads.sort()).toEqual(['useGraphStore', 'useUiStore.previewStyle'])
   })
 
-  it('admits the Field Transform and microphone starters and refuses a graph with a MIDI input', () => {
+  it('admits the Field Transform and microphone starters and refuses a graph with a panel Touch', () => {
     for (const id of ['field-warp', 'audio-spectrum']) {
       const starter = STARTER_TEMPLATES.find((entry) => entry.id === id)!.build()
       // As loaded, with the bench's Board beside it: hardware has no preview.
       const graph = [...starter.nodes, node('board', 'Board')]
       expect(workerEvaluable(graph, starter.edges, {}), id).toEqual({ groupIds: [] })
-      expect(workerEvaluable([...graph, node('m', 'MidiInput')], starter.edges, {}), id).toBeNull()
+      expect(workerEvaluable([...graph, node('t', 'TouchInput')], starter.edges, {}), id).toBeNull()
+      expect(workerEvaluable([...graph, node('p', 'TransportDisplay')], starter.edges, {}), id).toBeNull()
     }
   })
 
   it('follows groups and refuses one that holds a refused type', () => {
     const inner = { nodes: [node('i', 'Plasma'), node('o', 'GroupOutput')], edges: [] }
-    const deep = { nodes: [node('m', 'MidiInput')], edges: [] }
+    const deep = { nodes: [node('m', 'TouchInput')], edges: [] }
     const group = node('g', 'Group', { groupId: 'inner' })
     expect(workerEvaluable([group], [], { inner, deep })).toEqual({ groupIds: ['inner'] })
     const refusing = { nodes: [...inner.nodes, node('gd', 'Group', { groupId: 'deep' })], edges: [] }

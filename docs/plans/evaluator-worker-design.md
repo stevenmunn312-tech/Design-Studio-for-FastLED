@@ -3,9 +3,10 @@
 Written 2026-11-25 from the [handoff](evaluator-worker-handoff.md). It answers
 the handoff's seven questions with measurements, and proposes a first step.
 
-**Status, 2026-11-25:** phases 1 and 2 are built (see [Phase 1 as built](#phase-1-as-built)
-and [Phase 2 as built](#phase-2-as-built)). Phases 3 and 4 each wait on
-Steve's go-ahead.
+**Status, 2026-11-25:** phases 1, 2 and 3 are built (see [Phase 1 as built](#phase-1-as-built),
+[Phase 2 as built](#phase-2-as-built) and [Phase 3 as built](#phase-3-as-built)).
+Phase 3 leaves the Touch node and the display panels on the main thread, on
+purpose. Phase 4 waits on Steve's go-ahead.
 
 ## Recommendation in one paragraph
 
@@ -383,3 +384,39 @@ thread (its collection is a show, phase 4).
 Listened 2026-11-25: Steve heard the microphone and in-app music paths on
 the working build and judged them fine, at a steady 60 fps, so the extra
 step needs no further compensation.
+
+## Phase 3 as built
+
+Hardware inputs, MIDI, DMX and DDP now run in the worker: the gate adds the
+`input` table, less the Touch node. Each request carries the data of four
+more stores (`useHardwareInputStore`, `useMidiStore`, `useDmxStore`,
+`useDdpStore`) beside the audio ones; `LIVE_STATE_STORES` in
+`previewWorker.ts` is the one list, and the snapshot and the worker's
+`setState` both walk it. `plainData` now keeps maps, sets and typed arrays,
+which those stores hold (a widget's pots, a DDP frame). None of these nodes
+writes to a store, so no message comes back for them.
+
+The gate test passed for every input type but the Touch node, wired and
+unwired: each reads only the data fields of a live store. The parity test
+adds a pot, a motion sensor, MIDI, DMX into a DMX Channel and DDP into the
+LED output through five steps of changing input, with this thread's stores
+quiet while the handler runs: frames and every node's outputs match.
+
+**What stays on the main thread, and why.** The Touch node and the display
+panels (`TransportDisplay`, `InfoDisplay`, `SegmentDisplay`) work through
+the display runtime (`displayRuntimeStore`), and it runs both ways: a panel
+publishes its wired values and chart samples into it and switches screens,
+the Touch node samples widget outputs from it, and the app draws Run mode
+and the panel thumbnails from it, with its own listeners and revision
+counts. Moving them means replaying those writes across threads every frame
+and keeping two copies of a runtime the UI reads synchronously. A project
+with a display is a bench project whose graph is small, so the preview has
+nothing to gain from it. The gate refuses them; `TouchInput` is in
+`WORKER_EXCLUDED_TYPES` and the panels are in the output table, which the
+gate does not admit.
+
+Measured 2026-11-25, full processor speed, `--no-profile --repeat 2`: every
+2x smooth scenario 60.0 fps with 0 dropped, node drag over field-warp and
+the microphone starter 59 fps; the CPU profile of the microphone starter
+still shows no evaluator on the main thread and no visible cost for the
+larger snapshot.

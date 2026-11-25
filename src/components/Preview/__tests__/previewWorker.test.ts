@@ -5,8 +5,9 @@ import { resetEvaluatorState, type Frame } from '../../../state/graphEvaluator'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { outputRoutes } from '../../../state/output/outputRouting'
 import { STARTER_TEMPLATES } from '../../../state/patterns/starterTemplates'
-import { useAudioStore } from '../../../state/audio/audioStore'
 import { consumeLiveBeats } from '../../../state/audio/liveAudioSignal'
+import { blankDmxSnapshot } from '../../../state/peripherals/dmx'
+import { EVALUATOR_STORES } from '../evaluatorStores'
 import { evaluatePreviewPasses, selectPreviewRoute } from '../previewEvaluation'
 import {
   createPreviewWorkerHandler, plainData, snapshotLiveState, unpackFrame, unpackPorts,
@@ -41,8 +42,8 @@ interface Step {
   edges: StudioEdge[]
   tick: number
   fullPass: boolean
-  /** Live microphone state for this step, set in the store before it runs. */
-  audio?: Record<string, unknown>
+  /** Live state for this step, by store name, set before it runs. */
+  stores?: Record<string, Record<string, unknown>>
 }
 
 const copy = (frame: Frame | null) => frame?.map((row) => row.map((p) => ({ ...p }))) ?? null
@@ -57,17 +58,22 @@ function settled(value: unknown): unknown {
   return value
 }
 
-const SILENCE = plainData(useAudioStore.getState())
+/** Every live store as it starts: no audio, no input, nothing heard. */
+const QUIET = snapshotLiveState()
+const storeNamed = (name: string) => EVALUATOR_STORES.find(([entry]) => entry === name)![1]
+function quieten(): void {
+  for (const [name, data] of Object.entries(QUIET)) storeNamed(name).setState(data)
+}
 
 /** Every step on this thread, as the loop evaluates without the worker,
  *  with the live state each step read, for the worker run to be sent. */
 function onMainThread(steps: Step[]) {
   resetEvaluatorState()
-  useAudioStore.setState(SILENCE)
+  quieten()
   const buffers = { selected: null as Frame | null, stream: null as Frame | null }
   const live: PreviewLiveState[] = []
-  const results = steps.map(({ nodes, edges, tick, fullPass, audio }) => {
-    if (audio) useAudioStore.setState(audio)
+  const results = steps.map(({ nodes, edges, tick, fullPass, stores }) => {
+    for (const [name, data] of Object.entries(stores ?? {})) storeNamed(name).setState(data)
     live.push(snapshotLiveState())
     const routes = outputRoutes(nodes)
     const selected = selectPreviewRoute(routes, '')
@@ -89,7 +95,7 @@ function onMainThread(steps: Step[]) {
         : null,
     }
   })
-  useAudioStore.setState(SILENCE)
+  quieten()
   return { results, live }
 }
 
@@ -98,7 +104,7 @@ function onMainThread(steps: Step[]) {
  *  handler only through what each request carries, as in the worker. */
 function inWorker(steps: Step[], live: PreviewLiveState[]) {
   resetEvaluatorState()
-  useAudioStore.setState(SILENCE)
+  quieten()
   const handle = createPreviewWorkerHandler()
   let sentNodes = new Map<string, StudioNode>()
   let lastNodes: StudioNode[] | null = null
@@ -119,7 +125,7 @@ function inWorker(steps: Step[], live: PreviewLiveState[]) {
     // Through structured clone, as postMessage sends it.
     const response = structuredClone(handle(structuredClone(request)))
     // What the worker's own stores held is not this thread's business.
-    useAudioStore.setState(SILENCE)
+    quieten()
     expect(response.error).toBeUndefined()
     const selected = selectPreviewRoute(outputRoutes(nodes), '')
     const packed = response.routed.find(([id]) => id === selected?.id)?.[1] ?? null
@@ -174,18 +180,52 @@ describe('preview worker', () => {
       const spectrum = Array.from({ length: 32 }, (_, bin) => ((bin * 7 + i * 5) % 32) / 32)
       return {
         nodes, edges, tick: i + 1, fullPass: i === 3 || i === 7,
-        audio: {
+        stores: { useAudioStore: {
           active: true, micActive: true, nativeFastLed: true,
           bass: spectrum[2], mids: spectrum[12], treble: spectrum[26],
           micBass: spectrum[2], micMids: spectrum[12], micTreble: spectrum[26],
           spectrum, detectorSpectrum: spectrum.slice(0, 16), previewSpectrum: spectrum,
           micSpectrum: spectrum, micDetectorSpectrum: spectrum.slice(0, 16),
           leftLevel: 0.2 + i * 0.05, rightLevel: 0.3, beat: i === 1 || i === 5, beatConfidence: 1, bpm: 124,
-        },
+        } },
       }
     })
     const { main, worker } = bothThreads(steps)
     expect(main.some((step) => step.sawBeat)).toBe(true)
+    expect(main[4].shown).not.toEqual(main[0].shown)
+    expect(worker).toEqual(main)
+  })
+
+  it('reads pots, sensors, MIDI, DMX and DDP through the snapshot alone', () => {
+    const nodes = [
+      node('ddp', 'DdpInput'), node('out', 'MatrixOutput', { width: 6, height: 4 }),
+      node('pot', 'PotInput'), node('motion', 'MotionInput'), node('midi', 'MidiInput', { note: 60, cc: 1 }),
+      node('dmx', 'DMXInput', { universe: 0 }), node('channel', 'DMXChannel', { channel: 3 }),
+    ]
+    const edges = [edge('ddp', 'frame', 'out', 'frame'), edge('dmx', 'dmx', 'channel', 'dmx')]
+    const steps: Step[] = Array.from({ length: 5 }, (_, i) => {
+      const channels = blankDmxSnapshot(0).channels.map((_, c) => (c * 11 + i * 40) % 256)
+      return {
+        nodes, edges, tick: i + 1, fullPass: true,
+        stores: {
+          useHardwareInputStore: {
+            pot: new Map([['pot', i / 5]]), button: new Map([['motion', i % 2 === 1]]), encoder: new Map(),
+          },
+          useMidiStore: {
+            supported: true, active: true,
+            noteVelocity: new Map([[60, 20 * i]]), ccValues: new Map([[1, 30 + i]]),
+            channelNoteVelocity: new Map(), channelCcValues: new Map(),
+          },
+          useDmxStore: { snapshot: { ...blankDmxSnapshot(0), channels, valid: true, live: true, source: 'helper' } },
+          useDdpStore: { live: true, pixels: Uint8Array.from({ length: 6 * 4 * 3 }, (_, b) => (b * 9 + i * 31) % 256) },
+        },
+      }
+    })
+    const { main, worker } = bothThreads(steps)
+    // The inputs really moved: the pot, the DMX channel and the DDP frame.
+    const ports = (step: number, id: string) => (main[step].outputs as [string, Record<string, unknown>][]).find(([n]) => n === id)?.[1]
+    expect(ports(4, 'pot')?.value).not.toEqual(ports(0, 'pot')?.value)
+    expect(ports(4, 'channel')).not.toEqual(ports(0, 'channel'))
     expect(main[4].shown).not.toEqual(main[0].shown)
     expect(worker).toEqual(main)
   })

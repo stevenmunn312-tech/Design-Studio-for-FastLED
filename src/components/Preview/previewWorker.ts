@@ -1,9 +1,7 @@
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import type { Frame, GroupDef, GroupRegistry } from '../../state/graphEvaluator'
 import { outputRoutes } from '../../state/output/outputRouting'
-import { useAudioStore } from '../../state/audio/audioStore'
-import { useDecoderAudioStore } from '../../state/audio/decoderAudioStore'
-import { useUiStore } from '../../state/uiStore'
+import { EVALUATOR_STORES } from './evaluatorStores'
 import type { AudioCapabilityKind } from '../../state/audio/audioCapabilities'
 import { openGroupInputsFor } from '../../state/evaluator/openGroupInputs'
 import { evaluatePreviewPasses, selectPreviewRoute, type PreviewRouteBuffers } from './previewEvaluation'
@@ -19,23 +17,27 @@ import { evaluatePreviewPasses, selectPreviewRoute, type PreviewRouteBuffers } f
  * and its buffer is transferred, not copied. The main thread hands buffers
  * back with its next request. See docs/plans/evaluator-worker-design.md.
  *
- * Live state goes with each request: the two audio stores and the test
- * signal switch, the only stores an admitted node reads. The worker writes
- * them into its own copies of those stores before the pass, so the nodes
- * read them exactly as they do on the main thread.
+ * Live state goes with each request: the data of the stores an admitted
+ * node reads (audio, the hardware-input widgets, MIDI, DMX and DDP) and the
+ * test-signal switch. The worker writes them into its own copies of those
+ * stores before the pass, so the nodes read them exactly as they do on the
+ * main thread. Nothing an admitted node does writes back to a store.
  */
 
 /** The stores the worker is sent each frame; every other store is blocked. */
-export const LIVE_STATE_STORES: ReadonlySet<string> = new Set(['useAudioStore', 'useDecoderAudioStore', 'useUiStore'])
+export const LIVE_STATE_STORES: ReadonlySet<string> = new Set([
+  'useAudioStore', 'useDecoderAudioStore', 'useUiStore',
+  'useHardwareInputStore', 'useMidiStore', 'useDmxStore', 'useDdpStore',
+])
 
-/** The fields of `useUiStore` an admitted node may read. */
+/** The fields of `useUiStore` an admitted node may read; the rest of that
+ *  store is the app's, and large. Every other live store is sent whole. */
 export const LIVE_UI_FIELDS: readonly string[] = ['testSignal']
 
-export interface PreviewLiveState {
-  audio: Record<string, unknown>
-  decoder: Record<string, unknown>
-  ui: { testSignal: boolean }
-}
+/** Each live store's data, by store name. */
+export type PreviewLiveState = Record<string, Record<string, unknown>>
+
+const LIVE_STORES = EVALUATOR_STORES.filter(([name]) => LIVE_STATE_STORES.has(name))
 
 /** Node types whose ports the loop reads on every frame, not only on a
  *  publish: Master Speed sets the next frame's clock, the VU feeds its rails. */
@@ -138,13 +140,17 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   return proto === Object.prototype || proto === null
 }
 
+const isData = (value: object): boolean =>
+  Array.isArray(value) || ArrayBuffer.isView(value) || value instanceof Map || value instanceof Set || isPlainObject(value)
+
 /** A record without what cannot cross a thread boundary: functions (a
- *  store's actions) and objects of a class (a media element). */
+ *  store's actions) and objects of a class (a media element). Maps, sets and
+ *  typed arrays (a widget's pots, a DDP frame) cross as they are. */
 export function plainData(record: object): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(record)) {
     if (typeof value === 'function') continue
-    if (value && typeof value === 'object' && !Array.isArray(value) && !ArrayBuffer.isView(value) && !isPlainObject(value)) continue
+    if (value && typeof value === 'object' && !isData(value)) continue
     out[key] = value
   }
   return out
@@ -152,17 +158,18 @@ export function plainData(record: object): Record<string, unknown> {
 
 /** What the worker is sent each frame, read from this thread's stores. */
 export function snapshotLiveState(): PreviewLiveState {
-  return {
-    audio: plainData(useAudioStore.getState()),
-    decoder: plainData(useDecoderAudioStore.getState()),
-    ui: { testSignal: useUiStore.getState().testSignal },
+  const live: PreviewLiveState = {}
+  for (const [name, store] of LIVE_STORES) {
+    const state = store.getState() as Record<string, unknown>
+    live[name] = name === 'useUiStore'
+      ? Object.fromEntries(LIVE_UI_FIELDS.map((field) => [field, state[field]]))
+      : plainData(state)
   }
+  return live
 }
 
 function applyLiveState(live: PreviewLiveState): void {
-  useAudioStore.setState(live.audio)
-  useDecoderAudioStore.setState(live.decoder)
-  useUiStore.setState(live.ui)
+  for (const [name, store] of LIVE_STORES) if (live[name]) store.setState(live[name])
 }
 
 /** A node's ports ready to post: frames packed, live signals made plain. */

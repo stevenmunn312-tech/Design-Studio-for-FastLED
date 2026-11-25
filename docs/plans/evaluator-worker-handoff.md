@@ -5,10 +5,11 @@ first, not a task to begin typing.
 
 **Status, 2026-11-25:** the plan is made:
 [evaluator worker design](evaluator-worker-design.md) answers the seven
-questions below with measurements, and phases 1 and 2 (graphs of store-free
-and audio node types: Field Transform, the microphone starter) are built and
-measured there; Steve listened to phase 2 and judged it fine. Phases 3 and 4
-wait on his go-ahead.
+questions below with measurements, and phases 1 to 3 (graphs of store-free,
+audio and hardware-input node types: Field Transform, the microphone starter,
+pots, MIDI, DMX, DDP) are built and measured there; Steve listened to phase 2
+and judged it fine. Touch and display panels stay on the main thread by
+design. Phase 4 (shows) waits on his go-ahead.
 
 ## What this is for
 

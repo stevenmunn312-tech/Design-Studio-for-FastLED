@@ -28,7 +28,12 @@ import { usePlayerTransport } from '../../state/player/playerTransport'
  * listing the reached modules that `export const use… = create`; repeat that
  * when a node starts reading a new store.
  */
-export const EVALUATOR_STORES: ReadonlyArray<readonly [string, { getState: () => unknown }]> = [
+export interface EvaluatorStore {
+  getState: () => unknown
+  setState: (partial: Record<string, unknown>) => void
+}
+
+export const EVALUATOR_STORES: ReadonlyArray<readonly [string, EvaluatorStore]> = [
   ['useNetworkCredentialsStore', useNetworkCredentialsStore],
   ['useUiStore', useUiStore],
   ['useDisplayRuntimeStore', useDisplayRuntimeStore],

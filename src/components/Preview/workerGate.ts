@@ -18,7 +18,8 @@ import { NODE_EVALUATOR_TABLES } from '../../state/graphEvaluator'
  * reading defaults. See docs/plans/evaluator-worker-design.md.
  */
 const WORKER_CATEGORIES = [
-  'audio', 'audioReactive', 'color', 'composite', 'field', 'generative', 'graph', 'math', 'shapes', 'signal', 'simulations',
+  'audio', 'audioReactive', 'color', 'composite', 'field', 'generative', 'graph', 'input', 'math', 'shapes', 'signal',
+  'simulations',
 ] as const satisfies readonly (keyof typeof NODE_EVALUATOR_TABLES)[]
 
 /** Types in those categories whose preview reads state the worker lacks. */
@@ -26,11 +27,15 @@ const WORKER_EXCLUDED_TYPES = new Set<string>([
   // Reads its clip from sdVideoStore's in-memory cache, which the main thread
   // fills from IndexedDB. Not a Zustand store, so the spy cannot see it.
   'SDVideo',
+  // The glass in front of a Display Panel: it samples the panel's display
+  // runtime, which panels also write and the app draws from, so it stays
+  // with them on the main thread. See docs/plans/evaluator-worker-design.md.
+  'TouchInput',
 ])
 
 /** Types outside those categories that read no store but the live ones
- *  sent with each request: the audio stores and the test-signal switch. */
-const WORKER_EXTRA_TYPES = ['Audio', 'FormulaPattern', 'MatrixOutput', 'MasterSpeed', 'StereoVuMeter']
+ *  sent with each request. */
+const WORKER_EXTRA_TYPES = ['FormulaPattern', 'MatrixOutput', 'MasterSpeed', 'StereoVuMeter']
 
 const EVALUATED_TYPES = new Set(Object.values(NODE_EVALUATOR_TABLES).flatMap((table) => Object.keys(table)))
 
