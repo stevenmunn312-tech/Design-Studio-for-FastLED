@@ -1,6 +1,7 @@
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import type { GroupDef, GroupRegistry } from '../../state/graphEvaluator'
-import { responseBuffers, type PreviewWorkerRequest, type PreviewWorkerResponse } from './previewWorker'
+import type { AudioCapabilityKind } from '../../state/audio/audioCapabilities'
+import { responseBuffers, type PreviewLiveState, type PreviewWorkerRequest, type PreviewWorkerResponse } from './previewWorker'
 
 export interface PreviewWorkerFrame {
   nodes: StudioNode[]
@@ -16,6 +17,8 @@ export interface PreviewWorkerFrame {
   fullPass: boolean
   selectedRouteId: string
   streamOutputId: string | undefined
+  live: PreviewLiveState
+  openGroupAudioKind: AudioCapabilityKind | null
 }
 
 /**
@@ -72,6 +75,8 @@ export class PreviewWorkerClient {
       fullPass: frame.fullPass,
       selectedRouteId: frame.selectedRouteId,
       streamOutputId: frame.streamOutputId,
+      live: frame.live,
+      openGroupAudioKind: frame.openGroupAudioKind,
       returned: this.returned,
     }
     if (frame.nodes !== this.lastNodes) {
@@ -127,8 +132,8 @@ export class PreviewWorkerClient {
 
   private receive(response: PreviewWorkerResponse): void {
     this.inFlight = false
-    if (response.storeRead) {
-      this.fail(response.error ?? 'a node read a store')
+    if (response.fatal) {
+      this.fail(response.error ?? 'the worker cannot run this graph')
       return
     }
     if (response.error) {

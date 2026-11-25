@@ -4,7 +4,9 @@ import type { StudioEdge, StudioNode } from '../../../state/graphStore'
 import { evaluateGraphFull, resetEvaluatorState } from '../../../state/graphEvaluator'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { STARTER_TEMPLATES } from '../../../state/patterns/starterTemplates'
+import { useUiStore } from '../../../state/uiStore'
 import { EVALUATOR_STORES } from '../evaluatorStores'
+import { LIVE_STATE_STORES, LIVE_UI_FIELDS } from '../previewWorker'
 import { WORKER_NODE_TYPES, workerEvaluable } from '../workerGate'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {
@@ -39,13 +41,36 @@ for (const def of allowedByInputs) {
   }
 }
 
-function storeReadsWhile(run: () => void): string[] {
-  const spies = EVALUATOR_STORES.map(([name, store]) => [name, vi.spyOn(store, 'getState')] as const)
+/**
+ * What a run reads that the worker would not have: any blocked store, and any
+ * field of a live store the snapshot does not carry (an action, or a UI
+ * field other than the test-signal switch).
+ */
+function unsentReadsWhile(run: () => void): string[] {
+  const reads = new Set<string>()
+  const spies = EVALUATOR_STORES.map(([name, store]) => {
+    const real = store.getState.bind(store)
+    return vi.spyOn(store, 'getState').mockImplementation(() => {
+      if (!LIVE_STATE_STORES.has(name)) {
+        reads.add(name)
+        return real()
+      }
+      const state = real() as Record<string, unknown>
+      return new Proxy(state, {
+        get(target, key) {
+          const value = target[key as string]
+          const sent = name === 'useUiStore' ? LIVE_UI_FIELDS.includes(String(key)) : typeof value !== 'function'
+          if (!sent) reads.add(`${name}.${String(key)}`)
+          return value
+        },
+      })
+    })
+  })
   try {
     run()
-    return spies.filter(([, spy]) => spy.mock.calls.length > 0).map(([name]) => name)
+    return [...reads]
   } finally {
-    for (const [, spy] of spies) spy.mockRestore()
+    for (const spy of spies) spy.mockRestore()
   }
 }
 
@@ -58,7 +83,7 @@ describe('preview worker gate', () => {
     }
   })
 
-  it.each([...WORKER_NODE_TYPES].sort())('%s reads no store, unwired or wired', (type) => {
+  it.each([...WORKER_NODE_TYPES].sort())('%s reads nothing the worker lacks, unwired or wired', (type) => {
     const nodes = [node('n', type)]
     const edges: StudioEdge[] = []
     const def = NODE_LIBRARY.find((entry) => entry.type === type)
@@ -69,37 +94,50 @@ describe('preview worker gate', () => {
       nodes.push(node(id, source.type))
       edges.push(edge(id, source.port, 'n', port.id))
     }
-    const reads = storeReadsWhile(() => {
-      for (let tick = 1; tick <= 3; tick++) {
-        try {
-          evaluateGraphFull([nodes[0]], [], tick, 16, 16, {}, true, true, '__gate_unwired/', null, tick)
-          evaluateGraphFull(nodes, edges, tick, 16, 16, {}, true, true, '__gate_wired/', null, tick)
-        } catch {
-          // A throw is the evaluator's own business; only store reads matter here.
+    const reads = unsentReadsWhile(() => {
+      // Once as it is, once on the test signal, which most audio nodes follow
+      // when no live audio is playing.
+      for (const testSignal of [false, true]) {
+        useUiStore.setState({ testSignal })
+        for (let tick = 1; tick <= 3; tick++) {
+          try {
+            evaluateGraphFull([nodes[0]], [], tick, 16, 16, {}, true, true, '__gate_unwired/', null, tick)
+            evaluateGraphFull(nodes, edges, tick, 16, 16, {}, true, true, '__gate_wired/', null, tick)
+          } catch {
+            // A throw is the evaluator's own business; only store reads matter here.
+          }
         }
       }
     })
+    useUiStore.setState({ testSignal: false })
     expect(reads).toEqual([])
   })
 
-  it('admits the Field Transform starter and refuses a graph with an audio node', () => {
-    const starter = STARTER_TEMPLATES.find((entry) => entry.id === 'field-warp')!.build()
-    // As loaded, with the bench's Board beside it: hardware has no preview.
-    const graph = [...starter.nodes, node('board', 'Board')]
-    expect(workerEvaluable(graph, starter.edges, {}, undefined)).toEqual({ groupIds: [] })
-    expect(workerEvaluable([...graph, node('a', 'FFTAnalyzer')], starter.edges, {}, undefined)).toBeNull()
+  it('can tell a read the worker lacks', () => {
+    const reads = unsentReadsWhile(() => {
+      void useUiStore.getState().previewStyle
+      void useUiStore.getState().testSignal
+      void EVALUATOR_STORES.find(([name]) => name === 'useMidiStore')![1].getState()
+    })
+    expect(reads.sort()).toEqual(['useMidiStore', 'useUiStore.previewStyle'])
+  })
+
+  it('admits the Field Transform and microphone starters and refuses a graph with a MIDI input', () => {
+    for (const id of ['field-warp', 'audio-spectrum']) {
+      const starter = STARTER_TEMPLATES.find((entry) => entry.id === id)!.build()
+      // As loaded, with the bench's Board beside it: hardware has no preview.
+      const graph = [...starter.nodes, node('board', 'Board')]
+      expect(workerEvaluable(graph, starter.edges, {}), id).toEqual({ groupIds: [] })
+      expect(workerEvaluable([...graph, node('m', 'MidiInput')], starter.edges, {}), id).toBeNull()
+    }
   })
 
   it('follows groups and refuses one that holds a refused type', () => {
     const inner = { nodes: [node('i', 'Plasma'), node('o', 'GroupOutput')], edges: [] }
     const deep = { nodes: [node('m', 'MidiInput')], edges: [] }
     const group = node('g', 'Group', { groupId: 'inner' })
-    expect(workerEvaluable([group], [], { inner, deep }, undefined)).toEqual({ groupIds: ['inner'] })
+    expect(workerEvaluable([group], [], { inner, deep })).toEqual({ groupIds: ['inner'] })
     const refusing = { nodes: [...inner.nodes, node('gd', 'Group', { groupId: 'deep' })], edges: [] }
-    expect(workerEvaluable([group], [], { inner: refusing, deep }, undefined)).toBeNull()
-  })
-
-  it('refuses a group opened with live audio bound to its inputs', () => {
-    expect(workerEvaluable([node('p', 'Plasma')], [], {}, { audio: null })).toBeNull()
+    expect(workerEvaluable([group], [], { inner: refusing, deep })).toBeNull()
   })
 })

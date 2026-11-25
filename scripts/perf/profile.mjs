@@ -239,6 +239,15 @@ const SCENARIOS = [
   { name: 'corkscrew 600 (juggle)', starter: 'juggle', share: outputProperties({ form: 'corkscrew', ledCount: 600 }) },
   // The microphone starter, fed by Chromium's fake capture device.
   { name: 'graph idle (audio-spectrum, mic)', starter: 'audio-spectrum' },
+  { name: 'matrix 64x64 2x smooth (audio-spectrum, mic)', starter: 'audio-spectrum', setup: output({ size: '64', 'render resolution': '2x smooth' }) },
+  {
+    name: 'drag node, matrix 64x64 2x smooth (audio-spectrum, mic)', starter: 'audio-spectrum',
+    setup: output({ size: '64', 'render resolution': '2x smooth' }),
+    during: async (page) => {
+      const header = await centreOf(page, '.react-flow__node [class*="header"]')
+      for (let i = 0; i < 3; i++) await drag(page, header, 160, 90)
+    },
+  },
   // The starters with the most parts on the bench.
   { name: 'hardware (music-sync-sd-show)', starter: 'music-sync-sd-show', setup: tab('Hardware') },
   { name: 'hardware (player-transport)', starter: 'player-transport', setup: tab('Hardware') },

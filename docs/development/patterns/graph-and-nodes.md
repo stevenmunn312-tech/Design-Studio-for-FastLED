@@ -154,14 +154,17 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 ## Evaluation
 
 - **The live preview may evaluate a graph in a worker, where every store is
-  empty.** `workerEvaluable` (`src/components/Preview/workerGate.ts`) admits
-  a graph only when every node, through its groups, is a type whose preview
-  reads no store; the rest run on the main thread. A node handler that starts
-  reading a store, or a module cache the main thread fills (as SD Video's
-  is), must take its type out of that list: `workerGate.test.ts` spies on
-  every store in `evaluatorStores.ts` while each allowed type runs, and the
-  worker makes a read throw and turns itself off. A new store the evaluator
-  reaches joins `EVALUATOR_STORES`. See
+  empty but the live ones.** Each request carries the two audio stores' data
+  and the test-signal switch (`snapshotLiveState`, `LIVE_STATE_STORES` in
+  `src/components/Preview/previewWorker.ts`). `workerEvaluable`
+  (`workerGate.ts`) admits a graph only when every node, through its groups,
+  is a type whose preview reads nothing else; the rest run on the main
+  thread. A node handler that starts reading another store or another UI
+  field, or a module cache the main thread fills (as SD Video's is), must
+  take its type out of that list or add the field to the snapshot:
+  `workerGate.test.ts` records every store and live field each allowed type
+  reads, and the worker makes any other store read throw and turns itself
+  off. A new store the evaluator reaches joins `EVALUATOR_STORES`. See
   [evaluator worker design](../../plans/evaluator-worker-design.md).
 - **A float wired into a bool port is a switch at 0.5.** `portsCompatible`
   lets float feed bool, and any nonzero level used to read true, so a Kick

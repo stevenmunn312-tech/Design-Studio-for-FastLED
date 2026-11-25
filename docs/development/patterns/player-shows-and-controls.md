@@ -728,7 +728,9 @@ that are easy to split across preview and firmware:
   owns its spectrum array for that reason. The hold is the speaker delay less
   `PICTURE_LATENCY_MS` (`analysisHoldMs`): a released frame still waits for
   the next preview step and the display, about 50 ms at 60 Hz, so holding the
-  whole speaker delay put the LEDs that far behind the sound. Microphone and line-in capture get
+  whole speaker delay put the LEDs that far behind the sound. While the
+  preview worker evaluates, its frame shows one step after the audio it read,
+  and the loop takes that step off the hold too (`setPreviewPipelineMs`). Microphone and line-in capture get
   no hold: the mic hears the same sound the listener hears, and their lag is
   capture latency, which the browser does not report.
 - **A baked show's spectrum is FastLED's equalizer, run offline.** Song

@@ -1,6 +1,11 @@
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import type { Frame, GroupDef, GroupRegistry } from '../../state/graphEvaluator'
 import { outputRoutes } from '../../state/output/outputRouting'
+import { useAudioStore } from '../../state/audio/audioStore'
+import { useDecoderAudioStore } from '../../state/audio/decoderAudioStore'
+import { useUiStore } from '../../state/uiStore'
+import type { AudioCapabilityKind } from '../../state/audio/audioCapabilities'
+import { openGroupInputsFor } from '../../state/evaluator/openGroupInputs'
 import { evaluatePreviewPasses, selectPreviewRoute, type PreviewRouteBuffers } from './previewEvaluation'
 
 /*
@@ -13,7 +18,28 @@ import { evaluatePreviewPasses, selectPreviewRoute, type PreviewRouteBuffers } f
  * r, g, b per pixel, so every value arrives exactly as the evaluator made it,
  * and its buffer is transferred, not copied. The main thread hands buffers
  * back with its next request. See docs/plans/evaluator-worker-design.md.
+ *
+ * Live state goes with each request: the two audio stores and the test
+ * signal switch, the only stores an admitted node reads. The worker writes
+ * them into its own copies of those stores before the pass, so the nodes
+ * read them exactly as they do on the main thread.
  */
+
+/** The stores the worker is sent each frame; every other store is blocked. */
+export const LIVE_STATE_STORES: ReadonlySet<string> = new Set(['useAudioStore', 'useDecoderAudioStore', 'useUiStore'])
+
+/** The fields of `useUiStore` an admitted node may read. */
+export const LIVE_UI_FIELDS: readonly string[] = ['testSignal']
+
+export interface PreviewLiveState {
+  audio: Record<string, unknown>
+  decoder: Record<string, unknown>
+  ui: { testSignal: boolean }
+}
+
+/** Node types whose ports the loop reads on every frame, not only on a
+ *  publish: Master Speed sets the next frame's clock, the VU feeds its rails. */
+const EVERY_FRAME_OUTPUT_TYPES = new Set(['MasterSpeed', 'StereoVuMeter'])
 
 export interface PackedFrame {
   w: number
@@ -40,6 +66,9 @@ export interface PreviewWorkerRequest {
   fullPass: boolean
   selectedRouteId: string
   streamOutputId: string | undefined
+  live: PreviewLiveState
+  /** For a group opened on the canvas, the source its audio inputs bind to. */
+  openGroupAudioKind: AudioCapabilityKind | null
   /** Buffers of results the main thread has finished with. */
   returned: ArrayBuffer[]
 }
@@ -49,11 +78,17 @@ export interface PreviewWorkerResponse {
   fullPass: boolean
   terminal: PackedFrame | null
   routed: [string, PackedFrame | null][]
-  /** Every node's ports, on a full pass only, with frames packed. */
+  /** Whether a node fired a beat this pass. */
+  sawBeat: boolean
+  /** Every evaluated node's ports, on a full pass or a beat, frames packed. */
   outputs: [string, Record<string, unknown>][] | null
-  /** Set when the pass threw; `storeRead` when it read a store. */
+  /** The ports of Master Speed and the Stereo VU, on every pass. */
+  liveOutputs: [string, Record<string, unknown>][]
+  /** Set when the pass threw. `fatal` when the worker cannot run this graph
+   *  (it read a blocked store, or a value would not cross): the main thread
+   *  then takes the preview back. */
   error?: string
-  storeRead?: boolean
+  fatal?: boolean
 }
 
 /** Thrown in the worker by a store's `getState`, which holds nothing there. */
@@ -97,13 +132,61 @@ export function unpackPorts(ports: Record<string, unknown>): Record<string, unkn
   return out ?? ports
 }
 
+const isPlainObject = (value: unknown): value is Record<string, unknown> => {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || ArrayBuffer.isView(value)) return false
+  const proto = Object.getPrototypeOf(value)
+  return proto === Object.prototype || proto === null
+}
+
+/** A record without what cannot cross a thread boundary: functions (a
+ *  store's actions) and objects of a class (a media element). */
+export function plainData(record: object): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(record)) {
+    if (typeof value === 'function') continue
+    if (value && typeof value === 'object' && !Array.isArray(value) && !ArrayBuffer.isView(value) && !isPlainObject(value)) continue
+    out[key] = value
+  }
+  return out
+}
+
+/** What the worker is sent each frame, read from this thread's stores. */
+export function snapshotLiveState(): PreviewLiveState {
+  return {
+    audio: plainData(useAudioStore.getState()),
+    decoder: plainData(useDecoderAudioStore.getState()),
+    ui: { testSignal: useUiStore.getState().testSignal },
+  }
+}
+
+function applyLiveState(live: PreviewLiveState): void {
+  useAudioStore.setState(live.audio)
+  useDecoderAudioStore.setState(live.decoder)
+  useUiStore.setState(live.ui)
+}
+
+/** A node's ports ready to post: frames packed, live signals made plain. */
+function postablePorts(ports: Record<string, unknown>, take: (length: number) => Float64Array): Record<string, unknown> {
+  let out: Record<string, unknown> | null = null
+  for (const [port, value] of Object.entries(ports)) {
+    let next: unknown = value
+    if (isFrame(value)) next = { ...packFrame(value, take), packedFrame: true } satisfies PackedPortFrame
+    // An Audio node publishes its store's state, actions included.
+    else if (isPlainObject(value) && Object.values(value).some((entry) => typeof entry === 'function')) next = plainData(value)
+    if (next === value) continue
+    out ??= { ...ports }
+    out[port] = next
+  }
+  return out ?? ports
+}
+
 /** Every buffer a response carries, to transfer it and later hand it back. */
 export function responseBuffers(response: PreviewWorkerResponse): ArrayBuffer[] {
   const buffers: ArrayBuffer[] = []
   const add = (packed: PackedFrame | null) => { if (packed) buffers.push(packed.data.buffer as ArrayBuffer) }
   add(response.terminal)
   for (const [, packed] of response.routed) add(packed)
-  for (const [, ports] of response.outputs ?? []) {
+  for (const [, ports] of [...(response.outputs ?? []), ...response.liveOutputs]) {
     for (const value of Object.values(ports)) {
       if (value && typeof value === 'object' && (value as Partial<PackedPortFrame>).packedFrame) add(value as PackedPortFrame)
     }
@@ -151,14 +234,15 @@ export function createPreviewWorkerHandler(): (request: PreviewWorkerRequest) =>
       groups = Object.fromEntries(groupById)
     }
 
-    const base = { tick: request.tick, fullPass: request.fullPass }
+    const base = { tick: request.tick, fullPass: request.fullPass, sawBeat: false, liveOutputs: [] }
     try {
+      applyLiveState(request.live)
       const routes = outputRoutes(nodes)
       const selectedRoute = selectPreviewRoute(routes, request.selectedRouteId)
       const result = evaluatePreviewPasses({
         nodes, edges, groups,
         trusted: request.trusted,
-        groupInputs: undefined,
+        groupInputs: request.openGroupAudioKind ? openGroupInputsFor(nodes, request.openGroupAudioKind) : undefined,
         tick: request.tick,
         elapsedTick: request.elapsedTick,
         gridW: request.gridW,
@@ -172,26 +256,27 @@ export function createPreviewWorkerHandler(): (request: PreviewWorkerRequest) =>
         if (id === request.streamOutputId && frame) buffers.stream = frame
         routed.push([id, frame ? packFrame(frame, take) : null])
       }
-      const outputs = request.fullPass
-        ? [...result.outputs].map(([id, ports]): [string, Record<string, unknown>] => {
-            let packed: Record<string, unknown> | null = null
-            for (const [port, value] of Object.entries(ports)) {
-              if (!isFrame(value)) continue
-              packed ??= { ...ports }
-              packed[port] = { ...packFrame(value, take), packedFrame: true } satisfies PackedPortFrame
-            }
-            return [id, packed ?? ports]
-          })
+      // A beat publishes the node previews on the frame it lands, as the
+      // main thread does, so they need this pass's ports too.
+      const outputs = request.fullPass || result.sawBeat
+        ? [...result.outputs].map(([id, ports]): [string, Record<string, unknown>] => [id, postablePorts(ports, take)])
         : null
+      const liveOutputs: [string, Record<string, unknown>][] = []
+      for (const [id, ports] of result.outputs) {
+        const type = String(nodeById.get(id)?.data.nodeType ?? '')
+        if (EVERY_FRAME_OUTPUT_TYPES.has(type)) liveOutputs.push([id, postablePorts(ports, take)])
+      }
       return {
         ...base,
+        sawBeat: result.sawBeat,
         terminal: result.terminalFrame ? packFrame(result.terminalFrame, take) : null,
         routed,
         outputs,
+        liveOutputs,
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      return { ...base, terminal: null, routed: [], outputs: null, error: message, storeRead: message.startsWith(STORE_READ_ERROR) }
+      return { ...base, terminal: null, routed: [], outputs: null, error: message, fatal: message.startsWith(STORE_READ_ERROR) }
     }
   }
 }

@@ -10,6 +10,30 @@
 // Not the preview store: that publishes for node thumbnails at a slower
 // cadence, and a subscription per frame would re-render what only needs to be
 // drawn.
+//
+// While the preview worker evaluates, the frame arrives packed, and nothing
+// but the showcase reads it, so the preview hands over how to unpack it
+// (`tapTerminalFrameLazily`) and the work happens only when it is read.
 import type { Frame } from '../../state/palettes/ledColor'
 
-export const terminalFrameTap: { frame: Frame | null } = { frame: null }
+let value: Frame | null = null
+let pending: (() => Frame | null) | null = null
+
+export const terminalFrameTap: { frame: Frame | null } = {
+  get frame() {
+    if (pending) {
+      value = pending()
+      pending = null
+    }
+    return value
+  },
+  set frame(frame: Frame | null) {
+    pending = null
+    value = frame
+  },
+}
+
+/** Set the frame to what `read` returns, read only if someone asks. */
+export function tapTerminalFrameLazily(read: () => Frame | null): void {
+  pending = read
+}

@@ -36,10 +36,23 @@ export function outputLatencyMs(context: { baseLatency?: number; outputLatency?:
   return Math.max(0, Math.min(MAX_OUTPUT_LATENCY_MS, (base + output) * 1000))
 }
 
+/** Extra time, ms, the preview takes before a frame is drawn: one step while
+ *  the preview worker evaluates, since its frame is shown a step after the
+ *  audio it read (see docs/plans/evaluator-worker-design.md), else 0. */
+let previewPipelineMs = 0
+
+/** Set by the preview loop each frame. */
+export function setPreviewPipelineMs(ms: number): void {
+  previewPipelineMs = Math.max(0, ms)
+}
+
 /** How long to hold an analysis frame so its light and its sound arrive
  *  together: the speaker's delay less the picture's own. */
-export function analysisHoldMs(context: { baseLatency?: number; outputLatency?: number } | null): number {
-  return Math.max(0, outputLatencyMs(context) - PICTURE_LATENCY_MS)
+export function analysisHoldMs(
+  context: { baseLatency?: number; outputLatency?: number } | null,
+  pipelineMs = previewPipelineMs,
+): number {
+  return Math.max(0, outputLatencyMs(context) - PICTURE_LATENCY_MS - pipelineMs)
 }
 
 interface HeldFrame {

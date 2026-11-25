@@ -1,22 +1,24 @@
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
-import type { GroupRegistry, PortValue } from '../../state/evaluator/types'
+import type { GroupRegistry } from '../../state/evaluator/types'
 import { NODE_EVALUATOR_TABLES } from '../../state/graphEvaluator'
 
 /*
  * Which graphs the live preview may evaluate in its worker.
  *
- * The worker loads the same evaluator, but the stores it reads (audio, inputs,
- * touch, the player, the graph itself) are empty there. A graph qualifies only
- * when every node in it, and in every group it reaches, is a type whose
- * preview reads no store. The list is closed: a store read happens either in
- * a node's own handler or because a store-reading node is upstream of it, and
- * a graph built only from these types has neither. workerGate.test.ts spies
- * on every store while each type runs, wired and unwired; the worker also
- * makes any store read throw, so a miss falls back rather than reading
- * defaults. See docs/plans/evaluator-worker-design.md.
+ * The worker loads the same evaluator, but of the stores it reads only the
+ * live ones (both audio stores and the test-signal switch) are sent to it with
+ * each request; the rest (inputs, touch, the player, the graph itself) are
+ * empty there. A graph qualifies only when every node in it, and in every
+ * group it reaches, is a type whose preview reads no other store. The list is
+ * closed: a store read happens either in a node's own handler or because a
+ * store-reading node is upstream of it, and a graph built only from these
+ * types has neither. workerGate.test.ts spies on every store while each type
+ * runs, wired and unwired, and records which live fields it reads; the
+ * worker makes any other store read throw, so a miss falls back rather than
+ * reading defaults. See docs/plans/evaluator-worker-design.md.
  */
 const WORKER_CATEGORIES = [
-  'color', 'composite', 'field', 'generative', 'graph', 'math', 'shapes', 'signal', 'simulations',
+  'audio', 'audioReactive', 'color', 'composite', 'field', 'generative', 'graph', 'math', 'shapes', 'signal', 'simulations',
 ] as const satisfies readonly (keyof typeof NODE_EVALUATOR_TABLES)[]
 
 /** Types in those categories whose preview reads state the worker lacks. */
@@ -26,8 +28,9 @@ const WORKER_EXCLUDED_TYPES = new Set<string>([
   'SDVideo',
 ])
 
-/** Types outside those categories that read no store. */
-const WORKER_EXTRA_TYPES = ['FormulaPattern', 'MatrixOutput']
+/** Types outside those categories that read no store but the live ones
+ *  sent with each request: the audio stores and the test-signal switch. */
+const WORKER_EXTRA_TYPES = ['Audio', 'FormulaPattern', 'MatrixOutput', 'MasterSpeed', 'StereoVuMeter']
 
 const EVALUATED_TYPES = new Set(Object.values(NODE_EVALUATOR_TABLES).flatMap((table) => Object.keys(table)))
 
@@ -53,11 +56,7 @@ export function workerEvaluable(
   nodes: readonly StudioNode[],
   edges: readonly StudioEdge[],
   groups: GroupRegistry,
-  groupInputs: Record<string, PortValue> | undefined,
 ): WorkerGateResult | null {
-  // A group opened on the canvas binds its audio inputs to the live signal,
-  // which is a store.
-  if (groupInputs && Object.keys(groupInputs).length > 0) return null
   const key = [nodes, edges, ...Object.entries(groups).flatMap(([id, def]) => [id, def.nodes, def.edges])]
   if (key.length === cacheKey.length && key.every((value, i) => value === cacheKey[i])) return cacheResult
   cacheKey = key

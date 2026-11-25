@@ -3,8 +3,9 @@
 Written 2026-11-25 from the [handoff](evaluator-worker-handoff.md). It answers
 the handoff's seven questions with measurements, and proposes a first step.
 
-**Status, 2026-11-25:** phase 1 is built (see [Phase 1 as built](#phase-1-as-built)).
-Phases 2 to 4 each wait on Steve's go-ahead.
+**Status, 2026-11-25:** phases 1 and 2 are built (see [Phase 1 as built](#phase-1-as-built)
+and [Phase 2 as built](#phase-2-as-built)). Phase 2 waits on Steve's listening
+check before it ships; phases 3 and 4 each wait on his go-ahead.
 
 ## Recommendation in one paragraph
 
@@ -318,3 +319,67 @@ before was also measured with the gate forced off in the new build: 22.6 fps
 against HEAD's 23.1, so the main-thread path did not slow down. The drag
 after at full speed was not measured. Not checked: Firefox, Safari, the
 desktop app, and a real 2x smooth graph with groups.
+
+## Phase 2 as built
+
+Audio, audio-reactive, Master Speed and the Stereo VU now run in the worker:
+the gate adds the `audio` and `audioReactive` tables and the `Audio`,
+`MasterSpeed` and `StereoVuMeter` types. A Microphone or Line Input part has
+no preview, so it already passed.
+
+- **Live state is a snapshot written into the worker's own stores.** Each
+  request carries the two audio stores' data (`plainData`: no actions, no
+  media element) and the test-signal switch (`snapshotLiveState` in
+  `previewWorker.ts`), and the handler `setState`s them before the pass, so
+  the audio nodes read them exactly as on the main thread. The worker blocks
+  every other store. `workerGate.test.ts` now records which fields of the
+  live stores each type reads, wired and unwired, with the test signal off
+  and on, and fails on any the snapshot does not carry; a negative control
+  shows it can.
+- **Beats** are released when the snapshot is taken (`consumeLiveBeats`
+  after `post`), and only by the main-thread pass otherwise, so each beat is
+  in exactly one pass. A beat in the worker comes back as `sawBeat`, and the
+  answer then carries every node's ports, so the previews publish on the
+  beat's frame as before.
+- **Master Speed and the VU** come back on every answer (`liveOutputs`), so
+  the clock's origin slides and the rails move each frame.
+- **A group opened on the canvas** now runs in the worker too: the main
+  thread resolves the root graph's audio source (`openGroupAudioKind`) and
+  the worker binds the group's audio inputs to it (`openGroupInputsFor`).
+- **Latency.** The worker's frame shows a step after the audio it read. The
+  decoder holds its analysis that step less (`setPreviewPipelineMs` in
+  `audio/analysisDelay.ts`, set by the loop each frame), which absorbs it
+  where the speaker delay is longer than the picture's 50 ms plus a step
+  (Bluetooth); on a wired laptop (about 59 ms) the hold was 9 ms and is now
+  0, so the decoded music's light is about 8 ms later than before. The
+  microphone cannot be compensated: its light is one step (17 ms at 60 fps)
+  later than before.
+- **The terminal frame unpacks only when read.** While the worker runs,
+  only the first-launch showcase reads it (and the loop, for a graph with no
+  LED output), so `terminalFrameTap` takes a function that unpacks it on
+  demand. Unpacking it every frame had cost more than evaluating the
+  microphone starter on the main thread.
+
+The parity test now also runs the microphone starter with a Beat Detect
+through eight steps of changing spectrum and two beats: the worker run's
+stores are silent and it hears only the snapshots the main run read, and its
+frames, beats and node outputs match.
+
+Measured 2026-11-25, full processor speed, `--no-profile --repeat 3`:
+
+| Scenario | Phase 1 | Phase 2 |
+| --- | --- | --- |
+| Microphone starter, idle | 60.0 fps, 0 dropped | 60.0 fps, 0 dropped |
+| Microphone starter, 64 x 64 at 2x smooth | 60.0 fps, 0 dropped | 60.0 fps, 0 dropped |
+| Drag node over it | 59.1 fps, 3 dropped | 59.1 fps, 3 dropped |
+| Drag node, field-warp at 2x smooth | (half speed only: 57 fps) | 59.1 fps, 3 dropped |
+
+The microphone starter is too light for its frame rate to move; the CPU
+profile shows the change: in phase 1 the main thread ran
+`evalSpectrumVisualizer`, in phase 2 it runs no evaluator, only the unpack
+and `postMessage`. The Music Player starter still evaluates on the main
+thread (its collection is a show, phase 4).
+
+Not checked: listening. Steve judges audio-reactive patterns by ear, so the
+microphone's extra step and the decoder's shorter hold need his ear on a
+real song before this ships.

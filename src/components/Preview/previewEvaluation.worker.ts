@@ -1,11 +1,15 @@
 /// <reference lib="webworker" />
 import { EVALUATOR_STORES } from './evaluatorStores'
-import { createPreviewWorkerHandler, responseBuffers, STORE_READ_ERROR, type PreviewWorkerRequest } from './previewWorker'
+import {
+  createPreviewWorkerHandler, LIVE_STATE_STORES, responseBuffers, STORE_READ_ERROR, type PreviewWorkerRequest,
+} from './previewWorker'
 
-// The stores exist here but hold nothing. A graph the gate let through never
-// reads one; if one does, fail loudly so the main thread takes the graph back
-// instead of showing a frame made from empty state.
+// Every store but the live ones (sent with each request) holds nothing here.
+// A graph the gate let through never reads one; if one does, fail loudly so
+// the main thread takes the graph back instead of showing a frame made from
+// empty state.
 for (const [name, store] of EVALUATOR_STORES) {
+  if (LIVE_STATE_STORES.has(name)) continue
   store.getState = () => { throw new Error(`${STORE_READ_ERROR}: ${name}`) }
 }
 
@@ -17,7 +21,7 @@ scope.onmessage = (event: MessageEvent<PreviewWorkerRequest>) => {
   try {
     scope.postMessage(response, responseBuffers(response))
   } catch (error) {
-    // A port value that cannot be cloned: answer, so the request is not lost.
-    scope.postMessage({ ...response, terminal: null, routed: [], outputs: null, error: String(error) })
+    // A port value that cannot be cloned: this graph belongs on the main thread.
+    scope.postMessage({ ...response, terminal: null, routed: [], outputs: null, liveOutputs: [], error: String(error), fatal: true })
   }
 }

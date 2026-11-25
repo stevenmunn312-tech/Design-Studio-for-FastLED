@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AudioData } from '../audioEngine'
-import { AnalysisDelay, analysisHoldMs, MAX_OUTPUT_LATENCY_MS, outputLatencyMs, PICTURE_LATENCY_MS } from '../analysisDelay'
+import { AnalysisDelay, analysisHoldMs, MAX_OUTPUT_LATENCY_MS, outputLatencyMs, PICTURE_LATENCY_MS, setPreviewPipelineMs } from '../analysisDelay'
 
 function frame(overrides: Partial<AudioData> = {}): AudioData {
   return {
@@ -56,6 +56,17 @@ describe('analysisHoldMs', () => {
   it('never holds less than nothing when the speaker is quicker than the picture', () => {
     expect(analysisHoldMs({ baseLatency: 0.005, outputLatency: 0.01 })).toBe(0)
     expect(analysisHoldMs(null)).toBe(0)
+  })
+
+  it('holds one preview step less while the preview worker draws a step late', () => {
+    const bluetooth = { baseLatency: 0.01, outputLatency: 0.2 }
+    setPreviewPipelineMs(1000 / 60)
+    try {
+      expect(analysisHoldMs(bluetooth)).toBeCloseTo(210 - PICTURE_LATENCY_MS - 1000 / 60)
+    } finally {
+      setPreviewPipelineMs(0)
+    }
+    expect(analysisHoldMs(bluetooth)).toBeCloseTo(210 - PICTURE_LATENCY_MS)
   })
 })
 

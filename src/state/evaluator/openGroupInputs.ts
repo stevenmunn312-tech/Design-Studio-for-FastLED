@@ -1,6 +1,6 @@
 import type { StudioNode } from '../graphStore'
 import type { PortValue } from './types'
-import { graphAudioCapabilityKind, graphAudioCapabilitySource } from '../audio/audioCapabilities'
+import { graphAudioCapabilityKind, graphAudioCapabilitySource, type AudioCapabilityKind } from '../audio/audioCapabilities'
 import { liveAudioSignal } from '../audio/liveAudioSignal'
 
 /** The `paramId`s of a subgraph's audio-typed GroupInput nodes — the ports an
@@ -16,21 +16,33 @@ export function audioGroupInputParamIds(nodes: readonly StudioNode[]): string[] 
   return ids
 }
 
+/** The live source a group opened on the canvas binds its audio inputs to:
+ *  the root graph's Audio capability, the microphone when it has none. */
+export function openGroupAudioKind(rootNodes: readonly StudioNode[]): AudioCapabilityKind {
+  return graphAudioCapabilitySource(rootNodes)?.kind ?? graphAudioCapabilityKind(rootNodes) ?? 'microphone'
+}
+
 /**
  * Inputs for a group subgraph opened on the canvas, where no enclosing Group
- * node binds them. Audio inputs get the live signal of the project's Audio
- * capability (the root graph's choice of microphone, line-in or decoder;
- * microphone when the project has none yet), so the analyzers inside keep
- * reacting while the pattern is edited. Other exposed parameters stay
- * unbound and their consumers fall back to their own properties.
+ * node binds them. Audio inputs get the live signal of `kind`
+ * (`openGroupAudioKind`), so the analyzers inside keep reacting while the
+ * pattern is edited. Other exposed parameters stay unbound and their
+ * consumers fall back to their own properties. The preview worker calls this
+ * with the kind the main thread resolved, since it holds no root graph.
  */
+export function openGroupInputsFor(
+  subgraphNodes: readonly StudioNode[],
+  kind: AudioCapabilityKind,
+): Record<string, PortValue> {
+  const audioParams = audioGroupInputParamIds(subgraphNodes)
+  if (audioParams.length === 0) return {}
+  const signal = liveAudioSignal(kind)
+  return Object.fromEntries(audioParams.map((paramId) => [paramId, signal]))
+}
+
 export function openGroupInputs(
   subgraphNodes: readonly StudioNode[],
   rootNodes: readonly StudioNode[],
 ): Record<string, PortValue> {
-  const audioParams = audioGroupInputParamIds(subgraphNodes)
-  if (audioParams.length === 0) return {}
-  const kind = graphAudioCapabilitySource(rootNodes)?.kind ?? graphAudioCapabilityKind(rootNodes) ?? 'microphone'
-  const signal = liveAudioSignal(kind)
-  return Object.fromEntries(audioParams.map((paramId) => [paramId, signal]))
+  return openGroupInputsFor(subgraphNodes, openGroupAudioKind(rootNodes))
 }

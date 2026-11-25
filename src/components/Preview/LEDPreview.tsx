@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
 import { useGraphStore, getGroupRegistry, matrixTileLayout, rootGraphNodes, ROOT_GRAPH_ID } from '../../state/graphStore'
-import { openGroupInputs } from '../../state/evaluator/openGroupInputs'
+import { openGroupAudioKind, openGroupInputsFor } from '../../state/evaluator/openGroupInputs'
+import { setPreviewPipelineMs } from '../../audio/analysisDelay'
 import { cloneFrame } from '../../state/evaluator/frames'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audio/audioStore'
@@ -8,7 +9,7 @@ import type { Frame } from '../../state/graphEvaluator'
 import { usePreviewStore } from '../../state/previewStore'
 import { useShowPlayback } from '../../state/player/showPlayback'
 import { localTrackTitle, usePlayerTransport } from '../../state/player/playerTransport'
-import { terminalFrameTap } from './terminalFrameTap'
+import { tapTerminalFrameLazily, terminalFrameTap } from './terminalFrameTap'
 import { readAudioFileTags, type AudioTags } from '../../audio/id3Tags'
 import { usePatternLibrary } from '../../state/patterns/patternLibrary'
 import { useMusicStore } from '../../state/player/musicStore'
@@ -55,7 +56,7 @@ import { frameGate } from './frameGate'
 import { publishOutputStreamFrame, publishStreamFrame, useStreamStore } from '../../state/output/streamStore'
 import { outputRoutes } from '../../state/output/outputRouting'
 import { evaluatePreviewPasses, selectPreviewRoute, type PreviewPassResult } from './previewEvaluation'
-import { unpackFrame, unpackPorts, type PreviewWorkerResponse } from './previewWorker'
+import { snapshotLiveState, unpackFrame, unpackPorts, type PreviewWorkerResponse } from './previewWorker'
 import { PreviewWorkerClient } from './previewWorkerClient'
 import { workerEvaluable } from './workerGate'
 import { LED_OUTPUT_FORM_LABELS, outputSizeLabelFor, type LedOutputForm } from '../../state/output/ledOutputForm'
@@ -622,15 +623,17 @@ export default function LEDPreview() {
     const STEP = 1000 / 60   // simulate at 60 steps/sec regardless of display Hz
 
     // A worker answer as the loop's pass result. Only the shown and streamed
-    // routes unpack on every frame (master brightness then scales them in
-    // place); every other route and the node previews unpack once, on the
-    // frame the answer arrives, which is the only one that publishes them.
+    // routes, Master Speed and the VU unpack on every frame (master brightness
+    // then scales the routes in place); every other route, the node previews
+    // and a beat count once, on the frame the answer arrives, which is the
+    // only one that publishes them.
     const unpackWorkerFrame = (
       response: PreviewWorkerResponse,
       fresh: boolean,
       selectedId: string | undefined,
       streamId: string | undefined,
-    ): Omit<PreviewPassResult, 'sawBeat'> & { fullPass: boolean } => {
+      needTerminal: boolean,
+    ): PreviewPassResult & { fullPass: boolean } => {
       const routedByOutput = new Map<string, Frame | null>()
       for (const [id, packed] of response.routed) {
         const shown = id === selectedId || id === streamId
@@ -638,15 +641,28 @@ export default function LEDPreview() {
         const reuse = id === selectedId ? routeBufRef.current : id === streamId ? streamRouteBufRef.current : null
         routedByOutput.set(id, packed ? unpackFrame(packed, reuse) : null)
       }
-      let terminalFrame: Frame | null = null
-      if (response.terminal) {
-        terminalFrame = unpackFrame(response.terminal, workerTerminalRef.current)
-        workerTerminalRef.current = terminalFrame
+      // The loop shows the terminal frame only when the graph has no LED
+      // output; otherwise only the showcase may read it, and it unpacks then.
+      const unpackTerminal = (): Frame | null => {
+        const packed = response.terminal
+        if (!packed) return null
+        // Already handed back to the worker: the last one unpacked will do.
+        if (packed.data.length !== packed.w * packed.h * 3) return workerTerminalRef.current
+        workerTerminalRef.current = unpackFrame(packed, workerTerminalRef.current)
+        return workerTerminalRef.current
       }
+      const terminalFrame = needTerminal ? unpackTerminal() : null
+      if (needTerminal) terminalFrameTap.frame = terminalFrame
+      else tapTerminalFrameLazily(unpackTerminal)
       const outputs = new Map<string, Record<string, unknown>>(
         fresh && response.outputs ? response.outputs.map(([id, ports]) => [id, unpackPorts(ports)]) : [],
       )
-      return { outputs, terminalFrame, routedByOutput, fullPass: fresh && response.fullPass }
+      for (const [id, ports] of response.liveOutputs) outputs.set(id, unpackPorts(ports))
+      return {
+        outputs, terminalFrame, routedByOutput,
+        sawBeat: fresh && response.sawBeat,
+        fullPass: fresh && response.fullPass,
+      }
     }
 
     const loop = () => {
@@ -714,7 +730,8 @@ export default function LEDPreview() {
         // A pattern group open on the canvas has no Group node binding its
         // inputs, so its audio inputs take the project's live source and the
         // analyzers inside keep reacting while the pattern is edited.
-        const groupInputs = state.activeGraphId === ROOT_GRAPH_ID ? undefined : openGroupInputs(graphNodes, hardwareNodes)
+        const openGroupKind = state.activeGraphId === ROOT_GRAPH_ID ? null : openGroupAudioKind(hardwareNodes)
+        const groupInputs = openGroupKind ? openGroupInputsFor(graphNodes, openGroupKind) : undefined
         // One evaluation pass feeds both the main matrix and every node preview.
         // Nodes disconnected from the output only feed previews published at
         // the 125 ms cadence, so they're evaluated only on publish frames —
@@ -732,7 +749,7 @@ export default function LEDPreview() {
         // worker, for the time its frame will be shown; until the worker's
         // first answer, and for any other graph, this thread evaluates it.
         // See docs/plans/evaluator-worker-design.md.
-        const workerGate = workerEvaluable(graphNodes, graphEdges, groups, groupInputs)
+        const workerGate = workerEvaluable(graphNodes, graphEdges, groups)
         // Started the first time a graph qualifies, so a project that never
         // does never downloads it.
         if (workerGate && !workerClientRef.current && !workerUnavailableRef.current) {
@@ -751,7 +768,7 @@ export default function LEDPreview() {
         }
         const workerFrame = workerGate && workerClient ? workerFrameRef.current : null
         const pass: PreviewPassResult & { fullPass: boolean } = workerFrame
-          ? { ...unpackWorkerFrame(workerFrame, arrived === workerFrame, selectedRoute?.id, requestedStreamOutputId), sawBeat: false }
+          ? unpackWorkerFrame(workerFrame, arrived === workerFrame, selectedRoute?.id, requestedStreamOutputId, routes.length === 0)
           : {
               ...evaluatePreviewPasses({
                 nodes: graphNodes, edges: graphEdges, groups, trusted, groupInputs,
@@ -761,11 +778,17 @@ export default function LEDPreview() {
             }
         const { outputs, terminalFrame, routedByOutput, sawBeat } = pass
         const publishFullPass = pass.fullPass
-        // For the first-launch showcase; see terminalFrameTap.ts.
-        terminalFrameTap.frame = terminalFrame
+        // For the first-launch showcase; see terminalFrameTap.ts. The worker
+        // path has already set it.
+        if (!workerFrame) terminalFrameTap.frame = terminalFrame
         // Every pass this frame has read the live beats; release them so the
-        // next engine frame starts clean (see state/audio/beatLatch.ts).
-        consumeLiveBeats()
+        // next engine frame starts clean (see state/audio/beatLatch.ts). The
+        // worker's passes read them from the snapshot sent below, so then they
+        // are released when it is taken, and a beat is in exactly one.
+        if (!workerFrame) consumeLiveBeats()
+        // The worker's frame is shown a step after the audio it read; the
+        // decoder holds its analysis that much less (audio/analysisDelay.ts).
+        setPreviewPipelineMs(workerFrame ? frameStepMs.current : 0)
         /*
          * Master Speed, applied by sliding the animation clock's origin rather
          * than by multiplying the elapsed time. `t * speed` would double every
@@ -986,7 +1009,10 @@ export default function LEDPreview() {
             fullPass: previewsOn && nextNow - lastPreviewPublish.current >= PREVIEW_PUBLISH_INTERVAL_MS,
             selectedRouteId: activeOutputIdRef.current,
             streamOutputId: requestedStreamOutputId,
+            live: snapshotLiveState(),
+            openGroupAudioKind: openGroupKind,
           })
+          if (workerFrame) consumeLiveBeats()
         }
 
         frameCount.current++

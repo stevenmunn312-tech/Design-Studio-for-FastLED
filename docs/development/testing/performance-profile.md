@@ -175,8 +175,8 @@ With the 60 Hz limit lifted (`--uncapped`), after the fixes:
 - **A 64 x 64 matrix evaluated at 128 x 128 ("2x smooth") on field-warp**
   was 51 fps at full processor speed and 26 at half: three four-octave
   noise fields over 16,384 cells, on the main thread. Since 2026-11-25 a
-  graph built only from node types that read no store is evaluated in a
-  worker ([evaluator worker design](../../plans/evaluator-worker-design.md)):
+  graph built only from node types that read no store but the audio ones is
+  evaluated in a worker ([evaluator worker design](../../plans/evaluator-worker-design.md)):
   the same case holds 60 fps with the main thread idle, at half speed, and
   dragging a node over it runs at 57 fps where it ran at 23. A graph with
   audio, inputs or a show still evaluates on the main thread.
