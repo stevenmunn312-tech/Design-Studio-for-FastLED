@@ -46,7 +46,7 @@ Tested end to end on ESP32, ESP32-S3 and ESP8266 boards with WS2812B LEDs. Build
 GOOD TO KNOW
 - The first time you build for a board, the app downloads the compiler, board support package and FastLED library it needs (Arduino CLI, ESP32 and RP2040 cores, FastLED). After that, it works offline.
 - Uploading needs a USB connection to a microcontroller board. Designing and previewing need nothing but the app.
-- Your projects are saved in your Documents folder. The app has no account, no ads and no analytics, and sends nothing to the developer.
+- Your projects are saved in your Documents folder. The app has no account, no ads and no analytics, and sends nothing to the developer unless you choose to share a pattern on the community site.
 
 Design Studio for FastLED is free and open source. FastLED is a separate open-source library by its own authors; this app is not affiliated with or endorsed by the FastLED project.
 

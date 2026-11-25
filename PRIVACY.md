@@ -2,7 +2,7 @@
 
 Design Studio for FastLED
 
-Effective 22 November 2026
+Effective 26 November 2026
 
 Design Studio for FastLED is a free desktop application for designing LED
 effects and uploading them to microcontroller boards. It runs on your own
@@ -11,9 +11,10 @@ over the network, and why.
 
 ## Summary
 
-- The application does not collect personal information and sends nothing to
-  the developer. It has no accounts, analytics, advertising, tracking, crash
-  reporting or update checks.
+- The application does not collect personal information. It sends nothing to
+  the developer unless you choose to share a pattern on the community site.
+  It has no accounts, analytics, advertising, tracking, crash reporting or
+  update checks.
 - Your projects, patterns and settings stay on your computer.
 - The application downloads build tools and libraries from their publishers
   the first time you need them. Those servers see your IP address.
@@ -62,6 +63,14 @@ STMicroelectronics and the ESP8266 community (`arduino.esp8266.com`). These
 requests carry no information about you or your projects, but the servers
 receive your IP address and handle it under their own privacy policies.
 
+**Internet radio.** This applies only if you use the Music Player's Internet
+Radio source. Searching for stations sends the words you type to the open
+radio-browser.info directory (`all.api.radio-browser.info`), and only when
+you press Search. Playing a station in the preview connects the application
+to that station's server. Neither request carries anything about you
+or your projects, but both servers receive your IP address and handle it
+under their own privacy policies.
+
 **The local helper.** The application's helper service, which handles USB
 upload and file access, listens only on your own computer (`127.0.0.1`) and
 cannot be reached from the network.
@@ -80,13 +89,25 @@ If your project uses Wi-Fi, the Wi-Fi name and password are compiled into the
 firmware in plain text, because the board needs them to connect. Treat
 exported sketches and firmware files accordingly. A board configured to set
 its clock over the internet contacts the NTP server named in the project
-(`pool.ntp.org` by default).
+(`pool.ntp.org` by default). A board that plays internet radio connects to
+the stations in its list.
 
 ## Sharing
 
 - **Share links** carry the project inside the part of the link after `#`.
   Browsers do not send that part to any server, so the project is shared only
   with the people you give the link to.
+- **Community sharing** happens only if you choose it. **Share to
+  Community…** in the File menu and the share button on a Pattern Library
+  pattern open the project's website, `designstudioforfastled.com`, in a new
+  window and pass it the pattern: its name, its nodes with their settings and
+  connections, the groups they use, a short preview clip, the LED count, the
+  board family (such as ESP32) and, for a library pattern, your own star
+  rating if you gave one. Share to Community sends the whole project graph
+  except its LED output. Wi-Fi names and passwords are not part of a project,
+  so they are not sent. The website holds the pattern in that window only,
+  and nothing is published until you submit the upload there. What you
+  publish there is public.
 - **Hardware test reports** are sent only if you choose to. The application
   shows the report for you to review, then opens a pre-filled issue on this
   project's public GitHub repository, where you decide whether to post it. It

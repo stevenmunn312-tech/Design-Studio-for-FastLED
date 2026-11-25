@@ -249,7 +249,7 @@ Read the [Hardware validation guide](docs/release/beta-hardware-validation.md), 
 - **Network credentials:** Art-Net and NTP credentials stay in browser-local storage and are excluded from projects and share links. Generated network-enabled firmware necessarily embeds them in plain text, so treat exported `.ino` files accordingly.
 - **Art-Net preview:** the helper opens a local-network UDP listener only while an Art-Net input is active **and** the workspace is trusted. The port to listen on is stored in the graph, so an untrusted project cannot open a socket on your machine before you have looked at it.
 
-Read [PRIVACY.md](PRIVACY.md) for the privacy policy: the app collects nothing and sends nothing to the developer. Read [SECURITY.md](SECURITY.md) for the security policy and private vulnerability-reporting process.
+Read [PRIVACY.md](PRIVACY.md) for the privacy policy: the app collects nothing, and sends nothing to the developer unless you choose to share a pattern on the community site. Read [SECURITY.md](SECURITY.md) for the security policy and private vulnerability-reporting process.
 
 ## Browser and desktop scope
 
