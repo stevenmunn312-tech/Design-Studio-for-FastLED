@@ -43,9 +43,16 @@ the [long-paths blocker](docs/release/long-paths-blocker.md) handoff.
   esptool ("Access is denied"). Fixed 2026-11-26: the helper hands fbuild a
   copy in the build folder
   ([details](docs/release/long-paths-blocker.md#the-packaged-app-could-not-run-esptool-found-and-fixed-2026-11-26)).
-- [ ] Then the Store smoke test under Publish below, on a package built with
-  2.5.55 and the esptool fix, through upload. Until it passes, the halt
-  stands.
+- [x] Store-identity layout built locally from `main` (`8df5772c`), on
+  `storetest-longname` with long paths off: build and upload to the ESP32-S3
+  passed, 2026-11-26. It did not cover a first download or the package that
+  ships ([what it covered](docs/release/long-paths-blocker.md#the-packaged-app-could-not-run-esptool-found-and-fixed-2026-11-26)).
+- [ ] Decide what ships: the `v1.0.1` tag has neither fix, and `main` carries
+  much more. Moving the tag needs Steve's approval; a new version is the
+  alternative.
+- [ ] Build that package, then the Store smoke test under Publish below on it,
+  on an account that has never run fbuild, through first download and upload.
+  Until it passes, the halt stands.
 
 State: the Store holds only the certified, unpublished 1.0.0 dry run (leave
 it alone); tags `v1.0.0` and `v1.0.1` exist with private draft releases. The

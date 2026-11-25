@@ -185,9 +185,27 @@ the copy and reported 352,379 bytes of flash. Steve then uploaded from the
 fixed app on his account (local identity, long paths off): build, deploy
 through the copy (`[deploy] esptool ...\.design-studio-for-fastled\tools\esptool.exe`),
 full flash to the ESP32-S3 on COM3 with every hash verified, "Upload
-complete". Not yet covered: the Store-identity layout on `storetest-longname`
-(still the build without the fix), so a new account's first build with the
-fix has not run.
+complete".
+
+Store-identity retest, 2026-11-26: `storetest-longname` (standard account,
+long paths off), the old package removed so settings reset, the
+Store-identity layout built from `main` at `8df5772c` registered, engine left
+on its default. Juggle built with fbuild 2.5.55 and uploaded to the ESP32-S3
+on COM3 through the account's own copy
+(`C:\Users\storetest-longname\.design-studio-for-fastled\tools\esptool.exe`),
+every hash verified, "Upload complete". **Pass.**
+
+Not covered by that pass:
+
+- A first download: the account already held the ESP32 packages from the
+  failed run earlier that day (`framework core cache: hit`).
+- A truly new account: this one kept its 2.5.52 short-path marker, so fbuild
+  used its old `C:\fb-77f661d5001e` root rather than `C:\fbuild-cache`, which
+  Steve's account created first and owns. A second account on any PC takes
+  that same separate-root path.
+- The package that ships: this was a local build from `main`, not the
+  release package, and `main` carries far more than v1.0.1.
+- ESP32 boards other than the S3, and the portable ZIP.
 
 ## Options
 
