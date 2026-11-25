@@ -1,12 +1,14 @@
 # Versioning and Releases
 
-Design Studio for FastLED is pre-1.0 and uses semantic versioning with the usual
-pre-release caution: while the project remains below `1.0.0`, compatibility can
-still move quickly.
+Design Studio for FastLED uses semantic versioning. Releases below `1.0.0`
+were public betas whose formats could change between versions; from `1.0.0`
+the save format is a compatibility baseline (below).
 
 ## Development lines and the v1 baseline
 
-`main` is the single development line toward LTS v1.0.0. On 2026-11-09 it was
+`main` is the single development line, and the 1.0 releases are cut from it.
+`v1.0.0` and `v1.0.1` were tagged on 2026-11-22 and never published;
+`v1.0.2` (2026-11-26) replaces them ([root todo](../../todo.md)). On 2026-11-09 `main` was
 pointed at the former `Hardware` breaking-development branch, which is now
 retired; the last state of the 0.7 public-beta line is the `beta-final` tag.
 `v0.8.0` (2026-11-16) is the first public release cut from `main`; it does not
@@ -140,9 +142,9 @@ a migration from the previous format.
 
 - `MAJOR` (`1.0.0` and beyond): intentionally breaking release-line changes or
   a stable support-policy reset.
-- `MINOR` (`0.y.0` while pre-1.0): new features, meaningful workflow changes,
-  or new supported beta rows.
-- `PATCH` (`0.y.z`): fixes, tests, docs, dependency refreshes, or release
+- `MINOR` (`x.y.0`): new features, meaningful workflow changes, or new
+  supported rows.
+- `PATCH` (`x.y.z`): fixes, tests, docs, dependency refreshes, or release
   packaging changes that do not intentionally change the main workflow.
 
 ## Tag format

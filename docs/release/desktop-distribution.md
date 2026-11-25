@@ -321,8 +321,8 @@ renders, display assets) were not opened.
 
 ## Signing and publishing
 
-The current output is an unsigned portable beta archive. A public release still
-needs:
+The portable archives are unsigned. Before a platform's archive is described
+as supported it still needs:
 
 - Authenticode signing for the Windows launcher and bundled executables;
 - macOS signing with a Developer ID, hardened runtime, and notarization (the

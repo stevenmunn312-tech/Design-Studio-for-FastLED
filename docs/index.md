@@ -1,7 +1,8 @@
 # Documentation index
 
-This checkout documents `main`, the active development line toward v1.0.0.
-The current public release is `v0.8.0`, cut from `main` on 2026-11-16; see
+This checkout documents `main`, the active development line. `v1.0.2` was
+tagged on 2026-11-26 and is not published yet ([root todo](../todo.md)); the
+current public release is `v0.8.0`, cut from `main` on 2026-11-16. See
 [versioning and releases](release/versioning-and-releases.md) for the history. [README](../README.md) introduces the product and
 [CONTRIBUTING](../CONTRIBUTING.md) explains the contribution workflow.
 

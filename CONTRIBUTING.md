@@ -1,17 +1,19 @@
 # Contributing to Design Studio for FastLED
 
-Thanks for helping test Design Studio for FastLED! The project is in **public beta**: the
-feature set is broad, but the support promise is deliberately narrow and the
-file formats are not final. The fastest way to help right now is testing on
-real hardware and filing precise reports.
+Thanks for helping with Design Studio for FastLED! Version 1.0 has a broad
+feature set and a deliberately narrow support promise: only the builds in the
+[support matrix](docs/release/beta-support-matrix.md) are tested on real
+hardware. Its save format is the compatibility baseline, so projects, patterns
+and share links made in 1.0 must keep opening. The fastest way to help is
+testing on real hardware and filing precise reports.
 
 ## Reporting bugs
 
 Open a [bug report](https://github.com/stevenmunn312-tech/Design-Studio-for-FastLED/issues/new/choose)
 and include:
 
-- your operating system and version, browser and version, and the FastLED
-  Studio version (shown in the app and in the release you downloaded);
+- your operating system and version, browser and version, and the Design
+  Studio version (shown in Help and in the release you downloaded);
 - whether you run the portable desktop package or from source;
 - steps to reproduce, what you expected, and what actually happened;
 - for hardware problems: exact board, LED chipset, matrix/strip dimensions,
@@ -37,13 +39,13 @@ Do **not** open a public issue for vulnerabilities. Follow the
 
 ## Feature requests
 
-Welcome — file one via the feature request template. During the beta,
-priorities are stability, hardware coverage, and workflow polish, so new
-feature work may wait behind those.
+Welcome — file one via the feature request template. Priorities are
+stability, hardware coverage, and workflow polish, so new feature work may
+wait behind those.
 
 ## Pull requests
 
-PRs are welcome during the beta with two caveats:
+PRs are welcome with two caveats:
 
 1. **Open an issue first for anything non-trivial.** The codebase is moving
    quickly, and saved projects/patterns/share links need deliberate compatibility
