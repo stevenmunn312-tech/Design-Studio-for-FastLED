@@ -86,7 +86,9 @@ The v1.0.0 and v1.0.1 draft releases and their MSIX files are superseded.
   Ship with the
   [known limitation](docs/release/beta-support-matrix.md#known-limitations-in-v100),
   or build those families with arduino-cli when long paths are off (a code
-  change, so a new version), and whether to report it upstream.
+  change, so a new version). The fbuild report is drafted in
+  `tmp/fbuild-main/drafts/windows-long-paths-off-rp2040-teensy-stm32-cannot-install.md`;
+  post it once Steve has read it.
 - [ ] Build the v1.0.2 packages with the Desktop Packages workflow on GitHub
   (needs Steve's go-ahead for this run). The same run can refresh the
   preview page above.

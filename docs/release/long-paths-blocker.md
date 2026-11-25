@@ -255,10 +255,33 @@ build error: package error: Windows short-path fallback cannot safely use extrac
 | `dl-framework-arduinoteensy` 1.160.0 (a `FlexCAN_T4` example) | 262 | 229 |
 | `stm32duino-Arduino_Core_STM32` 2.9.0 (an `STM32MP1xx` variant folder) | 252 | 219 |
 
-fbuild names the first path its walk refuses, not the longest, so these are
-lower bounds, against a limit of 247. A shorter `FBUILD_CACHE_DIR` was not
-tried: the named paths would need a root of 17 to 28 characters, and longer
-paths may sit in the same packages. The app has no fallback for this, and
+fbuild names the first path its walk refuses, not the longest. A blank sketch
+with only `platform`, `board` and `framework` set fails the same way for all
+three (`tmp/fbuild-shortpath-repro`), so the sketch plays no part.
+
+The cause, read from fbuild's source at `v2.5.55`: the check allows 259
+characters for a file and 247 for a folder
+(`crates/fbuild-packages-fetch/src/extractor.rs`, lines 11 to 47). #2175
+added a short install layout, and only the ESP32 toolchain and framework opt
+in to it (`with_compact_windows_install` in `compact_install.rs`). The
+RP2040, Teensy and STM32 cores keep the old layout and are checked in their
+staging folder, whose name is 8 characters longer than the installed one
+(`_staging`).
+
+Longest paths in the same package versions, measured in the cache installed
+with long paths on (`C:\Users\User\.fbuild\prod\cache`), and what they come
+to under the 32-character fallback root:
+
+| Package | Longest file below the cache root | Longest folder | Installed | In staging |
+| --- | --- | --- | --- | --- |
+| arduino-pico 4.5.3 | 232 | 205 | file 265, over by 6 | file 273 |
+| Teensy 1.160.0 | 221 | 158 | file 254, fits | file 262, over by 3 |
+| STM32 core 2.9.0 | 231 | 211 | file 264, over by 5 | file 272, folder 252 |
+
+So the Teensy framework is refused only because of the staging name, and the
+other two are too long where they end up as well. By these numbers a
+`FBUILD_CACHE_DIR` of 18 characters or fewer would pass the check for all
+three; that was not tried. The app has no fallback for this, and
 `fbuild --fix-win` needs an administrator.
 
 The classic ESP32 failed once before it passed:
@@ -270,8 +293,10 @@ downloads in one day.
 Not covered: the packaged app (these ran from a shell), a standard account or
 one that never ran fbuild, upload, any second board of a family, the SAMD51,
 whether arduino-cli installs the three failing families with long paths off,
-and whether 2.5.55 builds them with long paths on (2.5.52 did, in the freeze
-matrix). Nothing here has been reported upstream.
+and whether 2.5.55 builds them with long paths on. A report for fbuild is
+drafted in
+`tmp/fbuild-main/drafts/windows-long-paths-off-rp2040-teensy-stm32-cannot-install.md`
+and is not posted; it waits for Steve's review.
 
 ## Options
 
