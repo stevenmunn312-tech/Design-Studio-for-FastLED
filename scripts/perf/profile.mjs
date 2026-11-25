@@ -302,6 +302,16 @@ const SCENARIOS = [
       for (let i = 0; i < 3; i++) await drag(page, header, 160, 90)
     },
   },
+  // The editor with the heaviest preview behind it: the page, not the
+  // preview, is what this measures (see docs/plans/evaluator-worker-design.md).
+  {
+    name: 'drag node, matrix 64x64 2x smooth (field-warp)', starter: 'field-warp',
+    setup: output({ size: '64', 'render resolution': '2x smooth' }),
+    during: async (page) => {
+      const header = await centreOf(page, '.react-flow__node [class*="header"]')
+      for (let i = 0; i < 3; i++) await drag(page, header, 160, 90)
+    },
+  },
   {
     name: 'drag node (generative-show)', starter: 'generative-show',
     during: async (page) => {

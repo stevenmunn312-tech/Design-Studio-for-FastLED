@@ -130,9 +130,11 @@ export default defineConfig(() => {
           // pinout view is shown, and the display design pack (~390 vector
           // assets) only inside a custom display's editor — keep them all out
           // of the precache so the base install stays small; runtime-cache them
-          // after first use.
+          // after first use. The preview worker (about 2.4 MB, the evaluator
+          // with every store it reaches) loads only once a graph it can run is
+          // open, and the preview evaluates on the main thread without it.
           globIgnores: [
-            'node-cards/**', 'boards/**', 'display-assets/**',
+            'node-cards/**', 'boards/**', 'display-assets/**', 'assets/previewEvaluation.worker-*.js',
           ],
           runtimeCaching: [
             {
@@ -146,6 +148,12 @@ export default defineConfig(() => {
               urlPattern: /\/boards\/.+\.webp$/,
               handler: 'CacheFirst',
               options: { cacheName: 'board-renders', expiration: { maxEntries: 40 } },
+            },
+            {
+              // Content-hashed, so a cached copy is never stale.
+              urlPattern: /\/assets\/previewEvaluation\.worker-[^/]+\.js$/,
+              handler: 'CacheFirst',
+              options: { cacheName: 'preview-worker', expiration: { maxEntries: 2 } },
             },
             {
               urlPattern: /\/display-assets\/.+\.(?:svg|json)$/,

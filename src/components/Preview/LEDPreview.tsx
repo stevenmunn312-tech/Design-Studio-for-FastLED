@@ -4,7 +4,7 @@ import { openGroupInputs } from '../../state/evaluator/openGroupInputs'
 import { cloneFrame } from '../../state/evaluator/frames'
 import { useUiStore } from '../../state/uiStore'
 import { useAudioStore } from '../../state/audio/audioStore'
-import { evaluateGraphFull, type Frame } from '../../state/graphEvaluator'
+import type { Frame } from '../../state/graphEvaluator'
 import { usePreviewStore } from '../../state/previewStore'
 import { useShowPlayback } from '../../state/player/showPlayback'
 import { localTrackTitle, usePlayerTransport } from '../../state/player/playerTransport'
@@ -53,7 +53,11 @@ import { frameAmbient } from '../../utils/signalVisual'
 import { idleFrame } from './idleFrame'
 import { frameGate } from './frameGate'
 import { publishOutputStreamFrame, publishStreamFrame, useStreamStore } from '../../state/output/streamStore'
-import { outputRoutes, previewRenderPasses, routeFrame } from '../../state/output/outputRouting'
+import { outputRoutes } from '../../state/output/outputRouting'
+import { evaluatePreviewPasses, selectPreviewRoute, type PreviewPassResult } from './previewEvaluation'
+import { unpackFrame, unpackPorts, type PreviewWorkerResponse } from './previewWorker'
+import { PreviewWorkerClient } from './previewWorkerClient'
+import { workerEvaluable } from './workerGate'
 import { LED_OUTPUT_FORM_LABELS, outputSizeLabelFor, type LedOutputForm } from '../../state/output/ledOutputForm'
 import { advanceStagePresentation, exitStagePresentation, toggleStageFullscreen } from '../../utils/stagePresentation'
 import { controllerSettings } from '../../build/controllerSettings'
@@ -175,6 +179,13 @@ export default function LEDPreview() {
   // isn't reallocated every 60fps tick (the main preview-pipeline GC churn).
   const routeBufRef = useRef<Frame | null>(null)
   const streamRouteBufRef = useRef<Frame | null>(null)
+  // The preview worker, its newest answer (kept to draw again until the next
+  // one arrives), and the frame its terminal unpacks into.
+  const workerClientRef = useRef<PreviewWorkerClient | null>(null)
+  const workerFrameRef = useRef<PreviewWorkerResponse | null>(null)
+  const workerTerminalRef = useRef<Frame | null>(null)
+  // Set when this browser cannot start a module worker.
+  const workerUnavailableRef = useRef(false)
   const glRef       = useRef<WebGLLEDRenderer | null>(null)
   const tickRef     = useRef(0)
   const animRef     = useRef<number>(0)
@@ -586,6 +597,12 @@ export default function LEDPreview() {
     if (!effectivePreview3d) drag.current = null
   }, [effectivePreview3d])
 
+  useEffect(() => () => {
+    workerClientRef.current?.dispose()
+    workerClientRef.current = null
+    workerFrameRef.current = null
+  }, [])
+
   const shapeCanvas = activeShape !== null
   // Set once WebGL is lost or unusable; the grid then draws with Canvas 2D.
   const [canvas2d, setCanvas2d] = useState(false)
@@ -603,6 +620,34 @@ export default function LEDPreview() {
     let disposed = false
 
     const STEP = 1000 / 60   // simulate at 60 steps/sec regardless of display Hz
+
+    // A worker answer as the loop's pass result. Only the shown and streamed
+    // routes unpack on every frame (master brightness then scales them in
+    // place); every other route and the node previews unpack once, on the
+    // frame the answer arrives, which is the only one that publishes them.
+    const unpackWorkerFrame = (
+      response: PreviewWorkerResponse,
+      fresh: boolean,
+      selectedId: string | undefined,
+      streamId: string | undefined,
+    ): Omit<PreviewPassResult, 'sawBeat'> & { fullPass: boolean } => {
+      const routedByOutput = new Map<string, Frame | null>()
+      for (const [id, packed] of response.routed) {
+        const shown = id === selectedId || id === streamId
+        if (!fresh && !shown) continue
+        const reuse = id === selectedId ? routeBufRef.current : id === streamId ? streamRouteBufRef.current : null
+        routedByOutput.set(id, packed ? unpackFrame(packed, reuse) : null)
+      }
+      let terminalFrame: Frame | null = null
+      if (response.terminal) {
+        terminalFrame = unpackFrame(response.terminal, workerTerminalRef.current)
+        workerTerminalRef.current = terminalFrame
+      }
+      const outputs = new Map<string, Record<string, unknown>>(
+        fresh && response.outputs ? response.outputs.map(([id, ports]) => [id, unpackPorts(ports)]) : [],
+      )
+      return { outputs, terminalFrame, routedByOutput, fullPass: fresh && response.fullPass }
+    }
 
     const loop = () => {
       // A single bad frame (e.g. a malformed graph) must not tear down the
@@ -680,44 +725,42 @@ export default function LEDPreview() {
           && now - lastVuPreviewPublish.current >= VU_PREVIEW_PUBLISH_INTERVAL_MS
         const evalStart = PERF_TELEMETRY ? performance.now() : 0
         const routes = outputRoutes(graphNodes)
-        const selectedRoute = routes.find((route) => route.id === activeOutputIdRef.current) ?? routes[0]
-        const passes = previewRenderPasses(graphNodes, graphEdges, gW, gH)
-        const selectedPass = selectedRoute
-          ? passes.find((pass) => pass.routes.some((route) => route.id === selectedRoute.id))
-          : passes[0]
+        const selectedRoute = selectPreviewRoute(routes, activeOutputIdRef.current)
         const currentStreamState = useStreamStore.getState()
         const requestedStreamOutputId = currentStreamState.streaming ? currentStreamState.layout?.outputId : undefined
-        // Evaluate the focused route last. Evaluator frames live for two pass
-        // generations; this keeps the outputs published to node thumbnails
-        // valid while every other shape is routed immediately into owned
-        // physical buffers. Identical shapes share this one pass.
-        const orderedPasses = selectedPass
-          ? [...passes.filter((pass) => pass !== selectedPass), selectedPass]
-          : passes
-        let outputs = new Map<string, Record<string, unknown>>()
-        // The terminal frame of the selected pass: a graph with no LED output
-        // (a pattern group open on the canvas) previews its Group Output.
-        let terminalFrame: Frame | null = null
-        const routedByOutput = new Map<string, Frame | null>()
-        let sawBeat = false
-        for (const pass of orderedPasses) {
-          const result = evaluateGraphFull(
-            graphNodes, graphEdges, tick, pass.width, pass.height,
-            groups, pass === selectedPass && fullPass, trusted,
-            `__output_pass_${pass.key}/`, null, elapsedTick, groupInputs,
-          )
-          const passBeat = Array.from(result.outputs.values()).some((output) => output.beat === true)
-          sawBeat ||= passBeat
-          for (const route of pass.routes) {
-            if (route.id !== selectedRoute?.id && route.id !== requestedStreamOutputId && !fullPass && !passBeat) continue
-            const source = result.outputs.get(route.id)?.frame as Frame | null | undefined
-            const reuse = route.id === selectedRoute?.id
-              ? routeBufRef.current
-              : route.id === requestedStreamOutputId ? streamRouteBufRef.current : null
-            routedByOutput.set(route.id, routeFrame(source ?? null, route, pass.width, pass.height, reuse))
-          }
-          if (pass === selectedPass || outputs.size === 0) { outputs = result.outputs; terminalFrame = result.frame }
+        // A graph whose every node reads no store is evaluated in the preview
+        // worker, for the time its frame will be shown; until the worker's
+        // first answer, and for any other graph, this thread evaluates it.
+        // See docs/plans/evaluator-worker-design.md.
+        const workerGate = workerEvaluable(graphNodes, graphEdges, groups, groupInputs)
+        // Started the first time a graph qualifies, so a project that never
+        // does never downloads it.
+        if (workerGate && !workerClientRef.current && !workerUnavailableRef.current) {
+          workerClientRef.current = PreviewWorkerClient.create()
+          workerUnavailableRef.current = workerClientRef.current === null
         }
+        const workerClient = workerClientRef.current?.failed ? null : workerClientRef.current
+        const arrived = workerClient?.take() ?? null
+        if (arrived) {
+          if (workerFrameRef.current) workerClient!.release(workerFrameRef.current)
+          workerFrameRef.current = arrived
+        }
+        if ((!workerGate || !workerClient) && workerFrameRef.current) {
+          workerClient?.release(workerFrameRef.current)
+          workerFrameRef.current = null
+        }
+        const workerFrame = workerGate && workerClient ? workerFrameRef.current : null
+        const pass: PreviewPassResult & { fullPass: boolean } = workerFrame
+          ? { ...unpackWorkerFrame(workerFrame, arrived === workerFrame, selectedRoute?.id, requestedStreamOutputId), sawBeat: false }
+          : {
+              ...evaluatePreviewPasses({
+                nodes: graphNodes, edges: graphEdges, groups, trusted, groupInputs,
+                tick, elapsedTick, gridW: gW, gridH: gH, fullPass, streamOutputId: requestedStreamOutputId,
+              }, selectedRoute, { selected: routeBufRef.current, stream: streamRouteBufRef.current }),
+              fullPass,
+            }
+        const { outputs, terminalFrame, routedByOutput, sawBeat } = pass
+        const publishFullPass = pass.fullPass
         // For the first-launch showcase; see terminalFrameTap.ts.
         terminalFrameTap.frame = terminalFrame
         // Every pass this frame has read the live beats; release them so the
@@ -853,9 +896,9 @@ export default function LEDPreview() {
         // otherwise keep React/store work to ~8 fps while the matrix stays at 60.
         const hasBeat = sawBeat
         const publishStart = PERF_TELEMETRY ? performance.now() : 0
-        const publishedGeneralPreview = fullPass || (previewsOn && hasBeat)
+        const publishedGeneralPreview = publishFullPass || (previewsOn && hasBeat)
         if (publishedGeneralPreview) {
-          if (!fullPass) {
+          if (!publishFullPass) {
             // A beat fired on a hot-only frame: carry the previous auxiliary
             // outputs forward so their previews don't blank until the next
             // full pass repopulates them.
@@ -927,6 +970,22 @@ export default function LEDPreview() {
               hidden: document.visibilityState === 'hidden',
               hasSignal: hasFrameSignalRef.current,
             },
+          })
+        }
+
+        // Ask the worker for the next step's frame, at the time it will be
+        // shown, once this frame has published (so a full pass is asked for
+        // on the same schedule as here).
+        if (workerGate && workerClient?.idle) {
+          const nextNow = step + (visible ? frameStepMs.current : hiddenStep)
+          workerClient.post({
+            nodes: graphNodes, edges: graphEdges, groups, groupIds: workerGate.groupIds, trusted,
+            tick: (nextNow - startTime.current) / STEP,
+            elapsedTick: (nextNow - elapsedStartTime.current) / STEP,
+            gridW: gW, gridH: gH,
+            fullPass: previewsOn && nextNow - lastPreviewPublish.current >= PREVIEW_PUBLISH_INTERVAL_MS,
+            selectedRouteId: activeOutputIdRef.current,
+            streamOutputId: requestedStreamOutputId,
           })
         }
 

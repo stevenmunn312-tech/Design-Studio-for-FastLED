@@ -47,8 +47,11 @@ export function toggleTapPress(
   wire: { srcId: string; srcPort: string } | undefined,
   nodeMap: ReadonlyMap<string, StudioNode>,
 ): boolean | null {
-  if (!wire) return null
-  const toggle = toggleWidgetSource(nodeMap.get(wire.srcId), wire.srcPort, nodeMap,
+  // Only a Touch widget can be a Toggle. Asking first keeps every other wired
+  // press from reading the stores below, which the preview worker has empty.
+  const source = nodeMap.get(wire?.srcId ?? '')
+  if (!wire || source?.data.nodeType !== 'TouchInput') return null
+  const toggle = toggleWidgetSource(source, wire.srcPort, nodeMap,
     useGraphStore.getState().displayDocuments)
   if (!toggle) return null
   const count = useDisplayRuntimeStore.getState().readDisplayWidget(

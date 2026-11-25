@@ -41,7 +41,8 @@ Scenarios:
   Canvas 2D, not the shader);
 - the five diffused preview styles and the 3D preview on the Music Player
   starter (86 patterns, the heaviest shipped project);
-- pan, zoom, node drag, slider drag and node-library scroll.
+- pan, zoom, node drag, slider drag and node-library scroll, and a node drag
+  over the 2x smooth matrix, where the page, not the preview, is measured.
 
 A scenario sets the LED output through the page's own controls. One that needs
 a project no starter builds (a ring) takes File > Copy Graph Link, changes the
@@ -171,14 +172,14 @@ With the 60 Hz limit lifted (`--uncapped`), after the fixes:
   noise functions are 35% of the profile. A slower processor than this
   laptop's would not hold it.
 
-- **A 64 x 64 matrix evaluated at 128 x 128 ("2x smooth") on field-warp:
-  51 fps at full processor speed, 26 fps at half** (4.3 before this pass). Three noise fields of four octaves over
-  16,384 cells are 196,000 noise calls a frame, which row 9 brought from
-  about 50 ms to about 15. It is the graph's evaluation, on the main thread;
-  drawing is 5 ms in every five seconds. Only evaluating off the main thread,
-  or in several workers, would lift it further. Accepted as the limit on
-  2026-11-25: no microcontroller the app targets runs that patch at that size
-  either.
+- **A 64 x 64 matrix evaluated at 128 x 128 ("2x smooth") on field-warp**
+  was 51 fps at full processor speed and 26 at half: three four-octave
+  noise fields over 16,384 cells, on the main thread. Since 2026-11-25 a
+  graph built only from node types that read no store is evaluated in a
+  worker ([evaluator worker design](../../plans/evaluator-worker-design.md)):
+  the same case holds 60 fps with the main thread idle, at half speed, and
+  dragging a node over it runs at 57 fps where it ran at 23. A graph with
+  audio, inputs or a show still evaluates on the main thread.
 - **Pan with a 64 x 64 matrix on the Music Player starter, cold: 56.9 fps.**
   Warm and uncapped the same pan runs at 76 frames a second, so it holds 60
   once the first-use stall below is behind it, with the least headroom of

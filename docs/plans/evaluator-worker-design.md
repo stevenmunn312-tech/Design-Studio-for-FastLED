@@ -2,8 +2,9 @@
 
 Written 2026-11-25 from the [handoff](evaluator-worker-handoff.md). It answers
 the handoff's seven questions with measurements, and proposes a first step.
-Nothing in the app has changed. Steve chose on 2026-11-25 to accept the
-128 x 128 case as a limit, so every step here waits on his go-ahead.
+
+**Status, 2026-11-25:** phase 1 is built (see [Phase 1 as built](#phase-1-as-built)).
+Phases 2 to 4 each wait on Steve's go-ahead.
 
 ## Recommendation in one paragraph
 
@@ -261,3 +262,59 @@ It has worked when, at full processor speed:
 | Every other scenario | 60 fps | 60 fps |
 
 and `npm test` passes as before.
+
+## Phase 1 as built
+
+| Piece | Where |
+| --- | --- |
+| The gate and its allow-list | `src/components/Preview/workerGate.ts` |
+| The stores the worker blocks and the test spies on | `src/components/Preview/evaluatorStores.ts` |
+| One frame's evaluation, shared by both threads | `src/components/Preview/previewEvaluation.ts` |
+| Protocol, packing and the worker's handler | `src/components/Preview/previewWorker.ts` |
+| The worker entry | `src/components/Preview/previewEvaluation.worker.ts` |
+| The main thread's side | `src/components/Preview/previewWorkerClient.ts` |
+| The loop's choice of path | `LEDPreview.tsx`, the `loop` function |
+
+How it differs from the plan above:
+
+- **Frames cross as `Float64Array`, not bytes.** Routed frames carry
+  fractional channels (a 2x smooth average is a quarter step), and the test
+  holds the worker to the main thread exactly.
+- **A type with no preview passes the gate.** The Board and other hardware
+  sit in every root graph and publish nothing; refusing them refused every
+  project.
+- **The gate allows every type in the colour, composite, field, generative,
+  graph, math, shapes, signal and simulations tables, plus Formula Pattern
+  and the LED output; only SD Video is taken out** (it reads a cache the main
+  thread fills from IndexedDB). The spy test found no other store read, wired
+  or unwired, once `toggleTapPress` asked for a Touch widget before reading
+  the stores.
+- **The worker starts the first time a graph qualifies**, so a project that
+  never qualifies never downloads it. It is kept out of the service worker's
+  precache and cached on first use (`vite.config.ts`): at 2.4 MB minified it
+  is over the precache limit, and offline before first use the preview
+  evaluates on the main thread.
+- **Until the worker's first answer the main thread evaluates**, so the
+  preview never shows the idle sweep on the way in.
+- **A store read in the worker turns the worker off for the session**, with
+  a console warning, rather than per graph. The gate test is what keeps that
+  from happening.
+
+Measured 2026-11-25 with `scripts/perf/profile.mjs --no-profile`, the build
+before this change against the build after:
+
+| Scenario | Before | After |
+| --- | --- | --- |
+| Matrix 64 x 64 at 2x smooth, field-warp | 53.7 fps, 31 dropped, main thread 99% busy (full speed) | 60.0 fps, 0 dropped, main thread 0% busy (at half speed) |
+| Drag node, 64 x 64 at 2x smooth, field-warp | 23 fps, 1155 dropped (half speed); 50.5 fps (full speed) | 57 fps, 6 to 15 dropped, one 267 ms frame (half speed) |
+| Matrix 64 x 64, field-warp | 59.6 fps, 2 dropped | 60.0 fps, 0 dropped |
+| Drag node, warm, field-warp | 59.6 fps, 7 dropped | 59.5 fps, 1 dropped |
+| Matrix 64 x 64, Music Player (main-thread path) | 59.6 fps | 60.0 fps |
+| Pan, 64 x 64, Music Player (main-thread path) | 54.2 fps | 53.5 fps |
+
+"Half speed" is the harness's `pace` near 400 ms (the laptop on battery); a
+before and after at the same speed are the comparison, and the drag row
+before was also measured with the gate forced off in the new build: 22.6 fps
+against HEAD's 23.1, so the main-thread path did not slow down. The drag
+after at full speed was not measured. Not checked: Firefox, Safari, the
+desktop app, and a real 2x smooth graph with groups.
