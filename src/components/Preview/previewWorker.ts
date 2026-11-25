@@ -2,6 +2,7 @@ import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import type { Frame, GroupDef, GroupRegistry } from '../../state/graphEvaluator'
 import { outputRoutes } from '../../state/output/outputRouting'
 import { EVALUATOR_STORES } from './evaluatorStores'
+import { playerPositionMs, usePlayerTransport, type PreviewPlayerCommand } from '../../state/player/playerTransport'
 import type { AudioCapabilityKind } from '../../state/audio/audioCapabilities'
 import { openGroupInputsFor } from '../../state/evaluator/openGroupInputs'
 import { evaluatePreviewPasses, selectPreviewRoute, type PreviewRouteBuffers } from './previewEvaluation'
@@ -18,21 +19,32 @@ import { evaluatePreviewPasses, selectPreviewRoute, type PreviewRouteBuffers } f
  * back with its next request. See docs/plans/evaluator-worker-design.md.
  *
  * Live state goes with each request: the data of the stores an admitted
- * node reads (audio, the hardware-input widgets, MIDI, DMX and DDP) and the
- * test-signal switch. The worker writes them into its own copies of those
- * stores before the pass, so the nodes read them exactly as they do on the
- * main thread. Nothing an admitted node does writes back to a store.
+ * node reads (audio, the hardware-input widgets, MIDI, DMX, DDP, the player
+ * transport), the test-signal switch and the graphs' names. The worker writes
+ * them into its own copies of those stores before the pass, so the nodes read
+ * them exactly as they do on the main thread. The one write an admitted node
+ * makes, a Music Player's or Performance Generator's press on the transport
+ * (`dispatchControls`), is caught in the worker and sent back to be made on
+ * the main thread.
  */
 
 /** The stores the worker is sent each frame; every other store is blocked. */
 export const LIVE_STATE_STORES: ReadonlySet<string> = new Set([
   'useAudioStore', 'useDecoderAudioStore', 'useUiStore',
   'useHardwareInputStore', 'useMidiStore', 'useDmxStore', 'useDdpStore',
+  'usePlayerTransport', 'useGraphStore',
 ])
 
-/** The fields of `useUiStore` an admitted node may read; the rest of that
- *  store is the app's, and large. Every other live store is sent whole. */
-export const LIVE_UI_FIELDS: readonly string[] = ['testSignal']
+/** For a store of which an admitted node reads only a little (the rest is the
+ *  app's, and large), the fields sent. Every other live store is sent whole. */
+export const LIVE_FIELDS: Readonly<Record<string, readonly string[]>> = {
+  useUiStore: ['testSignal'],
+  useGraphStore: ['graphs'],
+}
+
+/** Store actions an admitted node calls, which the worker catches and the
+ *  main thread makes: only the transport's presses. */
+export const CAUGHT_ACTIONS: readonly string[] = ['usePlayerTransport.dispatchControls']
 
 /** Each live store's data, by store name. */
 export type PreviewLiveState = Record<string, Record<string, unknown>>
@@ -86,6 +98,8 @@ export interface PreviewWorkerResponse {
   outputs: [string, Record<string, unknown>][] | null
   /** The ports of Master Speed and the Stereo VU, on every pass. */
   liveOutputs: [string, Record<string, unknown>][]
+  /** Presses this pass made on the player transport, for the main thread. */
+  playerCommands: PreviewPlayerCommand[]
   /** Set when the pass threw. `fatal` when the worker cannot run this graph
    *  (it read a blocked store, or a value would not cross): the main thread
    *  then takes the preview back. */
@@ -161,9 +175,16 @@ export function snapshotLiveState(): PreviewLiveState {
   const live: PreviewLiveState = {}
   for (const [name, store] of LIVE_STORES) {
     const state = store.getState() as Record<string, unknown>
-    live[name] = name === 'useUiStore'
-      ? Object.fromEntries(LIVE_UI_FIELDS.map((field) => [field, state[field]]))
-      : plainData(state)
+    const fields = LIVE_FIELDS[name]
+    live[name] = fields ? Object.fromEntries(fields.map((field) => [field, state[field]])) : plainData(state)
+  }
+  // The local track's position is a clock function on this thread; the
+  // worker gets its reading, and the show transport without its controls.
+  const player = usePlayerTransport.getState()
+  live.usePlayerTransport = {
+    ...live.usePlayerTransport,
+    posMs: playerPositionMs(player),
+    transport: player.transport ? plainData(player.transport) : null,
   }
   return live
 }
@@ -241,7 +262,12 @@ export function createPreviewWorkerHandler(): (request: PreviewWorkerRequest) =>
       groups = Object.fromEntries(groupById)
     }
 
-    const base = { tick: request.tick, fullPass: request.fullPass, sawBeat: false, liveOutputs: [] }
+    const playerCommands: PreviewPlayerCommand[] = []
+    const base = { tick: request.tick, fullPass: request.fullPass, sawBeat: false, liveOutputs: [], playerCommands }
+    // Presses are caught for the main thread rather than made here, where
+    // nothing plays.
+    const dispatch = usePlayerTransport.getState().dispatchControls
+    usePlayerTransport.setState({ dispatchControls: (command) => { playerCommands.push(command) } })
     try {
       applyLiveState(request.live)
       const routes = outputRoutes(nodes)
@@ -284,6 +310,8 @@ export function createPreviewWorkerHandler(): (request: PreviewWorkerRequest) =>
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       return { ...base, terminal: null, routed: [], outputs: null, error: message, fatal: message.startsWith(STORE_READ_ERROR) }
+    } finally {
+      usePlayerTransport.setState({ dispatchControls: dispatch })
     }
   }
 }

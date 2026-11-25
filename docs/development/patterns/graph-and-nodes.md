@@ -155,11 +155,14 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
 
 - **The live preview may evaluate a graph in a worker, where every store is
   empty but the live ones.** Each request carries the data of the audio,
-  hardware-input, MIDI, DMX and DDP stores and the test-signal switch
-  (`snapshotLiveState`, `LIVE_STATE_STORES` in
-  `src/components/Preview/previewWorker.ts`). Touch and display panels stay
-  on the main thread: the display runtime is written by panels and read by
-  the app. `workerEvaluable`
+  hardware-input, MIDI, DMX, DDP and player-transport stores, the
+  test-signal switch and the graphs' names (`snapshotLiveState`,
+  `LIVE_STATE_STORES` and `LIVE_FIELDS` in
+  `src/components/Preview/previewWorker.ts`). A show's presses on the
+  transport are caught in the worker and made on the main thread
+  (`CAUGHT_ACTIONS`); a node that starts writing any other store needs the
+  same. Touch and display panels stay on the main thread: the display
+  runtime is written by panels and read by the app. `workerEvaluable`
   (`workerGate.ts`) admits a graph only when every node, through its groups,
   is a type whose preview reads nothing else; the rest run on the main
   thread. A node handler that starts reading another store or another UI

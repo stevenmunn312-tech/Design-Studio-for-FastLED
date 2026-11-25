@@ -6,7 +6,7 @@ import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { STARTER_TEMPLATES } from '../../../state/patterns/starterTemplates'
 import { useUiStore } from '../../../state/uiStore'
 import { EVALUATOR_STORES } from '../evaluatorStores'
-import { LIVE_STATE_STORES, LIVE_UI_FIELDS } from '../previewWorker'
+import { CAUGHT_ACTIONS, LIVE_FIELDS, LIVE_STATE_STORES } from '../previewWorker'
 import { WORKER_NODE_TYPES, workerEvaluable } from '../workerGate'
 
 function node(id: string, nodeType: string, props: Record<string, unknown> = {}): StudioNode {
@@ -59,7 +59,9 @@ function unsentReadsWhile(run: () => void): string[] {
       return new Proxy(state, {
         get(target, key) {
           const value = target[key as string]
-          const sent = name === 'useUiStore' ? LIVE_UI_FIELDS.includes(String(key)) : typeof value !== 'function'
+          const fields = LIVE_FIELDS[name]
+          const sent = fields ? fields.includes(String(key))
+            : typeof value !== 'function' || CAUGHT_ACTIONS.includes(`${name}.${String(key)}`)
           if (!sent) reads.add(`${name}.${String(key)}`)
           return value
         },
@@ -117,9 +119,10 @@ describe('preview worker gate', () => {
     const reads = unsentReadsWhile(() => {
       void useUiStore.getState().previewStyle
       void useUiStore.getState().testSignal
-      void EVALUATOR_STORES.find(([name]) => name === 'useGraphStore')![1].getState()
+      void (EVALUATOR_STORES.find(([name]) => name === 'useGraphStore')![1].getState() as { nodes: unknown }).nodes
+      void EVALUATOR_STORES.find(([name]) => name === 'useDisplayRuntimeStore')![1].getState()
     })
-    expect(reads.sort()).toEqual(['useGraphStore', 'useUiStore.previewStyle'])
+    expect(reads.sort()).toEqual(['useDisplayRuntimeStore', 'useGraphStore.nodes', 'useUiStore.previewStyle'])
   })
 
   it('admits the Field Transform and microphone starters and refuses a graph with a panel Touch', () => {

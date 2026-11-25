@@ -18,8 +18,8 @@ import { NODE_EVALUATOR_TABLES } from '../../state/graphEvaluator'
  * reading defaults. See docs/plans/evaluator-worker-design.md.
  */
 const WORKER_CATEGORIES = [
-  'audio', 'audioReactive', 'color', 'composite', 'field', 'generative', 'graph', 'input', 'math', 'shapes', 'signal',
-  'simulations',
+  'audio', 'audioReactive', 'color', 'composite', 'field', 'generative', 'graph', 'input', 'math', 'shapes', 'show',
+  'signal', 'simulations',
 ] as const satisfies readonly (keyof typeof NODE_EVALUATOR_TABLES)[]
 
 /** Types in those categories whose preview reads state the worker lacks. */
@@ -79,13 +79,19 @@ function gate(nodes: readonly StudioNode[], groups: GroupRegistry): WorkerGateRe
       // A type with no preview (the Board, power parts, other hardware) is
       // read elsewhere through the root graph and publishes nothing here.
       if (!WORKER_NODE_TYPES.has(type) && EVALUATED_TYPES.has(type)) return null
-      if (type !== 'Group') continue
-      const groupId = String((node.data.properties as { groupId?: unknown } | undefined)?.groupId ?? '')
-      const def = groups[groupId]
-      if (!def || seen.has(groupId)) continue
-      seen.add(groupId)
-      groupIds.push(groupId)
-      pending.push(def.nodes)
+      // A Group renders its group; a Pattern Collection hands a show engine
+      // its patterns, which the engine renders by id.
+      const props = node.data.properties as { groupId?: unknown; patternIds?: unknown } | undefined
+      const reached = type === 'Group' ? [String(props?.groupId ?? '')]
+        : type === 'PatternCollection' && Array.isArray(props?.patternIds) ? props.patternIds.map(String)
+          : []
+      for (const groupId of reached) {
+        const def = groups[groupId]
+        if (!def || seen.has(groupId)) continue
+        seen.add(groupId)
+        groupIds.push(groupId)
+        pending.push(def.nodes)
+      }
     }
   }
   return { groupIds }

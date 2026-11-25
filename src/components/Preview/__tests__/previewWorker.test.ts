@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { StudioEdge, StudioNode } from '../../../state/graphStore'
-import { resetEvaluatorState, type Frame } from '../../../state/graphEvaluator'
+import { resetEvaluatorState, type Frame, type GroupRegistry } from '../../../state/graphEvaluator'
+import { usePlayerTransport, type PreviewPlayerCommand } from '../../../state/player/playerTransport'
 import { NODE_LIBRARY } from '../../../state/nodeLibrary'
 import { outputRoutes } from '../../../state/output/outputRouting'
 import { STARTER_TEMPLATES } from '../../../state/patterns/starterTemplates'
@@ -44,17 +45,22 @@ interface Step {
   fullPass: boolean
   /** Live state for this step, by store name, set before it runs. */
   stores?: Record<string, Record<string, unknown>>
+  groups?: GroupRegistry
 }
 
 const copy = (frame: Frame | null) => frame?.map((row) => row.map((p) => ({ ...p }))) ?? null
 
-/** A port value as it reads once the pass is over and has crossed a thread. */
+/** A port value as it reads once the pass is over and has crossed a thread:
+ *  copied all the way down, since a pooled frame or field (a show's picture
+ *  inside its display envelope too) is reused two passes on. */
 function settled(value: unknown): unknown {
-  if (Array.isArray(value) && Array.isArray(value[0])) return copy(value as Frame)
-  // A pooled field is reused two passes on: keep its values now.
   if (value instanceof Float32Array) return value.slice()
-  // An Audio node publishes its store's state; the worker sends the data.
-  if (value && typeof value === 'object' && Object.values(value).some((entry) => typeof entry === 'function')) return plainData(value)
+  if (Array.isArray(value)) return value.map(settled)
+  if (value && typeof value === 'object') {
+    // An Audio node publishes its store's state; the worker sends the data.
+    const record = Object.values(value).some((entry) => typeof entry === 'function') ? plainData(value) : value
+    return Object.fromEntries(Object.entries(record).map(([key, entry]) => [key, settled(entry)]))
+  }
   return value
 }
 
@@ -72,13 +78,18 @@ function onMainThread(steps: Step[]) {
   quieten()
   const buffers = { selected: null as Frame | null, stream: null as Frame | null }
   const live: PreviewLiveState[] = []
-  const results = steps.map(({ nodes, edges, tick, fullPass, stores }) => {
+  // The transport presses this thread's passes make.
+  const dispatch = usePlayerTransport.getState().dispatchControls
+  let commands: PreviewPlayerCommand[] = []
+  usePlayerTransport.setState({ dispatchControls: (command) => { commands.push(command) } })
+  const results = steps.map(({ nodes, edges, tick, fullPass, stores, groups }) => {
     for (const [name, data] of Object.entries(stores ?? {})) storeNamed(name).setState(data)
     live.push(snapshotLiveState())
+    commands = []
     const routes = outputRoutes(nodes)
     const selected = selectPreviewRoute(routes, '')
     const result = evaluatePreviewPasses({
-      nodes, edges, groups: {}, trusted: true, groupInputs: undefined,
+      nodes, edges, groups: groups ?? {}, trusted: true, groupInputs: undefined,
       tick, elapsedTick: tick, gridW: 16, gridH: 16, fullPass, streamOutputId: undefined,
     }, selected, buffers)
     consumeLiveBeats()
@@ -88,6 +99,7 @@ function onMainThread(steps: Step[]) {
       shown: copy(shown),
       terminal: copy(result.terminalFrame),
       sawBeat: result.sawBeat,
+      playerCommands: commands,
       outputs: fullPass || result.sawBeat
         ? [...result.outputs].map(([id, ports]) => [id, Object.fromEntries(
             Object.entries(ports).map(([port, value]) => [port, settled(value)]),
@@ -95,6 +107,7 @@ function onMainThread(steps: Step[]) {
         : null,
     }
   })
+  usePlayerTransport.setState({ dispatchControls: dispatch })
   quieten()
   return { results, live }
 }
@@ -110,7 +123,8 @@ function inWorker(steps: Step[], live: PreviewLiveState[]) {
   let lastNodes: StudioNode[] | null = null
   let lastEdges: StudioEdge[] | null = null
   let returned: ArrayBuffer[] = []
-  return steps.map(({ nodes, edges, tick, fullPass }, index) => {
+  let sentGroups: GroupRegistry | undefined
+  return steps.map(({ nodes, edges, tick, fullPass, groups }, index) => {
     const request: PreviewWorkerRequest = {
       trusted: true, tick, elapsedTick: tick, gridW: 16, gridH: 16, fullPass,
       selectedRouteId: '', streamOutputId: undefined, returned,
@@ -122,6 +136,10 @@ function inWorker(steps: Step[], live: PreviewLiveState[]) {
       lastNodes = nodes
     }
     if (edges !== lastEdges) { request.edges = edges; lastEdges = edges }
+    if (groups && groups !== sentGroups) {
+      request.groups = { ids: Object.keys(groups), changed: Object.entries(groups) }
+      sentGroups = groups
+    }
     // Through structured clone, as postMessage sends it.
     const response = structuredClone(handle(structuredClone(request)))
     // What the worker's own stores held is not this thread's business.
@@ -134,6 +152,7 @@ function inWorker(steps: Step[], live: PreviewLiveState[]) {
       shown: packed ? unpackFrame(packed, null) : null,
       terminal: response.terminal ? unpackFrame(response.terminal, null) : null,
       sawBeat: response.sawBeat,
+      playerCommands: response.playerCommands,
       outputs: response.outputs ? response.outputs.map(([id, ports]) => [id, unpackPorts(ports)]) : null,
     }
   })
@@ -227,6 +246,48 @@ describe('preview worker', () => {
     expect(ports(4, 'pot')?.value).not.toEqual(ports(0, 'pot')?.value)
     expect(ports(4, 'channel')).not.toEqual(ports(0, 'channel'))
     expect(main[4].shown).not.toEqual(main[0].shown)
+    expect(worker).toEqual(main)
+  })
+
+  it('plays a Music Player show on the track clock, and hands its presses back', () => {
+    const groups: GroupRegistry = {
+      plasma: { nodes: [node('p', 'Plasma'), node('o', 'GroupOutput')], edges: [edge('p', 'frame', 'o', 'frame')] },
+      fire: { nodes: [node('f', 'Fire', { seed: 3 }), node('o', 'GroupOutput')], edges: [edge('f', 'frame', 'o', 'frame')] },
+    }
+    const nodes = [
+      node('collection', 'PatternCollection', { patternIds: ['plasma', 'fire'] }),
+      node('motion', 'MotionInput'),
+      node('controls', 'ControlMap'),
+      node('master', 'PatternMaster', { order: 'Sequential', minTime: 0.5, maxTime: 0.5, transitionSec: 0.4 }),
+      node('out', 'MatrixOutput', { width: 8, height: 6 }),
+    ]
+    const edges = [
+      edge('collection', 'patternset', 'master', 'patternset'),
+      edge('motion', 'motion', 'controls', 'playPause'),
+      edge('controls', 'controls', 'master', 'controls'),
+      edge('master', 'frame', 'out', 'frame'),
+    ]
+    const steps: Step[] = Array.from({ length: 14 }, (_, i) => {
+      // The local track's position comes from a clock function, as the
+      // player's audio element gives it.
+      const posMs = 1000 + i * 120
+      return {
+        nodes, edges, groups, tick: i + 1, fullPass: i % 4 === 3,
+        stores: {
+          usePlayerTransport: {
+            localTrack: { title: 'Ethereal Pulse', durationMs: 180_000 }, playing: true, posMs: 0,
+            localClock: () => posMs,
+          },
+          useHardwareInputStore: { button: new Map([['motion', i === 5 || i === 6]]), pot: new Map(), encoder: new Map() },
+          useGraphStore: { graphs: { plasma: { id: 'plasma', name: 'Plasma' }, fire: { id: 'fire', name: 'Fire' } } },
+        },
+      }
+    })
+    const { main, worker } = bothThreads(steps)
+    usePlayerTransport.setState({ localTrack: null, playing: false, posMs: 0, localClock: null })
+    // The show moved on, and the press reached the transport once.
+    expect(main[13].shown).not.toEqual(main[0].shown)
+    expect(main.flatMap((step) => step.playerCommands).filter((command) => command.playPause)).toHaveLength(1)
     expect(worker).toEqual(main)
   })
 

@@ -178,8 +178,11 @@ With the 60 Hz limit lifted (`--uncapped`), after the fixes:
   graph built only from node types that read no store but the audio ones is
   evaluated in a worker ([evaluator worker design](../../plans/evaluator-worker-design.md)):
   the same case holds 60 fps with the main thread idle, at half speed, and
-  dragging a node over it runs at 57 fps where it ran at 23. A graph with
-  audio, inputs or a show still evaluates on the main thread.
+  dragging a node over it runs at 57 fps where it ran at 23. Audio, inputs
+  and shows followed: only a graph with a Touch node or a display panel
+  still evaluates on the main thread. Panning over the Music Player's
+  64 x 64 matrix with the frame limit lifted went from 71 to 94 frames a
+  second at half processor speed.
 - **Pan with a 64 x 64 matrix on the Music Player starter, cold: 56.9 fps.**
   Warm and uncapped the same pan runs at 76 frames a second, so it holds 60
   once the first-use stall below is behind it, with the least headroom of

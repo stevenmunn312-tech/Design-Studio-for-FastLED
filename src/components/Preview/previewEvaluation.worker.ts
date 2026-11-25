@@ -22,6 +22,8 @@ scope.onmessage = (event: MessageEvent<PreviewWorkerRequest>) => {
     scope.postMessage(response, responseBuffers(response))
   } catch (error) {
     // A port value that cannot be cloned: this graph belongs on the main thread.
-    scope.postMessage({ ...response, terminal: null, routed: [], outputs: null, liveOutputs: [], error: String(error), fatal: true })
+    scope.postMessage({
+      ...response, terminal: null, routed: [], outputs: null, liveOutputs: [], playerCommands: [], error: String(error), fatal: true,
+    })
   }
 }

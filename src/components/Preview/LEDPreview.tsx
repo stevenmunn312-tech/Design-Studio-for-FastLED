@@ -761,6 +761,10 @@ export default function LEDPreview() {
         if (arrived) {
           if (workerFrameRef.current) workerClient!.release(workerFrameRef.current)
           workerFrameRef.current = arrived
+          // A show's presses on the transport, made where the music plays.
+          if (workerGate) {
+            for (const command of arrived.playerCommands) usePlayerTransport.getState().dispatchControls(command)
+          }
         }
         if ((!workerGate || !workerClient) && workerFrameRef.current) {
           workerClient?.release(workerFrameRef.current)

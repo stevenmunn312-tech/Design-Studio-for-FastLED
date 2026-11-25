@@ -3,10 +3,10 @@
 Written 2026-11-25 from the [handoff](evaluator-worker-handoff.md). It answers
 the handoff's seven questions with measurements, and proposes a first step.
 
-**Status, 2026-11-25:** phases 1, 2 and 3 are built (see [Phase 1 as built](#phase-1-as-built),
-[Phase 2 as built](#phase-2-as-built) and [Phase 3 as built](#phase-3-as-built)).
-Phase 3 leaves the Touch node and the display panels on the main thread, on
-purpose. Phase 4 waits on Steve's go-ahead.
+**Status, 2026-11-25:** all four phases are built (see [Phase 1 as built](#phase-1-as-built),
+[Phase 2](#phase-2-as-built), [Phase 3](#phase-3-as-built) and [Phase 4](#phase-4-as-built)).
+The Touch node and the display panels stay on the main thread, on purpose;
+every other graph, the Music Player's included, evaluates in the worker.
 
 ## Recommendation in one paragraph
 
@@ -230,8 +230,10 @@ the fallback is only for browsers without workers.
   catalogues and React Flow reached through `graphStore`. It parses off the
   main thread, but it adds to the download and to the service-worker
   precache, which already reports a file too large. Making the node modules
-  import only graph *types* would cut it; that is phase 4's work anyway,
-  since that phase removes the mid-evaluation store reads.
+  import only graph *types* would cut it. Phase 4 was planned to do that by
+  removing the mid-evaluation store reads; as built it sends the graph's
+  names in the snapshot instead, so the bundle is unchanged (see Phase 4 as
+  built).
 - **Memory.** A second copy of the evaluator's pools and node state, at most
   the size of the live preview's.
 - **Two paths to keep correct** until the gate covers everything. The
@@ -420,3 +422,54 @@ Measured 2026-11-25, full processor speed, `--no-profile --repeat 2`: every
 the microphone starter 59 fps; the CPU profile of the microphone starter
 still shows no evaluator on the main thread and no visible cost for the
 larger snapshot.
+
+## Phase 4 as built
+
+Shows run in the worker: the gate adds the `show` table (Music Player,
+Pattern Slideshow, Performance Generator, Player Controls, Pattern
+Collection, Transition, Song Info and the rest) and follows a Pattern
+Collection's `patternIds` as it follows a Group's `groupId`, so every
+collected pattern is held to the same allow-list.
+
+- **What a show reads goes in the snapshot**, as in phases 2 and 3, rather
+  than being passed in by hand: `usePlayerTransport` whole, and of
+  `useGraphStore` only `graphs`, the names a show publishes for its
+  patterns (`LIVE_FIELDS`). The local track's position is a clock function
+  on the main thread, so the snapshot sends its reading
+  (`playerPositionMs`) and the show transport without its controls. The
+  design above planned to replace these reads with values passed in, which
+  would also have let the worker bundle drop `graphStore`; the snapshot does
+  the same job with no change to the show nodes, and the bundle size is a
+  separate piece of work.
+- **The one write comes back.** A Music Player or Performance Generator
+  presses the transport through `dispatchControls` (play/pause, previous,
+  next, volume). The handler swaps that action for one that collects the
+  presses for the length of the pass (`CAUGHT_ACTIONS`), and returns them
+  as `playerCommands`; the loop makes them on the main thread when it takes
+  the answer. The gate test treats that action as the one store action an
+  admitted node may call.
+- **Nothing on the main thread reads show state out of the evaluator.**
+  `getPatternShowSelection` and `getMusicPlayerControls` are read only by
+  tests; Stage's pattern name comes from the published node outputs.
+- **A press during the hand-over can land twice.** In the few frames
+  between a graph qualifying and the worker's first answer, both threads
+  evaluate; a press read by both is made twice. A graph keeps qualifying
+  through ordinary edits, so this happens only when it starts to qualify.
+
+The parity test adds a Music Player over two collected patterns on a local
+track whose position comes from a clock function, with Player Controls fed
+by a sensor press: frames through its transitions, every node's outputs
+(the show's display envelope and its picture included) and the transport
+presses match, the press made once.
+
+Measured 2026-11-25 against the phase 3 build. Capped at 60, every Music
+Player scenario (idle, 64 x 64, 2x smooth, the five preview styles, 3D,
+Stage, pan, drag) read the same on both, 59 to 60 fps: the Music Player's
+evaluation already fitted the frame. With the limit lifted, panning over its
+64 x 64 matrix, the two builds interleaved at the same machine speed (half,
+pace 390): **93 to 95 frames a second against 71**. The CPU profile of the
+2x smooth scenario shows no evaluator on the main thread.
+
+Not checked: listening. The Music Player's track position and its presses
+now reach the lights a step later, as the audio did in phase 2; Steve's ear
+on the Music Player with a real song is the check before this ships.
