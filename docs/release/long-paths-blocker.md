@@ -1,9 +1,12 @@
 # Handoff: Windows long-paths release blocker
 
-Written 2026-11-23. **Status, 2026-11-26:** fixed in 1.0.2 (fbuild 2.5.55
-and the esptool copy, below); the release waits only for the smoke test on
-the 1.0.2 package ([todo](../../todo.md)). Read this before touching the
-release, the Store submission or the fbuild pin.
+Written 2026-11-23. **Status, 2026-11-26:** fixed for ESP32 boards in 1.0.2
+(fbuild 2.5.55 and the esptool copy, below). RP2040, Teensy and STM32 boards
+still cannot build with long paths off
+([per-family compile](#other-board-families-on-fbuild-2555-2026-11-26)), and
+what 1.0.2 does about them is undecided. The release also waits for the smoke
+test on the 1.0.2 package ([todo](../../todo.md)). Read this before touching
+the release, the Store submission or the fbuild pin.
 
 ## The problem in one paragraph
 
@@ -208,6 +211,67 @@ Not covered by that pass:
 - The package that ships: this was a local build from `main`, not the
   release package, and `main` carries far more than v1.0.1.
 - ESP32 boards other than the S3, and the portable ZIP.
+
+### Other board families on fbuild 2.5.55 (2026-11-26)
+
+The 2.5.55 fix shortens the ESP32 packages only. One sketch per board family
+was compiled to see what else a default Windows PC can build.
+
+Conditions: Steve's PC and account, `LongPathsEnabled = 0`, `main` at
+`964dca3d`, fbuild 2.5.55 from `backend/.venv` run by
+`scripts/compile-fixtures/compile-matrix.py --engine fbuild`, one build at a
+time, no `FBUILD_CACHE_DIR`. fbuild used the fallback cache
+`C:\fbuild-cache\8cffdc466966\p\c` (33 characters). Each build installed its
+own packages except the ESP32-S3's, which were already there. Logs are in
+`artifacts/compile-matrix/2026-11-26_0341`, `_0354` and `_0359`.
+
+| Board (fbuild environment) | Fixture | Result |
+| --- | --- | --- |
+| Arduino Uno (`uno`) | `power-switch/gated-avr@avr` | Pass, 8,253 B flash |
+| Nano Every (`nona4809`) | `ir/normal@megaavr` | Pass, 10,701 B |
+| Feather M0 (`adafruit_feather_m0`) | `ir/normal@samd` | Pass, 37,847 B |
+| nRF52840 DK (`pca10056`) | `boards/pattern@nrf52840-dk` | Pass, 73,912 B |
+| UNO R4 WiFi (`unor4wifi`) | `ir/normal@renesas` | Pass, 43,438 B |
+| ESP8266 D1 (`d1`) | `boards/pattern@d1` | Pass, 306,422 B |
+| Classic ESP32 (`esp32`) | `power-switch/gated@esp32` | Pass on the second run, 330,721 B |
+| ESP32-S2 (`lolin_s2_mini`) | `boards/pattern@lolin-s2-mini` | Pass, 365,548 B |
+| ESP32-C3 (`lolin_c3_mini`) | `boards/pattern@lolin-c3-mini` | Pass, 389,980 B |
+| ESP32-C6 (`XIAO_ESP32C6`) | `boards/pattern@xiao-c6` | Pass, 383,549 B |
+| ESP32-H2 (`esp32h2`) | `led-drivers/h2-rmt@esp32h2` | Pass, 401,951 B |
+| Pico W (`rpipicow`) | `boards/pattern@pico-w` | **Fail** at package install |
+| Teensy 4.1 (`teensy41`) | `power-switch/mixed-teensy@teensy` | **Fail** at package install |
+| Black Pill F411 (`blackpill_f411ce`) | `ir/normal@stm32` | **Fail** at package install |
+
+The three failures are the fallback's own length check, the one that stopped
+the ESP32 packages on 2.5.52:
+
+```
+build error: package error: Windows short-path fallback cannot safely use extracted path C:\fbuild-cache\8cffdc466966\p\c\platforms\earlephilhower-arduino-pico\3390eb851c5aa882\4.5.3_staging\rp2040-4.5.3\libraries\FreeRTOS\lib\FreeRTOS-Kernel\portable\GCC\RISC-V\chip_specific_extensions\Pulpino_Vega_RV32M1RM\freertos_risc_v_chip_specific_extensions.h. Run fbuild --fix-win or use a shorter package location.
+```
+
+| Package | Path fbuild named | Below the cache root |
+| --- | --- | --- |
+| `earlephilhower-arduino-pico` 4.5.3 | 263 | 230 |
+| `dl-framework-arduinoteensy` 1.160.0 (a `FlexCAN_T4` example) | 262 | 229 |
+| `stm32duino-Arduino_Core_STM32` 2.9.0 (an `STM32MP1xx` variant folder) | 252 | 219 |
+
+fbuild names the first path its walk refuses, not the longest, so these are
+lower bounds, against a limit of 247. A shorter `FBUILD_CACHE_DIR` was not
+tried: the named paths would need a root of 17 to 28 characters, and longer
+paths may sit in the same packages. The app has no fallback for this, and
+`fbuild --fix-win` needs an administrator.
+
+The classic ESP32 failed once before it passed:
+`error sending request for url (https://fbuild.sfo3.digitaloceanspaces.com/v1/espressif/esp32-arduino-libs/release/3.3.12/esp32/esp32-arduino-libs-3.3.12-esp32.tar.zst)`.
+The address answered when checked a few minutes later and the next run
+installed it. With the fault in the retest above, that is two failed first
+downloads in one day.
+
+Not covered: the packaged app (these ran from a shell), a standard account or
+one that never ran fbuild, upload, any second board of a family, the SAMD51,
+whether arduino-cli installs the three failing families with long paths off,
+and whether 2.5.55 builds them with long paths on (2.5.52 did, in the freeze
+matrix). Nothing here has been reported upstream.
 
 ## Options
 

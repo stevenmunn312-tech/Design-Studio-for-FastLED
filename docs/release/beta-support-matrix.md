@@ -15,10 +15,13 @@ FastLED 3.10.9.
 
 **v1.0.2 engine:** 1.0.2 ships fbuild 2.5.55 (moved 2026-11-26 for builds
 with Windows long paths off). The freeze matrix above ran on 2.5.52 and has
-not been rerun; on 2.5.55 only the ESP32-S3 has built and uploaded, from the
-packaged app with long paths off
-([long-paths blocker](long-paths-blocker.md)). Other families' 2.5.55 builds
-are unverified until the matrix runs again.
+not been rerun. On 2.5.55 with long paths off, one sketch per board family
+was compiled from a shell on 2026-11-26
+([record](long-paths-blocker.md#other-board-families-on-fbuild-2555-2026-11-26)):
+the ESP32, S2, C3, C6 and H2, the ESP8266, Uno, Nano Every, Feather M0,
+nRF52840 DK and UNO R4 WiFi built; the Pico W, Teensy 4.1 and Black Pill did
+not ([known limitations](#known-limitations-in-v100)). Only the ESP32-S3 has
+built and uploaded from the packaged app.
 
 ## Status levels
 
@@ -1203,6 +1206,17 @@ Recorded on 2026-11-21 against fbuild 2.5.52 and arduino-cli 1.5.1, the pins
 the code-freeze compile matrix passed on. Work deferred past v1 is in the
 [post-v1 list](../plans/post-v1.md).
 
+- **RP2040, Teensy and STM32 boards with Windows long paths off.** Long-path
+  support is off on a default Windows PC. There fbuild 2.5.55 cannot install
+  the arduino-pico, Teensy or STM32 board package, so a build stops with
+  "Windows short-path fallback cannot safely use extracted path". Seen on
+  2026-11-26 for the Pico W, Teensy 4.1 and Black Pill F411
+  ([record](long-paths-blocker.md#other-board-families-on-fbuild-2555-2026-11-26)).
+  The app does not switch engine for them. fbuild's message suggests
+  `fbuild --fix-win`, which needs an administrator and changes a machine-wide
+  setting. Choosing arduino-cli in Board & Port is untested under these
+  conditions. ESP32, ESP8266, AVR, megaAVR, SAMD21, nRF52840 DK and UNO R4
+  WiFi sketches built under the same conditions.
 - **Boards fbuild cannot build.** These build with arduino-cli even when fbuild
   is the engine, and the build log says so:
   - UNO R4 Minima: a FastLED sketch compiles the core's `WiFiS3` library

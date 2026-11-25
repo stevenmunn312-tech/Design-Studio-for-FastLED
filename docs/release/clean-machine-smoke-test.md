@@ -86,6 +86,10 @@ Note the time and outcome of each step.
    - Pass: progress is shown throughout, the upload completes, and the LEDs
      run Juggle.
    - Record the total time and any message that confused you.
+   - A first download can fail part-way (seen twice on 2026-11-26,
+     [long-paths blocker](long-paths-blocker.md#other-board-families-on-fbuild-2555-2026-11-26)).
+     If it does, record the message the app shows and whether pressing
+     **Upload** again carries on.
 7. **Save.** Ctrl+S. Check that
    `Documents\Design Studio for FastLED\Projects` now holds the project file.
 8. **Second launch.** With the app open, run the .exe again: the existing
