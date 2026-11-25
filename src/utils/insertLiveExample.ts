@@ -36,6 +36,9 @@ export interface LiveExampleSpec {
   /** Analyse the bundled demo track into the example's Music Library when it
    *  opens as a project, so its Performance Generator has a show to play. */
   demoTrack?: boolean
+  /** The board profile the example is built for; it opens on that board
+   *  unless the project's board is already of the same target family. */
+  boardProfile?: string
 }
 
 export interface LiveExampleResult {

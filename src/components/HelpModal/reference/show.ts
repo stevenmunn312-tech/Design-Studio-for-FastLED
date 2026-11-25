@@ -1,3 +1,4 @@
+import { MUSIC_PLAYER_BOARD_PROFILE_ID } from '../../../build/hardware'
 import { FIRST_BUTTON_HANDLE } from '../../../state/player/buttonBank'
 import { example, MATRIX } from './example'
 import type { NodeReferenceMap } from './types'
@@ -167,6 +168,7 @@ export const SHOW_REFERENCE: NodeReferenceMap = {
         amp: ['Amplifier'],
       },
       showPatterns: true,
+      boardProfile: MUSIC_PLAYER_BOARD_PROFILE_ID,
       wires: [
         'patterns.patternset > target.patternset',
         'mic.audio > target.audio',

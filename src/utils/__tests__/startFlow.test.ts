@@ -20,6 +20,9 @@ import { useGraphStore, type StudioNode } from '../../state/graphStore'
 import { useProjectStore } from '../../state/projectStore'
 import { useUiStore } from '../../state/uiStore'
 import { blankWorkspace, type PersistedWorkspace } from '../../state/workspacePersistence'
+import { useUploadStore } from '../../state/upload/uploadStore'
+import { DEFAULT_BOARD_PROFILE_ID, MUSIC_PLAYER_BOARD_PROFILE_ID } from '../../build/hardware'
+import { validateGraph } from '../validateGraph'
 
 const defaultDecision = useUiStore.getState().requestNewProjectDecision
 const defaultConfirm = useUiStore.getState().requestConfirm
@@ -99,6 +102,42 @@ describe('startFlow', () => {
     expect(useUiStore.getState().previewPanelOpen).toBe(false)
     startTemplateById('juggle')
     expect(useUiStore.getState().previewPanelOpen).toBe(true)
+  })
+
+  /*
+   * The Music Player's full collection does not fit a classic ESP32's internal
+   * RAM, so on the default board the starter opened on a blocked upload. It
+   * opens on the ESP32-S3 it is built for; an S3 someone chose stays.
+   */
+  describe('the Music Player starter\'s board', () => {
+    const boardProfile = () =>
+      useGraphStore.getState().nodes.find((node) => node.data.nodeType === 'Board')?.data.properties.profileId
+    const chooseBoard = (profileId: string) => {
+      const board = useGraphStore.getState().nodes.find((node) => node.data.nodeType === 'Board')!
+      useGraphStore.getState().selectBoardProfile(board.id, profileId)
+    }
+
+    it('opens on the ESP32-S3 N16R8, with pins that board has, from the default board', () => {
+      expect(boardProfile()).toBe(DEFAULT_BOARD_PROFILE_ID)
+      startTemplateById('generative-show')
+
+      expect(boardProfile()).toBe(MUSIC_PLAYER_BOARD_PROFILE_ID)
+      expect(useUploadStore.getState().selectedFqbn).toBe('esp32:esp32:esp32s3')
+      const { nodes, edges } = useGraphStore.getState()
+      const { errors } = validateGraph(nodes, edges, 'esp32:esp32:esp32s3')
+      expect(errors.filter((error) => /pin|gpio|RAM/i.test(error))).toEqual([])
+    })
+
+    it('keeps an ESP32-S3 board that was already chosen', () => {
+      chooseBoard('espressif-esp32-s3-devkitc-1')
+      startTemplateById('generative-show')
+      expect(boardProfile()).toBe('espressif-esp32-s3-devkitc-1')
+    })
+
+    it('leaves the board alone for a starter that names none', () => {
+      startTemplateById('juggle')
+      expect(boardProfile()).toBe(DEFAULT_BOARD_PROFILE_ID)
+    })
   })
 
   /*
@@ -475,6 +514,8 @@ describe('opening a start choice as its own project', () => {
       const pin = (type: string, key: string) =>
         useGraphStore.getState().nodes.find((node) => node.data.nodeType === type)?.data.properties[key]
       expect(pin('MatrixOutput', 'dataPin')).not.toBe(pin('SDCard', 'sdCsPin'))
+      // On the board the Music Player is built for, not the default one.
+      expect(pin('Board', 'profileId')).toBe(MUSIC_PLAYER_BOARD_PROFILE_ID)
       // Not a Start Gallery pick, so "Last start" still names the starter.
       expect(useUiStore.getState().lastStartChoice).toBe('juggle')
       expect(useGraphStore.temporal.getState().pastStates).toEqual([])

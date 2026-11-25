@@ -1,7 +1,7 @@
 import { NODE_LIBRARY, PROPERTY_META, portColor } from '../nodeLibrary'
 import { resolveDefaultProperties } from '../nodeDefaults'
 import { LED_OUTPUT_FORM_LABELS, outputForm } from '../output/ledOutputForm'
-import { isHardwareOnlyNodeType } from '../../build/hardware'
+import { MUSIC_PLAYER_BOARD_PROFILE_ID, isHardwareOnlyNodeType } from '../../build/hardware'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { retargetHardwarePins } from '../../build/pins/pinRetarget'
 import { audioCapabilityIntent } from '../audio/audioCapabilities'
@@ -40,6 +40,10 @@ export interface StarterTemplate {
   /** Add the bundled demo track to the starter's Music Library on load and
    *  analyse it, so its Performance Generator opens with a show to play. */
   demoTrack?: boolean
+  /** The board profile this starter is built for. It opens on that board
+   *  unless the open project's board is already of the same target family;
+   *  any other board would open the starter on a list of blocked checks. */
+  boardProfile?: string
   preview: {
     nodes: Array<{ id: string; label: string; category: string; col: number; row: number }>
     edges: Array<{ source: string; sourceHandle: string; target: string; targetHandle: string; color: string }>
@@ -123,7 +127,7 @@ function tutorialNote(
 }
 
 function template(
-  options: Pick<StarterTemplate, 'id' | 'name' | 'description' | 'completionSteps' | 'recommended' | 'activateMicrophone' | 'showPatterns' | 'playerPatterns' | 'slideshowPatterns' | 'demoTrack'> & {
+  options: Pick<StarterTemplate, 'id' | 'name' | 'description' | 'completionSteps' | 'recommended' | 'activateMicrophone' | 'showPatterns' | 'playerPatterns' | 'slideshowPatterns' | 'demoTrack' | 'boardProfile'> & {
     nodeSpecs: NodeSpec[]
     edgeSpecs: EdgeSpec[]
     level: StarterLevel
@@ -141,6 +145,7 @@ function template(
     ...(options.playerPatterns ? { playerPatterns: true } : {}),
     ...(options.slideshowPatterns ? { slideshowPatterns: true } : {}),
     ...(options.demoTrack ? { demoTrack: true } : {}),
+    ...(options.boardProfile ? { boardProfile: options.boardProfile } : {}),
     guide: {
       level: options.level,
       preview: options.preview,
@@ -460,6 +465,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     // answering the music the moment it opens. The collection is the user's
     // to trim for a smaller board, grow or replace.
     playerPatterns: true,
+    boardProfile: MUSIC_PLAYER_BOARD_PROFILE_ID,
     completionSteps: [
       'Specify your board, audio source, and music player hardware on the Hardware tab.',
       'Play the demo track under the preview and watch the collected patterns answer it.',

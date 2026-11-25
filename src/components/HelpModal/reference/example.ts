@@ -176,6 +176,9 @@ export interface ExampleSpec {
   showPatterns?: boolean
   /** Analyse the bundled demo track into the example's Music Library on open. */
   demoTrack?: boolean
+  /** Open the example on this board profile unless the project's board is
+   *  already of the same target family. */
+  boardProfile?: string
 }
 
 function parseEnd(end: string): { key: string; handle: string } {
@@ -243,6 +246,7 @@ export function example(spec: ExampleSpec): ReferenceLiveExample {
     path: graphPath(tidied),
     ...(spec.showPatterns ? { showPatterns: true } : {}),
     ...(spec.demoTrack ? { demoTrack: true } : {}),
+    ...(spec.boardProfile ? { boardProfile: spec.boardProfile } : {}),
   }
 }
 

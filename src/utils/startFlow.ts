@@ -9,7 +9,8 @@ import { waitForMusicLibraryRestore } from '../state/player/musicLibraryPersiste
 import { DEMO_TRACK_FILE, fetchDemoTrack } from '../state/player/demoTrack'
 import { performanceOptionsFromProperties } from '../codegen/performanceGenerator'
 import { useUiStore, BLANK_BENCH_SHELF_CATEGORY } from '../state/uiStore'
-import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
+import { boardProfileById, selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
+import { MUSIC_PLAYER_BOARD_PROFILE_ID, ROOT_BOARD_NODE_ID } from '../build/hardware'
 import { micSupportedForBoardProfile } from '../build/pins/micPinDefaults'
 import { retargetHardwarePins } from '../build/pins/pinRetarget'
 import { useUploadStore } from '../state/upload/uploadStore'
@@ -167,8 +168,26 @@ async function scanDemoTrack(wanted: boolean | undefined, generation: number) {
   music.addDemoTrack(track, performanceOptionsFromProperties(generator?.data.properties ?? {}))
 }
 
+/**
+ * Put the project on the board a starter or example is built for, as picking
+ * it on the Board would. A board of the same target family is someone's own
+ * choice of a board that can run it, and stays.
+ */
+function selectStartBoard(profileId: string | undefined) {
+  const wanted = profileId ? boardProfileById(profileId) : undefined
+  if (!wanted) return
+  const nodes = rootGraphNodes(useGraphStore.getState())
+  const open = selectedPhysicalBoardProfile(nodes)
+  if (open?.targetFamilies.some((family) => wanted.targetFamilies.includes(family))) return
+  const board = nodes.find((node) => node.data.nodeType === 'Board')
+  useGraphStore.getState().selectBoardProfile(board?.id ?? ROOT_BOARD_NODE_ID, wanted.id)
+  const fqbn = wanted.compatibleFqbns[0]
+  if (fqbn) useUploadStore.getState().setSelectedFqbn(fqbn)
+}
+
 export function startTemplate(template: StarterTemplate, options?: StartFlowOptions) {
   const generation = ++startFlowGeneration
+  selectStartBoard(template.boardProfile)
   const graph = useGraphStore.getState()
   const { nodes, edges } = buildBoardAwareStarter(
     template,
@@ -322,6 +341,7 @@ export async function openExampleProject(example: LiveExampleSpec, projectName: 
   graph.loadGraph([], [])
   const result = insertLiveExample(example, { x: 0, y: 0 })
   seedCollection(example.showPatterns ? starterShowPatterns : undefined)
+  selectStartBoard(example.boardProfile)
   // As a starter is: every part, the LED output included, takes the board's
   // pins. Through the store action the wired LED output would count as a
   // fixture and keep its library default, which an SD Card's chip select then
@@ -360,7 +380,7 @@ export function startBlankCanvas(options?: StartFlowOptions) {
 }
 
 /** The board and matrix the first-launch showcase plays its show on. */
-export const SHOWCASE_BOARD_PROFILE = 'generic-esp32-s3-n16r8-44pin-dual-usbc'
+export const SHOWCASE_BOARD_PROFILE = MUSIC_PLAYER_BOARD_PROFILE_ID
 export const SHOWCASE_MATRIX_SIZE = 32
 /** How long the show waits for the demo track before giving up. */
 const SHOWCASE_TRACK_WAIT_MS = 15_000
