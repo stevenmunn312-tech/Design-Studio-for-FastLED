@@ -35,8 +35,12 @@ the [long-paths blocker](docs/release/long-paths-blocker.md) handoff.
   fallback is to have the app use arduino-cli for ESP32 boards when long paths
   are off.
 
-- [ ] A fixed fbuild is released: move the pin, rerun the minimal project in
-  `tmp/fbuild-longpath-repro`, then the smoke test under Publish below.
+- [x] A fixed fbuild is released: move the pin and rerun the minimal project in
+  `tmp/fbuild-longpath-repro`. fbuild 2.5.55 (FastLED/fbuild#2175) pinned on
+  2026-11-26; the repro passed with long paths off
+  ([retest](docs/release/long-paths-blocker.md#retest-on-fbuild-2555)).
+- [ ] Then the Store smoke test under Publish below, on a package built with
+  2.5.55. Until it passes, the halt stands.
 
 State: the Store holds only the certified, unpublished 1.0.0 dry run (leave
 it alone); tags `v1.0.0` and `v1.0.1` exist with private draft releases. The
@@ -49,7 +53,7 @@ invited tester.
 Gamma 2.2 default, the gamma floor, the loudness retune, the volume fix, the
 shelf fix). The preview page still serves 1.0.1.
 
-- [ ] Bench-check Gamma 2.2 on a real matrix against the preview: colours and
+- [x] Bench-check Gamma 2.2 on a real matrix against the preview: colours and
   contrast match, a fade reaches off without stepping badly, Gamma 1 looks
   washed out on both. Steve, 2026-11-24.
 - [ ] Once that passes, run the Desktop Packages workflow on GitHub for all

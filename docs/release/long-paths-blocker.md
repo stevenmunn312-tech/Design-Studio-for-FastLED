@@ -131,6 +131,31 @@ Steve chose to wait for the fbuild fix (FastLED/fbuild#2156) before changing
 the app. No automatic switch to arduino-cli is being built for now. When a
 fixed fbuild is released, move the pin and run the retest below.
 
+## Retest on fbuild 2.5.55
+
+fbuild 2.5.55 (released 2026-11-25) carries FastLED/fbuild#2175, which closed
+#2156: in fallback mode the ESP32 framework and toolchain install under short
+hashed folders, and the scratch paths are shorter. The pin moved to 2.5.55 on
+2026-11-26.
+
+Run on 2026-11-26, Steve's PC with `LongPathsEnabled = 0`, Steve's own
+account, fbuild 2.5.55 from a clean virtual environment (not the app),
+`fbuild build tmp/fbuild-longpath-repro -e esp32s3`, no `FBUILD_CACHE_DIR`:
+
+- fbuild chose the fallback cache `C:\fbuild-cache\8cffdc466966\p\c`.
+- The first attempt stopped at 90% of the `esp32-core-3.3.12.tar.xz` download
+  with `error decoding response body`, a network fault. The second attempt
+  installed the toolchain and framework (esp32-arduino 3.3.12, ESP-IDF 5.5.5)
+  and built `firmware.bin` in 74 s.
+- Longest installed package path: 256 characters, under the 260 limit (an
+  `esp_matter` header). fbuild's own compile cache below the same root holds
+  272-character paths and worked.
+
+Not covered: the app (the Store package or portable ZIP built with 2.5.55), a
+standard account with a long username, any ESP32 board other than the S3 (the
+RISC-V toolchain for C3, C6 and H2 was not installed), and upload. Those are
+the clean-machine smoke test under Publish in `todo.md`.
+
 ## Options
 
 1. **Ask fbuild upstream for a fix.** Zach has fixed reports within hours
@@ -168,7 +193,8 @@ an ESP32-S3.
   unpublished 1.0.0 dry run; leave it alone.
 - Tags `v1.0.0` and `v1.0.1` exist on GitHub with private draft releases.
 - `LongPathsEnabled` on Steve's PC: `0` through the tests of 2026-11-23, set
-  back to `1` by Steve that evening for bench work. To reproduce the blocker
+  back to `1` by Steve that evening for bench work, and `0` again on
+  2026-11-26 for the 2.5.55 retest. To reproduce the blocker
   again, set it to `0` in an administrator PowerShell
   (`Set-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem LongPathsEnabled 0`)
   and use the `storetest-longname` account.

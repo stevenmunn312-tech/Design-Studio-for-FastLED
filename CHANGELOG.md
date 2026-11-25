@@ -77,6 +77,10 @@ share link, migrating it where a shape has changed.
 
 ### Fixed
 
+- ESP32 boards build on Windows with long-path support off, the Windows
+  default. fbuild, the default build engine, moves from 2.5.52 to 2.5.55, which
+  installs the ESP32 toolchain and framework under short paths there; 2.5.52
+  refused them, so a new user could not build any ESP32 sketch.
 - The macOS and Linux desktop packages start again straight after closing.
   For about a minute after the Studio closed, a new launch reported that
   port 8008 was in use.

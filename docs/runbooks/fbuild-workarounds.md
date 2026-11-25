@@ -12,8 +12,12 @@ an internal record.
   [#1671](https://github.com/FastLED/fbuild/issues/1671),
   [#1672](https://github.com/FastLED/fbuild/issues/1672) and
   [#1673](https://github.com/FastLED/fbuild/issues/1673).
-- **Current repository pin:** 2.5.52 (`backend/requirements.txt` and
-  `backend/constraints.txt`), moved from 2.5.51 on 2026-11-19. It is tag
+- **Current repository pin:** 2.5.55 (`backend/requirements.txt` and
+  `backend/constraints.txt`), moved from 2.5.52 on 2026-11-26 for the
+  Windows long-paths fix ([#2156](https://github.com/FastLED/fbuild/issues/2156),
+  by #2175; see `docs/release/long-paths-blocker.md`). Only the ESP32-S3
+  repro was built on 2.5.55; the freeze matrix and probes below are from
+  2.5.52. 2.5.52 was moved from 2.5.51 on 2026-11-19. It is tag
   `v2.5.52` at `48f10475` and carries every upstream fix for #2012 to #2020
   and #1995; the [probes](#probes) retired §15, §16, §17 and the Pico W
   exclusion. The UNO R4 Minima builds a blink but not FastLED (§18).
