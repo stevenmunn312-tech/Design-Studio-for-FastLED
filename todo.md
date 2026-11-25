@@ -1,7 +1,7 @@
-# Shipping v1.0.1
+# Shipping v1.0.2
 
-v1.0.0 and v1.0.1 were tagged on 2026-11-22. Only the steps that ship v1.0.1
-are here; tick a step when its outcome is recorded where it belongs, and empty
+v1.0.0 and v1.0.1 were tagged on 2026-11-22 and never published; v1.0.2
+(2026-11-26) replaces them. Only the steps that ship v1.0.2 are here; tick a step when its outcome is recorded where it belongs, and empty
 this file when they are done.
 
 - **Bench and community testing** is in the
@@ -47,17 +47,16 @@ the [long-paths blocker](docs/release/long-paths-blocker.md) handoff.
   `storetest-longname` with long paths off: build and upload to the ESP32-S3
   passed, 2026-11-26. It did not cover a first download or the package that
   ships ([what it covered](docs/release/long-paths-blocker.md#the-packaged-app-could-not-run-esptool-found-and-fixed-2026-11-26)).
-- [ ] Decide what ships: the `v1.0.1` tag has neither fix, and `main` carries
-  much more. Moving the tag needs Steve's approval; a new version is the
-  alternative.
-- [ ] Build that package, then the Store smoke test under Publish below on it,
-  on an account that has never run fbuild, through first download and upload.
+- [x] Decide what ships: a new version, 1.0.2, from `main` (Steve,
+  2026-11-26). The `v1.0.1` tag stays as it is.
+- [ ] The Store smoke test under Publish below, on the 1.0.2 package, on an
+  account that has never run fbuild, through first download and upload.
   Until it passes, the halt stands.
 
 State: the Store holds only the certified, unpublished 1.0.0 dry run (leave
-it alone); tags `v1.0.0` and `v1.0.1` exist with private draft releases. The
-1.0.1 builds are also on an unlisted preview page on the website for one
-invited tester.
+it alone); tags `v1.0.0` and `v1.0.1` exist with private draft releases, both
+superseded by `v1.0.2`. The 1.0.1 builds are also on an unlisted preview page
+on the website for one invited tester.
 
 ## Fresh preview for the invited tester
 
@@ -77,20 +76,24 @@ shelf fix). The preview page still serves 1.0.1.
 
 ## Publish
 
-v1.0.1 is the release: the same app as v1.0.0 plus the short build folder a
-Store install needs. The v1.0.0 draft release and its MSIX are superseded.
+v1.0.2 is the release: `main` on 2026-11-26, with fbuild 2.5.55 and the
+esptool fix that let a Store install build ESP32 boards with long paths off.
+The v1.0.0 and v1.0.1 draft releases and their MSIX files are superseded.
 
-- [ ] Test the v1.0.1 Store package the way a real user meets it: Windows
-  long paths **off**, a new account with a long username, first build and
-  upload ([clean-machine smoke test](docs/release/clean-machine-smoke-test.md)).
-- [x] Run WACK on the v1.0.1 MSIX. PASS on 2026-11-22: 23 tests, only the
-  optional Blocked executables failing; SHA-256 `b37c5187…cbc7bc1`, from run
-  45024212167.
+- [ ] Build the v1.0.2 packages with the Desktop Packages workflow on GitHub
+  (needs Steve's go-ahead for this run). The same run can refresh the
+  preview page above.
+- [ ] Test the v1.0.2 Store package the way a real user meets it: Windows
+  long paths **off**, a new account with a long username that has never run
+  fbuild, first build and upload
+  ([clean-machine smoke test](docs/release/clean-machine-smoke-test.md)).
+- [ ] Run WACK on the v1.0.2 MSIX (the v1.0.1 pass, 2026-11-22, does not
+  carry over).
 - [ ] Microsoft Store: cancel the certified dry-run submission, swap in the
-  1.0.1.0 package, resubmit, and **Publish now** once certified
+  1.0.2.0 package, resubmit, and **Publish now** once certified
   ([Microsoft Store](docs/release/microsoft-store.md#submit)).
-- [ ] Review the v1.0.1 draft GitHub release and publish it; delete the
-  v1.0.0 draft.
+- [ ] Review the v1.0.2 draft GitHub release and publish it; delete the
+  v1.0.0 and v1.0.1 drafts.
 
 ## macOS and Linux
 

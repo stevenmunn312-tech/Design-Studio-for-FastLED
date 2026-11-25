@@ -9,6 +9,12 @@ share link, migrating it where a shape has changed.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-11-26
+
+ESP32 boards build and upload on Windows with long-path support off, the
+Windows default, including from the Microsoft Store install. 1.0.1 could not
+build any ESP32 sketch there.
+
 ### Added
 
 - A first visit opens on a light show instead of the workspace: Opaline Sunset
