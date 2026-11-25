@@ -25,7 +25,7 @@ import { NewerSaveFormatError } from './state/saveFormat'
 import { clearLibraryHash, importLibraryBundle, libraryImportStatus, readLibraryHash } from './state/library/libraryBundle'
 import { workspaceLoadStatus } from './utils/workspacePayload'
 import { pushSnapshot } from './state/snapshotHistory'
-import { blankWorkspace, captureWorkspace } from './state/workspacePersistence'
+import { blankWorkspace, captureWorkspace, hasAuthoredWorkspaceContent } from './state/workspacePersistence'
 import { nextDefaultProjectName } from './utils/projectFileIO'
 import { landOnStartingWorkspace, openEmbedStarter, openShowcaseShow, settleShowcaseProject } from './utils/startFlow'
 import { EMBED_REQUEST } from './utils/embedMode'
@@ -235,12 +235,17 @@ export default function App() {
       // Parts installed from the online library in an earlier session, re-verified
       // before any project loads so a save finds them already registered.
       await getPartsLibrary().restoreInstalled()
-      // An embedded demo opens on its starter and nothing else: no saved
-      // project to read (its storage is memory), no helper, no showcase.
+      // An embedded demo has no saved project to read (its storage is memory)
+      // and no helper. A link that names a starter opens on it. One that names
+      // none is greeted by the showcase, as a first visit is, with nothing
+      // opened underneath: Play would ask to save a starter already there.
+      // The showcase's Skip opens the default starter.
       if (EMBED_REQUEST !== null) {
         // Opening the starter twice would ask to save the first copy.
         if (cancelled) return
-        await openEmbedStarter(EMBED_REQUEST)
+        if (EMBED_REQUEST === '') useUiStore.getState().openShowcase()
+        else await openEmbedStarter(EMBED_REQUEST)
+        setFirstVisitUndecided(false)
         await waitForMusicLibraryRestore()
         if (cancelled) return
         workspaceHydrated.current = true
@@ -915,7 +920,14 @@ export default function App() {
             onPlay={openShowcaseShow}
             onSkip={() => {
               useUiStore.getState().closeShowcase()
-              useUiStore.getState().openTemplates()
+              if (EMBED_REQUEST === null) {
+                useUiStore.getState().openTemplates()
+              } else if (!hasAuthoredWorkspaceContent(useGraphStore.getState())) {
+                // An embedded demo has no Start Gallery in the way: Skip leads
+                // to its starter, unless File > Watch the Intro opened this
+                // over work already there.
+                void openEmbedStarter(EMBED_REQUEST)
+              }
             }}
             onOpenStudio={() => {
               useUiStore.getState().closeShowcase()

@@ -26,10 +26,11 @@ spell waits about a minute on the host's loading page. To frame it:
 
 | Address | Opens |
 | --- | --- |
-| `/?iframe=true` | Field Transform Demo, the patch in the README's overview picture |
-| `/?iframe=true&starter=<starter id>` | that Start Gallery starter (`juggle`, `fire`, `audio-spectrum`, …) |
+| `/?iframe=true` | the intro (the first-launch showcase). Play runs its show; Skip opens Field Transform Demo, the patch in the README's overview picture |
+| `/?iframe=true&starter=<starter id>` | that Start Gallery starter (`juggle`, `fire`, `audio-spectrum`, …), with no intro |
 
-An id that names no starter opens the default. Ids are the `id` fields of
+An id that names no starter opens the default, Field Transform Demo, with no
+intro. Ids are the `id` fields of
 `STARTER_TEMPLATES` (`src/state/patterns/starterTemplates.ts`).
 
 ```html
@@ -51,10 +52,12 @@ frame at least 1200 px of width.
 
 Three rules, each held in one place:
 
-- **It opens on its starter.** `App.tsx`'s start-up calls `openEmbedStarter`
-  (`src/utils/startFlow.ts`) instead of reading saved projects, so there is no
-  first-visit showcase and no Start Gallery in the way. The starter loads
-  through the same path as a Start Gallery pick.
+- **It opens on the intro or its starter.** `App.tsx`'s start-up reads no
+  saved projects. A link that names a starter calls `openEmbedStarter`
+  (`src/utils/startFlow.ts`), which loads it through the same path as a Start
+  Gallery pick. A link that names none opens the first-launch showcase over an
+  empty workspace, so Play starts its show without a save prompt; Skip calls
+  `openEmbedStarter` for the default. There is no Start Gallery in the way.
 - **It keeps everything in memory.** An inline script in `index.html` swaps
   `window.localStorage` for a `Map` before any module loads, because stores
   read storage as they load. The session reads nothing this browser saved and
