@@ -519,6 +519,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     // collection, and the demo track analysed into a show written against them.
     showPatterns: true,
     demoTrack: true,
+    boardProfile: MUSIC_PLAYER_BOARD_PROFILE_ID,
     completionSteps: [
       'Press play under the LED preview to watch the show planned for the demo track.',
       'Drop your own songs into Music Library; each is analysed into a timed show as it lands.',

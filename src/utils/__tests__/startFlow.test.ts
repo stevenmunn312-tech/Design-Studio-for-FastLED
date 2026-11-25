@@ -109,7 +109,7 @@ describe('startFlow', () => {
    * RAM, so on the default board the starter opened on a blocked upload. It
    * opens on the ESP32-S3 it is built for; an S3 someone chose stays.
    */
-  describe('the Music Player starter\'s board', () => {
+  describe('a show starter\'s board', () => {
     const boardProfile = () =>
       useGraphStore.getState().nodes.find((node) => node.data.nodeType === 'Board')?.data.properties.profileId
     const chooseBoard = (profileId: string) => {
@@ -117,9 +117,12 @@ describe('startFlow', () => {
       useGraphStore.getState().selectBoardProfile(board.id, profileId)
     }
 
-    it('opens on the ESP32-S3 N16R8, with pins that board has, from the default board', () => {
+    it.each([
+      ['Music Player', 'generative-show'],
+      ['Performance Generator', 'music-sync-sd-show'],
+    ])('opens the %s on the ESP32-S3 N16R8, with pins that board has, from the default board', (_name, id) => {
       expect(boardProfile()).toBe(DEFAULT_BOARD_PROFILE_ID)
-      startTemplateById('generative-show')
+      startTemplateById(id)
 
       expect(boardProfile()).toBe(MUSIC_PLAYER_BOARD_PROFILE_ID)
       expect(useUploadStore.getState().selectedFqbn).toBe('esp32:esp32:esp32s3')
@@ -519,6 +522,14 @@ describe('opening a start choice as its own project', () => {
       // Not a Start Gallery pick, so "Last start" still names the starter.
       expect(useUiStore.getState().lastStartChoice).toBe('juggle')
       expect(useGraphStore.temporal.getState().pastStates).toEqual([])
+    })
+
+    it.each(['PerformanceGenerator', 'MusicLibrary'])('opens the %s example on the ESP32-S3 too', async (type) => {
+      useUiStore.setState({ requestNewProjectDecision: vi.fn().mockResolvedValue('no') })
+      const node = NODE_LIBRARY.find((entry) => entry.type === type)!
+      await openExampleProject(liveExampleForNode(node), `${node.label} example`)
+      const board = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'Board')
+      expect(board?.data.properties.profileId).toBe(MUSIC_PLAYER_BOARD_PROFILE_ID)
     })
 
     it('changes nothing when cancelled', async () => {

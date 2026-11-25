@@ -2,9 +2,9 @@ import type { LedOutputForm } from '../state/output/ledOutputForm'
 import { resolveLedProduct } from '../state/output/ledProduct'
 
 export const DEFAULT_BOARD_PROFILE_ID = 'esp32-generic-devkit-38pin'
-/** The board the Music Player starter, its node-reference example and the
- *  first-launch showcase open on: its full pattern collection needs more
- *  internal RAM than a classic ESP32 has. */
+/** The board the Music Player and Performance Generator starters, their
+ *  node-reference examples and the first-launch showcase open on: a pattern
+ *  collection needs more internal RAM than a classic ESP32 has. */
 export const MUSIC_PLAYER_BOARD_PROFILE_ID = 'generic-esp32-s3-n16r8-44pin-dual-usbc'
 export const ROOT_BOARD_NODE_ID = 'board-root'
 
