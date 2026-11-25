@@ -143,36 +143,48 @@ static inline uint8_t inoise8(uint16_t x, uint16_t y) {
   int8_t n = lerp7by8(X1, X2, v); n += 64; uint32_t t = (uint8_t)n + (uint8_t)n; return t > 255 ? 255 : (uint8_t)t;
 }`
 
-// The permutation table and the ease curve as typed lookups for the 3-D noise
-// below, which a field node calls once per octave per LED per frame.
+// The 3-D noise below is the hottest arithmetic in the preview: a field node
+// calls it once per octave per LED per frame, 196,000 times a frame for three
+// four-octave fields at 128 x 128. It is FastLED's `inoise8(x, y, z)`, bit for
+// bit, written so that nothing in it depends on the data: the permutation
+// table and the ease curve are typed lookups, and the gradient's sixteen-way
+// switch and the interpolation's comparison are arithmetic. A branch on noise
+// is a coin toss to the processor, and fifteen of them a call cost more than
+// the sums. `lib8tionNoise.test.ts` holds the plain transcription of the C and
+// checks that neither function here ever differs from it.
 const NOISE_P8 = Uint8Array.from(NOISE_P)
 const EASE8 = Uint8Array.from({ length: 256 }, (_, i) => ease8InOutQuad(i))
 
-/**
- * FastLED's 3-D `grad8` with its sixteen cases folded: the hash picks which
- * two of x, y, z are averaged (`avg7`) and whether each is negated. All int8.
- */
+// FastLED's 3-D `grad8` by the hash's low four bits: -1 where the first term
+// is y rather than x, where the second is z rather than y, and where each is
+// negated. A mask of -1 selects, and `(v ^ -1) - -1` is `-v`.
+const GRAD_U_IS_Y = Int32Array.from({ length: 16 }, (_, h) => (h >= 8 && h < 12 ? -1 : 0))
+const GRAD_V_IS_Z = Int32Array.from({ length: 16 }, (_, h) => (h >= 4 && h < 12 ? -1 : 0))
+const GRAD_NEG_U = Int32Array.from({ length: 16 }, (_, h) => (h & 1 ? -1 : 0))
+const GRAD_NEG_V = Int32Array.from({ length: 16 }, (_, h) => (h & 2 ? -1 : 0))
+
+/** `avg7(±u, ±v)` for the pair of x, y, z the hash picks. All int8. */
 function grad8x3(hash: number, x: number, y: number, z: number): number {
   const h = hash & 0xf
-  let u = h < 8 || h >= 12 ? x : y
-  let v = h < 4 || h >= 12 ? y : z
-  if (h & 1) u = (-u << 24) >> 24
-  if (h & 2) v = (-v << 24) >> 24
-  return (((u >> 1) + (v >> 1) + (u & 1)) << 24) >> 24
-}
-
-/** `lerp7by8` with `scale8` written in: (value * (frac + 1)) >> 8. */
-function lerp7(a: number, b: number, frac: number): number {
-  return b > a
-    ? ((a + ((((b - a) & 0xff) * (frac + 1)) >> 8)) << 24) >> 24
-    : ((a - ((((a - b) & 0xff) * (frac + 1)) >> 8)) << 24) >> 24
+  const uy = GRAD_U_IS_Y[h], vz = GRAD_V_IS_Z[h], nu = GRAD_NEG_U[h], nv = GRAD_NEG_V[h]
+  const u = ((((x & ~uy) | (y & uy)) ^ nu) - nu) << 24 >> 24
+  const v = ((((y & ~vz) | (z & vz)) ^ nv) - nv) << 24 >> 24
+  return ((u >> 1) + (v >> 1) + (u & 1)) << 24 >> 24
 }
 
 /**
- * FastLED `inoise8(x, y, z)`, bit for bit. Written for speed: at 64 x 64 a
- * noise field calls this 16,384 times a frame. `lib8tionNoise.test.ts` holds
- * the plain transcription of the C and checks the two never differ.
+ * `lerp7by8`: a + scale8(b - a, frac) when b is above a, a - scale8(a - b,
+ * frac) otherwise. `m` is -1 when b is below a, which turns the difference
+ * and then the step round.
  */
+function lerp7(a: number, b: number, frac: number): number {
+  const d = b - a
+  const m = d >> 31
+  const step = (((d ^ m) - m) * (frac + 1)) >> 8
+  return (a + ((step ^ m) - m)) << 24 >> 24
+}
+
+/** FastLED `inoise8(x, y, z)`, bit for bit. */
 export function inoise8x3(x: number, y: number, z: number): number {
   const X = (x >> 8) & 0xff, Y = (y >> 8) & 0xff, Z = (z >> 8) & 0xff
   const xl = x & 0xff, yl = y & 0xff, zl = z & 0xff
@@ -187,6 +199,45 @@ export function inoise8x3(x: number, y: number, z: number): number {
   const X4 = lerp7(grad8x3(NOISE_P8[AB + 1], xx, yn, zn), grad8x3(NOISE_P8[BB + 1], xn, yn, zn), u)
   const n = (lerp7(lerp7(X1, X2, v), lerp7(X3, X4, v), w) + 64) & 0xff
   return n > 127 ? 255 : n + n
+}
+
+/**
+ * A row of that noise, added into `out`:
+ * `out[at + i] += weight * inoise8((x0 + i) * xStep >> shift, y, z)` for
+ * `count` cells. Along a row y and z do not change, so everything that
+ * depends only on them is worked out once, and the eight hashes once for each
+ * integer step of x rather than once a cell.
+ */
+export function inoise8x3Row(
+  out: Float32Array, at: number, count: number,
+  x0: number, xStep: number, shift: number, y: number, z: number, weight: number,
+): void {
+  const Y = (y >> 8) & 0xff, Z = (z >> 8) & 0xff
+  const yl = y & 0xff, zl = z & 0xff
+  const v = EASE8[yl], w = EASE8[zl]
+  const yy = yl >> 1, zz = zl >> 1, yn = yy - 128, zn = zz - 128
+  let cell = -1
+  let h0 = 0, h1 = 0, h2 = 0, h3 = 0, h4 = 0, h5 = 0, h6 = 0, h7 = 0
+  for (let i = 0; i < count; i++) {
+    const x = ((x0 + i) * xStep) >> shift
+    const X = (x >> 8) & 0xff
+    if (X !== cell) {
+      cell = X
+      const A = (NOISE_P8[X] + Y) & 0xff, AA = (NOISE_P8[A] + Z) & 0xff, AB = (NOISE_P8[A + 1] + Z) & 0xff
+      const B = (NOISE_P8[X + 1] + Y) & 0xff, BA = (NOISE_P8[B] + Z) & 0xff, BB = (NOISE_P8[B + 1] + Z) & 0xff
+      h0 = NOISE_P8[AA]; h1 = NOISE_P8[BA]; h2 = NOISE_P8[AB]; h3 = NOISE_P8[BB]
+      h4 = NOISE_P8[AA + 1]; h5 = NOISE_P8[BA + 1]; h6 = NOISE_P8[AB + 1]; h7 = NOISE_P8[BB + 1]
+    }
+    const xl = x & 0xff
+    const u = EASE8[xl]
+    const xx = xl >> 1, xn = xx - 128
+    const X1 = lerp7(grad8x3(h0, xx, yy, zz), grad8x3(h1, xn, yy, zz), u)
+    const X2 = lerp7(grad8x3(h2, xx, yn, zz), grad8x3(h3, xn, yn, zz), u)
+    const X3 = lerp7(grad8x3(h4, xx, yy, zn), grad8x3(h5, xn, yy, zn), u)
+    const X4 = lerp7(grad8x3(h6, xx, yn, zn), grad8x3(h7, xn, yn, zn), u)
+    const n = (lerp7(lerp7(X1, X2, v), lerp7(X3, X4, v), w) + 64) & 0xff
+    out[at + i] += weight * (n > 127 ? 255 : n + n)
+  }
 }
 
 /** FastLED's 3-D `inoise8`, copied for host builds; needs `INOISE8_HOST_CPP` first. */

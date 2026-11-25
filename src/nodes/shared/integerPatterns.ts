@@ -11,7 +11,7 @@
 // with a host g++ and compares every byte. The per-frame float-to-integer
 // step is not part of that check: the preview's phase is a double and the
 // sketch's a float, as it always was.
-import { A16_PER_RADIAN, angle16, inoise8, inoise8x3, isqrt32, lowbias32, scale8, sin16 } from './lib8tion'
+import { A16_PER_RADIAN, angle16, inoise8, inoise8x3, inoise8x3Row, isqrt32, lowbias32, scale8, sin16 } from './lib8tion'
 import { LATTICE_HASH_MULTIPLIERS, latticeHashBits } from '../../state/evaluator/lattice'
 
 /** `(int32_t)` 16-bit angle of a float radian expression, once a frame. */
@@ -1213,6 +1213,19 @@ export function noiseFieldSum(x: number, y: number, f: NoiseFieldFrame): number 
   let v = 0
   for (let o = 0; o < f.octaves; o++) v += (128 >> o) * inoise8x3((x * f.freq) >> (8 - o), (y * f.freq) >> (8 - o), f.z)
   return v
+}
+
+/**
+ * One row of a noise field: `out[at + i] = noiseFieldSum(x0 + i, y, f) * f.inv`
+ * for `count` cells, the same values to the bit. A whole row at a time is how
+ * a field this size stays inside a frame (see `inoise8x3Row`). The sums are
+ * whole numbers below 2^24, which a float32 holds exactly, so adding octave by
+ * octave into the row loses nothing.
+ */
+export function noiseFieldRow(out: Float32Array, at: number, count: number, x0: number, y: number, f: NoiseFieldFrame): void {
+  out.fill(0, at, at + count)
+  for (let o = 0; o < f.octaves; o++) inoise8x3Row(out, at, count, x0, f.freq, 8 - o, (y * f.freq) >> (8 - o), f.z, 128 >> o)
+  for (let i = at; i < at + count; i++) out[i] = out[i] * f.inv
 }
 
 // ── Noise, `field` variant ────────────────────────────────────────────────────

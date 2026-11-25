@@ -34,7 +34,8 @@ share link, migrating it where a shape has changed.
 - A large LED output no longer slows the editor. A 64 x 64 matrix ran the
   Field Transform starter at 17 frames a second and Fire at 38; both now hold
   60, as do rings and corkscrews of hundreds of LEDs, which ran at 46 to 52.
-  Node thumbnails of more than 256 LEDs are drawn as one picture.
+  Node thumbnails of more than 256 LEDs are drawn as one picture, and noise
+  fields are worked out about twice as fast, to the same values.
 - The macOS and Linux desktop packages open the Studio in its own window,
   with no tabs or address bar, when Google Chrome, Microsoft Edge, Brave or
   Chromium is installed; that browser draws the window. Linux also adds the

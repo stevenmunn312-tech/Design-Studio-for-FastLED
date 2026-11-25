@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { inoise8x3, scale8 } from '../lib8tion'
+import { inoise8x3, inoise8x3Row, scale8 } from '../lib8tion'
+import { noiseFieldFrame, noiseFieldRow, noiseFieldSum } from '../integerPatterns'
 
 // The plain transcription of FastLED 3.10.5's 3-D `inoise8` (noise.cpp.hpp),
 // one line per line of the C. `inoise8x3` in lib8tion.ts is the same function
@@ -100,4 +101,42 @@ describe('inoise8x3', () => {
     }
     expect(mismatches(scattered())).toEqual({ count: 0, first: null })
   }, 30_000)
+})
+
+describe('a row of noise', () => {
+  it('adds weight x inoise8 for each cell, for every step, shift and offset tried', () => {
+    let wrong = 0
+    for (const xStep of [1, 37, 9830, 24576, 147456]) {
+      for (const shift of [3, 5, 8]) {
+        for (const x0 of [0, 5, -3]) {
+          for (const [y, z] of [[0, 0], [12345, 54321], [0xffff, 0x80ff], [300, 65535]]) {
+            const out = new Float32Array(70).fill(2)
+            inoise8x3Row(out, 3, 64, x0, xStep, shift, y, z, 16)
+            for (let i = 0; i < 64; i++) {
+              if (out[3 + i] !== 2 + (16 * reference(((x0 + i) * xStep) >> shift, y, z))) wrong += 1
+            }
+            // Nothing outside the cells it was asked for.
+            if (out[2] !== 2 || out[67] !== 2) wrong += 1
+          }
+        }
+      }
+    }
+    expect(wrong).toBe(0)
+  })
+
+  it('makes a noise field row equal to the sum for each cell, to the bit', () => {
+    let wrong = 0
+    for (const [scale, phase, octaves] of [[0.4, 0, 4], [1.7, 12.5, 6], [0.05, 301.25, 1], [6, 0.01, 3]]) {
+      const frame = noiseFieldFrame(scale, phase, octaves)
+      for (const [width, x0, y] of [[16, 0, 0], [128, 0, 77], [64, 9, 63], [33, 0, 4095]]) {
+        const row = new Float32Array(width + 2).fill(9)
+        noiseFieldRow(row, 1, width, x0, y, frame)
+        const each = new Float32Array(width)
+        for (let i = 0; i < width; i++) each[i] = noiseFieldSum(x0 + i, y, frame) * frame.inv
+        for (let i = 0; i < width; i++) if (row[1 + i] !== each[i]) wrong += 1
+        if (row[0] !== 9 || row[width + 1] !== 9) wrong += 1
+      }
+    }
+    expect(wrong).toBe(0)
+  })
 })

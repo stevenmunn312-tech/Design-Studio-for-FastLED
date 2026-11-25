@@ -6,7 +6,7 @@ import { fieldNoiseType, sharedNoiseType } from '../generative/noiseTypes'
 import { evalNoiseFieldByType } from '../generative/noiseField'
 import { speedPhase } from '../shared/speedClock'
 import { passFrames, passStepFrames } from '../shared/passClock'
-import { noiseFieldFrame, noiseFieldSum, truchetFrame, truchetPixel, wallpaperFrame, wallpaperSourceQ8 } from '../shared/integerPatterns'
+import { noiseFieldFrame, noiseFieldRow, truchetFrame, truchetPixel, wallpaperFrame, wallpaperSourceQ8 } from '../shared/integerPatterns'
 import type { Frame } from '../../state/palettes/ledColor'
 import { compileFormula, fieldFormulaCache, centeredX, centeredY } from '../../state/evaluator/formula'
 import { DEFAULT_W, DEFAULT_H, clamp01, evalFieldToFrame, fieldRange, frameToFieldConversion, pixelToField } from '../../state/evaluator/frames'
@@ -141,9 +141,7 @@ function evalFieldNoise(key: string, speed: number, scale: number, octaves: numb
   const phase = speedPhase(key, t, speed) + seedOffset(seed, 0)
   const frame = noiseFieldFrame(scale, phase, octaves)
   const out = allocField(W * H)
-  for (let y = 0; y < H; y++) {
-    for (let x = xo; x < W + xo; x++) out[y * W + x - xo] = noiseFieldSum(x, y, frame) * frame.inv
-  }
+  for (let y = 0; y < H; y++) noiseFieldRow(out, y * W, W, xo, y, frame)
   return out
 }
 

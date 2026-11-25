@@ -108,7 +108,7 @@ were in interactions, in autosave, and in everything a large output touches.
 | 6 | The pointer glow was a mask over the whole canvas | Painted again in full for each pointer move | A 300 px box moved by a transform (`.cursorWake`) |
 | 7 | A large output: 58 ms frames eight times a second | A node thumbnail was one SVG group and two rects per LED: 8192 rects for a 64 x 64 output, restyled and repainted whenever its colours changed (17 ms of style and 5 ms of paint for two 32 x 32 thumbnails) | Above 256 LEDs a plain grid is one picture behind a mask of LED shapes: two elements, 0.7 ms an update (`ledPreviewRaster.ts`) |
 | 8 | A large output: 8 ms on every publish, per wired node | A node's live-value lookup serialised whole fields (one number per LED) to JSON and re-rendered the node | Arrays are left out: an inline editor shows a number, a switch or a colour (`StudioNode.tsx`) |
-| 9 | Field noise: 40% of a frame at 64 x 64 | `inoise8x3` allocated a closure per call and branched through a sixteen-way switch | The same function, bit for bit, with typed tables and no allocation; `lib8tionNoise.test.ts` checks it against the plain transcription on a million inputs |
+| 9 | Field noise: 40% of a frame at 64 x 64 | `inoise8x3` allocated a closure per call, branched through a sixteen-way switch and compared in every interpolation: fifteen branches on noise a call, each a coin toss to the processor | The same function, bit for bit, with typed tables and no branch on the data, and a field evaluated a row at a time so what depends only on the row is worked out once (`inoise8x3Row`, `noiseFieldRow`): 20.5 ms to 11.6 ms for three four-octave fields at 128 x 128. `lib8tionNoise.test.ts` checks both against the plain transcription |
 
 Row 6's old glow also declared two colour washes that never drew: its box had
 no height (measured 1600 x 0 px in the old build), so only its dotted
@@ -142,7 +142,7 @@ Same protocol before and after (`--no-profile --repeat 2`, the median run):
 | Node-library scroll, warm | 60.0 fps, 0 dropped | 60.0 fps, 0 dropped |
 | Pan with a 64 x 64 matrix, Music Player, cold | 18.9 fps, 558 dropped | 56.9 fps, 36 dropped |
 | Zoom, cold | 6 dropped, 183 ms worst | 3 dropped, 117 ms worst |
-| Matrix 64 x 64 evaluated at 128 x 128, field-warp | 4.3 fps | 19 to 38 fps |
+| Matrix 64 x 64 evaluated at 128 x 128, field-warp | 4.3 fps | 50.9 fps |
 
 With the 60 Hz limit lifted (`--uncapped`), after the fixes:
 
@@ -161,12 +161,13 @@ With the 60 Hz limit lifted (`--uncapped`), after the fixes:
   noise functions are 35% of the profile. A slower processor than this
   laptop's would not hold it.
 
-- **A 64 x 64 matrix evaluated at 128 x 128 ("2x smooth") on field-warp: 19 to
-  38 fps.** Three noise fields of four octaves over 16,384 cells are 196,000
-  noise calls a frame, about 27 ms of arithmetic after row 9 halved it. It is
-  the graph's evaluation, on the main thread; drawing is 5 ms in every five
-  seconds. Only evaluating off the main thread, or in several workers, would
-  lift it. No microcontroller the app targets runs that patch at that size
+- **A 64 x 64 matrix evaluated at 128 x 128 ("2x smooth") on field-warp:
+  50.9 fps** (4.3 before this pass). Three noise fields of four octaves over
+  16,384 cells are 196,000 noise calls a frame, which row 9 brought from
+  about 50 ms to about 15. It is the graph's evaluation, on the main thread;
+  drawing is 5 ms in every five seconds. Only evaluating off the main thread,
+  or in several workers, would lift it further. Accepted as the limit on
+  2026-11-25: no microcontroller the app targets runs that patch at that size
   either.
 - **Pan with a 64 x 64 matrix on the Music Player starter, cold: 56.9 fps.**
   Warm and uncapped the same pan runs at 76 frames a second, so it holds 60
