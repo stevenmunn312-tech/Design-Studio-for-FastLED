@@ -181,9 +181,13 @@ What fixed it: the same `esptool.exe` copied outside the install folder. A
 frozen Windows helper now copies it into `<build root>\tools` at start-up and
 hands that path to fbuild (`_stage_outside_install` in `backend/toolchain.py`).
 Through the running app, a capacity check then converted `firmware.elf` with
-the copy and reported 352,379 bytes of flash. Not yet covered: an upload to
-the board from the fixed app, and the Store-identity layout on
-`storetest-longname` (still the build without the fix).
+the copy and reported 352,379 bytes of flash. Steve then uploaded from the
+fixed app on his account (local identity, long paths off): build, deploy
+through the copy (`[deploy] esptool ...\.design-studio-for-fastled\tools\esptool.exe`),
+full flash to the ESP32-S3 on COM3 with every hash verified, "Upload
+complete". Not yet covered: the Store-identity layout on `storetest-longname`
+(still the build without the fix), so a new account's first build with the
+fix has not run.
 
 ## Options
 
