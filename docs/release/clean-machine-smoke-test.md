@@ -26,7 +26,22 @@ About an hour, most of it the first build's toolchain download.
    sign-in, so do this in your own account.
 2. Copy the ZIP to `C:\Users\Public\Downloads`, where the test account can
    read it.
-3. Have one of the supported hardware rows ready
+3. Turn Windows long-path support **off**, the Windows default, in an
+   administrator PowerShell. It is a machine-wide setting, so a PC that has it
+   on hides every long-path failure from every account; until 2026-11-23 all
+   passing runs here had it on.
+
+   ```powershell
+   Set-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem LongPathsEnabled 0
+   ```
+
+   Set it back to `1` after the test if you need it for other work.
+4. For the Store package, register its layout in the test account
+   (`Add-AppxPackage -Register <layout>\AppxManifest.xml` in a normal
+   PowerShell) and start the app from the Start menu. Only an app started that way runs the build engine the
+   way a user's does; the 2026-11-22 packaged pass below was launched another
+   way and missed a failure.
+5. Have one of the supported hardware rows ready
    ([support matrix](beta-support-matrix.md#supported-end-to-end-combo)),
    for example an ESP32-S3 with WS2812B LEDs on its own power supply, and a
    data-capable USB cable.
@@ -117,4 +132,6 @@ The same steps apply, with these differences:
 | 2026-11-22 | Windows 11, standard account | 44913821613, `a4b9cbfc` | Steve | **Fail** at step 6 | The first build stopped before compiling: the helper cloned FastLED with `git`, and fbuild installed its own esptool with `uv`, and a clean account has neither. Fixed: pinned libraries download as GitHub tag archives, and fbuild is pointed at the bundled esptool through `FBUILD_ESPTOOL_PATH`. Steps 7 to 11 not reached. |
 | 2026-11-22 | Windows 11, fresh standard account | 44966086525, `deb9fd65` | Steve | **Fail** at step 2 | Upload, save, recovery (after closing the browser), offline upload and a clean exit passed; SmartScreen named the publisher "Unknown"; the microphone and COM port worked with no driver. But the app opened in the browser, not its window, so a second launch opened another tab. Cause: Windows marks files extracted from a downloaded ZIP, and .NET Framework refused the marked `Python.Runtime.dll`. Fixed with a `loadFromRemoteSources` launcher config, confirmed on the same marked copy. |
 | 2026-11-22 | Windows 11, same fresh account | 44968147471, `35d4d8af` | Steve | **Pass** | Rerun of the steps the browser fallback affected: the app opened in its own window, a second launch raised it, recovery after ending it in Task Manager kept the change, and nothing was left running. With the previous run, every step has passed on this package's code. |
-| 2026-11-22 | Windows 11, Steve's account, Store MSIX registered from the `v1.0.0` layout | 45019039682, `d9cd827e` (tag `v1.0.0`) | Claude | **Pass** (packaged launch, build, upload) | Launched inside its package identity with a temporary content folder: the WebView2 window opened, and an ESP32-S3 sketch built and flashed to COM3 through the package's own fbuild and esptool, hash verified. The package used the existing real AppData folder, as documented, so the libraries were already present. The fbuild daemon exited after the window closed. |
+| 2026-11-22 | Windows 11, Steve's account, Store MSIX registered from the `v1.0.0` layout | 45019039682, `d9cd827e` (tag `v1.0.0`) | Claude | **Pass** (packaged launch, build, upload) | Launched inside its package identity with a temporary content folder: the WebView2 window opened, and an ESP32-S3 sketch built and flashed to COM3 through the package's own fbuild and esptool, hash verified. The package used the existing real AppData folder, as documented, so the libraries were already present. The fbuild daemon exited after the window closed. Long paths were on, and the app was not started from Start, so it did not show either failure found the next day. |
+| 2026-11-23 | Windows 11, new standard account `storetest-longname`, long paths off, Store 1.0.1 layout | 1.0.1 package | Steve | **Fail** at the first build | fbuild 2.5.52 refused to install the ESP32 toolchain and framework in its short-path fallback ([long-paths blocker](long-paths-blocker.md)). arduino-cli, chosen by hand, built and uploaded. |
+| 2026-11-26 | Windows 11, `storetest-longname`, long paths off, Store-identity layout started from Start | local build of `main` `8df5772c` | Steve | **Pass** (build, upload) | fbuild 2.5.55 with the default engine; esptool run from the account's build folder. Not a first download (packages cached from an earlier failed run that day) and not a never-used account ([what it covered](long-paths-blocker.md#the-packaged-app-could-not-run-esptool-found-and-fixed-2026-11-26)). |

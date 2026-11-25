@@ -61,13 +61,11 @@ That historical issue is not the current reason to reject a build. Consult the
 same record for remaining engine limitations and the
 [support matrix](../release/beta-support-matrix.md) for exact validated rigs.
 
-On Windows, fbuild toolchain paths can exceed the legacy path limit. The
-existing workflow requires Windows long-path support; if it is disabled,
-enable it from an administrator PowerShell and start a fresh shell:
-
-```powershell
-New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
-```
+On Windows, fbuild's toolchain paths exceed the legacy 260-character limit.
+Long-path support is not required: with it off (the Windows default), fbuild
+2.5.55 and later install into a short folder such as `C:\fbuild-cache` and
+say so with a warning on each build. Turning it on is still fine and keeps the
+packages under `%USERPROFILE%\.fbuild`.
 
 ## Start and verify
 

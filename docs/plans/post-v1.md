@@ -35,8 +35,9 @@ and an Upload information shelf in
   `fl::TrueType` (stb_truetype). Not planned: the preview would need the
   same rasteriser in TypeScript, and the flash and RAM cost is unmeasured.
   Revisit only if large panels make the bitmap fonts look coarse.
-- [ ] **fbuild faults left on arduino-cli (S).** v1 ships on fbuild 2.5.52
-  and waits for no later release (decided 2026-11-20). A board fbuild
+- [ ] **fbuild faults left on arduino-cli (S).** v1 shipped on fbuild 2.5.52
+  and waited for no later release (decided 2026-11-20); 1.0.2 moved to
+  2.5.55 on 2026-11-26 for the Windows long-paths fix only. A board fbuild
   cannot build has no `_PIO_BOARDS` entry, so `_engine_for_board` builds it
   with arduino-cli: today the UNO R4 Minima
   ([runbook §18](../runbooks/fbuild-workarounds.md#18-uno-r4-minima-a-fastled-sketch-compiles-the-cores-wifis3-library))

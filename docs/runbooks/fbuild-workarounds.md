@@ -852,6 +852,10 @@ it clears within seconds. We retry the deploy up to 3 times with a 2s backoff.
 file each run once path depth crosses `MAX_PATH`. Requires `LongPathsEnabled=1` in the
 registry. Reported upstream as a documentation request,
 [#1673](https://github.com/FastLED/fbuild/issues/1673), since the failure looks random.
+**Superseded by 2.5.55:** fbuild now detects the setting and installs into a
+short fallback folder, so long paths are no longer required
+([#2156](https://github.com/FastLED/fbuild/issues/2156); see
+`docs/release/long-paths-blocker.md`).
 
 ---
 

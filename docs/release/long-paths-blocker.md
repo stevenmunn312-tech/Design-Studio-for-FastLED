@@ -1,7 +1,9 @@
 # Handoff: Windows long-paths release blocker
 
-Written 2026-11-23. The v1.0.1 release is halted on this problem. Read this
-before touching the release, the Store submission or the fbuild pin.
+Written 2026-11-23. **Status, 2026-11-26:** fixed in 1.0.2 (fbuild 2.5.55
+and the esptool copy, below); the release waits only for the smoke test on
+the 1.0.2 package ([todo](../../todo.md)). Read this before touching the
+release, the Store submission or the fbuild pin.
 
 ## The problem in one paragraph
 

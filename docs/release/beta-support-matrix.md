@@ -13,6 +13,13 @@ experimental. The rows were recorded from June to September 2026 on fbuild
 2.5.0 to 2.5.21 and arduino-cli; none has been rerun on the freeze engine or
 FastLED 3.10.9.
 
+**v1.0.2 engine:** 1.0.2 ships fbuild 2.5.55 (moved 2026-11-26 for builds
+with Windows long paths off). The freeze matrix above ran on 2.5.52 and has
+not been rerun; on 2.5.55 only the ESP32-S3 has built and uploaded, from the
+packaged app with long paths off
+([long-paths blocker](long-paths-blocker.md)). Other families' 2.5.55 builds
+are unverified until the matrix runs again.
+
 ## Status levels
 
 - **Supported**: validated end-to-end on real hardware and recorded with the

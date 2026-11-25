@@ -197,7 +197,12 @@ data root into `AppData\Local\Packages\<package>\LocalCache\Local`, about
 130 characters before the username, and the build trees nest about 127 more,
 past Windows' 260-character limit on a PC with long paths off (the default).
 The profile folder is not redirected, so uninstalling leaves the build root
-behind; everything in it is rebuildable. Projects and patterns are kept apart in Documents because they
+behind; everything in it is rebuildable. On Windows the helper also copies the
+bundled `esptool.exe` into `<build root>\tools` at start-up and gives fbuild
+that copy: started from the packaged app, fbuild cannot launch it from the
+install folder ([long-paths blocker](long-paths-blocker.md#the-packaged-app-could-not-run-esptool-found-and-fixed-2026-11-26)).
+fbuild's own package cache stays in `%USERPROFILE%\.fbuild`, or with long
+paths off in a short folder such as `C:\fbuild-cache`. Projects and patterns are kept apart in Documents because they
 are the person's own work: an MSIX (Store) install redirects AppData into the
 package and deletes it on uninstall, and Documents is where people look.
 Windows resolves Documents through the shell, so a redirected (OneDrive)
@@ -223,7 +228,7 @@ On 2026-07-17, a Windows x86-64 bundle was built and launch-smoked locally:
 - packaged Design Studio for FastLED shell returned HTTP 200;
 - `/api/desktop/status` identified the frozen launcher;
 - bundled `fbuild 2.5.0` and `esptool 5.3.1` executed successfully in the
-  original packaging smoke; the current dependency set pins `fbuild 2.5.52`
+  original packaging smoke; the current dependency set pins `fbuild 2.5.55`
   (relicensed AGPL-3.0-only on 2026-08-18; see `THIRD_PARTY_NOTICES.md`)
   and `esptool 5.3.1`, and the package workflow repeats this check;
 - output was a 61 MB ZIP / 168 MB unpacked one-folder bundle.
