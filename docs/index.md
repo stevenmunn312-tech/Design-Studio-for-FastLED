@@ -137,7 +137,6 @@ rollout steps or explicitly proposed work, not a second copy of the root checkli
 - [Bench and community testing backlog](plans/bench-backlog.md)
 - [Deferred until after v1](plans/post-v1.md)
 - [Downloadable parts](plans/downloadable-parts.md)
-- [Handoff: evaluate the graph off the main thread](plans/evaluator-worker-handoff.md)
 - [Design: evaluate the preview graph in a worker](plans/evaluator-worker-design.md)
 - [Hardware expansion roadmap](plans/hardware-expansion-roadmap.md)
 - [Pattern node expansion — tiling, warp, Turing and Fourier nodes](plans/pattern-node-expansion.md)
@@ -235,6 +234,7 @@ Historical context, not current task status.
 
 - [> **Archived 2026-09-24.** This is the backlog as it stood before it was](archive/hardware-todo-to-2026-09-24.md)
 - [v1.0.0 backlog: completed items to 2026-11-12](archive/todo-completed-to-2026-11-12.md)
+- [Brief: evaluate the graph off the main thread (done 2026-11-25)](archive/evaluator-worker-brief-to-2026-11-25.md)
 
 ## Maintaining these docs
 

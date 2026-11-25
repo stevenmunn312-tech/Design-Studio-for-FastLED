@@ -1,14 +1,17 @@
 # Handoff: evaluate the graph off the main thread
 
-Written 2026-11-25 for the session that takes this on. It is a plan to make
-first, not a task to begin typing.
+> **Done, 2026-11-25, and archived.** Every phase is built, measured and on
+> `main`: every graph but one with a Touch node or a display panel, the Music
+> Player's included, evaluates in a worker. The 128 x 128 case this brief was
+> written for holds 60 fps with the main thread idle, and dragging a node over
+> it no longer drops the editor's frames. Steve listened to phases 2 and 4
+> and judged the timing fine, then excellent. The worker bundle was trimmed
+> from 2.44 MB to 1.41 MB minified and is in the service worker's precache.
+> The design, what was built in each phase and every measurement are in the
+> [evaluator worker design](../plans/evaluator-worker-design.md); this brief
+> is kept as the starting point it was, and nothing below is open.
 
-**Status, 2026-11-25:** the plan is made:
-[evaluator worker design](evaluator-worker-design.md) answers the seven
-questions below with measurements, and all four phases are built and
-measured there: every graph but one with a Touch node or a display panel,
-the Music Player's included, evaluates in the worker. Steve listened to
-phase 2 and judged it fine.
+Written 2026-11-25 for the session that took this on.
 
 ## What this is for
 

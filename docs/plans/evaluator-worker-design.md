@@ -1,6 +1,6 @@
 # Design: evaluate the preview graph in a worker
 
-Written 2026-11-25 from the [handoff](evaluator-worker-handoff.md). It answers
+Written 2026-11-25 from the [brief](../archive/evaluator-worker-brief-to-2026-11-25.md), now archived. It answers
 the handoff's seven questions with measurements, and proposes a first step.
 
 **Status, 2026-11-25:** all four phases are built (see [Phase 1 as built](#phase-1-as-built),
