@@ -304,12 +304,14 @@ How it differs from the plan above:
   thread fills from IndexedDB). The spy test found no other store read, wired
   or unwired, once `toggleTapPress` asked for a Touch widget before reading
   the stores.
-- **The worker starts the first time a graph qualifies**, so a project that
-  never qualifies never downloads it. It is kept out of the service worker's
-  precache and cached on first use (`vite.config.ts`): at 2.4 MB minified it
-  was over the precache limit (1.41 MB since the trim, under it; whether it
-  goes back into the precache is Steve's call), and offline before first use the preview
-  evaluates on the main thread.
+- **The worker starts the first time a graph qualifies.** At first it was
+  kept out of the service worker's precache, because at 2.4 MB minified it
+  was over the 2 MiB limit, and cached on first use. Since the trim it is
+  1.41 MB, and on 2026-11-25 Steve put it in the precache (`vite.config.ts`):
+  nearly every project's preview runs in it, so it installs with the app and
+  works offline from the first visit. The PWA plugin fails the build if it
+  grows past the limit. Without a worker the preview still evaluates on the
+  main thread.
 - **Until the worker's first answer the main thread evaluates**, so the
   preview never shows the idle sweep on the way in.
 - **A store read in the worker turns the worker off for the session**, with
