@@ -16,4 +16,11 @@ describe('servedByBuildTools', () => {
     expect(buildToolsOfflineHint(true)).toMatch(/desktop build/)
     expect(buildToolsOfflineHint(false)).toMatch(/npm run helper/)
   })
+
+  it('sends an embedded demo to the desktop version, which has no tools to start', () => {
+    for (const bundled of [true, false]) {
+      expect(buildToolsOfflineHint(bundled, true)).toBe(
+        'Download the desktop version to use build tools. designstudioforfastled.com')
+    }
+  })
 })

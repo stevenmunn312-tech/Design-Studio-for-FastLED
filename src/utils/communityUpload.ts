@@ -1,6 +1,7 @@
 // The public site. Must match the domain the share confirmation names, or the
-// dialog promises one destination and the handoff tab opens another.
-const DEFAULT_COMMUNITY_SITE = 'https://designstudioforfastled.com'
+// dialog promises one destination and the handoff tab opens another. The bare
+// domain is the address: `www.` has no DNS record.
+export const PUBLIC_SITE_URL = 'https://designstudioforfastled.com'
 
 /**
  * A single, hardware-agnostic pattern: a name plus a subgraph (nodes/edges).
@@ -28,7 +29,7 @@ export interface CommunitySharePattern {
 
 function communitySiteUrl(): URL {
   const configured = (import.meta.env as Record<string, string | undefined>).VITE_COMMUNITY_SITE_URL?.trim()
-  return new URL(configured || DEFAULT_COMMUNITY_SITE)
+  return new URL(configured || PUBLIC_SITE_URL)
 }
 
 function hiddenField(form: HTMLFormElement, name: string, value: string) {

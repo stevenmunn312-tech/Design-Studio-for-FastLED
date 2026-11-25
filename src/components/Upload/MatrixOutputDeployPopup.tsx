@@ -53,6 +53,7 @@ import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { musicPlayerSource, resolveBuildMode } from '../../state/upload/buildMode'
 import { describePort } from '../../utils/portStatus'
 import { buildToolsOfflineHint } from '../../utils/buildTools'
+import DesktopDownloadNotice from './DesktopDownloadNotice'
 import { graphDrivesOutput, readinessLayers } from '../../utils/readinessLayers'
 import { outputForm } from '../../state/output/ledOutputForm'
 import ReadinessLayers from './ReadinessLayers'
@@ -749,6 +750,7 @@ export default function MatrixOutputDeployPopup({
           )}
         </div>
 
+        <DesktopDownloadNotice />
         <BoardSelector />
         <div className={`${styles.targetBig} ${styles.deployTarget}`}>{target}</div>
         <div className={styles.targetActionRow}>

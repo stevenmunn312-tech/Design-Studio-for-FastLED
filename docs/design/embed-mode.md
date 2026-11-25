@@ -68,6 +68,11 @@ Three rules, each held in one place:
   this, `localhost:8008` on a visitor's machine is their own Studio and its
   Projects folder. Every caller already treats a refusal as "helper offline",
   so compile, upload, serial and the radio relay show their offline state.
+  The Upload tab opens on one line saying where the build tools are,
+  "Download the desktop version to use build tools." with a link to the site
+  (`DesktopDownloadNotice`), and `buildToolsOfflineHint`
+  (`src/utils/buildTools.ts`) gives the same sentence wherever the app would
+  say how to start them.
 
 `src/utils/embedMode.ts` reads the parameter; `EMBEDDED` is the flag the rules
 above test.
@@ -90,7 +95,8 @@ anywhere else.
 ## Not done
 
 - No embed-specific layout: the full workspace is shown, including the Upload
-  tab in its helper-offline state.
+  tab in its helper-offline state, with its Retry buttons, under the download
+  line.
 - A parent page that is itself cross-origin isolated (`COEP`) blocks the frame
   unless the host adds `Cross-Origin-Resource-Policy: cross-origin`.
 - Not tried on a phone-width frame.

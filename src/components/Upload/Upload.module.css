@@ -620,6 +620,27 @@
   gap: var(--space-1);
 }
 
+/* An embedded demo has no build tools; this line says where to get them
+   (DesktopDownloadNotice.tsx). `flex: none` because the deploy column is a
+   scrolling flex column that squeezes anything allowed to shrink. */
+.demoNotice {
+  flex: none;
+  margin: 0;
+  padding: var(--space-1);
+  border: 1px solid color-mix(in srgb, var(--accent-ui) 45%, transparent);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--accent-ui) 10%, transparent);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--fs-ui);
+  line-height: 1.4;
+}
+.demoNotice a {
+  color: var(--accent-ui);
+  overflow-wrap: anywhere;
+}
+.demoNotice a:focus-visible { outline: 2px solid var(--accent-ui); outline-offset: 1px; }
+
 .popupHeader {
   display: flex;
   align-items: center;
