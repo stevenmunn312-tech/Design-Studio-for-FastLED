@@ -88,13 +88,23 @@ Each of these cost time to learn on this pass.
   process was not established (it happens in headless Chromium here, more
   often when the frame limit is lifted); nothing says a visible Chrome window
   does it, and nothing says it does not.
+- **Know how fast the machine was.** The same build measured 51 fps and
+  26 fps on the 128 x 128 case in two sessions. The fixed loop the script
+  times in the page took 178 to 197 ms in the first and about 390 ms, before
+  and after every run, in the second: the processor was running at half
+  speed throughout, with the laptop on battery. The check above compares a
+  run's two readings, so it does not catch a machine that is slow the whole
+  time. Read the `machine` values in the results (`pace` with `--repeat`), and
+  compare numbers only between runs where they agree. The figures in this
+  document are at 178 to 200 ms unless they say otherwise.
 - **Size matters more than the project.** Everything held 60 fps on the
   starters' 16 x 16 matrix. The same field-warp starter at 64 x 64 ran at 17.
 
 ## What was found, 2026-11-25
 
-Machine: AMD Radeon integrated graphics (ANGLE, Direct3D 11), Chromium 1255,
-1600 x 900. On a starter's own small output every page held 60 fps idle, bar
+Machine: a laptop with AMD Radeon integrated graphics (ANGLE, Direct3D 11),
+Chromium 1255, 1600 x 900. Its power state was not recorded for each run; see
+"Know how fast the machine was" above. On a starter's own small output every page held 60 fps idle, bar
 one dropped frame every five seconds on the Music Player starter. The spikes
 were in interactions, in autosave, and in everything a large output touches.
 
@@ -129,7 +139,7 @@ Same protocol before and after (`--no-profile --repeat 2`, the median run):
 | Every Music Player starter page and preview style, idle | 59.8 fps, 1 dropped in 5 s | 60.0 fps, 0 dropped |
 | Microphone starter, idle | 58.2 fps, 9 dropped | 59.6 fps, 2 dropped |
 | Hardware and Build Diagram, starters with the most parts | 60.0 fps, 0 dropped | 60.0 fps, 0 dropped |
-| Matrix 64 x 64, field-warp | 16.9 to 45 fps, 100 to 200 ms frames | 60.0 fps, 0 dropped, 17 ms worst, in 11 runs of 12; the twelfth was a browser-slowed run |
+| Matrix 64 x 64, field-warp | 16.9 to 45 fps, 100 to 200 ms frames | 60.0 fps, 0 dropped, 17 ms worst, in 11 runs of 12 at full processor speed (the twelfth was a browser-slowed run); 59 to 60 fps with 1 to 5 single 33 ms frames in 5 s when the processor ran at half speed |
 | Matrix 64 x 64, fire | 37.7 fps, 100 ms frames | 60.0 fps, 0 dropped |
 | Matrix 64 x 64, Music Player (Standard and Neon) | 59.8 / 59.6 fps | 60.0 fps, 0 dropped |
 | Ring of 240 / 1024 LEDs | 52.3 / 45.9 fps | 60.0 fps, 0 dropped |
@@ -142,7 +152,7 @@ Same protocol before and after (`--no-profile --repeat 2`, the median run):
 | Node-library scroll, warm | 60.0 fps, 0 dropped | 60.0 fps, 0 dropped |
 | Pan with a 64 x 64 matrix, Music Player, cold | 18.9 fps, 558 dropped | 56.9 fps, 36 dropped |
 | Zoom, cold | 6 dropped, 183 ms worst | 3 dropped, 117 ms worst |
-| Matrix 64 x 64 evaluated at 128 x 128, field-warp | 4.3 fps | 50.9 fps |
+| Matrix 64 x 64 evaluated at 128 x 128, field-warp | 4.3 fps | 51 fps at full processor speed, 26 fps at half |
 
 With the 60 Hz limit lifted (`--uncapped`), after the fixes:
 
@@ -162,7 +172,7 @@ With the 60 Hz limit lifted (`--uncapped`), after the fixes:
   laptop's would not hold it.
 
 - **A 64 x 64 matrix evaluated at 128 x 128 ("2x smooth") on field-warp:
-  50.9 fps** (4.3 before this pass). Three noise fields of four octaves over
+  51 fps at full processor speed, 26 fps at half** (4.3 before this pass). Three noise fields of four octaves over
   16,384 cells are 196,000 noise calls a frame, which row 9 brought from
   about 50 ms to about 15. It is the graph's evaluation, on the main thread;
   drawing is 5 ms in every five seconds. Only evaluating off the main thread,
