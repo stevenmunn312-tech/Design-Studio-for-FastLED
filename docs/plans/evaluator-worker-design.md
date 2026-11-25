@@ -482,6 +482,6 @@ evaluation already fitted the frame. With the limit lifted, panning over its
 pace 390): **93 to 95 frames a second against 71**. The CPU profile of the
 2x smooth scenario shows no evaluator on the main thread.
 
-Not checked: listening. The Music Player's track position and its presses
-now reach the lights a step later, as the audio did in phase 2; Steve's ear
-on the Music Player with a real song is the check before this ships.
+Listened 2026-11-25: Steve played the Music Player starter on the worker
+build and judged its pattern and transition timing against the music
+excellent, so the extra step needs no compensation here either.
