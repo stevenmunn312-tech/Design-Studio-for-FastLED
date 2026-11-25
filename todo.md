@@ -39,8 +39,13 @@ the [long-paths blocker](docs/release/long-paths-blocker.md) handoff.
   `tmp/fbuild-longpath-repro`. fbuild 2.5.55 (FastLED/fbuild#2175) pinned on
   2026-11-26; the repro passed with long paths off
   ([retest](docs/release/long-paths-blocker.md#retest-on-fbuild-2555)).
+- [x] In the packaged app, 2.5.55 compiled but could not start the bundled
+  esptool ("Access is denied"). Fixed 2026-11-26: the helper hands fbuild a
+  copy in the build folder
+  ([details](docs/release/long-paths-blocker.md#the-packaged-app-could-not-run-esptool-found-and-fixed-2026-11-26)).
 - [ ] Then the Store smoke test under Publish below, on a package built with
-  2.5.55. Until it passes, the halt stands.
+  2.5.55 and the esptool fix, through upload. Until it passes, the halt
+  stands.
 
 State: the Store holds only the certified, unpublished 1.0.0 dry run (leave
 it alone); tags `v1.0.0` and `v1.0.1` exist with private draft releases. The

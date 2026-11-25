@@ -88,8 +88,50 @@ def test_find_interpreter_esptool_uses_frozen_tools_directory(tmp_path, monkeypa
     monkeypatch.setattr(toolchain.sysconfig, "get_path", lambda name: str(scripts))
     monkeypatch.setattr(toolchain.sys, "executable", str(app_dir / "Design Studio for FastLED.exe"))
     monkeypatch.setattr(toolchain.sys, "frozen", True, raising=False)
+    build = tmp_path / "build"
+    monkeypatch.setattr(toolchain, "_BUILD_DIR", build)
 
-    assert toolchain._find_interpreter_esptool() == str(bundled)
+    resolved = toolchain._find_interpreter_esptool()
+    if toolchain.os.name == "nt":
+        # Windows hands fbuild a copy outside the install folder.
+        assert resolved == str(build / "tools" / executable_name)
+    else:
+        assert resolved == str(bundled)
+
+
+def test_stage_outside_install_copies_once_and_refreshes_on_update(tmp_path, monkeypatch):
+    # The packaged app's fbuild daemon cannot launch esptool from the install
+    # folder (2026-11-26), so the frozen Windows helper hands it a copy. An app
+    # update must replace a stale copy; an unchanged one is not rewritten.
+    bundled = tmp_path / "app" / "tools" / "esptool.exe"
+    bundled.parent.mkdir(parents=True)
+    bundled.write_bytes(b"v1")
+    build = tmp_path / "build"
+    monkeypatch.setattr(toolchain, "_BUILD_DIR", build)
+
+    staged = toolchain.Path(toolchain._stage_outside_install(bundled))
+    assert staged == build / "tools" / "esptool.exe"
+    assert staged.read_bytes() == b"v1"
+
+    staged.write_bytes(b"v1")  # same size, new mtime: still treated as stale
+    toolchain.os.utime(staged, (1, 1))
+    toolchain._stage_outside_install(bundled)
+    assert int(staged.stat().st_mtime) == int(bundled.stat().st_mtime)
+
+    bundled.write_bytes(b"version 2")
+    toolchain._stage_outside_install(bundled)
+    assert staged.read_bytes() == b"version 2"
+    assert not (build / "tools" / "esptool.exe.partial").exists()
+
+
+def test_stage_outside_install_falls_back_to_the_bundled_tool(tmp_path, monkeypatch):
+    bundled = tmp_path / "esptool.exe"
+    bundled.write_bytes(b"tool")
+    blocker = tmp_path / "build"
+    blocker.write_bytes(b"")  # a file where the build root should be
+    monkeypatch.setattr(toolchain, "_BUILD_DIR", blocker)
+
+    assert toolchain._stage_outside_install(bundled) == str(bundled)
 
 
 def test_parse_fqbn_splits_base_and_psram_option():

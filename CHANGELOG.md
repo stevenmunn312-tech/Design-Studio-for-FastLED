@@ -81,6 +81,10 @@ share link, migrating it where a shape has changed.
   default. fbuild, the default build engine, moves from 2.5.52 to 2.5.55, which
   installs the ESP32 toolchain and framework under short paths there; 2.5.52
   refused them, so a new user could not build any ESP32 sketch.
+- The Windows desktop app finishes ESP32 builds again. Its build engine was
+  refused permission to run the bundled esptool from the app's install folder,
+  so every build stopped at "cannot convert firmware.elf to firmware.bin". The
+  app now runs a copy kept in its build folder.
 - The macOS and Linux desktop packages start again straight after closing.
   For about a minute after the Studio closed, a new launch reported that
   port 8008 was in use.

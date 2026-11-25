@@ -187,8 +187,45 @@ def _find_interpreter_esptool() -> str | None:
     our pinned requirements instead of whichever unrelated copy happens to be
     on the machine-wide PATH. Frozen desktop builds carry the executable in
     their sibling ``tools`` directory rather than a Python scripts directory.
+
+    A frozen Windows build hands fbuild a copy outside the install folder (see
+    `_stage_outside_install`).
     """
-    return _find_interpreter_tool("esptool")
+    found = _find_interpreter_tool("esptool")
+    if found and getattr(sys, "frozen", False) and os.name == "nt":
+        return _stage_outside_install(Path(found))
+    return found
+
+
+def _stage_outside_install(tool: Path) -> str:
+    """Copy a bundled tool into the build root and return the copy's path.
+
+    Started from the packaged (MSIX) app, fbuild 2.5.55's daemon is refused
+    ("Access is denied") when it launches the esptool in the app's `tools`
+    folder, so every ESP32 build stopped at `elf2image`. The same file runs
+    from the user's profile, and from the install folder whenever fbuild is
+    not started by the app (2026-11-26, docs/release/long-paths-blocker.md).
+
+    The copy is refreshed when its size or modification time differs from the
+    bundled tool, so an app update replaces it. On any failure the bundled
+    path is returned, which is what every build used before.
+    """
+    target = _BUILD_DIR / "tools" / tool.name
+    try:
+        source = tool.stat()
+        try:
+            copy = target.stat()
+            current = copy.st_size == source.st_size and int(copy.st_mtime) == int(source.st_mtime)
+        except OSError:
+            current = False
+        if not current:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            partial = target.with_name(target.name + ".partial")
+            shutil.copy2(tool, partial)
+            os.replace(partial, target)
+        return str(target)
+    except OSError:
+        return str(tool)
 
 
 def _find_interpreter_tool(name: str) -> str | None:

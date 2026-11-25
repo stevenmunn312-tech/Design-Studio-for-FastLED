@@ -156,6 +156,35 @@ standard account with a long username, any ESP32 board other than the S3 (the
 RISC-V toolchain for C3, C6 and H2 was not installed), and upload. Those are
 the clean-machine smoke test under Publish in `todo.md`.
 
+### The packaged app could not run esptool (found and fixed 2026-11-26)
+
+With 2.5.55 the packaged app got further: the ESP32 packages installed and the
+sketch compiled with long paths off. Every build then stopped converting
+`firmware.elf` to `firmware.bin`:
+
+```
+build error: build failed: selected esptool executable could not be launched — cannot convert firmware.elf to firmware.bin.
+Error: failed to spawn ["...\tools\esptool.exe", "--chip", "esp32s3", "elf2image", ...]: Access is denied. (os error 5)
+```
+
+Seen on `storetest-longname` with the Store-identity layout and on Steve's
+account with the local layout, so it is not one account's state. It failed
+only when the real app (started from Start) launched fbuild. The same files
+worked from a shell, from a shell with the app's exact environment and
+launch flags, and inside the package through `Invoke-CommandInDesktopPackage`.
+`esptool.exe` runs by hand on both accounts, and its permissions match
+`fbuild.exe`. The Windows reason is not proven; fbuild assigns each tool it
+starts to a job object, and a refused assignment is reported as this spawn
+error, which fits but was not reproduced outside the app.
+
+What fixed it: the same `esptool.exe` copied outside the install folder. A
+frozen Windows helper now copies it into `<build root>\tools` at start-up and
+hands that path to fbuild (`_stage_outside_install` in `backend/toolchain.py`).
+Through the running app, a capacity check then converted `firmware.elf` with
+the copy and reported 352,379 bytes of flash. Not yet covered: an upload to
+the board from the fixed app, and the Store-identity layout on
+`storetest-longname` (still the build without the fix).
+
 ## Options
 
 1. **Ask fbuild upstream for a fix.** Zach has fixed reports within hours
