@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { libraryDefaults, NODE_LIBRARY, portsCompatible, propertyMeta } from '../../../state/nodeLibrary'
-import { IR_REMOTE_LEARN_HANDLE, irRemoteOutputs } from '../../../state/peripherals/irRemote'
-import { BUTTON_BANK_ADD_HANDLE, buttonBankOutputs } from '../../../state/player/buttonBank'
-import { webRemoteOutputs } from '../../../state/peripherals/webRemote'
+import { IR_REMOTE_LEARN_HANDLE } from '../../../state/peripherals/irRemote'
+import { BUTTON_BANK_ADD_HANDLE } from '../../../state/player/buttonBank'
 import { exposableInputsFor } from '../../../state/propertyInputs'
 import { partDerivedInputs } from '../../../build/parts/partPorts'
 import {
   exampleUsesMicrophone,
   liveExampleForNode,
 } from '../liveExamples'
-import { canvasLabel } from '../reference/example'
+import { canvasLabel, outputsOf } from '../reference/example'
 
 describe('node-reference live examples', () => {
   it('covers every library node with valid, compatible wiring', () => {
@@ -35,19 +34,10 @@ describe('node-reference live examples', () => {
       for (const edge of example.edges) {
         const source = byKey.get(edge.source)
         const target = byKey.get(edge.target)
-        const sourceDefinition = NODE_LIBRARY.find((node) => node.type === source?.type)
         const targetDefinition = NODE_LIBRARY.find((node) => node.type === target?.type)
-        // IR Remote mints one output per learned key — its library entry
-        // declares only the trailing Learn socket, which an example must
-        // never wire.
-        // A Button's rows default to one, so an example may leave them unset.
-        const sourceButtons = ({ ...libraryDefaults(source?.type ?? ''), ...(source?.properties ?? {}) } as Record<string, unknown>).buttons
-        const sourceOutputs = source?.type === 'IRRemoteInput'
-          ? irRemoteOutputs(sourceButtons)
-          : source?.type === 'ButtonBank' ? buttonBankOutputs(sourceButtons, false)
-            : source?.type === 'WebRemoteInput'
-              ? webRemoteOutputs((source.properties as Record<string, unknown>).controls, false)
-              : sourceDefinition?.outputs
+        // The sockets the canvas draws for this node as configured: an IR
+        // Remote's learned keys, a Button's rows, a part's debug socket.
+        const sourceOutputs = source ? outputsOf(source.type, source.properties) : undefined
         const sourcePort = sourceOutputs?.find((port) => port.id === edge.sourceHandle)
         // A part-backed node draws the ports its board and load give it (a
         // four-channel switch's Level 4, an RGB strip's Color), as the canvas does.

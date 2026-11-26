@@ -81,6 +81,7 @@ import { dancePreviewTick } from '../../src/nodes/audioReactive/danceFlash'
 import type { LiveExampleSpec } from '../../src/utils/insertLiveExample'
 import type { StudioNode, StudioEdge } from '../../src/state/graphStore'
 import type { NodeDefinition, NodePort } from '../../src/types'
+import { DEBUG_DATA_TYPE, DEBUG_SOURCE_HANDLE } from '../../src/state/debug/debugNode'
 
 // Synthetic audio for the audio-reactive nodes' previews (same as the app's
 // Test Signal toggle), so they don't render dark for lack of a microphone.
@@ -1315,6 +1316,13 @@ function nodeInner(def: NodeDefinition, overrides?: Record<string, unknown>, opt
     const stripTop = HEADER_H + BODY_PAD
     const all = [...new Set([...ports.inputs, ...ports.outputs].map((port) => port.id).concat([...connected], [...wiredOutputs]))]
     all.forEach((id, i) => portY.set(id, stripTop + embedded.h * (i + 1) / (all.length + 1)))
+  }
+
+  // The debug socket is drawn by the canvas rather than declared. Wired in an
+  // example, give it an anchor near the bottom edge so its noodle is drawn.
+  if (wiredOutputs.has(DEBUG_SOURCE_HANDLE)) {
+    portY.set(DEBUG_SOURCE_HANDLE, nodeH - 10)
+    body.push(`<circle cx="${w}" cy="${nodeH - 10}" r="5" fill="${portColor(DEBUG_DATA_TYPE)}"/>`)
   }
 
   const tintId = `tint-${isComment ? accent.slice(1) : def.category}`

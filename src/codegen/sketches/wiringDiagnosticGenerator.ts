@@ -14,6 +14,7 @@ import { amplifierIdleCpp } from '../audio/amplifierIdle'
 import { stereoVuPins } from '../audio/stereoVuMeterCpp'
 import { stereoVuRailCounts } from '../../state/audio/stereoVuSizing'
 import { standaloneDisplaysCpp } from '../displays/standaloneDisplayCpp'
+import { LED_PROBE_KIND } from './debug/ledProbeKind'
 
 function intProp(val: unknown, def: number, min: number, max: number): number {
   const n = Math.round(Number(val))
@@ -33,9 +34,6 @@ function targetedStereoVuNode(nodes: StudioNode[], outputNodeId: string): Studio
 }
 
 export type WiringDiagnosticMode = 'cycle' | 'hub75-panel-topology'
-
-/** The `probe=` name the Debug node reads stage markers under. */
-export const LED_PROBE_KIND = 'led'
 
 export interface WiringDiagnosticOptions {
   /**

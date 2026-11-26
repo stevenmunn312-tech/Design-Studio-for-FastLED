@@ -3,7 +3,7 @@
 
 import type { StudioEdge, StudioNode } from '../graphStore'
 import type { DebugPart, DebugProfile } from './debugProfile'
-import { DEBUG_NODE_TYPE, DEBUG_SOURCE_HANDLE, DEBUG_TARGET_HANDLE } from './debugNode'
+import { DEBUG_DATA_TYPE, DEBUG_NODE_TYPE, DEBUG_SOURCE_HANDLE, DEBUG_TARGET_HANDLE } from './debugNode'
 import { CONTROL_PROFILES } from './profiles/controls'
 import { I2C_PROFILE, POWER_MONITOR_PROFILE } from './profiles/i2c'
 import { LED_OUTPUT_PROFILE } from './profiles/ledOutput'
@@ -27,6 +27,15 @@ export function debugProfileFor(part: DebugPart): DebugProfile | undefined {
 
 export function hasDebugProfile(part: DebugPart): boolean {
   return debugProfileFor(part) !== undefined
+}
+
+/**
+ * The debug socket as a port, for code that lists a part's outputs to wire
+ * from (help examples). The canvas draws it rather than declaring it, so it is
+ * never in `data.outputs`; null for a part with no profile.
+ */
+export function debugSourcePort(part: DebugPart): { id: string; label: string; dataType: string } | null {
+  return hasDebugProfile(part) ? { id: DEBUG_SOURCE_HANDLE, label: 'Debug', dataType: DEBUG_DATA_TYPE } : null
 }
 
 /**

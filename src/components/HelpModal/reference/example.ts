@@ -16,6 +16,7 @@ import { irRemoteOutputs } from '../../../state/peripherals/irRemote'
 import { buttonBankOutputs } from '../../../state/player/buttonBank'
 import { webRemoteOutputs } from '../../../state/peripherals/webRemote'
 import { partDerivedInputs, partDerivedOutputs } from '../../../build/parts/partPorts'
+import { debugSourcePort } from '../../../state/debug/debugProfiles'
 
 export interface ReferenceLiveExample extends LiveExampleSpec {
   /** Compact topology shown beside the Try it live button. */
@@ -144,13 +145,19 @@ function inputsOf(type: string, properties: Record<string, unknown> | undefined)
   return partDerivedInputs(type, merged.partId, merged) ?? definition(type).inputs
 }
 
-function outputsOf(type: string, properties: Record<string, unknown> | undefined) {
+function declaredOutputsOf(type: string, properties: Record<string, unknown> | undefined) {
   const derived = partDerivedOutputs(type, { ...libraryDefaults(type), ...properties }.partId)
   if (derived) return derived
   if (type === 'IRRemoteInput') return irRemoteOutputs(properties?.buttons)
   if (type === 'ButtonBank') return buttonBankOutputs({ ...libraryDefaults(type), ...properties }.buttons, false)
   if (type === 'WebRemoteInput') return webRemoteOutputs(properties?.controls, false)
   return definition(type).outputs
+}
+
+/** The sockets a node can be wired from: its outputs, plus the drawn debug socket of a part with Debug checks. */
+export function outputsOf(type: string, properties: Record<string, unknown> | undefined) {
+  const debug = debugSourcePort({ id: 'example', data: { nodeType: type, properties: { ...libraryDefaults(type), ...properties } } })
+  return [...declaredOutputsOf(type, properties), ...(debug ? [debug] : [])]
 }
 
 type NodeEntry = readonly [type: string, properties?: Record<string, unknown>]

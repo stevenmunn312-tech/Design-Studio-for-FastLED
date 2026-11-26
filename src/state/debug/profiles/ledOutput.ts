@@ -5,7 +5,8 @@ import { HUB75_CHIPSET } from '../../nodeLibrary'
 import { ledSupplyVolts } from '../../../build/controllerSettings'
 import type { DebugContext, DebugFinding, DebugProbe, DebugProfile, MeterReadings } from '../debugProfile'
 import type { StudioNode } from '../../graphStore'
-import { generateWiringDiagnosticSketch, LED_PROBE_KIND } from '../../../codegen/sketches/wiringDiagnosticGenerator'
+import { generateWiringDiagnosticSketch } from '../../../codegen/sketches/wiringDiagnosticGenerator'
+import { LED_PROBE_KIND } from '../../../codegen/sketches/debug/ledProbeKind'
 import { num, pinLabel, volts, yes } from '../debugProfile'
 
 function stripVolts(props: Record<string, unknown>): number {

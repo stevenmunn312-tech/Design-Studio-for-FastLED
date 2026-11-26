@@ -11,6 +11,29 @@ share link, migrating it where a shape has changed.
 
 ### Added
 
+- A **Debug** node, under the new Tools group, helps you bench-test one
+  hardware part.
+  - **Connecting it:** wire the part's Debug socket into the node, or choose
+    **Debug this part** on a part in the Hardware view. Every part on the
+    hardware shelf has checks, except Pack Electronics.
+  - **What it shows:** what Checks already know about the part, its common
+    faults, and how to isolate it.
+  - **Meter checks:** low-voltage checks you answer with your readings or
+    Yes/No. A verdict names the likely fault, and offers a one-click fix where
+    the fix is a setting.
+  - **Test on the board:** many parts can also upload a short test sketch
+    that reads the part live and reports in the node. These include buttons,
+    sensors, encoder, potentiometer, I2C parts, LED output, microphone, SD
+    card and power monitor. The LED test asks what colour the strip shows and
+    can set the colour order for you. Afterwards the node offers to upload
+    your project again.
+  - **Not part of the project:** Debug changes neither the preview nor the
+    firmware, and it is never saved. Its checks never ask you to measure mains
+    or open a power supply.
+  - **Serial Debug output:** Serial Debug on a microphone or line input, and
+    Debug on a power monitor, now also print an `FLS_DBG` line beside their
+    existing output.
+
 - The Audio node has a **Source** input that switches its source while the
   board runs. Drop a Button, IR key, Web Remote control or Encoder on the
   body's Source row: a press steps to the next source, a number picks one by
