@@ -22,6 +22,24 @@ The Debug node helps users bench-test one hardware part on their own. It shows c
 - A node type whose modules fail differently gets one profile per kind of module, each with an `applies(part)` test. Examples: an I2C light sensor versus an LDR, an SPI OLED versus an I2C one, HUB75 versus addressable LEDs.
 - An I2C profile decides "on the bus" from `collectPinUses`, the same walk the wiring diagram draws from.
 - The socket is drawn by `StudioNode`, never added to `data.outputs`.
+- Most parts are built with `moduleProfile` (`profiles/moduleProfile.ts`). It produces one continuity check per wire the part really uses, a supply check and a 5 V-on-3.3 V warning, and each family adds its own steps on top.
+  - The wires come from `collectPinUses` with a board present.
+  - Pins that a part claims but that are not wires to its module are filtered out there. The internal DAC pins an SD show claims are the known case.
+- Every shelf part except Pack Electronics has a profile. A test holds that.
+
+## Diagnostic sketches
+
+- **Probe:** a profile's optional `probe` names a sketch kind, generates it from the part's context, and turns its latest `FLS_DBG` line into a readout and findings.
+- **Sketches:** live in `src/codegen/sketches/debug/`. Each one:
+  - initialises only the board and the part;
+  - prints `FLS_DBG v=1 probe=<kind> key=value…` from `loop()`, rate-limited, at 115200 (`PROBE_BAUD`);
+  - reuses the project's own read code where there is one. The analog probe uses `ANALOG_FULL_SCALE_CPP`.
+- **The run (`debugRunStore.ts`):**
+  - It uploads with `cache: false`, so the probe never becomes the project's last upload.
+  - It sets the monitor to the probe baud and reads lines through `deviceTelemetryStore.ingest`.
+  - `debugRunBlocker` refuses before uploading when the workspace is untrusted, the part has no probe or pin, there is no port, or the part's board is not the bench's active board (each board has its own port).
+- **The node:** asks before uploading, because the probe replaces the project on the board. When the run ends it offers "Re-upload project" (`runLastUpload`) when there is one.
+- **Compile fixtures:** each probe has a fixture in the `debug-probes` family (`scripts/compile-fixtures/debug-probes.ts`), built from the same profile on ESP32 and Uno. Run `compile-matrix.py --only debug-probes/`.
 
 ## Adding a new transient node type
 

@@ -5,7 +5,9 @@
 import type { StudioNode } from '../../graphStore'
 import { collectPinUses } from '../../../build/hardwareManifest'
 import { i2cAddressFor, formatI2cAddress } from '../../../build/pins/busTopology'
-import type { DebugContext, DebugFinding, DebugPart, DebugProfile } from '../debugProfile'
+import type { DebugContext, DebugFinding, DebugPart, DebugProbe, DebugProfile } from '../debugProfile'
+import { generateI2cScanSketch, I2C_SCAN_PROBE_KIND } from '../../../codegen/sketches/debug/i2cScanSketch'
+import { boardTakesWirePins, wireBeginCpp } from '../../../codegen/peripherals/wireBeginCpp'
 import { near, num, pinLabel, volts, yes } from '../debugProfile'
 
 /** Parts that are on I2C only with some modules (a BH1750 but not an LDR). */
@@ -19,14 +21,84 @@ function i2cPins(node: StudioNode, board?: StudioNode): { sda?: number; scl?: nu
   }
 }
 
-function onI2c(part: DebugPart): boolean {
+/** Whether the part, as configured, sits on the I2C bus. */
+export function onI2c(part: DebugPart): boolean {
   if (!SOMETIMES_I2C.has(part.data.nodeType)) return true
   return i2cPins(part as StudioNode).sda !== undefined
+}
+
+/** The opposite, for profiles that cover a node type's non-I2C modules: true
+ *  for types that are never on I2C at all. */
+export function offI2c(part: DebugPart): boolean {
+  return !SOMETIMES_I2C.has(part.data.nodeType) || !onI2c(part)
 }
 
 function addressLabel(ctx: DebugContext): string {
   const address = i2cAddressFor(ctx.node.data.nodeType, ctx.props)
   return address === null ? 'its address' : formatI2cAddress(address)
+}
+
+const hex = (address: number) => `0x${address.toString(16).toUpperCase().padStart(2, '0')}`
+
+/**
+ * The property change that moves the part to `address`, when its address is
+ * a setting and that address is one it can take; null for a fixed-address part.
+ */
+function addressRepair(ctx: DebugContext, address: number): Record<string, unknown> | null {
+  if (!('i2cAddress' in ctx.props)) return null
+  const type = ctx.node.data.nodeType
+  for (const candidate of [hex(address), hex(address).toLowerCase(), address]) {
+    if (i2cAddressFor(type, { ...ctx.props, i2cAddress: candidate }) === address) return { i2cAddress: candidate }
+  }
+  return null
+}
+
+const I2C_SCAN_PROBE: DebugProbe = {
+  kind: I2C_SCAN_PROBE_KIND,
+  instruction: 'Leave the part connected and powered; the board scans the bus every second.',
+  sketch: (ctx) => {
+    const pins = i2cPins(ctx.node, ctx.board)
+    if (pins.sda === undefined || pins.scl === undefined) return null
+    const boardNodes = ctx.board ? [ctx.board] : []
+    const takesPins = boardTakesWirePins(boardNodes)
+    return generateI2cScanSketch({
+      wireBegin: wireBeginCpp(boardNodes, pins.sda, pins.scl, 'I2C bus under test'),
+      sda: takesPins ? pins.sda : 'SDA',
+      scl: takesPins ? pins.scl : 'SCL',
+    })
+  },
+  readout: (fields) => [
+    { label: 'Answering', value: String(fields.found || 'nothing') },
+    { label: 'Idle SDA / SCL', value: `${fields.sdaIdle === 1 ? 'high' : 'low'} / ${fields.sclIdle === 1 ? 'high' : 'low'}` },
+  ],
+  interpret: (ctx, fields) => {
+    if (typeof fields.count !== 'number') return []
+    const found = String(fields.found ?? '').split(',').filter(Boolean).map((entry) => parseInt(entry, 16)).filter(Number.isFinite)
+    const expected = i2cAddressFor(ctx.node.data.nodeType, ctx.props)
+    if (expected !== null && found.includes(expected)) {
+      return [{ id: 'probe-scan', tone: 'ok', title: `The part answers at ${hex(expected)}`, detail: 'Based on the test, the bus works and the part is where the project looks for it.' }]
+    }
+    if (found.length === 0) {
+      const lowLine = fields.sdaIdle === 0 || fields.sclIdle === 0
+      return [{
+        id: 'probe-scan', tone: 'fault', title: 'Nothing answers on the bus',
+        detail: lowLine
+          ? 'Based on the test, a bus line sits low before the scan even starts: no pull-ups, an unpowered module, or a short to GND.'
+          : 'Based on the test, the lines idle high but no device replies. SDA and SCL are swapped, or the module has no power.',
+      }]
+    }
+    const listed = found.map(hex).join(', ')
+    const single = found.length === 1 ? found[0] : null
+    const repair = single !== null ? addressRepair(ctx, single) : null
+    return [{
+      id: 'probe-scan', tone: 'fault',
+      title: expected === null ? `Found ${listed}` : `The part answers at ${listed}, not ${hex(expected)}`,
+      detail: repair
+        ? `Based on the test, the module is strapped to ${listed}. Set the project to the same address.`
+        : `Based on the test, ${listed} answered${expected === null ? '' : `, but nothing at ${hex(expected)}`}. Check the module’s address jumpers, or whether another module is the one answering.`,
+      ...(repair ? { repair: { label: `Use ${listed}`, nodeId: ctx.node.id, properties: repair } } : {}),
+    }]
+  },
 }
 
 export const I2C_PROFILE: DebugProfile = {
@@ -35,6 +107,7 @@ export const I2C_PROFILE: DebugProfile = {
     'DistanceInput', 'MotionVectorInput', 'TouchPadInput', 'PwmDriverOutput',
   ],
   applies: onI2c,
+  probe: I2C_SCAN_PROBE,
   commonIssues: [
     {
       symptom: 'Nothing on the bus answers.',

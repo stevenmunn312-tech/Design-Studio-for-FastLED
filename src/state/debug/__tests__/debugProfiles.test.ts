@@ -8,6 +8,9 @@ import { NODE_LIBRARY, libraryDefaults } from '../../nodeLibrary'
 import { DEBUG_PROFILES, debugConnectionVerdict, debugProfileFor, debugTargetOf } from '../debugProfiles'
 import { debugContextFor, type DebugContext, type MeterReadings } from '../debugProfile'
 import { singleButtonRow } from '../../player/buttonBank'
+import { partOptionsFor } from '../../../build/parts/partOptions'
+import { isHardwareNodeType } from '../../../build/hardware'
+import { ANALOG_SENSOR_PROFILE, RELAY_PROFILE, SPI_DISPLAY_PROFILE } from '../profiles/modules'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -59,10 +62,31 @@ describe('Debug profile safety', () => {
     expect(profile.interpret(context(type), {})).toEqual([])
   })
 
-  it('covers only library node types, once each', () => {
-    const types = DEBUG_PROFILES.flatMap((profile) => profile.nodeTypes)
-    expect(new Set(types).size).toBe(types.length)
-    for (const type of types) expect(NODE_LIBRARY.some((entry) => entry.type === type), type).toBe(true)
+  it('covers only library node types, each profile listing a type once', () => {
+    for (const profile of DEBUG_PROFILES) expect(new Set(profile.nodeTypes).size).toBe(profile.nodeTypes.length)
+    for (const type of DEBUG_PROFILES.flatMap((profile) => profile.nodeTypes)) {
+      expect(NODE_LIBRARY.some((entry) => entry.type === type), type).toBe(true)
+    }
+  })
+
+  it('gives a type with several profiles exactly one per configured part', () => {
+    const shared = DEBUG_PROFILES.flatMap((profile) => profile.nodeTypes)
+      .filter((type, index, all) => all.indexOf(type) !== index)
+    for (const type of new Set(shared)) {
+      for (const option of [...partOptionsFor(type).map((entry) => entry.id), undefined]) {
+        const part = node('p', type, option ? { partId: option } : {})
+        const fitting = DEBUG_PROFILES.filter((profile) => profile.nodeTypes.includes(type) && (profile.applies?.(part) ?? true))
+        expect(fitting.length, `${type} ${option ?? 'default'}`).toBe(1)
+      }
+    }
+  })
+
+  it('has a profile for every part on the hardware shelf except pack electronics', () => {
+    const missing = NODE_LIBRARY
+      .filter((entry) => isHardwareNodeType(entry.type) && !['Board', 'BatteryModule'].includes(entry.type))
+      .filter((entry) => !debugProfileFor(node('p', entry.type)))
+      .map((entry) => entry.type)
+    expect(missing).toEqual([])
   })
 })
 
@@ -206,12 +230,12 @@ describe('Encoder verdicts', () => {
 describe('Profile choice follows the chosen module', () => {
   it('tests an I2C light sensor on the bus, and leaves an LDR module to other checks', () => {
     expect(debugProfileFor(node('l', 'LightInput', { partId: 'adafruit-bh1750-light-sensor' }))?.nodeTypes).toContain('LightInput')
-    expect(debugProfileFor(node('l', 'LightInput', { partId: 'photosensitive-ldr-module' }))).toBeUndefined()
+    expect(debugProfileFor(node('l', 'LightInput', { partId: 'photosensitive-ldr-module' }))).toBe(ANALOG_SENSOR_PROFILE)
   })
 
   it('tests an I2C OLED on the bus, and not an SPI one', () => {
     expect(debugProfileFor(node('o', 'InfoDisplay', { partId: 'ssd1306-oled-096-128x64-i2c' }))).toBeDefined()
-    expect(debugProfileFor(node('o', 'InfoDisplay', { partId: 'sh1106-oled-096-128x64-spi' }))).toBeUndefined()
+    expect(debugProfileFor(node('o', 'InfoDisplay', { partId: 'sh1106-oled-096-128x64-spi' }))).toBe(SPI_DISPLAY_PROFILE)
   })
 
   it('leaves HUB75 panels out of the LED output checks', () => {
@@ -293,5 +317,70 @@ describe('Power verdicts', () => {
     expect(tones(verdicts('BatteryPack', { pack: 9.5 }, props))).toEqual(['fault: The pack is over-discharged'])
     expect(tones(verdicts('BatteryPack', { pack: 15.2 }, props))).toEqual(['ok: The pack voltage is in range'])
     expect(tones(verdicts('BatteryPack', { pack: 18 }, props))).toEqual(['fault: The pack reads above full'])
+  })
+})
+
+describe('Module verdicts', () => {
+  it('builds a wire check for each pin the module really uses', () => {
+    const ctx = context('SDCard')
+    const ids = debugProfileFor(ctx.node)!.meterSteps(ctx).map((step) => step.id)
+    expect(ids).toEqual(expect.arrayContaining(['wire-sdCsPin', 'wire-sdSckPin', 'wire-sdMosiPin', 'wire-sdMisoPin', 'vcc']))
+    // A one-channel relay lists only its first input.
+    const relay = context('RelayOutput', { partId: 'relay-module-1ch-5v' })
+    expect(debugProfileFor(relay.node)!.meterSteps(relay).filter((step) => step.id.startsWith('wire-')).map((step) => step.id))
+      .toEqual(['wire-in1Pin'])
+  })
+
+  it('lists only wires to the SD module, not the board audio pins an SD show claims', () => {
+    const board = node('board-root', 'Board', { profileId: 'esp32-generic-devkit-38pin' })
+    const card = node('sd', 'SDCard')
+    const ctx = debugContextFor(card, [board])
+    const wires = debugProfileFor(card)!.meterSteps(ctx).filter((step) => step.id.startsWith('wire-')).map((step) => step.id)
+    expect(wires).toEqual(['wire-sdCsPin', 'wire-sdSckPin', 'wire-sdMosiPin', 'wire-sdMisoPin'])
+  })
+
+  it('names an open SD chip-select wire', () => {
+    expect(tones(verdicts('SDCard', { 'wire-sdCsPin': false }))).toEqual(['fault: The CS wire is open'])
+  })
+
+  it('warns when a module that drives signals back runs at 5 V on a 3.3 V board', () => {
+    expect(tones(verdicts('DFPlayerOutput', { vcc: 5 }))).toEqual(['suspect: The module runs at 5 V on a 3.3 V board'])
+    // A module that only receives signals is fine at 5 V.
+    expect(verdicts('SegmentDisplay', { vcc: 5 })).toEqual([])
+  })
+
+  it('names a PIR output that never changes, and passes one that does', () => {
+    expect(tones(verdicts('MotionInput', { rest: 0, moves: false }))).toEqual(['fault: The motion sensor output never changes'])
+    expect(tones(verdicts('MotionInput', { rest: 0, moves: true }))).toEqual(['ok: The motion sensor responds'])
+  })
+
+  it('names a 5 V sensor output into a 3.3 V pin', () => {
+    expect(tones(verdicts('MotionInput', { rest: 5 }))).toEqual(['fault: The motion sensor drives 5 V into a 3.3 V pin'])
+  })
+
+  it('grades an analog sensor sweep, including the lifted-ground case', () => {
+    const ldr = { partId: 'photosensitive-ldr-module' }
+    expect(verdicts('LightInput', { low: 0.02, high: 0.03 }, ldr)[0].detail).toMatch(/missing supply or GND/)
+    expect(tones(verdicts('LightInput', { low: 0.4, high: 4.9 }, ldr))).toEqual(['fault: The sensor exceeds the board’s 3.3 V'])
+    expect(tones(verdicts('LightInput', { low: 0.4, high: 2.9 }, ldr))).toEqual(['ok: The sensor responds'])
+  })
+
+  it('names a DS18B20 data line with no pull-up', () => {
+    expect(tones(verdicts('TemperatureInput', { rest: 0 }))).toEqual(['fault: The data line is held low'])
+  })
+
+  it('names an ultrasonic sensor starved of 5 V', () => {
+    expect(tones(verdicts('DistanceInput', { vcc: 3.3 }))).toEqual(['fault: The sensor gets less than 5 V'])
+  })
+
+  it('names a microphone on 5 V', () => {
+    expect(verdicts('MicInput', { vcc: 5 }).map((entry) => entry.title)).toContain('The microphone gets 5 V')
+  })
+
+  it('keeps relay tests away from the load side', () => {
+    const ctx = context('RelayOutput')
+    const text = JSON.stringify([RELAY_PROFILE.isolation(ctx), RELAY_PROFILE.meterSteps(ctx)])
+    expect(text).toMatch(/leave that side disconnected and unpowered/)
+    expect(RELAY_PROFILE.meterSteps(ctx).every((step) => step.kind !== 'volts' || step.id === 'vcc')).toBe(true)
   })
 })

@@ -8,8 +8,9 @@ import { CONTROL_PROFILES } from './profiles/controls'
 import { I2C_PROFILE } from './profiles/i2c'
 import { LED_OUTPUT_PROFILE } from './profiles/ledOutput'
 import { POWER_PROFILES } from './profiles/power'
+import { MODULE_PROFILES } from './profiles/modules'
 
-export const DEBUG_PROFILES: readonly DebugProfile[] = [...CONTROL_PROFILES, LED_OUTPUT_PROFILE, I2C_PROFILE, ...POWER_PROFILES]
+export const DEBUG_PROFILES: readonly DebugProfile[] = [...CONTROL_PROFILES, LED_OUTPUT_PROFILE, I2C_PROFILE, ...POWER_PROFILES, ...MODULE_PROFILES]
 
 export type { DebugPart }
 

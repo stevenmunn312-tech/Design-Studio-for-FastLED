@@ -165,3 +165,33 @@
 .clear {
   justify-self: end;
 }
+
+.readout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-0);
+  margin: 0;
+}
+
+.readout div {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-0);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.readout dt {
+  color: color-mix(in srgb, var(--text-primary) 62%, transparent);
+}
+
+.readout dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.repair:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

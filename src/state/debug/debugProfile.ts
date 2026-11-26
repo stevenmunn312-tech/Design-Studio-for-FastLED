@@ -6,6 +6,7 @@
 // the user supplies, so every finding is phrased as "based on your readings".
 
 import type { StudioNode } from '../graphStore'
+import type { DebugFields } from './debugProtocol'
 import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { ROOT_BOARD_NODE_ID } from '../../build/hardware'
 
@@ -61,6 +62,25 @@ export interface DebugContext {
   logicVolts: number
 }
 
+/**
+ * A diagnostic sketch for the part: uploaded in place of the project, it
+ * prints `FLS_DBG` lines (debugProtocol.ts) that the node reads live. The
+ * sketch initialises only the board and this part, which isolates the part in
+ * software as the checklist isolates it on the bench.
+ */
+export interface DebugProbe {
+  /** The `probe=` name the sketch prints; lines with another name are ignored. */
+  kind: string
+  /** What the user does while it runs. */
+  instruction: string
+  /** The sketch, or null when the part has no usable pin to probe. */
+  sketch: (ctx: DebugContext) => string | null
+  /** Live values to show from the latest line. */
+  readout: (fields: DebugFields) => { label: string; value: string }[]
+  /** Findings from the latest line. Phrased as based on the test results. */
+  interpret: (ctx: DebugContext, fields: DebugFields) => DebugFinding[]
+}
+
 export interface DebugProfile {
   /** Node types this profile covers. */
   nodeTypes: readonly string[]
@@ -75,6 +95,8 @@ export interface DebugProfile {
   scopeTips: readonly string[]
   /** Findings from the readings entered so far; empty until there are some. */
   interpret: (ctx: DebugContext, readings: MeterReadings) => DebugFinding[]
+  /** A diagnostic sketch, for parts that have one. */
+  probe?: DebugProbe
 }
 
 /** The board node a part belongs to: its `boardId`, else the primary board. */
