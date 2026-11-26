@@ -27,6 +27,9 @@ export const GRAPH_EMITTERS: NodeEmitters = {
   Comment() {
     // Canvas-only annotation — no ports, nothing to emit.
   },
+  Debug() {
+    // Workshop instrument: diagnostics upload their own sketch, never this one.
+  },
   /*
    * A value another board sends over the board link (docs/design/board-links.md).
    * The frame was applied before the graph, so this pass reads it like any

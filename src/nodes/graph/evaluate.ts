@@ -53,4 +53,8 @@ export const GRAPH_EVALUATORS: NodeEvaluators = {
   Comment() {
     return {}
   },
+  // Workshop instrument: reads its target part, contributes nothing to the frame.
+  Debug() {
+    return {}
+  },
 }

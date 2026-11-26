@@ -46,6 +46,7 @@ Detailed contracts and traps live under `docs/development/patterns/`. Read the m
 - [Custom screens](docs/development/patterns/custom-screens.md) — designs, ports, LVGL/assets, themes, templates, and Enabled.
 - [Firmware generation](docs/development/patterns/firmware-generation.md) — C++ generation, escaping/order, FastLED trimming, telemetry, and calibration.
 - [Build helper](docs/development/patterns/build-helper.md) — build timing, binary export, mtime writes, and sketch caching.
+- [Debug node](docs/development/patterns/debug-node.md) — transient diagnostic tool, sink exclusion, save stripping and safety rules.
 - [Workspace UI](docs/development/patterns/workspace-ui.md) — tabs, guides, CSS traps, and `ClampedNumberInput`.
 - [Testing](docs/development/patterns/testing.md) — cold imports, timeout leakage, and full-run load.
 

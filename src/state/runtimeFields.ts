@@ -10,6 +10,12 @@
 // Kept: `position` and everything the app itself sets, `style` (an edge's
 // colour) and `reconnectable` included. Node `width`/`height` are dropped
 // because no node here is user-resizable: they only ever hold a measurement.
+//
+// Transient nodes (the Debug node, `state/debug/debugNode.ts`) are runtime
+// content in the same sense, so they and every edge touching them are dropped
+// here too: a diagnostic session never reaches a save, autosave or share link.
+
+import { withoutTransientNodes } from './debug/debugNode'
 
 const NODE_RUNTIME_KEYS = [
   'selected', 'dragging', 'resizing', 'measured', 'width', 'height', 'positionAbsolute', 'internals', 'zIndex',
@@ -25,13 +31,15 @@ function without<T extends object>(value: T, keys: readonly string[]): T {
 
 interface GraphParts<N extends object, E extends object> { nodes: N[]; edges: E[] }
 
-/** A graph's nodes and edges without runtime fields. Objects that carry none
- *  are returned as they are, and the input is never changed. */
+/** A graph's nodes and edges without runtime fields or transient nodes.
+ *  Objects that carry none are returned as they are, and the input is never
+ *  changed. */
 export function stripRuntimeGraph<N extends object, E extends object, G extends GraphParts<N, E>>(graph: G): G {
+  const { nodes, edges } = withoutTransientNodes(graph.nodes, graph.edges)
   return {
     ...graph,
-    nodes: graph.nodes.map((node) => without(node, NODE_RUNTIME_KEYS)),
-    edges: graph.edges.map((edge) => without(edge, EDGE_RUNTIME_KEYS)),
+    nodes: nodes.map((node) => without(node, NODE_RUNTIME_KEYS)),
+    edges: edges.map((edge) => without(edge, EDGE_RUNTIME_KEYS)),
   }
 }
 

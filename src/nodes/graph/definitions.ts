@@ -17,9 +17,21 @@ export const GRAPH_DEFINITIONS: NodeDefinition[] = [
     outputs: [],
     defaultProperties: { text: 'Note', color: '#ffd24a' },
   },
+  {
+    // A workshop instrument for one hardware part: guidance, meter checks and
+    // diagnostic uploads (state/debug/debugNode.ts). Never a sink, never
+    // evaluated or emitted, and dropped from every save.
+    type: 'Debug',
+    label: 'Debug',
+    category: 'note',
+    inputs: [{ id: 'part', label: 'Part', dataType: 'debug' }],
+    outputs: [],
+    defaultProperties: { targetPartId: '' },
+  },
 ]
 
 export const GRAPH_DESCRIPTIONS: Record<string, string> = {
   // note
   Comment: 'A sticky note for the canvas — no ports, just text and color.',
+  Debug: 'Diagnose one hardware part with guidance and test uploads. Never saved.',
 }

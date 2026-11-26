@@ -1,5 +1,6 @@
 import type { StudioNode, StudioEdge } from '../state/graphStore'
-import { NODE_LIBRARY } from '../state/nodeLibrary'
+import { NODE_LIBRARY, isSinkDefinition } from '../state/nodeLibrary'
+import { withoutTransientNodes } from '../state/debug/debugNode'
 import { withWiredWebRemoteStarts } from '../state/peripherals/webRemoteWiredStart'
 import { isHardwareNodeType, ROOT_BOARD_NODE_ID } from './hardware'
 import { boardLinkSettings } from '../state/peripherals/boardLinkKey'
@@ -75,13 +76,12 @@ export interface BoardLinkWire {
 
 /**
  * Every sink in the library: a node the graph feeds and nothing reads. The
- * same rule as cppGenerator's `TERMINAL_NODE_TYPES` and graphEvaluator's
- * `HOT_NODE_TYPES`, derived here rather than imported so the partition does
- * not pull the generator in.
+ * shared `isSinkDefinition` rule, as cppGenerator's `TERMINAL_NODE_TYPES` and
+ * graphEvaluator's `HOT_NODE_TYPES` use it.
  */
 const SINK_NODE_TYPES = new Set(
   NODE_LIBRARY
-    .filter((def) => def.inputs.length > 0 && (def.outputs.length === 0 || def.category === 'output'))
+    .filter(isSinkDefinition)
     .map((def) => def.type),
 )
 
@@ -555,7 +555,10 @@ function membershipOf(nodes: readonly StudioNode[], edges: readonly StudioEdge[]
   if (cachedMembership && nodes === cachedNodes && edges === cachedEdges) return cachedMembership
   cachedNodes = nodes
   cachedEdges = edges
-  cachedMembership = membership(withWiredWebRemoteStarts(nodes, edges), edges)
+  // A Debug node's wire names a part under test, not a signal: it must not
+  // join a board or become a board link.
+  const live = withoutTransientNodes(nodes, edges)
+  cachedMembership = membership(withWiredWebRemoteStarts(live.nodes, live.edges), live.edges)
   return cachedMembership
 }
 
@@ -608,7 +611,7 @@ export function boardPartition(
 ): BoardPartition {
   const state = membershipOf(nodes, edges)
   const { boards, primaryId, byBoard } = state
-  if (boards.length === 0) return { board: null, nodes: [...state.nodes], edges: [...edges] }
+  if (boards.length === 0) return { board: null, nodes: [...state.nodes], edges: [...withoutTransientNodes(nodes, edges).edges] }
   const id = byBoard.has(boardId) ? boardId : primaryId
   const cached = state.partitions.get(id)
   if (cached) return cached

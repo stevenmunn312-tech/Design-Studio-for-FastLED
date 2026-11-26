@@ -249,7 +249,9 @@ export const CATEGORIES = [
   { id: 'composite', label: 'Effects',      accentVar: '--accent-composite', color: '#4747ea' },
   { id: 'show',      label: 'Show',         accentVar: '--accent-show',      color: '#8847ea' },
   { id: 'output',    label: 'Output',       accentVar: '--accent-output',    color: '#c947ea' },
-  { id: 'note',      label: 'Notes',        accentVar: '--accent-note',      color: '#ea47c9' },
+  // `note` keeps its historical id and displays as "Tools": canvas helpers
+  // (Comment, Debug) that are never evaluated or emitted.
+  { id: 'note',      label: 'Tools',        accentVar: '--accent-note',      color: '#ea47c9' },
 ] as const
 
 // Ordered sub-headings shown inside a category's sidebar section. A category
@@ -334,6 +336,24 @@ export const PORT_COLORS: Record<string, string> = {
   string: '#ff7bb0',
   // The "Add control…" invitation: neutral, since it carries no signal.
   newcontrol: '#9aa0a6',
+  // A part's link to a Debug node: carries no signal, only which part.
+  debug: '#ff6b5a',
+}
+
+/**
+ * Whether a library type is a sink: a node the graph feeds and nothing reads.
+ * Ordinary sinks have inputs and no outputs; an output-category node with
+ * inputs stays a terminal even when it publishes touch intent. Canvas tools
+ * (the `note` category: Comment, Debug) never are, so a Debug node wired to a
+ * part does not root that part into the preview or the sketch.
+ *
+ * One rule for the generator's terminals, the evaluator's hot set and the
+ * board partition's sinks.
+ */
+export function isSinkDefinition(def: NodeDefinition): boolean {
+  return def.category !== 'note'
+    && def.inputs.length > 0
+    && (def.outputs.length === 0 || def.category === 'output')
 }
 
 /** Colour for a port's data type (used to tint node handles). */
@@ -2750,6 +2770,9 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
   Comment: {
     color: 'Tints the whole note so related notes can share a colour.',
     text: 'Free text for the canvas. Never evaluated or exported.',
+  },
+  Debug: {
+    targetPartId: 'The part under test when nothing is wired to Part, set by a part’s Debug this part action. A wired part takes priority.',
   },
   PercussionDetect: {
     sensitivity: 'Lowers the hit threshold for all three lanes (0–1). Raise it on quiet sources.',

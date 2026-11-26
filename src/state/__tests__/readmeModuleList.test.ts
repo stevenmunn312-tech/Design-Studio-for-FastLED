@@ -26,7 +26,7 @@ const README_HEADINGS: Record<string, string> = {
   Show: 'show',
   Output: 'output',
   Hardware: 'hardware',
-  Notes: 'note',
+  Tools: 'note',
 }
 
 function readmeModules(heading: string): string[] {

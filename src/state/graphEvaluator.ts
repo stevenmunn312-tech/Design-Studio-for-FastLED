@@ -1,6 +1,6 @@
 import { groupSourceType } from './groupSourceType'
 import type { StudioNode, StudioEdge } from './graphStore'
-import { inputClampRange, resolveNodeNumericProperties, bypassPort, NODE_LIBRARY, floatAsBool } from './nodeLibrary'
+import { inputClampRange, resolveNodeNumericProperties, bypassPort, NODE_LIBRARY, floatAsBool, isSinkDefinition } from './nodeLibrary'
 import { type Palette, type RGB, type Frame, samplePalette } from './palettes/ledColor'
 import { getCodeError as getCodeErrorFromSandbox } from './codeSandboxRuntime'
 import { DEFAULT_W, DEFAULT_H } from './evaluator/frames'
@@ -352,7 +352,7 @@ const HOT_NODE_TYPES = new Set<string>([
    * role values, so sampling at the full frame cadence is observable work.
    */
   ...NODE_LIBRARY
-    .filter((def) => def.inputs.length > 0 && (def.outputs.length === 0 || def.category === 'output'))
+    .filter(isSinkDefinition)
     .map((def) => def.type),
 ])
 

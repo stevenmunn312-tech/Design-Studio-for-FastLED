@@ -33,6 +33,7 @@ import {
   bypassPort,
   SPI_CHIPSETS,
   FLOAT_TO_BOOL_THRESHOLD,
+  isSinkDefinition,
 } from '../state/nodeLibrary'
 import { ledOutputManualExprs, withOutputGammaTables } from './output/ledOutputRuntimeCpp'
 import { LED_OUTPUT_ACTION_PORTS, ledOutputStatus, LED_OUTPUT_RUNTIME_DEFAULT } from '../state/output/ledOutputRuntime'
@@ -263,7 +264,7 @@ function topoSort(nodes: StudioNode[], edges: StudioEdge[]): StudioNode[] {
  */
 const TERMINAL_NODE_TYPES = new Set([
   ...NODE_LIBRARY
-    .filter((def) => def.inputs.length > 0 && (def.outputs.length === 0 || def.category === 'output'))
+    .filter(isSinkDefinition)
     .map((def) => def.type),
   // A value this board sends over a board link: nothing on this board reads
   // it, so without being a root it and its sources would be pruned.

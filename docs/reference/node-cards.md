@@ -1350,13 +1350,19 @@ Regenerate after adding or changing a node — do not edit the SVGs by hand.
 
 ![Frame Stream example graph](../../public/node-cards/graphs/stream-output.svg)
 
-## Notes
+## Tools
 
 ### Comment
 
 ![Comment node](../../public/node-cards/comment.svg)
 
 ![Comment example graph](../../public/node-cards/graphs/comment.svg)
+
+### Debug
+
+![Debug node](../../public/node-cards/debug.svg)
+
+![Debug example graph](../../public/node-cards/graphs/debug.svg)
 
 ## Hardware
 

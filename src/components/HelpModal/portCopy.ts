@@ -35,4 +35,5 @@ export const PORT_DESCRIPTIONS: Record<string, string> = {
   playerparticles: 'the beat-particle overlay style and intensity configuration',
   string: 'a bounded line of display text',
   newcontrol: 'an invitation rather than a signal: drag it onto a property row to make a control for that property',
+  debug: 'which hardware part a Debug node tests, not a signal: it never reaches the preview or the firmware',
 }

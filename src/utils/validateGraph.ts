@@ -129,6 +129,7 @@ import {
 import { motionVectorAddress, motionVectorAddressOptions } from '../state/peripherals/motionVector'
 import { touchPadAddress, touchPadAddressOptions } from '../state/peripherals/touchPad'
 import { findDataLaneErrors, findDataLaneIssuesInGraph } from './dataLaneValidation'
+import { withoutTransientNodes } from '../state/debug/debugNode'
 import {
   dataLinkLabel,
   dataLinkPartId,
@@ -1833,6 +1834,11 @@ export function findDeployBlockingErrors(
   displayDocuments?: DisplayDocumentRegistry,
   groups: GroupRegistry = {},
 ): string[] {
+  // A Debug node and its wire are a workshop instrument, not project content.
+  const live = withoutTransientNodes(nodes, edges)
+  if (live.nodes !== nodes) {
+    return findDeployBlockingErrors([...live.nodes], [...live.edges], selectedFqbn, displayDocuments, groups)
+  }
   // A node this version cannot build is reported once, here, and left out of
   // every other rule: its spec would be a stand-in, so a pin or address error
   // computed from it would blame the wrong thing.
@@ -4430,6 +4436,10 @@ export function buildGraphDiagnostics(
   edges: StudioEdge[],
   options: GraphDiagnosticOptions = {},
 ): GraphDiagnostic[] {
+  // A Debug node's wire names a part under test, not a signal: it must not
+  // make an unwired part look connected, or report itself as disconnected.
+  const live = withoutTransientNodes(nodes, edges)
+  if (live.nodes !== nodes) return buildGraphDiagnostics([...live.nodes], [...live.edges], options)
   const diagnostics: GraphDiagnostic[] = []
   for (const [index, message] of findSdVideoErrors(nodes, edges, options.selectedFqbn, options.groups).entries()) {
     diagnostics.push({

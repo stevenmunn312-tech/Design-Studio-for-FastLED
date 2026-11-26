@@ -14,7 +14,7 @@ export const PORT_SYMBOL_FOR_TYPE: Record<string, PortSymbol> = {
   field: 'diamond', transitionset: 'diamond', playerparticles: 'diamond',
   float: 'circle', datetime: 'circle', string: 'circle', playercontrols: 'circle',
   bool: 'smallSquare', newcontrol: 'smallSquare',
-  audio: 'hexagon', dmx: 'hexagon',
+  audio: 'hexagon', dmx: 'hexagon', debug: 'hexagon',
   palette: 'pill',
   color: 'dot',
 }
