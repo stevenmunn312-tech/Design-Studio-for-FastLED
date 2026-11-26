@@ -22,6 +22,10 @@ The Debug node helps users bench-test one hardware part on their own. It shows c
 - A node type whose modules fail differently gets one profile per kind of module, each with an `applies(part)` test. Examples: an I2C light sensor versus an LDR, an SPI OLED versus an I2C one, HUB75 versus addressable LEDs.
 - An I2C profile decides "on the bus" from `collectPinUses`, the same walk the wiring diagram draws from.
 - The socket is drawn by `StudioNode`, never added to `data.outputs`.
+- Most parts are built with `moduleProfile` (`profiles/moduleProfile.ts`). It produces one continuity check per wire the part really uses, a supply check and a 5 V-on-3.3 V warning, and each family adds its own steps on top.
+  - The wires come from `collectPinUses` with a board present.
+  - Pins that a part claims but that are not wires to its module are filtered out there. The internal DAC pins an SD show claims are the known case.
+- Every shelf part except Pack Electronics has a profile. A test holds that.
 
 ## Adding a new transient node type
 

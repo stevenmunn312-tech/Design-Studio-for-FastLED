@@ -19,9 +19,16 @@ function i2cPins(node: StudioNode, board?: StudioNode): { sda?: number; scl?: nu
   }
 }
 
-function onI2c(part: DebugPart): boolean {
+/** Whether the part, as configured, sits on the I2C bus. */
+export function onI2c(part: DebugPart): boolean {
   if (!SOMETIMES_I2C.has(part.data.nodeType)) return true
   return i2cPins(part as StudioNode).sda !== undefined
+}
+
+/** The opposite, for profiles that cover a node type's non-I2C modules: true
+ *  for types that are never on I2C at all. */
+export function offI2c(part: DebugPart): boolean {
+  return !SOMETIMES_I2C.has(part.data.nodeType) || !onI2c(part)
 }
 
 function addressLabel(ctx: DebugContext): string {
