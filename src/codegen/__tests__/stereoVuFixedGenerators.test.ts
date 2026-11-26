@@ -98,12 +98,21 @@ describe('Music Player Stereo VU fixture', () => {
     const cpp = generatePlayerSketch({}, renderers, { stereoVuMeters: playerMeters })
     expect(cpp.indexOf('struct StereoVuState {')).toBeLessThan(cpp.indexOf(STEREO_GLOBAL_MARKER))
     expect(cpp).toContain('stereo[1] = stereo[0]')
-    expect(cpp).toContain('leftSquares += (uint64_t)((int64_t)stereo[0] * stereo[0])')
-    expect(cpp).toContain('rightSquares += (uint64_t)((int64_t)stereo[1] * stereo[1])')
+    expect(cpp).toContain('const uint64_t leftSquare = (uint64_t)((int64_t)stereo[0] * stereo[0]);')
+    expect(cpp).toContain('const uint64_t rightSquare = (uint64_t)((int64_t)stereo[1] * stereo[1]);')
     expect(cpp).toContain('mixedChannels == 1 ? stereo[0] : (stereo[0] + stereo[1]) / 2')
     expect(cpp.indexOf('audio.loop();')).toBeLessThan(cpp.indexOf('updateDecoderAudio();'))
     expect(cpp).toContain('_audioLeftLevel = _vuNormalizedLevel(leftSquares, levelFrames);')
     expect(cpp).toContain('_audioRightLevel = _vuNormalizedLevel(rightSquares, levelFrames);')
+    // The level waits in the ring with its block, as bass, mids, treble and
+    // beat do. Published from the decoder callback it ran ahead of the
+    // speaker by the whole output queue, about 186 ms on the card player.
+    const callback = cpp.slice(cpp.indexOf('void audio_process_i2s('), cpp.indexOf('static void _decoderAnalysisLoop('))
+    expect(callback).toContain('_decoderTapSquares[_decoderTapWrite][0] += leftSquare;')
+    expect(callback).not.toContain('_decoderLevelFrames')
+    const analysis = cpp.slice(cpp.indexOf('static void _decoderAnalysisLoop('), cpp.indexOf('void setupDecoderTap('))
+    expect(analysis).toContain('_decoderLeftSquares = _decoderLeftSquares + _decoderTapSquares[_decoderTapRead][0];')
+    expect(analysis).toContain('_decoderLevelFrames = _decoderLevelFrames + DECODER_TAP_BLOCK_SAMPLES;')
   })
 
   it('keeps fixture state across tracks while clearing only decoder capture state', () => {

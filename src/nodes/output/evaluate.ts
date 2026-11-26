@@ -132,7 +132,9 @@ export const OUTPUT_EVALUATORS: NodeEvaluators = {
     const key = stateKey(id)
     const provider = incoming.get(`${id}:audio`)
     const settings = {
-      ...stereoVuSettings(props, `${key}:${provider?.srcId ?? 'unwired'}`),
+      // The shuffle is seeded as the firmware seeds it, from the fixture's own
+      // C identifier (`stereoVuEmitsFromGraph`), not from the audio source.
+      ...stereoVuSettings(props, `${key}:${provider?.srcId ?? 'unwired'}`, id.replace(/[^a-zA-Z0-9_]/g, '_')),
       palette: pal(id, 'paletteIn', props, 'palette', 'party'),
     }
     const rendered = renderStereoVu({

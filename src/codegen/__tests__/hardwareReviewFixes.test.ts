@@ -3,6 +3,8 @@ import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import { generateCpp } from '../cppGenerator'
 import { boardCppFacts } from '../cppSpecialize'
+import { stereoVuGlobalCpp } from '../audio/stereoVuMeterCpp'
+import { blankStereoVuState, stereoVuSettings } from '../../state/audio/stereoVuMeter'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -80,6 +82,23 @@ describe('faults found by the 2026-11-26 firmware review', () => {
     it('is left at the cores\' default at 100 kHz', () => {
       expect(graph({ i2cSpeed: '100k' })).not.toContain('Wire.setClock')
     })
+  })
+
+  // The firmware seeds its shuffle table from the fixture's C identifier. The
+  // preview seeded its own from the identifier and the audio source, so a
+  // default (Shuffle) fixture cycled its modes in a different order on the board.
+  it('shuffles Stereo VU modes in the same order in the preview and on the board', () => {
+    const properties = { ...libraryDefaults('StereoVuMeter'), leftDataPin: 16, rightDataPin: 17 }
+    const emitted = stereoVuGlobalCpp({
+      id: 'side_vu', properties, leftPin: 16, rightPin: 17, leftClockPin: 0, rightClockPin: 0, clocked: false,
+      activeExpr: 'true', leftExpr: '0.0f', rightExpr: '0.0f', beatExpr: 'false',
+    })
+    const table = /\{ ((?:\d+, )+\d+) \}\n\};/.exec(emitted)![1].split(', ').map(Number)
+    // What the evaluator passes for a meter whose id is `side-vu`, fed by `audio`.
+    const preview = blankStereoVuState(stereoVuSettings(properties, 'side-vu:audio', 'side_vu'))
+    expect(preview.shuffleOrder).toEqual(table)
+    // The old seed, which is why they differed.
+    expect(blankStereoVuState(stereoVuSettings(properties, 'side-vu:audio')).shuffleOrder).not.toEqual(table)
   })
 
   // Several LED outputs leave FastLED's master at 255 and scale each route

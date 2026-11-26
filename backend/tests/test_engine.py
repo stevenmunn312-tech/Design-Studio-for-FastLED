@@ -1310,3 +1310,20 @@ def test_a_bluetooth_player_on_fbuild_builds_with_arduino_cli(monkeypatch):
     # No arduino-cli: fbuild keeps it and refuses with that reason.
     monkeypatch.setattr(toolchain, "_ARDUINO_CLI", None)
     assert toolchain._engine_for_board("esp32:esp32:esp32s3", player) == "fbuild"
+
+
+def test_an_fbuild_package_failure_is_not_blamed_on_the_sketch():
+    """fbuild 2.5.55 with Windows long paths off cannot install the Pico, Teensy
+    or STM32 core. The sketch was never compiled, so saying it "didn't compile"
+    sends the user to look for a fault in a design that is fine."""
+    log = [
+        "rp2040-core 4.5.3: extracting rp2040-core 4.5.3\n",
+        "build error: package error: Windows short-path fallback cannot safely use extracted path C:/x. "
+        "Run fbuild --fix-win or use a shorter package location.\n",
+    ]
+    assert firmware._fbuild_package_failure(log)
+    assert not firmware._fbuild_package_failure(["src/main.ino:12:3: error: 'x' was not declared in this scope\n"])
+    lines = "".join(firmware._upload_result_lines(1, "engine", ""))
+    assert "BUILD FAILED" in lines
+    assert "didn't compile" not in lines
+    assert "build engine could not set up this board" in lines

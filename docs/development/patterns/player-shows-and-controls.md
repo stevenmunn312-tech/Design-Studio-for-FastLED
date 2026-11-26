@@ -824,6 +824,19 @@ that are easy to split across preview and firmware:
   `AudioContext` output latency instead. The held blocks are never analysed
   after a pause and drain ahead of the next track's first blocks, which is
   186 ms of audio that did play just before the pause.
+- **The decoder tap's levels wait in the ring with their block.** The I2S
+  callback sums each block's left and right squares into
+  `_decoderTapSquares`, and the analysis task adds them to
+  `_decoderLeftSquares`/`_decoderRightSquares` when it takes the block. Summed
+  and published in the callback, the VU rails and Loudness ran the whole
+  output queue ahead of the bands and the beat beside them.
+- **Anything that can block on the network goes through the radio task.**
+  `audio.pauseResume()` on a stream that is still connecting waits on the
+  library's socket, so the loop never calls it for a radio:
+  `playerPlayPause()` sets `_radioPauseToggle` and `radioService()` acts on
+  it, the way a station change does. The card and Bluetooth players call
+  `pauseResume()` directly. Every Play/Pause site (control service, control
+  graph, touch) emits `playerPlayPause();` and nothing else.
 - A renderer with a planned cross-language twin is frozen with golden-vector
   tests, not eyeballed: `src/state/audio/__tests__/stereoVuGoldenVectors.ts` holds the
   fixed input fixture (`STEREO_VU_GOLDEN_STEPS`, `STEREO_VU_GOLDEN_PROPERTIES`)

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useGraphStore, useRootEdges, useRootNodes } from '../../state/graphStore'
+import { useBoardPartition, useGraphStore, useRootEdges } from '../../state/graphStore'
 import { boardByFqbn, engineReady, useUploadStore } from '../../state/upload/uploadStore'
 import { SPI_CHIPSETS } from '../../state/nodeLibrary'
 import { matrixWiringApplies, matrixWiringFromProps, validateMatrixLayout } from '../../state/output/xyLayout'
@@ -37,7 +37,10 @@ const STEPS = [
 
 export default function MatrixOutputSetupWizard() {
   const [step, setStep] = useState(0)
-  const nodes = useRootNodes()
+  // The board being set up, not the whole project: the wiring test starts the
+  // displays it finds, and another board's OLED is on that board's pins.
+  const activeBoardId = useUiStore((state) => state.activeBoardId)
+  const { nodes } = useBoardPartition(activeBoardId)
   const edges = useRootEdges()
   const {
     helper,

@@ -1017,6 +1017,19 @@ describe('Internet Radio Music Player sketch', () => {
     expect(code).not.toMatch(/#include <SD\.h>|\bSD\.|startPlayback|provServiceSerial|PROV_RX_BUFFER|connecttoFS|sdMounted/)
   })
 
+  // pauseResume() waits on a lock a connecting station holds, for up to four
+  // seconds. Called from the LED loop it froze the lights with it, so the
+  // button only asks and the radio task does it, as it does a station change.
+  it('hands Play/Pause to the radio task instead of waiting on it in the LED loop', () => {
+    const code = sketch({ controls })
+    expect(code).toContain('void playerPlayPause() { _radioPauseToggle = true; }')
+    expect(code).toContain('if (__atomic_exchange_n(&_radioPauseToggle, false, __ATOMIC_ACQ_REL) && audio.pauseResume()) playerPaused = !playerPaused;')
+    const loop = code.slice(code.indexOf('void loop() {'))
+    expect(loop).not.toContain('pauseResume')
+    // No transport, no request flag.
+    expect(sketch()).not.toContain('_radioPauseToggle')
+  })
+
   // The library reconnects a silent station forever by itself; the sketch is
   // what gives up on it, as the card player gives up on a file that never starts.
   it('skips a station that never plays or keeps dropping, and rests when all have failed', () => {

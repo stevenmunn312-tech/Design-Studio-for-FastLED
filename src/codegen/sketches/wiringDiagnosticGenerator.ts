@@ -4,6 +4,7 @@ import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75Hardwar
 import { sanitizePin } from '../hardwarePins'
 import { loopPacingCpp, withLoopPacing } from '../loopPacing'
 import { withQualifiedMinMax } from '../cppMinMax'
+import { finishCpp } from '../cppCleanup'
 import { FRAME_RATE } from '../../build/frameRate'
 import { powerLimitSetupCpp } from '../output/powerLimitCpp'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../../state/nodeLibrary'
@@ -135,7 +136,6 @@ export function generateWiringDiagnosticSketch(
   lines.push(`#define PANEL_H ${tileH}`)
   if (hub75TopologyAvailable) {
     lines.push(`#define PANEL_SERPENTINE ${tileSerpentine ? 1 : 0}`)
-    lines.push(`#define HUB75_PANEL_TOPOLOGY_ONLY ${topologyOnly ? 1 : 0}`)
   }
   lines.push(`#define DIAG_MODE_MS ${modeMs}`)
   lines.push(`#define DIAG_CHASE_MS ${chaseMs}`)
@@ -458,5 +458,6 @@ export function generateWiringDiagnosticSketch(
   lines.push('')
   // A display's layout calls min and max, which are ambiguous beside
   // FastLED's on the ArduinoCore-API boards (UNO R4, SAMD, Nano Every).
-  return withQualifiedMinMax(withLoopPacing(lines.join('\n')))
+  // Pruned like the main sketches, before the pacing function is added.
+  return withQualifiedMinMax(withLoopPacing(finishCpp(lines.join('\n'))))
 }

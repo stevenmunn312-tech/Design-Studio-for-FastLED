@@ -10,6 +10,7 @@ import { buildXYTable } from '../../state/output/xyLayout'
 import { amplifierIdleCpp } from '../audio/amplifierIdle'
 import { standaloneDisplaysCpp } from '../displays/standaloneDisplayCpp'
 import { withQualifiedMinMax } from '../cppMinMax'
+import { finishCpp } from '../cppCleanup'
 
 // A tiny, generic Adalight-protocol receiver — flashed once, then the studio
 // pushes already-computed live-preview frames straight to it over serial at
@@ -133,6 +134,11 @@ export function generateStreamReceiverSketch(nodes: StudioNode[], outputNodeId?:
   lines.push('')
   lines.push('void setup() {')
   lines.push(...amplifierIdle.setup)
+  // A display's keepalive redraw can hold the loop for tens of milliseconds,
+  // and the ESP32 UART's default 256 bytes hold under 3 ms of a stream at
+  // this rate, so the rest of a frame arriving meanwhile was lost and shown
+  // corrupted. Asked for before begin, where both ESP cores take it.
+  if (displays.setup.length > 0) lines.push('#if defined(ESP32) || defined(ESP8266)', '  Serial.setRxBufferSize(4096);', '#endif')
   lines.push(`  Serial.begin(${layout.baud});`)
   if (isHub75) lines.push(...hub75SetupCpp(hub75Hw!))
   // The browser publishes the same post-master-brightness frame it draws in
@@ -204,5 +210,7 @@ export function generateStreamReceiverSketch(nodes: StudioNode[], outputNodeId?:
   lines.push('')
   // A display's layout calls min and max, which are ambiguous beside
   // FastLED's on the ArduinoCore-API boards (UNO R4, SAMD, Nano Every).
-  return withQualifiedMinMax(lines.join('\n'))
+  // Pruned like the main sketches: the display helpers arrive whole, and a
+  // waiting screen reaches few of them.
+  return withQualifiedMinMax(finishCpp(lines.join('\n')))
 }

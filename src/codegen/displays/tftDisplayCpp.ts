@@ -46,7 +46,7 @@ import {
   type TransportDisplayLayout,
 } from '../../state/displays/transportDisplay'
 import { ledStatusCountText } from '../../state/output/ledOutputRuntime'
-import { DISPLAY_WAITING_HINT, DISPLAY_WAITING_TEXT } from '../../state/displays/displaySignal'
+import { DISPLAY_LINK_LOST_HINT, DISPLAY_WAITING_HINT, DISPLAY_WAITING_TEXT } from '../../state/displays/displaySignal'
 import { SPI_BUS_CPP } from '../helpers/spiBusCpp'
 
 /**
@@ -883,7 +883,12 @@ export function tftDisplayGlobalCpp(display: TftDisplayEmit): string {
     `static bool _tftOn_${display.id} = true;`,
     // When the picture was last streamed, so it moves at its own pace.
     ...(display.picture ? [`static uint32_t _tftPictureMs_${display.id} = 0;`] : []),
-    ...(tftWaitsAtRunTime(display) ? [`static bool _tftWasAbsent_${display.id} = false, _tftClear_${display.id} = false;`] : []),
+    ...(tftWaitsAtRunTime(display) ? [
+      // Starts absent: a linked sender has not been heard at boot, and
+      // `_tftBegin` has just filled the glass, so the first pass need not
+      // clear it again (a quarter of a second on a parallel panel).
+      `static bool _tftWasAbsent_${display.id} = true, _tftClear_${display.id} = false;`,
+    ] : []),
   ].join('\n')
 }
 
@@ -1227,7 +1232,7 @@ function waitingLoop(display: TftDisplayEmit, width: number, height: number): st
   if (g.hint) {
     lines.push(
       `      if (_tftFull_${id}) _tftField(${p}, ${fieldArgs(g.hint)}, `
-        + `${cppStringLiteral(DISPLAY_WAITING_HINT)}, TFT_C_DIM, TFT_C_BG);`,
+        + `${cppStringLiteral(tftWaitsAtRunTime(display) ? DISPLAY_LINK_LOST_HINT : DISPLAY_WAITING_HINT)}, TFT_C_DIM, TFT_C_BG);`,
     )
   }
   return lines

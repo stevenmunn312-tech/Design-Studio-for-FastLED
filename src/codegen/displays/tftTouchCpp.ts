@@ -310,7 +310,7 @@ function sinkStatements(
 ): string | null {
   if (sink.kind === 'player') {
     switch (action) {
-      case 'playPause': return 'if (audio.pauseResume()) playerPaused = !playerPaused;'
+      case 'playPause': return 'playerPlayPause();'
       case 'previous': return 'changePlayerTrack(-1);'
       case 'next': return 'changePlayerTrack(1);'
       case 'ledToggle': return 'ledsEnabled = !ledsEnabled; applyPlayerBrightness();'

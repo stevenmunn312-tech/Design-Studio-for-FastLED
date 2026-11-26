@@ -13,6 +13,10 @@
  * - `sd-pin-probe`: the onboard-card pin probe.
  * - `show-i2c-pico`: a show with an I2C sensor on a board whose `Wire.begin`
  *   takes no pins. It failed to build before the review.
+ * - `stream-receiver-displays`, `wiring-test-displays`, `wiring-test-vu`: the
+ *   standalone sketches with the project's displays and VU rails.
+ * - `vu-normal`, `vu-show`: the Stereo VU meter outside the SD player.
+ * - `player-bluetooth`, `player-radio`: the two streaming players.
  *
  * Every graph is checked by the deploy gate for its board before it is
  * written, and the manifest names the board each one builds on.
@@ -23,6 +27,8 @@ import { resolve } from 'node:path'
 import { generateCpp } from '../../src/codegen/cppGenerator'
 import { generateShowSketch } from '../../src/codegen/showGenerator'
 import { generateStreamReceiverSketch } from '../../src/codegen/sketches/streamReceiverGenerator'
+import { generateWiringDiagnosticSketch } from '../../src/codegen/sketches/wiringDiagnosticGenerator'
+import { buildShowPlayer } from '../../src/utils/showUpload'
 import { CYD_SD_CANDIDATES, generateSdPinProbeSketch } from '../../src/codegen/sketches/sdPinProbeSketch'
 import type { GroupRegistry } from '../../src/state/graphEvaluator'
 import { NODE_LIBRARY, libraryDefaults } from '../../src/state/nodeLibrary'
@@ -178,6 +184,88 @@ fixtures['sd-pin-probe'] = { fqbn: CLASSIC, source: generateSdPinProbeSketch({ c
   fixtures['show-i2c-pico'] = { fqbn: PICO_W, source: generateShowSketch(nodes, edges, groups) }
 }
 
+// ── Standalone sketches with every fixed display ───────────────────────────
+// The receiver and the wiring test carry the project's displays (a waiting
+// screen each). Nothing built them with one before the second review pass.
+{
+  const nodes = [board('esp32-generic-devkit-38pin'),
+    node('out', 'MatrixOutput', { form: 'matrix', width: 8, height: 8, dataPin: 4 }),
+    node('oled', 'InfoDisplay', { partId: 'sh1106-oled-128x64-i2c', sdaPin: 21, sclPin: 22 }),
+    node('seg', 'SegmentDisplay', { partId: 'tm1637-4digit-display', clkPin: 25, dioPin: 26 }),
+    node('tft', 'TransportDisplay', {
+      partId: 'st7789-tft-240x240', tftLayout: 'Now Playing', sckPin: 18, mosiPin: 23, misoPin: 19,
+      csPin: 15, dcPin: 27, resetPin: 17, backlightPin: 32,
+    })]
+  const receiver = generateStreamReceiverSketch(nodes, 'out')
+  const wiringTest = generateWiringDiagnosticSketch(nodes, 'out')
+  if (!receiver || !wiringTest) throw new Error('displays-esp32: no standalone sketch')
+  fixtures['stream-receiver-displays'] = { fqbn: CLASSIC, source: receiver }
+  fixtures['wiring-test-displays'] = { fqbn: CLASSIC, source: wiringTest }
+}
+
+// ── Stereo VU rails ─────────────────────────────────────────────────────────
+// Only the SD player built the meter before: not a normal sketch, a show, or
+// the wiring test that lights each rail.
+{
+  const meter = () => node('vu', 'StereoVuMeter', {
+    targetOutputId: 'out', leftLedCount: 24, rightLedCount: 24, leftDataPin: 16, rightDataPin: 17,
+    chipset: 'WS2812B', colorOrder: 'GRB',
+  })
+  const mic = () => [node('mic', 'MicInput', { i2sSck: 26, i2sWs: 25, i2sSd: 33 }), node('audio', 'Audio', { sourceId: 'mic' })]
+  const out = () => node('out', 'MatrixOutput', { form: 'matrix', width: 8, height: 8, dataPin: 4 })
+
+  const normalNodes = [board('esp32-generic-devkit-38pin'), ...mic(), node('scanner', 'Scanner'), out(), meter()]
+  const normalEdges = [edge('scanner', 'frame', 'out', 'frame'), edge('audio', 'audio', 'vu', 'audio')]
+  checked('vu-normal', CLASSIC, normalNodes, normalEdges)
+  fixtures['vu-normal'] = { fqbn: CLASSIC, source: generateCpp(normalNodes, normalEdges) }
+
+  const groups = {
+    pattern: { nodes: [node('fill', 'SolidColor'), node('end', 'GroupOutput')], edges: [edge('fill', 'frame', 'end', 'frame')] },
+  } as unknown as GroupRegistry
+  const showNodes = [board('esp32-generic-devkit-38pin'), ...mic(),
+    node('collection', 'PatternCollection', { patternIds: ['pattern'] }),
+    node('show', 'PatternSlideshow', { minTime: 8, maxTime: 8, transitionSec: 1 }), out(), meter()]
+  const showEdges = [edge('collection', 'patternset', 'show', 'patternset'), edge('show', 'frame', 'out', 'frame'),
+    edge('audio', 'audio', 'vu', 'audio')]
+  checked('vu-show', CLASSIC, showNodes, showEdges, groups)
+  fixtures['vu-show'] = { fqbn: CLASSIC, source: generateShowSketch(showNodes, showEdges, groups) }
+
+  const wiringTest = generateWiringDiagnosticSketch([board('esp32-generic-devkit-38pin'), out(), meter()], 'out')
+  if (!wiringTest) throw new Error('wiring-test-vu: no sketch')
+  fixtures['wiring-test-vu'] = { fqbn: CLASSIC, source: wiringTest }
+}
+
+// ── The Bluetooth and Internet Radio players ───────────────────────────────
+// Neither had a fixture. The Bluetooth player builds with arduino-cli only.
+{
+  const group = (inner: StudioNode[], edges: StudioEdge[]) => ({ nodes: [...inner, node('go', 'GroupOutput')], edges })
+  const groups = {
+    reactive: group([node('au', 'Audio', { sourceId: 'decoder:sd' }), node('fft', 'FFTAnalyzer'), node('sc', 'SolidColor', { b: 60 })],
+      [edge('au', 'audio', 'fft', 'audio'), edge('fft', 'bass', 'sc', 'r'), edge('sc', 'frame', 'go', 'frame')]),
+    plasma: group([node('pl', 'Plasma')], [edge('pl', 'frame', 'go', 'frame')]),
+  } as unknown as GroupRegistry
+  for (const [name, musicSource] of [['player-bluetooth', 'Bluetooth'], ['player-radio', 'Internet Radio']] as const) {
+    const nodes = [board('esp32-generic-devkit-38pin'), node('amp', 'Amplifier'),
+      ...(musicSource === 'Internet Radio' ? [node('sd', 'SDCard', { sdCsPin: 5, sdSckPin: 18, sdMisoPin: 19, sdMosiPin: 23 })] : []),
+      node('master', 'PatternMaster', {
+        musicSource, beatTransitions: true, stationPage: true, stations: [{ name: 'Test', url: 'http://example.com/live' }],
+      }),
+      node('collection', 'PatternCollection', { patternIds: ['reactive', 'plasma'] }),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 4, chipset: 'WS2812B', colorOrder: 'GRB' }),
+      node('oled', 'InfoDisplay', { partId: 'sh1106-oled-128x64-i2c', sdaPin: 32, sclPin: 33 }),
+      node('audio', 'Audio', { sourceId: 'decoder:master' }),
+      node('vu', 'StereoVuMeter', {
+        targetOutputId: '', leftLedCount: 24, rightLedCount: 24, leftDataPin: 16, rightDataPin: 17, chipset: 'WS2812B', colorOrder: 'GRB',
+      })]
+    const edges = [edge('master', 'frame', 'out', 'frame'), edge('collection', 'patternset', 'master', 'patternset'),
+      edge('master', 'display', 'oled', 'display'), edge('audio', 'audio', 'vu', 'audio')]
+    checked(name, CLASSIC, nodes, edges, groups)
+    fixtures[name] = { fqbn: CLASSIC, source: buildShowPlayer(nodes, edges, groups, {
+      patternSet: ['reactive', 'plasma'], bakedAudio: false, preferredTrack: '', genericPlayer: true, fqbn: CLASSIC,
+    }) }
+  }
+}
+
 // What each sketch must contain to be the test it is named for.
 const required: Record<string, string[]> = {
   'chipsets-esp32': ['.setRgbw(', 'WS2816', 'SM16824E', 'DATA_RATE_MHZ(12)', 'DATA_RATE_MHZ(40)'],
@@ -186,6 +274,13 @@ const required: Record<string, string[]> = {
   'stream-receiver-s3': ['Serial.begin(921600);'],
   'stream-receiver-uno': ['Serial.begin(1000000);'],
   'stream-receiver-r4-oled': ['_oledText(', 'fl::max('],
+  'stream-receiver-displays': ['_oledBeginI2c(', '_segBegin(', '_tftBegin(', 'Serial.setRxBufferSize(4096);'],
+  'wiring-test-displays': ['_oledBeginI2c(', '_tftBegin(', '_paceFrame('],
+  'vu-normal': ['_stereoVuRender('],
+  'vu-show': ['_stereoVuRender('],
+  'wiring-test-vu': ['drawVuRail('],
+  'player-bluetooth': ['_a2dp'],
+  'player-radio': ['audio.connecttohost(', '_radioTaskLoop'],
   'hub75-s3': ['MatrixPanel_I2S_DMA'],
   'line-in-s3': ['StudioPcm1802Input'],
   'sd-pin-probe': ['SD.begin('],

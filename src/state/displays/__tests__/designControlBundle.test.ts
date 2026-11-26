@@ -172,7 +172,7 @@ describe('design controls on the Touch node bundle', () => {
     expect(cpp).toContain('static CtlTap _pcE_touch_playPause;')
     expect(cpp).toMatch(/_pcE_touch_playPause\.update\(\(uint32_t\)\(_cd_screen\[\d+\]\.taps\)\)/)
     expect(cpp).toMatch(/_pcE_touch_next\.update\(n_touch_widget_[a-z0-9_]+_out, _pcNow_touch/)
-    expect(cpp).toContain('if (n_touch_controls.playPause && audio.pauseResume())')
+    expect(cpp).toContain('if (n_touch_controls.playPause) playerPlayPause();')
     // The design draws this glass; no fixed layout paints over it, and no
     // fixed hit regions read the digitiser a second time.
     expect(cpp).not.toContain('{ // Transport Display')

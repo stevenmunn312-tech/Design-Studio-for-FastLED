@@ -28,11 +28,12 @@ from subprocess_flags import NO_CONSOLE_WINDOW
 router = APIRouter()
 
 # ── Compile / upload / serial helpers ─────────────────────────────────────────
-# These three must match the provisioner's constants exactly — see
-# `provisionerSketchGenerator.ts` (PROVISION_CHUNK / PROVISION_BAUD). The device
-# is generated and flashed by the same release as this file, so they move
-# together, but a mismatch stalls a transfer rather than failing it loudly.
-CHUNK = 4096            # serial transfer block size — must match PROVISION_CHUNK
+# These must match the receiver the player sketch carries — see
+# `src/codegen/playerSketchGenerator.ts` (`PROV_CHUNK`, and the `BAUD` command
+# it answers). The device is generated and flashed by the same release as this
+# file, so they move together, but a mismatch stalls a transfer rather than
+# failing it loudly.
+CHUNK = 4096            # serial transfer block size — must match PROV_CHUNK
 PROVISION_BAUD = 921600  # negotiated after the handshake; falls back to 115200
 
 
@@ -661,6 +662,16 @@ def _drain_compile(gen):
 _FBUILD_DAEMON_DOWN = "daemon did not become healthy"
 _FBUILD_DAEMON_RETRY_WAIT_S = 15.0
 
+# fbuild failing to install a board's toolchain or core, in its own words. The
+# sketch was never compiled, so the result must not say it "didn't compile".
+# Seen on 2.5.55 with Windows long paths off: the Pico, Teensy and STM32 cores
+# stop here (FastLED/fbuild#2187).
+_FBUILD_PACKAGE_ERROR = "build error: package error:"
+
+
+def _fbuild_package_failure(lines) -> bool:
+    return any(_FBUILD_PACKAGE_ERROR in line for line in lines)
+
 
 def _fbuild_build(label, env, sink):
     """Run `fbuild build`, once more if fbuild's daemon did not start.
@@ -787,6 +798,13 @@ def _compile_upload_fbuild(
             if daemon_job:
                 yield "  Stopping fbuild's background service, so nothing keeps compiling.\n"
             if rc != 0:
+                if rc != toolchain._BUILD_CANCELLED and _fbuild_package_failure(compile_lines):
+                    yield (
+                        "  [engine-gap] fbuild could not install the tools for this board, so your "
+                        "sketch was never compiled. This is not a fault in your design. Switch the "
+                        "build engine to arduino-cli in Board & Port and build again.\n"
+                    )
+                    return rc, "engine"
                 if _looks_like_overflow(compile_lines):
                     yield _overflow_message(fqbn, compile_lines)
                 return rc, "compile"
@@ -910,6 +928,12 @@ def _upload_result_lines(rc, phase, port):
                "directory. Nothing was compiled or sent to the board.\n")
     elif rc == toolchain._BUILD_CANCELLED:
         pass  # already said so, in _run_phase, before the exit code
+    elif rc != 0 and phase == "engine":
+        # The build engine stopped before the sketch: do not send the user to
+        # look for an error in a design that was never compiled.
+        yield (f"\n*** BUILD FAILED (exit code {rc}) *** The build engine could not set up "
+               "this board, so the sketch was not compiled and nothing was sent to the "
+               "board — see the note above.\n")
     elif rc != 0 and phase == "compile":
         yield (f"\n*** BUILD FAILED (exit code {rc}) *** The sketch didn't compile, so "
                "nothing was sent to the board — see the errors above.\n")
@@ -1945,7 +1969,7 @@ async def upload_show(
             # that fits.
             yield (f"\n*** Player build failed (exit {rc}) — nothing was flashed "
                    "and the card was not touched. See the errors above. ***\n"
-                   if phase == "compile" else
+                   if phase in ("compile", "engine") else
                    f"\n*** Player flash failed (exit {rc}) — if it couldn't connect, put "
                    "the board in download mode (hold BOOT, tap RST) and retry ***\n")
             return

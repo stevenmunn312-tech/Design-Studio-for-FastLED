@@ -37,6 +37,18 @@ share link, migrating it where a shape has changed.
   AVR can produce; 921600 came out 8.5 % off.
 - Live Stream and the wiring test now build on an UNO R4, a SAMD board or a
   Nano Every when the project has an OLED, segment display or TFT.
+- The Stereo VU Meter cycles its modes in the same order in the preview and
+  on the board. A project's preview order changes to match its hardware.
+- On the Music Player from a card or Internet Radio, the Stereo VU rails and
+  Loudness no longer run about a fifth of a second ahead of the sound.
+- Internet Radio: Play/Pause no longer freezes the lights while a station is
+  connecting.
+- The Setup Wizard's wiring test builds for the board being set up. In a
+  project with two boards it started the other board's displays.
+- When the build engine cannot install a board's tools, the Output console
+  says so and suggests arduino-cli, instead of "The sketch didn't compile".
+- A panel fed over a board link says CHECK SENDER BOARD when the link drops,
+  not WIRE DISPLAY INPUT.
 - A W5500 Ethernet module on an ESP32-C3 or C6 now starts. The sketch asked
   those chips for a second SPI bus they do not have, so the module never
   came up.

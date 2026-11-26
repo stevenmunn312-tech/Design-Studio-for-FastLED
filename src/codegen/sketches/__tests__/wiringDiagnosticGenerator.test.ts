@@ -264,7 +264,6 @@ describe('generateWiringDiagnosticSketch', () => {
       })
       const sketch = generateWiringDiagnosticSketch([gridOut])!
       expect(sketch).toContain('#define PANEL_SERPENTINE 1')
-      expect(sketch).toContain('#define HUB75_PANEL_TOPOLOGY_ONLY 0')
       expect(sketch).toContain('const uint16_t PANEL_ROTATIONS[PANEL_TILES_X * PANEL_TILES_Y] PROGMEM = { 0,90,180,270 };')
       expect(sketch).toContain('uint8_t mode = (uint8_t)((now / DIAG_MODE_MS) % 9);')
       expect(sketch).toContain('case 6: drawHub75PanelTopology(blink); break;')
@@ -280,7 +279,6 @@ describe('generateWiringDiagnosticSketch', () => {
       expect(sketch).toContain('#define PANEL_TILES_Y 2')
       expect(sketch).toContain('#define PANEL_W 32')
       expect(sketch).toContain('#define PANEL_H 32')
-      expect(sketch).toContain('#define HUB75_PANEL_TOPOLOGY_ONLY 1')
       expect(sketch).toContain('int chainX = (PANEL_SERPENTINE && (ty & 1)) ? PANEL_TILES_X - 1 - tx : tx;')
       expect(sketch).toContain('drawGlyph3x5(px + 5, py + 4, GLYPH_X, CRGB::Red)')
       expect(sketch).toContain('drawGlyph3x5(px + 5, py + 10, GLYPH_Y, CRGB::Blue)')

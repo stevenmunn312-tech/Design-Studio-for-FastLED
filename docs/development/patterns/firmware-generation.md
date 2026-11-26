@@ -554,7 +554,10 @@ or the dead-code rule fails.
 All three generators finish through `finishCpp` (`src/codegen/cppCleanup.ts`)
 after `specializeCpp` (`src/codegen/cppSpecialize.ts`). So emitters can stay
 simple and emit a whole helper block, or every output port, and the finished
-sketch still carries only what the graph reaches.
+sketch still carries only what the graph reaches. The standalone sketches
+(stream receiver, wiring test) finish through `finishCpp` and
+`withQualifiedMinMax` too: they share the display emitters, so they need the
+same pruning and the same `min`/`max` qualification on ArduinoCore-API boards.
 
 - `specializeCpp` resolves `#if` on facts generation knows: the selected board
   family and the sketch's own `#define`s. It never infers IDF or library

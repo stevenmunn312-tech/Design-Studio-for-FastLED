@@ -86,6 +86,13 @@ export const DISPLAY_WAITING_TEXT = 'WAITING FOR SIGNAL'
  */
 export const DISPLAY_WAITING_HINT = 'WIRE DISPLAY INPUT'
 
+/**
+ * The same row on a panel fed over a board link whose sender has gone quiet.
+ * Its input is wired, so the advice above is wrong there: the thing to look
+ * at is the other board. Firmware only, since a preview has no lost link.
+ */
+export const DISPLAY_LINK_LOST_HINT = 'CHECK SENDER BOARD'
+
 /** The label a source's node carries, for an error that has to name it. */
 export const DISPLAY_SOURCE_LABELS: Record<DisplaySignalKind, string> = {
   powerMonitor: 'Power Monitor',

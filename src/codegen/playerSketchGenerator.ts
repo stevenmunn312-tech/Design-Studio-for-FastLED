@@ -772,7 +772,7 @@ export function generatePlayerSketch(
   const controlServiceLines = controlEntries.flatMap(([action, source]) => {
     if (oneShots.has(action) && (source.kind === 'button' || source.kind === 'encoderButton')) {
       const body: Record<string, string> = {
-        playPause: 'if (audio.pauseResume()) playerPaused = !playerPaused;',
+        playPause: 'playerPlayPause();',
         previous: 'changePlayerTrack(-1);',
         next: 'changePlayerTrack(1);',
         ledToggle: 'ledsEnabled = !ledsEnabled; applyPlayerBrightness();',
@@ -1116,6 +1116,11 @@ void changePlayerTrack(int8_t direction) {
   playerPaused = false;
   playbackReady = startPlayback();
 }`}
+
+${radio ? `// Play/Pause asks the radio task, as a station change does. pauseResume()
+// waits on a lock that a connecting station holds for up to several seconds,
+// and the LED loop would wait with it.
+void playerPlayPause() { _radioPauseToggle = true; }` : `void playerPlayPause() { if (audio.pauseResume()) playerPaused = !playerPaused; }`}
 
 ${graphRouting ? '' : `void servicePlayerControls() {
   uint32_t now = millis();
@@ -1807,7 +1812,10 @@ ${decoderTap ? `
 #define DECODER_TAP_BLOCKS (DECODER_TAP_DELAY_BLOCKS + 4)
 #define DECODER_TAP_INTERNAL_DAC ${internalDac ? 1 : 0}
 static int16_t _decoderTapBlocks[DECODER_TAP_BLOCKS][DECODER_TAP_BLOCK_SAMPLES];
-static portMUX_TYPE _decoderTapMux = portMUX_INITIALIZER_UNLOCKED;
+${needsStereoLevels ? `// The left and right sum of squares of each block, so a block's level waits
+// in the ring with it and is published when it reaches the speaker.
+static uint64_t _decoderTapSquares[DECODER_TAP_BLOCKS][2];
+` : ''}static portMUX_TYPE _decoderTapMux = portMUX_INITIALIZER_UNLOCKED;
 static uint16_t _decoderTapFill = 0;  // the decode task's own
 static uint8_t _decoderTapWrite = 0, _decoderTapRead = 0, _decoderTapQueued = 0;
 static volatile uint32_t _decoderTapLastMs = 0;  // when the analysis task last finished a block
@@ -2060,7 +2068,6 @@ void audio_process_i2s(int16_t* outBuff, uint16_t validSamples,
 
   const uint8_t stride = channels;
   const uint8_t mixedChannels = channels > 1 ? 2 : 1;
-${needsStereoLevels ? '  uint64_t leftSquares = 0, rightSquares = 0;\n' : ''}
   for (uint16_t frame = 0; frame < validSamples; frame++) {
     int32_t stereo[2] = { 0, 0 };
     for (uint8_t channel = 0; channel < mixedChannels; channel++) {
@@ -2074,8 +2081,8 @@ ${needsStereoLevels ? '  uint64_t leftSquares = 0, rightSquares = 0;\n' : ''}
 #endif
     }
     if (mixedChannels == 1) stereo[1] = stereo[0];
-${needsStereoLevels ? `    leftSquares += (uint64_t)((int64_t)stereo[0] * stereo[0]);
-    rightSquares += (uint64_t)((int64_t)stereo[1] * stereo[1]);
+${needsStereoLevels ? `    const uint64_t leftSquare = (uint64_t)((int64_t)stereo[0] * stereo[0]);
+    const uint64_t rightSquare = (uint64_t)((int64_t)stereo[1] * stereo[1]);
 ` : ''}    int32_t mixed = mixedChannels == 1 ? stereo[0] : (stereo[0] + stereo[1]) / 2;
 
     // Drop the oldest complete block if rendering fell behind playback. The
@@ -2089,7 +2096,12 @@ ${needsStereoLevels ? `    leftSquares += (uint64_t)((int64_t)stereo[0] * stereo
       }
       portEXIT_CRITICAL(&_decoderTapMux);
     }
-    _decoderTapBlocks[_decoderTapWrite][_decoderTapFill++] =
+${needsStereoLevels ? `    // Summed per block and published when the analysis task takes the block,
+    // so the rails show what is heard, not what is still queued for the speaker.
+    if (_decoderTapFill == 0) { _decoderTapSquares[_decoderTapWrite][0] = 0; _decoderTapSquares[_decoderTapWrite][1] = 0; }
+    _decoderTapSquares[_decoderTapWrite][0] += leftSquare;
+    _decoderTapSquares[_decoderTapWrite][1] += rightSquare;
+` : ''}    _decoderTapBlocks[_decoderTapWrite][_decoderTapFill++] =
       (int16_t)mixed;
     if (_decoderTapFill == DECODER_TAP_BLOCK_SAMPLES) {
       _decoderTapFill = 0;
@@ -2100,14 +2112,7 @@ ${needsStereoLevels ? `    leftSquares += (uint64_t)((int64_t)stereo[0] * stereo
       if (_decoderAnalysisTask) xTaskNotifyGive(_decoderAnalysisTask);
     }
   }
-  // Publish one short-window RMS accumulator. sqrtf stays in the main loop so
-  // the callback returns to decoder/I2S DMA with only adds and multiplies.
-${needsStereoLevels ? `  portENTER_CRITICAL(&_decoderTapMux);
-  _decoderLeftSquares = leftSquares;
-  _decoderRightSquares = rightSquares;
-  _decoderLevelFrames = validSamples;
-  portEXIT_CRITICAL(&_decoderTapMux);
-` : ''}}
+}
 ${bluetooth ? `\n${BLUETOOTH_TAP_CPP}\n` : ''}
 // FastLED's Processor, with every detector the patterns read, costs about
 // 10 ms a block on an ESP32-S3. In the LED loop that took 38 ms of every frame
@@ -2130,7 +2135,12 @@ static void _decoderAnalysisLoop(void *) {
       bool have = _decoderTapQueued > DECODER_TAP_DELAY_BLOCKS;
       if (have) {
         memcpy(block, _decoderTapBlocks[_decoderTapRead], sizeof(block));
-        _decoderTapRead = (_decoderTapRead + 1) % DECODER_TAP_BLOCKS;
+${needsStereoLevels ? `        // This block is at the speaker now, so its level is published now.
+        // sqrtf stays in the main loop; this side only adds.
+        _decoderLeftSquares = _decoderLeftSquares + _decoderTapSquares[_decoderTapRead][0];
+        _decoderRightSquares = _decoderRightSquares + _decoderTapSquares[_decoderTapRead][1];
+        _decoderLevelFrames = _decoderLevelFrames + DECODER_TAP_BLOCK_SAMPLES;
+` : ''}        _decoderTapRead = (_decoderTapRead + 1) % DECODER_TAP_BLOCKS;
         _decoderTapQueued--;
       }
       portEXIT_CRITICAL(&_decoderTapMux);
@@ -2189,6 +2199,7 @@ void updateDecoderAudio() {
 ${needsStereoLevels ? `  portENTER_CRITICAL(&_decoderTapMux);
   uint32_t levelFrames = _decoderLevelFrames;
   uint64_t leftSquares = _decoderLeftSquares, rightSquares = _decoderRightSquares;
+  _decoderLeftSquares = 0; _decoderRightSquares = 0;
   _decoderLevelFrames = 0;
   portEXIT_CRITICAL(&_decoderTapMux);
   if (levelFrames > 0) {

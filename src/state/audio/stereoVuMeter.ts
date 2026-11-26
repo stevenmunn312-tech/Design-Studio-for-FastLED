@@ -45,9 +45,15 @@ export interface StereoVuSettings {
   leftDirection: 'Bottom' | 'Top'
   rightDirection: 'Bottom' | 'Top'
   swapChannels: boolean
-  /** Stable per fixture/source. It namespaces the deterministic shuffle and
-   * lets the caller reset ballistics when an Audio wire changes provider. */
+  /** Stable per fixture and source, so the caller resets ballistics when an
+   * Audio wire changes provider. */
   instanceKey: string
+  /**
+   * Seeds the shuffled mode order. The fixture's C identifier and nothing
+   * else: the firmware seeds its table from that alone, so a source in the
+   * key gave the preview a different order from the board.
+   */
+  shuffleKey: string
 }
 
 export interface StereoVuInput {
@@ -129,7 +135,7 @@ const validMode = (value: string): StereoVuMode => (
     : 'Classic Ladder'
 )
 
-export function stereoVuSettings(properties: Record<string, unknown>, instanceKey = ''): StereoVuSettings {
+export function stereoVuSettings(properties: Record<string, unknown>, instanceKey = '', shuffleKey = instanceKey): StereoVuSettings {
   const policy = String(properties.visualizationPolicy ?? 'Shuffle')
   const counts = stereoVuRailCounts(properties)
   return {
@@ -158,6 +164,7 @@ export function stereoVuSettings(properties: Record<string, unknown>, instanceKe
     rightDirection: properties.rightDirection === 'Top' ? 'Top' : 'Bottom',
     swapChannels: properties.swapChannels === true,
     instanceKey,
+    shuffleKey,
   }
 }
 
@@ -211,7 +218,7 @@ export function blankStereoVuState(settings: StereoVuSettings, timeSec = 0): Ste
     previousBeat: false,
     policyMode: STEREO_VU_MODES.indexOf(settings.mode),
     policyAt: timeSec,
-    shuffleOrder: stereoVuShuffleOrder(settings.instanceKey),
+    shuffleOrder: stereoVuShuffleOrder(settings.shuffleKey),
   }
 }
 

@@ -390,7 +390,7 @@ static int32_t  _radioSavedIndex = -1;  // the station NVS remembers
 
 // Next, Previous and the phone page all land here.
 static void radioSelect(uint16_t index);
-${page ? pageGlobalsCpp(page) : ''}`
+${transport ? '// Play/Pause, asked for by the LED loop and done by the radio task.\nstatic volatile bool _radioPauseToggle = false;\n' : ''}${page ? pageGlobalsCpp(page) : ''}`
 
   const functions = `// ── Internet radio: stations ─────────────────────────────────────────────────
 ${RADIO_URL_RULES_CPP}
@@ -644,7 +644,7 @@ static void radioService() {
   if (_radioState == RADIO_PLAYING && !${paused}) _radioClockMs += now - _radioTickMs;
   _radioTickMs = now;
   _radioApplyRequest();
-  if (_radioCount == 0) return;
+${transport ? '  if (__atomic_exchange_n(&_radioPauseToggle, false, __ATOMIC_ACQ_REL) && audio.pauseResume()) playerPaused = !playerPaused;\n' : ''}  if (_radioCount == 0) return;
   if (!_netConnected()) {
     if (_radioState != RADIO_OFFLINE) {
       audio.stopSong();

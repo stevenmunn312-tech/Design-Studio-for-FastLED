@@ -19,7 +19,7 @@ import {
   type InfoDisplayLayout,
 } from '../../state/displays/infoDisplay'
 import { ledStatusCountText } from '../../state/output/ledOutputRuntime'
-import { DISPLAY_WAITING_HINT, DISPLAY_WAITING_TEXT } from '../../state/displays/displaySignal'
+import { DISPLAY_LINK_LOST_HINT, DISPLAY_WAITING_HINT, DISPLAY_WAITING_TEXT } from '../../state/displays/displaySignal'
 import {
   OLED_LETTER_SPACING, OLED_PAGE_HEIGHT,
   type OledController, type OledTransport,
@@ -795,7 +795,7 @@ function infoWaitingLines(display: InfoDisplayEmit): string[] {
     `      _oledText(${p}, max(${g.message.x}, (${width} - _oledTextWidth(_oledBuf_${display.id})) / 2), ${g.message.y}, _oledBuf_${display.id});`,
   ]
   if (g.hint) lines.push(
-    `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), ${cppStringLiteral(DISPLAY_WAITING_HINT)}, ${g.hint.w});`,
+    `      _oledFit(_oledBuf_${display.id}, sizeof(_oledBuf_${display.id}), ${cppStringLiteral(display.waitingExpr && display.layout !== 'Waiting' ? DISPLAY_LINK_LOST_HINT : DISPLAY_WAITING_HINT)}, ${g.hint.w});`,
     `      _oledText(${p}, max(${g.hint.x}, (${width} - _oledTextWidth(_oledBuf_${display.id})) / 2), ${g.hint.y}, _oledBuf_${display.id});`,
   )
   return lines

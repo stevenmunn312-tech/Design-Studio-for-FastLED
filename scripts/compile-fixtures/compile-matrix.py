@@ -417,6 +417,10 @@ ARDUINO_CLI_ONLY: dict[str, str] = {}
 
 # Fixture families built on arduino-cli alone, on a board whose other legs fbuild builds.
 ARDUINO_CLI_ONLY_FAMILIES: dict[str, str] = {}
+# Single legs fbuild cannot build, with why.
+ARDUINO_CLI_ONLY_LEGS: dict[str, str] = {
+    "review-gaps/player-bluetooth@esp32": "the Bluetooth player's libraries are vendored for arduino-cli only",
+}
 
 
 # Third-party cores the helper has no package index for: a user adds the URL, a runner cannot.
@@ -437,7 +441,8 @@ def candidates() -> list[Leg]:
     return [replace(leg, engine=engine) for engine in ENGINES for leg in legs
             if (engine == "arduino-cli" and ":".join(leg.board.split(":")[:2]) not in NO_INDEX_CORES)
             or (engine == "fbuild" and ":".join(leg.board.split(":")[:3]) in fbuild_boards
-                                           and leg.family not in ARDUINO_CLI_ONLY_FAMILIES)]
+                                           and leg.family not in ARDUINO_CLI_ONLY_FAMILIES
+                                           and leg.name not in ARDUINO_CLI_ONLY_LEGS)]
 
 
 # The generator behind each family's fixtures.

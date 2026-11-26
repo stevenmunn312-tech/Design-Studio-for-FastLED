@@ -170,7 +170,7 @@ export type PlayerControlGraph = ReturnType<typeof playerControlGraph>
 export function playerControlApplyCpp(bundle: string | undefined, hasPatternSelection: boolean, selectionStem: string): string[] {
   if (!bundle) return []
   return [
-    `  if (${bundle}.playPause && audio.pauseResume()) playerPaused = !playerPaused;`,
+    `  if (${bundle}.playPause) playerPlayPause();`,
     `  if (${bundle}.previous) changePlayerTrack(-1);`,
     `  if (${bundle}.next) changePlayerTrack(1);`,
     `  if (${bundle}.hasVolume || ${bundle}.volumeDelta != 0.0f) {`,

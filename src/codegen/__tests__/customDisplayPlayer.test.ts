@@ -71,7 +71,7 @@ describe('custom displays in SD-player firmware', () => {
     expect(loop).toContain('float n_song_elapsed = songElapsedSec();')
     expect(loop).not.toContain('n_song_album')
     const ordered = ['if (provTransferring) return;', 'lv_indev_read(_cdIndev_tft)', 'float n_tft_touch_widget_slider_out',
-      'float n_math_result', 'n_controls_controls.hasBrightness = true;', 'if (n_controls_controls.playPause && audio.pauseResume())', 'audio.loop();']
+      'float n_math_result', 'n_controls_controls.hasBrightness = true;', 'if (n_controls_controls.playPause) playerPlayPause();', 'audio.loop();']
     const offsets = ordered.map((part) => loop.indexOf(part))
     expect(offsets.every((offset) => offset >= 0)).toBe(true)
     expect(offsets).toEqual([...offsets].sort((a, b) => a - b))
@@ -125,7 +125,7 @@ describe('custom displays in SD-player firmware', () => {
     const cpp = generate(nodes, [edge('button', FIRST_BUTTON_HANDLE, 'player', 'playPause')])
     expect(cpp).toContain('PlayerControlsValue n_player_direct_controls;')
     expect(cpp).toContain('static CtlEdge _pcE_player_direct_playPause;')
-    expect(cpp).toContain('if (n_player_direct_controls.playPause && audio.pauseResume()) playerPaused = !playerPaused;')
+    expect(cpp).toContain('if (n_player_direct_controls.playPause) playerPlayPause();')
     expect(cpp).not.toContain('n_controls_controls')
   })
 
