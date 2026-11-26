@@ -107,7 +107,8 @@ import { audioOutputMode, audioVolumeStage, i2sAudioStage } from '../state/audio
 import { resolveShowTarget, type ShowTargetNode, type ShowTargetEdge } from '../state/player/showTarget'
 import type { StudioNode, StudioEdge } from '../state/graphStore'
 import { withoutUnresolved } from '../build/parts/partResolution'
-import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS } from '../build/controllerSettings'
+import { controllerSettings, DEFAULT_CONTROLLER_SETTINGS, i2cClockHz } from '../build/controllerSettings'
+import { withI2cClock } from './peripherals/wireBeginCpp'
 import { FRAME_RATE } from '../build/frameRate'
 import { loopPacingCpp, withLoopPacing } from './loopPacing'
 import { resolveBoardSelection } from '../build/boards/boardProfiles'
@@ -153,6 +154,8 @@ export interface PlayerConfig {
   milliamps:   number
   /** Full-white draw of the heaviest LED the limiter throttles, for its power model; null with none. */
   ledMilliwatts: number | null
+  /** The Board's I2C clock in hertz; null at the cores' default. */
+  i2cHz: number | null
   sdCsPin:     number
   sdSckPin:    number
   sdMisoPin:   number
@@ -187,7 +190,7 @@ const DEFAULTS: PlayerConfig = {
   ledWidth: 16, ledHeight: 16, ledShape: null, ledXyTable: null, ledDataPin: 18, ledClockPin: 6, ledLanePins: [],
   chipset: 'WS2812B', colorOrder: 'GRB',
   correction: 'none', whitePoint: 'none', dither: true, overclock: 1,
-  powerLimit: false, volts: 5, milliamps: 2000, ledMilliwatts: null,
+  powerLimit: false, volts: 5, milliamps: 2000, ledMilliwatts: null, i2cHz: i2cClockHz(DEFAULT_CONTROLLER_SETTINGS.i2cSpeed),
   // GPIO10 avoids colliding with MatrixOutput's default LED data pin (GPIO5).
   sdCsPin: 10, sdSckPin: 12, sdMisoPin: 13, sdMosiPin: 11,
   audioOutput: 'i2s',
@@ -277,6 +280,7 @@ export function playerConfigFromGraph(
     volts:       ledSupplyVolts(str(mo.chipset, DEFAULTS.chipset), mo.partId),
     milliamps:   num(board.milliamps, DEFAULTS.milliamps),
     ledMilliwatts: heaviestLedMilliwatts(nodes as StudioNode[]),
+    i2cHz: i2cClockHz(controller.i2cSpeed),
     sdCsPin:    sanitizePin(sd.sdCsPin, sdDefaults?.cs ?? DEFAULTS.sdCsPin),
     sdSckPin:   sanitizePin(sd.sdSckPin, sdDefaults?.sck ?? DEFAULTS.sdSckPin),
     sdMisoPin:  sanitizePin(sd.sdMisoPin, sdDefaults?.miso ?? DEFAULTS.sdMisoPin),
@@ -1552,7 +1556,7 @@ ${genericPlayer ? '' : `  // A show file can name the playing pattern on both si
     // unless the Music Player's Seed asks for a repeatable sequence.
     const seeded = withBootEntropy(finished, opts.seed ?? 0)
     return withQualifiedMinMax(withLedDriver(
-      withOutputGammaTables(withLoopPacing(seeded === finished ? finished : specializeCpp(seeded, facts))),
+      withI2cClock(withOutputGammaTables(withLoopPacing(seeded === finished ? finished : specializeCpp(seeded, facts))), c.i2cHz),
       c.ledDriver,
     ))
   }

@@ -57,6 +57,31 @@ describe('faults found by the 2026-11-26 firmware review', () => {
     expect(facts('arduino-uno-r3-dip')).toMatchObject({ ESP32: false, TEENSYDUINO: false })
   })
 
+  // No sketch set the I2C clock, so every bus ran at the cores' 100 kHz. The
+  // Board's I2C speed defaults to fast mode, which every catalogued part takes.
+  describe('the I2C bus clock', () => {
+    const graph = (board: Record<string, unknown>) => {
+      const out = node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 })
+      out.data.exposedInputs = ['brightness']
+      return generateCpp([
+        node('board', 'Board', { profileId: 'esp32-generic-devkit-38pin', ...board }),
+        node('env', 'EnvironmentInput', { sdaPin: 21, sclPin: 22 }), node('fill', 'SolidColor'), out,
+      ], [edge('env', 'humidity', 'out', 'brightness'), edge('fill', 'frame', 'out', 'frame')])
+    }
+
+    it('is 400 kHz unless the Board says otherwise, set once after the bus starts', () => {
+      const cpp = graph({})
+      expect(cpp.match(/Wire\.setClock\(400000\);/g)).toHaveLength(1)
+      const lines = cpp.split('\n')
+      const begin = lines.findIndex((line) => /^\s*Wire\.begin\(/.test(line))
+      expect(lines[begin + 1]).toContain('Wire.setClock(400000);')
+    })
+
+    it('is left at the cores\' default at 100 kHz', () => {
+      expect(graph({ i2cSpeed: '100k' })).not.toContain('Wire.setClock')
+    })
+  })
+
   // Several LED outputs leave FastLED's master at 255 and scale each route
   // themselves. The rails are not a route, so they ran at twice the Board's level.
   it('holds Stereo VU rails to the Board brightness beside a second LED output', () => {

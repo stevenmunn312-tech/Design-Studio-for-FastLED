@@ -106,6 +106,7 @@ const BLOCKED_KEYS = new Set([
   'useGroupInputs',
   'usePsram',
   'serialRoute',
+  'i2cSpeed',
   'whitePoint',
 ])
 

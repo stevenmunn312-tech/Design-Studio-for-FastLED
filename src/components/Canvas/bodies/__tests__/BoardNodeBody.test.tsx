@@ -198,6 +198,19 @@ describe('BoardNodeBody', () => {
     expect(screen.queryByText(/Auto · UART bridge detected/)).toBeNull()
   })
 
+  // A board saved before the setting existed reads as fast mode, the default.
+  it('offers the I2C speed, at 400 kHz unless the board says otherwise', () => {
+    const xiao = BOARD_PROFILES.find((p) => p.id === 'seeed-xiao-esp32s3')!
+    reset([boardNode('b1', xiao.id)])
+    render(<BoardNodeBody nodeId="b1" />)
+
+    const picker = screen.getByLabelText('I2C speed') as HTMLSelectElement
+    expect(picker.value).toBe('400k')
+    expect([...picker.options].map((option) => option.value)).toEqual(['400k', '100k'])
+    fireEvent.change(picker, { target: { value: '100k' } })
+    expect(useGraphStore.getState().nodes.find((node) => node.id === 'b1')!.data.properties.i2cSpeed).toBe('100k')
+  })
+
   it('keeps board metadata and peripheral pin summaries out of the editor', () => {
     const xiao = BOARD_PROFILES.find((p) => p.id === 'seeed-xiao-esp32s3')!
     reset([boardNode('b1', xiao.id)])

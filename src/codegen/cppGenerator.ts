@@ -44,7 +44,7 @@ import { midiInterfaceIn } from '../state/peripherals/midiSource'
 import { dmxTransceiverIn } from '../state/peripherals/dmxTransceiver'
 import { type MasterSpeedEmit, masterClockLoopCpp, masterSpeedUpdateCpp } from './player/masterSpeedCpp'
 import { clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MIN, MASTER_SPEED_MAX } from '../state/player/masterSpeed'
-import { loopPacingCpp, withLoopPacing } from './loopPacing'
+import { boardSendsBlockInterrupts, loopPacingCpp, withLoopPacing } from './loopPacing'
 import { withLedDriver } from './output/ledDriverCpp'
 import { selectedLedDriver } from '../build/ledDriverSelection'
 import {
@@ -130,7 +130,8 @@ import { lightSensorSetupCpp, LIGHT_SENSOR_HELPER_CPP } from './peripherals/ligh
 import { ENVIRONMENT_SENSOR_CPP_FORWARD, ENVIRONMENT_SENSOR_HELPER_CPP } from './peripherals/environmentSensorCpp'
 import { lightSensorTransport } from '../state/peripherals/lightSensor'
 import { distanceSensorTransport, i2cDistanceBusPeers } from '../state/peripherals/distanceSensor'
-import { controllerSettings, ledPropsWithController } from '../build/controllerSettings'
+import { controllerSettings, i2cClockHz, ledPropsWithController } from '../build/controllerSettings'
+import { withI2cClock } from './peripherals/wireBeginCpp'
 import { sanitizePin } from './hardwarePins'
 import { resolveAudioCapabilitySource } from '../state/audio/audioCapabilities'
 import { amplifierIdleCpp } from './audio/amplifierIdle'
@@ -1811,7 +1812,10 @@ export function generateCpp(
   // Last, on the finished text, so the Board's LED driver meets every output's
   // `addLeds` line the way the show and player generators' passes do.
   return withQualifiedMinMax(withLedDriver(
-    withOutputGammaTables(withLoopPacing(seeded === finished ? finished : specializeCpp(seeded, boardCppFacts(capabilityNodes)))),
+    withI2cClock(withOutputGammaTables(withLoopPacing(
+      seeded === finished ? finished : specializeCpp(seeded, boardCppFacts(capabilityNodes)),
+      { sendsBlockInterrupts: boardSendsBlockInterrupts(capabilityNodes) },
+    )), i2cClockHz(controller.i2cSpeed)),
     selectedLedDriver(capabilityNodes),
   ))
 }

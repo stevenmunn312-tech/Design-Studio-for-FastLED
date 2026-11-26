@@ -12,6 +12,18 @@
  * sketch meets whenever a frame's work and send fit inside it.
  */
 import { FRAME_RATE } from '../build/frameRate'
+import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
+import { IR_REMOTE_INCLUDE } from './peripherals/irRemoteCpp'
+
+/**
+ * Whether the selected board's clockless LED send runs with interrupts off.
+ * FastLED does that on AVR and megaAVR (`FASTLED_ALLOW_INTERRUPTS` is 0
+ * there); the ESP, ARM and RP2040 drivers send from a peripheral or keep
+ * interrupts on.
+ */
+export function boardSendsBlockInterrupts(nodes: Parameters<typeof selectedPhysicalBoardProfile>[0]): boolean {
+  return selectedPhysicalBoardProfile(nodes)?.targetFamilies.includes('avr') === true
+}
 
 function clampFps(frameRate: number): number {
   return Math.max(FRAME_RATE.min, Math.min(FRAME_RATE.max, Number.isFinite(frameRate) ? frameRate : FRAME_RATE.default))
@@ -48,7 +60,20 @@ const PACE_HELPER_SIGNATURE = 'void _paceFrame(uint32_t periodUs) {'
  * from now rather than sending a burst to catch up; a smaller overrun is
  * taken out of the next frame, which keeps the average at the cap.
  */
-export function loopPacingHelperCpp(sendsThroughFastLed: boolean): string[] {
+export function loopPacingHelperCpp(sendsThroughFastLed: boolean, polls: readonly string[] = []): string[] {
+  // Inputs that must be read more often than once a frame (a rotary encoder)
+  // are polled through the wait, about once a millisecond. Without any the
+  // wait is one sleep, as it always was.
+  const poll = polls.map((name) => `${name}();`).join(' ')
+  const sleep = (indent: string): string[] => polls.length
+    ? [
+        `${indent}while ((left = (int32_t)(_paceDeadlineUs - micros())) > 1000) { ${poll} delay(1); }`,
+        `${indent}if (left > 0) delayMicroseconds((uint32_t)left);`,
+      ]
+    : [
+        `${indent}delay((uint32_t)left / 1000ul);`,
+        `${indent}delayMicroseconds((uint32_t)left % 1000ul);`,
+      ]
   const lines = [
     '// ── Frame pacing ─────────────────────────────────────────────────────────────',
     '// Each frame waits for a fixed deadline, so the wait absorbs the work instead',
@@ -68,6 +93,7 @@ export function loopPacingHelperCpp(sendsThroughFastLed: boolean): string[] {
       '  for (;;) {',
       '    int32_t left = (int32_t)(_paceDeadlineUs - micros());',
       '    if (left <= 0) break;',
+      ...(polls.length ? [`    ${poll}`] : []),
       '    // A dither refresh only while a whole send and its 1 ms yield still fit.',
       '    uint32_t sendUs = _paceSendUs > 0 ? _paceSendUs : periodUs / 2;',
       '    if ((uint32_t)left > sendUs + 1000ul) {',
@@ -76,8 +102,7 @@ export function loopPacingHelperCpp(sendsThroughFastLed: boolean): string[] {
       '      _paceSendUs = micros() - sendAt;',
       '      delay(1);',
       '    } else {',
-      '      delay((uint32_t)left / 1000ul);',
-      '      delayMicroseconds((uint32_t)left % 1000ul);',
+      ...sleep('      '),
       '      break;',
       '    }',
       '  }',
@@ -86,8 +111,7 @@ export function loopPacingHelperCpp(sendsThroughFastLed: boolean): string[] {
     lines.push(
       '  int32_t left = (int32_t)(_paceDeadlineUs - now);',
       '  if (left > 0) {',
-      '    delay((uint32_t)left / 1000ul);',
-      '    delayMicroseconds((uint32_t)left % 1000ul);',
+      ...sleep('    '),
       '  }',
     )
   }
@@ -108,7 +132,7 @@ export function loopPacingHelperCpp(sendsThroughFastLed: boolean): string[] {
  * plain form is the only one that compiles. A sketch without the pacing call
  * is returned unchanged.
  */
-export function withLoopPacing(source: string): string {
+export function withLoopPacing(source: string, opts: { sendsBlockInterrupts?: boolean } = {}): string {
   const lines = source.split('\n')
   const loopAt = lines.findIndex((line) => line === 'void loop() {')
   if (loopAt < 0 || lines.includes(PACE_HELPER_SIGNATURE) || !lines.some(isLoopPacing)) return source
@@ -116,6 +140,20 @@ export function withLoopPacing(source: string): string {
     const code = line.replace(/\/\/.*$/, '')
     return !/^\s*(\*|\/\*)/.test(code) && /\bFastLED\.show\(\);/.test(code)
   })
-  lines.splice(loopAt, 0, ...loopPacingHelperCpp(sends))
+  // Each `static void _encPoll_<id>() {` a rotary encoder brought.
+  const polls = lines.flatMap((line) => /^static void (_encPoll_\w+)\(\) \{$/.exec(line)?.[1] ?? [])
+  // An AVR sends LEDs with interrupts off, and IRremote reads its receiver from
+  // a timer interrupt: a send that lands inside a code cuts it short, and the
+  // dither refreshes filled most of every frame with sends, so few codes
+  // survived. With a receiver on such a board the frame goes out only while
+  // the receiver is idle, and the wait sends nothing.
+  const quiet = sends && opts.sendsBlockInterrupts === true && lines.includes(IR_REMOTE_INCLUDE)
+  if (quiet) {
+    for (let i = loopAt; i < lines.length; i++) {
+      const send = /^(\s*)FastLED\.show\(\);\s*$/.exec(lines[i])
+      if (send) lines[i] = `${send[1]}if (IrReceiver.isIdle()) FastLED.show();  // not across an IR code: this board sends with interrupts off`
+    }
+  }
+  lines.splice(loopAt, 0, ...loopPacingHelperCpp(sends && !quiet, polls))
   return lines.join('\n')
 }

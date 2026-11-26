@@ -310,6 +310,38 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   frame late by more than a period restarts the schedule rather than
   bursting. Held by `src/codegen/__tests__/loopPacing.test.ts`.
 
+- An input that must be read more often than once a frame is a file-scope
+  function, not loop statics, so the frame wait can call it. A rotary
+  encoder's decode is `_encPoll_<id>()` (its state beside it); `loop()` calls
+  it once and `withLoopPacing` finds every `static void _encPoll_...() {` in
+  the finished sketch and polls them about once a millisecond through
+  `_paceFrame`'s wait. Sampled once a frame, a detent whose middle state was
+  shorter than a frame read as no movement. The normal sketch's input emitter
+  ignores an emission's `helpers` except the encoder's, which it puts in
+  `globalLines`. The SD player's own `ControlEncoder` is still read once a
+  frame.
+- `withLoopPacing(source, { sendsBlockInterrupts })` also holds sends for an
+  IR receiver. FastLED sends with interrupts off on AVR and megaAVR
+  (`boardSendsBlockInterrupts`), and IRremote samples from a timer
+  interrupt, so a send across a code cut it short. With `IRremote.hpp` in
+  the sketch on such a board, each `FastLED.show();` in `loop()` becomes
+  `if (IrReceiver.isIdle()) FastLED.show();` and the wait takes the
+  sleep-only form, with no dither refresh. Only a Board node says so; a
+  graph with none is left alone.
+- The I2C clock is a text pass too: `withI2cClock(source, hz)`
+  (`wireBeginCpp.ts`) adds `Wire.setClock` after each `Wire.begin` in the
+  finished sketch, from the Board's `i2cSpeed` (`400k` by default, `100k`
+  emits nothing). `Wire.begin` has several emitters and the speed belongs to
+  none of them.
+- `finishCpp` ends with `withoutUnreadAudioDetectors`
+  (`audio/audioDetectorPruneCpp.ts`). FastLED builds an audio detector the
+  first time a getter is called and runs it on every block from then on. The
+  engine registers all of them; after pruning, an unread value is left as a
+  bare `(void)(_audioProcessor->getBassLevel());`, which is what kept its
+  detector alive. The pass drops each group of getters that survives only as
+  bare calls. A new engine getter needs a row in `DETECTOR_GROUPS`, or its
+  detector runs whether or not anything reads it.
+
 - Device telemetry's globals are a placeholder line
   (`TELEMETRY_GLOBALS_CPP`) that `withTelemetryGlobals(lines)` fills once the
   sketch is whole, because the render/send split depends on what `loop()`
@@ -721,6 +753,14 @@ sketch still carries only what the graph reaches.
   is byte-identical to a graph without the property (`boardSync.test.ts`
   compares them), so keep `millis()` as the default and thread the boolean
   rather than reading the Board again downstream.
+- A follower never steps its clock on a datagram. A datagram can only arrive
+  late, and a late one reads as a smaller offset, so the follower keeps the
+  largest offset of each four-second window as its target and moves
+  `_syncOffsetMs` toward it a millisecond a pass; only the first datagram and
+  a gap past half a second (a restarted leader) are taken at once. On Wi-Fi
+  the bootstrap also turns modem sleep off for a follower (`WifiEmit.awake`),
+  because an access point holds a broadcast for the next beacon. That line is
+  in the Wi-Fi bootstrap, so a wired follower never names `WiFi`.
 - The service call follows the clock snapshot, so a follower's new offset
   applies on the next pass. In a show it comes after the show's statics are
   declared, because the leader hands `cur`, `nxt`, the transition style, the

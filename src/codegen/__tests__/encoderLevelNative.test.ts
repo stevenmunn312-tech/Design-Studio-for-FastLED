@@ -51,6 +51,7 @@ describe.skipIf(!nativeGpp && !wslGpp)('Encoder Level on the host', () => {
 #define constrain(amt, low, high) ((amt) < (low) ? (low) : ((amt) > (high) ? (high) : (amt)))
 static int pins[8] = {0, 0, 0, HIGH};
 static int digitalRead(int pin) { return pins[pin]; }
+${(emit.helpers ?? []).join('\n')}
 static float pass() {
 ${emit.loop.join('\n')}
   return n_enc_level;

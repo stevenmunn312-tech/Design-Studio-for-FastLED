@@ -173,7 +173,10 @@ describe('board clock sync', () => {
 
     const follower = normalSketch('follower')
     expect(follower).toContain('for (int size = _syncUdp.parsePacket(); size > 0; size = _syncUdp.parsePacket())')
-    expect(follower).toContain('_syncOffsetMs = (int32_t)(leaderMs - millis());')
+    expect(follower).toContain('int32_t sample = (int32_t)(leaderMs - millis());')
+    // Modem sleep off, so a broadcast arrives when it is sent, not at a beacon.
+    expect(follower).toContain('WiFi.setSleep(false);')
+    expect(leader).not.toContain('WiFi.setSleep(false);')
     expect(follower).not.toContain('beginPacket')
     // No show in a normal sketch: nothing to lock onto or adopt.
     expect(follower).not.toContain('_syncLocked')
@@ -212,23 +215,39 @@ describe('board clock sync', () => {
 
   it('runs the follower offset arithmetic frame by frame', () => {
     const follower = normalSketch('follower')
-    const offsetLine = lines(follower, '_syncOffsetMs = (int32_t)(leaderMs - millis());')[0].trim()
+    const all = follower.split('\n')
+    const between = (first: string, last: string) =>
+      all.slice(all.findIndex((line) => line.includes(first)), all.findIndex((line) => line.includes(last)) + 1)
+        .map((line) => line.trim()).filter((line) => !line.startsWith('//'))
+    const perDatagram = between('int32_t sample = (int32_t)(leaderMs - millis());', 'if (!_syncHasBest || sample > _syncBestMs)')
+    const perPass = between('uint32_t syncNow = millis();', 'else if (gap < 0) _syncOffsetMs--;')
     const nowExpr = follower.match(/return (millis\(\) \+ \(uint32_t\)_syncOffsetMs);/)![1]
     const step = compileCppSnippet([
       'static int32_t _syncOffsetMs = 0;',
-      `if (rx) { ${offsetLine} }`,
+      'static int32_t _syncTargetMs = 0;',
+      'static int32_t _syncBestMs = 0;',
+      'static uint32_t _syncWindowMs = 0;',
+      'static bool _syncHasOffset = false, _syncHasBest = false;',
+      `if (rx) { ${perDatagram.join(' ')} }`,
+      ...perPass,
       `uint32_t nowMs = ${nowExpr};`,
     ], ['rx', 'leaderMs'], ['_syncOffsetMs', 'nowMs'])
     // Never heard the leader: the sketch clock is the board's own.
     expect(step(250, { rx: false, leaderMs: 0 })).toEqual({ _syncOffsetMs: 0, nowMs: 250 })
-    // A leader that booted 4 s earlier.
+    // The first datagram, from a leader that booted 4 s earlier, is taken at once.
     expect(step(1000, { rx: true, leaderMs: 5000 })).toEqual({ _syncOffsetMs: 4000, nowMs: 5000 })
     expect(step(1300, { rx: false, leaderMs: 0 })).toEqual({ _syncOffsetMs: 4000, nowMs: 5300 })
-    // A leader behind this board: a negative offset.
-    expect(step(2000, { rx: true, leaderMs: 500 })).toEqual({ _syncOffsetMs: -1500, nowMs: 500 })
-    expect(step(2600, { rx: false, leaderMs: 0 })).toEqual({ _syncOffsetMs: -1500, nowMs: 1100 })
-    // The leader's clock ran a touch faster: the next datagram re-aims.
-    expect(step(2600, { rx: true, leaderMs: 1110 })).toEqual({ _syncOffsetMs: -1490, nowMs: 1110 })
+    // A datagram the access point held for 200 ms reads as a smaller offset.
+    // It used to step the clock back 200 ms; now it is not the window's best.
+    expect(step(1500, { rx: true, leaderMs: 5300 })).toEqual({ _syncOffsetMs: 4000, nowMs: 5500 })
+    // The window ends: its best (the leader ran 10 ms ahead) becomes the
+    // target, and the clock closes on it a millisecond a pass.
+    expect(step(5000, { rx: true, leaderMs: 9010 })).toEqual({ _syncOffsetMs: 4001, nowMs: 9001 })
+    expect(step(5016, { rx: false, leaderMs: 0 })).toEqual({ _syncOffsetMs: 4002, nowMs: 9018 })
+    for (let pass = 0; pass < 20; pass++) step(5032 + pass * 16, { rx: false, leaderMs: 0 })
+    expect(step(5400, { rx: false, leaderMs: 0 })._syncOffsetMs).toBe(4010)
+    // A restarted leader is half a second or more away: taken at once.
+    expect(step(9000, { rx: true, leaderMs: 100 })).toEqual({ _syncOffsetMs: -8900, nowMs: 100 })
   })
 
   it('hands the leader show state to the service and adopts it on the follower', () => {

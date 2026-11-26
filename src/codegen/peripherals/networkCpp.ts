@@ -119,6 +119,12 @@ interface WifiEmit {
   password: string
   hostname: string
   staticConfig: { ip: string; gateway: string; subnet: string; dns: string } | null
+  /**
+   * Keep the radio awake. A clock-sync follower needs it: with modem sleep on,
+   * the access point holds a broadcast for the next DTIM beacon, 100 to 300 ms,
+   * and every such datagram reads as the leader's clock being that far behind.
+   */
+  awake: boolean
 }
 
 /**
@@ -158,6 +164,16 @@ function wifiBootstrapCpp(wifi: WifiEmit): string {
     `#if !defined(ARDUINO_UNOWIFIR4)`,
     `    WiFi.mode(WIFI_STA);`,
     `#endif`,
+    ...(wifi.awake
+      ? [
+          `    // No modem sleep: the clock-sync broadcasts must arrive when they are sent.`,
+          `#if defined(ESP32)`,
+          `    WiFi.setSleep(false);`,
+          `#elif defined(ESP8266)`,
+          `    WiFi.setSleepMode(WIFI_NONE_SLEEP);`,
+          `#endif`,
+        ]
+      : []),
     ...(wifi.staticConfig
       ? [
           `#if defined(ARDUINO_UNOWIFIR4)`,
@@ -257,6 +273,8 @@ export function networkSketchCpp(nodes: readonly StudioNode[]): NetworkSketchEmi
       password: cppStringLiteral(credentials.password),
       hostname,
       staticConfig,
+      awake: nodes.some((node) => node.data.nodeType === 'Board'
+        && (node.data.properties as Record<string, unknown>).clockSync === 'follower'),
     }),
     setup: [],
   }

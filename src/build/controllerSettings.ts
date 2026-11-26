@@ -35,6 +35,20 @@ export interface ControllerSettings {
   /** Resolved boolean for consumers that cannot evaluate a serial route. */
   usbCdcOnBoot: boolean
   serialRoute: SerialRoute
+  i2cSpeed: I2cSpeed
+}
+
+/**
+ * The I2C bus clock. `400k` is fast mode, which every catalogued I2C part
+ * supports and which cuts each read and each OLED flush to about a quarter of
+ * the time. `100k` is standard mode, the Arduino cores' own default, for long
+ * or unshielded wiring.
+ */
+export type I2cSpeed = '400k' | '100k'
+
+/** The clock in hertz, or null at the cores' default, where nothing is emitted. */
+export function i2cClockHz(speed: I2cSpeed): number | null {
+  return speed === '400k' ? 400000 : null
 }
 
 export type BoardControllerProperties = Omit<ControllerSettings, 'usePsram' | 'usbCdcOnBoot'>
@@ -50,6 +64,7 @@ export const DEFAULT_BOARD_CONTROLLER_PROPERTIES: BoardControllerProperties = {
   psramPolicy: 'auto',
   psramMode: 'opi',
   serialRoute: 'auto',
+  i2cSpeed: '400k',
 }
 
 /** Fully resolved defaults used by generators and Board-absent callers. */
@@ -66,6 +81,10 @@ function psramPolicy(props: Record<string, unknown>): PsramPolicy {
     return props.psramPolicy
   }
   return DEFAULT_BOARD_CONTROLLER_PROPERTIES.psramPolicy
+}
+
+function i2cSpeed(props: Record<string, unknown>): I2cSpeed {
+  return props.i2cSpeed === '100k' || props.i2cSpeed === '400k' ? props.i2cSpeed : DEFAULT_BOARD_CONTROLLER_PROPERTIES.i2cSpeed
 }
 
 function serialRoute(props: Record<string, unknown>): SerialRoute {
@@ -126,6 +145,7 @@ export function controllerSettings(nodes: readonly StudioNode[]): ControllerSett
     // not have port identity available.
     usbCdcOnBoot: selectedSerialRoute === 'native',
     serialRoute: selectedSerialRoute,
+    i2cSpeed: i2cSpeed(props),
   }
 }
 

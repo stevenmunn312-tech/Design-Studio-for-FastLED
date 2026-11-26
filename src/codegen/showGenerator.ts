@@ -67,8 +67,8 @@ import {
 } from '../state/patterns/patternSlideshow'
 import { compositionDims, outputRoutes } from '../state/output/outputRouting'
 import { outputCanvasDims } from '../state/output/ledOutputForm'
-import { controllerSettings, ledPropsWithController } from '../build/controllerSettings'
-import { isLoopPacing, loopPacingCpp, withLoopPacing } from './loopPacing'
+import { controllerSettings, i2cClockHz, ledPropsWithController } from '../build/controllerSettings'
+import { boardSendsBlockInterrupts, isLoopPacing, loopPacingCpp, withLoopPacing } from './loopPacing'
 import { withLedDriver } from './output/ledDriverCpp'
 import { selectedLedDriver } from '../build/ledDriverSelection'
 import { selectedPhysicalBoardProfile } from '../build/boards/boardProfiles'
@@ -116,7 +116,7 @@ import {
 import { controlGraphCpp } from './controlGraph'
 import { ENVIRONMENT_SENSOR_CPP_FORWARD } from './peripherals/environmentSensorCpp'
 import { networkSketchCpp } from './peripherals/networkCpp'
-import { wireBeginCpp } from './peripherals/wireBeginCpp'
+import { wireBeginCpp, withI2cClock } from './peripherals/wireBeginCpp'
 import { powerLimitSetupCpp } from './output/powerLimitCpp'
 import {
   SYNC_NOW_MS, boardSyncFollowerAdoptCpp, boardSyncFollowerAdoptSequenceCpp, boardSyncGlobalsCpp,
@@ -1816,7 +1816,10 @@ export function generateShowSketch(
   if (entropySeeds.length) L.splice(fastLedIncludeAt, 0, ...ESP_RANDOM_INCLUDE_CPP)
 
   return withQualifiedMinMax(withLedDriver(
-    withOutputGammaTables(withLoopPacing(finishCpp(specializeCpp(withTelemetryGlobals(L).join('\n'), boardCppFacts(nodes))))),
+    withI2cClock(withOutputGammaTables(withLoopPacing(
+      finishCpp(specializeCpp(withTelemetryGlobals(L).join('\n'), boardCppFacts(nodes))),
+      { sendsBlockInterrupts: boardSendsBlockInterrupts(nodes) },
+    )), i2cClockHz(controller.i2cSpeed)),
     selectedLedDriver(nodes),
   ))
 }

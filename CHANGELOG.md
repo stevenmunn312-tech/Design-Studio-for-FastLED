@@ -38,6 +38,10 @@ share link, migrating it where a shape has changed.
 - A W5500 Ethernet module on an ESP32-C3 or C6 now starts. The sketch asked
   those chips for a second SPI bus they do not have, so the module never
   came up.
+- A rotary encoder is read about a thousand times a second instead of once
+  a frame, so a quick turn no longer loses steps. Not yet bench-tested.
+- A clock-sync follower on Wi-Fi keeps its radio awake and eases its clock
+  toward the leader's instead of stepping it on every message.
 - The wiring test sends each frame once; it paced itself with a call that
   re-sent the frame until the next one was due.
 
@@ -55,6 +59,14 @@ share link, migrating it where a shape has changed.
   longer brings the I2C library (28 KB smaller on an ESP32-S3), and a TM1637
   no longer brings the MAX7219 driver.
 - A BME280 is read once a second, the rate it measures at, not every frame.
+- The I2C bus runs at 400 kHz. The Board has a new **I2C speed** setting,
+  400 kHz by default; choose 100 kHz for long or unshielded wires, or when a
+  correctly wired part is not found. Sensor reads and OLED redraws take
+  about a quarter of the time.
+- A sketch with a microphone runs only the audio detectors its graph reads.
+- An IR receiver on an UNO-class board: the LEDs are sent only between IR
+  codes, so a code is no longer cut short by a send. Temporal dithering is
+  off on those boards while a receiver is fitted. Not yet bench-tested.
 
 ## [1.0.2] - 2026-11-26
 

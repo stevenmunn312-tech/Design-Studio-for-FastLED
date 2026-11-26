@@ -78,13 +78,13 @@ describe('counts per click', () => {
   it('leaves the module counting one per transition', () => {
     expect(encoderCountScale({})).toBe(1)
     const cpp = controlInputCpp('EncoderInput', 'enc', libraryDefaults('EncoderInput'))!
-    expect(cpp.loop.join('\n')).toContain('_encPos_enc+=_d;')
+    expect(cpp.helpers?.join('\n')).toContain('_encPos_enc+=_d;')
   })
 
   it('counts each SR1230 transition twice, so a click is four counts like the module', () => {
     expect(encoderCountScale(SR1230)).toBe(2)
     const cpp = controlInputCpp('EncoderInput', 'enc', { ...libraryDefaults('EncoderInput'), ...SR1230 })!
-    expect(cpp.loop.join('\n')).toContain('_encPos_enc+=_d * 2;')
+    expect(cpp.helpers?.join('\n')).toContain('_encPos_enc+=_d * 2;')
   })
 
   // Position reads in clicks on both sides, so a Map Range spans clicks with
@@ -130,14 +130,18 @@ describe('Level', () => {
     const p = props({ levelStart: 0.25, levelClicks: 10, resetOnPress: true })
     const read = controlInputCpp('EncoderInput', 'enc', p, new Set(['level']))!
     const loop = read.loop.join('\n')
+    // The decode is a function the frame wait can poll, with file-scope state.
+    const decode = read.helpers?.join('\n') ?? ''
     expect(read.outputs.level).toBe('float')
-    expect(loop).toContain('static int16_t _encLvl_enc = 10;')
-    expect(loop).toContain('_encLvl_enc=constrain(_encLvl_enc+_d,0,40);')
+    expect(decode).toContain('static int16_t _encLvl_enc = 10;')
+    expect(decode).toContain('_encLvl_enc=constrain(_encLvl_enc+_d,0,40);')
+    expect(decode).toContain('static void _encPoll_enc() {')
+    expect(loop).toContain('  _encPoll_enc();')
     expect(loop).toContain('_encPos_enc = 0; _encLvl_enc = 10;')
     expect(loop).toContain('float n_enc_level = _encLvl_enc / 40.0f;')
     const unread = controlInputCpp('EncoderInput', 'enc', p, new Set(['position']))!
     expect(unread.outputs.level).toBeUndefined()
-    expect(unread.loop.join('\n')).not.toContain('_encLvl_enc')
+    expect([...unread.loop, ...(unread.helpers ?? [])].join('\n')).not.toContain('_encLvl_enc')
     // Debug counts Level even unread, and reports it and the switch's edges.
     const debug = controlInputCpp('EncoderInput', 'enc', { ...p, debug: true }, new Set(['pressed']))!
     expect(debug.serialDebug).toBe(true)
@@ -147,7 +151,7 @@ describe('Level', () => {
     expect(debug.loop.join('\n')).toContain('Serial.println(n_enc_pressed ? "[encoder] press" : "[encoder] release");')
     expect(unread.serialDebug).toBeUndefined()
     // The SR1230's two counts a transition step Level the same way.
-    expect(controlInputCpp('EncoderInput', 'enc', { ...p, ...SR1230 }, new Set(['level']))!.loop.join('\n'))
+    expect(controlInputCpp('EncoderInput', 'enc', { ...p, ...SR1230 }, new Set(['level']))!.helpers!.join('\n'))
       .toContain('_encLvl_enc=constrain(_encLvl_enc+_d * 2,0,40);')
   })
 })

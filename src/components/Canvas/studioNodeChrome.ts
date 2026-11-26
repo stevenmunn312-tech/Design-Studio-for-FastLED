@@ -212,7 +212,7 @@ export function editableProperties(
       && !((nodeType === 'FormulaPattern' || nodeType === 'Expression') && k === 'formula')
       // PSRAM controls render in the upload tab — their visibility depends
       // on whether the *selected board* supports PSRAM, which only it knows.
-      && k !== 'usePsram' && k !== 'psramPolicy' && k !== 'psramMode' && k !== 'serialRoute'
+      && k !== 'usePsram' && k !== 'psramPolicy' && k !== 'psramMode' && k !== 'serialRoute' && k !== 'i2cSpeed'
       // MatrixOutput's width/height are edited via the dedicated size dropdown
       // (16/32/64/Custom) below, not the generic number-field editor.
       && k !== 'width' && k !== 'height'

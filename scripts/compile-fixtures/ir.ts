@@ -110,7 +110,12 @@ const player = buildShowPlayer(playerNodes, playerEdges, groups, {
 const fixtures = { normal, slideshow, player, learn: generateIrLearnSketch({ pin: 12 }), 'no-ir': noIr }
 const debugNormal = normalNodes.map((entry) => entry.id === 'ir'
   ? { ...entry, data: { ...entry.data, properties: { ...entry.data.properties, debug: true } } } : entry)
-const debugFixtures = { ...fixtures, 'normal-debug': generateCpp(debugNormal, normalEdges) }
+// The same sketch with an UNO chosen. An AVR sends LEDs with interrupts off,
+// so with a receiver the frame goes out only while the receiver is idle and
+// the frame wait sends nothing (loopPacing.ts). Only a Board node says so.
+const unoNormal = generateCpp([node('board', 'Board', { profileId: 'arduino-uno-r3-dip' }), ...normalNodes], normalEdges)
+if (!unoNormal.includes('if (IrReceiver.isIdle()) FastLED.show();')) throw new Error('normal-uno: the send is not held for the IR receiver')
+const debugFixtures = { ...fixtures, 'normal-debug': generateCpp(debugNormal, normalEdges), 'normal-uno': unoNormal }
 for (const [name, source] of Object.entries(debugFixtures)) {
   const includes = source.match(/#include <IRremote\.hpp>/g)?.length ?? 0
   if ((name === 'no-ir' && includes !== 0) || (name !== 'no-ir' && includes !== 1)) {

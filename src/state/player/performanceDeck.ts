@@ -114,6 +114,7 @@ const STRUCTURAL_KEYS = new Set([
   'psramPolicy',
   'psramMode',
   'serialRoute',
+  'i2cSpeed',
   'width',
   'height',
   'paramId',

@@ -2027,6 +2027,7 @@ export const PROPERTY_DESCRIPTIONS: Record<string, string> = {
   powerLimit: 'Caps current draw via FastLED.setMaxPowerInVoltsAndMilliamps, auto-dimming to stay under the mA budget below at the LEDs\' supply voltage. Firmware only: the live preview is not dimmed.',
   psramPolicy: "Automatically uses PSRAM when the exact board profile identifies its interface, or lets you force it on or off.",
   psramMode: "Which PSRAM interface to target — must match the board module's physical package; it can't be probed from the host.",
+  i2cSpeed: "The clock of the I2C bus this board's sensors, real-time clock and OLEDs share. 400 kHz is fast mode, which every part in the catalogue supports; reads and OLED redraws take about a quarter of the time. Choose 100 kHz for long or unshielded wires, or when a part that is wired correctly is not found.",
   serialRoute: "Chooses where Serial appears. Auto identifies native USB versus a UART bridge from the selected USB port when possible.",
   reportTelemetry: 'Prints free heap, PSRAM, frame rate and touch response to Serial every couple of seconds, for the telemetry card in the Upload tab to record. A bench instrument: leave it off for a finished build. ESP32 and ESP8266 only — other boards have no Serial.printf to report with.',
   layout: 'How a grid maps to physical LED wiring order — plain matrix, tiled panels, or a custom index permutation. Chain forms use their own authoring geometry instead.',

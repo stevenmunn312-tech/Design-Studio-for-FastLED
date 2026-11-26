@@ -1,3 +1,4 @@
+import { withoutUnreadAudioDetectors } from './audio/audioDetectorPruneCpp'
 import { cppCode, cppUnits, pruneCpp, recordBodies, withAttachedComments, withoutBlankRuns } from './cppReachability'
 import { foldConstants, PURE_CALL, withoutEmptyIfs } from './cppSpecialize'
 
@@ -300,7 +301,8 @@ export function finishCpp(source: string): string {
   if (!/\b(?:configTime|configTzTime|time_t|tm|gmtime|localtime|mktime|time)\b/.test(cppCode(source.replace(/#include <time.h>/g, '')))) {
     source = source.replace(/^#include <time.h>\r?\n/gm, '')
   }
-  return withoutBlankRuns(withoutUnreadInputPins(source))
+  // After pruning: a detector whose value went unread is by now a bare call.
+  return withoutBlankRuns(withoutUnreadInputPins(withoutUnreadAudioDetectors(source)))
 }
 
 /**

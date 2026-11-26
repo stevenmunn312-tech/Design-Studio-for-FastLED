@@ -59,6 +59,7 @@ const PROPERTY_LABELS: Record<string, string> = {
   sdaPin: 'SDA Pin',
   sclPin: 'SCL Pin',
   serialRoute: 'Serial Connection',
+  i2cSpeed: 'I2C Speed',
   profileId: 'Board',
   x1: 'Start X',
   x2: 'End X',

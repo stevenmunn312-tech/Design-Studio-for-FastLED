@@ -57,10 +57,13 @@ export interface ControlInputEmission {
  */
 export const SERIAL_DEBUG_INPUT_TYPES: readonly string[] = ['IRRemoteInput', 'PowerMonitorInput', 'EncoderInput']
 
+/** A rotary encoder's decode function is `_encPoll_<id>`; see `loopPacing.ts`. */
+const ENCODER_POLL_PREFIX = '_encPoll_'
+
 export function controlInputCpp(
   nodeType: string, id: string, p: Record<string, unknown>, ports?: ReadonlySet<string>,
 ): ControlInputEmission | null {
-  const setup: string[] = [], loop: string[] = []
+  const setup: string[] = [], loop: string[] = [], helpers: string[] = []
   const outputs: ControlInputEmission['outputs'] = {}
   let ir: IrRemoteProjectNode | undefined
   const v = (port: string) => `n_${id}_${port.replace(/[^a-zA-Z0-9_]/g, '_')}`
@@ -106,13 +109,25 @@ export function controlInputCpp(
       const debug = p.debug === true
       const level = !ports || ports.has('level') || debug
       const span = encoderLevelSpan(p), start = encoderLevelStartCount(p)
-      loop.push(`  static int8_t _encLast_${id} = 0; static float _encPos_${id} = 0;${level ? ` static int16_t _encLvl_${id} = ${start};` : ''}`)
-      loop.push(`  { int8_t _a=digitalRead(${pinA}),_b=digitalRead(${pinB}); int8_t _s=(_a<<1)|_b;`)
-      loop.push(`    static const int8_t _encTbl_${id}[16]={0,-1,1,0, 1,0,0,-1, -1,0,0,1, 0,1,-1,0};`)
       // Every catalogued part counts a whole number per transition (1 or 2).
       const step = (factor: number) => factor === 1 ? '_d' : `_d * ${factor}`
-      loop.push(`    int8_t _d=_encTbl_${id}[(_encLast_${id}<<2)|_s]; _encLast_${id}=_s;`)
-      loop.push(`    _encPos_${id}+=${step(scale)};${level ? ` _encLvl_${id}=constrain(_encLvl_${id}+${step(Math.round(scale))},0,${span});` : ''} }`)
+      // The decode is a function with file-scope state, not loop statics, so
+      // the frame wait can call it too (`withLoopPacing` finds `_encPoll_`).
+      // Sampled once a frame, a detent whose middle state was shorter than a
+      // frame read as no movement: a brisk turn, or any slow frame, lost steps.
+      helpers.push([
+        `// Rotary encoder ${id}: polled in loop() and through the frame wait.`,
+        `static int8_t _encLast_${id} = 0;`,
+        `static float _encPos_${id} = 0;`,
+        ...(level ? [`static int16_t _encLvl_${id} = ${start};`] : []),
+        `static void ${ENCODER_POLL_PREFIX}${id}() {`,
+        `  static const int8_t _encTbl_${id}[16]={0,-1,1,0, 1,0,0,-1, -1,0,0,1, 0,1,-1,0};`,
+        `  int8_t _a=digitalRead(${pinA}),_b=digitalRead(${pinB}); int8_t _s=(_a<<1)|_b;`,
+        `  int8_t _d=_encTbl_${id}[(_encLast_${id}<<2)|_s]; _encLast_${id}=_s;`,
+        `  _encPos_${id}+=${step(scale)};${level ? ` _encLvl_${id}=constrain(_encLvl_${id}+${step(Math.round(scale))},0,${span});` : ''}`,
+        `}`,
+      ].join('\n'))
+      loop.push(`  ${ENCODER_POLL_PREFIX}${id}();`)
       button('pressed', pinSW, pullup)
       if (p.resetOnPress === true) {
         loop.push(`  static bool _encSwLast_${id} = false;`)
@@ -247,6 +262,7 @@ export function controlInputCpp(
     setup,
     loop,
     outputs,
+    ...(helpers.length ? { helpers } : {}),
     ...(nodeType === 'PresenceInput' ? { helpers: [PRESENCE_SENSOR_HELPER_CPP.join('\n')] } : {}),
     ...(nodeType === 'LightInput' && lightSensorTransport(p.partId) === 'i2c'
       ? { helpers: [LIGHT_SENSOR_HELPER_CPP.join('\n')], includes: ['#include <Wire.h>'] }

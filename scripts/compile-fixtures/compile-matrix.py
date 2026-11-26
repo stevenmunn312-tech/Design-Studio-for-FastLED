@@ -166,6 +166,7 @@ def ir_legs() -> list[Leg]:
         *(leg(name, CLASSIC, "esp32") for name in ("normal", "normal-debug", "slideshow", "player", "no-ir")),
         leg("normal", UNO, "avr"),
         leg("learn", UNO, "avr"),  # learning is the only way to map keys; AVR has no Serial.printf
+        leg("normal-uno", UNO, "avr"),  # an UNO Board: sends held while the IR receiver is busy
         leg("normal", "arduino:megaavr:nona4809", "megaavr"),
         leg("normal", ESP8266, "esp8266"),
         leg("normal", "teensy:avr:teensy41", "teensy"),

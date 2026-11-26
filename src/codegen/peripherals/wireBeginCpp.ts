@@ -23,3 +23,23 @@ export function wireBeginCpp(
 ): string {
   return boardTakesWirePins(nodes) ? `  Wire.begin(${sdaPin}, ${sclPin});  // ${note}` : WIRE_BEGIN_DEFAULT_CPP
 }
+
+/**
+ * Set the Board's I2C speed after each bus start in a finished sketch.
+ *
+ * A text pass, like `withLoopPacing`: `Wire.begin` is written by the normal
+ * sketch, the control graph, the RTC and each generator's display setup, and
+ * the speed belongs to none of them. `hz` is null at the cores' own 100 kHz
+ * default, where the sketch is left as it was.
+ */
+export function withI2cClock(source: string, hz: number | null): string {
+  if (hz === null) return source
+  const lines = source.split('\n')
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const begin = /^(\s*)Wire\.begin\([^)]*\);/.exec(lines[i])
+    if (begin && !lines[i + 1]?.includes('Wire.setClock(')) {
+      lines.splice(i + 1, 0, `${begin[1]}Wire.setClock(${hz});  // I2C speed, set on the Board`)
+    }
+  }
+  return lines.join('\n')
+}

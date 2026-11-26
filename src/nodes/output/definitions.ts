@@ -80,6 +80,8 @@ export const OUTPUT_DEFINITIONS: NodeDefinition[] = [
       psramPolicy: 'auto',
       psramMode: 'opi',
       serialRoute: 'auto',
+      // Fast mode: every catalogued I2C part supports it (controllerSettings.ts).
+      i2cSpeed: '400k',
       // Off by default: it costs flash and puts a line on the serial port every
       // couple of seconds, which a finished installation has no use for. It is
       // a bench instrument, turned on to measure a rig and turned off again.

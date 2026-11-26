@@ -4464,7 +4464,10 @@ describe('generateCpp — INMP441 audio engine', () => {
     expect(cpp).toContain('fl::audio::Config::CreateInmp441(MIC_WS, MIC_SD, MIC_SCK, fl::audio::AudioChannel::Left)')
     expect(cpp).toContain('_audioProcessor = FastLED.add(config);')
     expect(cpp).toContain('_audioProcessor->setGain(MIC_GAIN);')
-    expect(cpp).toContain('_audioProcessor->getBassLevel()')
+    // Only the spectrum is read here, so only the equaliser is registered:
+    // FastLED runs every detector a getter has ever been called on.
+    expect(cpp).not.toContain('getBassLevel')
+    expect(cpp).not.toContain('onBeat')
     expect(cpp).toContain('_audioProcessor->getEqBin(i >> 1)')
     // Nothing here reads the side levels, so they are not computed.
     expect(cpp).not.toContain('_audioLeftLevel = _audioRightLevel')
@@ -4774,7 +4777,7 @@ describe('generateCpp — INMP441 audio engine', () => {
       edge('e0', 'audio', 'bd', 'audio', 'audio'),
       edge('e2', 'bd', 'out', 'beat', 'frame'),
     ])
-    expect(cpp).toContain('getBassLevel()')
+    expect(cpp).toContain('_audioProcessor->onBeat(')
     expect(cpp).not.toContain('getVibe')
     expect(cpp).not.toContain('_audioVibe')
   })
@@ -5107,7 +5110,6 @@ describe('generateCpp — INMP441 audio engine', () => {
     ])
     expect(cpp).toContain(capture)
     expect(cpp).toContain(include)
-    expect(cpp).toContain('_audioProcessor->getBassLevel()')
     expect(cpp).toContain('_audioProcessor->getEqBin(i >> 1)')
   })
 
@@ -5909,7 +5911,13 @@ describe('EncoderInput (codegen)', () => {
   it('emits a polling quadrature decode with static per-node state', () => {
     const enc = node('enc', 'EncoderInput', 'input', { pinA: 32, pinB: 33, pinSW: 25 })
     const cpp = generateCpp([enc], [])
-    expect(cpp).toContain('static int8_t _encLast_enc = 0; static float _encPos_enc = 0;')
+    expect(cpp).toContain('static int8_t _encLast_enc = 0;')
+    expect(cpp).toContain('static float _encPos_enc = 0;')
+    // Decoded in a function, called from loop() and from the frame wait, so a
+    // step between two frames is not lost.
+    expect(cpp).toContain('static void _encPoll_enc() {')
+    expect(cpp).toContain('{ _encPoll_enc(); delay(1); }')
+    expect(cpp.indexOf('static void _encPoll_enc() {')).toBeLessThan(cpp.indexOf('void _paceFrame(uint32_t periodUs) {'))
     expect(cpp).toContain('digitalRead(32)')
     expect(cpp).toContain('digitalRead(33)')
     // Counted in quadrature steps, published in clicks.

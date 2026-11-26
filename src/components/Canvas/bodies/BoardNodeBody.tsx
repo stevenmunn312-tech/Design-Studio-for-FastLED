@@ -411,6 +411,18 @@ export default function BoardNodeBody({ nodeId }: Props) {
           </div>
         )}
 
+        <div className={styles.psramBlock}>
+          <label className={styles.pickerField}>
+            <span className={styles.pickerLabel}>I2C speed</span>
+            <select className={styles.picker} value={settings.i2cSpeed} aria-label="I2C speed"
+              title="The clock of the I2C bus the board's sensors, real-time clock and OLEDs share. Choose 100 kHz for long or unshielded wires, or when a correctly wired part is not found."
+              onChange={(event) => updateNodeProperty(nodeId, 'i2cSpeed', event.target.value)}>
+              <option value="400k">400 kHz (recommended)</option>
+              <option value="100k">100 kHz, for long wires</option>
+            </select>
+          </label>
+        </div>
+
         {/*
           * Only the drivers this board offers, and nothing at all where Auto is
           * the only one. A stored choice the board does not offer reads as

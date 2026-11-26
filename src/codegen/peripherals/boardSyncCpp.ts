@@ -38,6 +38,10 @@ export const SYNC_DATAGRAM_BYTES = 18
 
 /** The animation clock expression when sync is on. */
 export const SYNC_NOW_MS = '_syncNowMs()'
+/** A follower keeps the best offset of each window this long: eight datagrams. */
+const SYNC_OFFSET_WINDOW_MS = 4000
+/** A gap this large is a restarted leader and is taken at once instead of slewed. */
+const SYNC_STEP_GAP_MS = 500
 
 /** The first Board's role, or null when no Board syncs. */
 export function clockSyncRoleIn(nodes: readonly Pick<StudioNode, 'data'>[]): ClockSyncRole | null {
@@ -84,7 +88,13 @@ export function boardSyncGlobalsCpp(role: ClockSyncRole, show: boolean, transSty
   if (role === 'leader') {
     lines.push(`static uint32_t _syncLastTxMs = 0;`)
   } else {
-    lines.push(`static int32_t _syncOffsetMs = 0;`)
+    lines.push(
+      `static int32_t _syncOffsetMs = 0;       // what the clock uses, slewed toward the target`,
+      `static int32_t _syncTargetMs = 0;       // the best offset of the last window`,
+      `static int32_t _syncBestMs = 0;         // the best offset seen in this window`,
+      `static uint32_t _syncWindowMs = 0;`,
+      `static bool _syncHasOffset = false, _syncHasBest = false;`,
+    )
     // Lock and the show mirrors are read only by a show's adoption rule.
     if (show) {
       lines.push(
@@ -237,7 +247,11 @@ function followerServiceCpp(show: boolean, transStyle: boolean): string[] {
     `    int got = _syncUdp.read(pkt, sizeof(pkt));`,
     `    if (got != ${SYNC_DATAGRAM_BYTES} || pkt[0] != 'F' || pkt[1] != 'L' || pkt[2] != 'S' || pkt[3] != 'Y' || pkt[4] != ${SYNC_VERSION}) continue;`,
     `    uint32_t leaderMs = ${readLE32(6)};`,
-    `    _syncOffsetMs = (int32_t)(leaderMs - millis());`,
+    `    // A datagram can only arrive late, and a late one reads as a smaller`,
+    `    // offset, so the largest of a window is the one nearest the truth.`,
+    `    int32_t sample = (int32_t)(leaderMs - millis());`,
+    `    if (!_syncHasOffset) { _syncOffsetMs = _syncTargetMs = sample; _syncHasOffset = true; _syncWindowMs = millis(); }`,
+    `    if (!_syncHasBest || sample > _syncBestMs) { _syncBestMs = sample; _syncHasBest = true; }`,
     ...(show
       ? [
           `    _syncLastRxMs = millis();`,
@@ -248,6 +262,18 @@ function followerServiceCpp(show: boolean, transStyle: boolean): string[] {
         ]
       : []),
     `  }`,
+    `  // Each window hands its best offset on as the target, so a slow leader`,
+    `  // crystal is still followed down.`,
+    `  uint32_t syncNow = millis();`,
+    `  if (_syncHasBest && syncNow - _syncWindowMs >= ${SYNC_OFFSET_WINDOW_MS}u) {`,
+    `    _syncTargetMs = _syncBestMs; _syncHasBest = false; _syncWindowMs = syncNow;`,
+    `  }`,
+    `  // The clock is slewed a millisecond a pass, never stepped, so no phase`,
+    `  // runs backward. A gap past half a second is a restarted leader: taken at once.`,
+    `  int32_t gap = _syncTargetMs - _syncOffsetMs;`,
+    `  if (gap > ${SYNC_STEP_GAP_MS} || gap < -${SYNC_STEP_GAP_MS}) _syncOffsetMs = _syncTargetMs;`,
+    `  else if (gap > 0) _syncOffsetMs++;`,
+    `  else if (gap < 0) _syncOffsetMs--;`,
     `#endif`,
     `}`,
   ]

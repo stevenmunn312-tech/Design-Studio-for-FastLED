@@ -31,6 +31,7 @@ describe('controllerSettings', () => {
       psramMode: 'opi',
       usbCdcOnBoot: false,
       serialRoute: 'auto',
+      i2cSpeed: '400k',
     })
     expect(ledPropsWithController({ brightness: 20, overclock: 1.7, dataPin: 5 }, nodes))
       .toEqual(expect.objectContaining({ brightness: 144, overclock: 1.25, dataPin: 5 }))
@@ -56,6 +57,7 @@ describe('controllerSettings', () => {
         psramPolicy: 'auto',
         psramMode: 'qspi',
         serialRoute: 'auto',
+        i2cSpeed: '400k',
       }),
     ])
 
@@ -65,6 +67,7 @@ describe('controllerSettings', () => {
       psramMode: 'opi',
       usbCdcOnBoot: false,
       serialRoute: 'auto',
+      i2cSpeed: '400k',
     })
   })
 
@@ -91,6 +94,7 @@ describe('controllerSettings', () => {
       psramMode: 'opi',
       usbCdcOnBoot: false,
       serialRoute: 'auto',
+      i2cSpeed: '400k',
     })
   })
 
@@ -104,6 +108,7 @@ describe('controllerSettings', () => {
       psramPolicy: 'auto',
       usbCdcOnBoot: false,
       serialRoute: 'auto',
+      i2cSpeed: '400k',
     })
   })
 
@@ -119,6 +124,7 @@ describe('controllerSettings', () => {
       usePsram: false,
       psramPolicy: 'auto',
       serialRoute: 'auto',
+      i2cSpeed: '400k',
     })
   })
 })

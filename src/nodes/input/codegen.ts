@@ -25,9 +25,14 @@ import { uartPortDeclarationCpp } from '../../codegen/peripherals/uartPortCpp'
 const wiredPorts = (nodeId: string, edges: readonly { source: string; sourceHandle?: string | null }[]): Set<string> =>
   new Set(edges.filter((edge) => edge.source === nodeId).map((edge) => edge.sourceHandle ?? ''))
 
-const controlInput: NodeEmitter = ({ node, id, p, ln, pinSetupLines, edges }) => {
+const controlInput: NodeEmitter = ({ node, id, p, ln, pinSetupLines, edges, globalLines }) => {
   const ports = wiredPorts(node.id, edges)
   const emit = controlInputCpp(node.data.nodeType, id, p, ports)!
+  // An encoder's decode function. The other inputs' helpers are the
+  // generator's own to place, so only this one is taken from the emission.
+  if (node.data.nodeType === 'EncoderInput') {
+    for (const helper of emit.helpers ?? []) if (!globalLines.includes(helper)) globalLines.push(helper)
+  }
   for (const line of emit.setup) pinSetupLines.add(line)
   for (const line of emit.loop) ln(line)
 }

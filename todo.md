@@ -86,9 +86,10 @@ notice:
   up while it sends LEDs is still unproven.
 - None of the ten was run on hardware.
 
-The four left open need a bench or a decision from you: the encoder and IR
-fixes change timing that a bench pass covers today, the animation clock
-changes every sketch and its preview parity, and clock sync is experimental.
+Three more were done later the same day, on your say-so and with no bench
+(you were away): the encoder, IR on AVR and the clock-sync follower. They
+compile; none has run on a board, so each needs one bench check before it
+is called fixed. The animation clock is left as it is, your decision.
 
 - [x] Fixed 2026-11-26, with the IR item below: both rebuilt clean on the Uno
   and RP2040 ([changelog](CHANGELOG.md)). An I2C OLED in a show had the same
@@ -126,18 +127,30 @@ changes every sketch and its preview parity, and clock sync is experimental.
   the same gap in the normal sketch and is fixed with it.
 - [x] **Wi-Fi hostname on ESP32 core 3** (emitted, core source). Set after
   `WiFi.mode`, so the router never sees it (`networkCpp.ts:150-158`).
-- [ ] **Rotary encoder** (emitted, bench for how much). Sampled once a frame,
-  so brisk turns and slow frames drop detents (`controlInputCpp.ts:109-115`).
-- [ ] **IR receive on AVR** (FastLED source, bench). `FastLED.show()` and the
-  dither refreshes hold interrupts off for most of each frame.
+- [x] **Rotary encoder** (emitted, bench for how much). Sampled once a frame,
+  so brisk turns and slow frames dropped detents. The decode is now a
+  function the frame wait polls about once a millisecond. Bench: turn it
+  fast and count. Not covered: an encoder wired straight to a Music Player
+  control (`ControlEncoder` in the player sketch) is still read once a frame.
+- [x] **IR receive on AVR** (FastLED source, bench). `FastLED.show()` and the
+  dither refreshes held interrupts off for most of each frame. With an IR
+  receiver on an AVR board the frame is now sent only while the receiver is
+  idle, and the wait sends nothing. Costs: no temporal dithering there, and
+  a frame is skipped while a key is held. A long strip still blinds the
+  receiver for the length of its send (about 30 microseconds an LED).
+  Bench: an UNO, a remote, 64 LEDs.
 - [ ] **Animation clock on long runs** (arithmetic). `float t = millis()/1000.0f`
   is coarser than a frame after about 1.5 days (`player/masterSpeedCpp.ts:42`).
+  Left as it is (Steve, 2026-11-26).
 - [x] **SD Video** (emitted, bench). The card mounts before the other chip
   selects on its bus are high, and never retries (`nodes/shapes/codegen.ts:99`).
 - [x] **Touch calibration on ILI9341** (emitted, bench). The sketch skips the
   controller init stream (`touchCalibrationSketch.ts:153`).
-- [ ] **Clock sync follower** (emitted, experimental). Steps its clock on every
-  datagram with Wi-Fi sleep on (`boardSyncCpp.ts:240`).
+- [x] **Clock sync follower** (emitted, experimental). Stepped its clock on
+  every datagram with Wi-Fi sleep on. A Wi-Fi follower now keeps its radio
+  awake, takes the best offset of each four-second window, and closes on it
+  a millisecond a pass; a gap past half a second is taken at once. Bench:
+  two boards, one show.
 - [ ] Not settled without a bench: SD player audio dropouts beside TFT
   repaints; microphone adapters on RP2040, SAMD51 and STM32 blocking 11.6 ms a
   read; PCM1802 sample alignment (it compiles on the S3); DS18B20 slot timing
@@ -147,8 +160,9 @@ changes every sketch and its preview parity, and clock sync is experimental.
 
 Four were done on 2026-11-26 ([changelog](CHANGELOG.md)); the byte figures
 below them are compiled, the time figures are still estimates and no frame
-rate was measured. The rest are open: each either changes what a bus or
-panel sees on the wire, which needs a bench, or was too small to take first.
+rate was measured. Two more followed later that day: the I2C speed and the
+microphone detectors. TFT and LVGL bulk SPI is skipped and the smaller items
+are deferred, both your decisions.
 
 - [x] **Output gamma as a baked table.** Default gamma 2.2 ran a fixed-point
   `pow` three times per LED per frame. Now a 256-byte table built at
@@ -161,21 +175,24 @@ panel sees on the wire, which needs a bench, or was too small to take first.
   OLED went from 364,099 to 335,579 bytes of flash and lost 1,392 of RAM.
   Controller arms inside the OLED driver (SH1106 against SSD1306) still
   ship together; they are a few bytes.
-- [ ] **I2C at 400 kHz.** No sketch calls `Wire.setClock`. An I2C OLED flush is
-  about 110 ms once a second; each I2C sensor read is 0.7 to 1.1 ms slower
-  than it needs to be.
-- [ ] **TFT text and LVGL flush in bulk SPI.** Fixed layouts draw one fill per
+- [x] **I2C at 400 kHz.** No sketch called `Wire.setClock`. The Board has an
+  I2C speed setting, 400 kHz by default and 100 kHz for long wires; every
+  existing project moves to 400 kHz on its next build. Estimated: an I2C
+  OLED flush drops from about 110 ms to about 30, and each sensor read by
+  0.7 to 1.1 ms. Not done: the OLED still resends every page each second.
+- [ ] **TFT text and LVGL flush in bulk SPI.** Skipped (Steve, 2026-11-26). Fixed layouts draw one fill per
   lit font pixel, a byte per transfer (`tftDisplayCpp.ts:729-747`); the LVGL
   flush is a byte per transfer and keeps the parallel arm in SPI builds
   (`customDisplayPanelCpp.ts:173,201-215`). Needs a panel on the bench to
   check what is drawn.
 - [x] `TftPanel::scratch` was unused: 64 bytes of RAM a panel, removed.
-- [ ] **Microphone detectors on demand.** Beat, bass, mid, treble and BPM are
-  always registered and polled, so FastLED runs analysers nothing reads
-  (`audioEngineCpp.ts:339-346,366-396`).
+- [x] **Microphone detectors on demand.** Beat, bass, mid, treble and BPM were
+  always registered and polled, so FastLED ran analysers nothing read. A
+  pass over the pruned sketch now drops each detector whose values survive
+  only as bare calls. What it saves a frame was not measured.
 - [x] BME280 was read every frame against a 1 s standby; now once a second,
   and a missing sensor is retried at that rate.
-- [ ] Smaller: PCA9685 rewritten on ADC noise; half-resolution upscale in
+- [ ] Deferred (Steve, 2026-11-26). Smaller: PCA9685 rewritten on ADC noise; half-resolution upscale in
   float (the integer form is claimed identical, unproven); show patterns
   copied into `leds` (3 x NUM_LEDS bytes); the two INA read helpers are
   identical.

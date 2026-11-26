@@ -101,4 +101,40 @@ describe('loop pacing', () => {
     const once = withLoopPacing(['void loop() {', '  FastLED.show();', loopPacingCpp(60), '}'].join('\n'))
     expect(withLoopPacing(once)).toBe(once)
   })
+
+  // Sampled once a frame, a detent whose middle state was shorter than a frame
+  // read as no movement. The wait polls the encoder about once a millisecond.
+  it('polls a rotary encoder through the wait, in both forms', () => {
+    const body = ['static void _encPoll_knob() {', '}', 'void loop() {', '  _encPoll_knob();']
+    const sending = withLoopPacing([...body, '  FastLED.show();', loopPacingCpp(60), '}'].join('\n'))
+    expect(sending).toContain('    _encPoll_knob();')
+    expect(sending).toContain('while ((left = (int32_t)(_paceDeadlineUs - micros())) > 1000) { _encPoll_knob(); delay(1); }')
+    const sleeping = withLoopPacing([...body, loopPacingCpp(60), '}'].join('\n'))
+    expect(sleeping).toContain('{ _encPoll_knob(); delay(1); }')
+    // Without one the wait is the single sleep it always was.
+    const plain = withLoopPacing(['void loop() {', '  FastLED.show();', loopPacingCpp(60), '}'].join('\n'))
+    expect(plain).not.toContain('while ((left')
+    expect(plain).toContain('      delay((uint32_t)left / 1000ul);')
+  })
+
+  // An AVR sends LEDs with interrupts off, and IRremote samples from a timer
+  // interrupt, so a send across an IR code cuts it short.
+  describe('with an IR receiver on a board that sends with interrupts off', () => {
+    const sketch = ['#include <IRremote.hpp>', 'void loop() {', '  FastLED.show();', loopPacingCpp(60), '}'].join('\n')
+
+    it('sends only while the receiver is idle and sends nothing in the wait', () => {
+      const quiet = withLoopPacing(sketch, { sendsBlockInterrupts: true })
+      expect(quiet).toContain('  if (IrReceiver.isIdle()) FastLED.show();')
+      expect(quiet.match(/FastLED\.show\(\);/g)).toHaveLength(1)
+      expect(quiet).not.toContain('_paceSendUs')
+    })
+
+    it('leaves every other board and an IR-free sketch as they were', () => {
+      expect(withLoopPacing(sketch)).toContain('_paceSendUs')
+      expect(withLoopPacing(sketch)).not.toContain('isIdle')
+      const noIr = withLoopPacing(sketch.replace('#include <IRremote.hpp>\n', ''), { sendsBlockInterrupts: true })
+      expect(noIr).not.toContain('isIdle')
+      expect(noIr).toContain('_paceSendUs')
+    })
+  })
 })
