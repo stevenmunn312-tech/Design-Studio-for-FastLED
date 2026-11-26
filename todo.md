@@ -71,6 +71,25 @@ gitignored `tmp/firmware-review/`.
 
 ### Builds fail or the part cannot work
 
+Ten of these were fixed on 2026-11-26 ([changelog](CHANGELOG.md)); a ticked
+item keeps its original description. What the fixes changed that you will
+notice:
+
+- An SPI OLED or MAX7219 on the same clock and data pins as a colour panel,
+  SD card or Ethernet module is now a pin conflict, not a silent dark part.
+  The firmware still bit-bangs these parts; driving them through the SPI
+  host instead is the alternative, and needs a bench.
+- A power-limited build runs dimmer at the limit than before: the limiter
+  now counts a 5 V LED at 300 mW (it was 210) and a 12 V WS2811 pixel at
+  720 mW, the figures the Build Diagram sizes from.
+- Live Stream to an AVR board runs at 1,000,000 baud. Whether an UNO keeps
+  up while it sends LEDs is still unproven.
+- None of the ten was run on hardware.
+
+The four left open need a bench or a decision from you: the encoder and IR
+fixes change timing that a bench pass covers today, the animation clock
+changes every sketch and its preview parity, and clock sync is experimental.
+
 - [x] Fixed 2026-11-26, with the IR item below: both rebuilt clean on the Uno
   and RP2040 ([changelog](CHANGELOG.md)). An I2C OLED in a show had the same
   fault and is fixed with it; that case and the SAMD case were not compiled.
@@ -86,24 +105,26 @@ gitignored `tmp/firmware-review/`.
   `Serial.printf` (`irLearnSketch.ts:41`), which AVR lacks, so keys cannot be
   mapped on those boards at all. Encoder Debug fails the same way
   (`controlInputCpp.ts:133`).
-- [ ] **SH1106 SPI OLED and MAX7219 on a shared SPI bus** (emitted, bench).
+- [x] **SH1106 SPI OLED and MAX7219 on a shared SPI bus** (emitted, bench).
   Both bit-bang with `digitalWrite` on SCK/MOSI pins the hardware SPI host
   owns once a TFT or card starts it; ESP32 core 3.3.12 refuses that write
   silently, so the part stays dark. `busTopology.ts:114-158` allows the
   sharing and `part-families.ino` builds it.
-- [ ] **Pot, joystick and LDR on ESP32-S2** (emitted). The S2 ADC returns 13
+- [x] **Pot, joystick and LDR on ESP32-S2** (emitted). The S2 ADC returns 13
   bits and the sketch divides by 4095 (`helpers/analogReadCpp.ts:14-15`): a
   pot is full at half travel. Fix: `analogReadResolution(12)`.
-- [ ] **Live Stream on UNO, Nano and Mega** (arithmetic). 921600 baud lands at
+- [x] **Live Stream on UNO, Nano and Mega** (arithmetic). 921600 baud lands at
   1,000,000 on a 16 MHz AVR, 8.5 % off (`streamReceiverGenerator.ts:76,131`).
-- [ ] **Power limit on 12 V strips** (emitted). `setMaxPowerInVoltsAndMilliamps`
+- [x] **Power limit on 12 V strips** (emitted). `setMaxPowerInVoltsAndMilliamps`
   runs on FastLED's 5 V WS2812 model, so the cap passes about 3.3 times the
   set current on WS2811 and 1.4 times on WS2815 and at 5 V, against the
   app's own `build/power/ledDraw.ts`. No generator emits `setPowerModel`.
-- [ ] **Stereo VU with a second LED output** (emitted). The VU rails miss the
-  Board's master brightness and run about twice as bright
-  (`cppGenerator.ts:1714-1725`, `showGenerator.ts:1413`).
-- [ ] **Wi-Fi hostname on ESP32 core 3** (emitted, core source). Set after
+- [x] **Stereo VU with a second LED output** (emitted). The VU rails miss the
+  Board's master brightness and run about twice as bright in a normal
+  sketch (`cppGenerator.ts`). The show sketch already folded it in; the
+  review was wrong about `showGenerator.ts`. A HUB75 panel with VU rails had
+  the same gap in the normal sketch and is fixed with it.
+- [x] **Wi-Fi hostname on ESP32 core 3** (emitted, core source). Set after
   `WiFi.mode`, so the router never sees it (`networkCpp.ts:150-158`).
 - [ ] **Rotary encoder** (emitted, bench for how much). Sampled once a frame,
   so brisk turns and slow frames drop detents (`controlInputCpp.ts:109-115`).
@@ -111,9 +132,9 @@ gitignored `tmp/firmware-review/`.
   dither refreshes hold interrupts off for most of each frame.
 - [ ] **Animation clock on long runs** (arithmetic). `float t = millis()/1000.0f`
   is coarser than a frame after about 1.5 days (`player/masterSpeedCpp.ts:42`).
-- [ ] **SD Video** (emitted, bench). The card mounts before the other chip
+- [x] **SD Video** (emitted, bench). The card mounts before the other chip
   selects on its bus are high, and never retries (`nodes/shapes/codegen.ts:99`).
-- [ ] **Touch calibration on ILI9341** (emitted, bench). The sketch skips the
+- [x] **Touch calibration on ILI9341** (emitted, bench). The sketch skips the
   controller init stream (`touchCalibrationSketch.ts:153`).
 - [ ] **Clock sync follower** (emitted, experimental). Steps its clock on every
   datagram with Wi-Fi sleep on (`boardSyncCpp.ts:240`).

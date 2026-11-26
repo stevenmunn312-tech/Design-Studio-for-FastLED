@@ -19,6 +19,29 @@ share link, migrating it where a shape has changed.
 - IR key learning and the rotary encoder's Debug option now build on UNO, Nano
   and Nano Every. Both printed with `Serial.printf`, which those cores lack,
   so a remote's keys could not be learned on them.
+- The Board's power limit now counts each LED at the draw the Build Diagram
+  sizes for: 300 mW for a 5 V RGB LED, 720 mW for a 12 V WS2811 pixel. It
+  used FastLED's default of 210 mW, so the limit let through 1.4 times the
+  set current at 5 V and about 3.4 times on 12 V WS2811. A limited build is
+  dimmer at its limit than before.
+- A potentiometer, joystick or light sensor on an ESP32-S2 reads its full
+  range. The S2's ADC returns 13 bits, so a pot reached full at half travel.
+- Stereo VU rails follow the Board's brightness in a sketch with several LED
+  outputs or a HUB75 panel; they ran at full level.
+- The Wi-Fi hostname reaches the router on ESP32 boards.
+- SD Video mounts its card after the panel and touch chip selects on the same
+  bus are held high.
+- Touch calibration sends the panel's own init sequence, as a project sketch
+  does, so an ILI9341 comes up with its proper power and gamma settings.
+- Live Stream to an UNO, Nano or Mega uses 1,000,000 baud, a rate a 16 MHz
+  AVR can produce; 921600 came out 8.5 % off.
+
+### Changed
+
+- An SPI OLED or MAX7219 on the same clock and data pins as a colour panel,
+  SD card or Ethernet module is reported as a pin conflict. These parts
+  drive their own clock and data and went dark once the SPI bus started.
+  Two of them may still share a pair with each other.
 
 ## [1.0.2] - 2026-11-26
 

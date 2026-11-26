@@ -132,7 +132,7 @@ describe('which settings a module offers', () => {
   it('declares a bus role for both headers', () => {
     expect(busAssignmentFor('InfoDisplay', 'sdaPin')).toEqual({ kind: 'i2c', role: 'sda' })
     expect(busAssignmentFor('InfoDisplay', 'sclPin')).toEqual({ kind: 'i2c', role: 'scl' })
-    expect(busAssignmentFor('InfoDisplay', 'csPin')).toEqual({ kind: 'spi', role: 'cs' })
+    expect(busAssignmentFor('InfoDisplay', 'csPin')).toEqual({ kind: 'softspi', role: 'cs' })
   })
 })
 

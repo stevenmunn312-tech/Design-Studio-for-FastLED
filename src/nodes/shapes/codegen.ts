@@ -61,7 +61,7 @@ import { centerAxisCpp, clockCenterAxisCpp, lineAxisCpp, positionUnits, textAxis
 import { FLAT_PATH_ROW_CPP, SIZING_SIDE_CPP } from '../shared/stringCanvas'
 
 export const SHAPES_EMITTERS: NodeEmitters = {
-  SDVideo({ nodes, props, id, f, ln, ownBuf, needsT, needsSdVideo, globalLines, setupLines, p }) {
+  SDVideo({ nodes, props, id, f, ln, ownBuf, needsT, needsSdVideo, globalLines, p }) {
     const clip = asSdVideoClip(p.clip)
     if (!clip) {
       ln(`  fill_solid(${ownBuf()}, NUM_LEDS, CRGB::Black); // SD Video: no clip imported`)
@@ -96,7 +96,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
         `#endif`,
         ``,
       )
-      setupLines.push(`#if defined(ESP32)`, `  _sdvReady = _sdvMount();`, `#endif`)
+      // The mount itself is the generator's, after every other part's setup:
+      // a panel or touch chip select still floating on this bus can answer
+      // the card's first commands and fail the mount.
     }
     const A = `_sv_${id}`
     const path = sdvPath(clip.name)

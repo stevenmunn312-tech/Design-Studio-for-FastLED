@@ -166,17 +166,18 @@ describe('MAX7219 behind the same node', () => {
   // the role is resolved by the walk that knows which module the node is.
   it('makes its clock shareable where the TM1637 keeps it exclusive', () => {
     const [maxClk] = collectPinUses([max7219()])
-    expect(maxClk.bus).toEqual({ kind: 'spi', role: 'sck' })
+    expect(maxClk.bus).toEqual({ kind: 'softspi', role: 'sck' })
     const [tmClk] = collectPinUses([display()])
     expect(tmClk.bus).toBeUndefined()
     expect(busAssignmentFor('SegmentDisplay', 'clkPin').role).toBe('exclusive')
   })
 
-  it('shares a bus with the SD card given its own load line', () => {
+  // Bit-banged, so it cannot use pins the board's SPI host drives.
+  it('refuses the SPI clock and data pins of the SD card', () => {
     const sd = node('sd', 'SDCard', 'output', {
       sdCsPin: 15, sdSckPin: 18, sdMosiPin: 23, sdMisoPin: 19,
     })
-    expect(findPinConflicts([max7219(), sd], [])).toEqual([])
+    expect(findPinConflicts([max7219(), sd], [])).toContainEqual(expect.stringContaining('GPIO 18 is on the SPI bus'))
   })
 
   it('rejects two MAX7219s sharing a load line', () => {

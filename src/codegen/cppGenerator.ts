@@ -14,6 +14,7 @@ import {
   segmentDisplayGlobalCpp,
 } from './displays/segmentDisplayCpp'
 import { networkSketchCpp, networkUsedIn } from './peripherals/networkCpp'
+import { powerLimitSetupCpp } from './output/powerLimitCpp'
 import { ds3231Clocks, rtcModuleIn } from '../state/peripherals/rtcModule'
 import { boardSyncGlobalsCpp, boardSyncServiceCallCpp, clockSyncRoleIn } from './peripherals/boardSyncCpp'
 import { boardLinkFirmware, boardLinkPlan, boardLinkSends } from './peripherals/espNowLinkCpp'
@@ -794,7 +795,12 @@ export function generateCpp(
       const p = props(node)
       return {
         id: safeId(node.id),
-        properties: p,
+        // Several LED outputs pre-scale each route and leave FastLED's shared
+        // master at 255. Fold the Board ceiling into the fixture's own scale,
+        // as the show sketch does, so it stays fixture x Board.
+        properties: multipleOutputs
+          ? { ...p, brightness: (Number(p.brightness ?? 0.65) || 0) * controller.brightness / 255 }
+          : p,
         ...stereoVuPins(p),
         activeExpr: p.enabled === false ? 'false' : emitEngine ? '(bool)_audioProcessor' : 'true',
         leftExpr: '_audioLeftLevel',
@@ -1706,6 +1712,8 @@ export function generateCpp(
   // in setupLines below. Starting it does not wait for a cable or an address.
   if (network) lines.push(...network.setup)
   lines.push(...setupLines)
+  // After the panels and touch above have driven their chip selects high.
+  if (needsSdVideo.v) lines.push(`#if defined(ESP32)`, `  _sdvReady = _sdvMount();`, `#endif`)
   // After the network setup: a linked board on Wi-Fi starts the connection it rides.
   if (link) lines.push(...link.setup)
   if (customDisplays.length > 0) lines.push(customDisplayLvglTimingSetupCpp())
@@ -1733,6 +1741,8 @@ export function generateCpp(
     lines.push(...fastledSetupCpp(meterHw, stereoVuRailSetupOptions(meter, 'left')))
     lines.push(...fastledSetupCpp(meterHw, stereoVuRailSetupOptions(meter, 'right')))
   }
+  // A HUB75 panel registers no FastLED controller, so nothing above set the Board's level for the rails.
+  if (isHub75 && stereoVuMeters.length > 0) lines.push(`  FastLED.setBrightness(${controller.brightness});`)
   if (stereoVuMeters.length > 0) {
     lines.push(`  // The fixture scales its own pixels first; the Board's FastLED master brightness`)
     lines.push(`  // and global power limiter then apply to the matrix and both rails together.`)
@@ -1740,7 +1750,7 @@ export function generateCpp(
   // HUB75 has no FastLED CLEDController registered, so setMaxPowerInVoltsAndMilliamps
   // would have nothing to throttle.
   if (powerLimit && !isHub75 && (outputNode || stereoVuMeters.length > 0)) {
-    lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
+    lines.push(...powerLimitSetupCpp(nodes, volts, milliamps))
   }
   lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 3))
   lines.push(...infoDisplayStartupStageBatchCpp(infoDisplays, 4))

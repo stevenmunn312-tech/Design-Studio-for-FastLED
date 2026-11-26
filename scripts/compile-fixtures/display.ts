@@ -281,11 +281,13 @@ const playerEdges = [
 const secondDocument = addDisplayWidget(createDisplayDocument('deck', 240, 320), 'Text')
 const multiOptions = displayOptions({ screen: document, deck: secondDocument })
 
+// The SPI OLEDs and the MAX7219 bit-bang their clock and data, so they share
+// a pair of their own (45, 1) and stay off the colour panels' SPI host (12, 11).
 const partNodes = [
   node('segment-tm1637', 'SegmentDisplay', { partId: 'tm1637-4digit-display', clkPin: 2, dioPin: 3 }),
-  node('segment-max7219', 'SegmentDisplay', { partId: 'max7219-8digit-7segment', clkPin: 12, dinPin: 11, csPin: 10 }),
-  node('oled-sh1106-spi-13', 'InfoDisplay', { partId: 'sh1106-oled-128x64', sckPin: 12, mosiPin: 11, csPin: 9, dcPin: 8, resetPin: 7 }),
-  node('oled-sh1106-spi-096', 'InfoDisplay', { partId: 'sh1106-oled-096-128x64-spi', sckPin: 12, mosiPin: 11, csPin: 6, dcPin: 5, resetPin: 21 }),
+  node('segment-max7219', 'SegmentDisplay', { partId: 'max7219-8digit-7segment', clkPin: 45, dinPin: 1, csPin: 10 }),
+  node('oled-sh1106-spi-13', 'InfoDisplay', { partId: 'sh1106-oled-128x64', sckPin: 45, mosiPin: 1, csPin: 9, dcPin: 8, resetPin: 7 }),
+  node('oled-sh1106-spi-096', 'InfoDisplay', { partId: 'sh1106-oled-096-128x64-spi', sckPin: 45, mosiPin: 1, csPin: 6, dcPin: 5, resetPin: 21 }),
   node('oled-sh1106-i2c', 'InfoDisplay', { partId: 'sh1106-oled-128x64-i2c', sdaPin: 18, sclPin: 17, i2cAddress: '0x3C' }),
   node('oled-ssd1306-i2c', 'InfoDisplay', { partId: 'ssd1306-oled-128x64', sdaPin: 18, sclPin: 17, i2cAddress: '0x3D' }),
   panel('tft-st7789', { partId: 'st7789-tft-240x240', csPin: 15, dcPin: 14, resetPin: 20, backlightPin: 16 }),

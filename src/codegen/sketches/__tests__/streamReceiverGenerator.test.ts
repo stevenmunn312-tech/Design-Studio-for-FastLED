@@ -23,6 +23,13 @@ describe('streamLayoutForGraph', () => {
     expect(layout).toEqual({ outputId: 'out', width: 8, height: 12, baud: 921600 })
   })
 
+  // A 16 MHz AVR cannot make 921600: its divider lands on 1,000,000, 8.5 % off.
+  it('streams to an AVR at a rate its UART can produce', () => {
+    const nodes = [node('board', 'Board', 'hardware', { profileId: 'arduino-uno-r3-dip' }), outputNode]
+    expect(streamLayoutForGraph(nodes)?.baud).toBe(1000000)
+    expect(generateStreamReceiverSketch(nodes)).toContain('Serial.begin(1000000);')
+  })
+
   it('carries the zig-zag table when serpentine is set', () => {
     const out = node('out', 'MatrixOutput', 'output', { width: 3, height: 2, serpentine: true })
     expect(streamLayoutForGraph([out])?.xyTable).toEqual([0, 1, 2, 5, 4, 3])

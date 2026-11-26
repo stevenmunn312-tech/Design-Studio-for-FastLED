@@ -443,6 +443,10 @@ describe('generateCpp', () => {
       expect(cpp).toContain('.seek(16+(uint32_t)_fi*768u)')
       expect(cpp).toContain('_fi=_fi%120u;')
       expect(cpp.match(/static bool _sdvMount\(\)/g)).toHaveLength(1)
+      // After every other part's setup, so no chip select on the bus still floats.
+      const mount = cpp.indexOf('_sdvReady = _sdvMount();')
+      expect(mount).toBeGreaterThan(cpp.indexOf('void setup() {'))
+      expect(cpp.slice(mount, cpp.indexOf('void loop() {'))).not.toMatch(/pinMode\(|_tftBegin\(/)
     })
 
     it('holds the last frame with loop off, and names the frame rate literally', () => {
@@ -788,7 +792,8 @@ describe('generateCpp', () => {
     expect(cpp).toContain('analogRead(4) / DS_ANALOG_FULL_SCALE')
     // 12-bit on the ESP32 family, 10-bit elsewhere: a 4095 divisor everywhere
     // left an ESP8266 sensor topping out at a quarter.
-    expect(cpp).toContain('#if defined(ESP32)\n#define DS_ANALOG_FULL_SCALE 4095.0f  // 12-bit analogRead\n#else\n#define DS_ANALOG_FULL_SCALE 1023.0f  // 10-bit analogRead')
+    // The S2 is the exception inside the family: its ADC returns 13 bits.
+    expect(cpp).toContain('#if defined(CONFIG_IDF_TARGET_ESP32S2)\n#define DS_ANALOG_FULL_SCALE 8191.0f  // 13-bit analogRead\n#elif defined(ESP32)\n#define DS_ANALOG_FULL_SCALE 4095.0f  // 12-bit analogRead\n#else\n#define DS_ANALOG_FULL_SCALE 1023.0f  // 10-bit analogRead')
   })
 
   it('renders a wired PerformanceGenerator as black rather than as broken C++', () => {

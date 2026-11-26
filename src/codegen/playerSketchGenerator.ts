@@ -65,6 +65,7 @@ import {
 } from './player/bluetoothSinkCpp'
 import { internetRadioFirmware, type InternetRadioOptions } from './player/internetRadioCpp'
 import type { NetworkSketchEmit } from './peripherals/networkCpp'
+import { heaviestLedMilliwatts, powerLimitLinesCpp } from './output/powerLimitCpp'
 import type { PlayerDisplays } from './player/playerDisplays'
 import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './helpers/latticeHelperCpp'
 import {
@@ -150,6 +151,8 @@ export interface PlayerConfig {
   powerLimit:  boolean
   volts:       number
   milliamps:   number
+  /** Full-white draw of the heaviest LED the limiter throttles, for its power model; null with none. */
+  ledMilliwatts: number | null
   sdCsPin:     number
   sdSckPin:    number
   sdMisoPin:   number
@@ -184,7 +187,7 @@ const DEFAULTS: PlayerConfig = {
   ledWidth: 16, ledHeight: 16, ledShape: null, ledXyTable: null, ledDataPin: 18, ledClockPin: 6, ledLanePins: [],
   chipset: 'WS2812B', colorOrder: 'GRB',
   correction: 'none', whitePoint: 'none', dither: true, overclock: 1,
-  powerLimit: false, volts: 5, milliamps: 2000,
+  powerLimit: false, volts: 5, milliamps: 2000, ledMilliwatts: null,
   // GPIO10 avoids colliding with MatrixOutput's default LED data pin (GPIO5).
   sdCsPin: 10, sdSckPin: 12, sdMisoPin: 13, sdMosiPin: 11,
   audioOutput: 'i2s',
@@ -273,6 +276,7 @@ export function playerConfigFromGraph(
     powerLimit:  board.powerLimit === true,
     volts:       ledSupplyVolts(str(mo.chipset, DEFAULTS.chipset), mo.partId),
     milliamps:   num(board.milliamps, DEFAULTS.milliamps),
+    ledMilliwatts: heaviestLedMilliwatts(nodes as StudioNode[]),
     sdCsPin:    sanitizePin(sd.sdCsPin, sdDefaults?.cs ?? DEFAULTS.sdCsPin),
     sdSckPin:   sanitizePin(sd.sdSckPin, sdDefaults?.sck ?? DEFAULTS.sdSckPin),
     sdMisoPin:  sanitizePin(sd.sdMisoPin, sdDefaults?.miso ?? DEFAULTS.sdMisoPin),
@@ -867,7 +871,7 @@ export function generatePlayerSketch(
     ]
   }).join('\n')
   const powerSetupLine = c.powerLimit && (!isHub75 || hasStereoVu)
-    ? `  FastLED.setMaxPowerInVoltsAndMilliamps(${Math.max(1, Math.round(c.volts))}, ${Math.max(100, Math.round(c.milliamps))});`
+    ? powerLimitLinesCpp(c.ledMilliwatts, Math.max(1, Math.round(c.volts)), Math.max(100, Math.round(c.milliamps))).join('\n')
     : ''
 
   // Collection patterns: per-pattern frame buffers, deduped helpers, and the

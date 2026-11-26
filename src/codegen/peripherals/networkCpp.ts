@@ -148,13 +148,15 @@ function wifiBootstrapCpp(wifi: WifiEmit): string {
     `void _netEnsureConnected() {`,
     `#if FLS_NET_SUPPORTED`,
     `  if (!_wifiInit) {`,
-    `#if !defined(ARDUINO_UNOWIFIR4)`,
-    `    WiFi.mode(WIFI_STA);`,
-    `#endif`,
+    // The name first: ESP32 core 3 only stores it here and hands it to the
+    // station interface inside WiFi.mode, so a later call never reaches DHCP.
     `#if defined(ESP32) || defined(ARDUINO_UNOWIFIR4)`,
     `    WiFi.setHostname(${wifi.hostname});`,
     `#elif defined(ESP8266)`,
     `    WiFi.hostname(${wifi.hostname});`,
+    `#endif`,
+    `#if !defined(ARDUINO_UNOWIFIR4)`,
+    `    WiFi.mode(WIFI_STA);`,
     `#endif`,
     ...(wifi.staticConfig
       ? [

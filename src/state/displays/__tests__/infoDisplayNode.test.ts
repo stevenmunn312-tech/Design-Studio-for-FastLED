@@ -95,11 +95,16 @@ describe('InfoDisplay pins', () => {
 
   // The case this slice exists to exercise: an SPI OLED beside the SD card on
   // one host, which the old duplicate-GPIO rule would have called broken.
-  it('shares an SPI bus with the SD card given its own chip select', () => {
+  // The panel's clock and data are bit-banged. Once the card starts the
+  // board's SPI host on those pins, ESP32 core 3 refuses digitalWrite on them
+  // without a word and the panel stays dark.
+  it('refuses the SPI clock and data pins of the SD card', () => {
     const sd = node('sd', 'SDCard', 'output', {
       sdCsPin: 15, sdSckPin: 18, sdMosiPin: 23, sdMisoPin: 19,
     })
-    expect(findPinConflicts([oled(), sd], [])).toEqual([])
+    const conflicts = findPinConflicts([oled(), sd], [])
+    expect(conflicts).toContainEqual(expect.stringContaining('GPIO 18 is on the SPI bus, which an OLED or MAX7219 cannot share'))
+    expect(conflicts).toContainEqual(expect.stringContaining('GPIO 23'))
   })
 
   it('rejects an OLED and an SD card sharing a chip select', () => {

@@ -2,6 +2,7 @@ import type { StudioNode } from '../../state/graphStore'
 import { buildXYTable, tileRotationAt } from '../../state/output/xyLayout'
 import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from '../cppGenerator'
 import { sanitizePin } from '../hardwarePins'
+import { powerLimitSetupCpp } from '../output/powerLimitCpp'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../../state/nodeLibrary'
 import { controllerSettings, ledPropsWithController } from '../../build/controllerSettings'
 import { outputGridDims } from '../../state/output/ledOutputForm'
@@ -410,7 +411,7 @@ export function generateWiringDiagnosticSketch(
   }
   // HUB75 has no FastLED CLEDController registered, so setMaxPowerInVoltsAndMilliamps
   // would have nothing to throttle — mirrors cppGenerator.ts's same gate.
-  if (powerLimit && (!isHub75 || vuNode)) lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${volts}, ${milliamps});`)
+  if (powerLimit && (!isHub75 || vuNode)) lines.push(...powerLimitSetupCpp(nodes, volts, milliamps))
   lines.push('}')
   lines.push('')
   lines.push('void loop() {')

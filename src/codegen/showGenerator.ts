@@ -117,6 +117,7 @@ import { controlGraphCpp } from './controlGraph'
 import { ENVIRONMENT_SENSOR_CPP_FORWARD } from './peripherals/environmentSensorCpp'
 import { networkSketchCpp } from './peripherals/networkCpp'
 import { wireBeginCpp } from './peripherals/wireBeginCpp'
+import { powerLimitSetupCpp } from './output/powerLimitCpp'
 import {
   SYNC_NOW_MS, boardSyncFollowerAdoptCpp, boardSyncFollowerAdoptSequenceCpp, boardSyncGlobalsCpp,
   boardSyncServiceCallCpp, clockSyncRoleIn,
@@ -1424,7 +1425,7 @@ export function generateShowSketch(
   }
   if (isHub75 && stereoVuMeters.length > 0) L.push(`  FastLED.setBrightness(${controller.brightness});`)
   if (controller.powerLimit && (!isHub75 || stereoVuMeters.length > 0)) {
-    L.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${controller.volts}, ${controller.milliamps});`)
+    L.push(...powerLimitSetupCpp(nodes, controller.volts, controller.milliamps))
   }
   // Filled in once the sketch is written, from the generators it calls.
   const seedMarker = L.length

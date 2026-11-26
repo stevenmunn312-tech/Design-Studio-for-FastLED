@@ -11,6 +11,8 @@ export function boardCppFacts(nodes: readonly StudioNode[]): Record<string, bool
   return {
     ESP32: family.startsWith('esp32'), ESP8266: family === 'esp8266',
     CONFIG_IDF_TARGET_ESP32S3: family === 'esp32-s3',
+    // Its ADC is 13 bits wide, so the analog full scale differs (analogReadCpp.ts).
+    CONFIG_IDF_TARGET_ESP32S2: family === 'esp32-s2',
     // The UNO R4 WiFi's own define, so its WiFiS3 network branch folds away on
     // every other board and the ESP branches fold away on it.
     ARDUINO_UNOWIFIR4: family === 'renesas' && profile!.compatibleFqbns.every((fqbn) => fqbn === UNO_R4_WIFI_FQBN),

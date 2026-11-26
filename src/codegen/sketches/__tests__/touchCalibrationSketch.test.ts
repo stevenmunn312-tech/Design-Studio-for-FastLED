@@ -34,6 +34,14 @@ describe('the touch calibration sketch', () => {
     expect(sketch).toContain(`_xptPoint(${CYD.touchCsPin}, ${CYD.touchIrqPin}, ${CYD.touchSckPin}, ${CYD.touchMosiPin}, ${CYD.touchMisoPin},`)
   })
 
+  // Without the controller's own power-on registers an ILI9341 runs on its
+  // reset power and gamma values; the project sketch has always sent them.
+  it('sends the controller init sequence, as the project sketch does', () => {
+    const sketch = sketchFor(CYD)
+    expect(sketch).toContain('static const uint8_t _calInit[] = {')
+    expect(sketch).toContain('nullptr, 255, 255, _calInit, sizeof(_calInit));')
+  })
+
   // GPIO34-39 are input-only on a classic ESP32 and the core logs
   // gpio_pullup_en error 85 for INPUT_PULLUP, which is how the CYD's IRQ on
   // GPIO36 read nothing. Same helper the real generators use, not a copy.

@@ -454,14 +454,14 @@ export function collectPinUses(nodes: StudioNode[], selectedFqbn = ''): Hardware
       }
       case 'SegmentDisplay': {
         // Which pins exist depends on the module. A TM1637's two wires are its
-        // own; a MAX7219 clocks a shift register that other SPI devices may
-        // share, so its roles are resolved here — the only walk that knows
+        // own; a MAX7219 clocks a bit-banged shift register that an SPI OLED
+        // may share (`softspi`), so its roles are resolved here — the only walk that knows
         // which module the node is — and carried on the use itself.
         const segment = segmentControllerFor(partById(String(props.partId ?? ''))?.display?.controller)
         if (segment.id === 'MAX7219') {
-          pushBus(node, `${baseLabel} CLK`, 'clkPin', props.clkPin, { kind: 'spi', role: 'sck' })
-          pushBus(node, `${baseLabel} DIN`, 'dinPin', props.dinPin, { kind: 'spi', role: 'mosi' })
-          pushBus(node, `${baseLabel} LOAD/CS`, 'csPin', props.csPin, { kind: 'spi', role: 'cs' })
+          pushBus(node, `${baseLabel} CLK`, 'clkPin', props.clkPin, { kind: 'softspi', role: 'sck' })
+          pushBus(node, `${baseLabel} DIN`, 'dinPin', props.dinPin, { kind: 'softspi', role: 'mosi' })
+          pushBus(node, `${baseLabel} LOAD/CS`, 'csPin', props.csPin, { kind: 'softspi', role: 'cs' })
         } else {
           push(node, `${baseLabel} CLK`, 'clkPin', props.clkPin)
           push(node, `${baseLabel} DIO`, 'dioPin', props.dioPin)

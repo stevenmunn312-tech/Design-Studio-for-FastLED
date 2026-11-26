@@ -38,8 +38,16 @@ const PART_ADDRESS_RESOLVERS: Readonly<Record<string, (props: Record<string, unk
 // that gains a second SPI host needs no change here, and it cannot disagree
 // with the wiring the user actually entered.
 
-/** The electrical contract a pin use belongs to. */
-export type BusKind = 'i2c' | 'spi' | 'i2s' | 'led' | 'none'
+/**
+ * The electrical contract a pin use belongs to.
+ *
+ * `softspi` is a clock and data pair the firmware toggles with `digitalWrite`
+ * (the SPI OLEDs and the MAX7219). Two such parts may share the pair, but not
+ * with a part on the board's SPI host (`spi`): once the host starts, it owns
+ * those pins. ESP32 core 3 then refuses `digitalWrite` on them without a
+ * word, and an AVR's SPI hardware overrides the port, so the part stays dark.
+ */
+export type BusKind = 'i2c' | 'spi' | 'softspi' | 'i2s' | 'led' | 'none'
 
 /**
  * What the pin does within that contract.
@@ -103,8 +111,9 @@ const BUS_ASSIGNMENTS: Record<string, Record<string, BusAssignment>> = {
     sdaPin: { kind: 'i2c', role: 'sda' },
     sclPin: { kind: 'i2c', role: 'scl' },
   },
-  // An SPI OLED shares its clock and data with any other device on the same
-  // host, but its select, data/command and reset lines are its own. Three
+  // An SPI OLED's clock and data are bit-banged (`softspi`): another OLED or
+  // a MAX7219 may share them, a part on the board's SPI host may not. Its
+  // select, data/command and reset lines are its own. Three
   // exclusive pins rather than one is what separates a four-wire panel from a
   // two-wire module.
   //
@@ -112,9 +121,9 @@ const BUS_ASSIGNMENTS: Record<string, Record<string, BusAssignment>> = {
   // chosen one contributes pin uses — `collectPinUses` asks the part which it
   // is — so the unused set here never fires rather than fabricating a claim.
   InfoDisplay: {
-    sckPin: { kind: 'spi', role: 'sck' },
-    mosiPin: { kind: 'spi', role: 'mosi' },
-    csPin: { kind: 'spi', role: 'cs' },
+    sckPin: { kind: 'softspi', role: 'sck' },
+    mosiPin: { kind: 'softspi', role: 'mosi' },
+    csPin: { kind: 'softspi', role: 'cs' },
     dcPin: { kind: 'spi', role: 'exclusive' },
     resetPin: { kind: 'spi', role: 'exclusive' },
     sdaPin: { kind: 'i2c', role: 'sda' },
@@ -145,12 +154,12 @@ const BUS_ASSIGNMENTS: Record<string, Record<string, BusAssignment>> = {
   SegmentDisplay: {
     clkPin: { kind: 'none', role: 'exclusive' },
     dioPin: { kind: 'none', role: 'exclusive' },
-    // MAX7219 lines. Its clock and data are a real shift-register bus that
-    // other devices may share, which is why they cannot be judged by property
+    // MAX7219 lines. Its clock and data are a bit-banged shift-register bus
+    // that an SPI OLED may share, which is why they cannot be judged by property
     // name alone — the same `clkPin` is exclusive on a TM1637. A pin use
     // carries its resolved role from collectPinUses for exactly this case.
-    dinPin: { kind: 'spi', role: 'mosi' },
-    csPin: { kind: 'spi', role: 'cs' },
+    dinPin: { kind: 'softspi', role: 'mosi' },
+    csPin: { kind: 'softspi', role: 'cs' },
   },
   SDCard: {
     sdCsPin: { kind: 'spi', role: 'cs' },
@@ -248,6 +257,8 @@ export type PinCollisionReason =
   | 'mixed-role'
   /** Both are chip selects on the same SPI bus. */
   | 'duplicate-cs'
+  /** A clock or data line the firmware toggles by hand, on a pin the board's SPI host drives. */
+  | 'bit-banged'
 
 export interface PinCollision {
   pin: number
@@ -312,7 +323,9 @@ export function findPinCollisions(
     const sameKind = assignments.every((a) => a.kind === assignments[0].kind)
     const sameRole = assignments.every((a) => a.role === assignments[0].role)
     if (!sameKind || !sameRole) {
-      collisions.push({ pin, reason: 'mixed-role', uses: pinUses })
+      const kinds = new Set(assignments.map((a) => a.kind))
+      const bitBanged = sameRole && kinds.size === 2 && kinds.has('spi') && kinds.has('softspi')
+      collisions.push({ pin, reason: bitBanged ? 'bit-banged' : 'mixed-role', uses: pinUses })
     }
   }
   return collisions
@@ -368,6 +381,8 @@ export function pinCollisionFix(reason: PinCollisionReason): string {
       return 'Give each device on the bus its own chip-select pin — the select line is how the board picks which one it is talking to.'
     case 'mixed-role':
       return 'One of these is a shared bus line and the other is not, so they cannot share the pin. Move the non-bus role to a free GPIO.'
+    case 'bit-banged':
+      return 'An OLED or MAX7219 clocks its own data and cannot use the pins a colour panel, SD card or Ethernet module drives. Give its clock and data their own GPIOs.'
     case 'exclusive':
       return 'Assign a unique GPIO number to every listed hardware role.'
   }
@@ -379,6 +394,8 @@ export function pinCollisionTitle(collision: PinCollision): string {
       return `GPIO ${collision.pin} is the chip select for two devices`
     case 'mixed-role':
       return `GPIO ${collision.pin} mixes a shared bus line with another role`
+    case 'bit-banged':
+      return `GPIO ${collision.pin} is shared with the SPI bus by a part that cannot use it`
     case 'exclusive':
       return `GPIO ${collision.pin} is assigned twice`
   }
@@ -392,6 +409,8 @@ export function pinCollisionMessage(collision: PinCollision): string {
       return `GPIO ${collision.pin} is the chip select for more than one device: ${labels}`
     case 'mixed-role':
       return `GPIO ${collision.pin} mixes a shared bus line with another role: ${labels}`
+    case 'bit-banged':
+      return `GPIO ${collision.pin} is on the SPI bus, which an OLED or MAX7219 cannot share: ${labels}`
     case 'exclusive':
       return `GPIO ${collision.pin} is assigned to more than one pin: ${labels}`
   }

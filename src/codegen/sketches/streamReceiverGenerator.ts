@@ -1,6 +1,8 @@
 import type { StudioNode } from '../../state/graphStore'
 import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from '../cppGenerator'
 import { sanitizePin } from '../hardwarePins'
+import { powerLimitSetupCpp } from '../output/powerLimitCpp'
+import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../../state/nodeLibrary'
 import { controllerSettings, ledPropsWithController } from '../../build/controllerSettings'
 import { outputForm, outputGridDims } from '../../state/output/ledOutputForm'
@@ -72,8 +74,10 @@ export function streamLayoutForGraph(nodes: StudioNode[], outputNodeId?: string)
     ...(xyTable ? { xyTable } : {}),
     // A generous fixed baud for the receiver — independent of the show/upload
     // path's rate, chosen high enough that a 32×32 frame (~3 KB) clears well
-    // under one frame interval.
-    baud: 921600,
+    // under one frame interval. A 16 MHz AVR cannot make 921600: its divider
+    // lands on 1,000,000, 8.5 % off and past what a UART tolerates, so those
+    // boards run at the rate they actually produce.
+    baud: selectedPhysicalBoardProfile(nodes)?.targetFamilies.includes('avr') ? 1000000 : 921600,
   }
 }
 
@@ -141,7 +145,7 @@ export function generateStreamReceiverSketch(nodes: StudioNode[], outputNodeId?:
   // main sketch and the Wiring Test do. HUB75 registers no FastLED controller
   // for the limiter to throttle — mirrors cppGenerator.ts's same gate.
   if (controller.powerLimit && !isHub75) {
-    lines.push(`  FastLED.setMaxPowerInVoltsAndMilliamps(${controller.volts}, ${controller.milliamps});`)
+    lines.push(...powerLimitSetupCpp(nodes, controller.volts, controller.milliamps))
   }
   lines.push(...displays.setup)
   lines.push('}')

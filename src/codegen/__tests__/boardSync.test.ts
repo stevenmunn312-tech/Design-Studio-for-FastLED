@@ -133,6 +133,8 @@ describe('board clock sync', () => {
     const cpp = normalSketch('leader')
     expect(cpp).toContain('#include <WiFi.h>')
     expect(cpp).toContain('WiFi.setHostname("fastled-board");')
+    // ESP32 core 3 hands the name to the station interface inside WiFi.mode.
+    expect(cpp.indexOf('WiFi.setHostname(')).toBeLessThan(cpp.indexOf('WiFi.mode(WIFI_STA);'))
     expect(cpp).toContain('WiFi.begin("studio", "secret");')
     expect(lines(cpp, 'void _netEnsureConnected()')).toHaveLength(1)
     expect(cpp.indexOf('void _netEnsureConnected()')).toBeLessThan(cpp.indexOf('void _syncService('))

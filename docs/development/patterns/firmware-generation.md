@@ -399,6 +399,23 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   SD player is ESP32-only; the audio debug lines were not checked on the
   non-ESP microphone boards.
 
+- The Board's power limit is `powerLimitSetupCpp`
+  (`src/codegen/output/powerLimitCpp.ts`) in every generator, never a bare
+  `setMaxPowerInVoltsAndMilliamps`. FastLED estimates each LED with its own
+  model, a WS2812 at 5 V (210 mW at full white) unless told otherwise, while
+  the app sizes supplies from `ledFullWhiteDraw` (300 mW at 5 V, 720 mW for
+  a 12 V WS2811 pixel). The helper emits `setPowerModel` from that same
+  table so the limit and the wiring plan agree; the SD player carries the
+  figure in its config (`ledMilliwatts`) because it is not handed the graph.
+- `analogRead` full scale is `DS_ANALOG_FULL_SCALE` (`analogReadCpp.ts`),
+  never a literal: 13 bits on the ESP32-S2, 12 on the rest of the family, 10
+  elsewhere. `boardCppFacts` knows `CONFIG_IDF_TARGET_ESP32S2` so the block
+  folds to one line.
+- A card on a shared SPI bus mounts after every other client's setup. SD
+  Video's mount is the generator's line after `setupLines`, not the node's:
+  a panel or touch chip select still floating can answer the card's first
+  commands and fail a mount that is never retried.
+
 - **A FastLED audio processor is only fed while something pumps the task
   scheduler.** `FastLED.add(config)` and `FastLED.add(input)` read the capture
   device from a 1 ms `fl::task::every_ms` task. Up to FastLED 3.10.5 the RMT

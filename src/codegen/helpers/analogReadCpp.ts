@@ -11,7 +11,10 @@ export const ANALOG_FULL_SCALE = 'DS_ANALOG_FULL_SCALE'
 
 export const ANALOG_FULL_SCALE_CPP: readonly string[] = [
   `#ifndef ${ANALOG_FULL_SCALE}`,
-  '#if defined(ESP32)',
+  // The S2's ADC is 13 bits wide and the core returns its full width.
+  '#if defined(CONFIG_IDF_TARGET_ESP32S2)',
+  `#define ${ANALOG_FULL_SCALE} 8191.0f  // 13-bit analogRead`,
+  '#elif defined(ESP32)',
   `#define ${ANALOG_FULL_SCALE} 4095.0f  // 12-bit analogRead`,
   '#else',
   `#define ${ANALOG_FULL_SCALE} 1023.0f  // 10-bit analogRead`,

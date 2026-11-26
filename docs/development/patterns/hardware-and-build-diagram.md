@@ -179,6 +179,15 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   `src/build/pins/busTopology.ts` declares each pin's kind and role and derives the
   bus *instance* from the pins themselves, and both `validateGraph.ts` and the
   Graph Health drawer call its one `findPinCollisions`.
+- A bus kind states how the firmware drives the lines, not what the part's
+  datasheet calls them. The SPI OLEDs and the MAX7219 are `softspi`: their
+  drivers toggle clock and data with `digitalWrite`. Two of them may share a
+  pair, but a `softspi` line on a pin the board's SPI host drives (`spi`: a
+  colour panel, SD card or shared-host Ethernet module) is the `bit-banged`
+  collision. Once the host starts it owns those pins: ESP32 core 3 refuses
+  `digitalWrite` on them with only a debug-level log, and the part stays
+  dark. Give a part the `spi` kind only when its driver goes through
+  `_spiBusBegin` and `SPI` transactions.
 - A role that depends on the board is resolved in `collectPinUses` from the
   selected FQBN (the wired-Ethernet module's bus lines are shareable SPI lines
   only on a one-host chip), so any collision check has to pass the FQBN
