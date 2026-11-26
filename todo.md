@@ -256,7 +256,12 @@ The v1.0.0 and v1.0.1 draft releases and their MSIX files are superseded.
   long paths off
   ([record](docs/release/long-paths-blocker.md#other-board-families-on-fbuild-2555-2026-11-26)).
   Reported on 2026-11-26 as FastLED/fbuild#2187, and Steve messaged Zach.
-  Decision, 2026-11-26: wait for the upstream answer before choosing. When a
+  Decision, 2026-11-26: wait for the upstream answer before choosing.
+  Fixed on fbuild `main` the same day by FastLED/fbuild#2188 and not yet
+  released (2.5.55 is still the latest). A source build of that commit built
+  all three boards with long paths off
+  ([retest](docs/release/long-paths-blocker.md#retest-on-fbuild-main-after-2188-2026-11-26));
+  blank sketch only. When a
   fixed fbuild is released, move the pin and rerun the three boards in
   `tmp/fbuild-shortpath-repro` with long paths off. If no fix comes, ship
   with the

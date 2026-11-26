@@ -297,6 +297,41 @@ whether arduino-cli installs the three failing families with long paths off,
 and whether 2.5.55 builds them with long paths on. Reported on 2026-11-26 as
 FastLED/fbuild#2187, after Steve's review.
 
+### Retest on fbuild `main` after #2188 (2026-11-26)
+
+FastLED/fbuild#2187 was closed on 2026-11-26 by FastLED/fbuild#2188, which
+puts the Pico, Teensy and STM32 cores on the short install layout the ESP32
+packages already used. It is merged to `main` (`e2a8b3d93`) and is **not in a
+release**: the latest release and the latest version on PyPI are still
+2.5.55, so the app's pin cannot move yet.
+
+fbuild was built from source at that commit (`cargo build --release` in
+`tmp/fbuild-upstream`, reporting `fbuild 2.5.55+git.e2a8b3d9329d`) and the
+blank sketch in `tmp/fbuild-shortpath-repro` was built for the three boards
+that failed, one at a time, by `tmp/fbuild-shortpath-repro/run-main.ps1`.
+
+Conditions: Steve's PC and account, `LongPathsEnabled = 0`, no
+`FBUILD_CACHE_DIR`, the same fallback cache as the failing runs
+(`C:\fbuild-cache\8cffdc466966\p\c`), its own daemon port. Each core was
+downloaded and installed in this run.
+
+| Board (fbuild environment) | Result on 2.5.55 | Result on `main` `e2a8b3d9` |
+| --- | --- | --- |
+| Pico W (`rpipicow`) | Fail at package install | Pass, 110,408 B flash |
+| Teensy 4.1 (`teensy41`) | Fail at package install | Pass, 23,552 B |
+| Black Pill F411 (`blackpill_f411ce`) | Fail at package install | Pass, 12,524 B |
+
+Logs are `tmp/fbuild-shortpath-repro/<board>.main.log`.
+
+Not covered: a released fbuild (there is none with the fix), a FastLED
+pattern sketch (this is the blank sketch, which was enough to show the
+failure), the app's own build path and the packaged app, a standard account
+or one that never ran fbuild, upload, and any other board of these families.
+
+When the release lands: move the pin, rerun `run-main.ps1`'s three builds
+with the pinned binary, then build one pattern fixture per family through
+`compile-matrix.py --engine fbuild`.
+
 ## Options
 
 1. **Ask fbuild upstream for a fix.** Zach has fixed reports within hours
