@@ -519,7 +519,7 @@ export function debugPartOnCanvas(partId: string): { ok: true; nodeId: string } 
   const rootEdges = rootGraphEdges(state)
   const part = root.find((node) => node.id === partId)
   if (!part) return { ok: false, reason: 'That part is no longer on the bench' }
-  if (!hasDebugProfile(part.data.nodeType)) return { ok: false, reason: `${part.data.label} has no Debug checks yet` }
+  if (!hasDebugProfile(part)) return { ok: false, reason: `${part.data.label} has no Debug checks yet` }
   const definition = NODE_LIBRARY.find((candidate) => candidate.type === DEBUG_NODE_TYPE)
   if (!definition) return { ok: false, reason: 'The Debug node is not in the node library' }
   const onCanvas = !part.hidden

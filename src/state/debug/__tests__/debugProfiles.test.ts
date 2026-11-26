@@ -28,7 +28,7 @@ function context(nodeType: string, properties: Record<string, unknown> = {}, log
 
 function verdicts(nodeType: string, readings: MeterReadings, properties: Record<string, unknown> = {}, logicVolts = 3.3) {
   const ctx = context(nodeType, properties, logicVolts)
-  return debugProfileFor(nodeType)!.interpret(ctx, readings)
+  return debugProfileFor(ctx.node)!.interpret(ctx, readings)
 }
 
 const tones = (findings: { tone: string; title: string }[]) => findings.map((entry) => `${entry.tone}: ${entry.title}`)
@@ -68,14 +68,14 @@ describe('Debug profile safety', () => {
 
 describe('Debug connections', () => {
   it('takes a profiled part’s debug socket into Part, and nothing else', () => {
-    expect(debugConnectionVerdict('PotInput', 'debug', 'Debug', 'part')).toBe(true)
+    expect(debugConnectionVerdict(node('src', 'PotInput'), 'debug', 'Debug', 'part')).toBe(true)
     // A part without a profile has no socket to offer.
-    expect(debugConnectionVerdict('SolidColor', 'debug', 'Debug', 'part')).toBe(false)
+    expect(debugConnectionVerdict(node('src', 'SolidColor'), 'debug', 'Debug', 'part')).toBe(false)
     // Part takes only a debug socket; a debug socket goes only into Part.
-    expect(debugConnectionVerdict('PotInput', 'value', 'Debug', 'part')).toBe(false)
-    expect(debugConnectionVerdict('PotInput', 'debug', 'MatrixOutput', 'brightness')).toBe(false)
+    expect(debugConnectionVerdict(node('src', 'PotInput'), 'value', 'Debug', 'part')).toBe(false)
+    expect(debugConnectionVerdict(node('src', 'PotInput'), 'debug', 'MatrixOutput', 'brightness')).toBe(false)
     // Ordinary wiring is left to port typing.
-    expect(debugConnectionVerdict('PotInput', 'value', 'MatrixOutput', 'brightness')).toBeNull()
+    expect(debugConnectionVerdict(node('src', 'PotInput'), 'value', 'MatrixOutput', 'brightness')).toBeNull()
   })
 
   it('tests the wired part first, else targetPartId', () => {
@@ -200,5 +200,98 @@ describe('Encoder verdicts', () => {
   it('passes a clean encoder', () => {
     expect(tones(verdicts('EncoderInput', { 'a-idle': 3.3, 'b-idle': 3.3, 'a-toggles': true, 'sw-pressed': 0 })))
       .toEqual(['ok: The encoder switches cleanly'])
+  })
+})
+
+describe('Profile choice follows the chosen module', () => {
+  it('tests an I2C light sensor on the bus, and leaves an LDR module to other checks', () => {
+    expect(debugProfileFor(node('l', 'LightInput', { partId: 'adafruit-bh1750-light-sensor' }))?.nodeTypes).toContain('LightInput')
+    expect(debugProfileFor(node('l', 'LightInput', { partId: 'photosensitive-ldr-module' }))).toBeUndefined()
+  })
+
+  it('tests an I2C OLED on the bus, and not an SPI one', () => {
+    expect(debugProfileFor(node('o', 'InfoDisplay', { partId: 'ssd1306-oled-096-128x64-i2c' }))).toBeDefined()
+    expect(debugProfileFor(node('o', 'InfoDisplay', { partId: 'sh1106-oled-096-128x64-spi' }))).toBeUndefined()
+  })
+
+  it('leaves HUB75 panels out of the LED output checks', () => {
+    expect(debugProfileFor(node('m', 'MatrixOutput', { chipset: 'WS2812B' }))).toBeDefined()
+    expect(debugProfileFor(node('m', 'MatrixOutput', { chipset: 'HUB75' }))).toBeUndefined()
+  })
+})
+
+describe('I2C verdicts', () => {
+  const type = 'EnvironmentInput'
+  it('names an open SDA wire', () => {
+    expect(tones(verdicts(type, { 'sda-wire': false, 'scl-wire': true }))).toEqual(['fault: The SDA wire is open'])
+  })
+
+  it('names a line held low with the module powered: missing pull-ups', () => {
+    const [finding] = verdicts(type, { vcc: 3.3, 'sda-idle': 0.02, 'scl-idle': 3.3 })
+    expect(finding.title).toBe('A bus line is held low')
+    expect(finding.detail).toMatch(/pull-up/)
+  })
+
+  it('blames an unpowered module before the pull-ups', () => {
+    expect(tones(verdicts(type, { vcc: 0, 'sda-idle': 0, 'scl-idle': 0 })))
+      .toEqual(['fault: The module has no power', 'fault: A bus line is held low'])
+    expect(verdicts(type, { vcc: 0, 'sda-idle': 0 })[1].detail).toMatch(/Power the module first/)
+  })
+
+  it('names pull-ups to 5 V on a 3.3 V board', () => {
+    expect(tones(verdicts(type, { 'sda-idle': 5, 'scl-idle': 5 }))).toEqual(['fault: The bus is pulled up to 5 V on a 3.3 V board'])
+    expect(verdicts(type, { 'sda-idle': 5, 'scl-idle': 5 }, {}, 5).map((entry) => entry.tone)).toEqual(['ok'])
+  })
+
+  it('passes an idle bus and names the address to check', () => {
+    const [finding] = verdicts(type, { vcc: 3.3, 'sda-idle': 3.28, 'scl-idle': 3.3 })
+    expect(finding.tone).toBe('ok')
+    expect(finding.detail).toMatch(/0x7[67]/)
+  })
+})
+
+describe('LED output verdicts', () => {
+  it('names a missing common ground and data on the wrong end', () => {
+    expect(tones(verdicts('MatrixOutput', { 'common-ground': false, direction: false })))
+      .toEqual(['fault: The strip and the board share no ground', 'fault: Data goes into the wrong end'])
+  })
+
+  it('names 12 V on a 5 V strip', () => {
+    expect(tones(verdicts('MatrixOutput', { 'v-in': 12.1 }, { chipset: 'WS2812B' }))).toEqual(['fault: The strip gets more than 5 V'])
+  })
+
+  it('accepts 12 V on a 12 V strip', () => {
+    expect(verdicts('MatrixOutput', { 'v-in': 12.1 }, { chipset: 'WS2815' })).toEqual([])
+  })
+
+  it('grades voltage drop along the strip', () => {
+    expect(tones(verdicts('MatrixOutput', { 'v-in': 5, 'v-far': 3.6 }))).toEqual(['fault: Large voltage drop along the strip'])
+    expect(tones(verdicts('MatrixOutput', { 'v-in': 5, 'v-far': 4.4 }))).toEqual(['suspect: Some voltage drop along the strip'])
+    expect(tones(verdicts('MatrixOutput', { 'v-in': 5, 'v-far': 4.8 }))).toEqual(['ok: Power reaches the whole strip'])
+  })
+})
+
+describe('Power verdicts', () => {
+  it('names a supply that sags under load', () => {
+    expect(tones(verdicts('PowerSupply', { 'out-idle': 5.1, 'out-load': 4.3 }, { voltage: 5 }))).toEqual(['fault: The supply sags under load'])
+    expect(tones(verdicts('PowerSupply', { 'out-idle': 5.1, 'out-load': 5.0 }, { voltage: 5 }))).toEqual(['ok: The supply holds its voltage'])
+  })
+
+  it('names a converter starved of headroom', () => {
+    const findings = verdicts('PowerConverter', { in: 5.5 }, { partId: 'lm2596-buck-module' })
+    expect(findings.map((entry) => entry.title)).toContain('The input is too low for this module')
+  })
+
+  it('names a PD charger that stayed at 5 V', () => {
+    expect(tones(verdicts('PdTriggerSource', { 'out-idle': 5.05 }, { requestedVoltage: '12' })))
+      .toEqual(['fault: The charger did not agree to the voltage'])
+  })
+
+  it('grades a battery pack against its window', () => {
+    const props = { partId: 'samsung-inr18650-35e', series: 4, parallel: 1 }
+    expect(tones(verdicts('BatteryPack', { pack: 0 }, props))).toEqual(['fault: The protection has cut the output'])
+    expect(tones(verdicts('BatteryPack', { pack: 9.5 }, props))).toEqual(['fault: The pack is over-discharged'])
+    expect(tones(verdicts('BatteryPack', { pack: 15.2 }, props))).toEqual(['ok: The pack voltage is in range'])
+    expect(tones(verdicts('BatteryPack', { pack: 18 }, props))).toEqual(['fault: The pack reads above full'])
   })
 })

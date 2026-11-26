@@ -2,22 +2,30 @@
 // socket on the canvas; one without has nothing for a Debug node to offer.
 
 import type { StudioEdge, StudioNode } from '../graphStore'
-import type { DebugProfile } from './debugProfile'
+import type { DebugPart, DebugProfile } from './debugProfile'
 import { DEBUG_NODE_TYPE, DEBUG_SOURCE_HANDLE, DEBUG_TARGET_HANDLE } from './debugNode'
 import { CONTROL_PROFILES } from './profiles/controls'
+import { I2C_PROFILE } from './profiles/i2c'
+import { LED_OUTPUT_PROFILE } from './profiles/ledOutput'
+import { POWER_PROFILES } from './profiles/power'
 
-export const DEBUG_PROFILES: readonly DebugProfile[] = [...CONTROL_PROFILES]
+export const DEBUG_PROFILES: readonly DebugProfile[] = [...CONTROL_PROFILES, LED_OUTPUT_PROFILE, I2C_PROFILE, ...POWER_PROFILES]
 
-const BY_TYPE = new Map<string, DebugProfile>(
-  DEBUG_PROFILES.flatMap((profile) => profile.nodeTypes.map((type) => [type, profile] as const)),
-)
+export type { DebugPart }
 
-export function debugProfileFor(nodeType: string): DebugProfile | undefined {
-  return BY_TYPE.get(nodeType)
+const BY_TYPE = new Map<string, DebugProfile[]>()
+for (const profile of DEBUG_PROFILES) {
+  for (const type of profile.nodeTypes) BY_TYPE.set(type, [...(BY_TYPE.get(type) ?? []), profile])
 }
 
-export function hasDebugProfile(nodeType: string): boolean {
-  return BY_TYPE.has(nodeType)
+/** The profile for a part as configured: a node type can have one profile per
+ *  kind of module (an I2C light sensor and an analog one are tested apart). */
+export function debugProfileFor(part: DebugPart): DebugProfile | undefined {
+  return BY_TYPE.get(part.data.nodeType)?.find((profile) => profile.applies?.(part) ?? true)
+}
+
+export function hasDebugProfile(part: DebugPart): boolean {
+  return debugProfileFor(part) !== undefined
 }
 
 /**
@@ -40,10 +48,10 @@ export function debugTargetOf(
  * a debug socket.
  */
 export function debugConnectionVerdict(
-  sourceType: string, sourceHandle: string | null | undefined,
+  source: DebugPart, sourceHandle: string | null | undefined,
   targetType: string, targetHandle: string | null | undefined,
 ): boolean | null {
-  const fromDebug = sourceHandle === DEBUG_SOURCE_HANDLE && hasDebugProfile(sourceType)
+  const fromDebug = sourceHandle === DEBUG_SOURCE_HANDLE && hasDebugProfile(source)
   const intoDebug = targetType === DEBUG_NODE_TYPE && targetHandle === DEBUG_TARGET_HANDLE
   if (!fromDebug && !intoDebug) return null
   return fromDebug && intoDebug

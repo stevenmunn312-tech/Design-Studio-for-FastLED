@@ -47,10 +47,15 @@ export type MeterStep =
 
 export type MeterReadings = Readonly<Record<string, number | boolean | undefined>>
 
+/** A node as far as profile choice reads it. */
+export type DebugPart = Pick<StudioNode, 'id'> & { data: Pick<StudioNode['data'], 'nodeType' | 'properties'> }
+
 /** The board facts a profile needs, resolved for the part's own board. */
 export interface DebugContext {
   node: StudioNode
   props: Record<string, unknown>
+  /** The Board node the part belongs to, when the project has one. */
+  board?: StudioNode
   boardLabel: string
   /** GPIO logic level: 5 V on classic AVR, 3.3 V on everything else. */
   logicVolts: number
@@ -59,6 +64,9 @@ export interface DebugContext {
 export interface DebugProfile {
   /** Node types this profile covers. */
   nodeTypes: readonly string[]
+  /** For a node type with more than one kind of module: whether this profile
+   *  fits the part as configured. Absent means it always does. */
+  applies?: (part: DebugPart) => boolean
   commonIssues: readonly CommonIssue[]
   /** Isolation checklist, in order. */
   isolation: (ctx: DebugContext) => string[]
@@ -83,6 +91,7 @@ export function debugContextFor(node: StudioNode, rootNodes: readonly StudioNode
   return {
     node,
     props: node.data.properties as Record<string, unknown>,
+    ...(board ? { board } : {}),
     boardLabel: profile?.label ?? 'your board',
     logicVolts: avr ? 5 : 3.3,
   }

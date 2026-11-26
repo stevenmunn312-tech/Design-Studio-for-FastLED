@@ -37,7 +37,7 @@ import { findSignalRangeHints } from '../../utils/validateGraph'
 import { useUiStore, visibleLiveTouchScreen } from '../../state/uiStore'
 import { usePatternLibrary, withRegisteredGroups } from '../../state/patterns/patternLibrary'
 import { NODE_LIBRARY, CATEGORY_COLOR, nodeDisplayLabel, portsCompatible, spliceTargetPorts } from '../../state/nodeLibrary'
-import { debugConnectionVerdict } from '../../state/debug/debugProfiles'
+import { debugConnectionVerdict, type DebugPart } from '../../state/debug/debugProfiles'
 import { exposableInputsFor, exposedNodeInputs } from '../../state/propertyInputs'
 import { drawnOutputs } from '../../state/outputFolding'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
@@ -613,7 +613,7 @@ function NodeGraphCanvasInner() {
 
       // A debug socket is drawn, not declared, so it has no port to look up.
       const debugVerdict = debugConnectionVerdict(
-        String(srcData.nodeType ?? ''), connection.sourceHandle,
+        srcNode as unknown as DebugPart, connection.sourceHandle,
         String(dstData.nodeType ?? ''), connection.targetHandle,
       )
       if (debugVerdict !== null) return debugVerdict

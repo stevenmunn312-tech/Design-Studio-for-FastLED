@@ -1243,7 +1243,7 @@ export default function HardwarePane() {
               Show in graph
             </button>
           )}
-          {nodes.some((node) => node.id === itemMenu.kind && hasDebugProfile(node.data.nodeType)) && (
+          {nodes.some((node) => node.id === itemMenu.kind && hasDebugProfile(node)) && (
             <button
               type="button"
               className={styles.itemMenuButton}

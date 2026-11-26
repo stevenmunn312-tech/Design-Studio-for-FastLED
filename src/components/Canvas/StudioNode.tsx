@@ -1303,7 +1303,10 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
    * on the canvas, and whenever a debug wire already leaves it. Otherwise the
    * socket would sit on every part for a tool that is rarely out.
    */
-  const debugProfiled = hasDebugProfile(d.nodeType)
+  const debugProfiled = useMemo(
+    () => hasDebugProfile({ id, data: { nodeType: d.nodeType, properties: d.properties ?? {} } }),
+    [id, d.nodeType, d.properties],
+  )
   const debugNodeOnCanvas = useGraphStore((s) => debugProfiled && s.nodes.some((node) => node.data.nodeType === DEBUG_NODE_TYPE))
   const debugWired = useGraphStore((s) => debugProfiled && s.edges.some((edge) => edge.source === id && edge.sourceHandle === DEBUG_SOURCE_HANDLE))
   const showDebugSocket = debugProfiled && (debugNodeOnCanvas || debugWired)

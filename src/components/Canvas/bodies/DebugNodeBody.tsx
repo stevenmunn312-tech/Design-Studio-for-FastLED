@@ -50,7 +50,7 @@ export default function DebugNodeBody({ nodeId }: { nodeId: string }) {
   const clear = useDebugSessionStore((s) => s.clear)
 
   const target = debugTargetOf(nodeId, rootNodes, rootEdges)
-  const profile = target ? debugProfileFor(target.data.nodeType) : undefined
+  const profile = target ? debugProfileFor(target) : undefined
   const ctx = useMemo(() => (target ? debugContextFor(target, rootNodes) : null), [target, rootNodes])
   const projectChecks = useMemo(() => (target
     ? buildGraphDiagnostics(rootNodes, rootEdges).filter((entry) => entry.nodeIds?.includes(target.id))

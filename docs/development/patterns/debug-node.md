@@ -15,6 +15,14 @@ The Debug node helps users bench-test one hardware part on their own. It shows c
 
 `src/state/debug/__tests__/debugNode.test.ts` holds these invariants. It checks a byte-identical sketch with and without Debug wiring (with and without an LED output), the same preview frame, diagnostics, deploy errors and partition, and that every persistence path drops the node.
 
+## Profiles
+
+- Profiles live in `src/state/debug/profiles/` and are registered in `debugProfiles.ts`.
+- A part has a profile when `debugProfileFor(part)` finds one. That lookup decides whether the part draws a debug socket and shows "Debug this part".
+- A node type whose modules fail differently gets one profile per kind of module, each with an `applies(part)` test. Examples: an I2C light sensor versus an LDR, an SPI OLED versus an I2C one, HUB75 versus addressable LEDs.
+- An I2C profile decides "on the bus" from `collectPinUses`, the same walk the wiring diagram draws from.
+- The socket is drawn by `StudioNode`, never added to `data.outputs`.
+
 ## Adding a new transient node type
 
 Add it to `TRANSIENT_NODE_TYPES`. Give it the `note` category, or otherwise make sure `isSinkDefinition` rejects it.
