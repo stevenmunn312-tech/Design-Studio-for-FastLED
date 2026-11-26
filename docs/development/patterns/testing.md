@@ -105,3 +105,12 @@ patterns here, not in `CLAUDE.md`.
   that does not, on a fresh `FastAPI()` rather than the shared helper app.
 - **A Windows-only pass is not a CI pass.** Check the CI run after pushing
   backend or desktop changes made on Windows.
+- **To read a build as a user meets it, use `app-build.py`.**
+  `python scripts/compile-fixtures/app-build.py <sketch.ino> --fqbn <fqbn>`
+  (pairs may repeat) builds with the engine the helper would choose for that
+  board and prints the stream `/api/upload` sends for a compile, live, with
+  the app's closing lines. The matrix runners take an engine as an argument
+  and record a report; a pass on arduino-cli there says nothing about what
+  the app's default engine does on the same board. On 2026-11-26 a Pico W
+  sketch that built on arduino-cli failed this way, at fbuild's package
+  install with long paths off.

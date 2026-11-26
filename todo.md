@@ -221,14 +221,72 @@ the first turned up a fault the review had filed as dead text:
 
 - [ ] Run the pre-release matrix once the fixes above are in, after your
   go-ahead: `python scripts/compile-fixtures/compile-matrix.py --preset prerelease`
-  (55 builds, 53 on arduino-cli and 2 on fbuild; the legs and what each
-  proves are in `scripts/compile-fixtures/prerelease-legs.json`).
-- [ ] Add the legs nothing builds today: a chipset sweep (RGBW, WS2816,
-  SM16824E, HD108, `DATA_RATE_MHZ`; it built on the Uno, classic ESP32 and C6
-  in this review), the IR learner on AVR, a show with an I2C sensor on RP2040,
-  the stream receiver, HUB75 on the S3, PCM1802 line-in, the SD pin probe.
-- [ ] Not reviewed: the standalone display, board-link waiting screens, the VU
-  level emitter, Bluetooth and radio sources, the provisioner sketch.
+  (66 builds, 64 on arduino-cli and 2 on fbuild; the legs and what each
+  proves are in `scripts/compile-fixtures/prerelease-legs.json`). Held until
+  the fbuild release with FastLED/fbuild#2188 is pinned, so one run covers
+  both; add Pico W, Teensy 4.1 and Black Pill pattern legs on fbuild then.
+- [x] Legs nothing built before: ten sketches from
+  `scripts/compile-fixtures/review-gaps.ts` (a chipset sweep on three boards,
+  the stream receiver on three, HUB75 on the S3, PCM1802 line-in, the SD pin
+  probe, a show with an I2C sensor on a Pico W), plus `ir/learn` and
+  `ir/normal-uno` on AVR. All are in the matrix and the preset. Each was
+  built once on 2026-11-26 the way the app builds it
+  (`scripts/compile-fixtures/app-build.py`: fbuild 2.5.55, long paths off):
+  nine passed. The Pico W show failed at fbuild's package install, the known
+  long-path fault, and the same sketch built on arduino-cli (344,984 bytes).
+- [ ] The app ends that Pico W failure with "The sketch didn't compile". It
+  did not get as far as the sketch: fbuild could not install the board
+  package. Say so, and offer the arduino-cli engine.
+- [x] The five areas the first pass left out were reviewed on 2026-11-26
+  (desk review, one reviewer). Its findings are the next list.
+
+### Second review pass (2026-11-26)
+
+Standalone displays, board-link waiting screens, the Stereo VU meter, the
+Bluetooth and radio players, and the provisioner. Nothing here is fixed
+unless it says so. Reviewer sketches are in the local
+`tmp/firmware-review/extra/`.
+
+- [x] **Live Stream receiver and wiring test with a display, on UNO R4, SAMD
+  and Nano Every** (compiled). Both sketches skipped `withQualifiedMinMax`,
+  so a bare `max(` reached cores where it is ambiguous. The receiver with an
+  OLED failed on the UNO R4 WiFi (`call of overloaded 'max(int, int)' is
+  ambiguous`). Fixed 2026-11-26 in both sketches; the fixture
+  `review-gaps/stream-receiver-r4-oled` holds it.
+- [ ] **The Setup Wizard's wiring test reads the whole project, not the
+  board being set up** (emitted, multi-board). It starts another board's
+  OLED on this board's pins (`MatrixOutputSetupWizard.tsx:40`); the deploy
+  popup uses the board's own partition.
+- [ ] **Stereo VU shuffle order differs between preview and board**
+  (emitted). The firmware seeds it from the node id, the preview from the
+  node id and its audio source (`stereoVuMeterCpp.ts:156`,
+  `nodes/output/evaluate.ts:135`). Shuffle is the default policy.
+- [ ] **VU rails and Loudness lead the music by about 186 ms on the SD and
+  radio players** (emitted). Levels are published before the I2S queue;
+  bass, mids, treble and beat are delayed to match the speaker
+  (`playerSketchGenerator.ts:2077-2110`).
+- [ ] **Internet Radio: Play/Pause can freeze the LEDs while a station
+  connects** (library source). `pauseResume` waits on a mutex the connect
+  holds: up to 1.5 s on http, 4 s on https, longer on a stalled TLS server.
+- [ ] **Live Stream receiver beside an OLED or TFT** (bench). The display's
+  one-second keepalive stalls the loop past the serial buffer, so a frame
+  can arrive corrupted. `Serial.setRxBufferSize(4096)` is the player's fix.
+- [ ] Standalone sketches skip the pruning passes (`finishCpp`): unreached
+  display helpers stay in the text. No binary cost.
+- [ ] Board-link waiting screen: a full-screen fill at every boot and on
+  every link change (0.2 to 0.5 s on the parallel panel, estimated); touch
+  buttons stay live under "WAITING"; the hint says "WIRE DISPLAY INPUT" for
+  a lost link, where the input is wired and the sender is the thing to check.
+- [ ] Stereo VU: a Manual fixture still carries all twelve modes, both
+  history arrays and the shuffle table (8 bytes of RAM a LED); the history
+  tick is 33 ms against the preview's 33.3.
+- [ ] The provisioner sketch is dead source: nothing but a test imports
+  `generateProvisionerSketch`, and `backend/firmware.py:32-35` still names it
+  as the twin of a constant that now lives in `playerSketchGenerator.ts:1631`.
+- [ ] No leg builds: a stream receiver or wiring test with any display, the
+  wiring test with VU rails, Stereo VU in a normal or show sketch, clocked VU
+  rails, the Bluetooth player, the Internet Radio player, a board-link
+  segment or SPI-TFT waiting screen.
 
 ## Fresh preview for the invited tester
 

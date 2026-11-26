@@ -3,6 +3,7 @@ import { buildXYTable, tileRotationAt } from '../../state/output/xyLayout'
 import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from '../cppGenerator'
 import { sanitizePin } from '../hardwarePins'
 import { loopPacingCpp, withLoopPacing } from '../loopPacing'
+import { withQualifiedMinMax } from '../cppMinMax'
 import { FRAME_RATE } from '../../build/frameRate'
 import { powerLimitSetupCpp } from '../output/powerLimitCpp'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../../state/nodeLibrary'
@@ -455,5 +456,7 @@ export function generateWiringDiagnosticSketch(
   lines.push(loopPacingCpp(FRAME_RATE.default))
   lines.push('}')
   lines.push('')
-  return withLoopPacing(lines.join('\n'))
+  // A display's layout calls min and max, which are ambiguous beside
+  // FastLED's on the ArduinoCore-API boards (UNO R4, SAMD, Nano Every).
+  return withQualifiedMinMax(withLoopPacing(lines.join('\n')))
 }

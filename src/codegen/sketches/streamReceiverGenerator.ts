@@ -9,6 +9,7 @@ import { outputForm, outputGridDims } from '../../state/output/ledOutputForm'
 import { buildXYTable } from '../../state/output/xyLayout'
 import { amplifierIdleCpp } from '../audio/amplifierIdle'
 import { standaloneDisplaysCpp } from '../displays/standaloneDisplayCpp'
+import { withQualifiedMinMax } from '../cppMinMax'
 
 // A tiny, generic Adalight-protocol receiver — flashed once, then the studio
 // pushes already-computed live-preview frames straight to it over serial at
@@ -201,5 +202,7 @@ export function generateStreamReceiverSketch(nodes: StudioNode[], outputNodeId?:
   }
   lines.push('}')
   lines.push('')
-  return lines.join('\n')
+  // A display's layout calls min and max, which are ambiguous beside
+  // FastLED's on the ArduinoCore-API boards (UNO R4, SAMD, Nano Every).
+  return withQualifiedMinMax(lines.join('\n'))
 }

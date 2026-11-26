@@ -30,6 +30,16 @@ describe('streamLayoutForGraph', () => {
     expect(generateStreamReceiverSketch(nodes)).toContain('Serial.begin(1000000);')
   })
 
+  // A display's layout calls `max`. Bare, it is ambiguous beside FastLED's on
+  // the ArduinoCore-API boards, and the receiver did not build on an UNO R4.
+  it('qualifies min and max, as the main sketches do', () => {
+    const nodes = [node('board', 'Board', 'hardware', { profileId: 'arduino-uno-r4-wifi' }), outputNode,
+      node('oled', 'InfoDisplay', 'output', { partId: 'sh1106-oled-128x64-i2c' })]
+    const sketch = generateStreamReceiverSketch(nodes)!
+    expect(sketch).toContain('fl::max(')
+    expect(sketch).not.toMatch(/(?<![\w:.])max\(/)
+  })
+
   it('carries the zig-zag table when serpentine is set', () => {
     const out = node('out', 'MatrixOutput', 'output', { width: 3, height: 2, serpentine: true })
     expect(streamLayoutForGraph([out])?.xyTable).toEqual([0, 1, 2, 5, 4, 3])
