@@ -2,6 +2,8 @@ import type { StudioNode } from '../../state/graphStore'
 import { buildXYTable, tileRotationAt } from '../../state/output/xyLayout'
 import { ledHardwareFromProps, fastledSetupCpp, overclockDefineCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp } from '../cppGenerator'
 import { sanitizePin } from '../hardwarePins'
+import { loopPacingCpp, withLoopPacing } from '../loopPacing'
+import { FRAME_RATE } from '../../build/frameRate'
 import { powerLimitSetupCpp } from '../output/powerLimitCpp'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../../state/nodeLibrary'
 import { controllerSettings, ledPropsWithController } from '../../build/controllerSettings'
@@ -448,8 +450,10 @@ export function generateWiringDiagnosticSketch(
     lines.push('  FastLED.show();')
   }
   lines.push(...displays.loop)
-  lines.push('  FastLED.delay(16);')
+  // The shared deadline wait, not FastLED.delay, which sends every frame
+  // again until its time is up (see loopPacing.ts).
+  lines.push(loopPacingCpp(FRAME_RATE.default))
   lines.push('}')
   lines.push('')
-  return lines.join('\n')
+  return withLoopPacing(lines.join('\n'))
 }

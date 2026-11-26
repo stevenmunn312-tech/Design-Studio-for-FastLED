@@ -96,6 +96,34 @@ describe('the Ethernet part', () => {
   })
 })
 
+describe('the SPI host the module is given', () => {
+  // ESP32 core 3 defines HSPI on every chip. On the C3 and C6 it names a bus
+  // they do not have, so `SPIClass(HSPI).begin` fails ("SPI bus index 1 is out
+  // of range") and the module never starts. The host is chosen by chip.
+  it('shares SPI on a one-host chip instead of asking for HSPI', () => {
+    const { nodes, edges } = artNetGraph([node('board', 'Board', { profileId: 'lolin-c3-mini' }), ethernet()])
+    const cpp = generateCpp(nodes, edges)
+    expect(cpp).toContain('#define _ethSpi SPI')
+    expect(cpp).toContain('_spiBusBegin(')
+    expect(cpp).not.toContain('SPIClass _ethSpi(HSPI)')
+    expect(cpp).not.toContain('defined(HSPI)')
+  })
+
+  it('keeps a host of its own on a chip that has one, with one arm in the sketch', () => {
+    const { nodes, edges } = artNetGraph([node('board', 'Board', { profileId: 'esp32-generic-devkit-38pin' }), ethernet()])
+    const cpp = generateCpp(nodes, edges)
+    expect(cpp).toContain('static SPIClass _ethSpi(HSPI);')
+    expect(cpp).not.toContain('#define _ethSpi SPI')
+  })
+
+  it('leaves the choice to the chip when no board is selected', () => {
+    const { nodes, edges } = artNetGraph([ethernet()])
+    expect(generateCpp(nodes, edges)).toContain(
+      '#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)',
+    )
+  })
+})
+
 describe('Ethernet firmware', () => {
   it('brings the network up over the W5500 instead of Wi-Fi', () => {
     const { nodes, edges } = artNetGraph([ethernet()])

@@ -182,14 +182,23 @@ panel sees on the wire, which needs a bench, or was too small to take first.
 
 ### Code the sketch cannot reach
 
-- [ ] `boardCppFacts` (`cppSpecialize.ts:6-17`) does not know
-  `CONFIG_IDF_TARGET_*`, `ARDUINO_ARCH_*`, `TEENSYDUINO` or `HSPI`, so those
-  `#if` arms stay as text. No binary cost.
-- [ ] The touch calibration sketch skips `finishCpp` (`_tftPaint`, `_tftField`
-  and `_tftFit` unused); the wiring diagnostic paces with `FastLED.delay`.
-- [ ] `// Board — not yet supported in code gen` is in every real sketch
-  (`cppGenerator.ts:1165`); `firmware-generation.md:35` says the fixed
-  layouts use the 3x5 font, the sketches use 5x8.
+All three were done on 2026-11-26 ([changelog](CHANGELOG.md)), and tracing
+the first turned up a fault the review had filed as dead text:
+
+- [x] **Wired Ethernet on the ESP32-C3 and C6 could not start** (core source,
+  bench). The sketch chose the module's SPI host with `#if defined(HSPI)`,
+  and ESP32 core 3 defines `HSPI` on every chip, so the C3 and C6 asked for a
+  second host they do not have (`SPI bus index 1 is out of range`). The host
+  is now chosen by chip. It compiles on the C3; no W5500 was on a bench.
+- [x] `boardCppFacts` now knows `CONFIG_IDF_TARGET_*`, `ARDUINO_ARCH_*` and
+  `TEENSYDUINO`, so an arm for another chip folds out of a sketch whose
+  Board names the chip: one UART declaration, one pin mode, one SPI host.
+  The SD player still knows only that it is an ESP32.
+- [x] The touch calibration sketch is pruned (`_tftPaint`, `_tftField` and
+  `_tftFit` gone); the wiring diagnostic paces with the shared `_paceFrame`.
+- [x] `// Board — not yet supported in code gen` is gone from the loop; an
+  unknown node type is still flagged. `firmware-generation.md` now says the
+  fixed layouts draw the 5x8 font.
 
 ### Compile coverage
 

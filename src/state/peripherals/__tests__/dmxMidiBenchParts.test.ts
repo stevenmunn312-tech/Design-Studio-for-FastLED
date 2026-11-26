@@ -215,11 +215,10 @@ describe('the DMX transceiver and MIDI interface as bench parts', () => {
     // one-UART chip has none left, which validation refuses on that board.
     const shared = dmxGraph([node('max485', 'DmxTransceiver'), node('radar', 'PresenceInput')])
     const sharedCpp = generateCpp(shared.nodes, shared.edges)
-    expect(sharedCpp).toContain([
-      '#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3)',
-      'static const int _dmxPort_dmx = 2;  // the UART the allocator gave DMX512',
-      '#else',
-    ].join('\n'))
+    // The Board names the chip, so the per-chip branch folds to its own port.
+    expect(sharedCpp).toContain('static const int _dmxPort_dmx = 2;  // the UART the allocator gave DMX512')
+    expect(sharedCpp).not.toContain('CONFIG_IDF_TARGET_ESP32')
+    expect(sharedCpp.match(/static const int _dmxPort_dmx = /g)).toHaveLength(1)
     expect(findDeployBlockingErrors(shared.nodes, shared.edges, CLASSIC).filter((error) => error.includes('UART'))).toEqual([])
     expect(findDeployBlockingErrors(shared.nodes, shared.edges, 'esp32:esp32:esp32c3'))
       .toContainEqual(expect.stringContaining('No UART left for DMX512'))
@@ -234,7 +233,8 @@ describe('the DMX transceiver and MIDI interface as bench parts', () => {
   it('reads the one jack once for every DIN node, on the allocated UART', () => {
     const { nodes, edges } = midiGraph([node('wing', 'MidiInterface', { midiRxPin: 34 }), node('radar', 'PresenceInput')])
     const cpp = generateCpp(nodes, edges)
-    expect(cpp.match(/static HardwareSerial _midiDin\(/g)).toHaveLength(2)
+    // One declaration: the Board names the chip, so the other chip's port is gone.
+    expect(cpp.match(/static HardwareSerial _midiDin\(/g)).toHaveLength(1)
     expect(cpp).toContain('static HardwareSerial _midiDin(2);')
     expect(cpp.match(/_midiDin\.begin\(31250, SERIAL_8N1, 34, -1\);/g)).toHaveLength(1)
     expect(cpp.match(/^ {2}_midiDinPoll\(\);$/gm)).toHaveLength(1)

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { StudioEdge, StudioNode } from '../../state/graphStore'
 import { NODE_LIBRARY, libraryDefaults } from '../../state/nodeLibrary'
 import { generateCpp } from '../cppGenerator'
+import { boardCppFacts } from '../cppSpecialize'
 
 function node(id: string, nodeType: string, properties: Record<string, unknown> = {}): StudioNode {
   const definition = NODE_LIBRARY.find((entry) => entry.type === nodeType)
@@ -31,6 +32,29 @@ describe('faults found by the 2026-11-26 firmware review', () => {
     ], [edge('pot', 'value', 'out', 'brightness'), edge('fill', 'frame', 'out', 'frame')])
     expect(cpp).toContain(`#define DS_ANALOG_FULL_SCALE ${expected}`)
     expect(cpp).not.toContain(absent)
+  })
+
+  // The Board has no ports, so there is nothing for the loop to compute. Every
+  // real sketch used to say `// Board — not yet supported in code gen`.
+  it('says nothing in the loop about a part with no ports', () => {
+    const cpp = generateCpp([
+      node('board', 'Board', { profileId: 'esp32-generic-devkit-38pin' }), node('fill', 'SolidColor'),
+      node('out', 'MatrixOutput', { width: 8, height: 8, dataPin: 5 }),
+    ], [edge('fill', 'frame', 'out', 'frame')])
+    expect(cpp).not.toContain('not yet supported in code gen')
+  })
+
+  // The Board names the chip, so an arm for another chip is not in the sketch.
+  it('knows which ESP32 the selected board is', () => {
+    const facts = (profileId: string) => boardCppFacts([node('board', 'Board', { profileId })])
+    expect(facts('lolin-c3-mini')).toMatchObject({
+      ESP32: true, ARDUINO_ARCH_ESP32: true, CONFIG_IDF_TARGET_ESP32C3: true,
+      CONFIG_IDF_TARGET_ESP32: false, CONFIG_IDF_TARGET_ESP32S3: false, ESP8266: false, ARDUINO_ARCH_AVR: false,
+    })
+    expect(facts('esp32-generic-devkit-38pin')).toMatchObject({ CONFIG_IDF_TARGET_ESP32: true, CONFIG_IDF_TARGET_ESP32C3: false })
+    // megaAVR boards share the `avr` family and do not define ARDUINO_ARCH_AVR.
+    expect(facts('arduino-uno-r3-dip')).not.toHaveProperty('ARDUINO_ARCH_AVR')
+    expect(facts('arduino-uno-r3-dip')).toMatchObject({ ESP32: false, TEENSYDUINO: false })
   })
 
   // Several LED outputs leave FastLED's master at 255 and scale each route

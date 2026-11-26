@@ -1164,6 +1164,11 @@ export function generateCpp(
 
     const emitter = NODE_EMITTERS.get(type)
     if (!emitter) {
+      // A part with no ports (the Board, a supply, a card) has nothing for the
+      // loop to compute, so saying it is unsupported was wrong in every sketch.
+      const definition = NODE_LIBRARY.find((entry) => entry.type === type)
+      const portless = !!definition && definition.inputs.length === 0 && definition.outputs.length === 0
+      if (portless && !SHOW_PIPELINE_NOTES[type]) return
       ln(`  // ${type} — ${SHOW_PIPELINE_NOTES[type] ?? 'not yet supported in code gen'}`)
       return
     }

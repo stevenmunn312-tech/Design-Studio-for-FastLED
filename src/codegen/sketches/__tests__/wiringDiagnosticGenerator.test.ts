@@ -160,7 +160,10 @@ describe('generateWiringDiagnosticSketch', () => {
     expect(sketch).toContain('drawVuRail(vuRight, VU_RIGHT_LED_COUNT, VU_RIGHT_REVERSED, CRGB(0, 0, 64), now)')
     expect(sketch).toContain('physical = reversed ? count - 1 - logical : logical')
     expect(sketch).toContain('FastLED.setBrightness(DIAG_BRIGHTNESS);')
-    expect(sketch.match(/FastLED\.show\(\);/g)).toHaveLength(1)
+    // One send a frame in loop(); the pacing helper holds the dither refresh.
+    expect(sketch.match(/^ {2}FastLED\.show\(\);/gm)).toHaveLength(1)
+    expect(sketch).not.toContain('FastLED.delay')
+    expect(sketch).toContain('_paceFrame(')
   })
 
   it('chases each rail over its own length and clocks a clocked fixture', () => {

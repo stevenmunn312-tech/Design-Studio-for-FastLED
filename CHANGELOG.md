@@ -35,6 +35,11 @@ share link, migrating it where a shape has changed.
   does, so an ILI9341 comes up with its proper power and gamma settings.
 - Live Stream to an UNO, Nano or Mega uses 1,000,000 baud, a rate a 16 MHz
   AVR can produce; 921600 came out 8.5 % off.
+- A W5500 Ethernet module on an ESP32-C3 or C6 now starts. The sketch asked
+  those chips for a second SPI bus they do not have, so the module never
+  came up.
+- The wiring test sends each frame once; it paced itself with a call that
+  re-sent the frame until the next one was due.
 
 ### Changed
 

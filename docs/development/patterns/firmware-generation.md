@@ -32,8 +32,9 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   table needs every Clock Display glyph, and `uppercase: true` if it has no
   lower case. The glyphs in `fontGlyphs.ts` are project-drawn; FastLED's
   `fl/font` console fonts come from an unlicensed collection and are not copied.
-  The fixed OLED and TFT layouts still draw the 3x5 font only: their row
-  pitches, text scales and emitted `*_FONT_W`/`*_FONT_H` constants assume it.
+  The fixed OLED and TFT layouts draw one font only, the 5x8 `DISPLAY_FONT`
+  (`src/state/displays/displayFont.ts`): their row pitches, text scales and
+  emitted `*_FONT_W`/`*_FONT_H` constants assume it.
 - Unwired numeric properties can emit integer literals. Cast a division
   operand to `float` or use a floating-point coefficient before dividing;
   assigning the integer division result to a float does not restore fractions.
@@ -525,7 +526,16 @@ sketch still carries only what the graph reaches.
 
 - `specializeCpp` resolves `#if` on facts generation knows: the selected board
   family and the sketch's own `#define`s. It never infers IDF or library
-  versions. `specializeSwitch` folds a switch over a constant; a one-style
+  versions. `boardCppFacts` states the chip in the core's own macros
+  (`ESP32`, `ARDUINO_ARCH_ESP32`, one `CONFIG_IDF_TARGET_*`, `ESP8266`,
+  `ARDUINO_ARCH_RP2040`, `TEENSYDUINO`), so test the chip with those and the
+  arm folds to the selected board's. Do not test a macro the core defines
+  for convenience, such as `HSPI`: ESP32 core 3 defines it on every chip, the
+  C3 and C6 included, where it names a bus they lack. `defined(HSPI)` once
+  chose the Ethernet module's SPI host and gave those chips one that could
+  not start. `ARDUINO_ARCH_AVR` is a fact only where it is false, because the
+  `avr` family holds megaAVR boards, which do not define it. The SD player
+  is handed a config, not the graph, and knows only `ESP32`. `specializeSwitch` folds a switch over a constant; a one-style
   transition pool uses it, so the arm becomes the body.
 - `withoutUnreadLocals` drops declarations nothing reads, stores to
   write-only variables, and the pure helpers that only fed them. A call it

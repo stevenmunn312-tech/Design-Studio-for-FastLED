@@ -52,11 +52,20 @@ export const ONBOARD_ETHERNET_INCLUDES_CPP = [
  * drops. A module that does not answer leaves `_netConnected()` false, which
  * is exactly what Art-Net and NTP already do with Wi-Fi out of range.
  */
+/*
+ * The chips with a second general-purpose SPI host for the module to own
+ * (`ethernetSpiHost`'s `dedicated`). Named by target, not `defined(HSPI)`:
+ * ESP32 core 3 defines `HSPI` on every chip, the C3 and C6 included, where
+ * it names a bus they do not have and `SPIClass(HSPI).begin` fails with
+ * "SPI bus index 1 is out of range", so the module never started.
+ */
+const ETH_OWN_SPI_HOST = 'defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)'
+
 export function ethernetBootstrapCpp(eth: EthernetEmit): string[] {
   const lines = [
     `// Shared wired-Ethernet bootstrap (${eth.label}) for Art-Net receive / NTP clock sync.`,
     `#if FLS_NET_SUPPORTED`,
-    `#if defined(HSPI)`,
+    `#if ${ETH_OWN_SPI_HOST}`,
     `// The module has this SPI host to itself, so a colour panel on SPI is undisturbed.`,
     `static SPIClass _ethSpi(HSPI);`,
     `#else`,
@@ -71,7 +80,7 @@ export function ethernetBootstrapCpp(eth: EthernetEmit): string[] {
     `#if FLS_NET_SUPPORTED`,
     `  if (_netInit) return;`,
     `  _netInit = true;`,
-    `#if defined(HSPI)`,
+    `#if ${ETH_OWN_SPI_HOST}`,
     `  _ethSpi.begin(${eth.sckPin}, ${eth.misoPin}, ${eth.mosiPin});`,
     `#else`,
     `  _spiBusBegin(${eth.sckPin}, ${eth.misoPin}, ${eth.mosiPin});`,

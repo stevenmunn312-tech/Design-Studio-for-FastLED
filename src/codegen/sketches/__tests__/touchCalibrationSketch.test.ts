@@ -42,6 +42,14 @@ describe('the touch calibration sketch', () => {
     expect(sketch).toContain('nullptr, 255, 255, _calInit, sizeof(_calInit));')
   })
 
+  // It borrows the display driver's helpers and draws with a few of them.
+  // The rest are pruned, as in every other sketch.
+  it('carries only the display helpers it calls', () => {
+    const sketch = sketchFor(CYD)
+    for (const unused of ['_tftPaint', '_tftField', '_tftFit']) expect(sketch).not.toContain(unused)
+    for (const used of ['_tftBegin(', '_tftText(', '_tftFillRect(', '_xptPoint(']) expect(sketch).toContain(used)
+  })
+
   // GPIO34-39 are input-only on a classic ESP32 and the core logs
   // gpio_pullup_en error 85 for INPUT_PULLUP, which is how the CYD's IRQ on
   // GPIO36 read nothing. Same helper the real generators use, not a copy.

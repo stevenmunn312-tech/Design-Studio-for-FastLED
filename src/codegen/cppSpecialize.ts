@@ -8,11 +8,26 @@ export function boardCppFacts(nodes: readonly StudioNode[]): Record<string, bool
   const families = profile?.targetFamilies
   if (!families?.length || families.length !== 1) return {}
   const family = families[0]
+  const esp32 = family.startsWith('esp32')
   return {
-    ESP32: family.startsWith('esp32'), ESP8266: family === 'esp8266',
-    CONFIG_IDF_TARGET_ESP32S3: family === 'esp32-s3',
-    // Its ADC is 13 bits wide, so the analog full scale differs (analogReadCpp.ts).
+    // The core's own spellings of the same fact are listed with it, so an
+    // emitter may test either and the arm still folds.
+    ESP32: esp32, ARDUINO_ARCH_ESP32: esp32,
+    ESP8266: family === 'esp8266', ARDUINO_ARCH_ESP8266: family === 'esp8266',
+    // Which ESP32. One is true on an ESP32 board and none elsewhere, so a
+    // per-chip arm (a UART count, an SPI host, the S2's 13-bit ADC) folds to
+    // the selected board's.
+    CONFIG_IDF_TARGET_ESP32: family === 'esp32',
     CONFIG_IDF_TARGET_ESP32S2: family === 'esp32-s2',
+    CONFIG_IDF_TARGET_ESP32S3: family === 'esp32-s3',
+    CONFIG_IDF_TARGET_ESP32C3: family === 'esp32-c3',
+    CONFIG_IDF_TARGET_ESP32C6: family === 'esp32-c6',
+    CONFIG_IDF_TARGET_ESP32H2: family === 'esp32-h2',
+    ARDUINO_ARCH_RP2040: family === 'rp2040',
+    TEENSYDUINO: family === 'teensy',
+    // The `avr` family holds megaAVR boards too, which do not define this, so
+    // it is known only where it is false.
+    ...(family === 'avr' ? {} : { ARDUINO_ARCH_AVR: false }),
     // The UNO R4 WiFi's own define, so its WiFiS3 network branch folds away on
     // every other board and the ESP branches fold away on it.
     ARDUINO_UNOWIFIR4: family === 'renesas' && profile!.compatibleFqbns.every((fqbn) => fqbn === UNO_R4_WIFI_FQBN),
