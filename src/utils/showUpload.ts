@@ -1,5 +1,6 @@
 import { playerControlGraph } from '../codegen/player/playerControlGraph'
 import { cppCode } from '../codegen/cppReachability'
+import { playerAudioSwitch } from '../codegen/player/playerAudioSwitch'
 import { musicPlayerTiming } from '../state/player/musicPlayerTiming'
 import { normalizedSeed } from '../state/evaluator/random'
 import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
@@ -253,6 +254,8 @@ export function buildShowPlayer(
     radio: opts.genericPlayer && selectedEngine && musicPlayerSource(selectedEngine) === 'Internet Radio'
       ? internetRadioFromGraph(nodes, selectedEngine)
       : undefined,
+    // The Audio node's Source switch: the decoder and a microphone or line input.
+    audioSwitch: opts.genericPlayer ? playerAudioSwitch(nodes, edges, opts.fqbn) : undefined,
   })
 }
 

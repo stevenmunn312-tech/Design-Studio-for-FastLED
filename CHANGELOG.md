@@ -9,6 +9,17 @@ share link, migrating it where a shape has changed.
 
 ## [Unreleased]
 
+### Added
+
+- The Audio node has a **Source** input that switches its source while the
+  board runs. Drop a Button, IR key, Web Remote control or Encoder on the
+  body's Source row: a press steps to the next source, a number picks one by
+  position. It cycles through the sources on the bench, so a Music Player
+  build with a microphone switches between music in the room and music from
+  the SD card. The board opens every source at once on its own I2S port, and
+  analysis, beat and VU levels follow the switch; the preview follows it too.
+  Checks says when a board has too few I2S ports for the sources on the bench.
+
 ### Fixed
 
 - A show, player or screen sketch with an I2C sensor or OLED now builds on

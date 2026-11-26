@@ -16,6 +16,7 @@ current public release is `v0.8.0`, cut from `main` on 2026-11-16. See
 
 - [Hardware workbench guide](user/hardware-workbench.md)
 - [Stereo VU Meter](user/stereo-vu-meter.md)
+- [Switching audio sources on the board](user/switching-audio-sources.md)
 - [Audio pattern release candidates](user/audio-pattern-candidates.md)
 
 ## Architecture and decisions

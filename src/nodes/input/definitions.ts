@@ -26,10 +26,16 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     type: 'Audio',
     label: 'Audio',
     category: 'input',
-    inputs: [],
+    // Source switches the source while the board runs, among the sources on
+    // the bench (state/audio/audioSourceSwitch.ts): a press steps on, a number
+    // picks by position. Hidden until wired or exposed; the body's Source row
+    // is its drop target, so the node looks as it did.
+    inputs: [{ id: 'source', label: 'Source', dataType: 'float' }],
+    actionInputs: ['source'],
     outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
     // The source kind is selectable before Hardware exists. Microphone is the
     // discoverable default and resolves as soon as its provider is added.
+    // With Source wired to a press, it is also where the switch starts.
     defaultProperties: { sourceId: 'kind:microphone' },
   },
   // ── Inputs ─────────────────────────────────────────────────────────────
@@ -581,7 +587,7 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
 
 export const INPUT_DESCRIPTIONS: Record<string, string> = {
   DdpInput: 'A frame streamed over the network by DDP (xLights, LedFx, WLED).',
-  Audio: 'Selects Microphone, Line input, or Audio decoder for audio reactivity.',
+  Audio: 'Picks Microphone, Line input or Audio decoder; Source switches them live.',
   MicInput: 'I2S MEMS microphone Hardware provider selected through the Audio node.',
   LineInput: 'PCM1802 Hardware provider selected through the Audio node.',
   // hardware

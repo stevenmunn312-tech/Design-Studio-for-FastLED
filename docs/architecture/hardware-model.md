@@ -983,6 +983,18 @@ in-app music player in preview and the on-device Music Player's decoder tap on
 hardware. This keeps preview useful without pretending the browser can sample
 an attached controller's peripherals.
 
+The Audio node's **Source** input switches the source at run time
+([user guide](../user/switching-audio-sources.md)). `state/audio/audioSourceSwitch.ts`
+owns the rules both sides run: the list is the bench's sources, one per kind in
+menu order; a bool wire steps on each debounced press, anything else picks by
+position (rounded, wrapping), and `audioSwitchProblems` names what a board or
+build cannot do for Checks and the body alike. The firmware opens every source
+at once, each on its own I2S port, and feeds one FastLED `Processor` from the
+active one: in a Music Player build the decoder tap's analysis task reads the
+capture input in place of the ring (`playerSketchGenerator.ts`,
+`codegen/player/playerAudioSwitch.ts`); in a single-board sketch `updateAudio`
+reads every input and hands the active one's blocks over (`audioEngineCpp.ts`).
+
 Collection shows compile against the player-hosted audio globals. The pinned
 ESP32-audioI2S callback queues decoded PCM immediately before I2S/DAC output;
 after the write is fed, FastLED's existing Processor derives EQ bands, beat, and

@@ -718,6 +718,20 @@ that are easy to split across preview and firmware:
   recorded before it existed) counts every beat as certain. Attack, Decay and
   the flux/onset/contrast outputs belong to the spectral-flux detector that
   only audio not analysed by FastLED reaches — a baked show envelope.
+- **An audio source switch shares one Processor and never resets it.** The
+  Audio node's Source input (`state/audio/audioSourceSwitch.ts`) changes which
+  source feeds FastLED's `Processor`; it does not swap processors, so every
+  reader keeps its `_audio*` globals. `_audioSourceApply` changes gain, noise
+  gate and mic profile only where the processor runs (the decoder tap's
+  analysis task, or `updateAudio`). `Processor::reset()` is off limits: it drops
+  the detectors and the `onBeat` callback registered on them. Each source holds
+  its own I2S port — ESP32-audioI2S 3.0.12 and arduino-audio-tools both take
+  I2S0, so a capture source beside the decoder is opened on I2S1 through the
+  FastLED factory's `i2s_num` argument, and the app's PCM1802 and SPH0645
+  adapters are rewritten onto it (`onI2sPort`). An idle capture input is
+  drained, and while a capture is active the decoder ring is dropped, so a
+  switch never analyses stale audio. The meter's decoder volume undo applies
+  only while the decoder is heard.
 - **Decoder analysis waits for the speaker.** The in-app player's analysis
   taps the media element before the samples reach the output device, so a
   frame published at once runs ahead of what the listener hears by

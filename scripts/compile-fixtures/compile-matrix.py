@@ -248,6 +248,19 @@ def review_gap_legs() -> list[Leg]:
             for name, entry in sorted(entries.items())]
 
 
+def audio_source_switch_legs() -> list[Leg]:
+    """The Audio node's runtime Source switch: every source opened at once, each on its own I2S port."""
+    folder = ROOT / "artifacts" / "audio-source-switch-compile"
+    manifest_names(folder, "audio-source-switch")
+    try:
+        entries = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return [Leg("audio-source-switch", "compile-presence-smoke.py", folder / f"{name}.ino",
+                entry["fqbn"], entry["fqbn"].split(":")[2], "audio-source-switch")
+            for name, entry in sorted(entries.items())]
+
+
 def power_switch_legs() -> list[Leg]:
     folder = ROOT / "backend" / "sketches" / "power-switch-fixtures"
     targets = {name: CLASSIC for name in ("plain", "level-field", "level-wired", "gated", "mosfetti", "mixed", "yynmos4",
@@ -431,7 +444,7 @@ def candidates() -> list[Leg]:
     """Every fixture leg on both engines; fbuild only for boards its scaffold declares."""
     legs = [
         *display_legs(), *custom_board_legs(), *control_graph_legs(), *ir_legs(), *ethernet_legs(),
-        *board_link_legs(), *clock_sync_legs(), *uno_r4_wifi_legs(), *long_string_legs(), *v1_variant_legs(), *review_gap_legs(), *power_switch_legs(), *peripheral_legs(), *samd51_legs(), *dmx_legs(), *family_legs(), *mapped_board_legs(), *pattern_node_legs(),
+        *board_link_legs(), *clock_sync_legs(), *uno_r4_wifi_legs(), *long_string_legs(), *v1_variant_legs(), *review_gap_legs(), *audio_source_switch_legs(), *power_switch_legs(), *peripheral_legs(), *samd51_legs(), *dmx_legs(), *family_legs(), *mapped_board_legs(), *pattern_node_legs(),
         *corpus_legs("dead-code", "dead-code-compile"),
         *corpus_legs("pattern-collections", "pattern-collections-compile"),
         *corpus_legs("show-sequencing", "show-sequencing-compile"),
@@ -449,7 +462,7 @@ def candidates() -> list[Leg]:
 GENERATORS = {"display": "display", "custom-board": "custom-board", "control-graph": "control-graph", "ir": "ir",
               "ethernet": "ethernet", "board-links": "board-links", "power-switch": "power-switch",
               "clock-sync": "clock-sync", "uno-r4-wifi": "uno-r4-wifi", "long-strings": "long-strings",
-              "v1-variants": "v1-variants", "review-gaps": "review-gaps",
+              "v1-variants": "v1-variants", "review-gaps": "review-gaps", "audio-source-switch": "audio-source-switch",
               "pattern-node": "pattern-node", "samd51": "samd51", "dmx": "dmx", "families": "families", "boards": "families", "dead-code": "dead-code", "pattern-collections": "pattern-collections",
               "show-sequencing": "show-sequencing", "lanes": "lanes", "led-drivers": "led-drivers",
               **{family: family for family in (

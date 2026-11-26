@@ -77,7 +77,7 @@ import { boardFamily, defaultPowerCapMa, ledLoads, supplyCoverage, supplySegment
 import { converterRoles, powerConverterModuleFor } from '../state/peripherals/powerConverter'
 import type { BuildTargetFamily } from '../build/buildProfile'
 import { pinWarningForCapability } from '../build/boards/boardGpio'
-import { micSupportedForBoard, micUnsupportedMessage } from '../build/pins/micPinDefaults'
+import { micFqbnForBoardProfile, micSupportedForBoard, micUnsupportedMessage } from '../build/pins/micPinDefaults'
 import { controllerSettings } from '../build/controllerSettings'
 import { estimateWireTime, wireTimeAdvice } from './wireTime'
 import { findLedDriverErrors, ledDriverDiagnostics } from './ledDriverIssues'
@@ -92,6 +92,7 @@ import { CUSTOM_DESIGN_LAYOUT, shownDesignId } from '../state/displays/transport
 import { displayWidgetIsControl, normalizeDisplayControlRole, parseDisplayWidgetPortId } from '../state/displays/displayRegistry'
 import { templateControlPlan } from '../state/displays/templateControlPlan'
 import { resolveAudioCapabilitySource, selectedAudioCapabilityKind } from '../state/audio/audioCapabilities'
+import { audioSourceSwitchFor, audioSwitchProblems } from '../state/audio/audioSourceSwitch'
 import {
   duplicateIrRemoteMappings,
   irRemoteButtonIdFromHandle,
@@ -221,6 +222,29 @@ export function findAudioCapabilityErrors(
       !resolveAudioCapabilitySource(capabilityNodes, String(node.data.properties.sourceId ?? ''))
     )
     .map((node) => `${nodeLabel(node)} has no attached source — add a microphone, line-in ADC, or SD music player, or choose an available source`)
+}
+
+/**
+ * What stops the Audio node's wired Source switch working on this graph and
+ * board: errors block a deploy, warnings explain what the board will do
+ * instead. The same sentences appear in the Audio node's body.
+ */
+export function findAudioSourceSwitchIssues(
+  nodes: StudioNode[], edges: StudioEdge[], selectedFqbn = '',
+): { errors: string[]; warnings: string[] } {
+  const sw = audioSourceSwitchFor(nodes, edges)
+  if (!sw) return { errors: [], warnings: [] }
+  const build = resolveBuildMode(nodes, edges)
+  const board = selectedPhysicalBoardProfile(nodes)
+  const problems = audioSwitchProblems(sw, {
+    buildMode: build.mode === 'player' && build.engineKind === 'performance-show' ? 'performance' : build.mode,
+    fqbn: micFqbnForBoardProfile(board) ?? (selectedFqbn || board?.compatibleFqbns[0]),
+    boardLabel: board?.label,
+  })
+  return {
+    errors: problems.filter((problem) => problem.severity === 'error').map((problem) => problem.message),
+    warnings: problems.filter((problem) => problem.severity === 'warning').map((problem) => problem.message),
+  }
 }
 
 export function findStereoVuMeterErrors(nodes: StudioNode[], edges: StudioEdge[]): string[] {
@@ -1863,6 +1887,7 @@ export function findDeployBlockingErrors(
     ...findShowRequirementErrors(nodes, edges),
     ...findPatternCountErrors(nodes, edges),
     ...findAudioCapabilityErrors(nodes, edges),
+    ...findAudioSourceSwitchIssues(nodes, edges, selectedFqbn).errors,
     ...findRtcModuleErrors(nodes, edges),
     ...findSerialPartErrors(nodes, edges),
     ...findCollectedDinMidiErrors(nodes, edges, groups),
@@ -5561,6 +5586,7 @@ export function validateGraph(nodes: StudioNode[], edges: StudioEdge[], selected
   // below.
   errors.push(...findDeployBlockingErrors(nodes, edges, selectedFqbn, displayDocuments, groups))
   warnings.push(...findPreviewOnlyWarnings(nodes, edges))
+  warnings.push(...findAudioSourceSwitchIssues(nodes, edges, selectedFqbn).warnings)
   warnings.push(...findRtcWarnings(nodes))
   warnings.push(...findCustomBoardIssues(nodes).warnings)
   warnings.push(...findNetworkConfigWarnings(nodes))

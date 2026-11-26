@@ -24,13 +24,18 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
     overview: [
       'Audio is the one place a graph gets its sound. Choose the source in its body — a microphone, a line input, or the Music Player’s own decoder — and every analyser wired to it hears the same signal.',
       'The same choice holds in both worlds. In the browser, a microphone or line input is captured through your computer’s audio input; on the board, the Microphone or Line In part on the bench is read over I2S. Pick the source once and the preview and the firmware agree. Until the part is on the bench the preview still listens through the computer, so you can design first; uploading asks for the part.',
-      'Fan a single Audio node out to as many analysers and audio patterns as you like. Add a second one only when you really have two sources, such as a microphone for the room and the decoder for the music.',
+      'Fan a single Audio node out to as many analysers and audio patterns as you like. A graph has one Audio node, so every listener hears the same source.',
+      'To change the source while the board runs, drop a control onto the body’s Source row. A press — a Button, an IR key, a Web Remote button or an Encoder’s Pressed — steps to the next source; a number — an Encoder’s Position or Level, or a Web Remote slider — picks one by position, counting from 0 and wrapping round. The switch cycles only through the sources on the bench, in the menu’s order, so a Microphone and a Music Player with its amplifier switch between music in the room and music from the board. The board opens every source at once, each on its own I2S port, and the analysers, beat and VU levels follow the switch without a reboot. The preview follows it too: the Microphone is your computer’s microphone, the Audio Decoder the in-app Music Player.',
     ],
     steps: [
       'Add a Microphone or Line In part from the Hardware tab if the board will listen to the room or a player. The decoder needs no part.',
       'Pick the source in the Audio node’s body.',
       'Wire Audio into FFT Analyzer, Beat Detect, or any audio pattern. Allow microphone access in the browser when Studio asks.',
+      'To switch sources on the board, drag a Button’s or an Encoder’s output onto the Source row. The body lists the sources it switches between and which one is live.',
     ],
+    inputs: {
+      source: 'Switches the source while the board runs, among the sources on the bench. Each press steps to the next; a number picks one by position from 0, wrapping. Hidden until something is wired to it.',
+    },
     outputs: {
       audio: 'The selected source’s audio. Every analyser or audio pattern wired here hears the same stream.',
     },

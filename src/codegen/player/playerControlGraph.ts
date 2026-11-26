@@ -10,6 +10,7 @@ import { controlReferenceCpp, type ControlReference } from '../controlGraph'
 import { DISPLAY_TEXT_BUFFER_BYTES } from '../../state/displays/displayText'
 import { expandGroups } from '../../state/expandGroups'
 import { resolveAudioCapabilitySource } from '../../state/audio/audioCapabilities'
+import { audioSourceSwitchFor } from '../../state/audio/audioSourceSwitch'
 import { beatDetectThreshold } from '../../audio/beatDetection'
 import { nativeBeatGateCpp } from '../audio/nativeBeatGateCpp'
 import { floatLit, safeId } from '../cppLiterals'
@@ -83,6 +84,12 @@ export function playerControlGraph(
         && resolveAudioCapabilitySource(nodes, source.data.properties.sourceId)?.kind === 'decoder')))
     .map((node) => node.id))
   sources.push(...[...decoderBeats].map((nodeId): ControlReference => ({ nodeId, port: 'beat', type: 'bool' })))
+  // The Audio node's Source switch, read with the other controls: a press as
+  // a bool, a number as a float (state/audio/audioSourceSwitch.ts).
+  const audioSwitch = audioSourceSwitchFor(nodes, edges)
+  const audioSourceInput = audioSwitch && audioSwitch.sources.length > 1
+    ? [{ nodeId: audioSwitch.audioNode.id, port: 'source', type: audioSwitch.drive === 'press' ? 'bool' as const : 'float' as const }]
+    : []
   const drivenOutput = master ? resolveShowTarget(nodes, edges, master.id).target : null
   // Frame nodes between the player and its LEDs: their number inputs are read
   // here, with the rest of the player's controls.
@@ -104,6 +111,7 @@ export function playerControlGraph(
       ...playerParticleControlInputs(nodes, edges, master.id),
       ...(postChain?.inputs ?? []),
       ...outputScalars,
+      ...audioSourceInput,
     ] : [...(postChain?.inputs ?? []), ...outputScalars],
     sourceExpressions: PLAYER_SOURCE_EXPRESSIONS,
     // The player applies the output's own fields and refuses direct wires, so
@@ -156,6 +164,8 @@ export function playerControlGraph(
   } : null
   return { ...routing, sample, bundle, hasPatternControls, hasSongSources: usedSources.length > 0, post, outputRuntime,
     usesDecoderBeat: usedDecoderBeats.length > 0,
+    /** The Audio node's wired Source, read in the loop; absent when nothing switches. */
+    audioSourceExpr: audioSwitch ? routing.scalarInputs.get(`${audioSwitch.audioNode.id}:source`) : undefined,
     timingInputs: Object.fromEntries(['beat', 'minTime', 'maxTime', 'transitionSec'].map((port) =>
       [port, routing.scalarInputs.get(`${master?.id}:${port}`)])),
     /** Wired Player Particles ports, by port; absent ports use the node's field. */

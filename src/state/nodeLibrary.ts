@@ -3611,7 +3611,8 @@ export const PROPERTY_DESCRIPTIONS_OVERRIDES: Record<string, Record<string, stri
     value: 'Number to format when nothing is wired into Value.',
   },
   Audio: {
-    sourceId: 'Which audio provider this node reads, chosen in the body: microphone, line input or music player.',
+    sourceId: 'Which audio provider this node reads, chosen in the body: microphone, line input or music player. With Source wired to a button, it is the source the board starts on.',
+    source: 'Switches the source while the board runs, among the sources on the bench. A press (Button, IR key, Web Remote button) steps to the next; a number picks by position from 0, wrapping, so an Encoder’s Position steps one source per click.',
   },
   ButtonBank: {
     buttons: 'The buttons, each with a name, a GPIO and a pull-up, edited in the body. Every entry becomes an output port, true while that button is held.',

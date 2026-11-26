@@ -69,7 +69,16 @@ import { displayHasTouch } from '../../build/parts/partCatalogue'
 import { graphReadState } from '../../state/graphReader'
 import { isDisplaySignal, type DisplaySignal } from '../../state/displays/displaySignal'
 import { tftControllerForProps } from '../../state/nodeLibrary'
-import { previewAudioCapabilityKind } from '../../state/audio/audioCapabilities'
+import { previewAudioCapabilityKind, type AudioCapabilityKind } from '../../state/audio/audioCapabilities'
+import {
+  AUDIO_SOURCE_INPUT,
+  audioSourceDrive,
+  audioSourceStartIndex,
+  audioSwitchSources,
+  blankAudioSourceSwitchState,
+  stepAudioSourceSwitch,
+  type AudioSourceSwitchState,
+} from '../../state/audio/audioSourceSwitch'
 import { normalizeButtonBankEntries, buttonBankHandle, buttonPressKey } from '../../state/player/buttonBank'
 import { normalizeWebRemoteControls, webRemoteControlOutput, webRemotePortId, webRemoteStartState } from '../../state/peripherals/webRemote'
 import { sampleWebRemoteControl } from '../../state/peripherals/webRemoteRuntime'
@@ -77,6 +86,9 @@ import { clamp01 } from '../../state/evaluator/frames'
 import { markStateUsed, stateClock, instanceState } from '../../state/evaluator/memory'
 import { blankPlayerControls } from '../../state/evaluator/signals'
 import type { PlayerControls, PortValue, NodeEvaluators } from '../../state/evaluator/types'
+
+// The Audio node's runtime source switch, per instance.
+const audioSourceSwitchState = instanceState('audioSourceSwitchState', new Map<string, AudioSourceSwitchState & { lastMs: number; kind?: AudioCapabilityKind }>())
 
 const irPreviewState = instanceState('irPreviewState', new Map<string, IrPreviewMemory>())
 
@@ -139,14 +151,51 @@ function panelTouchControls(
 }
 
 export const INPUT_EVALUATORS: NodeEvaluators = {
-  Audio({ audioOverride, capabilityNodes }, _id, props) {
+  Audio({ audioOverride, capabilityNodes, incoming, input, nodeMap, elapsedT, stateKey, inputSourceType }, id, props) {
     // One authored choice maps both environments: microphone/line-in use
     // browser capture in-app and their physical input on hardware; decoder
     // uses the in-app music player here and the hardware player there. A
     // microphone or line input not yet on the bench still previews with the
     // computer's input; deploy asks for the part.
-    const kind = previewAudioCapabilityKind(capabilityNodes, props.sourceId)
-    return { audio: kind ? (audioOverride ?? liveAudioSignal(kind)) : null }
+    const wire = incoming.get(`${id}:${AUDIO_SOURCE_INPUT}`)
+    const sources = wire ? audioSwitchSources(capabilityNodes) : []
+    // An Audio node inside a pattern hears what the root graph's switch picked,
+    // as the sketch's patterns read the one set of `_audio*` globals. The root
+    // node's state is keyed by its bare id; a stale one (unwired a second ago)
+    // no longer counts.
+    const root = !wire ? capabilityNodes.find((entry) => entry.data.nodeType === 'Audio' && entry.id !== id) : undefined
+    const rootState = root ? audioSourceSwitchState.get(root.id) : undefined
+    if (rootState && rootState.kind && Math.abs(elapsedT * 1000 - rootState.lastMs) < 1000) {
+      return { audio: audioOverride ?? liveAudioSignal(rootState.kind) }
+    }
+    if (!wire || sources.length === 0) {
+      const kind = previewAudioCapabilityKind(capabilityNodes, props.sourceId)
+      const out: Record<string, PortValue> = { audio: kind ? (audioOverride ?? liveAudioSignal(kind)) : null }
+      return out
+    }
+    // Source wired: the switch picks among the sources on the bench, by the
+    // rules the sketch runs (state/audio/audioSourceSwitch.ts), on the
+    // unscaled clock a button's debounce uses. `activeSource` is not a port:
+    // it tells the body which source is live.
+    const key = stateKey(id)
+    const nowMs = elapsedT * 1000
+    let state = audioSourceSwitchState.get(key)
+    if (!state || nowMs < state.lastMs) {
+      state = { ...blankAudioSourceSwitchState(audioSourceStartIndex(sources, capabilityNodes, props.sourceId), nowMs), lastMs: nowMs }
+      audioSourceSwitchState.set(key, state)
+    }
+    state.lastMs = nowMs
+    const index = stepAudioSourceSwitch(
+      state,
+      audioSourceDrive(nodeMap.get(wire.srcId), wire.srcPort),
+      input(id, AUDIO_SOURCE_INPUT, 0) as number | boolean,
+      sources.length,
+      nowMs,
+      inputSourceType(id, AUDIO_SOURCE_INPUT),
+    )
+    const kind = sources[index].kind
+    state.kind = kind
+    return { audio: audioOverride ?? liveAudioSignal(kind), activeSource: kind }
   },
   /*
      * The glass in front of a Display Panel.

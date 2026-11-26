@@ -943,7 +943,7 @@ export function generateCpp(
   const sketch: SketchEmitContext = {
     nodes, edges, opts, bootTitle, bootDevice, incoming, nodeMap, isMirrorOf, multipleOutputs, intProp,
     nativeMultiRender, width, height, props, hw, isHub75, hub75Hw, xyTable, ss, rs, shape,
-    physLeds, outputConfigs, nativeFastLedAudio, hasExplicitAudioInput, aliasedTerminalId, floatExpr,
+    physLeds, outputConfigs, nativeFastLedAudio, audioSwitch: audio?.switched ?? null, hasExplicitAudioInput, aliasedTerminalId, floatExpr,
     pressButton, boolExpr, colorExpr, fastledPalette, paletteExpr, stereoVuMeters, loopLines,
     customDisplaySamples, customDisplayPublication, pinSetupLines, irNodes, midiDinReaders, setupLines, globalLines,
     needsMapFloat, needsWorley, needsSimplex, need3d, needsKelvin, needsT, needsShims, needsPhi, needsSdf, needsLattice, needsTruchet, needsTuring, needsFluid, needsSdVideo, needsFourier, needsSymmetry, needsAtan16, needsLatticeQ, needsHueMix, needsHsv, needsWrapX, needsFrameSample, needsDisplayText,

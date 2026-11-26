@@ -1,11 +1,12 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useUiStore, visibleLiveTouchScreen } from './state/uiStore'
-import { boardPartitionOf, loadWorkspaceAfterParts, rootGraphNodes, useGraphStore } from './state/graphStore'
+import { boardPartitionOf, loadWorkspaceAfterParts, rootGraphEdges, rootGraphNodes, useGraphStore } from './state/graphStore'
 import { getPartsLibrary } from './build/parts/partsLibrary'
 import { useAudioStore } from './state/audio/audioStore'
 import { useShowPlayback } from './state/player/showPlayback'
 import { AudioEngine } from './audio/audioEngine'
-import { graphAudioCapabilitySource, graphPreviewsComputerInput } from './state/audio/audioCapabilities'
+import { graphPreviewsComputerInput } from './state/audio/audioCapabilities'
+import { previewCaptureSource } from './state/audio/audioSourceSwitch'
 import { graphConsumesAudio } from './components/Preview/previewAudioUsage'
 import { MIC_DEFAULTS } from './audio/micAnalysis'
 import MenuBar from './components/MenuBar/MenuBar'
@@ -115,10 +116,9 @@ export default function App() {
   const setPreviewWidth = useUiStore((s) => s.setPreviewWidth)
   const startAudio = useAudioStore((s) => s.startAudio)
   const stopAudio = useAudioStore((s) => s.stopAudio)
-  const audioInputNode = useGraphStore((s) => {
-    const source = graphAudioCapabilitySource(rootGraphNodes(s))
-    return source?.kind === 'microphone' || source?.kind === 'line-in' ? source.node : undefined
-  })
+  // A Source switch that can reach a microphone or line input keeps capture
+  // running while the decoder is live, so switching back is instant.
+  const audioInputNode = useGraphStore((s) => previewCaptureSource(rootGraphNodes(s), rootGraphEdges(s))?.node)
   const audioInputProps = (audioInputNode?.data.properties as Record<string, unknown> | undefined) ?? null
   const hasAudioInputNode = audioInputProps !== null
   // A Microphone or Line Input choice whose part is not on the bench yet

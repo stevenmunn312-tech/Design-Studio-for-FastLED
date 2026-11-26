@@ -52,7 +52,10 @@ import { motionClockCpp } from './player/motionClockCpp'
 import {
   audioFeatureGlobalsCpp, audioFeatureHelpersCpp, audioFeatureResetCpp, audioFeatureSetupCpp,
   audioFeatureEdgesCpp, audioFeatureReadCpp, audioFeaturesInCode,
+  audioSourceApplyCpp, audioSourceControlCpp, audioSourceStateCpp,
+  type AudioSourceSettings, type CaptureSwitchSource,
 } from './audio/audioEngineCpp'
+import { AUDIO_SOURCE_POSITION_CPP } from '../state/audio/audioSourceSwitch'
 import {
   DETECTOR_TRAILER_FLAG_PITCH, DETECTOR_TRAILER_FLAG_STRUCTURE, DETECTOR_TRAILER_FLAG_VIBE, DETECTOR_TRAILER_VERSION,
   PITCH_FLAG_KEY_MINOR, PITCH_FLAG_NOTE_ON, PITCH_NO_KEY, PITCH_RECORD_BYTES,
@@ -321,6 +324,20 @@ export type PlayerControlSource =
   | { kind: 'encoderPosition'; pinA: number; pinB: number; pullup: boolean; scale: number; key: string }
   | { kind: 'encoderButton'; pin: number; pullup: boolean }
 
+/**
+ * The Audio node's Source switch in a player build. `sources` are the
+ * Processor settings of every source in switch order; `captures` hold the
+ * capture side of each microphone or line input at the same index (null at
+ * the decoder's). `drive` and `debounceMs` say how the wired value steps it.
+ */
+export interface PlayerAudioSwitch {
+  sources: AudioSourceSettings[]
+  captures: (CaptureSwitchSource | null)[]
+  startIndex: number
+  drive: 'press' | 'position'
+  debounceMs: number
+}
+
 export interface PlayerControlsConfig {
   bindings: Partial<Record<PlayerControlAction, PlayerControlSource>>
   debounceMs: number
@@ -499,6 +516,11 @@ export function generatePlayerSketch(
      * over. Ignored for a show-file player and for a Bluetooth one.
      */
     radio?: Omit<InternetRadioOptions, 'songInfo' | 'transport'> & { network: NetworkSketchEmit | null }
+    /**
+     * The Audio node's Source switch: every source on the bench, the decoder
+     * among them, in switch order. The control graph supplies the wired value.
+     */
+    audioSwitch?: PlayerAudioSwitch
   } = {},
 ): string {
   const raw = { ...DEFAULTS, ...cfg }
@@ -648,6 +670,15 @@ export function generatePlayerSketch(
     graphRouting?.timingInputs[port] ?? `${patternTiming[port].toFixed(4)}f`
   if (graphRouting?.errors.length) throw new Error(graphRouting.errors.join('\n'))
   const compiledGraph = graphRouting ? controlGraphCpp(graphRouting.graph) : null
+  // The Audio node's Source switch: the decoder tap's analysis task feeds the
+  // one Processor from whichever source is active. Only the SD, Bluetooth and
+  // radio players host the tap, and only a wired value can switch it.
+  const audioSwitchExpr = graphRouting?.audioSourceExpr
+  const audioSwitch = decoderTap && opts.audioSwitch && opts.audioSwitch.sources.length > 1 && audioSwitchExpr
+    ? opts.audioSwitch : null
+  const switchCaptures = audioSwitch
+    ? audioSwitch.captures.flatMap((capture) => capture ? [capture] : []) : []
+  const switchAdapter = switchCaptures.find((capture) => capture.pins)?.pins
   // Frame nodes between the engine and its LEDs, compiled as the collected
   // patterns are and run on the finished canvas (codegen/enginePostChain.ts).
   const postFrame = graphRouting?.post
@@ -727,6 +758,64 @@ export function generatePlayerSketch(
   // the baked envelope carries levels alone.
   const audioFeatures = audioFeaturesInCode(decoderTap && renderers ? [...renderers.helpers, ...renderers.functions] : [])
   const lines = (block: string[]) => (block.length ? `${block.join('\n')}\n` : '')
+  // What the analysis task publishes after each block it hands the Processor,
+  // whichever source the block came from.
+  const analysisPublishCpp = `      _audioBass = _audioProcessor->getBassLevel();
+      _audioMids = _audioProcessor->getMidLevel();
+      _audioTreble = _audioProcessor->getTrebleLevel();
+      _audioBpm = _audioProcessor->getBPM();
+      _audioBeatConfidence = _audioProcessor->getBeatConfidence();
+${lines(audioFeatureReadCpp(audioFeatures).map((line) => '    ' + line))}${needsSpectrum ? `      // FastLED exposes 16 normalized EQ bins; duplicate them into Studio's
+      // established 32-slot spectrum contract, matching the microphone engine.
+      for (int b = 0; b < 32; b++) _audioSpectrum[b] = _audioProcessor->getEqBin(b >> 1);
+` : ''}`
+  // The capture side of the source switch, run by the analysis task in place
+  // of the decoder's ring while a microphone or line input is active.
+  const captureBranchCpp = audioSwitch ? `    // Audio Source: while a microphone or line input is active, the decoder
+    // keeps playing but its queued blocks are dropped, and the capture input
+    // feeds the Processor instead, with no speaker hold: it hears the room as
+    // the listener does.
+    {
+      const uint8_t source = _audioSourceActive;
+      if (source != _audioSourceApplied) {
+        _audioSourceApply(source);
+        _audioSourceApplied = source;
+      }
+      if (_audioSourceKind[source] != AUDIO_SOURCE_DECODER) {
+        portENTER_CRITICAL(&_decoderTapMux);
+        _decoderTapRead = _decoderTapWrite;
+        _decoderTapQueued = 0;
+        portEXIT_CRITICAL(&_decoderTapMux);
+        fl::audio::Sample sample = _audioCapture[source] ? _audioCapture[source]->read() : fl::audio::Sample();
+        if (!sample.isValid()) { vTaskDelay(1); continue; }
+        uint32_t now = millis();
+        _audioProcessor->update(sample);
+${needsStereoLevels ? `        {
+          // The conditioned, gained block meters both rails, as a microphone
+          // engine's Loudness reads it; the decoder's volume undo is skipped.
+          const auto& pcm = _audioProcessor->getSample().pcm();
+          uint64_t squares = 0;
+          for (size_t i = 0; i < pcm.size(); ++i) squares += (uint64_t)((int64_t)pcm[i] * pcm[i]);
+          portENTER_CRITICAL(&_decoderTapMux);
+          _decoderLeftSquares = _decoderLeftSquares + squares;
+          _decoderRightSquares = _decoderRightSquares + squares;
+          _decoderLevelFrames = _decoderLevelFrames + (uint32_t)pcm.size();
+          portEXIT_CRITICAL(&_decoderTapMux);
+        }
+` : ''}${audioFeatures.pitch || audioFeatures.waveform ? `        {
+          const auto& pcm = sample.pcm();
+          const size_t n = pcm.size() < DECODER_TAP_BLOCK_SAMPLES ? pcm.size() : DECODER_TAP_BLOCK_SAMPLES;
+          portENTER_CRITICAL(&_decoderTapMux);
+          for (size_t i = 0; i < DECODER_TAP_BLOCK_SAMPLES; ++i) _decoderTapLatest[i] = i < n ? pcm[i] : 0;
+          _decoderTapLatestStamp = now;
+          portEXIT_CRITICAL(&_decoderTapMux);
+        }
+` : ''}${analysisPublishCpp.replace(/^ {6}/gm, '        ')}        _decoderTapLastMs = now;
+        vTaskDelay(1);
+        continue;
+      }
+    }
+` : ''
   // The Bluetooth player writes I2S through audio-tools; validation refuses it without an I2S stage.
   const internalDac = sdPlayer && c.audioOutput === 'internalDac'
   // The Bluetooth tap reads the stream before the sink's volume; only the
@@ -1480,6 +1569,9 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
       ...tftTouchServiceCpp(touch, { kind: 'bundle', variable: controlBundleVariable(touch.id) }),
     ]),
     ...(compiledGraph?.loop ?? []),
+    ...(audioSwitch && audioSwitchExpr ? audioSourceControlCpp({
+      drive: audioSwitch.drive, valueExpr: audioSwitchExpr, count: audioSwitch.sources.length, debounceMs: audioSwitch.debounceMs,
+    }) : []),
     ...graphRouting.controls.flatMap(playerControlsServiceCpp),
     // After the control graph, which is where a wired Enabled acquires a value.
     ...(customDisplays?.enable ?? []),
@@ -1839,7 +1931,19 @@ static volatile uint32_t _decoderLevelFrames = 0;
 static fl::shared_ptr<fl::audio::Processor> _audioProcessor;
 static volatile uint32_t _audioBeatCount = 0;
 static uint32_t _audioBeatSeen = 0;
-${lines(audioFeatureGlobalsCpp(audioFeatures))}${audioFeatures.pitch || audioFeatures.waveform ? `
+${audioSwitch ? `// ── Audio Source switch ──────────────────────────────────────────────────────
+// Every audio source on the bench runs at once, each on its own I2S port: the
+// decoder's amplifier on I2S0, a microphone or line input on I2S1. The
+// analysis task feeds the one Processor from whichever is active, so the
+// levels, beat and detectors follow the switch (state/audio/audioSourceSwitch.ts).
+${lines([...new Set(switchCaptures.flatMap((capture) => capture.include))])}${switchAdapter ? `#define MIC_WS    ${switchAdapter.ws}
+#define MIC_SCK   ${switchAdapter.sck}
+#define MIC_SD    ${switchAdapter.sd}
+#define LINE_IN_MCLK ${switchAdapter.mclk}
+#define MIC_GAIN  ${(switchCaptures.find((capture) => capture.pins)?.gain ?? 1).toFixed(3)}f  // the adapter meters its own level with it
+` : ''}${lines(switchCaptures.flatMap((capture) => capture.globals))}${switchCaptures.some((capture) => capture.lineIn) ? 'static fl::shared_ptr<StudioPcm1802Input> _lineInput;\n' : ''}#define AUDIO_SOURCE_COUNT ${audioSwitch.sources.length}
+static fl::shared_ptr<fl::audio::IInput> _audioCapture[AUDIO_SOURCE_COUNT];  // null at the decoder
+${lines(audioSourceStateCpp(audioSwitch.startIndex))}${lines(audioSourceApplyCpp(audioSwitch.sources))}${audioSwitch.drive === 'position' ? lines(AUDIO_SOURCE_POSITION_CPP) : ''}` : ''}${lines(audioFeatureGlobalsCpp(audioFeatures))}${audioFeatures.pitch || audioFeatures.waveform ? `
 // Pitch and Waveform step in the loop, but the processor belongs to the
 // analysis task, so they read a copy of the newest analysed block instead of
 // getSample(), which that task replaces mid-read.
@@ -2127,9 +2231,9 @@ ${bluetooth ? `\n${BLUETOOTH_TAP_CPP}\n` : ''}
 static void _decoderAnalysisLoop(void *) {
   static int16_t block[DECODER_TAP_BLOCK_SAMPLES];
   for (;;) {
-    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(50));
+${captureBranchCpp}    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(50));
     for (;;) {
-      portENTER_CRITICAL(&_decoderTapMux);
+${audioSwitch ? '      if (_audioSourceKind[_audioSourceActive] != AUDIO_SOURCE_DECODER) break;\n' : ''}      portENTER_CRITICAL(&_decoderTapMux);
       // The newest DECODER_TAP_DELAY_BLOCKS stay queued: they are still in the
       // output's DMA, unheard.
       bool have = _decoderTapQueued > DECODER_TAP_DELAY_BLOCKS;
@@ -2151,15 +2255,7 @@ ${audioFeatures.pitch || audioFeatures.waveform ? `      portENTER_CRITICAL(&_de
       memcpy(_decoderTapLatest, block, sizeof(block));
       _decoderTapLatestStamp = now;
       portEXIT_CRITICAL(&_decoderTapMux);
-` : ''}      _audioBass = _audioProcessor->getBassLevel();
-      _audioMids = _audioProcessor->getMidLevel();
-      _audioTreble = _audioProcessor->getTrebleLevel();
-      _audioBpm = _audioProcessor->getBPM();
-      _audioBeatConfidence = _audioProcessor->getBeatConfidence();
-${lines(audioFeatureReadCpp(audioFeatures).map((line) => '    ' + line))}${needsSpectrum ? `      // FastLED exposes 16 normalized EQ bins; duplicate them into Studio's
-      // established 32-slot spectrum contract, matching the microphone engine.
-      for (int b = 0; b < 32; b++) _audioSpectrum[b] = _audioProcessor->getEqBin(b >> 1);
-` : ''}      _decoderTapLastMs = now;
+` : ''}${analysisPublishCpp}      _decoderTapLastMs = now;
       // Never back to back: the idle task on this core feeds the watchdog.
       vTaskDelay(1);
     }
@@ -2177,10 +2273,11 @@ void setupDecoderTap() {
   (void)_audioProcessor->getTrebleLevel();
   (void)_audioProcessor->getBPM();
 ${needsSpectrum ? '  (void)_audioProcessor->getEqBin(0);\n' : ''}
-${lines(audioFeatureSetupCpp(audioFeatures))}  xTaskCreatePinnedToCore(_decoderAnalysisLoop, "audioAnalysis", 8192, nullptr, 1, &_decoderAnalysisTask, 0);
+${lines(audioFeatureSetupCpp(audioFeatures))}${audioSwitch ? `${lines(audioSwitch.captures.flatMap((capture, index) => capture ? [`  _audioCapture[${index}] = ${capture.createExpr};`] : []))}  for (int i = 0; i < AUDIO_SOURCE_COUNT; ++i) if (_audioCapture[i]) _audioCapture[i]->start();
+` : ''}  xTaskCreatePinnedToCore(_decoderAnalysisLoop, "audioAnalysis", 8192, nullptr, 1, &_decoderAnalysisTask, 0);
 }
 
-${vuNormalizedLevelCpp({ rmsScaleExpr: '_decoderVolumeComp' }).join('\n')}
+${vuNormalizedLevelCpp({ rmsScaleExpr: audioSwitch ? '(_audioSourceKind[_audioSourceActive] == AUDIO_SOURCE_DECODER ? _decoderVolumeComp : 1.0f)' : '_decoderVolumeComp' }).join('\n')}
 
 void updateDecoderAudio() {
   if (!_audioProcessor) {

@@ -5,6 +5,7 @@
  * once, adds the per-node half for every node it emits, and dispatches by type.
  */
 import type { StudioNode, StudioEdge } from '../state/graphStore'
+import type { CaptureSwitch } from './audio/audioEngineCpp'
 import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import type { BakedCustomDisplayAsset } from '../state/displays/customDisplayResources'
 import type { OutputRoute } from '../state/output/outputRouting'
@@ -116,6 +117,8 @@ export interface SketchEmitContext {
   physLeds: 'RING_LEDS' | 'CORKSCREW_LEDS' | 'POS_LEDS' | 'PANEL_LEDS' | 'NUM_LEDS'
   outputConfigs: OutputEmitConfig[]
   nativeFastLedAudio: boolean
+  /** The sketch's audio source switch, when its engine hosts one. */
+  audioSwitch: CaptureSwitch | null
   /** Whether `port` on this node (its `audio` input unless named) is fed by live audio. */
   hasExplicitAudioInput: (nodeId: string, port?: string) => boolean
   /** The node rendering straight into `leds`, once that node has emitted. */

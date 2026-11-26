@@ -14,6 +14,7 @@ import {
 import { type MicModule, micModuleFor } from '../../state/peripherals/micModules'
 import { sanitizePin } from '../hardwarePins'
 import { resolveAudioCapabilitySource } from '../../state/audio/audioCapabilities'
+import { AUDIO_SOURCE_POSITION_CPP, audioSourceSwitchFor } from '../../state/audio/audioSourceSwitch'
 import type { GroupRegistry } from '../../state/evaluator/types'
 import { pitchGlobalsCpp, pitchHelperCpp } from '../helpers/pitchHelperCpp'
 import { WAVE_SAMPLES } from '../../state/evaluator/waveform'
@@ -260,6 +261,7 @@ function audioEngineCpp(
   pitch = false,
   waveform = false,
   loudness = false,
+  switched: CaptureSwitch | null = null,
 ): string[] {
   const audioChannel = channel === 'Right'
     ? 'fl::audio::AudioChannel::Right'
@@ -267,12 +269,23 @@ function audioEngineCpp(
       ? 'fl::audio::AudioChannel::Both'
       : 'fl::audio::AudioChannel::Left'
   const sph0645 = source === 'microphone' && micModule?.capture === 'sph0645-classic-esp32'
-  const captureAdapter = source === 'line-in'
+  const captureAdapter = switched
+    ? switched.sources.flatMap((entry) => entry.globals)
+    : source === 'line-in'
     ? pcm1802CaptureAdapterCpp(channel)
     : sph0645
       ? sph0645CaptureAdapterCpp(channel === 'Right' ? 'Right' : 'Left')
       : audioCaptureAdapterCpp(backend, channel === 'Both' ? 'Left' : channel)
-  const createInput = source === 'line-in'
+  const lineInLevels = switched ? switched.sources.some((entry) => entry.lineIn) : source === 'line-in'
+  const createInput = switched
+    ? [
+        '  // Every source on the bench is opened, each on its own I2S port, and',
+        '  // one Processor hears whichever is active (state/audio/audioSourceSwitch.ts).',
+        ...switched.sources.map((entry, index) => `  _audioCapture[${index}] = ${entry.createExpr};`),
+        `  for (int i = 0; i < AUDIO_SOURCE_COUNT; ++i) if (_audioCapture[i]) _audioCapture[i]->start();`,
+        '  _audioProcessor = fl::make_shared<fl::audio::Processor>();',
+      ]
+    : source === 'line-in'
     ? [
         '  _lineInput = fl::make_shared<StudioPcm1802Input>();',
         '  _audioProcessor = FastLED.add(_lineInput);',
@@ -292,8 +305,8 @@ function audioEngineCpp(
   const features: AudioFeatures = { vibe, structure, pitch, waveform, loudness }
   const profileApplies = (backend === 'fastled-esp32' || backend === 'fastled-teensy') && !sph0645
   return [
-    `// ── FastLED ${source === 'line-in' ? 'PCM1802 line-in' : micModule?.label} audio reactivity ─────────────────────────────────`,
-    ...(source === 'microphone' && !profileApplies
+    `// ── FastLED ${switched ? 'switchable' : source === 'line-in' ? 'PCM1802 line-in' : micModule?.label} audio reactivity ─────────────────────────────────`,
+    ...(source === 'microphone' && !profileApplies && !switched
       ? [`// This capture backend applies no mic response profile, so the ${micModule?.label}`,
          '// is read with the same plain I2S path as any other I2S MEMS module.']
       : []),
@@ -316,10 +329,17 @@ function audioEngineCpp(
     'float _audioBeatConfidence = 0.0f;',
     ...audioFeatureGlobalsCpp(features),
     'static float _audioSpectrum[32];',
-    ...(source === 'line-in' ? ['static fl::shared_ptr<StudioPcm1802Input> _lineInput;'] : []),
+    ...(lineInLevels ? ['static fl::shared_ptr<StudioPcm1802Input> _lineInput;'] : []),
     'static fl::shared_ptr<fl::audio::Processor> _audioProcessor;',
     'static volatile uint32_t _audioBeatCount = 0;',
     'static uint32_t _audioBeatSeen = 0;',
+    ...(switched ? [
+      `#define AUDIO_SOURCE_COUNT ${switched.sources.length}`,
+      'static fl::shared_ptr<fl::audio::IInput> _audioCapture[AUDIO_SOURCE_COUNT];',
+      ...audioSourceStateCpp(switched.startIndex),
+      ...audioSourceApplyCpp(switched.sources),
+      ...(switched.drive === 'position' ? AUDIO_SOURCE_POSITION_CPP : []),
+    ] : []),
     ...audioFeatureHelpersCpp(features),
     '',
     'void setupAudio() {',
@@ -328,8 +348,11 @@ function audioEngineCpp(
     '#endif',
     ...createInput,
     '  if (!_audioProcessor) return;',
-    '  _audioProcessor->setGain(MIC_GAIN);',
-    ...(noiseGate === MIC_DEFAULTS.noiseGate ? [] : [
+    ...(switched ? [
+      '  _audioSourceApply(_audioSourceActive);',
+      '  _audioSourceApplied = _audioSourceActive;',
+    ] : ['  _audioProcessor->setGain(MIC_GAIN);']),
+    ...(noiseGate === MIC_DEFAULTS.noiseGate || switched ? [] : [
       '  // Noise gate from the input node; FastLED applies it before MIC_GAIN.',
       '  fl::audio::SignalConditionerConfig conditioner;',
       `  conditioner.noiseGateOpenThreshold = ${noiseGate};`,
@@ -358,15 +381,41 @@ function audioEngineCpp(
     '    for (int i = 0; i < 32; ++i) _audioSpectrum[i] = 0.0f;',
     '    return;',
     '  }',
-    '  // FastLED reads the capture input from a 1 ms scheduler task, and since',
-    '  // 3.10.7 nothing in show() or its driver wait loops runs that scheduler.',
-    '  // Without this pump the processor never sees a sample and every level',
-    '  // below stays at zero, however loud the room is.',
-    '  fl::task::run(0);',
+    ...(switched ? [
+      '  uint8_t source = _audioSourceActive;',
+      '  if (source != _audioSourceApplied) {',
+      '    _audioSourceApply(source);',
+      '    _audioSourceApplied = source;',
+      '  }',
+      '  // Every input is drained each frame, so the one switched to next starts',
+      '  // on fresh audio; only the active one reaches the processor.',
+      '  for (int i = 0; i < AUDIO_SOURCE_COUNT; ++i) {',
+      '    if (!_audioCapture[i]) continue;',
+      '    for (int n = 0; n < 8; ++n) {',
+      '      fl::audio::Sample sample = _audioCapture[i]->read();',
+      '      if (!sample.isValid()) break;',
+      '      if (i == source) _audioProcessor->update(sample);',
+      '    }',
+      '  }',
+    ] : [
+      '  // FastLED reads the capture input from a 1 ms scheduler task, and since',
+      '  // 3.10.7 nothing in show() or its driver wait loops runs that scheduler.',
+      '  // Without this pump the processor never sees a sample and every level',
+      '  // below stays at zero, however loud the room is.',
+      '  fl::task::run(0);',
+    ]),
     '  _audioBass = _audioProcessor->getBassLevel();',
     '  _audioMids = _audioProcessor->getMidLevel();',
     '  _audioTreble = _audioProcessor->getTrebleLevel();',
-    ...(source === 'line-in' ? [
+    ...(switched && lineInLevels ? [
+      `  if (_audioSourceKind[source] == AUDIO_SOURCE_LINE_IN) {`,
+      '    _audioLeftLevel = _lineInput ? _lineInput->leftLevel() : 0.0f;',
+      '    _audioRightLevel = _lineInput ? _lineInput->rightLevel() : 0.0f;',
+      '  } else {',
+      '    _audioLeftLevel = _audioRightLevel = max(_audioBass, max(_audioMids, _audioTreble));',
+      '  }',
+      ...(features.loudness ? ['  _audioLoudness = max(_audioLeftLevel, _audioRightLevel);'] : []),
+    ] : source === 'line-in' && !switched ? [
       '  _audioLeftLevel = _lineInput ? _lineInput->leftLevel() : 0.0f;',
       '  _audioRightLevel = _lineInput ? _lineInput->rightLevel() : 0.0f;',
       ...(features.loudness ? ['  _audioLoudness = max(_audioLeftLevel, _audioRightLevel);'] : []),
@@ -839,18 +888,39 @@ export function audioEngineForGraph(
   capabilityNodes: StudioNode[] = nodes,
   groups: GroupRegistry = {},
   edges: readonly StudioEdge[] = [],
-): { include: string; code: string[]; fqbn: string; backend: MicFirmwareBackend } | null {
+): { include: string; code: string[]; fqbn: string; backend: MicFirmwareBackend; switched?: CaptureSwitch } | null {
   const capabilitySource = nodes
     .filter((node) => node.data.nodeType === 'Audio')
     .map((node) => resolveAudioCapabilitySource(capabilityNodes, (node.data.properties as Record<string, unknown>).sourceId)?.node)
     .find((node) => node?.data.nodeType === 'MicInput' || node?.data.nodeType === 'LineInput')
   const sourceNode = capabilitySource
-  if (!sourceNode) return null
   // The Board node is the sole target authority. MatrixOutput's legacy board
   // field and the upload store are intentionally not consulted here.
   const fqbn = micFqbnForBoardProfile(selectedPhysicalBoardProfile(capabilityNodes))
   const backend = fqbn ? micFirmwareBackendForBoard(fqbn) : undefined
   if (!fqbn || !backend) return null
+  // A wired Source switch between two capture parts opens both.
+  const switched = captureSwitchForGraph(nodes, capabilityNodes, edges, fqbn)
+  if (switched) {
+    const adapterSource = switched.sources.find((source) => source.pins)
+    const adapter = adapterSource?.pins
+    const includes = [...new Set(switched.sources.flatMap((source) => source.include))]
+    return {
+      include: ['// Switchable capture: every source on the bench feeds one FastLED Processor in turn.', ...includes].join('\n'),
+      code: audioEngineCpp(
+        backend, adapter?.ws ?? -1, adapter?.sck ?? -1, adapter?.sd ?? -1, 'Left',
+        adapterSource?.gain ?? MIC_DEFAULTS.gain, MIC_DEFAULTS.noiseGate,
+        switched.serialDebug,
+        'microphone', adapter?.mclk ?? -1, null,
+        graphUsesVibe(nodes, groups), graphUsesSongStructure(nodes, groups), graphUsesPitch(nodes, groups),
+        graphUsesWaveform(nodes, groups), graphUsesLoudness(nodes, edges, groups), switched,
+      ),
+      fqbn,
+      backend,
+      switched,
+    }
+  }
+  if (!sourceNode) return null
   const lineInput = sourceNode.data.nodeType === 'LineInput'
   // PCM1802's MCLK path is implemented against the ESP32 I2S peripheral. The
   // UI and validation keep it off other families, but codegen stays defensive
@@ -919,4 +989,210 @@ export function audioEngineForGraph(
     fqbn,
     backend,
   }
+}
+
+// ── Runtime source switch ─────────────────────────────────────────────────────
+
+/**
+ * One capture source a switching sketch opens beside the others, each on its
+ * own I2S port: the decoder's amplifier holds I2S0 in a player build, so a
+ * microphone there takes I2S1; in a sketch the first source takes I2S0 and
+ * the second I2S1. FastLED's microphone factories take the port; the app's
+ * own adapters are rewritten onto it.
+ */
+export interface CaptureSwitchSource {
+  kind: 'microphone' | 'line-in'
+  /** File-scope code: the app's adapter class. */
+  globals: string[]
+  /** Driver headers the adapter needs. */
+  include: string[]
+  /** The `fl::shared_ptr<fl::audio::IInput>` for this source, created in setup. */
+  createExpr: string
+  gain: number
+  noiseGate: number
+  /** `fl::audio::MicProfile` member applied while this source is active. */
+  profile: string
+  /** The PCM1802 adapter, which meters its own stereo levels. */
+  lineIn: boolean
+  /** An adapter's pins, which the engine's MIC_* macros name. */
+  pins?: { ws: number; sck: number; sd: number; mclk: number }
+}
+
+export interface CaptureSwitch {
+  sources: CaptureSwitchSource[]
+  startIndex: number
+  /** How the wire drives it: a press steps on, a number picks by position. */
+  drive: 'press' | 'position'
+  /** Any of the parts asked for serial levels. */
+  serialDebug: boolean
+}
+
+/** Move an adapter written for I2S0 onto another port; port 0 is left as written. */
+function onI2sPort(lines: string[], port: number): string[] {
+  if (port === 0) return lines
+  return lines.map((line) => line.replace(/I2S_NUM_0/g, `I2S_NUM_${port}`).replace(/_REG\(0\)/g, `_REG(${port})`))
+}
+
+/**
+ * The capture side of one MicInput or LineInput for a switching ESP32 sketch,
+ * or null where it cannot be opened beside another source (not an ESP32, or a
+ * part this board cannot read).
+ */
+export function captureSwitchSource(node: StudioNode, fqbn: string, port: number): CaptureSwitchSource | null {
+  if (micFirmwareBackendForBoard(fqbn) !== 'fastled-esp32') return null
+  const p = node.data.properties as Record<string, unknown>
+  const fc = (v: unknown, d: number, min: number, max: number) => {
+    const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : d
+  }
+  const gain = fc(p.gain, MIC_DEFAULTS.gain, 0, MIC_MAX_GAIN)
+  const noiseGate = Math.round(fc(p.noiseGate, MIC_DEFAULTS.noiseGate, 0, MIC_MAX_NOISE_GATE))
+  const driverHeaders = ['#include <esp_idf_version.h>', '#if ESP_IDF_VERSION_MAJOR >= 5', '#include <driver/i2s_std.h>', '#else', '#include <driver/i2s.h>', '#endif']
+  if (node.data.nodeType === 'LineInput') {
+    if (!fqbn.startsWith('esp32:esp32:esp32s3')) return null
+    const saved = String(p.channel ?? 'Both')
+    const channel = saved === 'Left' || saved === 'Right' ? saved : 'Both'
+    return {
+      kind: 'line-in', include: driverHeaders,
+      globals: onI2sPort(pcm1802CaptureAdapterCpp(channel), port),
+      createExpr: '(_lineInput = fl::make_shared<StudioPcm1802Input>())',
+      gain, noiseGate, profile: 'None', lineIn: true,
+      pins: { ws: sanitizePin(p.i2sLrclk, 26), sck: sanitizePin(p.i2sBclk, 27), sd: sanitizePin(p.i2sDout, 25), mclk: sanitizePin(p.i2sMclk, 14) },
+    }
+  }
+  if (node.data.nodeType !== 'MicInput' || !micSupportedForBoard(fqbn, p.partId)) return null
+  const micModule = micModuleFor(p.partId)
+  if (!micModule) return null
+  const ws = sanitizePin(p.i2sWs, 39), sck = sanitizePin(p.i2sSck, 40), sd = sanitizePin(p.i2sSd, 41)
+  const side = String(p.channel ?? 'Left') === 'Right' ? 'Right' : 'Left'
+  if (micModule.capture === 'sph0645-classic-esp32') {
+    return {
+      kind: 'microphone', include: [...driverHeaders, '#include <soc/soc.h>', '#include <soc/i2s_reg.h>'],
+      globals: onI2sPort(sph0645CaptureAdapterCpp(side), port),
+      createExpr: 'fl::make_shared<StudioSph0645Input>()',
+      gain, noiseGate, profile: 'None', lineIn: false,
+      pins: { ws, sck, sd, mclk: -1 },
+    }
+  }
+  if (!micModule.factory) return null
+  return {
+    kind: 'microphone', include: [], globals: [],
+    createExpr: `fl::audio::IInput::create(fl::audio::Config::${micModule.factory}(${ws}, ${sd}, ${sck}, fl::audio::AudioChannel::${side}, 44100ul, ${port}))`,
+    gain, noiseGate, profile: micModule.profile ?? 'None', lineIn: false,
+  }
+}
+
+/**
+ * The active source, written by whatever reads the Source input and read by
+ * whatever feeds the processor. `_audioSourceApplied` belongs to the feeder:
+ * the processor's settings change only where it runs.
+ */
+export function audioSourceStateCpp(startIndex: number): string[] {
+  return [
+    `static volatile uint8_t _audioSourceActive = ${startIndex};`,
+    'static uint8_t _audioSourceApplied = 255;',
+  ]
+}
+
+/** One source's settings, as `_audioSourceApply` needs them; the decoder takes FastLED's defaults. */
+export interface AudioSourceSettings {
+  kind: 'microphone' | 'line-in' | 'decoder'
+  gain: number
+  noiseGate: number
+  profile: string
+}
+
+export const DECODER_SOURCE_SETTINGS: AudioSourceSettings = {
+  kind: 'decoder', gain: 1, noiseGate: MIC_DEFAULTS.noiseGate, profile: 'None',
+}
+
+/**
+ * `_audioSourceApply(i)`: hand the one shared Processor the gain, noise gate
+ * and mic response of source `i`. The Processor is not reset: `reset()` drops
+ * its detectors and the callbacks registered on them, and its adaptive levels
+ * settle on the new source within a second anyway, as they do on a new song.
+ */
+export function audioSourceApplyCpp(sources: readonly AudioSourceSettings[]): string[] {
+  const kindId = (kind: AudioSourceSettings['kind']) =>
+    kind === 'line-in' ? 'AUDIO_SOURCE_LINE_IN' : kind === 'decoder' ? 'AUDIO_SOURCE_DECODER' : 'AUDIO_SOURCE_MIC'
+  const label = (kind: AudioSourceSettings['kind']) =>
+    kind === 'decoder' ? 'Audio Decoder' : kind === 'line-in' ? 'Line Input' : 'Microphone'
+  return [
+    'enum : uint8_t { AUDIO_SOURCE_MIC = 0, AUDIO_SOURCE_LINE_IN = 1, AUDIO_SOURCE_DECODER = 2 };',
+    `static const uint8_t _audioSourceKind[${sources.length}] = {${sources.map((source) => kindId(source.kind)).join(', ')}};`,
+    'static void _audioSourceApply(uint8_t source) {',
+    '  if (!_audioProcessor) return;',
+    '  fl::audio::SignalConditionerConfig conditioner;',
+    '  switch (source) {',
+    ...sources.flatMap((source, index) => [
+      `    case ${index}:  // ${label(source.kind)}`,
+      `      _audioProcessor->setGain(${source.gain.toFixed(3)}f);`,
+      ...(source.noiseGate !== MIC_DEFAULTS.noiseGate ? [
+        `      conditioner.noiseGateOpenThreshold = ${source.noiseGate};`,
+        `      conditioner.noiseGateCloseThreshold = ${noiseGateCloseThreshold(source.noiseGate)};`,
+      ] : []),
+      `      _audioProcessor->setMicProfile(fl::audio::MicProfile::${source.profile});`,
+      '      break;',
+    ]),
+    '    default: break;',
+    '  }',
+    '  _audioProcessor->configureSignalConditioner(conditioner);',
+    '}',
+  ]
+}
+
+/** The ESP32 boards whose two I2S controllers let two capture sources run at once. */
+function hasTwoI2sPorts(fqbn: string): boolean {
+  if (!fqbn.startsWith('esp32:esp32:')) return false
+  return !/^esp32:esp32:esp32(?:s2|c\d|h\d)/.test(fqbn)
+}
+
+/**
+ * The switch a sketch can host: two capture sources on an ESP32 with a port
+ * for each, wired to the Audio node's Source input. Null otherwise, and the
+ * sketch then listens to the body's choice alone; Checks says why.
+ */
+export function captureSwitchForGraph(
+  nodes: readonly StudioNode[], capabilityNodes: readonly StudioNode[], edges: readonly StudioEdge[], fqbn: string,
+): CaptureSwitch | null {
+  const sw = audioSourceSwitchFor(nodes, edges, capabilityNodes)
+  if (!sw || sw.sources.length !== 2 || sw.sources.some((source) => source.kind === 'decoder')) return null
+  if (!hasTwoI2sPorts(fqbn)) return null
+  const sources = sw.sources.map((source, index) => captureSwitchSource(source.node, fqbn, index))
+  if (sources.some((source) => !source)) return null
+  // One adapter at most: the MIC_* pin macros are shared.
+  if (sources.filter((source) => source!.pins).length > 1) return null
+  return {
+    sources: sources as CaptureSwitchSource[],
+    startIndex: sw.startIndex,
+    drive: sw.drive,
+    serialDebug: sw.sources.some((source) => source.node.data.properties.serialDebug === true),
+  }
+}
+
+/**
+ * The loop's read of the Source input, writing `_audioSourceActive`: a press
+ * steps on once per press, debounced like a contact when it comes from one and
+ * never repeating; a number selects on each change of position, and at boot.
+ * The preview's twin is `stepAudioSourceSwitch`.
+ */
+export function audioSourceControlCpp(o: {
+  drive: 'press' | 'position'; valueExpr: string; count: number; debounceMs: number
+}): string[] {
+  if (o.drive === 'press') {
+    return [
+      '  // Audio Source: each press steps to the next source on the bench.',
+      '  { static bool _asRaw = false, _asStable = false; static uint32_t _asChanged = 0;',
+      `    const bool _asIn = ${o.valueExpr}; const uint32_t _asNow = millis();`,
+      '    if (_asIn != _asRaw) { _asRaw = _asIn; _asChanged = _asNow; }',
+      `    if (_asStable != _asRaw && _asNow - _asChanged >= ${Math.round(o.debounceMs)}u) {`,
+      '      _asStable = _asRaw;',
+      `      if (_asStable) _audioSourceActive = (uint8_t)((_audioSourceActive + 1) % ${o.count});`,
+      '    } }',
+    ]
+  }
+  return [
+    '  // Audio Source: the number picks a source by position, on each change.',
+    `  { static int _asChosen = -1; const int _asPick = _audioSourcePosition((float)(${o.valueExpr}), ${o.count});`,
+    '    if (_asPick != _asChosen) { _asChosen = _asPick; _audioSourceActive = (uint8_t)_asPick; } }',
+  ]
 }

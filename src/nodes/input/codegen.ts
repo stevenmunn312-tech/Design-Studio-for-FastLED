@@ -1,5 +1,7 @@
 import { controlInputCpp } from '../../codegen/controlInputCpp'
 import { powerMonitorLoopCpp } from '../../codegen/peripherals/powerMonitorCpp'
+import { audioSourceControlCpp } from '../../codegen/audio/audioEngineCpp'
+import { AUDIO_SOURCE_INPUT, audioSourcePressSettings } from '../../state/audio/audioSourceSwitch'
 import { presenceSensorLoopCpp } from '../../codegen/peripherals/presenceSensorCpp'
 import { lightSensorLoopCpp } from '../../codegen/peripherals/lightSensorCpp'
 import { environmentSensorLoopCpp } from '../../codegen/peripherals/environmentSensorCpp'
@@ -38,8 +40,17 @@ const controlInput: NodeEmitter = ({ node, id, p, ln, pinSetupLines, edges, glob
 }
 
 export const INPUT_EMITTERS: NodeEmitters = {
-  Audio({ ln }) {
+  Audio({ ln, node, audioSwitch, incoming, nodeMap, boolExpr, f }) {
     ln(`  // Audio capability — the selected hardware source is hosted once by the sketch.`)
+    // A wired Source switches it: the engine opened every source on the bench.
+    if (!audioSwitch || !incoming.has(`${node.id}:${AUDIO_SOURCE_INPUT}`)) return
+    const wire = incoming.get(`${node.id}:${AUDIO_SOURCE_INPUT}`)
+    for (const line of audioSourceControlCpp({
+      drive: audioSwitch.drive,
+      valueExpr: audioSwitch.drive === 'press' ? boolExpr(node.id, AUDIO_SOURCE_INPUT) : f(AUDIO_SOURCE_INPUT, AUDIO_SOURCE_INPUT, 0),
+      count: audioSwitch.sources.length,
+      debounceMs: audioSourcePressSettings(wire ? nodeMap.get(wire.srcId)?.data.nodeType : undefined).debounceMs,
+    })) ln(line)
   },
   TouchButtonInput: controlInput,
   ButtonBank: controlInput,
