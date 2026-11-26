@@ -34,7 +34,7 @@ export const INPUT_REFERENCE: NodeReferenceMap = {
       'To switch sources on the board, drag a Button’s or an Encoder’s output onto the Source row. The body lists the sources it switches between and which one is live.',
     ],
     inputs: {
-      source: 'Switches the source while the board runs, among the sources on the bench. Each press steps to the next; a number picks one by position from 0, wrapping. Hidden until something is wired to it.',
+      select: 'Switches the source while the board runs, among the sources on the bench. Each press steps to the next; a number picks one by position from 0, wrapping. Hidden until something is wired to it.',
     },
     outputs: {
       audio: 'The selected source’s audio. Every analyser or audio pattern wired here hears the same stream.',

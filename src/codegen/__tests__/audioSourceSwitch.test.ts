@@ -47,7 +47,7 @@ function shelf(boardId = 'espressif-esp32-s3-devkitc-1', control?: [StudioNode, 
     node('vu', 'StereoVuMeter', { targetOutputId: '', leftLedCount: 16, rightLedCount: 16, leftDataPin: 21, rightDataPin: 47 }),
     ...(control ? [control[0]] : [])]
   const edges = [edge('master', 'frame', 'out', 'frame'), edge('collection', 'patternset', 'master', 'patternset'),
-    edge('audio', 'audio', 'vu', 'audio'), ...(control ? [edge(control[0].id, control[1], 'audio', 'source')] : [])]
+    edge('audio', 'audio', 'vu', 'audio'), ...(control ? [edge(control[0].id, control[1], 'audio', 'select')] : [])]
   return { nodes, edges }
 }
 
@@ -105,7 +105,7 @@ describe('Audio Source switch: single-board sketch', () => {
       node('knob', 'EncoderInput', { pinA: 8, pinB: 9, pinSW: 10 }),
       node('pulse', 'BassPulse'), node('audio', 'Audio', { sourceId: 'kind:line-in' })]
     const edges = [edge('audio', 'audio', 'pulse', 'audio'), edge('pulse', 'frame', 'out', 'frame'),
-      ...(wired ? [edge('knob', 'level', 'audio', 'source')] : [])]
+      ...(wired ? [edge('knob', 'level', 'audio', 'select')] : [])]
     return { nodes, edges }
   }
 

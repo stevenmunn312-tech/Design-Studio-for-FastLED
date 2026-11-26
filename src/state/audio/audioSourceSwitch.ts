@@ -28,8 +28,8 @@ import {
 } from '../player/transportBridge'
 import { pressEdgeSettings } from '../player/pressSource'
 
-/** The Audio node's runtime input. */
-export const AUDIO_SOURCE_INPUT = 'source'
+/** The Audio node's runtime input, labelled Source; a selector's port id is `select`. */
+export const AUDIO_SOURCE_INPUT = 'select'
 
 /** The source kinds in the order the switch cycles through them: the menu's. */
 const SWITCH_ORDER: readonly AudioCapabilityKind[] = ['microphone', 'line-in', 'decoder']

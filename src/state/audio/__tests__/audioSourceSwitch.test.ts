@@ -50,27 +50,27 @@ describe('audio source switch: which sources', () => {
 
   it('finds the wired switch and starts on the body’s choice when it is on the bench', () => {
     const nodes = [...player(), mic(), node('audio', 'Audio', { sourceId: 'kind:decoder' }), node('press', 'Compare')]
-    const sw = audioSourceSwitchFor(nodes, [edge('press', 'result', 'audio', 'source')])
+    const sw = audioSourceSwitchFor(nodes, [edge('press', 'result', 'audio', 'select')])
     expect(sw?.drive).toBe('press')
     expect(sw?.startIndex).toBe(1)
     expect(audioSourceSwitchFor(nodes, [])).toBeNull()
     // A choice not on the bench starts on the first source.
     const lineChoice = nodes.map((entry) => entry.id === 'audio' ? node('audio', 'Audio', { sourceId: 'kind:line-in' }) : entry)
-    expect(audioSourceSwitchFor(lineChoice, [edge('press', 'result', 'audio', 'source')])?.startIndex).toBe(0)
+    expect(audioSourceSwitchFor(lineChoice, [edge('press', 'result', 'audio', 'select')])?.startIndex).toBe(0)
   })
 
   it('reads a switch output as a press and anything else as a position', () => {
     const nodes = [mic(), node('audio', 'Audio'), node('knob', 'EncoderInput'), node('button', 'ButtonBank')]
-    expect(audioSourceSwitchFor(nodes, [edge('knob', 'position', 'audio', 'source')])?.drive).toBe('position')
-    expect(audioSourceSwitchFor(nodes, [edge('knob', 'level', 'audio', 'source')])?.drive).toBe('position')
-    expect(audioSourceSwitchFor(nodes, [edge('knob', 'pressed', 'audio', 'source')])?.drive).toBe('press')
-    expect(audioSourceSwitchFor(nodes, [edge('button', FIRST_BUTTON_HANDLE, 'audio', 'source')])?.drive).toBe('press')
+    expect(audioSourceSwitchFor(nodes, [edge('knob', 'position', 'audio', 'select')])?.drive).toBe('position')
+    expect(audioSourceSwitchFor(nodes, [edge('knob', 'level', 'audio', 'select')])?.drive).toBe('position')
+    expect(audioSourceSwitchFor(nodes, [edge('knob', 'pressed', 'audio', 'select')])?.drive).toBe('press')
+    expect(audioSourceSwitchFor(nodes, [edge('button', FIRST_BUTTON_HANDLE, 'audio', 'select')])?.drive).toBe('press')
   })
 
   it('keeps the browser listening while the switch can reach a microphone', () => {
     const nodes = [...player(), mic(), node('audio', 'Audio', { sourceId: 'kind:decoder' }), node('press', 'Compare')]
     expect(previewCaptureSource(nodes, [])).toBeNull()
-    expect(previewCaptureSource(nodes, [edge('press', 'result', 'audio', 'source')])?.kind).toBe('microphone')
+    expect(previewCaptureSource(nodes, [edge('press', 'result', 'audio', 'select')])?.kind).toBe('microphone')
   })
 })
 
@@ -110,10 +110,10 @@ describe('audio source switch: stepping', () => {
 
 describe('audio source switch: what cannot work', () => {
   const nodes = [...player(), mic(), node('audio', 'Audio'), node('press', 'Compare')]
-  const sw = () => audioSourceSwitchFor(nodes, [edge('press', 'result', 'audio', 'source')])!
+  const sw = () => audioSourceSwitchFor(nodes, [edge('press', 'result', 'audio', 'select')])!
 
   it('says when there is nothing to switch to', () => {
-    const only = audioSourceSwitchFor([mic(), node('audio', 'Audio'), node('press', 'Compare')], [edge('press', 'result', 'audio', 'source')])!
+    const only = audioSourceSwitchFor([mic(), node('audio', 'Audio'), node('press', 'Compare')], [edge('press', 'result', 'audio', 'select')])!
     expect(audioSwitchProblems(only, { buildMode: 'sketch' })).toEqual([{
       severity: 'warning',
       message: 'Audio: Source switches between the audio sources on the bench, but only the Microphone is there. Add a Microphone or Line In part, or a Music Player with music and an amplifier, to switch to.',
@@ -137,7 +137,7 @@ describe('audio source switch: what cannot work', () => {
   })
 
   it('refuses three I2S sources on two ports', () => {
-    const three = audioSourceSwitchFor([...nodes, lineIn()], [edge('press', 'result', 'audio', 'source')])!
+    const three = audioSourceSwitchFor([...nodes, lineIn()], [edge('press', 'result', 'audio', 'select')])!
     expect(audioSwitchProblems(three, { buildMode: 'player', fqbn: 'esp32:esp32:esp32s3', boardLabel: 'ESP32-S3' })[0]).toMatchObject({
       severity: 'error',
       message: 'Audio: the ESP32-S3 has 2 I2S ports, and the Microphone, the Line Input, the Audio Decoder need 3. Remove one of them from the bench to switch between the others.',
@@ -157,7 +157,7 @@ describe('audio source switch: preview', () => {
 
   it('feeds the Audio node from the source the switch picks', () => {
     const nodes = [...player(), mic(), node('audio', 'Audio', { sourceId: 'kind:microphone' }), node('pick', 'Constant', { value: 1 })]
-    const edges = [edge('pick', 'value', 'audio', 'source')]
+    const edges = [edge('pick', 'value', 'audio', 'select')]
     let out = evaluateGraphFull(nodes, edges, 0).outputs.get('audio')!
     expect(out.activeSource).toBe('decoder')
     expect(out.audio).toBe(useDecoderAudioStore.getState())

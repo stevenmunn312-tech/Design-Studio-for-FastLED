@@ -30,8 +30,8 @@ export const INPUT_DEFINITIONS: NodeDefinition[] = [
     // the bench (state/audio/audioSourceSwitch.ts): a press steps on, a number
     // picks by position. Hidden until wired or exposed; the body's Source row
     // is its drop target, so the node looks as it did.
-    inputs: [{ id: 'source', label: 'Source', dataType: 'float' }],
-    actionInputs: ['source'],
+    inputs: [{ id: 'select', label: 'Source', dataType: 'float' }],
+    actionInputs: ['select'],
     outputs: [{ id: 'audio', label: 'Audio', dataType: 'audio' }],
     // The source kind is selectable before Hardware exists. Microphone is the
     // discoverable default and resolves as soon as its provider is added.

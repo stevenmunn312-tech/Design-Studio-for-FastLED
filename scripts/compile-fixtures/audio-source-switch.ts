@@ -81,7 +81,7 @@ function checked(name: string, fqbn: string, nodes: StudioNode[], edges: StudioE
       }),
       control]
     const edges = [edge('master', 'frame', 'out', 'frame'), edge('collection', 'patternset', 'master', 'patternset'),
-      edge('audio', 'audio', 'vu', 'audio'), edge(control.id, controlPort, 'audio', 'source')]
+      edge('audio', 'audio', 'vu', 'audio'), edge(control.id, controlPort, 'audio', 'select')]
     return { nodes, edges }
   }
   for (const [name, control, port] of [
@@ -105,7 +105,7 @@ function checked(name: string, fqbn: string, nodes: StudioNode[], edges: StudioE
     node('knob', 'EncoderInput', { pinA: 8, pinB: 9, pinSW: 10 }),
     node('pulse', 'BassPulse'), node('audio', 'Audio', { sourceId: 'kind:microphone' })]
   const edges = [edge('audio', 'audio', 'pulse', 'audio'), edge('pulse', 'frame', 'out', 'frame'),
-    edge('knob', 'level', 'audio', 'source')]
+    edge('knob', 'level', 'audio', 'select')]
   checked('sketch-s3-mic-line-in', S3, nodes, edges)
   fixtures['sketch-s3-mic-line-in'] = { fqbn: S3, source: generateCpp(nodes, edges) }
 }
