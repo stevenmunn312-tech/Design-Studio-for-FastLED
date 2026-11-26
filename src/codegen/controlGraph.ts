@@ -14,6 +14,7 @@ import { COLOR_CONTROL_NODES, colorControlCpp } from './colorControlCpp'
 import { TIMED_CONTROL_NODES, timedControlCpp } from './signalControlCpp'
 import { RTC_CONTROL_OUTPUTS, rtcControlEmission, rtcDateTimeSymbol, rtcTimeSource } from './peripherals/rtcInputCpp'
 import { RTC_CPP_FORWARD } from './peripherals/rtcCpp'
+import { boardTakesWirePins, WIRE_BEGIN_DEFAULT_CPP } from './peripherals/wireBeginCpp'
 import { webRemoteControlEmission } from './peripherals/webRemoteCpp'
 import { boardLinkControlEmission, boardLinkPlan, type BoardLinkPlan } from './peripherals/espNowLinkCpp'
 import { BOARD_LINK_IN_NODE_TYPE } from '../build/boardLinks'
@@ -258,7 +259,7 @@ export function createControlGraph(nodes: StudioNode[], edges: StudioEdge[], sam
     instructions.push({ kind: 'gpio', nodeId: node.id, emission })
     done.add(node.id)
   }
-  return { instructions, errors, resolve, input, usedSamples }
+  return { instructions, errors, resolve, input, usedSamples, wirePins: boardTakesWirePins(nodes) }
 }
 
 /** Emit each producer exactly once in dependency order. Values live for the
@@ -343,7 +344,9 @@ export function controlGraphCpp(graph: ReturnType<typeof createControlGraph>, ti
   // One bus start. A DS3231 names the pins the parts actually use; another
   // sensor's begin is the fallback when no RTC claimed the bus.
   const wireBegins = [...setup].filter((line) => line.trimStart().startsWith('Wire.begin('))
-  const wireBegin = wireBegins.find((line) => line.includes('I2C pins from the parts on the bus')) ?? wireBegins[0]
+  // Each sensor names its pins; only the ESP cores' Wire.begin takes them.
+  const wireBegin = wireBegins.length > 0 && !graph.wirePins ? WIRE_BEGIN_DEFAULT_CPP
+    : wireBegins.find((line) => line.includes('I2C pins from the parts on the bus')) ?? wireBegins[0]
   const forwards = [...helpers].some((block) => block.includes('struct _RtcDateTime {')) ? [RTC_CPP_FORWARD] : []
   return {
     irDebug: ir.debug,

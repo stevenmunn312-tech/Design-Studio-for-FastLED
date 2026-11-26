@@ -192,6 +192,21 @@ describe('time-dependent control sources', () => {
     ])
   })
 
+  it.each([
+    ['raspberry-pi-pico-w', "  Wire.begin();  // I2C parts on the board's default SDA/SCL pins"],
+    ['arduino-uno-r3-dip', "  Wire.begin();  // I2C parts on the board's default SDA/SCL pins"],
+    ['generic-esp32-s3-n16r8-44pin-dual-usbc', '  Wire.begin(18, 19);  // BME280 I2C bus'],
+  ])('starts the I2C bus with pins only where Wire.begin takes them (%s)', (profileId, expected) => {
+    // Only the ESP cores have begin(sda, scl). It does not compile on AVR,
+    // RP2040 or Teensy, and on Adafruit SAMD it starts an I2C peripheral.
+    const board = node('board', 'Board', { profileId })
+    const env = node('env', 'EnvironmentInput', { sdaPin: 18, sclPin: 19 })
+    const math = node('math', 'Math')
+    const graph = createControlGraph([board, env, math], [edge('env', 'temperature', 'math', 'a')])
+    expect(graph.resolve('math', 'result', 'float')).not.toBeNull()
+    expect(controlGraphCpp(graph).setup.filter((line) => line.includes('Wire.begin'))).toEqual([expected])
+  })
+
   it.each(['ComplexWave', 'Random', 'DMXChannel'])('still refuses %s', (nodeType) => {
     const source = node('src', nodeType)
     const graph = createControlGraph([source], [])

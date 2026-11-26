@@ -128,9 +128,10 @@ export function controlInputCpp(
       }
       if (debug) {
         // Every change of Level and every edge of the switch, raw: a bouncing
-        // contact shows as several presses, which is what this is for.
+        // contact shows as several presses, which is what this is for. Printed
+        // with print, not printf, which the AVR and Renesas cores do not have.
         loop.push(`  static int16_t _encDbgLvl_${id} = -1; static bool _encDbgSw_${id} = false;`)
-        loop.push(`  if (_encLvl_${id} != _encDbgLvl_${id}) { _encDbgLvl_${id} = _encLvl_${id}; Serial.printf("[encoder] level=%.3f position=%.2f\\n", ${v('level')}, ${v('position')}); }`)
+        loop.push(`  if (_encLvl_${id} != _encDbgLvl_${id}) { _encDbgLvl_${id} = _encLvl_${id}; Serial.print(F("[encoder] level=")); Serial.print(${v('level')}, 3); Serial.print(F(" position=")); Serial.println(${v('position')}, 2); }`)
         loop.push(`  if (${v('pressed')} != _encDbgSw_${id}) { _encDbgSw_${id} = ${v('pressed')}; Serial.println(${v('pressed')} ? "[encoder] press" : "[encoder] release"); }`)
       }
       break

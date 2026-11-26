@@ -11,7 +11,10 @@ describe('IR learn sketch', () => {
     expect(sketch).toContain('if (!FLS_IR_RECEIVER.decode()) return;')
     expect(sketch).toContain('FLS_IR_RECEIVER.resume();')
     expect(sketch).toContain('static constexpr uint8_t IR_LEARN_PIN = 13;')
-    expect(sketch).toContain('FLS_IR v=1 protocol=%s address=0x%lX command=0x%lX repeat=%d')
+    expect(sketch).toContain('Serial.print(F("FLS_IR v=1 protocol="));')
+    expect(sketch).toContain('Serial.print((unsigned long)IrReceiver.decodedIRData.command, HEX);')
+    // Learning must build on AVR and Renesas, whose cores have no Serial.printf.
+    expect(sketch).not.toContain('printf(')
     expect(sketch).toContain('#include <IRremote.hpp>')
     expect(sketch).toContain('#define DECODE_NEC')
     expect(sketch).not.toContain('#include <FastLED')

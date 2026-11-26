@@ -38,11 +38,16 @@ void loop() {
   if (!FLS_IR_RECEIVER.decode()) return;
   const bool repeat = (IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT) != 0;
   if (IrReceiver.decodedIRData.protocol != UNKNOWN) {
-    Serial.printf("FLS_IR v=1 protocol=%s address=0x%lX command=0x%lX repeat=%d\\n",
-                  getProtocolString(IrReceiver.decodedIRData.protocol),
-                  (unsigned long)IrReceiver.decodedIRData.address,
-                  (unsigned long)IrReceiver.decodedIRData.command,
-                  repeat ? 1 : 0);
+    // print, not printf: the AVR and Renesas cores have no Serial.printf, and
+    // on AVR getProtocolString returns a flash string that %s cannot read.
+    Serial.print(F("FLS_IR v=1 protocol="));
+    Serial.print(getProtocolString(IrReceiver.decodedIRData.protocol));
+    Serial.print(F(" address=0x"));
+    Serial.print((unsigned long)IrReceiver.decodedIRData.address, HEX);
+    Serial.print(F(" command=0x"));
+    Serial.print((unsigned long)IrReceiver.decodedIRData.command, HEX);
+    Serial.print(F(" repeat="));
+    Serial.println(repeat ? 1 : 0);
   }
   FLS_IR_RECEIVER.resume();
 }

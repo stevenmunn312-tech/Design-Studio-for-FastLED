@@ -116,6 +116,7 @@ import {
 import { controlGraphCpp } from './controlGraph'
 import { ENVIRONMENT_SENSOR_CPP_FORWARD } from './peripherals/environmentSensorCpp'
 import { networkSketchCpp } from './peripherals/networkCpp'
+import { wireBeginCpp } from './peripherals/wireBeginCpp'
 import {
   SYNC_NOW_MS, boardSyncFollowerAdoptCpp, boardSyncFollowerAdoptSequenceCpp, boardSyncGlobalsCpp,
   boardSyncServiceCallCpp, clockSyncRoleIn,
@@ -943,7 +944,7 @@ function showDisplaysCpp(
     ].filter(Boolean),
     setup: [
       ...(i2cDisplays.length > 0
-        ? [`  Wire.begin(${i2cDisplays[0].sdaPin}, ${i2cDisplays[0].sclPin});  // I2C displays`]
+        ? [wireBeginCpp(nodes, i2cDisplays[0].sdaPin, i2cDisplays[0].sclPin, 'I2C displays')]
         : []),
       ...infoEmits.flatMap(infoDisplaySetupCpp),
       ...segmentEmits.flatMap(segmentDisplaySetupCpp),

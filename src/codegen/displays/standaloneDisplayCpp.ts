@@ -7,6 +7,7 @@
 
 import type { StudioNode } from '../../state/graphStore'
 import { playerDisplaysFromGraph } from '../player/playerDisplays'
+import { wireBeginCpp } from '../peripherals/wireBeginCpp'
 import {
   INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp, infoDisplayHelpersCpp,
   infoDisplayLoopCpp, infoDisplaySetupCpp, type InfoDisplayEmit,
@@ -109,7 +110,7 @@ export function standaloneDisplaysCpp(nodes: StudioNode[]): StandaloneDisplayEmi
       ...(touch.length > 0 ? [TFT_TOUCH_CPP_HELPERS, touch.map(tftTouchGlobalCpp).join('\n')] : []),
     ],
     setup: [
-      ...(i2c.length > 0 ? [`  Wire.begin(${i2c[0].sdaPin}, ${i2c[0].sclPin});  // I2C displays`] : []),
+      ...(i2c.length > 0 ? [wireBeginCpp(nodes, i2c[0].sdaPin, i2c[0].sclPin, 'I2C displays')] : []),
       ...info.flatMap(infoDisplaySetupCpp),
       ...segment.flatMap(segmentDisplaySetupCpp),
       ...tft.flatMap(tftDisplaySetupCpp),

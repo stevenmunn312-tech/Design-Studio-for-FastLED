@@ -9,6 +9,17 @@ share link, migrating it where a shape has changed.
 
 ## [Unreleased]
 
+### Fixed
+
+- A show, player or screen sketch with an I2C sensor or OLED now builds on
+  boards other than the ESP family. It started the bus with pin arguments,
+  which only the ESP cores accept: the build failed on AVR, RP2040, Teensy and
+  UNO R4, and on Adafruit SAMD boards it started the board as an I2C
+  peripheral, so no sensor answered.
+- IR key learning and the rotary encoder's Debug option now build on UNO, Nano
+  and Nano Every. Both printed with `Serial.printf`, which those cores lack,
+  so a remote's keys could not be learned on them.
+
 ## [1.0.2] - 2026-11-26
 
 ESP32 boards build and upload on Windows with long-path support off, the

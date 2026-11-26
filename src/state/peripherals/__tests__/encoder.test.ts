@@ -141,7 +141,9 @@ describe('Level', () => {
     // Debug counts Level even unread, and reports it and the switch's edges.
     const debug = controlInputCpp('EncoderInput', 'enc', { ...p, debug: true }, new Set(['pressed']))!
     expect(debug.serialDebug).toBe(true)
-    expect(debug.loop.join('\n')).toContain('Serial.printf("[encoder] level=%.3f position=%.2f\\n", n_enc_level, n_enc_position);')
+    expect(debug.loop.join('\n')).toContain('Serial.print(F("[encoder] level=")); Serial.print(n_enc_level, 3); Serial.print(F(" position=")); Serial.println(n_enc_position, 2);')
+    // The AVR and Renesas cores have no Serial.printf.
+    expect(debug.loop.join('\n')).not.toContain('printf')
     expect(debug.loop.join('\n')).toContain('Serial.println(n_enc_pressed ? "[encoder] press" : "[encoder] release");')
     expect(unread.serialDebug).toBeUndefined()
     // The SR1230's two counts a transition step Level the same way.

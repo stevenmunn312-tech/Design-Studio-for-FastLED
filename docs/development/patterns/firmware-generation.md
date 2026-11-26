@@ -385,6 +385,20 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   nothing. Keep the rates whole MHz: on software-SPI platforms the macro is
   `CPU MHz / n` in integer arithmetic, a divider rather than a frequency.
 
+- Only the ESP cores have `Wire.begin(sda, scl)`. AVR, megaAVR, Renesas,
+  RP2040 and Teensy have no such overload, and on the Adafruit SAMD core the
+  call matches `begin(address, generalCall)` and starts an I2C peripheral, so
+  it compiles and no sensor answers. A sensor emitter may name its pins; the
+  one line that reaches the sketch is chosen where the board is known: the
+  normal sketch in `cppGenerator.ts`, the control graph through
+  `boardTakesWirePins`, and a show's or screen sketch's displays through
+  `wireBeginCpp` (`src/codegen/peripherals/wireBeginCpp.ts`). `Serial.printf`
+  is the same kind of trap: the AVR and Renesas cores lack it, so anything a
+  non-ESP board can build prints with `Serial.print` pieces and `F()`
+  strings. Telemetry keeps `printf` behind `boardSupportsTelemetry` and the
+  SD player is ESP32-only; the audio debug lines were not checked on the
+  non-ESP microphone boards.
+
 - **A FastLED audio processor is only fed while something pumps the task
   scheduler.** `FastLED.add(config)` and `FastLED.add(input)` read the capture
   device from a 1 ms `fl::task::every_ms` task. Up to FastLED 3.10.5 the RMT

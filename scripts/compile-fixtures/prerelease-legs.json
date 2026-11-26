@@ -48,6 +48,7 @@
 
     { "leg": "arduino-cli:ir/normal@esp32s3-rmt", "proves": "the RMT IR receiver and its interrupt priority beside FastLED RMT5" },
     { "leg": "arduino-cli:ir/normal@avr", "proves": "IRremote's timer receiver and DECODE_* trimming on AVR" },
+    { "leg": "arduino-cli:ir/learn@avr", "proves": "the IR learner builds where Serial.printf does not exist" },
     { "leg": "arduino-cli:presence/player@esp32", "proves": "a UART sensor through the player control graph" },
     { "leg": "arduino-cli:environment/slideshow@esp32", "proves": "an I2C sensor through the show control graph" },
     { "leg": "arduino-cli:vl53l0x/normal@esp32", "proves": "the pinned Pololu VL53L0X library" },

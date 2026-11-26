@@ -71,7 +71,10 @@ gitignored `tmp/firmware-review/`.
 
 ### Builds fail or the part cannot work
 
-- [ ] **I2C sensors in shows and players, every non-ESP board** (compiled).
+- [x] Fixed 2026-11-26, with the IR item below: both rebuilt clean on the Uno
+  and RP2040 ([changelog](CHANGELOG.md)). An I2C OLED in a show had the same
+  fault and is fixed with it; that case and the SAMD case were not compiled.
+  **I2C sensors in shows and players, every non-ESP board** (compiled).
   The control graph emits `Wire.begin(sda, scl)` on all boards
   (`controlInputCpp.ts:155,164,173`, `motionVectorCpp.ts:47`,
   `touchPadCpp.ts:68`, `distanceSensorCpp.ts:53`). RP2040 fails with
@@ -79,7 +82,7 @@ gitignored `tmp/firmware-review/`.
   and Renesas have no such overload either; on Adafruit SAMD it compiles as
   `begin(address, generalCall)` and makes the board an I2C slave. Validation
   passes all of them. The normal sketch is right (`cppGenerator.ts:840-844`).
-- [ ] **IR on UNO, Nano and Nano Every** (compiled). The IR learner uses
+- [x] **IR on UNO, Nano and Nano Every** (compiled). The IR learner uses
   `Serial.printf` (`irLearnSketch.ts:41`), which AVR lacks, so keys cannot be
   mapped on those boards at all. Encoder Debug fails the same way
   (`controlInputCpp.ts:133`).
@@ -160,7 +163,7 @@ gitignored `tmp/firmware-review/`.
 
 - [ ] Run the pre-release matrix once the fixes above are in, after your
   go-ahead: `python scripts/compile-fixtures/compile-matrix.py --preset prerelease`
-  (54 builds, 52 on arduino-cli and 2 on fbuild; the legs and what each
+  (55 builds, 53 on arduino-cli and 2 on fbuild; the legs and what each
   proves are in `scripts/compile-fixtures/prerelease-legs.json`).
 - [ ] Add the legs nothing builds today: a chipset sweep (RGBW, WS2816,
   SM16824E, HD108, `DATA_RATE_MHZ`; it built on the Uno, classic ESP32 and C6
