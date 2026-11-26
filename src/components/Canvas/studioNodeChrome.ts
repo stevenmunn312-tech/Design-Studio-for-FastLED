@@ -23,7 +23,7 @@ export const CATEGORY_TAG: Record<string, string> = {
   show: 'SHW',
   output: 'OUT',
   hardware: 'HW',
-  note: 'NOTE',
+  note: 'TOOL',
 }
 
 /**
@@ -35,6 +35,7 @@ export const CATEGORY_TAG: Record<string, string> = {
  */
 export const NODE_WIDTH_OVERRIDES: Record<string, number> = {
   MusicLibrary: 300,
+  Debug: 320,
   Code: 320,
   FormulaPattern: 320,
   FieldFormula: 320,

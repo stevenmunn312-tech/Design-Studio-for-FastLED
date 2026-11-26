@@ -162,6 +162,7 @@ import { designControlBundle } from './displays/designControlBundle'
 import { asTftRotation } from './displays/tftSurface'
 import { transportTouchActions, TRANSPORT_TOUCH_ACTION_TYPES, TRANSPORT_TOUCH_ACTION_LABELS } from './displays/transportTouch'
 import { keepsSavedPorts, partDerivedInputs, partDerivedOutputs } from '../build/parts/partPorts'
+import { DEBUG_NODE_TYPE } from './debug/debugNode'
 import type { SavedParts } from '../build/parts/savedParts'
 import { getPartsLibrary } from '../build/parts/partsLibrary'
 import { collectSavedParts, registerEmbeddedParts } from '../build/parts/signedParts'
@@ -2311,7 +2312,9 @@ export const useGraphStore = create<GraphState>()(
           // A part added from the hardware view belongs on the bench, which is
           // the root graph — never sealed inside whichever pattern group the
           // canvas happens to be showing.
-          const rootScoped = isHardwareNodeType(node.data.nodeType) && s.activeGraphId !== ROOT_GRAPH_ID
+          // A Debug node tests root hardware, so it lives there too.
+          const rootScoped = (isHardwareNodeType(node.data.nodeType) || node.data.nodeType === DEBUG_NODE_TYPE)
+            && s.activeGraphId !== ROOT_GRAPH_ID
           const target = rootScoped ? rootGraphNodes(s) : s.nodes
           if (!canAddNodeType(target, node.data.nodeType)) return s
           if (centreOnDrop) pendingCentreY.set(node.id, node.position.y)

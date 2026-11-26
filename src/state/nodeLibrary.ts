@@ -1828,6 +1828,9 @@ export const INTERNAL_PROPERTY_KEYS: ReadonlySet<string> = new Set([
   // See docs/design/board-links.md.
   'linkId',
   'linkChannel',
+  // The bench-only part a Debug node tests, set by "Debug this part"; the node
+  // names the part in words.
+  'targetPartId',
 ])
 
 export function isInternalProperty(key: string): boolean {

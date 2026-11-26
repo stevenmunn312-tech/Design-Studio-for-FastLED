@@ -48,7 +48,8 @@ import BoardNetworkSettings from './BoardNetworkSettings'
 import HardwarePartsShelf, { HARDWARE_SHELF_HOST_ID } from './HardwarePartsShelf'
 import { hardwareShelfCategories } from './hardwareShelfModel'
 import { useBenchParts } from './useBenchParts'
-import { benchPartActions, inputPartActions } from './hardwarePartActions'
+import { benchPartActions, debugPartOnCanvas, inputPartActions } from './hardwarePartActions'
+import { hasDebugProfile } from '../../state/debug/debugProfiles'
 import { benchPartStyles } from './benchPartStyles'
 import { UPLOAD_CONTROLS_HOST_ID } from '../Upload/uploadControlsHost'
 import type { PlacementBox } from './floatingPlacement'
@@ -1240,6 +1241,24 @@ export default function HardwarePane() {
               }}
             >
               Show in graph
+            </button>
+          )}
+          {nodes.some((node) => node.id === itemMenu.kind && hasDebugProfile(node.data.nodeType)) && (
+            <button
+              type="button"
+              className={styles.itemMenuButton}
+              title="Open a Debug node for this part: common issues, isolation steps and meter checks"
+              onClick={() => {
+                const result = debugPartOnCanvas(itemMenu.kind)
+                setItemMenu(null)
+                if (!result.ok) {
+                  setStatus(result.reason, 'error')
+                  return
+                }
+                revealNode(result.nodeId, 'Debug')
+              }}
+            >
+              Debug this part
             </button>
           )}
           <button

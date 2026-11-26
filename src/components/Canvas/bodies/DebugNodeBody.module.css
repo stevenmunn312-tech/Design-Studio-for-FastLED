@@ -1,0 +1,167 @@
+.body {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-1) calc(var(--space-0) * 2.5);
+  font-size: var(--fs-label);
+  color: color-mix(in srgb, var(--text-primary) 88%, transparent);
+  cursor: default;
+  user-select: text;
+}
+
+.empty {
+  margin: 0;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--text-primary) 70%, transparent);
+}
+
+.target {
+  display: grid;
+  gap: 2px;
+}
+
+.target span {
+  color: color-mix(in srgb, var(--text-primary) 62%, transparent);
+}
+
+.section {
+  display: grid;
+  gap: var(--space-0);
+  padding-top: var(--space-0);
+  border-top: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.section h4,
+.section summary {
+  margin: 0;
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--node-accent) 70%, var(--text-primary));
+}
+
+.section summary {
+  cursor: pointer;
+}
+
+.list {
+  margin: 0;
+  padding-left: 1.1em;
+  display: grid;
+  gap: var(--space-0);
+  line-height: 1.4;
+}
+
+.check {
+  display: flex;
+  gap: var(--space-0);
+  align-items: flex-start;
+  line-height: 1.4;
+}
+
+.check input {
+  margin-top: 2px;
+}
+
+.step {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-0);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+}
+
+.stepTitle {
+  font-weight: 700;
+}
+
+.unplug {
+  font-weight: 700;
+  color: var(--warning);
+}
+
+.how,
+.expect {
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--text-primary) 72%, transparent);
+}
+
+.measure,
+.yesno {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-0);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reading {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.readingInput {
+  width: 76px;
+  padding: 2px 6px;
+  border-radius: var(--radius-control);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 18%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  color: inherit;
+  font: inherit;
+}
+
+.answer,
+.answerOn,
+.repair,
+.clear {
+  padding: 2px 10px;
+  border-radius: var(--radius-control);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 18%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.answerOn {
+  border-color: var(--node-accent);
+  background: color-mix(in srgb, var(--node-accent) 28%, transparent);
+}
+
+.finding {
+  display: grid;
+  gap: 4px;
+  padding: var(--space-0) var(--space-1);
+  border-radius: var(--radius-control);
+  border-left: 3px solid currentColor;
+  line-height: 1.4;
+}
+
+.findingTitle {
+  font-weight: 700;
+}
+
+.toneOk {
+  border-left-color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+}
+
+.toneSuspect {
+  border-left-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+
+.toneFault {
+  border-left-color: var(--error);
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+}
+
+.repair {
+  justify-self: start;
+  border-color: var(--node-accent);
+}
+
+.clear {
+  justify-self: end;
+}

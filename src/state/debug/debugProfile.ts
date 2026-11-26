@@ -1,0 +1,116 @@
+// What a Debug node knows about one kind of part: the usual faults, how to
+// isolate the part, the low-voltage meter checks that tell the faults apart,
+// and how to read the user's readings (docs/development/patterns/debug-node.md).
+//
+// Profiles are pure data and pure functions. Verdicts come from the readings
+// the user supplies, so every finding is phrased as "based on your readings".
+
+import type { StudioNode } from '../graphStore'
+import { selectedPhysicalBoardProfile } from '../../build/boards/boardProfiles'
+import { ROOT_BOARD_NODE_ID } from '../../build/hardware'
+
+/** How sure a finding is. `fault` only when a reading confirms the problem. */
+export type DebugTone = 'ok' | 'suspect' | 'fault'
+
+/** A property change that fixes a configuration fault in one click. */
+export interface DebugRepair {
+  label: string
+  nodeId: string
+  properties: Record<string, unknown>
+}
+
+export interface DebugFinding {
+  id: string
+  tone: DebugTone
+  title: string
+  detail: string
+  repair?: DebugRepair
+}
+
+export interface CommonIssue {
+  symptom: string
+  cause: string
+  fix: string
+}
+
+/**
+ * One measurement the user makes and types in.
+ *
+ * `power: 'off'` steps (resistance, continuity) are shown with an "Unplug
+ * power first" line by the node; `power: 'on'` steps are DC voltages on the
+ * low-voltage side only. No step ever touches mains or the inside of a supply.
+ */
+export type MeterStep =
+  | { id: string; title: string; how: string; kind: 'volts'; power: 'on'; expect: string }
+  | { id: string; title: string; how: string; kind: 'ohms'; power: 'off'; expect: string }
+  | { id: string; title: string; how: string; kind: 'yesno'; power: 'on' | 'off'; question: string }
+
+export type MeterReadings = Readonly<Record<string, number | boolean | undefined>>
+
+/** The board facts a profile needs, resolved for the part's own board. */
+export interface DebugContext {
+  node: StudioNode
+  props: Record<string, unknown>
+  boardLabel: string
+  /** GPIO logic level: 5 V on classic AVR, 3.3 V on everything else. */
+  logicVolts: number
+}
+
+export interface DebugProfile {
+  /** Node types this profile covers. */
+  nodeTypes: readonly string[]
+  commonIssues: readonly CommonIssue[]
+  /** Isolation checklist, in order. */
+  isolation: (ctx: DebugContext) => string[]
+  meterSteps: (ctx: DebugContext) => MeterStep[]
+  /** What a healthy signal looks like on a scope or logic analyser. */
+  scopeTips: readonly string[]
+  /** Findings from the readings entered so far; empty until there are some. */
+  interpret: (ctx: DebugContext, readings: MeterReadings) => DebugFinding[]
+}
+
+/** The board node a part belongs to: its `boardId`, else the primary board. */
+function boardNodeFor(node: StudioNode, rootNodes: readonly StudioNode[]): StudioNode | undefined {
+  const boardId = String((node.data.properties as Record<string, unknown>).boardId ?? '') || ROOT_BOARD_NODE_ID
+  const boards = rootNodes.filter((entry) => entry.data.nodeType === 'Board')
+  return boards.find((entry) => entry.id === boardId) ?? boards[0]
+}
+
+export function debugContextFor(node: StudioNode, rootNodes: readonly StudioNode[]): DebugContext {
+  const board = boardNodeFor(node, rootNodes)
+  const profile = board ? selectedPhysicalBoardProfile([board]) : undefined
+  const avr = profile?.targetFamilies.includes('avr') ?? false
+  return {
+    node,
+    props: node.data.properties as Record<string, unknown>,
+    boardLabel: profile?.label ?? 'your board',
+    logicVolts: avr ? 5 : 3.3,
+  }
+}
+
+// ── Reading helpers shared by profiles ──────────────────────────────────────
+
+export function num(readings: MeterReadings, id: string): number | undefined {
+  const value = readings[id]
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+export function yes(readings: MeterReadings, id: string): boolean | undefined {
+  const value = readings[id]
+  return typeof value === 'boolean' ? value : undefined
+}
+
+/** Within `fraction` of `target` (default 15%). */
+export function near(value: number, target: number, fraction = 0.15): boolean {
+  return Math.abs(value - target) <= Math.max(0.1, target * fraction)
+}
+
+export function volts(value: number): string {
+  return `${Number(value.toFixed(2))} V`
+}
+
+/** A pin by the number the project uses for it. */
+export function pinLabel(pin: unknown): string {
+  const n = Number(pin)
+  return Number.isFinite(n) && n >= 0 ? `pin ${n}` : 'its signal pin'
+}

@@ -16,6 +16,13 @@ export const DEBUG_NODE_TYPE = 'Debug'
 /** Data type of a part's debug output and of the Debug node's input. */
 export const DEBUG_DATA_TYPE = 'debug'
 
+/** The debug socket's handle id on a part, drawn by `StudioNode`, never in
+ *  `data.outputs`: saved port lists and codegen never see it. */
+export const DEBUG_SOURCE_HANDLE = 'debug'
+
+/** The Debug node's one input. */
+export const DEBUG_TARGET_HANDLE = 'part'
+
 /** Node types that exist only for the session that placed them. */
 export const TRANSIENT_NODE_TYPES: ReadonlySet<string> = new Set([DEBUG_NODE_TYPE])
 

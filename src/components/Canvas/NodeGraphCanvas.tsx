@@ -37,6 +37,7 @@ import { findSignalRangeHints } from '../../utils/validateGraph'
 import { useUiStore, visibleLiveTouchScreen } from '../../state/uiStore'
 import { usePatternLibrary, withRegisteredGroups } from '../../state/patterns/patternLibrary'
 import { NODE_LIBRARY, CATEGORY_COLOR, nodeDisplayLabel, portsCompatible, spliceTargetPorts } from '../../state/nodeLibrary'
+import { debugConnectionVerdict } from '../../state/debug/debugProfiles'
 import { exposableInputsFor, exposedNodeInputs } from '../../state/propertyInputs'
 import { drawnOutputs } from '../../state/outputFolding'
 import { resolveDefaultProperties } from '../../state/nodeDefaults'
@@ -607,8 +608,15 @@ function NodeGraphCanvasInner() {
       const dstNode = getNode(connection.target)
       if (!srcNode || !dstNode) return false
 
-      const srcData = srcNode.data as { outputs?: Array<{ id: string; dataType: string }> }
-      const dstData = dstNode.data as { inputs?: Array<{ id: string; dataType: string }> }
+      const srcData = srcNode.data as { nodeType?: string; outputs?: Array<{ id: string; dataType: string }> }
+      const dstData = dstNode.data as { nodeType?: string; inputs?: Array<{ id: string; dataType: string }> }
+
+      // A debug socket is drawn, not declared, so it has no port to look up.
+      const debugVerdict = debugConnectionVerdict(
+        String(srcData.nodeType ?? ''), connection.sourceHandle,
+        String(dstData.nodeType ?? ''), connection.targetHandle,
+      )
+      if (debugVerdict !== null) return debugVerdict
 
       const srcPort = srcData.outputs?.find((p) => p.id === connection.sourceHandle)
       const dstPort = dstData.inputs?.find((p) => p.id === connection.targetHandle)

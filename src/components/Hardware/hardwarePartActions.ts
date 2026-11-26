@@ -8,7 +8,7 @@ import { withAssignedPins } from '../../build/pins/pinRetarget'
 import { micModuleFor } from '../../state/peripherals/micModules'
 import { micSupportedForBoard, micUnsupportedMessage } from '../../build/pins/micPinDefaults'
 import {
-  boardPartitionOf, ensureRootAudioNode, ensureRootClockNode, ensureRootReaderNode, rootGraphNodes, useGraphStore,
+  boardPartitionOf, ensureRootAudioNode, ensureRootClockNode, ensureRootReaderNode, rootGraphEdges, rootGraphNodes, useGraphStore,
   type StudioNode,
 } from '../../state/graphStore'
 import { selectedPhysicalBoardProfile, type PhysicalBoardProfile } from '../../build/boards/boardProfiles'
@@ -31,6 +31,8 @@ import {
   MIC_NODE_TYPE,
 } from './hardwarePartCatalog'
 import { resolveLedProduct, stampLedProduct } from '../../state/output/ledProduct'
+import { hasDebugProfile } from '../../state/debug/debugProfiles'
+import { DEBUG_NODE_TYPE, DEBUG_SOURCE_HANDLE, DEBUG_TARGET_HANDLE } from '../../state/debug/debugNode'
 import type { Connection } from '@xyflow/react'
 import type { NodeDefinition, StatusLevel } from '../../types'
 import type { PlacementBox } from './floatingPlacement'
@@ -503,4 +505,52 @@ export function benchPartActions({
   }
 
   return { addFixturePart, removeHardwareItem, addLedOutput }
+}
+
+/**
+ * "Debug this part": point a Debug node at a bench part. A selected Debug node
+ * with nothing wired into it is reused; otherwise a new one is placed in the
+ * root graph. A part drawn on the canvas is wired to it through its debug
+ * socket; a bench-only part is named by `targetPartId`, since it has no socket.
+ */
+export function debugPartOnCanvas(partId: string): { ok: true; nodeId: string } | { ok: false; reason: string } {
+  const state = useGraphStore.getState()
+  const root = rootGraphNodes(state)
+  const rootEdges = rootGraphEdges(state)
+  const part = root.find((node) => node.id === partId)
+  if (!part) return { ok: false, reason: 'That part is no longer on the bench' }
+  if (!hasDebugProfile(part.data.nodeType)) return { ok: false, reason: `${part.data.label} has no Debug checks yet` }
+  const definition = NODE_LIBRARY.find((candidate) => candidate.type === DEBUG_NODE_TYPE)
+  if (!definition) return { ok: false, reason: 'The Debug node is not in the node library' }
+  const onCanvas = !part.hidden
+  const selected = root.find((node) => node.id === state.selectedNodeId && node.data.nodeType === DEBUG_NODE_TYPE)
+  const reusable = selected && !rootEdges.some((edge) => edge.target === selected.id && edge.targetHandle === DEBUG_TARGET_HANDLE)
+  let nodeId = reusable ? selected.id : ''
+  if (!nodeId) {
+    nodeId = `${DEBUG_NODE_TYPE}-${Date.now()}-${Math.round(Math.random() * 1e6)}`
+    const visible = root.filter((node) => !node.hidden)
+    const position = onCanvas
+      ? { x: part.position.x, y: part.position.y + 240 }
+      : { x: Math.max(0, ...visible.map((node) => node.position.x)) + 360, y: Math.min(0, ...visible.map((node) => node.position.y)) }
+    state.addNode({
+      id: nodeId,
+      type: 'studioNode',
+      position,
+      data: {
+        label: definition.label,
+        nodeType: definition.type,
+        category: definition.category,
+        properties: { ...resolveDefaultProperties(definition.type, definition.defaultProperties) },
+        inputs: definition.inputs,
+        outputs: definition.outputs,
+      },
+    } as StudioNode)
+  }
+  if (onCanvas) {
+    state.updateNodeProperty(nodeId, 'targetPartId', '')
+    state.connectRoot({ source: partId, sourceHandle: DEBUG_SOURCE_HANDLE, target: nodeId, targetHandle: DEBUG_TARGET_HANDLE })
+  } else {
+    state.updateNodeProperty(nodeId, 'targetPartId', partId)
+  }
+  return { ok: true, nodeId }
 }

@@ -52,6 +52,8 @@ import DmxInputBody from './bodies/DmxInputBody'
 import DdpInputBody from './bodies/DdpInputBody'
 import RtcInputBody from './bodies/RtcInputBody'
 import LedMatchNote from './bodies/LedMatchNote'
+import { hasDebugProfile } from '../../state/debug/debugProfiles'
+import { DEBUG_DATA_TYPE, DEBUG_NODE_TYPE, DEBUG_SOURCE_HANDLE } from '../../state/debug/debugNode'
 import { pinSupports, pinWarningForCapability } from '../../build/boards/boardGpio'
 import { buttonBankOutputs } from '../../state/player/buttonBank'
 import { webRemoteOutputs } from '../../state/peripherals/webRemote'
@@ -135,6 +137,7 @@ const SegmentDisplayNodeBody = lazy(() => import('./bodies/SegmentDisplayNodeBod
 const PowerSwitchNodeBody = lazy(() => import('./bodies/PowerSwitchNodeBody'))
 const StereoVuMeterNodeBody = lazy(() => import('./bodies/StereoVuMeterNodeBody'))
 const TouchCalibrationBody = lazy(() => import('./bodies/TouchCalibrationBody'))
+const DebugNodeBody = lazy(() => import('./bodies/DebugNodeBody'))
 
 type PortDef = { id: string; label: string; dataType: string; carriedByControls?: boolean }
 type ConnectionTargetHint = {
@@ -1295,7 +1298,16 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
   const exposedActionIds = new Set(exposedInputs.filter((port) => port.kind === 'action').map((port) => port.id))
   const inputs = activeInputs.filter((port) => alwaysDrawnInputs.includes(port) || exposedActionIds.has(port.id))
   const compactInputs = [...alwaysDrawnInputs, ...exposedInputs]
-  const portLayoutKey = `${compactInputs.map((port) => port.id).join('|')}::${outputs.map((port) => port.id).join('|')}`
+  /*
+   * A part with a Debug profile shows its debug socket while a Debug node is
+   * on the canvas, and whenever a debug wire already leaves it. Otherwise the
+   * socket would sit on every part for a tool that is rarely out.
+   */
+  const debugProfiled = hasDebugProfile(d.nodeType)
+  const debugNodeOnCanvas = useGraphStore((s) => debugProfiled && s.nodes.some((node) => node.data.nodeType === DEBUG_NODE_TYPE))
+  const debugWired = useGraphStore((s) => debugProfiled && s.edges.some((edge) => edge.source === id && edge.sourceHandle === DEBUG_SOURCE_HANDLE))
+  const showDebugSocket = debugProfiled && (debugNodeOnCanvas || debugWired)
+  const portLayoutKey = `${compactInputs.map((port) => port.id).join('|')}::${outputs.map((port) => port.id).join('|')}::${showDebugSocket ? 'debug' : ''}`
   const rowCount = d.nodeType === 'ButtonBank' || d.nodeType === 'IRRemoteInput' || d.nodeType === 'WebRemoteInput'
     ? 0
     : Math.max(inputs.length, outputs.length)
@@ -1980,6 +1992,7 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           {d.nodeType === 'PowerSwitchOutput' && <PowerSwitchNodeBody nodeId={id} partId={rawProps.partId} loadType={rawProps.loadType} />}
           {d.nodeType === 'StereoVuMeter' && <StereoVuMeterNodeBody nodeId={id} />}
           {d.nodeType === 'TouchInput' && <TouchCalibrationBody nodeId={id} />}
+          {d.nodeType === DEBUG_NODE_TYPE && <DebugNodeBody nodeId={id} />}
 
           {d.nodeType === 'PatternCollection' && <PatternCollectionBody nodeId={id} />}
           {(d.nodeType === 'PatternSlideshow' || d.nodeType === 'PatternMaster') && <SequenceBody nodeId={id} />}
@@ -2067,6 +2080,19 @@ function StudioNode({ id, data, selected }: StudioNodeProps) {
           </div>
         )}
       </div>}
+      {showDebugSocket && (
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          id={DEBUG_SOURCE_HANDLE}
+          title="Debug · wire to a Debug node to test this part"
+          role="button"
+          tabIndex={-1}
+          aria-label={`Connect from ${displayName} Debug socket. Press Enter or Space to choose a Debug node.`}
+          onKeyDown={activateHandleFromKeyboard}
+          style={{ ...portHandleStyle(DEBUG_DATA_TYPE, portColor(DEBUG_DATA_TYPE)), bottom: -7, left: '50%' }}
+        />
+      )}
     </div>
   )
 }
