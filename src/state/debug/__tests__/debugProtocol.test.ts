@@ -9,6 +9,11 @@ describe('Debug diagnostic protocol', () => {
     })
   })
 
+  it('keeps quoted values as text, even when they look like numbers', () => {
+    expect(parseDebugLine('FLS_DBG v=1 probe=i2c found="68" count=1')?.fields).toEqual({ found: '68', count: 1 })
+    expect(parseDebugLine('FLS_DBG v=1 probe=i2c found="" count=0')?.fields).toEqual({ found: '', count: 0 })
+  })
+
   it('tolerates a prefix and a carriage return from the serial stream', () => {
     expect(parseDebugLine('\u0000junk FLS_DBG v=1 probe=digital level=1\r')?.fields).toEqual({ level: 1 })
   })

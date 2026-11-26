@@ -5,6 +5,8 @@ import type { DebugContext, DebugFinding, MeterReadings } from '../debugProfile'
 import { near, num, pinLabel, volts, yes } from '../debugProfile'
 import { offI2c } from './i2c'
 import { modulePins, moduleProfile, signalStep } from './moduleProfile'
+import { digitalProbe } from './probes'
+import { analogProbe } from './controls'
 
 const logicSupply = (ctx: DebugContext) => `about ${volts(ctx.logicVolts)}, or 5 V if the module’s label asks for it`
 const threeVolt = () => 'about 3.3 V'
@@ -83,6 +85,9 @@ export const MOTION_PROFILE = moduleProfile({
     { id: 'moves', title: 'Output on movement', kind: 'yesno', power: 'on', how: 'Same probes. Wave a hand in front of it.', question: 'Does the reading rise to about 3.3 V?' },
   ],
   findings: (ctx, readings) => digitalFindings(ctx, readings, false, 'motion sensor'),
+  probe: digitalProbe('Stay still for a minute, then wave a hand in front of it.', 'Wave a hand in front of it', (ctx) => [
+    { pin: firstPin(ctx) ?? -1, pullup: false, name: 'The motion sensor', restLevel: 0 },
+  ]),
 })
 
 export const DIGITAL_SENSOR_PROFILE = moduleProfile({
@@ -98,6 +103,9 @@ export const DIGITAL_SENSOR_PROFILE = moduleProfile({
     { id: 'moves', title: 'Output when triggered', kind: 'yesno', power: 'on', how: 'Same probes. Trigger the sensor.', question: 'Does the reading change?' },
   ],
   findings: (ctx, readings) => digitalFindings(ctx, readings, num(readings, 'rest') !== undefined && (num(readings, 'rest') ?? 0) > 1, 'sensor'),
+  probe: digitalProbe('Trigger the sensor a few times.', 'Trigger it', (ctx) => [
+    { pin: firstPin(ctx) ?? -1, pullup: false, name: 'The sensor', restLevel: null },
+  ]),
 })
 
 export const IR_RECEIVER_PROFILE = moduleProfile({
@@ -114,6 +122,9 @@ export const IR_RECEIVER_PROFILE = moduleProfile({
     { id: 'moves', title: 'Output with a remote', kind: 'yesno', power: 'on', how: 'Same probes. Hold a remote button aimed at the receiver.', question: 'Does the reading dip a little while you hold the button?' },
   ],
   findings: (ctx, readings) => digitalFindings(ctx, readings, true, 'IR receiver'),
+  probe: digitalProbe('Aim a remote at the receiver and press any button.', 'Press a remote button aimed at it', (ctx) => [
+    { pin: firstPin(ctx) ?? -1, pullup: false, name: 'The IR receiver', restLevel: 1 },
+  ]),
 })
 
 const ANALOG_SWEEP = (what: string) => (ctx: DebugContext) => [
@@ -133,6 +144,7 @@ export const ANALOG_SENSOR_PROFILE = moduleProfile({
   supply: logicSupply,
   steps: ANALOG_SWEEP('sensor'),
   findings: (ctx, readings) => analogFindings(ctx, readings, 'sensor'),
+  probe: analogProbe('sensor', 'Take the sensor from one extreme to the other: cover it, then light it, or whatever it measures.'),
 })
 
 export const JOYSTICK_PROFILE = moduleProfile({
@@ -153,6 +165,7 @@ export const JOYSTICK_PROFILE = moduleProfile({
     ]
   },
   findings: (ctx, readings) => analogFindings(ctx, readings, 'X axis'),
+  probe: analogProbe('X axis', 'Push the stick fully left, then fully right.', 'xPin'),
 })
 
 export const TEMPERATURE_PROFILE = moduleProfile({

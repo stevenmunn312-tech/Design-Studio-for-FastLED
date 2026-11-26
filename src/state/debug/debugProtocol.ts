@@ -3,8 +3,8 @@
 //   FLS_DBG v=1 probe=analog raw=2048 min=12 max=4090 adcMax=4095
 //
 // Key=value pairs after the marker, unknown keys kept, so a newer sketch can
-// add fields without breaking an older reader. Numbers parse as numbers;
-// anything else stays text. Sketches print from loop() only, rate-limited.
+// add fields without breaking an older reader. Bare numbers parse as numbers;
+// quoted values and anything else stay text. Sketches print from loop() only, rate-limited.
 
 export const DEBUG_MARKER = 'FLS_DBG'
 export const DEBUG_PROTOCOL_VERSION = 1
@@ -26,9 +26,13 @@ export function parseDebugLine(line: string): DebugLine | null {
   if (rest.length > 0 && !/^\s/.test(rest)) return null
   const fields: Record<string, number | string> = {}
   for (const match of rest.matchAll(TOKEN)) {
-    const raw = match[2].startsWith('"') ? match[2].slice(1, -1) : match[2]
-    const value = raw !== '' && Number.isFinite(Number(raw)) ? Number(raw) : raw
-    fields[match[1]] = value
+    // A quoted value is always text, so a list such as found="3C,68" stays one.
+    if (match[2].startsWith('"')) {
+      fields[match[1]] = match[2].slice(1, -1)
+      continue
+    }
+    const raw = match[2]
+    fields[match[1]] = raw !== '' && Number.isFinite(Number(raw)) ? Number(raw) : raw
   }
   if (fields.v !== DEBUG_PROTOCOL_VERSION || typeof fields.probe !== 'string' || fields.probe === '') return null
   const probe = fields.probe as string

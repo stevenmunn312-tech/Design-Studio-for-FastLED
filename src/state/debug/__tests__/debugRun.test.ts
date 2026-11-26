@@ -10,6 +10,7 @@ import { NODE_LIBRARY, libraryDefaults } from '../../nodeLibrary'
 import { generateAnalogProbeSketch } from '../../../codegen/sketches/debug/analogProbeSketch'
 import { debugRunBlocker, PROBE_BAUD, useDebugRunStore } from '../debugRunStore'
 import { POT_PROFILE } from '../profiles/controls'
+import { debugProfileFor } from '../debugProfiles'
 import { debugContextFor } from '../debugProfile'
 import { useDeviceTelemetryStore } from '../../upload/deviceTelemetryStore'
 
@@ -112,7 +113,7 @@ describe('Diagnostic run', () => {
     seed([node('board-root', 'Board'), pot, debug], [wire('pot', 'dbg')])
     useUploadStore.setState({ selectedPort: '' })
     expect(debugRunBlocker('dbg')).toMatch(/Choose the board’s port/)
-    seed([node('board-root', 'Board'), node('enc', 'EncoderInput'), debug], [wire('enc', 'dbg')])
+    seed([node('board-root', 'Board'), node('temp', 'TemperatureInput'), debug], [wire('temp', 'dbg')])
     expect(debugRunBlocker('dbg')).toMatch(/no diagnostic sketch yet/)
   })
 
@@ -143,5 +144,65 @@ describe('Diagnostic run', () => {
     await useDebugRunStore.getState().start('dbg')
     expect(useDebugRunStore.getState().run).toMatchObject({ phase: 'failed', error: expect.stringMatching(/did not upload/) })
     expect(startSerial).not.toHaveBeenCalled()
+  })
+})
+
+describe('Phase 3 probes', () => {
+  const ctxOf = (part: StudioNode, board?: StudioNode) => debugContextFor(part, board ? [board] : [])
+  const titles = (findings: { tone: string; title: string }[]) => findings.map((entry) => `${entry.tone}: ${entry.title}`)
+
+  it('watches every button row with its own pull-up and names each', () => {
+    const button = node('b', 'ButtonBank', { buttons: [
+      { id: '1', label: 'Next', pin: 12, pullup: true },
+      { id: '2', label: 'Back', pin: 13, pullup: false },
+    ] })
+    const probe = debugProfileFor(button)!.probe!
+    const sketch = probe.sketch(ctxOf(button))!
+    expect(sketch).toContain('PROBE_PINS[] = { 12, 13 }')
+    expect(sketch).toContain('PROBE_PULLUP[] = { true, false }')
+    expect(titles(probe.interpret(ctxOf(button), { level_12: 0, edges_12: 0, bounces_12: 0, level_13: 0, edges_13: 6, bounces_13: 9 })))
+      .toEqual(['fault: Next reads active the whole time', 'ok: Back works', 'suspect: Back chatters'])
+    expect(titles(probe.interpret(ctxOf(button), { level_12: 1, edges_12: 0, bounces_12: 0 })))
+      .toEqual(['suspect: No change seen on Next yet'])
+  })
+
+  it('names an encoder that counts backwards and offers the swap', () => {
+    const encoder = node('e', 'EncoderInput', { pinA: 6, pinB: 7, pinSW: 8 })
+    const probe = debugProfileFor(encoder)!.probe!
+    const [direction, sw] = probe.interpret(ctxOf(encoder), { count: -4, invalid: 0, sw: 1, presses: 2 })
+    expect(direction.title).toBe('The encoder counts backwards')
+    expect(direction.repair?.properties).toEqual({ pinA: 7, pinB: 6 })
+    expect(sw.tone).toBe('ok')
+    expect(titles(probe.interpret(ctxOf(encoder), { count: 0, invalid: 12, sw: 0, presses: 0 })))
+      .toEqual(['fault: A and B change but do not decode', 'suspect: Many steps are unclear', 'fault: The switch reads pressed the whole time'])
+  })
+
+  it('scans with the board’s own bus start: pins on ESP32, the fixed bus on AVR', () => {
+    const env = node('env', 'EnvironmentInput', { sdaPin: 21, sclPin: 22 })
+    const esp = debugProfileFor(env)!.probe!.sketch(ctxOf(env, node('board-root', 'Board', { profileId: 'esp32-generic-devkit-38pin' })))!
+    expect(esp).toContain('Wire.begin(21, 22);')
+    expect(esp).toContain('pinMode(21, INPUT);')
+    const uno = debugProfileFor(env)!.probe!.sketch(ctxOf(env, node('board-root', 'Board', { profileId: 'arduino-uno-r3-dip' })))!
+    expect(uno).toContain('Wire.begin();')
+    expect(uno).toContain('pinMode(SDA, INPUT);')
+  })
+
+  it('offers the found address for a strappable OLED, and only names it for a fixed DS3231', () => {
+    const oled = node('o', 'InfoDisplay', { partId: 'ssd1306-oled-096-128x64-i2c' })
+    const [moved] = debugProfileFor(oled)!.probe!.interpret(ctxOf(oled), { found: '3D', count: 1, sdaIdle: 1, sclIdle: 1 })
+    expect(moved.title).toBe('The part answers at 0x3D, not 0x3C')
+    expect(moved.repair).toBeDefined()
+    const rtc = node('r', 'RtcModule')
+    const [other] = debugProfileFor(rtc)!.probe!.interpret(ctxOf(rtc), { found: '57', count: 1, sdaIdle: 1, sclIdle: 1 })
+    expect(other.title).toBe('The part answers at 0x57, not 0x68')
+    expect(other.repair).toBeUndefined()
+  })
+
+  it('names an empty bus, and a bus line held low', () => {
+    const rtc = node('r', 'RtcModule')
+    const probe = debugProfileFor(rtc)!.probe!
+    expect(probe.interpret(ctxOf(rtc), { found: '', count: 0, sdaIdle: 1, sclIdle: 1 })[0].detail).toMatch(/swapped/)
+    expect(probe.interpret(ctxOf(rtc), { found: '', count: 0, sdaIdle: 0, sclIdle: 1 })[0].detail).toMatch(/sits low/)
+    expect(titles(probe.interpret(ctxOf(rtc), { found: '57,68', count: 2, sdaIdle: 1, sclIdle: 1 }))).toEqual(['ok: The part answers at 0x68'])
   })
 })

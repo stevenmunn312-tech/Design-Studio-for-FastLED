@@ -34,6 +34,15 @@ const BOARDS = {
 /** Probe fixtures: a name, the part as configured, and the boards to build it on. */
 const PARTS: { name: string; nodeType: string; properties: Record<string, unknown>; boards: Record<keyof typeof BOARDS, Record<string, unknown>> }[] = [
   { name: 'pot', nodeType: 'PotInput', properties: {}, boards: { esp32: { pin: 34 }, uno: { pin: 14 } } },
+  {
+    name: 'buttons', nodeType: 'ButtonBank', properties: {},
+    boards: {
+      esp32: { buttons: [{ id: '1', label: 'Next', pin: 25, pullup: true }, { id: '2', label: 'Back', pin: 26, pullup: false }] },
+      uno: { buttons: [{ id: '1', label: 'Next', pin: 2, pullup: true }, { id: '2', label: 'Back', pin: 3, pullup: false }] },
+    },
+  },
+  { name: 'encoder', nodeType: 'EncoderInput', properties: {}, boards: { esp32: { pinA: 25, pinB: 26, pinSW: 27 }, uno: { pinA: 2, pinB: 3, pinSW: 4 } } },
+  { name: 'i2c-scan', nodeType: 'EnvironmentInput', properties: {}, boards: { esp32: { sdaPin: 21, sclPin: 22 }, uno: {} } },
 ]
 
 const fixtures: Record<string, { fqbn: string; source: string }> = {}

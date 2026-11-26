@@ -4,6 +4,7 @@
 import { normalizeButtonBankEntries } from '../../player/buttonBank'
 import type { DebugContext, DebugFinding, DebugProbe, DebugProfile, MeterReadings, MeterStep } from '../debugProfile'
 import { ANALOG_PROBE_KIND, generateAnalogProbeSketch } from '../../../codegen/sketches/debug/analogProbeSketch'
+import { digitalProbe, encoderProbe } from './probes'
 import { near, num, pinLabel, volts, yes } from '../debugProfile'
 
 const COMMON_GROUND = 'If anything is powered from a separate supply, its GND is joined to the board’s GND.'
@@ -58,6 +59,9 @@ export const BUTTON_PROFILE: DebugProfile = {
       },
     ]
   }),
+  probe: digitalProbe('Press each button a few times.', 'Press it', (ctx) => buttonRows(ctx).map((row) => ({
+    pin: row.pin, pullup: row.pullup, name: row.label, restLevel: row.pullup ? 1 : 0,
+  }))),
   scopeTips: [
     'Released, the pin sits flat at the logic level; pressed, it drops to 0 V.',
     'Zoom in on the edge: a few milliseconds of chatter is normal bounce, and the firmware debounces it.',
@@ -148,6 +152,9 @@ export const TOUCH_BUTTON_PROFILE: DebugProfile = {
     },
   ],
   scopeTips: ['The output is a clean step from 0 V to the supply while touched; ripple on it means a noisy supply.'],
+  probe: digitalProbe('Touch the pad a few times.', 'Touch the pad', (ctx) => [
+    { pin: Number(ctx.props.pin), pullup: false, name: 'The touch pad', restLevel: 0 },
+  ]),
   interpret: (ctx, readings) => {
     const findings: DebugFinding[] = []
     const vcc = num(readings, 'vcc')
@@ -262,9 +269,9 @@ export function analogProbe(name: string, instruction: string, pinKey = 'pin'): 
       const findings: DebugFinding[] = []
       if (span < 0.05) {
         findings.push(now / full < 0.02
-          ? { id: 'probe-sweep', tone: 'fault', title: `The ${name} reads 0 the whole time`, detail: `Based on the test, ${pinLabel(ctx.props[pinKey])} never rises. The wiper is not on that pin, or the ${name} has no supply.` }
+          ? { id: 'probe-sweep', tone: 'fault', title: `The ${name} reads 0 the whole time`, detail: `Based on the test, ${pinLabel(ctx.props[pinKey])} never rises. The ${name}’s signal is not on that pin, or it has no supply.` }
           : now / full > 0.98
-            ? { id: 'probe-sweep', tone: 'fault', title: `The ${name} reads full the whole time`, detail: 'Based on the test, the pin is pinned at the top. GND is missing, or the wiper wire is on the supply leg.' }
+            ? { id: 'probe-sweep', tone: 'fault', title: `The ${name} reads full the whole time`, detail: 'Based on the test, the pin is pinned at the top. GND is missing, or the signal wire is on the supply.' }
             : { id: 'probe-sweep', tone: 'suspect', title: `The ${name} reading has not moved yet`, detail: `Based on the test, it sits at ${Math.round((now / full) * 100)}%. ${instruction}` })
       } else if (low / full < 0.03 && high / full > 0.97) {
         findings.push({ id: 'probe-sweep', tone: 'ok', title: `The ${name} reaches its full range`, detail: 'Based on the test, the board reads it from bottom to top. The part and its wiring work.' })
@@ -374,6 +381,7 @@ export const ENCODER_PROFILE: DebugProfile = {
       },
     ]
   },
+  probe: encoderProbe(),
   scopeTips: [
     'On two channels, A and B are square waves a quarter-cycle apart. Which one leads tells the direction.',
     'Clean edges with brief bounce are normal; edges that wander while the knob is still mean missing pull-ups.',

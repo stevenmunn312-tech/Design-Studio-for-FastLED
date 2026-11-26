@@ -5,7 +5,7 @@
 
 import type { StudioNode } from '../../graphStore'
 import { collectPinUses, type HardwarePinUse } from '../../../build/hardwareManifest'
-import type { CommonIssue, DebugContext, DebugFinding, DebugPart, DebugProfile, MeterReadings, MeterStep } from '../debugProfile'
+import type { CommonIssue, DebugContext, DebugFinding, DebugPart, DebugProbe, DebugProfile, MeterReadings, MeterStep } from '../debugProfile'
 import { num, pinLabel, volts, yes } from '../debugProfile'
 
 export const COMMON_GROUND = 'If anything is powered from a separate supply, its GND is joined to the board’s GND.'
@@ -38,12 +38,14 @@ export interface ModuleProfileSpec {
   isolation?: (ctx: DebugContext) => string[]
   steps?: (ctx: DebugContext) => MeterStep[]
   findings?: (ctx: DebugContext, readings: MeterReadings) => DebugFinding[]
+  probe?: DebugProbe
 }
 
 export function moduleProfile(spec: ModuleProfileSpec): DebugProfile {
   return {
     nodeTypes: spec.nodeTypes,
     ...(spec.applies ? { applies: spec.applies } : {}),
+    ...(spec.probe ? { probe: spec.probe } : {}),
     commonIssues: spec.commonIssues,
     scopeTips: spec.scopeTips,
     isolation: (ctx) => {
