@@ -1,14 +1,103 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { rootGraphEdges, rootGraphNodes, useGraphStore } from '../../../state/graphStore'
 import { nodeDisplayLabel } from '../../../state/nodeLibrary'
 import { buildGraphDiagnostics } from '../../../utils/validateGraph'
 import { debugProfileFor, debugTargetOf } from '../../../state/debug/debugProfiles'
 import { debugContextFor, type MeterStep } from '../../../state/debug/debugProfile'
 import { isolatedFor, readingsFor, useDebugSessionStore } from '../../../state/debug/debugSessionStore'
+import { debugRunBlocker, hasProjectToRestore, useDebugRunStore } from '../../../state/debug/debugRunStore'
+import { useUploadStore } from '../../../state/upload/uploadStore'
+import { useUiStore } from '../../../state/uiStore'
+import type { DebugContext, DebugFinding, DebugProbe } from '../../../state/debug/debugProfile'
 import styles from './DebugNodeBody.module.css'
 
 const TONE_CLASS = { ok: styles.toneOk, suspect: styles.toneSuspect, fault: styles.toneFault } as const
 const TONE_LABEL = { ok: 'Looks good', suspect: 'Worth checking', fault: 'Found a fault' } as const
+
+function FindingCard({ finding, onRepair }: { finding: DebugFinding; onRepair: (finding: DebugFinding) => void }) {
+  return (
+    <div className={`${styles.finding} ${TONE_CLASS[finding.tone]}`}>
+      <div className={styles.findingTitle}>{TONE_LABEL[finding.tone]}: {finding.title}</div>
+      <div>{finding.detail}</div>
+      {finding.repair && (
+        <button type="button" className={styles.repair} onClick={() => onRepair(finding)}>{finding.repair.label}</button>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Section 4–5: upload the part's diagnostic sketch and read it live. Asks
+ * before uploading, because the probe replaces the project on the board until
+ * the project is uploaded again.
+ */
+function DebugRunSection({ nodeId, probe, ctx, onRepair }: {
+  nodeId: string; probe: DebugProbe; ctx: DebugContext; onRepair: (finding: DebugFinding) => void
+}) {
+  const run = useDebugRunStore((s) => (s.run?.debugNodeId === nodeId ? s.run : null))
+  const otherRun = useDebugRunStore((s) => Boolean(s.run && s.run.debugNodeId !== nodeId && ['uploading', 'running'].includes(s.run.phase)))
+  const start = useDebugRunStore((s) => s.start)
+  const stop = useDebugRunStore((s) => s.stop)
+  const restoreProject = useDebugRunStore((s) => s.restoreProject)
+  const dismiss = useDebugRunStore((s) => s.dismiss)
+  const busy = useUploadStore((s) => s.busy)
+  // Read so the blocker below is recomputed when any of them changes.
+  useUploadStore((s) => s.selectedPort)
+  useUiStore((s) => s.activeBoardId)
+  useGraphStore((s) => s.trusted)
+  const [confirming, setConfirming] = useState(false)
+  const blocker = debugRunBlocker(nodeId)
+  const findings = run?.fields ? probe.interpret(ctx, run.fields) : []
+
+  return (
+    <section className={styles.section} aria-label="Test on the board">
+      <h4>Test on the board</h4>
+      {!run && !confirming && (
+        <>
+          <div className={styles.how}>Upload a short test sketch that drives only this part and reports back here.</div>
+          <button type="button" className={styles.repair} disabled={Boolean(blocker) || busy || otherRun}
+            title={blocker ?? undefined} onClick={() => setConfirming(true)}>Run diagnostic</button>
+          {(blocker || otherRun) && <div className={styles.how}>{otherRun ? 'Another Debug node is testing; stop it first.' : blocker}</div>}
+        </>
+      )}
+      {!run && confirming && (
+        <div className={styles.step}>
+          <div className={styles.unplug}>This replaces your project on the board until you upload it again.</div>
+          <div className={styles.yesno}>
+            <button type="button" className={styles.repair} onClick={() => { setConfirming(false); void start(nodeId) }}>Upload diagnostic</button>
+            <button type="button" className={styles.answer} onClick={() => setConfirming(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+      {run?.phase === 'uploading' && <div className={styles.how}>Uploading the diagnostic… the Output console shows progress.</div>}
+      {run && run.phase !== 'uploading' && (
+        <>
+          {run.error && <div className={`${styles.finding} ${styles.toneFault}`}>{run.error}</div>}
+          {run.phase === 'running' && <div className={styles.stepTitle}>{probe.instruction}</div>}
+          {run.phase === 'running' && !run.fields && !run.error && <div className={styles.how}>Waiting for the board to report…</div>}
+          {run.fields && (
+            <dl className={styles.readout} aria-live="polite">
+              {probe.readout(run.fields).map((row) => (
+                <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>
+              ))}
+            </dl>
+          )}
+          {findings.map((finding) => <FindingCard key={finding.id} finding={finding} onRepair={onRepair} />)}
+          <div className={styles.yesno}>
+            {run.phase === 'running' && <button type="button" className={styles.answer} onClick={stop}>Stop</button>}
+            {run.phase !== 'running' && <button type="button" className={styles.answer} onClick={dismiss}>Close</button>}
+            {run.phase !== 'running' && hasProjectToRestore() && (
+              <button type="button" className={styles.repair} disabled={busy} onClick={() => void restoreProject()}>Re-upload project</button>
+            )}
+          </div>
+          {run.phase === 'stopped' && !hasProjectToRestore() && (
+            <div className={styles.how}>The diagnostic is still on the board. Upload your project again from Upload when you are done.</div>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
 
 /** A typed reading. Uncontrolled, committed on blur or Enter, blank clears:
  *  a reading has no range to clamp to, and "not measured yet" matters. */
@@ -68,6 +157,9 @@ export default function DebugNodeBody({ nodeId }: { nodeId: string }) {
     )
   }
 
+  const repair = (finding: DebugFinding) => {
+    if (finding.repair) updateNodeProperties(finding.repair.nodeId, finding.repair.properties)
+  }
   const partName = nodeDisplayLabel(target.data.nodeType, ctx.props, target.data.label)
   const steps = profile.meterSteps(ctx)
   const findings = profile.interpret(ctx, readings)
@@ -109,6 +201,8 @@ export default function DebugNodeBody({ nodeId }: { nodeId: string }) {
         ))}
       </section>
 
+      {profile.probe && <DebugRunSection nodeId={nodeId} probe={profile.probe} ctx={ctx} onRepair={repair} />}
+
       <section className={styles.section} aria-label="Measure">
         <h4>Measure</h4>
         {steps.map((step) => (
@@ -143,18 +237,7 @@ export default function DebugNodeBody({ nodeId }: { nodeId: string }) {
       {findings.length > 0 && (
         <section className={styles.section} aria-label="Verdict" aria-live="polite">
           <h4>Verdict</h4>
-          {findings.map((finding) => (
-            <div key={finding.id} className={`${styles.finding} ${TONE_CLASS[finding.tone]}`}>
-              <div className={styles.findingTitle}>{TONE_LABEL[finding.tone]}: {finding.title}</div>
-              <div>{finding.detail}</div>
-              {finding.repair && (
-                <button type="button" className={styles.repair}
-                  onClick={() => updateNodeProperties(finding.repair!.nodeId, finding.repair!.properties)}>
-                  {finding.repair.label}
-                </button>
-              )}
-            </div>
-          ))}
+          {findings.map((finding) => <FindingCard key={finding.id} finding={finding} onRepair={repair} />)}
         </section>
       )}
 

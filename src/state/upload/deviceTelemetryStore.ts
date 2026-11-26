@@ -23,6 +23,7 @@ import {
 } from './deviceTelemetry'
 import { useTouchCalibrationStore } from '../displays/touchCalibrationStore'
 import { useIrLearnStore } from '../peripherals/irLearnStore'
+import { useDebugRunStore } from '../debug/debugRunStore'
 
 interface DeviceTelemetryState {
   run: TelemetryRun | null
@@ -76,6 +77,7 @@ export const useDeviceTelemetryStore = create<DeviceTelemetryState>((set, get) =
       const touch = parseTelemetryTouchSample(line)
       if (touch) useTouchCalibrationStore.getState().ingestRawSample({ x: touch.rawX, y: touch.rawY })
       useIrLearnStore.getState().ingestLine(line)
+      useDebugRunStore.getState().ingestLine(line)
       if (sample) {
         run = accumulateTelemetry(run, sample)
         accepted += 1
