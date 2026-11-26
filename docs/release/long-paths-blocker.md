@@ -4,7 +4,8 @@ Written 2026-11-23. **Status, 2026-11-26:** fixed for ESP32 boards in 1.0.2
 (fbuild 2.5.55 and the esptool copy, below). RP2040, Teensy and STM32 boards
 still cannot build with long paths off
 ([per-family compile](#other-board-families-on-fbuild-2555-2026-11-26),
-FastLED/fbuild#2187), and what 1.0.2 does about them is undecided. The release also waits for the smoke
+FastLED/fbuild#2187). Steve chose on 2026-11-26 to wait for the upstream
+answer before deciding what 1.0.2 does about them. The release also waits for the smoke
 test on the 1.0.2 package ([todo](../../todo.md)). Read this before touching
 the release, the Store submission or the fbuild pin.
 

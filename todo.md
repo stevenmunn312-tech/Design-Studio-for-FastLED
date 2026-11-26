@@ -80,14 +80,17 @@ v1.0.2 is the release: `main` on 2026-11-26, with fbuild 2.5.55 and the
 esptool fix that let a Store install build ESP32 boards with long paths off.
 The v1.0.0 and v1.0.1 draft releases and their MSIX files are superseded.
 
-- [ ] Decide what 1.0.2 does about Pico W, Teensy and STM32 boards: fbuild
-  2.5.55 cannot build them with long paths off
+- [ ] Pico W, Teensy and STM32 boards: fbuild 2.5.55 cannot build them with
+  long paths off
   ([record](docs/release/long-paths-blocker.md#other-board-families-on-fbuild-2555-2026-11-26)).
-  Ship with the
-  [known limitation](docs/release/beta-support-matrix.md#known-limitations-in-v100),
+  Reported on 2026-11-26 as FastLED/fbuild#2187, and Steve messaged Zach.
+  Decision, 2026-11-26: wait for the upstream answer before choosing. When a
+  fixed fbuild is released, move the pin and rerun the three boards in
+  `tmp/fbuild-shortpath-repro` with long paths off. If no fix comes, ship
+  with the
+  [known limitation](docs/release/beta-support-matrix.md#known-limitations-in-v100)
   or build those families with arduino-cli when long paths are off (a code
-  change, so a new version). Reported upstream on 2026-11-26 as
-  FastLED/fbuild#2187.
+  change, so a new version).
 - [ ] Build the v1.0.2 packages with the Desktop Packages workflow on GitHub
   (needs Steve's go-ahead for this run). The same run can refresh the
   preview page above.
