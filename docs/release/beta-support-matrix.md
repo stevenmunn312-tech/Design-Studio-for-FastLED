@@ -1211,7 +1211,8 @@ the code-freeze compile matrix passed on. Work deferred past v1 is in the
   the arduino-pico, Teensy or STM32 board package, so a build stops with
   "Windows short-path fallback cannot safely use extracted path". Seen on
   2026-11-26 for the Pico W, Teensy 4.1 and Black Pill F411
-  ([record](long-paths-blocker.md#other-board-families-on-fbuild-2555-2026-11-26)).
+  ([record](long-paths-blocker.md#other-board-families-on-fbuild-2555-2026-11-26)),
+  and reported as FastLED/fbuild#2187.
   The app does not switch engine for them. fbuild's message suggests
   `fbuild --fix-win`, which needs an administrator and changes a machine-wide
   setting. Choosing arduino-cli in Board & Port is untested under these
