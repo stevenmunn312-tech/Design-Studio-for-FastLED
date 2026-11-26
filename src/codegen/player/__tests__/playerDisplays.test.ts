@@ -150,13 +150,15 @@ describe('displays in the player sketch', () => {
 
     // Declared, not started — see the matching note in infoDisplayCpp.test.ts.
     // The player generator had the same gating and the same latent failure.
-    it('declares Wire but does not start it for an SPI panel', () => {
+    // The driver is emitted per transport, so an SPI panel brings no Wire
+    // call and the sketch does not pull the library in (28 KB on an S3).
+    it('leaves Wire out altogether for an SPI panel', () => {
       const src = generatePlayerSketch({}, undefined, {
         displays: playerDisplaysFromGraph(nodes, edges),
       })
-      expect(src).toContain('#include <Wire.h>')
-      // The call, not the driver comment that mentions it.
-      expect(src).not.toMatch(/^\s*Wire\.begin\(/m)
+      expect(src).not.toContain('#include <Wire.h>')
+      expect(src).not.toMatch(/\bWire\./)
+      expect(src).toContain('_oledSpiByte(')
     })
   })
 
@@ -220,7 +222,9 @@ describe('displays in the player sketch', () => {
     expect(sketch).toContain('_segFaultCode(_segBuf_seg, 4, _segFault_seg);')
     // The colon is lit by the elapsed branch only, so a fault leaves it dark.
     expect(sketch).toMatch(/_segClock\(_segBuf_seg, [^;]*\);\s*_segCol_seg = true;/)
-    expect(sketch).toContain('_segWrite(_seg_seg, _segBuf_seg, _segDec_seg, _segCol_seg);')
+    expect(sketch).toContain('_segWrite(_seg_seg, _segBuf_seg, _segDec_seg, _segCol_seg, true);')
+    // A TM1637 alone: the MAX7219 driver is not in the sketch.
+    expect(sketch).not.toContain('_maxSend')
   })
 
   /*

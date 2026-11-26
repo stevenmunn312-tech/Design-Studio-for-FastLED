@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { generateCpp } from '../../cppGenerator'
 import type { StudioNode, StudioEdge } from '../../../state/graphStore'
-import { SEGMENT_DISPLAY_CPP_HELPERS, segmentDisplayLoopCpp, type SegmentDisplayEmit } from '../segmentDisplayCpp'
+import { segmentDisplayHelpersCpp, segmentDisplayLoopCpp, type SegmentDisplayEmit } from '../segmentDisplayCpp'
+const SEGMENT_HELPERS_ALL = segmentDisplayHelpersCpp({ tm1637: true, max7219: true })
 import { SEGMENT_GLYPHS, SEGMENT_CONTROLLERS } from '../../../state/displays/segmentDisplay'
 
 function node(id: string, nodeType: string, category: string, props: Record<string, unknown> = {}): StudioNode {
@@ -37,28 +38,28 @@ describe('segment display helpers', () => {
   it('generates its glyph table from the shared map', () => {
     const digits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
     const expected = digits.map((d) => `0x${SEGMENT_GLYPHS[d].toString(16).padStart(2, '0')}`).join(', ')
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain(expected)
+    expect(SEGMENT_HELPERS_ALL).toContain(expected)
   })
 
   it('sizes its buffer for the widest controller', () => {
     const widest = Math.max(...Object.values(SEGMENT_CONTROLLERS).map((c) => c.digits))
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain(`#define SEG_MAX_DIGITS ${widest}`)
+    expect(SEGMENT_HELPERS_ALL).toContain(`#define SEG_MAX_DIGITS ${widest}`)
   })
 
   // A bit-banged four-byte transfer every LED frame would cost more than the
   // render it is reporting on.
   it('writes only on a change or a refresh deadline', () => {
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('if (!changed && (now - d.lastWriteMs) < SEG_REFRESH_MS) return;')
+    expect(SEGMENT_HELPERS_ALL).toContain('if (!changed && (now - d.lastWriteMs) < SEG_REFRESH_MS) return;')
   })
 
   it('needs no external driver library', () => {
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).not.toContain('#include')
+    expect(SEGMENT_HELPERS_ALL).not.toContain('#include')
   })
 
   it('supports the E prefix on both controller transports', () => {
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain("if (c == 'E') return _segE;")
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain("if (c == 'E') { value = _segMaxE; return true; }")
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('_maxSend(d, 0x09, decodeMask);')
+    expect(SEGMENT_HELPERS_ALL).toContain("if (c == 'E') return _segE;")
+    expect(SEGMENT_HELPERS_ALL).toContain("if (c == 'E') { value = _segMaxE; return true; }")
+    expect(SEGMENT_HELPERS_ALL).toContain('_maxSend(d, 0x09, decodeMask);')
   })
 })
 
@@ -159,7 +160,7 @@ describe('MAX7219', () => {
   })
 
   it('sets its scan limit from the digit count', () => {
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('_maxSend(d, 0x0B, (uint8_t)(digits - 1));')
+    expect(SEGMENT_HELPERS_ALL).toContain('_maxSend(d, 0x0B, (uint8_t)(digits - 1));')
   })
 
   it('renders across eight digits', () => {
@@ -172,8 +173,11 @@ describe('MAX7219', () => {
   it('never asks a colonless module for a colon', () => {
     const nodes = [outputNode, node('rtc', 'RTCInput', 'input', { timeSource: 'DS3231' }), max7219({ showColon: true })]
     const src = generateCpp(nodes, [edge('e', 'rtc', 'seg', 'display', 'display')])
-    // The colon argument is a constant false, so it folds out of the call.
-    expect(src).toContain('_segWrite(_seg_seg, _segBuf_seg, _segDec_seg);')
+    // The colon argument is a constant false, and with no TM1637 in the sketch
+    // its driver, the only reader of a colon, is not emitted at all.
+    expect(src).toContain('_segWrite(_seg_seg, _segBuf_seg, _segDec_seg, false);')
+    expect(src).not.toContain('_tmFlush')
+    expect(src).not.toContain('SEG_HAS_')
   })
 
   it('shows seconds where the TM1637 cannot', () => {
@@ -203,12 +207,12 @@ describe('segment display edge cases', () => {
     // lroundf on a NaN is unspecified, so folding first would let the firmware
     // disagree with the browser about a reading neither of them has.
     const body = (fn: string) => {
-      const start = SEGMENT_DISPLAY_CPP_HELPERS.indexOf(`static void ${fn}(`)
+      const start = SEGMENT_HELPERS_ALL.indexOf(`static void ${fn}(`)
       expect(start, fn).toBeGreaterThan(-1)
       // Up to the next function declaration, so an assertion cannot be
       // satisfied by a mention in a neighbouring helper's comment.
-      const end = SEGMENT_DISPLAY_CPP_HELPERS.indexOf('static void ', start + 1)
-      return SEGMENT_DISPLAY_CPP_HELPERS.slice(start, end < 0 ? undefined : end)
+      const end = SEGMENT_HELPERS_ALL.indexOf('static void ', start + 1)
+      return SEGMENT_HELPERS_ALL.slice(start, end < 0 ? undefined : end)
     }
     const index = body('_segIndex')
     expect(index).toContain('static void _segIndex(char *out, uint8_t digits, float value)')
@@ -222,7 +226,7 @@ describe('segment display edge cases', () => {
   })
 
   it('refuses a negative index rather than dropping its sign', () => {
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('if (index < 0 || len > digits) { _segAllDash(out, digits); return; }')
+    expect(SEGMENT_HELPERS_ALL).toContain('if (index < 0 || len > digits) { _segAllDash(out, digits); return; }')
   })
 
   // 0 is the dimmest *on* level on both controllers. Anything treating it as
@@ -237,15 +241,15 @@ describe('segment display edge cases', () => {
 
   it('keeps a dimmest-on module out of shutdown', () => {
     // TM1637: 0x88 is display-on plus brightness bits; 0x80 is display-off.
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('lit ? (uint8_t)(0x88 | (d.brightness & 0x07)) : (uint8_t)0x80')
+    expect(SEGMENT_HELPERS_ALL).toContain('lit ? (uint8_t)(0x88 | (d.brightness & 0x07)) : (uint8_t)0x80')
     // MAX7219: shutdown is register 0x0C, never the intensity register.
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('if (!lit) { _maxSend(d, 0x0C, 0x00); return; }')
+    expect(SEGMENT_HELPERS_ALL).toContain('if (!lit) { _maxSend(d, 0x0C, 0x00); return; }')
   })
 
   it('rolls each clock field within its two digits', () => {
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('abs(hour) % 100')
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('abs(minute) % 100')
-    expect(SEGMENT_DISPLAY_CPP_HELPERS).toContain('abs(second) % 100')
+    expect(SEGMENT_HELPERS_ALL).toContain('abs(hour) % 100')
+    expect(SEGMENT_HELPERS_ALL).toContain('abs(minute) % 100')
+    expect(SEGMENT_HELPERS_ALL).toContain('abs(second) % 100')
   })
 
   describe('modes emitted straight from the display contract', () => {

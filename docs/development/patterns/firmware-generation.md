@@ -399,6 +399,26 @@ of the entries before the move: `git log -p -- CLAUDE.md`.
   SD player is ESP32-only; the audio debug lines were not checked on the
   non-ESP microphone boards.
 
+- The LED output's Gamma field is baked, never `napplyGamma_video`. It is a
+  property, so its curve is known at generation: `ledOutputRuntimeCpp` and
+  `ledOutputGammaPixelCpp` emit a lookup into `_outGamma_<hundredths>`, and
+  `withOutputGammaTables`, a last-step text pass beside `withLoopPacing` in
+  all three generators, defines each table the finished sketch reads after
+  the FastLED include. The table is `gammaVideoTable` with the values under
+  `ledOutputGammaFloor` at 0, the bytes the preview reads, so parity holds by
+  construction. FastLED's `applyGamma_video` raises in s16.16 fixed point,
+  several 64-bit products a channel, which is most of a frame on a board
+  without a 64-bit multiply. The Gamma *node* keeps the call: its gamma can
+  be wired.
+- A driver that serves several transports or controllers is emitted for the
+  ones the sketch has, decided at generation: `infoDisplayHelperProfile`
+  (SPI, I2C), `segmentDisplayHelperProfile` (TM1637, MAX7219) and
+  `tftDisplayHelperProfile`. The helper writes `#define OLED_HAS_I2C 0` and
+  wraps each arm in `#if`, which `specializeCpp` folds, so the finished
+  sketch holds one driver. A run-time struct member (`p.transport`,
+  `d.kind`) cannot do this: nothing folds it, the other arm ships, and with
+  it the other arm's library. Gate the library's `#include` on the same
+  fact as the arm that calls it; `emittedIncludes.test.ts` derives that rule.
 - The Board's power limit is `powerLimitSetupCpp`
   (`src/codegen/output/powerLimitCpp.ts`) in every generator, never a bare
   `setMaxPowerInVoltsAndMilliamps`. FastLED estimates each LED with its own

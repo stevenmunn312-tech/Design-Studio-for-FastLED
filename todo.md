@@ -145,29 +145,40 @@ changes every sketch and its preview parity, and clock sync is experimental.
 
 ### Speed, size and memory
 
-- [ ] **Output gamma as a baked table.** Default gamma 2.2 runs a fixed-point
-  `pow` three times per LED per frame (`ledOutputRuntimeCpp.ts:131-140`).
-  Measured on the Uno: flash 9,890 to 8,382 bytes, RAM unchanged. Estimated
-  time: 17 ms a frame for 30 LEDs on the Uno, 5 to 9 ms for 16x16 on ESP8266.
-- [ ] **Segment and OLED drivers per transport.** Kind, transport and
-  controller are run-time fields, so a TM1637 sketch carries the MAX7219
-  driver and an SPI OLED carries `Wire` and the I2C arms. Measured on the S3:
-  an SPI-only OLED drops 27,992 bytes of flash and 1,392 of RAM without them.
+Four were done on 2026-11-26 ([changelog](CHANGELOG.md)); the byte figures
+below them are compiled, the time figures are still estimates and no frame
+rate was measured. The rest are open: each either changes what a bus or
+panel sees on the wire, which needs a bench, or was too small to take first.
+
+- [x] **Output gamma as a baked table.** Default gamma 2.2 ran a fixed-point
+  `pow` three times per LED per frame. Now a 256-byte table built at
+  generation from the bytes the preview reads. Compiled on the Uno: flash
+  9,890 to 8,382 bytes, RAM unchanged. Estimated time saved: 17 ms a frame
+  for 30 LEDs on the Uno, 5 to 9 ms for 16x16 on ESP8266.
+- [x] **Segment and OLED drivers per transport.** A TM1637 sketch carried the
+  MAX7219 driver and an SPI OLED carried `Wire` and the I2C arms. Now each
+  is emitted for the parts in the sketch. Compiled on the S3: an SPI-only
+  OLED went from 364,099 to 335,579 bytes of flash and lost 1,392 of RAM.
+  Controller arms inside the OLED driver (SH1106 against SSD1306) still
+  ship together; they are a few bytes.
 - [ ] **I2C at 400 kHz.** No sketch calls `Wire.setClock`. An I2C OLED flush is
   about 110 ms once a second; each I2C sensor read is 0.7 to 1.1 ms slower
   than it needs to be.
 - [ ] **TFT text and LVGL flush in bulk SPI.** Fixed layouts draw one fill per
   lit font pixel, a byte per transfer (`tftDisplayCpp.ts:729-747`); the LVGL
   flush is a byte per transfer and keeps the parallel arm in SPI builds
-  (`customDisplayPanelCpp.ts:173,201-215`). `TftPanel::scratch` is unused: 64
-  bytes of RAM a panel.
+  (`customDisplayPanelCpp.ts:173,201-215`). Needs a panel on the bench to
+  check what is drawn.
+- [x] `TftPanel::scratch` was unused: 64 bytes of RAM a panel, removed.
 - [ ] **Microphone detectors on demand.** Beat, bass, mid, treble and BPM are
   always registered and polled, so FastLED runs analysers nothing reads
   (`audioEngineCpp.ts:339-346,366-396`).
-- [ ] Smaller: BME280 read every frame against a 1 s standby; PCA9685
-  rewritten on ADC noise; half-resolution upscale in float (integer form is
-  identical); show patterns copied into `leds` (3 x NUM_LEDS bytes); the two
-  INA read helpers are identical.
+- [x] BME280 was read every frame against a 1 s standby; now once a second,
+  and a missing sensor is retried at that rate.
+- [ ] Smaller: PCA9685 rewritten on ADC noise; half-resolution upscale in
+  float (the integer form is claimed identical, unproven); show patterns
+  copied into `leds` (3 x NUM_LEDS bytes); the two INA read helpers are
+  identical.
 
 ### Code the sketch cannot reach
 

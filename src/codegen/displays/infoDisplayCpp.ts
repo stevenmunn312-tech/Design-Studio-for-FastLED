@@ -84,7 +84,22 @@ export const OLED_PANEL_RAM_BYTES =
   alignTo4(OLED_PANEL_BYTE_MEMBERS + 2 * OLED_MAX_WIDTH * OLED_MAX_PAGES) + 4
 
 
-export function infoDisplayHelpersCpp(): string {
+/**
+ * Which transports a sketch's panels use. The driver is emitted for those
+ * alone: an SPI-only build then carries no `Wire` call, so it needs no
+ * `Wire.h` (28 KB of flash on an ESP32-S3), and an I2C-only build carries no
+ * bit-banged SPI.
+ */
+export interface InfoDisplayHelperProfile { spi: boolean; i2c: boolean }
+
+export function infoDisplayHelperProfile(displays: readonly { transport: string }[]): InfoDisplayHelperProfile {
+  return {
+    spi: displays.some((display) => display.transport !== 'i2c'),
+    i2c: displays.some((display) => display.transport === 'i2c'),
+  }
+}
+
+export function infoDisplayHelpersCpp(profile: InfoDisplayHelperProfile): string {
   const font = displayFontTableCpp()
   return `// ── 1-bit OLED (SH1106 / SSD1306) ───────────────────────────────────────────
 // Mirrors src/state/displays/oledSurface.ts and src/state/displays/infoDisplay.ts so the panel
@@ -112,6 +127,9 @@ static const uint8_t _oledFont[${font.count} * OLED_FONT_W] = { ${font.table} };
 #define OLED_I2C 1
 #define OLED_SH1106  0
 #define OLED_SSD1306 1
+// The transports this sketch has a panel on. The other's code is left out.
+#define OLED_HAS_SPI ${profile.spi ? 1 : 0}
+#define OLED_HAS_I2C ${profile.i2c ? 1 : 0}
 // Control byte prefixes an I2C write: 0x00 says the payload is commands,
 // 0x40 says it is display RAM. SPI says the same thing with the D/C line.
 #define OLED_I2C_CMD  0x00
@@ -141,6 +159,7 @@ struct OledPanel {
   uint32_t lastWriteMs;
 };
 
+#if OLED_HAS_SPI
 static void _oledSpiByte(OledPanel &p, uint8_t value) {
   for (uint8_t i = 0; i < 8; i++) {
     digitalWrite(p.mosi, (value & 0x80) ? HIGH : LOW);
@@ -149,8 +168,10 @@ static void _oledSpiByte(OledPanel &p, uint8_t value) {
     value <<= 1;
   }
 }
+#endif
 
 static void _oledCommand(OledPanel &p, uint8_t value) {
+#if OLED_HAS_I2C
   if (p.transport == OLED_I2C) {
     Wire.beginTransmission(p.addr);
     Wire.write((uint8_t)OLED_I2C_CMD);
@@ -158,14 +179,18 @@ static void _oledCommand(OledPanel &p, uint8_t value) {
     Wire.endTransmission();
     return;
   }
+#endif
+#if OLED_HAS_SPI
   digitalWrite(p.dc, LOW);
   digitalWrite(p.cs, LOW);
   _oledSpiByte(p, value);
   digitalWrite(p.cs, HIGH);
+#endif
 }
 
 /** One page of display RAM, however this panel is wired. */
 static void _oledPage(OledPanel &p, const uint8_t *page) {
+#if OLED_HAS_I2C
   if (p.transport == OLED_I2C) {
     for (uint8_t x = 0; x < p.w; x += OLED_I2C_CHUNK) {
       uint8_t run = (uint8_t)(p.w - x);
@@ -177,10 +202,13 @@ static void _oledPage(OledPanel &p, const uint8_t *page) {
     }
     return;
   }
+#endif
+#if OLED_HAS_SPI
   digitalWrite(p.dc, HIGH);
   digitalWrite(p.cs, LOW);
   for (uint8_t x = 0; x < p.w; x++) _oledSpiByte(p, page[x]);
   digitalWrite(p.cs, HIGH);
+#endif
 }
 
 /** The controller setup both transports share, once the wires are up. */
@@ -228,6 +256,7 @@ static void _oledCommon(OledPanel &p, uint8_t transport, uint8_t w, uint8_t h,
   for (uint16_t i = 0; i < sizeof(p.buf); i++) { p.buf[i] = 0; p.last[i] = 0; }
 }
 
+#if OLED_HAS_SPI
 static void _oledBeginSpi(OledPanel &p, uint8_t controller, uint8_t cs, uint8_t dc, uint8_t rst,
                           uint8_t sck, uint8_t mosi, uint8_t w, uint8_t h,
                           uint8_t columnOffset, uint8_t segmentRemap, uint8_t comScan) {
@@ -243,7 +272,9 @@ static void _oledBeginSpi(OledPanel &p, uint8_t controller, uint8_t cs, uint8_t 
   digitalWrite(rst, LOW); delay(10); digitalWrite(rst, HIGH); delay(10);
   _oledInit(p);
 }
+#endif
 
+#if OLED_HAS_I2C
 // No reset line and no chip select: a 4-pin module brings out power, ground and
 // the two bus wires, and resets itself from its own RC network at power-up.
 // Wire.begin() is the sketch's, not this panel's — every I2C device on the
@@ -256,6 +287,7 @@ static void _oledBeginI2c(OledPanel &p, uint8_t controller, uint8_t addr, uint8_
   p.addr = addr;
   _oledInit(p);
 }
+#endif
 
 // Page-addressed, one page at a time. The column offset is the whole reason
 // this is not a straight buffer dump: an SH1106 has 132 columns of RAM behind a

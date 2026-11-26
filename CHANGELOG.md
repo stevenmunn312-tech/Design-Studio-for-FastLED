@@ -42,6 +42,14 @@ share link, migrating it where a shape has changed.
   SD card or Ethernet module is reported as a pin conflict. These parts
   drive their own clock and data and went dark once the SPI bus started.
   Two of them may still share a pair with each other.
+- The LED output's Gamma is a table built into the sketch instead of a
+  calculation on every pixel of every frame. Colours are unchanged; frames
+  are faster, most on UNO-class and ESP8266 boards, and the sketch is about
+  1.5 KB smaller on an UNO.
+- A sketch carries only the display drivers its parts use: an SPI OLED no
+  longer brings the I2C library (28 KB smaller on an ESP32-S3), and a TM1637
+  no longer brings the MAX7219 driver.
+- A BME280 is read once a second, the rate it measures at, not every frame.
 
 ## [1.0.2] - 2026-11-26
 

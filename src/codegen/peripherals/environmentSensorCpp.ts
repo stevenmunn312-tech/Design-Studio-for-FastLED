@@ -75,6 +75,9 @@ export const ENVIRONMENT_SENSOR_HELPER_CPP: readonly string[] = [
   '}',
 ]
 
+/** How often the BME280 is read: the standby time `_bmeBegin` sets it to convert at. */
+const ENVIRONMENT_READ_INTERVAL_MS = 1000
+
 export function environmentAddressCpp(props: Record<string, unknown>): string {
   const spec = environmentSensorSpec(props.partId)
   if (!spec) return ''
@@ -87,11 +90,26 @@ export function environmentSensorLoopCpp(
   local: (port: 'temperature' | 'humidity' | 'pressure') => string,
 ): string[] {
   const address = environmentAddressCpp(props)
+  // The sensor is set to convert once a second (standby 1000 ms in
+  // `_bmeBegin`), so reading it every frame fetched the same sample about
+  // sixty times and ran the float compensation each time. Read at the rate it
+  // samples and hold the result between; a missing sensor is retried at the
+  // same rate rather than on every frame.
   return [
     `  static _Bme280Calibration _bmeCal_${id} = {};`,
     `  static bool _bmeReady_${id} = false;`,
-    `  if (!_bmeReady_${id}) _bmeReady_${id} = _bmeBegin(${address}, _bmeCal_${id});`,
-    `  float ${local('temperature')} = 0.0f, ${local('humidity')} = 0.0f, ${local('pressure')} = 0.0f;`,
-    `  if (_bmeReady_${id} && !_bmeMeasure(${address}, _bmeCal_${id}, ${local('temperature')}, ${local('humidity')}, ${local('pressure')})) _bmeReady_${id} = false;`,
+    `  static bool _bmeRead_${id} = false;`,
+    `  static uint32_t _bmeAt_${id} = 0;`,
+    `  static float _bmeT_${id} = 0.0f;`,
+    `  static float _bmeH_${id} = 0.0f;`,
+    `  static float _bmeP_${id} = 0.0f;`,
+    `  if (!_bmeRead_${id} || (uint32_t)(millis() - _bmeAt_${id}) >= ${ENVIRONMENT_READ_INTERVAL_MS}u) {`,
+    `    _bmeRead_${id} = true; _bmeAt_${id} = millis();`,
+    `    if (!_bmeReady_${id}) _bmeReady_${id} = _bmeBegin(${address}, _bmeCal_${id});`,
+    `    if (!_bmeReady_${id} || !_bmeMeasure(${address}, _bmeCal_${id}, _bmeT_${id}, _bmeH_${id}, _bmeP_${id})) {`,
+    `      _bmeReady_${id} = false; _bmeT_${id} = 0.0f; _bmeH_${id} = 0.0f; _bmeP_${id} = 0.0f;`,
+    `    }`,
+    `  }`,
+    `  float ${local('temperature')} = _bmeT_${id}, ${local('humidity')} = _bmeH_${id}, ${local('pressure')} = _bmeP_${id};`,
   ]
 }

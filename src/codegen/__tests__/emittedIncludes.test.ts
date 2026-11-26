@@ -1,11 +1,12 @@
 // A sketch that calls a library must declare it.
 //
 // This one cost a compile that no test could see. `infoDisplayHelpersCpp`
-// emits a single `OledPanel` carrying both transports and branches on
-// `p.transport` at runtime, so its `Wire` calls are compiled into every build
-// that draws an OLED — including one whose only panel is the 7-pin SPI SH1106
+// once emitted a single `OledPanel` carrying both transports and branched on
+// `p.transport` at runtime, so its `Wire` calls were compiled into every build
+// that drew an OLED — including one whose only panel is the 7-pin SPI SH1106
 // that is actually on the bench. The include, though, was gated on a panel
-// being I2C. The result was a sketch that referenced `Wire` without declaring
+// being I2C. (The driver is now emitted per transport, and the include is
+// gated on the same fact.) The result was a sketch that referenced `Wire` without declaring
 // it, which fails in the toolchain on a line no generator wrote:
 //
 //   src/main.ino:402:5: error: 'Wire' was not declared in this scope
@@ -140,8 +141,6 @@ function expectDeclaresWhatItUses(source: string, label: string): void {
 
 describe('normal sketches', () => {
   const graphs: Array<[string, StudioNode[]]> = [
-    // The regression, first: an SPI-only OLED with no I2C device anywhere.
-    ['an SPI OLED alone', [output, spiOled]],
     ['an I2C OLED alone', [output, i2cOled]],
     ['a colour panel alone', [output, tft]],
     ['a colour panel and an SPI OLED', [output, tft, spiOled]],
@@ -150,6 +149,15 @@ describe('normal sketches', () => {
 
   it.each(graphs)('declares what it uses with %s', (label, nodes) => {
     expectDeclaresWhatItUses(generateCpp(nodes, []), `a sketch with ${label}`)
+  })
+
+  // The regression this file began with: an SPI-only OLED with no I2C device
+  // anywhere. The driver is now emitted per transport, so such a sketch calls
+  // no library at all, and the rule holds because nothing is used.
+  it('uses no bus library with an SPI OLED alone', () => {
+    const source = generateCpp([output, spiOled], [])
+    expect(source).toContain('_oledSpiByte(')
+    expect(source).not.toMatch(/\bWire\b/)
   })
 
   it('declares what it uses with a custom LVGL display alone', () => {
@@ -162,7 +170,6 @@ describe('normal sketches', () => {
 
 describe('the show controller sketch', () => {
   const graphs: Array<[string, StudioNode[]]> = [
-    ['an SPI OLED alone', [spiOled]],
     ['an I2C OLED alone', [i2cOled]],
     ['a colour panel alone', [tft]],
     ['every display at once', [tft, spiOled, segment]],
@@ -173,6 +180,12 @@ describe('the show controller sketch', () => {
       [output, ...showNodes, ...displays], showEdges, showGroups as never,
     )
     expectDeclaresWhatItUses(source, `a show sketch with ${label}`)
+  })
+
+  it('uses no bus library with an SPI OLED alone', () => {
+    const source = generateShowSketch([output, ...showNodes, spiOled], showEdges, showGroups as never)
+    expect(source).toContain('_oledSpiByte(')
+    expect(source).not.toMatch(/\bWire\b/)
   })
 })
 

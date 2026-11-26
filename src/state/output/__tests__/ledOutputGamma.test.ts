@@ -3,7 +3,7 @@ import {
   LED_OUTPUT_GAMMA_DEFAULT, LED_OUTPUT_GAMMA_OFF, applyLedOutputRuntime, ledOutputGamma, ledOutputGammaFloor,
 } from '../ledOutputRuntime'
 import {
-  ledOutputGammaExpr, ledOutputGammaFloorCpp, ledOutputGammaPixelCpp, ledOutputRuntimeCpp,
+  ledOutputGammaExpr, ledOutputGammaPixelCpp, ledOutputRuntimeCpp,
 } from '../../../codegen/output/ledOutputRuntimeCpp'
 import { gammaVideoTable } from '../../../nodes/composite/gamma'
 import { evaluateGraphFull } from '../../graphEvaluator'
@@ -138,15 +138,15 @@ describe('the sketches', () => {
     generateCpp([ramp, output(props)], [edge('e1', 'ramp', 'frame', 'out', 'frame')])
 
   it('emits nothing while off', () => {
-    expect(plain()).not.toContain('napplyGamma_video')
-    expect(plain({ outputGamma: 1 })).not.toContain('napplyGamma_video')
-    expect(plain({ form: 'hub75', chipset: 'HUB75', outputGamma: 2.2 })).not.toContain('napplyGamma_video')
+    expect(plain()).not.toContain('_outGamma_')
+    expect(plain({ outputGamma: 1 })).not.toContain('_outGamma_')
+    expect(plain({ form: 'hub75', chipset: 'HUB75', outputGamma: 2.2 })).not.toContain('_outGamma_')
   })
 
   it('curves the physical array after the blit and before the dimmer and the show', () => {
     const cpp = plain({ outputGamma: 2.2, outputBrightness: 0.5 })
     const loop = cpp.slice(cpp.indexOf('void loop()'))
-    const gamma = loop.indexOf('napplyGamma_video(leds, NUM_LEDS, 2.20f);  // LED output gamma')
+    const gamma = loop.indexOf('for (int _gf = 0; _gf < NUM_LEDS; _gf++) {  // LED output gamma')
     expect(gamma).toBeGreaterThan(0)
     expect(gamma).toBeLessThan(loop.indexOf('nscale8_video(_outLevel_out)'))
     expect(gamma).toBeLessThan(loop.lastIndexOf('FastLED.show();'))
@@ -160,20 +160,29 @@ describe('the sketches', () => {
     const lines = ledOutputRuntimeCpp({
       id: 'o', array: 'leds', count: 'NUM_LEDS', enabledExpr: 'on', brightnessExpr: null, gammaExpr: '2.80f',
     })
-    const floor = ledOutputGammaFloorCpp('leds', 'NUM_LEDS', '2.80f')
     expect(lines).toEqual([
-      ...floor,
-      '  napplyGamma_video(leds, NUM_LEDS, 2.80f);  // LED output gamma',
+      '  for (int _gf = 0; _gf < NUM_LEDS; _gf++) {  // LED output gamma',
+      '    CRGB& _gp = leds[_gf];',
+      '    _gp.r = pgm_read_byte(&_outGamma_280[_gp.r]); _gp.g = pgm_read_byte(&_outGamma_280[_gp.g]); _gp.b = pgm_read_byte(&_outGamma_280[_gp.b]);',
+      '  }',
       '  if (!(on)) fill_solid(leds, NUM_LEDS, CRGB::Black);',
     ])
   })
 
-  it('turns off the values under the gamma floor before the video gamma, as the preview does', () => {
+  // The Gamma field is a property, so its curve is baked rather than raised
+  // in fixed point three times a pixel. The table is the one the preview
+  // reads, floor included, so the two agree by construction.
+  it('bakes the curve as the preview table, with the values under the floor off', () => {
     const floor = ledOutputGammaFloor(2.2)
-    expect(ledOutputGammaFloorCpp('leds', 'NUM_LEDS', '2.20f').join(' '))
-      .toContain(`if (_gp.r < ${floor}) _gp.r = 0; if (_gp.g < ${floor}) _gp.g = 0; if (_gp.b < ${floor}) _gp.b = 0;`)
+    const preview = Array.from(gammaVideoTable(2.2), (value, index) => (index < floor ? 0 : value))
+    const cpp = plain({ outputGamma: 2.2 })
+    const table = /const uint8_t _outGamma_220\[256\] PROGMEM = \{([^}]*)\};/.exec(cpp)
+    expect(table?.[1].split(',').map((entry) => entry.trim()).filter(Boolean).map(Number)).toEqual(preview)
+    expect(cpp.indexOf('const uint8_t _outGamma_220[256]')).toBeGreaterThan(cpp.indexOf('#include <FastLED.h>'))
+    expect(cpp.indexOf('const uint8_t _outGamma_220[256]')).toBeLessThan(cpp.indexOf('void setup() {'))
+    expect(cpp).not.toContain('napplyGamma_video')
     expect(ledOutputGammaPixelCpp('2.20f'))
-      .toBe(`if (_c.r < ${floor}) _c.r = 0; if (_c.g < ${floor}) _c.g = 0; if (_c.b < ${floor}) _c.b = 0; napplyGamma_video(_c, 2.20f); `)
+      .toBe('_c.r = pgm_read_byte(&_outGamma_220[_c.r]); _c.g = pgm_read_byte(&_outGamma_220[_c.g]); _c.b = pgm_read_byte(&_outGamma_220[_c.b]); ')
     expect(ledOutputGammaPixelCpp(null)).toBe('')
   })
 
@@ -183,9 +192,10 @@ describe('the sketches', () => {
     const cpp = generateCpp([
       ramp, output({ outputGamma: 2.2 }), output({ dataPin: 6 }, 'out2'),
     ], [edge('e1', 'ramp', 'frame', 'out', 'frame'), edge('e2', 'ramp', 'frame', 'out2', 'frame')])
-    expect(cpp).toContain('napplyGamma_video(_c, 2.20f); _c.nscale8_video(')
-    expect(cpp.split('napplyGamma_video(').length - 1).toBe(1)
-    expect(cpp).not.toContain('// LED output gamma')
+    expect(cpp).toContain('_c.b = pgm_read_byte(&_outGamma_220[_c.b]); _c.nscale8_video(')
+    expect(cpp.split('_c.b = pgm_read_byte(&_outGamma_220[_c.b]);').length - 1).toBe(1)
+    expect(cpp.split('const uint8_t _outGamma_220[256]').length - 1).toBe(1)
+    expect(cpp).not.toContain('{  // LED output gamma')
   })
 
   const showGroups = {
@@ -202,12 +212,12 @@ describe('the sketches', () => {
   ], showGroups)
 
   it('curves a show controller\'s output the way a normal sketch does', () => {
-    expect(show([output()])).not.toContain('napplyGamma_video')
+    expect(show([output()])).not.toContain('_outGamma_')
     const cpp = show([output({ outputGamma: 2.5, outputBrightness: 0.5 })])
-    expect(cpp).toContain('napplyGamma_video(leds, NUM_LEDS, 2.50f);  // LED output gamma')
-    expect(cpp.indexOf('napplyGamma_video(leds')).toBeLessThan(cpp.indexOf('nscale8_video(_outLevel_out)'))
+    expect(cpp).toContain('const uint8_t _outGamma_250[256] PROGMEM = {')
+    expect(cpp.indexOf('_gp.r = pgm_read_byte(&_outGamma_250[_gp.r]);')).toBeLessThan(cpp.indexOf('nscale8_video(_outLevel_out)'))
     const multi = show([output({ outputGamma: 2.5 }), output({ dataPin: 6 }, 'out2')])
-    expect(multi).toContain('napplyGamma_video(_c, 2.50f); _c.nscale8_video(')
+    expect(multi).toContain('_c.b = pgm_read_byte(&_outGamma_250[_c.b]); _c.nscale8_video(')
   })
 
   describe('the SD player', () => {
@@ -218,7 +228,7 @@ describe('the sketches', () => {
 
     it('carries the field and emits nothing while it is off', () => {
       expect(config({ outputGamma: 2.2 }).outputGamma).toBe(2.2)
-      expect(generatePlayerSketch(config({}))).not.toContain('napplyGamma_video')
+      expect(generatePlayerSketch(config({}))).not.toContain('_outGamma_')
     })
 
     // The curve follows the audio fade and the chain behind the player, as it
@@ -226,7 +236,7 @@ describe('the sketches', () => {
     it('curves the strip after the frame is finished and before the dimmer and the show', () => {
       const sketch = generatePlayerSketch(config({ outputGamma: 2.2, outputBrightness: 0.4 }))
       const loop = sketch.slice(sketch.indexOf('void loop()'))
-      const gamma = loop.indexOf('napplyGamma_video(leds, NUM_LEDS, 2.20f);  // LED output gamma')
+      const gamma = loop.indexOf('for (int _gf = 0; _gf < NUM_LEDS; _gf++) {  // LED output gamma')
       expect(gamma).toBeGreaterThan(0)
       expect(loop.split('nscale8_video(_outLevel_player)').length - 1).toBe(1)
       expect(gamma).toBeLessThan(loop.indexOf('nscale8_video(_outLevel_player)'))

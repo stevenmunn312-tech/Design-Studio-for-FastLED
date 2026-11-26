@@ -9,11 +9,11 @@ import type { StudioNode } from '../../state/graphStore'
 import { playerDisplaysFromGraph } from '../player/playerDisplays'
 import { wireBeginCpp } from '../peripherals/wireBeginCpp'
 import {
-  INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp, infoDisplayHelpersCpp,
+  INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp, infoDisplayHelpersCpp, infoDisplayHelperProfile,
   infoDisplayLoopCpp, infoDisplaySetupCpp, type InfoDisplayEmit,
 } from './infoDisplayCpp'
 import {
-  SEGMENT_DISPLAY_CPP_FORWARD, SEGMENT_DISPLAY_CPP_HELPERS,
+  SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayHelpersCpp, segmentDisplayHelperProfile,
   segmentDisplayGlobalCpp, segmentDisplayLoopCpp, segmentDisplaySetupCpp,
   type SegmentDisplayEmit,
 } from './segmentDisplayCpp'
@@ -93,7 +93,7 @@ export function standaloneDisplaysCpp(nodes: StudioNode[]): StandaloneDisplayEmi
   return {
     // The OLED helper contains a compiled Wire branch even for SPI panels.
     includes: [
-      ...(hasInfo ? ['#include <Wire.h>'] : []),
+      ...(i2c.length > 0 ? ['#include <Wire.h>'] : []),
       ...(hasTft ? [TFT_DISPLAY_CPP_INCLUDES] : []),
     ],
     forwards: [
@@ -102,8 +102,8 @@ export function standaloneDisplaysCpp(nodes: StudioNode[]): StandaloneDisplayEmi
       ...(hasTft ? [TFT_DISPLAY_CPP_FORWARD] : []),
     ],
     helpers: [
-      ...(hasInfo ? [infoDisplayHelpersCpp(), info.map(infoDisplayGlobalCpp).join('\n')] : []),
-      ...(hasSegment ? [SEGMENT_DISPLAY_CPP_HELPERS, segment.map(segmentDisplayGlobalCpp).join('\n')] : []),
+      ...(hasInfo ? [infoDisplayHelpersCpp(infoDisplayHelperProfile(info)), info.map(infoDisplayGlobalCpp).join('\n')] : []),
+      ...(hasSegment ? [segmentDisplayHelpersCpp(segmentDisplayHelperProfile(segment)), segment.map(segmentDisplayGlobalCpp).join('\n')] : []),
       ...(hasTft
         ? [tftDisplayHelpersCpp(tftDisplayHelperProfile(tft)), tft.map(tftDisplayGlobalCpp).join('\n')]
         : []),

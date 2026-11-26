@@ -80,7 +80,9 @@ describe('environment firmware', () => {
     expect(sketch.match(/Wire\.begin\(/g)).toHaveLength(1)
     expect(sketch.match(/static bool _bmeMeasure\(/g)).toHaveLength(1)
     expect(sketch).toContain('_bmeBegin(0x76, _bmeCal_weather)')
-    expect(sketch).toContain('_bmeMeasure(0x76, _bmeCal_weather, n_weather_temperature, n_weather_humidity, n_weather_pressure)')
+    expect(sketch).toContain('_bmeMeasure(0x76, _bmeCal_weather, _bmeT_weather, _bmeH_weather, _bmeP_weather)')
+    // Read once a second, the rate the sensor is set to convert at, not every frame.
+    expect(sketch).toContain('if (!_bmeRead_weather || (uint32_t)(millis() - _bmeAt_weather) >= 1000u) {')
     expect(sketch).toContain('pressureHpa = (p + (v1 + v2 + (float)c.p7) / 16.0f) / 100.0f;')
   })
 

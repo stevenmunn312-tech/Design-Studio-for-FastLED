@@ -135,14 +135,6 @@ const TFT_REFRESH_MS = 2000
  */
 const TFT_MIN_INTERVAL_MS = 80
 
-/**
- * Pixels one window write ships before the loop gets a look in.
- *
- * Small on purpose: a fill is issued as one window and one run of pixels, and
- * this is only the size of the scratch the run is written from.
- */
-const TFT_CHUNK_PIXELS = 32
-
 export interface TftDisplayHelperProfile {
   textSlots: number
   valueSlots: number
@@ -260,10 +252,9 @@ export const TFT_PANEL_RAM_BYTES = (() => {
   const flags = 3                                  // madctl, lit, painted
   const dims = 8                                   // w, h, colStart, rowStart
   const cache = TFT_TEXT_SLOTS * (TFT_SLOT_CHARS + 1)
-  const scratch = TFT_CHUNK_PIXELS * 2
   const values = TFT_VALUE_SLOTS * 4
   const clocks = 8                                 // lastPaintMs, lastFullMs
-  return alignTo4(pinsAndTransport + flags + dims + cache + scratch) + values + clocks
+  return alignTo4(pinsAndTransport + flags + dims + cache) + values + clocks
 })()
 
 /** A packed colour as the emitted source spells it. */
@@ -462,7 +453,6 @@ static void _tftPicture(TftPanel &p, int x, int y, int w, int h, const CRGB *src
 #define TFT_SLOT_CHARS ${TFT_SLOT_CHARS}
 #define TFT_TEXT_SLOTS ${profile.textSlots}
 #define TFT_VALUE_SLOTS ${profile.valueSlots}
-#define TFT_CHUNK     ${TFT_CHUNK_PIXELS}
 // Longest gap between field repaints when nothing changed, so a panel that was
 // unplugged and returned redraws itself without the loop polling it. The
 // background is not repainted on this deadline: a full-screen fill is over a
@@ -535,7 +525,6 @@ ${transportFields}
   // compare, a field repaints when the thing it says changes.
 ${textCacheField}
 ${valueCacheField}
-  uint16_t scratch[TFT_CHUNK];
   uint32_t lastPaintMs, lastFullMs;
 };
 

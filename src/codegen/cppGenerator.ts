@@ -10,7 +10,7 @@ import { displayTextCppHelpers } from './displays/displayTextCpp'
 import {
   type SegmentDisplayEmit,
   SEGMENT_DISPLAY_CPP_FORWARD,
-  SEGMENT_DISPLAY_CPP_HELPERS,
+  segmentDisplayHelpersCpp, segmentDisplayHelperProfile,
   segmentDisplayGlobalCpp,
 } from './displays/segmentDisplayCpp'
 import { networkSketchCpp, networkUsedIn } from './peripherals/networkCpp'
@@ -34,7 +34,7 @@ import {
   SPI_CHIPSETS,
   FLOAT_TO_BOOL_THRESHOLD,
 } from '../state/nodeLibrary'
-import { ledOutputManualExprs } from './output/ledOutputRuntimeCpp'
+import { ledOutputManualExprs, withOutputGammaTables } from './output/ledOutputRuntimeCpp'
 import { LED_OUTPUT_ACTION_PORTS, ledOutputStatus, LED_OUTPUT_RUNTIME_DEFAULT } from '../state/output/ledOutputRuntime'
 import { type PlayerControlButtonEmit, PLAYER_CONTROLS_CPP, ledOutputLatchGlobalCpp } from './player/playerControlsCpp'
 import { type IrRemoteProjectNode, irRemoteProjectEmission } from './peripherals/irRemoteCpp'
@@ -50,7 +50,7 @@ import { selectedLedDriver } from '../build/ledDriverSelection'
 import {
   type InfoDisplayEmit,
   INFO_DISPLAY_CPP_FORWARD,
-  infoDisplayHelpersCpp,
+  infoDisplayHelpersCpp, infoDisplayHelperProfile,
   infoDisplayGlobalCpp,
   infoDisplayStartupStageBatchCpp,
 } from './displays/infoDisplayCpp'
@@ -642,20 +642,16 @@ export function generateCpp(
     || digitalLightSensors.length > 0 || environmentSensors.length > 0 || motionVectors.length > 0 || touchPads.length > 0 || pwmDrivers.length > 0
     || i2cDistanceSensors.length > 0
   /*
-   * The header follows the driver, not the transport.
+   * The header follows the driver.
    *
-   * `infoDisplayHelpersCpp` emits one `OledPanel` carrying both transports and
-   * branches on `p.transport` at runtime, so its `Wire` calls are compiled even
-   * in a build whose only panel is SPI. Gating the include on the transport
-   * produced a sketch that called `Wire` without declaring it, and nothing
-   * caught it: the tests assert on strings, and the one graph that fails is the
-   * SH1106 on the bench — the 7-pin SPI variant, in a build with no I2C device
-   * to drag the header in behind it.
-   *
-   * Starting the bus stays a separate question. A build with no I2C device has
-   * no pins to start one with, so `needsWire` above still gates `Wire.begin`.
+   * `infoDisplayHelpersCpp` emits the OLED driver per transport
+   * (`infoDisplayHelperProfile`), so `Wire` is called only when a panel is
+   * I2C, and `needsWire` already counts those. An SPI-only panel once kept
+   * the header because the driver compiled both transports whatever the
+   * panel; gating the include then, without gating the driver, gave a sketch
+   * that called `Wire` undeclared. Keep the two gates on the same fact.
    */
-  const needsWireHeader = needsWire || sorted.some((n) => n.data.nodeType === 'InfoDisplay')
+  const needsWireHeader = needsWire
   /*
    * Master Speed, if the graph has one.
    *
@@ -1382,13 +1378,13 @@ export function generateCpp(
   }
 
   if (segmentDisplays.length > 0) {
-    lines.push(SEGMENT_DISPLAY_CPP_HELPERS)
+    lines.push(segmentDisplayHelpersCpp(segmentDisplayHelperProfile(segmentDisplays)))
     for (const display of segmentDisplays) lines.push(segmentDisplayGlobalCpp(display))
     lines.push(``)
   }
 
   if (infoDisplays.length > 0) {
-    lines.push(infoDisplayHelpersCpp())
+    lines.push(infoDisplayHelpersCpp(infoDisplayHelperProfile(infoDisplays)))
     for (const display of infoDisplays) lines.push(infoDisplayGlobalCpp(display))
     lines.push(``)
   }
@@ -1810,7 +1806,7 @@ export function generateCpp(
   // Last, on the finished text, so the Board's LED driver meets every output's
   // `addLeds` line the way the show and player generators' passes do.
   return withQualifiedMinMax(withLedDriver(
-    withLoopPacing(seeded === finished ? finished : specializeCpp(seeded, boardCppFacts(capabilityNodes))),
+    withOutputGammaTables(withLoopPacing(seeded === finished ? finished : specializeCpp(seeded, boardCppFacts(capabilityNodes)))),
     selectedLedDriver(capabilityNodes),
   ))
 }

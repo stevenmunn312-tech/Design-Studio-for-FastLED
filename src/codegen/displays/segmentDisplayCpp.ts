@@ -83,11 +83,28 @@ function align(bytes: number, to: number): number {
 }
 
 
-export const SEGMENT_DISPLAY_CPP_HELPERS = `// ── Segment displays ────────────────────────────────────────────────────────
+/**
+ * Which controllers a sketch's modules use. Each driver is emitted only for a
+ * module that needs it, so a TM1637 build carries no MAX7219 code.
+ */
+export interface SegmentDisplayHelperProfile { tm1637: boolean; max7219: boolean }
+
+export function segmentDisplayHelperProfile(displays: readonly { controller: string }[]): SegmentDisplayHelperProfile {
+  return {
+    tm1637: displays.some((display) => display.controller !== 'MAX7219'),
+    max7219: displays.some((display) => display.controller === 'MAX7219'),
+  }
+}
+
+export function segmentDisplayHelpersCpp(profile: SegmentDisplayHelperProfile): string {
+  return `// ── Segment displays ────────────────────────────────────────────────────────
 // Mirrors src/state/displays/segmentDisplay.ts so a module shows what the preview does.
 #define SEG_MAX_DIGITS ${MAX_DIGITS}
 #define SEG_KIND_TM1637 0
 #define SEG_KIND_MAX7219 1
+// The controllers this sketch has a module on. The other's driver is left out.
+#define SEG_HAS_TM1637 ${profile.tm1637 ? 1 : 0}
+#define SEG_HAS_MAX7219 ${profile.max7219 ? 1 : 0}
 #define SEG_FAULT_NONE 0
 #define SEG_FAULT_SD_CARD ${SEGMENT_FAULT_CODES.NO_SD_CARD}
 #define SEG_FAULT_NO_TRACK ${SEGMENT_FAULT_CODES.NO_PLAYABLE_TRACK}
@@ -116,6 +133,7 @@ struct SegDisplay {
 
 // ── TM1637 ──────────────────────────────────────────────────────────────────
 
+#if SEG_HAS_TM1637
 static void _tmStart(SegDisplay &d) {
   digitalWrite(d.data, HIGH); digitalWrite(d.clk, HIGH); delayMicroseconds(2);
   digitalWrite(d.data, LOW);  delayMicroseconds(2);
@@ -173,9 +191,11 @@ static void _tmFlush(SegDisplay &d, const char *text, int decimalMask, bool colo
   _tmByte(d, lit ? (uint8_t)(0x88 | (d.brightness & 0x07)) : (uint8_t)0x80);
   _tmStop(d);
 }
+#endif
 
 // ── MAX7219 ─────────────────────────────────────────────────────────────────
 
+#if SEG_HAS_MAX7219
 static void _maxSend(SegDisplay &d, uint8_t reg, uint8_t value) {
   digitalWrite(d.cs, LOW);
   uint16_t frame = ((uint16_t)reg << 8) | value;
@@ -228,6 +248,7 @@ static void _maxFlush(SegDisplay &d, const char *text, int decimalMask, bool lit
     _maxSend(d, (uint8_t)(i + 1), value);
   }
 }
+#endif
 
 // ── Shared ──────────────────────────────────────────────────────────────────
 
@@ -240,6 +261,7 @@ static void _segBegin(SegDisplay &d, uint8_t kind, uint8_t digits, uint8_t clk,
   for (uint8_t i = 0; i < SEG_MAX_DIGITS; i++) d.last[i] = 0;
 
   pinMode(clk, OUTPUT); pinMode(data, OUTPUT);
+#if SEG_HAS_MAX7219
   if (kind == SEG_KIND_MAX7219) {
     pinMode(cs, OUTPUT);
     digitalWrite(cs, HIGH);
@@ -248,9 +270,11 @@ static void _segBegin(SegDisplay &d, uint8_t kind, uint8_t digits, uint8_t clk,
     _maxSend(d, 0x0B, (uint8_t)(digits - 1));      // scan limit
     _maxSend(d, 0x0A, (uint8_t)(brightness & 0x0F));
     _maxSend(d, 0x0C, 0x01);                       // out of shutdown
-  } else {
-    digitalWrite(clk, LOW); digitalWrite(data, LOW);
   }
+#endif
+#if SEG_HAS_TM1637
+  if (kind == SEG_KIND_TM1637) { digitalWrite(clk, LOW); digitalWrite(data, LOW); }
+#endif
 }
 
 // Display-only filtering; sensor outputs and overcurrent stay immediate.
@@ -330,8 +354,12 @@ static void _segWrite(SegDisplay &d, const char *text, int decimalMask, bool col
   d.written = true;
   d.lastWriteMs = now;
 
+#if SEG_HAS_MAX7219
   if (d.kind == SEG_KIND_MAX7219) _maxFlush(d, text, decimalMask, lit);
-  else _tmFlush(d, text, decimalMask, colon, lit);
+#endif
+#if SEG_HAS_TM1637
+  if (d.kind == SEG_KIND_TM1637) _tmFlush(d, text, decimalMask, colon, lit);
+#endif
 }
 
 // ── Rendering ───────────────────────────────────────────────────────────────
@@ -389,6 +417,7 @@ static void _segIndex(char *out, uint8_t digits, float value) {
   for (int i = 0; i < len; i++) out[digits - len + i] = body[i];
 }
 `
+}
 
 export interface SegmentDisplayEmit {
   /** Unique C identifier stem for this display's globals. */

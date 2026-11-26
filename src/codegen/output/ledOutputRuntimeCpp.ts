@@ -18,6 +18,7 @@
 import {
   LED_OUTPUT_GAMMA_OFF, LED_OUTPUT_RUNTIME_DEFAULT, ledOutputGamma, ledOutputGammaFloor, ledOutputManualRuntime, ledOutputStatus,
 } from '../../state/output/ledOutputRuntime'
+import { gammaVideoTable } from '../../nodes/composite/gamma'
 import { nodeDisplayLabel } from '../../state/nodeLibrary'
 import type { LedStatusExpressions } from '../displays/displaySourceExpressions'
 
@@ -111,32 +112,59 @@ export function ledOutputGammaExpr(props: Record<string, unknown> | undefined): 
  */
 export function ledOutputGammaPixelCpp(gammaExpr: string | null): string {
   if (!gammaExpr) return ''
-  const floor = ledOutputGammaFloorOf(gammaExpr)
-  const off = floor > 0
-    ? `if (_c.r < ${floor}) _c.r = 0; if (_c.g < ${floor}) _c.g = 0; if (_c.b < ${floor}) _c.b = 0; `
-    : ''
-  return `${off}napplyGamma_video(_c, ${gammaExpr}); `
+  const table = ledOutputGammaTableName(gammaExpr)
+  return `_c.r = pgm_read_byte(&${table}[_c.r]); _c.g = pgm_read_byte(&${table}[_c.g]); _c.b = pgm_read_byte(&${table}[_c.b]); `
 }
 
-/** `ledOutputGammaFloor` for a `ledOutputGammaExpr` literal such as `2.20f`. */
-function ledOutputGammaFloorOf(gammaExpr: string): number {
-  return ledOutputGammaFloor(Number.parseFloat(gammaExpr))
+/*
+ * The Gamma field is a property, never a wire, so its curve is known when the
+ * sketch is written and is baked as a 256-byte table instead of calling
+ * `napplyGamma_video` on every frame. FastLED 3.10.9's `applyGamma_video`
+ * raises in s16.16 fixed point: a log2 and an exp2, each several 64-bit
+ * products, three times a pixel. That is most of a frame's budget on an AVR
+ * or ESP8266, which have no 64-bit multiply. The table is
+ * `gammaVideoTable`, the byte-exact port the preview already reads, with the
+ * values under `ledOutputGammaFloor` turned off, so preview and firmware
+ * agree by construction.
+ */
+const GAMMA_TABLE_PREFIX = '_outGamma_'
+
+/** The table for a `ledOutputGammaExpr` literal: `2.20f` reads `_outGamma_220`. */
+function ledOutputGammaTableName(gammaExpr: string): string {
+  return `${GAMMA_TABLE_PREFIX}${Math.round(Number.parseFloat(gammaExpr) * 100)}`
+}
+
+/** One table's definition, floor included. */
+function ledOutputGammaTableCpp(hundredths: number): string[] {
+  const gamma = hundredths / 100
+  const floor = ledOutputGammaFloor(gamma)
+  const values = Array.from(gammaVideoTable(gamma), (value, index) => (index < floor ? 0 : value))
+  const rows: string[] = []
+  for (let i = 0; i < values.length; i += 16) rows.push(`  ${values.slice(i, i + 16).join(', ')},`)
+  return [
+    `// LED output gamma ${gamma.toFixed(2)}: FastLED's applyGamma_video for each byte, with values under ${floor} off.`,
+    `const uint8_t ${GAMMA_TABLE_PREFIX}${hundredths}[256] PROGMEM = {`,
+    ...rows,
+    `};`,
+  ]
 }
 
 /**
- * Turn off the values under the gamma floor across an array, before the
- * video gamma that would otherwise light every one of them at 1; see
- * `ledOutputGammaFloor`. Empty when the curve has no floor.
+ * Define each gamma table the finished sketch reads, once, after the FastLED
+ * include. A text pass over the whole sketch, like `withLoopPacing`: the
+ * lookup is emitted by output blits in three generators and inside functions
+ * as well as `loop()`, and none of them owns a place for a global.
  */
-export function ledOutputGammaFloorCpp(array: string, count: string, gammaExpr: string, indent = '  '): string[] {
-  const floor = ledOutputGammaFloorOf(gammaExpr)
-  if (floor <= 0) return []
-  return [
-    `${indent}for (int _gf = 0; _gf < ${count}; _gf++) {  // under the gamma floor is off, not 1`,
-    `${indent}  CRGB& _gp = ${array}[_gf];`,
-    `${indent}  if (_gp.r < ${floor}) _gp.r = 0; if (_gp.g < ${floor}) _gp.g = 0; if (_gp.b < ${floor}) _gp.b = 0;`,
-    `${indent}}`,
-  ]
+export function withOutputGammaTables(source: string): string {
+  const used = new Set<number>()
+  for (const match of source.matchAll(new RegExp(`\\b${GAMMA_TABLE_PREFIX}(\\d+)\\[_`, 'g'))) used.add(Number(match[1]))
+  if (used.size === 0) return source
+  const lines = source.split('\n')
+  const includeAt = lines.findIndex((line) => line.startsWith('#include <FastLED.h>'))
+  if (includeAt < 0) return source
+  const tables = [...used].sort((a, b) => a - b).flatMap(ledOutputGammaTableCpp)
+  lines.splice(includeAt + 1, 0, ...tables)
+  return lines.join('\n')
 }
 
 /** One output's physical destination, whatever geometry produced it. */
@@ -175,10 +203,13 @@ export interface LedOutputRuntimeEmit {
  */
 export function ledOutputRuntimeCpp(emit: LedOutputRuntimeEmit): string[] {
   const i = emit.indent ?? '  '
+  const table = emit.gammaExpr ? ledOutputGammaTableName(emit.gammaExpr) : ''
   const gamma = emit.gammaExpr
     ? [
-        ...ledOutputGammaFloorCpp(emit.array, emit.count, emit.gammaExpr, i),
-        `${i}napplyGamma_video(${emit.array}, ${emit.count}, ${emit.gammaExpr});  // LED output gamma`,
+        `${i}for (int _gf = 0; _gf < ${emit.count}; _gf++) {  // LED output gamma`,
+        `${i}  CRGB& _gp = ${emit.array}[_gf];`,
+        `${i}  _gp.r = pgm_read_byte(&${table}[_gp.r]); _gp.g = pgm_read_byte(&${table}[_gp.g]); _gp.b = pgm_read_byte(&${table}[_gp.b]);`,
+        `${i}}`,
       ]
     : []
   if (!emit.enabledExpr && !emit.brightnessExpr) return gamma

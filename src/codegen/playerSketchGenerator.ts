@@ -45,7 +45,7 @@ import { PALETTE_IDS, STUDIO_PALETTES, customPaletteDeclarationsCpp, paletteCppR
 import { ledHardwareFromProps, overclockDefineCpp, fastledSetupCpp, hub75HardwareFromProps, hub75SetupCpp, hub75IncludesCpp, hub75GlobalsCpp, hub75BlitRowsCpp, psramBufferDecl, PSRAM_ALLOC_CPP } from './cppGenerator'
 import { sanitizePin } from './hardwarePins'
 import { ledSupplyVolts } from '../build/controllerSettings'
-import { ledOutputGammaExpr, ledOutputManualExprs, ledOutputRuntimeCpp } from './output/ledOutputRuntimeCpp'
+import { ledOutputGammaExpr, ledOutputManualExprs, ledOutputRuntimeCpp, withOutputGammaTables } from './output/ledOutputRuntimeCpp'
 import { LED_OUTPUT_GAMMA_OFF, ledOutputGamma, ledOutputManualRuntime } from '../state/output/ledOutputRuntime'
 import { decodedLoudnessCpp, vuNormalizedLevelCpp } from './audio/stereoLevelCpp'
 import { motionClockCpp } from './player/motionClockCpp'
@@ -69,7 +69,7 @@ import { heaviestLedMilliwatts, powerLimitLinesCpp } from './output/powerLimitCp
 import type { PlayerDisplays } from './player/playerDisplays'
 import { LATTICE_HELPER_CPP, LATTICE_CPP_FORWARD } from './helpers/latticeHelperCpp'
 import {
-  infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp,
+  infoDisplayHelpersCpp, infoDisplayHelperProfile, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp,
   infoDisplaySetupCpp, infoDisplayLoopCpp, infoDisplayStartupStageBatchCpp,
 } from './displays/infoDisplayCpp'
 import {
@@ -94,7 +94,7 @@ import type { PatternNames } from '../utils/patternNames'
 
 /** The player's own selection. A player sketch has exactly one show. */
 import {
-  SEGMENT_DISPLAY_CPP_HELPERS, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp,
+  segmentDisplayHelpersCpp, segmentDisplayHelperProfile, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp,
   segmentDisplaySetupCpp, segmentDisplayLoopCpp,
 } from './displays/segmentDisplayCpp'
 import { SPI_CHIPSETS, HUB75_CHIPSET } from '../state/nodeLibrary'
@@ -1384,7 +1384,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     hasStereoVu ? stereoVuMeters.map(stereoVuGlobalCpp).join('\n') : '',
     hasDisplays ? playerSongInfoCpp(bluetooth ? 'Bluetooth' : radio ? 'Internet Radio' : 'SD Card') : '',
     hasDisplays && bluetooth ? BLUETOOTH_SONG_POLL_CPP : '',
-    hasInfoDisplays ? infoDisplayHelpersCpp() : '',
+    hasInfoDisplays ? infoDisplayHelpersCpp(infoDisplayHelperProfile(infoEmits)) : '',
     hasInfoDisplays ? infoEmits.map(infoDisplayGlobalCpp).join('\n') : '',
     hasPatternSelection
       ? `#define PATTERN_COUNT ${collection ? renderers?.count ?? 0 : 0}\n` + PATTERN_SELECTION_CPP
@@ -1407,7 +1407,7 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
     // layouts read into their own buffers and would pay for nothing.
     boundNames ? patternNameStringCpp(PLAYER_SELECTION_STEM) : '',
     hasPatternSelection ? `static PatternSel _sel_${PLAYER_SELECTION_STEM};` : '',
-    hasSegmentDisplays ? SEGMENT_DISPLAY_CPP_HELPERS : '',
+    hasSegmentDisplays ? segmentDisplayHelpersCpp(segmentDisplayHelperProfile(segmentEmits)) : '',
     hasSegmentDisplays ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
     hasTftDisplays ? tftDisplayHelpersCpp(tftDisplayHelperProfile(tftEmits)) : '',
     touchEmits.length > 0 ? TFT_TOUCH_CPP_HELPERS : '',
@@ -1427,12 +1427,11 @@ ${touchEmits.flatMap((touch) => tftTouchServiceCpp(touch)).join('\n')}
   // displays disagreeing about them is refused in validation rather than
   // leaving the second one dark.
   const i2cDisplays = displays.info.filter((display) => display.transport === 'i2c')
-  // The header follows the driver, not the transport: the shared OLED driver
-  // compiles its Wire branch whichever bus the panel is on, so a sketch with
-  // only an SPI panel still has to declare it. Starting the bus below stays
-  // gated on there actually being an I2C device with pins to start it on.
+  // The header follows the driver: the OLED driver is emitted per transport
+  // (infoDisplayHelperProfile), so only an I2C panel brings Wire calls and
+  // needs it declared.
   const graphIncludesWire = compiledGraph?.includes.includes('#include <Wire.h>') ?? false
-  const i2cIncludeCpp = hasInfoDisplays && !graphIncludesWire ? '\n#include <Wire.h>' : ''
+  const i2cIncludeCpp = i2cDisplays.length > 0 && !graphIncludesWire ? '\n#include <Wire.h>' : ''
   const displayStartsI2c = i2cDisplays.length > 0
   const displaySetupCpp = [
     ...(customDisplays?.setup ?? []),
@@ -1553,7 +1552,7 @@ ${genericPlayer ? '' : `  // A show file can name the playing pattern on both si
     // unless the Music Player's Seed asks for a repeatable sequence.
     const seeded = withBootEntropy(finished, opts.seed ?? 0)
     return withQualifiedMinMax(withLedDriver(
-      withLoopPacing(seeded === finished ? finished : specializeCpp(seeded, facts)),
+      withOutputGammaTables(withLoopPacing(seeded === finished ? finished : specializeCpp(seeded, facts))),
       c.ledDriver,
     ))
   }

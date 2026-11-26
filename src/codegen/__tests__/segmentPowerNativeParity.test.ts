@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { renderSegmentPower, smoothSegmentPower, type SegmentPowerSmoothingState } from '../../state/displays/segmentDisplay'
-import { SEGMENT_DISPLAY_CPP_HELPERS } from '../displays/segmentDisplayCpp'
+import { segmentDisplayHelpersCpp } from '../displays/segmentDisplayCpp'
+const SEGMENT_HELPERS_ALL = segmentDisplayHelpersCpp({ tm1637: true, max7219: true })
 
 const nativeGpp = spawnSync('g++', ['--version']).status === 0
 const wslGpp = !nativeGpp && process.platform === 'win32'
@@ -18,11 +19,11 @@ describe.skipIf(!nativeGpp && !wslGpp)('power segment native parity', () => {
     const values = [-1000, -999.5, -99.5, -99.4, -20, -9.996, -9.994, -1.92, -0.8, -0.001,
       -0, 0, 0.34, 0.8, 1.92, 20, 99.99, 99.996, 999.5, 10000, NaN, Infinity, -Infinity]
     const cases = [4, 8].flatMap((digits) => values.map((value) => ({ digits, value })))
-    const helper = SEGMENT_DISPLAY_CPP_HELPERS.match(/static int _segPowerField\([^]*?\n\}/)?.[0]
+    const helper = SEGMENT_HELPERS_ALL.match(/static int _segPowerField\([^]*?\n\}/)?.[0]
     expect(helper).toBeDefined()
-    const colonHelper = SEGMENT_DISPLAY_CPP_HELPERS.match(/static bool _segPowerColonAmps\([^]*?\n\}/)?.[0]
+    const colonHelper = SEGMENT_HELPERS_ALL.match(/static bool _segPowerColonAmps\([^]*?\n\}/)?.[0]
     expect(colonHelper).toBeDefined()
-    const smoothing = SEGMENT_DISPLAY_CPP_HELPERS.match(/struct SegPowerSmoothing \{[^]*?\n\};/)?.[0]
+    const smoothing = SEGMENT_HELPERS_ALL.match(/struct SegPowerSmoothing \{[^]*?\n\};/)?.[0]
     expect(smoothing).toBeDefined()
     const literal = (value: number) => Number.isNaN(value) ? 'NAN'
       : !Number.isFinite(value) ? (value < 0 ? '-INFINITY' : 'INFINITY') : `${value.toFixed(4)}f`

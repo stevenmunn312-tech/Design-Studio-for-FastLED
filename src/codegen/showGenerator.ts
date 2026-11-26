@@ -82,11 +82,11 @@ import { boardLinkFirmware } from './peripherals/espNowLinkCpp'
 import { getBoardLinkKey } from '../state/peripherals/boardLinkKey'
 import { wiredNetworkIn } from '../state/peripherals/ethernetModule'
 import {
-  infoDisplayHelpersCpp, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp,
+  infoDisplayHelpersCpp, infoDisplayHelperProfile, INFO_DISPLAY_CPP_FORWARD, infoDisplayGlobalCpp,
   infoDisplaySetupCpp, infoDisplayLoopCpp, infoDisplayStartupStageBatchCpp, type InfoDisplayEmit,
 } from './displays/infoDisplayCpp'
 import {
-  SEGMENT_DISPLAY_CPP_HELPERS, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp,
+  segmentDisplayHelpersCpp, segmentDisplayHelperProfile, SEGMENT_DISPLAY_CPP_FORWARD, segmentDisplayGlobalCpp,
   segmentDisplaySetupCpp, segmentDisplayLoopCpp, type SegmentDisplayEmit,
 } from './displays/segmentDisplayCpp'
 import {
@@ -126,7 +126,7 @@ import type { DisplayDocumentRegistry } from '../state/displays/displayDocument'
 import { customDisplayShowCpp, type CustomDisplayAssets } from './displays/customDisplayShowCpp'
 import { PLAYER_CONTROLS_CPP, playerControlsServiceCpp, ledOutputLatchGlobalCpp, ledOutputLatchCpp } from './player/playerControlsCpp'
 import {
-  ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs, ledOutputRuntimeExpressions, ledOutputGammaExpr, ledOutputGammaPixelCpp,
+  ledOutputRuntimeCpp, hub75OutputRuntimeCpp, ledOutputManualExprs, ledOutputRuntimeExpressions, ledOutputGammaExpr, ledOutputGammaPixelCpp, withOutputGammaTables,
 } from './output/ledOutputRuntimeCpp'
 import {
   clampMasterSpeed, MASTER_SPEED_DEFAULT, MASTER_SPEED_MAX, MASTER_SPEED_MIN,
@@ -923,7 +923,7 @@ function showDisplaysCpp(
 
   return {
     includes: [
-      ...(hasInfo ? ['#include <Wire.h>'] : []),
+      ...(i2cDisplays.length > 0 ? ['#include <Wire.h>'] : []),
       ...(hasSpiTft ? [TFT_DISPLAY_CPP_INCLUDES] : []),
     ],
     forwards: [
@@ -932,11 +932,11 @@ function showDisplaysCpp(
       ...(hasTft ? [TFT_DISPLAY_CPP_FORWARD] : []),
     ],
     helpers: [
-      hasInfo ? infoDisplayHelpersCpp() : '',
+      hasInfo ? infoDisplayHelpersCpp(infoDisplayHelperProfile(infoEmits)) : '',
       hasInfo ? infoEmits.map(infoDisplayGlobalCpp).join('\n') : '',
       browsers.length > 0 ? THUMBNAIL_DRAW_CPP : '',
       browsers.length > 0 ? patternThumbnailTableCpp(SHOW_SELECTION_STEM, thumbnails) : '',
-      hasSegment ? SEGMENT_DISPLAY_CPP_HELPERS : '',
+      hasSegment ? segmentDisplayHelpersCpp(segmentDisplayHelperProfile(segmentEmits)) : '',
       hasSegment ? segmentEmits.map(segmentDisplayGlobalCpp).join('\n') : '',
       hasTft ? tftDisplayHelpersCpp(tftDisplayHelperProfile(tftEmits)) : '',
       touchEmits.length > 0 ? TFT_TOUCH_CPP_HELPERS : '',
@@ -1816,7 +1816,7 @@ export function generateShowSketch(
   if (entropySeeds.length) L.splice(fastLedIncludeAt, 0, ...ESP_RANDOM_INCLUDE_CPP)
 
   return withQualifiedMinMax(withLedDriver(
-    withLoopPacing(finishCpp(specializeCpp(withTelemetryGlobals(L).join('\n'), boardCppFacts(nodes)))),
+    withOutputGammaTables(withLoopPacing(finishCpp(specializeCpp(withTelemetryGlobals(L).join('\n'), boardCppFacts(nodes))))),
     selectedLedDriver(nodes),
   ))
 }

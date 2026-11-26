@@ -32,7 +32,7 @@ const oled = (props: Record<string, unknown> = {}) => node('oled', 'InfoDisplay'
 })
 
 describe('OLED helpers', () => {
-  const helpers = infoDisplayHelpersCpp()
+  const helpers = infoDisplayHelpersCpp({ spi: true, i2c: true })
 
   it('carries the shared font metrics', () => {
     expect(helpers).toContain(`#define OLED_FONT_W   ${FONT_W}`)
@@ -118,7 +118,7 @@ describe('generateCpp with an OLED', () => {
   })
 
   it('emits the controller-specific charge-pump sequence', () => {
-    const helpers = infoDisplayHelpersCpp()
+    const helpers = infoDisplayHelpersCpp({ spi: true, i2c: true })
     expect(helpers).toContain('_oledCommand(p, 0xAD); _oledCommand(p, 0x8B); // SH1106 internal DC/DC')
     expect(helpers).toContain('_oledCommand(p, 0x8D); _oledCommand(p, 0x14); // SSD1306 internal charge pump')
 
@@ -212,7 +212,7 @@ describe('generateCpp with an OLED', () => {
   // a bar gets it — the player's progress comes from its own expression and
   // never passes through a normal sketch's clamp.
   it('clamps a progress bar in the primitive that draws it', () => {
-    const src = infoDisplayHelpersCpp()
+    const src = infoDisplayHelpersCpp({ spi: true, i2c: true })
     expect(src).toContain('if (!isfinite(v) || v < 0) v = 0;')
     expect(src).toContain('if (v > 1) v = 1;')
   })
@@ -283,10 +283,12 @@ describe('generateCpp with an I2C OLED', () => {
   // compiled whichever module is fitted; omitting the header left `Wire` an
   // undeclared name and the build failed on a line no generator wrote. The
   // header follows the driver, and starting the bus follows the device.
-  it('declares Wire but does not start it with nothing on the bus', () => {
+  // The driver is emitted per transport, so an SPI panel brings no Wire call
+  // and the sketch does not pull the library in.
+  it('leaves Wire out altogether for an SPI panel', () => {
     const src = generateCpp([outputNode, oled()], [])
-    expect(src).toContain('#include <Wire.h>')
-    // The call, not the driver comment that mentions it.
-    expect(src).not.toMatch(/^\s*Wire\.begin\(/m)
+    expect(src).not.toContain('#include <Wire.h>')
+    expect(src).not.toMatch(/\bWire\./)
+    expect(src).toContain('_oledSpiByte(')
   })
 })
