@@ -15,6 +15,7 @@ the summary after every leg, so a partial run can still be read.
     python scripts/compile-fixtures/compile-matrix.py --only pattern-collections/   # D-10 render-buffer RAM
     python scripts/compile-fixtures/compile-matrix.py --only show-sequencing/   # D-11 weights, sequence, ramps
     python scripts/compile-fixtures/compile-matrix.py --only led-drivers/   # HW-32 step 7 Board LED drivers
+    python scripts/compile-fixtures/compile-matrix.py --preset prerelease   # the pre-release minimum, both engines
 
 The candidates are every fixture of every family, on arduino-cli and, for the
 boards its scaffold declares, on fbuild. A run regenerates them, then keeps
@@ -27,6 +28,10 @@ once (`build_order`).
 
 Development runs on arduino-cli alone, so that is the default engine;
 --engine fbuild or all adds fbuild.
+
+--preset prerelease runs exactly the legs prerelease-legs.json lists, on the
+engine each names: the fewest builds that cover each distinct firmware path
+once, each with the one thing it proves. It skips the cover above.
 
 To stop early, create a file named STOP in the run's output folder. The run
 finishes the current compile and stops before the next one. To resume, rerun the
@@ -516,6 +521,11 @@ def necessary(legs: list[Leg]) -> list[Leg]:
     return kept
 
 
+def preset_keys(name: str) -> list[str]:
+    """The leg keys (`engine:family/sketch@tag`) a preset file lists, in file order."""
+    return [entry["leg"] for entry in json.loads((HERE / f"{name}-legs.json").read_text(encoding="utf-8"))["legs"]]
+
+
 def build_order(legs: list[Leg]) -> list[Leg]:
     """Engine, then exact FQBN, then library set, so each build cache fills once.
 
@@ -783,6 +793,8 @@ def main() -> int:
                         help="run only this engine's legs (default arduino-cli)")
     parser.add_argument("--only", action="append",
                         help="run only legs whose name contains this text, e.g. ir/ or custom-board/; repeatable")
+    parser.add_argument("--preset", choices=("prerelease",),
+                        help="run exactly the legs <preset>-legs.json lists, on both engines, skipping the cover")
     parser.add_argument("--list", action="store_true", help="print the plan and exit")
     parser.add_argument("--dry-run", action="store_true", help="print each command without generating or compiling")
     parser.add_argument("--no-generate", action="store_true", help="compile the fixtures already on disk")
@@ -808,6 +820,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.merge:
         return merge_runs(args.merge, args.merge_out)
+    if args.preset:
+        args.engine = "all"
     if args.retry_failed:
         previous = latest_run(args.engine)
         if previous is None:
@@ -816,6 +830,11 @@ def main() -> int:
         args.resume = [*(args.resume or []), previous]
 
     wanted = [leg for leg in candidates() if args.engine in ("all", leg.engine)]
+    preset = preset_keys(args.preset) if args.preset else []
+    unknown = sorted(set(preset) - {leg.key for leg in wanted})
+    if unknown:
+        print(f"{args.preset}-legs.json lists legs that are not candidates: {', '.join(unknown)}")
+        return 2
     names = {leg.name for leg in wanted}
 
     def chosen(leg: Leg) -> bool:
@@ -825,7 +844,8 @@ def main() -> int:
     def plan() -> list[Leg]:
         # The cover is judged over every candidate, then --only narrows it, so a
         # filtered run builds exactly the legs the full plan would.
-        legs = [leg for leg in build_order(wanted if args.every else necessary(wanted)) if chosen(leg)]
+        kept = [leg for leg in wanted if leg.key in preset] if args.preset else wanted if args.every else necessary(wanted)
+        legs = [leg for leg in build_order(kept) if chosen(leg)]
         if args.shard:
             index, count = (int(part) for part in args.shard.split("/"))
             legs = shard(legs, index, count)

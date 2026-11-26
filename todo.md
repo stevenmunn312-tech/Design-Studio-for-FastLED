@@ -58,6 +58,117 @@ it alone); tags `v1.0.0` and `v1.0.1` exist with private draft releases, both
 superseded by `v1.0.2`. The 1.0.1 builds are also on an unlisted preview page
 on the website for one invited tester.
 
+## Pre-release firmware review (2026-11-26)
+
+A desk review of the generated firmware for every hardware item, by three
+reviewers, with no hardware and 11 local compiles. Nothing below is fixed yet:
+tick an item when you have decided it (fix for v1.0.2, defer to
+[post-v1](docs/plans/post-v1.md), or reject). Each item says how far it was
+proved: **compiled** (a local build shows it), **emitted** (seen in a finished
+sketch), or **bench** (needs hardware to settle). Time figures are estimates;
+byte figures were measured. Reviewer notes and sketches are in the local,
+gitignored `tmp/firmware-review/`.
+
+### Builds fail or the part cannot work
+
+- [ ] **I2C sensors in shows and players, every non-ESP board** (compiled).
+  The control graph emits `Wire.begin(sda, scl)` on all boards
+  (`controlInputCpp.ts:155,164,173`, `motionVectorCpp.ts:47`,
+  `touchPadCpp.ts:68`, `distanceSensorCpp.ts:53`). RP2040 fails with
+  `no matching function for call to 'TwoWire::begin(int, int)'`; AVR, Teensy
+  and Renesas have no such overload either; on Adafruit SAMD it compiles as
+  `begin(address, generalCall)` and makes the board an I2C slave. Validation
+  passes all of them. The normal sketch is right (`cppGenerator.ts:840-844`).
+- [ ] **IR on UNO, Nano and Nano Every** (compiled). The IR learner uses
+  `Serial.printf` (`irLearnSketch.ts:41`), which AVR lacks, so keys cannot be
+  mapped on those boards at all. Encoder Debug fails the same way
+  (`controlInputCpp.ts:133`).
+- [ ] **SH1106 SPI OLED and MAX7219 on a shared SPI bus** (emitted, bench).
+  Both bit-bang with `digitalWrite` on SCK/MOSI pins the hardware SPI host
+  owns once a TFT or card starts it; ESP32 core 3.3.12 refuses that write
+  silently, so the part stays dark. `busTopology.ts:114-158` allows the
+  sharing and `part-families.ino` builds it.
+- [ ] **Pot, joystick and LDR on ESP32-S2** (emitted). The S2 ADC returns 13
+  bits and the sketch divides by 4095 (`helpers/analogReadCpp.ts:14-15`): a
+  pot is full at half travel. Fix: `analogReadResolution(12)`.
+- [ ] **Live Stream on UNO, Nano and Mega** (arithmetic). 921600 baud lands at
+  1,000,000 on a 16 MHz AVR, 8.5 % off (`streamReceiverGenerator.ts:76,131`).
+- [ ] **Power limit on 12 V strips** (emitted). `setMaxPowerInVoltsAndMilliamps`
+  runs on FastLED's 5 V WS2812 model, so the cap passes about 3.3 times the
+  set current on WS2811 and 1.4 times on WS2815 and at 5 V, against the
+  app's own `build/power/ledDraw.ts`. No generator emits `setPowerModel`.
+- [ ] **Stereo VU with a second LED output** (emitted). The VU rails miss the
+  Board's master brightness and run about twice as bright
+  (`cppGenerator.ts:1714-1725`, `showGenerator.ts:1413`).
+- [ ] **Wi-Fi hostname on ESP32 core 3** (emitted, core source). Set after
+  `WiFi.mode`, so the router never sees it (`networkCpp.ts:150-158`).
+- [ ] **Rotary encoder** (emitted, bench for how much). Sampled once a frame,
+  so brisk turns and slow frames drop detents (`controlInputCpp.ts:109-115`).
+- [ ] **IR receive on AVR** (FastLED source, bench). `FastLED.show()` and the
+  dither refreshes hold interrupts off for most of each frame.
+- [ ] **Animation clock on long runs** (arithmetic). `float t = millis()/1000.0f`
+  is coarser than a frame after about 1.5 days (`player/masterSpeedCpp.ts:42`).
+- [ ] **SD Video** (emitted, bench). The card mounts before the other chip
+  selects on its bus are high, and never retries (`nodes/shapes/codegen.ts:99`).
+- [ ] **Touch calibration on ILI9341** (emitted, bench). The sketch skips the
+  controller init stream (`touchCalibrationSketch.ts:153`).
+- [ ] **Clock sync follower** (emitted, experimental). Steps its clock on every
+  datagram with Wi-Fi sleep on (`boardSyncCpp.ts:240`).
+- [ ] Not settled without a bench: SD player audio dropouts beside TFT
+  repaints; microphone adapters on RP2040, SAMD51 and STM32 blocking 11.6 ms a
+  read; PCM1802 sample alignment (it compiles on the S3); DS18B20 slot timing
+  on core 3; joystick centre bias on classic ESP32.
+
+### Speed, size and memory
+
+- [ ] **Output gamma as a baked table.** Default gamma 2.2 runs a fixed-point
+  `pow` three times per LED per frame (`ledOutputRuntimeCpp.ts:131-140`).
+  Measured on the Uno: flash 9,890 to 8,382 bytes, RAM unchanged. Estimated
+  time: 17 ms a frame for 30 LEDs on the Uno, 5 to 9 ms for 16x16 on ESP8266.
+- [ ] **Segment and OLED drivers per transport.** Kind, transport and
+  controller are run-time fields, so a TM1637 sketch carries the MAX7219
+  driver and an SPI OLED carries `Wire` and the I2C arms. Measured on the S3:
+  an SPI-only OLED drops 27,992 bytes of flash and 1,392 of RAM without them.
+- [ ] **I2C at 400 kHz.** No sketch calls `Wire.setClock`. An I2C OLED flush is
+  about 110 ms once a second; each I2C sensor read is 0.7 to 1.1 ms slower
+  than it needs to be.
+- [ ] **TFT text and LVGL flush in bulk SPI.** Fixed layouts draw one fill per
+  lit font pixel, a byte per transfer (`tftDisplayCpp.ts:729-747`); the LVGL
+  flush is a byte per transfer and keeps the parallel arm in SPI builds
+  (`customDisplayPanelCpp.ts:173,201-215`). `TftPanel::scratch` is unused: 64
+  bytes of RAM a panel.
+- [ ] **Microphone detectors on demand.** Beat, bass, mid, treble and BPM are
+  always registered and polled, so FastLED runs analysers nothing reads
+  (`audioEngineCpp.ts:339-346,366-396`).
+- [ ] Smaller: BME280 read every frame against a 1 s standby; PCA9685
+  rewritten on ADC noise; half-resolution upscale in float (integer form is
+  identical); show patterns copied into `leds` (3 x NUM_LEDS bytes); the two
+  INA read helpers are identical.
+
+### Code the sketch cannot reach
+
+- [ ] `boardCppFacts` (`cppSpecialize.ts:6-17`) does not know
+  `CONFIG_IDF_TARGET_*`, `ARDUINO_ARCH_*`, `TEENSYDUINO` or `HSPI`, so those
+  `#if` arms stay as text. No binary cost.
+- [ ] The touch calibration sketch skips `finishCpp` (`_tftPaint`, `_tftField`
+  and `_tftFit` unused); the wiring diagnostic paces with `FastLED.delay`.
+- [ ] `// Board — not yet supported in code gen` is in every real sketch
+  (`cppGenerator.ts:1165`); `firmware-generation.md:35` says the fixed
+  layouts use the 3x5 font, the sketches use 5x8.
+
+### Compile coverage
+
+- [ ] Run the pre-release matrix once the fixes above are in, after your
+  go-ahead: `python scripts/compile-fixtures/compile-matrix.py --preset prerelease`
+  (54 builds, 52 on arduino-cli and 2 on fbuild; the legs and what each
+  proves are in `scripts/compile-fixtures/prerelease-legs.json`).
+- [ ] Add the legs nothing builds today: a chipset sweep (RGBW, WS2816,
+  SM16824E, HD108, `DATA_RATE_MHZ`; it built on the Uno, classic ESP32 and C6
+  in this review), the IR learner on AVR, a show with an I2C sensor on RP2040,
+  the stream receiver, HUB75 on the S3, PCM1802 line-in, the SD pin probe.
+- [ ] Not reviewed: the standalone display, board-link waiting screens, the VU
+  level emitter, Bluetooth and radio sources, the provisioner sketch.
+
 ## Fresh preview for the invited tester
 
 `main` has moved well past 1.0.1 (first-launch showcase, true-light previews,
