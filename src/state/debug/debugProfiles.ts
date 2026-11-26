@@ -5,12 +5,12 @@ import type { StudioEdge, StudioNode } from '../graphStore'
 import type { DebugPart, DebugProfile } from './debugProfile'
 import { DEBUG_NODE_TYPE, DEBUG_SOURCE_HANDLE, DEBUG_TARGET_HANDLE } from './debugNode'
 import { CONTROL_PROFILES } from './profiles/controls'
-import { I2C_PROFILE } from './profiles/i2c'
+import { I2C_PROFILE, POWER_MONITOR_PROFILE } from './profiles/i2c'
 import { LED_OUTPUT_PROFILE } from './profiles/ledOutput'
 import { POWER_PROFILES } from './profiles/power'
 import { MODULE_PROFILES } from './profiles/modules'
 
-export const DEBUG_PROFILES: readonly DebugProfile[] = [...CONTROL_PROFILES, LED_OUTPUT_PROFILE, I2C_PROFILE, ...POWER_PROFILES, ...MODULE_PROFILES]
+export const DEBUG_PROFILES: readonly DebugProfile[] = [...CONTROL_PROFILES, LED_OUTPUT_PROFILE, I2C_PROFILE, POWER_MONITOR_PROFILE, ...POWER_PROFILES, ...MODULE_PROFILES]
 
 export type { DebugPart }
 

@@ -452,6 +452,10 @@ function audioEngineCpp(
     '                  _audioBass, _audioMids, _audioTreble, (int)_audioBeat, _audioBpm,',
     '                  (int)stats.noiseGateOpen, (long)stats.dcOffset, (unsigned long)stats.spikesRejected);',
     '    Serial.printf("stereo levels left=%.3f right=%.3f\\n", _audioLeftLevel, _audioRightLevel);',
+    // The same reading for a Debug node's audio probe (state/debug/debugProtocol.ts).
+    '    Serial.printf("FLS_DBG v=1 probe=audio left=%.3f right=%.3f bass=%.2f mids=%.2f treble=%.2f gate=%d dc=%ld spikes=%lu\\n",',
+    '                  _audioLeftLevel, _audioRightLevel, _audioBass, _audioMids, _audioTreble,',
+    '                  (int)stats.noiseGateOpen, (long)stats.dcOffset, (unsigned long)stats.spikesRejected);',
     ...(vibe ? [
       '    Serial.printf("vibe bass=%.2f mid=%.2f treble=%.2f spikes=%d%d%d\\n",',
       '                  _audioVibeBass, _audioVibeMid, _audioVibeTreble,',

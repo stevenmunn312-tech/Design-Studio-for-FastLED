@@ -28,11 +28,19 @@ function node(id: string, nodeType: string, properties: Record<string, unknown> 
 
 const BOARDS = {
   esp32: { fqbn: 'esp32:esp32:esp32', profileId: 'esp32-generic-devkit-38pin' },
+  s3: { fqbn: 'esp32:esp32:esp32s3', profileId: 'espressif-esp32-s3-devkitc-1' },
   uno: { fqbn: 'arduino:avr:uno', profileId: 'arduino-uno-r3-dip' },
 } as const
 
 /** Probe fixtures: a name, the part as configured, and the boards to build it on. */
-const PARTS: { name: string; nodeType: string; properties: Record<string, unknown>; boards: Record<keyof typeof BOARDS, Record<string, unknown>> }[] = [
+const PARTS: { name: string; nodeType: string; properties: Record<string, unknown>; boards: Partial<Record<keyof typeof BOARDS, Record<string, unknown>>> }[] = [
+  {
+    name: 'led', nodeType: 'MatrixOutput', properties: { chipset: 'WS2812B', colorOrder: 'GRB', width: 8, height: 8 },
+    boards: { esp32: { dataPin: 5 }, uno: { dataPin: 6 } },
+  },
+  { name: 'mic', nodeType: 'MicInput', properties: {}, boards: { s3: {} } },
+  { name: 'sd', nodeType: 'SDCard', properties: {}, boards: { esp32: {} } },
+  { name: 'power-monitor', nodeType: 'PowerMonitorInput', properties: {}, boards: { esp32: { sdaPin: 21, sclPin: 22 }, uno: {} } },
   { name: 'pot', nodeType: 'PotInput', properties: {}, boards: { esp32: { pin: 34 }, uno: { pin: 14 } } },
   {
     name: 'buttons', nodeType: 'ButtonBank', properties: {},

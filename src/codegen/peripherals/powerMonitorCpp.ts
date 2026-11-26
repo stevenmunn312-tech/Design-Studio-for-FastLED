@@ -160,6 +160,11 @@ static void _powerMonitorDebugMeasure(uint8_t addr, bool ina226, float shuntOhms
     Serial.print(F(" amps=")); Serial.print(amps, 4);
     Serial.print(F(" watts=")); Serial.print(volts * amps, 3);
     Serial.print(F(" overcurrent=")); Serial.println(amps > limit ? 1 : 0);
+    // The same reading for a Debug node's power probe (state/debug/debugProtocol.ts).
+    Serial.print(F("FLS_DBG v=1 probe=power connected=")); Serial.print(connected ? 1 : 0);
+    Serial.print(F(" volts=")); Serial.print(volts, 3);
+    Serial.print(F(" amps=")); Serial.print(amps, 4);
+    Serial.print(F(" limit=")); Serial.println(limit, 3);
   }
 }
 `.trim().split('\n')

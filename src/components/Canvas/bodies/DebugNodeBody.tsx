@@ -47,7 +47,10 @@ function DebugRunSection({ nodeId, probe, ctx, onRepair }: {
   useGraphStore((s) => s.trusted)
   const [confirming, setConfirming] = useState(false)
   const blocker = debugRunBlocker(nodeId)
-  const findings = run?.fields ? probe.interpret(ctx, run.fields) : []
+  const answers = useDebugSessionStore((s) => readingsFor(s, nodeId))
+  const setReading = useDebugSessionStore((s) => s.setReading)
+  const findings = run?.fields ? probe.interpret(ctx, run.fields, answers) : []
+  const questions = run?.fields && probe.questions ? probe.questions(run.fields) : []
 
   return (
     <section className={styles.section} aria-label="Test on the board">
@@ -82,6 +85,22 @@ function DebugRunSection({ nodeId, probe, ctx, onRepair }: {
               ))}
             </dl>
           )}
+          {questions.map((question) => (
+            <div key={question.id} className={styles.step} role="group" aria-label={question.question}>
+              <div className={styles.stepTitle}>{question.question}</div>
+              <div className={styles.yesno}>
+                {question.choices.map((choice) => {
+                  const chosen = answers[`probe-${question.id}`] === choice.value
+                  return (
+                    <button key={choice.value} type="button" className={chosen ? styles.answerOn : styles.answer} aria-pressed={chosen}
+                      onClick={() => setReading(nodeId, `probe-${question.id}`, chosen ? undefined : choice.value)}>
+                      {choice.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
           {findings.map((finding) => <FindingCard key={finding.id} finding={finding} onRepair={onRepair} />)}
           <div className={styles.yesno}>
             {run.phase === 'running' && <button type="button" className={styles.answer} onClick={stop}>Stop</button>}

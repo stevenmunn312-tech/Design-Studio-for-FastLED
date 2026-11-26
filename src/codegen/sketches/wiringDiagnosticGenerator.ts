@@ -34,6 +34,17 @@ function targetedStereoVuNode(nodes: StudioNode[], outputNodeId: string): Studio
 
 export type WiringDiagnosticMode = 'cycle' | 'hub75-panel-topology'
 
+/** The `probe=` name the Debug node reads stage markers under. */
+export const LED_PROBE_KIND = 'led'
+
+export interface WiringDiagnosticOptions {
+  /**
+   * Print `FLS_DBG v=1 probe=led step=<stage>` at 115200 whenever the cycle
+   * moves to a new stage, so a Debug node can ask about what is showing.
+   */
+  stageMarkers?: boolean
+}
+
 /** Generate a standalone hardware-wiring diagnostic sketch from the current
  *  MatrixOutput settings. The sketch cycles through color-order solids,
  *  brightness/current-limit bars, an orientation gradient, panel numbering,
@@ -43,6 +54,7 @@ export function generateWiringDiagnosticSketch(
   nodes: StudioNode[],
   outputNodeId?: string,
   diagnosticMode: WiringDiagnosticMode = 'cycle',
+  options: WiringDiagnosticOptions = {},
 ): string | null {
   const outputNode = matrixOutputNode(nodes, outputNodeId)
   if (!outputNode) return null
@@ -395,7 +407,24 @@ export function generateWiringDiagnosticSketch(
     lines.push('}')
     lines.push('')
   }
+  // Stage names in cycle order, for the Debug node's markers.
+  const stageNames = [
+    ...(laneCount > 1 ? ['lanes'] : []),
+    'red', 'green', 'blue', 'brightness', 'orientation', 'panels',
+    ...(hub75TopologyAvailable ? ['topology'] : []),
+    'chase', 'physical-chase',
+  ]
+  const markers = options.stageMarkers === true && !topologyOnly
+  if (markers) {
+    lines.push(`static const char* const DIAG_STEPS[] = { ${stageNames.map((name) => JSON.stringify(name)).join(', ')} };`)
+    lines.push('static int16_t _diagLastStep = -1;')
+    lines.push('')
+  }
   lines.push('void setup() {')
+  if (markers) {
+    lines.push('  Serial.begin(115200);')
+    lines.push(`  Serial.println(F("FLS_DBG v=1 probe=${LED_PROBE_KIND} state=ready"));`)
+  }
   lines.push(...amplifierIdle.setup)
   if (isHub75) lines.push(...hub75SetupCpp(hub75Hw!))
   else lines.push(...fastledSetupCpp(hw))
@@ -427,6 +456,15 @@ export function generateWiringDiagnosticSketch(
     // The lane step comes first, so a dead lane is the first thing seen.
     const laneMode = laneCount > 1 ? 1 : 0
     lines.push(`  uint8_t mode = (uint8_t)((now / DIAG_MODE_MS) % ${(hub75TopologyAvailable ? 9 : 8) + laneMode});`)
+    if (markers) {
+      lines.push('  if (mode != _diagLastStep) {')
+      lines.push('    _diagLastStep = mode;')
+      lines.push(`    Serial.print(F("FLS_DBG v=1 probe=${LED_PROBE_KIND} step="));`)
+      lines.push('    Serial.print(DIAG_STEPS[mode]);')
+      lines.push('    Serial.print(F(" leds="));')
+      lines.push('    Serial.println((unsigned long)NUM_LEDS);')
+      lines.push('  }')
+    }
     if (laneMode) lines.push('  if (mode == 0) drawLaneDiagnostic(now);')
     lines.push(laneMode ? '  else switch (mode - 1) {' : '  switch (mode) {')
     lines.push('    case 0: fill_solid(leds, NUM_LEDS, CRGB::Red); break;')

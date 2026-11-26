@@ -46,7 +46,8 @@ export type MeterStep =
   | { id: string; title: string; how: string; kind: 'ohms'; power: 'off'; expect: string }
   | { id: string; title: string; how: string; kind: 'yesno'; power: 'on' | 'off'; question: string }
 
-export type MeterReadings = Readonly<Record<string, number | boolean | undefined>>
+/** What the user has entered: meter numbers, yes/no answers, and choices. */
+export type MeterReadings = Readonly<Record<string, number | boolean | string | undefined>>
 
 /** A node as far as profile choice reads it. */
 export type DebugPart = Pick<StudioNode, 'id'> & { data: Pick<StudioNode['data'], 'nodeType' | 'properties'> }
@@ -75,10 +76,26 @@ export interface DebugProbe {
   instruction: string
   /** The sketch, or null when the part has no usable pin to probe. */
   sketch: (ctx: DebugContext) => string | null
+  /** Why this board cannot run the probe at all, or null when it can. */
+  unavailable?: (ctx: DebugContext) => string | null
   /** Live values to show from the latest line. */
   readout: (fields: DebugFields) => { label: string; value: string }[]
-  /** Findings from the latest line. Phrased as based on the test results. */
-  interpret: (ctx: DebugContext, fields: DebugFields) => DebugFinding[]
+  /** Questions about what the user sees, given the latest line. Answers are
+   *  stored as `probe-<id>` in the node's readings. */
+  questions?: (fields: DebugFields) => ProbeQuestion[]
+  /**
+   * Findings from the latest line, and the answers given. `fields` also holds
+   * `max_<key>`: the highest value of each number since the run started.
+   * Phrased as based on the test results.
+   */
+  interpret: (ctx: DebugContext, fields: DebugFields, answers?: MeterReadings) => DebugFinding[]
+}
+
+/** A question asked while a probe runs, such as "What colour is the strip?". */
+export interface ProbeQuestion {
+  id: string
+  question: string
+  choices: readonly { value: string; label: string }[]
 }
 
 export interface DebugProfile {

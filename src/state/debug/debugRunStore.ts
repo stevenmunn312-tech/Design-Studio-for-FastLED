@@ -52,7 +52,10 @@ export function debugRunBlocker(debugNodeId: string): string | null {
   const target = debugTargetOf(debugNodeId, root, rootGraphEdges(graph))
   const probe = target ? debugProfileFor(target)?.probe : undefined
   if (!target || !probe) return 'This part has no diagnostic sketch yet: use the meter checks.'
-  if (!probe.sketch(debugContextFor(target, root))) return 'This part has no pin assigned to test.'
+  const ctx = debugContextFor(target, root)
+  const unavailable = probe.unavailable?.(ctx)
+  if (unavailable) return unavailable
+  if (!probe.sketch(ctx)) return 'This part has no pin assigned to test.'
   const boards = boardNodesIn(root)
   if (boards.length > 1) {
     const partBoard = boardIdOf(target, primaryBoardId(root))
@@ -114,7 +117,15 @@ export const useDebugRunStore = create<DebugRunState>((set, get) => ({
       set({ run: { ...run, lines: run.lines + 1 } })
       return
     }
-    set({ run: { ...run, fields: parsed.fields, lines: run.lines + 1 } })
+    // Keep the highest value of each number since the run started, as
+    // `max_<key>`, so a clap between lines is not lost to the next quiet one.
+    const fields: Record<string, number | string> = { ...parsed.fields }
+    for (const [key, value] of Object.entries(parsed.fields)) {
+      if (typeof value !== 'number') continue
+      const previous = run.fields?.[`max_${key}`]
+      fields[`max_${key}`] = typeof previous === 'number' ? Math.max(previous, value) : value
+    }
+    set({ run: { ...run, fields, lines: run.lines + 1 } })
   },
 
   stop: () => {

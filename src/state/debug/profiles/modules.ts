@@ -5,7 +5,9 @@ import type { DebugContext, DebugFinding, MeterReadings } from '../debugProfile'
 import { near, num, pinLabel, volts, yes } from '../debugProfile'
 import { offI2c } from './i2c'
 import { modulePins, moduleProfile, signalStep } from './moduleProfile'
-import { digitalProbe } from './probes'
+import { audioProbe, digitalProbe, needsEsp32 } from './probes'
+import { generateSdProbeSketch, SD_PROBE_KIND } from '../../../codegen/sketches/debug/sdProbeSketch'
+import type { DebugProbe } from '../debugProfile'
 import { analogProbe } from './controls'
 
 const logicSupply = (ctx: DebugContext) => `about ${volts(ctx.logicVolts)}, or 5 V if the module’s label asks for it`
@@ -243,6 +245,7 @@ export const TOUCH_SCREEN_PROFILE = moduleProfile({
 
 export const MIC_PROFILE = moduleProfile({
   nodeTypes: ['MicInput'],
+  probe: audioProbe(),
   commonIssues: [
     { symptom: 'Silence.', cause: 'WS and SCK swapped, or the L/R pin selects the other channel.', fix: 'Tie L/R to GND for Left or 3V3 for Right, matching the Channel setting.' },
     { symptom: 'Loud hiss or noise.', cause: 'SD on the wrong pin, or long unshielded wires.', fix: 'Keep the I2S wires short and check SD.' },
@@ -260,6 +263,7 @@ export const MIC_PROFILE = moduleProfile({
 
 export const LINE_IN_PROFILE = moduleProfile({
   nodeTypes: ['LineInput'],
+  probe: audioProbe(),
   commonIssues: [
     { symptom: 'Silence or noise.', cause: 'The ADC’s format jumpers do not match I2S, or MCLK is missing.', fix: 'Set the module to I2S, slave mode, and wire MCLK.' },
     { symptom: 'Distorted sound.', cause: 'A headphone or speaker output overdrives a line input.', fix: 'Turn the source volume down to a line level.' },
@@ -304,8 +308,41 @@ export const DFPLAYER_PROFILE = moduleProfile({
 
 // ── Storage ─────────────────────────────────────────────────────────────────
 
+const SD_PROBE: DebugProbe = {
+  kind: SD_PROBE_KIND,
+  instruction: 'Insert the card; the board tries to mount it every three seconds.',
+  unavailable: needsEsp32('SD card'),
+  sketch: (ctx) => {
+    const pin = (key: string) => modulePins(ctx).find((use) => use.propertyKey === key)?.pin
+    const [cs, sck, miso, mosi] = ['sdCsPin', 'sdSckPin', 'sdMisoPin', 'sdMosiPin'].map(pin)
+    if (cs === undefined || sck === undefined || miso === undefined || mosi === undefined) return null
+    return generateSdProbeSketch({ csPin: cs, sckPin: sck, misoPin: miso, mosiPin: mosi })
+  },
+  readout: (fields) => [
+    { label: 'Card', value: fields.mounted === 1 ? `${fields.type} · ${Math.round(Number(fields.sizeMb) / 1024)} GB` : 'not mounted' },
+    { label: 'Speed', value: fields.mounted === 1 ? `${fields.mhz} MHz` : '—' },
+    { label: 'Entries in the root', value: String(fields.files ?? 0) },
+  ],
+  interpret: (_ctx, fields) => {
+    if (typeof fields.mounted !== 'number') return []
+    if (fields.mounted !== 1) {
+      return [{ id: 'probe-sd', tone: 'fault', title: 'The card does not mount', detail: 'Based on the test, the card does not answer. Check it is FAT32 and fully seated, the module’s supply, and the CS, SCK, MISO and MOSI wires.' }]
+    }
+    const files = Number(fields.files ?? 0)
+    const findings: DebugFinding[] = [{ id: 'probe-sd', tone: 'ok', title: 'The card mounts', detail: `Based on the test, a ${fields.type} card answers with ${files} ${files === 1 ? 'entry' : 'entries'} in its root.` }]
+    if (fields.mhz === 4) {
+      findings.push({ id: 'probe-sd-speed', tone: 'suspect', title: 'Only the slow speed works', detail: 'Based on the test, the card mounts at 4 MHz but not 20 MHz. Long or loose SPI wires slow it; large album art may then load too slowly to play.' })
+    }
+    if (files === 0) {
+      findings.push({ id: 'probe-sd-empty', tone: 'suspect', title: 'The card is empty', detail: 'Based on the test, the root holds nothing. Copy the show’s files on before playing.' })
+    }
+    return findings
+  },
+}
+
 export const SD_CARD_PROFILE = moduleProfile({
   nodeTypes: ['SDCard'],
+  probe: SD_PROBE,
   commonIssues: [
     { symptom: 'The card is not found.', cause: 'The card is not FAT32, is over 32 GB, or is not fully seated.', fix: 'Format it FAT32 (use a card of 32 GB or less) and push it in until it clicks.' },
     { symptom: 'Works alone, fails with the display.', cause: 'Two SPI devices share a chip-select, or one does not release the bus.', fix: 'Give each SPI device its own CS pin.' },

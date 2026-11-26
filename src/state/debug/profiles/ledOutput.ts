@@ -3,16 +3,110 @@
 
 import { HUB75_CHIPSET } from '../../nodeLibrary'
 import { ledSupplyVolts } from '../../../build/controllerSettings'
-import type { DebugFinding, DebugProfile } from '../debugProfile'
+import type { DebugContext, DebugFinding, DebugProbe, DebugProfile, MeterReadings } from '../debugProfile'
+import type { StudioNode } from '../../graphStore'
+import { generateWiringDiagnosticSketch, LED_PROBE_KIND } from '../../../codegen/sketches/wiringDiagnosticGenerator'
 import { num, pinLabel, volts, yes } from '../debugProfile'
 
 function stripVolts(props: Record<string, unknown>): number {
   return ledSupplyVolts(props.chipset, props.partId)
 }
 
+const STEP_LABELS: Record<string, string> = {
+  lanes: 'Each data pin in turn',
+  red: 'Solid red',
+  green: 'Solid green',
+  blue: 'Solid blue',
+  brightness: 'Brightness bars',
+  orientation: 'Orientation map',
+  panels: 'Panel numbers',
+  topology: 'Panel order',
+  chase: 'A dot running along the layout',
+  'physical-chase': 'A dot running along the wiring',
+}
+
+const COLOUR_CHOICES = [
+  { value: 'R', label: 'Red' }, { value: 'G', label: 'Green' }, { value: 'B', label: 'Blue' },
+  { value: 'mixed', label: 'Flicker or mixed' }, { value: 'none', label: 'Nothing lit' },
+] as const
+
+/**
+ * The colour order the strip really has, from what it showed for red and for
+ * green under the configured order. FastLED sends channel `configured[i]` in
+ * byte i, and the strip lights byte i as its own `actual[i]`, so red shows as
+ * `actual[configured.indexOf('R')]`. Null when the answers cannot be one order.
+ */
+export function actualColorOrder(configured: string, seenForRed: string, seenForGreen: string): string | null {
+  const order = configured.toUpperCase()
+  if (order.length !== 3 || [...'RGB'].some((channel) => !order.includes(channel))) return null
+  if (![seenForRed, seenForGreen].every((seen) => 'RGB'.includes(seen) && seen.length === 1) || seenForRed === seenForGreen) return null
+  const actual: string[] = ['', '', '']
+  actual[order.indexOf('R')] = seenForRed
+  actual[order.indexOf('G')] = seenForGreen
+  actual[order.indexOf('B')] = [...'RGB'].find((channel) => channel !== seenForRed && channel !== seenForGreen)!
+  return actual.join('')
+}
+
+function ledFindings(ctx: DebugContext, answers: MeterReadings = {}): DebugFinding[] {
+  const red = answers['probe-red'], green = answers['probe-green'], chase = answers['probe-chase']
+  const findings: DebugFinding[] = []
+  if (red === 'none' || green === 'none') {
+    findings.push({
+      id: 'probe-colour', tone: 'fault', title: 'The strip does not light',
+      detail: 'Based on the test, no data reaches the LEDs. In order: a common ground between the LED supply and the board, data into the DIN end, power at the first LED, then a level shifter on a 3.3 V board. The meter checks below test each.',
+    })
+  } else if (red === 'mixed' || green === 'mixed') {
+    findings.push({
+      id: 'probe-colour', tone: 'suspect', title: 'The data signal is unreliable',
+      detail: 'Based on the test, solid colours flicker or mix. The data line is marginal: shorten it, add a 330 Ω resistor near the board, check the common ground, and fit a level shifter on a 3.3 V board.',
+    })
+  } else if (typeof red === 'string' && typeof green === 'string') {
+    const configured = String(ctx.props.colorOrder ?? 'GRB')
+    const actual = actualColorOrder(configured, red, green)
+    if (actual === null) {
+      findings.push({ id: 'probe-colour', tone: 'suspect', title: 'The colours do not add up', detail: 'Based on your answers, red and green showed as the same colour. Watch one more cycle and answer again.' })
+    } else if (actual === configured.toUpperCase()) {
+      findings.push({ id: 'probe-colour', tone: 'ok', title: 'Colours are correct', detail: `Based on the test, the strip shows the colours sent: its order is ${actual}.` })
+    } else {
+      findings.push({
+        id: 'probe-colour', tone: 'fault', title: `The strip’s colour order is ${actual}, not ${configured.toUpperCase()}`,
+        detail: 'Based on your answers, the strip lights its channels in another order. Setting Color Order to match fixes every pattern.',
+        repair: { label: `Set Color Order to ${actual}`, nodeId: ctx.node.id, properties: { colorOrder: actual } },
+      })
+    }
+  }
+  if (chase === 'no') {
+    findings.push({ id: 'probe-chase', tone: 'fault', title: 'The dot stops part way', detail: 'Based on the test, data stops at one LED. The LED just after the last lit one is damaged or its solder joint is broken: reflow it, or cut it out and bridge DIN to DO.' })
+  } else if (chase === 'yes') {
+    findings.push({ id: 'probe-chase', tone: 'ok', title: 'Data reaches the last LED', detail: 'Based on the test, every LED in the chain passes data on.' })
+  }
+  return findings
+}
+
+const LED_PROBE: DebugProbe = {
+  kind: LED_PROBE_KIND,
+  instruction: 'Watch the LEDs: the test cycles through solid colours, bars, a map and a running dot, about 3 seconds each.',
+  sketch: (ctx) => generateWiringDiagnosticSketch(
+    [...(ctx.board ? [ctx.board] : []), ctx.node] as StudioNode[], ctx.node.id, 'cycle', { stageMarkers: true },
+  ),
+  readout: (fields) => [
+    { label: 'Showing now', value: STEP_LABELS[String(fields.step)] ?? String(fields.step ?? 'starting') },
+    { label: 'LEDs', value: String(fields.leds ?? '') },
+  ],
+  questions: () => [
+    { id: 'red', question: 'When the test shows solid red, what colour is the strip?', choices: COLOUR_CHOICES },
+    { id: 'green', question: 'When it shows solid green, what colour is the strip?', choices: COLOUR_CHOICES },
+    { id: 'chase', question: 'Does the running dot reach the last LED?', choices: [
+      { value: 'yes', label: 'Yes' }, { value: 'no', label: 'No, it stops' },
+    ] },
+  ],
+  interpret: (ctx, _fields, answers) => ledFindings(ctx, answers),
+}
+
 export const LED_OUTPUT_PROFILE: DebugProfile = {
   nodeTypes: ['MatrixOutput'],
   applies: (part) => (part.data.properties as Record<string, unknown>).chipset !== HUB75_CHIPSET,
+  probe: LED_PROBE,
   commonIssues: [
     {
       symptom: 'Nothing lights, or only random flicker.',

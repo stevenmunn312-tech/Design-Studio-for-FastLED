@@ -9,6 +9,7 @@ import type { DebugContext, DebugFinding, DebugPart, DebugProbe, DebugProfile } 
 import { generateI2cScanSketch, I2C_SCAN_PROBE_KIND } from '../../../codegen/sketches/debug/i2cScanSketch'
 import { boardTakesWirePins, wireBeginCpp } from '../../../codegen/peripherals/wireBeginCpp'
 import { near, num, pinLabel, volts, yes } from '../debugProfile'
+import { projectSketch } from './probes'
 
 /** Parts that are on I2C only with some modules (a BH1750 but not an LDR). */
 const SOMETIMES_I2C: ReadonlySet<string> = new Set(['LightInput', 'DistanceInput', 'InfoDisplay'])
@@ -103,7 +104,7 @@ const I2C_SCAN_PROBE: DebugProbe = {
 
 export const I2C_PROFILE: DebugProfile = {
   nodeTypes: [
-    'InfoDisplay', 'RtcModule', 'PowerMonitorInput', 'EnvironmentInput', 'LightInput',
+    'InfoDisplay', 'RtcModule', 'EnvironmentInput', 'LightInput',
     'DistanceInput', 'MotionVectorInput', 'TouchPadInput', 'PwmDriverOutput',
   ],
   applies: onI2c,
@@ -211,5 +212,53 @@ export const I2C_PROFILE: DebugProfile = {
       })
     }
     return findings
+  },
+}
+
+/**
+ * The power monitor (INA219/INA226): the I2C checks, plus the voltage at the
+ * load to compare with what the monitor reads. Its probe is the project's own
+ * power monitor code with debug on, which prints an FLS_DBG power line.
+ */
+export const POWER_MONITOR_PROFILE: DebugProfile = {
+  ...I2C_PROFILE,
+  nodeTypes: ['PowerMonitorInput'],
+  applies: undefined,
+  meterSteps: (ctx) => [
+    ...I2C_PROFILE.meterSteps(ctx),
+    {
+      id: 'load-volts', title: 'Voltage at the monitored load', kind: 'volts', power: 'on',
+      how: 'Black probe on the load’s GND, red probe on its + where it leaves the monitor (IN−).',
+      expect: 'the supply voltage the load runs from',
+    },
+  ],
+  probe: {
+    kind: 'power',
+    instruction: 'Run the load as you normally would; the monitor reports a few times a second.',
+    sketch: (ctx) => projectSketch(ctx, { debug: true }),
+    readout: (fields) => [
+      { label: 'Connected', value: fields.connected === 1 ? 'yes' : 'no' },
+      { label: 'Volts', value: `${Number(fields.volts ?? 0).toFixed(2)} V` },
+      { label: 'Amps', value: `${Number(fields.amps ?? 0).toFixed(3)} A` },
+    ],
+    interpret: (_ctx, fields, answers = {}) => {
+      if (typeof fields.connected !== 'number') return []
+      if (fields.connected !== 1) {
+        return [{ id: 'probe-power', tone: 'fault', title: 'The monitor does not answer', detail: 'Based on the test, its registers cannot be read. Work through the I2C checks: power, SDA/SCL and the address jumpers.' }]
+      }
+      const busVolts = Number(fields.volts ?? 0), amps = Number(fields.amps ?? 0)
+      const findings: DebugFinding[] = []
+      if (amps < -0.01) {
+        findings.push({ id: 'probe-direction', tone: 'fault', title: 'Current reads backwards', detail: 'Based on the test, current flows from IN− to IN+. Swap the two load wires at the monitor: supply to IN+, load to IN−.' })
+      }
+      const meter = typeof answers['load-volts'] === 'number' ? answers['load-volts'] : undefined
+      if (meter !== undefined && meter > 0.5 && Math.abs(busVolts - meter) / meter > 0.1) {
+        findings.push({ id: 'probe-volts', tone: 'suspect', title: 'The monitor and your meter disagree on voltage', detail: `Based on the test, it reads ${busVolts.toFixed(2)} V where your meter reads ${meter.toFixed(2)} V. Check its bus-voltage input (VBUS or IN−) is on the load supply.` })
+      }
+      if (findings.length === 0) {
+        findings.push({ id: 'probe-power', tone: 'ok', title: 'The monitor reads the load', detail: `Based on the test, it reads ${busVolts.toFixed(2)} V at ${amps.toFixed(3)} A.` })
+      }
+      return findings
+    },
   },
 }

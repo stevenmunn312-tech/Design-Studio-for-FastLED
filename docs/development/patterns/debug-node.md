@@ -39,7 +39,13 @@ The Debug node helps users bench-test one hardware part on their own. It shows c
   - It sets the monitor to the probe baud and reads lines through `deviceTelemetryStore.ingest`.
   - `debugRunBlocker` refuses before uploading when the workspace is untrusted, the part has no probe or pin, there is no port, or the part's board is not the bench's active board (each board has its own port).
 - **The node:** asks before uploading, because the probe replaces the project on the board. When the run ends it offers "Re-upload project" (`runLastUpload`) when there is one.
-- **Compile fixtures:** each probe has a fixture in the `debug-probes` family (`scripts/compile-fixtures/debug-probes.ts`), built from the same profile on ESP32 and Uno. Run `compile-matrix.py --only debug-probes/`.
+- **Probes built from project code:** some probes come from the project's own generator with that part's serial debug turned on, so the test runs the code the project ships. The mic and line in (`MIC_DEBUG`) and the power monitor (`debug`) each print an extra `FLS_DBG` line beside their usual debug output.
+- **LED probe:** the LED probe is the wiring test with `stageMarkers`. It prints the stage name as the cycle moves on. The node asks what colour red and green showed, and `actualColorOrder` works out the strip's real order from the answers.
+- **Probe extras:**
+  - Probes can ask `questions`; the answers are stored in the node's readings as `probe-<id>`.
+  - Probes can refuse a board through `unavailable`. The SD and audio probes are ESP32-only, like the code they test.
+  - `interpret` receives `max_<key>` for every number in the readings, so a brief event between lines (a clap, for example) still counts.
+- **Compile fixtures:** each probe has a fixture in the `debug-probes` family (`scripts/compile-fixtures/debug-probes.ts`), built from the same profile on ESP32 and Uno. Run `compile-matrix.py --only debug-probes/ --every`: without `--every` the coverage step skips fixtures it judges covered.
 
 ## Adding a new transient node type
 

@@ -3,12 +3,88 @@
 // how to read its FLS_DBG lines.
 
 import type { DebugContext, DebugFinding, DebugProbe } from '../debugProfile'
+import type { StudioNode } from '../../graphStore'
+import { NODE_LIBRARY, libraryDefaults } from '../../nodeLibrary'
+import { generateCpp } from '../../../codegen/cppGenerator'
+import { selectedPhysicalBoardProfile } from '../../../build/boards/boardProfiles'
 import type { DebugFields } from '../debugProtocol'
 import { pinLabel } from '../debugProfile'
 import { DIGITAL_PROBE_KIND, generateDigitalProbeSketch, type DigitalProbePin } from '../../../codegen/sketches/debug/digitalProbeSketch'
 import { ENCODER_PROBE_KIND, generateEncoderProbeSketch } from '../../../codegen/sketches/debug/encoderProbeSketch'
 
 const validPin = (value: unknown): value is number => Number.isInteger(Number(value)) && Number(value) >= 0
+
+/** Null on an ESP32-family board (or with no Board, whose default is one), else why not. */
+export function needsEsp32(what: string): (ctx: DebugContext) => string | null {
+  return (ctx) => {
+    const families = ctx.board ? selectedPhysicalBoardProfile([ctx.board])?.targetFamilies : undefined
+    return !families || families.some((family) => family.startsWith('esp32')) ? null : `The ${what} test runs on ESP32 boards; use the meter checks here.`
+  }
+}
+
+/** A part probed with the project's own generated code, its debug output on. */
+export function projectSketch(ctx: DebugContext, overrides: Record<string, unknown>, extra: StudioNode[] = []): string {
+  const part = { ...ctx.node, data: { ...ctx.node.data, properties: { ...ctx.props, ...overrides } } } as StudioNode
+  return generateCpp([...(ctx.board ? [ctx.board] : []), part, ...extra], [])
+}
+
+function pct(value: unknown): string {
+  return `${Math.round(Number(value ?? 0) * 100)}%`
+}
+
+/**
+ * The audio probe for a microphone or line input: the project's own audio
+ * path with its serial debug on, which prints an FLS_DBG audio line ten
+ * times a second (audioEngineCpp.ts).
+ */
+export function audioProbe(): DebugProbe {
+  return {
+    kind: 'audio',
+    instruction: 'Stay quiet for a few seconds, then clap or play music close to it.',
+    unavailable: needsEsp32('audio'),
+    sketch: (ctx) => {
+      const audio = NODE_LIBRARY.find((entry) => entry.type === 'Audio')!
+      const node = {
+        id: `${ctx.node.id}-debug-audio`, type: 'studioNode', position: { x: 0, y: 0 },
+        data: {
+          label: audio.label, nodeType: 'Audio', category: audio.category,
+          properties: { ...libraryDefaults('Audio'), sourceId: ctx.node.id },
+          inputs: audio.inputs, outputs: audio.outputs,
+        },
+      } as StudioNode
+      return projectSketch(ctx, { serialDebug: true }, [node])
+    },
+    readout: (fields) => [
+      { label: 'Left now / loudest', value: `${pct(fields.left)} / ${pct(fields.max_left)}` },
+      { label: 'Right now / loudest', value: `${pct(fields.right)} / ${pct(fields.max_right)}` },
+      { label: 'Noise gate', value: fields.gate === 1 ? 'open' : 'closed' },
+    ],
+    interpret: (ctx, fields) => {
+      const left = Number(fields.max_left ?? 0), right = Number(fields.max_right ?? 0)
+      const loudest = Math.max(left, right)
+      const findings: DebugFinding[] = []
+      if (loudest < 0.02) {
+        findings.push({ id: 'probe-level', tone: 'suspect', title: 'Nothing heard yet', detail: 'Based on the test, both channels are silent. Clap close to it; if it stays at 0%, check WS, SCK and SD, and that the L/R pin selects the channel the project reads.' })
+      } else if (loudest > 0.98) {
+        findings.push({ id: 'probe-level', tone: 'suspect', title: 'The input clips', detail: 'Based on the test, loud sound hits the top of the range. Lower Gain on the input.' })
+      } else {
+        findings.push({ id: 'probe-level', tone: 'ok', title: 'The input hears sound', detail: `Based on the test, it peaked at ${pct(loudest)}. The part and its wiring work.` })
+      }
+      const channel = String(ctx.props.channel ?? '')
+      const wanted = channel === 'Left' ? left : channel === 'Right' ? right : null
+      const other = channel === 'Left' ? right : left
+      if (wanted !== null && wanted < 0.02 && other >= 0.05) {
+        const flipped = channel === 'Left' ? 'Right' : 'Left'
+        findings.push({
+          id: 'probe-channel', tone: 'fault', title: `Sound arrives on the ${flipped.toLowerCase()} channel`,
+          detail: `Based on the test, the project reads ${channel.toLowerCase()} but the microphone sends ${flipped.toLowerCase()}. Its L/R pin sets this.`,
+          repair: { label: `Read the ${flipped.toLowerCase()} channel`, nodeId: ctx.node.id, properties: { channel: flipped } },
+        })
+      }
+      return findings
+    },
+  }
+}
 
 /** One watched input: its pin, pull-up, the name to say, and its level at rest (null when it depends on the module). */
 export interface WatchedInput extends DigitalProbePin {

@@ -7,7 +7,7 @@ import type { MeterReadings } from './debugProfile'
 interface DebugSessionState {
   readings: Record<string, MeterReadings>
   isolated: Record<string, Record<number, boolean>>
-  setReading: (debugNodeId: string, stepId: string, value: number | boolean | undefined) => void
+  setReading: (debugNodeId: string, stepId: string, value: number | boolean | string | undefined) => void
   setIsolated: (debugNodeId: string, index: number, done: boolean) => void
   clear: (debugNodeId: string) => void
 }
