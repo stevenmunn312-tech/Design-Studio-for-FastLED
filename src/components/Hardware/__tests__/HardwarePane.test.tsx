@@ -568,6 +568,43 @@ describe('HardwarePane', () => {
     expect((audio?.data.properties as Record<string, unknown> | undefined)?.sourceId).toBe('kind:line-in')
   })
 
+  it('wires a Stereo VU Meter added before the audio source once that source arrives', () => {
+    render(<HardwarePane />)
+
+    addPart('LED outputs', 'LED Ring')
+    addPart('LED outputs', 'Stereo VU Meter')
+    const meter = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'StereoVuMeter')!
+    expect(useGraphStore.getState().edges.some((edge) => edge.target === meter.id)).toBe(false)
+
+    addPart('Audio', 'PCM1802 line-in ADC')
+
+    const audio = useGraphStore.getState().nodes.find((entry) => entry.data.nodeType === 'Audio')!
+    expect(useGraphStore.getState().edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: audio.id, sourceHandle: 'audio', target: meter.id, targetHandle: 'audio' }),
+    ]))
+  })
+
+  it('leaves a Stereo VU Meter the user already wired alone when the audio source arrives', () => {
+    useGraphStore.setState({
+      nodes: [
+        ...useGraphStore.getState().nodes,
+        node('Audio', 'src') as never,
+        node('StereoVuMeter', 'vu') as never,
+      ],
+      edges: [
+        ...useGraphStore.getState().edges,
+        { id: 'e-src-vu', source: 'src', sourceHandle: 'audio', target: 'vu', targetHandle: 'audio' } as never,
+      ],
+    })
+    render(<HardwarePane />)
+
+    addPart('Audio', 'PCM1802 line-in ADC')
+
+    const intoMeter = useGraphStore.getState().edges.filter((edge) => edge.target === 'vu')
+    expect(intoMeter).toHaveLength(1)
+    expect(intoMeter[0].source).toBe('src')
+  })
+
   it('adds one paired Stereo VU Meter, assigns two pins, targets the LED output, and auto-wires Audio', () => {
     useGraphStore.setState({
       nodes: [

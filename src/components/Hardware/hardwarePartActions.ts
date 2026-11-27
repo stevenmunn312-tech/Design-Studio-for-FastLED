@@ -43,6 +43,27 @@ const PROVIDER_PART_TYPES: ReadonlySet<string> = new Set([
   MIC_NODE_TYPE, 'LineInput', RTC_MODULE_NODE_TYPE, DMX_TRANSCEIVER_NODE_TYPE, MIDI_INTERFACE_NODE_TYPE,
 ])
 
+/**
+ * A Stereo VU Meter added before the microphone has no Audio node to wire to,
+ * so the microphone's arrival completes the connection the meter's own arrival
+ * makes when Audio is already there. Only a meter whose audio input is empty is
+ * wired, and only when the root graph has exactly one Audio node. Returns how
+ * many meters were wired.
+ */
+export function connectUnwiredStereoVuMeters(): number {
+  const state = useGraphStore.getState()
+  const nodes = rootGraphNodes(state)
+  const audioNodes = nodes.filter((node) => node.data.nodeType === 'Audio')
+  if (audioNodes.length !== 1) return 0
+  const edges = rootGraphEdges(state)
+  const meters = nodes.filter((node) => node.data.nodeType === 'StereoVuMeter'
+    && !edges.some((edge) => edge.target === node.id && edge.targetHandle === 'audio'))
+  for (const meter of meters) {
+    state.connectRoot({ source: audioNodes[0].id, sourceHandle: 'audio', target: meter.id, targetHandle: 'audio' })
+  }
+  return meters.length
+}
+
 export interface InputPartActionInputs {
   addNode: (node: StudioNode, centreOnDrop?: boolean) => void
   nodes: StudioNode[]
@@ -140,6 +161,7 @@ export function inputPartActions({
     // only through an Audio node, so the first one brings that node with it.
     const audioAdded = [MIC_NODE_TYPE, 'LineInput'].includes(entry.nodeType)
       && ensureRootAudioNode(entry.nodeType === MIC_NODE_TYPE ? 'microphone' : 'line-in') !== null
+    const vuWired = [MIC_NODE_TYPE, 'LineInput'].includes(entry.nodeType) ? connectUnwiredStereoVuMeters() : 0
     // A DS3231 is read by a Clock, so the first one brings a Clock set to it;
     // a DMX transceiver and a MIDI interface bring their nodes the same way.
     const clockAdded = entry.nodeType === RTC_MODULE_NODE_TYPE && ensureRootClockNode('DS3231') !== null
@@ -147,7 +169,7 @@ export function inputPartActions({
       && ensureRootReaderNode('DMXInput', { inputMode: 'DMX512' }) !== null
     const midiAdded = entry.nodeType === MIDI_INTERFACE_NODE_TYPE
       && ensureRootReaderNode('MidiInput', { midiSource: 'DIN (UART)' }) !== null
-    const companion = audioAdded ? 'an Audio node' : clockAdded ? 'a Clock node'
+    const companion = audioAdded ? `an Audio node${vuWired ? ' wired to the VU meter' : ''}` : clockAdded ? 'a Clock node'
       : dmxAdded ? 'a DMX node set to DMX512' : midiAdded ? 'a MIDI node set to DIN' : null
     const pins = [...Object.values(assignedPins), ...(bankPin?.ok ? [bankPin.pins.pin] : [])]
     setStatus(
@@ -328,13 +350,13 @@ export function benchPartActions({
           sdMisoPin: sdSpiPins.miso,
           sdMosiPin: sdSpiPins.mosi,
         }
-      : pinRequests?.length || Object.keys(requested.pins).length
-        ? requested.pins
-        : entry.profilePins && amp
-          ? Object.fromEntries(
-            Object.entries(entry.profilePins).map(([key, field]) => [key, amp[field]]),
-          )
-          : {}
+      // A profile's curated pinout for the part wins; the allocator answers
+      // for boards that name none (an S3 has no GPIO 22-25 to fall back on).
+      : entry.profilePins && amp
+        ? Object.fromEntries(
+          Object.entries(entry.profilePins).map(([key, field]) => [key, amp[field]]),
+        )
+        : requested.pins
     // A fixture that carries signal has a graph half to show; one that does not
     // stays hidden, which is the whole distinction the two sets encode.
     const onCanvas = isHardwareManagedSignalNodeType(entry.nodeType)

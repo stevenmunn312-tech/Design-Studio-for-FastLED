@@ -132,6 +132,7 @@ describe('Text and Clock Display size', () => {
       [{ text: 'HI\nYOU', hAlign: 'left', vAlign: 'bottom' }, 20, 24],
       [{ text: 'AB', wrap: true, x: 0.9, y: 0.1 }, 16, 12],
       [{ text: 'Q7', units: 'pixels', x: 3, y: 2, letterSpacing: 2 }, 24, 16],
+      [{ text: 'HELLO ', wrap: true, scroll: 4, hAlign: 'left', units: 'pixels', x: 0 }, 24, 12],
     ]
     for (const [props, W, H] of cases) {
       const marker = `Text "${String(props.text).replace(/\n/g, '?')}"`

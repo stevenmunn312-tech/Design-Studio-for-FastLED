@@ -45,6 +45,18 @@ share link, migrating it where a shape has changed.
 
 ### Fixed
 
+- Adding the MAX98357A amplifier from the Hardware shelf on an ESP32-S3 board
+  now gives it three free pins from the board. Before, it kept the classic
+  ESP32 pins 26, 25 and 22, which the S3 does not have, so Checks showed three
+  errors and Upload was blocked.
+- A Stereo VU Meter added before the microphone or line-in is now wired to the
+  Audio node when the audio part arrives, as it already was in the other order.
+  A meter you wired yourself is left alone.
+- Dropping a Web Remote control on a row that another wire already drives now
+  replaces that wire, as a hand-drawn wire does. Before, the drop was refused.
+- Text with Wrap on at a size above 1 no longer draws overlapping copies when
+  the text is wider than the matrix, and its scroll loops without a jump.
+  Preview and firmware follow the same rule; size 1 is unchanged.
 - A show, player or screen sketch with an I2C sensor or OLED now builds on
   boards other than the ESP family. It started the bus with pin arguments,
   which only the ESP cores accept: the build failed on AVR, RP2040, Teensy and

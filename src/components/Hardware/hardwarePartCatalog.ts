@@ -402,6 +402,11 @@ export const FIXTURE_PARTS: readonly FixturePartEntry[] = [
       { key: 'i2sLrc', label: 'LRC' },
       { key: 'i2sDout', label: 'DIN' },
     ],
+    // Three plain output lines, allocated from the board's own pool when the
+    // profile names no curated `max98357` pinout. Without this the node's
+    // classic-ESP32 defaults (26/25/22) survived on such boards, and an S3 has
+    // no usable GPIO 22-25.
+    pinRequests: [{ key: 'i2sBclk' }, { key: 'i2sLrc' }, { key: 'i2sDout' }],
     singleton: true,
   },
   {

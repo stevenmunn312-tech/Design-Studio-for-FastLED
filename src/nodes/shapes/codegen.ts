@@ -8,6 +8,8 @@ import {
   textFont,
   textFontId,
   fontColumnCppType,
+  textScrollPeriodCpp,
+  textWrapSpanCpp,
 } from '../shared/font'
 import { asAnimatedImage, asImage } from '../shared/image'
 import { hexToRgb } from '../../state/palettes/polinePalette'
@@ -456,9 +458,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
         ln(`    float _scr = ${f('scroll', 'scroll', 0)};`)
         const ph = speedPhaseCpp(ln, phaseTag(id), '_scr')
         if (scrollAxis === 'vertical') {
-          ln(`    int _totY = ${lineH} + HEIGHT, _offY = _scr != 0.0f ? ((((int)(${ph})) % _totY) + _totY) % _totY : 0, _offX = 0;`)
+          ln(`    int _totY = ${textScrollPeriodCpp(`${lineH}`, 'HEIGHT', size, wrap)}, _offY = _scr != 0.0f ? ((((int)(${ph})) % _totY) + _totY) % _totY : 0, _offX = 0;`)
         } else {
-          ln(`    int _totX = _tn + WIDTH, _offX = _scr != 0.0f ? ((((int)(${ph})) % _totX) + _totX) % _totX : 0, _offY = 0;`)
+          ln(`    int _totX = ${textScrollPeriodCpp('_tn', 'WIDTH', size, wrap)}, _offX = _scr != 0.0f ? ((((int)(${ph})) % _totX) + _totX) % _totX : 0, _offY = 0;`)
         }
       } else {
         ln(`    int _offX = 0, _offY = 0;`)
@@ -470,8 +472,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
         ln(`${indent}  for (int _r = 0; _r < ${lineH}; _r++) if (_col & (1 << ${rowBit})) { int _yy = (${sy}) + _r - _offY; if (_yy >= 0 && _yy < HEIGHT) ${ob}[_yy * WIDTH + _x] = ${colorE}; } }`)
       }
       if (wrap) {
-        ln(`    int _wrapX[3] = {-WIDTH, 0, WIDTH};`)
-        ln(`    int _wrapY[3] = {-HEIGHT, 0, HEIGHT};`)
+        const spanX = textWrapSpanCpp('_tn', 'WIDTH', size), spanY = textWrapSpanCpp(`${lineH}`, 'HEIGHT', size)
+        ln(`    int _wrapX[3] = {-${spanX}, 0, ${spanX}};`)
+        ln(`    int _wrapY[3] = {-${spanY}, 0, ${spanY}};`)
         ln(`    for (int _wy = 0; _wy < 3; _wy++) for (int _wx = 0; _wx < 3; _wx++) {`)
         draw('_sx + _wrapX[_wx]', '_sy + _wrapY[_wy]', '      ')
         ln(`    }`)
@@ -499,9 +502,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ln(`    float _scr = ${f('scroll', 'scroll', 0)};`)
       const ph = speedPhaseCpp(ln, phaseTag(id), '_scr')
       if (scrollAxis === 'vertical') {
-        ln(`    int _totY = ${layout.height} + HEIGHT, _offY = _scr != 0.0f ? ((((int)(${ph})) % _totY) + _totY) % _totY : 0, _offX = 0;`)
+        ln(`    int _totY = ${textScrollPeriodCpp(`${layout.height}`, 'HEIGHT', size, wrap)}, _offY = _scr != 0.0f ? ((((int)(${ph})) % _totY) + _totY) % _totY : 0, _offX = 0;`)
       } else {
-        ln(`    int _totX = ${layout.width} + WIDTH, _offX = _scr != 0.0f ? ((((int)(${ph})) % _totX) + _totX) % _totX : 0, _offY = 0;`)
+        ln(`    int _totX = ${textScrollPeriodCpp(`${layout.width}`, 'WIDTH', size, wrap)}, _offX = _scr != 0.0f ? ((((int)(${ph})) % _totX) + _totX) % _totX : 0, _offY = 0;`)
       }
     } else {
       ln(`    int _offX = 0, _offY = 0;`)
@@ -513,8 +516,9 @@ export const SHAPES_EMITTERS: NodeEmitters = {
       ln(`    int _sx_${line.index} = (int)${sxExpr};`)
     }
     if (wrap) {
-      ln(`    int _wrapX[3] = {-WIDTH, 0, WIDTH};`)
-      ln(`    int _wrapY[3] = {-HEIGHT, 0, HEIGHT};`)
+      const spanX = textWrapSpanCpp(`${layout.width}`, 'WIDTH', size), spanY = textWrapSpanCpp(`${layout.height}`, 'HEIGHT', size)
+      ln(`    int _wrapX[3] = {-${spanX}, 0, ${spanX}};`)
+      ln(`    int _wrapY[3] = {-${spanY}, 0, ${spanY}};`)
       ln(`    for (int _wy = 0; _wy < 3; _wy++) for (int _wx = 0; _wx < 3; _wx++) {`)
       for (const line of renderableLines) {
         const lineOffset = line.index * layout.lineStep

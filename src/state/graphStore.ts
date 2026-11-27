@@ -4635,9 +4635,11 @@ export function connectWebRemoteControl(
       },
     }
   }
-  const driven = state.edges.some((edge) => edge.target === targetId && edge.targetHandle === targetPort)
+  // A row that is already driven is not refused: every other source (a pot,
+  // an encoder, a button) replaces the wire on it, so the new control does too.
+  // The old wire goes in the same `set` below, so one undo restores it.
   const plan = touchControlPlan(
-    target.data.nodeType, targetPort, target.data.properties as Record<string, unknown>, driven)
+    target.data.nodeType, targetPort, target.data.properties as Record<string, unknown>, false)
   if (!plan.ok) return plan
   if (!isWebRemoteControlType(plan.spec.type)) {
     return { ok: false, refusal: { code: 'unsupported-type', message: `A Web Remote has no ${plan.spec.type} control.` } }
@@ -4670,7 +4672,8 @@ export function connectWebRemoteControl(
     const nodes = withRemoteControlStart(added, {
       source: remoteNodeId, sourceHandle, target: targetId, targetHandle: targetPort,
     })
-    const edges = [...s.edges, {
+    const replaced = s.edges.filter((edge) => !(edge.target === targetId && edge.targetHandle === targetPort))
+    const edges = [...replaced, {
       id: `remote-${remoteNodeId}-${control.id}-${targetId}-${targetPort}`,
       source: remoteNodeId,
       sourceHandle,

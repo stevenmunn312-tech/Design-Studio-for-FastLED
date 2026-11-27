@@ -246,7 +246,9 @@ function connectionTargetHint(
   // drop means the reason shows while the noodle is still in the air.
   if (drag.sourcePortId === TOUCH_CONTROL_ADD_HANDLE) {
     const plan = touchControlPlan(
-      targetNodeType, targetPort.id, target?.properties ?? {}, target?.driven ?? false)
+      targetNodeType, targetPort.id, target?.properties ?? {},
+      // A Web Remote replaces the wire on a driven row, as every other source does.
+      drag.sourceNodeType === 'WebRemoteInput' ? false : target?.driven ?? false)
     // The shortcut is named only where it would do something. It is offered
     // on the row rather than announced afterwards for the same reason the
     // refusal is: while the noodle is in the air is when it can still change

@@ -177,6 +177,36 @@ export function textColumns(text: string, font: BitmapFont = DEFAULT_FONT, lette
   return cols
 }
 
+/**
+ * How far apart a wrapped Text's copies sit along one axis. Wrap draws the
+ * block at -span, 0 and +span, so copies only stay clear of each other when the
+ * span is at least the block's extent. Size 1 keeps the matrix extent (the
+ * rule every size-1 sketch was captured with); a scaled block is routinely
+ * wider than the matrix, and there the span grows to the block.
+ */
+export function textWrapSpan(extent: number, matrixExtent: number, scale: number): number {
+  return scale > 1 ? Math.max(matrixExtent, extent) : matrixExtent
+}
+
+/** `textWrapSpan` as a C++ expression; `extentExpr` may be a runtime value. */
+export function textWrapSpanCpp(extentExpr: string, matrixName: string, scale: number): string {
+  return scale > 1 ? `(${matrixName} > ${extentExpr} ? ${matrixName} : ${extentExpr})` : matrixName
+}
+
+/**
+ * One scroll cycle along an axis, in pixels. A wrapped scaled block repeats
+ * every `textWrapSpan`, so it loops seamlessly; otherwise the block scrolls
+ * fully through the matrix (its extent plus the matrix's).
+ */
+export function textScrollPeriod(extent: number, matrixExtent: number, scale: number, wrap: boolean): number {
+  return wrap && scale > 1 ? textWrapSpan(extent, matrixExtent, scale) : extent + matrixExtent
+}
+
+/** `textScrollPeriod` as a C++ expression. */
+export function textScrollPeriodCpp(extentExpr: string, matrixName: string, scale: number, wrap: boolean): string {
+  return wrap && scale > 1 ? textWrapSpanCpp(extentExpr, matrixName, scale) : `${extentExpr} + ${matrixName}`
+}
+
 /** Split a Text node string into logical lines, normalising CRLF/CR to LF. */
 export function textLines(text: string): string[] {
   return String(text).replace(/\r\n?/g, '\n').split('\n')

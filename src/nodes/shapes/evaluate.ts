@@ -1,5 +1,5 @@
 import type { RtcPreview } from '../../state/peripherals/rtc'
-import { type BitmapFont, DEFAULT_FONT, TEXT_SIZE, textBlockLayout, TEXT_LINE_GAP, textAlignMode, textFont, textSize } from '../shared/font'
+import { type BitmapFont, DEFAULT_FONT, TEXT_SIZE, textBlockLayout, TEXT_LINE_GAP, textAlignMode, textFont, textSize, textScrollPeriod, textWrapSpan } from '../shared/font'
 import { asAnimatedImage, type ImageData, animatedImageFrame, asImage, sampleImageToFrame } from '../shared/image'
 import type { ImagePaletteSource } from '../../state/palettes/imagePalette'
 import { hexToRgb } from '../../state/palettes/polinePalette'
@@ -324,13 +324,15 @@ function renderText(
   const layout = textBlockLayout(text, font, letterSpacing, TEXT_LINE_GAP, scale)
   if (layout.lines.length === 0) return frame
   const vertical = scrollAxis === 'vertical'
-  const totalX = layout.width + W
-  const totalY = layout.height + H
+  const totalX = textScrollPeriod(layout.width, W, scale, wrap)
+  const totalY = textScrollPeriod(layout.height, H, scale, wrap)
   const phase = speedPhase(key, t, scroll)
   const offsetX = !vertical && scroll !== 0 ? Math.floor(((phase % totalX) + totalX) % totalX) : 0
   const offsetY = vertical && scroll !== 0 ? Math.floor(((phase % totalY) + totalY) % totalY) : 0
-  const xOffsets = wrap ? [-W, 0, W] : [0]
-  const yOffsets = wrap ? [-H, 0, H] : [0]
+  const spanX = textWrapSpan(layout.width, W, scale)
+  const spanY = textWrapSpan(layout.height, H, scale)
+  const xOffsets = wrap ? [-spanX, 0, spanX] : [0]
+  const yOffsets = wrap ? [-spanY, 0, spanY] : [0]
   for (const ox of xOffsets) {
     for (const oy of yOffsets) {
       for (let i = 0; i < layout.lines.length; i++) {

@@ -98,12 +98,36 @@ describe('Web Remote wire-first controls', () => {
     expect(controls()[1].properties.initial).toBe(9)
   })
 
-  it('makes a Colour Picker for a colour, and refuses a second control on one value', () => {
+  it('makes a Colour Picker for a colour, and a second control replaces the first one\'s wire', () => {
     expect(connectWireFirstControl('remote', 'fill', 'color').ok).toBe(true)
     expect(controls()[0]).toMatchObject({ type: 'Colour Picker', properties: { initial: 120 } })
-    const second = connectWireFirstControl('remote', 'fill', 'color')
-    expect(second.ok).toBe(false)
-    if (!second.ok) expect(second.refusal.code).toBe('already-driven')
+    expect(connectWireFirstControl('remote', 'fill', 'color').ok).toBe(true)
+    const onRow = useGraphStore.getState().edges.filter((e) => e.target === 'fill' && e.targetHandle === 'color')
+    expect(onRow).toHaveLength(1)
+  })
+
+  it('replaces the wire on an already-driven row, as every other source does', () => {
+    const old = { id: 'old', source: 'ct', sourceHandle: 'frame', target: 'ff', targetHandle: 'density', type: 'glowEdge' }
+    useGraphStore.setState({ edges: [old] } as never)
+    expect(connectWireFirstControl('remote', 'ff', 'density').ok).toBe(true)
+    const onRow = useGraphStore.getState().edges.filter((e) => e.target === 'ff' && e.targetHandle === 'density')
+    expect(onRow).toHaveLength(1)
+    expect(onRow[0].source).toBe('remote')
+    expect(controls()).toHaveLength(1)
+  })
+
+  it('follows the hand-wire rule on an action row too: one source per input, the newest wins', () => {
+    const nodes = [...useGraphStore.getState().nodes, node('ir', 'IRRemoteInput'), node('pc', 'ControlMap')]
+    useGraphStore.getState().loadGraph(nodes, [], { nodes, edges: [], displayDocuments: {} } as never)
+    const into = () => useGraphStore.getState().edges.filter((e) => e.target === 'pc' && e.targetHandle === 'patternNext')
+    useGraphStore.getState().onConnect({ source: 'ir', sourceHandle: 'button-kit-right', target: 'pc', targetHandle: 'patternNext' })
+    // The reference: a second hand-drawn wire replaces the first.
+    useGraphStore.getState().onConnect({ source: 'ct', sourceHandle: 'frame', target: 'pc', targetHandle: 'patternNext' })
+    expect(into().map((e) => e.source)).toEqual(['ct'])
+    useGraphStore.getState().onConnect({ source: 'ir', sourceHandle: 'button-kit-right', target: 'pc', targetHandle: 'patternNext' })
+    expect(connectWireFirstControl('remote', 'pc', 'patternNext').ok).toBe(true)
+    expect(into().map((e) => e.source)).toEqual(['remote'])
+    expect(controls()).toHaveLength(1)
   })
 
   it('takes one undo to remove the control and its wire', () => {
