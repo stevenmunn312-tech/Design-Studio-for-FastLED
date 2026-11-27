@@ -16,7 +16,7 @@
 
 .target {
   display: grid;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
 }
 
 .target span {
@@ -60,12 +60,12 @@
 }
 
 .check input {
-  margin-top: 2px;
+  margin-top: calc(var(--space-0) * 0.5);
 }
 
 .step {
   display: grid;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
   padding: var(--space-0);
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--text-primary) 4%, transparent);
@@ -98,12 +98,12 @@
 .reading {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-0);
 }
 
 .readingInput {
   width: 76px;
-  padding: 2px 6px;
+  padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 1.5);
   border-radius: var(--radius-control);
   border: 1px solid color-mix(in srgb, var(--text-primary) 18%, transparent);
   background: color-mix(in srgb, var(--text-primary) 6%, transparent);
@@ -115,7 +115,7 @@
 .answerOn,
 .repair,
 .clear {
-  padding: 2px 10px;
+  padding: calc(var(--space-0) * 0.5) calc(var(--space-0) * 2.5);
   border-radius: var(--radius-control);
   border: 1px solid color-mix(in srgb, var(--text-primary) 18%, transparent);
   background: color-mix(in srgb, var(--text-primary) 6%, transparent);
@@ -131,7 +131,7 @@
 
 .finding {
   display: grid;
-  gap: 4px;
+  gap: var(--space-0);
   padding: var(--space-0) var(--space-1);
   border-radius: var(--radius-control);
   border-left: 3px solid currentColor;
@@ -175,7 +175,7 @@
 
 .readout div {
   display: grid;
-  gap: 2px;
+  gap: calc(var(--space-0) * 0.5);
   padding: var(--space-0);
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--text-primary) 6%, transparent);
