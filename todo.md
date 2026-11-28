@@ -329,9 +329,14 @@ yet run on a board). The 1.0.0 to 1.0.3 tags are superseded.
   per-chip ESP32 toolchain slice in one read with no retry; the helper now
   runs the build up to twice more when a download broke off. Upstream report
   drafted, unposted: `tmp/fbuild-main/drafts/chip-slice-download-not-retried.md`.
-- [ ] Build the v1.0.4 packages with the Desktop Packages workflow on GitHub
-  (all four platforms, no draft release).
-- [ ] Run WACK on the v1.0.4 MSIX.
+- [x] Build the v1.0.4 packages with the Desktop Packages workflow on GitHub
+  (all four platforms, no draft release): run 46112683994 on the `v1.0.4`
+  tag (`c42fd337`), all passed; downloaded and checksum-verified to
+  `artifacts/release-1.0.4`.
+- [x] Run WACK on the v1.0.4 MSIX. PASS on 2026-11-28 (kit 10.0.26100.8249,
+  app 1.0.4.0): 23 tests passed, only the optional Blocked executables
+  failing, as expected; SHA-256 `188e1b9b…a573d8c6`. Report
+  `artifacts/wack-report-1.0.4.xml`.
 - [ ] Smoke test the v1.0.4 Store package on a new account, long paths off:
   first launch and first upload to the ESP32-S3, the steps the change
   touches. Steve's report is the result.
