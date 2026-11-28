@@ -1,13 +1,14 @@
 # Handoff: Windows long-paths release blocker
 
-Written 2026-11-23. **Status, 2026-11-26:** fixed for ESP32 boards in 1.0.2
-(fbuild 2.5.55 and the esptool copy, below). RP2040, Teensy and STM32 boards
-still cannot build with long paths off
-([per-family compile](#other-board-families-on-fbuild-2555-2026-11-26),
-FastLED/fbuild#2187). Steve chose on 2026-11-26 to wait for the upstream
-answer before deciding what 1.0.2 does about them. The release also waits for the smoke
-test on the 1.0.2 package ([todo](../../todo.md)). Read this before touching
-the release, the Store submission or the fbuild pin.
+Written 2026-11-23. **Status, 2026-11-28:** fixed for ESP32 boards in 1.0.2
+(fbuild 2.5.55 and the esptool copy, below). fbuild 2.5.56 (2026-11-26)
+fixes the RP2040, Teensy and STM32 boards too (FastLED/fbuild#2188), and
+`main` pins it since 2026-11-28. From a shell with long paths off, every
+family's pattern sketch built on it
+([retest](#retest-on-fbuild-2556-2026-11-28)). The `v1.0.2` tag still holds
+2.5.55, so shipping the fix needs a new build from `main`. The release also
+waits for the smoke test on the package ([todo](../../todo.md)). Read this
+before touching the release, the Store submission or the fbuild pin.
 
 ## The problem in one paragraph
 
@@ -330,7 +331,57 @@ or one that never ran fbuild, upload, and any other board of these families.
 
 When the release lands: move the pin, rerun `run-main.ps1`'s three builds
 with the pinned binary, then build one pattern fixture per family through
-`compile-matrix.py --engine fbuild`.
+`compile-matrix.py --engine fbuild`. Done on 2026-11-28, below.
+
+### Retest on fbuild 2.5.56 (2026-11-28)
+
+fbuild 2.5.56, released on 2026-11-26 (GitHub) and on PyPI about two days
+later, carries FastLED/fbuild#2188. The pin moved to 2.5.56 on 2026-11-28.
+
+Conditions: Steve's PC and account, `LongPathsEnabled = 0`, `main` at
+`f6d86754`, fbuild 2.5.56 from `backend/.venv`, one build at a time, no
+`FBUILD_CACHE_DIR`, its own daemon port for the blank sketches. Before the
+first build the whole fallback cache was moved to
+`C:\fbuild-cache\8cffdc466966.pre-2.5.56`, so 2.5.56 downloaded and installed
+every package it used. That includes the ESP32 packages, as on a first run.
+
+Blank sketch (`tmp/fbuild-shortpath-repro/run-pinned.ps1`, logs
+`<board>.2.5.56.log`):
+
+| Board (fbuild environment) | Result on 2.5.55 | Result on 2.5.56 |
+| --- | --- | --- |
+| Pico W (`rpipicow`) | Fail at package install | Pass, 110,408 B flash, 173 s with install |
+| Teensy 4.1 (`teensy41`) | Fail at package install | Pass, 23,552 B, 86 s |
+| Black Pill F411 (`blackpill_f411ce`) | Fail at package install | Pass, 12,524 B, 240 s |
+
+One FastLED pattern sketch per family (`compile-matrix.py --engine fbuild`,
+records `artifacts/compile-matrix/2026-11-28_1103` and `_1130`):
+
+| Board (fbuild environment) | Fixture | Result |
+| --- | --- | --- |
+| Black Pill F411 (`blackpill_f411ce`) | `families/pattern@stm32` | Pass, 39,854 B flash |
+| Pico (`rpipico`) | `families/pattern@rp2040` | Pass, 157,460 B |
+| Teensy 4.1 (`teensy41`) | `families/pattern@teensy` | Pass, 57,344 B |
+| Arduino Uno (`uno`) | `families/pattern@avr` | Pass, 8,387 B |
+| Nano Every (`nona4809`) | `families/pattern@megaavr` | Pass, 8,755 B |
+| Feather M0 (`adafruit_feather_m0`) | `families/pattern@samd` | Pass, 51,005 B |
+| Feather M4 (`adafruit_feather_m4`) | `families/pattern@samd51` | Pass, 39,096 B |
+| UNO R4 WiFi (`unor4wifi`) | `families/pattern@renesas` | Pass, 46,735 B |
+| nRF52840 DK (`pca10056`) | `boards/pattern@nrf52840-dk` | Pass, 73,482 B |
+| NodeMCU ESP8266 (`nodemcuv2`) | `families/pattern@esp8266` | Pass, 305,684 B |
+| Feather ESP32 V2 (`adafruit_feather_esp32_v2`) | `boards/pattern@feather-esp32-v2` | Pass, 340,972 B, 7 m 44 s with install |
+| Feather ESP32-S3 (`adafruit_feather_esp32s3`) | `boards/pattern@feather-s3` | Pass on the second run, 416,788 B |
+
+The S3's first run stopped at package install with
+`build error: package error: error decoding response body`, a download that
+broke off; the next run, a few minutes later, installed it and built. That
+makes three failed first downloads in three days of these retests. The app
+reports it as a setup failure, not a sketch fault, but it is not retried.
+
+Not covered: the app's own build path and the packaged app (the Store
+package or portable ZIP built with 2.5.56), a standard account or one that
+never ran fbuild, upload, the ESP32-S2, C3, C6 and H2 on 2.5.56, and any
+second board of a family.
 
 ## Options
 
@@ -370,7 +421,9 @@ an ESP32-S3.
 - Tags `v1.0.0` and `v1.0.1` exist on GitHub with private draft releases.
 - `LongPathsEnabled` on Steve's PC: `0` through the tests of 2026-11-23, set
   back to `1` by Steve that evening for bench work, and `0` again on
-  2026-11-26 for the 2.5.55 retest. To reproduce the blocker
+  2026-11-26 for the 2.5.55 retest, still `0` for the 2.5.56 retest on
+  2026-11-28. The fallback cache that predates 2.5.56 is kept at
+  `C:\fbuild-cache\8cffdc466966.pre-2.5.56` and can be deleted. To reproduce the blocker
   again, set it to `0` in an administrator PowerShell
   (`Set-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem LongPathsEnabled 0`)
   and use the `storetest-longname` account.

@@ -48,7 +48,8 @@ const mic = generateCpp([
 ])
 
 if (leds.includes('Adafruit_ZeroI2S')) throw new Error('leds: unexpected microphone capture')
-for (const expected of ['#include <Adafruit_ZeroI2S.h>', 'Adafruit_ZeroI2S _i2s', '_audioProcessor->getBassLevel()']) {
+// The FFT reads the equaliser bins; FastLED's detectors nothing reads are pruned.
+for (const expected of ['#include <Adafruit_ZeroI2S.h>', 'Adafruit_ZeroI2S _i2s', '_audioProcessor->getEqBin(']) {
   if (!mic.includes(expected)) throw new Error(`mic: missing ${expected}`)
 }
 

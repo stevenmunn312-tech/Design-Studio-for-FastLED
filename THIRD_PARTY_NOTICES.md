@@ -175,7 +175,7 @@ shown on them belong to their owners and imply no endorsement.
   a prebuilt package rather than as source.
 - Portable desktop bundles include the Python runtime plus FastAPI (MIT),
   Uvicorn (BSD-3-Clause), python-multipart (Apache-2.0), pyserial
-  (BSD-3-Clause), fbuild 2.5.55 (AGPL-3.0-only since 2026-08-18; earlier
+  (BSD-3-Clause), fbuild 2.5.56 (AGPL-3.0-only since 2026-08-18; earlier
   releases were BSD-3-Clause), and esptool 5.3.1 (GPL-2.0-or-later).
   The packager copies available upstream license files into
   `third-party-licenses/` and emits a version/license/source manifest there.
@@ -184,7 +184,7 @@ shown on them belong to their owners and imply no endorsement.
 - fbuild and esptool are bundled unmodified, as separate programs the helper
   runs; the helper does not import their code. Their complete source for the
   bundled versions is at
-  [FastLED/fbuild v2.5.55](https://github.com/FastLED/fbuild/tree/v2.5.55) and
+  [FastLED/fbuild v2.5.56](https://github.com/FastLED/fbuild/tree/v2.5.56) and
   [espressif/esptool v5.3.1](https://github.com/espressif/esptool/tree/v5.3.1),
   and the manifest names both.
 - Tools downloaded at run time, not bundled: on first use the helper fetches

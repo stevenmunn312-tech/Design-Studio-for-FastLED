@@ -45,6 +45,9 @@ share link, migrating it where a shape has changed.
 
 ### Fixed
 
+- Raspberry Pi Pico, Teensy and STM32 boards build on a Windows PC with long
+  path support off, the Windows default. The build engine is now fbuild
+  2.5.56; before, it could not install those boards' packages there.
 - Adding the MAX98357A amplifier from the Hardware shelf on an ESP32-S3 board
   now gives it three free pins from the board. Before, it kept the classic
   ESP32 pins 26, 25 and 22, which the S3 does not have, so Checks showed three

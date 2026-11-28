@@ -3,6 +3,9 @@
   "legs": [
     { "leg": "fbuild:lanes/esp32s3-normal", "proves": "the shipping default: ESP32-S3 on fbuild, lanes and PSRAM buffers" },
     { "leg": "fbuild:lanes/esp32-normal@esp32", "proves": "classic ESP32 on fbuild" },
+    { "leg": "fbuild:families/pattern@rp2040", "proves": "fbuild installs the arduino-pico core with Windows long paths off (FastLED/fbuild#2188)" },
+    { "leg": "fbuild:families/pattern@teensy", "proves": "fbuild installs the Teensy core with Windows long paths off (FastLED/fbuild#2188)" },
+    { "leg": "fbuild:families/pattern@stm32", "proves": "fbuild installs the STM32 core with Windows long paths off (FastLED/fbuild#2188)" },
 
     { "leg": "arduino-cli:families/pattern@avr", "proves": "pattern code and the output gamma path on the 2 KB AVR core" },
     { "leg": "arduino-cli:families/pattern@megaavr", "proves": "megaAVR core (Nano Every)" },

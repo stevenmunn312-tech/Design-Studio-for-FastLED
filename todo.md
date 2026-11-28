@@ -221,10 +221,10 @@ the first turned up a fault the review had filed as dead text:
 
 - [ ] Run the pre-release matrix once the fixes above are in, after your
   go-ahead: `python scripts/compile-fixtures/compile-matrix.py --preset prerelease`
-  (74 builds, 72 on arduino-cli and 2 on fbuild; the legs and what each
-  proves are in `scripts/compile-fixtures/prerelease-legs.json`). Held until
-  the fbuild release with FastLED/fbuild#2188 is pinned, so one run covers
-  both; add Pico W, Teensy 4.1 and Black Pill pattern legs on fbuild then.
+  (77 builds, 72 on arduino-cli and 5 on fbuild; the legs and what each
+  proves are in `scripts/compile-fixtures/prerelease-legs.json`). fbuild
+  2.5.56 with FastLED/fbuild#2188 is pinned since 2026-11-28, and the
+  RP2040, Teensy and STM32 pattern legs on fbuild are in the preset.
 - [x] Legs nothing built before: ten sketches from
   `scripts/compile-fixtures/review-gaps.ts` (a chipset sweep on three boards,
   the stream receiver on three, HUB75 on the S3, PCM1802 line-in, the SD pin
@@ -309,22 +309,17 @@ v1.0.2 is the release: `main` on 2026-11-26, with fbuild 2.5.55 and the
 esptool fix that let a Store install build ESP32 boards with long paths off.
 The v1.0.0 and v1.0.1 draft releases and their MSIX files are superseded.
 
-- [ ] Pico W, Teensy and STM32 boards: fbuild 2.5.55 cannot build them with
+- [x] Pico W, Teensy and STM32 boards: fbuild 2.5.55 cannot build them with
   long paths off
-  ([record](docs/release/long-paths-blocker.md#other-board-families-on-fbuild-2555-2026-11-26)).
-  Reported on 2026-11-26 as FastLED/fbuild#2187, and Steve messaged Zach.
-  Decision, 2026-11-26: wait for the upstream answer before choosing.
-  Fixed on fbuild `main` the same day by FastLED/fbuild#2188 and not yet
-  released (2.5.55 is still the latest). A source build of that commit built
-  all three boards with long paths off
-  ([retest](docs/release/long-paths-blocker.md#retest-on-fbuild-main-after-2188-2026-11-26));
-  blank sketch only. When a
-  fixed fbuild is released, move the pin and rerun the three boards in
-  `tmp/fbuild-shortpath-repro` with long paths off. If no fix comes, ship
-  with the
-  [known limitation](docs/release/beta-support-matrix.md#known-limitations-in-v100)
-  or build those families with arduino-cli when long paths are off (a code
-  change, so a new version).
+  ([record](docs/release/long-paths-blocker.md#other-board-families-on-fbuild-2555-2026-11-26)),
+  reported on 2026-11-26 as FastLED/fbuild#2187. Fixed in fbuild 2.5.56
+  (FastLED/fbuild#2188), pinned on 2026-11-28. With long paths off and an
+  empty package cache, the three blank sketches and one pattern sketch per
+  family built from a shell
+  ([retest](docs/release/long-paths-blocker.md#retest-on-fbuild-2556-2026-11-28)).
+- [ ] Decide how the fix ships: the `v1.0.2` tag pins 2.5.55, so a package
+  with 2.5.56 is a build from `main` after the tag (a new version, or a
+  moved tag). Then the package build and the Store test below run on that.
 - [ ] Build the v1.0.2 packages with the Desktop Packages workflow on GitHub
   (needs Steve's go-ahead for this run). The same run can refresh the
   preview page above.
