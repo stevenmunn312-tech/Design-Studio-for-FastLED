@@ -337,9 +337,10 @@ yet run on a board). The 1.0.0 to 1.0.3 tags are superseded.
   app 1.0.4.0): 23 tests passed, only the optional Blocked executables
   failing, as expected; SHA-256 `188e1b9b…a573d8c6`. Report
   `artifacts/wack-report-1.0.4.xml`.
-- [ ] Smoke test the v1.0.4 Store package on a new account, long paths off:
+- [x] Smoke test the v1.0.4 Store package on a new account, long paths off:
   first launch and first upload to the ESP32-S3, the steps the change
-  touches. Steve's report is the result.
+  touches. Pass on 2026-11-28 (Steve, `storetest-v104-long`): the ESP32
+  packages downloaded and the upload to the ESP32-S3 worked.
 - [ ] Microsoft Store: cancel the certified dry-run submission, swap in the
   1.0.4.0 package, resubmit, and **Publish now** once certified
   ([Microsoft Store](docs/release/microsoft-store.md#submit)).
