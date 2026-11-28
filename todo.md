@@ -49,9 +49,10 @@ the [long-paths blocker](docs/release/long-paths-blocker.md) handoff.
   ships ([what it covered](docs/release/long-paths-blocker.md#the-packaged-app-could-not-run-esptool-found-and-fixed-2026-11-26)).
 - [x] Decide what ships: a new version, 1.0.2, from `main` (Steve,
   2026-11-26). The `v1.0.1` tag stays as it is.
-- [ ] The Store smoke test under Publish below, on the 1.0.3 package, on an
+- [x] The Store smoke test under Publish below, on the 1.0.3 package, on an
   account that has never run fbuild, through first download and upload.
-  Until it passes, the halt stands.
+  Passed 2026-11-28 with one retry: the first ESP32 download failed
+  ([result](docs/release/clean-machine-smoke-test.md#results)).
 
 State: the Store holds only the certified, unpublished 1.0.0 dry run (leave
 it alone); tags `v1.0.0`, `v1.0.1` and `v1.0.2` exist, all superseded by
@@ -311,10 +312,12 @@ board). The 1.0.0, 1.0.1 and 1.0.2 tags are superseded.
   Intel failed in the smoke's cleanup (fixed in `92dd0f7e`) and was rebuilt
   from `main` in run 46101612183, which differs from the tag only in that
   smoke step.
-- [ ] Test the v1.0.3 Store package the way a real user meets it: Windows
+- [x] Test the v1.0.3 Store package the way a real user meets it: Windows
   long paths **off**, a new account with a long username that has never run
   fbuild, first build and upload
   ([clean-machine smoke test](docs/release/clean-machine-smoke-test.md)).
+  Pass on 2026-11-28 (`storetest-v103-long`, ESP32-S3), after pressing
+  Upload a second time when the first ESP32 package download failed.
 - [x] Run WACK on the v1.0.3 MSIX. PASS on 2026-11-28 (kit 10.0.26100.8249,
   app 1.0.3.0): 23 tests passed, only the optional Blocked executables
   failing, as expected; SHA-256 `843909ee…78fe6995`, from run 46099584414.
