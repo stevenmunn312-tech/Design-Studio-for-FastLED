@@ -54,8 +54,8 @@ the [long-paths blocker](docs/release/long-paths-blocker.md) handoff.
   Passed 2026-11-28 with one retry: the first ESP32 download failed
   ([result](docs/release/clean-machine-smoke-test.md#results)).
 
-State: the Store holds only the certified, unpublished 1.0.0 dry run (leave
-it alone); tags `v1.0.0`, `v1.0.1` and `v1.0.2` exist, all superseded by
+State: 1.0.4.0 is published on the Microsoft Store (2026-11-28); the 1.0.0
+dry run was never published. Tags `v1.0.0`, `v1.0.1` and `v1.0.2` exist, all superseded by
 `v1.0.4` (as is `v1.0.3`). Their private draft releases and the website preview page, which
 were only for sharing builds with Zach, were deleted on 2026-11-28.
 
@@ -341,9 +341,11 @@ yet run on a board). The 1.0.0 to 1.0.3 tags are superseded.
   first launch and first upload to the ESP32-S3, the steps the change
   touches. Pass on 2026-11-28 (Steve, `storetest-v104-long`): the ESP32
   packages downloaded and the upload to the ESP32-S3 worked.
-- [ ] Microsoft Store: cancel the certified dry-run submission, swap in the
+- [x] Microsoft Store: cancel the certified dry-run submission, swap in the
   1.0.4.0 package, resubmit, and **Publish now** once certified
-  ([Microsoft Store](docs/release/microsoft-store.md#submit)).
+  ([Microsoft Store](docs/release/microsoft-store.md#submit)). Certified with
+  `DesignStudioForFastLED-1.0.4-windows-x86_64.msix` and published by Steve
+  on 2026-11-28.
 - [ ] Decide whether 1.0.4 also gets a public GitHub release (no drafts).
 
 ## macOS and Linux
