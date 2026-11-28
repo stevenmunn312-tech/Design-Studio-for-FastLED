@@ -1,7 +1,7 @@
-# Shipping v1.0.2
+# Shipping v1.0.3
 
-v1.0.0 and v1.0.1 were tagged on 2026-11-22 and never published; v1.0.2
-(2026-11-26) replaces them. Only the steps that ship v1.0.2 are here; tick a step when its outcome is recorded where it belongs, and empty
+v1.0.0 and v1.0.1 were tagged on 2026-11-22, v1.0.2 on 2026-11-26, and none was
+published; v1.0.3 (2026-11-28) replaces them. Only the steps that ship v1.0.3 are here; tick a step when its outcome is recorded where it belongs, and empty
 this file when they are done.
 
 - **Bench and community testing** is in the
@@ -49,20 +49,20 @@ the [long-paths blocker](docs/release/long-paths-blocker.md) handoff.
   ships ([what it covered](docs/release/long-paths-blocker.md#the-packaged-app-could-not-run-esptool-found-and-fixed-2026-11-26)).
 - [x] Decide what ships: a new version, 1.0.2, from `main` (Steve,
   2026-11-26). The `v1.0.1` tag stays as it is.
-- [ ] The Store smoke test under Publish below, on the 1.0.2 package, on an
+- [ ] The Store smoke test under Publish below, on the 1.0.3 package, on an
   account that has never run fbuild, through first download and upload.
   Until it passes, the halt stands.
 
 State: the Store holds only the certified, unpublished 1.0.0 dry run (leave
-it alone); tags `v1.0.0` and `v1.0.1` exist with private draft releases, both
-superseded by `v1.0.2`. The 1.0.1 builds are also on an unlisted preview page
+it alone); tags `v1.0.0` and `v1.0.1` exist with private draft releases, and
+`v1.0.2` without one; all are superseded by `v1.0.3`. The 1.0.1 builds are also on an unlisted preview page
 on the website for one invited tester.
 
 ## Pre-release firmware review (2026-11-26)
 
 A desk review of the generated firmware for every hardware item, by three
 reviewers, with no hardware and 11 local compiles. Nothing below is fixed yet:
-tick an item when you have decided it (fix for v1.0.2, defer to
+tick an item when you have decided it (fix for v1.0.3, defer to
 [post-v1](docs/plans/post-v1.md), or reject). Each item says how far it was
 proved: **compiled** (a local build shows it), **emitted** (seen in a finished
 sketch), or **bench** (needs hardware to settle). Time figures are estimates;
@@ -305,9 +305,12 @@ shelf fix). The preview page still serves 1.0.1.
 
 ## Publish
 
-v1.0.2 is the release: `main` on 2026-11-26, with fbuild 2.5.55 and the
-esptool fix that let a Store install build ESP32 boards with long paths off.
-The v1.0.0 and v1.0.1 draft releases and their MSIX files are superseded.
+v1.0.3 is the release: `main` on 2026-11-28, with fbuild 2.5.56 and the
+esptool fix, so a Store install builds every supported family with long paths
+off. It also carries everything on `main` since 1.0.2 (the Debug node, runtime
+audio source switching and the firmware review fixes, most not yet run on a
+board). The v1.0.0 and v1.0.1 draft releases and their MSIX files, and the
+`v1.0.2` tag, are superseded.
 
 - [x] Pico W, Teensy and STM32 boards: fbuild 2.5.55 cannot build them with
   long paths off
@@ -317,22 +320,21 @@ The v1.0.0 and v1.0.1 draft releases and their MSIX files are superseded.
   empty package cache, the three blank sketches and one pattern sketch per
   family built from a shell
   ([retest](docs/release/long-paths-blocker.md#retest-on-fbuild-2556-2026-11-28)).
-- [ ] Decide how the fix ships: the `v1.0.2` tag pins 2.5.55, so a package
-  with 2.5.56 is a build from `main` after the tag (a new version, or a
-  moved tag). Then the package build and the Store test below run on that.
-- [ ] Build the v1.0.2 packages with the Desktop Packages workflow on GitHub
+- [x] Decide how the fix ships: a new version, 1.0.3, from `main` (Steve,
+  2026-11-28). The `v1.0.2` tag stays as it is.
+- [ ] Build the v1.0.3 packages with the Desktop Packages workflow on GitHub
   (needs Steve's go-ahead for this run). The same run can refresh the
   preview page above.
-- [ ] Test the v1.0.2 Store package the way a real user meets it: Windows
+- [ ] Test the v1.0.3 Store package the way a real user meets it: Windows
   long paths **off**, a new account with a long username that has never run
   fbuild, first build and upload
   ([clean-machine smoke test](docs/release/clean-machine-smoke-test.md)).
-- [ ] Run WACK on the v1.0.2 MSIX (the v1.0.1 pass, 2026-11-22, does not
+- [ ] Run WACK on the v1.0.3 MSIX (the v1.0.1 pass, 2026-11-22, does not
   carry over).
 - [ ] Microsoft Store: cancel the certified dry-run submission, swap in the
-  1.0.2.0 package, resubmit, and **Publish now** once certified
+  1.0.3.0 package, resubmit, and **Publish now** once certified
   ([Microsoft Store](docs/release/microsoft-store.md#submit)).
-- [ ] Review the v1.0.2 draft GitHub release and publish it; delete the
+- [ ] Review the v1.0.3 draft GitHub release and publish it; delete the
   v1.0.0 and v1.0.1 drafts.
 
 ## macOS and Linux

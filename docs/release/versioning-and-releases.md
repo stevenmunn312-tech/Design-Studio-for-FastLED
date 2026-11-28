@@ -7,8 +7,8 @@ the save format is a compatibility baseline (below).
 ## Development lines and the v1 baseline
 
 `main` is the single development line, and the 1.0 releases are cut from it.
-`v1.0.0` and `v1.0.1` were tagged on 2026-11-22 and never published;
-`v1.0.2` (2026-11-26) replaces them ([root todo](../../todo.md)). On 2026-11-09 `main` was
+`v1.0.0` and `v1.0.1` were tagged on 2026-11-22 and `v1.0.2` on 2026-11-26,
+all never published; `v1.0.3` (2026-11-28) replaces them ([root todo](../../todo.md)). On 2026-11-09 `main` was
 pointed at the former `Hardware` breaking-development branch, which is now
 retired; the last state of the 0.7 public-beta line is the `beta-final` tag.
 `v0.8.0` (2026-11-16) is the first public release cut from `main`; it does not

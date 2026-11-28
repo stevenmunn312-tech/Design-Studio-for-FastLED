@@ -9,6 +9,13 @@ share link, migrating it where a shape has changed.
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-11-28
+
+Raspberry Pi Pico, Teensy and STM32 boards build on Windows with long-path
+support off, the Windows default; 1.0.2 could not install their packages
+there. Also adds the Debug node, switching the audio source while the board
+runs, and the fixes from a review of the generated firmware.
+
 ### Added
 
 - A **Debug** node, under the new Tools group, helps you bench-test one
