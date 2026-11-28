@@ -9,6 +9,22 @@ share link, migrating it where a shape has changed.
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-11-28
+
+A first build no longer fails when a download of the board's tools breaks off
+part-way, as the first ESP32 download often did in 1.0.3.
+
+### Fixed
+
+- When a download of the board's tools breaks off, the build starts again by
+  itself, up to twice. Before, the first build of an ESP32 board often
+  stopped with "error decoding response body" and needed Upload pressed
+  again. If the download keeps breaking, the message now says to check the
+  internet connection instead of suggesting another build engine.
+- The desktop app keeps the previous run's `desktop.log` as
+  `desktop.previous.log`, so restarting after a problem no longer erases its
+  record.
+
 ## [1.0.3] - 2026-11-28
 
 Raspberry Pi Pico, Teensy and STM32 boards build on Windows with long-path

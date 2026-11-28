@@ -1,7 +1,7 @@
-# Shipping v1.0.3
+# Shipping v1.0.4
 
-v1.0.0 and v1.0.1 were tagged on 2026-11-22, v1.0.2 on 2026-11-26, and none was
-published; v1.0.3 (2026-11-28) replaces them. Only the steps that ship v1.0.3 are here; tick a step when its outcome is recorded where it belongs, and empty
+v1.0.0 and v1.0.1 were tagged on 2026-11-22, v1.0.2 on 2026-11-26 and v1.0.3 on
+2026-11-28, and none was published; v1.0.4 (2026-11-28) replaces them. Only the steps that ship v1.0.4 are here; tick a step when its outcome is recorded where it belongs, and empty
 this file when they are done.
 
 - **Bench and community testing** is in the
@@ -56,7 +56,7 @@ the [long-paths blocker](docs/release/long-paths-blocker.md) handoff.
 
 State: the Store holds only the certified, unpublished 1.0.0 dry run (leave
 it alone); tags `v1.0.0`, `v1.0.1` and `v1.0.2` exist, all superseded by
-`v1.0.3`. Their private draft releases and the website preview page, which
+`v1.0.4` (as is `v1.0.3`). Their private draft releases and the website preview page, which
 were only for sharing builds with Zach, were deleted on 2026-11-28.
 
 ## Pre-release firmware review (2026-11-26)
@@ -290,11 +290,13 @@ day; a ticked item says what was done. None ran on hardware. Reviewer sketches a
 
 ## Publish
 
-v1.0.3 is the release: `main` on 2026-11-28, with fbuild 2.5.56 and the
-esptool fix, so a Store install builds every supported family with long paths
-off. It also carries everything on `main` since 1.0.2 (the Debug node, runtime
-audio source switching and the firmware review fixes, most not yet run on a
-board). The 1.0.0, 1.0.1 and 1.0.2 tags are superseded.
+v1.0.4 is the release: 1.0.3 plus a retry when a first ESP32 package download
+breaks off (every first download on Steve's PC needed one by hand) and a
+`desktop.log` that survives a relaunch. 1.0.3 is `main` on 2026-11-28, with
+fbuild 2.5.56 and the esptool fix, so a Store install builds every supported
+family with long paths off, plus everything on `main` since 1.0.2 (the Debug
+node, runtime audio source switching and the firmware review fixes, most not
+yet run on a board). The 1.0.0 to 1.0.3 tags are superseded.
 
 - [x] Pico W, Teensy and STM32 boards: fbuild 2.5.55 cannot build them with
   long paths off
@@ -322,12 +324,21 @@ board). The 1.0.0, 1.0.1 and 1.0.2 tags are superseded.
   app 1.0.3.0): 23 tests passed, only the optional Blocked executables
   failing, as expected; SHA-256 `843909ee…78fe6995`, from run 46099584414.
   Report `artifacts/wack-report-1.0.3.xml`.
+- [x] Decide what follows the 1.0.3 smoke test: fix the first-download
+  failure and ship 1.0.4 (Steve, 2026-11-28). fbuild 2.5.56 fetches the
+  per-chip ESP32 toolchain slice in one read with no retry; the helper now
+  runs the build up to twice more when a download broke off. Upstream report
+  drafted, unposted: `tmp/fbuild-main/drafts/chip-slice-download-not-retried.md`.
+- [ ] Build the v1.0.4 packages with the Desktop Packages workflow on GitHub
+  (all four platforms, no draft release).
+- [ ] Run WACK on the v1.0.4 MSIX.
+- [ ] Smoke test the v1.0.4 Store package on a new account, long paths off:
+  first launch and first upload to the ESP32-S3, the steps the change
+  touches. Steve's report is the result.
 - [ ] Microsoft Store: cancel the certified dry-run submission, swap in the
-  1.0.3.0 package, resubmit, and **Publish now** once certified
+  1.0.4.0 package, resubmit, and **Publish now** once certified
   ([Microsoft Store](docs/release/microsoft-store.md#submit)).
-- [ ] Decide whether 1.0.3 also gets a public GitHub release. No draft
-  exists; the run artifacts hold the packages, and expire: the archives on
-  2026-12-05, the MSIX on 2026-12-28.
+- [ ] Decide whether 1.0.4 also gets a public GitHub release.
 
 ## macOS and Linux
 
