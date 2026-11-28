@@ -54,9 +54,9 @@ the [long-paths blocker](docs/release/long-paths-blocker.md) handoff.
   Until it passes, the halt stands.
 
 State: the Store holds only the certified, unpublished 1.0.0 dry run (leave
-it alone); tags `v1.0.0` and `v1.0.1` exist with private draft releases, and
-`v1.0.2` without one; all are superseded by `v1.0.3`. The 1.0.1 builds are also on an unlisted preview page
-on the website for one invited tester.
+it alone); tags `v1.0.0`, `v1.0.1` and `v1.0.2` exist, all superseded by
+`v1.0.3`. Their private draft releases and the website preview page, which
+were only for sharing builds with Zach, were deleted on 2026-11-28.
 
 ## Pre-release firmware review (2026-11-26)
 
@@ -287,30 +287,13 @@ day; a ticked item says what was done. None ran on hardware. Reviewer sketches a
   Internet Radio player. Still unbuilt: clocked VU rails, and a board-link
   segment or SPI-TFT waiting screen.
 
-## Fresh preview for the invited tester
-
-`main` has moved well past 1.0.1 (first-launch showcase, true-light previews,
-Gamma 2.2 default, the gamma floor, the loudness retune, the volume fix, the
-shelf fix). The preview page still serves 1.0.1.
-
-- [x] Bench-check Gamma 2.2 on a real matrix against the preview: colours and
-  contrast match, a fade reaches off without stepping badly, Gamma 1 looks
-  washed out on both. Steve, 2026-11-24.
-- [ ] Once that passes, run the Desktop Packages workflow on GitHub for all
-  four platforms (Steve approved this one run on 2026-11-23). Use a
-  pre-release tag, not `v1.0.0` or `v1.0.1`; no draft release.
-- [ ] Replace the files on the preview page (bucket folder unchanged, so the
-  link stays the same) and tell the tester what is still open: ESP32 builds
-  with long paths off, unsigned builds.
-
 ## Publish
 
 v1.0.3 is the release: `main` on 2026-11-28, with fbuild 2.5.56 and the
 esptool fix, so a Store install builds every supported family with long paths
 off. It also carries everything on `main` since 1.0.2 (the Debug node, runtime
 audio source switching and the firmware review fixes, most not yet run on a
-board). The v1.0.0 and v1.0.1 draft releases and their MSIX files, and the
-`v1.0.2` tag, are superseded.
+board). The 1.0.0, 1.0.1 and 1.0.2 tags are superseded.
 
 - [x] Pico W, Teensy and STM32 boards: fbuild 2.5.55 cannot build them with
   long paths off
@@ -322,9 +305,12 @@ board). The v1.0.0 and v1.0.1 draft releases and their MSIX files, and the
   ([retest](docs/release/long-paths-blocker.md#retest-on-fbuild-2556-2026-11-28)).
 - [x] Decide how the fix ships: a new version, 1.0.3, from `main` (Steve,
   2026-11-28). The `v1.0.2` tag stays as it is.
-- [ ] Build the v1.0.3 packages with the Desktop Packages workflow on GitHub
-  (needs Steve's go-ahead for this run). The same run can refresh the
-  preview page above.
+- [x] Build the v1.0.3 packages with the Desktop Packages workflow on GitHub
+  (Steve's go-ahead, 2026-11-28; no draft release). Run 46099584414 on the
+  tag built Windows (with the MSIX), macOS Apple Silicon and Linux; macOS
+  Intel failed in the smoke's cleanup (fixed in `92dd0f7e`) and was rebuilt
+  from `main` in run 46101612183, which differs from the tag only in that
+  smoke step.
 - [ ] Test the v1.0.3 Store package the way a real user meets it: Windows
   long paths **off**, a new account with a long username that has never run
   fbuild, first build and upload
@@ -334,8 +320,9 @@ board). The v1.0.0 and v1.0.1 draft releases and their MSIX files, and the
 - [ ] Microsoft Store: cancel the certified dry-run submission, swap in the
   1.0.3.0 package, resubmit, and **Publish now** once certified
   ([Microsoft Store](docs/release/microsoft-store.md#submit)).
-- [ ] Review the v1.0.3 draft GitHub release and publish it; delete the
-  v1.0.0 and v1.0.1 drafts.
+- [ ] Decide whether 1.0.3 also gets a public GitHub release. No draft
+  exists; the run artifacts hold the packages, and expire: the archives on
+  2026-12-05, the MSIX on 2026-12-28.
 
 ## macOS and Linux
 
