@@ -315,8 +315,10 @@ board). The 1.0.0, 1.0.1 and 1.0.2 tags are superseded.
   long paths **off**, a new account with a long username that has never run
   fbuild, first build and upload
   ([clean-machine smoke test](docs/release/clean-machine-smoke-test.md)).
-- [ ] Run WACK on the v1.0.3 MSIX (the v1.0.1 pass, 2026-11-22, does not
-  carry over).
+- [x] Run WACK on the v1.0.3 MSIX. PASS on 2026-11-28 (kit 10.0.26100.8249,
+  app 1.0.3.0): 23 tests passed, only the optional Blocked executables
+  failing, as expected; SHA-256 `843909ee…78fe6995`, from run 46099584414.
+  Report `artifacts/wack-report-1.0.3.xml`.
 - [ ] Microsoft Store: cancel the certified dry-run submission, swap in the
   1.0.3.0 package, resubmit, and **Publish now** once certified
   ([Microsoft Store](docs/release/microsoft-store.md#submit)).
