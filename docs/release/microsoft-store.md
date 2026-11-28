@@ -44,9 +44,8 @@ npm run package:desktop -- --msix --msix-identity-name <Package/Identity/Name> -
 
 The **Desktop Packages** workflow (`.github/workflows/desktop-packages.yml`)
 does this on its Windows runner and uploads the package as the
-`msix-store-upload-windows-x86_64` artifact, kept 30 days. That artifact is
-separate from the archives, so a draft release never carries an unsigned
-MSIX. Set the repository variables `MSIX_IDENTITY_NAME`, `MSIX_PUBLISHER` and
+`msix-store-upload-windows-x86_64` artifact, kept 30 days, separate from the
+archives. Set the repository variables `MSIX_IDENTITY_NAME`, `MSIX_PUBLISHER` and
 `MSIX_PUBLISHER_DISPLAY_NAME` to the Partner Center values to make it
 Store-ready; they are public (the Store shows them), so variables, not secrets.
 

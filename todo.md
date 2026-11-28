@@ -338,7 +338,7 @@ yet run on a board). The 1.0.0 to 1.0.3 tags are superseded.
 - [ ] Microsoft Store: cancel the certified dry-run submission, swap in the
   1.0.4.0 package, resubmit, and **Publish now** once certified
   ([Microsoft Store](docs/release/microsoft-store.md#submit)).
-- [ ] Decide whether 1.0.4 also gets a public GitHub release.
+- [ ] Decide whether 1.0.4 also gets a public GitHub release (no drafts).
 
 ## macOS and Linux
 
