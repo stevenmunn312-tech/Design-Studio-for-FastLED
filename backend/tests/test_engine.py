@@ -1207,6 +1207,7 @@ def _fbuild_with_phases(monkeypatch, outcomes):
     monkeypatch.setattr(toolchain, "_write_fbuild_main", lambda ino: None)
     monkeypatch.setattr(toolchain, "_build_was_cancelled", lambda: False)
     monkeypatch.setattr(firmware, "_FBUILD_DAEMON_RETRY_WAIT_S", 0)
+    monkeypatch.setattr(firmware, "_FBUILD_DOWNLOAD_RETRY_WAIT_S", 0)
     runs = []
 
     def fake_phase(label, args, sink=None, cwd=None, tool_env=None):
@@ -1243,6 +1244,93 @@ def test_fbuild_build_says_plainly_when_its_daemon_stays_down(monkeypatch):
     assert len(runs) == 2
     assert "[engine-gap] fbuild's background service is not starting" in log
     assert "switch the build engine to arduino-cli" in log
+
+
+# fbuild 2.5.56 on a first ESP32 build, 2026-11-28: the per-chip toolchain
+# slice download broke off and nothing in fbuild retried it.
+_DOWNLOAD_BROKE = "build error: package error: error decoding response body\n"
+_LONG_PATH = (
+    "build error: package error: Windows short-path fallback cannot safely use extracted path C:/x. "
+    "Run fbuild --fix-win or use a shorter package location.\n"
+)
+
+
+def test_fbuild_build_runs_again_when_a_download_broke_off(monkeypatch):
+    log, result, runs = _fbuild_with_phases(monkeypatch, [(_DOWNLOAD_BROKE, 1), (_BUILT, 0)])
+    assert result[0] == 0
+    assert len(runs) == 2 and runs[0] == runs[1]
+    assert "A download for this board's tools broke off part-way. Trying again" in log
+    assert "exit code: 1" not in log
+    assert "[engine-gap]" not in log
+
+
+def test_a_download_gets_two_retries_and_only_the_last_exit_line_shows(monkeypatch):
+    outcomes = [(_DOWNLOAD_BROKE, 1), (_DOWNLOAD_BROKE, 1), (_BUILT, 0)]
+    log, result, runs = _fbuild_with_phases(monkeypatch, outcomes)
+    assert result[0] == 0
+    assert len(runs) == 3
+    assert log.count("Trying again") == 2
+    assert "exit code: 1" not in log
+
+
+def test_a_download_that_keeps_breaking_points_at_the_connection(monkeypatch):
+    log, result, runs = _fbuild_with_phases(monkeypatch, [(_DOWNLOAD_BROKE, 1)] * 3)
+    assert result == (1, "engine")
+    assert len(runs) == 3
+    assert log.count("exit code: 1") == 1
+    assert "kept breaking off" in log
+    assert "Check the internet connection and press Upload again" in log
+    assert "didn't compile" not in log
+    assert "Switch the build engine" not in log
+
+
+def test_a_retry_that_fails_on_the_sketch_is_reported_as_the_sketch(monkeypatch):
+    # The broken download of the first attempt must not decide the message.
+    sketch_error = "src/main.cpp:3:1: error: 'x' was not declared in this scope\n"
+    log, result, runs = _fbuild_with_phases(monkeypatch, [(_DOWNLOAD_BROKE, 1), (sketch_error, 1)])
+    assert len(runs) == 2
+    assert result[1] != "engine"
+    assert "kept breaking off" not in log
+    assert "could not install the tools" not in log
+    assert log.count("exit code: 1") == 1
+
+
+def test_a_daemon_retry_then_a_broken_download_still_gets_its_retries(monkeypatch):
+    outcomes = [(_DAEMON_DOWN, 1), (_DOWNLOAD_BROKE, 1), (_BUILT, 0)]
+    log, result, runs = _fbuild_with_phases(monkeypatch, outcomes)
+    assert result[0] == 0
+    assert len(runs) == 3
+    assert "background service did not start" in log
+    assert "broke off part-way" in log
+
+
+def test_a_package_failure_that_is_not_a_download_is_not_retried(monkeypatch):
+    log, result, runs = _fbuild_with_phases(monkeypatch, [(_LONG_PATH, 1)])
+    assert result == (1, "engine")
+    assert len(runs) == 1
+    assert "Trying once more" not in log
+    assert "could not install the tools for this board" in log
+
+
+def test_a_build_cancelled_during_the_daemon_retry_gets_no_gap_message(monkeypatch):
+    monkeypatch.setattr(toolchain, "_FBUILD_BIN", "fbuild")
+    monkeypatch.setattr(firmware, "_FBUILD_DAEMON_RETRY_WAIT_S", 0)
+    runs = []
+
+    def fake_phase(label, args, sink=None, cwd=None, tool_env=None):
+        runs.append(args)
+        for line in (_DAEMON_DOWN, f"[{label} exit code: 1 · 1s]\n"):
+            sink.append(line)
+            yield line
+        return 1
+
+    monkeypatch.setattr(toolchain, "_run_phase", fake_phase)
+    # Not cancelled when the first attempt ends; cancelled during the retry.
+    monkeypatch.setattr(toolchain, "_build_was_cancelled", lambda: len(runs) > 1)
+    lines, rc = firmware._drain_compile(firmware._fbuild_build("Sketch", "uno", []))
+    assert rc == 1
+    assert len(runs) == 2
+    assert "[engine-gap]" not in "".join(lines)
 
 
 def test_a_cancelled_fbuild_build_stops_the_daemon_before_freeing_the_lock(monkeypatch):

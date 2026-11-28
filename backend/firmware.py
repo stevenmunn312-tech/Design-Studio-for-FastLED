@@ -668,23 +668,40 @@ _FBUILD_DAEMON_RETRY_WAIT_S = 15.0
 # stop here (FastLED/fbuild#2187).
 _FBUILD_PACKAGE_ERROR = "build error: package error:"
 
+# A package download that broke off part-way, in fbuild's words. On 2.5.56 the
+# per-chip ESP32 toolchain slice is fetched in one read with no retry of its
+# own (`chip_slice.rs`), so a dropped connection ends the build with reqwest's
+# bare "error decoding response body". The next attempt downloads it again.
+# Seen on four of four first ESP32 downloads on one PC, 2026-11-26 to 11-28.
+_FBUILD_DOWNLOAD_BROKE = (
+    "error decoding response body",
+    "failed to read response body",
+    "body read stalled",
+    "ended early: got",
+)
+_FBUILD_DOWNLOAD_RETRY_WAIT_S = 5.0
+# Two more tries after the first: every first ESP32 download seen so far
+# needed exactly one, so a single retry leaves no margin on a slow link.
+_FBUILD_DOWNLOAD_RETRIES = 2
+
 
 def _fbuild_package_failure(lines) -> bool:
     return any(_FBUILD_PACKAGE_ERROR in line for line in lines)
 
 
-def _fbuild_build(label, env, sink):
-    """Run `fbuild build`, once more if fbuild's daemon did not start.
+def _fbuild_download_broke(lines) -> bool:
+    return any(
+        _FBUILD_PACKAGE_ERROR in line and any(sign in line for sign in _FBUILD_DOWNLOAD_BROKE)
+        for line in lines
+    )
 
-    Seen on 2.5.51: a daemon that had just exited left its compiler cache
-    marked as in use, and the next build's daemon refused to start for some
-    minutes. Nothing was wrong with the sketch, so one retry after a pause is
-    worth more than a failed build, and a second failure gets a plain line in
-    place of fbuild's diagnostics alone. The first attempt's exit line is held
-    back: the upload UI reads any nonzero exit marker as the final result.
+
+def _fbuild_attempt(phase_label, args, sink):
+    """One `fbuild build`, its failing exit line held back and returned.
+
+    The upload UI reads any nonzero exit marker as the final result, so only
+    the attempt that ends the build may show one.
     """
-    phase_label = f"{label} · compile"
-    args = [toolchain._FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"]
     phase = toolchain._run_phase(phase_label, args, sink=sink, cwd=toolchain._FBUILD_PROJECT_DIR)
     held = []
     try:
@@ -695,16 +712,50 @@ def _fbuild_build(label, env, sink):
             else:
                 yield line
     except StopIteration as stop:
-        rc = stop.value
-    daemon_down = rc != 0 and any(_FBUILD_DAEMON_DOWN in line for line in sink)
-    if not daemon_down or toolchain._build_was_cancelled():
-        yield from held
-        return rc
-    yield "\n  [engine] fbuild's background service did not start. Trying once more…\n"
-    time.sleep(_FBUILD_DAEMON_RETRY_WAIT_S)
-    first_attempt = len(sink)
-    rc = yield from toolchain._run_phase(phase_label, args, sink=sink, cwd=toolchain._FBUILD_PROJECT_DIR)
-    if rc != 0 and any(_FBUILD_DAEMON_DOWN in line for line in sink[first_attempt:]):
+        return stop.value, held
+
+
+def _fbuild_build(label, env, sink):
+    """Run `fbuild build`, again if fbuild's daemon did not start or a package
+    download broke off.
+
+    Seen on 2.5.51: a daemon that had just exited left its compiler cache
+    marked as in use, and the next build's daemon refused to start for some
+    minutes; it gets one retry. On 2.5.56 a first ESP32 download often breaks
+    off part-way (see `_FBUILD_DOWNLOAD_BROKE`); it gets
+    `_FBUILD_DOWNLOAD_RETRIES`. Nothing was wrong with the sketch either way,
+    so a retry after a pause is worth more than a failed build, and a daemon
+    that stays down gets a plain line in place of fbuild's diagnostics alone.
+
+    `sink` ends up holding only the last attempt, the one whose result counts:
+    an earlier attempt's broken download must not decide the message for a
+    retry that failed on the sketch itself.
+    """
+    phase_label = f"{label} · compile"
+    args = [toolchain._FBUILD_BIN, "build", "-e", env, "-v", "--no-timestamp"]
+    daemon_retried = False
+    download_retries = 0
+    while True:
+        start = len(sink)
+        rc, held = yield from _fbuild_attempt(phase_label, args, sink)
+        attempt = sink[start:]
+        daemon_down = rc != 0 and any(_FBUILD_DAEMON_DOWN in line for line in attempt)
+        download_broke = rc != 0 and not daemon_down and _fbuild_download_broke(attempt)
+        retry_daemon = daemon_down and not daemon_retried
+        retry_download = download_broke and download_retries < _FBUILD_DOWNLOAD_RETRIES
+        if not (retry_daemon or retry_download) or toolchain._build_was_cancelled():
+            break
+        if retry_daemon:
+            daemon_retried = True
+            yield "\n  [engine] fbuild's background service did not start. Trying once more…\n"
+            time.sleep(_FBUILD_DAEMON_RETRY_WAIT_S)
+        else:
+            download_retries += 1
+            yield "\n  [engine] A download for this board's tools broke off part-way. Trying again…\n"
+            time.sleep(_FBUILD_DOWNLOAD_RETRY_WAIT_S)
+    del sink[:start]
+    yield from held
+    if daemon_down and daemon_retried and not toolchain._build_was_cancelled():
         yield (
             "  [engine-gap] fbuild's background service is not starting, so nothing was compiled. "
             "This is not a fault in your design. Try again in a minute, or switch the build engine "
@@ -798,6 +849,13 @@ def _compile_upload_fbuild(
             if daemon_job:
                 yield "  Stopping fbuild's background service, so nothing keeps compiling.\n"
             if rc != 0:
+                if rc != toolchain._BUILD_CANCELLED and _fbuild_download_broke(compile_lines):
+                    yield (
+                        "  [engine-gap] A download for this board's tools kept breaking off, so your "
+                        "sketch was never compiled. This is not a fault in your design. Check the "
+                        "internet connection and press Upload again; what finished downloading is kept.\n"
+                    )
+                    return rc, "engine"
                 if rc != toolchain._BUILD_CANCELLED and _fbuild_package_failure(compile_lines):
                     yield (
                         "  [engine-gap] fbuild could not install the tools for this board, so your "

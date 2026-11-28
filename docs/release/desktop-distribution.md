@@ -83,7 +83,8 @@ launcher:
   (maximized if it was) when the page leaves fullscreen or Esc is pressed.
 - **Second launch** asks the running instance to raise its window
   (`POST /api/desktop/focus`) instead of opening a browser tab.
-- **No console:** output goes to `<data root>\desktop.log`. Every helper
+- **No console:** output goes to `<data root>\desktop.log`; the previous run's
+  log is kept as `desktop.previous.log`. Every helper
   subprocess passes `NO_CONSOLE_WINDOW` from `backend/subprocess_flags.py`;
   without it each arduino-cli, fbuild, esptool or PowerShell call would open a
   console window. Add the flag to any new spawn site.

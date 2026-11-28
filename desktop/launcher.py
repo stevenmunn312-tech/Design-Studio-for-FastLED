@@ -209,8 +209,20 @@ def _has_console() -> bool:
 
 
 def _log_to_file(path: Path) -> None:
-    """Give a console-less process somewhere to write; uvicorn's logging needs a stream."""
-    stream = open(path, "w", encoding="utf-8", buffering=1)  # noqa: SIM115 — lives for the process
+    """Give a console-less process somewhere to write; uvicorn's logging needs a stream.
+
+    The last run's log moves to ``desktop.previous.log`` first: a user who
+    restarts after a failure would otherwise erase the only record of it.
+    """
+    mode = "w"
+    try:
+        if path.stat().st_size:
+            path.replace(path.with_name(f"{path.stem}.previous{path.suffix}"))
+    except FileNotFoundError:
+        pass
+    except OSError:
+        mode = "a"  # the previous log is held open: add to this one rather than erase it
+    stream = open(path, mode, encoding="utf-8", buffering=1)  # noqa: SIM115 — lives for the process
     sys.stdout = stream
     sys.stderr = stream
 

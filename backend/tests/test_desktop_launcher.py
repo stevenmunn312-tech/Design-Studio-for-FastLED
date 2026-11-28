@@ -331,3 +331,45 @@ def test_a_listening_port_is_not_available_and_a_closed_one_is():
             served.close()
             client.recv(1)
     assert launcher._port_available(port) is True
+
+
+def test_a_new_launch_keeps_the_last_runs_log(monkeypatch, tmp_path):
+    # Smoke test 2026-11-28: a first build failed, the tester relaunched, and
+    # the rewritten desktop.log no longer held anything from the failed run.
+    log = tmp_path / "desktop.log"
+    log.write_text("first run\n", encoding="utf-8")
+    monkeypatch.setattr(sys, "stdout", sys.stdout)
+    monkeypatch.setattr(sys, "stderr", sys.stderr)
+    launcher._log_to_file(log)
+    stream = sys.stdout
+    print("second run")
+    stream.close()
+    assert (tmp_path / "desktop.previous.log").read_text(encoding="utf-8") == "first run\n"
+    assert log.read_text(encoding="utf-8") == "second run\n"
+
+
+def test_an_empty_log_does_not_replace_the_previous_one(monkeypatch, tmp_path):
+    (tmp_path / "desktop.previous.log").write_text("the failed run\n", encoding="utf-8")
+    log = tmp_path / "desktop.log"
+    log.write_text("", encoding="utf-8")
+    monkeypatch.setattr(sys, "stdout", sys.stdout)
+    monkeypatch.setattr(sys, "stderr", sys.stderr)
+    launcher._log_to_file(log)
+    sys.stdout.close()
+    assert (tmp_path / "desktop.previous.log").read_text(encoding="utf-8") == "the failed run\n"
+
+
+def test_a_log_that_cannot_be_moved_is_added_to_not_erased(monkeypatch, tmp_path):
+    log = tmp_path / "desktop.log"
+    log.write_text("the failed run\n", encoding="utf-8")
+
+    def locked(self, target):
+        raise PermissionError("held open")
+
+    monkeypatch.setattr(type(log), "replace", locked)
+    monkeypatch.setattr(sys, "stdout", sys.stdout)
+    monkeypatch.setattr(sys, "stderr", sys.stderr)
+    launcher._log_to_file(log)
+    print("next run")
+    sys.stdout.close()
+    assert log.read_text(encoding="utf-8") == "the failed run\nnext run\n"
