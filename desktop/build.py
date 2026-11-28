@@ -7,6 +7,7 @@ import json
 import os
 import platform
 import plistlib
+import re
 import shutil
 import subprocess
 import sys
@@ -463,15 +464,38 @@ def render_appx_manifest(identity_name: str, publisher: str, publisher_display_n
     )
 
 
-def locate_makeappx() -> Path:
-    found = shutil.which("makeappx.exe")
+def locate_sdk_tool(name: str) -> Path:
+    found = shutil.which(name)
     if found:
         return Path(found)
     kits = Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Windows Kits" / "10" / "bin"
-    candidates = sorted(kits.glob("10.*/x64/makeappx.exe"), key=lambda p: [int(n) for n in p.parent.parent.name.split(".")])
+    candidates = sorted(kits.glob(f"10.*/x64/{name}"), key=lambda p: [int(n) for n in p.parent.parent.name.split(".")])
     if not candidates:
-        raise SystemExit("makeappx.exe is missing; install the Windows 10/11 SDK")
+        raise SystemExit(f"{name} is missing; install the Windows 10/11 SDK")
     return candidates[-1]
+
+
+def index_msix_resources(layout: Path) -> None:
+    """Write layout/resources.pri, the index of the logos' scale and
+    targetsize copies. Without it Windows sees only the file names the
+    manifest gives, and Start draws a shrunken logo on a dark plate.
+
+    Only the logos and the manifest are indexed, not the whole bundle.
+    """
+    pri_root = BUILD_ROOT / "msix-pri"
+    if pri_root.exists():
+        shutil.rmtree(pri_root)
+    shutil.copytree(layout / "Assets", pri_root / "Assets")
+    shutil.copy2(layout / "AppxManifest.xml", pri_root / "AppxManifest.xml")
+    config = BUILD_ROOT / "priconfig.xml"
+    makepri = str(locate_sdk_tool("makepri.exe"))
+    run([makepri, "createconfig", "/cf", str(config), "/dq", "en-US", "/o"])
+    # The default config splits scales into resource-pack .pri files, which
+    # only a bundle carries; one .msix needs every candidate in one index.
+    text = config.read_text(encoding="utf-8")
+    config.write_text(re.sub(r"\s*<packaging>.*?</packaging>", "", text, flags=re.DOTALL), encoding="utf-8")
+    run([makepri, "new", "/pr", str(pri_root), "/cf", str(config),
+         "/mn", str(pri_root / "AppxManifest.xml"), "/of", str(layout / "resources.pri"), "/o"])
 
 
 def build_msix(app_dir: Path, args: argparse.Namespace) -> Path:
@@ -490,8 +514,9 @@ def build_msix(app_dir: Path, args: argparse.Namespace) -> Path:
         render_appx_manifest(args.msix_identity_name, args.msix_publisher, args.msix_publisher_display_name, version),
         encoding="utf-8",
     )
+    index_msix_resources(layout)
     package = RELEASE_ROOT / f"DesignStudioForFastLED-{version}-windows-x86_64.msix"
-    run([str(locate_makeappx()), "pack", "/o", "/d", str(layout), "/p", str(package)])
+    run([str(locate_sdk_tool("makeappx.exe")), "pack", "/o", "/d", str(layout), "/p", str(package)])
     print(f"Created {package}")
     return package
 

@@ -31,7 +31,12 @@ certificate of our own. The portable ZIP on GitHub stays unsigned.
   the kit cannot see.
 - **Logos:** `desktop/assets/msix/`, rendered from `public/icon-512.png` by
   `scripts/assets/make-desktop-icons.py` (which also writes the launcher's
-  `app.ico`). Re-run it when the icon changes and commit the output.
+  `app.ico`). Re-run it when the icon changes and commit the output. Besides
+  the files the manifest names, it writes the scale and `targetsize` copies
+  (light and dark unplated) that Start, the taskbar and search ask for.
+  `desktop/build.py` indexes them into one `resources.pri` with `makepri`;
+  without that index, which 1.0.4 lacked, Windows sees only the 44 px logo and
+  Start draws it shrunk on a dark plate.
 
 ## Build
 
