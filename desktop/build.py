@@ -371,7 +371,9 @@ def smoke_test_macos_window(app: Path) -> None:
     """
     launcher = executable_dir(app) / APP_NAME
     port = 18081
-    with tempfile.TemporaryDirectory(prefix="fls-desktop-window-") as data_dir:
+    # The app window is the Mac's own Chromium browser, which outlives the
+    # stopped launcher and can still be writing its profile into data_dir.
+    with tempfile.TemporaryDirectory(prefix="fls-desktop-window-", ignore_cleanup_errors=True) as data_dir:
         process = subprocess.Popen([str(launcher)], env=smoke_env(port, data_dir, headless=False))
         log = Path(data_dir) / "desktop.log"
         try:
