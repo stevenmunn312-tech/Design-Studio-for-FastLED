@@ -3,10 +3,11 @@
 Written 2026-11-23. **Status, 2026-11-28:** fixed for ESP32 boards in 1.0.2
 (fbuild 2.5.55 and the esptool copy, below). fbuild 2.5.56 (2026-11-26)
 fixes the RP2040, Teensy and STM32 boards too (FastLED/fbuild#2188), and
-1.0.3 (2026-11-28) ships it. From a shell with long paths off, every
+1.0.3 and 1.0.4 (2026-11-28) ship it. From a shell with long paths off, every
 family's pattern sketch built on it
-([retest](#retest-on-fbuild-2556-2026-11-28)). The release still waits for
-the smoke test on the 1.0.3 package ([todo](../../todo.md)). Read this
+([retest](#retest-on-fbuild-2556-2026-11-28)). The 1.0.3 Store package passed its smoke test on a new account; 1.0.4 adds a
+retry for the first ESP32 download that broke there and waits for its own
+package checks ([todo](../../todo.md)). Read this
 before touching the release, the Store submission or the fbuild pin.
 
 ## The problem in one paragraph

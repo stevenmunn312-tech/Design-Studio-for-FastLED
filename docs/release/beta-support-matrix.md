@@ -23,7 +23,7 @@ nRF52840 DK and UNO R4 WiFi built; the Pico W, Teensy 4.1 and Black Pill did
 not ([known limitations](#known-limitations-in-v100)). Only the ESP32-S3 has
 built and uploaded from the packaged app.
 
-**v1.0.3 engine:** 1.0.3 ships fbuild 2.5.56 (moved 2026-11-28), which fixes the
+**v1.0.3 and v1.0.4 engine:** both ship fbuild 2.5.56 (moved 2026-11-28), which fixes the
 Pico, Teensy and STM32 installs with long paths off (FastLED/fbuild#2188). On
 it, with long paths off and an empty package cache, one FastLED pattern
 sketch per family built from a shell
@@ -1228,7 +1228,7 @@ the code-freeze compile matrix passed on. Work deferred past v1 is in the
   WiFi sketches built under the same conditions. Fixed in fbuild 2.5.56,
   which `main` pins since 2026-11-28
   ([retest](long-paths-blocker.md#retest-on-fbuild-2556-2026-11-28)); the
-  limitation stays for 1.0.2 and earlier; 1.0.3 ships 2.5.56.
+  limitation stays for 1.0.2 and earlier; 1.0.3 and later ship 2.5.56.
 - **Boards fbuild cannot build.** These build with arduino-cli even when fbuild
   is the engine, and the build log says so:
   - UNO R4 Minima: a FastLED sketch compiles the core's `WiFiS3` library
