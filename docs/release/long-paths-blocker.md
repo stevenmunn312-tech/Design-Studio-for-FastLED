@@ -422,8 +422,8 @@ an ESP32-S3.
 - `LongPathsEnabled` on Steve's PC: `0` through the tests of 2026-11-23, set
   back to `1` by Steve that evening for bench work, and `0` again on
   2026-11-26 for the 2.5.55 retest, still `0` for the 2.5.56 retest on
-  2026-11-28. The fallback cache that predates 2.5.56 is kept at
-  `C:\fbuild-cache\8cffdc466966.pre-2.5.56` and can be deleted. To reproduce the blocker
+  2026-11-28. The fallback cache that predates 2.5.56 was deleted on
+  2026-11-28. To reproduce the blocker
   again, set it to `0` in an administrator PowerShell
   (`Set-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem LongPathsEnabled 0`)
   and use the `storetest-longname` account.
