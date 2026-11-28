@@ -8,7 +8,8 @@ the save format is a compatibility baseline (below).
 
 `main` is the single development line, and the 1.0 releases are cut from it.
 `v1.0.0` and `v1.0.1` were tagged on 2026-11-22, `v1.0.2` on 2026-11-26 and
-`v1.0.3` on 2026-11-28, all never published; `v1.0.4` (2026-11-28) replaces them ([root todo](../../todo.md)). On 2026-11-09 `main` was
+`v1.0.3` on 2026-11-28, all never published; `v1.0.4` replaces them and was
+published on 2026-11-28, on the Microsoft Store and as a GitHub release. On 2026-11-09 `main` was
 pointed at the former `Hardware` breaking-development branch, which is now
 retired; the last state of the 0.7 public-beta line is the `beta-final` tag.
 `v0.8.0` (2026-11-16) is the first public release cut from `main`; it does not
